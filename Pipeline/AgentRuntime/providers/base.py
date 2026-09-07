@@ -49,6 +49,10 @@ class ProviderPermissionDenied(ProviderInvocationError):
 class ProviderBudgetExhausted(ProviderInvocationError):
     pass
 
+
+class ProviderQuotaExhausted(ProviderInvocationError):
+    """The provider proved account quota exhaustion, not a local turn budget."""
+
 class AgentProvider(Protocol):
     @property
     def provider_identifier(self) -> str:

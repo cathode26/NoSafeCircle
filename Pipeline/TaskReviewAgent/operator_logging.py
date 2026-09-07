@@ -13,12 +13,23 @@ from typing import Any, Iterator, Mapping
 
 from .codex_supervisor import CodexDockerDecisionProvider, SupervisorDecision
 from .progress import ProgressLog
+from .validation_authority_language import (
+    normalized_authority_kind,
+    publish_delivery_review_label,
+)
 
 
 _INSTALLED = False
 _ORIGINALS: dict[str, Any] = {}
 _DECISION_CONTEXT: ContextVar[dict[str, Any] | None] = ContextVar(
     "task_agent_operator_decision",
+    default=None,
+)
+# The validation authority the pipeline last observed. Operator wording for the
+# delivery-review step must follow the durable authority instead of assuming a
+# human PASS, so the observation event refreshes this on every turn.
+_AUTHORITY_CONTEXT: ContextVar[str | None] = ContextVar(
+    "task_agent_validation_authority",
     default=None,
 )
 
@@ -40,7 +51,10 @@ _ACTION_LABELS = {
     "create_delivery_review_draft": "Build the delivery-evidence draft",
     "delivery_review_facts": "Inspect delivery-evidence candidates",
     "create_delivery_review_proposal": "Prepare the delivery-evidence review",
-    "publish_delivery_review": "Carry the unchanged human PASS into merge closeout",
+    # publish_delivery_review is resolved from the observed validation authority
+    # in action_display_name, because a synthetic-gauntlet run carries automated
+    # validation evidence rather than a human PASS.
+    "publish_delivery_review": publish_delivery_review_label(None),
     "finalize_delivery_evidence_and_open_pr": "Commit delivery evidence and open the pull request",
     "inspect_or_merge_pull_request": "Check the pull request and merge it when ready",
     "verify_post_merge_and_complete": "Verify main and finish the task",
@@ -82,7 +96,23 @@ def _clean_list(values: Any, *, limit: int = 8) -> list[str] | None:
     return result
 
 
-def action_display_name(action: Any, arguments: Mapping[str, Any] | None = None) -> str:
+def remember_validation_authority_for_logging(kind: Any) -> None:
+    """Record the durable validation authority behind the current wording."""
+
+    _AUTHORITY_CONTEXT.set(normalized_authority_kind(kind))
+
+
+def action_display_name(
+    action: Any,
+    arguments: Mapping[str, Any] | None = None,
+    *,
+    authority_kind: Any = None,
+) -> str:
+    if str(action) == "publish_delivery_review":
+        resolved = normalized_authority_kind(authority_kind)
+        if resolved is None:
+            resolved = _AUTHORITY_CONTEXT.get()
+        return publish_delivery_review_label(resolved)
     name = _ACTION_LABELS.get(str(action), str(action).replace("_", " "))
     if str(action) == "run_authoritative_unity_test" and isinstance(arguments, Mapping):
         platform = _clean_text(arguments.get("test_platform"), limit=40)
@@ -207,11 +237,48 @@ def error_hint(error: Any) -> str | None:
     return None
 
 
-def _remember(decision: SupervisorDecision, usage: Any = None) -> None:
+def session_fields(value: Any) -> dict[str, Any]:
+    """Return the bounded, prompt-free pooled-session facts worth journaling."""
+
+    if not isinstance(value, Mapping):
+        return {}
+    result: dict[str, Any] = {}
+    for key in (
+        "warm_pooling_active",
+        # Which provider actually ran the turn. Without it a reader cannot tell
+        # a Claude supervisor decision from a Codex one in the durable journal.
+        "supervisor_provider",
+        "provider",
+        "mode",
+        "requested_session_id",
+        "confirmed_session_id",
+        "lease_id",
+        "record_id",
+        "outcome",
+        "state",
+        "completed_assignment_count",
+        "retirement_reason",
+        "quarantine_reason",
+        "reason",
+        "resume_contract",
+    ):
+        item = value.get(key)
+        if item is None or isinstance(item, (bool, int, float)):
+            if item is not None:
+                result[key] = item
+        elif isinstance(item, str):
+            result[key] = " ".join(item.split())[:300]
+    return result
+
+
+def _remember(
+    decision: SupervisorDecision, usage: Any = None, session: Any = None
+) -> None:
     _DECISION_CONTEXT.set(
         {
             "decision": decision,
             "usage": usage_fields(usage),
+            "session": session_fields(session),
         }
     )
 
@@ -238,7 +305,11 @@ def _context_for_action(action: Any) -> dict[str, Any] | None:
 
 def _patched_decide(self: Any, *args: Any, **kwargs: Any) -> SupervisorDecision:
     decision = _ORIGINALS["decide"](self, *args, **kwargs)
-    _remember(decision, getattr(self, "last_usage", None))
+    _remember(
+        decision,
+        getattr(self, "last_usage", None),
+        getattr(self, "last_session", None),
+    )
     return decision
 
 
@@ -288,6 +359,10 @@ def _operator_message(event: str, message: str, fields: Mapping[str, Any]) -> st
 def _patched_emit(self: ProgressLog, event: str, message: str, **fields: Any) -> None:
     event_name = str(event).strip().casefold().replace("-", "_")
     original_message = message
+    if "validation_authority_kind" in fields:
+        # Every deterministic state observation republishes the authority, so a
+        # later automated turn can never inherit stale human-PASS wording.
+        remember_validation_authority_for_logging(fields.get("validation_authority_kind"))
     action = fields.get("action")
     context = _context_for_action(action)
     if event_name in {"supervisor_decision", "pipeline_action_started", "action_rejected"} and context:
@@ -296,6 +371,9 @@ def _patched_emit(self: ProgressLog, event: str, message: str, **fields: Any) ->
         usage = context.get("usage")
         if usage:
             fields.setdefault("provider_usage", usage)
+        session = context.get("session")
+        if session and event_name == "supervisor_decision":
+            fields.setdefault("provider_session", session)
     if event_name == "action_rejected":
         hint = error_hint(fields.get("error"))
         if hint:
@@ -361,5 +439,7 @@ __all__ = [
     "error_hint",
     "install_operator_logging",
     "remember_supervisor_decision_for_logging",
+    "remember_validation_authority_for_logging",
+    "session_fields",
     "usage_fields",
 ]

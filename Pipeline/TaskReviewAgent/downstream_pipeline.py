@@ -13,11 +13,17 @@ import tempfile
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping, Sequence
 
+from Pipeline.Testing.validation_manifest import (
+    ValidationManifestError,
+    load_validation_manifest,
+)
+
 from .contracts import TaskReviewContractError, semantic_sha256
 from .delivery_review import (
     DeliveryReviewError,
     create_delivery_review_proposal,
     file_sha256,
+    materialize_automated_review,
     materialize_approved_review,
 )
 from .downstream_issue import DownstreamIssueCoordinator, DownstreamIssueError
@@ -34,7 +40,7 @@ from .token_usage import build_task_token_usage, write_task_token_usage
 
 DOWNSTREAM_SCHEMA_VERSION = "1.0"
 _SHA40 = re.compile(r"^[0-9a-f]{40}$")
-_VALID_PLATFORMS = {"EditMode", "PlayMode"}
+_VALID_PLATFORMS = {"EditMode", "PlayMode", "SyntheticSource"}
 
 
 class DownstreamPipelineError(TaskReviewContractError):
@@ -202,70 +208,17 @@ def _required_platforms(task: Mapping[str, Any]) -> tuple[str, ...]:
 
 
 def _manifest(path: Path) -> dict[str, Any]:
-    raw = _json_object(path.read_bytes(), "validation manifest")
-    if (
-        raw.get("schema_version") != "1.0"
-        or raw.get("manifest_type") != "unity_test_validation"
-        or raw.get("status") != "passed"
-    ):
-        raise DownstreamPipelineError("validation manifest is not a passed v1 Unity manifest")
-    state = raw.get("validated_state")
-    unity = raw.get("unity")
-    test_run = raw.get("test_run")
-    artifacts = raw.get("artifacts")
-    if (
-        not isinstance(state, Mapping)
-        or not isinstance(unity, Mapping)
-        or not isinstance(test_run, Mapping)
-        or not isinstance(artifacts, Mapping)
-    ):
-        raise DownstreamPipelineError("validation manifest omitted required sections")
-    commit = state.get("commit")
-    tree = state.get("tree")
-    platform = unity.get("test_platform")
-    test_filter = unity.get("test_filter")
-    if not isinstance(commit, str) or not _SHA40.fullmatch(commit):
-        raise DownstreamPipelineError("validation manifest commit is invalid")
-    if not isinstance(tree, str) or not _SHA40.fullmatch(tree):
-        raise DownstreamPipelineError("validation manifest tree is invalid")
-    if platform not in _VALID_PLATFORMS:
-        raise DownstreamPipelineError("validation manifest platform is invalid")
-    if not isinstance(test_filter, str) or not test_filter.strip():
-        raise DownstreamPipelineError("validation manifest filter is invalid")
-    if test_run.get("result") != "Passed":
-        raise DownstreamPipelineError("validation manifest test result is not Passed")
-    counts: dict[str, int] = {}
-    for key in ("total", "passed", "failed", "skipped"):
-        value = test_run.get(key)
-        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
-            raise DownstreamPipelineError(
-                f"validation manifest test_run.{key} is invalid"
-            )
-        counts[key] = value
-    if counts["total"] <= 0:
-        raise DownstreamPipelineError("validation manifest discovered zero tests")
-    if counts["failed"] != 0:
-        raise DownstreamPipelineError("validation manifest reports failed tests")
-    if counts["total"] < counts["passed"] + counts["failed"] + counts["skipped"]:
-        raise DownstreamPipelineError("validation manifest test counts are inconsistent")
-    for key in ("xml", "log"):
-        fact = artifacts.get(key)
-        if not isinstance(fact, Mapping):
-            raise DownstreamPipelineError(f"validation manifest omitted {key} artifact")
-        relative = fact.get("relative_path")
-        if not isinstance(relative, str) or not relative:
-            raise DownstreamPipelineError(f"validation manifest {key} path is invalid")
-        artifact_path = path.parent / relative
-        actual = _file_fact(artifact_path)
-        if actual["sha256"] != fact.get("sha256") or actual["size_bytes"] != fact.get("size_bytes"):
-            raise DownstreamPipelineError(f"validation manifest {key} artifact changed")
+    try:
+        manifest = load_validation_manifest(path)
+    except (OSError, ValidationManifestError) as exc:
+        raise DownstreamPipelineError(f"validation manifest is invalid: {exc}") from exc
     return {
-        "path": str(path.resolve()),
-        "sha256": file_sha256(path),
-        "commit": commit,
-        "tree": tree,
-        "test_platform": platform,
-        "test_filter": test_filter,
+        "path": str(manifest.path),
+        "sha256": file_sha256(manifest.path),
+        "commit": manifest.validated_state.commit,
+        "tree": manifest.validated_state.tree,
+        "test_platform": manifest.unity.test_platform,
+        "test_filter": manifest.unity.test_filter,
     }
 
 
@@ -501,21 +454,42 @@ class DownstreamTaskController:
         checkout = observation.get("checkout")
         checkout = checkout if isinstance(checkout, Mapping) else {}
         recovery = checkout.get("persisted_evidence_recovery")
-        if isinstance(recovery, Mapping) and recovery.get("status") == "recovered":
-            state = _workflow_state(observation)
+        state = _workflow_state(observation)
+        persisted_evidence_refresh = (
+            isinstance(recovery, Mapping)
+            and recovery.get("status") == "recovered"
+        )
+        downstream_ref_refresh = (
+            checkout.get("status") == "ready"
+            and checkout.get("origin_main_refresh_required") is True
+            and isinstance(state, Mapping)
+            and state.get("state") == WorkflowState.AGENT_WORKING.value
+            and state.get("worker_id") == self.workflow.worker_id
+            and state.get("phase")
+            in {
+                WorkflowPhase.DELIVERY_EVIDENCE.value,
+                WorkflowPhase.MERGE_CLOSEOUT.value,
+            }
+        )
+        if persisted_evidence_refresh or downstream_ref_refresh:
             branch = state.get("branch") if isinstance(state, Mapping) else None
-            evidence_commit = recovery.get("evidence_commit")
+            expected_head = (
+                recovery.get("evidence_commit")
+                if persisted_evidence_refresh and isinstance(recovery, Mapping)
+                else state.get("head_commit")
+            )
             if (
                 not isinstance(branch, str)
                 or not branch.strip()
-                or not isinstance(evidence_commit, str)
-                or not _SHA40.fullmatch(evidence_commit)
-                or checkout.get("head_commit") != evidence_commit
+                or not isinstance(expected_head, str)
+                or not _SHA40.fullmatch(expected_head)
+                or checkout.get("head_commit") != expected_head
+                or checkout.get("branch") != branch
                 or checkout.get("status") != "ready"
                 or checkout.get("clean") is not True
             ):
                 raise DownstreamPipelineError(
-                    "persisted evidence ref refresh requires an exact recovered checkout"
+                    "downstream ref refresh requires an exact recovered checkout"
                 )
             _git(
                 self.command_runner,
@@ -523,32 +497,46 @@ class DownstreamTaskController:
                 "fetch",
                 "origin",
                 "+refs/heads/main:refs/remotes/origin/main",
-                f"+refs/heads/{branch}:refs/remotes/origin/{branch}",
+                *(
+                    (f"+refs/heads/{branch}:refs/remotes/origin/{branch}",)
+                    if persisted_evidence_refresh
+                    else ()
+                ),
             )
             refreshed = self.observe()
             refreshed_checkout = refreshed.get("checkout")
             refreshed_checkout = (
                 refreshed_checkout if isinstance(refreshed_checkout, Mapping) else {}
             )
-            refreshed_recovery = refreshed_checkout.get(
-                "persisted_evidence_recovery"
-            )
             if (
                 refreshed_checkout.get("status") != "ready"
-                or refreshed_checkout.get("head_commit") != evidence_commit
+                or refreshed_checkout.get("head_commit") != expected_head
+                or refreshed_checkout.get("branch") != branch
                 or refreshed_checkout.get("clean") is not True
-                or not isinstance(refreshed_recovery, Mapping)
-                or refreshed_recovery.get("status") != "recovered"
-                or refreshed_recovery.get("evidence_commit") != evidence_commit
+                or refreshed_checkout.get("origin_main_refresh_required") is True
             ):
                 raise DownstreamPipelineError(
-                    "persisted evidence checkout changed while refreshing remote refs"
+                    "downstream checkout changed while refreshing remote refs"
                 )
+            if persisted_evidence_refresh:
+                refreshed_recovery = refreshed_checkout.get(
+                    "persisted_evidence_recovery"
+                )
+                if (
+                    not isinstance(refreshed_recovery, Mapping)
+                    or refreshed_recovery.get("status") != "recovered"
+                    or refreshed_recovery.get("evidence_commit") != expected_head
+                ):
+                    raise DownstreamPipelineError(
+                        "persisted evidence recovery changed while refreshing remote refs"
+                    )
             result = {
                 **dict(refreshed_checkout),
                 "origin_main_refreshed": True,
                 "recovery_authority": (
                     "persisted_downstream_receipt_and_exact_git_identity"
+                    if persisted_evidence_refresh
+                    else "exact_downstream_resume_identity"
                 ),
             }
             self.workflow.last_checkout_result = _copy(result)
@@ -658,6 +646,13 @@ class DownstreamTaskController:
         ]
         if self.unity_executable:
             command.extend(("-UnityExecutable", self.unity_executable))
+        if test_platform == "SyntheticSource":
+            from .downstream_resilience import validation_plan_for
+            plan = validation_plan_for(self.checkout, observation["task"])
+            if plan is None or plan["test_filters"].get(test_platform) != test_filter:
+                raise DownstreamPipelineError("SyntheticSource requires the exact committed private policy")
+            command = [sys.executable, "-B", str(self.checkout / "Pipeline/Testing/synthetic_source_validation.py"),
+                       "--source", str(self.checkout), "--task-id", self.task_id, "--test-filter", test_filter]
         result = _run(
             self.command_runner,
             command,
@@ -710,6 +705,12 @@ class DownstreamTaskController:
     def create_delivery_review_draft(self) -> dict[str, Any]:
         observation, workflow_state = self._require_lease(WorkflowPhase.DELIVERY_EVIDENCE)
         self._assert_human_tested_head(workflow_state)
+        authority = self._latest_validation_authority()
+        if authority is None:
+            raise DownstreamPipelineError("exact validation authority is unavailable")
+        validation_label = (
+            "validated" if authority.get("kind") == "automated" else "human-tested"
+        )
         required = set(_required_platforms(observation["task"]))
         manifests = [
             _manifest(Path(item["path"]))
@@ -723,9 +724,15 @@ class DownstreamTaskController:
             )
         for item in manifests:
             if item["commit"] != workflow_state["head_commit"]:
-                raise DownstreamPipelineError("validation manifest is stale for the human-tested commit")
+                raise DownstreamPipelineError(
+                    f"validation manifest is stale for the {validation_label} commit"
+                )
 
-        human = self._human_validation_artifact(workflow_state["head_commit"])
+        human = (
+            self._human_validation_artifact(workflow_state["head_commit"])
+            if authority.get("kind") == "human"
+            else None
+        )
         output_root = self._output_root(workflow_state["head_commit"])
         draft_path = output_root / "delivery-review-draft.json"
         if draft_path.exists():
@@ -750,11 +757,10 @@ class DownstreamTaskController:
             self.task_id,
             "--base-commit",
             base_commit,
-            "--human-validation",
-            human["path"],
-            "--output",
-            str(draft_path),
         ]
+        if human is not None:
+            command.extend(("--human-validation", human["path"]))
+        command.extend(("--output", str(draft_path)))
         for manifest in manifests:
             command.extend(("--validation-manifest", manifest["path"]))
         _run(self.command_runner, command, cwd=self.checkout, timeout_seconds=900.0)
@@ -772,6 +778,8 @@ class DownstreamTaskController:
                 "proposal_sha256": None,
             }
         )
+        if authority.get("kind") == "automated":
+            self.state["validation_authority"] = authority
         self._persist()
         return self.delivery_review_facts()
 
@@ -855,8 +863,12 @@ class DownstreamTaskController:
                 "delivery acceptance requires a clean canonical checkout"
             )
         self._assert_checkout()
+        validation_authority = None
         if active_delivery:
             self._assert_human_tested_head(workflow_state)
+            validation_authority = self._latest_validation_authority()
+            if validation_authority is None:
+                raise DownstreamPipelineError("exact validation authority is unavailable")
         facts = self.delivery_review_facts()
         proposal_path = self.state.get("proposal_path")
         proposal_sha = self.state.get("proposal_sha256")
@@ -865,7 +877,13 @@ class DownstreamTaskController:
         proposal = _json_object(Path(proposal_path).read_bytes(), "delivery proposal")
         if proposal.get("validated_commit") != workflow_state.get("head_commit"):
             raise DownstreamPipelineError(
-                "delivery proposal does not target the unchanged human-tested commit"
+                "delivery proposal does not target the unchanged "
+                + (
+                    "validated commit"
+                    if validation_authority is not None
+                    and validation_authority.get("kind") == "automated"
+                    else "human-tested commit"
+                )
             )
         return self.issue.accept_unchanged_delivery_after_human_pass(
             task_id=self.task_id,
@@ -876,13 +894,21 @@ class DownstreamTaskController:
             draft_sha256=facts["draft_sha256"],
             proposal_path=proposal_path,
             proposal_sha256=proposal_sha,
+            validation_authority=validation_authority,
         )
 
     def finalize_delivery_evidence_and_open_pr(self) -> dict[str, Any]:
         observation, workflow_state = self._require_lease(WorkflowPhase.MERGE_CLOSEOUT)
         approval = self._latest_delivery_approval()
         if approval is None or approval.get("decision") != "approve":
-            raise DownstreamPipelineError("current delivery proposal has not been human-approved")
+            automated = (
+                isinstance(self.state.get("validation_authority"), Mapping)
+                and self.state["validation_authority"].get("kind") == "automated"
+            )
+            raise DownstreamPipelineError(
+                "current delivery proposal has not been "
+                + ("machine-accepted" if automated else "human-approved")
+            )
         proposal_path = self.state.get("proposal_path")
         proposal_sha = self.state.get("proposal_sha256")
         if not isinstance(proposal_path, str) or proposal_sha != approval.get("proposal_sha256"):
@@ -891,12 +917,33 @@ class DownstreamTaskController:
         output_root = self._output_root(workflow_state["head_commit"])
         approved_review = output_root / "delivery-review-approved.json"
         if not approved_review.exists():
-            materialized = materialize_approved_review(
-                proposal_path=Path(proposal_path),
-                expected_proposal_sha256=proposal_sha,
-                output_path=approved_review,
-                approved_by=approval.get("actor_id") or "Vincent",
-            )
+            if approval.get("approval_basis") == "unchanged_automated_validated_commit":
+                authority = self._latest_validation_authority()
+                if (
+                    authority is None
+                    or authority.get("kind") != "automated"
+                    or authority.get("event_id")
+                    != approval.get("automated_validation_event_id")
+                    or authority.get("policy_sha256")
+                    != approval.get("validation_policy_sha256")
+                ):
+                    raise DownstreamPipelineError(
+                        "automated delivery acceptance no longer matches validation authority"
+                    )
+                materialized = materialize_automated_review(
+                    proposal_path=Path(proposal_path),
+                    expected_proposal_sha256=proposal_sha,
+                    output_path=approved_review,
+                    validation_event_id=authority["event_id"],
+                    validation_policy_sha256=authority["policy_sha256"],
+                )
+            else:
+                materialized = materialize_approved_review(
+                    proposal_path=Path(proposal_path),
+                    expected_proposal_sha256=proposal_sha,
+                    output_path=approved_review,
+                    approved_by=approval.get("actor_id") or "Vincent",
+                )
             self.state.update(materialized)
         elif self.state.get("approved_review_sha256") != file_sha256(approved_review):
             raise DownstreamPipelineError("approved delivery review identity changed")
@@ -1074,6 +1121,15 @@ class DownstreamTaskController:
             raise DownstreamPipelineError(
                 f"pull request is not mergeable: {pull_request.get('mergeable')}"
             )
+        mainline_guard = getattr(
+            self,
+            "guard_current_main_before_pull_request_merge",
+            None,
+        )
+        if callable(mainline_guard):
+            guarded_result = mainline_guard()
+            if guarded_result is not None:
+                return guarded_result
         command = (
             "gh",
             "pr",
@@ -1288,6 +1344,12 @@ class DownstreamTaskController:
                 }
         return None
 
+    def _latest_validation_authority(self) -> dict[str, Any] | None:
+        """Return the legacy human authority unless an installed extension adds more."""
+
+        human = self._latest_human_validation()
+        return {"kind": "human", **human} if human is not None else None
+
     def _human_validation_artifact(self, commit: str) -> dict[str, Any]:
         current = self.state.get("human_validation")
         if isinstance(current, Mapping):
@@ -1335,13 +1397,29 @@ class DownstreamTaskController:
                 and event.details.get("review_kind") == "delivery_spec"
                 and event.details.get("decision") in ("approve", "request_changes")
             ):
-                return {
+                approval = {
                     "decision": event.details.get("decision"),
                     "proposal_sha256": event.details.get("proposal_sha256"),
                     "actor_id": event.details.get("authorized_by") or event.actor_id,
                     "event_id": event.event_id,
                     "comment_body": event.details.get("human_comment_body"),
                 }
+                if (
+                    event.details.get("approval_basis")
+                    == "unchanged_automated_validated_commit"
+                ):
+                    approval.update(
+                        {
+                            "approval_basis": event.details["approval_basis"],
+                            "automated_validation_event_id": event.details.get(
+                                "automated_validation_event_id"
+                            ),
+                            "validation_policy_sha256": event.details.get(
+                                "validation_policy_sha256"
+                            ),
+                        }
+                    )
+                return approval
         return None
 
     def _validate_staged_whitespace(self, created: list[str]) -> None:

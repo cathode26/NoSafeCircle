@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import math
 import os
 import re
 import uuid
@@ -27,6 +26,12 @@ WORKER_STATUS_EXIT_CODES = {
 _GIT_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _RUN_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,95}$")
+_TASK_ID_RE = re.compile(r"^NSC-(?:[0-9]{3}|[1-9][0-9]{3,8})$")
+_EPOCH_UTC = datetime(1970, 1, 1, tzinfo=timezone.utc)
+# Durable observation timestamps carry microseconds while filesystems may
+# expose finer mtimes. Compare in integer nanoseconds and tolerate only that
+# upper representation boundary; the strict post-launch lower bound remains.
+_MTIME_UPPER_REPRESENTATION_TOLERANCE_NS = 1_000
 
 
 class WorkerResultError(RuntimeError):
@@ -47,6 +52,14 @@ def _parse_utc(value: Any, *, field: str) -> datetime:
     if parsed.tzinfo is None or parsed.utcoffset() != timezone.utc.utcoffset(parsed):
         raise WorkerResultError(f"worker result {field} must be a UTC timestamp")
     return parsed.astimezone(timezone.utc)
+
+
+def _epoch_nanoseconds(value: datetime) -> int:
+    delta = value - _EPOCH_UTC
+    return (
+        (delta.days * 86_400 + delta.seconds) * 1_000_000_000
+        + delta.microseconds * 1_000
+    )
 
 
 def _load_run_metadata(run_dir: Path) -> dict[str, Any]:
@@ -92,7 +105,7 @@ def initialize_worker_run(
 ) -> Path:
     """Create the exact scheduler-owned run directory and immutable identity file."""
 
-    if re.fullmatch(r"NSC-[0-9]{3}", task_id) is None:
+    if type(task_id) is not str or _TASK_ID_RE.fullmatch(task_id) is None:
         raise WorkerResultError("worker run task_id is invalid")
     if _RUN_ID_RE.fullmatch(run_id) is None:
         raise WorkerResultError("worker run run_id is invalid")
@@ -294,10 +307,16 @@ def validate_worker_result(
     if finished < started or finished > observed:
         raise WorkerResultError("worker result finished_at_utc is outside the observed lifetime")
     try:
-        modified = datetime.fromtimestamp(target.stat().st_mtime, timezone.utc)
-    except (OSError, OverflowError, ValueError) as exc:
+        modified_ns = target.stat().st_mtime_ns
+    except (AttributeError, OSError, OverflowError, ValueError) as exc:
         raise WorkerResultError("worker result mtime is unreadable") from exc
-    if not math.isfinite(modified.timestamp()) or modified <= started or modified > observed:
+    if not isinstance(modified_ns, int) or isinstance(modified_ns, bool):
+        raise WorkerResultError("worker result mtime is unreadable")
+    if (
+        modified_ns <= _epoch_nanoseconds(started)
+        or modified_ns
+        > _epoch_nanoseconds(observed) + _MTIME_UPPER_REPRESENTATION_TOLERANCE_NS
+    ):
         raise WorkerResultError("worker result mtime is outside the observed lifetime")
     return dict(value)
 

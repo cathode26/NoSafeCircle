@@ -412,6 +412,7 @@ def _poke_waiting_game_task_launcher(
             human_handoff_commit=str(state.human_handoff_commit),
             state_version=state.state_version,
             event_id=str(state.last_event_id),
+            to_phase=state.phase.value,
         )
     except (OSError, TaskReviewContractError, ValueError) as exc:
         print(

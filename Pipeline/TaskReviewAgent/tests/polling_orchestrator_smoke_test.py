@@ -11,12 +11,16 @@ from __future__ import annotations
 import io
 from contextlib import contextmanager
 import datetime
+import hashlib
 import inspect
 import json
 import os
+import shlex
 import subprocess
 import sys
 import tempfile
+import threading
+from collections import Counter
 from contextlib import ExitStack, redirect_stdout
 from dataclasses import replace
 from pathlib import Path
@@ -30,6 +34,15 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import Pipeline.TaskReviewAgent.polling_orchestrator as scheduler_module  # noqa: E402
+import Pipeline.TaskReviewAgent.decomposition_policy_audit as decomposition_policy_module  # noqa: E402
+from Pipeline.AgentRuntime.provider_sessions import ProviderSessionBinding  # noqa: E402
+from Pipeline.AgentRuntime.session_lifecycle import SessionLifecycleState  # noqa: E402
+from Pipeline.TaskReviewAgent.architect_session_owner import (  # noqa: E402
+    ArchitectSessionCompatibility,
+    ArchitectSessionInvocationError,
+    ArchitectSessionOwner,
+    JsonArchitectSessionStore,
+)
 from Pipeline.TaskReviewAgent.architect_preflight import (  # noqa: E402
     ARCHITECT_BATCH_SCHEMA_VERSION,
     ArchitectAdvisory,
@@ -131,7 +144,21 @@ def create_source(root: Path) -> tuple[Path, str]:
     git(source, "config", "user.name", "Polling Fixture")
     git(source, "config", "user.email", "polling-fixture@nosafecircle.invalid")
     (source / "compose.yaml").write_text("services: {}\n", encoding="utf-8")
-    git(source, "add", "compose.yaml")
+    # A real source checkout always carries the committed authoritative
+    # validation policy. The decomposition preflight now proves that document
+    # before a task is offered for decomposition, so the fixture models the
+    # repository it stands in for rather than a checkout with no policy at all.
+    policy = source / "Pipeline" / "TaskReviewAgent" / "authoritative_validation_policy.json"
+    policy.parent.mkdir(parents=True, exist_ok=True)
+    policy.write_text(
+        json.dumps(
+            {"schema_version": "1.0", "tasks": {}, "decomposition_child_templates": {}},
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    git(source, "add", "compose.yaml", policy.relative_to(source).as_posix())
     git(source, "commit", "-m", "fixture base")
     return source, git(source, "rev-parse", "HEAD")
 
@@ -359,6 +386,7 @@ class Stage2WorkflowFixture:
                     "issue_url": "https://example.invalid/issues/101",
                     "workflow_state": {
                         "task_id": resume_task_id,
+                        "task_contract_sha256": CONTRACTS[resume_task_id],
                         "phase": "repair",
                         "branch": f"{resume_task_id.casefold()}-fixture",
                         "head_commit": head,
@@ -414,15 +442,12 @@ def patch_taskgraph_observation_failure(
     stack.enter_context(
         patch.object(
             scheduler_module,
-            "load_committed_task",
-            side_effect=lambda _root, task_id: tasks[task_id],
-        )
-    )
-    stack.enter_context(
-        patch.object(
-            scheduler_module.dispatch_plan_module,
-            "list_committed_task_ids",
-            return_value=sorted(tasks),
+            "source_commit_admission_snapshot",
+            side_effect=lambda source, commit: FixtureAdmissionSnapshot(
+                source=Path(source).resolve(),
+                source_commit=commit,
+                tasks=tasks,
+            ),
         )
     )
     stack.enter_context(
@@ -474,6 +499,19 @@ class ProcessFactory:
         return process
 
 
+class WaitableFakeProcess(FakeProcess):
+    def __init__(self) -> None:
+        super().__init__()
+        self.wait_calls = 0
+        self.return_observed = threading.Event()
+
+    def wait(self) -> int:
+        self.wait_calls += 1
+        self.returncode = 0
+        self.return_observed.set()
+        return 0
+
+
 class MutableClock:
     def __init__(self, value: float = 1000.0) -> None:
         self.value = value
@@ -500,6 +538,7 @@ def advisory(
     capability_tier: str = "standard",
     provider_preference: str = "no_preference",
     work_type: str = "implementation",
+    shared_systems: tuple[str, ...] = ("player HUD",),
 ) -> ArchitectAdvisory:
     return ArchitectAdvisory.from_dict(
         {
@@ -511,7 +550,7 @@ def advisory(
                 "path_patterns": [],
                 "unity_serialized_assets": list(unity_assets),
                 "symbols_or_components": ["PlayerHud"],
-                "shared_systems": ["player HUD"],
+                "shared_systems": list(shared_systems),
             },
             "integration_risk": risk,
             "parallel_recommendation": recommendation,
@@ -619,6 +658,62 @@ class FakeArchitect:
         )
 
 
+class FixtureAdmissionSnapshot:
+    """Exact-head immutable facts supplied by the unit-test task universe."""
+
+    def __init__(
+        self,
+        *,
+        source: Path,
+        source_commit: str,
+        tasks: Mapping[str, dict[str, Any]],
+        policy_document: Mapping[str, Any] | None = None,
+    ) -> None:
+        self.source = source
+        self.source_commit = source_commit
+        self._tasks = {task_id: dict(value) for task_id, value in tasks.items()}
+        self._memo: dict[str, Any] = {}
+        self.task_calls: list[str] = []
+        self.document_calls: list[str] = []
+        policy_path = (
+            source
+            / "Pipeline"
+            / "TaskReviewAgent"
+            / "authoritative_validation_policy.json"
+        )
+        self._policy_document = dict(policy_document) if policy_document is not None else (
+            json.loads(policy_path.read_text(encoding="utf-8"))
+        )
+
+    @property
+    def task_ids(self) -> tuple[str, ...]:
+        return tuple(sorted(self._tasks))
+
+    def task(self, task_id: str) -> dict[str, Any]:
+        self.task_calls.append(task_id)
+        return dict(self._tasks[task_id])
+
+    def task_loader(self) -> Any:
+        return self.task
+
+    def committed_json_document(self, relative_path: str) -> Mapping[str, Any]:
+        self.document_calls.append(relative_path)
+        require(
+            relative_path
+            == "Pipeline/TaskReviewAgent/authoritative_validation_policy.json",
+            f"unexpected fixture snapshot document: {relative_path}",
+        )
+        return dict(self._policy_document)
+
+    def memoized(self, key: str, produce: Any) -> Any:
+        if key not in self._memo:
+            self._memo[key] = produce()
+        return self._memo[key]
+
+    def committed_path_probe(self) -> Any:
+        return scheduler_module.committed_path_probe(self.source, self.source_commit)
+
+
 def make_orchestrator(
     *,
     source: Path,
@@ -630,7 +725,6 @@ def make_orchestrator(
     max_workers: int = 4,
     dry_run: bool = False,
     max_architect_invocations_per_poll: int = 8,
-    max_architect_invocations_per_session: int = 20,
     architect_min_reanalysis_seconds: float = 300.0,
     max_consecutive_observation_failures: int = 3,
     fatal_drain_seconds: float = scheduler_module.DEFAULT_FATAL_DRAIN_SECONDS,
@@ -640,13 +734,15 @@ def make_orchestrator(
     excluded_task_ids: tuple[str, ...] = (),
     source_refresher: Any = None,
     reservation_observer: Any = None,
+    provider_allowlist: tuple[str, ...] | None = None,
 ) -> tuple[PollingOrchestrator, io.StringIO]:
     stream = io.StringIO()
     orchestrator = PollingOrchestrator(
         source=source,
         checkout_root=source.parent / "checkouts",
         scheduler_id="polling-smoke-scheduler",
-        execution_provider="claude",
+        execution_provider="codex" if provider_allowlist == ("codex",) else "claude",
+        provider_allowlist=provider_allowlist,
         model=None,
         max_turns=120,
         max_workers=max_workers,
@@ -655,7 +751,6 @@ def make_orchestrator(
         routing_policy=routing_policy,
         routing_policy_loader=routing_policy_loader,
         max_architect_invocations_per_poll=max_architect_invocations_per_poll,
-        max_architect_invocations_per_session=max_architect_invocations_per_session,
         architect_min_reanalysis_seconds=architect_min_reanalysis_seconds,
         max_consecutive_observation_failures=max_consecutive_observation_failures,
         fatal_drain_seconds=fatal_drain_seconds,
@@ -675,6 +770,15 @@ def make_orchestrator(
         excluded_task_ids=excluded_task_ids,
         dry_run=dry_run,
         monotonic_clock=monotonic_clock or scheduler_module.time.monotonic,
+    )
+    # Production loads contracts through SourceCommitAdmissionSnapshot. These
+    # component tests intentionally inject their task universe, so bind an
+    # equivalent immutable exact-head fixture instead of silently falling back
+    # to whatever happens to exist in the temporary checkout's Tasks folder.
+    orchestrator._current_admission_snapshot = FixtureAdmissionSnapshot(
+        source=source,
+        source_commit=git(source, "rev-parse", "HEAD"),
+        tasks=tasks,
     )
     return orchestrator, stream
 
@@ -777,6 +881,158 @@ def test_shared_checkout_root_lock_collides_across_source_clones() -> None:
             first.release()
 
 
+def test_unprovable_decomposition_policy_is_surfaced_and_offers_no_decomposition() -> None:
+    """A repository-wide policy failure is a different fact from "not decomposable".
+
+    The committed child-template policy is a property of the repository, so it is
+    proven once per portfolio rather than per candidate. When it cannot be
+    proven, decomposition is offered for nothing -- and the reason is emitted,
+    instead of disappearing into the same silent skip that means "this contract
+    is not decomposition-relevant".
+    """
+
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        # A committed template naming a task that is not in the graph at all.
+        policy = source / "Pipeline" / "TaskReviewAgent" / "authoritative_validation_policy.json"
+        policy.write_text(
+            json.dumps(
+                {
+                    "schema_version": "1.0",
+                    "tasks": {},
+                    "decomposition_child_templates": {
+                        "NSC-909": {
+                            "parent_task_contract_sha256": "a" * 64,
+                            "validation_variants": [
+                                {
+                                    "required_exclusive_resources": ["repo-file:A.cs"],
+                                    "required_test_platforms": ["EditMode"],
+                                    "test_filters": {"EditMode": "Fixture.A"},
+                                }
+                            ],
+                            "authority": (
+                                "committed_private_synthetic_gauntlet_"
+                                "decomposition_child_policy"
+                            ),
+                        }
+                    },
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        git(source, "add", policy.relative_to(source).as_posix())
+        git(source, "commit", "-m", "commit invalid policy fixture")
+        head = git(source, "rev-parse", "HEAD")
+        planner = SequencePlanner([mixed_work_plan(head, TASK_B, TASK_A)])
+        architect = FakeArchitect({TASK_B: advisory(TASK_B, head)})
+        processes = ProcessFactory()
+        orchestrator, stream = make_orchestrator(
+            source=source,
+            planner=planner,
+            architect=architect,
+            processes=processes,
+            tasks={TASK_A: decomposition_task(TASK_A), TASK_B: task(TASK_B)},
+        )
+        orchestrator.poll_once()
+        journal = stream.getvalue()
+        require("decomposition_policy_unprovable" in journal, journal)
+        require("not in the committed graph" in journal, journal)
+        started = [
+            json.loads(line)
+            for line in journal.splitlines()
+            if line.strip() and json.loads(line).get("event") == "architect_started"
+        ]
+        require(bool(started), journal)
+        require(
+            all(
+                "decomposition" not in pair["work_types"]
+                for event in started
+                for pair in event["eligible_pairs"]
+            ),
+            str(started),
+        )
+        require(
+            any(
+                pair["task_id"] == TASK_B and pair["work_types"] == ["implementation"]
+                for event in started
+                for pair in event["eligible_pairs"]
+            ),
+            "an unprovable decomposition policy also suppressed implementation work",
+        )
+
+
+def test_mixed_portfolio_audits_decomposition_policy_once() -> None:
+    """One portfolio proof serves every candidate in the same source snapshot."""
+
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        plan = candidate_plan(head, TASK_A, TASK_B)
+        tasks = {
+            TASK_A: decomposition_task(TASK_A),
+            TASK_B: decomposition_task(TASK_B),
+        }
+        orchestrator, _stream = make_orchestrator(
+            source=source,
+            planner=SequencePlanner([plan]),
+            architect=FakeArchitect({}),
+            processes=ProcessFactory(),
+            tasks=tasks,
+        )
+        counts = {"audit": 0, "selection": 0}
+        original_audit = decomposition_policy_module.audit_decomposition_policy
+        selection_name = (
+            "validate_decomposition_task_selection"
+            if hasattr(scheduler_module, "validate_decomposition_task_selection")
+            else "validate_decomposition_selection"
+        )
+        original_selection = getattr(scheduler_module, selection_name)
+
+        def counted_audit(*args: Any, **kwargs: Any) -> dict[str, Any]:
+            counts["audit"] += 1
+            return original_audit(*args, **kwargs)
+
+        def counted_selection(*args: Any, **kwargs: Any) -> Any:
+            counts["selection"] += 1
+            return original_selection(*args, **kwargs)
+
+        with ExitStack() as stack:
+            stack.enter_context(
+                patch.object(
+                    decomposition_policy_module,
+                    "audit_decomposition_policy",
+                    counted_audit,
+                )
+            )
+            stack.enter_context(
+                patch.object(scheduler_module, "audit_decomposition_policy", counted_audit)
+            )
+            stack.enter_context(
+                patch.object(scheduler_module, selection_name, counted_selection)
+            )
+            portfolio = orchestrator._mixed_portfolio(
+                plan,
+                orchestrator._ordered_candidates(plan),
+            )
+
+        require(len(portfolio) == 2, str(portfolio))
+        require(counts["selection"] == 2, str(counts))
+        require(counts["audit"] == 1, str(counts))
+        fixture_snapshot = orchestrator._current_admission_snapshot
+        require(
+            fixture_snapshot is not None
+            and fixture_snapshot.task_calls == [TASK_A, TASK_B],
+            f"policy audit did not read each exact-head task once: {fixture_snapshot}",
+        )
+        require(
+            fixture_snapshot.document_calls
+            == ["Pipeline/TaskReviewAgent/authoritative_validation_policy.json"],
+            f"policy audit did not read the captured exact-head document once: "
+            f"{fixture_snapshot.document_calls}",
+        )
+
+
 def test_no_safe_work_launches_nothing() -> None:
     with tempfile.TemporaryDirectory() as text:
         source, head = create_source(Path(text))
@@ -789,6 +1045,46 @@ def test_no_safe_work_launches_nothing() -> None:
         result = orchestrator.poll_once()
         require(result.status == "idle", str(result))
         require(not processes.calls and not architect.calls, "idle plan invoked work")
+
+
+def test_scheduler_idle_without_candidate_never_budgets_an_architect_session() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        source, head = create_source(root)
+        calls: list[dict[str, Any]] = []
+
+        def forbidden_architect(**values: Any) -> Any:
+            calls.append(values)
+            raise AssertionError("idle scheduler invoked the architect")
+
+        lifecycle_root = root / "architect-lifecycle"
+        compatibility = ArchitectSessionCompatibility(
+            "claude-code",
+            "polling_architect",
+            "claude-fixture",
+            None,
+            "architect-protocol-fixture-v1",
+            ("repository_read", "repository_search"),
+        )
+        owned_architect = ArchitectSessionOwner(
+            architect_runner=forbidden_architect,
+            provider_identifier="claude-code",
+            role="polling_architect",
+            store=JsonArchitectSessionStore(lifecycle_root),
+            compatibility=compatibility,
+            session_id_factory=lambda: "3f2504e0-4f89-41d3-9a0c-0305e82c3301",
+        )
+        orchestrator, _stream = make_orchestrator(
+            source=source,
+            planner=SequencePlanner([terminal_plan(head, "no_safe_work")]),
+            architect=owned_architect,
+            processes=ProcessFactory(),
+            tasks={},
+        )
+        require(orchestrator.poll_once().status == "idle", "no-work poll was not idle")
+        require(not calls, "no-work poll reached a paid architect callable")
+        require(owned_architect.state is None, "no-work poll created lifecycle budget")
+        require(not lifecycle_root.exists(), "no-work poll persisted lifecycle artifacts")
 
 
 def test_blocked_invalid_state_fails_closed() -> None:
@@ -852,6 +1148,10 @@ def test_every_worker_command_has_exact_task_and_unique_worker_id() -> None:
         require(command[command.index("--task-id") + 1] == expected_task, str(command))
         require(command.count("--worker-id") == 1, str(command))
         require(command[command.index("--worker-id") + 1] == expected_worker, str(command))
+        require(
+            "--enable-execution-session-pool" not in command,
+            "legacy/manual-style worker command enabled scheduler pooling without a routed Claude model",
+        )
     require("worker-one" != "worker-two", "worker IDs were not unique")
 
 
@@ -1032,6 +1332,480 @@ def test_exclude_task_id_cli_is_repeatable_and_validated() -> None:
         raise AssertionError("invalid permanent scheduler exclusion was accepted")
 
 
+def test_production_factory_owns_the_complete_scheduler_composition() -> None:
+    """Regression-only: production entry points share one exact binding."""
+
+    from Pipeline.TaskReviewAgent.architect_session_pool import CodexArchitectSessionOwner
+    from Pipeline.TaskReviewAgent.supervisor_session_pool import CodexResumeActivation
+
+    activation = CodexResumeActivation(("-c", 'sandbox_mode="danger-full-access"'))
+    with tempfile.TemporaryDirectory() as text:
+        source = Path(text) / "source"
+        checkout_root = Path(text) / "checkouts"
+        source.mkdir()
+        created_orchestrators: list[Mapping[str, Any]] = []
+        created_transports: list[Mapping[str, Any]] = []
+
+        class FakeDockerArchitectRunner:
+            def __init__(self, **values: Any) -> None:
+                created_transports.append(values)
+                self.provider = str(values["provider"]).casefold()
+                self.compose_project = "nosafecircle"
+                provider_identifier = (
+                    "claude-code"
+                    if self.provider == "claude"
+                    else "openai-codex"
+                )
+                self.session_compatibility = ArchitectSessionCompatibility(
+                    provider_identifier,
+                    scheduler_module.ARCHITECT_SESSION_ROLE,
+                    str(values["model"] or "fixture-model"),
+                    None,
+                    "fixture-protocol",
+                    ("fixture-capability",),
+                )
+
+            def __call__(self, **_values: Any) -> ArchitectAnalysis:
+                raise AssertionError("factory invoked the architect")
+
+        class FakePollingOrchestrator:
+            def __init__(self, **values: Any) -> None:
+                created_orchestrators.append(values)
+                self.values = values
+
+        with (
+            patch("Pipeline.TaskReviewAgent.supervisor_session_pool._repository_identity", return_value="fixture-origin"),
+            patch("Pipeline.TaskReviewAgent.supervisor_session_pool.codex_resume_activation_from_environment", return_value=activation),
+            patch.object(
+                scheduler_module,
+                "repo_root",
+                side_effect=lambda value: Path(value).resolve(),
+            ),
+            patch.object(
+                scheduler_module,
+                "DockerArchitectRunner",
+                FakeDockerArchitectRunner,
+            ),
+            patch.object(
+                scheduler_module,
+                "PollingOrchestrator",
+                FakePollingOrchestrator,
+            ),
+        ):
+            binding = scheduler_module.build_production_orchestrator(
+                source=source,
+                checkout_root=checkout_root,
+                scheduler_id="factory-fixture",
+                execution_provider="codex",
+                model="worker-model",
+                max_turns=23,
+                max_workers=7,
+                architect_provider="codex",
+                architect_model="architect-model",
+                architect_max_turns=19,
+                architect_min_confidence=0.81,
+                max_architect_invocations_per_poll=5,
+                architect_min_reanalysis_seconds=41.0,
+                max_consecutive_observation_failures=6,
+                fatal_drain_seconds=73.0,
+                excluded_task_ids=(TASK_A, TASK_B),
+                dry_run=True,
+            )
+
+        expected_operational_root = (
+            source.resolve()
+            / "Pipeline"
+            / "ArchitectureReview"
+            / "outputs"
+            / "orchestrator"
+        )
+        require(binding.source == source.resolve(), str(binding.source))
+        require(binding.checkout_root == checkout_root, str(binding.checkout_root))
+        require(binding.operational_root == expected_operational_root, str(binding))
+        require(binding.scheduler_id == "factory-fixture", str(binding.scheduler_id))
+        require(
+            binding.events.journal_path
+            == expected_operational_root / "events" / "factory-fixture.jsonl",
+            str(binding.events.journal_path),
+        )
+        require(
+            binding.lock.path
+            == scheduler_lock_path(checkout_root=checkout_root, source=source),
+            str(binding.lock.path),
+        )
+        require(len(created_transports) == 1, str(created_transports))
+        transport_values = created_transports[0]
+        require(transport_values["source"] == source.resolve(), str(transport_values))
+        require(
+            transport_values["artifact_root"]
+            == expected_operational_root / "architect",
+            str(transport_values),
+        )
+        require(
+            transport_values["provider"] == "codex"
+            and transport_values["model"] == "architect-model"
+            and transport_values["max_turns"] == 19,
+            str(transport_values),
+        )
+        require(len(created_orchestrators) == 1, str(created_orchestrators))
+        values = created_orchestrators[0]
+        owner = values["architect_runner"]
+        require(type(owner) is CodexArchitectSessionOwner, type(owner).__name__)
+        require(owner.architect_runner.provider == "codex", "wrong transport owner")
+        require(owner.scope.provider_identifier == "openai-codex", owner.scope.provider_identifier)
+        require(owner.scope.role == scheduler_module.ARCHITECT_SESSION_ROLE, owner.scope.role)
+        require(
+            owner.store.path.is_relative_to(checkout_root.resolve())
+            and not owner.store.path.is_relative_to(source.resolve()),
+            str(owner.store.path),
+        )
+        require(owner.scope.resume_contract == activation.fingerprint, "factory lost verified resume control")
+        require(owner.scope.binding("conversation_store") == "compose:nosafecircle/codex-config", "factory lost actual provider store")
+        expected_values = {
+            "source": source.resolve(),
+            "checkout_root": checkout_root,
+            "scheduler_id": "factory-fixture",
+            "execution_provider": "codex",
+            "model": "worker-model",
+            "max_turns": 23,
+            "max_workers": 7,
+            "architect_min_confidence": 0.81,
+            "max_architect_invocations_per_poll": 5,
+            "architect_min_reanalysis_seconds": 41.0,
+            "max_consecutive_observation_failures": 6,
+            "fatal_drain_seconds": 73.0,
+            "event_emitter": binding.events,
+            "excluded_task_ids": (TASK_A, TASK_B),
+            "dry_run": True,
+        }
+        require(
+            {key: values[key] for key in expected_values} == expected_values,
+            str(values),
+        )
+        require(binding.orchestrator.values is values, "binding copied scheduler values")
+
+
+def test_polling_main_delegates_to_the_production_factory() -> None:
+    """Regression-only: CLI parsing does not retain a second composition path."""
+
+    calls: list[Mapping[str, Any]] = []
+    run_calls: list[tuple[Any, float, bool]] = []
+    events = JsonEventEmitter(stream=io.StringIO())
+    lock = object()
+
+    class FakeOrchestrator:
+        def run(self, *, lock: Any, poll_seconds: float, once: bool) -> int:
+            run_calls.append((lock, poll_seconds, once))
+            return 17
+
+    def fake_factory(**values: Any) -> Any:
+        observer = values.pop("event_emitter_observer")
+        require(callable(observer), "main omitted its initialization event observer")
+        observer(events)
+        calls.append(values)
+        return SimpleNamespace(
+            events=events,
+            orchestrator=FakeOrchestrator(),
+            lock=lock,
+        )
+
+    argv = [
+        "--once",
+        "--dry-run",
+        "--source",
+        str(ROOT),
+        "--checkout-root",
+        str(ROOT.parent / "factory-checkouts"),
+        "--poll-seconds",
+        "11",
+        "--max-workers",
+        "4",
+        "--exclude-task-id",
+        TASK_A,
+        "--execution-provider",
+        "codex",
+        "--model",
+        "worker-model",
+        "--max-turns",
+        "13",
+        "--architect-provider",
+        "codex",
+        "--architect-model",
+        "architect-model",
+        "--architect-max-turns",
+        "17",
+        "--architect-min-confidence",
+        "0.72",
+        "--architect-max-invocations-per-poll",
+        "2",
+        "--architect-min-reanalysis-seconds",
+        "29",
+        "--max-consecutive-observation-failures",
+        "8",
+        "--fatal-drain-seconds",
+        "31",
+    ]
+    with patch.object(
+        scheduler_module,
+        "build_production_orchestrator",
+        side_effect=fake_factory,
+    ):
+        exit_code = scheduler_module.main(argv)
+
+    require(exit_code == 17, f"main returned {exit_code}")
+    require(run_calls == [(lock, 11.0, True)], str(run_calls))
+    require(len(calls) == 1, str(calls))
+    require(
+        calls[0]
+        == {
+            "source": ROOT,
+            "checkout_root": ROOT.parent / "factory-checkouts",
+            "execution_provider": "codex",
+            "provider_allowlist": None,
+            "model": "worker-model",
+            "max_turns": 13,
+            "max_workers": 4,
+            "architect_provider": "codex",
+            "architect_model": "architect-model",
+            "architect_max_turns": 17,
+            "architect_min_confidence": 0.72,
+            "max_architect_invocations_per_poll": 2,
+            "architect_min_reanalysis_seconds": 29.0,
+            "max_consecutive_observation_failures": 8,
+            "fatal_drain_seconds": 31.0,
+            "excluded_task_ids": [TASK_A],
+            "dry_run": True,
+        },
+        str(calls[0]),
+    )
+
+    failure_stream = io.StringIO()
+    failure_events = JsonEventEmitter(stream=failure_stream)
+
+    def failing_factory(**values: Any) -> Any:
+        values["event_emitter_observer"](failure_events)
+        raise scheduler_module.PollingOrchestratorError("fixture construction failed")
+
+    with patch.object(
+        scheduler_module,
+        "build_production_orchestrator",
+        side_effect=failing_factory,
+    ):
+        require(scheduler_module.main(["--once"]) == 2, "factory failure returned zero")
+    failure_output = failure_stream.getvalue()
+    require('"event": "scheduler_blocked"' in failure_output, failure_output)
+    require("fixture construction failed" in failure_output, failure_output)
+
+
+def test_dynamic_admission_allowlist_filters_before_architect_and_launch() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        planner = SequencePlanner(
+            [mixed_work_plan(head, TASK_B, TASK_A), candidate_plan(head, TASK_A, TASK_B)]
+        )
+        architect = FakeArchitect(
+            {
+                TASK_A: advisory(TASK_A, head),
+                TASK_B: advisory(TASK_B, head),
+            }
+        )
+        processes = ProcessFactory()
+        orchestrator, stream = make_orchestrator(
+            source=source,
+            planner=planner,
+            architect=architect,
+            processes=processes,
+            tasks={TASK_A: decomposition_task(TASK_A), TASK_B: task(TASK_B)},
+        )
+        orchestrator.set_admission_allowlist((TASK_B,))
+        result = orchestrator.poll_once()
+        require(result.status == "worker_launched" and result.task_id == TASK_B, str(result))
+        require(architect.portfolio_calls == [(TASK_B,)], str(architect.portfolio_calls))
+        require(len(processes.calls) == 1, str(processes.calls))
+        command = processes.calls[0][0]
+        require(command[command.index("--task-id") + 1] == TASK_B, str(command))
+        require("candidate_skipped_outside_admission_scope" in stream.getvalue(), stream.getvalue())
+
+        orchestrator.set_admission_allowlist((TASK_A, TASK_B))
+        require(
+            orchestrator.admission_allowlist == frozenset((TASK_A, TASK_B)),
+            "dynamic allowlist did not update",
+        )
+
+
+def test_capacity_batch_counts_same_task_relaunch_without_key_diff() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        planner = SequencePlanner(
+            [candidate_plan(head, TASK_A), candidate_plan(head, TASK_A)]
+        )
+        processes = ProcessFactory()
+        orchestrator, stream = make_orchestrator(
+            source=source,
+            planner=planner,
+            architect=FakeArchitect({TASK_A: advisory(TASK_A, head)}),
+            processes=processes,
+            tasks={TASK_A: task(TASK_A)},
+            max_workers=1,
+        )
+        first = orchestrator.poll_capacity_batch()
+        require(first.status == "worker_launched", str(first))
+        require(orchestrator.worker_launches_this_poll == 1, "first launch count missing")
+        require(orchestrator.worker_launches_total == 1, "first lifetime count missing")
+        del orchestrator.active_assignments[TASK_A]
+
+        second = orchestrator.poll_capacity_batch()
+        require(second.status == "worker_launched", str(second))
+        require(orchestrator.worker_launches_this_poll == 1, "same-key relaunch was lost")
+        require(orchestrator.worker_launches_total == 2, "lifetime relaunch count was lost")
+        completed = [
+            json.loads(line)
+            for line in stream.getvalue().splitlines()
+            if json.loads(line)["event"] == "poll_capacity_batch_completed"
+        ]
+        require([item["launched_count"] for item in completed] == [1, 1], str(completed))
+
+
+def test_scheduler_run_preserves_extracted_activity_listener_lifecycle() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        source, head = create_source(root)
+        orchestrator, stream = make_orchestrator(
+            source=source,
+            planner=SequencePlanner([terminal_plan(head, "no_safe_work")]),
+            architect=FakeArchitect({}),
+            processes=ProcessFactory(),
+            tasks={TASK_A: task(TASK_A)},
+        )
+        listener_events: list[str] = []
+
+        class SpyListener:
+            def __init__(
+                self,
+                listener_source: Path,
+                *,
+                scheduler_id: str,
+                wake_event: Any,
+                event_recorder: Any,
+                event_journal_path: Any,
+                event_schema_version: str,
+            ) -> None:
+                require(listener_source == source.resolve(), "listener source changed")
+                require(scheduler_id == orchestrator.scheduler_id, "scheduler ID changed")
+                require(
+                    wake_event is orchestrator.worker_completion_event,
+                    "listener wake event changed",
+                )
+                require(event_recorder == orchestrator.events.emit, "event recorder changed")
+                require(
+                    event_journal_path == orchestrator.events.journal_path,
+                    "event journal path changed",
+                )
+                require(event_schema_version == "1.0", "event schema changed")
+
+            def start(self) -> None:
+                listener_events.append("start")
+
+            def close(self) -> None:
+                listener_events.append("close")
+
+        with patch.object(scheduler_module, "LocalArchitectWakeListener", SpyListener):
+            exit_code = orchestrator.run(
+                lock=SchedulerLock(root / "listener-lifecycle.lock"),
+                poll_seconds=0.01,
+                once=True,
+            )
+        require(exit_code == 0, f"once run failed: {exit_code}")
+        require(listener_events == ["start", "close"], str(listener_events))
+        events = [json.loads(line)["event"] for line in stream.getvalue().splitlines()]
+        require(events.index("scheduler_started") < events.index("scheduler_stopped"), str(events))
+
+
+def test_scheduler_run_retires_stranded_architect_only_after_lock_acquisition() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        source, head = create_source(root)
+        lifecycle_root = root / "architect-lifecycle"
+        compatibility = ArchitectSessionCompatibility(
+            "claude-code",
+            "polling_architect",
+            "claude-fixture",
+            None,
+            "architect-protocol-fixture-v1",
+            ("repository_read", "repository_search"),
+        )
+        store = JsonArchitectSessionStore(lifecycle_root)
+        store.save_initial(
+            replace(
+                SessionLifecycleState.create(
+                    provider_identifier="claude-code",
+                    role="polling_architect",
+                    session_id="3f2504e0-4f89-41d3-9a0c-0305e82c3301",
+                    session_class="architect",
+                ),
+                phase="assigned",
+                sequence=1,
+                active_assignment_id="architect-cycle-1",
+                active_workload_class="admission_cycle",
+            ),
+            compatibility,
+        )
+        paid_calls: list[dict[str, Any]] = []
+
+        def forbidden_architect(**values: Any) -> Any:
+            paid_calls.append(values)
+            raise AssertionError("recovery contacted the interrupted provider")
+
+        managed = ArchitectSessionOwner(
+            architect_runner=forbidden_architect,
+            provider_identifier="claude-code",
+            role="polling_architect",
+            store=store,
+            compatibility=compatibility,
+            session_id_factory=lambda: "9c858901-8a57-4791-81fe-4c455b099bc9",
+        )
+        orchestrator, stream = make_orchestrator(
+            source=source,
+            planner=SequencePlanner([terminal_plan(head, "no_safe_work")]),
+            architect=managed,
+            processes=ProcessFactory(),
+            tasks={},
+        )
+        lock = SchedulerLock(root / "architect-recovery.lock")
+        try:
+            orchestrator.reconcile_interrupted_architect_session(lock=lock)
+        except Exception as exc:
+            require(
+                "exact acquired scheduler lock" in str(exc),
+                f"unlocked recovery failed for the wrong reason: {exc}",
+            )
+        else:
+            raise AssertionError("unlocked recovery was accepted")
+        original_reconcile = managed.reconcile_interrupted_assignment
+
+        def lock_bound_reconcile() -> Any:
+            require(lock._handle is not None, "reconciliation ran before lock acquisition")
+            return original_reconcile()
+
+        managed.reconcile_interrupted_assignment = lock_bound_reconcile  # type: ignore[method-assign]
+        exit_code = orchestrator.run(lock=lock, poll_seconds=0.01, once=True)
+        require(exit_code == 0, f"recovery run failed: {exit_code}")
+        require(not paid_calls, "recovery invoked the interrupted provider")
+        require(managed.state is not None and managed.state.phase == "retired", "session was not retired")
+        require(
+            managed.state.retirement_reason == "interrupted_assignment",
+            "recovery used the wrong retirement reason",
+        )
+        events = [json.loads(line) for line in stream.getvalue().splitlines()]
+        reconciled = [item for item in events if item["event"] == "architect_session_reconciled"]
+        require(len(reconciled) == 1, f"missing exact recovery event: {events}")
+        require(
+            reconciled[0]["assignment_id"] == "architect-cycle-1",
+            "recovery event changed assignment identity",
+        )
+        require(lock._handle is None, "recovery run leaked scheduler lock")
+
+
 def add_result_active(
     orchestrator: PollingOrchestrator,
     *,
@@ -1181,6 +1955,59 @@ def test_ineligible_decomposition_pair_is_not_selected_or_launched() -> None:
         require('"work_types": ["implementation"]' in stream.getvalue(), stream.getvalue())
 
 
+def test_codex_restriction_applies_to_real_scheduler_routes() -> None:
+    for work_type in ("implementation", "decomposition"):
+        with tempfile.TemporaryDirectory() as text:
+            source, head = create_source(Path(text))
+            processes = ProcessFactory()
+            orchestrator, stream = make_orchestrator(
+                source=source,
+                planner=SequencePlanner([
+                    candidate_plan(head, TASK_B) if work_type == "implementation"
+                    else mixed_work_plan(head, TASK_A, TASK_B)
+                ]),
+                architect=FakeArchitect({TASK_A: advisory(TASK_A, head, risk="high"), TASK_B: advisory(
+                    TASK_B, head, work_type=work_type, provider_preference="claude"
+                )}),
+                processes=processes,
+                tasks={TASK_A: task(TASK_A), TASK_B: (
+                    task(TASK_B) if work_type == "implementation" else decomposition_task(TASK_B)
+                )},
+                provider_allowlist=("codex",),
+                routing_policy=load_execution_routing_policy({}),
+            )
+            require(orchestrator.poll_once().status == "worker_launched", stream.getvalue())
+            require(len(processes.calls) == 1, str(processes.calls))
+            argv = processes.calls[0][0]
+            require(argv[argv.index("--provider-allowlist") + 1] == "codex", str(argv))
+            provider_flag = "--execution-provider" if work_type == "implementation" else "--providers"
+            require(argv[argv.index(provider_flag) + 1] == (
+                "codex" if work_type == "implementation" else "codex,codex"
+            ), str(argv))
+            require(argv.count(provider_flag) == 1, str(argv))
+            require(not any("claude" in argument for argument in argv), str(argv))
+            launched = next(json.loads(line) for line in stream.getvalue().splitlines()
+                            if json.loads(line)["event"] == "worker_launched")
+            if work_type == "decomposition":
+                require(launched["execution_provider"] == "independent_codex_roles", str(launched))
+                require(launched["decomposition_mode"] == "round_robin_d1b2", str(launched))
+                require(argv[argv.index("--max-calls") + 1] == "2", str(argv))
+                require("--enable-decomposition-session-pool" in argv, str(argv))
+            else:
+                require(launched["execution_provider"] == "codex", str(launched))
+                require(launched["preference_honored"] is False, str(launched))
+
+
+def test_restricted_factory_rejects_claude_architect_before_any_construction() -> None:
+    with patch.object(scheduler_module, "repo_root", side_effect=AssertionError("should fail before observation")):
+        try:
+            scheduler_module.build_production_orchestrator(source=ROOT, provider_allowlist=("codex",))
+        except ValueError as exc:
+            require("architect" in str(exc) and "not in provider_allowlist" in str(exc), str(exc))
+        else:
+            raise AssertionError("Codex-only production factory accepted default Claude architect")
+
+
 def test_architect_can_choose_decomposition_while_implementation_exists() -> None:
     with tempfile.TemporaryDirectory() as text:
         source, head = create_source(Path(text))
@@ -1208,6 +2035,7 @@ def test_architect_can_choose_decomposition_while_implementation_exists() -> Non
         command = processes.calls[0][0]
         require("host_decomposition_launcher.py" in " ".join(command), str(command))
         require("host_worker_launcher.py" not in " ".join(command), str(command))
+        require("--enable-decomposition-session-pool" in command, f"scheduler-launched decomposition must opt into session pooling: {command}")
         require('"work_type": "decomposition"' in stream.getvalue(), stream.getvalue())
 
 
@@ -1299,6 +2127,92 @@ def test_capacity_batch_uses_per_poll_budget_to_fill_slots() -> None:
         require(completed["architect_invocations"] == 1, str(completed))
 
 
+def test_ten_worker_capacity_completion_and_conflict_are_load_bearing() -> None:
+    """Drive the real scheduler at ten slots with an eleventh conflicting task."""
+
+    ids = tuple(f"NSC-{number}" for number in range(701, 712))
+    contracts = {name: hashlib.sha256(name.encode()).hexdigest() for name in ids}
+    with tempfile.TemporaryDirectory() as directory, patch.dict(CONTRACTS, contracts):
+        source, head = create_source(Path(directory))
+        finished: set[str] = set()
+
+        def planner(**values: Any) -> DispatchPlan:
+            excluded = set(values.get("excluded_task_ids") or ()) | finished
+            candidates = tuple(name for name in ids if name not in excluded)
+            return candidate_plan(head, *candidates) if candidates else terminal_plan(head, "no_safe_work")
+
+        paths = {name: f"Assets/{name}.cs" for name in ids}
+        paths[ids[-1]] = paths[ids[0]]
+        architect = FakeArchitect({
+            name: advisory(name, head, exact_paths=(paths[name],), shared_systems=())
+            for name in ids
+        })
+        processes = ProcessFactory()
+        orchestrator, stream = make_orchestrator(
+            source=source, planner=planner, architect=architect, processes=processes,
+            tasks={name: task(name) for name in ids}, max_workers=10,
+            max_architect_invocations_per_poll=1, provider_allowlist=("codex",),
+            architect_min_reanalysis_seconds=0,
+            routing_policy=load_execution_routing_policy(default_provider_override="codex"),
+        )
+
+        def complete(name: str) -> None:
+            assignment = orchestrator.active_assignments[name]
+            run_dir = initialize_worker_run(
+                output_root=assignment.result_artifact_path.parents[2],
+                task_id=name, run_id=assignment.run_id, worker_id=assignment.worker_id,
+                started_at_utc=assignment.start_time_utc,
+            )
+            require(run_dir / "run_result.json" == assignment.result_artifact_path.resolve(), "result fixture escaped assignment")
+            write_worker_result(
+                run_dir=run_dir, task_id=name, run_id=assignment.run_id,
+                worker_id=assignment.worker_id, source_head=head,
+                task_contract_sha256=contracts[name], terminal_status="completed",
+                outcome_authority="deterministic_fixture_completion",
+                issue_number=int(name.removeprefix("NSC-")), exit_code=0, pid=assignment.pid,
+            )
+            assignment.process.returncode = 0
+            finished.add(name)
+
+        with patch.object(scheduler_module.time, "sleep", side_effect=AssertionError("ten-worker proof slept")):
+            result = orchestrator.poll_capacity_batch()
+            require(result.status == "worker_launched", str(result))
+            require(len(orchestrator.active_assignments) == 10, "ten worker slots were not occupied")
+            require(len(processes.calls) == 10, "initial admission did not launch exactly ten workers")
+            require(len({item.worker_id for item in orchestrator.active_assignments.values()}) == 10, "a live worker slot was reused")
+            require(len({item.run_id for item in orchestrator.active_assignments.values()}) == 10, "a live run identity was reused")
+            first_slot = orchestrator.active_assignments[ids[9]].worker_id
+            require(orchestrator.poll_capacity_batch().status == "capacity_full", "eleventh worker bypassed capacity")
+            require(len(processes.calls) == 10, "capacity check launched a hidden worker")
+            complete(ids[9])
+            orchestrator.poll_capacity_batch()
+            require(len(orchestrator.active_assignments) == 9, "completed worker retained its slot")
+            require(len(processes.calls) == 10, "conflicting eleventh task bypassed active surface")
+            require('"conflict_kind":' in stream.getvalue(), "waiting task did not reach the deterministic conflict gate")
+            complete(ids[0])
+            # A changed occupancy snapshot permits a fresh advisory without a timer.
+            orchestrator.poll_capacity_batch()
+            require(ids[-1] in orchestrator.active_assignments, "released conflict did not admit the waiting task")
+            require(len(processes.calls) == 11, "waiting task launched more than once")
+            require(orchestrator.active_assignments[ids[-1]].worker_id in {first_slot, orchestrator.worker_slots[0]}, "returned slot was not reused")
+            for name in tuple(orchestrator.active_assignments):
+                complete(name)
+            orchestrator.poll_capacity_batch()
+            require(not orchestrator.active_assignments, "verified completions left occupied slots")
+            orchestrator.poll_capacity_batch()
+            require(len(processes.calls) == 11, "completed workload relaunched")
+
+        commands = [command for command, _values in processes.calls]
+        require([command[command.index("--task-id") + 1] for command in commands] == list(ids), "duplicate or reordered worker launch")
+        require(all(command[command.index("--execution-provider") + 1] == "codex" for command in commands), "a worker escaped Codex routing")
+        require(all(not process.kill_calls and not process.terminate_calls for process in processes.processes), "slot return terminated a worker")
+        events = [json.loads(line) for line in stream.getvalue().splitlines()]
+        completions = [event for event in events if event["event"] == "worker_finished"]
+        require(len(completions) == 11, "journal did not verify exactly eleven result receipts")
+        require(not any(event["event"] == "worker_failed" for event in events), "valid identity-bound receipt failed")
+        print("TEN-WORKER PROOF peak=10 launches=11 unique_tasks=11 verified_returns=11 sleeps=0 hidden_launches=0")
+
+
 def test_batch_candidate_withdrawal_does_not_starve_later_admission() -> None:
     with tempfile.TemporaryDirectory() as text:
         source, head = create_source(Path(text))
@@ -1373,6 +2287,12 @@ def test_docker_architect_runner_parses_batch_envelope() -> None:
         artifact_name = "fixture-batch.json"
         (artifacts / artifact_name).write_text("{}\n", encoding="utf-8", newline="\n")
         selected = advisory(TASK_A, head)
+        binding = ProviderSessionBinding(
+            "claude-code",
+            "polling_architect",
+            "start",
+            "3f2504e0-4f89-41d3-9a0c-0305e82c3301",
+        )
         batch = ArchitectBatch(
             source_head=head,
             batch_rationale="Fixture batch envelope.",
@@ -1397,7 +2317,13 @@ def test_docker_architect_runner_parses_batch_envelope() -> None:
                 "batch": batch.to_dict(),
                 "artifact_name": artifact_name,
                 "active_surface_fingerprint": "f" * 64,
-                "invocation_metadata": {"provider": "fake", "model": "fake-model"},
+                "invocation_metadata": {
+                    "provider": "fake",
+                    "model": "fake-model",
+                    "provider_session_confirmation": binding.confirm(
+                        binding.session_id
+                    ).to_dict(),
+                },
             }
             return subprocess.CompletedProcess(
                 args=command,
@@ -1422,11 +2348,204 @@ def test_docker_architect_runner_parses_batch_envelope() -> None:
             reservations=(),
             scheduler_id="fixture-scheduler",
             admission_limit=1,
+            session_binding=binding,
         )
         require(isinstance(analysis, ArchitectBatchAnalysis), str(type(analysis)))
         require(analysis.batch.admissions == (selected,), str(analysis.batch))
         require(captured["request"]["admission_limit"] == 1, str(captured))
         require("candidates" in captured["request"], str(captured))
+        require(
+            captured["request"]["provider_session"] == binding.to_dict(),
+            "exact provider session binding was not transported",
+        )
+
+
+def test_docker_architect_runner_rejects_mismatched_confirmation_and_preserves_typed_failure() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        source, head = create_source(root)
+        artifacts = root / "architect-artifacts"
+        artifacts.mkdir()
+        (artifacts / "fixture-batch.json").write_text("{}\n", encoding="utf-8")
+        binding = ProviderSessionBinding(
+            "claude-code",
+            "polling_architect",
+            "start",
+            "3f2504e0-4f89-41d3-9a0c-0305e82c3301",
+        )
+        batch = ArchitectBatch(
+            source_head=head,
+            batch_rationale="Fixture batch envelope.",
+            considered=(
+                ArchitectBatchConsideration(
+                    task_id=TASK_A,
+                    work_type="implementation",
+                    disposition="wait",
+                    rationale="Fixture waits.",
+                ),
+            ),
+            admissions=(),
+        )
+
+        def mismatch(command: Any, **_values: Any) -> subprocess.CompletedProcess[bytes]:
+            envelope = {
+                "schema_version": ARCHITECT_BATCH_SCHEMA_VERSION,
+                "analysis_id": "fixture-batch-analysis",
+                "batch": batch.to_dict(),
+                "artifact_name": "fixture-batch.json",
+                "active_surface_fingerprint": "f" * 64,
+                "invocation_metadata": {
+                    "provider_session_confirmation": {
+                        **binding.confirm(binding.session_id).to_dict(),
+                        "session_id": "9c858901-8a57-4791-81fe-4c455b099bc9",
+                    }
+                },
+            }
+            return subprocess.CompletedProcess(
+                command, 0, (json.dumps(envelope) + "\n").encode(), b""
+            )
+
+        runner = DockerArchitectRunner(
+            source=source,
+            artifact_root=artifacts,
+            provider="claude",
+            model=None,
+            max_turns=5,
+            command_runner=mismatch,
+        )
+        try:
+            runner(
+                candidates=[{"task": task(TASK_A), "eligible_work_types": ["implementation"]}],
+                source_head=head,
+                reservations=(),
+                scheduler_id="fixture-scheduler",
+                admission_limit=1,
+                session_binding=binding,
+            )
+        except ArchitectSessionInvocationError as exc:
+            require(exc.lifecycle_outcome == "identity_failure", str(exc))
+            require(
+                exc.confirmed_session_id
+                == "9c858901-8a57-4791-81fe-4c455b099bc9",
+                str(exc),
+            )
+        else:
+            raise AssertionError("mismatched architect session confirmation was accepted")
+
+        def typed_failure(command: Any, **_values: Any) -> subprocess.CompletedProcess[bytes]:
+            failure = {
+                "schema_version": "1.0",
+                "status": "architect_session_invocation_failed",
+                "error_type": "ArchitectSessionInvocationError",
+                "error": "provider timed out",
+                "failure_classification": "timeout",
+                "lifecycle_outcome": "provider_failure",
+                "confirmed_session_id": None,
+            }
+            return subprocess.CompletedProcess(
+                command, 2, b"", json.dumps(failure).encode("utf-8")
+            )
+
+        runner.command_runner = typed_failure
+        try:
+            runner(
+                candidates=[{"task": task(TASK_A), "eligible_work_types": ["implementation"]}],
+                source_head=head,
+                reservations=(),
+                scheduler_id="fixture-scheduler",
+                admission_limit=1,
+                session_binding=binding,
+            )
+        except ArchitectSessionInvocationError as exc:
+            require(exc.lifecycle_outcome == "provider_failure", str(exc))
+            require(exc.failure_classification == "timeout", str(exc))
+        else:
+            raise AssertionError("typed architect failure was collapsed into an untyped error")
+
+
+def test_two_confirmed_missing_artifacts_retire_the_full_owner_docker_session() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        source, head = create_source(root)
+        artifacts = root / "architect-artifacts"
+        artifacts.mkdir()
+        task_id = TASK_A
+        batch = ArchitectBatch(
+            source_head=head,
+            batch_rationale="Confirmed fixture intentionally omits its artifact.",
+            considered=(
+                ArchitectBatchConsideration(
+                    task_id=task_id,
+                    work_type="implementation",
+                    disposition="wait",
+                    rationale="Fixture waits.",
+                ),
+            ),
+            admissions=(),
+        )
+        observed_modes: list[str] = []
+
+        def missing_artifact(command: Any, **values: Any) -> subprocess.CompletedProcess[bytes]:
+            request = json.loads(values["input_bytes"].decode("utf-8"))
+            binding = ProviderSessionBinding.from_dict(request["provider_session"])
+            observed_modes.append(binding.mode)
+            envelope = {
+                "schema_version": ARCHITECT_BATCH_SCHEMA_VERSION,
+                "analysis_id": f"missing-artifact-{len(observed_modes)}",
+                "batch": batch.to_dict(),
+                "artifact_name": "does-not-exist.json",
+                "active_surface_fingerprint": "f" * 64,
+                "invocation_metadata": {
+                    "provider_session_confirmation": binding.confirm(
+                        binding.session_id
+                    ).to_dict(),
+                    "provider_session_compatibility": (
+                        transport.session_compatibility.to_dict()
+                    ),
+                },
+            }
+            return subprocess.CompletedProcess(
+                command, 0, (json.dumps(envelope) + "\n").encode("utf-8"), b""
+            )
+
+        transport = DockerArchitectRunner(
+            source=source,
+            artifact_root=artifacts,
+            provider="claude",
+            model=None,
+            max_turns=5,
+            command_runner=missing_artifact,
+        )
+        managed = ArchitectSessionOwner(
+            architect_runner=transport,
+            provider_identifier="claude-code",
+            role="polling_architect",
+            store=JsonArchitectSessionStore(root / "lifecycle"),
+            compatibility=transport.session_compatibility,
+            session_id_factory=lambda: "3f2504e0-4f89-41d3-9a0c-0305e82c3301",
+        )
+        invoke = lambda: managed(
+            candidates=[
+                {"task": task(task_id), "eligible_work_types": ["implementation"]}
+            ],
+            source_head=head,
+            reservations=(),
+            scheduler_id="fixture-scheduler",
+            admission_limit=1,
+        )
+        for expected_streak in (1, 2):
+            try:
+                invoke()
+            except ArchitectSessionInvocationError as exc:
+                require(exc.lifecycle_outcome == "output_failure", str(exc))
+            else:
+                raise AssertionError("confirmed missing artifact was accepted")
+            require(
+                managed.state.consecutive_provider_output_failures == expected_streak,
+                "confirmed host output failure did not advance the exact streak",
+            )
+        require(managed.state.phase == "retired", "two confirmed output failures did not retire")
+        require(observed_modes == ["start", "resume"], str(observed_modes))
 
 
 def test_decomposition_worker_command_binds_exact_task_and_output_policy() -> None:
@@ -1507,6 +2626,96 @@ def test_approved_decomposition_resume_cannot_route_to_implementation() -> None:
         command = processes.calls[0][0]
         require("host_decomposition_launcher.py" in " ".join(command), str(command))
         require('"work_types": ["decomposition"]' in stream.getvalue(), stream.getvalue())
+
+
+def test_required_decomposition_agent_ready_resume_cannot_route_to_implementation() -> None:
+    """An initialized Issue must not override the committed execution scope.
+
+    Issue initialization starts in the implementation phase before an architect
+    has selected a work type. If the exact bound task contract requires
+    decomposition, a later agent-ready retry must still offer decomposition
+    only; otherwise an interrupted pre-launch attempt can permanently convert
+    the task into implementation work.
+    """
+
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        planner = SequencePlanner(
+            [resume_plan(head, TASK_B, phase="implementation")]
+        )
+        architect = FakeArchitect(
+            {TASK_B: advisory(TASK_B, head, work_type="decomposition")}
+        )
+        processes = ProcessFactory()
+        orchestrator, stream = make_orchestrator(
+            source=source,
+            planner=planner,
+            architect=architect,
+            processes=processes,
+            tasks={TASK_B: decomposition_task(TASK_B)},
+        )
+        result = orchestrator.poll_once()
+        require(
+            result.status == "worker_launched" and result.task_id == TASK_B,
+            str(result),
+        )
+        command = processes.calls[0][0]
+        require("host_decomposition_launcher.py" in " ".join(command), str(command))
+        require(
+            '"work_types": ["decomposition"]' in stream.getvalue(),
+            stream.getvalue(),
+        )
+
+
+def test_stale_issue_contract_resume_stops_before_architect_and_worker() -> None:
+    """Production Stage 2 must carry Issue identity into admission verification."""
+
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        tasks = {TASK_B: decomposition_task(TASK_B)}
+        workflow = Stage2WorkflowFixture(head=head, resume_task_id=TASK_B)
+        workflow.agent_ready[0]["workflow_state"].update(
+            {
+                "phase": "implementation",
+                "task_contract_sha256": "0" * 64,
+            }
+        )
+        planner = RecordingProductionPlanner()
+        architect = FakeArchitect(
+            {TASK_B: advisory(TASK_B, head, work_type="decomposition")}
+        )
+        processes = ProcessFactory()
+        with ExitStack() as stack:
+            observations = patch_taskgraph_observation_failure(
+                stack, tasks=tasks, workflow=workflow
+            )
+            orchestrator, stream = make_orchestrator(
+                source=source,
+                planner=planner,
+                architect=architect,
+                processes=processes,
+                tasks=tasks,
+            )
+            result = orchestrator.poll_once()
+
+        require(
+            result.status == "candidate_verification_failed" and result.fatal,
+            str(result),
+        )
+        require(len(planner.plans) == 1, str(planner.plans))
+        require(
+            planner.plans[0].resume is not None
+            and planner.plans[0].resume["task_contract_sha256"] == "0" * 64,
+            str(planner.plans[0].resume),
+        )
+        require(observations["count"] == 1, str(observations))
+        require(not architect.calls, f"stale Issue reached architect: {architect.calls}")
+        require(not processes.calls, f"stale Issue launched worker: {processes.calls}")
+        require(
+            "Stage-2 candidate task-contract hash differs from committed HEAD"
+            in stream.getvalue(),
+            stream.getvalue(),
+        )
 
 
 def test_resume_wait_does_not_starve_stage2_ranked_fresh_work() -> None:
@@ -1624,6 +2833,7 @@ def test_production_poll_plan_batches_every_ready_resume_before_fresh_work() -> 
                     "issue_url": "https://example.invalid/issues/102",
                     "workflow_state": {
                         "task_id": TASK_B,
+                        "task_contract_sha256": CONTRACTS[TASK_B],
                         "phase": "decomposition_apply",
                         "branch": f"{TASK_B.casefold()}-fixture",
                         "head_commit": head,
@@ -1649,9 +2859,17 @@ def test_production_poll_plan_batches_every_ready_resume_before_fresh_work() -> 
             )
             stack.enter_context(
                 patch.object(
-                    scheduler_module.dispatch_plan_module,
-                    "list_committed_task_ids",
-                    return_value=[TASK_A, TASK_B, TASK_C],
+                    scheduler_module,
+                    "source_commit_admission_snapshot",
+                    return_value=FixtureAdmissionSnapshot(
+                        source=source,
+                        source_commit=head,
+                        tasks={
+                            TASK_A: task(TASK_A),
+                            TASK_B: decomposition_task(TASK_B),
+                            TASK_C: task(TASK_C),
+                        },
+                    ),
                 )
             )
             stack.enter_context(
@@ -1678,6 +2896,10 @@ def test_production_poll_plan_batches_every_ready_resume_before_fresh_work() -> 
 
         require(plan.decision == "resume_existing", str(plan))
         require(plan.resume is not None and plan.resume["task_id"] == TASK_A, str(plan))
+        require(
+            plan.resume["task_contract_sha256"] == CONTRACTS[TASK_A],
+            str(plan.resume),
+        )
         require(plan.agent_ready_count == 2, str(plan.agent_ready_count))
         require(
             [item["task_id"] for item in plan.ranked_eligible_candidates]
@@ -1687,6 +2909,11 @@ def test_production_poll_plan_batches_every_ready_resume_before_fresh_work() -> 
         require(
             plan.ranked_eligible_candidates[0]["resume_phase"]
             == "decomposition_apply",
+            str(plan.ranked_eligible_candidates[0]),
+        )
+        require(
+            plan.ranked_eligible_candidates[0]["task_contract_sha256"]
+            == CONTRACTS[TASK_B],
             str(plan.ranked_eligible_candidates[0]),
         )
         require(
@@ -1729,9 +2956,13 @@ def test_excluded_task_id_is_not_admitted_via_resume_slot() -> None:
             )
             stack.enter_context(
                 patch.object(
-                    scheduler_module.dispatch_plan_module,
-                    "list_committed_task_ids",
-                    return_value=[TASK_A],
+                    scheduler_module,
+                    "source_commit_admission_snapshot",
+                    return_value=FixtureAdmissionSnapshot(
+                        source=source,
+                        source_commit=head,
+                        tasks={TASK_A: task(TASK_A)},
+                    ),
                 )
             )
             stack.enter_context(
@@ -1800,6 +3031,7 @@ def test_resume_survives_typed_taskgraph_observation_failure() -> None:
             plan.resume
             == {
                 "task_id": TASK_A,
+                "task_contract_sha256": CONTRACTS[TASK_A],
                 "issue_number": 101,
                 "issue_url": "https://example.invalid/issues/101",
                 "phase": "repair",
@@ -2327,41 +3559,49 @@ def test_mixed_portfolio_uses_one_paid_call_per_poll() -> None:
         require(not processes.calls, "portfolio WAIT launched a worker")
 
 
-def test_cumulative_architect_session_cap_stops_new_admissions() -> None:
+def test_scheduler_does_not_preempt_provider_lifecycle_with_attempt_cap() -> None:
     with tempfile.TemporaryDirectory() as text:
         source, head = create_source(Path(text))
-        planner = SequencePlanner(
-            [candidate_plan(head, TASK_A), candidate_plan(head, TASK_B)]
-        )
-        architect = FakeArchitect(
-            {
-                TASK_A: advisory(TASK_A, head, risk="high"),
-                TASK_B: advisory(TASK_B, head),
-            }
-        )
-        processes = ProcessFactory()
-        orchestrator, stream = make_orchestrator(
-            source=source,
-            planner=planner,
-            architect=architect,
-            processes=processes,
-            tasks={TASK_A: task(TASK_A), TASK_B: task(TASK_B)},
-            max_architect_invocations_per_session=1,
-        )
-        require(orchestrator.poll_once().status == "idle", "first WAIT launched")
-        result = orchestrator.poll_once()
-        require(
-            result.fatal
-            and result.status == "architect_session_budget_exhausted",
-            str(result),
-        )
-        require(architect.calls == [TASK_A], str(architect.calls))
-        require(not processes.calls, "session-budget exhaustion launched a worker")
-        require(
-            "cumulative architect session invocation cap is exhausted"
-            in stream.getvalue(),
-            stream.getvalue(),
-        )
+        task_ids = tuple(f"NSC-{200 + index}" for index in range(1, 14))
+        for task_id in task_ids:
+            CONTRACTS[task_id] = hashlib.sha256(task_id.encode("ascii")).hexdigest()
+        try:
+            planner = SequencePlanner(
+                [candidate_plan(head, task_id) for task_id in task_ids]
+            )
+            architect = FakeArchitect(
+                {
+                    task_id: advisory(
+                        task_id,
+                        head,
+                        risk=("low" if task_id == task_ids[-1] else "high"),
+                    )
+                    for task_id in task_ids
+                }
+            )
+            processes = ProcessFactory()
+            orchestrator, _stream = make_orchestrator(
+                source=source,
+                planner=planner,
+                architect=architect,
+                processes=processes,
+                tasks={task_id: task(task_id) for task_id in task_ids},
+            )
+            for cycle in range(12):
+                require(
+                    orchestrator.poll_once().status == "idle",
+                    f"WAIT cycle {cycle + 1} launched",
+                )
+            result = orchestrator.poll_once()
+            require(result.status == "worker_launched" and not result.fatal, str(result))
+            require(architect.calls == list(task_ids), str(architect.calls))
+            require(
+                len(processes.calls) == 1,
+                "13th admission was preempted by an attempt cap",
+            )
+        finally:
+            for task_id in task_ids:
+                CONTRACTS.pop(task_id, None)
 
 
 def test_resume_is_not_blocked_by_its_own_durable_reservation() -> None:
@@ -2909,6 +4149,100 @@ def test_successful_child_exit_frees_local_capacity() -> None:
         require('"event": "worker_finished"' in stream.getvalue(), stream.getvalue())
 
 
+def test_returned_worker_slot_is_reused_without_terminating_the_worker() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        orchestrator, _stream = make_orchestrator(
+            source=source,
+            planner=SequencePlanner([terminal_plan(head, "no_safe_work")]),
+            architect=FakeArchitect({}),
+            processes=ProcessFactory(),
+            tasks={TASK_A: task(TASK_A), TASK_B: task(TASK_B)},
+            max_workers=2,
+        )
+        first_slot = orchestrator._checkout_worker_slot()
+        process = FakeProcess()
+        add_active(orchestrator, task_id=TASK_A, process=process)
+        orchestrator.active_assignments[TASK_A] = replace(
+            orchestrator.active_assignments[TASK_A],
+            worker_id=first_slot,
+        )
+        require(
+            orchestrator._checkout_worker_slot() == orchestrator.worker_slots[1],
+            "active worker slot was checked out twice",
+        )
+        del orchestrator.active_assignments[TASK_A]
+        require(
+            orchestrator._checkout_worker_slot() == first_slot,
+            "returned worker slot was not reusable",
+        )
+        require(
+            process.kill_calls == 0 and process.terminate_calls == 0,
+            "returning a worker slot terminated its process",
+        )
+
+
+def test_worker_return_wakes_architect_without_waiting_for_fallback() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        orchestrator, _stream = make_orchestrator(
+            source=source,
+            planner=SequencePlanner([terminal_plan(head, "no_safe_work")]),
+            architect=FakeArchitect({}),
+            processes=ProcessFactory(),
+            tasks={TASK_A: task(TASK_A)},
+        )
+        process = WaitableFakeProcess()
+        add_active(orchestrator, task_id=TASK_A, process=process)
+        orchestrator._watch_worker_return(orchestrator.active_assignments[TASK_A])
+        require(process.return_observed.wait(1.0), "worker return was not observed")
+        with patch.object(
+            scheduler_module.time,
+            "sleep",
+            side_effect=AssertionError("fallback timer was used"),
+        ):
+            result = orchestrator._wait_for_architect_activity(300.0)
+        require(result == "worker_returned", result)
+        require(process.wait_calls == 1, f"worker wait calls: {process.wait_calls}")
+        require(
+            process.kill_calls == 0 and process.terminate_calls == 0,
+            "architect wake terminated the worker",
+        )
+
+
+def test_issue_notification_before_event_clear_is_not_lost() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        orchestrator, stream = make_orchestrator(
+            source=source,
+            planner=SequencePlanner([terminal_plan(head, "no_safe_work")]),
+            architect=FakeArchitect({}),
+            processes=ProcessFactory(),
+            tasks={TASK_A: task(TASK_A)},
+        )
+        notification = {
+            "task_id": TASK_A,
+            "human_handoff_commit": head,
+            "state_version": 5,
+        }
+        orchestrator.architect_wake_listener = SimpleNamespace(
+            notification_snapshot=lambda: (1, notification)
+        )
+        orchestrator.worker_completion_event.set()
+        with patch.object(
+            scheduler_module.time,
+            "sleep",
+            side_effect=AssertionError("fallback timer was used"),
+        ):
+            result = orchestrator._wait_for_architect_activity(300.0)
+        require(result == "issue_state_changed", result)
+        require(orchestrator.architect_notification_revision == 1, "wake was not consumed")
+        require(
+            '"event": "issue_state_change_notified_to_architect"' in stream.getvalue(),
+            stream.getvalue(),
+        )
+
+
 def make_result_orchestrator(
     root: Path,
 ) -> tuple[PollingOrchestrator, io.StringIO]:
@@ -3335,6 +4669,12 @@ def test_fatal_child_exit_drains_other_workers_before_scheduler_stops() -> None:
             [item["task_id"] for item in draining["active_children"]] == [TASK_B],
             str(draining),
         )
+        # This drain really did follow a fatal cycle, so this scheduler-owned
+        # path must keep saying so while callers above it name their own stop.
+        require(
+            "new admissions stopped after a fatal cycle" in draining["reason"],
+            str(draining),
+        )
 
 
 def test_ctrl_c_during_fatal_drain_preserves_failure_exit() -> None:
@@ -3620,6 +4960,167 @@ def test_worker_popen_uses_host_controller_boundary_and_shell_false() -> None:
         )
 
 
+NSC914_SCRIPT = "Assets/NoSafeCircle/DoorPrototype/Scripts/MuffcabbageGauntlet914.cs"
+
+
+def _fast_route_environment() -> dict[str, str]:
+    return {
+        "NSC_ROUTE_FAST_DEFAULT_PROVIDER": "claude",
+        "NSC_ROUTE_FAST_ALLOWED_PROVIDERS": "openai,claude",
+        "NSC_ROUTE_FAST_CLAUDE_MODEL": "claude-fast-route",
+        "NSC_ROUTE_FAST_OPENAI_MODEL": "openai-fast-route",
+        "NSC_ROUTE_FAST_SUPERVISOR_MODEL": "supervisor-fast-route",
+        "NSC_ROUTE_FAST_MAX_TURNS": "40",
+        "NSC_ROUTE_DEEP_DEFAULT_PROVIDER": "claude",
+        "NSC_ROUTE_DEEP_ALLOWED_PROVIDERS": "openai,claude",
+        "NSC_ROUTE_DEEP_CLAUDE_MODEL": "claude-deep-route",
+        "NSC_ROUTE_DEEP_OPENAI_MODEL": "openai-deep-route",
+        "NSC_ROUTE_DEEP_SUPERVISOR_MODEL": "supervisor-deep-route",
+        "NSC_ROUTE_DEEP_MAX_TURNS": "120",
+    }
+
+
+def _launch_event(stream: Any) -> dict[str, Any]:
+    events = [json.loads(line) for line in stream.getvalue().splitlines()]
+    return next(item for item in events if item["event"] == "worker_launched")
+
+
+def test_new_script_meta_companion_launches_the_lean_fast_profile() -> None:
+    """NSC-914 end to end: a new .cs.meta sidecar no longer forces deep/full.
+
+    The source fixture does not contain the script or its sidecar, so the
+    scheduler's committed-path probe proves the sidecar is new.
+    """
+
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        processes = ProcessFactory()
+        orchestrator, stream = make_orchestrator(
+            source=source,
+            planner=SequencePlanner([candidate_plan(head, TASK_A)]),
+            architect=FakeArchitect(
+                {
+                    TASK_A: advisory(
+                        TASK_A,
+                        head,
+                        capability_tier="fast",
+                        exact_paths=(NSC914_SCRIPT,),
+                        unity_assets=(NSC914_SCRIPT + ".meta",),
+                        shared_systems=(),
+                    )
+                }
+            ),
+            processes=processes,
+            tasks={TASK_A: task(TASK_A)},
+            routing_policy=load_execution_routing_policy(_fast_route_environment()),
+        )
+        result = orchestrator.poll_once()
+        require(result.status == "worker_launched", str(result))
+        launched = _launch_event(stream)
+        expected = {
+            "architect_capability_tier": "fast",
+            "minimum_capability_tier": "fast",
+            "capability_tier": "fast",
+            "crew_profile": "lean",
+            "validation_profile": "targeted",
+            "human_verification_policy": "required",
+            "architect_recommendation_honored": True,
+            "rigor_override_reasons": [],
+            "execution_model": "claude-fast-route",
+            "supervisor_model": "supervisor-fast-route",
+            "max_turns": 40,
+        }
+        for field, value in expected.items():
+            require(launched.get(field) == value, f"{field}: {launched}")
+        command = processes.calls[0][0]
+        require(
+            command[command.index("--execution-model") + 1] == "claude-fast-route",
+            str(command),
+        )
+
+
+def test_committed_path_probe_is_case_insensitive_and_fails_closed() -> None:
+    """The Unity/Windows path oracle must not mistake uncertainty for newness."""
+
+    with tempfile.TemporaryDirectory() as text:
+        source, _head = create_source(Path(text))
+        script = source / "Assets" / "Fixture" / "Existing.cs"
+        script.parent.mkdir(parents=True)
+        script.write_text("internal sealed class Existing {}\n", encoding="utf-8")
+        sidecar = script.with_suffix(".cs.meta")
+        sidecar.write_text("fileFormatVersion: 2\nguid: fixture\n", encoding="utf-8")
+        git(
+            source,
+            "add",
+            "Assets/Fixture/Existing.cs",
+            "Assets/Fixture/Existing.cs.meta",
+        )
+        git(source, "commit", "-m", "add existing script fixture")
+        head = git(source, "rev-parse", "HEAD")
+
+        probe = scheduler_module.committed_path_probe(source, head)
+        require(probe("Assets/Fixture/Existing.cs.meta"), "exact path was missed")
+        require(
+            probe("ASSETS/FIXTURE/EXISTING.CS.META"),
+            "case-only spelling incorrectly treated an existing sidecar as new",
+        )
+        require(
+            not probe("Assets/Fixture/New.cs.meta"),
+            "a genuinely missing sidecar was reported as committed",
+        )
+
+        invalid_probe = scheduler_module.committed_path_probe(source, "0" * 40)
+        try:
+            invalid_probe("Assets/Fixture/New.cs.meta")
+        except IntegrationObservationError:
+            pass
+        else:
+            raise AssertionError("an invalid commit was reported as a missing path")
+
+
+def test_scene_surface_still_launches_the_full_deep_profile() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        scene = "Assets/Scenes/Arena.unity"
+        processes = ProcessFactory()
+        orchestrator, stream = make_orchestrator(
+            source=source,
+            planner=SequencePlanner([candidate_plan(head, TASK_A)]),
+            architect=FakeArchitect(
+                {
+                    TASK_A: advisory(
+                        TASK_A,
+                        head,
+                        capability_tier="fast",
+                        exact_paths=(scene,),
+                        unity_assets=(scene,),
+                        shared_systems=(),
+                    )
+                }
+            ),
+            processes=processes,
+            tasks={TASK_A: task(TASK_A)},
+            routing_policy=load_execution_routing_policy(_fast_route_environment()),
+        )
+        require(orchestrator.poll_once().status == "worker_launched", "no launch")
+        launched = _launch_event(stream)
+        expected = {
+            "architect_capability_tier": "fast",
+            "capability_tier": "deep",
+            "crew_profile": "full",
+            "validation_profile": "full_relevant",
+            "human_verification_policy": "required",
+            "architect_recommendation_honored": False,
+            "execution_model": "claude-deep-route",
+        }
+        for field, value in expected.items():
+            require(launched.get(field) == value, f"{field}: {launched}")
+        require(
+            any(scene in reason for reason in launched["rigor_override_reasons"]),
+            str(launched["rigor_override_reasons"]),
+        )
+
+
 def test_worker_launch_records_and_carries_exact_resolved_route() -> None:
     with tempfile.TemporaryDirectory() as text:
         source, head = create_source(Path(text))
@@ -3721,20 +5222,16 @@ def test_ctrl_c_does_not_kill_children_or_release_leases() -> None:
         )
         child = FakeProcess()
         add_active(orchestrator, task_id=TASK_A, process=child)
-        original_sleep = scheduler_module.time.sleep
-
-        def interrupt(_seconds: float) -> None:
-            raise KeyboardInterrupt()
-
-        scheduler_module.time.sleep = interrupt
-        try:
+        with patch.object(
+            orchestrator.worker_completion_event,
+            "wait",
+            side_effect=KeyboardInterrupt(),
+        ):
             exit_code = orchestrator.run(
                 lock=SchedulerLock(root / "ctrl-c.lock"),
                 poll_seconds=0.01,
                 once=False,
             )
-        finally:
-            scheduler_module.time.sleep = original_sleep
         require(exit_code == 0, f"Ctrl+C returned {exit_code}")
         require(child.kill_calls == 0 and child.terminate_calls == 0, "child was killed")
         require(TASK_A in orchestrator.active_assignments, "local child record was mutated")
@@ -3789,7 +5286,7 @@ def test_private_snapshot_coupling_signature_and_fields_are_pinned() -> None:
 
 def test_default_max_workers_is_one_until_live_acceptance() -> None:
     require(DEFAULT_MAX_WORKERS == 1, f"default max workers is {DEFAULT_MAX_WORKERS}")
-    require(DEFAULT_POLL_SECONDS == 60.0, f"default poll is {DEFAULT_POLL_SECONDS}")
+    require(DEFAULT_POLL_SECONDS == 300.0, f"default poll is {DEFAULT_POLL_SECONDS}")
 
 
 def test_source_refresh_fast_forwards_exact_remote_main_without_rewrite() -> None:
@@ -3846,6 +5343,53 @@ def test_source_refresh_reports_clean_local_ahead_without_rewrite() -> None:
         require(git(source, "rev-parse", "HEAD") == local_head, "local HEAD changed")
         require(git(source, "rev-parse", "origin/main") == remote_head, "remote changed")
         require(git(source, "status", "--porcelain") == "", "refresh dirtied source")
+
+
+def test_source_refresh_step_scope_is_exact_commit_keyed_and_forceable() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        moved = "b" * 40
+        refreshes = iter(
+            (
+                {"before": head, "after": head, "changed": False},
+                {"before": head, "after": moved, "changed": True},
+                {"before": moved, "after": moved, "changed": False},
+            )
+        )
+        calls = {"count": 0}
+
+        def refresh(_source: Path) -> dict[str, Any]:
+            calls["count"] += 1
+            return next(refreshes)
+
+        orchestrator, _stream = make_orchestrator(
+            source=source,
+            planner=lambda **_values: None,
+            architect=FakeArchitect({}),
+            processes=ProcessFactory(),
+            tasks={},
+            source_refresher=refresh,
+        )
+        orchestrator.begin_source_refresh_step()
+        first = orchestrator.source_refresh_for_step()
+        reused = orchestrator.source_refresh_for_step()
+        forced = orchestrator.source_refresh_for_step(force=True)
+        require(first == reused, "one step did not reuse its exact refresh result")
+        require(forced["after"] == moved, str(forced))
+        require(calls["count"] == 2, str(calls))
+        require(
+            orchestrator._source_refresh_step_result == (moved, forced),
+            "the refresh cache is not keyed by its fully resolved after-commit",
+        )
+        orchestrator.end_source_refresh_step()
+        require(
+            orchestrator._source_refresh_step_result is None,
+            "a source refresh result leaked across outer steps",
+        )
+        orchestrator.begin_source_refresh_step()
+        orchestrator.source_refresh_for_step()
+        orchestrator.end_source_refresh_step()
+        require(calls["count"] == 3, "the next outer step reused prior refresh authority")
 
 
 def test_unproved_local_ahead_stops_before_stage2() -> None:
@@ -4458,19 +6002,352 @@ def test_agent_working_to_complete_label_is_not_pending() -> None:
         require(not processes.calls, "a worker was launched")
 
 
+# --------------------------------------------------------------------------
+# Admission cost regressions.
+#
+# Classification: pure/component tests over the real PollingOrchestrator and a
+# temporary Git checkout. Contract or gate mapping: regression-only invariants.
+# They prove that admission reads immutable repository facts a bounded number
+# of times while every mutable authority is still re-observed per launch.
+# --------------------------------------------------------------------------
+
+_GIT_PROCESS_COUNTS: list[Counter] = []
+
+
+def _admission_audit(event: str, arguments: tuple[Any, ...]) -> None:
+    # One hook for the module: an audit hook can never be removed, so per-call
+    # hooks would leave every earlier hook running and attribute later Git
+    # processes to earlier counters.
+    if event != "subprocess.Popen" or not _GIT_PROCESS_COUNTS:
+        return
+    executable, command = arguments[:2]
+    if isinstance(command, str):
+        command = shlex.split(command, posix=False)
+    name = Path(str(executable or (command[0] if command else ""))).name.lower()
+    if name not in {"git", "git.exe"}:
+        return
+    counts = _GIT_PROCESS_COUNTS[-1]
+    counts["total"] += 1
+    for verb in ("rev-parse", "ls-tree", "cat-file", "show", "rev-list", "log"):
+        if verb in command:
+            counts[verb] += 1
+            break
+
+
+sys.addaudithook(_admission_audit)
+
+
+def count_admission_git(callable_: Any) -> tuple[Any, Counter]:
+    counts: Counter = Counter()
+    _GIT_PROCESS_COUNTS.append(counts)
+    try:
+        value = callable_()
+    finally:
+        _GIT_PROCESS_COUNTS.pop()
+    return value, counts
+
+
+def test_multi_candidate_portfolio_uses_one_head_observation_and_source_move_blocks_before_architect() -> None:
+    """One portfolio proves its source commit once, not once per candidate.
+
+    The HEAD observation exists to prove the whole portfolio was read from the
+    commit Stage 2 planned against. Nothing can launch while a portfolio is
+    being built, so repeating it per candidate bought no extra safety and cost
+    one Git process per candidate -- 6,163 of them in the measured
+    1,000-contract run. The proof itself must not weaken: a source move still
+    has to stop the poll before any architect call or worker launch.
+    """
+
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        plan = candidate_plan(head, TASK_A, TASK_B, TASK_C)
+        orchestrator, _stream = make_orchestrator(
+            source=source,
+            planner=SequencePlanner([plan]),
+            architect=FakeArchitect({}),
+            processes=ProcessFactory(),
+            tasks={TASK_A: task(TASK_A), TASK_B: task(TASK_B), TASK_C: task(TASK_C)},
+        )
+
+        portfolio, counts = count_admission_git(
+            lambda: orchestrator._mixed_portfolio(plan, orchestrator._ordered_candidates(plan))
+        )
+        require(len(portfolio) == 3, f"expected three candidates, saw {len(portfolio)}")
+        require(
+            counts["rev-parse"] == 1,
+            f"a three-candidate portfolio must observe HEAD exactly once, saw {counts}",
+        )
+
+        # The single observation still refuses a portfolio whose commit moved.
+        git(source, "commit", "--allow-empty", "-m", "source moved under the scheduler")
+        moved = git(source, "rev-parse", "HEAD")
+        require(moved != head, "fixture failed to move HEAD")
+        try:
+            orchestrator._mixed_portfolio(plan, orchestrator._ordered_candidates(plan))
+        except scheduler_module.PollingOrchestratorError as exc:
+            require(
+                "source HEAD moved" in str(exc) and head in str(exc) and moved in str(exc),
+                f"a moved source must be reported exactly: {exc}",
+            )
+        else:
+            raise AssertionError("a moved source commit produced a usable portfolio")
+
+        # End to end: the same move stops the poll before the architect is
+        # paid and before any worker is launched.
+        stale_architect = FakeArchitect(
+            {TASK_A: advisory(TASK_A, head), TASK_B: advisory(TASK_B, head)}
+        )
+        stale_processes = ProcessFactory()
+        stale, _stream2 = make_orchestrator(
+            source=source,
+            planner=SequencePlanner([candidate_plan(head, TASK_A, TASK_B)]),
+            architect=stale_architect,
+            processes=stale_processes,
+            tasks={TASK_A: task(TASK_A), TASK_B: task(TASK_B)},
+            source_refresher=lambda _source: {"before": head, "after": head, "changed": False},
+        )
+        result = stale.poll_once()
+        require(result.status != "launched", f"a moved source launched work: {result}")
+        require(not stale_architect.calls, f"a moved source paid the architect: {stale_architect.calls}")
+        require(not stale_processes.calls, "a moved source launched a worker")
+
+
+def test_prelaunch_revalidation_loads_only_selected_pair_but_refreshes_mutable_authority() -> None:
+    """Each launch re-proves its own pair, not the whole portfolio.
+
+    Pre-launch revalidation used to rebuild every candidate and then keep one
+    entry, so a launch paid for every other candidate's contract load. Only the
+    admitted pair can be launched, so only the admitted pair is rebuilt. The
+    mutable authority a launch depends on -- source refresh, integration
+    reservations and a fresh Stage 2 observation -- must still be re-observed
+    for every launch, because a spawned child can claim an Issue.
+    """
+
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        loads: Counter = Counter()
+        refreshes = {"count": 0}
+        reservations = {"count": 0}
+        tasks = {TASK_A: task(TASK_A), TASK_B: task(TASK_B), TASK_C: task(TASK_C)}
+
+        def counting_loader(task_id: str) -> dict[str, Any]:
+            loads[task_id] += 1
+            return tasks[task_id]
+
+        def counting_refresh(_source: Any) -> dict[str, Any]:
+            refreshes["count"] += 1
+            return {"before": head, "after": head, "changed": False}
+
+        def counting_reservations() -> tuple[Any, ...]:
+            reservations["count"] += 1
+            return ()
+
+        planner = SequencePlanner([candidate_plan(head, TASK_A, TASK_B, TASK_C)])
+        processes = ProcessFactory()
+        orchestrator, _stream = make_orchestrator(
+            source=source,
+            planner=planner,
+            architect=FakeArchitect(
+                {
+                    TASK_A: advisory(TASK_A, head, exact_paths=("Assets/A.cs",), shared_systems=()),
+                    TASK_B: advisory(TASK_B, head, exact_paths=("Assets/B.cs",), shared_systems=()),
+                    TASK_C: advisory(TASK_C, head, exact_paths=("Assets/C.cs",), shared_systems=()),
+                }
+            ),
+            processes=processes,
+            tasks=tasks,
+            max_workers=3,
+            source_refresher=counting_refresh,
+            reservation_observer=counting_reservations,
+        )
+        orchestrator.task_loader = counting_loader
+
+        orchestrator.poll_once()
+        launched = len(processes.calls)
+        require(launched >= 2, f"the fixture must launch more than one worker, saw {launched}")
+
+        # The batch portfolio loads each candidate once. Every later launch
+        # adds exactly one load -- its own -- instead of one per candidate.
+        total_loads = sum(loads.values())
+        require(
+            total_loads == len(tasks) + launched,
+            f"revalidation loaded more than the selected pair: {dict(loads)} for {launched} launches",
+        )
+        for launched_call in processes.calls:
+            command = launched_call[0]
+            launched_id = command[command.index("--task-id") + 1]
+            require(
+                loads[launched_id] == 2,
+                f"{launched_id} must be loaded once for the batch and once for its own launch: {dict(loads)}",
+            )
+
+        # Mutable authority is still re-observed for every launch.
+        require(
+            refreshes["count"] >= launched,
+            f"source refresh must run for every launch: {refreshes} for {launched} launches",
+        )
+        require(
+            reservations["count"] >= launched,
+            f"integration reservations must be re-observed per launch: {reservations}",
+        )
+        require(
+            len(planner.calls) >= 1 + launched,
+            f"Stage 2 must be re-observed per launch: {len(planner.calls)} for {launched} launches",
+        )
+
+
+def test_cached_task_contract_hash_mismatch_blocks_before_spawn() -> None:
+    """A contract hash that disagrees with the admitted candidate never launches.
+
+    The snapshot makes committed contracts cheap to read many times, so the
+    binding between the architect-admitted candidate hash and the contract the
+    launch actually uses must still be proven at the moment of launch. A
+    disagreement is refused before a worker process exists.
+    """
+
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        contract_task = task(TASK_A)
+        tasks = {TASK_A: contract_task, TASK_B: task(TASK_B)}
+        # The fresh Stage-2 plan used for pre-launch revalidation names a
+        # different contract hash than the committed contract carries.
+        stale_candidate = dict(_candidate(TASK_A))
+        stale_candidate["task_contract_sha256"] = "f" * 64
+        fresh_plan = DispatchPlan(
+            schema_version="1.0",
+            source_commit=head,
+            mode="read_only_plan",
+            autonomous_dispatch=False,
+            decision="fresh_candidate",
+            resume=None,
+            selected_fresh_candidate=stale_candidate,
+            ranked_eligible_candidates=(stale_candidate,),
+            skipped_candidates=(),
+            agent_ready_count=0,
+            claim_observation={"status": "fixture"},
+        )
+        planner = SequencePlanner([candidate_plan(head, TASK_A), fresh_plan])
+        processes = ProcessFactory()
+        orchestrator, stream = make_orchestrator(
+            source=source,
+            planner=planner,
+            architect=FakeArchitect({TASK_A: advisory(TASK_A, head)}),
+            processes=processes,
+            tasks=tasks,
+            source_refresher=lambda _source: {"before": head, "after": head, "changed": False},
+        )
+
+        result = orchestrator.poll_once()
+        require(not processes.calls, f"a contract-hash mismatch spawned a worker: {processes.calls}")
+        require(result.status != "launched", f"a contract-hash mismatch reported a launch: {result}")
+        events = [json.loads(line) for line in stream.getvalue().splitlines() if line.strip()]
+        discarded = [event for event in events if event["event"] == "architect_batch_discarded"]
+        require(
+            discarded and "hash" in json.dumps(discarded[-1]).casefold(),
+            f"the refusal must name the contract-hash disagreement: {discarded}",
+        )
+
+
+def test_hundred_candidate_admission_cost_is_bounded_not_candidates_times_launches() -> None:
+    """Admission cost must scale with the commit, not candidates x launches.
+
+    With 100 ranked candidates the old shape paid one HEAD observation per
+    candidate for the batch portfolio and then rebuilt the whole portfolio --
+    another 100 contract loads and 100 HEAD observations -- before EVERY
+    launch. This pins the shape that replaced it: one HEAD observation per
+    portfolio, one per launch, one contract load per candidate for the batch
+    and exactly one more for each launched task.
+    """
+
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        task_ids = tuple(f"NSC-{600 + index}" for index in range(100))
+        saved = dict(CONTRACTS)
+        CONTRACTS.update(
+            {task_id: hashlib.sha256(task_id.encode("ascii")).hexdigest() for task_id in task_ids}
+        )
+        try:
+            tasks = {task_id: task(task_id) for task_id in task_ids}
+            loads: Counter = Counter()
+
+            def counting_loader(task_id: str) -> dict[str, Any]:
+                loads[task_id] += 1
+                return tasks[task_id]
+
+            planner = SequencePlanner([candidate_plan(head, *task_ids)])
+            processes = ProcessFactory()
+            orchestrator, _stream = make_orchestrator(
+                source=source,
+                planner=planner,
+                architect=FakeArchitect(
+                    {
+                        task_id: advisory(
+                            task_id,
+                            head,
+                            exact_paths=(f"Assets/{task_id}.cs",),
+                            shared_systems=(),
+                        )
+                        for task_id in task_ids
+                    }
+                ),
+                processes=processes,
+                tasks=tasks,
+                max_workers=4,
+                source_refresher=lambda _source: {
+                    "before": head,
+                    "after": head,
+                    "changed": False,
+                },
+                reservation_observer=lambda: (),
+            )
+            orchestrator.task_loader = counting_loader
+
+            _result, counts = count_admission_git(orchestrator.poll_once)
+            launched = len(processes.calls)
+            require(launched >= 1, "the fixture launched nothing")
+
+            # One HEAD observation for the batch portfolio, one for each
+            # launch's single-pair revalidation. Never one per candidate.
+            require(
+                counts["rev-parse"] <= 1 + launched,
+                f"HEAD observation still scales with candidates: {counts} for {launched} launches",
+            )
+            # 100 loads for the batch, plus exactly one per launch.
+            total_loads = sum(loads.values())
+            require(
+                total_loads == len(task_ids) + launched,
+                f"contract loads scale with candidates x launches: {total_loads} "
+                f"for {len(task_ids)} candidates and {launched} launches",
+            )
+            require(
+                max(loads.values()) <= 2,
+                f"no candidate may be loaded more than once per batch and once per own launch: "
+                f"{max(loads.values())}",
+            )
+        finally:
+            CONTRACTS.clear()
+            CONTRACTS.update(saved)
+
+
 def main() -> int:
     tests = (
         test_singleton_second_scheduler_fails_immediately,
         test_event_emitter_persists_exact_stdout_journal,
         test_shared_checkout_root_lock_collides_across_source_clones,
         test_no_safe_work_launches_nothing,
+        test_unprovable_decomposition_policy_is_surfaced_and_offers_no_decomposition,
+        test_mixed_portfolio_audits_decomposition_policy_once,
+        test_scheduler_idle_without_candidate_never_budgets_an_architect_session,
         test_blocked_invalid_state_fails_closed,
         test_resume_existing_remains_stage2_priority,
         test_safe_resume_is_selected_before_fresh_start,
         test_capacity_batch_uses_per_poll_budget_to_fill_slots,
+        test_ten_worker_capacity_completion_and_conflict_are_load_bearing,
         test_batch_candidate_withdrawal_does_not_starve_later_admission,
         test_source_move_after_architect_discards_batch_before_launch,
         test_docker_architect_runner_parses_batch_envelope,
+        test_docker_architect_runner_rejects_mismatched_confirmation_and_preserves_typed_failure,
+        test_two_confirmed_missing_artifacts_retire_the_full_owner_docker_session,
         test_every_worker_command_has_exact_task_and_unique_worker_id,
         test_scheduler_has_no_generic_contention_retry_or_taskless_launch,
         test_max_workers_blocks_launch,
@@ -4479,12 +6356,22 @@ def main() -> int:
         test_active_task_ids_feed_stage2_exclusions,
         test_session_exclusions_feed_every_stage2_poll,
         test_exclude_task_id_cli_is_repeatable_and_validated,
+        test_production_factory_owns_the_complete_scheduler_composition,
+        test_polling_main_delegates_to_the_production_factory,
+        test_dynamic_admission_allowlist_filters_before_architect_and_launch,
+        test_capacity_batch_counts_same_task_relaunch_without_key_diff,
+        test_scheduler_run_preserves_extracted_activity_listener_lifecycle,
+        test_scheduler_run_retires_stranded_architect_only_after_lock_acquisition,
         test_architect_portfolio_selects_disjoint_candidate_in_one_call,
         test_ineligible_decomposition_pair_is_not_selected_or_launched,
         test_architect_can_choose_decomposition_while_implementation_exists,
+        test_codex_restriction_applies_to_real_scheduler_routes,
+        test_restricted_factory_rejects_claude_architect_before_any_construction,
         test_excluded_skipped_decomposition_never_enters_architect_portfolio,
         test_decomposition_worker_command_binds_exact_task_and_output_policy,
         test_approved_decomposition_resume_cannot_route_to_implementation,
+        test_required_decomposition_agent_ready_resume_cannot_route_to_implementation,
+        test_stale_issue_contract_resume_stops_before_architect_and_worker,
         test_resume_wait_does_not_starve_stage2_ranked_fresh_work,
         test_first_resume_wait_does_not_hide_later_decomposition_apply_resume,
         test_production_poll_plan_batches_every_ready_resume_before_fresh_work,
@@ -4503,7 +6390,11 @@ def main() -> int:
         test_wait_reanalysis_cooldown_survives_unrelated_membership_change,
         test_wait_is_reconsidered_when_head_or_in_flight_state_changes,
         test_mixed_portfolio_uses_one_paid_call_per_poll,
-        test_cumulative_architect_session_cap_stops_new_admissions,
+        test_multi_candidate_portfolio_uses_one_head_observation_and_source_move_blocks_before_architect,
+        test_prelaunch_revalidation_loads_only_selected_pair_but_refreshes_mutable_authority,
+        test_cached_task_contract_hash_mismatch_blocks_before_spawn,
+        test_hundred_candidate_admission_cost_is_bounded_not_candidates_times_launches,
+        test_scheduler_does_not_preempt_provider_lifecycle_with_attempt_cap,
         test_resume_is_not_blocked_by_its_own_durable_reservation,
         test_resume_waits_when_other_active_work_overlaps,
         test_resume_own_actual_unity_path_conflicts_with_other_branch,
@@ -4516,6 +6407,9 @@ def main() -> int:
         test_decomposition_apply_hash_change_requires_exact_replay,
         test_actual_branch_path_overlap_prevents_launch,
         test_successful_child_exit_frees_local_capacity,
+        test_returned_worker_slot_is_reused_without_terminating_the_worker,
+        test_worker_return_wakes_architect_without_waiting_for_fallback,
+        test_issue_notification_before_event_clear_is_not_lost,
         test_blocked_run_exits_nonzero_and_is_not_worker_finished,
         test_exit_zero_without_result_artifact_is_failure,
         test_stale_artifact_from_prior_run_is_rejected,
@@ -4540,6 +6434,9 @@ def main() -> int:
         test_reservation_observation_failure_threshold_fails_closed,
         test_dry_run_never_invokes_models_or_workers,
         test_worker_popen_uses_host_controller_boundary_and_shell_false,
+        test_new_script_meta_companion_launches_the_lean_fast_profile,
+        test_committed_path_probe_is_case_insensitive_and_fails_closed,
+        test_scene_surface_still_launches_the_full_deep_profile,
         test_worker_launch_records_and_carries_exact_resolved_route,
         test_malformed_routing_policy_launches_nothing,
         test_ctrl_c_does_not_kill_children_or_release_leases,
@@ -4563,6 +6460,7 @@ def main() -> int:
         test_default_max_workers_is_one_until_live_acceptance,
         test_source_refresh_fast_forwards_exact_remote_main_without_rewrite,
         test_source_refresh_reports_clean_local_ahead_without_rewrite,
+        test_source_refresh_step_scope_is_exact_commit_keyed_and_forceable,
         test_unproved_local_ahead_stops_before_stage2,
         test_exact_d1c_local_ahead_excludes_every_other_task,
         test_source_refresh_refuses_dirty_controller_without_overwrite,

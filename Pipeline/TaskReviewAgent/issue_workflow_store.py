@@ -40,6 +40,8 @@ from .issue_workflow import (
     transition,
     update_issue_body,
     utc_now,
+    validate_automated_decomposition_handoff_binding,
+    validate_automated_repository,
     validate_event_chain,
 )
 
@@ -86,6 +88,14 @@ LABEL_DEFINITIONS = {
 # treat an absent/unrecognized blocked_kind as unsafe to retry.
 BLOCKED_KIND_DURABLE_OWNERSHIP_BY_OTHER = "durable_ownership_by_other"
 BLOCKED_KIND_DURABLE_RESOURCE_RESERVATION_CONFLICT = "durable_resource_reservation_conflict"
+# The reservation scan read a coherent-looking Issue body before GitHub exposed
+# its matching workflow-event comment, and the bounded ladder below ran out
+# before the two views converged. This is an OBSERVATION failure: nothing was
+# proven about ownership, nothing may be repaired, and admission still fails
+# closed. It is reported separately only so a caller can repoll once instead of
+# treating an unread picture as a durable blocker. It is deliberately NOT a
+# benign-contention kind: fresh dispatch must keep classifying it as blocked.
+BLOCKED_KIND_TRANSIENT_CONSISTENCY_SKEW = "transient_observation_consistency_skew"
 
 # GitHub can briefly expose a mixed/stale read after a successful Issue mutation
 # (for example an updated body before the newest event comment is visible).
@@ -98,7 +108,14 @@ POST_MUTATION_VERIFICATION_DELAYS_SECONDS = (0.0, 1.0, 2.0, 4.0, 8.0)
 # name event N before the comments endpoint exposes event N.  Re-read only
 # this narrowly recognizable body/event skew; every other invalid snapshot
 # remains an immediate fail-closed coordination conflict.
-RESERVATION_CONSISTENCY_DELAYS_SECONDS = (0.0, 1.0, 2.0, 4.0)
+#
+# This ladder is the same 15-second mutation-settle budget the post-mutation
+# verifier above already uses. It stopped one round short at 7 seconds, which
+# a live ten-task run outlasted: three concurrently transitioning Issues were
+# still body-before-comment skewed on the fourth observation and coherent on
+# the fifth. Fail-closed behavior is unchanged; only the read side waits
+# longer before declaring the picture unreadable.
+RESERVATION_CONSISTENCY_DELAYS_SECONDS = (0.0, 1.0, 2.0, 4.0, 8.0)
 _TRANSIENT_RESERVATION_SNAPSHOT_REASONS = frozenset(
     {
         "state_version does not match workflow event count",
@@ -403,7 +420,7 @@ class IssueConsistencyRetryBudget:
 
     Ordinary workflow operations omit this object and retain one bounded retry
     ladder per operation. Read-only admission code passes one instance through
-    every Issue view it evaluates, preventing the seven-second allowance from
+    every Issue view it evaluates, preventing the fifteen-second allowance from
     being re-armed once per candidate while preserving the same fail-closed
     behavior after the shared deadline is exhausted.
     """
@@ -557,6 +574,7 @@ class IssueBackend(Protocol):
     ) -> dict[str, Any]: ...
     def add_comment(self, issue_number: int, body: str) -> dict[str, Any]: ...
     def delete_comment(self, issue_number: int, comment_id: int | str) -> None: ...
+    def close_issue(self, issue_number: int) -> dict[str, Any]: ...
     def ensure_labels(self) -> None: ...
 
 
@@ -747,6 +765,22 @@ def render_contract_body(task: Mapping[str, Any]) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
+def _validate_automated_evidence_repository(
+    backend: IssueBackend, evidence: Mapping[str, Any]
+) -> None:
+    if not isinstance(evidence, Mapping):
+        raise WorkflowContractError("automated evidence must be an object")
+    repository = validate_automated_repository(evidence.get("repository"))
+    backend_repository = getattr(backend, "repository", None)
+    if (
+        type(backend_repository) is not str
+        or backend_repository.casefold() != repository.casefold()
+    ):
+        raise WorkflowContractError(
+            "automated evidence repository does not match the Issue backend"
+        )
+
+
 def _snapshot(
     backend: IssueBackend,
     issue: Mapping[str, Any],
@@ -776,6 +810,15 @@ def _snapshot(
                 ignored_diagnostics=ignored_diagnostics,
             )
             validate_event_chain(state, events)
+            # A valid hash chain cannot transfer synthetic approval to another
+            # repository. Inspect the complete history, including approvals
+            # followed by leases or commit-history maintenance events.
+            for event in events:
+                if event.event_type in (
+                    WorkflowEventType.AUTOMATED_VALIDATION_PASSED,
+                    WorkflowEventType.AUTOMATED_DECOMPOSITION_APPLICATION_APPROVED,
+                ):
+                    _validate_automated_evidence_repository(backend, event.details)
             expected_label = STATE_LABELS[state.state.value]
             state_labels = set(labels) & ALL_STATE_LABELS
             if state_labels != {expected_label}:
@@ -851,6 +894,26 @@ def _snapshot(
 
 def _consistency_deadline() -> float:
     return time.monotonic() + sum(RESERVATION_CONSISTENCY_DELAYS_SECONDS)
+
+
+def _is_exhausted_consistency_skew(snapshot: IssueWorkflowSnapshot) -> bool:
+    """Report whether an invalid snapshot is ONLY the bounded body/event skew.
+
+    The ladder has already run at this point, so this does not mean "retry the
+    read again here" -- it means the picture is still unread rather than proven
+    broken. The test is deliberately a subset, not an intersection: an Issue
+    carrying any additional reason is real corruption and must stay terminal
+    even when a skew reason appears beside it. A recognized in-flight
+    transition is excluded because it converges on a GitHub Action, not on read
+    consistency, and is already handled by its own typed classification.
+    """
+
+    if snapshot.valid or snapshot.state is None:
+        return False
+    if snapshot.pending_transition is not None:
+        return False
+    reasons = set(snapshot.reasons)
+    return bool(reasons) and reasons <= _TRANSIENT_RESERVATION_SNAPSHOT_REASONS
 
 
 def _snapshot_is_settled(snapshot: IssueWorkflowSnapshot) -> bool:
@@ -1248,6 +1311,10 @@ class IssueWorkflowService:
         conflicts: list[str] = []
         diagnostics: list[str] = []
         all_benign = True
+        # True only while every recorded conflict is the bounded body/event
+        # visibility skew. One unreadable Issue, one repair-worthy Issue, or one
+        # real reservation overlap clears it permanently for this scan.
+        all_observation_skew = True
         # A resource-less candidate still scans every open Issue: an authorized
         # Issue claiming managed workflow state with an invalid event chain has
         # untrustworthy ownership/reservation state and must block coordination
@@ -1302,6 +1369,7 @@ class IssueWorkflowService:
                     f"workflow Issue #{number} could not be inspected: {entry.error}"
                 )
                 all_benign = False
+                all_observation_skew = False
                 continue
             snapshot = entry.snapshot
             if snapshot is None:
@@ -1317,6 +1385,8 @@ class IssueWorkflowService:
                     + "; ".join(snapshot.reasons)
                 )
                 all_benign = False
+                if not _is_exhausted_consistency_skew(snapshot):
+                    all_observation_skew = False
                 continue
             if snapshot.state.state is WorkflowState.COMPLETE:
                 continue
@@ -1332,6 +1402,7 @@ class IssueWorkflowService:
                     f"could not inspect resources for reserved {snapshot.state.task_id}"
                 )
                 all_benign = False
+                all_observation_skew = False
                 continue
             overlap = sorted(
                 selected_resources & set(other.get("exclusive_resources") or [])
@@ -1340,11 +1411,17 @@ class IssueWorkflowService:
                 conflicts.append(
                     f"{snapshot.state.task_id} reserves overlapping resources: {overlap}"
                 )
-        blocked_kind = (
-            BLOCKED_KIND_DURABLE_RESOURCE_RESERVATION_CONFLICT
-            if conflicts and all_benign
-            else None
-        )
+                all_observation_skew = False
+        if conflicts and all_benign:
+            blocked_kind = BLOCKED_KIND_DURABLE_RESOURCE_RESERVATION_CONFLICT
+        elif conflicts and all_observation_skew:
+            # Every blocking Issue is still inside the GitHub visibility window
+            # the ladder above could not outlast. Admission is refused exactly
+            # as before; only the reported kind changes, so a caller may repoll
+            # once rather than record a durable blocker for an unread picture.
+            blocked_kind = BLOCKED_KIND_TRANSIENT_CONSISTENCY_SKEW
+        else:
+            blocked_kind = None
         return conflicts, diagnostics, blocked_kind
 
     def _initialize_issue(
@@ -1733,6 +1810,56 @@ class IssueWorkflowService:
                 "Vincent notification cleanup requires an exact approved or failed "
                 "human handoff that is already agent_ready"
             )
+
+        return self._clear_vincent_notification_for_snapshot(snapshot)
+
+    def clear_vincent_notification_after_automated_evidence(
+        self, task_id: str
+    ) -> str:
+        """Delete the exact notification after an agent-owned synthetic transition."""
+
+        snapshot = self.find(validate_task_id(task_id))
+        if snapshot is None or not snapshot.valid or snapshot.state is None:
+            raise IssueWorkflowStoreError(
+                "automated Vincent notification cleanup requires a valid managed Issue"
+            )
+        state = snapshot.state
+        expected_events = {
+            WorkflowPhase.DELIVERY_EVIDENCE: (
+                WorkflowEventType.AUTOMATED_VALIDATION_PASSED
+            ),
+            WorkflowPhase.DECOMPOSITION_APPLY: (
+                WorkflowEventType.AUTOMATED_DECOMPOSITION_APPLICATION_APPROVED
+            ),
+        }
+        last_event = snapshot.events[-1] if snapshot.events else None
+        if (
+            state.state is not WorkflowState.AGENT_READY
+            or state.current_actor is not WorkflowActor.AGENT
+            or state.human_result is not None
+            or state.human_handoff_commit != state.head_commit
+            or state.phase not in expected_events
+            or last_event is None
+            or last_event.event_type is not expected_events[state.phase]
+            or last_event.event_id != state.last_event_id
+        ):
+            raise IssueWorkflowStoreError(
+                "automated Vincent notification cleanup requires an exact verified "
+                "synthetic evidence transition that is already agent_ready"
+            )
+
+        return self._clear_vincent_notification_for_snapshot(snapshot)
+
+    def _clear_vincent_notification_for_snapshot(
+        self, snapshot: IssueWorkflowSnapshot
+    ) -> str:
+        """Delete one already-authorized notification and verify the exact outcome."""
+
+        if snapshot.state is None:  # Defensive for internal callers.
+            raise IssueWorkflowStoreError(
+                "Vincent notification cleanup requires managed state"
+            )
+        state = snapshot.state
 
         inbox = self._find_vincent_inbox()
         if inbox is None:
@@ -2181,6 +2308,113 @@ class IssueWorkflowService:
             **verified.to_dict(),
         }
 
+    def apply_automated_decomposition_result(
+        self,
+        *,
+        task_id: str,
+        evidence: Mapping[str, Any],
+        actor_id: str,
+        now: str | None = None,
+    ) -> dict[str, Any]:
+        """Authorize one exact, fresh private-gauntlet decomposition plan."""
+
+        self._require_automated_evidence_repository(evidence)
+        snapshot = self.find(task_id)
+        if snapshot is None or not snapshot.valid or snapshot.state is None:
+            raise IssueWorkflowStoreError(
+                "automated decomposition result requires a valid managed Issue"
+            )
+        state = snapshot.state
+        if (
+            state.state is not WorkflowState.HUMAN_ACTION_REQUIRED
+            or state.phase is not WorkflowPhase.DECOMPOSITION_APPLY_AUTHORIZATION
+        ):
+            raise IssueWorkflowStoreError(
+                "automated decomposition result requires "
+                "human_action_required/decomposition_apply_authorization"
+            )
+        if type(actor_id) is not str:
+            raise IssueWorkflowStoreError(
+                "automated decomposition actor_id must be an exact non-empty identity"
+            )
+        normalized_actor = actor_id.strip()
+        if not normalized_actor or normalized_actor != actor_id:
+            raise IssueWorkflowStoreError(
+                "automated decomposition actor_id must be an exact non-empty identity"
+            )
+        if normalized_actor != self.worker_id:
+            raise IssueWorkflowStoreError(
+                "automated decomposition actor_id must match the authenticated service worker"
+            )
+        handoff = snapshot.events[-1] if snapshot.events else None
+        if handoff is None:
+            raise IssueWorkflowStoreError(
+                "automated decomposition result has no durable decomposition handoff"
+            )
+        try:
+            validate_automated_decomposition_handoff_binding(evidence, handoff)
+            next_state, event = transition(
+                state,
+                event_type=(
+                    WorkflowEventType.AUTOMATED_DECOMPOSITION_APPLICATION_APPROVED
+                ),
+                actor_type=WorkflowActor.AGENT,
+                actor_id=normalized_actor,
+                to_state=WorkflowState.AGENT_READY,
+                to_phase=WorkflowPhase.DECOMPOSITION_APPLY,
+                details=evidence,
+                now=now or utc_now(),
+            )
+        except WorkflowContractError as exc:
+            raise IssueWorkflowStoreError(
+                f"automated decomposition evidence is invalid: {exc}"
+            ) from exc
+        if next_state.human_result is not None:
+            raise IssueWorkflowStoreError(
+                "automated decomposition approval must not synthesize a human result"
+            )
+        self.backend.add_comment(
+            snapshot.issue_number,
+            render_event_comment(
+                event,
+                (
+                    "Authoritative automated review approved the exact fresh, disjoint "
+                    "two-child synthetic decomposition plan "
+                    f"`{evidence.get('graph_delta_plan_id')}`. No human decision was "
+                    "recorded. The next agent phase is `decomposition_apply`."
+                ),
+            ),
+        )
+        self.backend.update_issue(
+            snapshot.issue_number,
+            body=update_issue_body(
+                snapshot.body,
+                next_state,
+                next_action=(
+                    "A generic agent should apply the exact automatically reviewed "
+                    "synthetic decomposition plan."
+                ),
+            ),
+            labels=labels_for_state(next_state.state, snapshot.labels),
+            assignees=[self.assignee],
+        )
+        verified = self.verify_post_mutation_state(
+            task_id,
+            next_state,
+            transition_name="automated decomposition application result",
+        )
+        if verified.state is None or verified.state.human_result is not None:
+            raise IssueWorkflowStoreError(
+                "automated decomposition post-verification found a human result"
+            )
+        return {
+            "status": "agent_ready",
+            "decision": "approve",
+            "reviewed_plan_id": evidence.get("graph_delta_plan_id"),
+            "automated_decomposition_event_id": event.event_id,
+            **verified.to_dict(),
+        }
+
     def complete_decomposition(
         self,
         *,
@@ -2244,7 +2478,16 @@ class IssueWorkflowService:
         verified = self.verify_post_mutation_state(
             task_id, next_state, transition_name="decomposition completion"
         )
-        return {"status": "complete", **verified.to_dict()}
+        closed_issue = self.backend.close_issue(snapshot.issue_number)
+        if str(closed_issue.get("state") or "").upper() != "CLOSED":
+            raise IssueWorkflowStoreError(
+                "decomposition completion did not close its managed Issue"
+            )
+        return {
+            "status": "complete",
+            "issue_closed": True,
+            **verified.to_dict(),
+        }
 
     def release_decomposition_lease(
         self,
@@ -2388,6 +2631,116 @@ class IssueWorkflowService:
             transition_name="human result",
         )
         return {"status": "agent_ready", **verified.to_dict()}
+
+    def _require_automated_evidence_repository(self, evidence: Mapping[str, Any]) -> None:
+        try:
+            _validate_automated_evidence_repository(self.backend, evidence)
+        except WorkflowContractError as exc:
+            raise IssueWorkflowStoreError(str(exc)) from exc
+
+    def apply_automated_validation(
+        self,
+        *,
+        task_id: str,
+        evidence: Mapping[str, Any],
+        actor_id: str,
+        now: str | None = None,
+    ) -> dict[str, Any]:
+        """Append one authoritative private-gauntlet validation transition.
+
+        The evidence contract is deliberately enforced by ``transition()`` so
+        direct state-machine callers and persisted-store callers cannot drift.
+        This method owns only the verified Issue mutation; its future caller
+        must first load and validate the committed policy and Unity artifacts.
+        """
+
+        self._require_automated_evidence_repository(evidence)
+        snapshot = self.find(task_id)
+        if snapshot is None or not snapshot.valid or snapshot.state is None:
+            raise IssueWorkflowStoreError(
+                "automated validation requires a valid managed Issue"
+            )
+        state = snapshot.state
+        if (
+            state.state is not WorkflowState.HUMAN_ACTION_REQUIRED
+            or state.phase is not WorkflowPhase.UNITY_RUNTIME_VALIDATION
+        ):
+            raise IssueWorkflowStoreError(
+                "automated validation requires "
+                "human_action_required/unity_runtime_validation, found "
+                f"{state.state.value}/{state.phase.value}"
+            )
+        if type(actor_id) is not str:
+            raise IssueWorkflowStoreError(
+                "automated validation actor_id must be an exact non-empty identity"
+            )
+        normalized_actor = actor_id.strip()
+        if not normalized_actor or normalized_actor != actor_id:
+            raise IssueWorkflowStoreError(
+                "automated validation actor_id must be an exact non-empty identity"
+            )
+        if normalized_actor != self.worker_id:
+            raise IssueWorkflowStoreError(
+                "automated validation actor_id must match the authenticated service worker"
+            )
+        try:
+            next_state, event = transition(
+                state,
+                event_type=WorkflowEventType.AUTOMATED_VALIDATION_PASSED,
+                actor_type=WorkflowActor.AGENT,
+                actor_id=normalized_actor,
+                to_state=WorkflowState.AGENT_READY,
+                to_phase=WorkflowPhase.DELIVERY_EVIDENCE,
+                details=evidence,
+                now=now or utc_now(),
+            )
+        except WorkflowContractError as exc:
+            raise IssueWorkflowStoreError(
+                f"automated validation evidence is invalid: {exc}"
+            ) from exc
+        if next_state.human_result is not None:
+            raise IssueWorkflowStoreError(
+                "automated validation must not synthesize a human result"
+            )
+        self.backend.add_comment(
+            snapshot.issue_number,
+            render_event_comment(
+                event,
+                (
+                    "Authoritative automated Unity validation passed for the exact "
+                    f"synthetic task handoff commit `{state.human_handoff_commit}`. "
+                    "No human validation result was recorded. The next agent phase is "
+                    "`delivery_evidence`."
+                ),
+            ),
+        )
+        self.backend.update_issue(
+            snapshot.issue_number,
+            body=update_issue_body(
+                snapshot.body,
+                next_state,
+                next_action=(
+                    "A generic agent should resume this synthetic Issue from the exact "
+                    "validated branch and commit and continue delivery evidence."
+                ),
+            ),
+            labels=labels_for_state(next_state.state, snapshot.labels),
+            assignees=[self.assignee],
+        )
+        verified = self.verify_post_mutation_state(
+            task_id,
+            next_state,
+            transition_name="automated validation",
+        )
+        if verified.state is None or verified.state.human_result is not None:
+            raise IssueWorkflowStoreError(
+                "automated validation post-verification found a human result"
+            )
+        return {
+            "status": "agent_ready",
+            "automated_validation_event_id": event.event_id,
+            **verified.to_dict(),
+        }
 
     def resource_conflicts(
         self,
@@ -2679,6 +3032,14 @@ class MemoryIssueBackend:
                 "comment deletion requires one exact comment in the named Issue"
             )
         comments.pop(matches[0])
+
+    def close_issue(self, issue_number: int) -> dict[str, Any]:
+        if type(issue_number) is not int or issue_number < 1:
+            raise IssueWorkflowStoreError("Issue number must be a positive integer")
+        issue = self.issues[issue_number]
+        issue["state"] = "CLOSED"
+        issue["updated_at"] = self.now()
+        return json.loads(json.dumps(issue))
 
     def ensure_labels(self) -> None:
         self.labels.update(LABEL_DEFINITIONS)
@@ -2997,6 +3358,64 @@ class GhIssueBackend:
                 "-f",
                 f"id={comment_id}",
             )
+        )
+
+    def close_issue(self, issue_number: int) -> dict[str, Any]:
+        """Close one exact Issue and prove the resulting GitHub state.
+
+        The close command is issued at most once.  A timeout can occur after
+        GitHub accepted the mutation, so only the read side is retried; if an
+        exact re-read proves ``CLOSED``, the operation succeeded regardless of
+        the command's reported result.
+        """
+
+        if type(issue_number) is not int or issue_number < 1:
+            raise IssueWorkflowStoreError("Issue number must be a positive integer")
+        command_error: BaseException | None = None
+        command_result: subprocess.CompletedProcess[str] | None = None
+        try:
+            command_result = self._run(
+                (
+                    "gh",
+                    "issue",
+                    "close",
+                    str(issue_number),
+                    "--repo",
+                    self.repository,
+                    "--reason",
+                    "completed",
+                ),
+                check=False,
+            )
+        except (IssueWorkflowStoreError, OSError, subprocess.SubprocessError) as exc:
+            command_error = exc
+
+        last_read_error: BaseException | None = None
+        last_state: str | None = None
+        for delay in POST_MUTATION_VERIFICATION_DELAYS_SECONDS:
+            if delay:
+                time.sleep(delay)
+            try:
+                observed = self._view_issue(issue_number)
+            except (IssueWorkflowStoreError, OSError, subprocess.SubprocessError) as exc:
+                last_read_error = exc
+                continue
+            last_state = str(observed.get("state") or "").upper()
+            if last_state == "CLOSED":
+                return observed
+
+        details: list[str] = []
+        if command_result is not None and command_result.returncode != 0:
+            details.append(f"gh exit {command_result.returncode}")
+        if command_error is not None:
+            details.append(f"command uncertainty: {type(command_error).__name__}")
+        if last_read_error is not None:
+            details.append(f"last read error: {type(last_read_error).__name__}")
+        if last_state is not None:
+            details.append(f"last observed state: {last_state}")
+        raise IssueWorkflowStoreError(
+            "GitHub did not prove the managed Issue closed"
+            + (": " + "; ".join(details) if details else "")
         )
 
     def ensure_labels(self) -> None:

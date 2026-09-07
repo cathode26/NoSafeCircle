@@ -2,7 +2,7 @@
 """Host boundary for the durable proposal and application decomposition phases.
 
 The proposal phase supplies the external Windows output mount and invokes the
-canonical round-robin Compose service with the repository mounted read-only. The
+permitted single-provider or round-robin service with the repository read-only. The
 separate apply phase runs only for an exact-plan human authorization recorded in
 the durable Issue and serializes the network-free D1C commit with a global claim.
 """
@@ -31,6 +31,11 @@ for module_root in (ROOT, PIPELINE_ROOT, TASK_GRAPH_ROOT):
 from Pipeline.TaskReviewAgent.contracts import (  # noqa: E402
     semantic_sha256,
     validate_task_id,
+)
+from Pipeline.TaskReviewAgent.provider_policy import (  # noqa: E402
+    parse_provider_allowlist,
+    provider_allowlist as validate_provider_allowlist,
+    require_permitted_provider,
 )
 from Pipeline.TaskReviewAgent.decomposition_replay import (  # noqa: E402
     find_exact_d1c_commit,
@@ -61,9 +66,18 @@ from Pipeline.TaskReviewAgent.worker_result import (  # noqa: E402
     initialize_worker_run,
     write_worker_result,
 )
-from Pipeline.TaskDecomposition.context_builder import (  # noqa: E402
-    validate_task_selection as validate_decomposition_selection,
+from Pipeline.TaskReviewAgent.decomposition_policy_audit import (  # noqa: E402
+    decomposition_preflight as validate_decomposition_selection,
 )
+from Pipeline.TaskReviewAgent.decomposition_session_pool import (  # noqa: E402
+    DECOMPOSITION_CONTEXT_WINDOW_ENVIRONMENT,
+    DecompositionSessionPoolError,
+    DecompositionSessionPoolOwner,
+)
+from Pipeline.TaskReviewAgent.supervisor_session_pool import (  # noqa: E402
+    codex_resume_activation_from_environment,
+)
+from TaskDecomposition.live_decomposition import provider_configuration  # noqa: E402
 from TaskDecomposition.contracts import DecompositionResult  # noqa: E402
 from graph_delta import GraphDeltaPlan  # noqa: E402
 from graph_apply_plan import plan_graph_apply  # noqa: E402
@@ -86,6 +100,27 @@ def default_host_output_root(task_id: str) -> Path:
     return Path(profile) / "Downloads" / "NoSafeCircleOutput" / task_id
 
 
+POOL_LEASE_MOUNT = "/nsc-pool/decomposition-leases.json"
+
+
+def decomposition_provider_order(providers: str, permitted: tuple[str, ...] | None = None) -> tuple[str, ...]:
+    values = tuple(providers.split(","))
+    if not values or any(value not in {"claude", "codex"} for value in values) or (
+        len(set(values)) != len(values) and values != ("codex", "codex")
+    ):
+        raise RuntimeError("decomposition providers must be unique claude/codex values or the bounded codex,codex role pair")
+    for provider in values:
+        require_permitted_provider(provider, permitted, role="decomposition")
+    return values
+
+
+def _require_bounded_codex_roles(
+    provider_order: tuple[str, ...], *, max_calls: int, pooled: bool,
+) -> None:
+    if provider_order == ("codex", "codex") and (type(max_calls) is not int or max_calls != 2 or not pooled):
+        raise RuntimeError("all-Codex decomposition requires exactly two calls and independent pooled author/reviewer sessions")
+
+
 def build_compose_command(
     *,
     task_id: str,
@@ -93,7 +128,11 @@ def build_compose_command(
     providers: str,
     max_calls: int,
     run_id: str | None = None,
+    pool_assignment: dict | None = None,
+    provider_allowlist: tuple[str, ...] | None = None,
 ) -> tuple[str, ...]:
+    provider_order = decomposition_provider_order(providers, provider_allowlist)
+    _require_bounded_codex_roles(provider_order, max_calls=max_calls, pooled=pool_assignment is not None)
     command = [
         "docker",
         "compose",
@@ -102,19 +141,92 @@ def build_compose_command(
         "run",
         "--rm",
         "-T",
-        "round-robin-decompose",
-        "python3",
-        "Pipeline/TaskDecomposition/run_round_robin_decomposition.py",
-        "--task-id",
-        validate_task_id(task_id),
-        "--providers",
-        providers,
-        "--max-calls",
-        str(max_calls),
     ]
+    if pool_assignment is not None:
+        if not run_id:
+            raise RuntimeError("pooled decomposition sessions require an explicit run id")
+        # The lease bundle is the only new mount, and it is read-only. The
+        # provider models the leases were reserved for are pinned into the
+        # container so the round's resolved route cannot silently differ from
+        # the host's reservation; the container still fails closed on any
+        # mismatch it observes.
+        command.extend(
+            ("--volume", f"{pool_assignment['lease_bundle_path']}:{POOL_LEASE_MOUNT}:ro")
+        )
+        for name, value in sorted(pool_assignment.get("provider_environment", {}).items()):
+            if value:
+                command.extend(("--env", f"{name}={value}"))
+    if len(provider_order) == 1:
+        command.extend([
+            f"{provider_order[0]}-decompose", "python3",
+            "Pipeline/TaskDecomposition/run_decomposition.py",
+            "--task-id", validate_task_id(task_id), "--provider", provider_order[0],
+        ])
+    else:
+        command.extend(
+            [
+                # The two-role circuit still uses D1B.2, but only needs the
+                # Codex service's credential volume. The mixed service would
+                # unnecessarily mount Claude's configuration on this route.
+                "codex-decompose" if provider_order == ("codex", "codex") else "round-robin-decompose",
+                "python3",
+                "Pipeline/TaskDecomposition/run_round_robin_decomposition.py",
+                "--task-id",
+                validate_task_id(task_id),
+                "--providers",
+                providers,
+                "--max-calls",
+                str(max_calls),
+            ]
+        )
     if run_id:
         command.extend(("--run-id", run_id))
+    if pool_assignment is not None:
+        command.extend(
+            (
+                "--role-session-leases",
+                POOL_LEASE_MOUNT,
+                "--scheduler-repository-identity",
+                str(pool_assignment["repository_identity"]),
+            )
+        )
     return tuple(command)
+
+
+def _new_pooled_run_id(task_id: str, *, mode: str = "round_robin_d1b2") -> str:
+    """Mint the run id the host must own before it can reserve sessions for it."""
+
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dt%H%M%Sz")
+    stage = "d1b1" if mode == "d1b1" else "d1b2"
+    return f"{validate_task_id(task_id).lower()}-{stage}-{stamp}-{uuid.uuid4().hex[:12]}"
+
+
+def _decomposition_pool_owner(*, workspace: Path, compose_project: str,
+                              providers: tuple[str, ...] = ("claude", "codex")) -> DecompositionSessionPoolOwner:
+    """Build the host owner from the checkout's own origin and the host-resolved models.
+
+    ``compose_project`` is the exact project the round-robin container will run
+    under: it names the provider configuration volumes the conversations live
+    in, so a launch under another project reserves other conversations.
+    """
+
+    provider_models: dict[str, tuple[str, str | None]] = {}
+    for provider_name in dict.fromkeys(providers):
+        _key, configuration = provider_configuration(provider_name)
+        entry = configuration.to_dict()["provider_configurations"][f"{provider_name}-decomposition"]
+        provider_models[provider_name] = (
+            str(entry["models"]["high_reasoning"]),
+            "high" if provider_name == "codex" else None,
+        )
+    raw_window = os.environ.get(DECOMPOSITION_CONTEXT_WINDOW_ENVIRONMENT, "").strip()
+    return DecompositionSessionPoolOwner(
+        checkout=workspace,
+        repository_identity=_git(workspace, "remote", "get-url", "origin"),
+        provider_models=provider_models,
+        codex_resume_activation=codex_resume_activation_from_environment(),
+        compose_project=compose_project,
+        context_window_tokens=int(raw_window) if raw_window else None,
+    )
 
 
 def _git(source: Path, *args: str) -> str:
@@ -137,6 +249,64 @@ def _git(source: Path, *args: str) -> str:
             f"git {' '.join(args)} failed: {' '.join(completed.stderr.split())[:700]}"
         )
     return completed.stdout.strip()
+
+
+def _is_ancestor(source: Path, ancestor: str, descendant: str) -> bool:
+    timeout_seconds = 180.0
+    completed = subprocess.run(
+        ("git", "-C", str(source), "merge-base", "--is-ancestor", ancestor, descendant),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        check=False,
+        timeout=timeout_seconds,
+    )
+    if completed.returncode not in (0, 1):
+        raise RuntimeError(
+            "git merge-base --is-ancestor failed: "
+            f"{' '.join(completed.stderr.split())[:700]}"
+        )
+    return completed.returncode == 0
+
+
+def _discard_unpublished_local_commit(
+    source: Path, *, expected_head: str, restore_to: str,
+) -> None:
+    """Discard a local D1C commit that lost its race to publish.
+
+    Refuses unless HEAD still names the exact never-pushed commit this
+    process just created, that commit is the only commit the restore target
+    does not already contain, and the checkout is completely clean, so this
+    can only ever discard that exact commit -- never unrelated local state.
+    """
+
+    current_head = _git(source, "rev-parse", "HEAD")
+    if current_head != expected_head:
+        raise RuntimeError(
+            "refusing to discard the unpublished D1C commit because HEAD no "
+            f"longer names it (expected={expected_head}, actual={current_head})"
+        )
+    # --max-count=2 is enough to decide "exactly this one commit" and keeps
+    # the refusal message bounded when the two histories have fully diverged.
+    discarded = tuple(
+        line
+        for line in _git(
+            source, "rev-list", "--max-count=2", f"{restore_to}..{expected_head}"
+        ).splitlines()
+        if line
+    )
+    if discarded != (expected_head,):
+        raise RuntimeError(
+            "refusing to discard the unpublished D1C commit because restoring "
+            f"to {restore_to} would not discard exactly that one commit "
+            f"(discarded={list(discarded)})"
+        )
+    if _git(source, "status", "--porcelain=v1", "--untracked-files=all"):
+        raise RuntimeError(
+            "refusing to discard the unpublished D1C commit while the shared "
+            "checkout has concurrent uncommitted changes"
+        )
+    _git(source, "reset", "--hard", restore_to)
 
 
 def _load_json(path: Path) -> dict:
@@ -282,8 +452,9 @@ def _acquire_workflow_lease(
         branch=branch,
         checkout_path=str(checkout_path),
         planned_approach=(
-            "work_type: decomposition\nRun or resume the independently reviewed "
-            "round-robin decomposition lifecycle for this exact parent contract."
+            "work_type: decomposition\nRun or resume the review-only decomposition "
+            "proposal for this exact parent contract. The recorded provider policy "
+            "selects either independent round-robin review or disclosed single-provider review."
         ),
         expected_validation=(
             "Require an exact plan_id authorization before D1C, validate the committed "
@@ -326,7 +497,59 @@ def _run_proposal(
     source_head: str,
     service: IssueWorkflowService,
 ) -> int:
+    permitted = validate_provider_allowlist(getattr(args, "provider_allowlist", None))
+    provider_order = decomposition_provider_order(args.providers, permitted)
+    _require_bounded_codex_roles(
+        provider_order, max_calls=args.max_calls,
+        pooled=getattr(args, "enable_decomposition_session_pool", False),
+    )
+    single_provider = len(provider_order) == 1
+    mode = "d1b1" if single_provider else "round_robin_d1b2"
     requested_run_id = getattr(args, "run_id", None)
+    pool_owner: DecompositionSessionPoolOwner | None = None
+    pool_assignment: dict | None = None
+    if getattr(args, "enable_decomposition_session_pool", False):
+        # Pooling needs a host-owned run identity before any reservation.
+        if not requested_run_id:
+            requested_run_id = _new_pooled_run_id(args.task_id, mode=mode)
+        try:
+            pool_owner = _decomposition_pool_owner(
+                workspace=workspace, compose_project=str(args.compose_project),
+                providers=tuple(dict.fromkeys(provider_order)),
+            )
+            pool_assignment = pool_owner.prepare(
+                run_id=requested_run_id,
+                task_id=args.task_id,
+                decomposition_mode=mode,
+                provider_order=provider_order,
+                max_calls=int(args.max_calls),
+                source_commit=source_head,
+                worker_id=str(getattr(args, "worker_id", "host-decomposition-launcher")),
+            )
+        except (DecompositionSessionPoolError, OSError, RuntimeError, ValueError) as exc:
+            if pool_owner is not None:
+                pool_owner.close()
+            service.release_decomposition_lease(
+                task_id=args.task_id,
+                reason=(
+                    "decomposition session pool could not reserve role sessions before "
+                    f"provider start: {type(exc).__name__}: {exc}"
+                ),
+            )
+            raise
+        print(
+            json.dumps(
+                {
+                    "status": "decomposition_session_pool_reserved",
+                    "task_id": args.task_id,
+                    "run_id": requested_run_id,
+                    "leases": sorted(pool_assignment["leases"]),
+                    "skipped_keys": pool_assignment["skipped_keys"],
+                },
+                sort_keys=True,
+            ),
+            flush=True,
+        )
     expected_run_dir: Path | None = None
     try:
         output_root.mkdir(parents=True, exist_ok=True)
@@ -341,6 +564,11 @@ def _run_proposal(
         else:
             before = {path.name for path in output_root.iterdir() if path.is_dir()}
     except (OSError, RuntimeError) as exc:
+        if pool_owner is not None:
+            # The provider provably never started, so the reserved
+            # conversations are returned uncharged instead of being reclaimed
+            # later as stranded.
+            _cancel_unstarted_pool(pool_owner, run_id=requested_run_id)
         service.release_decomposition_lease(
             task_id=args.task_id,
             reason=(
@@ -358,13 +586,19 @@ def _run_proposal(
                 project=args.compose_project,
                 providers=args.providers,
                 max_calls=args.max_calls,
-                run_id=getattr(args, "run_id", None),
+                run_id=requested_run_id,
+                pool_assignment=pool_assignment,
+                provider_allowlist=permitted,
             ),
             cwd=str(workspace),
             env=environment,
             check=False,
         )
     except OSError as exc:
+        if pool_owner is not None:
+            # The provider process could not start at all, so the reservations
+            # were never invoked and are returned uncharged.
+            _cancel_unstarted_pool(pool_owner, run_id=requested_run_id)
         service.release_decomposition_lease(
             task_id=args.task_id,
             reason=(
@@ -393,6 +627,8 @@ def _run_proposal(
                 if path.is_dir() and path.name not in (before or set())
             ]
     except OSError as exc:
+        if pool_owner is not None:
+            pool_owner.close()
         service.release_decomposition_lease(
             task_id=args.task_id,
             reason=(
@@ -401,6 +637,12 @@ def _run_proposal(
             ),
         )
         raise
+    if pool_owner is not None and len(after) == 1:
+        # Settle from the run's durable artifacts whatever the exit code says:
+        # the artifacts, not the process, decide what each conversation proved.
+        _settle_decomposition_pool(pool_owner, run_id=requested_run_id, run_dir=after[0])
+    elif pool_owner is not None:
+        pool_owner.close()
     if completed.returncode != 0 or len(after) != 1:
         service.release_decomposition_lease(
             task_id=args.task_id,
@@ -444,6 +686,15 @@ def _run_proposal(
     contract_identity = result.get("task_execution_contract_identity")
     expected_contract_sha256 = getattr(args, "task_contract_sha256", None)
     identity_reasons = []
+    if single_provider:
+        if result.get("requested_provider") != provider_order[0]:
+            identity_reasons.append("requested_provider")
+        if result.get("actual_provider") != {"codex": "openai-codex", "claude": "claude-code"}[provider_order[0]]:
+            identity_reasons.append("actual_provider")
+        if result.get("authority") != "review_only_not_applied":
+            identity_reasons.append("authority")
+        if result.get("independent_approver_provider") is not None:
+            identity_reasons.append("single_provider_cannot_claim_independent_approval")
     if result.get("task_id") != args.task_id:
         identity_reasons.append("task_id")
     if result.get("run_id") != run_dir.name:
@@ -562,8 +813,14 @@ def _run_proposal(
         "graph_delta_sha256": graph_delta_sha256,
         "summary": (
             f"Proposed {len(decomposition.children)} executable child task(s) for "
-            f"{args.task_id}; independent reviewer: "
-            f"{result.get('independent_approver_provider')}."
+            f"{args.task_id}; "
+            + (
+                f"D1B.1 single-provider proposal by {provider_order[0]}. "
+                "Independent provider review was unavailable under the permitted-provider policy. "
+                "Deterministic structural validation only; review_only_not_applied."
+                if single_provider else
+                f"independent reviewer: {result.get('independent_approver_provider')}."
+            )
         ),
         "branch": _git(workspace, "branch", "--show-current"),
     }
@@ -587,11 +844,71 @@ def _run_proposal(
                 "task_id": args.task_id,
                 "plan_id": plan_id,
                 "run_directory": str(run_dir),
+                "decomposition_mode": mode,
+                "provider_order": list(provider_order),
+                "independent_semantic_review": not single_provider,
+                "authority": "review_only_not_applied",
             },
             sort_keys=True,
         )
     )
     return 0
+
+
+def _cancel_unstarted_pool(owner: DecompositionSessionPoolOwner, *, run_id: str) -> None:
+    """Return a run's leases after a proven start failure; never mask the failure."""
+
+    try:
+        owner.cancel_unstarted(run_id=run_id)
+    except (DecompositionSessionPoolError, OSError, RuntimeError, ValueError) as exc:
+        print(
+            json.dumps(
+                {"status": "pool_degraded", "run_id": run_id, "error_type": type(exc).__name__,
+                 "error": " ".join(str(exc).split())[:600]},
+                sort_keys=True,
+            ),
+            flush=True,
+        )
+    finally:
+        owner.close()
+
+
+def _settle_decomposition_pool(
+    owner: DecompositionSessionPoolOwner, *, run_id: str, run_dir: Path
+) -> None:
+    """Settle the run's leases; a pool failure degrades pooling, never the run."""
+
+    try:
+        settlement = owner.settle(run_id=run_id, run_dir=run_dir)
+    except (DecompositionSessionPoolError, OSError, RuntimeError, ValueError) as exc:
+        degraded = {
+            "schema_version": "1.0",
+            "run_id": run_id,
+            "status": "pool_degraded",
+            "error_type": type(exc).__name__,
+            "error": " ".join(str(exc).split())[:900],
+            "note": (
+                "The decomposition result stands on its own artifacts. The still-active "
+                "leases are reclaimed as stranded by the next owner and are never reused."
+            ),
+        }
+        try:
+            (run_dir / "pool_degraded.json").write_text(
+                json.dumps(degraded, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            )
+        except OSError:
+            pass
+        print(json.dumps(degraded, sort_keys=True), flush=True)
+    else:
+        print(
+            json.dumps(
+                {"status": "decomposition_session_pool_settled", **settlement},
+                sort_keys=True,
+            ),
+            flush=True,
+        )
+    finally:
+        owner.close()
 
 
 def _apply_approved_plan(
@@ -697,13 +1014,57 @@ def _apply_approved_plan(
                 # A transport failure can be reported after the remote accepted
                 # the exact push. Re-observe only; never repeat the mutation.
                 _git(source, "fetch", "origin", "main")
-                if _git(source, "rev-parse", "origin/main") != applied_commit:
+                observed_remote = _git(source, "rev-parse", "origin/main")
+                if _is_ancestor(source, applied_commit, observed_remote):
+                    # This exact commit is reachable from origin/main, so the
+                    # remote did accept the push and only its report was lost.
+                    # Origin/main may already name a descendant of the commit
+                    # because an unrelated sibling task integrated on top of it
+                    # in the same window; the D1C application is durable either
+                    # way, so this is a publication and not a lost race.
+                    pass
+                elif observed_remote != remote_main and _is_ancestor(
+                    source, remote_main, observed_remote
+                ):
+                    # This exact commit is not reachable from origin/main, and
+                    # origin/main moved forward from the observation taken
+                    # immediately before this push attempt: another, unrelated
+                    # commit (e.g. an ordinary sibling task's integration merge)
+                    # won the race for this exact ref. Our local D1C commit was
+                    # never durable anywhere but this shared checkout, so it is
+                    # safe to discard, and the checkout must be restored to the
+                    # verified remote before it is used again.
+                    _discard_unpublished_local_commit(
+                        source,
+                        expected_head=applied_commit,
+                        restore_to=observed_remote,
+                    )
+                    service.release_decomposition_lease(
+                        task_id=args.task_id,
+                        reason=(
+                            "origin/main advanced with an unrelated commit "
+                            f"(observed={observed_remote}) while pushing this "
+                            f"exact D1C application {applied_commit}; a fresh "
+                            "D1B.2 proposal is required."
+                        ),
+                    )
+                    return 3
+                else:
                     raise
         _git(source, "fetch", "origin", "main")
         expected_remote_head = (
             applied_commit if publish_apply_commit else source_head
         )
-        if _git(source, "rev-parse", "origin/main") != expected_remote_head:
+        verified_remote_head = _git(source, "rev-parse", "origin/main")
+        # Publication is proven by this exact commit being reachable from
+        # origin/main, not by origin/main still standing exactly on it: an
+        # unrelated sibling task may legitimately integrate on top between the
+        # push and this observation. The unpublished path keeps exact equality
+        # because it proved origin/main was already the observed D1C boundary.
+        if verified_remote_head != expected_remote_head and not (
+            publish_apply_commit
+            and _is_ancestor(source, expected_remote_head, verified_remote_head)
+        ):
             raise RuntimeError(
                 "origin/main did not verify at the exact observed D1C boundary"
             )
@@ -770,12 +1131,22 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--worker-id", required=True)
     parser.add_argument("--compose-project", default="nosafecircle-m2a")
     parser.add_argument("--providers", default="codex,claude")
+    parser.add_argument("--provider-allowlist", type=parse_provider_allowlist)
     parser.add_argument("--max-calls", type=int, default=4)
     parser.add_argument("--scheduler-output-root", type=Path)
     parser.add_argument("--run-id")
     parser.add_argument("--admission-source-head")
     parser.add_argument("--task-contract-sha256")
     parser.add_argument("--admission-issue-number", type=int)
+    parser.add_argument(
+        "--enable-decomposition-session-pool",
+        action="store_true",
+        help=(
+            "Scheduler-owned opt-in for durable role-scoped decomposition sessions. "
+            "Claude author/reviewer conversations pool; Codex ones pool only when "
+            "NSC_CODEX_RESUME_SANDBOX_ARGUMENT supplies the verified resume control."
+        ),
+    )
     args = parser.parse_args(argv)
     scheduler_run_dir: Path | None = None
     known_issue_number: int | None = args.admission_issue_number
@@ -816,6 +1187,10 @@ def main(argv: list[str] | None = None) -> int:
         return exit_code
 
     try:
+        provider_order = decomposition_provider_order(args.providers, args.provider_allowlist)
+        _require_bounded_codex_roles(
+            provider_order, max_calls=args.max_calls, pooled=args.enable_decomposition_session_pool,
+        )
         task_id = validate_task_id(args.task_id)
         if args.admission_issue_number is not None and not any(
             value is not None for value in scheduler_fields
@@ -917,7 +1292,13 @@ def main(argv: list[str] | None = None) -> int:
                 prelease.state.task_contract_sha256
             )
         else:
-            validate_decomposition_selection(task_id, task)
+            # The complete deterministic decomposition preflight: committed
+            # selection rules plus the repository-level child-template audit.
+            # It runs before the workflow lease, before the durable checkout,
+            # and before any provider invocation, so an absent, orphaned, stale,
+            # or malformed template stops the run while nothing has been
+            # claimed, created, or mutated.
+            validate_decomposition_selection(source, task_id, task)
         checkout_manager = DurableTaskCheckoutManager(
             source_root=source,
             task_id=task_id,

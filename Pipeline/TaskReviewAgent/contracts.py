@@ -12,7 +12,7 @@ from typing import Any, Iterable, Mapping
 
 
 TASK_REVIEW_SCHEMA_VERSION = "1.0"
-TASK_ID_RE = re.compile(r"^NSC-[0-9]{3}$")
+TASK_ID_RE = re.compile(r"^NSC-(?:[0-9]{3}|[1-9][0-9]{3,8})$")
 GIT_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 RUN_ID_RE = re.compile(r"^[a-z0-9](?:[a-z0-9._-]{0,126}[a-z0-9])?$")

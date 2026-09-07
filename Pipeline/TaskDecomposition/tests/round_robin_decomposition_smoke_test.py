@@ -77,7 +77,8 @@ class QueueProvider:
 
 
 def provider_factory(providers: dict[str, QueueProvider]):
-    def factory(provider_name: str, _source: Path):
+    def factory(provider_name: str, _source: Path, role: str):
+        assert role in {"task_decomposer", "decomposition_reviewer"}, role
         key = f"{provider_name}-decomposition"
         configuration = RuntimeConfiguration(
             {

@@ -7,7 +7,11 @@ from typing import Any
 
 from decomposition_graph_semantics import validate_decomposition_graph_semantics
 from work_graph_transform import WorkGraphPlan
-from work_graph_validate import WorkGraphValidationSummary, validate_work_graph_plan
+from work_graph_validate import (
+    WORK_ID_PATTERN,
+    WorkGraphValidationSummary,
+    validate_work_graph_plan,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 SERIALIZATION_FORMAT = "yaml_1_2_json_subset"
@@ -152,7 +156,12 @@ def load_persistent_work_graph(root: Path = ROOT) -> PersistentWorkGraph:
     for key, work_id in id_map.items():
         if not isinstance(key, str) or not key.strip() or not isinstance(work_id, str) or not work_id.strip():
             raise PersistentWorkGraphError("WORK_ID_MAP.json contains a blank or non-string mapping.")
-        normalized_id_map[key.strip()] = work_id.strip()
+        if WORK_ID_PATTERN.fullmatch(work_id) is None:
+            raise PersistentWorkGraphError(
+                "WORK_ID_MAP.json contains a non-canonical work ID alias: "
+                f"{work_id!r}."
+            )
+        normalized_id_map[key.strip()] = work_id
 
     requirements = requirements_payload.get("requirements")
     if not isinstance(requirements, list):

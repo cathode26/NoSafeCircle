@@ -18,14 +18,24 @@ from .contracts import TaskReviewContractError, semantic_sha256
 from .execution_bridge import ExecutionCrewBridge, ExecutionCrewReceipt
 from .pipeline_scope import RepositoryScopeAuthority
 from Pipeline.Testing.validation_manifest import (
+    ImportedValidationManifest,
+    controller_relative_path,
+    import_validation_manifest,
+    resolve_controller_relative_path,
     ValidationManifestError,
     load_validation_manifest,
 )
 
 
-INTEGRATION_SCHEMA_VERSION = "1.1"
+# 1.2 replaced the absolute `manifest_path` in each pre-handoff validation fact
+# with a controller-root-relative `manifest_relative_path` plus the XML and log
+# identities a later consumer needs to re-prove the same evidence. A 1.1 receipt
+# cannot supply those facts, so it fails closed rather than being reinterpreted.
+INTEGRATION_SCHEMA_VERSION = "1.2"
+SUPPORTED_INTEGRATION_SCHEMA_VERSIONS = frozenset({INTEGRATION_SCHEMA_VERSION})
 _SHA40 = re.compile(r"^[0-9a-f]{40}$")
 _UNITY_VERSION = re.compile(r"^[0-9A-Za-z][0-9A-Za-z._-]*$")
+_UNITY_TEST_RUNNER = "Pipeline/Testing/run_unity_tests_clean.ps1"
 _DOOR_PROTOTYPE_BUILDER = (
     "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs"
 )
@@ -177,6 +187,358 @@ class CandidateIntegrationReceipt:
             ],
             "completed_checks": list(self.completed_checks),
         }
+
+
+def load_integration_receipt(state_path: Path | str) -> CandidateIntegrationReceipt | None:
+    """Load one persisted integration receipt, or return None when there is none.
+
+    Returns ``None`` only for genuine absence or for a receipt this schema cannot
+    interpret. Every other defect -- unreadable JSON, a missing field, or a
+    ``receipt_sha256`` that does not match the semantic hash of its own body --
+    raises, so a tampered receipt is never confused with an absent one.
+
+    The hash is an integrity check on this controller's own state file, not a
+    signature: it proves the body was not edited in place, and it is never a
+    substitute for the containment and recomputed-path checks a consumer applies
+    to the manifest locations the receipt names.
+    """
+
+    path = Path(state_path)
+    if not path.is_file() or path.is_symlink():
+        return None
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise CandidateIntegrationError(
+            f"integration receipt is not readable JSON: {path}"
+        ) from exc
+    if not isinstance(raw, dict):
+        raise CandidateIntegrationError("integration receipt must be a JSON object")
+    version = raw.get("schema_version")
+    if version not in SUPPORTED_INTEGRATION_SCHEMA_VERSIONS:
+        # An older receipt cannot supply the controller-relative manifest location
+        # or the XML/log identities a reuse consumer must re-prove. Fail closed by
+        # treating it as absent so the work is redone rather than reinterpreted.
+        return None
+    identity = dict(raw)
+    receipt_hash = identity.pop("receipt_sha256", None)
+    if not isinstance(receipt_hash, str) or not receipt_hash:
+        raise CandidateIntegrationError("integration receipt omitted receipt_sha256")
+    if receipt_hash != semantic_sha256(identity):
+        raise CandidateIntegrationError(
+            "integration receipt hash does not match its own recorded body"
+        )
+    try:
+        validations = tuple(dict(item) for item in identity["pre_handoff_validations"])
+        return CandidateIntegrationReceipt(
+            task_id=identity["task_id"],
+            lease_id=identity["lease_id"],
+            plan_id=identity["plan_id"],
+            run_id=identity["run_id"],
+            provider=identity["provider"],
+            branch=identity["branch"],
+            base_head=identity["base_head"],
+            commit=identity["commit"],
+            commit_tree=identity["commit_tree"],
+            task_contract_sha256=identity["task_contract_sha256"],
+            candidate_sha256=identity["candidate_sha256"],
+            changed_paths=tuple(identity["changed_paths"]),
+            pre_handoff_validations=validations,
+            completed_checks=tuple(identity["completed_checks"]),
+        )
+    except (KeyError, TypeError, ValueError) as exc:
+        raise CandidateIntegrationError(
+            "integration receipt is missing required identity fields"
+        ) from exc
+
+
+def require_source_validation_repository(
+    checkout: Path | str,
+    imported: ImportedValidationManifest,
+    *,
+    expected_repository: str | None = None,
+) -> None:
+    """Keep source evidence bound to its repository when commits share a tree."""
+    if imported.manifest.unity.test_platform != "SyntheticSource":
+        return
+    from .issue_workflow_store import IssueWorkflowStoreError, resolve_issue_backend_repository
+    try:
+        repository = resolve_issue_backend_repository(Path(checkout).resolve())
+    except (IssueWorkflowStoreError, OSError) as exc:
+        raise CandidateIntegrationError(f"source validation repository is unproven: {exc}") from exc
+    recorded = imported.manifest.repository
+    if (
+        not isinstance(recorded, str)
+        or recorded.casefold() != repository.casefold()
+        or (expected_repository is not None and expected_repository.casefold() != repository.casefold())
+    ):
+        raise CandidateIntegrationError("source validation manifest targets a different repository")
+
+
+def _committed_blob(root: Path, revision: str, relative_path: str) -> bytes:
+    result = _git(
+        root,
+        "cat-file",
+        "blob",
+        f"{revision}:{relative_path}",
+        check=False,
+    )
+    if result.returncode != 0:
+        raise CandidateIntegrationError(
+            f"trusted runner provenance could not read {relative_path} at {revision}"
+        )
+    return result.stdout
+
+
+def _prove_pre_handoff_runner_identity(
+    *,
+    checkout: Path,
+    task_id: str,
+    commit: str,
+    tree: str,
+    trusted_source: Path,
+    receipt: CandidateIntegrationReceipt,
+) -> dict[str, str]:
+    """Prove that a historical handoff inherited its runner from trusted main."""
+
+    if not _SHA40.fullmatch(commit) or not _SHA40.fullmatch(tree):
+        raise CandidateIntegrationError(
+            "trusted runner provenance requires exact lowercase commit and tree identities"
+        )
+    if receipt.task_id != task_id:
+        raise CandidateIntegrationError(
+            "integration receipt task identity cannot prove the historical runner"
+        )
+    if receipt.commit != commit or receipt.commit_tree != tree:
+        raise CandidateIntegrationError(
+            "integration receipt commit/tree cannot prove the historical runner"
+        )
+    if not _SHA40.fullmatch(receipt.base_head):
+        raise CandidateIntegrationError(
+            "integration receipt base cannot prove the historical runner"
+        )
+
+    checkout_head = _git_text(checkout, "rev-parse", "HEAD")
+    checkout_tree = _git_text(checkout, "rev-parse", "HEAD^{tree}")
+    committed_tree = _git_text(checkout, "rev-parse", f"{commit}^{{tree}}")
+    if (
+        checkout_head != commit
+        or checkout_tree != tree
+        or committed_tree != tree
+    ):
+        raise CandidateIntegrationError(
+            "task checkout commit/tree cannot prove the historical runner"
+        )
+
+    ancestry = _git_text(checkout, "rev-list", "--parents", "-n", "1", commit)
+    ancestry_parts = ancestry.split()
+    if ancestry_parts != [commit, receipt.base_head]:
+        raise CandidateIntegrationError(
+            "historical runner provenance requires the candidate commit's single "
+            "parent to equal the integration receipt base"
+        )
+
+    trusted_head = _git_text(trusted_source, "rev-parse", "HEAD")
+    if not _SHA40.fullmatch(trusted_head):
+        raise CandidateIntegrationError(
+            "trusted source HEAD cannot prove the historical runner"
+        )
+    ancestor = _git(
+        trusted_source,
+        "merge-base",
+        "--is-ancestor",
+        receipt.base_head,
+        trusted_head,
+        check=False,
+    )
+    if ancestor.returncode != 0:
+        raise CandidateIntegrationError(
+            "integration receipt base is not an ancestor of the trusted source HEAD; "
+            "historical runner provenance is unproven"
+        )
+
+    runner_path = checkout.joinpath(*_UNITY_TEST_RUNNER.split("/"))
+    if runner_path.is_symlink() or not runner_path.is_file():
+        raise CandidateIntegrationError(
+            "historical Unity runner must be a regular non-symlink file"
+        )
+    base_runner = _committed_blob(
+        trusted_source,
+        receipt.base_head,
+        _UNITY_TEST_RUNNER,
+    )
+    candidate_runner = _committed_blob(checkout, commit, _UNITY_TEST_RUNNER)
+    if base_runner != candidate_runner:
+        raise CandidateIntegrationError(
+            "historical Unity runner differs from its trusted integration base"
+        )
+    committed_runner_oid = _git_text(
+        checkout,
+        "rev-parse",
+        f"{commit}:{_UNITY_TEST_RUNNER}",
+    )
+    worktree_runner_oid = _git_text(
+        checkout,
+        "hash-object",
+        f"--path={_UNITY_TEST_RUNNER}",
+        "--",
+        str(runner_path),
+    )
+    if worktree_runner_oid != committed_runner_oid:
+        raise CandidateIntegrationError(
+            "historical Unity runner worktree differs from the committed runner"
+        )
+    try:
+        worktree_runner = runner_path.read_bytes()
+    except OSError as exc:
+        raise CandidateIntegrationError(
+            "historical Unity runner could not be read"
+        ) from exc
+
+    return {
+        "path": _UNITY_TEST_RUNNER,
+        "sha256": hashlib.sha256(worktree_runner).hexdigest(),
+        "source_commit": commit,
+        "source_tree": tree,
+    }
+
+
+def prove_pre_handoff_runner_identity(
+    *,
+    checkout: Path | str,
+    task_id: str,
+    commit: str,
+    tree: str,
+    trusted_source: Path | str,
+) -> dict[str, str] | None:
+    """Return an independently proven historical runner identity, if recorded.
+
+    Absence, or a receipt for a different candidate, remains an ordinary cache
+    miss. Once an exact receipt is found, every provenance defect raises instead
+    of silently authorizing its runner or falling back to execution.
+    """
+
+    checkout_path = Path(checkout).resolve()
+    normalized_task_id = str(task_id).strip()
+    state_path = (
+        checkout_path.parent
+        / ".task-review-agent"
+        / f"{normalized_task_id}.integration.json"
+    )
+    receipt = load_integration_receipt(state_path)
+    if receipt is None:
+        return None
+    if receipt.commit != commit or receipt.commit_tree != tree:
+        return None
+    return _prove_pre_handoff_runner_identity(
+        checkout=checkout_path,
+        task_id=normalized_task_id,
+        commit=commit,
+        tree=tree,
+        trusted_source=Path(trusted_source).resolve(),
+        receipt=receipt,
+    )
+
+
+def find_pre_handoff_validation(
+    *,
+    checkout: Path | str,
+    task_id: str,
+    commit: str,
+    tree: str,
+    test_platform: str,
+    test_filter: str,
+    trusted_source: Path | str | None = None,
+) -> ImportedValidationManifest | None:
+    """Import the pre-handoff Unity evidence for one exact validation, if it exists.
+
+    Returns ``None`` only when there is genuinely nothing to reuse: no integration
+    receipt, or a receipt that records no validation for this exact commit, tree,
+    platform, and caller-recomputed filter. Every other outcome raises, because a
+    receipt that names evidence which no longer verifies is tampering or
+    corruption, and silently running Unity again would hide it.
+
+    The manifest location is recomputed from the controller-owned state root; the
+    persisted receipt contributes only a relative path and the three artifact
+    digests, all of which the shared importer re-proves.
+
+    Supplying ``trusted_source`` additionally proves that this exact candidate
+    inherited the Unity runner from its single integration-base parent and that
+    the base remains an ancestor of the trusted source. That independent Git
+    proof is the only route here that opts a legacy path-only manifest into reuse.
+    """
+
+    state_root = Path(checkout).resolve().parent / ".task-review-agent"
+    state_path = state_root / f"{str(task_id).strip()}.integration.json"
+    receipt = load_integration_receipt(state_path)
+    if receipt is None:
+        return None
+    if receipt.commit != commit or receipt.commit_tree != tree:
+        # The receipt describes a different candidate; that is absence of
+        # reusable evidence for this state, not corruption.
+        return None
+    for validation in receipt.pre_handoff_validations:
+        try:
+            if (
+                validation["test_platform"] != test_platform
+                or validation["test_filter"] != test_filter
+            ):
+                continue
+            runner_identity = None
+            if trusted_source is not None:
+                runner_identity = _prove_pre_handoff_runner_identity(
+                    checkout=Path(checkout).resolve(),
+                    task_id=str(task_id).strip(),
+                    commit=commit,
+                    tree=tree,
+                    trusted_source=Path(trusted_source).resolve(),
+                    receipt=receipt,
+                )
+            if validation["commit"] != commit or validation["tree"] != tree:
+                raise CandidateIntegrationError(
+                    "pre-handoff validation entry disagrees with its own receipt commit/tree"
+                )
+            manifest_path = resolve_controller_relative_path(
+                validation["manifest_relative_path"], state_root
+            )
+            imported = import_validation_manifest(
+                manifest_path,
+                controller_root=state_root,
+                expected_commit=commit,
+                expected_tree=tree,
+                expected_test_platform=test_platform,
+                expected_test_filter=test_filter,
+                expected_manifest_sha256=validation["manifest_sha256"],
+                expected_xml_sha256=validation["xml_sha256"],
+                expected_log_sha256=validation["log_sha256"],
+                expected_runner_sha256=(
+                    runner_identity["sha256"] if runner_identity is not None else None
+                ),
+                expected_runner_source_commit=(
+                    runner_identity["source_commit"]
+                    if runner_identity is not None
+                    else None
+                ),
+                expected_runner_source_tree=(
+                    runner_identity["source_tree"]
+                    if runner_identity is not None
+                    else None
+                ),
+                allow_legacy_runner_identity_if_independently_proven=(
+                    runner_identity is not None
+                ),
+            )
+            require_source_validation_repository(checkout, imported)
+            return imported
+        except (KeyError, TypeError) as exc:
+            raise CandidateIntegrationError(
+                "pre-handoff Unity validation receipt is malformed"
+            ) from exc
+        except (OSError, ValidationManifestError) as exc:
+            raise CandidateIntegrationError(
+                f"recorded pre-handoff Unity evidence no longer verifies: {exc}"
+            ) from exc
+    return None
 
 
 class CandidateIntegrator:
@@ -526,6 +888,16 @@ class CandidateIntegrator:
             "-logFile",
             str(log_path),
         )
+        ilpp_pid_path = self.checkout / "Library" / "ilpp.pid"
+        try:
+            ilpp_pid_path.unlink(missing_ok=True)
+            if os.path.lexists(ilpp_pid_path):
+                raise OSError("the path still exists after deletion")
+        except OSError as exc:
+            raise CandidateIntegrationError(
+                "DoorPrototype builder refused to launch because the stale Unity ILPP "
+                f"PID marker could not be removed: {ilpp_pid_path}"
+            ) from exc
         try:
             result = self.unity_command_runner(
                 command,
@@ -736,6 +1108,10 @@ class CandidateIntegrator:
             ]
             if self.unity_executable is not None:
                 command.extend(("-UnityExecutable", str(self.unity_executable)))
+            if platform == "SyntheticSource":
+                command = [sys.executable, "-B", str(self.checkout / "Pipeline/Testing/synthetic_source_validation.py"),
+                           "--source", str(self.checkout), "--task-id", self.scope.task_id,
+                           "--test-filter", test_filter]
             try:
                 result = self.unity_command_runner(
                     command,
@@ -790,8 +1166,8 @@ class CandidateIntegrator:
         except TaskReviewContractError as exc:
             raise CandidateIntegrationError(str(exc)) from exc
 
-    @staticmethod
     def _pre_handoff_validation_fact(
+        self,
         manifest_path: Path,
         *,
         commit: str,
@@ -800,32 +1176,34 @@ class CandidateIntegrator:
         test_filter: str,
         policy_sha256: str,
     ) -> dict[str, Any]:
+        # The shared importer owns every containment, traversal, identity, and
+        # artifact-hash check; this records only what a later consumer needs to
+        # find and re-prove the same evidence without trusting an absolute path.
         try:
-            manifest = load_validation_manifest(manifest_path)
-            digest = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+            imported = import_validation_manifest(
+                manifest_path,
+                controller_root=self.state_root,
+                expected_commit=commit,
+                expected_tree=tree,
+                expected_test_platform=platform,
+                expected_test_filter=test_filter,
+            )
+            require_source_validation_repository(self.checkout, imported)
         except (OSError, ValidationManifestError) as exc:
             raise CandidateIntegrationError(
                 f"stored pre-handoff Unity validation is invalid: {exc}"
             ) from exc
-        if (
-            manifest.validated_state.commit != commit
-            or manifest.validated_state.tree != tree
-            or manifest.unity.test_platform != platform
-            or manifest.unity.test_filter != test_filter
-        ):
-            raise CandidateIntegrationError(
-                "pre-handoff Unity validation does not match the exact candidate commit"
-            )
+        manifest = imported.manifest
         return {
             "test_platform": platform,
             "test_filter": test_filter,
             "commit": commit,
             "tree": tree,
-            "manifest_path": str(manifest.path),
-            "manifest_sha256": digest,
+            "manifest_relative_path": imported.relative_path,
             "policy_sha256": policy_sha256,
             "total": manifest.test_run.total,
             "passed": manifest.test_run.passed,
+            **imported.identities(),
         }
 
     def _validate_in_disposable_clone(
@@ -974,8 +1352,9 @@ class CandidateIntegrator:
                 "builder output passed git diff --check."
             )
         for validation in pre_handoff_validations:
+            kind = "source" if validation["test_platform"] == "SyntheticSource" else "Unity"
             checks.append(
-                "Pre-handoff authoritative Unity "
+                f"Pre-handoff authoritative {kind} "
                 f"{validation['test_platform']} validation passed on exact commit {commit}."
             )
         checks.extend(
@@ -1036,8 +1415,12 @@ class CandidateIntegrator:
                     "pre-handoff validation plan"
                 )
             for validation in receipt.pre_handoff_validations:
+                # The location is recomputed from the controller root this
+                # process owns; the persisted receipt never supplies a path.
                 fact = self._pre_handoff_validation_fact(
-                    Path(validation["manifest_path"]),
+                    resolve_controller_relative_path(
+                        validation["manifest_relative_path"], self.state_root
+                    ),
                     commit=receipt.commit,
                     tree=receipt.commit_tree,
                     platform=validation["test_platform"],
@@ -1086,35 +1469,15 @@ class CandidateIntegrator:
         os.replace(temporary, self.state_path)
 
     def _load_current(self) -> None:
-        if not self.state_path.is_file():
-            return
+        # Resume is best-effort: an unusable receipt means the work is redone,
+        # never that a defective one is adopted. `load_integration_receipt`
+        # still distinguishes corruption from absence for consumers that must
+        # refuse rather than silently re-execute.
         try:
-            raw = json.loads(self.state_path.read_text(encoding="utf-8"))
-            identity = dict(raw)
-            receipt_hash = identity.pop("receipt_sha256")
-            receipt = CandidateIntegrationReceipt(
-                task_id=identity["task_id"],
-                lease_id=identity["lease_id"],
-                plan_id=identity["plan_id"],
-                run_id=identity["run_id"],
-                provider=identity["provider"],
-                branch=identity["branch"],
-                base_head=identity["base_head"],
-                commit=identity["commit"],
-                commit_tree=identity["commit_tree"],
-                task_contract_sha256=identity["task_contract_sha256"],
-                candidate_sha256=identity["candidate_sha256"],
-                changed_paths=tuple(identity["changed_paths"]),
-                pre_handoff_validations=tuple(
-                    dict(item) for item in identity["pre_handoff_validations"]
-                ),
-                completed_checks=tuple(identity["completed_checks"]),
-            )
-        except (OSError, UnicodeError, json.JSONDecodeError, KeyError, TypeError):
+            receipt = load_integration_receipt(self.state_path)
+        except CandidateIntegrationError:
             return
-        if raw.get("schema_version") != INTEGRATION_SCHEMA_VERSION:
-            return
-        if receipt_hash != semantic_sha256(identity):
+        if receipt is None:
             return
         execution = self.execution.receipt
         if execution is None:

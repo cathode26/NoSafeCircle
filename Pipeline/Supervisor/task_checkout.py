@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-TASK_ID_RE = re.compile(r"^NSC-\d{3,}$")
+TASK_ID_RE = re.compile(r"^NSC-(?:[0-9]{3}|[1-9][0-9]{3,8})$")
 NON_SLUG_RE = re.compile(r"[^a-z0-9]+")
 DEFAULT_REMOTE = "https://github.com/cathode26/NoSafeCircle.git"
 
@@ -52,10 +52,9 @@ def _repo_root(source: Path) -> Path:
 
 
 def _validate_task_id(raw: str) -> str:
-    task_id = raw.strip().upper()
-    if not TASK_ID_RE.fullmatch(task_id):
+    if type(raw) is not str or not TASK_ID_RE.fullmatch(raw):
         raise OrchestrationError(f"Invalid task ID: {raw!r}")
-    return task_id
+    return raw
 
 
 def _load_json_text(text: str, label: str) -> dict[str, Any]:

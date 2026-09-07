@@ -358,3 +358,68 @@ def materialize_approved_review(
         "proposal_sha256": expected_proposal_sha256,
         "validated_commit": proposal.validated_commit,
     }
+
+
+def materialize_automated_review(
+    *,
+    proposal_path: Path,
+    expected_proposal_sha256: str,
+    output_path: Path,
+    validation_event_id: str,
+    validation_policy_sha256: str,
+) -> dict[str, Any]:
+    """Materialize machine-authorized evidence without claiming human approval."""
+
+    proposal_path = proposal_path.resolve(strict=True)
+    if file_sha256(proposal_path) != expected_proposal_sha256:
+        raise DeliveryReviewError("delivery proposal changed after automated acceptance")
+    proposal = DeliveryReviewProposal.from_dict(
+        _json_file(proposal_path, "delivery proposal")
+    )
+    draft_path = Path(proposal.draft_path).resolve(strict=True)
+    if file_sha256(draft_path) != proposal.draft_sha256:
+        raise DeliveryReviewError("delivery draft changed after proposal creation")
+    draft = _json_file(draft_path, "delivery review draft")
+    _validate_against_draft(proposal, draft)
+    if not SHA256_RE.fullmatch(validation_event_id):
+        raise DeliveryReviewError("automated validation event identity is invalid")
+    if not SHA256_RE.fullmatch(validation_policy_sha256):
+        raise DeliveryReviewError("automated validation policy identity is invalid")
+
+    selected = {path: role for path, role in proposal.selected_surfaces}
+    for item in draft["surface_candidates"]:
+        item["selected"] = item["path"] in selected
+        item["role"] = selected.get(item["path"], "")
+    mappings = {
+        gate_id: (list(evidence), notes)
+        for gate_id, evidence, notes in proposal.gate_mappings
+    }
+    for item in draft["gates"]:
+        evidence, notes = mappings[item["gate_id"]]
+        item["evidence"] = evidence
+        item["notes"] = notes
+
+    notes = (
+        f"Automated validation event {validation_event_id}; committed validation "
+        f"policy {validation_policy_sha256}."
+    )
+    draft["review_status"] = "approved"
+    draft["human_approval"] = {
+        "required": False,
+        "decision": "not_required",
+        "approved_by": "",
+        "notes": notes,
+    }
+    output_path = _new_output(output_path, "automated delivery review")
+    _publish(output_path, draft)
+    return {
+        "schema_version": "1.0",
+        "task_id": proposal.task_id,
+        "approved_review_path": str(output_path),
+        "approved_review_sha256": file_sha256(output_path),
+        "proposal_path": str(proposal_path),
+        "proposal_sha256": expected_proposal_sha256,
+        "validated_commit": proposal.validated_commit,
+        "validation_event_id": validation_event_id,
+        "validation_policy_sha256": validation_policy_sha256,
+    }

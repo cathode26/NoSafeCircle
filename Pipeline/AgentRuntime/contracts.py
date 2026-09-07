@@ -31,6 +31,7 @@ FAILURE_CLASSIFICATIONS = frozenset(
         "permission_denied",
         "schema_error",
         "budget_exhausted",
+        "quota_exhausted",
         "invalid_request",
         "internal_error",
     }

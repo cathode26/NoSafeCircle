@@ -37,12 +37,19 @@ from .downstream_pipeline import (
     _git_text,
 )
 from .issue_workflow import (
+    WorkflowActor,
     WorkflowEventType,
     WorkflowPhase,
     WorkflowState,
     parse_human_validation_result,
 )
 from .progress import summarize_result
+from .validation_authority_language import (
+    AUTOMATED,
+    authority_kind_from_observation,
+    delivery_review_proposal_phrase,
+    merge_closeout_expected_validation,
+)
 
 
 _INSTALLED = False
@@ -52,12 +59,49 @@ _ALLOWED_ACTION_CONTEXT: ContextVar[tuple[str, ...] | None] = ContextVar(
     "nsc_downstream_allowed_actions",
     default=None,
 )
+# The exact (action, arguments) pair the host derived for a sole forced action.
+# Carried separately from the narrowed action menu so the existing zero-argument
+# short-circuit keeps its own independent contract, and keyed by action name so
+# a derivation can never be applied to a different action.
+_FORCED_ARGUMENTS_CONTEXT: ContextVar[tuple[str, Mapping[str, Any]] | None] = (
+    ContextVar(
+        "nsc_downstream_forced_arguments",
+        default=None,
+    )
+)
+# Surface selection and gate mapping remain provider judgment. The automated
+# materializer ignores proposal approval prose and records the exact event and
+# policy IDs instead, so only that authority may receive this non-human default.
+_AUTOMATED_PROPOSAL_APPROVAL_NOTES = (
+    "Automated validation may package this proposal for the exact validated "
+    "commit; no human approval is claimed."
+)
+_PROPOSAL_APPROVAL_DEFAULT_CONTEXT: ContextVar[str | None] = ContextVar(
+    "nsc_downstream_proposal_approval_default",
+    default=None,
+)
 
 _NEXT_ACTION_ALIASES = {
     "run_authoritative_unity_tests": "run_authoritative_unity_test",
     "finalize_delivery_evidence": "finalize_delivery_evidence_and_open_pr",
     "open_pull_request": "finalize_delivery_evidence_and_open_pr",
 }
+
+# Actions whose complete arguments the host can derive and validate from durable
+# state. A provider adds nothing here: it would only echo values the host already
+# owns, which a measured NSC-914 delivery run showed costing 17,808 input tokens
+# for acquire_agent_lease and 18,746 for run_authoritative_unity_test.
+#
+# Derivation is all-or-nothing. A derivation that cannot produce every required
+# argument from durable state raises rather than returning None, because falling
+# through to the provider is exactly how an inferred Unity filter or an invented
+# lease rationale would re-enter the pipeline.
+_HOST_DETERMINISTIC_ARGUMENT_ACTIONS = frozenset(
+    {
+        "acquire_agent_lease",
+        "run_authoritative_unity_test",
+    }
+)
 
 _HOST_DETERMINISTIC_ZERO_ARGUMENT_ACTIONS = frozenset(
     {
@@ -172,6 +216,246 @@ def _authoritative_human_validation(self: Any) -> dict[str, Any] | None:
             "authoritative human validation comment is missing, duplicated, or changed"
         )
     return matches[0]
+
+
+_AUTOMATED_VALIDATION_FIELDS = frozenset(
+    {
+        "schema_version",
+        "authority",
+        "repository",
+        "repository_private",
+        "gauntlet_id",
+        "task_id",
+        "handoff_event_id",
+        "branch",
+        "commit",
+        "tree",
+        "task_contract_sha256",
+        "validation_policy_authority",
+        "validation_policy_sha256",
+        "required_validations",
+        "unity_validations",
+    }
+)
+
+
+def _authoritative_automated_validation(self: Any) -> dict[str, Any] | None:
+    """Resolve exact synthetic validation authority without inventing human approval."""
+
+    automated_type = getattr(
+        WorkflowEventType,
+        "AUTOMATED_VALIDATION_PASSED",
+        None,
+    )
+    if automated_type is None:
+        return None
+    service = self.workflow.issue_workflow
+    if service is None:
+        return None
+    snapshot = service.find(self.task_id)
+    if snapshot is None or not snapshot.valid or snapshot.state is None:
+        return None
+    state = snapshot.state
+    if state.human_result is not None:
+        return None
+
+    matches = [
+        event
+        for event in reversed(snapshot.events)
+        if event.event_type is automated_type
+    ]
+    if not matches:
+        return None
+    event = matches[0]
+    if event.actor_type is not WorkflowActor.AGENT:
+        raise DownstreamPipelineError(
+            "automated validation authority was not recorded by an agent"
+        )
+    details = event.details
+    source_validation = details.get("schema_version") == "2.0"
+    expected_fields = ((_AUTOMATED_VALIDATION_FIELDS - {"unity_validations"}) | {"source_validations"}
+                       if source_validation else _AUTOMATED_VALIDATION_FIELDS)
+    if set(details) != expected_fields:
+        raise DownstreamPipelineError(
+            "automated validation event details differ from the strict evidence schema"
+        )
+    if (
+        details.get("schema_version") not in {"1.0", "2.0"}
+        or details.get("authority")
+        != "committed_private_synthetic_gauntlet_validation_evidence"
+        or details.get("repository_private") is not True
+        or details.get("gauntlet_id") != "synthetic-architect-gauntlet-v1"
+        or details.get("task_id") != self.task_id
+        or details.get("branch") != state.branch
+        or details.get("task_contract_sha256") != state.task_contract_sha256
+    ):
+        raise DownstreamPipelineError(
+            "automated validation event does not match the current Issue state"
+        )
+
+    head = _git_text(self.command_runner, self.checkout, "rev-parse", "HEAD")
+    tree = _git_text(
+        self.command_runner,
+        self.checkout,
+        "rev-parse",
+        f"{head}^{{tree}}",
+    )
+    branch = _git_text(
+        self.command_runner,
+        self.checkout,
+        "branch",
+        "--show-current",
+    )
+    evidence_head_context: Mapping[str, Any] | None = None
+    if details.get("commit") != state.head_commit:
+        from .mainline_reintegration import (
+            _verified_evidence_head_for_integration,
+        )
+
+        evidence_head_context = _verified_evidence_head_for_integration(
+            self,
+            workflow_state=state.to_dict(),
+            task_head=head,
+            recovery=None,
+        )
+        if (
+            evidence_head_context is None
+            or evidence_head_context.get("implementation_commit")
+            != details.get("commit")
+            or evidence_head_context.get("evidence_commit") != state.head_commit
+            or branch != state.branch
+        ):
+            raise DownstreamPipelineError(
+                "automated validation event does not match the current Issue state"
+            )
+
+        event_index = snapshot.events.index(event)
+        acceptance_index = next(
+            (
+                index
+                for index, candidate in enumerate(snapshot.events)
+                if index > event_index
+                and candidate.event_type is WorkflowEventType.AGENT_LEASE_RELEASED
+                and candidate.to_phase is WorkflowPhase.MERGE_CLOSEOUT
+                and candidate.details.get("automated_validation_event_id")
+                == event.event_id
+                and candidate.details.get("tested_commit") == details.get("commit")
+                and candidate.details.get("branch") == state.branch
+                and candidate.details.get("validation_policy_sha256")
+                == details.get("validation_policy_sha256")
+            ),
+            None,
+        )
+        evidence_release = next(
+            (
+                candidate
+                for index, candidate in enumerate(snapshot.events)
+                if acceptance_index is not None
+                and index > acceptance_index
+                and candidate.event_type is WorkflowEventType.AGENT_LEASE_RELEASED
+                and candidate.to_phase is WorkflowPhase.MERGE_CLOSEOUT
+                and candidate.details.get("head_commit") == state.head_commit
+                and candidate.details.get("pull_request_url")
+                == self.state.get("pull_request_url")
+            ),
+            None,
+        )
+        if acceptance_index is None or evidence_release is None:
+            raise DownstreamPipelineError(
+                "automated validation event is not linked to the current evidence head"
+            )
+
+    repository = getattr(service.backend, "repository", None)
+    if repository is not None and str(repository).casefold() != str(
+        details.get("repository")
+    ).casefold():
+        raise DownstreamPipelineError(
+            "automated validation event targets a different repository"
+        )
+
+    task = service.task_loader(self.task_id)
+    if not isinstance(task, Mapping):
+        raise DownstreamPipelineError("current task contract is unavailable")
+    task = dict(task)
+    task.setdefault("id", self.task_id)
+    if task.get("task_contract_sha256") != state.task_contract_sha256:
+        raise DownstreamPipelineError(
+            "automated validation event targets a stale task contract"
+        )
+    from .downstream_resilience import validation_plan_for
+
+    plan = validation_plan_for(self.checkout, task)
+    if plan is None:
+        raise DownstreamPipelineError(
+            "automated validation has no committed validation policy"
+        )
+    if (
+        plan.get("policy_sha256") != details.get("validation_policy_sha256")
+        or plan.get("authority") != details.get("validation_policy_authority")
+    ):
+        raise DownstreamPipelineError(
+            "automated validation event targets a stale validation policy"
+        )
+    expected_required = sorted(
+        (
+            {
+                "test_platform": platform,
+                "test_filter": test_filter,
+            }
+            for platform, test_filter in plan["test_filters"].items()
+        ),
+        key=lambda item: (item["test_platform"], item["test_filter"]),
+    )
+    if details.get("required_validations") != expected_required:
+        raise DownstreamPipelineError(
+            "automated validation event does not match the committed test plan"
+        )
+
+    validated_tree = _git_text(
+        self.command_runner,
+        self.checkout,
+        "rev-parse",
+        f"{details.get('commit')}^{{tree}}",
+        check=False,
+    )
+    if validated_tree != details.get("tree") or branch != details.get("branch"):
+        raise DownstreamPipelineError(
+            "automated validation event does not match the current checkout"
+        )
+    if evidence_head_context is None and (
+        head != details.get("commit") or tree != details.get("tree")
+    ):
+        raise DownstreamPipelineError(
+            "automated validation event does not match the current checkout"
+        )
+    authority = {
+        "kind": "automated",
+        "result": "pass",
+        "tested_commit": details["commit"],
+        "tree": details["tree"],
+        "event_id": event.event_id,
+        "actor_id": event.actor_id,
+        "policy_authority": plan["authority"],
+        "policy_sha256": plan["policy_sha256"],
+        "handoff_event_id": details["handoff_event_id"],
+        "details": dict(details),
+        "authority": "validated_automated_workflow_event_and_committed_policy",
+    }
+    if (
+        evidence_head_context is not None
+        and self.state.get("validation_authority") != authority
+    ):
+        raise DownstreamPipelineError(
+            "persisted automated validation authority does not match the evidence head"
+        )
+    return authority
+
+
+def _authoritative_validation(self: Any) -> dict[str, Any] | None:
+    human = _authoritative_human_validation(self)
+    if human is not None:
+        return {"kind": "human", **human}
+    return _authoritative_automated_validation(self)
 
 
 def _schema_types(value: Any) -> set[str]:
@@ -304,12 +588,15 @@ def allowed_actions_for(
     mainline = downstream.get("mainline_reintegration")
     mainline = mainline if isinstance(mainline, Mapping) else {}
 
-    if checkout.get("origin_main_refresh_required") is True or mainline.get(
-        "status"
-    ) == "main_commit_unavailable":
-        next_action = "prepare_task_checkout"
-    elif mainline.get("status") == "required":
+    mainline_status = mainline.get("status")
+    if mainline_status == "required":
         next_action = "integrate_current_main"
+    elif mainline_status == "main_commit_unavailable" or (
+        checkout.get("origin_main_refresh_required") is True
+        and mainline_status
+        not in {"integrated", "no_task_delta", "task_already_in_main"}
+    ):
+        next_action = "prepare_task_checkout"
     else:
         next_action = _normalize_next_action(downstream.get("next_action"))
 
@@ -355,6 +642,162 @@ def allowed_actions_for(
     return tuple(actions)
 
 
+def _validated_platforms(downstream: Mapping[str, Any]) -> frozenset[str]:
+    """Return the platforms whose authoritative manifests are already durable."""
+
+    receipt = downstream.get("receipt")
+    receipt = receipt if isinstance(receipt, Mapping) else {}
+    manifests = receipt.get("validation_manifests")
+    if not isinstance(manifests, list):
+        return frozenset()
+    return frozenset(
+        item.get("test_platform")
+        for item in manifests
+        if isinstance(item, Mapping) and isinstance(item.get("test_platform"), str)
+    )
+
+
+def _forced_unity_test_arguments(
+    observation: Mapping[str, Any],
+    downstream: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Derive the exact platform/filter pair from the committed validation plan.
+
+    `_patched_observe` already publishes `authoritative_test_plan` from
+    `validation_plan_for`, and `_patched_render_supervisor_prompt` already pasted
+    the same pair into the prompt as a host-authorized plan. The values are
+    therefore durable, not judgmental, and are taken straight from that plan.
+
+    The plan's platform order is committed, so when several platforms remain the
+    first outstanding one is a deterministic choice and the loop covers the rest
+    on later turns. Only a missing plan, no outstanding platform, or a
+    missing/blank filter is genuinely underdetermined, and each of those raises.
+    """
+
+    plan = downstream.get("authoritative_test_plan")
+    task = observation.get("task")
+    task_id = task.get("task_id") if isinstance(task, Mapping) else None
+    label = task_id if isinstance(task_id, str) and task_id else "this task"
+    if not isinstance(plan, Mapping):
+        raise DownstreamPipelineError(
+            "authoritative validation policy omitted an exact test plan for "
+            f"{label}; refusing repository discovery or an inferred Unity filter"
+        )
+    platforms = plan.get("required_test_platforms")
+    filters = plan.get("test_filters")
+    if (
+        not isinstance(platforms, list)
+        or not platforms
+        or any(not isinstance(item, str) or not item for item in platforms)
+        or not isinstance(filters, Mapping)
+    ):
+        raise DownstreamPipelineError(
+            "authoritative test plan for "
+            f"{label} is malformed; refusing an inferred Unity platform or filter"
+        )
+    validated = _validated_platforms(downstream)
+    outstanding = [item for item in platforms if item not in validated]
+    if not outstanding:
+        raise DownstreamPipelineError(
+            "every required authoritative platform for "
+            f"{label} already has durable evidence; refusing a redundant Unity run"
+        )
+    platform = outstanding[0]
+    test_filter = filters.get(platform)
+    if not isinstance(test_filter, str) or not test_filter.strip():
+        raise DownstreamPipelineError(
+            "authoritative test plan for "
+            f"{label} has no exact filter for {platform}; refusing an inferred filter"
+        )
+    return {"test_platform": platform, "test_filter": test_filter}
+
+
+def _forced_lease_arguments(
+    observation: Mapping[str, Any],
+    downstream: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Derive fixed, auditable lease prose from durable state.
+
+    `planned_approach` and `expected_validation` are recorded rationale, not
+    decisions: the host has already established that the managed Issue is
+    agent_ready and that this lease is the only available action. Paying a
+    provider to phrase that is cost without authority, so the text is generated
+    deterministically and names exactly the durable facts it was derived from.
+
+    The prose is also recorded in the managed Issue, so it follows the durable
+    validation authority: a synthetic-gauntlet run authorized by an automated
+    validation event must not be described as an already-approved human review.
+    """
+
+    state = _workflow_state(observation)
+    authority_kind = authority_kind_from_observation(observation)
+    task = observation.get("task")
+    task_id = task.get("task_id") if isinstance(task, Mapping) else None
+    label = task_id if isinstance(task_id, str) and task_id else "the managed task"
+    phase = state.get("phase")
+    phase_label = phase if isinstance(phase, str) and phase else "the recorded phase"
+    planned_approach = (
+        f"Deterministic downstream continuation for {label} in phase "
+        f"{phase_label}. The managed Issue is agent_ready and the downstream "
+        "pipeline names acquire_agent_lease as the only available action, so the "
+        "host acquired the lease without provider judgment."
+    )
+    if phase == WorkflowPhase.DELIVERY_EVIDENCE.value:
+        plan = downstream.get("authoritative_test_plan")
+        pairs: list[str] = []
+        if isinstance(plan, Mapping):
+            platforms = plan.get("required_test_platforms")
+            filters = plan.get("test_filters")
+            if isinstance(platforms, list) and isinstance(filters, Mapping):
+                pairs = [
+                    f"{item} filter {filters.get(item)}"
+                    for item in platforms
+                    if isinstance(item, str)
+                    and isinstance(filters.get(item), str)
+                    and filters.get(item)
+                ]
+        proposal_phrase = delivery_review_proposal_phrase(authority_kind)
+        expected_validation = (
+            "Authoritative Unity validation against the committed validation "
+            "policy (" + "; ".join(pairs) + "), " + proposal_phrase
+            if pairs
+            else (
+                "Authoritative Unity validation against the committed validation "
+                "policy, " + proposal_phrase
+            )
+        )
+    else:
+        expected_validation = merge_closeout_expected_validation(authority_kind)
+    return {
+        "planned_approach": planned_approach,
+        "expected_validation": expected_validation,
+    }
+
+
+def forced_action_arguments(
+    action: str,
+    observation: Mapping[str, Any],
+) -> dict[str, Any] | None:
+    """Return the complete host-derived arguments for one sole forced action.
+
+    Returns ``None`` only when the action is not host-derivable at all. An action
+    that should be derivable but whose durable state is missing, ambiguous, or
+    invalid raises instead, so no such state can quietly fall back to the
+    provider and receive invented values.
+    """
+
+    if action in _HOST_DETERMINISTIC_ZERO_ARGUMENT_ACTIONS:
+        return {}
+    if action not in _HOST_DETERMINISTIC_ARGUMENT_ACTIONS:
+        return None
+    downstream = _downstream_state(observation)
+    if action == "run_authoritative_unity_test":
+        return _forced_unity_test_arguments(observation, downstream)
+    if action == "acquire_agent_lease":
+        return _forced_lease_arguments(observation, downstream)
+    return None
+
+
 def _patched_render_supervisor_prompt(
     *,
     task_id: str,
@@ -384,6 +827,22 @@ def _patched_render_supervisor_prompt(
                     " Host-authorized exact plan: " + "; ".join(pairs) + "."
                 )
     _ALLOWED_ACTION_CONTEXT.set(selected)
+    # Derive the sole forced action's arguments from the same observation the
+    # prompt was built from, so the decision cannot use a later, different one.
+    forced = (
+        forced_action_arguments(selected[0], observation)
+        if len(selected) == 1
+        else None
+    )
+    _FORCED_ARGUMENTS_CONTEXT.set(
+        None if forced is None else (selected[0], forced)
+    )
+    _PROPOSAL_APPROVAL_DEFAULT_CONTEXT.set(
+        _AUTOMATED_PROPOSAL_APPROVAL_NOTES
+        if selected == ("create_delivery_review_proposal",)
+        and authority_kind_from_observation(observation) == AUTOMATED
+        else None
+    )
     return _ORIGINALS["render_supervisor_prompt"](
         task_id=task_id,
         goal_and_rules=goal_and_rules,
@@ -409,35 +868,63 @@ def _patched_provider_decide(
     )
     if not actual:
         actual = tuple(allowed_actions)
+    forced = _FORCED_ARGUMENTS_CONTEXT.get()
+    proposal_approval_default = _PROPOSAL_APPROVAL_DEFAULT_CONTEXT.get()
     try:
-        if (
-            len(actual) == 1
-            and actual[0] in _HOST_DETERMINISTIC_ZERO_ARGUMENT_ACTIONS
-        ):
+        arguments: dict[str, Any] | None = None
+        if len(actual) == 1:
+            if forced is not None and forced[0] == actual[0]:
+                arguments = dict(forced[1])
+            elif actual[0] in _HOST_DETERMINISTIC_ZERO_ARGUMENT_ACTIONS:
+                arguments = {}
+        if arguments is not None:
             self.last_usage = {
                 "input_tokens": 0,
                 "output_tokens": 0,
                 "total_tokens": 0,
                 "authority": "deterministic_host_single_action",
             }
+            # No provider and no pooled session took part in this turn, so the
+            # previous pooled turn's session facts must not be journaled as
+            # this turn's, and the observation bound for this turn is spent.
+            self.last_session = None
+            self._turn_observation = {}
             return SupervisorDecision(
                 task_id=task_id,
                 action=actual[0],
-                arguments={},
+                arguments=arguments,
                 rationale=(
-                    "Deterministic host state permits exactly this zero-argument "
-                    "action; no provider judgment is required."
+                    "Deterministic host state permits exactly this action and "
+                    "the host derived every required argument from durable "
+                    "state; no provider judgment is required."
                 ),
             )
-        return _ORIGINALS["provider_decide"](
+        decision = _ORIGINALS["provider_decide"](
             self,
             task_id=task_id,
             turn=turn,
             prompt=prompt,
             allowed_actions=actual,
         )
+        if (
+            decision.action == "create_delivery_review_proposal"
+            and proposal_approval_default is not None
+            and decision.arguments.get("approval_notes") is None
+        ):
+            return SupervisorDecision(
+                task_id=decision.task_id,
+                action=decision.action,
+                arguments={
+                    **decision.arguments,
+                    "approval_notes": proposal_approval_default,
+                },
+                rationale=decision.rationale,
+            )
+        return decision
     finally:
         _ALLOWED_ACTION_CONTEXT.set(None)
+        _FORCED_ARGUMENTS_CONTEXT.set(None)
+        _PROPOSAL_APPROVAL_DEFAULT_CONTEXT.set(None)
 
 
 def _patched_next_action(
@@ -452,17 +939,22 @@ def _patched_next_action(
     checkout = checkout if isinstance(checkout, Mapping) else {}
     status = getattr(self, "_mainline_reintegration_status", None)
     status = status if isinstance(status, Mapping) else {}
+    mainline_status = status.get("status")
+    if mainline_status == "required":
+        return "integrate_current_main"
     if (
         state.get("state") == WorkflowState.AGENT_WORKING.value
         and state.get("worker_id") == self.workflow.worker_id
         and (
-            checkout.get("origin_main_refresh_required") is True
-            or status.get("status") == "main_commit_unavailable"
+            mainline_status == "main_commit_unavailable"
+            or (
+                checkout.get("origin_main_refresh_required") is True
+                and mainline_status
+                not in {"integrated", "no_task_delta", "task_already_in_main"}
+            )
         )
     ):
         return "prepare_task_checkout"
-    if status.get("status") == "required":
-        return "integrate_current_main"
 
     if (
         state.get("state") == WorkflowState.AGENT_WORKING.value
@@ -754,7 +1246,47 @@ def _patched_assert_human_tested_head(
     state: Mapping[str, Any],
 ) -> None:
     _assert_current_main_integrated(self, state)
-    return _ORIGINALS["assert_human_tested_head"](self, state)
+    original_error: DownstreamPipelineError | None = None
+    try:
+        return _ORIGINALS["assert_human_tested_head"](self, state)
+    except DownstreamPipelineError as original:
+        message = str(original)
+        if not (
+            "human PASS" in message
+            or "original human PASS" in message
+        ):
+            raise
+        original_error = original
+    authority = _authoritative_automated_validation(self)
+    if authority is None or authority.get("tested_commit") != state.get("head_commit"):
+        assert original_error is not None
+        raise original_error
+    existing = self.state.get("validation_authority")
+    if existing is not None and existing != authority:
+        raise DownstreamPipelineError(
+            "automated validation authority changed after downstream work began"
+        )
+    if existing is None:
+        self.state["validation_authority"] = authority
+    current_main = _git_text(
+        self.command_runner,
+        self.checkout,
+        "rev-parse",
+        "origin/main",
+    )
+    if current_main == state.get("head_commit"):
+        raise DownstreamPipelineError(
+            "automated-validated task branch contains no commits beyond current main"
+        )
+    existing_base = self.state.get("delivery_base_commit")
+    if existing_base is not None and existing_base != current_main:
+        raise DownstreamPipelineError(
+            "origin/main changed after authoritative downstream work began. "
+            "Integrate current main and repeat automated validation."
+        )
+    if existing_base is None:
+        self.state["delivery_base_commit"] = current_main
+    self._persist()
 
 
 def _same_state_rejection_identity(controller: Any) -> tuple[str, dict[str, Any]]:
@@ -809,6 +1341,7 @@ def _record_same_state_rejection(
             "same_state_rejection_count": count,
             **payload,
         },
+        terminal_block=True,
     )
     if released:
         controller._terminal_reasons = [
@@ -821,7 +1354,7 @@ def _record_same_state_rejection(
         if progress is not None:
             progress.emit(
                 "same_state_action_rejection_streak",
-                "Several different actions were rejected without workflow progress; the lease was released",
+                "Several different actions were rejected without workflow progress; the task was durably blocked",
                 action=action,
                 error=detail,
                 same_state_rejection_count=count,
@@ -894,6 +1427,7 @@ def install_downstream_determinism() -> None:
             "next_action": controller._next_action,
             "search_repository": controller.search_repository,
             "latest_human_validation": downstream_pipeline.DownstreamTaskController._latest_human_validation,
+            "latest_validation_authority": downstream_pipeline.DownstreamTaskController._latest_validation_authority,
             "automation_receipt_for": mainline_reintegration._automation_receipt_for,
             "assert_human_tested_head": controller._assert_human_tested_head,
             "record_action_rejection": GuardedTaskController.record_action_rejection,
@@ -908,7 +1442,11 @@ def install_downstream_determinism() -> None:
     downstream_pipeline.DownstreamTaskController._latest_human_validation = (
         _authoritative_human_validation
     )
+    downstream_pipeline.DownstreamTaskController._latest_validation_authority = (
+        _authoritative_validation
+    )
     controller._latest_human_validation = _authoritative_human_validation
+    controller._latest_validation_authority = _authoritative_validation
     controller._next_action = _patched_next_action
     controller.search_repository = _patched_search_repository
     controller._assert_human_tested_head = _patched_assert_human_tested_head

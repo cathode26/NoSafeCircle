@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
+import hashlib
 import json
 import subprocess
 import sys
@@ -53,6 +54,11 @@ from .claim_refs import (
     task_claim_ref,
 )
 from .committed_tasks import CommittedTaskError, load_committed_task
+from .source_commit_snapshot import (
+    SourceCommitAdmissionSnapshot,
+    SourceCommitSnapshotError,
+    source_commit_admission_snapshot,
+)
 from .contracts import TASK_ID_RE, TaskReviewContractError, validate_task_id
 from .dispatch_policy import (
     DispatchPolicy,
@@ -440,6 +446,7 @@ def plan_dispatch(
         state = selected.get("workflow_state") or {}
         resume = {
             "task_id": state.get("task_id"),
+            "task_contract_sha256": state.get("task_contract_sha256"),
             "issue_number": selected.get("issue_number"),
             "issue_url": selected.get("issue_url"),
             "phase": state.get("phase"),
@@ -578,7 +585,7 @@ def _bounded_subprocess_detail(raw: bytes, limit: int = 1000) -> str:
     return detail[:limit] + "... [truncated]"
 
 
-def _taskcontrol_states_snapshot(
+def taskcontrol_states_snapshot(
     root: Path,
     *,
     expected_task_ids: Iterable[str],
@@ -698,6 +705,30 @@ def _taskcontrol_states_snapshot(
     return snapshot
 
 
+# Compatibility alias for existing internal callers and tests. New production
+# composition should import the public name above so this one authoritative
+# bulk-state parser is shared instead of copied.
+_taskcontrol_states_snapshot = taskcontrol_states_snapshot
+
+
+def taskcontrol_states_memo_key(
+    *,
+    expected_task_ids: Iterable[str],
+    recognized_states: Iterable[str],
+) -> str:
+    """Name one exact bulk-state fact stored on a commit snapshot."""
+
+    return "taskcontrol_states:" + hashlib.sha256(
+        json.dumps(
+            {
+                "expected_task_ids": list(expected_task_ids),
+                "recognized_states": sorted(recognized_states),
+            },
+            sort_keys=True,
+        ).encode("utf-8")
+    ).hexdigest()
+
+
 class _LazyTaskcontrolStateProvider:
     """Load one complete bulk snapshot only when fresh planning asks for state."""
 
@@ -708,12 +739,18 @@ class _LazyTaskcontrolStateProvider:
         expected_task_ids: Iterable[str],
         source_commit: str,
         recognized_states: Iterable[str],
+        commit_snapshot: SourceCommitAdmissionSnapshot | None = None,
     ) -> None:
         self._root = root
         self._expected_task_ids = tuple(expected_task_ids)
         self._source_commit = source_commit
         self._recognized_states = frozenset(recognized_states)
         self._snapshot: dict[str, dict[str, Any]] | None = None
+        # Every row of the bulk observation is rejected unless it reports this
+        # exact HEAD, so the validated result is a fact of the commit. When a
+        # commit snapshot is supplied that one answer is shared by every plan
+        # built at the commit instead of re-running taskcontrol per plan.
+        self._commit_snapshot = commit_snapshot
 
     def ensure_snapshot(self) -> dict[str, dict[str, Any]]:
         """Idempotently load and fully validate the one bulk snapshot.
@@ -729,13 +766,28 @@ class _LazyTaskcontrolStateProvider:
         """
 
         if self._snapshot is None:
-            self._snapshot = _taskcontrol_states_snapshot(
+            self._snapshot = self._observe()
+        return self._snapshot
+
+    def _observe(self) -> dict[str, dict[str, Any]]:
+        def produce() -> dict[str, dict[str, Any]]:
+            return _taskcontrol_states_snapshot(
                 self._root,
                 expected_task_ids=self._expected_task_ids,
                 source_commit=self._source_commit,
                 recognized_states=self._recognized_states,
             )
-        return self._snapshot
+
+        if self._commit_snapshot is None:
+            return produce()
+        # Key the memo by the exact coverage and recognized-state authority
+        # this provider validates against, so a caller expecting different
+        # task IDs or a different policy never reuses another caller's answer.
+        key = taskcontrol_states_memo_key(
+            expected_task_ids=self._expected_task_ids,
+            recognized_states=self._recognized_states,
+        )
+        return self._commit_snapshot.memoized(key, produce)
 
     def __call__(self, task_id: str) -> Mapping[str, Any]:
         entry = self.ensure_snapshot().get(task_id)
@@ -748,7 +800,7 @@ class _LazyTaskcontrolStateProvider:
         return entry
 
 
-class _PlanScopedIssueBackend:
+class PlanScopedIssueBackend:
     """Read-through Issue-snapshot cache scoped to one dispatch-plan call.
 
     Without this, ``IssueWorkflowService.find`` and ``.resource_conflicts``
@@ -766,6 +818,8 @@ class _PlanScopedIssueBackend:
 
     def __init__(self, backend: IssueBackend) -> None:
         self._backend = backend
+        # Cached Issue history retains its underlying repository authority.
+        self.repository = getattr(backend, "repository", None)
         self._issues: list[dict[str, Any]] | None = None
         self._comments: dict[int, list[dict[str, Any]]] = {}
         self._events: dict[int, list[dict[str, Any]]] = {}
@@ -824,6 +878,11 @@ class _PlanScopedIssueBackend:
         raise IssueWorkflowStoreError(
             "Stage 2 dispatch planning is read-only and must never mutate GitHub labels"
         )
+
+
+# Compatibility alias for callers written before this read-only cache became a
+# reusable production observation boundary.
+_PlanScopedIssueBackend = PlanScopedIssueBackend
 
 
 def _read_only_claim_observation(
@@ -943,13 +1002,23 @@ def build_dispatch_plan(
     try:
         root = repo_root(Path(source).resolve())
         source_commit = _git_head(root)
-        task_ids = list_committed_task_ids(root)
+        # One bulk read of the immutable committed contracts for this exact
+        # commit. Enumeration and every later contract lookup are answered
+        # from it, so Stage 2 no longer pays one `git show` per task per
+        # plan, and repeated plans at one HEAD share the same proven bytes.
+        commit_snapshot = source_commit_admission_snapshot(root, source_commit)
+        task_ids = list(commit_snapshot.task_ids)
+        snapshot_task_loader = commit_snapshot.task_loader()
         issue_workflow = IssueWorkflowService(
             backend=_PlanScopedIssueBackend(GhIssueBackend(source_root=root)),
-            task_loader=lambda task_id: load_committed_task(root, task_id),
+            task_loader=snapshot_task_loader,
             worker_id=worker_id,
         )
-    except (IssueWorkflowStoreError, TaskReviewContractError) as exc:
+    except (
+        IssueWorkflowStoreError,
+        TaskReviewContractError,
+        SourceCommitSnapshotError,
+    ) as exc:
         return _blocked_plan(
             source_commit="unknown",
             reasons=(f"could not observe committed repository state: {exc}",),
@@ -970,12 +1039,13 @@ def build_dispatch_plan(
         expected_task_ids=task_ids,
         source_commit=source_commit,
         recognized_states=policy.known_dependency_states,
+        commit_snapshot=commit_snapshot,
     )
     try:
         plan = plan_dispatch(
             source_commit=source_commit,
             task_ids=task_ids,
-            task_loader=lambda task_id: load_committed_task(root, task_id),
+            task_loader=snapshot_task_loader,
             state_provider=state_provider,
             issue_workflow=issue_workflow,
             claimed_refs=claimed_refs,
@@ -1062,28 +1132,33 @@ def evaluate_committed_fresh_candidate(
     # validation and candidate evaluation must share this exact instance.
     policy = policy or load_dispatch_policy()
     root = repo_root(Path(source).resolve())
+    # HEAD is observed before the bulk read so the contracts, the enumeration
+    # and the state snapshot below all describe one exact commit.
+    source_commit = _git_head(root)
+    commit_snapshot = source_commit_admission_snapshot(root, source_commit)
+    snapshot_task_loader = commit_snapshot.task_loader()
     issue_workflow = IssueWorkflowService(
-        backend=_PlanScopedIssueBackend(GhIssueBackend(source_root=root)),
-        task_loader=lambda selected: load_committed_task(root, selected),
+        backend=PlanScopedIssueBackend(GhIssueBackend(source_root=root)),
+        task_loader=snapshot_task_loader,
         worker_id=worker_id,
     )
     claimed_refs, claim_namespace, _claim_observation, _provisional = (
         _read_only_claim_observation(root=root, remote=remote, claim_policy=claim_policy)
     )
-    source_commit = _git_head(root)
-    task_ids = list_committed_task_ids(root)
+    task_ids = list(commit_snapshot.task_ids)
     # A global observation failure propagates as the typed
     # TaskcontrolStateObservationError instead of being flattened into an
     # empty snapshot: substituting per-task "state_lookup_failed" here would
     # recreate the undiagnosable incident shape on the explicit-admission
     # path and make a healthy requested task look merely ineligible because
     # an unrelated snapshot row was malformed.
-    states_snapshot = _taskcontrol_states_snapshot(
-        root,
+    states_snapshot = _LazyTaskcontrolStateProvider(
+        root=root,
         expected_task_ids=task_ids,
         source_commit=source_commit,
         recognized_states=policy.known_dependency_states,
-    )
+        commit_snapshot=commit_snapshot,
+    ).ensure_snapshot()
 
     def _state_provider(selected: str) -> dict[str, Any]:
         entry = states_snapshot.get(selected)
@@ -1097,7 +1172,7 @@ def evaluate_committed_fresh_candidate(
 
     return evaluate_fresh_candidate(
         task_id,
-        task_loader=lambda selected: load_committed_task(root, selected),
+        task_loader=snapshot_task_loader,
         state_provider=_state_provider,
         issue_workflow=issue_workflow,
         claimed_refs=claimed_refs,
@@ -1132,10 +1207,13 @@ __all__ = [
     "DependencyObservation",
     "DispatchPlan",
     "FreshCandidateEvaluation",
+    "PlanScopedIssueBackend",
     "TaskcontrolStateObservationError",
     "build_dispatch_plan",
     "evaluate_committed_fresh_candidate",
     "evaluate_fresh_candidate",
     "list_committed_task_ids",
     "plan_dispatch",
+    "taskcontrol_states_memo_key",
+    "taskcontrol_states_snapshot",
 ]

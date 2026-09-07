@@ -18,7 +18,7 @@ import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Iterable, Mapping
 
 MIGRATION_SCHEMA_VERSION = "1.0"
 MIGRATION_TYPE = "repository_history_identity"
@@ -114,6 +114,62 @@ class HistoryIdentityMigrationResolver:
             self._run("rev-parse", f"{commit}^{{tree}}").decode("ascii").strip(),
             f"{commit} tree",
         )
+
+    def _commit_trees(self, commits: Iterable[str]) -> dict[str, str | None]:
+        """Resolve many exact commit/tree pairs through one Git process."""
+
+        ordered = sorted(set(commits))
+        if not ordered:
+            return {}
+        expressions = [
+            expression
+            for commit in ordered
+            for expression in (f"{commit}^{{commit}}", f"{commit}^{{tree}}")
+        ]
+        result = subprocess.run(
+            ["git", "cat-file", "--batch-check=%(objectname) %(objecttype)"],
+            cwd=self.root,
+            input=("\n".join(expressions) + "\n").encode("ascii"),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        if result.returncode:
+            detail = result.stderr.decode("utf-8", "replace").strip()
+            raise HistoryIdentityMigrationError(
+                f"git cat-file --batch-check failed while loading history migration: {detail}"
+            )
+        lines = result.stdout.decode("ascii", "replace").splitlines()
+        if len(lines) != len(expressions):
+            raise HistoryIdentityMigrationError(
+                "git cat-file --batch-check returned an incomplete history-migration result"
+            )
+
+        trees: dict[str, str | None] = {}
+        for index, commit in enumerate(ordered):
+            commit_fields = lines[index * 2].split()
+            tree_fields = lines[index * 2 + 1].split()
+            commit_ok = (
+                len(commit_fields) == 2
+                and GIT_SHA_RE.fullmatch(commit_fields[0]) is not None
+                and commit_fields[1] == "commit"
+            )
+            tree_ok = (
+                len(tree_fields) == 2
+                and GIT_SHA_RE.fullmatch(tree_fields[0]) is not None
+                and tree_fields[1] == "tree"
+            )
+            trees[commit] = tree_fields[0] if commit_ok and tree_ok else None
+        return trees
+
+    def _ancestors(self, commit: str) -> set[str]:
+        output = self._run("rev-list", commit).decode("ascii", "replace")
+        ancestors = {line for line in output.splitlines() if line}
+        if commit not in ancestors:
+            raise HistoryIdentityMigrationError(
+                f"git rev-list omitted history migration commit {commit}"
+            )
+        return ancestors
 
     def _is_ancestor(self, older: str, newer: str) -> bool:
         result = subprocess.run(
@@ -231,22 +287,6 @@ class HistoryIdentityMigrationResolver:
             raise HistoryIdentityMigrationError(
                 f"{path}: canonical main tree changed across history rewrite"
             )
-        if not self._exists(target_main):
-            raise HistoryIdentityMigrationError(
-                f"{path}: rewritten target_main is unavailable: {target_main}"
-            )
-        if self._tree(target_main) != target_tree:
-            raise HistoryIdentityMigrationError(
-                f"{path}: target_main tree does not match recorded target_main_tree"
-            )
-        if not self._is_ancestor(target_main, self.head):
-            raise HistoryIdentityMigrationError(
-                f"{path}: rewritten target_main is not an ancestor of current HEAD"
-            )
-        if self._exists(source_main) and self._tree(source_main) != source_tree:
-            raise HistoryIdentityMigrationError(
-                f"{path}: available source_main tree disagrees with manifest"
-            )
 
         raw_map = manifest.get("commit_map")
         if not isinstance(raw_map, list) or not raw_map:
@@ -277,22 +317,6 @@ class HistoryIdentityMigrationResolver:
                     f"{path}: duplicate old_commit {old_commit}"
                 )
             seen.add(old_commit)
-            if not self._exists(new_commit):
-                raise HistoryIdentityMigrationError(
-                    f"{label}: translated commit is unavailable: {new_commit}"
-                )
-            if self._tree(new_commit) != tree:
-                raise HistoryIdentityMigrationError(
-                    f"{label}: translated commit tree differs from recorded tree"
-                )
-            if not self._is_ancestor(new_commit, target_main):
-                raise HistoryIdentityMigrationError(
-                    f"{label}: translated commit is not in rewritten canonical history"
-                )
-            if self._exists(old_commit) and self._tree(old_commit) != tree:
-                raise HistoryIdentityMigrationError(
-                    f"{label}: available historical commit tree differs from recorded tree"
-                )
             result.append(
                 CommitTranslation(
                     old_commit=old_commit,
@@ -303,6 +327,51 @@ class HistoryIdentityMigrationResolver:
                     rewrite_report_sha256=report_hash,
                 )
             )
+
+        commit_trees = self._commit_trees(
+            [source_main, target_main]
+            + [item.old_commit for item in result]
+            + [item.new_commit for item in result]
+        )
+        if commit_trees[target_main] is None:
+            raise HistoryIdentityMigrationError(
+                f"{path}: rewritten target_main is unavailable: {target_main}"
+            )
+        if commit_trees[target_main] != target_tree:
+            raise HistoryIdentityMigrationError(
+                f"{path}: target_main tree does not match recorded target_main_tree"
+            )
+        if not self._is_ancestor(target_main, self.head):
+            raise HistoryIdentityMigrationError(
+                f"{path}: rewritten target_main is not an ancestor of current HEAD"
+            )
+        if commit_trees[source_main] is not None and commit_trees[source_main] != source_tree:
+            raise HistoryIdentityMigrationError(
+                f"{path}: available source_main tree disagrees with manifest"
+            )
+
+        target_ancestors = self._ancestors(target_main)
+        for index, entry in enumerate(result):
+            label = f"{path}.commit_map[{index}]"
+            if commit_trees[entry.new_commit] is None:
+                raise HistoryIdentityMigrationError(
+                    f"{label}: translated commit is unavailable: {entry.new_commit}"
+                )
+            if commit_trees[entry.new_commit] != entry.tree:
+                raise HistoryIdentityMigrationError(
+                    f"{label}: translated commit tree differs from recorded tree"
+                )
+            if entry.new_commit not in target_ancestors:
+                raise HistoryIdentityMigrationError(
+                    f"{label}: translated commit is not in rewritten canonical history"
+                )
+            if (
+                commit_trees[entry.old_commit] is not None
+                and commit_trees[entry.old_commit] != entry.tree
+            ):
+                raise HistoryIdentityMigrationError(
+                    f"{label}: available historical commit tree differs from recorded tree"
+                )
         return result
 
     def _validate_chains(self) -> None:

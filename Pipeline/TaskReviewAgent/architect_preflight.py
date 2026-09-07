@@ -44,6 +44,12 @@ from Pipeline.AgentRuntime.contracts import (  # noqa: E402
     validate_repository_path,
 )
 from Pipeline.AgentRuntime.json_values import thaw_json  # noqa: E402
+from Pipeline.AgentRuntime.provider_sessions import (  # noqa: E402
+    PROVIDER_SESSION_SCHEMA_VERSION,
+    ProviderSessionBinding,
+    ProviderSessionConfirmation,
+    ProviderSessionLedger,
+)
 from Pipeline.AgentRuntime.providers.claude_code import (  # noqa: E402
     ClaudeCodeProvider,
 )
@@ -60,6 +66,10 @@ from Pipeline.TaskReviewAgent.contracts import (  # noqa: E402
     TaskReviewContractError,
     validate_task_id,
 )
+from Pipeline.TaskReviewAgent.architect_session_owner import (  # noqa: E402
+    ArchitectSessionCompatibility,
+    ArchitectSessionInvocationError,
+)
 from Pipeline.TaskReviewAgent.execution_routing import (  # noqa: E402
     CAPABILITY_TIERS,
     MAX_RECOMMENDATION_RATIONALE_CHARACTERS,
@@ -71,6 +81,12 @@ from Pipeline.TaskReviewAgent.execution_routing import (  # noqa: E402
 
 ARCHITECT_ADVISORY_SCHEMA_VERSION = "1.2"
 ARCHITECT_BATCH_SCHEMA_VERSION = "1.0"
+ARCHITECT_SESSION_PROTOCOL = (
+    f"architect-advisory-{ARCHITECT_ADVISORY_SCHEMA_VERSION}+"
+    f"batch-{ARCHITECT_BATCH_SCHEMA_VERSION}+"
+    f"provider-session-{PROVIDER_SESSION_SCHEMA_VERSION}"
+)
+ARCHITECT_SESSION_CAPABILITIES = ("repository_read", "repository_search")
 ARCHITECT_PROVIDER_CONFIGURATION_KEYS = {
     "claude": "polling-architect-claude",
     "codex": "polling-architect-codex",
@@ -236,6 +252,15 @@ ARCHITECT_BATCH_SCHEMA: dict[str, Any] = _strict_object(
         "admissions": _array(ARCHITECT_ADVISORY_SCHEMA),
     }
 )
+LEGACY_ARCHITECT_BATCH_SCHEMA = {**ARCHITECT_BATCH_SCHEMA,
+    "properties": dict(ARCHITECT_BATCH_SCHEMA["properties"]),
+    "required": list(ARCHITECT_BATCH_SCHEMA["required"])}
+ARCHITECT_BATCH_SCHEMA["properties"].update({
+    "desired_active_capacity": {"type": "integer", "minimum": 0, "maximum": 10},
+    "capacity_rationale": _STRING,
+})
+ARCHITECT_BATCH_SCHEMA["required"] = [*ARCHITECT_BATCH_SCHEMA["required"],
+    "desired_active_capacity", "capacity_rationale"]
 
 
 class ArchitectPreflightError(TaskReviewContractError):
@@ -600,11 +625,15 @@ class ArchitectBatch:
     batch_rationale: str
     considered: tuple[ArchitectBatchConsideration, ...]
     admissions: tuple[ArchitectAdvisory, ...]
+    desired_active_capacity: int | None = None
+    capacity_rationale: str | None = None
 
     @classmethod
     def from_dict(cls, value: Any) -> "ArchitectBatch":
         try:
-            validate_instance(value, ARCHITECT_BATCH_SCHEMA)
+            schema = LEGACY_ARCHITECT_BATCH_SCHEMA if isinstance(value, Mapping) and not (
+                {"desired_active_capacity", "capacity_rationale"} & set(value)) else ARCHITECT_BATCH_SCHEMA
+            validate_instance(value, schema)
         except SchemaValidationError as exc:
             raise ArchitectPreflightError(f"architect batch schema rejected: {exc}") from exc
         if not isinstance(value, Mapping):
@@ -651,6 +680,12 @@ class ArchitectBatch:
             raise ArchitectPreflightError(
                 "architect batch admission changed the batch source HEAD identity"
             )
+        desired = value.get("desired_active_capacity")
+        rationale = value.get("capacity_rationale")
+        if (desired is None) != (rationale is None):
+            raise ArchitectPreflightError("capacity decision requires both desired capacity and rationale")
+        if desired is not None and (type(desired) is not int or not 0 <= desired <= 10 or not str(rationale).strip()):
+            raise ArchitectPreflightError("invalid desired active capacity")
         return cls(
             source_head=source_head,
             batch_rationale=_nonempty_text(
@@ -658,16 +693,21 @@ class ArchitectBatch:
             ),
             considered=considered,
             admissions=admissions,
+            desired_active_capacity=desired,
+            capacity_rationale=rationale,
         )
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        result = {
             "schema_version": ARCHITECT_BATCH_SCHEMA_VERSION,
             "source_head": self.source_head,
             "batch_rationale": self.batch_rationale,
             "considered": [item.to_dict() for item in self.considered],
             "admissions": [item.to_dict() for item in self.admissions],
         }
+        if self.desired_active_capacity is not None:
+            result.update(desired_active_capacity=self.desired_active_capacity, capacity_rationale=self.capacity_rationale)
+        return result
 
 
 @dataclass(frozen=True)
@@ -738,6 +778,124 @@ def _json_safe(value: Any) -> Any:
     return json.loads(
         json.dumps(value, ensure_ascii=False, allow_nan=False, sort_keys=True)
     )
+
+
+def _bind_identity_echo(
+    target: dict[str, Any],
+    *,
+    field: str,
+    expected: str,
+    scope: str,
+    corrections: list[dict[str, Any]],
+) -> None:
+    """Replace a present provider echo with its host-owned exact identity.
+
+    Source and contract hashes are deterministic invocation inputs, not
+    architect judgments.  The provider must still return the schema fields,
+    but a transcription error must not discard otherwise valid paid work.
+    The original AgentRuntime result remains immutable; persisted architect
+    metadata records every value the host corrected.
+    """
+
+    if field not in target:
+        return
+    provider_value = target[field]
+    if provider_value != expected:
+        corrections.append(
+            {
+                "scope": scope,
+                "field": field,
+                "provider_value": provider_value,
+                "bound_value": expected,
+            }
+        )
+    target[field] = expected
+
+
+def _host_bind_candidate_identity_echoes(
+    value: Any,
+    *,
+    task_id: str,
+    source_head: str,
+    task_contract_sha256: str,
+) -> tuple[Any, tuple[dict[str, Any], ...]]:
+    if not isinstance(value, Mapping) or value.get("task_id") != task_id:
+        return value, ()
+    bound = _json_safe(value)
+    corrections: list[dict[str, Any]] = []
+    _bind_identity_echo(
+        bound,
+        field="source_head",
+        expected=source_head,
+        scope=f"admission:{task_id}",
+        corrections=corrections,
+    )
+    _bind_identity_echo(
+        bound,
+        field="task_contract_sha256",
+        expected=task_contract_sha256,
+        scope=f"admission:{task_id}",
+        corrections=corrections,
+    )
+    return bound, tuple(corrections)
+
+
+def _host_bind_batch_identity_echoes(
+    value: Any,
+    *,
+    source_head: str,
+    allowed: Mapping[tuple[str, str], Mapping[str, Any]],
+) -> tuple[Any, tuple[dict[str, Any], ...]]:
+    if not isinstance(value, Mapping):
+        return value, ()
+    bound = _json_safe(value)
+    corrections: list[dict[str, Any]] = []
+    _bind_identity_echo(
+        bound,
+        field="source_head",
+        expected=source_head,
+        scope="batch",
+        corrections=corrections,
+    )
+    admissions = bound.get("admissions")
+    if isinstance(admissions, list):
+        for admission in admissions:
+            if not isinstance(admission, dict):
+                continue
+            task_id = admission.get("task_id")
+            work_type = admission.get("work_type_recommendation")
+            selected = allowed.get((task_id, work_type))
+            if selected is None:
+                continue
+            scope = f"admission:{task_id}:{work_type}"
+            _bind_identity_echo(
+                admission,
+                field="source_head",
+                expected=source_head,
+                scope=scope,
+                corrections=corrections,
+            )
+            _bind_identity_echo(
+                admission,
+                field="task_contract_sha256",
+                expected=_nonempty_text(
+                    selected.get("task_contract_sha256"),
+                    field="task.task_contract_sha256",
+                ),
+                scope=scope,
+                corrections=corrections,
+            )
+    return bound, tuple(corrections)
+
+
+def _host_identity_binding_metadata(
+    corrections: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    return {
+        "authority": "host_deterministic_identity_binding",
+        "corrected_field_count": len(corrections),
+        "corrections": [_json_safe(item) for item in corrections],
+    }
 
 
 def _reservation_dicts(reservations: Iterable[Any]) -> list[dict[str, Any]]:
@@ -878,6 +1036,12 @@ Execution capability recommendation (advisory only):
   reasoning; and `deep` for cross-system architecture, refactors,
   decomposition-adjacent work, or high uncertainty. These are judgment heuristics, not
   deterministic eligibility rules.
+- The tier also recommends a rigor profile: `fast` may use a lean implementation crew
+  and exact targeted tests; `standard` uses the normal independent crew and task-specific
+  validation; `deep` uses the full crew and the broadest relevant validation. Deterministic
+  repository policy may only raise your recommendation. Explicit completion gates are
+  always mandatory. Human verification may be omitted only when committed policy, not
+  your prose, explicitly permits exact machine evidence for the effective tier and surface.
 - Consider task size and scope, architectural uncertainty, the number and sharedness of
   systems, Unity serialized-asset risk, subsystem familiarity, the strength of existing
   patterns and tests, and expected rework cost.
@@ -954,7 +1118,7 @@ def _portfolio_candidates(
     seen: set[str] = set()
     for index, candidate in enumerate(candidates):
         if not isinstance(candidate, Mapping) or not set(candidate).issubset(
-            {"task", "eligible_work_types", "resume_phase"}
+            {"task", "eligible_work_types", "resume_phase", "capacity_context"}
         ) or not {"task", "eligible_work_types"}.issubset(candidate):
             raise ArchitectPreflightError(
                 f"portfolio candidate {index} must contain task, "
@@ -1005,6 +1169,8 @@ def _portfolio_candidates(
         }
         if resume_phase is not None:
             normalized_candidate["resume_phase"] = resume_phase
+        if "capacity_context" in candidate:
+            normalized_candidate["capacity_context"] = _json_safe(candidate["capacity_context"])
         normalized.append(normalized_candidate)
     return sorted(normalized, key=lambda item: item["task"]["id"])
 
@@ -1032,6 +1198,14 @@ eligible work types for every candidate. You may choose implementation or decomp
 even while both kinds are available; do not treat decomposition as a fallback.
 
 Authority and safety rules:
+- Return `desired_active_capacity` (0 through the supplied safety ceiling) and
+  `capacity_rationale`. This is your desired total active worker count this cycle,
+  not a quota. Reconsider it each admission cycle using ready width, dependencies,
+  changed-path/resource conflicts, rigor, provider/session availability and run health.
+  Unknown provider capacity is uncertainty, never proof of available quota. Explain
+  these factors in the rationale. Scale down without killing active leases: admit
+  no new work while active count meets or exceeds your desired count. You may
+  choose zero during health backoff. Never force occupancy or raise the safety ceiling.
 - Consider every supplied candidate/work-type pair exactly once. Return one `considered`
   entry for each pair, with a disposition of `admit`, `wait`, `human_review`, or
   `ineligible`. Never invent or alter a task, work type, identity, dependency, resource,
@@ -1218,6 +1392,8 @@ def analyze_candidate(
     )
     try:
         result = invoker(request)
+    except ArchitectSessionInvocationError:
+        raise
     except Exception as exc:
         raise ArchitectPreflightError(
             f"architect AgentRuntime invocation failed: {type(exc).__name__}: {exc}"
@@ -1237,7 +1413,13 @@ def analyze_candidate(
         raise ArchitectPreflightError(
             "read-only architect claimed repository changes, command execution, or tests"
         )
-    advisory = ArchitectAdvisory.from_dict(thaw_json(result.structured_output))
+    bound_output, identity_corrections = _host_bind_candidate_identity_echoes(
+        thaw_json(result.structured_output),
+        task_id=task_id,
+        source_head=source_head,
+        task_contract_sha256=contract_hash,
+    )
+    advisory = ArchitectAdvisory.from_dict(bound_output)
     if advisory.task_id != task_id:
         raise ArchitectPreflightError("architect changed candidate task identity")
     if advisory.source_head != source_head:
@@ -1252,7 +1434,21 @@ def analyze_candidate(
         "duration_seconds": result.duration_seconds,
         "usage": result_dict.get("usage"),
         "agent_runtime_artifacts": f"agent_runtime/{result.run_id}",
+        "host_identity_binding": _host_identity_binding_metadata(
+            identity_corrections
+        ),
     }
+    confirmation = getattr(invoker, "confirmed_session", None)
+    if confirmation is not None:
+        if type(confirmation) is not ProviderSessionConfirmation:
+            raise ArchitectPreflightError("architect session confirmation type is invalid")
+        invocation_metadata["provider_session_confirmation"] = confirmation.to_dict()
+        compatibility = getattr(invoker, "session_compatibility", None)
+        if type(compatibility) is not ArchitectSessionCompatibility:
+            raise ArchitectPreflightError("architect session compatibility type is invalid")
+        invocation_metadata["provider_session_compatibility"] = compatibility.to_dict()
+        if confirmation.provider_identifier == "openai-codex":
+            invocation_metadata["provider_session_resume_contract"] = invoker.resume_contract
     artifact_path = persist_architect_advisory(
         artifact_root=artifact_root,
         analysis_id=analysis_id,
@@ -1311,6 +1507,8 @@ def analyze_portfolio(
     )
     try:
         result = invoker(request)
+    except ArchitectSessionInvocationError:
+        raise
     except Exception as exc:
         raise ArchitectPreflightError(
             f"architect AgentRuntime invocation failed: {type(exc).__name__}: {exc}"
@@ -1330,7 +1528,12 @@ def analyze_portfolio(
         raise ArchitectPreflightError(
             "read-only architect claimed repository changes, command execution, or tests"
         )
-    batch = ArchitectBatch.from_dict(thaw_json(result.structured_output))
+    bound_output, identity_corrections = _host_bind_batch_identity_echoes(
+        thaw_json(result.structured_output),
+        source_head=source_head,
+        allowed=allowed,
+    )
+    batch = ArchitectBatch.from_dict(bound_output)
     if batch.source_head != source_head:
         raise ArchitectPreflightError("architect changed source HEAD identity")
     considered_pairs = {(item.task_id, item.work_type) for item in batch.considered}
@@ -1368,7 +1571,21 @@ def analyze_portfolio(
         "duration_seconds": result.duration_seconds,
         "usage": result_dict.get("usage"),
         "agent_runtime_artifacts": f"agent_runtime/{result.run_id}",
+        "host_identity_binding": _host_identity_binding_metadata(
+            identity_corrections
+        ),
     }
+    confirmation = getattr(invoker, "confirmed_session", None)
+    if confirmation is not None:
+        if type(confirmation) is not ProviderSessionConfirmation:
+            raise ArchitectPreflightError("architect session confirmation type is invalid")
+        invocation_metadata["provider_session_confirmation"] = confirmation.to_dict()
+        compatibility = getattr(invoker, "session_compatibility", None)
+        if type(compatibility) is not ArchitectSessionCompatibility:
+            raise ArchitectPreflightError("architect session compatibility type is invalid")
+        invocation_metadata["provider_session_compatibility"] = compatibility.to_dict()
+        if confirmation.provider_identifier == "openai-codex":
+            invocation_metadata["provider_session_resume_contract"] = invoker.resume_contract
     _safe_write_json(
         artifact_path,
         {
@@ -1831,6 +2048,8 @@ class RuntimeArchitectInvoker:
         artifact_root: Path | str,
         provider: str,
         model: str | None = None,
+        session_binding: ProviderSessionBinding | None = None,
+        codex_resume_sandbox_argument: tuple[str, ...] | None = None,
     ) -> None:
         self.source = Path(source).resolve()
         self.artifact_root = Path(artifact_root)
@@ -1841,16 +2060,46 @@ class RuntimeArchitectInvoker:
             self.provider_name
         )
         self.configuration_key = ARCHITECT_PROVIDER_CONFIGURATION_KEYS[self.provider_name]
+        if session_binding is not None and type(session_binding) is not ProviderSessionBinding:
+            raise ArchitectPreflightError(
+                "architect session binding must be an exact ProviderSessionBinding"
+            )
+        self.session_binding = session_binding
+        self.resume_contract = None
+        if codex_resume_sandbox_argument is not None:
+            from Pipeline.TaskReviewAgent.supervisor_session_pool import CodexResumeActivation
+            if self.provider_name != "codex" or session_binding is None:
+                raise ArchitectPreflightError("resume control requires a bound Codex architect session")
+            activation = CodexResumeActivation(codex_resume_sandbox_argument)
+            self.resume_contract = activation.fingerprint
+        self.session_ledger = ProviderSessionLedger() if session_binding is not None else None
         if self.provider_name == "claude":
             provider_identifier = "claude-code"
-            provider_adapter: Any = ClaudeCodeProvider(repository_root=self.source)
+            reasoning_effort = None
+            provider_adapter: Any = ClaudeCodeProvider(
+                repository_root=self.source,
+                session=session_binding,
+                session_ledger=self.session_ledger,
+            )
         else:
             provider_identifier = "openai-codex"
+            reasoning_effort = "max"
             provider_adapter = OpenAICodexProvider(
                 reasoning_effort="max",
                 externally_enforced_read_only_repository=True,
                 repository_root=self.source,
+                session=session_binding,
+                session_ledger=self.session_ledger,
+                resume_sandbox_argument=codex_resume_sandbox_argument,
             )
+        self.session_compatibility = ArchitectSessionCompatibility(
+            provider_identifier,
+            "polling_architect",
+            self.model,
+            reasoning_effort,
+            ARCHITECT_SESSION_PROTOCOL,
+            ARCHITECT_SESSION_CAPABILITIES,
+        )
         configuration = RuntimeConfiguration(
             {
                 self.configuration_key: {
@@ -1869,12 +2118,36 @@ class RuntimeArchitectInvoker:
             {provider_identifier: provider_adapter},
         )
 
+    @property
+    def confirmed_session(self) -> ProviderSessionConfirmation | None:
+        return None if self.session_ledger is None else self.session_ledger.confirmed
+
     def __call__(self, request: AgentInvocationRequest) -> AgentResult:
         if request.provider_configuration_key != self.configuration_key:
             raise ArchitectPreflightError(
                 "architect request/provider configuration identity mismatch"
             )
-        return self.runner.run(request)
+        result = self.runner.run(request)
+        if self.session_binding is not None and result.status != "succeeded":
+            classification = str(result.failure_classification)
+            confirmation = self.confirmed_session
+            if classification == "schema_error":
+                lifecycle_outcome = (
+                    "output_failure" if confirmation is not None else "identity_failure"
+                )
+            elif classification in {"provider_error", "timeout", "budget_exhausted"}:
+                lifecycle_outcome = "provider_failure"
+            elif classification in {"invalid_request", "permission_denied"}:
+                lifecycle_outcome = "session_incompatibility"
+            else:
+                lifecycle_outcome = "other_failure"
+            raise ArchitectSessionInvocationError(
+                lifecycle_outcome,
+                classification,
+                None if confirmation is None else confirmation.session_id,
+                result.failure_message or "architect AgentRuntime invocation failed",
+            )
+        return result
 
 
 def _strict_json(text: str) -> Any:
@@ -1910,6 +2183,26 @@ def _positive_float(value: str) -> float:
     return parsed
 
 
+def _emit_session_invocation_failure(exc: ArchitectSessionInvocationError) -> int:
+    print(
+        json.dumps(
+            {
+                "schema_version": "1.0",
+                "status": "architect_session_invocation_failed",
+                "error_type": type(exc).__name__,
+                "error": " ".join(str(exc).split())[:900],
+                "failure_classification": exc.failure_classification,
+                "lifecycle_outcome": exc.lifecycle_outcome,
+                "confirmed_session_id": exc.confirmed_session_id,
+            },
+            sort_keys=True,
+        ),
+        file=sys.stderr,
+        flush=True,
+    )
+    return 2
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, default=ROOT)
@@ -1930,9 +2223,15 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    invoker: RuntimeArchitectInvoker | None = None
     try:
         payload = _strict_json(sys.stdin.read())
-        if not isinstance(payload, Mapping) or set(payload) not in ({
+        if not isinstance(payload, Mapping):
+            raise ArchitectPreflightError("stdin must contain one JSON object")
+        payload_fields = set(payload)
+        payload_fields.discard("provider_session")
+        payload_fields.discard("codex_resume_sandbox_argument")
+        if payload_fields not in ({
             "source_head",
             "task",
             "reservations",
@@ -1949,11 +2248,23 @@ def main(argv: list[str] | None = None) -> int:
         reservations = payload["reservations"]
         if not isinstance(reservations, list):
             raise ArchitectPreflightError("stdin reservations type is invalid")
+        session_binding = (
+            None
+            if "provider_session" not in payload
+            else ProviderSessionBinding.from_dict(payload["provider_session"])
+        )
+        if "codex_resume_sandbox_argument" in payload and type(payload["codex_resume_sandbox_argument"]) is not list:
+            raise ArchitectPreflightError("Codex resume control must be an exact JSON array")
         invoker = RuntimeArchitectInvoker(
             source=args.source,
             artifact_root=args.artifact_root,
             provider=args.provider,
             model=args.model,
+            session_binding=session_binding,
+            codex_resume_sandbox_argument=(
+                None if "codex_resume_sandbox_argument" not in payload
+                else tuple(payload["codex_resume_sandbox_argument"])
+            ),
         )
         if "task" in payload:
             task = payload["task"]
@@ -1995,7 +2306,26 @@ def main(argv: list[str] | None = None) -> int:
             )
         )
         return 0
+    except ArchitectSessionInvocationError as exc:
+        return _emit_session_invocation_failure(exc)
     except (ArchitectPreflightError, ContractValidationError, ValueError, OSError) as exc:
+        # A provider-confirmed call whose advisory then fails deterministic
+        # architect validation is an output failure. Typed confirmation state,
+        # never error-message parsing, decides this classification.
+        confirmation = None if invoker is None else invoker.confirmed_session
+        if isinstance(exc, ArchitectPreflightError) and confirmation is not None:
+            if type(confirmation) is not ProviderSessionConfirmation:
+                raise ArchitectPreflightError(
+                    "architect session confirmation type is invalid"
+                ) from exc
+            return _emit_session_invocation_failure(
+                ArchitectSessionInvocationError(
+                    "output_failure",
+                    "schema_error",
+                    confirmation.session_id,
+                    str(exc),
+                )
+            )
         print(
             json.dumps(
                 {

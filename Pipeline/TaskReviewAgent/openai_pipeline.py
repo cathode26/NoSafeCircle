@@ -2,18 +2,26 @@
 
 from __future__ import annotations
 
+from functools import partial
+
 import hashlib
 import json
 from typing import Any, Callable, Mapping
 
 from .codex_supervisor import (
     CodexDockerDecisionProvider,
+    build_supervisor_decision_provider,
     CodexSupervisorError,
     DecisionProvider,
     SupervisorDecision,
     render_supervisor_prompt,
 )
+from .provider_policy import (
+    DEFAULT_SUPERVISOR_PROVIDER,
+    resolve_supervisor_provider,
+)
 from .contracts import TASK_REVIEW_SCHEMA_VERSION, TaskReviewContractError, TaskReviewRequest
+from .issue_workflow_store import BLOCKED_KIND_TRANSIENT_CONSISTENCY_SKEW
 from .production_pipeline import ProductionTaskController
 from .progress import NullProgress, ProgressLog, ProgressSink, summarize_result
 
@@ -93,6 +101,76 @@ def _workflow_state(observation: Mapping[str, Any]) -> dict[str, Any]:
         return {}
     state = coordination.get("workflow_state")
     return dict(state) if isinstance(state, Mapping) else {}
+
+
+def _blocker_recordable(
+    observation: Mapping[str, Any],
+    worker_id: str,
+) -> bool:
+    """Report whether record_pipeline_blocker could possibly succeed right now.
+
+    This mirrors, from deterministic host observation, the exact precondition
+    ProductionTaskController.record_pipeline_blocker enforces: a valid managed
+    Issue in agent_working held by THIS worker under a real lease. The
+    controller check is authoritative and unchanged; this one only decides
+    whether the action is worth offering, so a supervisor never spends a turn
+    on a call that must raise.
+    """
+
+    coordination = observation.get("coordination")
+    if not isinstance(coordination, Mapping):
+        return False
+    if coordination.get("status") != "claimed_by_worker":
+        return False
+    state = _workflow_state(observation)
+    return (
+        state.get("state") == "agent_working"
+        and state.get("worker_id") == worker_id
+        and type(state.get("lease_id")) is str
+    )
+
+
+def offered_actions_for(
+    observation: Mapping[str, Any],
+    worker_id: str,
+    actions: Mapping[str, str],
+) -> dict[str, str]:
+    """Return the smallest safe action menu for the current deterministic state.
+
+    Recording a blocker needs a valid managed Issue held under this worker's own
+    lease. Before that exists there is nothing to write the blocker into, so the
+    controller must reject the call -- and offering it can only cost a wasted
+    supervisor turn, which is exactly what a live ten-task run spent on an
+    admission that had merely hit bounded GitHub read skew.
+
+    Withholding the action fabricates nothing and weakens nothing: the
+    controller keeps its own authoritative precondition, and every other action
+    stays offered so the supervisor can still make real progress.
+    """
+
+    selected = dict(actions)
+    if not _blocker_recordable(observation, worker_id):
+        selected.pop("record_pipeline_blocker", None)
+    return selected
+
+
+def _is_transient_consistency_skew(result: Any) -> bool:
+    """Report the one blocked shape a bounded repoll may legitimately retry.
+
+    The store sets this kind only when EVERY blocking Issue was still inside
+    the GitHub body-before-comment visibility window after the whole bounded
+    ladder. Nothing was proven about ownership and nothing was repaired, so the
+    picture is unread rather than broken. Any other blocked shape -- corruption,
+    a contract mismatch, an unreadable Issue, real reservation overlap, durable
+    ownership by another worker, or an untyped blocked result -- is excluded by
+    construction and stays terminal.
+    """
+
+    return (
+        isinstance(result, Mapping)
+        and result.get("status") == "blocked"
+        and result.get("blocked_kind") == BLOCKED_KIND_TRANSIENT_CONSISTENCY_SKEW
+    )
 
 
 def _strings(values: Any) -> list[str]:
@@ -212,7 +290,17 @@ def _execute(
         values = decision.validate_arguments(
             required=("planned_approach", "expected_validation")
         )
-        return controller.acquire_agent_lease(**values)
+        result = controller.acquire_agent_lease(**values)
+        if _is_transient_consistency_skew(result):
+            # ONE bounded deterministic repoll, with the arguments the
+            # supervisor already supplied and the host already validated. The
+            # store's own ladder runs again inside this call, so the retry is
+            # the only additional GitHub settle window and it costs no
+            # supervisor turn. A second skew result is returned as-is: this
+            # never loops, never repairs an Issue, and never converts any other
+            # blocked shape into a retry.
+            result = controller.acquire_agent_lease(**values)
+        return result
     if action == "prepare_task_checkout":
         decision.validate_arguments()
         return controller.prepare_task_checkout()
@@ -286,6 +374,8 @@ def _observation_fields(observation: Mapping[str, Any]) -> dict[str, Any]:
 # whenever any argument needs judgment, so this never removes a real decision.
 #
 # prepare_task_checkout: no arguments at all.
+# validate_execution_scope: only an exact, hash-bound private synthetic contract
+#                        whose independently observed path facts agree completely.
 # run_execution_crew:    plan_id is the accepted scope plan the host validated;
 #                        production_pipeline emits this next_action exactly when
 #                        `scope.accepted is not None` and no execution receipt
@@ -295,6 +385,9 @@ def _observation_fields(observation: Mapping[str, Any]) -> dict[str, Any]:
 _HOST_FORCED_INVOKERS: dict[str, Callable[[Any, Mapping[str, Any]], Any]] = {
     "prepare_task_checkout": lambda controller, _arguments: (
         controller.prepare_task_checkout()
+    ),
+    "validate_execution_scope": lambda controller, arguments: (
+        controller.validate_execution_scope(**dict(arguments))
     ),
     "run_execution_crew": lambda controller, arguments: (
         controller.run_execution_crew(**dict(arguments))
@@ -306,6 +399,108 @@ _HOST_FORCED_INVOKERS: dict[str, Callable[[Any, Mapping[str, Any]], Any]] = {
 # file reads) legitimately makes no durable change, so this bound is deliberately
 # generous; it exists to stop unbounded churn, not to second-guess a few reads.
 _MAX_TURNS_WITHOUT_DURABLE_PROGRESS = 12
+
+
+def _synthetic_gauntlet_scope_arguments(
+    observation: Mapping[str, Any],
+) -> dict[str, Any] | None:
+    """Derive exact scope only for the committed private synthetic contract.
+
+    These contracts carry an exact path manifest, while repository scope facts
+    independently classify those paths as committed or absent and identify
+    committed C# tests.  That leaves no judgment for a supervisor.  Any
+    missing, widened, or contradictory authority falls back to the provider.
+    """
+
+    task = observation.get("task")
+    facts = observation.get("repository_scope_facts")
+    if not isinstance(task, Mapping) or not isinstance(facts, Mapping):
+        return None
+    provenance = task.get("provenance")
+    if not isinstance(provenance, Mapping):
+        return None
+    if (
+        provenance.get("origin") != "human_approved_synthetic_gauntlet"
+        or provenance.get("gauntlet_id") != "synthetic-architect-gauntlet-v1"
+        or task.get("execution_scope") != "single_agent"
+        or task.get("decomposition_state") != "concrete"
+        or facts.get("status") != "ready"
+        or facts.get("authority") != "real_read_only_repository_scope"
+        or facts.get("task_id") != task.get("task_id")
+        or facts.get("source_head") != task.get("source_head")
+        or facts.get("task_contract_sha256") != task.get("task_contract_sha256")
+    ):
+        return None
+
+    def exact_paths(value: Any) -> tuple[str, ...] | None:
+        if not isinstance(value, (list, tuple)):
+            return None
+        paths = tuple(value)
+        if any(type(path) is not str or not path for path in paths):
+            return None
+        if len({path.casefold() for path in paths}) != len(paths):
+            return None
+        return paths
+
+    expected = exact_paths(provenance.get("expected_paths"))
+    resources = exact_paths(facts.get("exclusive_resource_paths"))
+    existing = exact_paths(facts.get("existing_resource_paths"))
+    absent = exact_paths(facts.get("absent_resource_paths"))
+    tests = exact_paths(facts.get("suggested_test_paths"))
+    if (
+        expected is None
+        or resources is None
+        or existing is None
+        or absent is None
+        or tests is None
+    ):
+        return None
+    if not tests or any(not path.casefold().endswith(".cs") for path in tests):
+        return None
+    if any("/tests/" not in f"/{path.casefold()}" for path in tests):
+        return None
+    if {path.casefold() for path in expected} != {
+        path.casefold() for path in resources
+    }:
+        return None
+    if {path.casefold() for path in resources} != {
+        path.casefold() for path in (*existing, *absent)
+    }:
+        return None
+    if {path.casefold() for path in existing} & {
+        path.casefold() for path in absent
+    }:
+        return None
+    if any(
+        not (
+            path.casefold().endswith(".cs")
+            or path.casefold().endswith(".cs.meta")
+        )
+        for path in expected
+    ):
+        return None
+    implementation = {
+        path.casefold(): path
+        for path in (*existing, *absent)
+        if not path.casefold().endswith(".meta")
+    }
+    if not implementation:
+        return None
+    for path in expected:
+        folded = path.casefold()
+        if folded.endswith(".cs.meta") and folded[:-5] not in implementation:
+            return None
+
+    return {
+        "existing_implementation_paths": [
+            path for path in existing if not path.casefold().endswith(".meta")
+        ],
+        "new_implementation_paths": [
+            path for path in absent if not path.casefold().endswith(".meta")
+        ],
+        "existing_test_paths": list(tests),
+        "new_test_paths": [],
+    }
 
 
 def _host_forced_action(
@@ -322,6 +517,10 @@ def _host_forced_action(
     next_action = observed.get("next_action")
     if next_action == "prepare_task_checkout":
         return ("prepare_task_checkout", {})
+    if next_action == "validate_execution_scope":
+        arguments = _synthetic_gauntlet_scope_arguments(observation)
+        if arguments is not None:
+            return ("validate_execution_scope", arguments)
     if next_action == "run_execution_crew":
         plan_id = observation.get("accepted_plan_id")
         if not isinstance(plan_id, str) or not plan_id.strip():
@@ -401,6 +600,8 @@ def run_openai_production_pipeline(
     max_turns: int = 80,
     decision_provider: DecisionProvider | None = None,
     progress: ProgressSink | None = None,
+    session_owner: Any = None,
+    supervisor_provider: str | None = None,
 ) -> dict[str, Any]:
     """Drive a task with Codex CLI while host tools retain all authority."""
 
@@ -412,10 +613,29 @@ def run_openai_production_pipeline(
         decision_provider=decision_provider,
         progress=progress,
     )
-    provider = decision_provider or CodexDockerDecisionProvider(
+    if decision_provider is not None and session_owner is not None:
+        raise OpenAIProductionPipelineError(
+            "an injected decision provider cannot also receive a supervisor session owner"
+        )
+    # The default and Codex routes keep constructing the module-global
+    # ``CodexDockerDecisionProvider`` by name, so the existing injection seam --
+    # tests and operator layers that rebind that global -- is unchanged. Only an
+    # explicitly selected non-default supervisor goes through the registry
+    # factory, which is the one place that knows each provider's Compose
+    # service, credential volume, and turn entrypoint.
+    supervisor_factory = (
+        CodexDockerDecisionProvider
+        if resolve_supervisor_provider(supervisor_provider) == DEFAULT_SUPERVISOR_PROVIDER
+        else partial(
+            build_supervisor_decision_provider,
+            supervisor_provider=supervisor_provider,
+        )
+    )
+    provider = decision_provider or supervisor_factory(
         source=controller.workflow.base_observer.root,
         model=model,
         reasoning_effort=reasoning_effort,
+        session_owner=session_owner,
     )
     history: list[dict[str, Any]] = []
     last_progress_fingerprint: str | None = None
@@ -549,13 +769,21 @@ def run_openai_production_pipeline(
                         }
                     )
                 continue
+            offered_actions = offered_actions_for(
+                observation, controller.workflow.worker_id, _ACTIONS
+            )
             prompt = render_supervisor_prompt(
                 task_id=request.task_id,
                 goal_and_rules=_GOAL_AND_RULES,
                 observation=observation,
                 history=history,
-                actions=_ACTIONS,
+                actions=offered_actions,
             )
+            bind_observation = getattr(provider, "bind_turn_observation", None)
+            if callable(bind_observation):
+                # The authority capsule of a pooled turn names the same phase,
+                # Issue state, and source identity the prompt was rendered from.
+                bind_observation(observation)
             with active_progress.heartbeat(
                 "codex_supervisor",
                 f"Turn {turn}: Codex is choosing the next bounded action",
@@ -566,7 +794,7 @@ def run_openai_production_pipeline(
                     task_id=request.task_id,
                     turn=turn,
                     prompt=prompt,
-                    allowed_actions=tuple(_ACTIONS),
+                    allowed_actions=tuple(offered_actions),
                 )
             active_progress.emit(
                 "supervisor_decision",

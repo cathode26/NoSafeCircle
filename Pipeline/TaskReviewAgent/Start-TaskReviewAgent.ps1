@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
-    [ValidatePattern('^NSC-[0-9]{3}$')]
+    [ValidatePattern('(?-i:^NSC-(?:[0-9]{3}|[1-9][0-9]{3,8})\z)')]
     [string]$TaskId,
 
     [ValidateSet(

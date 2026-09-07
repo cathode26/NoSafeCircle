@@ -1,0 +1,436 @@
+<!-- NSC gauntlet live task graph. Read-only view; see server.py. -->
+<title>NSC Gauntlet Graph</title>
+<script src="/vendor/cytoscape.min.js"></script>
+<script src="/vendor/dagre.min.js"></script>
+<script src="/vendor/cytoscape-dagre.min.js"></script>
+<style>
+  :root {
+    --bg: #0e1117;
+    --panel: #161b22;
+    --line: #262c36;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; height: 100vh; overflow: hidden;
+    background: var(--bg); color: var(--text);
+    font: 13px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: grid; grid-template-columns: 278px 1fr 320px;
+  }
+  aside { background: var(--panel); overflow-y: auto; padding: 14px; }
+  aside.left { border-right: 1px solid var(--line); }
+  aside.right { border-left: 1px solid var(--line); }
+  h1 { font-size: 14px; margin: 0 0 2px; letter-spacing: .2px; }
+  h2 {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .09em;
+    color: var(--muted); margin: 18px 0 7px; font-weight: 600;
+  }
+  #cy { width: 100%; height: 100vh; background: var(--bg); }
+  .sub { color: var(--muted); font-size: 11px; margin-bottom: 4px; word-break: break-all; }
+
+  .stat { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; }
+  .stat span:last-child { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  .legend { display: flex; align-items: center; gap: 8px; padding: 3px 0; cursor: pointer; }
+  .legend:hover { color: var(--accent); }
+  .legend.off { opacity: .35; }
+  .swatch { width: 11px; height: 11px; border-radius: 3px; flex: none; border: 1px solid #0006; }
+  .legend .count { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .lgroup {
+    font-size: 9px; text-transform: uppercase; letter-spacing: .1em;
+    color: #6e7681; margin: 10px 0 3px; font-weight: 600;
+  }
+  .lgroup:first-child { margin-top: 2px; }
+
+  label.check { display: flex; align-items: center; gap: 7px; padding: 3px 0; cursor: pointer; }
+
+  .btns { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  button {
+    background: #21262d; color: var(--text); border: 1px solid var(--line);
+    border-radius: 6px; padding: 5px 10px; cursor: pointer; font: inherit; font-size: 12px;
+  }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button.on { background: var(--accent); color: #0d1117; border-color: var(--accent); font-weight: 600; }
+
+  #detail .field { margin-bottom: 10px; }
+  #detail .k {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .07em;
+    color: var(--muted); margin-bottom: 2px;
+  }
+  #detail .v { word-break: break-word; }
+  #detail code {
+    background: #0d1117; border: 1px solid var(--line); border-radius: 4px;
+    padding: 1px 5px; font-size: 11px; display: inline-block; margin: 1px 2px 1px 0;
+  }
+  #detail ul { margin: 3px 0; padding-left: 16px; }
+  #detail li { margin-bottom: 3px; }
+  .pill {
+    display: inline-block; padding: 2px 9px; border-radius: 999px;
+    font-size: 11px; font-weight: 600; color: #0d1117;
+  }
+  .empty { color: var(--muted); font-style: italic; }
+  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; }
+  .live { background: #3fb950; box-shadow: 0 0 7px #3fb950; }
+  .dead { background: #6e7681; }
+</style>
+
+<aside class="left">
+  <h1>NSC Gauntlet</h1>
+  <div class="sub" id="runline">connecting…</div>
+  <div class="sub"><span class="dot dead" id="livedot"></span><span id="livetext">offline</span></div>
+
+  <h2>Run</h2>
+  <div id="runstats"></div>
+
+  <h2>View</h2>
+  <div class="btns">
+    <button id="mode-deps" class="on">Dependencies</button>
+    <button id="mode-tree">Hierarchy</button>
+  </div>
+  <div class="btns">
+    <button id="zin">Zoom +</button>
+    <button id="zout">Zoom −</button>
+    <button id="fit">Fit</button>
+  </div>
+
+  <h2>Filter</h2>
+  <label class="check"><input type="checkbox" id="f-cancelled"> show cancelled</label>
+  <label class="check"><input type="checkbox" id="f-scope"> run scope only</label>
+
+  <h2>States</h2>
+  <div id="legend"></div>
+</aside>
+
+<div id="cy"></div>
+
+<aside class="right">
+  <h2>Task detail</h2>
+  <div id="detail"><div class="empty">Click a node.</div></div>
+</aside>
+
+<script>
+// Keys are server state values and must not change; labels and order are
+// presentation. Grouped by who currently holds the task.
+const STATES = {
+  ready:          { color: '#8957e5', label: 'Task Unstarted', group: 'awaiting admission',
+                    hint: 'dependencies satisfied; waiting for the controller to admit it' },
+  pending:        { color: '#484f58', label: 'Task Dependencies Unmet', group: 'awaiting admission',
+                    hint: 'one or more depends_on tasks are not complete yet' },
+
+  human_action:   { color: '#d29922', label: 'Task Needs You', group: 'on you',
+                    hint: 'human_action_required — your Unity checklist' },
+  blocked:        { color: '#f85149', label: 'Task Blocked',   group: 'on you',
+                    hint: 'worker stopped short — you inspect blockers or repair the environment' },
+  failed:         { color: '#da3633', label: 'Task Failed',    group: 'on you',
+                    hint: 'worker run failed — you diagnose' },
+
+  active:         { color: '#58a6ff', label: 'Task Working',   group: 'in flight',
+                    hint: 'a worker is running this right now' },
+  checks_pending: { color: '#1f6feb', label: 'Task In CI',     group: 'in flight',
+                    hint: 'waiting on GitHub pull-request checks' },
+
+  complete:       { color: '#3fb950', label: 'Task Complete',  group: 'finished',
+                    hint: 'worker finished with terminal status complete' },
+  cancelled:      { color: '#30363d', label: 'Task Retired',   group: 'finished',
+                    hint: 'contract cancelled/superseded in the task graph' },
+  excluded:       { color: '#6e7681', label: 'Task Excluded',  group: 'finished',
+                    hint: 'named in the run manifest exclusion list' },
+};
+
+cytoscape.use(cytoscapeDagre);
+
+const hidden = new Set(['cancelled']);
+let mode = 'deps';
+let snapshot = null;
+let lastStates = new Map();
+
+const cy = cytoscape({
+  container: document.getElementById('cy'),
+  minZoom: 0.05,
+  maxZoom: 3,
+  wheelSensitivity: 0.25,
+  style: [
+    {
+      selector: 'node',
+      style: {
+        shape: 'round-rectangle',
+        width: 210,
+        height: 'label',
+        padding: 11,
+        'background-color': '#21262d',
+        'border-width': 2,
+        'border-color': '#484f58',
+        label: 'data(label)',
+        color: '#e6edf3',
+        'font-size': 11,
+        'text-wrap': 'wrap',
+        'text-max-width': 186,
+        'text-valign': 'center',
+        'text-halign': 'center',
+        'line-height': 1.35,
+        'min-zoomed-font-size': 7,
+      },
+    },
+    {
+      selector: 'edge',
+      style: {
+        width: 1.4,
+        'line-color': '#30363d',
+        'target-arrow-color': '#30363d',
+        'target-arrow-shape': 'triangle',
+        'arrow-scale': 0.85,
+        'curve-style': 'bezier',
+      },
+    },
+    { selector: 'edge[kind = "parent"]', style: { 'line-style': 'dashed', 'line-color': '#3d444d' } },
+    { selector: 'node:selected', style: { 'border-width': 4, 'border-color': '#58a6ff' } },
+    {
+      selector: '.faded',
+      style: { opacity: 0.16, 'text-opacity': 0.16 },
+    },
+    {
+      selector: '.hl',
+      style: { 'line-color': '#58a6ff', 'target-arrow-color': '#58a6ff', width: 2.4, opacity: 1 },
+    },
+  ],
+});
+
+// One selector per state keeps repaints cheap on update.
+for (const [state, meta] of Object.entries(STATES)) {
+  cy.style().selector(`node[state = "${state}"]`).style({
+    'border-color': meta.color,
+    'background-color': shade(meta.color),
+  }).update();
+}
+function shade(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  return `rgb(${Math.round(r * .22 + 22)},${Math.round(g * .22 + 26)},${Math.round(b * .22 + 32)})`;
+}
+
+function visible(task) {
+  if (hidden.has(task.state)) return false;
+  if (document.getElementById('f-scope').checked && !task.in_scope) return false;
+  if (!document.getElementById('f-cancelled').checked && task.state === 'cancelled') return false;
+  return true;
+}
+
+function labelFor(task) {
+  const title = task.title.length > 76 ? task.title.slice(0, 74) + '…' : task.title;
+  return `${task.id}\n${title}`;
+}
+
+function buildElements(tasks) {
+  const shown = tasks.filter(visible);
+  const ids = new Set(shown.map(t => t.id));
+  const nodes = shown.map(t => ({
+    data: { id: t.id, label: labelFor(t), state: t.state },
+  }));
+  const edges = [];
+  for (const t of shown) {
+    if (mode === 'deps') {
+      for (const dep of t.depends_on) {
+        if (ids.has(dep)) edges.push({ data: { id: `${dep}->${t.id}`, source: dep, target: t.id, kind: 'dep' } });
+      }
+    } else if (t.parent && ids.has(t.parent)) {
+      edges.push({ data: { id: `${t.parent}=>${t.id}`, source: t.parent, target: t.id, kind: 'parent' } });
+    }
+  }
+  return { nodes, edges };
+}
+
+function layout() {
+  cy.layout({
+    name: 'dagre',
+    rankDir: mode === 'deps' ? 'LR' : 'TB',
+    nodeSep: 18,
+    rankSep: 90,
+    animate: false,
+    fit: false,
+  }).run();
+}
+
+function render(snap, { relayout }) {
+  const { nodes, edges } = buildElements(snap.tasks);
+  const wantNodes = new Set(nodes.map(n => n.data.id));
+  const wantEdges = new Set(edges.map(e => e.data.id));
+
+  let structural = false;
+
+  cy.nodes().forEach(n => { if (!wantNodes.has(n.id())) { n.remove(); structural = true; } });
+  cy.edges().forEach(e => { if (!wantEdges.has(e.id())) { e.remove(); structural = true; } });
+
+  for (const n of nodes) {
+    const existing = cy.getElementById(n.data.id);
+    if (existing.empty()) {
+      cy.add({ group: 'nodes', data: n.data });
+      structural = true;
+    } else {
+      if (existing.data('state') !== n.data.state) {
+        existing.data('state', n.data.state);
+        pulse(existing);
+      }
+      if (existing.data('label') !== n.data.label) existing.data('label', n.data.label);
+    }
+  }
+  for (const e of edges) {
+    if (cy.getElementById(e.data.id).empty()) { cy.add({ group: 'edges', data: e.data }); structural = true; }
+  }
+
+  if (structural || relayout) {
+    layout();
+    if (relayout) cy.fit(undefined, 40);
+  }
+  updateLegend(snap);
+}
+
+function pulse(node) {
+  node.animate({ style: { 'border-width': 9 } }, { duration: 220 })
+      .animate({ style: { 'border-width': 2 } }, { duration: 600 });
+}
+
+function updateLegend(snap) {
+  const counts = {};
+  for (const t of snap.tasks) counts[t.state] = (counts[t.state] || 0) + 1;
+  const el = document.getElementById('legend');
+  el.innerHTML = '';
+  let group = null;
+  for (const [state, meta] of Object.entries(STATES)) {
+    if (meta.group !== group) {
+      group = meta.group;
+      const head = document.createElement('div');
+      head.className = 'lgroup';
+      head.textContent = group;
+      el.appendChild(head);
+    }
+    const row = document.createElement('div');
+    row.className = 'legend' + (hidden.has(state) ? ' off' : '');
+    row.title = `${meta.hint} · state key "${state}"`;
+    row.innerHTML =
+      `<span class="swatch" style="background:${meta.color}"></span>` +
+      `<span>${meta.label}</span><span class="count">${counts[state] || 0}</span>`;
+    row.onclick = () => {
+      hidden.has(state) ? hidden.delete(state) : hidden.add(state);
+      render(snapshot, { relayout: false });
+    };
+    el.appendChild(row);
+  }
+
+  const run = snap.run;
+  const p = run.progress || {};
+  document.getElementById('runline').textContent =
+    (run.run_id || 'no active run') + (run.repository ? ` · ${run.repository}` : '');
+  document.getElementById('runstats').innerHTML = [
+    ['tasks', snap.tasks.length],
+    ['in run scope', run.targets.length],
+    ['capacity', run.max_capacity ?? '—'],
+    ['workers now', snap.scheduler.active.length],
+    ['poll cycles', p.poll_cycles_total ?? '—'],
+    ['worker launches', p.worker_launches_total ?? '—'],
+    ['architect calls', p.architect_invocations_total ?? '—'],
+    ['graph complete', run.complete ? 'yes' : 'no'],
+  ].map(([k, v]) => `<div class="stat"><span>${k}</span><span>${v}</span></div>`).join('');
+}
+
+function esc(s) {
+  return String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+}
+
+function showDetail(id) {
+  const task = snapshot.tasks.find(t => t.id === id);
+  if (!task) return;
+  const meta = STATES[task.state] || { color: '#8b949e', label: task.state };
+  const w = task.worker;
+  const out = [];
+  const field = (k, v) => out.push(`<div class="field"><div class="k">${k}</div><div class="v">${v}</div></div>`);
+
+  out.push(`<div class="field"><span class="pill" style="background:${meta.color}">${esc(meta.label)}</span></div>`);
+  field('task', `<strong>${esc(task.id)}</strong><br>${esc(task.title)}`);
+  field('classification',
+    `<code>${esc(task.kind)}</code><code>${esc(task.decomposition_state)}</code>` +
+    `<code>${esc(task.execution_scope || '—')}</code><code>${esc(task.disposition)}</code>`);
+  if (task.parent) field('parent', `<code>${esc(task.parent)}</code>`);
+  field('depends on', task.depends_on.length
+    ? task.depends_on.map(d => `<code>${esc(d)}</code>`).join('')
+    : '<span class="empty">nothing</span>');
+
+  if (w) {
+    field('worker', [
+      w.status ? `status <code>${esc(w.status)}</code>` : 'still running',
+      w.turn != null ? `turn <code>${esc(w.turn)}</code>` : '',
+      w.phase ? `phase <code>${esc(w.phase)}</code>` : '',
+      w.issue_state ? `issue <code>${esc(w.issue_state)}</code>` : '',
+      w.action ? `action <code>${esc(w.action)}</code>` : '',
+    ].filter(Boolean).join('<br>'));
+    if (w.message) field('last event', esc(w.message));
+    field('run', `<code>${esc(w.run_id)}</code><br><span class="sub">updated ${esc(w.updated_at)}</span>`);
+    if (w.issue_url) field('issue', `<a href="${esc(w.issue_url)}" target="_blank" style="color:var(--accent)">${esc(w.issue_url)}</a>`);
+  }
+  if (task.reason) field('why this shape', esc(task.reason));
+  if (task.acceptance.length) {
+    field('acceptance criteria', '<ul>' + task.acceptance.map(a => `<li>${esc(a)}</li>`).join('') + '</ul>');
+  }
+  if (task.resources.length) {
+    field('exclusive resources', task.resources.map(r => `<code>${esc(r)}</code>`).join(''));
+  }
+  if (task.notes) field('notes', esc(task.notes));
+  document.getElementById('detail').innerHTML = out.join('');
+}
+
+// Highlight a node's dependency neighbourhood on click.
+cy.on('tap', 'node', evt => {
+  const node = evt.target;
+  // Clear the previous selection's highlight, or edges accumulate across clicks.
+  cy.elements().removeClass('hl').addClass('faded');
+  const hood = node.closedNeighborhood();
+  hood.removeClass('faded');
+  hood.edges().addClass('hl');
+  showDetail(node.id());
+});
+cy.on('tap', evt => {
+  if (evt.target === cy) {
+    cy.elements().removeClass('faded').removeClass('hl');
+    document.getElementById('detail').innerHTML = '<div class="empty">Click a node.</div>';
+  }
+});
+
+document.getElementById('zin').onclick = () => cy.zoom({ level: cy.zoom() * 1.35, renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 } });
+document.getElementById('zout').onclick = () => cy.zoom({ level: cy.zoom() / 1.35, renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 } });
+document.getElementById('fit').onclick = () => cy.fit(undefined, 40);
+
+function setMode(next) {
+  mode = next;
+  document.getElementById('mode-deps').classList.toggle('on', next === 'deps');
+  document.getElementById('mode-tree').classList.toggle('on', next === 'tree');
+  cy.elements().remove();
+  render(snapshot, { relayout: true });
+}
+document.getElementById('mode-deps').onclick = () => setMode('deps');
+document.getElementById('mode-tree').onclick = () => setMode('tree');
+for (const id of ['f-cancelled', 'f-scope']) {
+  document.getElementById(id).onchange = () => render(snapshot, { relayout: true });
+}
+
+function setLive(on) {
+  document.getElementById('livedot').className = 'dot ' + (on ? 'live' : 'dead');
+  document.getElementById('livetext').textContent = on ? 'live · watching files' : 'offline';
+}
+
+fetch('/api/state').then(r => r.json()).then(snap => {
+  snapshot = snap;
+  render(snap, { relayout: true });
+
+  const stream = new EventSource('/api/stream');
+  stream.onopen = () => setLive(true);
+  stream.onerror = () => setLive(false);
+  stream.onmessage = evt => {
+    setLive(true);
+    snapshot = JSON.parse(evt.data);
+    render(snapshot, { relayout: false });
+    const sel = cy.$('node:selected');
+    if (sel.nonempty()) showDetail(sel.id());
+  };
+});
+</script>

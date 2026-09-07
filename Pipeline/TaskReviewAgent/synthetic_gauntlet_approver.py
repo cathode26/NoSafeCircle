@@ -1,21 +1,25 @@
 #!/usr/bin/env python3
-"""Validate and approve one waiting private synthetic-gauntlet Issue.
+"""Validate and advance exact waiting private synthetic-gauntlet Issues.
 
 This is deliberately not a general human-approval bot. It recognizes only the
 committed private rehearsal gauntlet provenance, excludes NSC-042, runs the
 exact committed Unity validation plan for implementation handoffs, and reviews
-the exact two-child decomposition artifact before invoking the existing
-PASS/decomposition approval helper with scheduler-deferred launch.
+the exact two-child decomposition artifact. Successful checks append explicit
+agent-owned evidence events; they never fabricate a human PASS or approval.
 """
 
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
+import hashlib
 import json
 from pathlib import Path
+import re
 import subprocess
 import sys
-from typing import Any, Mapping, Sequence
+import tempfile
+from typing import TYPE_CHECKING, Any, Callable, Mapping, Sequence
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -26,18 +30,47 @@ for module_root in (ROOT, PIPELINE_ROOT, TASK_GRAPH_ROOT):
         sys.path.insert(0, str(module_root))
 
 from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task  # noqa: E402
+from Pipeline.TaskReviewAgent.contracts import (  # noqa: E402
+    semantic_sha256,
+    validate_task_id,
+)
+from Pipeline.TaskReviewAgent.candidate_integration import (  # noqa: E402
+    CandidateIntegrationError,
+    find_pre_handoff_validation,
+    prove_pre_handoff_runner_identity,
+    require_source_validation_repository,
+)
+from Pipeline.Testing.validation_manifest import (  # noqa: E402
+    ImportedValidationManifest,
+    ValidationManifestError,
+    import_validation_manifest,
+)
 from Pipeline.TaskReviewAgent.downstream_resilience import (  # noqa: E402
+    decomposition_validation_policy_for,
     validation_plan_for,
 )
 from Pipeline.TaskReviewAgent.issue_queue import repo_root  # noqa: E402
 from Pipeline.TaskReviewAgent.issue_workflow import (  # noqa: E402
+    AUTOMATED_DECOMPOSITION_EVIDENCE_AUTHORITY,
+    AUTOMATED_DECOMPOSITION_EVIDENCE_SCHEMA_VERSION,
+    AUTOMATED_DECOMPOSITION_POLICY_AUTHORITY,
+    AUTOMATED_DECOMPOSITION_REVIEW_AUTHORITY,
+    AUTOMATED_DECOMPOSITION_REVIEW_STATUS,
+    AUTOMATED_VALIDATION_EVIDENCE_AUTHORITY,
+    AUTOMATED_VALIDATION_EVIDENCE_SCHEMA_VERSION,
+    AUTOMATED_VALIDATION_REPOSITORY,
+    AUTOMATED_VALIDATION_REPOSITORIES,
     WorkflowEventType,
     WorkflowPhase,
+    WorkflowState,
 )
+from Pipeline.TaskReviewAgent.human_action_wait import publish_resume_hint  # noqa: E402
 from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
     GhIssueBackend,
     IssueWorkflowService,
     IssueWorkflowSnapshot,
+    IssueWorkflowStoreError,
+    VINCENT_INBOX_TITLE,
 )
 from Pipeline.TaskReviewAgent.prepare_synthetic_gauntlet import (  # noqa: E402
     GAUNTLET_ID,
@@ -50,9 +83,192 @@ from graph_apply_plan import plan_graph_apply  # noqa: E402
 from graph_delta import GraphDeltaPlan, semantic_json_sha256  # noqa: E402
 from persistent_work_graph import load_persistent_work_graph  # noqa: E402
 
+if TYPE_CHECKING:
+    from Pipeline.TaskReviewAgent.autonomous_graph_run import (  # noqa: E402
+        SyntheticEvidencePumpResult,
+    )
+
 
 class SyntheticApprovalError(RuntimeError):
     """The waiting Issue is outside the exact disposable approval policy."""
+
+
+# How the proven Unity evidence for one synthetic validation was obtained. The
+# reused form never claims a fresh execution occurred.
+_REUSED_PRE_HANDOFF_EVIDENCE = "reused_pre_handoff_validation"
+_FRESH_SYNTHETIC_EXECUTION = "fresh_synthetic_unity_execution"
+
+_UNITY_RUNNER_RELATIVE = "Pipeline/Testing/run_unity_tests_clean.ps1"
+_DOWNSTREAM_SCHEMA_VERSION = "1.0"
+_MAINLINE_REINTEGRATION_SCHEMA_VERSION = "1.0"
+_MAINLINE_REINTEGRATION_AUTHORITY = "deterministic_mainline_reintegration"
+
+_MANIFEST_LINE = re.compile(r"^Validation manifest: (?P<path>.+)$")
+_SHA40 = re.compile(r"^[0-9a-f]{40}$")
+_SHA256 = re.compile(r"^[0-9a-f]{64}$")
+_MANIFEST_KEYS = frozenset(
+    {
+        "schema_version",
+        "manifest_type",
+        "status",
+        "validated_state",
+        "unity",
+        "test_run",
+        "artifacts",
+        "runner",
+    }
+)
+_VALIDATED_STATE_KEYS = frozenset(
+    {
+        "commit",
+        "tree",
+        "post_commit",
+        "post_tree",
+        "repository_clean_before",
+        "repository_clean_after",
+    }
+)
+_UNITY_KEYS = frozenset(
+    {"version", "executable", "exit_code", "test_platform", "test_filter"}
+)
+_TEST_RUN_KEYS = frozenset({"result", "total", "passed", "failed", "skipped"})
+_ARTIFACTS_KEYS = frozenset({"xml", "log"})
+_ARTIFACT_KEYS = frozenset({"relative_path", "sha256", "size_bytes"})
+_RUNNER_KEYS = frozenset({"path"})
+_AUTOMATED_WORKER_ID = "synthetic-gauntlet-approver"
+_SESSION_PROOF = object()
+
+
+@dataclass(frozen=True)
+class _SyntheticApproverSession:
+    """One repository-verified service binding reused by the process-all CLI."""
+
+    source: Path
+    checkout_root: Path
+    repository: str
+    service: IssueWorkflowService
+    proof: object
+
+
+def _open_synthetic_approver_session(
+    *,
+    source: Path,
+    checkout_root: Path,
+    confirm_repository: str,
+) -> _SyntheticApproverSession:
+    exact_source = repo_root(source.resolve())
+    repository = _require_private_rehearsal(exact_source, confirm_repository)
+    service = IssueWorkflowService(
+        backend=GhIssueBackend(source_root=exact_source),
+        task_loader=lambda task_id: load_committed_task(exact_source, task_id),
+        worker_id=_AUTOMATED_WORKER_ID,
+        vincent_inbox_title=VINCENT_INBOX_TITLE,
+    )
+    return _SyntheticApproverSession(
+        source=exact_source,
+        checkout_root=checkout_root.resolve(),
+        repository=repository,
+        service=service,
+        proof=_SESSION_PROOF,
+    )
+
+
+def _require_matching_session(
+    session: _SyntheticApproverSession,
+    *,
+    source: Path,
+    checkout_root: Path,
+    confirm_repository: str,
+) -> None:
+    if type(session) is not _SyntheticApproverSession or session.proof is not _SESSION_PROOF:
+        raise SyntheticApprovalError("synthetic approver session is not authentic")
+    if (
+        source.resolve() != session.source
+        or checkout_root.resolve() != session.checkout_root
+        or confirm_repository.casefold() != session.repository.casefold()
+    ):
+        raise SyntheticApprovalError(
+            "synthetic approver session does not match this exact repository request"
+        )
+
+
+def _exact_object(
+    value: Any, *, field: str, keys: frozenset[str]
+) -> Mapping[str, Any]:
+    if not isinstance(value, Mapping):
+        raise SyntheticApprovalError(f"{field} must be an object")
+    actual = set(value)
+    if actual != keys:
+        raise SyntheticApprovalError(
+            f"{field} keys mismatch; missing={sorted(keys-actual)}, "
+            f"extras={sorted(actual-keys)}"
+        )
+    return value
+
+
+def _exact_text(value: Any, *, field: str) -> str:
+    if type(value) is not str or not value or value != value.strip():
+        raise SyntheticApprovalError(f"{field} must be exact non-empty text")
+    return value
+
+
+def _exact_sha(value: Any, *, field: str, sha256: bool = False) -> str:
+    text = _exact_text(value, field=field)
+    pattern = _SHA256 if sha256 else _SHA40
+    if pattern.fullmatch(text) is None:
+        raise SyntheticApprovalError(f"{field} has an invalid identity")
+    return text
+
+
+def _sha256_bytes(value: bytes) -> str:
+    return hashlib.sha256(value).hexdigest()
+
+
+def _artifact_identity(
+    manifest_root: Path,
+    value: Any,
+    *,
+    field: str,
+    expected_relative_path: str,
+) -> str:
+    artifact = _exact_object(value, field=field, keys=_ARTIFACT_KEYS)
+    relative_path = _exact_text(
+        artifact.get("relative_path"), field=f"{field}.relative_path"
+    )
+    if relative_path != expected_relative_path:
+        raise SyntheticApprovalError(
+            f"{field}.relative_path must be exactly {expected_relative_path!r}"
+        )
+    path = (manifest_root / relative_path).resolve()
+    if path.parent != manifest_root or not path.is_file() or path.is_symlink():
+        raise SyntheticApprovalError(f"{field} is not one exact regular artifact file")
+    data = path.read_bytes()
+    expected_hash = _exact_sha(
+        artifact.get("sha256"), field=f"{field}.sha256", sha256=True
+    )
+    size = artifact.get("size_bytes")
+    if type(size) is not int or size < 0 or size != len(data):
+        raise SyntheticApprovalError(f"{field}.size_bytes does not match the file")
+    observed_hash = _sha256_bytes(data)
+    if observed_hash != expected_hash:
+        raise SyntheticApprovalError(f"{field}.sha256 does not match the file")
+    return observed_hash
+
+
+def _manifest_path(stdout: str) -> Path:
+    paths = [
+        match.group("path")
+        for line in stdout.splitlines()
+        if (match := _MANIFEST_LINE.fullmatch(line.strip())) is not None
+    ]
+    if len(paths) != 1:
+        raise SyntheticApprovalError(
+            "Unity runner must publish exactly one Validation manifest path"
+        )
+    path = Path(paths[0]).resolve()
+    if not path.is_file() or path.is_symlink():
+        raise SyntheticApprovalError("Unity validation manifest is not a regular file")
+    return path
 
 
 def _run_text(
@@ -76,7 +292,254 @@ def _run_text(
     return completed.stdout.strip()
 
 
-def _require_private_rehearsal(source: Path, confirmed_repository: str) -> str:
+def _runner_identity(
+    *, root: Path, script: Path, source_commit: str, source_tree: str
+) -> dict[str, str]:
+    """Bind exact executable bytes to one proven committed Git source."""
+
+    expected = (root.resolve() / _UNITY_RUNNER_RELATIVE).resolve()
+    if (
+        script.resolve() != expected
+        or not script.is_file()
+        or script.is_symlink()
+    ):
+        raise SyntheticApprovalError(
+            "trusted Unity runner is not the exact regular controller path"
+        )
+    source_commit = _exact_sha(source_commit, field="runner source commit")
+    source_tree = _exact_sha(source_tree, field="runner source tree")
+    committed_oid = _run_text(
+        (
+            "git",
+            "-C",
+            str(root),
+            "rev-parse",
+            f"{source_commit}:{_UNITY_RUNNER_RELATIVE}",
+        ),
+        cwd=root,
+    )
+    worktree_oid = _run_text(
+        (
+            "git",
+            "-C",
+            str(root),
+            "hash-object",
+            f"--path={_UNITY_RUNNER_RELATIVE}",
+            "--",
+            str(script),
+        ),
+        cwd=root,
+    )
+    if committed_oid != worktree_oid:
+        raise SyntheticApprovalError(
+            "trusted Unity runner worktree differs from its recorded source commit"
+        )
+    return {
+        "path": _UNITY_RUNNER_RELATIVE,
+        "sha256": _sha256_bytes(script.read_bytes()),
+        "source_commit": source_commit,
+        "source_tree": source_tree,
+    }
+
+
+def _controller_runner_identity(source: Path) -> dict[str, str]:
+    """Identify the current clean controller runner that will be executed."""
+
+    commit = _run_text(
+        ("git", "-C", str(source), "rev-parse", "HEAD"), cwd=source
+    )
+    tree = _run_text(
+        ("git", "-C", str(source), "rev-parse", f"{commit}^{{tree}}"), cwd=source
+    )
+    return _runner_identity(
+        root=source,
+        script=source / _UNITY_RUNNER_RELATIVE,
+        source_commit=commit,
+        source_tree=tree,
+    )
+
+
+def _load_downstream_receipt(
+    *, checkout: Path, task_id: str
+) -> Mapping[str, Any] | None:
+    """Load the controller receipt that created a reintegrated handoff."""
+
+    path = checkout.parent / ".task-review-agent" / f"{task_id}.downstream.json"
+    if not path.exists():
+        return None
+    if not path.is_file() or path.is_symlink():
+        raise SyntheticApprovalError(
+            "downstream receipt is not an exact regular controller artifact"
+        )
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise SyntheticApprovalError("downstream receipt is not readable JSON") from exc
+    if not isinstance(raw, Mapping):
+        raise SyntheticApprovalError("downstream receipt must be a JSON object")
+    identity = dict(raw)
+    receipt_sha256 = identity.pop("receipt_sha256", None)
+    if (
+        raw.get("schema_version") != _DOWNSTREAM_SCHEMA_VERSION
+        or raw.get("task_id") != task_id
+        or not isinstance(receipt_sha256, str)
+        or receipt_sha256 != semantic_sha256(identity)
+    ):
+        raise SyntheticApprovalError(
+            "downstream receipt identity or semantic checksum is invalid"
+        )
+    return raw
+
+
+def _downstream_runner_identity(
+    *,
+    source: Path,
+    checkout: Path,
+    task_id: str,
+    branch: str,
+    commit: str,
+    tree: str,
+) -> dict[str, str] | None:
+    """Prove a reintegrated checkout inherited its runner from trusted main."""
+
+    downstream = _load_downstream_receipt(checkout=checkout, task_id=task_id)
+    if downstream is None:
+        return None
+    receipt = downstream.get("mainline_reintegration")
+    if not isinstance(receipt, Mapping):
+        return None
+    payload = {key: value for key, value in receipt.items() if key != "receipt_sha256"}
+    receipt_sha256 = receipt.get("receipt_sha256")
+    if (
+        receipt.get("schema_version") != _MAINLINE_REINTEGRATION_SCHEMA_VERSION
+        or receipt.get("authority") != _MAINLINE_REINTEGRATION_AUTHORITY
+        or receipt.get("task_id") != task_id
+        or receipt.get("branch") != branch
+        or receipt.get("integrated_commit") != commit
+        or not isinstance(receipt_sha256, str)
+        or receipt_sha256 != semantic_sha256(payload)
+    ):
+        raise SyntheticApprovalError(
+            "mainline reintegration receipt does not identify this exact handoff"
+        )
+    main_head = _exact_sha(receipt.get("main_head"), field="reintegrated main head")
+    prior_task_head = _exact_sha(
+        receipt.get("prior_task_head"), field="reintegrated prior task head"
+    )
+    observed_tree = _run_text(
+        ("git", "-C", str(checkout), "rev-parse", f"{commit}^{{tree}}"),
+        cwd=checkout,
+    )
+    if observed_tree != tree:
+        raise SyntheticApprovalError(
+            "reintegrated handoff tree differs from the Issue tree"
+        )
+    parents = _run_text(
+        ("git", "-C", str(checkout), "show", "-s", "--format=%P", commit),
+        cwd=checkout,
+    ).split()
+    if parents != [prior_task_head, main_head]:
+        raise SyntheticApprovalError(
+            "reintegrated handoff does not have the receipt's ordered parents"
+        )
+    source_head = _run_text(
+        ("git", "-C", str(source), "rev-parse", "HEAD"), cwd=source
+    )
+    _exact_sha(source_head, field="trusted controller head")
+    _run_text(
+        (
+            "git",
+            "-C",
+            str(source),
+            "merge-base",
+            "--is-ancestor",
+            main_head,
+            source_head,
+        ),
+        cwd=source,
+    )
+    source_blob = _run_text(
+        (
+            "git",
+            "-C",
+            str(source),
+            "rev-parse",
+            f"{main_head}:{_UNITY_RUNNER_RELATIVE}",
+        ),
+        cwd=source,
+    )
+    handoff_blob = _run_text(
+        (
+            "git",
+            "-C",
+            str(checkout),
+            "rev-parse",
+            f"{commit}:{_UNITY_RUNNER_RELATIVE}",
+        ),
+        cwd=checkout,
+    )
+    if source_blob != handoff_blob:
+        raise SyntheticApprovalError(
+            "task checkout Unity runner was not inherited from trusted main"
+        )
+    return _runner_identity(
+        root=checkout,
+        script=checkout / _UNITY_RUNNER_RELATIVE,
+        source_commit=commit,
+        source_tree=tree,
+    )
+
+
+def _trusted_handoff_runner_identity(
+    *,
+    source: Path,
+    checkout: Path,
+    task_id: str,
+    branch: str,
+    commit: str,
+    tree: str,
+) -> dict[str, str]:
+    """Prove that the task did not author the runner stored in its handoff."""
+
+    try:
+        identity = prove_pre_handoff_runner_identity(
+            checkout=checkout,
+            task_id=task_id,
+            commit=commit,
+            tree=tree,
+            trusted_source=source,
+        )
+    except CandidateIntegrationError as exc:
+        raise SyntheticApprovalError(
+            "recorded pre-handoff Unity evidence is unusable because its "
+            f"runner provenance is invalid: {exc}"
+        ) from exc
+    if identity is not None:
+        return identity
+    identity = _downstream_runner_identity(
+        source=source,
+        checkout=checkout,
+        task_id=task_id,
+        branch=branch,
+        commit=commit,
+        tree=tree,
+    )
+    if identity is None:
+        raise SyntheticApprovalError(
+            "task checkout Unity runner has no independently proven controller provenance"
+        )
+    return identity
+
+
+def _require_private_rehearsal(
+    source: Path,
+    confirmed_repository: str,
+    expected_source_head: str | None = None,
+) -> str:
+    if expected_source_head is not None:
+        expected_source_head = _exact_sha(
+            expected_source_head, field="expected_source_head"
+        )
     origin = _run_text(
         ("git", "-C", str(source), "remote", "get-url", "origin"), cwd=source
     )
@@ -87,8 +550,15 @@ def _require_private_rehearsal(source: Path, confirmed_repository: str) -> str:
         )
     if repository.casefold() == "cathode26/nosafecircle":
         raise SyntheticApprovalError("synthetic approval refuses production")
-    if "rehearsal" not in repository.casefold():
-        raise SyntheticApprovalError("repository name must identify a rehearsal")
+    canonical_repository = next(
+        (name for name in AUTOMATED_VALIDATION_REPOSITORIES
+         if name.casefold() == repository.casefold()),
+        None,
+    )
+    if canonical_repository is None:
+        raise SyntheticApprovalError(
+            "synthetic approval requires the exact canonical rehearsal repository"
+        )
     metadata = json.loads(
         _run_text(
             (
@@ -134,11 +604,37 @@ def _require_private_rehearsal(source: Path, confirmed_repository: str) -> str:
     remote = _run_text(
         ("git", "-C", str(source), "rev-parse", "origin/main"), cwd=source
     )
-    if head != remote:
+    post_head = _run_text(
+        ("git", "-C", str(source), "rev-parse", "HEAD"), cwd=source
+    )
+    post_status = _run_text(
+        (
+            "git",
+            "-C",
+            str(source),
+            "status",
+            "--porcelain=v1",
+            "--untracked-files=all",
+        ),
+        cwd=source,
+    )
+    if post_status:
+        raise SyntheticApprovalError(
+            "synthetic approval controller changed during repository preflight"
+        )
+    if head != post_head:
+        raise SyntheticApprovalError(
+            "synthetic approval controller HEAD changed during repository preflight"
+        )
+    if post_head != remote:
         raise SyntheticApprovalError(
             "synthetic approval controller HEAD must exactly match current origin/main"
         )
-    return repository
+    if expected_source_head is not None and post_head != expected_source_head:
+        raise SyntheticApprovalError(
+            "synthetic approval source HEAD differs from the selected graph snapshot"
+        )
+    return canonical_repository
 
 
 def _direct_gauntlet_task(task: Mapping[str, Any]) -> bool:
@@ -209,22 +705,51 @@ def _last_decomposition_handoff(snapshot: IssueWorkflowSnapshot):
 
 
 def review_decomposition_plan(
-    source: Path, snapshot: IssueWorkflowSnapshot, task: Mapping[str, Any]
+    source: Path, snapshot: IssueWorkflowSnapshot, task: Mapping[str, Any],
+    *, repository: str | None = None,
 ) -> dict[str, Any]:
+    repository = AUTOMATED_VALIDATION_REPOSITORY if repository is None else repository
+    if repository not in AUTOMATED_VALIDATION_REPOSITORIES:
+        raise SyntheticApprovalError("decomposition repository is not an authorized rehearsal")
+    if snapshot.state is None:
+        raise SyntheticApprovalError("decomposition Issue omitted workflow state")
     handoff = _last_decomposition_handoff(snapshot)
     details = handoff.details
     artifact_root = Path(str(details.get("artifact_root") or "")).resolve()
+    graph_path = artifact_root / "graph_delta.json"
+    decomposition_path = artifact_root / "decomposition_result.json"
+    if (
+        not graph_path.is_file()
+        or graph_path.is_symlink()
+        or not decomposition_path.is_file()
+        or decomposition_path.is_symlink()
+    ):
+        raise SyntheticApprovalError(
+            "decomposition handoff artifacts must be exact regular files"
+        )
+    graph_bytes = graph_path.read_bytes()
+    decomposition_bytes = decomposition_path.read_bytes()
+    try:
+        graph_payload = json.loads(graph_bytes.decode("utf-8"))
+        decomposition_payload = json.loads(decomposition_bytes.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise SyntheticApprovalError(
+            "decomposition handoff artifacts must be valid UTF-8 JSON"
+        ) from exc
     graph = GraphDeltaPlan.from_payload(
-        json.loads((artifact_root / "graph_delta.json").read_text(encoding="utf-8"))
+        graph_payload
     )
     decomposition = DecompositionResult.from_dict(
-        json.loads(
-            (artifact_root / "decomposition_result.json").read_text(encoding="utf-8")
-        )
+        decomposition_payload
     )
     plan_id = details.get("graph_delta_plan_id")
     if graph.plan_id != plan_id:
         raise SyntheticApprovalError("artifact plan_id differs from the Issue handoff")
+    graph_hash = _sha256_bytes(graph.canonical_json().encode("utf-8"))
+    if details.get("graph_delta_sha256") != graph_hash:
+        raise SyntheticApprovalError(
+            "canonical graph delta hash differs from the durable Issue handoff"
+        )
     if not _direct_gauntlet_task(task) or not task.get("provenance", {}).get(
         "requires_decomposition"
     ):
@@ -275,6 +800,7 @@ def review_decomposition_plan(
             "synthetic decomposition parent does not own its exact four expected paths"
         )
     owned: set[str] = set()
+    child_evidence: list[dict[str, Any]] = []
     number = int(str(task["id"]).split("-")[1])
     for child in contracts:
         resources = set(child.get("exclusive_resources") or ())
@@ -314,24 +840,126 @@ def review_decomposition_plan(
                 "synthetic child omitted the exact Unity EditMode filter"
             )
         owned.update(resources)
+        child_payload = dict(child)
+        child_payload.pop("task_contract_sha256", None)
+        child_hash = semantic_json_sha256(child_payload)
+        claimed_child_hash = child.get("task_contract_sha256")
+        if claimed_child_hash is not None and claimed_child_hash != child_hash:
+            raise SyntheticApprovalError(
+                "synthetic child contract hash differs from its proposed contract"
+            )
+        child_evidence.append(
+            {
+                "task_id": child["id"],
+                "task_contract_sha256": child_hash,
+                "exclusive_resources": sorted(resources),
+            }
+        )
     if owned != expected_resources:
         raise SyntheticApprovalError(
             "two children do not exactly partition the parent's four file resources"
         )
+    if task.get("provenance", {}).get("profile") == "thousand":
+        alpha = next(child for child in contracts if
+                     f"repo-file:{expected_paths[0]}" in child["exclusive_resources"])
+        beta = next(child for child in contracts if
+                    f"repo-file:{expected_paths[2]}" in child["exclusive_resources"])
+        inherited = set(task.get("depends_on") or ())
+        if (set(alpha.get("depends_on") or ()) != inherited
+                or set(beta.get("depends_on") or ()) != inherited | {alpha["id"]}):
+            raise SyntheticApprovalError("thousand decomposition must preserve the Alpha-to-Beta column chain")
+        # Initial dependencies represent completion of the whole constant pair.
+        for rewrite in decomposition.inbound_dependency_rewrites:
+            if len(rewrite.replacement_local_keys) != 2:
+                raise SyntheticApprovalError("thousand dependents must await both exact children")
+    state = snapshot.state
+    source_commit = _exact_sha(state.head_commit, field="decomposition source commit")
+    if (
+        state.human_handoff_commit != source_commit
+        or details.get("head_commit") != source_commit
+        or details.get("branch") != state.branch
+        or handoff.event_id != state.last_event_id
+    ):
+        raise SyntheticApprovalError(
+            "decomposition handoff does not match the current Issue identity"
+        )
+    source_tree = _run_text(
+        ("git", "-C", str(source), "rev-parse", f"{source_commit}^{{tree}}"),
+        cwd=source,
+    )
+    _exact_sha(source_tree, field="decomposition source tree")
+    exact_task_hash = _exact_sha(
+        task.get("task_contract_sha256"),
+        field="decomposition task contract",
+        sha256=True,
+    )
+    if state.task_contract_sha256 != exact_task_hash:
+        raise SyntheticApprovalError(
+            "decomposition Issue and committed task contract hashes differ"
+        )
+    child_evidence.sort(key=lambda item: item["task_id"])
+    policy = decomposition_validation_policy_for(
+        source,
+        task,
+        parent_semantic_hash=parent_hash,
+    )
     return {
         "task_id": task["id"],
         "issue_number": snapshot.issue_number,
         "plan_id": plan_id,
         "artifact_root": str(artifact_root),
         "child_ids": [item["id"] for item in contracts],
+        "evidence": {
+            "schema_version": AUTOMATED_DECOMPOSITION_EVIDENCE_SCHEMA_VERSION,
+            "authority": AUTOMATED_DECOMPOSITION_EVIDENCE_AUTHORITY,
+            "repository": repository,
+            "repository_private": True,
+            "gauntlet_id": GAUNTLET_ID,
+            "task_id": task["id"],
+            "handoff_event_id": handoff.event_id,
+            "branch": state.branch,
+            "source_commit": source_commit,
+            "source_tree": source_tree,
+            "task_contract_sha256": exact_task_hash,
+            "graph_delta_plan_id": plan_id,
+            "graph_delta_sha256": graph_hash,
+            "decomposition_result_sha256": _sha256_bytes(decomposition_bytes),
+            "parent_contract_sha256": parent_hash,
+            "parent_exclusive_resources": sorted(expected_resources),
+            "children": child_evidence,
+            "validation_policy_authority": AUTOMATED_DECOMPOSITION_POLICY_AUTHORITY,
+            "validation_policy_sha256": policy["policy_sha256"],
+            "review": {
+                "authority": AUTOMATED_DECOMPOSITION_REVIEW_AUTHORITY,
+                "status": AUTOMATED_DECOMPOSITION_REVIEW_STATUS,
+                "fresh_plan_status": "fresh",
+                "recomputed_plan_id": graph.plan_id,
+                "exact_child_count": 2,
+                "resources_disjoint": True,
+                "resources_partition_parent": True,
+            },
+        },
         "status": "exact_synthetic_decomposition_review_passed",
     }
 
 
 def _run_unity_validation(
-    *, source: Path, checkout_root: Path, snapshot: IssueWorkflowSnapshot, task: dict
+    *,
+    source: Path,
+    checkout_root: Path,
+    repository: str,
+    snapshot: IssueWorkflowSnapshot,
+    task: dict,
+    integration_owner: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
+    if integration_owner is not None:
+        from .integration_gate import GitIntegrationGate
+        gate = GitIntegrationGate(source)
+        owner = gate.require_owner(gate.read()[1], integration_owner)
+        if owner["task_id"] != task["id"] or (owner["operation"] or {}).get("kind") not in {"unity", "source"}:
+            raise SyntheticApprovalError("fresh integration validation requires the exact active gate operation")
     assert snapshot.state is not None
+    state = snapshot.state
     checkout = Path(str(snapshot.state.checkout_path)).resolve()
     expected_checkout = checkout_root.resolve() / task["id"]
     if checkout != expected_checkout or not checkout.is_dir():
@@ -340,15 +968,190 @@ def _run_unity_validation(
         )
     plan = validation_plan_for(checkout, task)
     expected_filter = _expected_implementation_filter(source, task)
+    platform = "SyntheticSource" if plan and plan.get("required_test_platforms") == ["SyntheticSource"] else "EditMode"
     if (
         plan is None
-        or plan.get("required_test_platforms") != ["EditMode"]
-        or plan.get("test_filters", {}).get("EditMode") != expected_filter
+        or plan.get("required_test_platforms") != [platform]
+        or plan.get("test_filters", {}).get(platform) != expected_filter
     ):
         raise SyntheticApprovalError(
             "synthetic task has no exact committed EditMode validation plan"
         )
-    script = checkout / "Pipeline" / "Testing" / "run_unity_tests_clean.ps1"
+    script = checkout / _UNITY_RUNNER_RELATIVE
+    source_script = source / _UNITY_RUNNER_RELATIVE
+    if platform == "SyntheticSource":
+        script = checkout / "Pipeline/Testing/synthetic_source_validation.py"
+        source_script = source / "Pipeline/Testing/synthetic_source_validation.py"
+    if platform == "SyntheticSource" and (
+        not script.is_file()
+        or script.is_symlink()
+        or not source_script.is_file()
+        or source_script.is_symlink()
+        or script.read_bytes() != source_script.read_bytes()
+    ):
+        raise SyntheticApprovalError(
+            "task checkout does not contain the exact controller-owned source runner"
+        )
+    commit = _exact_sha(state.head_commit, field="Issue handoff commit")
+    if state.human_handoff_commit != commit:
+        raise SyntheticApprovalError("Issue head and human handoff commits differ")
+    if _run_text(("git", "-C", str(checkout), "rev-parse", "HEAD"), cwd=checkout) != commit:
+        raise SyntheticApprovalError("task checkout HEAD differs from the Issue handoff")
+    tree = _run_text(
+        ("git", "-C", str(checkout), "rev-parse", "HEAD^{tree}"), cwd=checkout
+    )
+    _exact_sha(tree, field="task checkout tree")
+    actual_branch = _run_text(
+        ("git", "-C", str(checkout), "branch", "--show-current"), cwd=checkout
+    )
+    if actual_branch != state.branch:
+        raise SyntheticApprovalError(
+            "task checkout branch differs from the Issue handoff branch"
+        )
+    if _run_text(
+        (
+            "git",
+            "-C",
+            str(checkout),
+            "status",
+            "--porcelain=v1",
+            "--untracked-files=all",
+        ),
+        cwd=checkout,
+    ):
+        raise SyntheticApprovalError("task checkout is dirty before Unity validation")
+
+    if platform == "EditMode":
+        # This check proves only that the historical checkout did not author or
+        # replace its runner.  The historical file is never executed below.
+        _trusted_handoff_runner_identity(
+            source=source,
+            checkout=checkout,
+            task_id=task["id"],
+            branch=state.branch,
+            commit=commit,
+            tree=tree,
+        )
+
+    # Every gate above has already passed: private rehearsal repository, exact
+    # human_approved_synthetic_gauntlet provenance, exact gauntlet ID, the
+    # NSC-042 exclusion, task/Issue/contract/branch/handoff identity, and a clean
+    # canonical checkout at the exact handoff commit. Only now may evidence that
+    # the integrator already produced for this same commit, tree, platform, and
+    # recomputed filter stand in for a second identical Unity execution.
+    try:
+        reuse_arguments: dict[str, Any] = {
+            "checkout": checkout,
+            "task_id": task["id"],
+            "commit": commit,
+            "tree": tree,
+            "test_platform": platform,
+            "test_filter": expected_filter,
+        }
+        if platform == "EditMode":
+            reuse_arguments["trusted_source"] = source
+        reused = find_pre_handoff_validation(**reuse_arguments)
+    except CandidateIntegrationError as exc:
+        # Recorded evidence that no longer verifies is tampering or corruption,
+        # not absence. Running Unity again here would hide it.
+        raise SyntheticApprovalError(
+            f"recorded pre-handoff Unity evidence is unusable: {exc}"
+        ) from exc
+
+    if reused is not None:
+        imported = reused
+        evidence_source = _REUSED_PRE_HANDOFF_EVIDENCE
+    else:
+        if platform == "SyntheticSource":
+            if integration_owner is None:
+                raise SyntheticApprovalError("synthetic source handoff requires exact pre-handoff evidence")
+            from Pipeline.Testing import synthetic_source_validation
+            if Path(synthetic_source_validation.__file__).read_bytes() != source_script.read_bytes():
+                raise SyntheticApprovalError("loaded source validator differs from the trusted controller runner")
+            output = Path(tempfile.mkdtemp(prefix="nsc-gated-source-validation-")) / "evidence"
+            manifest_path = synthetic_source_validation.validate(checkout, task["id"], expected_filter, output)
+            imported = import_validation_manifest(
+                manifest_path, controller_root=output, expected_commit=commit, expected_tree=tree,
+                expected_test_platform=platform, expected_test_filter=expected_filter)
+            evidence_source = "fresh_gate_held_source_validation"
+        else:
+            runner_identity = _controller_runner_identity(source)
+            imported = _execute_synthetic_unity_validation(
+                checkout=checkout,
+                script=source_script,
+                expected_filter=expected_filter,
+                commit=commit,
+                tree=tree,
+                expected_runner_identity=runner_identity,
+            )
+            evidence_source = _FRESH_SYNTHETIC_EXECUTION
+
+    manifest_path = imported.path
+    manifest = imported.manifest
+    xml_sha256 = manifest.xml.sha256
+    log_sha256 = manifest.log.sha256
+    counts = {
+        "total": manifest.test_run.total,
+        "passed": manifest.test_run.passed,
+        "failed": manifest.test_run.failed,
+        "skipped": manifest.test_run.skipped,
+    }
+    if counts["passed"] <= 0:
+        raise SyntheticApprovalError(
+            "Unity validation manifest does not prove a non-empty passing run"
+        )
+
+    post_commit = _run_text(
+        ("git", "-C", str(checkout), "rev-parse", "HEAD"), cwd=checkout
+    )
+    post_tree = _run_text(
+        ("git", "-C", str(checkout), "rev-parse", "HEAD^{tree}"), cwd=checkout
+    )
+    post_status = _run_text(
+        (
+            "git",
+            "-C",
+            str(checkout),
+            "status",
+            "--porcelain=v1",
+            "--untracked-files=all",
+        ),
+        cwd=checkout,
+    )
+    if post_commit != commit or post_tree != tree or post_status:
+        raise SyntheticApprovalError(
+            "task checkout changed after the Unity manifest was produced"
+        )
+    return _synthetic_validation_result(
+        task=task,
+        state=state,
+        repository=repository,
+        checkout=checkout,
+        plan=plan,
+        expected_filter=expected_filter,
+        commit=commit,
+        tree=tree,
+        post_commit=post_commit,
+        post_tree=post_tree,
+        manifest_path=manifest_path,
+        manifest_sha256=imported.sha256,
+        xml_sha256=xml_sha256,
+        log_sha256=log_sha256,
+        counts=counts,
+        evidence_source=evidence_source,
+    )
+
+
+def _execute_synthetic_unity_validation(
+    *,
+    checkout: Path,
+    script: Path,
+    expected_filter: str,
+    commit: str,
+    tree: str,
+    expected_runner_identity: Mapping[str, str],
+):
+    """Run the current controller Unity runner against the exact task project."""
     command = (
         "powershell.exe",
         "-NoProfile",
@@ -363,53 +1166,540 @@ def _run_unity_validation(
         "-ProjectPath",
         str(checkout),
     )
-    completed = subprocess.run(command, cwd=str(checkout), check=False)
+    completed = subprocess.run(
+        command,
+        cwd=str(checkout),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        check=False,
+        timeout=3600.0,
+    )
+    output = str(completed.stdout or "")
+    if output:
+        print(output, end="" if output.endswith("\n") else "\n")
     if completed.returncode != 0:
+        detail = " ".join(output.split())[-1200:]
         raise SyntheticApprovalError(
             f"exact synthetic Unity validation failed ({completed.returncode})"
+            + (f": {detail}" if detail else "")
         )
+    manifest_path = _manifest_path(output)
+    try:
+        # One shared strict importer owns schema, clean-state, exit-code, count,
+        # runner, artifact-containment, and artifact-hash verification for both the
+        # fresh and the reused path, so the two can never drift apart.
+        return import_validation_manifest(
+            manifest_path,
+            controller_root=manifest_path.parent,
+            expected_commit=commit,
+            expected_tree=tree,
+            expected_test_platform="EditMode",
+            expected_test_filter=expected_filter,
+            expected_runner_sha256=expected_runner_identity["sha256"],
+            expected_runner_source_commit=expected_runner_identity["source_commit"],
+            expected_runner_source_tree=expected_runner_identity["source_tree"],
+        )
+    except (OSError, ValidationManifestError) as exc:
+        raise SyntheticApprovalError(
+            f"exact synthetic Unity validation evidence is invalid: {exc}"
+        ) from exc
+
+
+def _synthetic_validation_result(
+    *,
+    task: dict,
+    state,
+    repository: str,
+    checkout: Path,
+    plan: Mapping[str, Any],
+    expected_filter: str,
+    commit: str,
+    tree: str,
+    post_commit: str,
+    post_tree: str,
+    manifest_path: Path,
+    manifest_sha256: str,
+    xml_sha256: str,
+    log_sha256: str,
+    counts: Mapping[str, int],
+    evidence_source: str,
+) -> dict[str, Any]:
+    """Build the automated-validation payload for one proven Unity result.
+
+    The payload is identical whether the evidence was executed here or reused
+    from the pre-handoff run; only ``evidence_source`` records which, so the
+    caller never claims a fresh execution it did not perform. This is automated
+    validation authority only -- it never creates a human PASS or human_result.
+    """
+
+    contract_hash = _exact_sha(
+        task.get("task_contract_sha256"),
+        field="task contract",
+        sha256=True,
+    )
+    if state.task_contract_sha256 != contract_hash:
+        raise SyntheticApprovalError("Issue and committed task contract hashes differ")
+    branch = _exact_text(state.branch, field="Issue branch")
+    policy_authority = _exact_text(
+        plan.get("authority"), field="validation policy authority"
+    )
+    policy_sha256 = _exact_sha(
+        plan.get("policy_sha256"), field="validation policy", sha256=True
+    )
+    handoff_event_id = _exact_sha(
+        state.last_event_id, field="Issue handoff event", sha256=True
+    )
+    platform = plan["required_test_platforms"][0]
+    source_validation = platform == "SyntheticSource"
+    if source_validation:
+        try:
+            imported = import_validation_manifest(
+                manifest_path,
+                controller_root=manifest_path.parent,
+                expected_commit=commit,
+                expected_tree=tree,
+                expected_test_platform=platform,
+                expected_test_filter=expected_filter,
+                expected_manifest_sha256=manifest_sha256,
+                expected_xml_sha256=xml_sha256,
+                expected_log_sha256=log_sha256,
+            )
+            require_source_validation_repository(
+                checkout, imported, expected_repository=repository
+            )
+        except (CandidateIntegrationError, ValidationManifestError, OSError) as exc:
+            raise SyntheticApprovalError(f"recorded source validation evidence is unusable: {exc}") from exc
+    validation = {"test_platform": platform, "test_filter": expected_filter}
+    evidence = {
+        "schema_version": "2.0" if source_validation else AUTOMATED_VALIDATION_EVIDENCE_SCHEMA_VERSION,
+        "authority": AUTOMATED_VALIDATION_EVIDENCE_AUTHORITY,
+        "repository": repository,
+        "repository_private": True,
+        "gauntlet_id": GAUNTLET_ID,
+        "task_id": task["id"],
+        "handoff_event_id": handoff_event_id,
+        "branch": branch,
+        "commit": commit,
+        "tree": tree,
+        "task_contract_sha256": contract_hash,
+        "validation_policy_authority": policy_authority,
+        "validation_policy_sha256": policy_sha256,
+        "required_validations": [validation],
+        ("source_validations" if source_validation else "unity_validations"): [
+            {
+                **validation,
+                "manifest_sha256": manifest_sha256,
+                "xml_sha256": xml_sha256,
+                "log_sha256": log_sha256,
+                "commit": commit,
+                "tree": tree,
+                "post_commit": post_commit,
+                "post_tree": post_tree,
+                "repository_clean_before": True,
+                "repository_clean_after": True,
+                **dict(counts),
+            }
+        ],
+    }
     return {
         "task_id": task["id"],
-        "commit": snapshot.state.head_commit,
+        "commit": commit,
         "checkout": str(checkout),
-        "test_platform": "EditMode",
+        "test_platform": platform,
         "test_filter": expected_filter,
-        "status": "exact_synthetic_unity_validation_passed",
+        "manifest_path": str(manifest_path),
+        "evidence_source": evidence_source,
+        "evidence": evidence,
+        "status": "exact_synthetic_source_validation_passed" if source_validation else "exact_synthetic_unity_validation_passed",
     }
 
 
-def _approve(
+def _apply_automated_decomposition(
+    *,
+    source: Path,
+    service: IssueWorkflowService,
+    task_id: str,
+    evidence: Mapping[str, Any],
+) -> dict[str, Any]:
+    transitioned = service.apply_automated_decomposition_result(
+        task_id=task_id,
+        evidence=evidence,
+        actor_id=_AUTOMATED_WORKER_ID,
+    )
+    verified = service.find(task_id)
+    if verified is None or not verified.valid or verified.state is None:
+        raise SyntheticApprovalError(
+            "automated decomposition transition disappeared after post-verification"
+        )
+    state = verified.state
+    if (
+        state.phase is not WorkflowPhase.DECOMPOSITION_APPLY
+        or state.human_result is not None
+        or state.human_handoff_commit != evidence.get("source_commit")
+    ):
+        raise SyntheticApprovalError(
+            "automated decomposition post-state is not exact D1C authority"
+        )
+    notification_status = "not_configured"
+    try:
+        notification_status = (
+            service.clear_vincent_notification_after_automated_evidence(task_id)
+        )
+    except (OSError, RuntimeError, subprocess.TimeoutExpired) as exc:
+        print(
+            "SYNTHETIC APPROVER: WARNING\n"
+            f"Issue is agent_ready but its exact Vincent notification was not removed: {exc}",
+            file=sys.stderr,
+        )
+        notification_status = "warning"
+    hint_path: str | None = None
+    try:
+        hint_path = str(
+            publish_resume_hint(
+                source,
+                task_id=task_id,
+                human_handoff_commit=str(state.human_handoff_commit),
+                state_version=state.state_version,
+                event_id=str(state.last_event_id),
+                to_phase=state.phase.value,
+            )
+        )
+    except (OSError, RuntimeError, ValueError) as exc:
+        print(
+            "SYNTHETIC APPROVER: WARNING\n"
+            f"Issue is agent_ready but its local architect poke failed: {exc}",
+            file=sys.stderr,
+        )
+    return {
+        **transitioned,
+        "vincent_notification": notification_status,
+        "resume_hint_path": hint_path,
+    }
+
+
+def _apply_automated_validation(
+    *,
+    source: Path,
+    service: IssueWorkflowService,
+    task_id: str,
+    evidence: Mapping[str, Any],
+) -> dict[str, Any]:
+    transitioned = service.apply_automated_validation(
+        task_id=task_id,
+        evidence=evidence,
+        actor_id=_AUTOMATED_WORKER_ID,
+    )
+    verified = service.find(task_id)
+    if verified is None or not verified.valid or verified.state is None:
+        raise SyntheticApprovalError(
+            "automated validation transition disappeared after post-verification"
+        )
+    state = verified.state
+    if (
+        state.phase is not WorkflowPhase.DELIVERY_EVIDENCE
+        or state.human_result is not None
+        or state.human_handoff_commit != evidence.get("commit")
+    ):
+        raise SyntheticApprovalError(
+            "automated validation post-state is not exact delivery evidence authority"
+        )
+    notification_status = "not_configured"
+    try:
+        notification_status = (
+            service.clear_vincent_notification_after_automated_evidence(task_id)
+        )
+    except (OSError, RuntimeError, subprocess.TimeoutExpired) as exc:
+        print(
+            "SYNTHETIC APPROVER: WARNING\n"
+            f"Issue is agent_ready but its exact Vincent notification was not removed: {exc}",
+            file=sys.stderr,
+        )
+        notification_status = "warning"
+    hint_path: str | None = None
+    try:
+        hint_path = str(
+            publish_resume_hint(
+                source,
+                task_id=task_id,
+                human_handoff_commit=str(state.human_handoff_commit),
+                state_version=state.state_version,
+                event_id=str(state.last_event_id),
+                to_phase=state.phase.value,
+            )
+        )
+    except (OSError, RuntimeError, ValueError) as exc:
+        print(
+            "SYNTHETIC APPROVER: WARNING\n"
+            f"Issue is agent_ready but its local architect poke failed: {exc}",
+            file=sys.stderr,
+        )
+    return {
+        **transitioned,
+        "vincent_notification": notification_status,
+        "resume_hint_path": hint_path,
+    }
+
+
+def _pump_result(
+    *,
+    task_id: str,
+    evidence: Mapping[str, Any],
+    transitioned: Mapping[str, Any],
+    event_field: str,
+) -> "SyntheticEvidencePumpResult":
+    """Bind one verified workflow transition to the controller's pump contract."""
+
+    exact_task_id = validate_task_id(task_id)
+    event_id = _exact_sha(
+        transitioned.get(event_field), field=event_field, sha256=True
+    )
+    if transitioned.get("last_event_id") != event_id:
+        raise SyntheticApprovalError(
+            "automated transition event differs from its verified final Issue event"
+        )
+    workflow_state = transitioned.get("workflow_state")
+    if not isinstance(workflow_state, Mapping):
+        raise SyntheticApprovalError(
+            "automated transition omitted its verified workflow state"
+        )
+    if (
+        workflow_state.get("task_id") != exact_task_id
+        or workflow_state.get("human_result") is not None
+    ):
+        raise SyntheticApprovalError(
+            "automated transition post-state changed task identity or human_result"
+        )
+
+    # Import lazily so the autonomous controller may import this adapter without
+    # creating a module-load cycle. The returned object is the controller's
+    # exact class, not a lookalike dataclass or stdout-derived approximation.
+    from Pipeline.TaskReviewAgent.autonomous_graph_run import (
+        SyntheticEvidencePumpResult,
+    )
+
+    return SyntheticEvidencePumpResult(
+        task_id=exact_task_id,
+        event_id=event_id,
+        evidence_sha256=semantic_sha256(evidence),
+    )
+
+
+def process_one_synthetic_handoff(
+    task_id: str,
     *,
     source: Path,
     checkout_root: Path,
-    task_id: str,
-    decomposition: bool,
-    tested_commit: str | None,
-) -> None:
-    command = [
-        sys.executable,
-        str(source / "Pipeline" / "TaskReviewAgent" / "pass_and_resume_task.py"),
-        task_id,
-        "--source",
-        str(source),
-        "--checkout-root",
-        str(checkout_root.resolve()),
-        "--execution-provider",
-        "claude",
-        "--apply",
-        "--defer-launch",
-        "--notes",
-        "Private synthetic gauntlet exact-policy validation passed.",
-    ]
-    if decomposition:
-        command.append("--approve-decomposition")
-    else:
-        command.extend(("--tested-commit", str(tested_commit)))
-    completed = subprocess.run(command, cwd=str(source), check=False)
-    if completed.returncode != 0:
-        raise SyntheticApprovalError(
-            f"PASS/decomposition helper failed ({completed.returncode})"
+    confirm_repository: str,
+    apply: bool = True,
+    report: Callable[[Mapping[str, Any]], None] | None = None,
+    expected_source_head: str | None = None,
+    _session: _SyntheticApproverSession | None = None,
+    integration_owner: Mapping[str, Any] | None = None,
+) -> "SyntheticEvidencePumpResult | None":
+    """Validate and optionally advance one exact synthetic human handoff.
+
+    Normal callers receive a fresh repository/private/default-branch/main
+    preflight before any Issue access. The CLI supplies only a module-created,
+    proof-bearing session so that its process-all loop can reuse that same
+    preflight and GitHub service without weakening the public boundary.
+
+    ``None`` is returned for a dry run because no durable workflow event exists.
+    An applied call returns the controller's exact structured pump result. One
+    invocation resolves and transitions only ``task_id``; it never enumerates or
+    advances another synthetic task.
+    """
+
+    exact_task_id = validate_task_id(task_id)
+    if integration_owner is not None:
+        from .integration_gate import GitIntegrationGate
+        gate = GitIntegrationGate(source)
+        _, gate_state = gate.read()
+        # An active worker performs bounded automated revalidation within its
+        # integration window. Another pump must not validate/mutate this Issue.
+        owner = gate.require_owner(gate_state, integration_owner)
+        if owner["task_id"] != exact_task_id:
+            raise SyntheticApprovalError("synthetic validator task differs from the integration owner")
+    if exact_task_id == PRESERVED_TASK_ID:
+        raise SyntheticApprovalError("NSC-042 always requires Vincent's real validation")
+    if type(apply) is not bool:
+        raise SyntheticApprovalError("apply must be an exact boolean")
+    if report is not None and not callable(report):
+        raise SyntheticApprovalError("report must be callable when provided")
+    exact_checkout_root = checkout_root.resolve()
+    if _session is None:
+        session = _open_synthetic_approver_session(
+            source=source,
+            checkout_root=exact_checkout_root,
+            confirm_repository=confirm_repository,
         )
+    else:
+        _require_matching_session(
+            _session,
+            source=source,
+            checkout_root=exact_checkout_root,
+            confirm_repository=confirm_repository,
+        )
+        session = _session
+
+    bound_source_head = (
+        _exact_sha(expected_source_head, field="expected_source_head")
+        if expected_source_head is not None
+        else _exact_sha(
+            _run_text(
+                ("git", "-C", str(session.source), "rev-parse", "HEAD"),
+                cwd=session.source,
+            ),
+            field="source_head",
+        )
+    )
+    if _run_text(
+        ("git", "-C", str(session.source), "rev-parse", "HEAD"),
+        cwd=session.source,
+    ) != bound_source_head:
+        raise SyntheticApprovalError(
+            "synthetic approval source HEAD changed before task authorization"
+        )
+
+    # This check categorically excludes NSC-042 and any task outside the exact
+    # committed gauntlet lineage before its Issue can be mutated.
+    task = _require_gauntlet_task(session.source, exact_task_id)
+    snapshot = session.service.find(exact_task_id)
+    if (
+        snapshot is None
+        or not snapshot.valid
+        or snapshot.state is None
+        or getattr(snapshot, "pending_transition", None) is not None
+        or snapshot.state.state is not WorkflowState.HUMAN_ACTION_REQUIRED
+    ):
+        raise SyntheticApprovalError(
+            f"selected managed Issue changed before validation: {exact_task_id}"
+        )
+
+    phase = snapshot.state.phase
+    if phase is WorkflowPhase.DECOMPOSITION_APPLY_AUTHORIZATION:
+        reviewed = review_decomposition_plan(
+            session.source, snapshot, task, repository=session.repository
+        )
+        if report is not None:
+            report(reviewed)
+        if not apply:
+            return None
+        evidence = reviewed["evidence"]
+        _require_private_rehearsal(
+            session.source, session.repository, bound_source_head
+        )
+        transitioned = _apply_automated_decomposition(
+            source=session.source,
+            service=session.service,
+            task_id=exact_task_id,
+            evidence=evidence,
+        )
+        if report is not None:
+            report(transitioned)
+        return _pump_result(
+            task_id=exact_task_id,
+            evidence=evidence,
+            transitioned=transitioned,
+            event_field="automated_decomposition_event_id",
+        )
+
+    if phase is WorkflowPhase.UNITY_RUNTIME_VALIDATION:
+        plan = {
+            "task_id": exact_task_id,
+            "issue_number": snapshot.issue_number,
+            "commit": snapshot.state.head_commit,
+            "status": "exact_synthetic_unity_validation_ready",
+        }
+        if report is not None:
+            report(plan)
+        if not apply:
+            return None
+        validated = _run_unity_validation(
+            source=session.source,
+            checkout_root=session.checkout_root,
+            repository=session.repository,
+            snapshot=snapshot,
+            task=task,
+            **({"integration_owner": integration_owner} if integration_owner is not None else {}),
+        )
+        if report is not None:
+            report(validated)
+        evidence = validated["evidence"]
+        _require_private_rehearsal(
+            session.source, session.repository, bound_source_head
+        )
+        transitioned = _apply_automated_validation(
+            source=session.source,
+            service=session.service,
+            task_id=exact_task_id,
+            evidence=evidence,
+        )
+        if report is not None:
+            report(transitioned)
+        return _pump_result(
+            task_id=exact_task_id,
+            evidence=evidence,
+            transitioned=transitioned,
+            event_field="automated_validation_event_id",
+        )
+
+    raise SyntheticApprovalError(
+        f"unsupported human-owned phase for synthetic task: {phase.value}"
+    )
+
+
+class SyntheticHandoffProcessor:
+    """Repository-verified reusable boundary for an autonomous run.
+
+    Construction opens one repository-verified service session. Each call still
+    re-reads only the named Issue and freshly revalidates private-repository
+    authority immediately before mutation through the exact public
+    ``process_one_synthetic_handoff`` behavior.
+    """
+
+    def __init__(
+        self,
+        *,
+        source: Path,
+        checkout_root: Path,
+        confirm_repository: str,
+    ) -> None:
+        self.source = source.resolve()
+        self.checkout_root = checkout_root.resolve()
+        self.confirm_repository = confirm_repository
+        self._session = _open_synthetic_approver_session(
+            source=self.source,
+            checkout_root=self.checkout_root,
+            confirm_repository=confirm_repository,
+        )
+
+    def process_one(
+        self,
+        task_id: str,
+        *,
+        report: Callable[[Mapping[str, Any]], None] | None = None,
+        expected_source_head: str | None = None,
+    ) -> "SyntheticEvidencePumpResult":
+        result = process_one_synthetic_handoff(
+            task_id,
+            source=self.source,
+            checkout_root=self.checkout_root,
+            confirm_repository=self.confirm_repository,
+            apply=True,
+            report=report,
+            expected_source_head=expected_source_head,
+            _session=self._session,
+        )
+        if result is None:  # pragma: no cover - apply=True guarantees a result
+            raise SyntheticApprovalError(
+                "applied synthetic handoff returned no durable event identity"
+            )
+        return result
+
+
+def _print_json(value: Mapping[str, Any]) -> None:
+    print(json.dumps(value, indent=2, sort_keys=True))
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -420,28 +1710,25 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--apply", action="store_true")
     args = parser.parse_args(argv)
     try:
-        source = repo_root(args.source.resolve())
-        repository = _require_private_rehearsal(source, args.confirm_repository)
-        service = IssueWorkflowService(
-            backend=GhIssueBackend(source_root=source),
-            task_loader=lambda task_id: load_committed_task(source, task_id),
-            worker_id="synthetic-gauntlet-approver",
+        session = _open_synthetic_approver_session(
+            source=args.source,
+            checkout_root=args.checkout_root,
+            confirm_repository=args.confirm_repository,
         )
+        source = session.source
+        repository = session.repository
+        service = session.service
         waiting = service.list_human_action_required()
-        selected: tuple[IssueWorkflowSnapshot, dict[str, Any]] | None = None
+        selected_task_ids: list[str] = []
         for entry in waiting:
             state = entry.get("workflow_state") or {}
             task_id = str(state.get("task_id") or "")
             try:
-                task = _require_gauntlet_task(source, task_id)
+                _require_gauntlet_task(source, task_id)
             except SyntheticApprovalError:
                 continue
-            snapshot = service.find(task_id)
-            if snapshot is None or snapshot.state is None:
-                raise SyntheticApprovalError("selected managed Issue disappeared")
-            selected = snapshot, task
-            break
-        if selected is None:
+            selected_task_ids.append(task_id)
+        if not selected_task_ids:
             print(
                 json.dumps(
                     {
@@ -454,46 +1741,30 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
             )
             return 0
-        snapshot, task = selected
-        phase = snapshot.state.phase
-        if phase is WorkflowPhase.DECOMPOSITION_APPLY_AUTHORIZATION:
-            result = review_decomposition_plan(source, snapshot, task)
-            print(json.dumps(result, indent=2, sort_keys=True))
-            if args.apply:
-                _approve(
-                    source=source,
-                    checkout_root=args.checkout_root,
-                    task_id=task["id"],
-                    decomposition=True,
-                    tested_commit=None,
-                )
-        elif phase is WorkflowPhase.UNITY_RUNTIME_VALIDATION:
-            plan = {
-                "task_id": task["id"],
-                "issue_number": snapshot.issue_number,
-                "commit": snapshot.state.head_commit,
-                "status": "exact_synthetic_unity_validation_ready",
-            }
-            print(json.dumps(plan, indent=2, sort_keys=True))
-            if args.apply:
-                validated = _run_unity_validation(
-                    source=source,
-                    checkout_root=args.checkout_root,
-                    snapshot=snapshot,
-                    task=task,
-                )
-                print(json.dumps(validated, indent=2, sort_keys=True))
-                _approve(
-                    source=source,
-                    checkout_root=args.checkout_root,
-                    task_id=task["id"],
-                    decomposition=False,
-                    tested_commit=snapshot.state.head_commit,
-                )
-        else:
-            raise SyntheticApprovalError(
-                f"unsupported human-owned phase for synthetic task: {phase.value}"
+        processed: list[str] = []
+        for task_id in selected_task_ids:
+            # Re-read immediately inside the one-item API. A prior Unity run
+            # may be long enough for another actor to change a later Issue.
+            process_one_synthetic_handoff(
+                task_id,
+                source=source,
+                checkout_root=args.checkout_root,
+                confirm_repository=args.confirm_repository,
+                apply=args.apply,
+                report=_print_json,
+                _session=session,
             )
+            processed.append(task_id)
+        print(
+            json.dumps(
+                {
+                    "status": "synthetic_human_actions_processed",
+                    "processed_task_ids": processed,
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
         print(
             "SYNTHETIC APPROVER: "
             + ("APPLIED" if args.apply else "DRY RUN (add --apply)")

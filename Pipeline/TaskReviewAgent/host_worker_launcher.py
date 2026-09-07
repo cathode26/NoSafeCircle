@@ -22,6 +22,12 @@ from Pipeline.TaskReviewAgent.worker_result import (  # noqa: E402
     validate_worker_result,
     write_worker_result,
 )
+from Pipeline.TaskReviewAgent.provider_policy import (  # noqa: E402
+    parse_provider_allowlist,
+    require_permitted_provider,
+    resolve_supervisor_provider,
+    SUPERVISOR_PROVIDERS,
+)
 
 
 def _utc_now() -> str:
@@ -50,6 +56,18 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--supervisor-reasoning-effort")
     parser.add_argument("--execution-model")
     parser.add_argument("--execution-reasoning-effort")
+    parser.add_argument("--crew-profile", choices=("lean", "standard", "full"))
+    parser.add_argument(
+        "--validation-profile",
+        choices=("targeted", "task_specific", "full_relevant"),
+    )
+    parser.add_argument("--enable-execution-session-pool", action="store_true")
+    parser.add_argument("--provider-allowlist", type=parse_provider_allowlist)
+    parser.add_argument(
+        "--supervisor-provider",
+        choices=SUPERVISOR_PROVIDERS,
+        default=None,
+    )
     return parser
 
 
@@ -58,6 +76,16 @@ def build_powershell_command(args: argparse.Namespace) -> tuple[str, ...]:
     checkout_root = args.checkout_root.resolve()
     output_root = args.output_root.resolve()
     starter = source / "Pipeline" / "TaskReviewAgent" / "Start-GameTaskAgent.ps1"
+    permitted = getattr(args, "provider_allowlist", None)
+    supervisor_provider = resolve_supervisor_provider(
+        getattr(args, "supervisor_provider", None)
+    )
+    require_permitted_provider(args.execution_provider, permitted, role="execution")
+    require_permitted_provider(supervisor_provider, permitted, role="supervisor")
+    if (args.crew_profile is None) != (args.validation_profile is None):
+        raise ValueError(
+            "crew profile and validation profile must be supplied together"
+        )
 
     command: list[str] = [
         "powershell.exe",
@@ -78,6 +106,8 @@ def build_powershell_command(args: argparse.Namespace) -> tuple[str, ...]:
         str(args.worker_id),
         "-ExecutionProvider",
         str(args.execution_provider),
+        "-SupervisorProvider",
+        supervisor_provider,
         "-MaxTurns",
         str(args.max_turns),
         "-HumanActionWaitMinutes",
@@ -121,6 +151,14 @@ def build_powershell_command(args: argparse.Namespace) -> tuple[str, ...]:
         command.extend(
             ("-ExecutionReasoningEffort", str(args.execution_reasoning_effort))
         )
+    if args.crew_profile:
+        command.extend(("-CrewProfile", str(args.crew_profile)))
+    if args.validation_profile:
+        command.extend(("-ValidationProfile", str(args.validation_profile)))
+    if args.enable_execution_session_pool:
+        command.append("-EnableExecutionSessionPool")
+    if permitted is not None:
+        command.extend(("-ProviderAllowlist", ",".join(permitted)))
     return tuple(command)
 
 

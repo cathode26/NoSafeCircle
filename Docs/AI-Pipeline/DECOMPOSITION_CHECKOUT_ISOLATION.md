@@ -76,6 +76,15 @@ The task ID itself is the required human-visible coordination label. `work_type:
 - Never fall back to running decomposition from the shared `NoSafeCircle` root because checkout creation failed.
 - Do not put authoritative decomposition output under the task checkout or elsewhere under the repository tree.
 
+When a prior review-only proposal is rejected, or its approved plan is invalidated
+because `main` advanced before D1C, the Issue keeps the old proposal commit as audit
+history. A new `decomposition` lease may fast-forward that same checkout to current
+`main` only when the external manifest, branch, remote, clean tree, task contract,
+and complete old-checkout-to-current-main ancestry are exact. The remote task branch
+must still be absent (normal for D1B) or equal the old review-only handoff. Dirt,
+divergence, a non-ancestor main, or any moved remote task branch stops without reset,
+clean, rebase, deletion, or overwrite.
+
 ## PowerShell pattern
 
 The production host launcher performs the following policy atomically after the

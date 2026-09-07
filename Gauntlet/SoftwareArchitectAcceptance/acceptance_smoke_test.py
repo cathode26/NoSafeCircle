@@ -1760,6 +1760,18 @@ def test_resume_authority_is_translated_through_dispatch_plan_resume() -> None:
                 observation.outcome == "start" and observation.task_id == "NSC-906",
                 f"production started {observation.task_id!r} instead of the resume task",
             )
+            require(
+                any(
+                    str(record.get("event")) == "resume_priority_applied"
+                    for record in adapter.production_event_log()
+                ),
+                "the real scheduler did not emit its resume-priority diagnostic",
+            )
+            require(
+                "resume_priority_applied"
+                not in [str(event.name) for event in observation.events],
+                "the resume-priority diagnostic became duplicate canonical evidence",
+            )
         finally:
             sw.destroy_world(world)
 

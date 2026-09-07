@@ -15,13 +15,15 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 HERE = Path(__file__).resolve()
+sys.path.insert(0, str(HERE.parents[3]))
 sys.path.insert(0, str(HERE.parents[1]))
 sys.path.insert(0, str(HERE.parents[2] / "Testing"))
 import generate_delivery_spec as delivery
-from record_delivery import parse_delivery_spec
+from record_delivery import CANON_PATH, create_delivery_package, parse_delivery_spec, print_human_report
 
 
 TASK_ID = "NSC-900"
+SOURCE_REPOSITORY = "fixture-owner/pipeline-rehearsal"
 TASK = {
     "schema_version": "2.0", "id": TASK_ID, "contract_revision": 1, "contract_disposition": "active",
     "title": "Synthetic Delivery", "exclusive_resources": ["repo-file:Config/unchanged.txt"],
@@ -42,8 +44,12 @@ class Fixture:
     def __init__(self, outer: Path):
         self.outer = outer; self.root = outer / "repo"; self.root.mkdir()
         git(self.root, "init", "-q"); git(self.root, "config", "user.email", "test@example.invalid"); git(self.root, "config", "user.name", "Human Tester")
+        git(self.root, "remote", "add", "origin", f"https://github.com/{SOURCE_REPOSITORY}.git")
         (self.root / "Tasks").mkdir(); (self.root / "Config").mkdir()
         (self.root / "Tasks" / f"{TASK_ID}.yaml").write_text(json.dumps(TASK), encoding="utf-8")
+        canon = self.root / CANON_PATH
+        canon.parent.mkdir(parents=True, exist_ok=True)
+        canon.write_text("# Synthetic delivery test canon\n", encoding="utf-8")
         (self.root / "Config" / "unchanged.txt").write_text("unchanged\n", encoding="utf-8")
         (self.root / "implementation.txt").write_text("base\n", encoding="utf-8")
         git(self.root, "add", "."); git(self.root, "commit", "-qm", "base"); self.base = git(self.root, "rev-parse", "HEAD")
@@ -69,6 +75,14 @@ class Fixture:
                "artifacts":{"xml":{"relative_path":"test-results.xml","sha256":hashlib.sha256(xml).hexdigest(),"size_bytes":len(xml)},
                             "log":{"relative_path":"unity.log","sha256":hashlib.sha256(log).hexdigest(),"size_bytes":len(log)}},
                "runner":{"path":"Pipeline/Testing/run_unity_tests_clean.ps1"}}
+        if platform == "SyntheticSource":
+            raw["manifest_type"] = "synthetic_source_validation"
+            raw["repository"] = SOURCE_REPOSITORY
+            raw["executor"] = raw.pop("unity")
+            raw["executor"].update(version=sys.version.split()[0], executable=sys.executable)
+            raw["runner"]["path"] = "Pipeline/Testing/synthetic_source_validation.py"
+            (directory / "unity.log").rename(directory / "source-validation.log")
+            raw["artifacts"]["log"]["relative_path"] = "source-validation.log"
         path = directory / "validation-manifest.json"; path.write_text(json.dumps(raw), encoding="utf-8"); return path
 
     def draft(self, name="review.json", **kwargs):
@@ -99,6 +113,65 @@ class TaskDeliverySmokeTest(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(); self.fx = Fixture(Path(self.temp.name))
     def tearDown(self): self.temp.cleanup()
+
+    def test_source_evidence_cannot_replace_ordinary_task_validation(self):
+        source = self.fx.make_manifest(self.fx.outer / "source-validation", platform="SyntheticSource")
+        with self.assertRaisesRegex(delivery.TaskDeliveryError, "committed SyntheticSource policy"):
+            self.fx.draft(manifests=[source])
+        self.assertFalse((self.fx.outer / "review.json").exists())
+
+    def test_source_artifacts_stay_distinct_through_review_and_recording(self):
+        source = self.fx.make_manifest(self.fx.outer / "source-validation", platform="SyntheticSource")
+        # This is the already validated policy boundary, whose repository and
+        # synthetic-task restrictions have their own planner/runner tests.
+        plan = {"required_test_platforms": ["SyntheticSource"],
+                "test_filters": {"SyntheticSource": "Synthetic.Tests"}}
+        with patch("Pipeline.TaskReviewAgent.downstream_resilience.validation_plan_for", return_value=plan):
+            _, review = self.fx.draft(manifests=[source])
+            self.assertEqual(review["review_status"], "needs_human")
+            self.assertEqual(review["human_approval"]["decision"], "")
+            artifacts = review["artifacts"]
+            self.assertEqual([item["type"] for item in artifacts], ["other", "other"])
+            self.assertEqual([item["id"] for item in artifacts], ["source_01_results", "source_01_log"])
+            self.assertTrue(all(item["name"].startswith("Source-SyntheticSource-") for item in artifacts))
+            self.assertTrue(all(Path(item["validation_manifest"]).resolve() == source.resolve() for item in artifacts))
+            self.fx.approve(review)
+            output = self.fx.finalize(review)
+            result = create_delivery_package(output, self.fx.root)
+        self.assertEqual(result.unity_reports, ())
+        self.assertTrue(all("Unity-SyntheticSource" not in path for path in result.created_paths))
+        report = io.StringIO()
+        with contextlib.redirect_stdout(report):
+            print_human_report(result)
+        self.assertIn("no unity_test_results artifacts supplied", report.getvalue())
+
+    def test_source_inventory_cannot_be_relabelled_as_unity_or_escape_policy(self):
+        source = self.fx.make_manifest(self.fx.outer / "source-validation", platform="SyntheticSource")
+        plan = {"required_test_platforms": ["SyntheticSource"],
+                "test_filters": {"SyntheticSource": "Synthetic.Tests"}}
+        with patch("Pipeline.TaskReviewAgent.downstream_resilience.validation_plan_for", return_value=plan):
+            _, review = self.fx.draft(manifests=[source])
+            self.fx.approve(review)
+            changed = json.loads(json.dumps(review))
+            changed["artifacts"][0]["type"] = "unity_test_results"
+            with self.assertRaisesRegex(delivery.TaskDeliveryError, "artifact inventory"):
+                self.fx.finalize(changed, "relabelled.json")
+        with self.assertRaisesRegex(delivery.TaskDeliveryError, "committed SyntheticSource policy"):
+            self.fx.finalize(review, "missing-policy.json")
+        self.assertFalse((self.fx.outer / "relabelled.json").exists())
+        self.assertFalse((self.fx.outer / "missing-policy.json").exists())
+
+    def test_source_manifest_cannot_cross_repositories(self):
+        source = self.fx.make_manifest(self.fx.outer / "source-validation", platform="SyntheticSource")
+        payload = json.loads(source.read_text())
+        payload["repository"] = "fixture-owner/agent-rehearsal"
+        source.write_text(json.dumps(payload), encoding="utf-8")
+        plan = {"required_test_platforms": ["SyntheticSource"],
+                "test_filters": {"SyntheticSource": "Synthetic.Tests"}}
+        with patch("Pipeline.TaskReviewAgent.downstream_resilience.validation_plan_for", return_value=plan):
+            with self.assertRaisesRegex(delivery.TaskDeliveryError, "different repository"):
+                self.fx.draft(manifests=[source])
+        self.assertFalse((self.fx.outer / "review.json").exists())
 
     def test_draft_happy_path_inventory_provenance_and_nonmutation(self):
         before = (git(self.fx.root, "status", "--porcelain"), git(self.fx.root, "rev-parse", "HEAD"), git(self.fx.root, "write-tree"))
@@ -186,6 +259,26 @@ class TaskDeliverySmokeTest(unittest.TestCase):
         self.assertEqual(before,(git(self.fx.root,"status","--porcelain"),git(self.fx.root,"rev-parse","HEAD"),git(self.fx.root,"write-tree")))
         self.assertFalse((self.fx.root/"Pipeline/TaskGraph/evidence").exists())
         with self.assertRaises(delivery.TaskDeliveryError): self.fx.finalize(review,name=output.name)
+
+    def test_finalize_accepts_explicit_non_required_human_approval(self):
+        _, review = self.fx.draft()
+        self.fx.approve(review)
+        review["human_approval"] = {
+            "required": False,
+            "decision": "not_required",
+            "approved_by": "",
+            "notes": (
+                f"Automated validation event {'e' * 64}; committed validation "
+                f"policy {'d' * 64}."
+            ),
+        }
+        output = self.fx.finalize(review, name="automated-spec.json")
+        spec = json.loads(output.read_text(encoding="utf-8"))
+        self.assertEqual(spec["human_approval"], review["human_approval"])
+        parsed = parse_delivery_spec(spec)
+        self.assertFalse(parsed.human_approval.required)
+        self.assertEqual(parsed.human_approval.decision, "not_required")
+        self.assertEqual(parsed.human_approval.approved_by, "")
 
     def test_finalize_one_and_multiple_manifest_happy_paths(self):
         _, one = self.fx.draft(); self.fx.approve(one)

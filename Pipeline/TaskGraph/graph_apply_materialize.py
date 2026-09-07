@@ -18,7 +18,9 @@ from graph_delta import (
     _plan_payload,
     semantic_json_sha256,
 )
+from conformance_records import ConformanceRecordError, GitRepository
 from persistent_work_graph import load_persistent_work_graph
+from record_delivery import RecordDeliveryError, hash_object_as_committed
 from work_graph_persist import (
     canonical_json_text,
     read_json,
@@ -69,6 +71,28 @@ class GraphApplyMaterializationResult:
 class _Artifact:
     relative_path: Path
     text: str
+
+
+@dataclass
+class _CommittedArtifactBaseline:
+    """One lazily captured immutable HEAD and its reusable committed-tree cache."""
+
+    repository: GitRepository
+    commit: str | None = None
+
+    def exact_commit(self) -> str:
+        if self.commit is None:
+            commit = self.repository.head()
+            if len(commit) != 40 or any(
+                character not in "0123456789abcdef" for character in commit
+            ):
+                raise GraphApplyMaterializationError(
+                    "Committed artifact comparison requires HEAD to resolve to one exact "
+                    "40-character lowercase Git commit SHA."
+                )
+            self.commit = commit
+        assert self.commit is not None
+        return self.commit
 
 
 def _bounded_detail(error: BaseException, limit: int = 500) -> str:
@@ -328,6 +352,8 @@ def _artifact_if_changed(
     root: Path,
     relative_path: Path,
     payload: Any,
+    *,
+    committed_baseline: _CommittedArtifactBaseline,
 ) -> None:
     text = canonical_json_text(payload)
     target = root / relative_path
@@ -339,7 +365,33 @@ def _artifact_if_changed(
         raise GraphApplyMaterializationError(
             f"Unable to inspect target file {target}: {_bounded_detail(exc)}"
         ) from exc
-    if current_bytes != text.encode("utf-8"):
+    if current_bytes is None:
+        artifacts.append(_Artifact(relative_path=relative_path, text=text))
+        return
+    relative = relative_path.as_posix()
+    try:
+        current_blob = hash_object_as_committed(root, relative, current_bytes)
+        desired_blob = hash_object_as_committed(
+            root,
+            relative,
+            text.encode("utf-8"),
+        )
+        # Resolve at the same point where the old implementation first passed
+        # symbolic HEAD to Git. The shared baseline captures only this first
+        # observation; later artifacts read the same immutable commit.
+        committed_head = committed_baseline.exact_commit()
+        repository = committed_baseline.repository
+        committed_blob = (
+            repository.blob(committed_head, relative)
+            if repository.exists(committed_head, relative)
+            else None
+        )
+    except (ConformanceRecordError, RecordDeliveryError) as exc:
+        raise GraphApplyMaterializationError(
+            "Unable to compare target content through Git's configured clean filters "
+            f"for {relative}: {_bounded_detail(exc)}"
+        ) from exc
+    if current_blob != desired_blob or committed_blob != desired_blob:
         artifacts.append(_Artifact(relative_path=relative_path, text=text))
 
 
@@ -561,12 +613,17 @@ def materialize_graph_apply(
             )
 
         artifacts: list[_Artifact] = []
+        # Constructing the handle observes no Git state. HEAD is deliberately
+        # resolved lazily by the first existing artifact, at the exact old
+        # symbolic-ref lookup boundary, then reused as an immutable cache key.
+        committed_baseline = _CommittedArtifactBaseline(GitRepository(root))
         for child_id in child_ids:
             _artifact_if_changed(
                 artifacts,
                 root,
                 Path("Tasks") / f"{child_id}.yaml",
                 proposed_by_id[child_id],
+                committed_baseline=committed_baseline,
             )
         for dependent_id in dependent_ids:
             _artifact_if_changed(
@@ -574,6 +631,7 @@ def materialize_graph_apply(
                 root,
                 Path("Tasks") / f"{dependent_id}.yaml",
                 proposed_by_id[dependent_id],
+                committed_baseline=committed_baseline,
             )
         parent_id = slice1_result.parent_task_id
         _artifact_if_changed(
@@ -581,6 +639,7 @@ def materialize_graph_apply(
             root,
             Path("Tasks") / f"{parent_id}.yaml",
             proposed_by_id[parent_id],
+            committed_baseline=committed_baseline,
         )
         _artifact_if_changed(
             artifacts,
@@ -591,6 +650,7 @@ def materialize_graph_apply(
                 "id_map",
                 overlay["id_map"],
             ),
+            committed_baseline=committed_baseline,
         )
         _artifact_if_changed(
             artifacts,
@@ -601,6 +661,7 @@ def materialize_graph_apply(
                 "resource_groups",
                 overlay["resource_groups"],
             ),
+            committed_baseline=committed_baseline,
         )
         artifact_tuple = tuple(artifacts)
         staged_task_ids = {

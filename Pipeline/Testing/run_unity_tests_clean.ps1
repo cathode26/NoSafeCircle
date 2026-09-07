@@ -110,6 +110,65 @@ function Get-WorkingTreeStatus {
     return ($meaningful -join [Environment]::NewLine)
 }
 
+function Wait-ForRepositoryQuiescence {
+    param(
+        [string]$RepositoryRoot,
+        [int]$RequiredStableSamples = 4,
+        [int]$SampleDelayMilliseconds = 500
+    )
+
+    # Unity can finish its test process before a package/settings writer has
+    # released its final filesystem update.  A single immediate status read can
+    # therefore produce a false-clean result.  Require the raw porcelain state
+    # to remain identical across a bounded settling window before the
+    # authoritative post-run checks are captured.
+    $previous = $null
+    $stable = 0
+    $maximumSamples = $RequiredStableSamples + 20
+    for ($attempt = 0; $attempt -lt $maximumSamples; $attempt++) {
+        $current = Invoke-Git $RepositoryRoot @(
+            "status", "--porcelain=v1", "--untracked-files=all"
+        )
+        if ($null -ne $previous -and $current -eq $previous) {
+            $stable++
+        }
+        else {
+            $stable = 1
+            $previous = $current
+        }
+        if ($stable -ge $RequiredStableSamples) {
+            return
+        }
+        Start-Sleep -Milliseconds $SampleDelayMilliseconds
+    }
+    throw "Repository did not reach a stable post-Unity filesystem state."
+}
+
+function Restore-ProvenSafeUnityChurn {
+    param(
+        [string]$RepositoryRoot,
+        [string]$ExpectedHead
+    )
+
+    $recoveryScript = Join-Path $RepositoryRoot 'Pipeline\TaskReviewAgent\safe_unity_churn.py'
+    if (-not (Test-Path -LiteralPath $recoveryScript -PathType Leaf)) {
+        throw "Safe Unity churn policy is missing: $recoveryScript"
+    }
+    $output = @(
+        & python $recoveryScript `
+            --repository $RepositoryRoot `
+            --expected-head $ExpectedHead `
+            --apply 2>&1
+    )
+    if ($LASTEXITCODE -ne 0) {
+        throw "Safe Unity churn recovery refused the worktree: $($output -join [Environment]::NewLine)"
+    }
+    $summary = ($output -join [Environment]::NewLine).Trim()
+    if (-not [string]::IsNullOrWhiteSpace($summary)) {
+        Write-Host "Safe Unity churn recovery: $summary"
+    }
+}
+
 function Stop-WithCode {
     param([int]$Code, [string]$Message)
     [Console]::Error.WriteLine($Message)
@@ -258,6 +317,50 @@ try {
     }
     $repositoryRoot = (Resolve-Path -LiteralPath $repositoryRoot).Path
 
+    $runnerRelativePath = "Pipeline/Testing/run_unity_tests_clean.ps1"
+    if ([string]::IsNullOrWhiteSpace($PSCommandPath) -or -not (Test-Path -LiteralPath $PSCommandPath -PathType Leaf)) {
+        Stop-WithCode $ExitPrecondition "PRECONDITION FAILURE: The executing Unity runner path cannot be resolved."
+    }
+    $runnerItem = Get-Item -LiteralPath $PSCommandPath -Force
+    if (($runnerItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+        Stop-WithCode $ExitPrecondition "PRECONDITION FAILURE: The Unity runner must not be a symlink or reparse point: $PSCommandPath"
+    }
+    $runnerScriptPath = (Resolve-Path -LiteralPath $PSCommandPath).Path
+    $runnerRepositoryRoot = Invoke-Git (Split-Path -Parent $runnerScriptPath) @(
+        "rev-parse", "--show-toplevel"
+    )
+    $runnerRepositoryRoot = (Resolve-Path -LiteralPath $runnerRepositoryRoot).Path
+    $expectedRunnerScriptPath = Join-Path $runnerRepositoryRoot ($runnerRelativePath -replace '/', '\')
+    if (-not (Test-Path -LiteralPath $expectedRunnerScriptPath -PathType Leaf)) {
+        Stop-WithCode $ExitPrecondition "PRECONDITION FAILURE: The committed Unity runner is missing: $expectedRunnerScriptPath"
+    }
+    $expectedRunnerScriptPath = (Resolve-Path -LiteralPath $expectedRunnerScriptPath).Path
+    if (-not [string]::Equals(
+        $runnerScriptPath,
+        $expectedRunnerScriptPath,
+        [System.StringComparison]::OrdinalIgnoreCase
+    )) {
+        Stop-WithCode $ExitPrecondition "PRECONDITION FAILURE: The Unity runner did not execute from its canonical repository path: $runnerScriptPath"
+    }
+
+    $runnerSourceCommit = Invoke-Git $runnerRepositoryRoot @("rev-parse", "HEAD")
+    $runnerSourceTree = Invoke-Git $runnerRepositoryRoot @(
+        "rev-parse", "${runnerSourceCommit}^{tree}"
+    )
+    $runnerCommittedBlob = Invoke-Git $runnerRepositoryRoot @(
+        "rev-parse", "${runnerSourceCommit}:$runnerRelativePath"
+    )
+    $runnerWorktreeBlob = Invoke-Git $runnerRepositoryRoot @(
+        "hash-object", "--path=$runnerRelativePath", "--", $runnerScriptPath
+    )
+    if ($runnerWorktreeBlob -ne $runnerCommittedBlob) {
+        Stop-WithCode $ExitPrecondition "PRECONDITION FAILURE: The executing Unity runner differs from the committed runner at $runnerSourceCommit."
+    }
+    # Record the exact bytes PowerShell executed. The filtered hash-object proof
+    # above independently binds those checkout-specific bytes (including their
+    # line endings) to the recorded committed source.
+    $runnerSha256 = Get-Sha256Hex $runnerScriptPath
+
     $projectSettings = Join-Path $resolvedProjectPath "ProjectSettings\ProjectVersion.txt"
     if (-not (Test-Path -LiteralPath $projectSettings -PathType Leaf)) {
         Stop-WithCode $ExitPrecondition "PRECONDITION FAILURE: ProjectPath is not a Unity project: $resolvedProjectPath"
@@ -305,6 +408,13 @@ try {
             "-testResults", (ConvertTo-WindowsCommandLineArgument $xmlPath),
             "-logFile", (ConvertTo-WindowsCommandLineArgument $logPath)
         )
+        $ilppPidPath = Join-Path $resolvedProjectPath "Library\ilpp.pid"
+        if (Test-Path -LiteralPath $ilppPidPath) {
+            [System.IO.File]::Delete($ilppPidPath)
+        }
+        if (Test-Path -LiteralPath $ilppPidPath) {
+            throw "Unity ILPP PID marker still exists after deletion: $ilppPidPath"
+        }
         $unityProcess = Start-Process -FilePath $UnityExecutable -ArgumentList $unityArguments -Wait -PassThru
         $unityExitCode = $unityProcess.ExitCode
 
@@ -421,7 +531,11 @@ try {
     # Unity batch logs regularly contain trailing spaces. Normalize them before
     # their SHA/size identities enter the authoritative validation manifest, so
     # the exact reviewed artifact is also safe for a later evidence commit.
-    $logHygieneScript = Join-Path $resolvedProjectPath "Pipeline\Testing\unity_log_hygiene.py"
+    # The validation runner may intentionally come from a newer controller than
+    # the historical project checkout it tests. Keep the supporting hygiene
+    # tool in that same committed controller toolchain; consulting the target
+    # checkout here would quietly reintroduce stale or task-authored code.
+    $logHygieneScript = Join-Path $runnerRepositoryRoot "Pipeline\Testing\unity_log_hygiene.py"
     if (-not (Test-Path -LiteralPath $logHygieneScript -PathType Leaf)) {
         Stop-WithCode $ExitResult "RESULT FAILURE: Unity log hygiene helper is missing: $logHygieneScript"
     }
@@ -447,7 +561,7 @@ try {
         $xmlHash = Get-Sha256Hex $xmlPath
         $logHash = Get-Sha256Hex $logPath
         $manifest = [ordered]@{
-            schema_version = "1.0"
+            schema_version = "1.1"
             manifest_type = "unity_test_validation"
             status = "passed"
             validated_state = [ordered]@{
@@ -485,7 +599,10 @@ try {
                 }
             }
             runner = [ordered]@{
-                path = "Pipeline/Testing/run_unity_tests_clean.ps1"
+                path = $runnerRelativePath
+                sha256 = $runnerSha256
+                source_commit = $runnerSourceCommit
+                source_tree = $runnerSourceTree
             }
         }
         $manifestJson = ($manifest | ConvertTo-Json -Depth 8) + [Environment]::NewLine

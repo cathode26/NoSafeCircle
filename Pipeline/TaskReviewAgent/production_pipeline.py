@@ -8,6 +8,7 @@ from typing import Any, Iterable
 from .candidate_integration import CandidateIntegrator
 from .contracts import ExecutionScopePlan, TaskReviewContractError
 from .execution_bridge import ExecutionCrewBridge
+from .execution_routing import RIGOR_PROFILE_BY_TIER
 from .issue_workflow import (
     WorkflowActor,
     WorkflowEventType,
@@ -49,13 +50,27 @@ class ProductionTaskController:
         execution_provider: str,
         execution_model: str | None = None,
         execution_reasoning_effort: str | None = None,
+        crew_profile: str | None = None,
+        validation_profile: str | None = None,
         execution_command_runner=None,
+        execution_session_pool_owner=None,
+        enable_execution_session_pool: bool = False,
+        provider_allowlist: tuple[str, ...] | None = None,
+        quota_fallback_provider: str | None = None,
     ) -> None:
         self.workflow = workflow
         self.task_id = workflow.task_id
         self.execution_provider = str(execution_provider).strip().casefold()
         if self.execution_provider not in ("claude", "codex"):
             raise ProductionPipelineError("execution_provider must be claude or codex")
+        from .provider_policy import provider_allowlist as validate_allowlist, require_permitted_provider
+        self.provider_allowlist = validate_allowlist(provider_allowlist)
+        require_permitted_provider(self.execution_provider, self.provider_allowlist, role="execution")
+        if quota_fallback_provider is not None:
+            if quota_fallback_provider != "codex" or self.provider_allowlist is None:
+                raise ProductionPipelineError("quota fallback requires explicitly permitted Codex")
+            require_permitted_provider("codex", self.provider_allowlist, role="quota fallback")
+        self.quota_fallback_provider = quota_fallback_provider
         self.execution_model = (
             str(execution_model).strip() if execution_model else None
         )
@@ -68,7 +83,23 @@ class ProductionTaskController:
             raise ProductionPipelineError(
                 "execution_reasoning_effort is supported only for codex"
             )
+        if crew_profile is None and validation_profile is None:
+            crew_profile, validation_profile = RIGOR_PROFILE_BY_TIER["deep"]
+        elif crew_profile is None or validation_profile is None:
+            raise ProductionPipelineError(
+                "crew_profile and validation_profile must be supplied together"
+            )
+        if (crew_profile, validation_profile) not in set(
+            RIGOR_PROFILE_BY_TIER.values()
+        ):
+            raise ProductionPipelineError(
+                "crew_profile and validation_profile are not a supported rigor pair"
+            )
+        self.crew_profile = crew_profile
+        self.validation_profile = validation_profile
         self.execution_command_runner = execution_command_runner
+        self.execution_session_pool_owner = execution_session_pool_owner
+        self.enable_execution_session_pool = enable_execution_session_pool
         self.scope: RepositoryScopeAuthority | None = None
         self.execution: ExecutionCrewBridge | None = None
         self.integrator: CandidateIntegrator | None = None
@@ -99,12 +130,23 @@ class ProductionTaskController:
                 lease_id=state["lease_id"],
                 expected_branch=branch,
             )
+            execution_options: dict[str, Any] = {}
+            if self.provider_allowlist is not None:
+                execution_options["provider_allowlist"] = self.provider_allowlist
+            if self.quota_fallback_provider is not None:
+                execution_options["quota_fallback_provider"] = self.quota_fallback_provider
             self.execution = ExecutionCrewBridge(
                 checkout=checkout["path"],
                 scope=self.scope,
                 execution_model=self.execution_model,
                 execution_reasoning_effort=self.execution_reasoning_effort,
+                crew_profile=self.crew_profile,
+                validation_profile=self.validation_profile,
                 command_runner=self.execution_command_runner,
+                worker_slot_id=self.workflow.worker_id,
+                session_pool_owner=self.execution_session_pool_owner,
+                enable_session_pool=self.enable_execution_session_pool,
+                **execution_options,
             )
             self.integrator = CandidateIntegrator(
                 checkout=checkout["path"],

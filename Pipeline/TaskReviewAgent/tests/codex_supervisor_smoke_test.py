@@ -30,7 +30,27 @@ from Pipeline.TaskReviewAgent.codex_supervisor import (  # noqa: E402
     SupervisorDecision,
     decision_schema,
 )
-from Pipeline.TaskReviewAgent.contracts import TaskReviewRequest  # noqa: E402
+from Pipeline.TaskReviewAgent.contracts import (  # noqa: E402
+    TaskReviewContractError,
+    TaskReviewRequest,
+)
+from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
+    BLOCKED_KIND_DURABLE_OWNERSHIP_BY_OTHER,
+    BLOCKED_KIND_DURABLE_RESOURCE_RESERVATION_CONFLICT,
+)
+
+# The literal is repeated here on purpose. Importing this constant would make
+# every test below die at import time against the base commit, which proves
+# nothing about behavior; with the fallback each test instead fails on its own
+# named behavioural assertion. The equality check keeps the two in step.
+_SKEW_KIND_LITERAL = "transient_observation_consistency_skew"
+try:
+    from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
+        BLOCKED_KIND_TRANSIENT_CONSISTENCY_SKEW,
+    )
+except ImportError:  # pragma: no cover - only reachable before the fix
+    BLOCKED_KIND_TRANSIENT_CONSISTENCY_SKEW = _SKEW_KIND_LITERAL
+
 from Pipeline.TaskReviewAgent.openai_downstream import (  # noqa: E402
     _terminal_outcome,
     run_openai_downstream_pipeline,
@@ -684,6 +704,94 @@ def test_host_forced_execution_crew_makes_zero_provider_calls() -> None:
     )
 
 
+def test_exact_synthetic_scope_is_host_forced_without_a_provider_retry() -> None:
+    """A hash-bound muffcabbage scope is classification, not judgment.
+
+    Before this guard a live Claude supervisor repeatedly called the validator
+    with the committed test under ``new_test_paths`` until the no-progress
+    breaker stopped the run.
+    """
+
+    class SyntheticController(FakeProductionController):
+        def observe(self):
+            observation = super().observe()
+            if self.stage == 2:
+                observation["task"].update(
+                    {
+                        "source_head": HEAD,
+                        "task_contract_sha256": "a" * 64,
+                        "provenance": {
+                            "origin": "human_approved_synthetic_gauntlet",
+                            "gauntlet_id": "synthetic-architect-gauntlet-v1",
+                            "expected_paths": [
+                                "Assets/Feature920.cs",
+                                "Assets/Feature920.cs.meta",
+                            ],
+                        },
+                    }
+                )
+                observation["repository_scope_facts"] = {
+                    "status": "ready",
+                    "authority": "real_read_only_repository_scope",
+                    "task_id": TASK_ID,
+                    "source_head": HEAD,
+                    "task_contract_sha256": "a" * 64,
+                    "exclusive_resource_paths": [
+                        "Assets/Feature920.cs",
+                        "Assets/Feature920.cs.meta",
+                    ],
+                    "existing_resource_paths": [],
+                    "absent_resource_paths": [
+                        "Assets/Feature920.cs",
+                        "Assets/Feature920.cs.meta",
+                    ],
+                    "suggested_test_paths": ["Assets/Tests/FeatureTests.cs"],
+                }
+            return observation
+
+        def validate_execution_scope(self, **values):
+            require(self.stage == 2, "scope was validated out of order")
+            require(values["existing_implementation_paths"] == [], str(values))
+            require(
+                values["new_implementation_paths"] == ["Assets/Feature920.cs"],
+                str(values),
+            )
+            require(
+                values["existing_test_paths"] == ["Assets/Tests/FeatureTests.cs"],
+                str(values),
+            )
+            require(values["new_test_paths"] == [], str(values))
+            self.stage = 3
+            return {"accepted": True, "plan_id": "plan-777", "reasons": []}
+
+    controller = SyntheticController(stage=2)
+    provider = FakeDecisionProvider(
+        [
+            decision(
+                "integrate_commit_push_and_handoff",
+                {
+                    "run_id": "run-777",
+                    "implementation_summary": "Recorded the exact synthetic value.",
+                    "human_steps": ["Open the canonical checkout."],
+                    "expected_result": "The synthetic value is present.",
+                },
+            )
+        ]
+    )
+    outcome = run_openai_production_pipeline(
+        TaskReviewRequest(TASK_ID),
+        controller,
+        max_turns=4,
+        decision_provider=provider,
+    )
+    require(outcome["status"] == "human_action_required", str(outcome))
+    require(
+        provider.calls == 1,
+        f"deterministic scope called the provider: {provider.calls}",
+    )
+    require(provider.turns == [3], f"unexpected provider turns: {provider.turns}")
+
+
 def test_multiple_safe_actions_still_consult_the_provider() -> None:
     """Requirement 4: only a fully host-argued single action may bypass."""
 
@@ -795,6 +903,266 @@ def test_durable_progress_resets_the_no_progress_counter() -> None:
     )
 
 
+class SkewedAdmissionController:
+    """A target task with no managed Issue yet, blocked by bounded read skew.
+
+    This is the exact live shape: admission enumerated other workers' Issues,
+    GitHub exposed their newer bodies before the matching workflow-event
+    comments, the bounded ladder ran out, and the target task therefore still
+    had no Issue and no lease of its own. ``record_pipeline_blocker`` cannot
+    succeed in that state, so this controller raises from it exactly as the
+    real ProductionTaskController does.
+    """
+
+    def __init__(self, *, skewed_attempts: int = 1) -> None:
+        self.skewed_attempts = skewed_attempts
+        self.blocked_kind = BLOCKED_KIND_TRANSIENT_CONSISTENCY_SKEW
+        self.lease_calls = 0
+        self.blocker_calls = 0
+        self.observe_calls = 0
+        self.scope_calls = 0
+        self.acquired = False
+        self.workflow = SimpleNamespace(
+            worker_id="worker-one",
+            base_observer=SimpleNamespace(root=ROOT),
+        )
+
+    def observe(self):
+        self.observe_calls += 1
+        if self.acquired:
+            coordination = {
+                "status": "claimed_by_worker",
+                "issue_url": "https://example.invalid/issues/917",
+                "workflow_state": {
+                    "state": "agent_working",
+                    "phase": "implementation",
+                    "current_actor": "agent",
+                    "worker_id": "worker-one",
+                    "lease_id": LEASE_ID,
+                    "branch": "nsc-917-synthetic",
+                    "head_commit": HEAD,
+                },
+                "reasons": [],
+            }
+            pipeline = {
+                "status": "agent_working",
+                "next_action": "validate_execution_scope",
+            }
+        else:
+            # No managed Issue exists for this task yet.
+            coordination = {
+                "status": "available_missing",
+                "issue_url": None,
+                "workflow_state": None,
+                "reasons": [],
+            }
+            pipeline = {"status": "agent_ready", "next_action": "acquire_agent_lease"}
+        return {
+            "environment": {"ready": True, "errors": []},
+            "task": {
+                "task_id": TASK_ID,
+                "contract_disposition": "active",
+                "kind": "implementation",
+                "execution_scope": "single_agent",
+                "decomposition_state": "concrete",
+                "derived_state": "not_delivered",
+                "dependencies_conformant": True,
+            },
+            "coordination": coordination,
+            "checkout": {"status": "ready"},
+            "accepted_plan_id": None,
+            "execution_run": None,
+            "production_pipeline": pipeline,
+        }
+
+    def acquire_agent_lease(self, *, planned_approach, expected_validation):
+        self.lease_calls += 1
+        if self.lease_calls <= self.skewed_attempts:
+            blocked = {
+                "status": "blocked",
+                "reasons": [
+                    "Issue #75 claims managed workflow state but is invalid and "
+                    "must be repaired before resource coordination: state_version "
+                    "does not match workflow event count",
+                ],
+            }
+            if self.blocked_kind is not None:
+                blocked["blocked_kind"] = self.blocked_kind
+            return blocked
+        self.acquired = True
+        return {"status": "acquired"}
+
+    def validate_execution_scope(self, **_values):
+        self.scope_calls += 1
+        return {"status": "accepted"}
+
+    def repository_facts(self):
+        return {"status": "ready"}
+
+    def record_pipeline_blocker(self, *, summary, details):
+        self.blocker_calls += 1
+        raise TaskReviewContractError(
+            "pipeline blocker requires a valid managed Issue"
+        )
+
+
+class ScriptExhausted(Exception):
+    """Stop the loop exactly when the scripted turns end.
+
+    The smallest turn budget the loop accepts is larger than these fixtures
+    need, and letting it run on would invite the unrelated no-durable-progress
+    bound to act. Raising here ends the run at a known turn, so the assertions
+    below describe exactly the turns that were scripted.
+    """
+
+
+class MenuRecordingProvider:
+    """Record the exact action menu offered each turn and script one action."""
+
+    def __init__(self, actions: list) -> None:
+        self.actions = list(actions)
+        self.menus: list = []
+        self.calls = 0
+
+    def decide(self, *, task_id, turn, prompt, allowed_actions):
+        self.menus.append(tuple(allowed_actions))
+        if not self.actions:
+            raise ScriptExhausted(f"turn {turn} was not scripted")
+        chosen = self.actions.pop(0)
+        require(
+            chosen.action in allowed_actions,
+            f"scripted action {chosen.action} was not offered: {allowed_actions}",
+        )
+        self.calls += 1
+        return chosen
+
+
+def _lease_decision():
+    return decision(
+        "acquire_agent_lease",
+        {
+            "planned_approach": "Add a public reset method to the ranged-attack component.",
+            "expected_validation": "An Edit Mode test proves the reset cancels the wind-up.",
+        },
+    )
+
+
+def test_consistency_skew_before_issue_initialization_repolls_once() -> None:
+    """Bounded read skew costs one deterministic repoll, not a blocker turn.
+
+    Against the base pipeline the supervisor was offered record_pipeline_blocker
+    while the target task had no managed Issue at all, and the only exit from
+    the blocked admission was to spend a turn on that action and have the
+    controller reject it. Both halves are asserted here: the action is not on
+    the menu, and the skewed lease is retried exactly once inside the same turn.
+    """
+
+    controller = SkewedAdmissionController(skewed_attempts=1)
+    provider = MenuRecordingProvider(
+        [
+            _lease_decision(),
+            decision(
+                "validate_execution_scope",
+                {
+                    "existing_implementation_paths": [],
+                    "new_implementation_paths": [
+                        "Assets/NoSafeCircle/Gameplay/Runtime/RangedAttack.cs"
+                    ],
+                    "existing_test_paths": [],
+                    "new_test_paths": [
+                        "Assets/NoSafeCircle/Gameplay/Tests/RangedAttackTests.cs"
+                    ],
+                },
+            ),
+        ]
+    )
+
+    try:
+        run_openai_production_pipeline(
+            TaskReviewRequest(TASK_ID),
+            controller,
+            max_turns=4,
+            decision_provider=provider,
+        )
+    except ScriptExhausted:
+        # The scripted turns are complete. These assertions are about which
+        # actions were offered and executed, not about reaching a terminal
+        # state.
+        pass
+
+    require(
+        BLOCKED_KIND_TRANSIENT_CONSISTENCY_SKEW == _SKEW_KIND_LITERAL,
+        "the committed skew kind drifted from the value this fixture emits",
+    )
+    require(len(provider.menus) >= 1, "the supervisor was never consulted")
+    require(
+        "record_pipeline_blocker" not in provider.menus[0],
+        "an action the controller must reject was offered before the Issue "
+        f"existed: {provider.menus[0]}",
+    )
+    require(
+        controller.blocker_calls == 0,
+        f"record_pipeline_blocker was executed anyway: {controller.blocker_calls}",
+    )
+    require(
+        controller.lease_calls == 2,
+        "the recognized consistency skew did not get exactly one bounded "
+        f"repoll: {controller.lease_calls} lease call(s)",
+    )
+    require(
+        provider.calls == 2,
+        "the bounded repoll must cost no supervisor turn of its own: "
+        f"{provider.calls} turn(s) for 2 scripted actions",
+    )
+    require(controller.acquired, "the bounded repoll did not admit the task")
+    # Anti-vacuity: the menu is narrowed by current state, not stripped forever.
+    require(
+        len(provider.menus) >= 2 and "record_pipeline_blocker" in provider.menus[1],
+        "once this worker holds the lease the blocker action must be offered "
+        f"again: {provider.menus[1:]}",
+    )
+
+
+def test_a_blocked_admission_without_the_skew_kind_is_never_repolled() -> None:
+    """Only the narrowly typed skew retries; every other block stays terminal.
+
+    Durable ownership by another authorized worker is the important one: its
+    Issue is valid and belongs to somebody else, so a repoll would be a second
+    unwanted read of another worker's authority and must not happen.
+    """
+
+    for blocked_kind in (
+        BLOCKED_KIND_DURABLE_OWNERSHIP_BY_OTHER,
+        BLOCKED_KIND_DURABLE_RESOURCE_RESERVATION_CONFLICT,
+        "some_future_unrecognized_kind",
+        None,
+    ):
+        controller = SkewedAdmissionController(skewed_attempts=1)
+        controller.blocked_kind = blocked_kind
+        provider = MenuRecordingProvider([_lease_decision()])
+        try:
+            run_openai_production_pipeline(
+                TaskReviewRequest(TASK_ID),
+                controller,
+                max_turns=4,
+                decision_provider=provider,
+            )
+        except ScriptExhausted:
+            pass
+        require(
+            controller.lease_calls == 1,
+            f"blocked_kind {blocked_kind!r} was retried: {controller.lease_calls}",
+        )
+        require(
+            not controller.acquired,
+            f"blocked_kind {blocked_kind!r} was silently admitted",
+        )
+        require(
+            controller.blocker_calls == 0,
+            f"blocked_kind {blocked_kind!r} reached record_pipeline_blocker",
+        )
+
+
 def main() -> int:
     tests = (
         test_decision_contract,
@@ -802,12 +1170,15 @@ def main() -> int:
         test_supervisor_timeout_configuration_is_lower_only_and_fail_closed,
         test_production_goal_loop,
         test_host_forced_execution_crew_makes_zero_provider_calls,
+        test_exact_synthetic_scope_is_host_forced_without_a_provider_retry,
         test_multiple_safe_actions_still_consult_the_provider,
         test_repeated_turns_without_durable_progress_fail_closed,
         test_durable_progress_resets_the_no_progress_counter,
         test_conflicted_checkout_preparation_bypasses_supervisor,
         test_downstream_terminal_without_model,
         test_legacy_delivery_review_is_not_terminal_when_pass_can_carry_forward,
+        test_consistency_skew_before_issue_initialization_repolls_once,
+        test_a_blocked_admission_without_the_skew_kind_is_never_repolled,
     )
     for test in tests:
         test()

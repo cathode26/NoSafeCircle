@@ -642,6 +642,8 @@ class GitRefClaimClient:
     def _require_namespace_refs(self, refs: Sequence[str]) -> tuple[str, ...]:
         validated: list[str] = []
         for ref in refs:
+            if isinstance(ref, str) and ref.startswith(f"{self.namespace}/integration-gates/"):
+                raise ClaimRefsError("integration gate journals must be recovered through their exact settlement receipt; never delete them as stale claims")
             if type(ref) is not str or not ref.startswith(f"{self.namespace}/"):
                 raise ClaimRefsError(
                     f"claim ref {ref!r} is not under this client's namespace "
@@ -724,6 +726,11 @@ class GitRefClaimClient:
         for line in result.stdout.decode("utf-8").splitlines():
             parts = line.split("\t")
             if len(parts) == 2 and GIT_SHA_RE.fullmatch(parts[0]):
+                # Long-lived commit-gate journals have their own versioned
+                # reader. They are not ephemeral task/resource claims and must
+                # never be offered to stale-claim deletion or lease admission.
+                if re.fullmatch(re.escape(self.namespace) + r"/integration-gates/[0-9a-f]{64}", parts[1]):
+                    continue
                 claims[parts[1]] = parts[0]
         return claims
 

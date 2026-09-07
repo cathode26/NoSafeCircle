@@ -327,7 +327,8 @@ def needs_human_result(parent: dict[str, Any]) -> dict[str, Any]:
 
 
 def fake_factory(provider: FakeProvider):
-    def factory(provider_name: str, _source: Path):
+    def factory(provider_name: str, _source: Path, role: str):
+        assert role in {"task_decomposer", "decomposition_reviewer"}, role
         key = f"{provider_name}-decomposition"
         model = "deterministic-fake-model"
         configuration = RuntimeConfiguration({
