@@ -377,6 +377,10 @@ jobs:
           python Pipeline/TaskReviewAgent/tests/gauntlet_view_public_roots_smoke_test.py
           if ($LASTEXITCODE -ne 0) { throw "Public viewer root isolation tests failed." }
 
+      - name: Run read-only GauntletView lifecycle regressions
+        if: steps.scope.outputs.run_full_core == 'true'
+        run: python Pipeline/TaskReviewAgent/GauntletView/tests/gauntlet_view_smoke_test.py
+
       - name: Run real checkout boundary smoke tests
         if: steps.scope.outputs.run_full_core == 'true'
         run: python Pipeline/TaskReviewAgent/tests/real_checkout_smoke_test.py

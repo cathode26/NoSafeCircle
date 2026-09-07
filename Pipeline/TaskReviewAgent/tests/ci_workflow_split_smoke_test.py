@@ -85,6 +85,7 @@ MONOLITH_TEST_COMMANDS = (
 # deterministically. The three dispatch tests also appear in
 # MONOLITH_TEST_COMMANDS above.
 CORE_ONLY_STEP_COMMANDS = (
+    "Pipeline/TaskReviewAgent/GauntletView/tests/gauntlet_view_smoke_test.py",
     "Pipeline/TaskReviewAgent/tests/task_id_width_smoke_test.py",
     "Pipeline/TaskReviewAgent/tests/taskgraph_review_issue_materialization_smoke_test.py",
     "Pipeline/TaskReviewAgent/tests/synthetic_gauntlet_approver_smoke_test.py",

@@ -274,7 +274,7 @@ class ObservationBudgetTests(unittest.TestCase):
 
     def test_malformed_authorized_issue_is_fatal_after_one_post_poll_observation(self):
         error = observed_failure(polling.IntegrationObservationError(
-            "managed Issue #113 is invalid: workflow event hash does not match"))
+            "managed Issue #7 is invalid: workflow event hash does not match"))
         running, scheduler, calls = scenario(failures=[error])
         with self.assertRaises(snapshot_module.ProductionGraphSnapshotError) as caught:
             running.run()

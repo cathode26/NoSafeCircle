@@ -70,6 +70,23 @@
     display: inline-block; padding: 2px 9px; border-radius: 999px;
     font-size: 11px; font-weight: 600; color: #0d1117;
   }
+  .github-navigation { margin: 2px 0 14px; }
+  .issue-button {
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 1px solid var(--accent); border-radius: 7px; padding: 6px 11px;
+    color: var(--accent); font-weight: 650; text-decoration: none;
+  }
+  .issue-button:hover { background: #58a6ff1a; }
+  .issue-button.primary {
+    display: flex; width: 100%; padding: 9px 12px;
+    background: var(--accent); color: #0d1117; font-size: 13px;
+  }
+  .issue-button.primary:hover { background: #79b8ff; }
+  .issue-number { color: var(--muted); font-size: 11px; margin-top: 5px; }
+  .issue-unavailable {
+    border: 1px dashed var(--line); border-radius: 7px; padding: 7px 9px;
+    color: var(--muted); font-size: 12px;
+  }
   .empty { color: var(--muted); font-style: italic; }
   .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; }
   .live { background: #3fb950; box-shadow: 0 0 7px #3fb950; }
@@ -116,23 +133,27 @@
 const STATES = {
   ready:          { color: '#8957e5', label: 'Task Unstarted', group: 'awaiting admission',
                     hint: 'dependencies satisfied; waiting for the controller to admit it' },
+  decomposition_ready: { color: '#e3b341', label: 'Decomposition Available', group: 'awaiting admission',
+                    hint: 'dependencies satisfied; this contract is ready for decomposition' },
   pending:        { color: '#484f58', label: 'Task Dependencies Unmet', group: 'awaiting admission',
                     hint: 'one or more depends_on tasks are not complete yet' },
 
   human_action:   { color: '#d29922', label: 'Task Needs You', group: 'on you',
                     hint: 'human_action_required — your Unity checklist' },
-  blocked:        { color: '#f85149', label: 'Task Blocked',   group: 'on you',
+  blocked:        { color: '#f0883e', label: 'Task Blocked',   group: 'on you',
                     hint: 'worker stopped short — you inspect blockers or repair the environment' },
-  failed:         { color: '#da3633', label: 'Task Failed',    group: 'on you',
+  failed:         { color: '#f85149', label: 'Task Failed',    group: 'on you',
                     hint: 'worker run failed — you diagnose' },
 
   active:         { color: '#58a6ff', label: 'Task Working',   group: 'in flight',
                     hint: 'a worker is running this right now' },
-  checks_pending: { color: '#1f6feb', label: 'Task In CI',     group: 'in flight',
+  checks_pending: { color: '#2dd4bf', label: 'Task In CI',     group: 'in flight',
                     hint: 'waiting on GitHub pull-request checks' },
+  integration_queued: { color: '#db61a2', label: 'Verified — Waiting for CI Slot', group: 'in flight',
+                    hint: 'verified work is queued behind the local integration gate' },
 
   complete:       { color: '#3fb950', label: 'Task Complete',  group: 'finished',
-                    hint: 'worker finished with terminal status complete' },
+                    hint: 'committed TaskGraph conformance evidence proves delivery' },
   cancelled:      { color: '#30363d', label: 'Task Retired',   group: 'finished',
                     hint: 'contract cancelled/superseded in the task graph' },
   excluded:       { color: '#6e7681', label: 'Task Excluded',  group: 'finished',
@@ -156,7 +177,7 @@ const cy = cytoscape({
       selector: 'node',
       style: {
         shape: 'round-rectangle',
-        width: 210,
+        width: 248,
         height: 'label',
         padding: 11,
         'background-color': '#21262d',
@@ -166,7 +187,7 @@ const cy = cytoscape({
         color: '#e6edf3',
         'font-size': 11,
         'text-wrap': 'wrap',
-        'text-max-width': 186,
+        'text-max-width': 224,
         'text-valign': 'center',
         'text-halign': 'center',
         'line-height': 1.35,
@@ -219,7 +240,9 @@ function visible(task) {
 
 function labelFor(task) {
   const title = task.title.length > 76 ? task.title.slice(0, 74) + '…' : task.title;
-  return `${task.id}\n${title}`;
+  return Array.isArray(task.node_lines) && task.node_lines.length
+    ? `${task.id}\n${task.node_lines.join('\n')}`
+    : `${task.id}\n${title}`;
 }
 
 function buildElements(tasks) {
@@ -338,6 +361,97 @@ function esc(s) {
   return String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 }
 
+function escAttr(s) {
+  return esc(s).replace(/["']/g, c => ({ '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function githubIssueNavigation(task) {
+  const w = task.worker;
+  const repository = snapshot && snapshot.run && snapshot.run.repository;
+  const safeRepository = typeof repository === 'string' &&
+    /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}\/[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(repository);
+  const validNumber = w && Number.isInteger(w.issue_number) && w.issue_number > 0;
+  const expectedUrl = safeRepository && validNumber
+    ? `https://github.com/${repository}/issues/${w.issue_number}`
+    : null;
+  if (!expectedUrl || w.issue_url !== expectedUrl) {
+    return '<div class="github-navigation"><div class="issue-unavailable">GitHub Issue unavailable</div></div>';
+  }
+  const primary = task.state === 'human_action' ? ' primary' : '';
+  return `<div class="github-navigation">` +
+    `<a class="issue-button${primary}" href="${escAttr(expectedUrl)}" target="_blank" rel="noopener noreferrer">Open GitHub Issue</a>` +
+    `<div class="issue-number">Issue <code>#${esc(w.issue_number)}</code></div></div>`;
+}
+
+function githubPullRequestNavigation(task) {
+  const w = task.worker;
+  const repository = snapshot && snapshot.run && snapshot.run.repository;
+  const safeRepository = typeof repository === 'string' &&
+    /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}\/[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(repository);
+  const validNumber = w && Number.isInteger(w.pull_request_number) && w.pull_request_number > 0;
+  const expectedUrl = safeRepository && validNumber
+    ? `https://github.com/${repository}/pull/${w.pull_request_number}`
+    : null;
+  if (!expectedUrl || w.pull_request_url !== expectedUrl) return '';
+  return `<div class="github-navigation">` +
+    `<a class="issue-button" href="${escAttr(expectedUrl)}" target="_blank" rel="noopener noreferrer">Open Pull Request / Checks</a>` +
+    `<div class="issue-number">Pull request <code>#${esc(w.pull_request_number)}</code></div></div>`;
+}
+
+function duration(value) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return 'unavailable';
+  const seconds = Math.round(value);
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const rest = seconds % 60;
+  if (hours) return `${hours}h ${minutes}m`;
+  if (minutes) return rest ? `${minutes}m ${rest}s` : `${minutes}m`;
+  return `${rest}s`;
+}
+
+function tokenCostDetail(task) {
+  const usage = task.token_cost || {};
+  const complete = task.state === 'complete';
+  const rows = [];
+  const costName = complete ? 'Final recorded cost' : 'Cost so far';
+  const tokenName = complete ? 'Final recorded tokens' : 'Tokens used so far';
+  rows.push(`${costName}: ${esc(usage.cost_label || 'unavailable')}`);
+  rows.push(`${tokenName}: ${usage.recorded_total_tokens == null ? 'unavailable' : esc(usage.recorded_total_tokens.toLocaleString())}`);
+  rows.push(`Projected cost at completion: ${esc(usage.projection_label || 'insufficient history')}`);
+  if (usage.direct_agent_cost_usd != null) rows.push(`Direct agent cost: $${esc(usage.direct_agent_cost_usd.toFixed(2))}`);
+  if (usage.allocated_shared_cost_usd) rows.push(`Allocated shared cost: $${esc(usage.allocated_shared_cost_usd.toFixed(2))}`);
+  if (usage.coverage_percent == null) {
+    rows.push(`Usage coverage: ${usage.missing_usage_calls ? `partial — ${esc(usage.missing_usage_calls)} calls missing usage` : 'unavailable'}`);
+  } else {
+    rows.push(`Usage coverage: ${esc(usage.coverage_percent)}%${usage.missing_usage_calls ? ` — ${esc(usage.missing_usage_calls)} calls missing usage` : ''}`);
+  }
+  rows.push(`Cost source: ${esc(usage.cost_source || 'unavailable')}`);
+  rows.push(`Token source: ${esc(usage.token_source || 'unavailable')}`);
+  rows.push(`Pricing version: ${esc(usage.pricing_version || 'unavailable (persisted estimate)')}`);
+  rows.push(`Provider calls: ${esc(usage.total_calls || 0)} · failed/incomplete ${esc(usage.failed_or_incomplete_calls || 0)}`);
+  rows.push(`Estimated cache savings: ${usage.estimated_cache_savings_usd == null ? 'unavailable' : '$' + esc(usage.estimated_cache_savings_usd.toFixed(2))}`);
+  rows.push(`Updated: ${esc(usage.usage_updated_at || 'unavailable')}`);
+  if (usage.input_tokens || usage.cached_input_tokens || usage.cache_read_input_tokens || usage.output_tokens) {
+    rows.push(`Input tokens: ${esc(usage.input_tokens.toLocaleString())}`);
+    rows.push(`Cached input/cache reads: ${esc((usage.cached_input_tokens + usage.cache_read_input_tokens).toLocaleString())}`);
+    rows.push(`Cache creation/writes: ${esc(usage.cache_creation_input_tokens.toLocaleString())}`);
+    rows.push(`Output tokens: ${esc(usage.output_tokens.toLocaleString())}`);
+    if (usage.reasoning_tokens) rows.push(`Reasoning tokens: ${esc(usage.reasoning_tokens.toLocaleString())}`);
+  }
+  if (Array.isArray(usage.breakdown) && usage.breakdown.some(item => item.provider || item.role)) {
+    rows.push('<br>Breakdown:');
+    for (const item of usage.breakdown) {
+      rows.push(`${esc(item.role || 'role unavailable')} · ${esc(item.provider || 'provider unavailable')} · ` +
+        `${item.cost_usd == null ? 'cost unavailable' : '$' + esc(item.cost_usd.toFixed(2))}`);
+    }
+  }
+  for (const item of usage.shared_calls || []) {
+    rows.push(`Shared call ${esc(item.call_id)}: ${item.complete_cost_usd == null ? 'cost unavailable' : '$' + esc(item.complete_cost_usd.toFixed(2))}`);
+    rows.push(`Allocated share: ${item.allocated_cost_usd == null ? 'unavailable' : '$' + esc(item.allocated_cost_usd.toFixed(2))} · ${esc(item.allocation_method)}`);
+  }
+  return rows.join('<br>');
+}
+
 function showDetail(id) {
   const task = snapshot.tasks.find(t => t.id === id);
   if (!task) return;
@@ -348,6 +462,8 @@ function showDetail(id) {
 
   out.push(`<div class="field"><span class="pill" style="background:${meta.color}">${esc(meta.label)}</span></div>`);
   field('task', `<strong>${esc(task.id)}</strong><br>${esc(task.title)}`);
+  out.push(githubIssueNavigation(task));
+  out.push(githubPullRequestNavigation(task));
   field('classification',
     `<code>${esc(task.kind)}</code><code>${esc(task.decomposition_state)}</code>` +
     `<code>${esc(task.execution_scope || '—')}</code><code>${esc(task.disposition)}</code>`);
@@ -358,15 +474,39 @@ function showDetail(id) {
 
   if (w) {
     field('worker', [
-      w.status ? `status <code>${esc(w.status)}</code>` : 'still running',
-      w.turn != null ? `turn <code>${esc(w.turn)}</code>` : '',
+      w.active ? 'Worker active' : (w.status ? `status <code>${esc(w.status)}</code>` : 'worker not active'),
+      w.monitoring_ci ? 'Monitoring CI' : '',
+      w.turn != null ? `Current turn <code>${esc(w.turn)}</code>` : '',
       w.phase ? `phase <code>${esc(w.phase)}</code>` : '',
       w.issue_state ? `issue <code>${esc(w.issue_state)}</code>` : '',
       w.action ? `action <code>${esc(w.action)}</code>` : '',
     ].filter(Boolean).join('<br>'));
     if (w.message) field('last event', esc(w.message));
     field('run', `<code>${esc(w.run_id)}</code><br><span class="sub">updated ${esc(w.updated_at)}</span>`);
-    if (w.issue_url) field('issue', `<a href="${esc(w.issue_url)}" target="_blank" style="color:var(--accent)">${esc(w.issue_url)}</a>`);
+  }
+  const progress = task.progress || {};
+  field('progress', [
+    progress.phase ? `phase <code>${esc(progress.phase)}</code>` : 'phase unavailable',
+    progress.action ? `action <code>${esc(progress.action)}</code>` : 'action unavailable',
+    `current stage elapsed ${esc(duration(progress.stage_elapsed_seconds))}`,
+    `total elapsed ${esc(duration(progress.total_elapsed_seconds))}`,
+    progress.attempt != null ? `attempt <code>${esc(progress.attempt)}</code>` : '',
+    progress.queue_position != null ? `integration queue position <code>${esc(progress.queue_position)}</code>` : '',
+    progress.blocked_reason ? `blocked: ${esc(progress.blocked_reason)}` : '',
+    progress.estimate ? esc(progress.estimate.label) : 'Estimate unavailable',
+  ].filter(Boolean).join('<br>'));
+  if (progress.ci) {
+    field('CI checks', [
+      `${esc(progress.ci.passed)}/${esc(progress.ci.total)} passed · ${esc(progress.ci.failed)} failed · ${esc(progress.ci.running)} running · ${esc(progress.ci.queued)} queued`,
+      progress.ci.running_check ? `running: ${esc(progress.ci.running_check)}${progress.ci.running_step ? ` — ${esc(progress.ci.running_step)}` : ''}` : '',
+      `observed ${esc(progress.ci.observed_at || 'unavailable')}${progress.ci.stale ? ' · stale' : ''}`,
+    ].filter(Boolean).join('<br>'));
+  } else if (task.state === 'checks_pending') {
+    field('CI checks', 'Check status unavailable');
+  }
+  if (['active', 'checks_pending', 'complete'].includes(task.state) ||
+      task.token_cost?.recorded_cost_usd != null || task.token_cost?.recorded_total_tokens != null) {
+    field('Token &amp; cost', tokenCostDetail(task));
   }
   if (task.reason) field('why this shape', esc(task.reason));
   if (task.acceptance.length) {

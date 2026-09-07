@@ -9,6 +9,11 @@ and post-poll retry handling; its private incident document and historical Issue
 fixture are excluded. The equivalent six-event regression uses invented,
 canonically hashed events, while a separate public human-PASS regression proves
 the new wait classification does not grant automated authority.
+The separately authorized visualizer follow-up
+`4024531b4f9ea38a5cef6d25d3eae63a0bfa56d9` adds read-only lifecycle, exact GitHub
+navigation, local CI snapshots, and persisted usage displays. Its tests use
+invented repository identities; its public defaults still read only this
+checkout unless the operator explicitly supplies another root.
 
 The port retains provider routing and session ownership, rigor profiles,
 autonomous graph observation, decomposition application and recovery, the
