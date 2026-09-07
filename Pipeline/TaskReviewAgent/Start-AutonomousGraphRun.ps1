@@ -14,7 +14,7 @@ param(
     [ValidatePattern('(?-i:^NSC-(?:[0-9]{3}|[1-9][0-9]{3,8})\z)')]
     [string[]]$ExcludeTaskId,
 
-    [ValidateRange(0, 10)]
+    [ValidateRange(0, 20)]
     [int]$MaxWorkers = 0,
 
     [ValidateSet('claude', 'codex')]

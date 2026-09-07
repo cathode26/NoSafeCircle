@@ -44,7 +44,7 @@ DEFAULT_FALLBACK_SECONDS = 300.0
 # the next transition is in flight. Bounded doubling raises it toward the
 # generic fallback, so a state that never settles costs no more than today.
 DEFAULT_TRANSITION_SETTLE_SECONDS = 5.0
-MAX_AUTONOMOUS_CAPACITY = 10
+MAX_AUTONOMOUS_CAPACITY = 20
 
 _TASK_ID_RE = re.compile(r"^NSC-(?:[0-9]{3}|[1-9][0-9]{3,8})$")
 _SHA256_RE = re.compile(r"[0-9a-f]{64}")

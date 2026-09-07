@@ -387,14 +387,14 @@ def test_run_records_a_durable_timeline_for_start_and_graph_completion() -> None
         require(not quiet.exists(), "no journal must be created when none was supplied")
 
 
-def test_manifest_is_exact_and_capacity_is_capped_at_ten() -> None:
-    value = manifest()
+def test_manifest_is_exact_and_capacity_is_capped_at_twenty() -> None:
+    value = manifest(capacity=20)
     require(AutonomousRunManifest.from_dict(value.to_dict()) == value, "manifest did not round-trip")
     require(
         value.sha256 == hashlib.sha256(value.canonical_json.encode("utf-8")).hexdigest(),
         "manifest identity is not exact canonical JSON",
     )
-    rejects(lambda: manifest(capacity=11))
+    rejects(lambda: manifest(capacity=21))
     rejects(lambda: manifest(targets=(TASK, TASK)))
     rejects(lambda: manifest(targets=(TASK,), excluded=(TASK,)))
     rejects(lambda: replace(value, github_repository="not-a-repository"))
@@ -1505,7 +1505,7 @@ def test_failed_poll_checkpoints_accounting_once_across_resume() -> None:
 def main() -> int:
     tests = [
         test_run_records_a_durable_timeline_for_start_and_graph_completion,
-        test_manifest_is_exact_and_capacity_is_capped_at_ten,
+        test_manifest_is_exact_and_capacity_is_capped_at_twenty,
         test_wrapper_delegates_exactly_one_capacity_pass_without_duplicate_scheduling,
         test_completion_refuses_every_missing_authority_condition,
         test_authorized_descendants_are_required_and_excluded_task_is_not_counted,
