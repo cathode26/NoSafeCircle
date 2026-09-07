@@ -611,6 +611,7 @@ def run_round_robin_decomposition(
                     unresolved_findings[key]
                     for key in sorted(unresolved_findings)
                 ),
+                same_provider_separate_session_review=independent_codex_roles,
             )
             output_schema = DECOMPOSITION_REVIEW_SCHEMA
             budgets = reviewer_budget

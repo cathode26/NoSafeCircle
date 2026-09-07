@@ -937,6 +937,15 @@ def test_all_codex_requires_distinct_identity_bound_roles() -> None:
         require(set(assignment["leases"]) == {"codex:task_decomposer", "codex:decomposition_reviewer"}, "two role leases")
         require(len({entry["confirmed_session_id"] for entry in fx.log}) == 2, "distinct conversations")
         require(all(entry["provider"] == "openai-codex" for entry in fx.log), "all OpenAI")
+        reviewer_prompt = fx.rounds(role="decomposition_reviewer", provider="openai-codex")[0]["prompt"]
+        require(
+            "The conversation that most recently authored a candidate may not approve" in reviewer_prompt,
+            "same-provider reviewer receives the distinct-conversation independence rule",
+        )
+        require(
+            "The provider that most recently authored a candidate may not approve" not in reviewer_prompt,
+            "same-provider reviewer is not falsely told that provider identity forbids approval",
+        )
         require(settlement is not None, "durable settlement")
         from copy import deepcopy
         from Pipeline.TaskReviewAgent.decomposition_authorization import _independent_codex_roles, _validated_provider_order

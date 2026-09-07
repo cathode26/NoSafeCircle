@@ -58,12 +58,19 @@ Claude independently reviews candidate 1
                          └─ continue until PASS, needs_human, failure, or limit
 ```
 
-The governing rule is:
+The governing rule for the default cross-provider circuit is:
 
 ```text
 The provider that most recently authored or revised the current candidate
 may not approve that candidate.
 ```
+
+For the opt-in all-Codex or all-Claude route, the authority boundary is the
+conversation and semantic role rather than the provider label. The author
+conversation may never approve its own candidate. A separately leased reviewer
+conversation may pass it only after both provider-session identities are
+confirmed, distinct, and bound to the expected author/reviewer roles. Provider
+names without that durable identity proof remain insufficient.
 
 A reviewer emits one structured verdict:
 
