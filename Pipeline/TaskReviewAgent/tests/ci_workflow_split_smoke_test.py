@@ -24,6 +24,7 @@ import re
 import sys
 from pathlib import Path
 from typing import Sequence
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -473,6 +474,45 @@ def test_unknown_task_review_agent_file_routes_to_core() -> None:
     )
 
 
+def test_registered_runner_rejects_widened_delivery_prefix() -> None:
+    """Exercise main's actual guard calls with read-only, in-memory workflow drift."""
+    original = CORE_WORKFLOW.read_text(encoding="utf-8")
+    needle = '            "Pipeline/TaskGraph/evidence/"'
+    require(original.count(needle) == 1, "expected one narrow delivery evidence prefix")
+    mutated = original.replace(needle, '            "Pipeline/"')
+    calls: list[str] = []
+    ordinary_guard = test_ordinary_task_delivery_keeps_required_check_but_skips_full_core
+    fail_safe_guard = test_task_contract_pipeline_workflow_and_unknown_paths_still_fail_safe
+
+    class ReadOnlyWorkflow:
+        def read_text(self, encoding: str = "utf-8") -> str:
+            return mutated
+
+    def observe_ordinary_guard() -> None:
+        calls.append("ordinary_delivery")
+        ordinary_guard()
+
+    def observe_fail_safe_guard() -> None:
+        calls.append("fail_safe")
+        fail_safe_guard()
+
+    failure = None
+    with patch.dict(globals(), {
+        "CORE_WORKFLOW": ReadOnlyWorkflow(),
+        "test_ordinary_task_delivery_keeps_required_check_but_skips_full_core": observe_ordinary_guard,
+        "test_task_contract_pipeline_workflow_and_unknown_paths_still_fail_safe": observe_fail_safe_guard,
+        # Avoid recursively running this regression if both real guards are removed.
+        "test_registered_runner_rejects_widened_delivery_prefix": lambda: None,
+    }):
+        try:
+            main()
+        except AssertionError as error:
+            failure = str(error)
+    require(calls == ["ordinary_delivery", "fail_safe"], "registered main must execute both delivery guards exactly once")
+    require(failure is not None and "Pipeline/TaskGraph/task_loader.py" in failure,
+            "registered main must reject a widened delivery prefix through the real fail-safe guard")
+
+
 def main() -> int:
     test_core_workflow_identity_is_preserved()
     test_every_monolith_command_is_still_represented()
@@ -480,12 +520,15 @@ def main() -> int:
     test_delivery_only_paths_do_not_route_to_supervisor()
     test_supervisor_only_change_keeps_legacy_check_but_skips_full_core()
     test_delivery_only_change_keeps_legacy_check_but_skips_full_core()
+    test_ordinary_task_delivery_keeps_required_check_but_skips_full_core()
+    test_task_contract_pipeline_workflow_and_unknown_paths_still_fail_safe()
     test_core_owned_change_selects_full_core()
     test_pool_and_runtime_changes_trigger_full_core()
     test_core_owned_tests_run_in_core_gated_like_other_core_tests()
     test_decomposition_pooling_suites_run_once_in_d1b2_windows_core()
     test_rehearsal_reset_remains_registered_in_core()
     test_unknown_task_review_agent_file_routes_to_core()
+    test_registered_runner_rejects_widened_delivery_prefix()
     print("ci_workflow_split_smoke_test: PASS")
     return 0
 

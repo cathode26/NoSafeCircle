@@ -3540,6 +3540,7 @@ PACKAGE_FILES = (
     "synthetic_repository.py",
     "scenario_world.py",
     "scheduler_adapter.py",
+    "scheduler_adapter_contract_smoke_test.py",
     "verify_acceptance.py",
     "verify_live_evidence.py",
     "acceptance_smoke_test.py",
