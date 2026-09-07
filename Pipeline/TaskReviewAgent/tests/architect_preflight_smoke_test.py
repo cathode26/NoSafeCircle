@@ -906,6 +906,11 @@ def test_mixed_portfolio_request_exposes_both_work_types_read_only() -> None:
     require("NSC-101" in request.prompt and "NSC-102" in request.prompt, request.prompt)
     require("`evidence[].path` must be one exact" in request.prompt, request.prompt)
     require("glob or wildcard (`*` or `?`)" in request.prompt, request.prompt)
+    require(
+        "`surface_unknown: true` is not by itself a mandatory WAIT" in request.prompt,
+        request.prompt,
+    )
+    require("committed `exclusive_resources`" in request.prompt, request.prompt)
 
 
 def test_portfolio_preserves_valid_resume_phase_and_rejects_unknown_phase() -> None:

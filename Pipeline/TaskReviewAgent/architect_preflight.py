@@ -1237,6 +1237,13 @@ Authority and safety rules:
 - Apply the same conservative parallel-integration policy as ordinary architect
   preflight: uncertainty is WAIT, design/canon ambiguity alone is HUMAN_REVIEW, and
   START requires positive evidence of disjointness from every supplied reservation.
+- `surface_unknown: true` is not by itself a mandatory WAIT. When both the candidate
+  and that reservation declare non-empty committed `exclusive_resources`, and those
+  resource sets are disjoint, the committed declarations are positive evidence the
+  host explicitly permits you to use. Unless another supplied fact creates a conflict,
+  admit the candidate and list that reservation in `unknown_surface_disjointness` with
+  a concrete resource-based justification. WAIT when either declaration is absent,
+  the sets overlap, or some other uncertainty remains.
 - Treat earlier entries in `admissions` as additional in-flight work when deciding every
   later entry. Order the most useful mutually compatible work first; do not reorder around
   a conflict that makes a later admission unsafe.
@@ -2096,6 +2103,7 @@ class RuntimeArchitectInvoker:
             provider_adapter = OpenAICodexProvider(
                 reasoning_effort="max",
                 externally_enforced_read_only_repository=True,
+                prohibit_tool_execution=True,
                 repository_root=self.source,
                 session=session_binding,
                 session_ledger=self.session_ledger,
