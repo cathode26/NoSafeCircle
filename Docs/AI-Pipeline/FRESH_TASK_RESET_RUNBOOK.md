@@ -86,6 +86,43 @@ This mode deliberately refuses delivered production work, an existing checkout,
 any branch or claim, or an open Issue/PR. A production delivery revert remains a
 separately reviewed Git change; it is never inferred from stale cache cleanup.
 
+### Retire one proven abandoned quarantined gate waiter
+
+Use this explicit operator boundary only after an independent read shows one
+closed, incomplete managed workflow still retained as a
+`workflow_missing_or_invalid` durable waiter. Obtain the current 40-character
+gate OID from that same read and run one task per invocation. Dry run:
+
+```text
+python Pipeline/TaskReviewAgent/reset_task.py <exact-task-id> --source <absolute-clean-controller-main> --checkout-root <absolute-checkout-root> --retire-abandoned-gate-waiter --expected-gate-oid <exact-current-40-character-gate-oid>
+```
+
+The JSON plan is ready only when it proves the exact repository/ref/revision,
+reservation, one CLOSED Issue and its full managed snapshot, recorded
+branch/head/checkout, absent recorded and canonical checkouts, absent exact
+remote task branch, candidate not reachable from the observed remote `main`, no
+gate owner, and no Issue lease or task/resource claim. Any existing checkout is
+refused without inspecting or deleting it, so a dirty checkout is preserved.
+
+After reviewing every proof field, apply the same exact task and pre-image OID:
+
+```text
+python Pipeline/TaskReviewAgent/reset_task.py <exact-task-id> --source <absolute-clean-controller-main> --checkout-root <absolute-checkout-root> --retire-abandoned-gate-waiter --expected-gate-oid <same-exact-pre-image-gate-oid> --apply --confirm-repository <exact-owner/repository>
+```
+
+The command performs only one append-only, non-forced gate update. A moved OID
+or any changed proof stops without retrying against new facts. Repeating the
+same command after its exact event is idempotent. The event is
+`gate_abandoned_waiter_retired`, never `complete` or `delivered`; it preserves
+the proof and advisory next-waiter intent. Do not use
+`withdraw(..., issue_state="complete")` for this case.
+
+Evaluate neighboring waiters independently. A child task whose canonical reset
+removed its branch, checkout, and state is not thereby abandoned: it must still
+match the same exact closed-incomplete Issue, reservation, head non-reachability,
+owner, lease, claim, and gate-OID proof. Any unresolved quarantine remains in
+the queue and continues to block unknown or overlapping resources.
+
 When Vincent explicitly authorizes repeating a task whose delivery is already
 conformant on production `main`, use the separate delivered-production mode:
 

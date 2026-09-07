@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import datetime as dt
 import hashlib
 import json
@@ -11,7 +12,7 @@ import re
 import sys
 import time
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -34,6 +35,11 @@ from Pipeline.TaskReviewAgent.decomposition_undo_retirement import (  # noqa: E4
 from Pipeline.TaskReviewAgent.git_identity_guard import (  # noqa: E402
     validated_agent_git_identity,
 )
+from Pipeline.TaskReviewAgent.integration_gate import (  # noqa: E402
+    ABANDONED_WAITER_RETIREMENT_AUTHORITY,
+    ABANDONED_WAITER_RETIREMENT_SCHEMA,
+    GitIntegrationGate,
+)
 from Pipeline.TaskReviewAgent.issue_workflow import (  # noqa: E402
     ALL_STATE_LABELS,
     STATE_LABELS,
@@ -46,6 +52,12 @@ from Pipeline.TaskReviewAgent.issue_workflow import (  # noqa: E402
     validate_event_chain,
 )
 from Pipeline.TaskReviewAgent.real_checkout import branch_name  # noqa: E402
+from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
+    GhIssueBackend,
+    _snapshot,
+    _task_marker,
+    closed_incomplete_duplicate,
+)
 from Pipeline.TaskReviewAgent.reset_rehearsal_task import (  # noqa: E402
     CommandRunner,
     RehearsalResetError,
@@ -1648,6 +1660,373 @@ class ProductionDeliveredTaskReset(RehearsalTaskReset):
         if _git_text(self.runner, self.source, "rev-parse", "origin/main") != revert_commit:
             raise TaskResetError("pushed production revert could not be verified")
         return revert_commit
+
+
+class AbandonedGateWaiterRetirement:
+    """Retire one exact closed, abandoned quarantined gate waiter.
+
+    This is a host/operator boundary. It never edits the Issue, task branch,
+    checkout, TaskGraph, or main, and it never treats abandonment as delivery.
+    """
+
+    def __init__(
+        self,
+        *,
+        source: Path,
+        checkout_root: Path,
+        task_id: str,
+        expected_gate_oid: str,
+        runner: CommandRunner | None = None,
+        gate: GitIntegrationGate | None = None,
+        issue_backend: Any | None = None,
+        task: Mapping[str, Any] | None = None,
+        claims_reader: Any | None = None,
+    ) -> None:
+        self.runner = runner or CommandRunner()
+        self.source = Path(source).resolve()
+        self.checkout_root = Path(checkout_root).resolve()
+        self.task_id = validate_task_id(task_id)
+        if re.fullmatch(r"[0-9a-f]{40}", str(expected_gate_oid)) is None:
+            raise TaskResetError(
+                "abandoned gate-waiter retirement requires an exact expected gate OID"
+            )
+        self.expected_gate_oid = str(expected_gate_oid)
+        self.gate = gate or GitIntegrationGate(self.source)
+        self.issue_backend = issue_backend
+        self.task = dict(task) if task is not None else load_committed_task(
+            self.source, self.task_id
+        )
+        self.claims_reader = claims_reader or (
+            lambda: _relevant_claims(self.source, self.task)
+        )
+        self.canonical_checkout = self.checkout_root / self.task_id
+
+    def _repository_confirmation(self) -> str:
+        origin = _git_text(self.runner, self.source, "remote", "get-url", "origin")
+        try:
+            return _repository_from_origin(origin)
+        except RehearsalResetError:
+            # Local bare repositories exist only for offline deterministic tests.
+            if self.gate.repository_id.startswith("file://"):
+                return self.gate.repository_id
+            raise
+
+    def _issue_candidates(self) -> list[dict[str, Any]]:
+        reader = getattr(self.issue_backend, "list_all_issues", None)
+        if not callable(reader):
+            raise TaskResetError(
+                "Issue backend cannot enumerate closed workflow candidates"
+            )
+        marker = _task_marker(self.task_id)
+        candidates = []
+        for issue in reader():
+            if not isinstance(issue, Mapping):
+                continue
+            title = str(issue.get("title") or "")
+            body = str(issue.get("body") or "")
+            if title == self.task_id or title.startswith(self.task_id + " —") or marker in body:
+                candidates.append(dict(issue))
+        return candidates
+
+    @staticmethod
+    def _path_present(path: Path) -> bool:
+        return path.exists() or path.is_symlink()
+
+    def _existing_retirement_plan(self) -> dict[str, Any] | None:
+        proof = self.gate.abandoned_waiter_retirement(
+            expected_oid=self.expected_gate_oid,
+            task_id=self.task_id,
+        )
+        if proof is None:
+            return None
+        return {
+            "schema_version": ABANDONED_WAITER_RETIREMENT_SCHEMA,
+            "operation": "retire_abandoned_gate_waiter",
+            "repository": self._repository_confirmation(),
+            "task_id": self.task_id,
+            "expected_gate_oid": self.expected_gate_oid,
+            "retirement_proof": proof,
+            "status": "already_retired",
+        }
+
+    def preflight(self) -> dict[str, Any]:
+        if not self.source.is_dir() or not self.checkout_root.is_dir():
+            raise TaskResetError("source and checkout root must already exist")
+        if (
+            self.task.get("id") != self.task_id
+            or re.fullmatch(
+                r"[0-9a-f]{64}", str(self.task.get("task_contract_sha256", ""))
+            )
+            is None
+        ):
+            raise TaskResetError("committed task identity or contract hash is invalid")
+        if Path(_git_text(
+            self.runner, self.source, "rev-parse", "--show-toplevel",
+        )).resolve() != self.source:
+            raise TaskResetError("source is not the exact Git repository root")
+        if _git_text(self.runner, self.source, "branch", "--show-current") != "main":
+            raise TaskResetError("gate-waiter retirement requires the controller main branch")
+        if _git_text(
+            self.runner,
+            self.source,
+            "status",
+            "--porcelain=v1",
+            "--untracked-files=all",
+        ):
+            raise TaskResetError("gate-waiter retirement requires a completely clean controller")
+        repository = self._repository_confirmation()
+        if self.issue_backend is None:
+            if repository.startswith("file://"):
+                raise TaskResetError("local retirement tests require an explicit Issue backend")
+            self.issue_backend = GhIssueBackend(
+                source_root=self.source,
+                repository=repository,
+            )
+
+        existing = self._existing_retirement_plan()
+        if existing is not None:
+            return existing
+
+        current_oid, gate_state = self.gate.read()
+        if current_oid != self.expected_gate_oid:
+            raise TaskResetError(
+                "integration gate OID moved; repeat the read-only retirement preflight"
+            )
+        waiters = [
+            item for item in gate_state["queue"] if item.get("task_id") == self.task_id
+        ]
+        if len(waiters) != 1 or not waiters[0].get("quarantine"):
+            if (
+                isinstance(gate_state.get("owner"), Mapping)
+                and gate_state["owner"].get("task_id") == self.task_id
+            ):
+                raise TaskResetError(
+                    "task still has a gate owner; owner recovery must be completed first"
+                )
+            raise TaskResetError("task is not one exact quarantined gate waiter")
+        waiter = copy.deepcopy(waiters[0])
+        reservation = waiter.get("reservation")
+        quarantine = waiter.get("quarantine")
+        if (
+            not isinstance(reservation, Mapping)
+            or reservation.get("task_contract_sha256")
+            != self.task.get("task_contract_sha256")
+            or reservation.get("exclusive_resources")
+            != sorted(set(self.task.get("exclusive_resources") or []))
+            or not isinstance(quarantine, Mapping)
+            or quarantine.get("reason") != "workflow_missing_or_invalid"
+            or quarantine.get("observed_issue_numbers")
+            != [reservation.get("issue_number")]
+        ):
+            raise TaskResetError(
+                "quarantined waiter reservation, contract, resources, or observed Issue changed"
+            )
+        candidates = self._issue_candidates()
+        if len(candidates) != 1:
+            raise TaskResetError(
+                "retirement requires exactly one candidate Issue for the task"
+            )
+        listed_issue = candidates[0]
+        issue_number = reservation.get("issue_number")
+        if type(issue_number) is not int or listed_issue.get("number") != issue_number:
+            raise TaskResetError(
+                "quarantined waiter Issue number differs from the unique candidate Issue"
+            )
+        exact_issue = self.issue_backend.get_issue(issue_number)
+        if (
+            not isinstance(exact_issue, Mapping)
+            or exact_issue.get("number") != issue_number
+            or str(exact_issue.get("state") or "").upper() != "CLOSED"
+        ):
+            raise TaskResetError("abandoned waiter Issue is not positively CLOSED")
+        snapshot = _snapshot(self.issue_backend, exact_issue)
+        if (
+            not closed_incomplete_duplicate(exact_issue, snapshot)
+            or not snapshot.managed
+            or not snapshot.valid
+            or snapshot.state is None
+            or snapshot.pending_transition is not None
+            or snapshot.state.task_id != self.task_id
+            or snapshot.state.task_contract_sha256
+            != self.task.get("task_contract_sha256")
+            or snapshot.state.state is not WorkflowState.AGENT_READY
+            or snapshot.state.phase not in {
+                WorkflowPhase.DELIVERY_EVIDENCE,
+                WorkflowPhase.MERGE_CLOSEOUT,
+            }
+            or snapshot.state.worker_id is not None
+            or snapshot.state.lease_id is not None
+        ):
+            raise TaskResetError(
+                "closed Issue is not one fully read, coherent, incomplete delivery workflow"
+            )
+        expected_branch = branch_name(self.task_id, self.task.get("title"))
+        workflow = snapshot.state
+        candidate = workflow.head_commit
+        recorded_checkout_text = workflow.checkout_path
+        if (
+            workflow.branch != expected_branch
+            or candidate is None
+            or workflow.human_handoff_commit != candidate
+            or recorded_checkout_text is None
+        ):
+            raise TaskResetError(
+                "closed workflow branch, head, handoff, or recorded checkout is incomplete"
+            )
+        try:
+            recorded_checkout = Path(recorded_checkout_text)
+            if not recorded_checkout.is_absolute():
+                raise ValueError("not absolute")
+            recorded_checkout = recorded_checkout.resolve()
+            recorded_checkout.relative_to(self.checkout_root)
+        except (OSError, ValueError) as exc:
+            raise TaskResetError(
+                "recorded abandoned checkout path is invalid or outside the checkout root"
+            ) from exc
+        absent_paths = sorted(
+            {str(recorded_checkout), str(self.canonical_checkout.resolve())},
+            key=str.casefold,
+        )
+        for path_text in absent_paths:
+            if self._path_present(Path(path_text)):
+                raise TaskResetError(
+                    f"abandoned waiter checkout still exists at {path_text}; no removal is authorized"
+                )
+
+        task_ref = f"refs/heads/{expected_branch}"
+        remote_task_oid = _remote_ref_oid(
+            self.runner, self.source, "origin", task_ref,
+        )
+        if remote_task_oid is not None:
+            raise TaskResetError(
+                f"remote task branch still exists at {remote_task_oid}"
+            )
+        if _git(
+            self.runner,
+            self.source,
+            "cat-file",
+            "-e",
+            f"{candidate}^{{commit}}",
+            check=False,
+        ).returncode != 0:
+            raise TaskResetError(
+                "candidate head object is unavailable; non-reachability from main is unproven"
+            )
+        main_head = _git_text(self.runner, self.source, "rev-parse", "HEAD")
+        remote_main = _remote_ref_oid(
+            self.runner, self.source, "origin", "refs/heads/main",
+        )
+        if remote_main != main_head:
+            raise TaskResetError(
+                "controller main does not exactly match the observed remote main"
+            )
+        ancestry = _git(
+            self.runner,
+            self.source,
+            "merge-base",
+            "--is-ancestor",
+            candidate,
+            main_head,
+            check=False,
+        )
+        if ancestry.returncode == 0:
+            raise TaskResetError("abandoned waiter candidate is already contained in main")
+        if ancestry.returncode != 1:
+            raise TaskResetError(
+                "candidate reachability from main could not be proven"
+            )
+        owner = copy.deepcopy(gate_state.get("owner"))
+        if isinstance(owner, Mapping) and owner.get("task_id") == self.task_id:
+            raise TaskResetError("abandoned waiter still has a gate owner")
+        claims = self.claims_reader()
+        if not isinstance(claims, list) or claims:
+            raise TaskResetError(
+                "task/resource claims still record a live assignment or lease"
+            )
+        managed_snapshot = snapshot.to_dict()
+        proof = {
+            "schema_version": ABANDONED_WAITER_RETIREMENT_SCHEMA,
+            "authority": ABANDONED_WAITER_RETIREMENT_AUTHORITY,
+            "repository": self.gate.repository_id,
+            "target_branch": self.gate.target_branch,
+            "gate_ref": self.gate.ref,
+            "expected_gate_oid": current_oid,
+            "expected_gate_revision": gate_state["revision"],
+            "task_id": self.task_id,
+            "task_contract_sha256": self.task["task_contract_sha256"],
+            "retired_waiter": waiter,
+            "issue": {
+                "number": issue_number,
+                "url": snapshot.issue_url,
+                "state": "CLOSED",
+                "classification": "closed_incomplete_invalid_not_complete",
+                "body_sha256": hashlib.sha256(snapshot.body.encode("utf-8")).hexdigest(),
+                "managed_snapshot": managed_snapshot,
+                "event_ids": [event.event_id for event in snapshot.events],
+            },
+            "task_branch": expected_branch,
+            "candidate_head": candidate,
+            "recorded_checkout": str(recorded_checkout),
+            "canonical_checkout": str(self.canonical_checkout.resolve()),
+            "absent_checkout_paths": absent_paths,
+            "remote_task_ref": task_ref,
+            "remote_task_branch_oid": None,
+            "main_head": main_head,
+            "candidate_reachable_from_main": False,
+            "observed_gate_owner": owner,
+            "live_assignment": {
+                "workflow_state": workflow.state.value,
+                "worker_id": workflow.worker_id,
+                "lease_id": workflow.lease_id,
+                "claim_refs": [],
+            },
+        }
+        return {
+            "schema_version": ABANDONED_WAITER_RETIREMENT_SCHEMA,
+            "operation": "retire_abandoned_gate_waiter",
+            "repository": repository,
+            "task_id": self.task_id,
+            "expected_gate_oid": current_oid,
+            "retirement_proof": proof,
+        }
+
+    def apply(self, plan: Mapping[str, Any]) -> dict[str, Any]:
+        if (
+            not isinstance(plan, Mapping)
+            or plan.get("operation") != "retire_abandoned_gate_waiter"
+            or plan.get("task_id") != self.task_id
+            or plan.get("expected_gate_oid") != self.expected_gate_oid
+            or not isinstance(plan.get("retirement_proof"), Mapping)
+        ):
+            raise TaskResetError("abandoned waiter retirement plan identity changed")
+        existing = self.gate.abandoned_waiter_retirement(
+            expected_oid=self.expected_gate_oid,
+            task_id=self.task_id,
+            proof=plan["retirement_proof"],
+        )
+        if existing is not None:
+            return {
+                "status": "already_retired",
+                "operation": "retire_abandoned_gate_waiter",
+                "task_id": self.task_id,
+                "expected_gate_oid": self.expected_gate_oid,
+                "retirement_proof": existing,
+            }
+        verified = self.preflight()
+        if semantic_sha256(verified) != semantic_sha256(dict(plan)):
+            raise TaskResetError(
+                "abandoned waiter facts changed between preflight and apply"
+            )
+        result = self.gate.retire_abandoned_waiter(
+            expected_oid=self.expected_gate_oid,
+            proof=plan["retirement_proof"],
+        )
+        return {
+            **result,
+            "operation": "retire_abandoned_gate_waiter",
+            "expected_gate_oid": self.expected_gate_oid,
+            "retirement_proof": result["proof"],
+        }
 
 
 class ProductionAbandonedStateCleanup:
@@ -3600,6 +3979,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--archive-repository")
     parser.add_argument("--confirm-repository")
     parser.add_argument(
+        "--expected-gate-oid",
+        help="Exact durable gate OID required by abandoned waiter retirement",
+    )
+    parser.add_argument(
         "--resume-report",
         type=Path,
         help="Resume one exact stopped abandoned-rehearsal reset receipt",
@@ -3661,15 +4044,39 @@ def main(argv: Sequence[str] | None = None) -> int:
             "decomposition undo is already in private rehearsal main history"
         ),
     )
+    modes.add_argument(
+        "--retire-abandoned-gate-waiter",
+        action="store_true",
+        help=(
+            "Retire one exact quarantined waiter after proving its closed Issue, "
+            "absent branch/checkouts, unmerged head, and absent live lease"
+        ),
+    )
     args = parser.parse_args(argv)
     try:
+        if args.retire_abandoned_gate_waiter and args.expected_gate_oid is None:
+            raise TaskResetError(
+                "--retire-abandoned-gate-waiter requires --expected-gate-oid"
+            )
+        if args.expected_gate_oid is not None and not args.retire_abandoned_gate_waiter:
+            raise TaskResetError(
+                "--expected-gate-oid is valid only with --retire-abandoned-gate-waiter"
+            )
         source = args.source.resolve()
         checkout_root = (args.checkout_root or source.parent).resolve()
         runner = CommandRunner()
         repository = _repository_from_origin(
             _git_text(runner, source, "remote", "get-url", "origin")
         )
-        if args.production_state_cleanup:
+        if args.retire_abandoned_gate_waiter:
+            operation = AbandonedGateWaiterRetirement(
+                source=source,
+                checkout_root=checkout_root,
+                task_id=args.task_id,
+                expected_gate_oid=args.expected_gate_oid,
+                runner=runner,
+            )
+        elif args.production_state_cleanup:
             operation: Any = ProductionAbandonedStateCleanup(
                 source=source,
                 checkout_root=checkout_root,

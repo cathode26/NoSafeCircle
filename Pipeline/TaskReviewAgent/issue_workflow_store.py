@@ -826,6 +826,7 @@ def resolve_issue_backend_repository(
 
 class IssueBackend(Protocol):
     def list_issues(self) -> list[dict[str, Any]]: ...
+    def list_all_issues(self) -> list[dict[str, Any]]: ...
     def get_issue(self, issue_number: int) -> dict[str, Any] | None: ...
     def get_comments(self, issue_number: int) -> list[dict[str, Any]]: ...
     def get_issue_events(self, issue_number: int) -> list[dict[str, Any]]: ...
@@ -3207,6 +3208,9 @@ class MemoryIssueBackend:
     def list_issues(self) -> list[dict[str, Any]]:
         return [json.loads(json.dumps(item)) for _, item in sorted(self.issues.items())]
 
+    def list_all_issues(self) -> list[dict[str, Any]]:
+        return self.list_issues()
+
     def get_issue(self, issue_number: int) -> dict[str, Any] | None:
         issue = self.issues.get(issue_number)
         return json.loads(json.dumps(issue)) if issue is not None else None
@@ -3525,6 +3529,10 @@ class GhIssueBackend:
 
     def list_issues(self) -> list[dict[str, Any]]:
         return self._list_issues_via_api("open")
+
+    def list_all_issues(self) -> list[dict[str, Any]]:
+        """Read open and closed Issues for an explicit operator recovery."""
+        return self._list_issues_via_api("all")
 
     def get_issue(self, issue_number: int) -> dict[str, Any] | None:
         value = self._json(

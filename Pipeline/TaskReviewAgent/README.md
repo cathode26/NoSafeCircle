@@ -528,6 +528,18 @@ reservation and cannot be admitted until a fresh read proves a coherent state.
 Gate wake notifications remain advisory throughout both waits and fatal drains;
 only a healthy canonical scheduling poll may admit a durable queued waiter.
 
+The scheduler never removes a quarantined waiter merely because its Issue is
+closed or its checkout/branch has disappeared. The reset helper exposes the
+host-only `--retire-abandoned-gate-waiter --expected-gate-oid <OID>` mode for one
+exact task. It requires a clean controller `main`, a unique CLOSED incomplete
+managed Issue, matching reservation/contract/recorded head, absent exact local
+checkouts and remote task branch, candidate exclusion from remote `main`, and no
+owner, workflow lease, or claim. Apply additionally requires the normal exact
+repository confirmation. Success appends `gate_abandoned_waiter_retired` with
+the proof and never fabricates completion or human evidence; any other
+quarantine stays blocking by default. See
+`Docs/AI-Pipeline/FRESH_TASK_RESET_RUNBOOK.md` for the dry-run/apply boundary.
+
 The same `events.jsonl` now records every local resume-hint sender outcome as
 `local_resume_hint_send_completed` and every accepted listener datagram as
 `local_resume_hint_consumed`. Both carry the task, exact workflow transition,

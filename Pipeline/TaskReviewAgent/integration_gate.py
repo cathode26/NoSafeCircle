@@ -56,6 +56,27 @@ RECEIPT_PUBLICATION_KEYS = (
     "publication_observed_main", "publication_base_epoch")
 _PUBLICATION_STATUSES = frozenset(item.value for item in PublicationStatus)
 
+ABANDONED_WAITER_RETIREMENT_SCHEMA = "1.0"
+ABANDONED_WAITER_RETIREMENT_AUTHORITY = (
+    "host_verified_abandoned_gate_waiter_retirement"
+)
+ABANDONED_WAITER_RETIREMENT_PROOF_KEYS = frozenset({
+    "schema_version", "authority", "repository", "target_branch", "gate_ref",
+    "expected_gate_oid", "expected_gate_revision", "task_id",
+    "task_contract_sha256", "retired_waiter", "issue", "task_branch",
+    "candidate_head", "recorded_checkout", "canonical_checkout",
+    "absent_checkout_paths", "remote_task_ref", "remote_task_branch_oid",
+    "main_head", "candidate_reachable_from_main", "observed_gate_owner",
+    "live_assignment",
+})
+ABANDONED_WAITER_RETIREMENT_ISSUE_KEYS = frozenset({
+    "number", "url", "state", "classification", "body_sha256",
+    "managed_snapshot", "event_ids",
+})
+ABANDONED_WAITER_RETIREMENT_ASSIGNMENT_KEYS = frozenset({
+    "workflow_state", "worker_id", "lease_id", "claim_refs",
+})
+
 
 class IntegrationGateError(TaskReviewContractError):
     pass
@@ -192,6 +213,29 @@ class GitIntegrationGate:
             raise IntegrationGateError(f"corrupt or unsupported integration gate {self.ref} at {oid}") from exc
         return oid, state
 
+    def _state_at_oid(self, oid: str) -> tuple[dict, list[str]]:
+        """Read one already-fetched journal commit without consulting a ref."""
+        if not SHA.fullmatch(str(oid)):
+            raise IntegrationGateError("invalid integration gate history OID")
+        raw = _run_git(self.repository, "show", "-s", "--format=%B", oid).stdout.decode()
+        try:
+            marker, payload = raw.split("\n", 1)
+            state = json.loads(payload)
+            if marker != MARKER:
+                raise ValueError("marker")
+            self.validate(state)
+            parents = _run_git(
+                self.repository, "show", "-s", "--format=%P", oid,
+            ).stdout.decode().split()
+            previous = state["event"]["previous_oid"]
+            if parents != ([previous] if previous else []):
+                raise ValueError("journal parent")
+        except (ValueError, KeyError, TypeError) as exc:
+            raise IntegrationGateError(
+                f"corrupt integration gate history at {oid}"
+            ) from exc
+        return state, parents
+
     def validate(self, state: Mapping) -> None:
         if (set(state) != set(self.empty()) or state["schema_version"] != SCHEMA
                 or state["repository"] != self.repository_id or state["target_branch"] != self.target_branch
@@ -317,6 +361,251 @@ class GitIntegrationGate:
             # reached the remote; an operator/same owner must inspect the journal.
             raise IntegrationGateError(f"gate CAS outcome uncertain; inspect {self.ref} expected {expected or 'absent'} proposed {oid}")
         return True
+
+    def append_only_compare_and_swap(self, expected: str, state: dict, event: dict) -> bool:
+        """Append one exact child without any forced ref update.
+
+        A normal fast-forward push is itself the old-tip fence: if another
+        writer advances the journal from ``expected``, this child is no longer
+        a fast-forward and Git rejects it. This narrower writer exists for
+        operator retirement, whose contract explicitly forbids force push.
+        """
+        if not SHA.fullmatch(str(expected)):
+            raise IntegrationGateError("append-only gate CAS requires an exact existing OID")
+        value = copy.deepcopy(state)
+        value["revision"] += 1
+        value["event"] = {**event, "occurred_at": self.clock(), "previous_oid": expected}
+        self.validate(value)
+        name, email = validated_agent_git_identity()
+        environment = {f"GIT_{role}_{field}": data for role in ("AUTHOR", "COMMITTER")
+                       for field, data in (("NAME", name), ("EMAIL", email))}
+        tree = _run_git(self.repository, "mktree", input_bytes=b"").stdout.decode().strip()
+        proposed = _run_git(
+            self.repository,
+            "commit-tree",
+            tree,
+            "-p",
+            expected,
+            input_bytes=(MARKER + "\n" + canonical_json(value) + "\n").encode(),
+            environment=environment,
+        ).stdout.decode().strip()
+        result = _run_git(
+            self.repository,
+            "push",
+            "--porcelain",
+            "--atomic",
+            self.remote,
+            f"{proposed}:{self.ref}",
+            check=False,
+        )
+        if result.returncode == 0:
+            return True
+        # A failed command may still have reached the remote. Re-read instead
+        # of replaying. Exact proposed identity proves success; any other moved
+        # tip proves this writer lost its old-tip fence.
+        observed, _ = self.read()
+        if observed == proposed:
+            return True
+        if observed != expected:
+            return False
+        raise IntegrationGateError(
+            f"append-only gate CAS failed without moving {self.ref}; inspect expected {expected}"
+        )
+
+    def _validate_abandoned_waiter_retirement_proof(
+        self, proof: Mapping, *, expected_oid: str, state: Mapping,
+    ) -> dict:
+        """Validate the host proof against the exact journal pre-image."""
+        if not isinstance(proof, Mapping) or set(proof) != set(ABANDONED_WAITER_RETIREMENT_PROOF_KEYS):
+            raise IntegrationGateError("abandoned waiter retirement proof keys mismatch")
+        task_id = validate_task_id(proof.get("task_id"))
+        if (
+            proof.get("schema_version") != ABANDONED_WAITER_RETIREMENT_SCHEMA
+            or proof.get("authority") != ABANDONED_WAITER_RETIREMENT_AUTHORITY
+            or proof.get("repository") != self.repository_id
+            or proof.get("target_branch") != self.target_branch
+            or proof.get("gate_ref") != self.ref
+            or proof.get("expected_gate_oid") != expected_oid
+            or proof.get("expected_gate_revision") != state.get("revision")
+        ):
+            raise IntegrationGateError("abandoned waiter retirement gate identity changed")
+        if not re.fullmatch(r"[0-9a-f]{64}", str(proof.get("task_contract_sha256", ""))):
+            raise IntegrationGateError("abandoned waiter retirement contract identity is invalid")
+        waiter = next(
+            (item for item in state["queue"] if item["task_id"] == task_id),
+            None,
+        )
+        if waiter is None or waiter != proof.get("retired_waiter"):
+            raise IntegrationGateError("exact quarantined waiter identity changed")
+        quarantine = waiter.get("quarantine")
+        reservation = waiter.get("reservation")
+        if (
+            not isinstance(quarantine, Mapping)
+            or quarantine.get("reason") != "workflow_missing_or_invalid"
+            or not isinstance(reservation, Mapping)
+        ):
+            raise IntegrationGateError("retirement requires the exact invalid-workflow quarantine")
+        validate_waiter_reservation(reservation)
+        issue = proof.get("issue")
+        if not isinstance(issue, Mapping) or set(issue) != set(ABANDONED_WAITER_RETIREMENT_ISSUE_KEYS):
+            raise IntegrationGateError("abandoned waiter Issue proof keys mismatch")
+        observed_numbers = quarantine.get("observed_issue_numbers")
+        if (
+            issue.get("number") != reservation["issue_number"]
+            or observed_numbers != [reservation["issue_number"]]
+            or issue.get("state") != "CLOSED"
+            or issue.get("classification") != "closed_incomplete_invalid_not_complete"
+            or not isinstance(issue.get("url"), str)
+            or not issue["url"].strip()
+            or not re.fullmatch(r"[0-9a-f]{64}", str(issue.get("body_sha256", "")))
+        ):
+            raise IntegrationGateError("abandoned waiter Issue identity/classification changed")
+        snapshot = issue.get("managed_snapshot")
+        if not isinstance(snapshot, Mapping):
+            raise IntegrationGateError("abandoned waiter managed snapshot is missing")
+        workflow = snapshot.get("workflow_state")
+        event_ids = issue.get("event_ids")
+        if (
+            snapshot.get("issue_number") != issue["number"]
+            or snapshot.get("issue_url") != issue["url"]
+            or snapshot.get("managed") is not True
+            or snapshot.get("valid") is not True
+            or snapshot.get("reasons") != []
+            or snapshot.get("pending_transition") is not None
+            or not isinstance(workflow, Mapping)
+            or workflow.get("task_id") != task_id
+            or workflow.get("task_contract_sha256") != proof["task_contract_sha256"]
+            or workflow.get("state") != "agent_ready"
+            or workflow.get("phase") not in {"delivery_evidence", "merge_closeout"}
+            or workflow.get("worker_id") is not None
+            or workflow.get("lease_id") is not None
+            or not isinstance(event_ids, list)
+            or any(not re.fullmatch(r"[0-9a-f]{64}", str(value)) for value in event_ids)
+            or len(set(event_ids)) != len(event_ids)
+            or len(event_ids) != snapshot.get("event_count")
+            or (event_ids[-1] if event_ids else None) != snapshot.get("last_event_id")
+        ):
+            raise IntegrationGateError("abandoned waiter managed snapshot is not exact closed incomplete authority")
+        if reservation["task_contract_sha256"] != proof["task_contract_sha256"]:
+            raise IntegrationGateError("abandoned waiter reservation contract changed")
+        task_branch = proof.get("task_branch")
+        candidate = proof.get("candidate_head")
+        recorded_checkout = proof.get("recorded_checkout")
+        canonical_checkout = proof.get("canonical_checkout")
+        absent_paths = proof.get("absent_checkout_paths")
+        if (
+            not isinstance(task_branch, str)
+            or not task_branch
+            or workflow.get("branch") != task_branch
+            or proof.get("remote_task_ref") != f"refs/heads/{task_branch}"
+            or proof.get("remote_task_branch_oid") is not None
+            or not SHA.fullmatch(str(candidate))
+            or workflow.get("head_commit") != candidate
+            or workflow.get("human_handoff_commit") != candidate
+            or workflow.get("checkout_path") != recorded_checkout
+            or not isinstance(recorded_checkout, str)
+            or not recorded_checkout
+            or not isinstance(canonical_checkout, str)
+            or not canonical_checkout
+            or not isinstance(absent_paths, list)
+            or absent_paths != sorted(set((recorded_checkout, canonical_checkout)), key=str.casefold)
+            or proof.get("candidate_reachable_from_main") is not False
+            or not SHA.fullmatch(str(proof.get("main_head", "")))
+        ):
+            raise IntegrationGateError("abandoned waiter branch/head/checkout proof changed")
+        owner = proof.get("observed_gate_owner")
+        if owner != state.get("owner") or (
+            isinstance(owner, Mapping) and owner.get("task_id") == task_id
+        ):
+            raise IntegrationGateError("abandoned waiter still has gate ownership")
+        assignment = proof.get("live_assignment")
+        if (
+            not isinstance(assignment, Mapping)
+            or set(assignment) != set(ABANDONED_WAITER_RETIREMENT_ASSIGNMENT_KEYS)
+            or assignment.get("workflow_state") != "agent_ready"
+            or assignment.get("worker_id") is not None
+            or assignment.get("lease_id") is not None
+            or assignment.get("claim_refs") != []
+        ):
+            raise IntegrationGateError("abandoned waiter still has a live assignment or lease")
+        return copy.deepcopy(dict(proof))
+
+    def abandoned_waiter_retirement(
+        self, *, expected_oid: str, task_id: str, proof: Mapping | None = None,
+    ) -> dict | None:
+        """Find one exact prior retirement anchored directly to expected_oid."""
+        task_id = validate_task_id(task_id)
+        if not SHA.fullmatch(str(expected_oid)):
+            raise IntegrationGateError("retirement lookup requires an exact gate OID")
+        current_oid, _ = self.read()
+        cursor = current_oid
+        visited: set[str] = set()
+        while cursor and cursor != expected_oid:
+            if cursor in visited:
+                raise IntegrationGateError("integration gate history contains a cycle")
+            visited.add(cursor)
+            state, parents = self._state_at_oid(cursor)
+            event = state["event"]
+            if (
+                event.get("kind") == "gate_abandoned_waiter_retired"
+                and event.get("task_id") == task_id
+                and event.get("previous_oid") == expected_oid
+            ):
+                recorded = event.get("proof")
+                if not isinstance(recorded, Mapping):
+                    raise IntegrationGateError("recorded abandoned waiter proof is malformed")
+                if proof is not None and canonical_json(recorded) != canonical_json(dict(proof)):
+                    raise IntegrationGateError("recorded abandoned waiter proof differs from retry")
+                return copy.deepcopy(dict(recorded))
+            cursor = parents[0] if parents else ""
+        if cursor != expected_oid:
+            raise IntegrationGateError("expected retirement OID is not in current gate history")
+        return None
+
+    def retire_abandoned_waiter(self, *, expected_oid: str, proof: Mapping) -> dict:
+        """Retire one host-proven abandoned quarantine; never infer completion."""
+        task_id = validate_task_id(proof.get("task_id") if isinstance(proof, Mapping) else None)
+        existing = self.abandoned_waiter_retirement(
+            expected_oid=expected_oid,
+            task_id=task_id,
+            proof=proof,
+        )
+        if existing is not None:
+            return {"status": "already_retired", "task_id": task_id, "proof": existing}
+        oid, state = self.read()
+        if oid != expected_oid:
+            raise IntegrationGateError("abandoned waiter retirement gate OID moved; re-observe")
+        exact_proof = self._validate_abandoned_waiter_retirement_proof(
+            proof, expected_oid=expected_oid, state=state,
+        )
+        state["queue"] = [
+            waiter for waiter in state["queue"] if waiter["task_id"] != task_id
+        ]
+        queue = admissible_waiters(state) if state["owner"] is None else []
+        next_waiter = queue[0] if queue else None
+        if not self.append_only_compare_and_swap(
+            expected_oid,
+            state,
+            {
+                "kind": "gate_abandoned_waiter_retired",
+                "task_id": task_id,
+                "proof": exact_proof,
+                "next_waiter": next_waiter["task_id"] if next_waiter else None,
+            },
+        ):
+            raise IntegrationGateError(
+                "abandoned waiter retirement CAS raced; queue remains authoritative"
+            )
+        # The append-only event makes wake intent durable first. A notification
+        # failure grants nothing, and a normal scheduler read remains fallback.
+        if next_waiter:
+            self.wake(dict(next_waiter, domain=self.domain))
+        return {
+            "status": "retired",
+            "task_id": task_id,
+            "next_waiter": next_waiter["task_id"] if next_waiter else None,
+            "proof": exact_proof,
+        }
 
     def enqueue(self, task_id: str, *, ready_at: str, ready_event: str, endpoint: Mapping | None = None,
                 reservation: Mapping | None = None) -> dict:

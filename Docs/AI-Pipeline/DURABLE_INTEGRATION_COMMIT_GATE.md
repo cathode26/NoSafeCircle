@@ -138,6 +138,21 @@ operator investigation; automatic admission cannot establish the missing facts.
 A verified human/blocked/complete transition can withdraw a reconciled waiter
 without deleting its history.
 
+A separate host-owned retirement exists for the narrower case where a
+quarantined waiter is provably abandoned. It is not ordinary observation and is
+never called by the scheduler. The operator must name the exact task and
+pre-image gate OID; the reset helper then binds the queued reservation and
+quarantine, unique observed CLOSED Issue, complete managed snapshot, recorded
+branch/head/checkout, absent canonical and recorded checkouts, absent exact
+remote task branch, candidate non-reachability from current remote `main`, no
+gate owner, and no task/resource claim or Issue lease. Missing, changed, or
+ambiguous evidence leaves the queue unchanged. Success writes an append-only
+`gate_abandoned_waiter_retired` event with the complete proof and uses an
+ordinary fast-forward push, never a force update. It does not write completion,
+delivery, human-validation, or Issue evidence. Any now-admissible waiter receives
+only the usual advisory wake; remaining quarantines continue to block unknown or
+overlapping resource ownership.
+
 A cryptographically proven pending workflow write is a bounded delivery wait at
 the legacy-owner fence, preserving the queue and resources without buying an
 architect or worker turn. Closed completion prefixes reach full-history
@@ -213,6 +228,13 @@ Issue event hash, verified main SHA, `processes_fenced: true`,
 reference. This is an explicit attestation of performed checks, not evidence
 inferred from timestamps, a missing PID, or a zero process exit. A moved ref
 rejects the recovery. The recovery decision and receipt remain in the journal.
+
+A queued quarantine with no owner uses the distinct abandoned-waiter retirement
+above, through `reset_task.py --retire-abandoned-gate-waiter`; do not route it
+through `withdraw(..., issue_state="complete")` or fabricate a recovery receipt.
+Each waiter is evaluated independently. Reset child artifacts, closed Issues, or
+an absent branch alone do not authorize retirement, and one successful
+retirement never sweeps up neighboring queue entries.
 
 ## Compatibility and rollout
 
