@@ -191,7 +191,7 @@ Legend labels are presentation only and live in the `STATES` map at the top of
 
 The legend uses a high-separation categorical palette across every state, not
 neighboring shades for related states. In particular: `Task Working` is blue,
-`Task In CI` is teal, `Task Needs You` is pink, `Task Blocked` is orange,
+`Task In CI` is cyan, `Task Needs You` is pink, `Task Blocked` is orange,
 `Task Failed` is red, `Task Retired` is brown, and `Task Excluded` is silver.
 Ordinary available work is purple while available decomposition is yellow.
 
