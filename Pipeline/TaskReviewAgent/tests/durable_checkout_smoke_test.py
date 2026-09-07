@@ -5,9 +5,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import sys
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[3]
 if str(ROOT) not in sys.path:
@@ -249,6 +251,86 @@ def test_checkout_survives_human_and_new_agent() -> None:
             "controller was dirtied",
         )
         require(saved_checkout.is_dir(), "original checkout evidence was not preserved")
+
+
+def test_fresh_windows_checkout_enables_longpaths_before_clone_checkout() -> None:
+    """The production checkout must not inherit long-path support from its host."""
+    if sys.platform != "win32":
+        return
+    with tempfile.TemporaryDirectory(prefix="nsc-durable-longpath-") as temporary:
+        root = Path(temporary)
+        controller, remote, _ = create_fixture(root)
+        incident_path = (
+            Path("Pipeline")
+            / "Reconciliation"
+            / "outputs"
+            / "runs"
+            / "20260821T193541Z-998ee7b5"
+            / "verifications"
+            / "20260821T195959Z-43dba5de"
+            / "stream_repairs"
+            / "coverage_content_encounters"
+            / "RECOVERED_FIELD_REPAIR.json"
+        )
+        source_file = controller / incident_path
+        source_file.parent.mkdir(parents=True, exist_ok=True)
+        source_file.write_text("{}\n", encoding="utf-8", newline="\n")
+        git(controller, "add", incident_path.as_posix())
+        git(controller, "commit", "-m", "Add the real long-path checkout fixture")
+        git(controller, "push", "origin", "main")
+
+        contract, contract_hash, source_tree = contract_facts(controller)
+        source_head = git(controller, "rev-parse", "HEAD")
+        checkout_root = root / ("operator-checkout-root-" + ("x" * 40))
+        checkout = checkout_root / TASK_ID
+        state = initial_state(
+            task_id=TASK_ID,
+            task_contract_sha256=contract_hash,
+            now="2026-09-07T13:00:00Z",
+        )
+        state = lease(
+            state,
+            worker=WORKER_A,
+            source_head=source_head,
+            checkout=checkout,
+            now="2026-09-07T13:01:00Z",
+        )
+        observed = observation(
+            controller=controller,
+            remote=remote,
+            contract=contract,
+            contract_hash=contract_hash,
+            source_head=source_head,
+            source_tree=source_tree,
+            state=state,
+            worker=WORKER_A,
+        )
+        manager = DurableTaskCheckoutManager(
+            source_root=controller,
+            task_id=TASK_ID,
+            checkout_root=checkout_root,
+            worker_id=WORKER_A,
+            allow_local_remote_for_tests=True,
+        )
+        isolated_gitconfig = root / "gitconfig-with-longpaths-disabled"
+        isolated_gitconfig.write_text(
+            "[core]\n\tlongpaths = false\n",
+            encoding="utf-8",
+            newline="\n",
+        )
+        with patch.dict(
+            os.environ,
+            {
+                "GIT_CONFIG_GLOBAL": str(isolated_gitconfig),
+                "GIT_CONFIG_NOSYSTEM": "1",
+            },
+        ):
+            created = manager.prepare(observed)
+
+        require(created["status"] == "created", str(created))
+        require((checkout / incident_path).is_file(), "long committed path was not checked out")
+        require(git(checkout, "config", "--get", "core.longpaths") == "true", "checkout lost long-path support")
+        require(git(checkout, "status", "--porcelain=v1") == "", "fresh checkout is dirty")
 
 
 def test_real_workflow_rejects_unpushed_handoff() -> None:
@@ -694,6 +776,7 @@ def test_review_only_decomposition_retry_rejects_moved_remote_task_branch() -> N
 def main() -> int:
     tests = (
         test_checkout_survives_human_and_new_agent,
+        test_fresh_windows_checkout_enables_longpaths_before_clone_checkout,
         test_real_workflow_rejects_unpushed_handoff,
         test_decomposition_uses_exact_canonical_durable_checkout,
         test_review_only_decomposition_retry_fast_forwards_clean_old_main,

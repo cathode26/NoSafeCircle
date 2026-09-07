@@ -828,7 +828,17 @@ class DurableTaskCheckoutManager:
         )
         try:
             shutil.rmtree(temporary)
-            _run(("git", "clone", remote_url, str(temporary)), cwd=self.checkout_root)
+            _run(
+                (
+                    "git",
+                    "-c",
+                    "core.longpaths=true",
+                    "clone",
+                    remote_url,
+                    str(temporary),
+                ),
+                cwd=self.checkout_root,
+            )
             _git(temporary, "config", "core.longpaths", "true")
             _git(temporary, "fetch", "origin", "main")
             if self.is_resume(observation):
