@@ -186,7 +186,9 @@ from Pipeline.TaskReviewAgent.worker_result import (  # noqa: E402
 )
 
 
-REPOSITORY = AUTOMATED_VALIDATION_REPOSITORY
+from Pipeline.TaskReviewAgent.tests.synthetic_fixture_authority import FIXTURE_REPOSITORY
+
+REPOSITORY = FIXTURE_REPOSITORY
 ORIGIN_URL = f"git@github.com:{REPOSITORY}.git"
 RUN_ID = "muffcabbage-e2e-acceptance"
 SCHEDULER_ID = "muffcabbage-e2e-scheduler"

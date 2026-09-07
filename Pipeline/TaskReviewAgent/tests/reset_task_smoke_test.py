@@ -928,6 +928,12 @@ class PublishedUndoEnvironment(UndoEnvironment):
             applied_commit=self.applied.new_commit_sha,
             now="2026-09-04T01:04:00Z",
         )
+        # Production completion now closes its Issue. This recovery fixture
+        # deliberately models an older interrupted closeout: the exact
+        # completed event chain survives while GitHub still shows it open.
+        completed_issue = self.backend.list_issues()[0]
+        expect(completed_issue["state"] == "CLOSED", "completion did not close its Issue")
+        self.backend.issues[completed_issue["number"]]["state"] = "OPEN"
 
     def recovery(self, runner=None) -> PublishedDecompositionUndoRecovery:
         return PublishedDecompositionUndoRecovery(

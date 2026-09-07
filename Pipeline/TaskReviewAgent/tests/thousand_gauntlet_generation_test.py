@@ -28,11 +28,14 @@ from Pipeline.TaskReviewAgent.tests.prepare_synthetic_gauntlet_smoke_test import
 from work_graph_validate import validate_work_graph_plan
 from work_graph_transform import WorkGraphPlan
 
-BASE = "09ae41eaba2d2b102f48b7dd30567840d22bd43c"
+# This public commit contains the exact same pre-scale generator blob as the
+# original compatibility oracle, without requiring unpublished source history.
+BASE = "73fae3818ded52eec10e12230de7403cafda4081"
 
 
 class Generation(unittest.TestCase):
-    def bound_bundle(self, repository=g.PRIVATE_REPOSITORY):
+    def bound_bundle(self, repository=None):
+        repository = g.PRIVATE_REPOSITORY if repository is None else repository
         bundle = dict(self.bundle)
         manifest = deepcopy(self.manifest)
         manifest["source_origin"] = f"https://github.com/{repository}.git"

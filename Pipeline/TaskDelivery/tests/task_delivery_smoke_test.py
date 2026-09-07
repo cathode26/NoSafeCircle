@@ -349,7 +349,9 @@ class TaskDeliverySmokeTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
+    from Pipeline.TaskReviewAgent.tests.synthetic_fixture_authority import synthetic_fixture_authority
     suite=unittest.defaultTestLoader.loadTestsFromTestCase(TaskDeliverySmokeTest)
-    result=unittest.TextTestRunner(verbosity=2).run(suite)
+    with synthetic_fixture_authority():
+        result=unittest.TextTestRunner(verbosity=2).run(suite)
     if result.wasSuccessful(): print("TaskDelivery smoke tests: PASS")
     raise SystemExit(0 if result.wasSuccessful() else 1)

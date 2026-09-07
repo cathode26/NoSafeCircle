@@ -184,4 +184,7 @@ class GateWakeTests(unittest.TestCase):
             self.assertEqual(timeline[-1]["event"],"autonomous_run_error")
 
 
-if __name__=="__main__": unittest.main(verbosity=2)
+if __name__ == "__main__":
+    from Pipeline.TaskReviewAgent.tests.synthetic_fixture_authority import synthetic_fixture_authority
+    with synthetic_fixture_authority():
+        unittest.main(verbosity=2)

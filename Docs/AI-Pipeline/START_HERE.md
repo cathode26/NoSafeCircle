@@ -161,6 +161,10 @@ A possible future GDDRAG-assisted reviewer is documented in `CURRENT_PIPELINE_DE
 
 ## If you are implementing gameplay
 
+Before authoring, modifying, or running Unity tests, read
+`Docs/Engineering/UNITY_TESTING_POLICY.md` and use its canonical clean-runner
+workflow and non-mutation checks.
+
 Read:
 
 ```text

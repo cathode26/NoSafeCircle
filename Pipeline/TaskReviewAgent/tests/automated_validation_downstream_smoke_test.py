@@ -99,6 +99,9 @@ def selected_task() -> dict:
         "task_contract_sha256": CONTRACT_HASH,
         "execution_scope": "single_agent",
         "exclusive_resources": ["repo-file:Assets/Synthetic/NSC912Value.cs"],
+        # Match this disposable repository's exact EditMode-only policy without
+        # depending on a synthetic task entry in the controller repository.
+        "completion_gates": [{"requirement": "Pass the exact EditMode test."}],
         "provenance": {
             "origin": "human_approved_synthetic_gauntlet",
             "gauntlet_id": AUTOMATED_VALIDATION_GAUNTLET_ID,
