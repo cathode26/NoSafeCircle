@@ -22,6 +22,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import subprocess
 from typing import Any, Callable, Mapping, Protocol
 
 from Pipeline.TaskReviewAgent.autonomous_graph_run import (
@@ -30,6 +31,7 @@ from Pipeline.TaskReviewAgent.autonomous_graph_run import (
     CoherentGraphSnapshot,
     ManagedIssueObservation,
     TaskObservation,
+    TransientGraphSnapshotError,
 )
 from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task
 from Pipeline.TaskReviewAgent.contracts import semantic_sha256
@@ -47,6 +49,7 @@ from Pipeline.TaskReviewAgent.issue_workflow_store import (
 )
 from Pipeline.TaskReviewAgent.polling_orchestrator import (
     DurableWorkflowObservation,
+    TransientIntegrationObservationError,
     _git_text,
     _run_git,
     authorized_local_ahead_recovery_task,
@@ -69,6 +72,12 @@ MAX_COHERENT_OBSERVATION_ATTEMPTS = 3
 
 class ProductionGraphSnapshotError(AutonomousGraphRunError):
     """A production graph snapshot could not be proven coherent."""
+
+
+class TransientProductionGraphSnapshotError(
+    ProductionGraphSnapshotError, TransientGraphSnapshotError
+):
+    """Only a known workflow read failure may spend the observation budget."""
 
 
 class SchedulerAssignments(Protocol):
@@ -326,15 +335,28 @@ class ProductionCoherentSnapshotter:
         source_identity: _SourceIdentity,
     ) -> DurableWorkflowObservation:
         backend = PlanScopedIssueBackend(self.backend_factory(self.source))
-        return observe_durable_workflows(
-            source=self.source,
-            checkout_root=self.checkout_root,
-            worker_id=self.worker_id,
-            backend=backend,
-            task_loader=lambda task_id: load_committed_task(
-                self.source, task_id, commit=source_identity.head
-            ),
-        )
+        try:
+            return observe_durable_workflows(
+                source=self.source,
+                checkout_root=self.checkout_root,
+                worker_id=self.worker_id,
+                backend=backend,
+                task_loader=lambda task_id: load_committed_task(
+                    self.source, task_id, commit=source_identity.head
+                ),
+            )
+        except (
+            TransientIntegrationObservationError,
+            TimeoutError,
+            ConnectionError,
+            subprocess.TimeoutExpired,
+        ) as exc:
+            # Do not classify generic workflow/Git errors by message text:
+            # forged events, missing files, malformed responses and invalid
+            # authority retain the fatal ProductionGraphSnapshotError path.
+            raise TransientProductionGraphSnapshotError(
+                f"production workflow observation temporarily unavailable: {type(exc).__name__}: {exc}"
+            ) from exc
 
     def _observe(self, *, force_refresh: bool = False) -> _CandidateObservation:
         """Build one complete observation and prove the source never moved.
@@ -463,4 +485,5 @@ __all__ = [
     "MAX_COHERENT_OBSERVATION_ATTEMPTS",
     "ProductionCoherentSnapshotter",
     "ProductionGraphSnapshotError",
+    "TransientProductionGraphSnapshotError",
 ]

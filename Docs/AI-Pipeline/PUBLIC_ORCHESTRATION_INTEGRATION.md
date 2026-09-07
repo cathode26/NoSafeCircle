@@ -3,7 +3,12 @@
 This integration starts at public commit
 `73fae3818ded52eec10e12230de7403cafda4081` and ports the reusable implementation
 at source boundary `bb560d0e56b77156b0d59cd1f60b1ac2fb02a371`.
-It does not merge the source history or include later work.
+It does not merge the source history. The explicitly authorized follow-up
+`11dcd130665d531d556af48756d4d5291cd3991e` adds bounded workflow-write observation
+and post-poll retry handling; its private incident document and historical Issue
+fixture are excluded. The equivalent six-event regression uses invented,
+canonically hashed events, while a separate public human-PASS regression proves
+the new wait classification does not grant automated authority.
 
 The port retains provider routing and session ownership, rigor profiles,
 autonomous graph observation, decomposition application and recovery, the

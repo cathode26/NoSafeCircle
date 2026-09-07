@@ -502,6 +502,24 @@ provider work under:
     events.jsonl
 ```
 
+Post-poll graph observations use the manifest's
+`max_consecutive_observation_failures` bound only for explicitly typed workflow
+read timeouts, connection errors, or the existing exhausted body/event visibility
+skew with matching state labels. With a bound of three, the third consecutive
+failed observation stops the controller and drains its existing workers. Retry
+waits reuse the bounded transition-settle delay and doubling backoff. They repeat
+only the post-poll observation, so a successful preflight cannot reset the
+failure count, and no architect call, worker launch, or poll accounting is
+repeated. A genuinely fatal scheduler result skips these retries entirely.
+Malformed workflow authority, unproven label mismatches, and unsafe source
+identity still follow the fatal path.
+
+A managed Issue classified as `PENDING_TRANSITION` follows its existing bounded
+settle wait instead of spending this failure budget. It retains its resource
+reservation and cannot be admitted until a fresh read proves a coherent state.
+Gate wake notifications remain advisory throughout both waits and fatal drains;
+only a healthy canonical scheduling poll may admit a durable queued waiter.
+
 The same `events.jsonl` now records every local resume-hint sender outcome as
 `local_resume_hint_send_completed` and every accepted listener datagram as
 `local_resume_hint_consumed`. Both carry the task, exact workflow transition,

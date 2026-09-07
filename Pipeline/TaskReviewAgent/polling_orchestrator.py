@@ -126,6 +126,8 @@ from Pipeline.TaskReviewAgent.human_action_wait import (  # noqa: E402
 )
 from Pipeline.TaskReviewAgent.jsonl_journal import append_jsonl_bytes  # noqa: E402
 from Pipeline.TaskReviewAgent.issue_workflow import (  # noqa: E402
+    ALL_STATE_LABELS,
+    STATE_LABELS,
     STATE_RE,
     WorkflowContractError,
     WorkflowPhase,
@@ -140,6 +142,7 @@ from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
     IssueWorkflowService,
     IssueWorkflowStoreError,
     _consistent_snapshots,
+    _is_exhausted_consistency_skew,
     issue_author_authorized,
 )
 from Pipeline.TaskReviewAgent.real_checkout import default_checkout_root  # noqa: E402
@@ -208,6 +211,10 @@ class SchedulerAlreadyActive(PollingOrchestratorError):
 
 class IntegrationObservationError(PollingOrchestratorError):
     """An in-flight integration surface could not be observed safely."""
+
+
+class TransientIntegrationObservationError(IntegrationObservationError):
+    """Only the existing bounded body/event read-consistency skew remains."""
 
 
 def utc_now() -> str:
@@ -909,6 +916,7 @@ def observe_durable_workflows(
             else None
         ),
     )
+    transient_errors: list[str] = []
     for entry in scanned:
         if entry.error is not None:
             raise IntegrationObservationError(
@@ -933,6 +941,19 @@ def observe_durable_workflows(
                 + "; ".join(snapshot.reasons)
             )
         if not snapshot.valid and pending_transition is None:
+            if (
+                _is_exhausted_consistency_skew(snapshot)
+                and set(snapshot.labels) & ALL_STATE_LABELS
+                == {STATE_LABELS[snapshot.state.state.value]}
+            ):
+                # Inspect the rest of this same batch before declaring it
+                # retryable: a malformed Issue beside a visibility skew still
+                # fails closed immediately. No partial observation is returned.
+                transient_errors.append(
+                    f"managed Issue #{snapshot.issue_number} is unread: "
+                    + "; ".join(snapshot.reasons)
+                )
+                continue
             raise IntegrationObservationError(
                 f"managed Issue #{snapshot.issue_number} is invalid: "
                 + "; ".join(snapshot.reasons)
@@ -1066,6 +1087,8 @@ def observe_durable_workflows(
                 authorized_decomposition_apply_commit=authorized_apply_commit,
             )
         )
+    if transient_errors:
+        raise TransientIntegrationObservationError("; ".join(transient_errors))
     return DurableWorkflowObservation(
         snapshots=tuple(snapshots),
         reservations=tuple(reservations),

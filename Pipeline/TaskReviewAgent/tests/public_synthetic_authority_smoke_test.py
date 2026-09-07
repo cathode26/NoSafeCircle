@@ -106,6 +106,46 @@ class PublicSyntheticAuthorityTests(unittest.TestCase):
                                                confirmed_repository=FIXTURE_REPOSITORY)
         self.assertEqual(len(commands), 1)
 
+    def test_recent_human_pass_label_gap_waits_with_public_authority_unchanged(self):
+        from Pipeline.TaskReviewAgent import issue_workflow_store as store
+        from Pipeline.TaskReviewAgent.tests.pending_workflow_write_smoke_test import stamp, frozen_clock
+        self.assertEqual(workflow.AUTOMATED_VALIDATION_REPOSITORIES, frozenset())
+        state = workflow.initial_state(task_id="NSC-701", task_contract_sha256="7" * 64, now=stamp(0))
+        events = []
+        for kind, actor, actor_id, target, phase, at, details in (
+            (workflow.WorkflowEventType.AGENT_LEASE_ACQUIRED, workflow.WorkflowActor.AGENT,
+             "public-fixture-worker", workflow.WorkflowState.AGENT_WORKING,
+             workflow.WorkflowPhase.IMPLEMENTATION, 10,
+             {"worker_id": "public-fixture-worker", "lease_id": "1" * 64}),
+            (workflow.WorkflowEventType.HUMAN_HANDOFF_CREATED, workflow.WorkflowActor.AGENT,
+             "public-fixture-worker", workflow.WorkflowState.HUMAN_ACTION_REQUIRED,
+             workflow.WorkflowPhase.UNITY_RUNTIME_VALIDATION, 60,
+             {"branch": "nsc-701-fixture", "head_commit": "b" * 40,
+              "checkout_path": "C:/offline-fixture/NSC-701"}),
+            (workflow.WorkflowEventType.HUMAN_VALIDATION_PASSED, workflow.WorkflowActor.HUMAN,
+             "cathode26", workflow.WorkflowState.AGENT_READY,
+             workflow.WorkflowPhase.DELIVERY_EVIDENCE, 120, {"tested_commit": "b" * 40}),
+        ):
+            state, event = workflow.transition(state, event_type=kind, actor_type=actor,
+                actor_id=actor_id, to_state=target, to_phase=phase, details=details, now=stamp(at))
+            events.append(event)
+        backend = store.MemoryIssueBackend(now=lambda: stamp(180))
+        backend.repository = PUBLIC
+        issue = backend.create_issue(title="NSC-701 — Offline human workflow fixture",
+            body=workflow.update_issue_body("", state), labels=[], assignees=["cathode26"])
+        for event in events:
+            backend.add_comment(issue["number"], workflow.render_event_comment(event, "Offline fixture."))
+        backend.issue_events[issue["number"]].append({"id": 1, "event": "unlabeled",
+            "label": {"name": workflow.STATE_LABELS["human_action_required"]},
+            "created_at": stamp(121), "actor": {"login": "cathode26"}})
+        with frozen_clock():
+            snapshot = store._snapshot(backend, backend.get_issue(issue["number"]))
+        self.assertFalse(snapshot.valid)
+        self.assertIsNotNone(snapshot.pending_transition, snapshot.reasons)
+        self.assertEqual(snapshot.state.human_result, "pass")
+        self.assertEqual(snapshot.state, state)
+        self.assertEqual(workflow.AUTOMATED_VALIDATION_REPOSITORIES, frozenset())
+
     def test_source_validator_denies_before_tests_or_evidence_writes(self):
         with patch.object(source_validation, "git", return_value=f"https://github.com/{FIXTURE_REPOSITORY}.git") as git:
             with self.assertRaises(ValueError):

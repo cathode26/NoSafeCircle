@@ -253,6 +253,10 @@ jobs:
         if: steps.scope.outputs.run_full_core == 'true'
         run: python Pipeline/TaskReviewAgent/tests/pending_transition_label_event_smoke_test.py
 
+      - name: Run bounded workflow-write transition regressions
+        if: steps.scope.outputs.run_full_core == 'true'
+        run: python Pipeline/TaskReviewAgent/tests/pending_workflow_write_smoke_test.py
+
       - name: Run software architect preflight smoke tests
         if: steps.scope.outputs.run_full_core == 'true'
         run: python Pipeline/TaskReviewAgent/tests/architect_preflight_smoke_test.py
@@ -272,6 +276,14 @@ jobs:
       - name: Run autonomous graph controller smoke tests
         if: steps.scope.outputs.run_full_core == 'true'
         run: python Pipeline/TaskReviewAgent/tests/autonomous_graph_run_smoke_test.py
+
+      - name: Run post-poll observation budget regressions
+        if: steps.scope.outputs.run_full_core == 'true'
+        run: python Pipeline/TaskReviewAgent/tests/post_poll_observation_budget_smoke_test.py
+
+      - name: Run durable gate restart recovery regressions
+        if: steps.scope.outputs.run_full_core == 'true'
+        run: python Pipeline/TaskReviewAgent/tests/gate_restart_recovery_smoke_test.py
 
       - name: Run production graph snapshot smoke tests
         if: steps.scope.outputs.run_full_core == 'true'

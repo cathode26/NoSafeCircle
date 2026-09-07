@@ -133,6 +133,14 @@ class AutonomousGraphRunError(ValueError):
     """The autonomous run cannot be observed or continued safely."""
 
 
+class TransientGraphSnapshotError(AutonomousGraphRunError):
+    """A read-only snapshot failed with an explicitly classified retry cause.
+
+    Invalid workflow authority and unproven source identity must never use this
+    type. A retry only re-observes; it grants no scheduler admission authority.
+    """
+
+
 @dataclass(frozen=True)
 class AutonomousRuntimeConfiguration:
     """Exact provider, rigor, retry, and synthetic-authority run binding."""
@@ -1575,6 +1583,58 @@ class AutonomousGraphController:
             )
         return snapshot
 
+    def _post_poll_snapshot(self, *, scheduler_fatal: bool) -> CoherentGraphSnapshot:
+        """Finish this poll's observation before another admission is allowed.
+
+        The polling scheduler's reservation budget does not enclose the outer
+        controller's post-poll snapshot. Retry only explicitly transient reads
+        here, under the same configured bound. Keeping retries inside this one
+        post-poll boundary prevents successful preflight/reservation reads from
+        resetting the count, and never repeats a provider call or worker launch.
+        """
+        failures = 0
+        limit = self.manifest.runtime_configuration.max_consecutive_observation_failures
+        wait_seconds = self.transition_settle_seconds
+        while True:
+            try:
+                return self._snapshot()
+            except TransientGraphSnapshotError as exc:
+                failures += 1
+                # A genuine fatal scheduler result retains its original drain
+                # authority. A wake cannot postpone it or authorize more work.
+                if scheduler_fatal or failures >= limit:
+                    raise
+                from .error_observability import safe_error_message
+                emitter = getattr(self.scheduler, "events", None)
+                if emitter is not None:
+                    emitter.emit(
+                        "autonomous_snapshot_observation_wait",
+                        stage="post_poll_snapshot",
+                        consecutive_observation_failures=failures,
+                        max_consecutive_observation_failures=limit,
+                        wait_seconds=wait_seconds,
+                        error=safe_error_message(exc),
+                    )
+                wait_reason = self.scheduler._wait_for_architect_activity(wait_seconds)
+                if wait_reason in {"worker_returned", "issue_state_changed", "integration_gate_released"}:
+                    progress = replace(
+                        self.progress,
+                        wakeups_total=self.progress.wakeups_total + 1,
+                        last_fallback_fingerprint=None,
+                    )
+                elif wait_reason == "fallback_elapsed":
+                    progress = replace(
+                        self.progress,
+                        fallback_waits_total=self.progress.fallback_waits_total + 1,
+                        last_fallback_fingerprint=None,
+                    )
+                else:
+                    raise AutonomousGraphRunError(
+                        f"scheduler returned unsupported wait reason: {wait_reason!r}"
+                    ) from exc
+                self._save(progress)
+                wait_seconds = min(wait_seconds * 2.0, self.fallback_seconds)
+
     def _require_run_ownership(self) -> None:
         if not self._run_owned:
             raise AutonomousGraphRunError(
@@ -1937,7 +1997,7 @@ class AutonomousGraphController:
         if type(cycle_fatal) is not bool:
             raise AutonomousGraphRunError("cycle.fatal must be boolean")
         self._error_stage = "post_poll_snapshot"
-        snapshot = self._snapshot()
+        snapshot = self._post_poll_snapshot(scheduler_fatal=cycle_fatal)
         self._error_stage = "post_poll_evaluation"
         evaluation = self._evaluate_snapshot(snapshot)
         if cycle_fatal:
@@ -2161,6 +2221,7 @@ __all__ = [
     "SchedulerLockPort",
     "SyntheticEvidencePumpResult",
     "TaskObservation",
+    "TransientGraphSnapshotError",
     "autonomous_run_paths",
     "eligible_synthetic_handoff_task_ids",
     "evaluate_graph_state",

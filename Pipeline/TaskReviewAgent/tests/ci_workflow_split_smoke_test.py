@@ -103,6 +103,9 @@ CORE_ONLY_STEP_COMMANDS = (
     "Pipeline/TaskReviewAgent/tests/fresh_dispatch_smoke_test.py",
     "Pipeline/TaskReviewAgent/tests/contention_retry_smoke_test.py",
     "Pipeline/TaskReviewAgent/tests/pending_transition_label_event_smoke_test.py",
+    "Pipeline/TaskReviewAgent/tests/pending_workflow_write_smoke_test.py",
+    "Pipeline/TaskReviewAgent/tests/post_poll_observation_budget_smoke_test.py",
+    "Pipeline/TaskReviewAgent/tests/gate_restart_recovery_smoke_test.py",
     "Pipeline/TaskReviewAgent/tests/human_action_wait_smoke_test.py",
 )
 CORE_FULL_SUITE_GATE = "if: steps.scope.outputs.run_full_core == 'true'"

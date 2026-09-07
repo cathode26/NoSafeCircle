@@ -160,7 +160,9 @@ def pending_transition_now() -> dt.datetime:
     return dt.datetime.now(dt.timezone.utc)
 
 
-def _parse_github_timestamp(raw: Any) -> dt.datetime | None:
+def _parse_github_timestamp(
+    raw: Any, *, require_timezone: bool = False,
+) -> dt.datetime | None:
     """Parse one GitHub ISO-8601 timestamp into an aware UTC datetime.
 
     ``None`` means the value is absent or unparsable; callers must treat that
@@ -177,6 +179,8 @@ def _parse_github_timestamp(raw: Any) -> dt.datetime | None:
     except ValueError:
         return None
     if parsed.tzinfo is None:
+        if require_timezone:
+            return None
         parsed = parsed.replace(tzinfo=dt.timezone.utc)
     return parsed.astimezone(dt.timezone.utc)
 
@@ -224,7 +228,13 @@ def _state_label_events(
     reader = getattr(backend, "get_issue_events", None)
     if not callable(reader):
         return None
-    raw_events = reader(issue_number)
+    return _parse_state_label_events(reader(issue_number), label)
+
+
+def _parse_state_label_events(
+    raw_events: Any, label: str | None, *, require_timezone: bool = False,
+) -> tuple[StateLabelEvent, ...] | None:
+    """Parse one label, or all managed labels, from one cached Issue event read."""
     if not isinstance(raw_events, list):
         return None
     collected: list[StateLabelEvent] = []
@@ -239,10 +249,14 @@ def _state_label_events(
         if not isinstance(name, str) or not name:
             # A label event whose label cannot be identified might be ours.
             return None
-        if name != label:
+        if (label is not None and name != label) or (
+            label is None and name not in ALL_STATE_LABELS
+        ):
             continue
         event_id = item.get("id")
-        created = _parse_github_timestamp(item.get("created_at"))
+        created = _parse_github_timestamp(
+            item.get("created_at"), require_timezone=require_timezone,
+        )
         if type(event_id) is not int or event_id < 1 or created is None:
             return None
         actor_value = item.get("actor")
@@ -285,12 +299,13 @@ def _current_label_application(
 
 @dataclass(frozen=True)
 class PendingStateTransition:
-    """One recognized in-flight label-ahead-of-body workflow transition.
+    """One recognized in-flight workflow write; never admission authority.
 
     This is an explicit typed classification. Callers must never re-derive it
     by parsing snapshot reason strings. ``label_applied_at_utc`` is the
-    authoritative GitHub ``labeled`` event time for ``target_label``; the
-    bounded age is measured from it and from nothing else.
+    authoritative GitHub label-event time (the historical field name is kept
+    for consumers). A workflow write also binds the final hashed event and
+    cannot renew its window through unrelated Issue activity.
     """
 
     from_state: WorkflowState
@@ -300,6 +315,9 @@ class PendingStateTransition:
     label_applied_at_utc: str
     age_seconds: float
     max_age_seconds: float = PENDING_TRANSITION_MAX_AGE_SECONDS
+    label_event_type: str = "labeled"
+    workflow_event_id: str | None = None
+    workflow_event_at_utc: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -310,6 +328,9 @@ class PendingStateTransition:
             "label_applied_at_utc": self.label_applied_at_utc,
             "age_seconds": self.age_seconds,
             "max_age_seconds": self.max_age_seconds,
+            "label_event_type": self.label_event_type,
+            "workflow_event_id": self.workflow_event_id,
+            "workflow_event_at_utc": self.workflow_event_at_utc,
         }
 
 
@@ -382,6 +403,180 @@ def _classify_pending_transition(
         label_event_id=applied.event_id,
         label_applied_at_utc=applied.created_at_utc,
         age_seconds=age,
+    )
+
+
+def _classify_pending_workflow_write(
+    backend: IssueBackend,
+    issue: Mapping[str, Any],
+    state: IssueWorkflowState,
+    events: Sequence[IssueWorkflowEvent],
+) -> PendingStateTransition | None:
+    """Prove a bounded comment/body/label write while no state label is visible.
+
+    A body may lag at most two canonical events (delivery lease then completion).
+    Replay proves only what to wait for: the original invalid body is retained.
+    Missing, contradictory or expired evidence is never a pending transition.
+    """
+    if (
+        not issue_author_authorized(issue)
+        or set(_issue_labels(issue)) & ALL_STATE_LABELS
+    ):
+        return None
+    ordered = tuple(sorted(events, key=lambda event: event.sequence))
+    suffix_length = len(ordered) - state.state_version
+    if not ordered or state.state_version < 1 or suffix_length not in (0, 1, 2):
+        return None
+    now = pending_transition_now()
+    try:
+        validate_event_chain(state, ordered[:state.state_version])
+        # The normal chain validator binds sequence/state/phase, not every
+        # field in the body. Reproduce the exact body too: a changed commit,
+        # owner, lease, branch or approval must not gain a waiting exception.
+        final_state = initial_state(
+            task_id=state.task_id,
+            task_contract_sha256=ordered[0].task_contract_sha256,
+            phase=ordered[0].from_phase,
+            now=ordered[0].occurred_at_utc,
+        )
+        previous_written = None
+        for event in ordered:
+            written = _parse_github_timestamp(
+                event.occurred_at_utc, require_timezone=True,
+            )
+            if (
+                written is None or written > now
+                or (previous_written is not None and written < previous_written)
+            ):
+                return None
+            previous_written = written
+            if (
+                event.event_type is WorkflowEventType.AGENT_LEASE_ACQUIRED
+                and event.actor_id != event.details.get("worker_id")
+            ) or (
+                final_state.state is WorkflowState.AGENT_WORKING
+                and event.actor_type is WorkflowActor.AGENT
+                and event.actor_id != final_state.worker_id
+            ):
+                return None
+            final_state, replayed = transition(
+                final_state,
+                event_type=event.event_type,
+                actor_type=event.actor_type,
+                actor_id=event.actor_id,
+                to_state=event.to_state,
+                to_phase=event.to_phase,
+                details=event.details,
+                now=event.occurred_at_utc,
+            )
+            if replayed.event_id != event.event_id:
+                return None
+            if event.sequence == state.state_version and final_state != state:
+                return None
+        validate_event_chain(final_state, ordered)
+        for event in ordered:
+            if event.event_type in (
+                WorkflowEventType.AUTOMATED_VALIDATION_PASSED,
+                WorkflowEventType.AUTOMATED_DECOMPOSITION_APPLICATION_APPROVED,
+            ):
+                _validate_automated_evidence_repository(backend, event.details)
+    except WorkflowContractError:
+        return None
+    last = ordered[-1]
+    if (
+        last.from_state is None or last.from_state is last.to_state
+        or last.to_state not in legal_next_states(last.from_state)
+    ):
+        return None
+    written = _parse_github_timestamp(last.occurred_at_utc, require_timezone=True)
+    if (
+        written is None
+        or not 0 <= (now - written).total_seconds() <= PENDING_TRANSITION_MAX_AGE_SECONDS
+    ):
+        return None
+    # Only a fully proven candidate pays for a single (plan-cached) event read.
+    reader = getattr(backend, "get_issue_events", None)
+    if not callable(reader):
+        return None
+    raw_events = reader(int(issue["number"]))
+    labels = _parse_state_label_events(raw_events, None, require_timezone=True)
+    if not labels or len({item.event_id for item in labels}) != len(labels):
+        return None
+    source_label = STATE_LABELS[last.from_state.value]
+    target_label = STATE_LABELS[last.to_state.value]
+    visible_from_history: set[str] = set()
+    for item in labels:
+        if item.event == "labeled":
+            visible_from_history.add(item.label)
+        else:
+            visible_from_history.discard(item.label)
+    if visible_from_history - {target_label}:
+        # Even an expected final removal cannot hide another managed label
+        # that the complete GitHub event history still proves is present.
+        return None
+    removed = labels[-1]
+    relevant = (removed,)
+    if removed.event == "labeled" and removed.label == target_label:
+        if len(labels) < 2:
+            return None
+        removed = labels[-2]
+        relevant = (removed, labels[-1])
+    if removed.event != "unlabeled" or removed.label != source_label:
+        return None
+    policy = default_actor_policy()
+    if any(
+        not policy.is_authorized_actor(item.actor)
+        or not written <= item.created_at <= now
+        or (now - item.created_at).total_seconds() > PENDING_TRANSITION_MAX_AGE_SECONDS
+        for item in relevant
+    ):
+        return None
+    if str(issue.get("state") or "").upper() == "CLOSED":
+        # Closing is separate from completing the workflow. A stale incomplete
+        # body alone never proves that the close is a legitimate terminal write.
+        if (
+            last.event_type is not WorkflowEventType.COMPLETED
+            or final_state.state is not WorkflowState.COMPLETE
+        ):
+            return None
+        closures = []
+        for item in raw_events:
+            if item.get("event") not in ("closed", "reopened"):
+                continue
+            created = _parse_github_timestamp(
+                item.get("created_at"), require_timezone=True,
+            )
+            event_id = item.get("id")
+            if type(event_id) is not int or event_id < 1 or created is None:
+                return None
+            closures.append((created, event_id, item))
+        if not closures:
+            return None
+        close_ids = [item[1] for item in closures]
+        if (
+            len(set(close_ids)) != len(close_ids)
+            or set(close_ids) & {item.event_id for item in labels}
+        ):
+            return None
+        closed_at, _, closed = max(closures, key=lambda item: item[:2])
+        actor = closed.get("actor")
+        if (
+            closed.get("event") != "closed"
+            or not isinstance(actor, Mapping)
+            or not policy.is_authorized_actor(actor.get("login"))
+            or not relevant[-1].created_at <= closed_at <= now
+        ):
+            return None
+    return PendingStateTransition(
+        from_state=last.from_state,
+        to_state=last.to_state,
+        target_label=target_label,
+        label_event_id=removed.event_id,
+        label_applied_at_utc=removed.created_at_utc,
+        age_seconds=(now - written).total_seconds(),
+        label_event_type="unlabeled",
+        workflow_event_id=last.event_id,
+        workflow_event_at_utc=last.occurred_at_utc,
     )
 
 
@@ -840,9 +1035,11 @@ def _snapshot(
     except WorkflowContractError as exc:
         managed = state is not None
         reasons.append(str(exc))
-    # A pending transition requires that the label set is the ONLY defect: the
-    # body and the complete hashed event chain must already be coherent.
+    # A missing-label write may also prove an exact bounded body prefix. The
+    # label-first Action below still requires an otherwise coherent full chain.
     pending: PendingStateTransition | None = None
+    if reasons and state is not None and not (set(labels) & ALL_STATE_LABELS):
+        pending = _classify_pending_workflow_write(backend, issue, state, events)
     if (
         len(reasons) == 1
         and found_state_label is not None
@@ -927,9 +1124,9 @@ def _snapshot_is_settled(snapshot: IssueWorkflowSnapshot) -> bool:
 
     if snapshot.valid:
         return True
-    # A recognized in-flight transition cannot converge by re-reading: it waits
-    # on the GitHub Action, not on read consistency. It never joins the queue
-    # and never spends the shared budget.
+    # Typed pending writes use the bounded outer settle wait instead of this
+    # per-Issue consistency ladder, whether an Action is still running or the
+    # recent write has not become visible in every endpoint yet.
     if snapshot.pending_transition is not None:
         return True
     if not (set(snapshot.reasons) & _TRANSIENT_RESERVATION_SNAPSHOT_REASONS):
