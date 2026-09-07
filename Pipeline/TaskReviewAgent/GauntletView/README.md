@@ -23,6 +23,43 @@ python Pipeline/TaskReviewAgent/GauntletView/server.py --tasks C:\Work\NoSafeCir
 `--state` is the directory that *contains* `.task-review-agent`, not the
 `.task-review-agent` directory itself.
 
+### Operator display selection
+
+Repeat `--display-task-id NSC-ID` to select the contracts to watch. This is
+independent of the newest autonomous run's execution targets. The server first
+evaluates the full authoritative graph, including dependencies outside the
+selection, then limits the API's `tasks` array to the selected contracts. The
+`display.task_ids` field records the selection on both `/api/state` and every
+SSE snapshot. `run.targets` and each task's `in_scope` still describe execution.
+The selection does not change when a new run or SSE update arrives.
+
+With an explicit selection, **run scope only** starts off. Turning it on
+temporarily intersects the selection with the current run; turning it off shows
+the whole selection again. That filter preference is saved per task directory,
+state directory and display selection, independently of the run ID. Without an
+explicit selection, the existing initial run filter is retained. The state
+legend and cancelled-task filter continue to work as before.
+
+Invalid or missing task IDs stop launch with a clear error. If a selected
+contract later disappears, `display.missing_task_ids` and the sidebar report it;
+the server does not fabricate a node or state. The selection is launch
+configuration, so page refreshes and SSE updates retain it without writing any
+task, run, Issue or history artifact.
+
+For this isolated fix checkout, this exact PowerShell command launches a
+separate viewer on port 8788 showing NSC-1001 through NSC-1008. It reads the
+rehearsal's existing contracts and run artifacts; it does not start a scheduler
+or change the visualizer already running on another port. A port already in use
+causes launch to fail rather than replace a process. This command is documented,
+not executed as part of the offline regression validation.
+
+```powershell
+python C:\NSC\GauntletViewScopeLayout-20260907\Pipeline\TaskReviewAgent\GauntletView\server.py --tasks C:\NSC\Rehearsal\NoSafeCircle-Homework-Rehearsal\Tasks --state C:\NSC\Rehearsal --port 8788 --display-task-id NSC-1001 --display-task-id NSC-1002 --display-task-id NSC-1003 --display-task-id NSC-1004 --display-task-id NSC-1005 --display-task-id NSC-1006 --display-task-id NSC-1007 --display-task-id NSC-1008
+```
+
+Open <http://127.0.0.1:8788>. The task list is an example launch configuration;
+these IDs are not embedded in the server's graph rules.
+
 ## What it reads
 
 | Source | Used for |
@@ -148,11 +185,35 @@ model cost. No provider is contacted.
 
 ## Pipeline Activity and artifact precedence
 
-The prominent panel above the graph explains global orchestration independently
+The compact panel above the graph explains global orchestration independently
 of task workflow state. An eligible task stays **Task Unstarted** while the
 Software Architect considers it. No task is marked working by the activity
 reducer. The existing graph orientation, colors, Issue links, compact progress,
-cost details, and default run-scope filter remain unchanged.
+cost details, and workflow classification remain unchanged.
+
+Pipeline Activity starts at 176px high. **Collapse / Expand** keeps a 64px
+header with the current recorded stage visible while releasing graph height.
+Drag its bottom grip to resize it between 120px and the smaller of 480px or
+45% of the viewport height. The body scrolls independently.
+
+Task details start at 320px wide. The header arrow collapses them to a 44px
+reopen control; the graph receives the released width. Drag the left grip to
+resize between 220px and 560px, further limited to 45% of the viewport width
+and enough room for at least 360px of graph width at desktop sizes. Selecting a
+node updates hidden details and **never reopens a collapsed panel**.
+
+Both panels save their expanded size and collapsed state in browser
+`localStorage` (`nsc.gauntlet.panels.v1`). Resizing the browser clamps the visible
+size while retaining the saved preference for a larger window. Storage is
+optional: corrupt or blocked storage falls back to defaults without breaking
+the view. These preferences are local to the browser and viewer origin/port.
+
+Collapse buttons work with Enter/Space. Focus a grip and use Up/Down for
+Pipeline Activity or Left/Right for details in 20px steps; Home/End chooses
+the minimum/maximum. Grips expose orientation and current size to assistive
+technology. Panel resizing updates Cytoscape's actual container without changing
+node positions, ordering, graph direction or zoom. **Fit** and **Zoom +/−** use
+the resulting graph area.
 
 `pipeline_activity.py` is a deterministic reducer with an injected clock and no
 file, process, provider, Docker, or GitHub access. `server.py` loads its inputs.
@@ -250,12 +311,24 @@ the visualizer already does; it is not a cryptographic run-audit verifier.
 
 ### Focused validation
 
-`python Pipeline/TaskReviewAgent/GauntletView/tests/gauntlet_view_smoke_test.py`
-runs 100 pure/component regressions, including 25 Pipeline Activity cases. These
+`python -m unittest discover -s Pipeline/TaskReviewAgent/GauntletView/tests -p "*_smoke_test.py"`
+runs 110 pure/component regressions, including display-scope HTTP/SSE coverage
+and the existing Pipeline Activity cases. These
 use disposable synthetic artifacts and a fixed clock; they never run a gauntlet
 or Unity. The new cases also cover launch-before-progress-file compatibility,
 exact worker-run matching, and terminal precedence. Check the inline JavaScript
 with `node --check`, compile changed Python files, and run `git diff --check`.
+
+`python Pipeline/TaskReviewAgent/GauntletView/tests/browser_smoke_test.py` runs
+14 additional real-browser checks with Node.js, Playwright and a local Chromium
+installation. Set `NODE_PATH` if Playwright is outside Node's normal module
+path, and `NSC_VIEW_CHROMIUM` to an installed Chromium executable if Playwright's
+browser is unavailable. Optional `NSC_VIEW_SCREENSHOTS` saves fixture screenshots.
+The runner owns an ephemeral loopback server and isolated headless browser,
+blocks external browser requests, uses vendored scripts, and checks artifact
+hashes. Its one deliberate fixture progress update drives a real SSE refresh.
+It does not attach to the operator's browser or visualizer. Missing dependencies
+fail the browser command; they are not counted as skipped/passed tests.
 
 ## Live updates
 

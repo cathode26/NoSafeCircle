@@ -11,31 +11,53 @@
     --text: #e6edf3;
     --muted: #8b949e;
     --accent: #58a6ff;
+    --detail-width: 320px;
   }
   * { box-sizing: border-box; }
   body {
     margin: 0; height: 100vh; overflow: hidden;
     background: var(--bg); color: var(--text);
     font: 13px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-    display: grid; grid-template-columns: 278px 1fr 320px;
+    display: grid; grid-template-columns: clamp(210px, 20vw, 278px) minmax(0, 1fr) var(--detail-width);
   }
   aside { background: var(--panel); overflow-y: auto; padding: 14px; }
   aside.left { border-right: 1px solid var(--line); }
   aside.right { border-left: 1px solid var(--line); }
+  [hidden] { display: none !important; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   h1 { font-size: 14px; margin: 0 0 2px; letter-spacing: .2px; }
   h2 {
     font-size: 10px; text-transform: uppercase; letter-spacing: .09em;
     color: var(--muted); margin: 18px 0 7px; font-weight: 600;
   }
   main { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
-  #cy { width: 100%; flex: 1; min-height: 180px; background: var(--bg); }
+  #cy { width: 100%; flex: 1; min-height: 0; background: var(--bg); }
   #pipeline-activity {
-    margin: 12px 14px 0; padding: 14px 18px; border: 1px solid #38516c;
+    margin: 12px 14px 0; border: 1px solid #38516c;
     border-top: 3px solid var(--accent); border-radius: 8px;
-    background: var(--panel); max-height: 60vh; overflow-y: auto;
+    background: var(--panel); height: 176px; flex: none; overflow: hidden;
+    display: flex; flex-direction: column;
   }
+  .panel-header { display: flex; align-items: center; gap: 10px; padding: 8px 12px; flex: none; }
+  .pipeline-title { min-width: 0; flex: 1; }
+  #pipeline-body { overflow-y: auto; min-height: 0; flex: 1; padding: 0 12px 8px; }
   #pipeline-activity h2 { margin: 0 0 4px; color: var(--accent); }
-  #pipeline-headline { font-size: 20px; line-height: 1.3; margin: 3px 0 7px; font-weight: 650; }
+  #pipeline-headline { font-size: 16px; line-height: 1.3; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .resize-handle { background: var(--line); touch-action: none; display: flex; align-items: center; justify-content: center; }
+  .resize-handle:hover, .resize-handle:focus-visible { background: #38516c; }
+  .resize-handle::after { content: ''; background: var(--muted); border-radius: 2px; }
+  #pipeline-resize::after { width: 36px; height: 2px; }
+  #detail-resize::after { width: 2px; height: 36px; }
+  #pipeline-resize { height: 8px; flex: none; cursor: ns-resize; }
+  #detail-panel { padding: 0; overflow: hidden; min-width: 0; display: grid; grid-template-columns: 8px minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  #detail-resize { grid-column: 1; grid-row: 1 / 3; cursor: ew-resize; }
+  #detail-header { grid-column: 2; justify-content: space-between; }
+  #detail-header h2 { margin: 0; }
+  #detail { grid-column: 2; overflow-y: auto; padding: 0 14px 14px; min-width: 0; }
+  #detail-panel.collapsed { grid-template-columns: 0 minmax(0, 1fr); }
+  #detail-panel.collapsed #detail-heading { display: none; }
+  #detail-panel.collapsed #detail-header { padding: 8px 4px; justify-content: center; }
+  body.resizing { user-select: none; }
   .pipeline-note { font-size: 12px; color: #b8c4d1; margin: 5px 0; }
   .pipeline-candidates { display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0; }
   .pipeline-candidates span { border: 1px solid var(--line); border-radius: 4px; padding: 2px 6px; font-size: 11px; }
@@ -133,6 +155,7 @@
   </div>
 
   <h2>Filter</h2>
+  <div class="sub" id="display-scope"></div>
   <label class="check"><input type="checkbox" id="f-cancelled"> show cancelled</label>
   <label class="check"><input type="checkbox" id="f-scope" checked> run scope only</label>
 
@@ -142,15 +165,25 @@
 
 <main>
   <section id="pipeline-activity" aria-label="Pipeline Activity">
-    <h2>Pipeline Activity</h2>
-    <div id="pipeline-headline" role="status" aria-live="polite">Reading durable run artifacts…</div>
+    <div class="panel-header">
+      <div class="pipeline-title">
+        <h2>Pipeline Activity</h2>
+        <div id="pipeline-headline" role="status" aria-live="polite">Reading durable run artifacts…</div>
+      </div>
+      <button id="pipeline-toggle" aria-label="Collapse Pipeline Activity" aria-expanded="true" aria-controls="pipeline-body">Collapse</button>
+    </div>
     <div id="pipeline-body"></div>
+    <div id="pipeline-resize" class="resize-handle" role="separator" tabindex="0" aria-label="Resize Pipeline Activity height" aria-orientation="horizontal" aria-controls="pipeline-activity" title="Drag or use Up/Down to resize Pipeline Activity"></div>
   </section>
   <div id="cy"></div>
 </main>
 
-<aside class="right">
-  <h2>Task detail</h2>
+<aside class="right" id="detail-panel" aria-label="Task details">
+  <div id="detail-resize" class="resize-handle" role="separator" tabindex="0" aria-label="Resize task details width" aria-orientation="vertical" aria-controls="detail-panel" title="Drag or use Left/Right to resize task details"></div>
+  <div class="panel-header" id="detail-header">
+    <h2 id="detail-heading">Task detail</h2>
+    <button id="detail-toggle" aria-label="Collapse task details" aria-expanded="true" aria-controls="detail" title="Collapse task details">›</button>
+  </div>
   <div id="detail"><div class="empty">Click a node.</div></div>
 </aside>
 
@@ -258,6 +291,139 @@ function shade(hex) {
   return `rgb(${Math.round(r * .22 + 22)},${Math.round(g * .22 + 26)},${Math.round(b * .22 + 32)})`;
 }
 
+// Storage is optional (private browsing, blocked storage, or corrupt old values).
+function readPreference(key) {
+  try { return JSON.parse(localStorage.getItem(key)); } catch { return null; }
+}
+function savePreference(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* Keep this session usable. */ }
+}
+
+function initializePanels() {
+  const key = 'nsc.gauntlet.panels.v1';
+  const saved = readPreference(key) || {};
+  const main = document.querySelector('main');
+  const pipeline = document.getElementById('pipeline-activity');
+  const detail = document.getElementById('detail-panel');
+  const pipelineToggle = document.getElementById('pipeline-toggle');
+  const detailToggle = document.getElementById('detail-toggle');
+  const finite = (value, fallback) => typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+  const clamp = (value, min, max) => Math.round(Math.max(min, Math.min(max, value)));
+  const state = {
+    pipelineHeight: clamp(finite(saved.pipelineHeight, 176), 120, 480),
+    detailWidth: clamp(finite(saved.detailWidth, 320), 220, 560),
+    pipelineCollapsed: saved.pipelineCollapsed === true,
+    detailCollapsed: saved.detailCollapsed === true,
+  };
+  const panels = [
+    {size: 'pipelineHeight', collapsed: 'pipelineCollapsed', handle: document.getElementById('pipeline-resize'),
+      min: 120, max: () => Math.max(120, Math.min(480, Math.floor(main.clientHeight * .45))),
+      coordinate: 'clientY', direction: 1, increaseKey: 'ArrowDown', decreaseKey: 'ArrowUp'},
+    {size: 'detailWidth', collapsed: 'detailCollapsed', handle: document.getElementById('detail-resize'),
+      min: 220, max: () => Math.max(220, Math.min(560, Math.floor(document.body.clientWidth * .45),
+        document.body.clientWidth - document.querySelector('aside.left').offsetWidth - 360)),
+      coordinate: 'clientX', direction: -1, increaseKey: 'ArrowLeft', decreaseKey: 'ArrowRight'},
+  ];
+  function apply() {
+    const height = clamp(state.pipelineHeight, panels[0].min, panels[0].max());
+    const width = clamp(state.detailWidth, panels[1].min, panels[1].max());
+    pipeline.style.height = `${state.pipelineCollapsed ? 64 : height}px`;
+    document.body.style.setProperty('--detail-width', `${state.detailCollapsed ? 44 : width}px`);
+    document.getElementById('pipeline-body').hidden = state.pipelineCollapsed;
+    document.getElementById('detail').hidden = state.detailCollapsed;
+    detail.classList.toggle('collapsed', state.detailCollapsed);
+    pipelineToggle.textContent = state.pipelineCollapsed ? 'Expand' : 'Collapse';
+    pipelineToggle.setAttribute('aria-expanded', String(!state.pipelineCollapsed));
+    pipelineToggle.setAttribute('aria-label', `${state.pipelineCollapsed ? 'Expand' : 'Collapse'} Pipeline Activity`);
+    detailToggle.textContent = state.detailCollapsed ? '‹' : '›';
+    detailToggle.setAttribute('aria-expanded', String(!state.detailCollapsed));
+    detailToggle.setAttribute('aria-label', `${state.detailCollapsed ? 'Expand' : 'Collapse'} task details`);
+    detailToggle.title = detailToggle.getAttribute('aria-label');
+    for (const panel of panels) {
+      panel.handle.hidden = state[panel.collapsed];
+      panel.handle.setAttribute('aria-valuemin', panel.min);
+      panel.handle.setAttribute('aria-valuemax', panel.max());
+      panel.handle.setAttribute('aria-valuenow', clamp(state[panel.size], panel.min, panel.max()));
+    }
+    cy.resize();
+  }
+  function toggle(field) {
+    state[field] = !state[field];
+    apply();
+    savePreference(key, state);
+  }
+  pipelineToggle.onclick = () => toggle('pipelineCollapsed');
+  detailToggle.onclick = () => toggle('detailCollapsed');
+  for (const panel of panels) {
+    let drag = null;
+    panel.handle.onpointerdown = event => {
+      if (event.button !== 0 || !event.isPrimary) return;
+      event.preventDefault();
+      panel.handle.focus();
+      panel.handle.setPointerCapture(event.pointerId);
+      drag = {id: event.pointerId, start: event[panel.coordinate],
+        size: clamp(state[panel.size], panel.min, panel.max())};
+      document.body.classList.add('resizing');
+    };
+    panel.handle.onpointermove = event => {
+      if (!drag || event.pointerId !== drag.id) return;
+      state[panel.size] = clamp(drag.size + (event[panel.coordinate] - drag.start) * panel.direction,
+        panel.min, panel.max());
+      apply();
+    };
+    function finishDrag(event) {
+      if (!drag || event.pointerId !== drag.id) return;
+      drag = null;
+      if (panel.handle.hasPointerCapture(event.pointerId)) panel.handle.releasePointerCapture(event.pointerId);
+      document.body.classList.remove('resizing');
+      savePreference(key, state);
+    }
+    panel.handle.onpointerup = finishDrag;
+    panel.handle.onpointercancel = finishDrag;
+    panel.handle.onlostpointercapture = finishDrag;
+    panel.handle.onkeydown = event => {
+      const current = clamp(state[panel.size], panel.min, panel.max());
+      const values = {Home: panel.min, End: panel.max(),
+        [panel.increaseKey]: current + 20, [panel.decreaseKey]: current - 20};
+      if (!(event.key in values)) return;
+      event.preventDefault();
+      state[panel.size] = clamp(values[event.key], panel.min, panel.max());
+      apply();
+      savePreference(key, state);
+    };
+  }
+  // Observe the actual canvas container, including layout changes without a
+  // window resize. Resizing preserves node positions and the operator's zoom.
+  new ResizeObserver(() => cy.resize()).observe(document.getElementById('cy'));
+  window.addEventListener('resize', apply);
+  apply();
+}
+initializePanels();
+
+let scopePreferenceKey = null;
+function configureDisplayScope(snap) {
+  const ids = snap.display?.task_ids;
+  const nextKey = 'nsc.gauntlet.run-filter.v1:' + JSON.stringify([snap.tasks_dir, snap.state_root, ids ?? null]);
+  if (nextKey !== scopePreferenceKey) {
+    scopePreferenceKey = nextKey;
+    const saved = readPreference(scopePreferenceKey);
+    document.getElementById('f-scope').checked = typeof saved === 'boolean' ? saved : !Array.isArray(ids);
+  }
+  const missing = snap.display?.missing_task_ids || [];
+  document.getElementById('display-scope').textContent =
+    (Array.isArray(ids) ? `Display selection: ${ids.join(', ')}` : 'Display selection: all contracts') +
+    (missing.length ? ` · Missing contracts: ${missing.join(', ')}` : '');
+}
+
+function fitGraph() {
+  cy.resize();
+  cy.fit(undefined, 40);
+}
+function zoomGraph(factor) {
+  cy.resize();
+  cy.zoom({level: cy.zoom() * factor, renderedPosition: {x: cy.width() / 2, y: cy.height() / 2}});
+}
+
 function visible(task) {
   if (hidden.has(task.state)) return false;
   if (document.getElementById('f-scope').checked && !task.in_scope) return false;
@@ -303,6 +469,7 @@ function layout() {
 }
 
 function render(snap, { relayout }) {
+  configureDisplayScope(snap);
   renderPipelineActivity(snap.pipeline_activity);
   cy.resize();
   const { nodes, edges } = buildElements(snap.tasks);
@@ -333,7 +500,7 @@ function render(snap, { relayout }) {
 
   if (structural || relayout) {
     layout();
-    if (relayout) cy.fit(undefined, 40);
+    if (relayout) fitGraph();
   }
   updateLegend(snap);
 }
@@ -411,6 +578,7 @@ function renderPipelineActivity(activity) {
     pipelineReceivedAt = performance.now();
   }
   document.getElementById('pipeline-headline').textContent = activity.headline;
+  document.getElementById('pipeline-headline').title = activity.headline;
   const c = activity.counters;
   const value = v => v == null ? 'unavailable' : esc(v);
   const counters = [
@@ -625,9 +793,9 @@ cy.on('tap', evt => {
   }
 });
 
-document.getElementById('zin').onclick = () => cy.zoom({ level: cy.zoom() * 1.35, renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 } });
-document.getElementById('zout').onclick = () => cy.zoom({ level: cy.zoom() / 1.35, renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 } });
-document.getElementById('fit').onclick = () => cy.fit(undefined, 40);
+document.getElementById('zin').onclick = () => zoomGraph(1.35);
+document.getElementById('zout').onclick = () => zoomGraph(1 / 1.35);
+document.getElementById('fit').onclick = fitGraph;
 
 function setMode(next) {
   mode = next;
@@ -639,7 +807,11 @@ function setMode(next) {
 document.getElementById('mode-deps').onclick = () => setMode('deps');
 document.getElementById('mode-tree').onclick = () => setMode('tree');
 for (const id of ['f-cancelled', 'f-scope']) {
-  document.getElementById(id).onchange = () => render(snapshot, { relayout: true });
+  document.getElementById(id).onchange = () => {
+    if (!snapshot) return;
+    if (id === 'f-scope') savePreference(scopePreferenceKey, document.getElementById(id).checked);
+    render(snapshot, { relayout: true });
+  };
 }
 
 function setLive(on) {

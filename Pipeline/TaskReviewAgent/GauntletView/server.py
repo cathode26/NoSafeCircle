@@ -595,9 +595,18 @@ def summarize_worker_run(path: Path) -> dict:
 
 
 class Snapshot:
-    def __init__(self, tasks_dir: Path, state_root: Path) -> None:
+    def __init__(
+        self, tasks_dir: Path, state_root: Path, *, display_task_ids: list[str] | None = None
+    ) -> None:
         self.tasks_dir = tasks_dir
         self.state_root = state_root
+        if display_task_ids is not None and any(
+            not isinstance(task_id, str) or not TASK_FILE_RE.fullmatch(task_id + ".yaml")
+            for task_id in display_task_ids
+        ):
+            raise ValueError("Display task IDs must use the canonical NSC task-ID format")
+        # Launch configuration is independent of mutable scheduler/run artifacts.
+        self.display_task_ids = tuple(sorted(set(display_task_ids))) if display_task_ids is not None else None
         self.outputs = state_root / ".task-review-agent" / "outputs"
         self.cache = FileCache()
         self._taskgraph_stamp: str | None = None
@@ -1363,8 +1372,19 @@ class Snapshot:
             timeline=timeline or [], worker_events=worker_events, tasks=tasks, now=time.time(),
         )
 
+        # Filter only the final projection. Dependencies, child counts, costs and
+        # pipeline classification above still see the complete authoritative graph.
+        displayed_tasks = tasks if self.display_task_ids is None else [
+            task for task in tasks if task["id"] in self.display_task_ids
+        ]
         return {
             "generated_at": utc_now(),
+            "display": {
+                "task_ids": list(self.display_task_ids) if self.display_task_ids is not None else None,
+                "missing_task_ids": [
+                    task_id for task_id in self.display_task_ids or () if task_id not in contracts
+                ],
+            },
             "pipeline_activity": activity,
             "tasks_dir": str(self.tasks_dir),
             "state_root": str(self.state_root),
@@ -1387,7 +1407,7 @@ class Snapshot:
                 "blocked_reasons": [r for r in blocked_reasons if r][-5:],
             },
             "events": events[-60:],
-            "tasks": tasks,
+            "tasks": displayed_tasks,
         }
 
     def fingerprint(self) -> str:
@@ -1509,6 +1529,10 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Live NSC gauntlet task-graph view.")
     parser.add_argument("--tasks", help="path to a checkout's Tasks/ directory")
     parser.add_argument("--state", help="directory containing .task-review-agent")
+    parser.add_argument(
+        "--display-task-id", action="append", dest="display_task_ids", metavar="NSC-ID",
+        help="task to display independently of the run manifest; repeat for each task",
+    )
     parser.add_argument("--port", type=int, default=8787)
     args = parser.parse_args()
 
@@ -1516,7 +1540,14 @@ def main() -> int:
     if not tasks_dir.is_dir():
         raise SystemExit(f"Tasks directory not found: {tasks_dir}")
 
-    Handler.snapshot = Snapshot(tasks_dir, state_root)
+    try:
+        Handler.snapshot = Snapshot(tasks_dir, state_root, display_task_ids=args.display_task_ids)
+    except ValueError as error:
+        parser.error(str(error))
+    if Handler.snapshot.display_task_ids is not None:
+        missing = set(Handler.snapshot.display_task_ids) - Handler.snapshot.load_contracts().keys()
+        if missing:
+            parser.error("Display task contracts not found: " + ", ".join(sorted(missing)))
     server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
     server.daemon_threads = True
 
@@ -1524,6 +1555,7 @@ def main() -> int:
     print(f"  contracts : {tasks_dir}")
     print(f"  run state : {state_root}")
     print(f"  active run: {run_dir.name if run_dir else '(none found)'}")
+    print("  display   : " + (", ".join(Handler.snapshot.display_task_ids or ()) or "all contracts (optional run filter)"))
     print(f"\n  http://127.0.0.1:{args.port}\n")
     try:
         server.serve_forever()
