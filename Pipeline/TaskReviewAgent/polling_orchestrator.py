@@ -201,6 +201,26 @@ _DECOMPOSITION_COMPATIBLE_STAGE2_REASONS = frozenset(
 )
 
 
+def _stage2_skip_may_offer_decomposition(
+    plan: DispatchPlan,
+    candidate: Mapping[str, Any],
+) -> bool:
+    """Identify a Stage-2 skip whose only blockers are decomposition shape."""
+
+    task_id = candidate.get("task_id")
+    if type(task_id) is not str or task_id in plan.excluded_task_ids:
+        return False
+    reasons = tuple(candidate.get("reason_codes") or ())
+    return bool(reasons) and all(
+        type(reason) is str
+        and (
+            reason in _DECOMPOSITION_COMPATIBLE_STAGE2_REASONS
+            or reason.startswith("dependency_blocked:")
+        )
+        for reason in reasons
+    )
+
+
 class PollingOrchestratorError(TaskReviewContractError):
     """The scheduler could not safely continue."""
 
@@ -2682,17 +2702,7 @@ class PollingOrchestrator:
         rejection therefore remain hard exclusions.
         """
 
-        if task_id_raw in plan.excluded_task_ids:
-            return None
-        reasons = tuple(candidate.get("reason_codes") or ())
-        if not reasons or any(
-            type(reason) is not str
-            or (
-                reason not in _DECOMPOSITION_COMPATIBLE_STAGE2_REASONS
-                and not reason.startswith("dependency_blocked:")
-            )
-            for reason in reasons
-        ):
+        if not _stage2_skip_may_offer_decomposition(plan, candidate):
             return None
         if not decomposition_offerable:
             return None
@@ -3224,7 +3234,14 @@ class PollingOrchestrator:
                 resume_task_id=(plan.resume or {}).get("task_id"),
                 fresh_candidate_count=0,
             )
-        if plan.decision == "no_safe_work":
+        decomposition_only_plan = (
+            plan.decision == "no_safe_work"
+            and any(
+                _stage2_skip_may_offer_decomposition(plan, candidate)
+                for candidate in plan.skipped_candidates
+            )
+        )
+        if plan.decision == "no_safe_work" and not decomposition_only_plan:
             self.events.emit(
                 "plan_idle",
                 decision=plan.decision,
@@ -3238,7 +3255,11 @@ class PollingOrchestrator:
                 plan_reasons=list(plan.reasons),
             )
             return PollCycleResult("blocked_invalid_state", fatal=True)
-        if plan.decision not in {"fresh_candidate", "resume_existing"}:
+        if plan.decision not in {
+            "fresh_candidate",
+            "resume_existing",
+            "no_safe_work",
+        }:
             self.events.emit(
                 "scheduler_blocked",
                 reason=f"unsupported Stage-2 decision {plan.decision!r}",
@@ -3275,7 +3296,11 @@ class PollingOrchestrator:
                 for entry in candidates
                 if entry[0].get("task_id") == local_ahead_recovery_task_id
             )
-        if not candidates and self.admission_allowlist is not None:
+        if (
+            not candidates
+            and self.admission_allowlist is not None
+            and not decomposition_only_plan
+        ):
             self.events.emit(
                 "plan_idle",
                 decision="no_candidate_inside_admission_scope",
@@ -3283,7 +3308,7 @@ class PollingOrchestrator:
                 exclusions=sorted(temporary_exclusions),
             )
             return PollCycleResult("idle")
-        if not candidates:
+        if not candidates and not decomposition_only_plan:
             self.events.emit(
                 "scheduler_blocked",
                 reason=(
@@ -3332,6 +3357,17 @@ class PollingOrchestrator:
                 for entry in mixed_portfolio
                 if entry[2]["task"]["id"] == local_ahead_recovery_task_id
             )
+        if not mixed_portfolio and decomposition_only_plan:
+            self.events.emit(
+                "plan_idle",
+                decision="no_decomposition_candidate_inside_admission_scope",
+                admission_allowlist=(
+                    sorted(self.admission_allowlist)
+                    if self.admission_allowlist is not None
+                    else None
+                ),
+            )
+            return PollCycleResult("idle")
         if not mixed_portfolio:
             self.events.emit(
                 "scheduler_blocked",

@@ -247,6 +247,30 @@ def mixed_work_plan(
     )
 
 
+def decomposition_only_plan(head: str, task_id: str) -> DispatchPlan:
+    decomposition = {
+        **_candidate(task_id),
+        "eligible": False,
+        "reason_codes": [
+            "execution_scope_not_single_agent",
+            "derived_state_not_fresh:aggregate",
+        ],
+    }
+    return DispatchPlan(
+        schema_version="1.0",
+        source_commit=head,
+        mode="read_only_plan",
+        autonomous_dispatch=False,
+        decision="no_safe_work",
+        resume=None,
+        selected_fresh_candidate=None,
+        ranked_eligible_candidates=(),
+        skipped_candidates=(decomposition,),
+        agent_ready_count=0,
+        claim_observation={"status": "fixture"},
+    )
+
+
 def resume_plan(
     head: str,
     task_id: str,
@@ -2037,6 +2061,34 @@ def test_architect_can_choose_decomposition_while_implementation_exists() -> Non
         require("host_decomposition_launcher.py" in " ".join(command), str(command))
         require("host_worker_launcher.py" not in " ".join(command), str(command))
         require("--enable-decomposition-session-pool" in command, f"scheduler-launched decomposition must opt into session pooling: {command}")
+        require('"work_type": "decomposition"' in stream.getvalue(), stream.getvalue())
+
+
+def test_architect_can_choose_decomposition_when_it_is_the_only_safe_work() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        planner = SequencePlanner([decomposition_only_plan(head, TASK_B)])
+        architect = FakeArchitect(
+            {TASK_B: advisory(TASK_B, head, work_type="decomposition")}
+        )
+        processes = ProcessFactory()
+        orchestrator, stream = make_orchestrator(
+            source=source,
+            planner=planner,
+            architect=architect,
+            processes=processes,
+            tasks={TASK_B: decomposition_task(TASK_B)},
+        )
+
+        result = orchestrator.poll_once()
+
+        require(
+            result.status == "worker_launched" and result.task_id == TASK_B,
+            str(result),
+        )
+        require(architect.calls == [TASK_B], str(architect.calls))
+        command = processes.calls[0][0]
+        require("host_decomposition_launcher.py" in " ".join(command), str(command))
         require('"work_type": "decomposition"' in stream.getvalue(), stream.getvalue())
 
 
@@ -6366,6 +6418,7 @@ def main() -> int:
         test_architect_portfolio_selects_disjoint_candidate_in_one_call,
         test_ineligible_decomposition_pair_is_not_selected_or_launched,
         test_architect_can_choose_decomposition_while_implementation_exists,
+        test_architect_can_choose_decomposition_when_it_is_the_only_safe_work,
         test_codex_restriction_applies_to_real_scheduler_routes,
         test_restricted_factory_rejects_claude_architect_before_any_construction,
         test_excluded_skipped_decomposition_never_enters_architect_portfolio,
