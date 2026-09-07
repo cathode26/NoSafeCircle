@@ -1446,6 +1446,13 @@ class GauntletViewHtmlTests(unittest.TestCase):
         self.assertLess(task_position, issue_position)
         self.assertLess(issue_position, worker_position)
 
+    def test_run_scope_is_the_default_proof_view(self) -> None:
+        self.assertIn('id="f-scope" checked', self.html)
+
+    def test_dependency_and_hierarchy_layouts_are_top_to_bottom(self) -> None:
+        self.assertIn("rankDir: 'TB'", self.html)
+        self.assertNotIn("rankDir: mode === 'deps' ? 'LR' : 'TB'", self.html)
+
     def test_issue_link_opens_safely_in_new_tab(self) -> None:
         self.assertIn('target="_blank" rel="noopener noreferrer"', self.html)
 

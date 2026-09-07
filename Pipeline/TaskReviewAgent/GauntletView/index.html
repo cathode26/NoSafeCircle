@@ -114,7 +114,7 @@
 
   <h2>Filter</h2>
   <label class="check"><input type="checkbox" id="f-cancelled"> show cancelled</label>
-  <label class="check"><input type="checkbox" id="f-scope"> run scope only</label>
+  <label class="check"><input type="checkbox" id="f-scope" checked> run scope only</label>
 
   <h2>States</h2>
   <div id="legend"></div>
@@ -267,7 +267,7 @@ function buildElements(tasks) {
 function layout() {
   cy.layout({
     name: 'dagre',
-    rankDir: mode === 'deps' ? 'LR' : 'TB',
+    rankDir: 'TB',
     nodeSep: 18,
     rankSep: 90,
     animate: false,
