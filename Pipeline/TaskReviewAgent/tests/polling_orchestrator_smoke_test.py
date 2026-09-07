@@ -4045,6 +4045,53 @@ def test_durable_human_action_branch_becomes_reservation() -> None:
         require(not reservation.surface_unknown, str(reservation))
 
 
+def test_durable_precheckout_block_is_a_known_empty_integration_surface() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        source, _ = create_source(Path(text))
+        fixture_task = task(TASK_A)
+        state = SimpleNamespace(
+            task_id=TASK_A,
+            task_contract_sha256=fixture_task["task_contract_sha256"],
+            state=WorkflowState.BLOCKED,
+            phase=WorkflowPhase.IMPLEMENTATION,
+            branch=None,
+            head_commit=None,
+            checkout_path=str(Path(text) / "missing-checkout"),
+        )
+        snapshot = SimpleNamespace(
+            valid=True,
+            managed=True,
+            issue_number=101,
+            reasons=(),
+            state=state,
+            events=(),
+            pending_transition=None,
+        )
+        scanned = (SimpleNamespace(error=None, snapshot=snapshot),)
+        with patch.object(
+            scheduler_module,
+            "_consistent_snapshots",
+            return_value=scanned,
+        ):
+            reservations = observe_durable_integration_reservations(
+                source=source,
+                checkout_root=source.parent,
+                worker_id="precheckout-observer",
+                backend=MemoryIssueBackend(),
+                task_loader=lambda _task_id: fixture_task,
+            )
+        require(len(reservations) == 1, str(reservations))
+        reservation = reservations[0]
+        require(reservation.actual_paths == (), str(reservation))
+        require(not reservation.surface_unknown, str(reservation))
+        require(reservation.confidence == 1.0, str(reservation))
+        require(
+            reservation.evidence_type
+            == "durable_precheckout_surface_observed_empty",
+            str(reservation),
+        )
+
+
 def test_reservations_and_stage2_can_share_one_issue_listing() -> None:
     with tempfile.TemporaryDirectory() as text:
         source, backend, fixture_task = create_durable_human_fixture(Path(text))
@@ -6497,6 +6544,7 @@ def main() -> int:
         test_new_worker_checkout_is_explicitly_pending_with_prediction_preserved,
         test_previously_observed_checkout_disappearing_becomes_unknown,
         test_durable_human_action_branch_becomes_reservation,
+        test_durable_precheckout_block_is_a_known_empty_integration_surface,
         test_reservations_and_stage2_can_share_one_issue_listing,
         test_decomposition_apply_hash_change_requires_exact_replay,
         test_actual_branch_path_overlap_prevents_launch,

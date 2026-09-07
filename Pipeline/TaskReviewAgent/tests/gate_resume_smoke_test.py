@@ -318,6 +318,30 @@ class GateResumeTests(unittest.TestCase):
                 self.assertFalse(f.processes.calls,f.stream.getvalue())
                 self.assertEqual(len(f.architect.calls),1 if mode in {"paths","confirmable"} else 0,f.stream.getvalue())
 
+    def test_proven_empty_precheckout_reservation_does_not_buy_architect(self):
+        f = self.fixture()
+        reservation = p.IntegrationReservation(
+            task_id="NSC-778",
+            workflow_state="blocked",
+            phase="implementation",
+            branch=None,
+            head=None,
+            checkout_path=str(f.checkout_root / "NSC-778"),
+            exclusive_resources=("repo-file:Assets/Unrelated.cs",),
+            predicted_paths=(),
+            actual_paths=(),
+            unity_serialized_assets=(),
+            shared_systems=(),
+            confidence=1.0,
+            evidence_type="durable_precheckout_surface_observed_empty",
+            surface_unknown=False,
+            local_active=False,
+            pending_transition=None,
+        )
+        f.scheduler.reservation_observer = lambda: (reservation,)
+
+        self.assert_bypass(f)
+
     def test_changed_source_issue_checkout_and_surface_keep_architect(self):
         for mode in ("source","issue","checkout","surface","policy"):
             with self.subTest(mode=mode):

@@ -1074,11 +1074,25 @@ def observe_durable_workflows(
                 pass
 
         actual = _path_tuple(paths)
-        if observed_checkout is not None:
+        precheckout_surface_is_empty = (
+            observed_checkout is None
+            and state.branch is None
+            and state.head_commit is None
+        )
+        if precheckout_surface_is_empty:
+            # A managed Issue that stopped before creating a branch, commit, or
+            # Git checkout has no integration surface yet. Its committed
+            # exclusive_resources still reserve the declared scope, but it must
+            # not become an unknown global surface that forces unrelated gate
+            # waiters back through the architect.
+            surface_unknown = False
+        elif observed_checkout is not None:
             surface_unknown = not (working_tree_observed and branch_observed)
         else:
             surface_unknown = not branch_observed
-        if not surface_unknown:
+        if precheckout_surface_is_empty:
+            evidence_type = "durable_precheckout_surface_observed_empty"
+        elif not surface_unknown:
             evidence_type = (
                 "durable_branch_or_checkout_actual_paths"
                 if actual
