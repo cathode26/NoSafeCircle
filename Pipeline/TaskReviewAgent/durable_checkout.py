@@ -36,6 +36,7 @@ class DurableCheckoutError(TaskReviewContractError):
 _STALE_MAIN_REASON = "checkout origin/main does not match current controller main"
 _REMOTE_HANDOFF_REASON = "recorded handoff commit is not the pushed remote task branch"
 _DIRTY_WORKTREE_REASON = "checkout working tree is not clean"
+_FRESH_TREE_REASON = "fresh checkout tree does not match observed source tree"
 
 
 def _workflow_state(observation: dict[str, Any]) -> dict[str, Any] | None:
@@ -603,11 +604,10 @@ class DurableTaskCheckoutManager:
     ) -> dict[str, Any] | None:
         """Fast-forward one exact clean review-only checkout to current main.
 
-        This applies only after a prior decomposition handoff was rejected or an
-        approved plan was invalidated and released back to ``decomposition``.  D1B
-        creates no source commit and does not push its identity branch, so that old
-        handoff commit is historical audit data rather than a resumable pushed
-        implementation commit.  Every physical and remote identity is re-proven
+        This applies after an exact prior decomposition attempt left its read-only
+        checkout behind, whether it stopped before handoff or its handoff was later
+        rejected/invalidated. D1B creates no source commit and normally does not
+        push its identity branch. Every physical and remote identity is re-proven
         before the sole allowed mutation: ``git merge --ff-only`` along main.
         """
 
@@ -615,22 +615,37 @@ class DurableTaskCheckoutManager:
             return None
         workflow = _workflow_state(observation)
         coordination = observation.get("coordination") or {}
+        if not isinstance(workflow, dict):
+            return None
+        historical_head = str(workflow.get("head_commit") or "")
+        human_handoff_head = str(workflow.get("human_handoff_commit") or "")
+        fresh_retry_without_handoff = not historical_head and not human_handoff_head
+        expected_branch = self.expected_branch(observation)
         if (
-            not isinstance(workflow, dict)
-            or workflow.get("state") != "agent_working"
+            workflow.get("state") != "agent_working"
             or workflow.get("phase") != "decomposition"
             or workflow.get("current_actor") != "agent"
             or workflow.get("worker_id") != self.worker_id
-            or workflow.get("checkout_path") != str(self.checkout_path)
-            or workflow.get("branch") != self.expected_branch(observation)
             or workflow.get("human_result") is not None
             or coordination.get("workflow_status") != "agent_working_by_worker"
         ):
             return None
-        historical_head = str(workflow.get("head_commit") or "")
-        if (
-            not historical_head
-            or workflow.get("human_handoff_commit") != historical_head
+        if fresh_retry_without_handoff:
+            # Before the first handoff the workflow state intentionally has no
+            # branch/checkout fields. The manager's canonical path and the signed
+            # external manifest provide those bindings. Refuse any conflicting
+            # value if a future state-machine revision starts recording them.
+            if workflow.get("checkout_path") not in (None, str(self.checkout_path)):
+                return None
+            if workflow.get("branch") not in (None, expected_branch):
+                return None
+        elif (
+            workflow.get("checkout_path") != str(self.checkout_path)
+            or workflow.get("branch") != expected_branch
+        ):
+            return None
+        if not fresh_retry_without_handoff and (
+            not historical_head or human_handoff_head != historical_head
         ):
             return None
 
@@ -649,6 +664,8 @@ class DurableTaskCheckoutManager:
             _REMOTE_HANDOFF_REASON,
             *head_reasons,
         }
+        if fresh_retry_without_handoff:
+            permitted.add(_FRESH_TREE_REASON)
         unexpected = set(reasons) - permitted
         if unexpected == {_DIRTY_WORKTREE_REASON}:
             return self._blocked_decomposition_refresh(
@@ -661,7 +678,6 @@ class DurableTaskCheckoutManager:
         environment = observation["environment"]
         current_head = str(environment.get("source_head") or "")
         current_tree = str(environment.get("source_tree") or "")
-        expected_branch = self.expected_branch(observation)
         remote_url = str(inspected.get("remote_url") or "")
         manifest = self._read_manifest()
         local_head = str(inspected.get("head_commit") or "")
@@ -717,13 +733,16 @@ class DurableTaskCheckoutManager:
                 "remote main moved during decomposition checkout recovery",
             )
         remote_task_head = self._remote_branch_head(expected_branch)
-        if remote_task_head not in {None, historical_head}:
+        permitted_remote_heads = {None}
+        if historical_head:
+            permitted_remote_heads.add(historical_head)
+        if remote_task_head not in permitted_remote_heads:
             return self._blocked_decomposition_refresh(
                 inspected,
                 "remote decomposition task branch moved away from the prior review-only handoff",
             )
 
-        if not self._is_ancestor(historical_head, manifest_head):
+        if historical_head and not self._is_ancestor(historical_head, manifest_head):
             return self._blocked_decomposition_refresh(
                 inspected,
                 "external decomposition checkout manifest does not descend from the prior handoff",
@@ -763,7 +782,7 @@ class DurableTaskCheckoutManager:
                 "decomposition checkout recovery could not verify current main after fast-forward"
             )
         remote_task_after = self._remote_branch_head(expected_branch)
-        if remote_task_after not in {None, historical_head}:
+        if remote_task_after not in permitted_remote_heads:
             return self._blocked_decomposition_refresh(
                 inspected,
                 "remote decomposition task branch moved during checkout recovery",
@@ -781,9 +800,9 @@ class DurableTaskCheckoutManager:
             "status": "resumed",
             "resume_mode": True,
             "review_only_decomposition_refresh": True,
-            "review_only_decomposition_rebased": historical_head != current_head,
+            "review_only_decomposition_rebased": (historical_head or manifest_head) != current_head,
             "checkout_fast_forwarded": fast_forwarded,
-            "historical_workflow_head": historical_head,
+            "historical_workflow_head": historical_head or None,
             "prior_checkout_head": local_head,
             "recovered_checkout_head": current_head,
             "durable_manifest_migrated": True,

@@ -463,7 +463,11 @@ def advance_main(controller: Path) -> tuple[str, str]:
     return git(controller, "rev-parse", "HEAD"), git(controller, "rev-parse", "HEAD^{tree}")
 
 
-def review_only_decomposition_retry_fixture(root: Path) -> dict:
+def review_only_decomposition_retry_fixture(
+    root: Path,
+    *,
+    include_handoff: bool = True,
+) -> dict:
     controller, remote, initial_main = create_fixture(root)
     contract, contract_hash, initial_tree = contract_facts(controller)
     checkout_root = root / "operator"
@@ -507,6 +511,21 @@ def review_only_decomposition_retry_fixture(root: Path) -> dict:
     )
     created = manager.prepare(initial_observation)
     require(created["status"] == "created", f"decomposition checkout create failed: {created}")
+    fixture = {
+        "root": root,
+        "controller": controller,
+        "remote": remote,
+        "initial_main": initial_main,
+        "initial_tree": initial_tree,
+        "contract": contract,
+        "contract_hash": contract_hash,
+        "checkout_root": checkout_root,
+        "checkout": checkout,
+        "state": state,
+        "manager": manager,
+    }
+    if not include_handoff:
+        return fixture
     state, _ = transition(
         state,
         event_type=WorkflowEventType.DECOMPOSITION_HANDOFF_CREATED,
@@ -534,19 +553,7 @@ def review_only_decomposition_retry_fixture(root: Path) -> dict:
         details={"reviewed_plan_id": PLAN_ID},
         now="2026-09-05T13:03:00Z",
     )
-    return {
-        "root": root,
-        "controller": controller,
-        "remote": remote,
-        "initial_main": initial_main,
-        "initial_tree": initial_tree,
-        "contract": contract,
-        "contract_hash": contract_hash,
-        "checkout_root": checkout_root,
-        "checkout": checkout,
-        "state": state,
-        "manager": manager,
-    }
+    return {**fixture, "state": state}
 
 
 def decomposition_retry_observation(
@@ -634,6 +641,122 @@ def test_review_only_decomposition_retry_fast_forwards_clean_old_main() -> None:
         repeated = manager.prepare(observed)
         require(repeated["status"] == "resumed", f"recovery was not idempotent: {repeated}")
         require(git(fixture["checkout"], "rev-parse", "HEAD") == current_main, "retry moved HEAD")
+
+
+def failed_decomposition_retry_observation(
+    fixture: dict,
+    *,
+    source_head: str,
+    source_tree: str,
+) -> tuple[DurableTaskCheckoutManager, dict]:
+    state, _ = transition(
+        fixture["state"],
+        event_type=WorkflowEventType.AGENT_LEASE_RELEASED,
+        actor_type=WorkflowActor.AGENT,
+        actor_id=WORKER_A,
+        to_state=WorkflowState.AGENT_READY,
+        to_phase=WorkflowPhase.DECOMPOSITION,
+        details={
+            "reason": "D1B.2 ended before a review-ready handoff",
+            "work_type": "decomposition",
+        },
+        now="2026-09-05T13:02:00Z",
+    )
+    state = lease(
+        state,
+        worker=WORKER_B,
+        source_head=source_head,
+        checkout=fixture["checkout"],
+        now="2026-09-05T13:03:00Z",
+    )
+    observed = observation(
+        controller=fixture["controller"],
+        remote=fixture["remote"],
+        contract=fixture["contract"],
+        contract_hash=fixture["contract_hash"],
+        source_head=source_head,
+        source_tree=source_tree,
+        state=state,
+        worker=WORKER_B,
+    )
+    observed["task"].update(
+        execution_scope="needs_execution_decomposition",
+        decomposition_state="concrete",
+        derived_state="aggregate",
+        dependencies_conformant=False,
+    )
+    return (
+        DurableTaskCheckoutManager(
+            source_root=fixture["controller"],
+            task_id=TASK_ID,
+            checkout_root=fixture["checkout_root"],
+            worker_id=WORKER_B,
+            work_type="decomposition",
+            allow_local_remote_for_tests=True,
+        ),
+        observed,
+    )
+
+
+def test_failed_decomposition_retry_fast_forwards_clean_checkout_without_handoff() -> None:
+    with tempfile.TemporaryDirectory(prefix="nsc-decomposition-no-handoff-") as temporary:
+        fixture = review_only_decomposition_retry_fixture(
+            Path(temporary), include_handoff=False
+        )
+        current_main, current_tree = advance_main(fixture["controller"])
+        manager, observed = failed_decomposition_retry_observation(
+            fixture,
+            source_head=current_main,
+            source_tree=current_tree,
+        )
+        recovered = manager.prepare(observed)
+        require(recovered["status"] == "resumed", str(recovered))
+        require(recovered.get("historical_workflow_head") is None, str(recovered))
+        require(recovered.get("prior_checkout_head") == fixture["initial_main"], str(recovered))
+        require(recovered.get("recovered_checkout_head") == current_main, str(recovered))
+        require(git(fixture["checkout"], "rev-parse", "HEAD") == current_main, "checkout did not fast-forward")
+        require(git(fixture["checkout"], "status", "--porcelain=v1") == "", "checkout became dirty")
+
+
+def test_failed_decomposition_retry_preserves_dirty_checkout_without_handoff() -> None:
+    with tempfile.TemporaryDirectory(prefix="nsc-decomposition-no-handoff-dirty-") as temporary:
+        fixture = review_only_decomposition_retry_fixture(
+            Path(temporary), include_handoff=False
+        )
+        current_main, current_tree = advance_main(fixture["controller"])
+        dirty = fixture["checkout"] / "uncommitted.txt"
+        dirty.write_text("preserve me\n", encoding="utf-8")
+        manager, observed = failed_decomposition_retry_observation(
+            fixture,
+            source_head=current_main,
+            source_tree=current_tree,
+        )
+        blocked = manager.prepare(observed)
+        require(blocked["status"] == "blocked", str(blocked))
+        require("checkout working tree is not clean" in blocked.get("reasons", []), str(blocked))
+        require(dirty.read_text(encoding="utf-8") == "preserve me\n", "dirty evidence changed")
+        require(git(fixture["checkout"], "rev-parse", "HEAD") == fixture["initial_main"], "dirty checkout moved")
+
+
+def test_failed_decomposition_retry_rejects_diverged_checkout_without_handoff() -> None:
+    with tempfile.TemporaryDirectory(prefix="nsc-decomposition-no-handoff-diverged-") as temporary:
+        fixture = review_only_decomposition_retry_fixture(
+            Path(temporary), include_handoff=False
+        )
+        current_main, current_tree = advance_main(fixture["controller"])
+        diverged_head = commit_change(fixture["checkout"])
+        manager, observed = failed_decomposition_retry_observation(
+            fixture,
+            source_head=current_main,
+            source_tree=current_tree,
+        )
+        blocked = manager.prepare(observed)
+        require(blocked["status"] == "blocked", str(blocked))
+        require(
+            any("not an ancestor of current controller main" in reason for reason in blocked.get("reasons", [])),
+            str(blocked),
+        )
+        require(git(fixture["checkout"], "rev-parse", "HEAD") == diverged_head, "diverged checkout moved")
 
 
 def test_review_only_decomposition_retry_accepts_exact_old_remote_branch() -> None:
@@ -780,6 +903,9 @@ def main() -> int:
         test_real_workflow_rejects_unpushed_handoff,
         test_decomposition_uses_exact_canonical_durable_checkout,
         test_review_only_decomposition_retry_fast_forwards_clean_old_main,
+        test_failed_decomposition_retry_fast_forwards_clean_checkout_without_handoff,
+        test_failed_decomposition_retry_preserves_dirty_checkout_without_handoff,
+        test_failed_decomposition_retry_rejects_diverged_checkout_without_handoff,
         test_review_only_decomposition_retry_accepts_exact_old_remote_branch,
         test_review_only_decomposition_retry_preserves_dirty_checkout,
         test_review_only_decomposition_retry_rejects_diverged_checkout,
