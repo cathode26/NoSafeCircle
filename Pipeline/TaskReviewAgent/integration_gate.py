@@ -23,15 +23,46 @@ from .claim_refs import _classify_failed_claim_push, _run_git
 from .contracts import TaskReviewContractError, canonical_json, validate_task_id
 from .git_identity_guard import validated_agent_git_identity
 from .issue_workflow_store import _parse_github_repository
+from .publication_fence import (
+    PUBLICATION_PROTOCOL_VERSION,
+    DEFINITELY_PUBLISHED,
+    REQUIRES_RECONCILIATION,
+    PublicationStatus,
+)
 
 SCHEMA = "1.0"
 MARKER = "nsc-durable-integration-gate"
 SHA = re.compile(r"[0-9a-f]{40}\Z")
 TOKEN = re.compile(r"[0-9a-f]{32}\Z")
 
+# Owner records written before the versioned publication protocol carry neither
+# the approved source head nor the exact expected target-branch commit, so they
+# cannot express publication authority. They stay READABLE -- history and audit
+# must survive, and operator recovery has to be able to read them -- but every
+# authority operation refuses them (see require_owner).
+LEGACY_OWNER_KEYS = frozenset({
+    "task_id", "run_id", "worker_id", "lease_id", "repository", "target_branch",
+    "acquired_at", "heartbeat_at", "progress", "status", "operation", "unity_seconds", "ci_seconds"})
+OWNER_KEYS = LEGACY_OWNER_KEYS | {"protocol_version", "publication"}
+PUBLICATION_KEYS = frozenset({
+    "protocol_version", "repository", "target_branch", "task_id", "run_id", "worker_id",
+    "lease_id", "source_head", "validated_commit", "expected_main", "operation_id",
+    "base_epoch", "status", "publication_commit", "observed_pre_image", "observed_target",
+    "detail"})
+#: Receipt fields that bind a settlement to the exact publication operation.
+RECEIPT_PUBLICATION_KEYS = (
+    "publication_operation_id", "publication_status", "publication_expected_main",
+    "publication_source_head", "publication_validated_commit", "publication_commit",
+    "publication_observed_main", "publication_base_epoch")
+_PUBLICATION_STATUSES = frozenset(item.value for item in PublicationStatus)
+
 
 class IntegrationGateError(TaskReviewContractError):
     pass
+
+
+class LegacyGateOwnerError(IntegrationGateError):
+    """A pre-versioned owner record may never be treated as publication authority."""
 
 
 def utc_now() -> str:
@@ -197,8 +228,10 @@ class GitIntegrationGate:
             raise IntegrationGateError("duplicate gate waiters")
         owner = state["owner"]
         if owner is not None:
-            if set(owner) != {"task_id", "run_id", "worker_id", "lease_id", "repository", "target_branch",
-                              "acquired_at", "heartbeat_at", "progress", "status", "operation", "unity_seconds", "ci_seconds"}:
+            keys = set(owner)
+            # Both shapes stay readable so durable history, audit and operator
+            # recovery survive a protocol change; only AUTHORITY is versioned.
+            if keys not in (set(OWNER_KEYS), set(LEGACY_OWNER_KEYS)):
                 raise IntegrationGateError("gate owner schema mismatch")
             owner_identity(*(owner[k] for k in ("task_id", "run_id", "worker_id", "lease_id")))
             if owner["repository"] != self.repository_id or owner["target_branch"] != self.target_branch:
@@ -218,6 +251,48 @@ class GitIntegrationGate:
                         or not isinstance(operation["kind"], str) or not operation["kind"]):
                     raise IntegrationGateError("gate operation is malformed")
                 timestamp(operation["started_at"])
+            if keys == set(OWNER_KEYS):
+                if owner["protocol_version"] != PUBLICATION_PROTOCOL_VERSION:
+                    raise IntegrationGateError("unsupported gate owner protocol version; reconcile exact ref")
+                self._validate_publication(owner)
+
+    def _validate_publication(self, owner: Mapping) -> None:
+        """Validate the owner-bound publication operation, or its absence.
+
+        The record binds publication authority to the approved source head and
+        the exact expected target-branch commit. It is never inferred: an absent
+        record means NOT_ATTEMPTED, not "any base is acceptable".
+        """
+        record = owner["publication"]
+        if record is None:
+            return
+        if not isinstance(record, dict) or set(record) != set(PUBLICATION_KEYS):
+            raise IntegrationGateError("gate publication operation schema mismatch")
+        if record["protocol_version"] != PUBLICATION_PROTOCOL_VERSION:
+            raise IntegrationGateError("unsupported gate publication protocol version; reconcile exact ref")
+        if record["repository"] != self.repository_id or record["target_branch"] != self.target_branch:
+            raise IntegrationGateError("publication operation domain mismatch")
+        if any(record[key] != owner[key] for key in ("task_id", "run_id", "worker_id", "lease_id")):
+            raise IntegrationGateError("publication operation is not bound to this gate owner")
+        for key in ("source_head", "validated_commit", "expected_main"):
+            if not SHA.fullmatch(str(record[key])):
+                raise IntegrationGateError("publication operation requires exact source and base identities")
+        if record["validated_commit"] != record["source_head"]:
+            raise IntegrationGateError(
+                "publication operation names validation evidence for a commit other than the "
+                "approved candidate; an untested topology may never be published")
+        if not TOKEN.fullmatch(str(record["operation_id"])):
+            raise IntegrationGateError("publication operation identity is malformed")
+        if type(record["base_epoch"]) is not int or record["base_epoch"] < 1:
+            raise IntegrationGateError("publication operation base epoch is malformed")
+        if record["status"] not in _PUBLICATION_STATUSES:
+            raise IntegrationGateError("publication operation status is not a known outcome")
+        for key in ("publication_commit", "observed_pre_image", "observed_target"):
+            value = record[key]
+            if value is not None and not SHA.fullmatch(str(value)):
+                raise IntegrationGateError("publication operation observation is malformed")
+        if not isinstance(record["detail"], str):
+            raise IntegrationGateError("publication operation detail is malformed")
 
     def compare_and_swap(self, expected: str, state: dict, event: dict) -> bool:
         value = copy.deepcopy(state)
@@ -294,9 +369,13 @@ class GitIntegrationGate:
         wait_seconds = max(0.0, (timestamp(now) - timestamp(queue[0]["ready_at"])).total_seconds())
         owner = dict(identity, repository=self.repository_id, target_branch=self.target_branch,
                      acquired_at=now, heartbeat_at=now, progress="acquired", status="held",
-                     operation=None, unity_seconds=0.0, ci_seconds=0.0)
+                     operation=None, unity_seconds=0.0, ci_seconds=0.0,
+                     protocol_version=PUBLICATION_PROTOCOL_VERSION, publication=None)
         state["owner"] = owner
-        state["queue"] = [waiter for waiter in state["queue"] if waiter["task_id"] != identity["task_id"]]
+        state["queue"] = [
+            waiter for waiter in state["queue"]
+            if waiter["task_id"] != identity["task_id"]
+        ]
         if not self.compare_and_swap(oid, state, dict(kind="gate_acquired", owner=owner, wait_seconds=wait_seconds)):
             return {"status": "deferred", "reason": "bounded CAS contention"}
         return {"status": "acquired", "owner": owner, "resumed": False}
@@ -346,11 +425,143 @@ class GitIntegrationGate:
         return self.compare_and_swap(oid, state, dict(kind="gate_waiter_withdrawn", task_id=task_id,
                                                      issue_state=issue_state, issue_event_id=issue_event_id))
 
-    def require_owner(self, state: Mapping, identity: Mapping) -> dict:
+    def require_owner(self, state: Mapping, identity: Mapping, *,
+                      source_head: str | None = None, expected_main: str | None = None) -> dict:
+        """The one place gate authority and publication identities are validated.
+
+        Acquisition, same-owner resume, renewal, publication, completion and
+        release all reach the gate through this check, so a same task/run/worker
+        presenting a different approved source head or a different expected base
+        never inherits the previous authority.
+        """
         owner = state["owner"]
         if not same_owner(owner, identity) or owner["status"] != "held":
             raise IntegrationGateError(f"exact gate owner unavailable; inspect {self.ref}; never steal by age")
+        if set(owner) == set(LEGACY_OWNER_KEYS):
+            raise LegacyGateOwnerError(
+                f"gate owner at {self.ref} predates the versioned publication protocol and carries no "
+                "source/base identity; reconcile it explicitly through gate recovery rather than "
+                "reinterpreting it as authorized publication authority")
+        self.require_publication_identity(owner, source_head=source_head, expected_main=expected_main)
         return owner
+
+    @staticmethod
+    def require_publication_identity(owner: Mapping, *, source_head: str | None = None,
+                                     expected_main: str | None = None) -> Mapping | None:
+        record = owner["publication"]
+        if source_head is None and expected_main is None:
+            return record
+        if record is None:
+            raise IntegrationGateError(
+                "no owner-bound publication operation exists for this source head and base; "
+                "bind publication authority before asserting it")
+        if ((source_head is not None and record["source_head"] != source_head)
+                or (expected_main is not None and record["expected_main"] != expected_main)):
+            raise IntegrationGateError(
+                "publication authority is bound to a different approved source head or expected base; "
+                "reintegrate current main and bind a new owner-bound operation")
+        return record
+
+    def bind_publication(self, identity: Mapping, *, source_head: str, validated_commit: str,
+                         expected_main: str, operation_id: str | None = None,
+                         _attempt: int = 0) -> dict:
+        """Persist the exact candidate, validation and base identities BEFORE any mutation.
+
+        Rebinding after a legitimate reintegration produces a NEW operation with
+        a higher base epoch, recorded as its own append-only transition. Nothing
+        is edited in place and no prior record is discarded.
+
+        A rejected operation is never re-leased against a freshly observed base:
+        rebinding requires a different approved candidate, which only
+        reintegration, revalidation and renewed approval can produce.
+        """
+        for label, value in (("source head", source_head), ("validated commit", validated_commit),
+                             ("expected main", expected_main)):
+            if not SHA.fullmatch(str(value)):
+                raise IntegrationGateError(f"publication binding requires an exact {label} commit OID")
+        if validated_commit != source_head:
+            raise IntegrationGateError(
+                "publication binding requires validation evidence for the exact approved candidate")
+        oid, state = self.read()
+        owner = self.require_owner(state, identity)
+        existing = owner["publication"]
+        if existing is not None:
+            if (existing["source_head"] == source_head
+                    and existing["expected_main"] == expected_main
+                    and existing["validated_commit"] == validated_commit):
+                # Resuming THIS operation, not starting another. An unreconciled
+                # status is resolved by inspecting the remote outcome, which the
+                # caller does next; it is never resolved by a second mutation.
+                return dict(existing)
+            if PublicationStatus(existing["status"]) in REQUIRES_RECONCILIATION:
+                raise IntegrationGateError(
+                    f"publication operation {existing['operation_id']} is unreconciled "
+                    f"({existing['status']}); reconcile the remote outcome before binding another")
+            if PublicationStatus(existing["status"]) in DEFINITELY_PUBLISHED:
+                raise IntegrationGateError(
+                    "this owner already published against a different base; reconcile before rebinding")
+            if existing["source_head"] == source_head:
+                raise IntegrationGateError(
+                    f"publication operation {existing['operation_id']} was refused for candidate "
+                    f"{source_head}; that same candidate may not be re-leased against a newly "
+                    "observed base. Reintegrate current main, rerun the required validation and "
+                    "obtain renewed approval, then bind the new candidate.")
+            epoch = existing["base_epoch"] + 1
+        else:
+            epoch = 1
+        record = dict(protocol_version=PUBLICATION_PROTOCOL_VERSION, repository=self.repository_id,
+                      target_branch=self.target_branch,
+                      **{key: owner[key] for key in ("task_id", "run_id", "worker_id", "lease_id")},
+                      source_head=source_head, validated_commit=validated_commit,
+                      expected_main=expected_main,
+                      operation_id=operation_id or uuid.uuid4().hex, base_epoch=epoch,
+                      status=PublicationStatus.PREPARED.value, publication_commit=None,
+                      observed_pre_image=None, observed_target=None, detail="")
+        owner["publication"], owner["heartbeat_at"] = record, self.clock()
+        if not self.compare_and_swap(oid, state, dict(kind="gate_publication_bound", owner=owner,
+                                                      publication=record, previous=existing)):
+            if _attempt < 3:
+                return self.bind_publication(identity, source_head=source_head,
+                                             validated_commit=validated_commit,
+                                             expected_main=expected_main,
+                                             operation_id=record["operation_id"], _attempt=_attempt + 1)
+            raise IntegrationGateError("publication binding CAS raced; stop before any mutation")
+        return record
+
+    def record_publication(self, identity: Mapping, *, operation_id: str, status: str,
+                           publication_commit: str | None = None, observed_pre_image: str | None = None,
+                           observed_target: str | None = None, detail: str = "",
+                           _attempt: int = 0) -> dict:
+        """Record one publication transition. Only the exact operation may settle itself."""
+        oid, state = self.read()
+        owner = self.require_owner(state, identity)
+        record = owner["publication"]
+        if record is None or record["operation_id"] != operation_id:
+            raise IntegrationGateError(
+                "no matching owner-bound publication operation; a stale or foreign operation "
+                "may never record a publication outcome")
+        if status not in _PUBLICATION_STATUSES:
+            raise IntegrationGateError("publication operation status is not a known outcome")
+        if (PublicationStatus(record["status"]) in DEFINITELY_PUBLISHED
+                and PublicationStatus(status) not in DEFINITELY_PUBLISHED):
+            raise IntegrationGateError("a settled publication may not be downgraded; reconcile instead")
+        updated = dict(record, status=status, detail=str(detail)[:2000])
+        for key, value in (("publication_commit", publication_commit),
+                           ("observed_pre_image", observed_pre_image),
+                           ("observed_target", observed_target)):
+            if value is not None:
+                updated[key] = value
+        owner["publication"], owner["heartbeat_at"] = updated, self.clock()
+        if not self.compare_and_swap(oid, state, dict(kind="gate_publication_recorded", owner=owner,
+                                                      publication=updated)):
+            if _attempt < 3:
+                return self.record_publication(identity, operation_id=operation_id, status=status,
+                                               publication_commit=publication_commit,
+                                               observed_pre_image=observed_pre_image,
+                                               observed_target=observed_target, detail=detail,
+                                               _attempt=_attempt + 1)
+            raise IntegrationGateError("publication outcome CAS raced; the outcome is recorded nowhere durable")
+        return updated
 
     def progress(self, identity: Mapping, stage: str, *, operation: str | None = None, _attempt: int = 0) -> None:
         oid, state = self.read()
@@ -379,7 +590,12 @@ class GitIntegrationGate:
         owner = self.require_owner(state, identity)
         if owner["operation"] is not None:
             raise IntegrationGateError("gate has an unfinished operation; quarantine and reconcile")
-        self._require_receipt(identity, receipt)
+        publication = owner["publication"]
+        if publication is not None and PublicationStatus(publication["status"]) in REQUIRES_RECONCILIATION:
+            raise IntegrationGateError(
+                f"publication operation {publication['operation_id']} is {publication['status']}; "
+                "quarantine and reconcile the remote outcome instead of releasing the gate")
+        self._require_receipt(identity, receipt, publication=publication)
         if receipt["status"] == "completed" and not SHA.fullmatch(str(receipt.get("verified_main", ""))):
             raise IntegrationGateError("completion requires the verified main commit")
         now = self.clock()
@@ -401,12 +617,48 @@ class GitIntegrationGate:
         return dict(status="released", next_waiter=event["next_waiter"])
 
     @staticmethod
-    def _require_receipt(identity: Mapping, receipt: Mapping) -> None:
+    def _require_receipt(identity: Mapping, receipt: Mapping, *, publication: Mapping | None = None) -> None:
         if (not isinstance(receipt, Mapping) or not same_owner(receipt, identity)
                 or receipt.get("schema_version") != SCHEMA
                 or receipt.get("status") not in {"completed", "quiescent", "recovered"}
                 or not re.fullmatch(r"[0-9a-f]{64}", str(receipt.get("issue_event_id", "")))):
             raise IntegrationGateError("release requires an exact owner-bound durable settlement receipt")
+        GitIntegrationGate._require_publication_receipt(receipt, publication)
+
+    @staticmethod
+    def _require_publication_receipt(receipt: Mapping, publication: Mapping | None) -> None:
+        """A settlement after a real mutation must name every identity it used.
+
+        The receipt binds the original expected base, the approved source head,
+        the exact published commit, the observed final target and the prior
+        operation/lease identity, so a later reader never has to re-derive them
+        from mutable state.
+        """
+        if publication is None or PublicationStatus(publication["status"]) not in DEFINITELY_PUBLISHED:
+            if any(key in receipt for key in RECEIPT_PUBLICATION_KEYS):
+                raise IntegrationGateError(
+                    "settlement claims a publication this owner never performed; reconcile the exact ref")
+            return
+        missing = [key for key in RECEIPT_PUBLICATION_KEYS if key not in receipt]
+        if missing:
+            raise IntegrationGateError(
+                "settlement after publication must bind " + ", ".join(sorted(missing)))
+        expected = {
+            "publication_operation_id": publication["operation_id"],
+            "publication_status": publication["status"],
+            "publication_expected_main": publication["expected_main"],
+            "publication_source_head": publication["source_head"],
+            "publication_validated_commit": publication["validated_commit"],
+            "publication_commit": publication["publication_commit"],
+            "publication_base_epoch": publication["base_epoch"],
+        }
+        if any(receipt.get(key) != value for key, value in expected.items()):
+            raise IntegrationGateError(
+                "settlement identities do not match this owner's durable publication operation")
+        if not SHA.fullmatch(str(receipt.get("publication_observed_main", ""))):
+            raise IntegrationGateError("settlement after publication requires the observed final target commit")
+        if receipt.get("status") == "completed" and receipt.get("verified_main") != publication["publication_commit"]:
+            raise IntegrationGateError("completion must verify the exact published commit")
 
     def quarantine(self, identity: Mapping, reason: str, _attempt: int = 0) -> None:
         oid, state = self.read()
@@ -427,12 +679,18 @@ class GitIntegrationGate:
         owner = state["owner"]
         if oid != expected_oid or owner is None:
             raise IntegrationGateError("recovery ref/owner moved; repeat read-only investigation")
-        self._require_receipt(owner, receipt)
+        # Legacy owners are readable here on purpose: explicit operator recovery
+        # is the reconciliation path a pre-versioned record must be able to take.
+        publication = owner.get("publication")
+        self._require_receipt(owner, receipt, publication=publication)
         if (receipt["status"] != "recovered" or receipt.get("processes_fenced") is not True
                 or receipt.get("remote_operations_reconciled") is not True
                 or not SHA.fullmatch(str(receipt.get("verified_main", "")))
                 or not str(receipt.get("operator_evidence", "")).strip()):
             raise IntegrationGateError("recovery needs explicit fencing, main/PR/Issue reconciliation and preserved evidence")
+        if publication is not None and receipt.get("publication_operation_id") != publication["operation_id"]:
+            raise IntegrationGateError(
+                "recovery receipt must name the exact prior publication operation it reconciled")
         state["owner"] = None
         queue = admissible_waiters(state)
         next_waiter = queue[0] if queue else None

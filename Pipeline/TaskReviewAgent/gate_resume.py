@@ -2,6 +2,21 @@
 
 The route receipt is host-owned history, never task or gate authority. Missing
 history (including pre-upgrade workers) keeps the ordinary architect path.
+
+Two failure classes are deliberately distinct:
+
+``GateResumeUnavailable``
+    This optimization does not apply -- a missing, corrupt or changed route
+    receipt, a drifted observation, an occupied gate, a candidate outside the
+    allowlist. The saved route is host-owned history and never authority, so
+    every doubt about it keeps the ordinary architect path.
+
+``GateResumeAuthorityError``
+    The durable GATE record itself is not trustworthy -- a legacy owner that
+    carries no source/base identity, an unreadable or malformed journal, or an
+    unreconciled publication operation whose remote outcome is unknown. An
+    architect cannot repair any of these, so paying for one would hide the
+    incident: it becomes an observable blocked/reconciliation state instead.
 """
 from __future__ import annotations
 
@@ -15,10 +30,20 @@ from typing import Any
 import uuid
 
 from .architect_preflight import PredictedChangeSurface, assess_unknown_surface_reservations, detect_deterministic_conflict
-from .contracts import semantic_sha256
+from .contracts import TaskReviewContractError, semantic_sha256
 from .execution_routing import ExecutionRecommendation, ResolvedExecutionRoute, restrict_execution_routing_policy, resolve_execution_route, resolve_task_rigor
-from .integration_gate import ordered_waiters, repository_identity
+from .integration_gate import (
+    LEGACY_OWNER_KEYS, IntegrationGateError, ordered_waiters, repository_identity)
 from .issue_workflow import EVENT_RE
+from .publication_fence import REQUIRES_RECONCILIATION, PublicationStatus
+
+
+class GateResumeUnavailable(ValueError):
+    """This deterministic optimization does not apply; use the architect path."""
+
+
+class GateResumeAuthorityError(TaskReviewContractError):
+    """Durable authority is not trustworthy; block and reconcile, never re-route."""
 
 
 @dataclass(frozen=True)
@@ -64,7 +89,36 @@ def remember_route(scheduler: Any, *, task: dict, source_head: str, candidate: d
 
 def _require(condition: bool, reason: str) -> None:
     if not condition:
-        raise ValueError(reason)
+        raise GateResumeUnavailable(reason)
+
+
+def _require_authority(condition: bool, reason: str) -> None:
+    """An integrity assertion whose failure is an incident, not a fallback."""
+
+    if not condition:
+        raise GateResumeAuthorityError(reason)
+
+
+def _require_trustworthy_gate(admission: Any) -> tuple[str, dict]:
+    """Read the gate, refusing any record that cannot carry publication authority."""
+
+    try:
+        oid, gate_state = admission.gate.read()
+    except IntegrationGateError as exc:
+        raise GateResumeAuthorityError(f"integration gate record is unusable: {exc}") from exc
+    owner = gate_state["owner"]
+    if owner is not None:
+        _require_authority(
+            set(owner) != set(LEGACY_OWNER_KEYS),
+            "integration gate owner predates the versioned publication protocol; "
+            "reconcile it explicitly instead of routing new work")
+        record = owner.get("publication")
+        if record is not None:
+            _require_authority(
+                PublicationStatus(record["status"]) not in REQUIRES_RECONCILIATION,
+                f"publication operation {record['operation_id']} is {record['status']}; "
+                "reconcile the authoritative branch outcome before admitting work")
+    return oid, gate_state
 
 
 def _issue_proof(admission: Any, entry: tuple, receipt: dict, checkout: Path) -> tuple[Any, dict]:
@@ -172,7 +226,7 @@ def _prove(admission: Any, entry: tuple, *, source_head: str, refresh: dict, res
              "recent scheduler health failure requires capacity judgment")
     _require(scheduler.admission_allowlist is None or task_id in scheduler.admission_allowlist,
              "outside admission allowlist")
-    oid, gate_state = admission.gate.read()
+    oid, gate_state = _require_trustworthy_gate(admission)
     queue = ordered_waiters(gate_state)
     _require(admission.observation is not None and oid == admission.observation[0]
              and gate_state["owner"] is None and bool(queue) and queue[0]["task_id"] == task_id,
@@ -271,6 +325,15 @@ def prove_resume(admission: Any, entries: tuple, *, source_head: str, refresh: d
             continue
         try:
             return _prove(admission, entry, source_head=source_head, refresh=refresh, reservations=reservations)
+        except GateResumeAuthorityError as exc:
+            # Authority integrity, not routing preference. Record it and stop;
+            # an architect cannot repair a legacy owner, a corrupt durable
+            # record, a mismatched identity or an unreconciled publication, and
+            # paying one here would hide the incident.
+            admission.scheduler.events.emit("integration_gate_resume_blocked",
+                task_id=entry[2]["task"]["id"], gate_ref=admission.gate.ref,
+                reason=str(exc)[:700])
+            raise
         except Exception as exc:
             # This optional optimization cannot convert missing evidence into
             # authority, nor make previously eligible work fatal.

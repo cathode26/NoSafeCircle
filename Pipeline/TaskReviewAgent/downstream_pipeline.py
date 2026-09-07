@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import uuid
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping, Sequence
 
@@ -1130,27 +1131,384 @@ class DownstreamTaskController:
             guarded_result = mainline_guard()
             if guarded_result is not None:
                 return guarded_result
-        command = (
-            "gh",
-            "pr",
-            "merge",
-            str(number),
-            "--repo",
-            self._bound_repository(),
-            "--merge",
-            "--match-head-commit",
-            self.state["evidence_commit"],
+        return self._publish_approved_head(number, pull_request)
+
+    # ------------------------------------------------------------------
+    # Authoritative publication (see publication_fence for the protocol).
+    # ------------------------------------------------------------------
+
+    def _publication_target_branch(self) -> str:
+        """The branch the gate serializes, so publication and gate agree."""
+
+        gate = getattr(getattr(self, "integration_window", None), "gate", None)
+        branch = getattr(gate, "target_branch", None)
+        return branch if isinstance(branch, str) and branch else "main"
+
+    def _proven_publication_base(
+        self,
+        pull_request: Mapping[str, Any],
+    ) -> tuple[str, str]:
+        """The exact base and approved head this publication is authorized for.
+
+        Both come from the fresh pre-merge mainline proof, never from a
+        convenience re-read: the proof is what established that current main is
+        already integrated into the approved head, so it is the only value the
+        mutation may be fenced against.
+        """
+
+        status = getattr(self, "_mainline_reintegration_status", None)
+        if (
+            not isinstance(status, Mapping)
+            or status.get("status") != "integrated"
+            or status.get("authority") != "fresh_pre_merge_git_ancestry"
+        ):
+            raise DownstreamPipelineError(
+                "publication requires the fresh pre-merge mainline proof; run the "
+                "current-main guard before the authoritative branch mutation"
+            )
+        expected_main = str(status.get("main_head") or "")
+        source_head = str(status.get("task_head") or "")
+        if not _SHA40.fullmatch(expected_main) or not _SHA40.fullmatch(source_head):
+            raise DownstreamPipelineError(
+                "the mainline proof did not resolve exact base and source commit identities"
+            )
+        evidence = self.state.get("evidence_commit")
+        if source_head != evidence or pull_request.get("headRefOid") != evidence:
+            raise DownstreamPipelineError(
+                "approved source head is not the checked pull-request head; refusing to publish"
+            )
+        return expected_main, source_head
+
+    def _accepted_validation_commit(
+        self,
+        source_head: str,
+        pull_request: Mapping[str, Any],
+    ) -> str:
+        """The exact SHA the required checks were accepted for.
+
+        Two different validations cover a delivery, and only one of them covers
+        the commit that is actually published:
+
+        * the human/automated Unity authority is accepted for the IMPLEMENTATION
+          commit, and the existing readers prove the evidence head descends from
+          it (see ``_verified_evidence_head_for_integration``);
+        * the required GitHub checks are accepted for the PULL-REQUEST HEAD,
+          which is the commit this fence publishes.
+
+        Publishing the candidate head is therefore valid only if the reported
+        checks belong to that exact commit. Every rollup entry that names its own
+        commit must name this one -- so a rollup describing a synthetic merge ref
+        (or any other topology) refuses publication instead of being assumed
+        equivalent.
+        """
+
+        rollup = pull_request.get("statusCheckRollup")
+        checks = self._check_state(rollup)
+        if checks["failed"] or checks["pending"]:
+            raise DownstreamPipelineError(
+                "publication requires every reported check to have passed"
+            )
+        entries = rollup if isinstance(rollup, list) else []
+        named = 0
+        for index, item in enumerate(entries):
+            if not isinstance(item, Mapping):
+                continue
+            reported = item.get("headSha") or item.get("head_sha")
+            if reported is None:
+                continue
+            reported = str(reported)
+            if not _SHA40.fullmatch(reported):
+                raise DownstreamPipelineError(
+                    f"pull-request check {index + 1} reported an invalid commit {reported!r}"
+                )
+            if reported != source_head:
+                raise DownstreamPipelineError(
+                    f"pull-request check {index + 1} was accepted for {reported}, not for "
+                    f"the approved candidate {source_head}; refusing to publish a topology "
+                    "the required checks did not evaluate"
+                )
+            named += 1
+        if entries and not named:
+            raise DownstreamPipelineError(
+                "no reported check names the commit it validated; the published "
+                "topology cannot be bound to the required checks"
+            )
+        return source_head
+
+    def _publication_authority(
+        self,
+        expected_main: str,
+        source_head: str,
+        validated_commit: str,
+    ) -> tuple[Any, Any, Any]:
+        """Bind an owner-bound publication operation before anything mutates."""
+
+        from .publication_fence import (
+            PUBLICATION_PROTOCOL_VERSION,
+            PublicationBinding,
+            new_operation_id,
         )
-        _run(self.command_runner, command, cwd=self.checkout, timeout_seconds=900.0)
-        merged_pr = self._view_pr(number)
-        if merged_pr.get("state") != "MERGED":
-            raise DownstreamPipelineError("GitHub did not report the pull request merged")
-        merge_commit = (merged_pr.get("mergeCommit") or {}).get("oid")
-        if not isinstance(merge_commit, str) or not _SHA40.fullmatch(merge_commit):
-            raise DownstreamPipelineError("merged pull request omitted merge commit")
-        self.state["merged_commit"] = merge_commit
+
+        window = getattr(self, "integration_window", None)
+        gate = getattr(window, "gate", None)
+        identity = getattr(window, "identity", None)
+        target = self._publication_target_branch()
+        if gate is not None and identity is not None:
+            record = gate.bind_publication(
+                identity,
+                source_head=source_head,
+                validated_commit=validated_commit,
+                expected_main=expected_main,
+            )
+            binding = PublicationBinding(
+                protocol_version=record["protocol_version"],
+                repository=record["repository"],
+                target_branch=record["target_branch"],
+                task_id=record["task_id"],
+                run_id=record["run_id"],
+                worker_id=record["worker_id"],
+                lease_id=record["lease_id"],
+                source_head=record["source_head"],
+                validated_commit=record["validated_commit"],
+                expected_main=record["expected_main"],
+                operation_id=record["operation_id"],
+                base_epoch=record["base_epoch"],
+            )
+            return binding, gate, identity
+        # Deliberately un-gated low-level fixtures keep the same fenced
+        # primitive and the same durable local record; they simply have no
+        # remote owner journal to bind it into.
+        prior = self.state.get("publication")
+        reuse = (
+            isinstance(prior, Mapping)
+            and prior.get("source_head") == source_head
+            and prior.get("expected_main") == expected_main
+        )
+        binding = PublicationBinding(
+            protocol_version=PUBLICATION_PROTOCOL_VERSION,
+            repository=self._bound_repository(),
+            target_branch=target,
+            task_id=self.task_id,
+            run_id=str(getattr(self.workflow, "run_id", None) or "ungated-local-run"),
+            worker_id=str(self.workflow.worker_id),
+            lease_id=str(prior.get("lease_id")) if reuse else uuid.uuid4().hex,
+            source_head=source_head,
+            validated_commit=validated_commit,
+            expected_main=expected_main,
+            operation_id=str(prior.get("operation_id")) if reuse else new_operation_id(),
+            base_epoch=int(prior.get("base_epoch", 1)) if reuse else 1,
+        )
+        return binding, None, None
+
+    def _record_publication(
+        self,
+        binding: Any,
+        status: Any,
+        *,
+        gate: Any,
+        identity: Any,
+        publication_commit: str | None = None,
+        observed_pre_image: str | None = None,
+        observed_target: str | None = None,
+        detail: str = "",
+    ) -> None:
+        """Persist one publication transition durably BEFORE returning or raising."""
+
+        value = str(getattr(status, "value", status))
+        record = dict(
+            binding.to_dict(),
+            status=value,
+            publication_commit=publication_commit,
+            observed_pre_image=observed_pre_image,
+            observed_target=observed_target,
+            detail=detail[:2000],
+        )
+        prior = self.state.get("publication")
+        if isinstance(prior, Mapping):
+            for key in ("publication_commit", "observed_pre_image", "observed_target"):
+                if record[key] is None and prior.get(key) is not None:
+                    record[key] = prior[key]
+        self.state["publication"] = record
         self._persist()
+        if gate is not None and identity is not None:
+            gate.record_publication(
+                identity,
+                operation_id=binding.operation_id,
+                status=value,
+                publication_commit=record["publication_commit"],
+                observed_pre_image=record["observed_pre_image"],
+                observed_target=record["observed_target"],
+                detail=detail,
+            )
+
+    def _gate_authority(self) -> tuple[Any, Any]:
+        window = getattr(self, "integration_window", None)
+        return getattr(window, "gate", None), getattr(window, "identity", None)
+
+    def _adopt_prior_publication(self) -> Any:
+        """Resolve what an earlier attempt already did, before anything rebinds.
+
+        A crash between the authoritative mutation and the local receipt must
+        never produce a second publication, and an outcome that cannot be proven
+        must never be retried. This runs FIRST, from the durable record and one
+        read of the authoritative branch -- never from a freshly derived base,
+        which after a successful publication would name the candidate itself.
+        """
+
+        from .publication_fence import (
+            DEFINITELY_PUBLISHED,
+            REQUIRES_RECONCILIATION,
+            PublicationBinding,
+            PublicationOutcome,
+            PublicationStatus,
+            observed_target_commit,
+        )
+
+        prior = self.state.get("publication")
+        if not isinstance(prior, Mapping):
+            return None
+        try:
+            status = PublicationStatus(str(prior.get("status")))
+            binding = PublicationBinding.from_dict(
+                {name: prior.get(name) for name in PublicationBinding.FIELDS}
+            )
+        except Exception as exc:
+            raise DownstreamPipelineError(
+                "durable publication record is malformed; reconcile it explicitly "
+                f"rather than discarding it: {exc}"
+            ) from exc
+        if status in {PublicationStatus.NOT_ATTEMPTED, PublicationStatus.PREPARED}:
+            return None
+        commit = prior.get("publication_commit")
+        if not isinstance(commit, str) or not _SHA40.fullmatch(commit):
+            raise DownstreamPipelineError(
+                f"publication operation {binding.operation_id} recorded {status.value} "
+                "without the exact commit it attempted; reconcile before retrying"
+            )
+        observed = observed_target_commit(
+            self.command_runner,
+            self.checkout,
+            remote="origin",
+            target_branch=binding.target_branch,
+        )
+        if observed == commit:
+            # Proven durable on the remote. Adopt it; never publish again, and
+            # never read a missing local receipt as failure.
+            return PublicationOutcome(
+                status=PublicationStatus.PUBLISHED,
+                binding=binding,
+                publication_commit=commit,
+                observed_pre_image=prior.get("observed_pre_image"),
+                observed_target=observed,
+                detail="recovered: the authoritative branch already holds this exact publication",
+            )
+        if status in DEFINITELY_PUBLISHED or status in REQUIRES_RECONCILIATION:
+            raise DownstreamPipelineError(
+                f"publication operation {binding.operation_id} recorded {status.value} but "
+                f"{binding.target_branch} is {observed}; quarantine and reconcile before retrying"
+            )
+        # A proven refusal published nothing: the ordinary path may re-derive the
+        # base, and the gate refuses to re-lease the same candidate.
+        return None
+
+    def _settle_published(
+        self,
+        number: int,
+        outcome: Any,
+        *,
+        gate: Any,
+        identity: Any,
+    ) -> dict[str, Any]:
+        self._record_publication(
+            outcome.binding,
+            outcome.status,
+            gate=gate,
+            identity=identity,
+            publication_commit=outcome.publication_commit,
+            observed_pre_image=outcome.observed_pre_image,
+            observed_target=outcome.observed_target,
+            detail=outcome.detail,
+        )
+        self.state["merged_commit"] = outcome.publication_commit
+        self._persist()
+        merged_pr = self._view_pr(number)
+        reported = merged_pr.get("mergeCommit") or {}
+        reported_oid = reported.get("oid") if isinstance(reported, Mapping) else None
+        if (
+            merged_pr.get("state") == "MERGED"
+            and isinstance(reported_oid, str)
+            and _SHA40.fullmatch(reported_oid)
+            and reported_oid != outcome.publication_commit
+        ):
+            raise DownstreamPipelineError(
+                f"pull request reports merge commit {reported_oid} but this run published "
+                f"{outcome.publication_commit}; reconcile before completing"
+            )
         return {"status": "merged", "pull_request": merged_pr}
+
+    def _publish_approved_head(
+        self,
+        number: int,
+        pull_request: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        """Advance the authoritative branch atomically, or refuse and reintegrate."""
+
+        from .publication_fence import (
+            PublicationStatus,
+            prove_publishable_candidate,
+            publish_with_base_fence,
+        )
+
+        gate, identity = self._gate_authority()
+        adopted = self._adopt_prior_publication()
+        if adopted is not None:
+            return self._settle_published(number, adopted, gate=gate, identity=identity)
+        expected_main, source_head = self._proven_publication_base(pull_request)
+        validated_commit = self._accepted_validation_commit(source_head, pull_request)
+        binding, gate, identity = self._publication_authority(
+            expected_main, source_head, validated_commit
+        )
+        publication_commit = prove_publishable_candidate(
+            self.command_runner,
+            self.checkout,
+            binding=binding,
+        )
+        self._record_publication(
+            binding,
+            PublicationStatus.ATTEMPTING,
+            gate=gate,
+            identity=identity,
+            publication_commit=publication_commit,
+            detail="issuing the base-bound authoritative ref transaction",
+        )
+        outcome = publish_with_base_fence(
+            self.command_runner,
+            self.checkout,
+            binding=binding,
+            publication_commit=publication_commit,
+        )
+        if outcome.status is PublicationStatus.PUBLISHED:
+            return self._settle_published(number, outcome, gate=gate, identity=identity)
+        self._record_publication(
+            binding,
+            outcome.status,
+            gate=gate,
+            identity=identity,
+            publication_commit=outcome.publication_commit,
+            observed_pre_image=outcome.observed_pre_image,
+            observed_target=outcome.observed_target,
+            detail=outcome.detail,
+        )
+        if outcome.status is PublicationStatus.REJECTED_BASE_MOVED:
+            # Fail closed and return to the existing reintegration/revalidation
+            # path: merge current main into the task branch, resolve conflicts,
+            # rerun the required tests, produce a new exact handoff commit and
+            # obtain renewed approval before publication is attempted again.
+            return self.integrate_current_main()
+        raise DownstreamPipelineError(
+            f"authoritative {binding.target_branch} publication did not succeed "
+            f"({outcome.status.value}): {outcome.detail}"
+        )
 
     def verify_post_merge_and_complete(self) -> dict[str, Any]:
         _, _ = self._require_lease(WorkflowPhase.MERGE_CLOSEOUT)

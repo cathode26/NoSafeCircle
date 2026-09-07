@@ -13,6 +13,7 @@ import json
 import os
 from pathlib import Path
 import sys
+import subprocess
 import tempfile
 from types import SimpleNamespace
 import unittest
@@ -377,6 +378,85 @@ class GateResumeTests(unittest.TestCase):
             self.assertEqual(len(admitted),1)
             self.assertEqual(admitted[0]["architect_invocations"],0)
             self.assertEqual(result.progress.worker_launches_total,2)
+
+
+class GateResumeAuthorityTests(unittest.TestCase):
+    """Absent routing history is a fallback; untrustworthy authority is an incident."""
+
+    def fixture(self, **kwargs):
+        temp = tempfile.TemporaryDirectory(prefix="gate-resume-authority-")
+        self.addCleanup(temp.cleanup)
+        f = Fixture(Path(temp.name), **kwargs)
+        self.addCleanup(f.close)
+        return f
+
+    def test_missing_route_receipt_uses_the_ordinary_architect_path(self):
+        from Pipeline.TaskReviewAgent.gate_resume import route_path
+        f = self.fixture()
+        route_path(f.scheduler, TASK).unlink()
+        result = f.poll()
+        self.assertEqual(result.status, "worker_launched", f.stream.getvalue())
+        self.assertEqual(len(f.architect.calls), 1)
+        self.assertTrue(f.events("integration_gate_resume_requires_architect"))
+        self.assertFalse(f.events("integration_gate_resume_blocked"))
+
+    def test_corrupt_route_receipt_still_uses_the_architect_path(self):
+        """The saved route is history, not authority: doubt means fall back."""
+
+        from Pipeline.TaskReviewAgent.gate_resume import route_path
+        f = self.fixture()
+        path = route_path(f.scheduler, TASK)
+        receipt = json.loads(path.read_text(encoding="utf-8"))
+        receipt["source_head"] = "f" * 40
+        path.write_text(json.dumps(receipt), encoding="utf-8")
+        result = f.poll()
+        self.assertEqual(result.status, "worker_launched", f.stream.getvalue())
+        self.assertEqual(len(f.architect.calls), 1)
+        self.assertTrue(f.events("integration_gate_resume_requires_architect"))
+        self.assertFalse(f.events("integration_gate_resume_blocked"))
+
+    def test_unreconciled_publication_blocks_gate_resume(self):
+        from Pipeline.TaskReviewAgent.gate_resume import (
+            GateResumeAuthorityError, _require_trustworthy_gate)
+        f = self.fixture()
+        gate = f.admission.gate
+        identity = owner_identity("NSC-001", "prior-run", "prior-worker")
+        gate.enqueue("NSC-001", ready_at="2026-08-01T00:00:00Z", ready_event="9" * 64)
+        self.assertEqual(gate.acquire(identity)["status"], "acquired")
+        record = gate.bind_publication(identity, source_head="a" * 40,
+                                       validated_commit="a" * 40, expected_main="b" * 40)
+        gate.record_publication(identity, operation_id=record["operation_id"],
+                                status="uncertain", publication_commit="a" * 40,
+                                detail="fixture: transport outcome unknown")
+        with self.assertRaisesRegex(GateResumeAuthorityError, "reconcile"):
+            _require_trustworthy_gate(f.admission)
+        self.assertEqual(len(f.architect.calls), 0)
+
+    def test_legacy_gate_owner_blocks_gate_resume(self):
+        from Pipeline.TaskReviewAgent.gate_resume import (
+            GateResumeAuthorityError, _require_trustworthy_gate)
+        from Pipeline.TaskReviewAgent.integration_gate import LEGACY_OWNER_KEYS
+        f = self.fixture()
+        gate = f.admission.gate
+        identity = owner_identity("NSC-001", "prior-run", "prior-worker")
+        gate.enqueue("NSC-001", ready_at="2026-08-01T00:00:00Z", ready_event="9" * 64)
+        self.assertEqual(gate.acquire(identity)["status"], "acquired")
+        oid, state = gate.read()
+        state["owner"] = {k: v for k, v in state["owner"].items() if k in LEGACY_OWNER_KEYS}
+        state["revision"] += 1
+        state["event"] = dict(kind="gate_legacy_fixture", occurred_at="2026-08-01T00:00:00+00:00",
+                              previous_oid=oid)
+        root = f.scheduler.source
+        tree = m.git(root, "rev-parse", f"{oid}^{{tree}}")
+        payload = "nsc-durable-integration-gate\n" + json.dumps(
+            state, sort_keys=True, separators=(",", ":")) + "\n"
+        forged = subprocess.run(["git", "-C", str(root), "commit-tree", tree, "-p", oid],
+                                input=payload.encode(), stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE, check=True).stdout.decode().strip()
+        m.git(root, "push", f"--force-with-lease={gate.ref}:{oid}", "origin", f"{forged}:{gate.ref}")
+        with self.assertRaisesRegex(GateResumeAuthorityError, "predates the versioned"):
+            _require_trustworthy_gate(f.admission)
+        self.assertEqual(len(f.architect.calls), 0)
 
 
 if __name__ == "__main__":

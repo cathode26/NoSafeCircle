@@ -373,6 +373,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Integration window tests failed." }
           python Pipeline/TaskReviewAgent/tests/integration_gate_base_regression_test.py
           if ($LASTEXITCODE -ne 0) { throw "Integration gate behavioral regressions failed." }
+          python Pipeline/TaskReviewAgent/tests/publication_fence_smoke_test.py
+          if ($LASTEXITCODE -ne 0) { throw "Base-bound publication fence regressions failed." }
           python Pipeline/TaskReviewAgent/tests/gate_resume_smoke_test.py
           if ($LASTEXITCODE -ne 0) { throw "Deterministic gate resume tests failed." }
           python Pipeline/TaskReviewAgent/tests/autonomous_gate_wake_smoke_test.py

@@ -10,7 +10,10 @@ import uuid
 from pathlib import Path
 from typing import Any, Mapping
 
-from .integration_gate import GitIntegrationGate, GateWakeListener, IntegrationGateError, owner_identity, ordered_waiters, admissible_waiters, same_owner
+from .integration_gate import (
+    SCHEMA, GitIntegrationGate, GateWakeListener, IntegrationGateError, LegacyGateOwnerError,
+    admissible_waiters, owner_identity, ordered_waiters, same_owner)
+from .publication_fence import DEFINITELY_PUBLISHED, PublicationStatus
 
 DELIVERY_PHASES = {"delivery_evidence", "merge_closeout"}
 MERGE_ACTIONS = {"inspect_or_merge_pull_request", "verify_post_merge_and_complete"}
@@ -257,9 +260,10 @@ class IntegrationWindow:
             if snapshot is None or not snapshot.valid or snapshot.state is None:
                 raise IntegrationGateError("Issue lease settlement receipt missing")
             state = snapshot.state.to_dict()
-        receipt = dict(self.identity, schema_version="1.0", status="completed" if complete else "quiescent",
+        receipt = dict(self.identity, schema_version=SCHEMA, status="completed" if complete else "quiescent",
                        issue_event_id=state["last_event_id"], issue_state=state["state"],
                        head_commit=state["head_commit"])
+        receipt.update(self.publication_receipt_fields())
         if complete:
             from .issue_workflow import WorkflowEventType
             event = next((event for event in snapshot.events
@@ -271,6 +275,29 @@ class IntegrationWindow:
             receipt["verified_main"] = event.details["merged_commit"]
         self.gate.release(self.identity, reason=reason, receipt=receipt)
         self.held, self.finished = False, True
+
+    def publication_receipt_fields(self) -> dict:
+        """Bind this owner's durable publication operation into its settlement.
+
+        Every completion or recovery receipt that follows a real target-branch
+        mutation names the original expected base, the approved source head, the
+        exact published commit, the observed final target and the prior
+        operation/lease identity. Nothing here is re-derived from current state.
+        """
+        _, state = self.gate.read()
+        owner = state["owner"] or {}
+        record = owner.get("publication")
+        if not record or PublicationStatus(record["status"]) not in DEFINITELY_PUBLISHED:
+            return {}
+        observed = record["observed_target"] or record["publication_commit"]
+        return dict(publication_operation_id=record["operation_id"],
+                    publication_status=record["status"],
+                    publication_expected_main=record["expected_main"],
+                    publication_source_head=record["source_head"],
+                    publication_validated_commit=record["validated_commit"],
+                    publication_commit=record["publication_commit"],
+                    publication_observed_main=observed,
+                    publication_base_epoch=record["base_epoch"])
 
     def failure(self, error: BaseException, *, action: str = "pipeline") -> None:
         if not self.held:
