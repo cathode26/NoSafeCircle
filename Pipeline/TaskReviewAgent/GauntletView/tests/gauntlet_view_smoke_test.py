@@ -436,6 +436,75 @@ class GauntletViewStateAndSseTests(unittest.TestCase):
             handle.write(json.dumps(event("state_observed", {"turn": 2})) + "\n")
         self.assertNotEqual(snapshot.fingerprint(), before)
 
+    def test_current_autonomous_run_does_not_reuse_stale_worker_terminal_state(self) -> None:
+        self.fixture.add_task(
+            progress_events=[
+                event("terminal_state", {"status": "blocked"}),
+                event("run_finished", {"status": "blocked"}),
+            ]
+        )
+        self.fixture.write_scheduler_events(
+            [
+                {
+                    "event": "poll_started",
+                    "timestamp_utc": "2026-09-07T02:00:00Z",
+                    "active_worker_count": 0,
+                },
+                {
+                    "event": "architect_started",
+                    "timestamp_utc": "2026-09-07T02:00:01Z",
+                    "eligible_pairs": [
+                        {"task_id": "NSC-112", "work_types": ["implementation"]}
+                    ],
+                },
+            ]
+        )
+
+        task = self.fixture.task()
+
+        self.assertEqual(task["state"], "ready")
+        self.assertIsNone(task["worker"])
+        self.assertIsNone(task["progress"]["attempt"])
+
+    def test_current_autonomous_run_uses_only_its_exact_launched_worker(self) -> None:
+        self.fixture.add_task(
+            progress_events=[
+                event("terminal_state", {"status": "blocked"}),
+                event("run_finished", {"status": "blocked"}),
+            ]
+        )
+        self.fixture.add_worker_run(
+            "NSC-112",
+            "current-worker",
+            progress_events=[
+                event("state_observed", {"phase": "implementation", "turn": 1}),
+                event("pipeline_action_started", {"action": "implement_task", "turn": 1}),
+            ],
+            mtime=1_788_745_700,
+        )
+        self.fixture.write_scheduler_events(
+            [
+                {
+                    "event": "poll_started",
+                    "timestamp_utc": "2026-09-07T02:00:00Z",
+                    "active_worker_count": 0,
+                },
+                {
+                    "event": "worker_launched",
+                    "timestamp_utc": "2026-09-07T02:00:01Z",
+                    "task_id": "NSC-112",
+                    "run_id": "current-worker",
+                    "worker_id": "worker-current",
+                },
+            ]
+        )
+
+        task = self.fixture.task()
+
+        self.assertEqual(task["state"], "active")
+        self.assertEqual(task["worker"]["run_id"], "current-worker")
+        self.assertEqual(task["progress"]["attempt"], 1)
+
     def test_available_decomposition_has_distinct_state_and_node_label(self) -> None:
         self.fixture.add_task(
             progress_events=[event("run_finished", {"status": "stopped"})]

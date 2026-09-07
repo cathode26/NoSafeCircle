@@ -201,6 +201,10 @@ Historical worker runs are excluded from global stage and freshness. Action
 completion removes its active headline; heartbeats advance freshness without
 resetting a known action start. Concurrent work is summarized by the most recent
 recorded worker stage; the active count still includes every recorded worker.
+Once the newest autonomous run begins scheduling, its in-scope task nodes use
+only the exact worker run IDs recorded by that run. Immutable output from an
+older attempt remains on disk but cannot make a freshly reset task look blocked,
+active, completed, or more expensive than its current attempt.
 
 Counters use manifest capacity and scope, current node dependency/completion
 projection, this run's launch/return records, deduplicated architect returns, and

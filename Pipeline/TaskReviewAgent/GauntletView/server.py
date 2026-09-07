@@ -50,6 +50,7 @@ CI_ACTION = "inspect_or_merge_pull_request"
 INTEGRATION_PHASES = frozenset({"delivery_evidence", "merge_closeout"})
 DECOMPOSITION_EXECUTION_SCOPE = "needs_execution_decomposition"
 DECOMPOSITION_READY_STATE = "concrete"
+CURRENT_RUN_BOUNDARY_EVENTS = frozenset({"poll_started", "architect_started"})
 
 # Presentation stage names stay centralized here; the browser consumes normalized
 # node_lines and never reinterprets workflow phases.
@@ -1142,12 +1143,49 @@ class Snapshot:
         scope = set(manifest.get("target_task_ids") or [])
         excluded = set(manifest.get("excluded_task_ids") or [])
 
+        # Once the newest autonomous run has begun scheduling, only worker run
+        # IDs launched by that exact run may describe its in-scope task nodes.
+        # Older immutable output directories remain useful history, but must
+        # not make a freshly reset task appear blocked, active, or complete.
+        current_run_is_authoritative = bool(run_dir) and any(
+            isinstance(event, dict)
+            and (
+                event.get("event") in CURRENT_RUN_BOUNDARY_EVENTS
+                or (
+                    event.get("event") == "worker_launched"
+                    and isinstance(event.get("run_id"), str)
+                    and re.fullmatch(
+                        r"[A-Za-z0-9][A-Za-z0-9._-]*", event["run_id"]
+                    )
+                    is not None
+                )
+            )
+            for event in events
+        )
+        current_run_worker_ids: dict[str, set[str]] = {}
+        for event in events:
+            if not isinstance(event, dict) or event.get("event") != "worker_launched":
+                continue
+            task_id = event.get("task_id")
+            worker_run_id = event.get("run_id")
+            if (
+                task_id in scope
+                and isinstance(task_id, str)
+                and TASK_FILE_RE.fullmatch(task_id + ".yaml")
+                and isinstance(worker_run_id, str)
+                and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", worker_run_id)
+            ):
+                current_run_worker_ids.setdefault(task_id, set()).add(worker_run_id)
+
         scheduler_projection = self.scheduler_projection(events)
         taskgraph_available, taskgraph_states = self.taskgraph_states(list(contracts))
 
         tasks = []
         for task_id, contract in contracts.items():
             records = self.worker_runs(task_id, repository)
+            if current_run_is_authoritative and task_id in scope:
+                allowed_run_ids = current_run_worker_ids.get(task_id, set())
+                records = [record for record in records if record.get("run_id") in allowed_run_ids]
             summary = dict(records[-1]) if records else None
             state, active = self.classify(
                 contract=contract,
