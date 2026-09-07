@@ -123,6 +123,7 @@ def advisory_value(
         "execution_recommendation": {
             "capability_tier": capability_tier,
             "provider_preference": provider_preference,
+            "preference_basis": "no_preference",
             "rationale": execution_rationale,
         },
         "conflicting_task_ids": list(conflicting_task_ids or []),
@@ -312,6 +313,11 @@ def test_schema_accepts_complete_advisory() -> None:
         set(ARCHITECT_ADVISORY_SCHEMA["required"])
         == set(ARCHITECT_ADVISORY_SCHEMA["properties"]),
         "schema does not require its entire top-level shape",
+    )
+    execution_schema = ARCHITECT_ADVISORY_SCHEMA["properties"]["execution_recommendation"]
+    require(
+        set(execution_schema["required"]) == set(execution_schema["properties"]),
+        "execution recommendation schema is not strict-output compatible",
     )
 
 

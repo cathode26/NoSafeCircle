@@ -1303,6 +1303,7 @@ def scenario_advisory(
             "execution_recommendation": {
                 "capability_tier": requested_tier or scenario.architect_tier,
                 "provider_preference": "no_preference",
+                "preference_basis": "no_preference",
                 "rationale": (
                     f"One serialized scene marker in {scenario.scene_path}, with a matching constant."
                     if scenario.scene_path else

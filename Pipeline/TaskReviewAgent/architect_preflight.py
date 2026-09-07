@@ -188,15 +188,16 @@ EXECUTION_RECOMMENDATION_SCHEMA = _strict_object(
             "type": "string",
             "enum": list(PROVIDER_PREFERENCES),
         },
+        "preference_basis": {
+            "type": "string",
+            "enum": ["capability", "availability", "balance", "no_preference"],
+        },
         # AgentRuntime intentionally supports a small JSON Schema subset.
         # The non-empty and maximum-length bounds are enforced by the frozen
         # ExecutionRecommendation record immediately after schema validation.
         "rationale": _STRING,
     }
 )
-EXECUTION_RECOMMENDATION_SCHEMA["properties"]["preference_basis"] = {
-    "type": "string", "enum": ["capability", "availability", "balance", "no_preference"]
-}
 
 ARCHITECT_ADVISORY_SCHEMA: dict[str, Any] = _strict_object(
     {
@@ -1052,10 +1053,11 @@ Execution capability recommendation (advisory only):
   advisory. Deterministic Python maps it to an allowed execution provider, model,
   reasoning effort, and budget. Never put a model identifier, reasoning effort, turn
   limit, Docker service/command, or environment variable in this recommendation.
-- When capacity_context supplies a provider_budget_snapshot, include `preference_basis`:
-  capability, availability, balance, or no_preference. State a concrete task-grounded
-  capability advantage if choosing capability. Use only the host snapshot for budget
-  and availability facts; unavailable fields are unknown. The host owns selection.
+- Always include `preference_basis`: capability, availability, balance, or
+  no_preference. When capacity_context supplies a provider_budget_snapshot, state a
+  concrete task-grounded capability advantage if choosing capability and use only the
+  host snapshot for budget and availability facts. Unavailable fields are unknown. If
+  no provider-budget snapshot is supplied, use no_preference. The host owns selection.
 - Give a non-empty rationale of no more than
   {MAX_RECOMMENDATION_RATIONALE_CHARACTERS} characters. Model names are operational
   configuration and never TaskGraph or game-design authority.

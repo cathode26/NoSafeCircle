@@ -558,6 +558,7 @@ def advisory(
             "execution_recommendation": {
                 "capability_tier": capability_tier,
                 "provider_preference": provider_preference,
+                "preference_basis": "no_preference",
                 "rationale": "Ordinary gameplay implementation with established patterns.",
             },
             "conflicting_task_ids": [],
