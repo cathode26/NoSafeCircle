@@ -2696,9 +2696,15 @@ def test_decomposition_worker_command_binds_exact_task_and_output_policy() -> No
 def test_approved_decomposition_resume_cannot_route_to_implementation() -> None:
     with tempfile.TemporaryDirectory() as text:
         source, head = create_source(Path(text))
-        planner = SequencePlanner(
-            [resume_plan(head, TASK_B, phase="decomposition_apply")]
+        approved = resume_plan(head, TASK_B, phase="decomposition_apply")
+        approved = replace(
+            approved,
+            resume={
+                **approved.resume,
+                "task_contract_sha256": CONTRACTS[TASK_B],
+            },
         )
+        planner = SequencePlanner([approved])
         architect = FakeArchitect(
             {TASK_B: advisory(TASK_B, head, work_type="decomposition")}
         )
@@ -2717,7 +2723,63 @@ def test_approved_decomposition_resume_cannot_route_to_implementation() -> None:
         )
         command = processes.calls[0][0]
         require("host_decomposition_launcher.py" in " ".join(command), str(command))
-        require('"work_types": ["decomposition"]' in stream.getvalue(), stream.getvalue())
+        journal = stream.getvalue()
+        require(architect.calls == [], str(architect.calls))
+        require(architect.portfolio_calls == [], str(architect.portfolio_calls))
+        require('"event": "architect_started"' not in journal, journal)
+        require('"event": "decomposition_apply_resume_admitted"' in journal, journal)
+        require('"architect_invocations": 0' in journal, journal)
+        require('"route_reason": "approved_decomposition_apply_resume"' in journal, journal)
+
+
+def test_decomposition_apply_resume_keeps_architect_when_other_work_is_active() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        approved = resume_plan(head, TASK_B, phase="decomposition_apply")
+        approved = replace(
+            approved,
+            resume={
+                **approved.resume,
+                "task_contract_sha256": CONTRACTS[TASK_B],
+            },
+        )
+        architect = FakeArchitect(
+            {TASK_B: advisory(TASK_B, head, work_type="decomposition")}
+        )
+        other = IntegrationReservation(
+            task_id=TASK_A,
+            workflow_state=WorkflowState.AGENT_WORKING.value,
+            phase=WorkflowPhase.IMPLEMENTATION.value,
+            branch="nsc-101-active",
+            head=head,
+            checkout_path=None,
+            exclusive_resources=("repo-file:Assets/Disjoint.cs",),
+            predicted_paths=("Assets/Disjoint.cs",),
+            actual_paths=(),
+            unity_serialized_assets=(),
+            shared_systems=(),
+            confidence=1.0,
+            evidence_type="active_disjoint_fixture",
+        )
+        processes = ProcessFactory()
+        orchestrator, stream = make_orchestrator(
+            source=source,
+            planner=SequencePlanner([approved]),
+            architect=architect,
+            processes=processes,
+            tasks={TASK_B: decomposition_task(TASK_B)},
+            reservations=(other,),
+        )
+
+        result = orchestrator.poll_once()
+
+        require(result.status == "worker_launched", str(result))
+        require(architect.portfolio_calls == [(TASK_B,)], str(architect.portfolio_calls))
+        require('"event": "architect_started"' in stream.getvalue(), stream.getvalue())
+        require(
+            '"event": "decomposition_apply_resume_admitted"' not in stream.getvalue(),
+            stream.getvalue(),
+        )
 
 
 def test_required_decomposition_agent_ready_resume_cannot_route_to_implementation() -> None:
@@ -6511,6 +6573,7 @@ def main() -> int:
         test_excluded_skipped_decomposition_never_enters_architect_portfolio,
         test_decomposition_worker_command_binds_exact_task_and_output_policy,
         test_approved_decomposition_resume_cannot_route_to_implementation,
+        test_decomposition_apply_resume_keeps_architect_when_other_work_is_active,
         test_required_decomposition_agent_ready_resume_cannot_route_to_implementation,
         test_stale_issue_contract_resume_stops_before_architect_and_worker,
         test_resume_wait_does_not_starve_stage2_ranked_fresh_work,

@@ -1945,6 +1945,20 @@ class PollCycleResult:
 
 
 @dataclass(frozen=True)
+class DecompositionApplyResumeDecision:
+    """Host-owned route for one already-approved decomposition application.
+
+    The scheduler does not acquire D1C mutation authority here.  The launched
+    host decomposition worker must still re-prove the exact approved plan,
+    current main, workflow lease, and global D1C claim before changing Git.
+    """
+
+    entry: tuple[dict[str, Any], str | None, dict[str, Any]]
+    surface: PredictedChangeSurface
+    evidence: Mapping[str, Any]
+
+
+@dataclass(frozen=True)
 class ArchitectCooldownEntry:
     decision: ArchitectPolicyDecision
     not_before: float
@@ -2699,6 +2713,99 @@ class PollingOrchestrator:
         if resume_phase is not None:
             portfolio_entry["resume_phase"] = resume_phase
         return (dict(candidate), resume_phase, portfolio_entry)
+
+    def _prove_decomposition_apply_resume(
+        self,
+        entries: tuple[tuple[dict[str, Any], str | None, dict[str, Any]], ...],
+        *,
+        source_head: str,
+        reservations: tuple[IntegrationReservation, ...],
+    ) -> DecompositionApplyResumeDecision | None:
+        """Skip provider judgment only for the first exact approved D1C resume.
+
+        A decomposition-apply Issue already contains the human-authorized plan
+        identity and fixes the work type.  Starting its host worker is safe
+        without buying another architect turn because that worker independently
+        re-proves the plan and serializes the mutation through the global D1C
+        claim.  Any competing active or uncertain durable work preserves the
+        ordinary architect path.
+        """
+
+        if not entries or entries[0][1] != WorkflowPhase.DECOMPOSITION_APPLY.value:
+            return None
+        candidate, resume_phase, portfolio_entry = entries[0]
+        if portfolio_entry.get("eligible_work_types") != ["decomposition"]:
+            return None
+        task = portfolio_entry.get("task")
+        if not isinstance(task, Mapping):
+            return None
+        task_id = str(task.get("id") or "")
+        try:
+            task_id = validate_task_id(task_id)
+            validate_decomposition_task_selection(task_id, task)
+        except (TaskReviewContractError, DecompositionPreflightError):
+            return None
+        contract_sha256 = str(task.get("task_contract_sha256") or "")
+        if (
+            not GIT_SHA_RE.fullmatch(source_head)
+            or re.fullmatch(r"[0-9a-f]{64}", contract_sha256) is None
+            or candidate.get("task_contract_sha256") != contract_sha256
+            or type(candidate.get("issue_number")) is not int
+            or candidate["issue_number"] < 1
+        ):
+            return None
+
+        for reservation in reservations:
+            if reservation.task_id.casefold() == task_id.casefold():
+                continue
+            if (
+                reservation.pending_transition is not None
+                or reservation.local_active
+                or reservation.workflow_state == WorkflowState.AGENT_WORKING.value
+            ):
+                return None
+
+        unknown = assess_unknown_surface_reservations(
+            candidate_task_id=task_id,
+            candidate_exclusive_resources=task.get("exclusive_resources") or (),
+            reservations=reservations,
+        )
+        if unknown.blocking_task_ids or unknown.architect_confirmable_task_ids:
+            return None
+
+        surface = effective_candidate_surface(
+            candidate_task_id=task_id,
+            predicted_surface=PredictedChangeSurface(
+                exact_paths=(
+                    f"Tasks/{task_id}.yaml",
+                    "Pipeline/TaskGraph/WORK_ID_MAP.json",
+                ),
+                path_patterns=("Tasks/*.yaml",),
+                unity_serialized_assets=(),
+                symbols_or_components=(),
+                shared_systems=("logical:taskgraph-decomposition-apply",),
+            ),
+            reservations=reservations,
+        )
+        if detect_deterministic_conflict(
+            candidate_task_id=task_id,
+            candidate_exclusive_resources=task.get("exclusive_resources") or (),
+            candidate_surface=surface,
+            reservations=reservations,
+        ) is not None:
+            return None
+        return DecompositionApplyResumeDecision(
+            entry=(candidate, resume_phase, portfolio_entry),
+            surface=surface,
+            evidence={
+                "authority": "approved_decomposition_apply_issue",
+                "task_id": task_id,
+                "task_contract_sha256": contract_sha256,
+                "source_head": source_head,
+                "issue_number": candidate["issue_number"],
+                "global_claim": "logical:taskgraph-decomposition-apply",
+            },
+        )
 
     def _skipped_portfolio_entry(
         self,
@@ -3524,8 +3631,16 @@ class PollingOrchestrator:
                          refresh=refresh, reservations=reservations)
             if gate_admission is not None else None
         )
+        decomposition_apply_resume = self._prove_decomposition_apply_resume(
+            mixed_portfolio,
+            source_head=plan.source_commit,
+            reservations=reservations,
+        )
         if deterministic_resume is not None:
             safe_candidates = [(*deterministic_resume.entry, None)]
+            analysis = None
+        elif decomposition_apply_resume is not None:
+            safe_candidates = [(*decomposition_apply_resume.entry, None)]
             analysis = None
         else:
             if (
@@ -3815,9 +3930,18 @@ class PollingOrchestrator:
         considered: set[str] = set()
         for candidate, resume_phase, _portfolio_entry, advisory in safe_candidates:
             task_id = _portfolio_entry["task"]["id"]
-            work_type = advisory.work_type_recommendation if advisory else "implementation"
-            surface = advisory.predicted_change_surface if advisory else deterministic_resume.surface
-            confidence = advisory.confidence if advisory else 1.0
+            if advisory is not None:
+                work_type = advisory.work_type_recommendation
+                surface = advisory.predicted_change_surface
+                confidence = advisory.confidence
+            elif deterministic_resume is not None:
+                work_type = "implementation"
+                surface = deterministic_resume.surface
+                confidence = 1.0
+            else:
+                work_type = "decomposition"
+                surface = decomposition_apply_resume.surface
+                confidence = 1.0
             if task_id in considered:
                 self.events.emit(
                     "scheduler_blocked",
@@ -3987,6 +4111,26 @@ class PollingOrchestrator:
                     self.events.emit("integration_gate_resume_withdrawn", task_id=task_id,
                                      reason="current durable admission proof changed before launch")
                     continue
+            elif decomposition_apply_resume is not None:
+                fresh_decomposition_apply = self._prove_decomposition_apply_resume(
+                    (fresh_entry,),
+                    source_head=fresh_plan.source_commit,
+                    reservations=fresh_reservations,
+                )
+                if (
+                    fresh_decomposition_apply is None
+                    or fresh_decomposition_apply.evidence
+                    != decomposition_apply_resume.evidence
+                ):
+                    self.events.emit(
+                        "decomposition_apply_resume_withdrawn",
+                        task_id=task_id,
+                        reason=(
+                            "approved decomposition-apply authority or reservation "
+                            "proof changed before launch"
+                        ),
+                    )
+                    continue
             else:
                 self.events.emit(
                     "architect_completed",
@@ -4070,7 +4214,11 @@ class PollingOrchestrator:
                         else "round_robin_d1b2"
                     ),
                     "capability_tier": "deep",
-                    "route_reason": "architect_selected_eligible_decomposition",
+                    "route_reason": (
+                        "approved_decomposition_apply_resume"
+                        if decomposition_apply_resume is not None
+                        else "architect_selected_eligible_decomposition"
+                    ),
                 }
                 if self.provider_topology is not None:
                     route_event.update(execution_provider=self.provider_topology.decomposition_strategy,
@@ -4200,6 +4348,19 @@ class PollingOrchestrator:
                     resume_phase=resume_phase, architect_invocations=0, advisory_artifact_path=None,
                     reason="current gate head has exact downstream authority and unchanged established route",
                     evidence=fresh_resume.evidence, **route.to_event_dict())
+            elif decomposition_apply_resume is not None:
+                self.events.emit(
+                    "decomposition_apply_resume_admitted",
+                    task_id=task_id,
+                    resume_phase=resume_phase,
+                    architect_invocations=0,
+                    advisory_artifact_path=None,
+                    reason=(
+                        "the approved plan fixes the work type; the host worker will "
+                        "re-prove the plan, current main, workflow lease, and global D1C claim"
+                    ),
+                    evidence=fresh_decomposition_apply.evidence,
+                )
             self.events.emit(
                 "worker_launched",
                 task_id=task_id,
