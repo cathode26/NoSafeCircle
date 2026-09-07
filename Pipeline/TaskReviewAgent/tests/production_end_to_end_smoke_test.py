@@ -1455,11 +1455,23 @@ class DisposableGitHub:
         return self.fixture.remote_head(f"refs/heads/{branch}")
 
     def _view(self, pull_request: Mapping[str, Any]) -> dict[str, Any]:
+        if pull_request["state"] == "OPEN":
+            branch_head = self._branch_head(pull_request["branch"])
+            if self.fixture.remote_head("refs/heads/main") == branch_head:
+                # GitHub marks a pull request merged when its exact head becomes
+                # reachable as the target branch tip through the fenced Git push.
+                pull_request.update(
+                    state="MERGED",
+                    merge_commit=branch_head,
+                    merged_head=branch_head,
+                )
         merged = pull_request["state"] == "MERGED"
         head = pull_request["merged_head"] if merged else self._branch_head(pull_request["branch"])
         # Emulated CI: the deterministic workflow has already completed successfully
-        # for this exact head. Production fails closed on an empty rollup and waits
-        # in-process for pending checks, so the emulation must report a real result.
+        # for this exact PR head. Production fails closed on an empty rollup and
+        # waits in-process for pending checks, so the emulation must report a real
+        # result. GitHub's real CheckRun rollup omits a per-entry headSha; the
+        # enclosing pull request's headRefOid binds this rollup to the commit.
         check = {
             "__typename": "CheckRun",
             "name": "windows-smoke",
@@ -1472,7 +1484,6 @@ class DisposableGitHub:
                 f"https://github.com/{REPOSITORY}/actions/runs/{pull_request['number']}"
                 f"/job/{pull_request['number']}"
             ),
-            "headSha": head,
         }
         return {
             "number": pull_request["number"],
@@ -2546,8 +2557,12 @@ def run_positive_scenario(
         )
         require(
             [item[2] for item in run.github.commands]
-            == ["list", "create", "view", "view", "view", "merge", "view", "close"],
+            == ["list", "create", "view", "view", "view", "view", "close"],
             f"gh command sequence {[item[1:3] for item in run.github.commands]}",
+        )
+        require(
+            not any(item[1:3] == ("pr", "merge") for item in run.github.commands),
+            "publication bypassed the exact-main Git fence through gh pr merge",
         )
         for launch in run.workers.launches[1:]:
             require(
@@ -2560,12 +2575,20 @@ def run_positive_scenario(
         pull_request = run.github.pull_requests[1]
         require(pull_request["state"] == "MERGED", "pull request not merged")
         main_head = fixture.remote_head("refs/heads/main")
-        require(main_head == pull_request["merge_commit"], "remote main is not the merge commit")
-        parents = git(fixture.remote, "rev-list", "--parents", "-n", "1", main_head).split()[1:]
         require(
-            len(parents) == 2 and pull_request["merged_head"] in parents, "history not preserved"
+            main_head == pull_request["merge_commit"] == pull_request["merged_head"],
+            "remote main is not the exact approved pull-request head",
         )
-        require(fixture.initial_head in parents, "merge did not join the initial main")
+        require(
+            subprocess.run(
+                ["git", "-C", str(fixture.remote), "merge-base", "--is-ancestor",
+                 fixture.initial_head, main_head],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+            ).returncode == 0,
+            "publication did not preserve the initial main history",
+        )
         require(
             bool(
                 git(

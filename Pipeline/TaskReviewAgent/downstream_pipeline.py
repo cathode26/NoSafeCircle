@@ -1195,11 +1195,11 @@ class DownstreamTaskController:
         * the required GitHub checks are accepted for the PULL-REQUEST HEAD,
           which is the commit this fence publishes.
 
-        Publishing the candidate head is therefore valid only if the reported
-        checks belong to that exact commit. Every rollup entry that names its own
-        commit must name this one -- so a rollup describing a synthetic merge ref
-        (or any other topology) refuses publication instead of being assumed
-        equivalent.
+        GitHub returns ``headRefOid`` and that head's ``statusCheckRollup`` in
+        the same pull-request GraphQL object. Real CheckRun rollup entries do
+        not normally include a per-entry ``headSha``. The top-level head is
+        therefore the required binding; when a test adapter or future payload
+        does supply a per-entry commit, it must agree as an additional guard.
         """
 
         rollup = pull_request.get("statusCheckRollup")
@@ -1209,7 +1209,6 @@ class DownstreamTaskController:
                 "publication requires every reported check to have passed"
             )
         entries = rollup if isinstance(rollup, list) else []
-        named = 0
         for index, item in enumerate(entries):
             if not isinstance(item, Mapping):
                 continue
@@ -1227,12 +1226,6 @@ class DownstreamTaskController:
                     f"the approved candidate {source_head}; refusing to publish a topology "
                     "the required checks did not evaluate"
                 )
-            named += 1
-        if entries and not named:
-            raise DownstreamPipelineError(
-                "no reported check names the commit it validated; the published "
-                "topology cannot be bound to the required checks"
-            )
         return source_head
 
     def _publication_authority(

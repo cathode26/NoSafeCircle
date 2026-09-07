@@ -14,13 +14,16 @@ command boundary where the competing writer runs -- never by sleeping.
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(
+    os.environ.get("NSC_PUBLICATION_FENCE_SOURCE", Path(__file__).resolve().parents[3])
+).resolve()
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
@@ -67,7 +70,6 @@ def _pull_request(head: str) -> dict:
                 startedAt="2026-09-07T00:00:00Z",
                 completedAt="2026-09-07T00:00:01Z",
                 detailsUrl="https://example.invalid/actions/runs/1/job/1",
-                headSha=head,
             )
         ],
     )
@@ -338,13 +340,13 @@ class SuccessfulPublicationTests(FenceCase):
         self.assertEqual(self.remote_main(), unchanged)
         self.assertEqual(self.publication_pushes(), [])
 
-    def test_publication_requires_a_check_that_names_its_commit(self):
-        self.pull_request["statusCheckRollup"][0].pop("headSha")
-        unchanged = self.remote_main()
-        with self.assertRaisesRegex(DownstreamPipelineError, "names the commit it validated"):
-            self.publish()
-        self.assertEqual(self.remote_main(), unchanged)
-        self.assertEqual(self.publication_pushes(), [])
+    def test_publication_accepts_real_github_rollup_without_entry_head_sha(self):
+        """GitHub binds the rollup at the PR level; CheckRun omits headSha."""
+
+        result = self.publish()
+        self.assertEqual(result["status"], "merged")
+        self.assertEqual(self.remote_main(), self.approved_head)
+        self.assertEqual(self.durable_publication()["validated_commit"], self.approved_head)
 
     def test_only_an_exact_lease_is_used_and_no_rewind_is_possible(self):
         self.publish()

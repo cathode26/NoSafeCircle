@@ -415,6 +415,52 @@ class GateResumeAuthorityTests(unittest.TestCase):
         self.assertTrue(f.events("integration_gate_resume_requires_architect"))
         self.assertFalse(f.events("integration_gate_resume_blocked"))
 
+    def test_unexpected_resume_failure_blocks_instead_of_hiding_behind_architect(self):
+        from Pipeline.TaskReviewAgent import gate_resume
+
+        stream = io.StringIO()
+        admission = SimpleNamespace(
+            scheduler=SimpleNamespace(events=p.JsonEventEmitter(stream)),
+            gate=SimpleNamespace(ref="refs/nsc/integration-gates/fixture"),
+        )
+        entry = (None, "delivery_evidence", {"task": {"id": "NSC-001"}})
+        with patch.object(gate_resume, "_prove", side_effect=RuntimeError("fixture boom")):
+            with self.assertRaisesRegex(RuntimeError, "fixture boom"):
+                gate_resume.prove_resume(
+                    admission,
+                    (entry,),
+                    source_head="a" * 40,
+                    refresh={},
+                    reservations=(),
+                )
+        events = [json.loads(line) for line in stream.getvalue().splitlines()]
+        self.assertEqual([event["event"] for event in events], ["integration_gate_resume_blocked"])
+        self.assertIn("unexpected gate-resume proof failure", events[0]["reason"])
+
+    def test_raw_gate_error_is_normalized_to_authority_block(self):
+        from Pipeline.TaskReviewAgent import gate_resume
+        from Pipeline.TaskReviewAgent.integration_gate import IntegrationGateError
+
+        stream = io.StringIO()
+        admission = SimpleNamespace(
+            scheduler=SimpleNamespace(events=p.JsonEventEmitter(stream)),
+            gate=SimpleNamespace(ref="refs/nsc/integration-gates/fixture"),
+        )
+        entry = (None, "delivery_evidence", {"task": {"id": "NSC-001"}})
+        with patch.object(
+            gate_resume, "_prove", side_effect=IntegrationGateError("fixture journal failure")
+        ):
+            with self.assertRaisesRegex(gate_resume.GateResumeAuthorityError, "authority failed"):
+                gate_resume.prove_resume(
+                    admission,
+                    (entry,),
+                    source_head="a" * 40,
+                    refresh={},
+                    reservations=(),
+                )
+        events = [json.loads(line) for line in stream.getvalue().splitlines()]
+        self.assertEqual([event["event"] for event in events], ["integration_gate_resume_blocked"])
+
     def test_unreconciled_publication_blocks_gate_resume(self):
         from Pipeline.TaskReviewAgent.gate_resume import (
             GateResumeAuthorityError, _require_trustworthy_gate)

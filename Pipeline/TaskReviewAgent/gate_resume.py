@@ -177,7 +177,13 @@ def _issue_proof(admission: Any, entry: tuple, receipt: dict, checkout: Path) ->
             _require(event.details.get("reason") in {None, "integration_gate_waiting"}
                      and not event.details.get("error"), "non-gate release requires judgment")
     downstream_path = checkout.parent / ".task-review-agent" / (task["id"] + ".downstream.json")
-    downstream = json.loads(downstream_path.read_text(encoding="utf-8")) if downstream_path.exists() else {}
+    try:
+        downstream = (
+            json.loads(downstream_path.read_text(encoding="utf-8"))
+            if downstream_path.exists() else {}
+        )
+    except (OSError, TypeError, ValueError) as exc:
+        raise GateResumeUnavailable("downstream route history is unreadable or corrupt") from exc
     if downstream_path.exists():
         identity = dict(downstream)
         downstream_digest = identity.pop("receipt_sha256", None)
@@ -189,7 +195,10 @@ def _issue_proof(admission: Any, entry: tuple, receipt: dict, checkout: Path) ->
     _require(authority is not None and authority.get("result") == "pass"
              and authority.get("tested_commit") == state.head_commit,
              "exact current validation authority is unavailable")
-    validation_event = next(e for e in events if e.event_id == authority["event_id"])
+    validation_event = next(
+        (e for e in events if e.event_id == authority["event_id"]), None
+    )
+    _require(validation_event is not None, "validation authority event is missing")
     # Once validation passed, any unrecognized comment (including human feedback)
     # returns to judgment. Labels and the wake packet are never consulted here.
     comments = service.backend.get_comments(snapshot.issue_number)
@@ -240,8 +249,14 @@ def _prove(admission: Any, entry: tuple, *, source_head: str, refresh: dict, res
              and not _git_text(scheduler.source, "status", "--porcelain"),
              "source main observation is not current and clean")
     path = route_path(scheduler, task_id)
-    receipt = json.loads(path.read_text(encoding="utf-8"))
-    digest = receipt.pop("receipt_sha256")
+    try:
+        receipt = json.loads(path.read_text(encoding="utf-8"))
+        _require(isinstance(receipt, dict), "route receipt is not an object")
+        digest = receipt.pop("receipt_sha256")
+    except GateResumeUnavailable:
+        raise
+    except (OSError, KeyError, TypeError, ValueError) as exc:
+        raise GateResumeUnavailable("route receipt is missing, unreadable, or corrupt") from exc
     _require(digest == semantic_sha256(receipt) and receipt["schema_version"] == "1.0",
              "route receipt is corrupt")
     _require(set(receipt) == {"schema_version", "task_id", "task_contract_sha256", "source_head",
@@ -274,7 +289,10 @@ def _prove(admission: Any, entry: tuple, *, source_head: str, refresh: dict, res
     for root, target in ((scheduler.source, source_head), (checkout, state.head_commit)):
         _require(_run_git(root, "merge-base", "--is-ancestor", base, target).returncode == 0,
                  "route source is not an ancestor of current main/task")
-    surface = PredictedChangeSurface.from_dict(receipt["surface"])
+    try:
+        surface = PredictedChangeSurface.from_dict(receipt["surface"])
+    except (KeyError, TypeError, ValueError, TaskReviewContractError) as exc:
+        raise GateResumeUnavailable("saved change-surface route no longer resolves") from exc
     actual = set(_git_text(checkout, "diff", "--name-only", base, state.head_commit, "--").splitlines())
     _require(bool(actual) and actual.issubset(surface.exact_paths), "resource surface changed since routing")
     main_paths = _git_text(scheduler.source, "diff", "--name-only", base, source_head, "--").splitlines()
@@ -301,14 +319,32 @@ def _prove(admission: Any, entry: tuple, *, source_head: str, refresh: dict, res
             commit_snapshot=commit_snapshot)
         dependency_states = {dependency: states(dependency).get("state") for dependency in dependencies}
         _require(all(value == "conformant" for value in dependency_states.values()), "dependencies not conformant")
-    recommendation = ExecutionRecommendation.from_dict(receipt["recommendation"])
-    rigor = resolve_task_rigor(recommendation, task=task, predicted_change_surface=surface,
-                              committed_path_probe=commit_snapshot.committed_path_probe())
-    route = resolve_execution_route(recommendation,
-        restrict_execution_routing_policy(scheduler.routing_policy_loader(), scheduler.provider_allowlist), rigor=rigor)
+    try:
+        recommendation = ExecutionRecommendation.from_dict(receipt["recommendation"])
+        rigor = resolve_task_rigor(
+            recommendation,
+            task=task,
+            predicted_change_surface=surface,
+            committed_path_probe=commit_snapshot.committed_path_probe(),
+        )
+        route = resolve_execution_route(
+            recommendation,
+            restrict_execution_routing_policy(
+                scheduler.routing_policy_loader(), scheduler.provider_allowlist
+            ),
+            rigor=rigor,
+        )
+    except (KeyError, TypeError, ValueError, TaskReviewContractError) as exc:
+        raise GateResumeUnavailable("saved execution route no longer resolves") from exc
     # JSON normalization compares tuple/list representations without relaxing fields.
     _require(json.loads(json.dumps(asdict(route))) == receipt["route"], "routing or rigor policy changed")
-    _require(admission.gate.read()[0] == oid, "gate moved during proof")
+    try:
+        current_oid = admission.gate.read()[0]
+    except IntegrationGateError as exc:
+        raise GateResumeAuthorityError(
+            f"integration gate became unreadable during resume proof: {exc}"
+        ) from exc
+    _require(current_oid == oid, "gate moved during proof")
     evidence = dict(gate_ref=admission.gate.ref, gate_oid=oid, next_task_id=task_id,
         issue_number=snapshot.issue_number, issue_url=snapshot.issue_url, issue_event_id=state.last_event_id,
         task_contract_sha256=state.task_contract_sha256, branch=state.branch, task_head=state.head_commit,
@@ -325,6 +361,9 @@ def prove_resume(admission: Any, entries: tuple, *, source_head: str, refresh: d
             continue
         try:
             return _prove(admission, entry, source_head=source_head, refresh=refresh, reservations=reservations)
+        except GateResumeUnavailable as exc:
+            admission.scheduler.events.emit("integration_gate_resume_requires_architect",
+                task_id=entry[2]["task"]["id"], reason=str(exc)[:700])
         except GateResumeAuthorityError as exc:
             # Authority integrity, not routing preference. Record it and stop;
             # an architect cannot repair a legacy owner, a corrupt durable
@@ -334,9 +373,20 @@ def prove_resume(admission: Any, entries: tuple, *, source_head: str, refresh: d
                 task_id=entry[2]["task"]["id"], gate_ref=admission.gate.ref,
                 reason=str(exc)[:700])
             raise
+        except IntegrationGateError as exc:
+            wrapped = GateResumeAuthorityError(
+                f"integration gate authority failed during resume proof: {exc}"
+            )
+            admission.scheduler.events.emit("integration_gate_resume_blocked",
+                task_id=entry[2]["task"]["id"], gate_ref=admission.gate.ref,
+                reason=str(wrapped)[:700])
+            raise wrapped from exc
         except Exception as exc:
-            # This optional optimization cannot convert missing evidence into
-            # authority, nor make previously eligible work fatal.
-            admission.scheduler.events.emit("integration_gate_resume_requires_architect",
-                task_id=entry[2]["task"]["id"], reason=str(exc)[:700])
+            # Unknown failures are not proof that the architect path is safe.
+            # Surface them as incidents instead of buying another provider call
+            # that could conceal a broken authority check.
+            admission.scheduler.events.emit("integration_gate_resume_blocked",
+                task_id=entry[2]["task"]["id"], gate_ref=admission.gate.ref,
+                reason=("unexpected gate-resume proof failure: " + str(exc))[:700])
+            raise
     return None
