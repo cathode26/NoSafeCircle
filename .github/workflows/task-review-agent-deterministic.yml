@@ -257,6 +257,13 @@ jobs:
         if: steps.scope.outputs.run_full_core == 'true'
         run: python Pipeline/TaskReviewAgent/tests/pending_workflow_write_smoke_test.py
 
+      - name: Run pending workflow authority and consumer recovery regressions
+        if: steps.scope.outputs.run_full_core == 'true'
+        run: |
+          python Pipeline/TaskReviewAgent/tests/pending_label_authority_smoke_test.py
+          python Pipeline/TaskReviewAgent/tests/closed_workflow_consumer_smoke_test.py
+          python Pipeline/TaskReviewAgent/tests/workflow_recovery_smoke_test.py
+
       - name: Run software architect preflight smoke tests
         if: steps.scope.outputs.run_full_core == 'true'
         run: python Pipeline/TaskReviewAgent/tests/architect_preflight_smoke_test.py

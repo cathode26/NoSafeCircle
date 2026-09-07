@@ -10,7 +10,7 @@ import uuid
 from pathlib import Path
 from typing import Any, Mapping
 
-from .integration_gate import GitIntegrationGate, GateWakeListener, IntegrationGateError, owner_identity, ordered_waiters, same_owner
+from .integration_gate import GitIntegrationGate, GateWakeListener, IntegrationGateError, owner_identity, ordered_waiters, admissible_waiters, same_owner
 
 DELIVERY_PHASES = {"delivery_evidence", "merge_closeout"}
 MERGE_ACTIONS = {"inspect_or_merge_pull_request", "verify_post_merge_and_complete"}
@@ -41,18 +41,28 @@ def workflow_state(observation: Mapping) -> Mapping:
     return (observation.get("coordination") or {}).get("workflow_state") or {}
 
 
-def require_no_legacy_delivery_owner(service: Any, gate_owner: Mapping | None) -> None:
+def require_no_legacy_delivery_owner(service: Any, gate_owner: Mapping | None) -> bool:
     """Migration fence: a pre-gate worker cannot be presumed quiescent."""
-    from .issue_workflow_store import _consistent_snapshots, issue_author_authorized
+    from .issue_workflow_store import (_consistent_snapshots, issue_author_authorized,
+                                       closed_workflow_candidate, closed_incomplete_duplicate)
     issues = [issue for issue in service.backend.list_issues()
-              if str(issue.get("state", "")).upper() != "CLOSED" and issue_author_authorized(issue)]
+              if closed_workflow_candidate(issue) and issue_author_authorized(issue)]
+    issues_by_number = {issue["number"]: issue for issue in issues}
+    pending = False
     for entry in _consistent_snapshots(service.backend, issues):
         if entry.error:
             raise entry.error
         snapshot = entry.snapshot
         if snapshot is None or not snapshot.managed:
             continue
-        if not snapshot.valid or snapshot.state is None or snapshot.pending_transition is not None:
+        if closed_incomplete_duplicate(issues_by_number[entry.issue_number], snapshot):
+            continue
+        if snapshot.pending_transition is not None:
+            # This is proven, bounded write visibility, not a corruption or
+            # ownership grant. Inspect every other Issue before returning WAIT.
+            pending = True
+            continue
+        if not snapshot.valid or snapshot.state is None:
             raise IntegrationGateError("integration migration requires coherent managed Issue reservations")
         state = snapshot.state.to_dict()
         if state["state"] == "agent_working" and state["phase"] in DELIVERY_PHASES:
@@ -60,6 +70,7 @@ def require_no_legacy_delivery_owner(service: Any, gate_owner: Mapping | None) -
                 raise IntegrationGateError(
                     f"legacy downstream owner {state['task_id']} / {state['worker_id']} has no matching gate receipt; "
                     "fence the old worker, reconcile remote operations, and release its Issue lease before resuming")
+    return not pending
 
 
 class IntegrationWindow:
@@ -139,9 +150,18 @@ class IntegrationWindow:
             return None
         if state.get("state") == "agent_working" and state.get("worker_id") != self.identity["worker_id"]:
             return self.deferred(observation, "another worker owns the Issue")
-        require_no_legacy_delivery_owner(self.controller.workflow.issue_workflow, self.gate.read()[1]["owner"])
+        from .gate_waiter_reconciliation import reconcile_backend, ReconciledIssueBackend
+        service = self.controller.workflow.issue_workflow
+        backend = service.backend
+        while isinstance(backend, ReconciledIssueBackend):
+            backend = backend._backend
+        service.backend = reconcile_backend(backend, gate=self.gate,
+                                            task_loader=service.task_loader, worker_id=service.worker_id)
+        if not require_no_legacy_delivery_owner(service, self.gate.read()[1]["owner"]):
+            return self.deferred(observation, "bounded pending workflow write; preserve all delivery reservations")
         result = self.gate.enqueue(self.controller.task_id, ready_at=state["updated_at_utc"],
-                                   ready_event=state["last_event_id"])
+                                   ready_event=state["last_event_id"],
+                                   reservation=self._reservation())
         if result["status"] == "deferred":
             return self.deferred(observation, "gate queue CAS contention")
         result = self.gate.acquire(self.identity)
@@ -166,6 +186,12 @@ class IntegrationWindow:
         self.gate.progress(self.identity, "main_refreshed")
         self.in_action = False
         return {"status": "continue"}
+
+    def _reservation(self) -> dict:
+        from .gate_waiter_reconciliation import waiter_reservation
+        service = self.controller.workflow.issue_workflow
+        snapshot = service.find(self.controller.task_id)
+        return waiter_reservation(snapshot, service.task_loader(self.controller.task_id))
 
     def deferred(self, observation: Mapping, reason: str) -> dict:
         return dict(schema_version="1.0", task_id=self.controller.task_id, status="integration_gate_waiting",
@@ -334,11 +360,25 @@ class GateAdmission:
                                             host=os.getenv("NSC_GATE_WAKE_HOST") or socket.gethostbyname(socket.gethostname()),
                                             on_wake=lambda task_id: self.scheduler.events.emit(
                                                 "gate_next_waiter_woken", task_id=task_id, gate_ref=self.gate.ref))
-        service = self._service()
+        from .issue_workflow_store import IssueWorkflowService
+        from .gate_waiter_reconciliation import waiter_reservation
+        original = self._service()
+        service = IssueWorkflowService(
+            backend=self.prepare_backend(original.backend, task_loader=original.task_loader),
+            task_loader=original.task_loader,
+            worker_id=getattr(self.scheduler, "scheduler_id", original.worker_id))
         _, initial_state = self.gate.read()
-        require_no_legacy_delivery_owner(service, initial_state["owner"])
+        if not require_no_legacy_delivery_owner(service, initial_state["owner"]):
+            if hasattr(self.scheduler, "events"):
+                self.scheduler.events.emit("integration_gate_pending_workflow_wait",
+                                           reason="bounded pending workflow write; durable queue retained")
+            return tuple(entry for entry in entries if entry[1] not in DELIVERY_PHASES)
         for waiter in initial_state["queue"]:
+            if waiter.get("quarantine"):
+                continue
             snapshot = service.find(waiter["task_id"])
+            if snapshot is not None and snapshot.pending_transition is not None:
+                return tuple(entry for entry in entries if entry[1] not in DELIVERY_PHASES)
             if snapshot is None or not snapshot.valid or snapshot.state is None:
                 raise IntegrationGateError("queued Issue identity missing/corrupt; inspect the gate journal")
             if snapshot.state.state.value in {"human_action_required", "blocked", "complete"}:
@@ -356,18 +396,25 @@ class GateAdmission:
             if state.state.value != "agent_ready" or state.phase.value not in DELIVERY_PHASES:
                 raise IntegrationGateError("delivery candidate changed before gate queue registration")
             result = self.gate.enqueue(task_id, ready_at=state.updated_at_utc, ready_event=state.last_event_id,
-                                       endpoint=self.listener.endpoint)
+                                       endpoint=self.listener.endpoint,
+                                       reservation=waiter_reservation(snapshot, service.task_loader(task_id)))
             if result["status"] == "deferred":
                 return tuple(entry for entry in entries if entry[1] not in DELIVERY_PHASES)
         oid, state = self.gate.read()
         self.observation = (oid, state)
         owner = state["owner"]
-        queue = ordered_waiters(state)
+        queue = admissible_waiters(state)
         next_id = queue[0]["task_id"] if queue and owner is None else None
         self.scheduler.events.emit("integration_gate_observed", gate_ref=self.gate.ref, owner=owner,
                                    queued_task_ids=[w["task_id"] for w in queue], next_task_id=next_id)
         return tuple(entry for entry in entries
                      if entry[1] not in DELIVERY_PHASES or entry[2]["task"]["id"] == next_id)
+
+    def prepare_backend(self, backend: Any, *, task_loader: Any = None):
+        from .gate_waiter_reconciliation import reconcile_backend
+        return reconcile_backend(backend, gate=self.gate,
+                                 task_loader=task_loader or self.scheduler.task_loader,
+                                 worker_id=getattr(self.scheduler, "scheduler_id", "gate-reconciliation"))
 
     def _service(self):
         if self.service is not None:

@@ -1281,6 +1281,13 @@ class DownstreamTaskController:
 
         service = self.workflow.issue_workflow
         backend = getattr(service, "backend", None) if service is not None else None
+        # The host's journal reconciliation retains the real backend for Issue
+        # operations while exposing quarantined reservations to resource readers.
+        # Unwrap only this concrete host type: a repository string or arbitrary
+        # proxy never confers GitHub authority, and checkout binding still applies.
+        from .gate_waiter_reconciliation import ReconciledIssueBackend
+        while type(backend) is ReconciledIssueBackend:
+            backend = backend._backend
         if not isinstance(backend, GhIssueBackend):
             raise DownstreamPipelineError(
                 "downstream GitHub PR/Issue commands require a real GhIssueBackend-bound "

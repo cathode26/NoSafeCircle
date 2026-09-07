@@ -79,6 +79,40 @@ def ordered_waiters(state: Mapping) -> list[dict]:
     return sorted(state["queue"], key=lambda w: (timestamp(w["ready_at"]), w["task_id"]))
 
 
+def eligible_waiters(state: Mapping) -> list[dict]:
+    """Quarantine retains the queue entry without making it eligible to own."""
+    return [waiter for waiter in ordered_waiters(state) if not waiter.get("quarantine")]
+
+
+def admissible_waiters(state: Mapping) -> list[dict]:
+    """Order proven-disjoint waiters without deleting blocked predecessors."""
+    quarantines = [waiter for waiter in state["queue"] if waiter.get("quarantine")]
+    result = []
+    for waiter in eligible_waiters(state):
+        candidate = waiter.get("reservation")
+        for quarantined in quarantines:
+            reserved = quarantined.get("reservation")
+            if (not candidate or not reserved or not candidate["exclusive_resources"]
+                    or not reserved["exclusive_resources"]
+                    or {item.casefold() for item in candidate["exclusive_resources"]}
+                    & {item.casefold() for item in reserved["exclusive_resources"]}):
+                break
+        else:
+            result.append(waiter)
+    return result
+
+
+def validate_waiter_reservation(value: Mapping) -> None:
+    if (not isinstance(value, Mapping)
+            or set(value) != {"issue_number", "task_contract_sha256", "exclusive_resources"}
+            or type(value["issue_number"]) is not int or value["issue_number"] < 1
+            or not re.fullmatch(r"[0-9a-f]{64}", str(value["task_contract_sha256"]))
+            or not isinstance(value["exclusive_resources"], list)
+            or any(not isinstance(item, str) or not item.strip() for item in value["exclusive_resources"])
+            or value["exclusive_resources"] != sorted(set(value["exclusive_resources"]))):
+        raise IntegrationGateError("malformed durable waiter resource reservation")
+
+
 class GitIntegrationGate:
     def __init__(self, repository: Path, *, remote: str = "origin", target_branch: str = "main",
                  namespace: str | None = None, clock: Callable[[], str] = utc_now,
@@ -148,6 +182,17 @@ class GitIntegrationGate:
                 raise IntegrationGateError("queue wake endpoints malformed")
             for endpoint in waiter["wake_endpoints"]:
                 validate_endpoint(endpoint)
+            if waiter.get("reservation") is not None:
+                validate_waiter_reservation(waiter["reservation"])
+            quarantine = waiter.get("quarantine")
+            if quarantine is not None:
+                if (not isinstance(quarantine, dict)
+                        or set(quarantine) != {"reason", "observed_issue_numbers"}
+                        or not isinstance(quarantine["reason"], str) or not quarantine["reason"]
+                        or not isinstance(quarantine["observed_issue_numbers"], list)
+                        or any(type(number) is not int or number < 1 for number in quarantine["observed_issue_numbers"])
+                        or quarantine["observed_issue_numbers"] != sorted(set(quarantine["observed_issue_numbers"]))):
+                    raise IntegrationGateError("malformed waiter quarantine disposition")
         if len(tasks) != len(set(tasks)):
             raise IntegrationGateError("duplicate gate waiters")
         owner = state["owner"]
@@ -198,24 +243,36 @@ class GitIntegrationGate:
             raise IntegrationGateError(f"gate CAS outcome uncertain; inspect {self.ref} expected {expected or 'absent'} proposed {oid}")
         return True
 
-    def enqueue(self, task_id: str, *, ready_at: str, ready_event: str, endpoint: Mapping | None = None) -> dict:
+    def enqueue(self, task_id: str, *, ready_at: str, ready_event: str, endpoint: Mapping | None = None,
+                reservation: Mapping | None = None) -> dict:
         task_id = validate_task_id(task_id)
         ready_at = timestamp(ready_at).isoformat()
         if not re.fullmatch(r"[0-9a-f]{64}", ready_event):
             raise IntegrationGateError("eligible gate task requires its durable ready event")
         if endpoint is not None:
             validate_endpoint(endpoint)
+        if reservation is not None:
+            validate_waiter_reservation(reservation)
         oid, state = self.read()
         if state["owner"] and state["owner"]["task_id"] == task_id:
             return {"status": "owned", "owner": state["owner"]}
         existing = next((w for w in state["queue"] if w["task_id"] == task_id), None)
         if existing:
-            if endpoint is None or dict(endpoint) in existing["wake_endpoints"]:
+            if existing.get("quarantine"):
+                return {"status": "deferred", "reason": "waiter requires exact workflow reconciliation"}
+            if reservation is not None and existing.get("reservation") not in (None, reservation):
+                raise IntegrationGateError("queued waiter resource identity changed; reconcile before admission")
+            if reservation is not None and existing.get("reservation") is None:
+                existing["reservation"] = dict(reservation)
+            elif endpoint is None or dict(endpoint) in existing["wake_endpoints"]:
                 return {"status": "queued", "waiter": existing}
-            existing["wake_endpoints"].append(dict(endpoint))
+            if endpoint is not None and dict(endpoint) not in existing["wake_endpoints"]:
+                existing["wake_endpoints"].append(dict(endpoint))
         else:
             existing = dict(task_id=task_id, ready_at=ready_at, ready_event=ready_event,
                             wake_endpoints=[dict(endpoint)] if endpoint else [])
+            if reservation is not None:
+                existing["reservation"] = dict(reservation)
             state["queue"].append(existing)
         state["queue"] = ordered_waiters(state)
         changed = self.compare_and_swap(oid, state, dict(kind="gate_eligible_queued", task_id=task_id,
@@ -230,7 +287,7 @@ class GitIntegrationGate:
                 self.require_owner(state, identity)
                 return {"status": "acquired", "owner": state["owner"], "resumed": True}
             return {"status": "deferred", "owner": state["owner"], "reason": "gate occupied; no TTL recovery"}
-        queue = ordered_waiters(state)
+        queue = admissible_waiters(state)
         if not queue or queue[0]["task_id"] != identity["task_id"]:
             return {"status": "deferred", "reason": "older durable waiter has priority"}
         now = self.clock()
@@ -238,10 +295,43 @@ class GitIntegrationGate:
         owner = dict(identity, repository=self.repository_id, target_branch=self.target_branch,
                      acquired_at=now, heartbeat_at=now, progress="acquired", status="held",
                      operation=None, unity_seconds=0.0, ci_seconds=0.0)
-        state["owner"], state["queue"] = owner, queue[1:]
+        state["owner"] = owner
+        state["queue"] = [waiter for waiter in state["queue"] if waiter["task_id"] != identity["task_id"]]
         if not self.compare_and_swap(oid, state, dict(kind="gate_acquired", owner=owner, wait_seconds=wait_seconds)):
             return {"status": "deferred", "reason": "bounded CAS contention"}
         return {"status": "acquired", "owner": owner, "resumed": False}
+
+    def quarantine_waiter(self, task_id: str, *, reason: str, observed_issue_numbers: list[int]) -> bool:
+        """Persist unresolved ownership; never withdraw, complete or steal it."""
+        task_id = validate_task_id(task_id)
+        oid, state = self.read()
+        waiter = next((item for item in state["queue"] if item["task_id"] == task_id), None)
+        if waiter is None:
+            return False
+        disposition = dict(reason=reason, observed_issue_numbers=sorted(set(observed_issue_numbers)))
+        if waiter.get("quarantine") == disposition:
+            return True
+        waiter["quarantine"] = disposition
+        return self.compare_and_swap(oid, state, dict(kind="gate_waiter_quarantined", task_id=task_id,
+                                                     quarantine=disposition))
+
+    def reconcile_waiter(self, task_id: str, *, reservation: Mapping, history_event_ids: list[str],
+                         issue_event_id: str) -> bool:
+        """Clear quarantine only after the reader proves the original Issue chain."""
+        validate_waiter_reservation(reservation)
+        oid, state = self.read()
+        waiter = next((item for item in state["queue"] if item["task_id"] == task_id), None)
+        if waiter is None:
+            return False
+        if not waiter.get("quarantine"):
+            return True
+        if (waiter.get("reservation") != reservation or waiter["ready_event"] not in history_event_ids
+                or not re.fullmatch(r"[0-9a-f]{64}", issue_event_id)):
+            return False
+        waiter.pop("quarantine")
+        return self.compare_and_swap(oid, state, dict(kind="gate_waiter_reconciled", task_id=task_id,
+                                                     issue_event_id=issue_event_id,
+                                                     ready_event=waiter["ready_event"]))
 
     def withdraw(self, task_id: str, *, issue_state: str, issue_event_id: str) -> bool:
         """Remove only a waiter whose durable workflow is no longer eligible."""
@@ -293,7 +383,8 @@ class GitIntegrationGate:
         if receipt["status"] == "completed" and not SHA.fullmatch(str(receipt.get("verified_main", ""))):
             raise IntegrationGateError("completion requires the verified main commit")
         now = self.clock()
-        next_waiter = ordered_waiters(state)[0] if state["queue"] else None
+        queue = admissible_waiters(state)
+        next_waiter = queue[0] if queue else None
         state["owner"] = None
         event = dict(kind="gate_released", owner=owner, reason=reason, receipt=dict(receipt),
                      unity_seconds=owner["unity_seconds"], ci_seconds=owner["ci_seconds"],
@@ -343,7 +434,8 @@ class GitIntegrationGate:
                 or not str(receipt.get("operator_evidence", "")).strip()):
             raise IntegrationGateError("recovery needs explicit fencing, main/PR/Issue reconciliation and preserved evidence")
         state["owner"] = None
-        next_waiter = ordered_waiters(state)[0] if state["queue"] else None
+        queue = admissible_waiters(state)
+        next_waiter = queue[0] if queue else None
         if not self.compare_and_swap(oid, state, dict(kind="gate_recovery_decision", owner=owner,
                                                      receipt=dict(receipt), next_waiter=next_waiter)):
             raise IntegrationGateError("recovery CAS raced; nothing may assume success")

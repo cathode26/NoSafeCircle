@@ -220,7 +220,7 @@ def _state_label_events(
 
     ``None`` means the evidence cannot be proven: the backend exposes no Issue
     events, the payload is not a list of objects, or an event for THIS label
-    lacks an exact positive integer ``id`` or a parsable ``created_at``. A
+    lacks an exact positive integer ``id`` or timezone-aware ``created_at``. A
     caller must treat ``None`` as "no recognized transition". Transport
     failures raise exactly like comment reads and are never swallowed here.
     """
@@ -228,7 +228,7 @@ def _state_label_events(
     reader = getattr(backend, "get_issue_events", None)
     if not callable(reader):
         return None
-    return _parse_state_label_events(reader(issue_number), label)
+    return _parse_state_label_events(reader(issue_number), label, require_timezone=True)
 
 
 def _parse_state_label_events(
@@ -361,78 +361,23 @@ def _pending_transition_target(
     return target
 
 
-def _classify_pending_transition(
+def _replay_pending_workflow_state(
     state: IssueWorkflowState,
     events: Sequence[IssueWorkflowEvent],
-    found_label: str,
-    label_events: Sequence[StateLabelEvent],
     *,
-    now: dt.datetime | None = None,
-) -> PendingStateTransition | None:
-    """Recognize the bounded in-flight transition, or return None.
+    now: dt.datetime,
+) -> IssueWorkflowState | None:
+    """Prove an exact canonical body prefix before granting a waiting exception.
 
-    Every condition must hold. Any failure leaves the snapshot an ordinary
-    invalid snapshot that counts toward the existing bounded fatal policy.
-    ``label_events`` is the proven GitHub event history for ``found_label``
-    (see :func:`_state_label_events`).
+    The ordinary chain validator binds sequence/state/phase, not every body
+    field. Both pending-write shapes must additionally reproduce commit,
+    ownership, lease, branch, approval and timestamp from the hashed history.
     """
-
-    target = _pending_transition_target(state, found_label)
-    if target is None:
-        return None
-    # No separate "target event absent" test is needed or correct here.
-    # validate_event_chain already proved the final event's to_state equals the
-    # body state, which IS the proof that the Action has not written event N+1.
-    # Testing "no event in the chain ever reached target" would instead reject
-    # every legitimate repeat cycle: a task that already went through one
-    # FAIL/PASS carries an earlier event whose to_state is agent_ready.
-    applied = _current_label_application(label_events)
-    if applied is None:
-        return None
-    current = now if now is not None else pending_transition_now()
-    age = (current - applied.created_at).total_seconds()
-    # A negative age means clock skew or a forged future timestamp. Later
-    # unrelated Issue activity cannot move `applied.created_at`, so the window
-    # expires exactly max_age_seconds after the human's label write.
-    if age < 0 or age > PENDING_TRANSITION_MAX_AGE_SECONDS:
-        return None
-    return PendingStateTransition(
-        from_state=state.state,
-        to_state=target,
-        target_label=found_label,
-        label_event_id=applied.event_id,
-        label_applied_at_utc=applied.created_at_utc,
-        age_seconds=age,
-    )
-
-
-def _classify_pending_workflow_write(
-    backend: IssueBackend,
-    issue: Mapping[str, Any],
-    state: IssueWorkflowState,
-    events: Sequence[IssueWorkflowEvent],
-) -> PendingStateTransition | None:
-    """Prove a bounded comment/body/label write while no state label is visible.
-
-    A body may lag at most two canonical events (delivery lease then completion).
-    Replay proves only what to wait for: the original invalid body is retained.
-    Missing, contradictory or expired evidence is never a pending transition.
-    """
-    if (
-        not issue_author_authorized(issue)
-        or set(_issue_labels(issue)) & ALL_STATE_LABELS
-    ):
-        return None
     ordered = tuple(sorted(events, key=lambda event: event.sequence))
-    suffix_length = len(ordered) - state.state_version
-    if not ordered or state.state_version < 1 or suffix_length not in (0, 1, 2):
+    if not ordered or not 1 <= state.state_version <= len(ordered):
         return None
-    now = pending_transition_now()
     try:
         validate_event_chain(state, ordered[:state.state_version])
-        # The normal chain validator binds sequence/state/phase, not every
-        # field in the body. Reproduce the exact body too: a changed commit,
-        # owner, lease, branch or approval must not gain a waiting exception.
         final_state = initial_state(
             task_id=state.task_id,
             task_contract_sha256=ordered[0].task_contract_sha256,
@@ -474,6 +419,99 @@ def _classify_pending_workflow_write(
             if event.sequence == state.state_version and final_state != state:
                 return None
         validate_event_chain(final_state, ordered)
+    except WorkflowContractError:
+        return None
+    return final_state
+
+
+def _classify_pending_transition(
+    state: IssueWorkflowState,
+    events: Sequence[IssueWorkflowEvent],
+    found_label: str,
+    label_events: Sequence[StateLabelEvent],
+    *,
+    now: dt.datetime | None = None,
+    _include_expired: bool = False,
+) -> PendingStateTransition | None:
+    """Recognize the bounded in-flight transition, or return None.
+
+    Every condition must hold. Any failure leaves the snapshot an ordinary
+    invalid snapshot that counts toward the existing bounded fatal policy.
+    ``label_events`` is the proven GitHub event history for ``found_label``
+    (see :func:`_state_label_events`).
+    """
+
+    target = _pending_transition_target(state, found_label)
+    if target is None:
+        return None
+    current = now if now is not None else pending_transition_now()
+    if (
+        len(events) != state.state_version
+        or _replay_pending_workflow_state(state, events, now=current) is None
+    ):
+        return None
+    # No separate "target event absent" test is needed or correct here.
+    # validate_event_chain already proved the final event's to_state equals the
+    # body state, which IS the proof that the Action has not written event N+1.
+    # Testing "no event in the chain ever reached target" would instead reject
+    # every legitimate repeat cycle: a task that already went through one
+    # FAIL/PASS carries an earlier event whose to_state is agent_ready.
+    applied = _current_label_application(label_events)
+    if (
+        applied is None
+        or len({item.event_id for item in label_events}) != len(label_events)
+        or not default_actor_policy().is_authorized_actor(applied.actor)
+    ):
+        return None
+    written = _parse_github_timestamp(state.updated_at_utc, require_timezone=True)
+    if written is None or applied.created_at < written:
+        # An older ready-label application belongs to a previous human cycle;
+        # it cannot explain why this newly written handoff has not converged.
+        return None
+    age = (current - applied.created_at).total_seconds()
+    # A negative age means clock skew or a forged future timestamp. Later
+    # unrelated Issue activity cannot move `applied.created_at`, so the window
+    # expires exactly max_age_seconds after the human's label write.
+    if age < 0 or (not _include_expired and age > PENDING_TRANSITION_MAX_AGE_SECONDS):
+        return None
+    return PendingStateTransition(
+        from_state=state.state,
+        to_state=target,
+        target_label=found_label,
+        label_event_id=applied.event_id,
+        label_applied_at_utc=applied.created_at_utc,
+        age_seconds=age,
+    )
+
+
+def _classify_pending_workflow_write(
+    backend: IssueBackend,
+    issue: Mapping[str, Any],
+    state: IssueWorkflowState,
+    events: Sequence[IssueWorkflowEvent],
+    *,
+    _include_expired: bool = False,
+) -> PendingStateTransition | None:
+    """Prove a bounded comment/body/label write while no state label is visible.
+
+    A body may lag at most two canonical events (delivery lease then completion).
+    Replay proves only what to wait for: the original invalid body is retained.
+    Missing, contradictory or expired evidence is never a pending transition.
+    """
+    if (
+        not issue_author_authorized(issue)
+        or set(_issue_labels(issue)) & ALL_STATE_LABELS
+    ):
+        return None
+    ordered = tuple(sorted(events, key=lambda event: event.sequence))
+    suffix_length = len(ordered) - state.state_version
+    if not ordered or state.state_version < 1 or suffix_length not in (0, 1, 2):
+        return None
+    now = pending_transition_now()
+    final_state = _replay_pending_workflow_state(state, ordered, now=now)
+    if final_state is None:
+        return None
+    try:
         for event in ordered:
             if event.event_type in (
                 WorkflowEventType.AUTOMATED_VALIDATION_PASSED,
@@ -491,7 +529,9 @@ def _classify_pending_workflow_write(
     written = _parse_github_timestamp(last.occurred_at_utc, require_timezone=True)
     if (
         written is None
-        or not 0 <= (now - written).total_seconds() <= PENDING_TRANSITION_MAX_AGE_SECONDS
+        or (now - written).total_seconds() < 0
+        or (not _include_expired
+            and (now - written).total_seconds() > PENDING_TRANSITION_MAX_AGE_SECONDS)
     ):
         return None
     # Only a fully proven candidate pays for a single (plan-cached) event read.
@@ -527,7 +567,8 @@ def _classify_pending_workflow_write(
     if any(
         not policy.is_authorized_actor(item.actor)
         or not written <= item.created_at <= now
-        or (now - item.created_at).total_seconds() > PENDING_TRANSITION_MAX_AGE_SECONDS
+        or (not _include_expired
+            and (now - item.created_at).total_seconds() > PENDING_TRANSITION_MAX_AGE_SECONDS)
         for item in relevant
     ):
         return None
@@ -578,6 +619,44 @@ def _classify_pending_workflow_write(
         workflow_event_id=last.event_id,
         workflow_event_at_utc=last.occurred_at_utc,
     )
+
+
+def _expired_pending_workflow_write(
+    backend: IssueBackend,
+    issue: Mapping[str, Any],
+    snapshot: IssueWorkflowSnapshot,
+) -> bool:
+    """Prove expiry only to preserve fatal corruption instead of quarantining it.
+
+    This does not grant a waiting exception, repair state, or redate a write.
+    The original current clock and every canonical/actor/order proof still
+    apply; only the age upper bound is inspected separately. Public snapshots
+    always use the bounded classifiers and never receive expired pending data.
+    """
+    if (
+        snapshot.valid or snapshot.pending_transition is not None
+        or snapshot.state is None or not issue_author_authorized(issue)
+    ):
+        return False
+    state = snapshot.state
+    labels = set(_issue_labels(issue)) & ALL_STATE_LABELS
+    proof = None
+    if not labels:
+        proof = _classify_pending_workflow_write(
+            backend, issue, state, snapshot.events, _include_expired=True,
+        )
+    else:
+        ready_label = STATE_LABELS[WorkflowState.AGENT_READY.value]
+        expected_label = STATE_LABELS[state.state.value]
+        if len(snapshot.reasons) == 1 and labels in (
+            {ready_label}, {expected_label, ready_label},
+        ) and _pending_transition_target(state, ready_label) is not None:
+            label_events = _state_label_events(backend, snapshot.issue_number, ready_label)
+            if label_events is not None:
+                proof = _classify_pending_transition(
+                    state, snapshot.events, ready_label, label_events, _include_expired=True,
+                )
+    return proof is not None and proof.age_seconds > proof.max_age_seconds
 
 
 class IssueWorkflowStoreError(TaskReviewContractError):
@@ -797,6 +876,9 @@ class IssueWorkflowSnapshot:
     # Explicit typed classification of a bounded in-flight label-ahead-of-body
     # transition. Never encoded in, or re-derived from, `reasons`.
     pending_transition: PendingStateTransition | None = None
+    # Exact re-reads may observe closure after an OPEN listing. Preserve that
+    # fact for duplicate filtering; it is not itself completion authority.
+    issue_closed: bool = False
 
     @property
     def is_pending_transition(self) -> bool:
@@ -836,6 +918,39 @@ def issue_author_authorized(issue: Mapping[str, Any]) -> bool:
 
     login = actor_login(issue)
     return login is not None and default_actor_policy().is_authorized_actor(login)
+
+
+def closed_workflow_candidate(issue: Mapping[str, Any]) -> bool:
+    """Keep terminal bodies and supported completion prefixes for history reads.
+
+    A close alone grants no authority. Historical incomplete drafts outside the
+    delivery phases remain excluded; a delivery body may be one lease and one
+    COMPLETED comment behind and must be classified before it can be discarded.
+    """
+    if str(issue.get("state") or "").upper() != "CLOSED":
+        return True
+    try:
+        state = parse_state(str(issue.get("body") or ""))
+    except WorkflowContractError:
+        return False
+    return state is not None and (
+        state.state is WorkflowState.COMPLETE
+        or (state.phase in {WorkflowPhase.DELIVERY_EVIDENCE, WorkflowPhase.MERGE_CLOSEOUT}
+            and state.state in {WorkflowState.AGENT_READY, WorkflowState.AGENT_WORKING})
+    )
+
+
+def closed_incomplete_duplicate(issue: Mapping[str, Any], snapshot: IssueWorkflowSnapshot) -> bool:
+    """Only a fully read, coherent incomplete history proves an old duplicate.
+
+    A pending completion retains ownership. Expired, malformed or contradictory
+    supported completion histories remain invalid, never absent authority.
+    """
+    return ((getattr(snapshot, "issue_closed", False)
+             or str(issue.get("state") or "").upper() == "CLOSED")
+            and snapshot.valid and snapshot.state is not None
+            and snapshot.state.state is not WorkflowState.COMPLETE
+            and snapshot.pending_transition is None)
 
 
 def _issue_labels(issue: Mapping[str, Any]) -> tuple[str, ...]:
@@ -1086,6 +1201,7 @@ def _snapshot(
         reasons=tuple(reasons),
         ignored_comment_diagnostics=tuple(ignored_diagnostics),
         pending_transition=pending,
+        issue_closed=str(issue.get("state") or "").upper() == "CLOSED",
     )
 
 
@@ -1209,7 +1325,7 @@ def _consistent_snapshots(
                 ),
             )
             return True
-        if str(current.get("state") or "").upper() == "CLOSED":
+        if not closed_workflow_candidate(current):
             entries[number] = _ConsistencyScanEntry(issue_number=number)
             return True
         snapshot = _snapshot(backend, current)
@@ -1479,7 +1595,7 @@ class IssueWorkflowService:
         self,
         task: Mapping[str, Any],
     ) -> tuple[list[str], list[str], str | None]:
-        """Check every open workflow-claiming Issue for resource reservations.
+        """Check active workflows and pending closed completions for resources.
 
         Every valid open AUTHORIZED managed Issue whose state is not COMPLETE
         reserves its committed task resources — including ``agent_ready``,
@@ -1487,6 +1603,10 @@ class IssueWorkflowService:
         or merge closeout still owns its branch's write surfaces. An
         authorized Issue that claims workflow state but cannot be validated
         surfaces as a blocking coordination conflict requiring repair.
+
+        A supported closed completion prefix is classified before duplicate
+        filtering and keeps its resources while pending, even if its body is
+        already COMPLETE. Durable quarantines retain explicit known ownership.
 
         An Issue whose author is NOT on the committed actor allow-list carries
         no workflow authority at all: it never reserves resources and never
@@ -1507,20 +1627,26 @@ class IssueWorkflowService:
         selected_resources = set(task.get("exclusive_resources") or [])
         conflicts: list[str] = []
         diagnostics: list[str] = []
-        all_benign = True
+        from .gate_waiter_reconciliation import quarantined_waiters
+        for waiter in quarantined_waiters(self.backend):
+            reservation = waiter.get("reservation")
+            reserved = {item.casefold() for item in reservation["exclusive_resources"]} if reservation else set()
+            if (waiter["task_id"] == task.get("id") or not selected_resources or not reserved
+                    or {item.casefold() for item in selected_resources} & reserved):
+                conflicts.append(f"{waiter['task_id']} has durable quarantined ownership; reconcile its exact Issue history")
+            diagnostics.append(f"{waiter['task_id']} remains quarantined; no completion or withdrawal is inferred")
+        all_benign = not conflicts
         # True only while every recorded conflict is the bounded body/event
         # visibility skew. One unreadable Issue, one repair-worthy Issue, or one
         # real reservation overlap clears it permanently for this scan.
-        all_observation_skew = True
+        all_observation_skew = not conflicts
         # A resource-less candidate still scans every open Issue: an authorized
         # Issue claiming managed workflow state with an invalid event chain has
         # untrustworthy ownership/reservation state and must block coordination
         # until repaired, even when the selected task reserves nothing itself.
         candidates: list[Mapping[str, Any]] = []
         for issue in self.backend.list_issues():
-            if str(issue.get("state") or "").upper() == "CLOSED":
-                # A closed COMPLETE Issue reserves nothing; a closed incomplete
-                # duplicate carries no workflow authority (completed_issue_guard).
+            if not closed_workflow_candidate(issue):
                 continue
             number = issue.get("number")
             body = str(issue.get("body") or "")
@@ -1536,6 +1662,7 @@ class IssueWorkflowService:
                     )
                 continue
             candidates.append(issue)
+        issues_by_number = {issue["number"]: issue for issue in candidates}
         # One deferred-retry scan for the whole listing: every candidate shares
         # the same bounded consistency ladder instead of the first Issue
         # spending the entire scan deadline.
@@ -1571,6 +1698,8 @@ class IssueWorkflowService:
             snapshot = entry.snapshot
             if snapshot is None:
                 continue
+            if closed_incomplete_duplicate(issues_by_number[number], snapshot):
+                continue
             if snapshot.state is not None and snapshot.state.task_id == task.get("id"):
                 continue
             if snapshot.state is None or (
@@ -1585,7 +1714,7 @@ class IssueWorkflowService:
                 if not _is_exhausted_consistency_skew(snapshot):
                     all_observation_skew = False
                 continue
-            if snapshot.state.state is WorkflowState.COMPLETE:
+            if snapshot.state.state is WorkflowState.COMPLETE and snapshot.pending_transition is None:
                 continue
             if not selected_resources:
                 # A valid Issue reserves resources only by actual overlap, and

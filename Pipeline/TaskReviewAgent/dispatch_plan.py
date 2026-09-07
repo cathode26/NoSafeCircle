@@ -842,7 +842,9 @@ class PlanScopedIssueBackend:
             self._issues = [
                 item for item in self._issues if item.get("number") != issue_number
             ]
-            if issue is not None and str(issue.get("state") or "").upper() != "CLOSED":
+            if issue is not None:
+                # A refreshed closed completion prefix remains discoverable.
+                # The workflow readers, not the cache, classify duplicates.
                 self._issues.append(issue)
         return issue
 

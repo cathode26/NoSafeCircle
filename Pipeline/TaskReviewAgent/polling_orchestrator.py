@@ -860,6 +860,8 @@ def observe_durable_workflows(
     No backend mutation method is called.
     """
 
+    from .issue_workflow_store import closed_workflow_candidate, closed_incomplete_duplicate
+
     source_root = Path(source).resolve()
     checkout_parent = Path(checkout_root)
     selected_backend = backend or GhIssueBackend(source_root=source_root)
@@ -881,7 +883,7 @@ def observe_durable_workflows(
                 closed_state = parse_state(body)
             except WorkflowContractError:
                 continue
-            if closed_state is None or closed_state.state is not WorkflowState.COMPLETE:
+            if not closed_workflow_candidate(issue):
                 continue
             number = issue.get("number")
             if type(number) is not int or number < 1:
@@ -907,6 +909,7 @@ def observe_durable_workflows(
                 # conflicting trusted evidence still fails closed above.
                 continue
         candidates.append(issue)
+    issues_by_number = {issue["number"]: issue for issue in candidates}
     scanned = _consistent_snapshots(
         selected_backend,
         candidates,
@@ -925,6 +928,8 @@ def observe_durable_workflows(
             )
         snapshot = entry.snapshot
         if snapshot is None:
+            continue
+        if closed_incomplete_duplicate(issues_by_number.get(snapshot.issue_number, {}), snapshot):
             continue
         # A recognized in-flight transition is an expected, bounded GitHub
         # Action window, not an observation failure. It is read from the
@@ -960,7 +965,7 @@ def observe_durable_workflows(
             )
         snapshots.append(snapshot)
         state = snapshot.state
-        if state.state is WorkflowState.COMPLETE:
+        if state.state is WorkflowState.COMPLETE and pending_transition is None:
             continue
         try:
             task = dict(load_task(state.task_id))
@@ -1089,6 +1094,15 @@ def observe_durable_workflows(
         )
     if transient_errors:
         raise TransientIntegrationObservationError("; ".join(transient_errors))
+    from .gate_waiter_reconciliation import quarantined_waiters
+    for waiter in quarantined_waiters(selected_backend):
+        reservation = waiter.get("reservation")
+        reservations.append(IntegrationReservation(
+            task_id=waiter["task_id"], workflow_state="quarantined", phase=None,
+            branch=None, head=None, checkout_path=None,
+            exclusive_resources=tuple(reservation["exclusive_resources"]) if reservation else (),
+            predicted_paths=(), actual_paths=(), unity_serialized_assets=(), shared_systems=(),
+            confidence=0.0, evidence_type="durable_waiter_quarantine", surface_unknown=True))
     return DurableWorkflowObservation(
         snapshots=tuple(snapshots),
         reservations=tuple(reservations),
@@ -3021,6 +3035,9 @@ class PollingOrchestrator:
             )
             consistency_retry_budget = IssueConsistencyRetryBudget()
         try:
+            gate_admission = getattr(self, "integration_gate_admission", None)
+            if shared_issue_backend is not None and gate_admission is not None:
+                shared_issue_backend = gate_admission.prepare_backend(shared_issue_backend)
             reservations = self._integration_reservations(
                 backend=shared_issue_backend,
                 consistency_retry_budget=consistency_retry_budget,
@@ -3731,6 +3748,9 @@ class PollingOrchestrator:
                         GhIssueBackend(source_root=self.source)
                     )
                     fresh_budget = IssueConsistencyRetryBudget()
+                    gate_admission = getattr(self, "integration_gate_admission", None)
+                    if gate_admission is not None:
+                        fresh_backend = gate_admission.prepare_backend(fresh_backend)
                 fresh_reservations = self._integration_reservations(
                     backend=fresh_backend,
                     consistency_retry_budget=fresh_budget,

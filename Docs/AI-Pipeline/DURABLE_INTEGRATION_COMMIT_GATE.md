@@ -53,7 +53,7 @@ Each parent-linked journal commit stores:
 | Field | Meaning |
 | --- | --- |
 | `schema_version`, `repository`, `target_branch`, `revision` | Versioned domain identity |
-| `queue` | Unique task IDs, original ready time/event hash, advisory wake endpoints |
+| `queue` | Unique task IDs, original ready time/event hash, advisory wake endpoints, optional exact Issue/contract/resource reservation and waiter quarantine disposition |
 | `owner` | Null, or the exact lease record below |
 | `event` | This immutable transition, timestamp, previous OID, and applicable receipt |
 
@@ -112,9 +112,30 @@ Fairness applies to the registered eligible set. Timestamps are parsed as UTC
 instants and equal times use the task ID. A task becoming eligible after another
 has acquired cannot preempt the owner. Registration is idempotent and keeps the
 original ready event rather than resetting priority on every controller poll.
-Malformed/missing queued Issue authority is an actionable stop, never silently
-treated as completion. A verified human/blocked/complete transition can withdraw
-a waiter without deleting its history.
+Missing or malformed queued Issue authority receives a durable waiter quarantine,
+never an inferred completion or withdrawal. Host reconciliation runs before the
+default scheduler and coherent-snapshot workflow readers. Stage 2 retains its
+known resources as an unresolved reservation; the task cannot be selected or
+reinitialized. Unknown or empty resource ownership blocks admission. Known,
+nonempty disjoint resources permit the existing architect disjointness review;
+the final gate independently checks those resources again. Conflicting waiters
+remain queued while a proven-disjoint waiter may proceed. FIFO is retained among
+admissible waiters, and quarantined entries are never silently removed.
+
+Reappearance clears quarantine only when the original ready event remains in
+the validated history and the exact Issue number, committed task-contract hash,
+and reserved resources match. Identical reconciliation is a no-op. An unbound
+replacement Issue or a legacy entry with unknown ownership requires explicit
+operator investigation; automatic admission cannot establish the missing facts.
+A verified human/blocked/complete transition can withdraw a reconciled waiter
+without deleting its history.
+
+A cryptographically proven pending workflow write is a bounded delivery wait at
+the legacy-owner fence, preserving the queue and resources without buying an
+architect or worker turn. Closed completion prefixes reach full-history
+classification before duplicate filtering. Even a COMPLETE body retains resources
+while its final label write is pending. Expired proven writes follow the existing
+fatal corruption policy; quarantine never renews their allowance.
 
 ## Human and automated validation
 

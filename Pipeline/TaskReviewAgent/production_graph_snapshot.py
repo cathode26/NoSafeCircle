@@ -336,6 +336,11 @@ class ProductionCoherentSnapshotter:
     ) -> DurableWorkflowObservation:
         backend = PlanScopedIssueBackend(self.backend_factory(self.source))
         try:
+            gate_admission = getattr(self.scheduler, "integration_gate_admission", None)
+            if gate_admission is not None:
+                backend = gate_admission.prepare_backend(
+                    backend, task_loader=lambda task_id: load_committed_task(
+                        self.source, task_id, commit=source_identity.head))
             return observe_durable_workflows(
                 source=self.source,
                 checkout_root=self.checkout_root,

@@ -64,9 +64,9 @@ def _completed_aware_candidates(
 ) -> list[dict[str, Any]]:
     """Return active matches plus the canonical closed COMPLETE workflow.
 
-    Closed non-complete Issues are ignored. They may be manually closed drafts,
-    abandoned duplicates, or historical operator mistakes; none can authorize a
-    new run. A closed COMPLETE Issue remains the durable terminal authority.
+    Historical non-delivery drafts remain excluded. Delivery completion prefixes
+    reach full-history classification before duplicate filtering; closure alone
+    never authorizes a new run. A coherent COMPLETE Issue is terminal authority.
     """
 
     task_id = store.validate_task_id(task_id)
@@ -78,7 +78,7 @@ def _completed_aware_candidates(
             # Public-repository Issues from unauthorized logins never become
             # managed workflow authority, open or closed.
             continue
-        if _issue_closed(issue) and not _closed_complete(issue):
+        if not store.closed_workflow_candidate(issue):
             continue
         candidates.append(issue)
     return candidates
@@ -99,6 +99,9 @@ def _completed_aware_find(
 
     task_id = store.validate_task_id(task_id)
     candidates = _completed_aware_candidates(self.backend.list_issues(), task_id)
+    from .gate_waiter_reconciliation import quarantined_waiters
+    if any(waiter["task_id"] == task_id for waiter in quarantined_waiters(self.backend)):
+        raise store.IssueWorkflowStoreError(f"{task_id} has durable quarantined ownership; reconcile before resuming")
     active: list[dict[str, Any]] = []
     deadline = (
         self.consistency_retry_budget.deadline()
@@ -107,6 +110,10 @@ def _completed_aware_find(
     )
     for issue in candidates:
         if not (_issue_closed(issue) and _closed_complete(issue)):
+            if _issue_closed(issue):
+                snapshot = store._consistent_snapshot(self.backend, issue, deadline=deadline)
+                if snapshot is None or store.closed_incomplete_duplicate(issue, snapshot):
+                    continue
             active.append(issue)
             continue
         number = issue.get("number")
