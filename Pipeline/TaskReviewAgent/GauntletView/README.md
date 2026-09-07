@@ -189,9 +189,11 @@ Legend labels are presentation only and live in the `STATES` map at the top of
 | Task Retired | `cancelled` | contract cancelled/superseded |
 | Task Excluded | `excluded` | in the manifest exclusion list |
 
-`Task Working` is blue while `Task In CI` is teal. `Task Blocked` is orange
-while `Task Failed` is red. Ordinary available work is purple while available
-decomposition is gold, keeping each neighboring legend pair easy to scan.
+The legend uses a high-separation categorical palette across every state, not
+neighboring shades for related states. In particular: `Task Working` is blue,
+`Task In CI` is teal, `Task Needs You` is pink, `Task Blocked` is orange,
+`Task Failed` is red, `Task Retired` is brown, and `Task Excluded` is silver.
+Ordinary available work is purple while available decomposition is yellow.
 
 Labels fade out below a zoom threshold so a 1,000-node graph stays readable
 when fully zoomed out.

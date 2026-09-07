@@ -8,7 +8,6 @@ state classification, SSE fingerprints, and visually distinct state colors.
 
 from __future__ import annotations
 
-import colorsys
 import importlib.util
 import json
 import os
@@ -1461,7 +1460,7 @@ class GauntletViewHtmlTests(unittest.TestCase):
         self.assertNotIn("window.open", tap_source)
         self.assertNotIn("location.href", tap_source)
 
-    def test_problem_state_pairs_use_different_hues(self) -> None:
+    def test_every_state_color_is_visibly_separated(self) -> None:
         def color(state: str) -> tuple[int, int, int]:
             match = re.search(
                 rf"^\s*{state}:\s+\{{ color: '#([0-9a-fA-F]{{6}})'",
@@ -1472,15 +1471,23 @@ class GauntletViewHtmlTests(unittest.TestCase):
             value = match.group(1)
             return tuple(int(value[index:index + 2], 16) for index in (0, 2, 4))
 
-        def hue(rgb: tuple[int, int, int]) -> float:
-            return colorsys.rgb_to_hsv(*(component / 255 for component in rgb))[0]
-
-        working = color("active")
-        checks = color("checks_pending")
-        blocked = color("blocked")
-        failed = color("failed")
-        self.assertGreater(abs(hue(working) - hue(checks)), 0.08)
-        self.assertGreater(abs(hue(blocked) - hue(failed)), 0.06)
+        states = (
+            "ready", "decomposition_ready", "pending", "human_action",
+            "blocked", "failed", "active", "checks_pending",
+            "integration_queued", "complete", "cancelled", "excluded",
+        )
+        colors = {state: color(state) for state in states}
+        self.assertEqual(len(set(colors.values())), len(states))
+        for index, left in enumerate(states):
+            for right in states[index + 1:]:
+                distance = sum(
+                    (a - b) ** 2 for a, b in zip(colors[left], colors[right])
+                ) ** 0.5
+                self.assertGreaterEqual(
+                    distance,
+                    75.0,
+                    f"{left} and {right} are too visually similar: {distance:.1f}",
+                )
 
     def test_available_decomposition_uses_a_distinct_color_and_legend_label(self) -> None:
         def color(state: str) -> tuple[int, int, int]:

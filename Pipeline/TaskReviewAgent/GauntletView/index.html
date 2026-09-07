@@ -131,32 +131,32 @@
 // Keys are server state values and must not change; labels and order are
 // presentation. Grouped by who currently holds the task.
 const STATES = {
-  ready:          { color: '#8957e5', label: 'Task Unstarted', group: 'awaiting admission',
+  ready:          { color: '#a855f7', label: 'Task Unstarted', group: 'awaiting admission',
                     hint: 'dependencies satisfied; waiting for the controller to admit it' },
-  decomposition_ready: { color: '#e3b341', label: 'Decomposition Available', group: 'awaiting admission',
+  decomposition_ready: { color: '#ffd23f', label: 'Decomposition Available', group: 'awaiting admission',
                     hint: 'dependencies satisfied; this contract is ready for decomposition' },
-  pending:        { color: '#484f58', label: 'Task Dependencies Unmet', group: 'awaiting admission',
+  pending:        { color: '#56606b', label: 'Task Dependencies Unmet', group: 'awaiting admission',
                     hint: 'one or more depends_on tasks are not complete yet' },
 
-  human_action:   { color: '#d29922', label: 'Task Needs You', group: 'on you',
+  human_action:   { color: '#ff4fb3', label: 'Task Needs You', group: 'on you',
                     hint: 'human_action_required — your Unity checklist' },
-  blocked:        { color: '#f0883e', label: 'Task Blocked',   group: 'on you',
+  blocked:        { color: '#ff7a00', label: 'Task Blocked',   group: 'on you',
                     hint: 'worker stopped short — you inspect blockers or repair the environment' },
-  failed:         { color: '#f85149', label: 'Task Failed',    group: 'on you',
+  failed:         { color: '#ef233c', label: 'Task Failed',    group: 'on you',
                     hint: 'worker run failed — you diagnose' },
 
-  active:         { color: '#58a6ff', label: 'Task Working',   group: 'in flight',
+  active:         { color: '#3b82f6', label: 'Task Working',   group: 'in flight',
                     hint: 'a worker is running this right now' },
-  checks_pending: { color: '#2dd4bf', label: 'Task In CI',     group: 'in flight',
+  checks_pending: { color: '#00d4a8', label: 'Task In CI',     group: 'in flight',
                     hint: 'waiting on GitHub pull-request checks' },
-  integration_queued: { color: '#db61a2', label: 'Verified — Waiting for CI Slot', group: 'in flight',
+  integration_queued: { color: '#f8fafc', label: 'Verified — Waiting for CI Slot', group: 'in flight',
                     hint: 'verified work is queued behind the local integration gate' },
 
-  complete:       { color: '#3fb950', label: 'Task Complete',  group: 'finished',
+  complete:       { color: '#22c55e', label: 'Task Complete',  group: 'finished',
                     hint: 'committed TaskGraph conformance evidence proves delivery' },
-  cancelled:      { color: '#30363d', label: 'Task Retired',   group: 'finished',
+  cancelled:      { color: '#9a6a3a', label: 'Task Retired',   group: 'finished',
                     hint: 'contract cancelled/superseded in the task graph' },
-  excluded:       { color: '#6e7681', label: 'Task Excluded',  group: 'finished',
+  excluded:       { color: '#aab4c0', label: 'Task Excluded',  group: 'finished',
                     hint: 'named in the run manifest exclusion list' },
 };
 
