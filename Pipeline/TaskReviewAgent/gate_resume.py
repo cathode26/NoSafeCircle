@@ -240,8 +240,9 @@ def _prove(admission: Any, entry: tuple, *, source_head: str, refresh: dict, res
     oid, gate_state = _require_trustworthy_gate(admission)
     queue = ordered_waiters(gate_state)
     _require(admission.observation is not None and oid == admission.observation[0]
-             and gate_state["owner"] is None and bool(queue) and queue[0]["task_id"] == task_id,
-             "durable gate head/owner changed")
+             and gate_state["owner"] is None
+             and any(waiter["task_id"] == task_id for waiter in queue),
+             "durable gate selection/owner changed")
     _require(refresh.get("after") == source_head
              and not refresh.get("local_ahead")
              and refresh.get("remote_head", source_head) == source_head

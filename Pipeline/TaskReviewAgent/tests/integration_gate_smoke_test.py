@@ -105,7 +105,26 @@ class GateTests(unittest.TestCase):
         restarted = GitIntegrationGate(self.f.clones[1])
         _, state = restarted.read()
         self.assertEqual([w["task_id"] for w in ordered_waiters(state)], ["NSC-922", "NSC-923", "NSC-924"])
-        self.assertEqual(restarted.acquire(self.f.identities[1])["status"], "deferred")
+        self.assertEqual(restarted.acquire(self.f.identities[1])["status"], "acquired")
+        _, acquired = restarted.read()
+        self.assertEqual(acquired["owner"]["task_id"], "NSC-923")
+        self.assertEqual(
+            [w["task_id"] for w in ordered_waiters(acquired)],
+            ["NSC-922", "NSC-924"],
+        )
+
+    def test_unowned_gate_allows_a_runnable_nonhead_waiter_without_discarding_others(self):
+        self.f.queue()
+
+        result = self.f.gates[1].acquire(self.f.identities[1])
+
+        self.assertEqual(result["status"], "acquired")
+        _, state = self.f.gates[1].read()
+        self.assertEqual(state["owner"]["task_id"], "NSC-923")
+        self.assertEqual(
+            [waiter["task_id"] for waiter in ordered_waiters(state)],
+            ["NSC-922", "NSC-924"],
+        )
 
     def test_second_process_cannot_acquire_same_domain(self):
         self.f.queue()

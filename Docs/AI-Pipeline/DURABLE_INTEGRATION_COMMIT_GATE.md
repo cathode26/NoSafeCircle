@@ -87,10 +87,14 @@ structured scheduler events.
 ## Delivery, waiting and wake-up
 
 The production scheduler registers the eligible delivery set before selecting
-its oldest waiter. It filters occupied/queued delivery tasks before the existing
-architect selection. Implementation and ExecutionCrew work remain parallel and
-keep all existing admission checks. Workers independently repeat gate admission,
-so a second controller cannot bypass the remote-ref arbiter.
+its oldest waiter from that controller's authorized set. An older waiter owned
+by another run scope stays durable but cannot strand an unowned gate: the
+current controller may select its own oldest authorized waiter, and the gate's
+remote-ref compare-and-swap still permits only one owner. It filters occupied/
+queued delivery tasks before the existing architect selection. Implementation
+and ExecutionCrew work remain parallel and keep all existing admission checks.
+Workers independently repeat gate admission, so a second controller cannot
+bypass the remote-ref arbiter.
 
 `integration_gate_waiting` is worker status `blocked`, exit `3`, with the normal
 identity-verified `run_result.json`. It does not increment the fatal counter.
@@ -119,8 +123,12 @@ known resources as an unresolved reservation; the task cannot be selected or
 reinitialized. Unknown or empty resource ownership blocks admission. Known,
 nonempty disjoint resources permit the existing architect disjointness review;
 the final gate independently checks those resources again. Conflicting waiters
-remain queued while a proven-disjoint waiter may proceed. FIFO is retained among
-admissible waiters, and quarantined entries are never silently removed.
+remain queued while a proven-disjoint waiter may proceed. FIFO is retained
+within each controller's authorized admissible set. Waiters outside that set
+retain their original ready time and position for a controller that can run
+them, but they do not create a global liveness dependency. A held owner always
+blocks every other waiter regardless of scope, and quarantined entries are
+never silently removed.
 
 Reappearance clears quarantine only when the original ready event remains in
 the validated history and the exact Issue number, committed task-contract hash,

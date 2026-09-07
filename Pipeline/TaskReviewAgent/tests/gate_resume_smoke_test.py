@@ -163,7 +163,7 @@ class GateResumeTests(unittest.TestCase):
                 with self.subTest(provider=provider,tier=tier):
                     self.assert_bypass(self.fixture(provider=provider,tier=tier))
 
-    def test_nonhead_and_conflicting_owner_never_launch(self):
+    def test_nonhead_launches_when_unowned_but_conflicting_owner_never_launches(self):
         for owned in (False,True):
             with self.subTest(owned=owned):
                 f=self.fixture()
@@ -172,9 +172,28 @@ class GateResumeTests(unittest.TestCase):
                 f.admission.gate.enqueue("NSC-778",ready_at="2020-01-01T00:00:00Z",ready_event="a"*64)
                 if owned:
                     f.admission.gate.acquire(owner_identity("NSC-778","other-run","other-worker"))
-                self.assertEqual(f.poll().status,"idle")
-                self.assertEqual(len(f.processes.calls),0)
+                self.assertEqual(f.poll().status,"idle" if owned else "worker_launched")
+                self.assertEqual(len(f.processes.calls),0 if owned else 1)
                 self.assertEqual(len(f.architect.calls),0)
+
+    def test_unowned_out_of_scope_waiter_does_not_strand_authorized_resume(self):
+        f = self.fixture()
+        other = {**f.task, "id": "NSC-778"}
+        f.service._initialize_issue(other, now="2020-01-01T00:00:00Z")
+        f.admission.gate.enqueue(
+            "NSC-778",
+            ready_at="2020-01-01T00:00:00Z",
+            ready_event="a" * 64,
+        )
+
+        self.assert_bypass(f)
+
+        _, state = f.admission.gate.read()
+        self.assertIsNone(state["owner"])
+        self.assertEqual(
+            [waiter["task_id"] for waiter in state["queue"]],
+            ["NSC-778", TASK],
+        )
 
     def test_stale_wake_does_not_override_current_owner(self):
         f=self.fixture()

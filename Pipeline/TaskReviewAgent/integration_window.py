@@ -431,7 +431,12 @@ class GateAdmission:
         self.observation = (oid, state)
         owner = state["owner"]
         queue = admissible_waiters(state)
-        next_id = queue[0]["task_id"] if queue and owner is None else None
+        eligible_ids = {entry[2]["task"]["id"] for entry in delivery}
+        selected = next(
+            (waiter for waiter in queue if waiter["task_id"] in eligible_ids),
+            None,
+        )
+        next_id = selected["task_id"] if selected is not None and owner is None else None
         self.scheduler.events.emit("integration_gate_observed", gate_ref=self.gate.ref, owner=owner,
                                    queued_task_ids=[w["task_id"] for w in queue], next_task_id=next_id)
         return tuple(entry for entry in entries

@@ -363,10 +363,15 @@ class GitIntegrationGate:
                 return {"status": "acquired", "owner": state["owner"], "resumed": True}
             return {"status": "deferred", "owner": state["owner"], "reason": "gate occupied; no TTL recovery"}
         queue = admissible_waiters(state)
-        if not queue or queue[0]["task_id"] != identity["task_id"]:
-            return {"status": "deferred", "reason": "older durable waiter has priority"}
+        selected_index = next(
+            (index for index, waiter in enumerate(queue) if waiter["task_id"] == identity["task_id"]),
+            None,
+        )
+        if selected_index is None:
+            return {"status": "deferred", "reason": "task is not an admissible durable waiter"}
+        selected = queue[selected_index]
         now = self.clock()
-        wait_seconds = max(0.0, (timestamp(now) - timestamp(queue[0]["ready_at"])).total_seconds())
+        wait_seconds = max(0.0, (timestamp(now) - timestamp(selected["ready_at"])).total_seconds())
         owner = dict(identity, repository=self.repository_id, target_branch=self.target_branch,
                      acquired_at=now, heartbeat_at=now, progress="acquired", status="held",
                      operation=None, unity_seconds=0.0, ci_seconds=0.0,
@@ -376,7 +381,17 @@ class GitIntegrationGate:
             waiter for waiter in state["queue"]
             if waiter["task_id"] != identity["task_id"]
         ]
-        if not self.compare_and_swap(oid, state, dict(kind="gate_acquired", owner=owner, wait_seconds=wait_seconds)):
+        if not self.compare_and_swap(
+            oid,
+            state,
+            dict(
+                kind="gate_acquired",
+                owner=owner,
+                wait_seconds=wait_seconds,
+                prior_queue_position=selected_index + 1,
+                bypassed_waiter_count=selected_index,
+            ),
+        ):
             return {"status": "deferred", "reason": "bounded CAS contention"}
         return {"status": "acquired", "owner": owner, "resumed": False}
 
