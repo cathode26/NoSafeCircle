@@ -113,6 +113,18 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Pipeline\TaskReviewAge
 
 A resume must match the persisted manifest. Capacity is part of that manifest, so a run created at a non-default `-MaxWorkers` must be resumed with the same value; a mismatch fails closed instead of silently re-scoping. A run whose `graph-complete.json` receipt already exists returns success from the receipt probe alone, before GitHub, Docker, the architect, or any worker is touched.
 
+After that receipt probe reports work remains and launcher preflight succeeds,
+the architect-managed controller starts or reuses a hidden GauntletView bound to
+the exact immutable run identity and controller branch, then prints its loopback
+URL. It never opens a browser or replaces an unknown listener. The viewer remains read-only unless the
+operator explicitly adds `-EnableGauntletViewHumanApproval`. That separate
+switch exposes only the current managed Issue's one-time, same-origin exact-plan
+or exact-commit human action; omission performs zero Issue transitions. It is
+an architect-managed option and is refused for scheduler children,
+`-DirectManual`, and observe mode. See
+`Pipeline/TaskReviewAgent/GauntletView/README.md` for its identity and stale-click
+guards.
+
 ### Repository assertion
 
 The controller requires an explicit `--confirm-repository`. When you do not supply `-ConfirmRepository`, the launcher resolves it from the source checkout's Git `origin` using the same committed authority the controller then re-asserts against that origin. Supplying it yourself keeps it a real assertion that fails closed on a mismatch.

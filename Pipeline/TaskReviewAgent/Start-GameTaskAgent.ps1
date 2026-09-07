@@ -77,6 +77,8 @@ param(
 
     [switch]$EnableSyntheticEvidence,
 
+    [switch]$EnableGauntletViewHumanApproval,
+
     [string]$Source,
 
     [ValidateRange(4, 160)]
@@ -239,7 +241,8 @@ $ArchitectOptionNames = @(
     'AutonomousRunId',
     'ConfirmRepository',
     'MaxWorkers',
-    'EnableSyntheticEvidence'
+    'EnableSyntheticEvidence',
+    'EnableGauntletViewHumanApproval'
 )
 $SuppliedArchitectOptions = @(
     $ArchitectOptionNames |
@@ -466,6 +469,12 @@ if ($UseArchitectManaged) {
         $EnableSyntheticEvidence.IsPresent
     ) {
         $ControllerArguments += '-EnableSyntheticEvidence'
+    }
+    if (
+        $PSBoundParameters.ContainsKey('EnableGauntletViewHumanApproval') -and
+        $EnableGauntletViewHumanApproval.IsPresent
+    ) {
+        $ControllerArguments += '-EnableGauntletViewHumanApproval'
     }
 
     Write-Host 'Execution mode: architect-managed autonomous graph run'

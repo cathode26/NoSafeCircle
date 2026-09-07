@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only live view of an NSC gauntlet task graph.
+"""Local live view of an NSC gauntlet task graph.
 
 Serves a Cytoscape.js page backed by local on-disk sources:
 
@@ -10,8 +10,10 @@ Serves a Cytoscape.js page backed by local on-disk sources:
                                                 + optional ci_snapshot.json
   Pipeline/TaskGraph/evidence/<TASK>/       committed conformance + token totals
 
-Nothing here writes to the repository or the run state. It reuses TaskGraph's
-local committed-HEAD evaluator and otherwise uses the Python standard library.
+Standalone mode writes nothing. Architect-managed mode may explicitly enable a
+narrow one-time human approval that reuses the canonical Issue workflow service;
+that capability is off by default. The view reuses TaskGraph's local
+committed-HEAD evaluator and otherwise uses local durable state.
 """
 
 from __future__ import annotations
@@ -29,8 +31,10 @@ from typing import Any
 from urllib.parse import urlsplit
 
 HERE = Path(__file__).resolve().parent
-if str(HERE) not in sys.path:
-    sys.path.insert(0, str(HERE))
+ROOT = HERE.parents[2]
+for module_root in (HERE, ROOT):
+    if str(module_root) not in sys.path:
+        sys.path.insert(0, str(module_root))
 from pipeline_activity import build_pipeline_activity
 # Canonical bounded task-ID rule; an unbounded \d+ is rejected by
 # tests/task_id_width_smoke_test.py.
@@ -51,6 +55,7 @@ INTEGRATION_PHASES = frozenset({"delivery_evidence", "merge_closeout"})
 DECOMPOSITION_EXECUTION_SCOPE = "needs_execution_decomposition"
 DECOMPOSITION_READY_STATE = "concrete"
 CURRENT_RUN_BOUNDARY_EVENTS = frozenset({"poll_started", "architect_started"})
+HEALTH_SCHEMA = "nsc-gauntlet-view-health/v1"
 
 # Presentation stage names stay centralized here; the browser consumes normalized
 # node_lines and never reinterprets workflow phases.
@@ -95,6 +100,26 @@ def utc_now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def git_branch(source: Path) -> str | None:
+    """Read the exact attached branch without changing repository state."""
+
+    try:
+        dot_git = source / ".git"
+        git_dir = dot_git
+        if dot_git.is_file():
+            marker = dot_git.read_text(encoding="utf-8").strip()
+            if not marker.startswith("gitdir: "):
+                return None
+            git_dir = Path(marker[8:])
+            if not git_dir.is_absolute():
+                git_dir = (source / git_dir).resolve()
+        value = (git_dir / "HEAD").read_text(encoding="utf-8").strip()
+    except (OSError, UnicodeError):
+        return None
+    prefix = "ref: refs/heads/"
+    return value[len(prefix):] if value.startswith(prefix) else None
+
+
 def validated_repository_slug(value: Any) -> str | None:
     """Return one safe GitHub owner/repository slug, never a URL or path."""
     if not isinstance(value, str) or GITHUB_REPOSITORY_RE.fullmatch(value) is None:
@@ -116,6 +141,40 @@ def is_available_decomposition(contract: dict[str, Any]) -> bool:
         and contract.get("execution_scope") == DECOMPOSITION_EXECUTION_SCOPE
         and contract.get("decomposition_state") == DECOMPOSITION_READY_STATE
     )
+
+
+def expand_decomposition_descendants(
+    contracts: dict[str, dict[str, Any]], roots: set[str] | tuple[str, ...]
+) -> set[str]:
+    """Expand only the durable generated-child closure of exact display roots.
+
+    Ordinary ``parent`` links describe the broader task hierarchy and must not
+    widen an operator's view.  A generated descendant is admitted only when a
+    decomposed contract names it in ``decomposition_children`` and the child
+    contract points back to that exact parent.
+    """
+
+    expanded = {task_id for task_id in roots if task_id in contracts}
+    pending = list(sorted(expanded))
+    while pending:
+        parent_id = pending.pop(0)
+        parent = contracts[parent_id]
+        if parent.get("decomposition_state") != "decomposed":
+            continue
+        child_ids = parent.get("decomposition_children")
+        if not isinstance(child_ids, list):
+            continue
+        for child_id in child_ids:
+            child = contracts.get(child_id) if isinstance(child_id, str) else None
+            if (
+                child is None
+                or child.get("parent") != parent_id
+                or child_id in expanded
+            ):
+                continue
+            expanded.add(child_id)
+            pending.append(child_id)
+    return expanded
 
 
 def issue_number_from_url(value: Any, repository: str | None) -> int | None:
@@ -596,7 +655,12 @@ def summarize_worker_run(path: Path) -> dict:
 
 class Snapshot:
     def __init__(
-        self, tasks_dir: Path, state_root: Path, *, display_task_ids: list[str] | None = None
+        self,
+        tasks_dir: Path,
+        state_root: Path,
+        *,
+        display_task_ids: list[str] | None = None,
+        run_dir: Path | None = None,
     ) -> None:
         self.tasks_dir = tasks_dir
         self.state_root = state_root
@@ -607,6 +671,7 @@ class Snapshot:
             raise ValueError("Display task IDs must use the canonical NSC task-ID format")
         # Launch configuration is independent of mutable scheduler/run artifacts.
         self.display_task_ids = tuple(sorted(set(display_task_ids))) if display_task_ids is not None else None
+        self.run_dir = run_dir.resolve() if run_dir is not None else None
         self.outputs = state_root / ".task-review-agent" / "outputs"
         self.cache = FileCache()
         self._taskgraph_stamp: str | None = None
@@ -1043,9 +1108,8 @@ class Snapshot:
             transition
             and transition.get("state") == "agent_ready"
             and transition.get("phase") in INTEGRATION_PHASES
-            and task_id in queued
         ):
-            return "integration_queued", False
+            return ("integration_queued" if task_id in queued else "delivery_ready"), False
         return "pending", False
 
     @staticmethod
@@ -1084,8 +1148,44 @@ class Snapshot:
         state = task["state"]
         worker = task.get("worker") or {}
         progress = task["progress"]
+        if state == "aggregate":
+            complete = progress.get("children_complete") or 0
+            total = progress.get("children_total") or 0
+            counts = progress.get("children_by_state") or {}
+            statuses = []
+            for child_state, label in (
+                ("active", "working"),
+                ("checks_pending", "in CI"),
+                ("integration_queued", "waiting for CI slot"),
+                ("delivery_ready", "ready to continue"),
+                ("human_action", "need verification"),
+                ("blocked", "blocked"),
+                ("failed", "failed"),
+                ("ready", "unstarted"),
+                ("pending", "dependencies unmet"),
+            ):
+                count = counts.get(child_state, 0)
+                if count:
+                    statuses.append(f"{count} {label}")
+            first = (
+                "DECOMPOSED · CHILDREN DELIVERED"
+                if total and complete == total
+                else "DECOMPOSED · CHILDREN IN PROGRESS"
+            )
+            second = f"{complete}/{total} children complete"
+            if statuses:
+                second += " · " + " · ".join(statuses)
+            child_tokens = progress.get("children_recorded_total_tokens") or 0
+            third = (
+                f"{child_tokens:,} child tokens recorded"
+                if child_tokens
+                else "Child token usage unavailable"
+            )
+            return [first, second, third]
         if state == "decomposition_ready":
             return ["DECOMPOSITION AVAILABLE"]
+        if state == "delivery_ready":
+            return ["VERIFIED · READY TO CONTINUE"]
         if state == "checks_pending":
             ci = progress.get("ci")
             if ci:
@@ -1139,7 +1239,7 @@ class Snapshot:
     def build(self) -> dict:
         contracts = self.load_contracts()
 
-        run_dir = newest_autonomous_run(self.state_root)
+        run_dir = self.run_dir or newest_autonomous_run(self.state_root)
         manifest = self.cache.get(run_dir / "manifest.json", read_json) if run_dir else None
         progress = self.cache.get(run_dir / "progress.json", read_json) if run_dir else None
         receipt = self.cache.get(run_dir / "graph-complete.json", read_json) if run_dir else None
@@ -1149,7 +1249,8 @@ class Snapshot:
 
         manifest = manifest if isinstance(manifest, dict) else {}
         repository = validated_repository_slug(manifest.get("github_repository"))
-        scope = set(manifest.get("target_task_ids") or [])
+        scope_roots = set(manifest.get("target_task_ids") or [])
+        scope = expand_decomposition_descendants(contracts, scope_roots)
         excluded = set(manifest.get("excluded_task_ids") or [])
 
         # Once the newest autonomous run has begun scheduling, only worker run
@@ -1246,6 +1347,9 @@ class Snapshot:
                     "kind": contract.get("kind"),
                     "disposition": contract.get("contract_disposition"),
                     "decomposition_state": contract.get("decomposition_state"),
+                    "decomposition_children": list(
+                        contract.get("decomposition_children") or []
+                    ),
                     "execution_scope": contract.get("execution_scope"),
                     "notes": contract.get("notes"),
                     "reason": contract.get("decomposition_reason"),
@@ -1274,17 +1378,51 @@ class Snapshot:
             if task["state"] == "ready" and is_available_decomposition(task):
                 task["state"] = "decomposition_ready"
 
-        by_parent: dict[str, list[dict[str, Any]]] = {}
+        by_id = {task["id"]: task for task in tasks}
+        hierarchy_children: dict[str, list[dict[str, Any]]] = {}
+        for child in tasks:
+            if child.get("parent"):
+                hierarchy_children.setdefault(child["parent"], []).append(child)
         for task in tasks:
-            if task.get("parent"):
-                by_parent.setdefault(task["parent"], []).append(task)
-        for task in tasks:
-            children = by_parent.get(task["id"])
+            declared_children = task.get("decomposition_children") or []
+            children = (
+                [
+                    by_id[child_id]
+                    for child_id in declared_children
+                    if child_id in by_id
+                    and by_id[child_id].get("parent") == task["id"]
+                ]
+                if declared_children
+                else (
+                    hierarchy_children.get(task["id"], [])
+                    if task.get("decomposition_state") != "decomposed"
+                    else []
+                )
+            )
             if children:
                 task["progress"]["children_total"] = len(children)
                 task["progress"]["children_complete"] = sum(
                     child["state"] == "complete" for child in children
                 )
+                child_counts: dict[str, int] = {}
+                for child in children:
+                    child_counts[child["state"]] = child_counts.get(child["state"], 0) + 1
+                task["progress"]["children_by_state"] = child_counts
+                task["progress"]["children_recorded_total_tokens"] = sum(
+                    int(child["token_cost"].get("recorded_total_tokens") or 0)
+                    for child in children
+                )
+            if task.get("decomposition_state") == "decomposed":
+                # A durable decomposed parent is non-executable even while its
+                # child contracts are still arriving. Generated children keep
+                # their exact states once the two-way relationship is present.
+                task["progress"].setdefault("children_total", 0)
+                task["progress"].setdefault("children_complete", 0)
+                task["progress"].setdefault("children_by_state", {})
+                task["progress"].setdefault("children_recorded_total_tokens", 0)
+                task["state"] = "aggregate"
+                task["progress"]["phase"] = "decomposition_children"
+                task["progress"]["action"] = "monitor_decomposition_children"
 
         # Project final cost only from at least three exact-profile completed
         # persisted totals. No model pricing is present in this visualizer.
@@ -1374,13 +1512,17 @@ class Snapshot:
 
         # Filter only the final projection. Dependencies, child counts, costs and
         # pipeline classification above still see the complete authoritative graph.
-        displayed_tasks = tasks if self.display_task_ids is None else [
-            task for task in tasks if task["id"] in self.display_task_ids
-        ]
+        display_ids = (
+            set(contracts)
+            if self.display_task_ids is None
+            else expand_decomposition_descendants(contracts, self.display_task_ids)
+        )
+        displayed_tasks = [task for task in tasks if task["id"] in display_ids]
         return {
             "generated_at": utc_now(),
             "display": {
                 "task_ids": list(self.display_task_ids) if self.display_task_ids is not None else None,
+                "expanded_task_ids": sorted(display_ids),
                 "missing_task_ids": [
                     task_id for task_id in self.display_task_ids or () if task_id not in contracts
                 ],
@@ -1393,7 +1535,8 @@ class Snapshot:
                 "run_id": manifest.get("run_id"),
                 "repository": repository,
                 "max_capacity": manifest.get("max_capacity"),
-                "targets": sorted(scope),
+                "targets": sorted(scope_roots),
+                "expanded_targets": sorted(scope),
                 "excluded": sorted(excluded),
                 "progress": progress if isinstance(progress, dict) else None,
                 "complete": bool(receipt),
@@ -1423,7 +1566,7 @@ class Snapshot:
                     parts.append(f"{path.name}:{stat.st_mtime_ns}:{stat.st_size}")
         except OSError:
             pass
-        run_dir = newest_autonomous_run(self.state_root)
+        run_dir = self.run_dir or newest_autonomous_run(self.state_root)
         if run_dir:
             for name in ("manifest.json", "progress.json", "events.jsonl", "run_timeline.jsonl", "graph-complete.json"):
                 try:
@@ -1470,6 +1613,9 @@ class Snapshot:
 
 class Handler(BaseHTTPRequestHandler):
     snapshot: Snapshot
+    health: dict[str, Any] | None = None
+    approval: Any = None
+    origin: str
 
     def log_message(self, fmt, *args):  # quieter console
         pass
@@ -1481,6 +1627,13 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(body)
+
+    def _state(self) -> dict[str, Any]:
+        state = self.snapshot.build()
+        state["human_actions"] = (
+            self.approval.list_actions() if self.approval is not None else []
+        )
+        return state
 
     def do_GET(self) -> None:  # noqa: N802
         path = self.path.split("?", 1)[0]
@@ -1495,13 +1648,62 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(404, b"not found", "text/plain")
             return
         if path == "/api/state":
-            body = json.dumps(self.snapshot.build()).encode("utf-8")
+            body = json.dumps(self._state()).encode("utf-8")
+            self._send(200, body, "application/json; charset=utf-8")
+            return
+        if path == "/api/health":
+            body = json.dumps(
+                self.health
+                or {"schema": HEALTH_SCHEMA, "status": "ok", "identity": None},
+                sort_keys=True,
+            ).encode("utf-8")
             self._send(200, body, "application/json; charset=utf-8")
             return
         if path == "/api/stream":
             self._stream()
             return
         self._send(404, b"not found", "text/plain")
+
+    def do_POST(self) -> None:  # noqa: N802
+        path = self.path.split("?", 1)[0]
+        if path != "/api/approve" or self.approval is None:
+            self._send(404, b"not found", "text/plain")
+            return
+        if self.client_address[0] not in ("127.0.0.1", "::1"):
+            self._send(403, b"loopback only", "text/plain")
+            return
+        if self.headers.get("Origin") != self.origin:
+            self._send(403, b"same-origin request required", "text/plain")
+            return
+        if self.headers.get_content_type() != "application/json":
+            self._send(415, b"application/json required", "text/plain")
+            return
+        length_text = self.headers.get("Content-Length")
+        try:
+            length = int(length_text or "")
+        except ValueError:
+            length = 0
+        if not 1 <= length <= 2048:
+            self._send(413, b"invalid request length", "text/plain")
+            return
+        try:
+            value = json.loads(self.rfile.read(length).decode("utf-8"))
+        except (UnicodeError, json.JSONDecodeError):
+            self._send(400, b"invalid JSON", "text/plain")
+            return
+        if not isinstance(value, dict) or set(value) != {"action_token"}:
+            self._send(400, b"only an action capability is accepted", "text/plain")
+            return
+        try:
+            result = self.approval.approve(value["action_token"])
+        except Exception as error:  # bounded local endpoint; reject fail-closed
+            body = json.dumps(
+                {"status": "rejected", "message": str(error)[:500]}
+            ).encode("utf-8")
+            self._send(409, body, "application/json; charset=utf-8")
+            return
+        body = json.dumps(result, sort_keys=True).encode("utf-8")
+        self._send(200, body, "application/json; charset=utf-8")
 
     def _stream(self) -> None:
         self.send_response(200)
@@ -1515,7 +1717,7 @@ class Handler(BaseHTTPRequestHandler):
                 current = self.snapshot.fingerprint()
                 if current != last:
                     last = current
-                    payload = json.dumps(self.snapshot.build())
+                    payload = json.dumps(self._state())
                     self.wfile.write(f"data: {payload}\n\n".encode("utf-8"))
                 else:
                     self.wfile.write(b": keepalive\n\n")
@@ -1533,6 +1735,16 @@ def main() -> int:
         "--display-task-id", action="append", dest="display_task_ids", metavar="NSC-ID",
         help="task to display independently of the run manifest; repeat for each task",
     )
+    parser.add_argument("--run-dir", help="exact autonomous run directory")
+    parser.add_argument("--source-commit", help="exact source commit bound to the run")
+    parser.add_argument("--source-branch", help="exact attached controller branch")
+    parser.add_argument("--run-id", help="exact autonomous run identity")
+    parser.add_argument("--repository", help="exact GitHub owner/repository identity")
+    parser.add_argument(
+        "--enable-human-approval",
+        action="store_true",
+        help="enable the guarded local approval capability (architect-managed only)",
+    )
     parser.add_argument("--port", type=int, default=8787)
     args = parser.parse_args()
 
@@ -1540,18 +1752,141 @@ def main() -> int:
     if not tasks_dir.is_dir():
         raise SystemExit(f"Tasks directory not found: {tasks_dir}")
 
+    managed_values = (
+        args.run_dir,
+        args.source_commit,
+        args.source_branch,
+        args.run_id,
+        args.repository,
+    )
+    managed = all(value is not None for value in managed_values)
+    if any(value is not None for value in managed_values) and not managed:
+        parser.error(
+            "--run-dir, --source-commit, --source-branch, --run-id, and "
+            "--repository must be supplied together"
+        )
+    if args.enable_human_approval and not managed:
+        parser.error("--enable-human-approval requires an exact architect-managed identity")
+    run_dir = Path(args.run_dir).resolve() if managed else None
+    if run_dir is not None:
+        manifest = read_json(run_dir / "manifest.json")
+        if not isinstance(manifest, dict):
+            parser.error(f"Exact autonomous run manifest not found: {run_dir}")
+        expected = {
+            "run_id": args.run_id,
+            "github_repository": args.repository,
+            "initial_source_commit": args.source_commit,
+        }
+        changed = [name for name, value in expected.items() if manifest.get(name) != value]
+        manifest_source = manifest.get("source_repository")
+        try:
+            source_matches = (
+                isinstance(manifest_source, str)
+                and Path(manifest_source).resolve() == tasks_dir.parent
+            )
+        except OSError:
+            source_matches = False
+        if not source_matches:
+            changed.append("source_repository")
+        if git_branch(tasks_dir.parent) != args.source_branch:
+            changed.append("source_branch")
+        if changed:
+            parser.error("Exact autonomous run identity mismatch: " + ", ".join(changed))
+        manifest_targets = tuple(sorted(set(manifest.get("target_task_ids") or [])))
+        requested_targets = tuple(sorted(set(args.display_task_ids or [])))
+        if requested_targets != manifest_targets:
+            parser.error("Display roots must equal the exact autonomous run target roots")
     try:
-        Handler.snapshot = Snapshot(tasks_dir, state_root, display_task_ids=args.display_task_ids)
+        Handler.snapshot = Snapshot(
+            tasks_dir,
+            state_root,
+            display_task_ids=args.display_task_ids,
+            run_dir=run_dir,
+        )
     except ValueError as error:
         parser.error(str(error))
     if Handler.snapshot.display_task_ids is not None:
         missing = set(Handler.snapshot.display_task_ids) - Handler.snapshot.load_contracts().keys()
         if missing:
             parser.error("Display task contracts not found: " + ", ".join(sorted(missing)))
+    Handler.health = None
+    Handler.approval = None
+    if managed:
+        Handler.health = {
+            "schema": HEALTH_SCHEMA,
+            "status": "ok",
+            "identity": {
+                "source": str(tasks_dir.parent),
+                "source_branch": args.source_branch,
+                "source_commit": args.source_commit,
+                "state_root": str(state_root),
+                "run_id": args.run_id,
+                "run_dir": str(run_dir),
+                "repository": args.repository,
+                "display_task_ids": list(Handler.snapshot.display_task_ids or ()),
+                "descendants": "durable_decomposition_closure",
+                "human_approval_enabled": args.enable_human_approval,
+            },
+        }
+    Handler.origin = f"http://127.0.0.1:{args.port}"
+    if args.enable_human_approval:
+        from Pipeline.TaskReviewAgent.GauntletView.approval import (
+            GauntletApprovalController,
+        )
+        from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task
+        from Pipeline.TaskReviewAgent.issue_workflow_store import (
+            GhIssueBackend,
+            IssueWorkflowService,
+            VINCENT_INBOX_TITLE,
+        )
+
+        backend = GhIssueBackend(
+            source_root=tasks_dir.parent,
+            repository=args.repository,
+        )
+        service = IssueWorkflowService(
+            backend=backend,
+            task_loader=lambda task_id: load_committed_task(tasks_dir.parent, task_id),
+            worker_id="gauntlet-view-human-approval",
+            vincent_inbox_title=VINCENT_INBOX_TITLE,
+        )
+
+        def current_identity() -> dict[str, Any]:
+            current = read_json(run_dir / "manifest.json") if run_dir else None
+            current = current if isinstance(current, dict) else {}
+            current_source = current.get("source_repository")
+            try:
+                normalized_source = (
+                    str(Path(current_source).resolve())
+                    if isinstance(current_source, str)
+                    else None
+                )
+            except OSError:
+                normalized_source = None
+            return {
+                "source": normalized_source,
+                "source_branch": git_branch(tasks_dir.parent),
+                "source_commit": current.get("initial_source_commit"),
+                "state_root": str(state_root),
+                "run_id": current.get("run_id"),
+                "run_dir": str(run_dir),
+                "repository": current.get("github_repository"),
+                "display_task_ids": sorted(set(current.get("target_task_ids") or [])),
+                "descendants": "durable_decomposition_closure",
+                "human_approval_enabled": True,
+            }
+
+        Handler.approval = GauntletApprovalController(
+            enabled=True,
+            identity=Handler.health["identity"],
+            service=service,
+            state_provider=Handler.snapshot.build,
+            identity_reader=current_identity,
+        )
     server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
     server.daemon_threads = True
 
-    run_dir = newest_autonomous_run(state_root)
+    run_dir = Handler.snapshot.run_dir or newest_autonomous_run(state_root)
     print(f"  contracts : {tasks_dir}")
     print(f"  run state : {state_root}")
     print(f"  active run: {run_dir.name if run_dir else '(none found)'}")

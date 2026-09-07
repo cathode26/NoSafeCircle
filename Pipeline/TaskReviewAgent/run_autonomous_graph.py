@@ -52,6 +52,10 @@ from Pipeline.TaskReviewAgent.issue_workflow import WorkflowState  # noqa: E402
 from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
     resolve_issue_backend_repository,
 )
+from Pipeline.TaskReviewAgent.gauntlet_view_launcher import (  # noqa: E402
+    ViewerIdentity,
+    ensure_gauntlet_view,
+)
 from Pipeline.TaskReviewAgent.polling_orchestrator import (  # noqa: E402
     DEFAULT_ARCHITECT_MIN_REANALYSIS_SECONDS,
     DEFAULT_FATAL_DRAIN_SECONDS,
@@ -344,6 +348,12 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Return 0 only for an existing exact receipt, or 10 when work remains.",
     )
+    parser.add_argument("--start-gauntlet-view", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--enable-gauntlet-view-human-approval",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
     return parser
 
 
@@ -592,6 +602,28 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
             finally:
                 manifest_lock.release()
+
+        if args.enable_gauntlet_view_human_approval and not args.start_gauntlet_view:
+            raise AutonomousGraphRunError(
+                "GauntletView human approval requires architect-managed viewer startup"
+            )
+        if args.start_gauntlet_view:
+            viewer = ensure_gauntlet_view(
+                ViewerIdentity(
+                    source=source,
+                    # refresh_source_main() and the production graph snapshot
+                    # both enforce this exact controller branch.
+                    source_branch="main",
+                    source_commit=manifest.initial_source_commit,
+                    state_root=checkout_root,
+                    run_id=manifest.run_id,
+                    run_dir=paths.root,
+                    repository=repository,
+                    display_task_ids=manifest.target_task_ids,
+                    human_approval_enabled=args.enable_gauntlet_view_human_approval,
+                )
+            )
+            print(f"GauntletView: {viewer.url} ({viewer.disposition})")
 
         production = build_production_orchestrator(
             source=source,

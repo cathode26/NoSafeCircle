@@ -64,6 +64,23 @@ test('explicit eight-task scope renders with one-task run and survives reload', 
   await assertEight();
   await screenshot('eight-tasks-compact');
 });
+test('committed relationship families are vertical and rows never exceed four columns', async () => {
+  const positions = await page.evaluate(() => Object.fromEntries(
+    cy.nodes().map(node => [node.id(), node.position()])))
+  near(positions['NSC-1001'].x, positions['NSC-1007'].x, '1001 to 1007 family x');
+  near(positions['NSC-1007'].x, positions['NSC-1008'].x, '1007 to 1008 family x');
+  assert.ok(positions['NSC-1001'].y < positions['NSC-1007'].y);
+  assert.ok(positions['NSC-1007'].y < positions['NSC-1008'].y);
+  const rows = new Map();
+  for (const position of Object.values(positions)) {
+    const row = Math.round(position.y);
+    if (!rows.has(row)) rows.set(row, []);
+    rows.get(row).push(position.x);
+  }
+  for (const columns of rows.values()) {
+    assert.ok(columns.length <= 4, `layout row exceeded four columns: ${columns}`);
+  }
+});
 test('run filter is optional, persisted, and does not replace display selection', async () => {
   await assertEight();
   await page.locator('#f-scope').check();

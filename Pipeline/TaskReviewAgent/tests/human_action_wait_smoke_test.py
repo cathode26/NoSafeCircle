@@ -27,6 +27,7 @@ from Pipeline.TaskReviewAgent.human_action_wait import (  # noqa: E402
     _snapshot_observation,
     architect_wake_endpoint_path,
     publish_resume_hint,
+    publish_resume_hint_with_notification,
     wait_for_human_result,
 )
 from Pipeline.TaskReviewAgent.run_pipeline_agent import (  # noqa: E402
@@ -390,7 +391,7 @@ def test_failed_architect_send_is_journaled_instead_of_omitted() -> None:
             "Pipeline.TaskReviewAgent.human_action_wait.socket.socket",
             return_value=FailingSocket(),
         ):
-            publish_resume_hint(
+            result = publish_resume_hint_with_notification(
                 source,
                 task_id=TASK_ID,
                 human_handoff_commit=HEAD,
@@ -398,6 +399,11 @@ def test_failed_architect_send_is_journaled_instead_of_omitted() -> None:
                 event_id="3" * 64,
                 to_phase="delivery_evidence",
             )
+        require(result.path.is_file(), "failed poke did not retain the durable local hint")
+        require(
+            result.architect_notified is False,
+            "failed architect notification was reported as successful",
+        )
         records = [
             json.loads(line)
             for line in journal.read_text(encoding="utf-8").splitlines()

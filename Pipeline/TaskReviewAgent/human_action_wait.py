@@ -14,6 +14,7 @@ import threading
 import time
 import uuid
 from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -51,6 +52,12 @@ _RESUME_PHASE_PREDECESSORS = {
     "repair": "unity_runtime_validation",
     "decomposition_apply": "decomposition_apply_authorization",
 }
+
+
+@dataclass(frozen=True)
+class ResumeHintPublishResult:
+    path: Path
+    architect_notified: bool
 
 
 def _resume_transition(to_phase: str) -> dict[str, str]:
@@ -459,7 +466,7 @@ def _validated_resume_hint(path: Path) -> dict[str, Any] | None:
     return raw
 
 
-def publish_resume_hint(
+def publish_resume_hint_with_notification(
     source: Path,
     *,
     task_id: str,
@@ -467,8 +474,8 @@ def publish_resume_hint(
     state_version: int,
     event_id: str,
     to_phase: str,
-) -> Path:
-    """Atomically publish a non-authoritative hint for a waiting local launcher."""
+) -> ResumeHintPublishResult:
+    """Publish a hint and retain whether the current architect was notified."""
 
     if _SHA40.fullmatch(human_handoff_commit) is None:
         raise HumanActionWaitError("resume hint requires an exact lowercase commit SHA")
@@ -495,7 +502,7 @@ def publish_resume_hint(
         encoding="utf-8",
     )
     os.replace(temporary, path)
-    notify_local_architect(
+    notified = notify_local_architect(
         source,
         task_id=task_id,
         human_handoff_commit=human_handoff_commit,
@@ -504,7 +511,28 @@ def publish_resume_hint(
         hint_id=payload["hint_id"],
         workflow_transition=transition,
     )
-    return path
+    return ResumeHintPublishResult(path=path, architect_notified=notified)
+
+
+def publish_resume_hint(
+    source: Path,
+    *,
+    task_id: str,
+    human_handoff_commit: str,
+    state_version: int,
+    event_id: str,
+    to_phase: str,
+) -> Path:
+    """Compatibility API returning the atomically published hint path."""
+
+    return publish_resume_hint_with_notification(
+        source,
+        task_id=task_id,
+        human_handoff_commit=human_handoff_commit,
+        state_version=state_version,
+        event_id=event_id,
+        to_phase=to_phase,
+    ).path
 
 
 class LocalResumeHintWaiter:

@@ -554,6 +554,18 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Pipeline\TaskReviewAge
 resuming an older run. Human Unity validation and exact-plan decomposition
 authorization remain required at their existing workflow boundaries.
 
+The canonical architect-managed launcher also starts or reuses a hidden local
+GauntletView after its read-only completion probe. That listener is bound to the
+immutable run manifest's source checkout/branch/commit, durable checkout root,
+run directory/ID, repository, and original target roots; the printed loopback URL
+is never opened automatically. Exact matching listeners are reused, mismatched
+or unknown occupied ports are left alone, and a free port is selected instead.
+Standalone GauntletView remains read-only. The separate
+`-EnableGauntletViewHumanApproval` switch opts an architect-managed listener into
+its same-origin, one-time-capability human action; omission constructs no Issue
+mutation service and preserves zero transitions. See `GauntletView/README.md`
+for the exact approval and stale-binding guards.
+
 The production polling entry point now decorates its existing architect callable
 with a durable provider-session lifecycle owner; it does not replace or restart
 `PollingOrchestrator`, so active worker assignments survive architect rotation.

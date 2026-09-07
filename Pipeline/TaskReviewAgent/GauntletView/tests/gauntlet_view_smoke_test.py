@@ -538,7 +538,81 @@ class GauntletViewStateAndSseTests(unittest.TestCase):
         contract["decomposition_state"] = "decomposed"
         write_json(contract_path, contract)
 
-        self.assertEqual(self.fixture.task()["state"], "ready")
+        task = self.fixture.task()
+        self.assertEqual(task["state"], "aggregate")
+        self.assertEqual(task["progress"]["children_total"], 0)
+
+    def test_decomposed_parent_is_aggregate_with_exact_child_rollup(self) -> None:
+        self.fixture.add_task(
+            progress_events=[
+                event("state_observed", {"phase": "implementation", "turn": 2}),
+                event("pipeline_action_started", {"action": "implement_task"}),
+            ]
+        )
+        parent_path = self.fixture.tasks / "NSC-112.yaml"
+        parent = json.loads(parent_path.read_text(encoding="utf-8"))
+        parent["decomposition_state"] = "decomposed"
+        parent["decomposition_children"] = ["NSC-113", "NSC-114"]
+        write_json(parent_path, parent)
+        self.fixture.add_task(
+            "NSC-113",
+            parent="NSC-112",
+            progress_events=[
+                usage_event(
+                    turn=1,
+                    provider="codex",
+                    model="gpt-fixture",
+                    usage={
+                        "input_tokens": 100,
+                        "output_tokens": 25,
+                        "total_tokens": 125,
+                        "estimated_cost_usd": 0.01,
+                    },
+                ),
+                event("state_observed", {"phase": "implementation", "turn": 2}),
+            ],
+        )
+        self.fixture.add_task(
+            "NSC-114",
+            parent="NSC-112",
+            progress_events=[
+                event("terminal_state", {"status": "human_action_required"}),
+                event("run_finished", {"status": "human_action_required"}),
+            ],
+        )
+
+        state = self.fixture.snapshot().build()
+        by_id = {task["id"]: task for task in state["tasks"]}
+        aggregate = by_id["NSC-112"]
+
+        self.assertEqual(aggregate["state"], "aggregate")
+        self.assertEqual(aggregate["progress"]["children_total"], 2)
+        self.assertEqual(aggregate["progress"]["children_complete"], 0)
+        self.assertEqual(
+            aggregate["progress"]["children_by_state"],
+            {"active": 1, "human_action": 1},
+        )
+        self.assertEqual(
+            aggregate["progress"]["children_recorded_total_tokens"],
+            125,
+        )
+        self.assertEqual(by_id["NSC-113"]["state"], "active")
+        self.assertEqual(by_id["NSC-114"]["state"], "human_action")
+        self.assertIn("0/2 children complete", aggregate["node_lines"][1])
+
+    def test_agent_ready_delivery_without_gate_snapshot_is_not_unstarted(self) -> None:
+        self.fixture.add_task(
+            progress_events=[
+                event("terminal_state", {"status": "human_action_required"}),
+                event("run_finished", {"status": "human_action_required"}),
+            ]
+        )
+        self.fixture.write_scheduler_events([self.fixture.agent_ready_event()])
+
+        task = self.fixture.task()
+
+        self.assertEqual(task["state"], "delivery_ready")
+        self.assertNotEqual(task["state"], "ready")
 
     def test_run_result_change_updates_sse_fingerprint(self) -> None:
         run_dir, _ = self.fixture.add_task()
@@ -1515,12 +1589,46 @@ class GauntletViewHtmlTests(unittest.TestCase):
         self.assertLess(task_position, issue_position)
         self.assertLess(issue_position, worker_position)
 
+    def test_guarded_human_actions_are_distinct_and_capability_only(self) -> None:
+        self.assertIn("${esc(action.label)}</button>", self.html)
+        self.assertIn("fetch('/api/approve'", self.html)
+        self.assertIn("JSON.stringify({ action_token: button.dataset.actionToken })", self.html)
+        self.assertNotIn("JSON.stringify({ repository:", self.html)
+        self.assertIn("mutation_succeeded_poke_failed", self.html)
+        self.assertIn("workflow_schema_version", self.html)
+        self.assertIn("approvalOutcomes", self.html)
+
     def test_run_scope_is_the_default_proof_view(self) -> None:
         self.assertIn('id="f-scope" checked', self.html)
 
     def test_dependency_and_hierarchy_layouts_are_top_to_bottom(self) -> None:
-        self.assertIn("rankDir: 'TB'", self.html)
+        self.assertIn("const MAX_COLUMNS = 4", self.html)
+        self.assertIn("name: 'preset'", self.html)
+        self.assertIn("componentRows", self.html)
         self.assertNotIn("rankDir: mode === 'deps' ? 'LR' : 'TB'", self.html)
+
+    def test_dependency_and_decomposition_edges_render_together(self) -> None:
+        self.assertIn('id="mode-all"', self.html)
+        self.assertNotIn('id="mode-deps"', self.html)
+        self.assertNotIn('id="mode-tree"', self.html)
+        self.assertIn("for (const dep of t.depends_on)", self.html)
+        self.assertIn("if (t.parent && ids.has(t.parent))", self.html)
+        self.assertRegex(
+            self.html,
+            r'(?s)edge\[kind = "parent"\].*?line-style.*?dashed',
+        )
+
+    def test_decomposed_parent_has_dedicated_legend_state(self) -> None:
+        self.assertRegex(
+            self.html,
+            r"aggregate:\s*\{[^}]*label:\s*'Decomposed Parent'",
+        )
+
+    def test_delivery_ready_has_non_unstarted_legend_state(self) -> None:
+        self.assertRegex(
+            self.html,
+            r"delivery_ready:\s*\{[^}]*label:\s*'Verified — Ready to Continue'",
+        )
 
     def test_issue_link_opens_safely_in_new_tab(self) -> None:
         self.assertIn('target="_blank" rel="noopener noreferrer"', self.html)
@@ -1550,7 +1658,8 @@ class GauntletViewHtmlTests(unittest.TestCase):
         states = (
             "ready", "decomposition_ready", "pending", "human_action",
             "blocked", "failed", "active", "checks_pending",
-            "integration_queued", "complete", "cancelled", "excluded",
+            "integration_queued", "aggregate", "delivery_ready", "complete",
+            "cancelled", "excluded",
         )
         colors = {state: color(state) for state in states}
         self.assertEqual(len(set(colors.values())), len(states))

@@ -1,9 +1,10 @@
 # NSC Gauntlet Graph
 
-A live, zoomable view of the gauntlet task graph. Read-only: it opens your
-contract and run files, never writes to them, and never mutates Git, GitHub,
-Docker or any provider. Its TaskGraph completion check is a local, read-only
-evaluation of committed HEAD.
+A live, zoomable view of the gauntlet task graph. Standalone mode is read-only:
+it opens contract and run files, never writes to them, and never mutates Git,
+GitHub, Docker or any provider. Its TaskGraph completion check is a local,
+read-only evaluation of committed HEAD. Architect-managed launch may explicitly
+enable the narrow one-time human approval described below; it is off by default.
 
 ## Run
 
@@ -31,7 +32,13 @@ evaluates the full authoritative graph, including dependencies outside the
 selection, then limits the API's `tasks` array to the selected contracts. The
 `display.task_ids` field records the selection on both `/api/state` and every
 SSE snapshot. `run.targets` and each task's `in_scope` still describe execution.
-The selection does not change when a new run or SSE update arrives.
+The root selection does not change when a new run or SSE update arrives. When a
+displayed root becomes a committed decomposed parent, its exact
+`decomposition_children` closure materializes automatically. A child is admitted
+only when its own committed `parent` points back to that parent. This is
+recomputed on every refresh, so a generated contract appears without a server
+restart; unrelated hierarchy and `depends_on` tasks are never pulled into the
+display.
 
 With an explicit selection, **run scope only** starts off. Turning it on
 temporarily intersects the selection with the current run; turning it off shows
@@ -46,15 +53,13 @@ the server does not fabricate a node or state. The selection is launch
 configuration, so page refreshes and SSE updates retain it without writing any
 task, run, Issue or history artifact.
 
-For this isolated fix checkout, this exact PowerShell command launches a
-separate viewer on port 8788 showing NSC-1001 through NSC-1008. It reads the
-rehearsal's existing contracts and run artifacts; it does not start a scheduler
-or change the visualizer already running on another port. A port already in use
-causes launch to fail rather than replace a process. This command is documented,
-not executed as part of the offline regression validation.
+This standalone PowerShell example launches a separate read-only viewer on port
+8788 showing NSC-1001 through NSC-1008. It reads the specified contracts and run
+artifacts; it does not start a scheduler. A port already in use causes standalone
+launch to fail rather than replace a process.
 
 ```powershell
-python C:\NSC\GauntletViewScopeLayout-20260907\Pipeline\TaskReviewAgent\GauntletView\server.py --tasks C:\NSC\Rehearsal\NoSafeCircle-Homework-Rehearsal\Tasks --state C:\NSC\Rehearsal --port 8788 --display-task-id NSC-1001 --display-task-id NSC-1002 --display-task-id NSC-1003 --display-task-id NSC-1004 --display-task-id NSC-1005 --display-task-id NSC-1006 --display-task-id NSC-1007 --display-task-id NSC-1008
+python .\Pipeline\TaskReviewAgent\GauntletView\server.py --tasks .\Tasks --state C:\NSC\Rehearsal --port 8788 --display-task-id NSC-1001 --display-task-id NSC-1002 --display-task-id NSC-1003 --display-task-id NSC-1004 --display-task-id NSC-1005 --display-task-id NSC-1006 --display-task-id NSC-1007 --display-task-id NSC-1008
 ```
 
 Open <http://127.0.0.1:8788>. The task list is an example launch configuration;
@@ -85,8 +90,45 @@ fallen outside the tail, it uses the newest run's durable `run_result.json`
 Issue number. The manifest repository must be exactly two safe GitHub path
 components and the Issue number must be a positive integer. The displayed URL
 is then constructed as `https://github.com/<owner>/<repository>/issues/<number>`;
-artifact-supplied text is never passed through as a link. This remains entirely
-local and read-only: the visualizer makes no GitHub or other network calls.
+artifact-supplied text is never passed through as a link. In standalone mode
+this remains entirely local and read-only: the visualizer makes no GitHub or
+other network calls.
+
+### Architect-managed listener and optional approval
+
+`Start-AutonomousGraphRun.ps1` asks the controller to start or safely reuse one
+hidden loopback listener after its completion probe and provider preflight. The
+listener identity binds the exact source checkout, controller branch and initial
+commit, durable state root, immutable autonomous run directory and ID,
+repository, and original display roots. `/api/health` publishes that identity. Reuse requires an exact
+match across every field; an occupied unknown or mismatched port is never killed
+or reused, and the launcher selects another port or fails clearly. It prints the
+URL and never opens a browser. Standalone `server.py` use remains supported.
+
+Human mutation is separately opt-in with
+`-EnableGauntletViewHumanApproval` on an architect-managed launch. Without it,
+the server constructs no Issue service, returns no actions, and performs zero
+workflow transitions. Synthetic evidence is also independently off by default.
+
+When enabled, task detail offers exactly one of:
+
+- **Approve exact decomposition plan and continue** for
+  `human_action_required / decomposition_apply_authorization`;
+- **Mark exact commit tested PASS and continue** for
+  `human_action_required / unity_runtime_validation`.
+
+The panel shows task, Issue, repository, run, workflow state/phase/version/event,
+and exact plan ID/hash or commit. The POST body accepts only a cryptographically
+random one-time capability from the exact same loopback origin. It accepts no
+repository, Issue, command, or path. At click time the controller consumes the
+capability, rereads the immutable run identity and managed Issue, revalidates the
+complete hash/event chain and exact binding, rejects stale/double/terminal or
+changed state, and calls the existing canonical human transition service. It
+then waits a bounded interval for GitHub read consistency and publishes the
+existing local resume hint. The result distinguishes a durable GitHub mutation
+from a later best-effort architect-poke failure. Decomposition approval and an
+implementation PASS are distinct authorities; neither path fabricates a human
+decision without this explicit click.
 
 The same rule protects pull-request links: the visualizer accepts an exact PR
 number or an exact `https://github.com/<manifest-repository>/pull/<number>` as
@@ -215,6 +257,12 @@ technology. Panel resizing updates Cytoscape's actual container without changing
 node positions, ordering, graph direction or zoom. **Fit** and **Zoom +/−** use
 the resulting graph area.
 
+The Relationships view draws dependency arrows and dashed lime generated-child
+arrows simultaneously. Layout lanes are the connected components of those exact
+committed edges only. Roots and decomposition parents are above descendants;
+rank rows are capped at four task columns and wider or independent families wrap
+to following rows. A two-child decomposition is centered under its parent.
+
 `pipeline_activity.py` is a deterministic reducer with an injected clock and no
 file, process, provider, Docker, or GitHub access. `server.py` loads its inputs.
 The explicit `PRECEDENCE` table selects the first available class:
@@ -312,7 +360,7 @@ the visualizer already does; it is not a cryptographic run-audit verifier.
 ### Focused validation
 
 `python -m unittest discover -s Pipeline/TaskReviewAgent/GauntletView/tests -p "*_smoke_test.py"`
-runs 110 pure/component regressions, including display-scope HTTP/SSE coverage
+runs the pure/component regressions, including display-scope HTTP/SSE coverage
 and the existing Pipeline Activity cases. These
 use disposable synthetic artifacts and a fixed clock; they never run a gauntlet
 or Unity. The new cases also cover launch-before-progress-file compatibility,
@@ -320,7 +368,7 @@ exact worker-run matching, and terminal precedence. Check the inline JavaScript
 with `node --check`, compile changed Python files, and run `git diff --check`.
 
 `python Pipeline/TaskReviewAgent/GauntletView/tests/browser_smoke_test.py` runs
-14 additional real-browser checks with Node.js, Playwright and a local Chromium
+15 additional real-browser checks with Node.js, Playwright and a local Chromium
 installation. Set `NODE_PATH` if Playwright is outside Node's normal module
 path, and `NSC_VIEW_CHROMIUM` to an installed Chromium executable if Playwright's
 browser is unavailable. Optional `NSC_VIEW_SCREENSHOTS` saves fixture screenshots.
@@ -341,8 +389,8 @@ border, and the layout only re-runs when nodes or edges are added or removed.
 ## Controls
 
 - **Mouse wheel** zoom, **drag** to pan, or the **Zoom +/− / Fit** buttons.
-- **Dependencies** lays the graph out top-to-bottom along `depends_on`.
-  **Hierarchy** lays it top-down along `parent`.
+- **Relationships** lays the scoped graph top-to-bottom with both `depends_on`
+  and committed generated-child relationships visible at once.
 - **Click a node** to see its full contract and its worker's current turn,
   action, phase and issue state; its dependency neighbourhood is highlighted
   and everything else fades.
@@ -362,8 +410,10 @@ Legend labels are presentation only and live in the `STATES` map at the top of
 | Label | State key | Meaning |
 |---|---|---|
 | Task Working | `active` | a worker is running it right now |
+| Decomposed Parent | `aggregate` | non-executable parent with exact child state/token roll-up |
 | Task In CI | `checks_pending` | waiting on GitHub pull-request checks |
 | Verified — Waiting for CI Slot | `integration_queued` | `agent_ready` work queued behind the local integration gate |
+| Verified — Ready to Continue | `delivery_ready` | `agent_ready` delivery work not currently queued at the gate |
 | Task Unstarted | `ready` | dependencies satisfied, nobody has picked it up |
 | Decomposition Available | `decomposition_ready` | dependencies satisfied and the exact TaskGraph contract is eligible for decomposition |
 | Task Dependencies Unmet | `pending` | a `depends_on` task is not complete |

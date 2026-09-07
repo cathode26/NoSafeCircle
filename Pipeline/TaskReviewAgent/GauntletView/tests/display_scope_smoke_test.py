@@ -14,7 +14,8 @@ import json
 import sys
 import threading
 import unittest
-from urllib.request import urlopen
+from urllib.error import HTTPError
+from urllib.request import Request, urlopen
 from unittest import mock
 
 from gauntlet_view_smoke_test import Fixture, event, server, write_json
@@ -25,10 +26,9 @@ DISPLAY_IDS = [f"NSC-{number}" for number in range(1001, 1009)]
 def proof_fixture():
     fixture = Fixture()
     dependencies = {
-        "NSC-1002": ["NSC-1001"], "NSC-1003": ["NSC-1001"],
-        "NSC-1004": ["NSC-1002"], "NSC-1005": ["NSC-1002"],
-        "NSC-1006": ["NSC-1003"], "NSC-1007": ["NSC-1003"],
-        "NSC-1008": ["NSC-1004", "NSC-1005", "NSC-1006", "NSC-1007"],
+        # Exact committed family in the target rehearsal graph.
+        "NSC-1007": ["NSC-1001"],
+        "NSC-1008": ["NSC-1007"],
     }
     for task_id in [*DISPLAY_IDS, "NSC-1009"]:
         fixture.add_task(task_id, progress_events=[event("run_finished", {
@@ -61,7 +61,7 @@ def artifact_hashes(root):
 
 
 @contextlib.contextmanager
-def fixture_http(snapshot):
+def fixture_http(snapshot, approval=None):
     class FixtureHandler(server.Handler):
         def handle(self):
             try:
@@ -71,7 +71,9 @@ def fixture_http(snapshot):
                 pass
     handler = FixtureHandler
     handler.snapshot = snapshot
+    handler.approval = approval
     http = server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    handler.origin = f"http://127.0.0.1:{http.server_port}"
     http.daemon_threads = True
     thread = threading.Thread(target=http.serve_forever, daemon=True)
     thread.start()
@@ -158,6 +160,104 @@ class DisplayScopeTests(unittest.TestCase):
         self.assertEqual(selected["state"], original["state"])
         self.assertEqual(selected["state"], "pending")
 
+    def test_generated_descendants_materialize_after_snapshot_start(self):
+        snapshot = display_snapshot(self.fixture, ["NSC-1006"])
+        before = snapshot.build()
+        self.assertEqual([task["id"] for task in before["tasks"]], ["NSC-1006"])
+
+        parent_path = self.fixture.tasks / "NSC-1006.yaml"
+        parent = server.read_json(parent_path)
+        parent["decomposition_state"] = "decomposed"
+        parent["decomposition_children"] = ["NSC-1010", "NSC-1011"]
+        write_json(parent_path, parent)
+        for task_id in ("NSC-1010", "NSC-1011"):
+            self.fixture.add_task(
+                task_id,
+                parent="NSC-1006",
+                progress_events=[event("run_finished", {"status": "stopped"})],
+            )
+
+        after = snapshot.build()
+
+        self.assertEqual(
+            [task["id"] for task in after["tasks"]],
+            ["NSC-1006", "NSC-1010", "NSC-1011"],
+        )
+        self.assertEqual(after["display"]["task_ids"], ["NSC-1006"])
+        self.assertEqual(
+            after["display"]["expanded_task_ids"],
+            ["NSC-1006", "NSC-1010", "NSC-1011"],
+        )
+        self.assertEqual(after["tasks"][0]["state"], "aggregate")
+
+    def test_generated_descendants_extend_run_scope_without_unrelated_tasks(self):
+        parent_path = self.fixture.tasks / "NSC-1001.yaml"
+        parent = server.read_json(parent_path)
+        parent["decomposition_state"] = "decomposed"
+        parent["decomposition_children"] = ["NSC-1010"]
+        write_json(parent_path, parent)
+        self.fixture.add_task(
+            "NSC-1010",
+            parent="NSC-1001",
+            progress_events=[event("run_finished", {"status": "stopped"})],
+        )
+
+        state = self.snapshot.build()
+        ids = [task["id"] for task in state["tasks"]]
+
+        self.assertEqual(ids, [*DISPLAY_IDS, "NSC-1010"])
+        self.assertNotIn("NSC-1009", ids)
+        self.assertEqual(state["run"]["targets"], ["NSC-1001"])
+        self.assertEqual(
+            state["run"]["expanded_targets"],
+            ["NSC-1001", "NSC-1010"],
+        )
+        self.assertTrue(next(task for task in state["tasks"] if task["id"] == "NSC-1010")["in_scope"])
+
+    def test_exact_eight_roots_admit_only_the_four_committed_generated_children(self):
+        relationships = {
+            "NSC-1006": ("NSC-1009", "NSC-1010"),
+            "NSC-1007": ("NSC-1011", "NSC-1012"),
+        }
+        for parent_id, child_ids in relationships.items():
+            parent_path = self.fixture.tasks / f"{parent_id}.yaml"
+            parent = server.read_json(parent_path)
+            parent["decomposition_state"] = "decomposed"
+            parent["decomposition_children"] = list(child_ids)
+            write_json(parent_path, parent)
+            for child_id in child_ids:
+                child_path = self.fixture.tasks / f"{child_id}.yaml"
+                if child_path.is_file():
+                    child = server.read_json(child_path)
+                    child["parent"] = parent_id
+                    write_json(child_path, child)
+                else:
+                    self.fixture.add_task(
+                        child_id,
+                        parent=parent_id,
+                        progress_events=[event("run_finished", {"status": "stopped"})],
+                    )
+
+        state = self.snapshot.build()
+        self.assertEqual(
+            [task["id"] for task in state["tasks"]],
+            [*DISPLAY_IDS, "NSC-1009", "NSC-1010", "NSC-1011", "NSC-1012"],
+        )
+        self.assertEqual(state["display"]["task_ids"], DISPLAY_IDS)
+        self.assertEqual(
+            state["display"]["expanded_task_ids"],
+            [*DISPLAY_IDS, "NSC-1009", "NSC-1010", "NSC-1011", "NSC-1012"],
+        )
+        self.assertEqual(
+            {task["id"]: task["parent"] for task in state["tasks"] if task["parent"]},
+            {
+                "NSC-1009": "NSC-1006",
+                "NSC-1010": "NSC-1006",
+                "NSC-1011": "NSC-1007",
+                "NSC-1012": "NSC-1007",
+            },
+        )
+
     def test_missing_display_contract_is_reported_without_fabricating_node(self):
         snapshot = display_snapshot(self.fixture, ["NSC-1001", "NSC-1999"])
         state = snapshot.build()
@@ -177,6 +277,142 @@ class DisplayScopeTests(unittest.TestCase):
             self.assertEqual(result, 0)
             http.return_value.serve_forever.assert_called_once()
             self.assert_display(server.Handler.snapshot.build())
+
+    def test_cli_managed_mode_publishes_exact_manifest_identity(self):
+        manifest = server.read_json(self.fixture.run / "manifest.json")
+        manifest.update(
+            source_repository=str(self.fixture.tasks.parent),
+            initial_source_commit="a" * 40,
+            target_task_ids=DISPLAY_IDS,
+        )
+        write_json(self.fixture.run / "manifest.json", manifest)
+        argv = [
+            "server.py",
+            "--tasks", str(self.fixture.tasks),
+            "--state", str(self.fixture.state),
+            "--run-dir", str(self.fixture.run),
+            "--source-commit", "a" * 40,
+            "--source-branch", "main",
+            "--run-id", "run-a",
+            "--repository", "cathode26/NoSafeCircle-Homework-Rehearsal",
+        ]
+        for task_id in DISPLAY_IDS:
+            argv += ["--display-task-id", task_id]
+        with mock.patch.object(sys, "argv", argv), mock.patch.object(
+            server, "ThreadingHTTPServer"
+        ) as http, mock.patch.object(server, "git_branch", return_value="main"):
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(server.main(), 0)
+        identity = server.Handler.health["identity"]
+        self.assertEqual(identity["source"], str(self.fixture.tasks.parent.resolve()))
+        self.assertEqual(identity["source_branch"], "main")
+        self.assertEqual(identity["source_commit"], "a" * 40)
+        self.assertEqual(identity["run_id"], "run-a")
+        self.assertEqual(identity["display_task_ids"], DISPLAY_IDS)
+        self.assertFalse(identity["human_approval_enabled"])
+        http.return_value.serve_forever.assert_called_once()
+
+    def test_exact_run_binding_does_not_drift_to_a_newer_run(self):
+        fixed = server.Snapshot(
+            self.fixture.tasks,
+            self.fixture.state,
+            display_task_ids=DISPLAY_IDS,
+            run_dir=self.fixture.run,
+        )
+        newer = self.fixture.run.parent / "run-newer"
+        write_json(
+            newer / "manifest.json",
+            {
+                "run_id": "run-newer",
+                "github_repository": "other/repository",
+                "target_task_ids": ["NSC-1009"],
+                "excluded_task_ids": [],
+            },
+        )
+        state = fixed.build()
+        self.assertEqual(state["run"]["run_id"], "run-a")
+        self.assertEqual(state["run"]["targets"], ["NSC-1001"])
+        fingerprint = fixed.fingerprint()
+        newer_manifest = server.read_json(newer / "manifest.json")
+        newer_manifest["target_task_ids"] = ["NSC-1008"]
+        write_json(newer / "manifest.json", newer_manifest)
+        self.assertEqual(fixed.fingerprint(), fingerprint)
+        manifest = server.read_json(self.fixture.run / "manifest.json")
+        manifest["max_capacity"] = 4
+        write_json(self.fixture.run / "manifest.json", manifest)
+        self.assertNotEqual(fixed.fingerprint(), fingerprint)
+
+    def test_health_endpoint_publishes_exact_listener_identity(self):
+        identity = {
+            "schema": server.HEALTH_SCHEMA,
+            "status": "ok",
+            "identity": {
+                "source": str(self.fixture.tasks.parent),
+                "run_id": "run-a",
+            },
+        }
+        previous = server.Handler.health
+        server.Handler.health = identity
+        try:
+            with fixture_http(self.snapshot) as url, urlopen(
+                url + "/api/health", timeout=5
+            ) as response:
+                self.assertEqual(json.load(response), identity)
+        finally:
+            server.Handler.health = previous
+
+    def test_approval_post_accepts_only_same_origin_one_time_capability(self):
+        class Approval:
+            def __init__(self):
+                self.tokens = {"one-time-token"}
+
+            def list_actions(self):
+                return [{"task_id": "NSC-1001", "action_token": "one-time-token"}]
+
+            def approve(self, token):
+                if token not in self.tokens:
+                    raise RuntimeError("approval capability was already used or unknown")
+                self.tokens.remove(token)
+                return {"status": "mutation_succeeded", "architect_notified": True}
+
+        approval = Approval()
+        with fixture_http(self.snapshot, approval) as url:
+            state = json.load(urlopen(url + "/api/state", timeout=5))
+            self.assertEqual(state["human_actions"][0]["action_token"], "one-time-token")
+            request = Request(
+                url + "/api/approve",
+                data=json.dumps({"action_token": "one-time-token"}).encode(),
+                headers={"Content-Type": "application/json", "Origin": url},
+                method="POST",
+            )
+            self.assertEqual(json.load(urlopen(request, timeout=5))["status"], "mutation_succeeded")
+            with self.assertRaises(HTTPError) as duplicate:
+                urlopen(request, timeout=5)
+            self.assertEqual(duplicate.exception.code, 409)
+
+    def test_approval_post_rejects_cross_origin_and_arbitrary_identity_fields(self):
+        class Approval:
+            def list_actions(self):
+                return []
+
+            def approve(self, _token):
+                self.fail("invalid requests reached the controller")
+
+        with fixture_http(self.snapshot, Approval()) as url:
+            for body, origin, expected in (
+                ({"action_token": "x"}, "http://evil.invalid", 403),
+                ({"action_token": "x", "repository": "other/repo"}, url, 400),
+                ({"action_token": "x", "command": "anything"}, url, 400),
+            ):
+                request = Request(
+                    url + "/api/approve",
+                    data=json.dumps(body).encode(),
+                    headers={"Content-Type": "application/json", "Origin": origin},
+                    method="POST",
+                )
+                with self.assertRaises(HTTPError) as rejected:
+                    urlopen(request, timeout=5)
+                self.assertEqual(rejected.exception.code, expected)
 
 
 if __name__ == "__main__":

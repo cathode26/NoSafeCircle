@@ -54,6 +54,8 @@ param(
 
     [switch]$EnableSyntheticEvidence,
 
+    [switch]$EnableGauntletViewHumanApproval,
+
     [string]$CheckoutRoot,
 
     [string]$Source
@@ -231,6 +233,14 @@ foreach ($ProviderName in @($RequiredProviderNames | Select-Object -Unique)) {
         $VolumeCheck.Output | ForEach-Object { Write-Host $_ }
         throw "The persisted Docker provider volume is missing: $Volume"
     }
+}
+
+# Viewer startup is intentionally omitted from the read-only completion probe.
+# The Python controller binds one hidden listener to the immutable manifest
+# after all launcher preflight has succeeded.
+$Arguments += '--start-gauntlet-view'
+if ($EnableGauntletViewHumanApproval.IsPresent) {
+    $Arguments += '--enable-gauntlet-view-human-approval'
 }
 
 $Run = Invoke-NscNativeCommand `

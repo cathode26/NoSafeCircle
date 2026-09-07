@@ -519,6 +519,47 @@ def test_synthetic_evidence_is_forwarded_only_when_explicitly_requested() -> Non
                 f"an explicit opt-out enabled synthetic evidence: {controller[0]}")
 
 
+def test_gauntlet_view_starts_only_on_the_real_run_and_approval_is_opt_in() -> None:
+    with fixture_dir() as text:
+        fixture = Path(text)
+        log = _write_stub_path(fixture)
+        _, records = _run(fixture, log, ["-TaskId", TASK])
+        real = _real_controller_calls(records)
+        probes = [
+            argv for argv in _calls(records, AUTONOMOUS_SCRIPT)
+            if "--completion-probe" in argv
+        ]
+        require(len(real) == 1 and len(probes) == 1, str(records))
+        require("--start-gauntlet-view" in real[0], str(real[0]))
+        require("--start-gauntlet-view" not in probes[0], str(probes[0]))
+        require(
+            "--enable-gauntlet-view-human-approval" not in real[0],
+            f"approval was enabled by default: {real[0]}",
+        )
+
+        log.unlink()
+        _, records = _run(
+            fixture,
+            log,
+            ["-TaskId", TASK, "-EnableGauntletViewHumanApproval"],
+        )
+        real = _real_controller_calls(records)
+        probes = [
+            argv for argv in _calls(records, AUTONOMOUS_SCRIPT)
+            if "--completion-probe" in argv
+        ]
+        require(len(real) == 1 and len(probes) == 1, str(records))
+        require("--start-gauntlet-view" in real[0], str(real[0]))
+        require(
+            "--enable-gauntlet-view-human-approval" in real[0],
+            f"explicit viewer approval was dropped: {real[0]}",
+        )
+        require(
+            "--enable-gauntlet-view-human-approval" not in probes[0],
+            f"the read-only completion probe received approval authority: {probes[0]}",
+        )
+
+
 def test_the_committed_synthetic_evidence_guards_are_untouched() -> None:
     """The launcher forwards a flag; it never relaxes who may receive evidence."""
     from Pipeline.TaskReviewAgent import synthetic_gauntlet_approver as approver

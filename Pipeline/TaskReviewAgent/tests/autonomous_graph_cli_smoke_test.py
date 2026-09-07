@@ -209,6 +209,7 @@ def test_new_run_persists_manifest_before_shared_factory_and_wires_exact_paths()
         source.mkdir()
         calls: list[dict[str, Any]] = []
         controller_values: list[dict[str, Any]] = []
+        viewer_values: list[Any] = []
 
         orchestrator = SimpleNamespace(
             active_assignments={},
@@ -252,6 +253,16 @@ def test_new_run_persists_manifest_before_shared_factory_and_wires_exact_paths()
                 scheduler_id=values["scheduler_id"],
             )
 
+        def fake_viewer(identity: Any) -> Any:
+            require(
+                (checkout_root / ".task-review-agent").is_dir(),
+                "viewer startup ran before the durable run manifest",
+            )
+            viewer_values.append(identity)
+            return SimpleNamespace(
+                url="http://127.0.0.1:8787", disposition="started"
+            )
+
         class FakeController:
             def __init__(self, **values: Any) -> None:
                 controller_values.append(values)
@@ -291,6 +302,7 @@ def test_new_run_persists_manifest_before_shared_factory_and_wires_exact_paths()
                 else HEAD,
             ),
             patch.object(cli, "SchedulerLock", return_value=FakeManifestLock()),
+            patch.object(cli, "ensure_gauntlet_view", side_effect=fake_viewer),
             patch.object(cli, "build_production_orchestrator", side_effect=fake_factory),
             patch.object(cli, "ProductionCoherentSnapshotter", return_value=object()),
             patch.object(cli, "AutonomousGraphController", FakeController),
@@ -309,12 +321,24 @@ def test_new_run_persists_manifest_before_shared_factory_and_wires_exact_paths()
                     "codex",
                     "--architect-provider", "codex",
                     "--provider-allowlist", "codex",
+                    "--start-gauntlet-view",
+                    "--enable-gauntlet-view-human-approval",
                 ]
             )
 
         require(exit_code == cli.EXIT_BLOCKED, f"wrong blocked exit: {exit_code}")
         refresh.assert_called_once_with(source.resolve())
         require(len(calls) == 1, str(calls))
+        require(len(viewer_values) == 1, str(viewer_values))
+        viewer = viewer_values[0]
+        require(viewer.source == source.resolve(), str(viewer))
+        require(viewer.source_branch == "main", str(viewer))
+        require(viewer.source_commit == HEAD, str(viewer))
+        require(viewer.state_root == checkout_root.resolve(), str(viewer))
+        require(viewer.run_id == "autonomous-cli-test", str(viewer))
+        require(viewer.repository == REPOSITORY, str(viewer))
+        require(viewer.display_task_ids == (TASK,), str(viewer))
+        require(viewer.human_approval_enabled, str(viewer))
         values = calls[0]
         require(values["provider_allowlist"] == ("codex",), str(values))
         require(values["max_workers"] == 2, str(values))

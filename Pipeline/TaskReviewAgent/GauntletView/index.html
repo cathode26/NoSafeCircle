@@ -129,6 +129,17 @@
     border: 1px dashed var(--line); border-radius: 7px; padding: 7px 9px;
     color: var(--muted); font-size: 12px;
   }
+  .approval-panel {
+    border: 1px solid #d2a8ff; border-radius: 8px; padding: 10px;
+    margin: 2px 0 14px; background: #d2a8ff12;
+  }
+  .approval-panel .binding { color: var(--muted); font-size: 11px; line-height: 1.55; }
+  .approval-button {
+    width: 100%; margin-top: 9px; padding: 9px 12px; border-color: #d2a8ff;
+    color: #d2a8ff; font-weight: 700;
+  }
+  .approval-button:disabled { opacity: .55; cursor: wait; }
+  .approval-status { margin-top: 7px; font-size: 11px; color: var(--muted); }
   .empty { color: var(--muted); font-style: italic; }
   .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; }
   .live { background: #3fb950; box-shadow: 0 0 7px #3fb950; }
@@ -145,9 +156,9 @@
 
   <h2>View</h2>
   <div class="btns">
-    <button id="mode-deps" class="on">Dependencies</button>
-    <button id="mode-tree">Hierarchy</button>
+    <button id="mode-all" class="on" disabled>Relationships</button>
   </div>
+  <div class="sub">solid arrow · depends on<br>dashed lime arrow · generated child</div>
   <div class="btns">
     <button id="zin">Zoom +</button>
     <button id="zout">Zoom −</button>
@@ -207,10 +218,14 @@ const STATES = {
 
   active:         { color: '#3b82f6', label: 'Task Working',   group: 'in flight',
                     hint: 'a worker is running this right now' },
+  aggregate:      { color: '#b6ff00', label: 'Decomposed Parent', group: 'in flight',
+                    hint: 'non-executable parent; status is rolled up from its generated children' },
   checks_pending: { color: '#00e5ff', label: 'Task In CI',     group: 'in flight',
                     hint: 'waiting on GitHub pull-request checks' },
   integration_queued: { color: '#f8fafc', label: 'Verified — Waiting for CI Slot', group: 'in flight',
                     hint: 'verified work is queued behind the local integration gate' },
+  delivery_ready: { color: '#ff9ff3', label: 'Verified — Ready to Continue', group: 'in flight',
+                    hint: 'the exact human-approved handoff is agent-ready but not yet gate-queued' },
 
   complete:       { color: '#22c55e', label: 'Task Complete',  group: 'finished',
                     hint: 'committed TaskGraph conformance evidence proves delivery' },
@@ -223,8 +238,8 @@ const STATES = {
 cytoscape.use(cytoscapeDagre);
 
 const hidden = new Set(['cancelled']);
-let mode = 'deps';
 let snapshot = null;
+const approvalOutcomes = new Map();
 let lastStates = new Map();
 
 const cy = cytoscape({
@@ -265,7 +280,10 @@ const cy = cytoscape({
         'curve-style': 'bezier',
       },
     },
-    { selector: 'edge[kind = "parent"]', style: { 'line-style': 'dashed', 'line-color': '#3d444d' } },
+    { selector: 'edge[kind = "parent"]', style: {
+      width: 2.2, 'line-style': 'dashed', 'line-color': '#b6ff00',
+      'target-arrow-color': '#b6ff00', 'target-arrow-shape': 'vee',
+    } },
     { selector: 'node:selected', style: { 'border-width': 4, 'border-color': '#58a6ff' } },
     {
       selector: '.faded',
@@ -446,11 +464,10 @@ function buildElements(tasks) {
   }));
   const edges = [];
   for (const t of shown) {
-    if (mode === 'deps') {
-      for (const dep of t.depends_on) {
-        if (ids.has(dep)) edges.push({ data: { id: `${dep}->${t.id}`, source: dep, target: t.id, kind: 'dep' } });
-      }
-    } else if (t.parent && ids.has(t.parent)) {
+    for (const dep of t.depends_on) {
+      if (ids.has(dep)) edges.push({ data: { id: `${dep}->${t.id}`, source: dep, target: t.id, kind: 'dep' } });
+    }
+    if (t.parent && ids.has(t.parent)) {
       edges.push({ data: { id: `${t.parent}=>${t.id}`, source: t.parent, target: t.id, kind: 'parent' } });
     }
   }
@@ -458,11 +475,98 @@ function buildElements(tasks) {
 }
 
 function layout() {
+  const MAX_COLUMNS = 4;
+  const X_STEP = 290;
+  const Y_STEP = 170;
+  const FAMILY_GAP = 90;
+  const nodes = [...cy.nodes()].sort((a, b) => a.id().localeCompare(b.id()));
+  const outgoing = new Map(nodes.map(node => [node.id(), new Set()]));
+  const incoming = new Map(nodes.map(node => [node.id(), new Set()]));
+  const adjacent = new Map(nodes.map(node => [node.id(), new Set()]));
+  cy.edges().forEach(edge => {
+    const source = edge.source().id(), target = edge.target().id();
+    if (!outgoing.has(source) || !outgoing.has(target)) return;
+    outgoing.get(source).add(target);
+    incoming.get(target).add(source);
+    adjacent.get(source).add(target);
+    adjacent.get(target).add(source);
+  });
+
+  // A lane is exactly one connected component of committed dependency and
+  // decomposition edges. No title, task-number, or visual guess creates a lane.
+  const unseen = new Set(nodes.map(node => node.id()));
+  const components = [];
+  while (unseen.size) {
+    const first = [...unseen].sort()[0];
+    const queue = [first], ids = [];
+    unseen.delete(first);
+    while (queue.length) {
+      const id = queue.shift();
+      ids.push(id);
+      for (const next of [...adjacent.get(id)].sort()) {
+        if (unseen.delete(next)) queue.push(next);
+      }
+    }
+    components.push(ids.sort());
+  }
+
+  let outerRowY = 0, usedColumns = 0, outerRowHeight = 0;
+  const positions = {};
+  for (const ids of components.sort((a, b) => a[0].localeCompare(b[0]))) {
+    const member = new Set(ids);
+    const indegree = new Map(ids.map(id => [id, [...incoming.get(id)].filter(x => member.has(x)).length]));
+    const rank = new Map(ids.map(id => [id, 0]));
+    const queue = ids.filter(id => indegree.get(id) === 0).sort();
+    const visited = new Set();
+    while (queue.length) {
+      const id = queue.shift();
+      visited.add(id);
+      for (const next of [...outgoing.get(id)].filter(x => member.has(x)).sort()) {
+        rank.set(next, Math.max(rank.get(next), rank.get(id) + 1));
+        indegree.set(next, indegree.get(next) - 1);
+        if (indegree.get(next) === 0) queue.push(next);
+      }
+      queue.sort();
+    }
+    // TaskGraph should be acyclic. If an invalid cycle reaches the read-only
+    // viewer, retain every node in a final row without inventing direction.
+    const maxRank = Math.max(0, ...rank.values());
+    for (const id of ids) if (!visited.has(id)) rank.set(id, maxRank + 1);
+
+    const rankGroups = new Map();
+    for (const id of ids) {
+      const level = rank.get(id);
+      if (!rankGroups.has(level)) rankGroups.set(level, []);
+      rankGroups.get(level).push(id);
+    }
+    const componentRows = [];
+    for (const level of [...rankGroups.keys()].sort((a, b) => a - b)) {
+      const levelIds = rankGroups.get(level).sort();
+      for (let start = 0; start < levelIds.length; start += MAX_COLUMNS) {
+        componentRows.push(levelIds.slice(start, start + MAX_COLUMNS));
+      }
+    }
+    const width = Math.max(1, ...componentRows.map(row => row.length));
+    if (usedColumns && usedColumns + width > MAX_COLUMNS) {
+      outerRowY += outerRowHeight + FAMILY_GAP;
+      usedColumns = 0;
+      outerRowHeight = 0;
+    }
+    const centerX = (usedColumns + (width - 1) / 2) * X_STEP;
+    componentRows.forEach((row, rowIndex) => {
+      row.forEach((id, column) => {
+        positions[id] = {
+          x: centerX + (column - (row.length - 1) / 2) * X_STEP,
+          y: outerRowY + rowIndex * Y_STEP,
+        };
+      });
+    });
+    usedColumns += width;
+    outerRowHeight = Math.max(outerRowHeight, componentRows.length * Y_STEP);
+  }
   cy.layout({
-    name: 'dagre',
-    rankDir: 'TB',
-    nodeSep: 18,
-    rankSep: 90,
+    name: 'preset',
+    positions: node => positions[node.id()],
     animate: false,
     fit: false,
   }).run();
@@ -655,6 +759,62 @@ function githubPullRequestNavigation(task) {
     `<div class="issue-number">Pull request <code>#${esc(w.pull_request_number)}</code></div></div>`;
 }
 
+function humanApprovalControl(task) {
+  const actions = snapshot && Array.isArray(snapshot.human_actions) ? snapshot.human_actions : [];
+  const action = actions.find(item => item.task_id === task.id);
+  const outcome = approvalOutcomes.get(task.id);
+  if (!action) return outcome
+    ? `<div class="approval-panel"><strong>Last human action</strong><div class="approval-status">${esc(outcome)}</div></div>`
+    : '';
+  const exact = action.exact_commit
+    ? `commit <code>${esc(action.exact_commit)}</code>`
+    : `plan <code>${esc(action.decomposition_plan_id)}</code><br>plan SHA-256 <code>${esc(action.decomposition_plan_sha256)}</code>`;
+  return `<div class="approval-panel">` +
+    `<strong>Exact human authority</strong><div class="binding">` +
+    `Task <code>${esc(action.task_id)}</code> · Issue <code>#${esc(action.issue_number)}</code><br>` +
+    `Repository <code>${esc(action.repository)}</code><br>` +
+    `Run <code>${esc(action.autonomous_run_id)}</code><br>` +
+    `Workflow <code>${esc(action.workflow_state)}</code> / <code>${esc(action.workflow_phase)}</code><br>` +
+    `Schema <code>${esc(action.workflow_schema_version)}</code><br>` +
+    `Version <code>${esc(action.workflow_state_version)}</code> · event <code>${esc(action.workflow_event_id)}</code><br>` +
+    `${exact}</div>` +
+    `<button class="approval-button" data-task-id="${escAttr(action.task_id)}" data-action-token="${escAttr(action.action_token)}">${esc(action.label)}</button>` +
+    `<div class="approval-status" aria-live="polite"></div></div>`;
+}
+
+async function approveHumanAction(button) {
+  const panel = button.closest('.approval-panel');
+  const status = panel.querySelector('.approval-status');
+  const taskId = button.dataset.taskId;
+  button.disabled = true;
+  status.textContent = 'Revalidating exact Issue binding…';
+  try {
+    const response = await fetch('/api/approve', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action_token: button.dataset.actionToken }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.message || 'Approval rejected');
+    const message = result.status === 'mutation_succeeded_poke_failed'
+      ? 'GitHub transition succeeded; local architect poke failed. Its bounded poll remains authoritative.'
+      : 'GitHub transition succeeded and the local architect was notified.';
+    approvalOutcomes.set(taskId, message);
+    status.textContent = message;
+    const refreshed = await fetch('/api/state', { credentials: 'same-origin' });
+    if (refreshed.ok) {
+      snapshot = await refreshed.json();
+      render(snapshot, { relayout: false });
+      showDetail(taskId);
+    }
+  } catch (error) {
+    const message = `Stopped: ${error.message}`;
+    approvalOutcomes.set(taskId, message);
+    status.textContent = message;
+  }
+}
+
 function duration(value) {
   if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return 'unavailable';
   const seconds = Math.round(value);
@@ -721,6 +881,7 @@ function showDetail(id) {
   field('task', `<strong>${esc(task.id)}</strong><br>${esc(task.title)}`);
   out.push(githubIssueNavigation(task));
   out.push(githubPullRequestNavigation(task));
+  out.push(humanApprovalControl(task));
   field('classification',
     `<code>${esc(task.kind)}</code><code>${esc(task.decomposition_state)}</code>` +
     `<code>${esc(task.execution_scope || '—')}</code><code>${esc(task.disposition)}</code>`);
@@ -750,6 +911,9 @@ function showDetail(id) {
     progress.attempt != null ? `attempt <code>${esc(progress.attempt)}</code>` : '',
     progress.queue_position != null ? `integration queue position <code>${esc(progress.queue_position)}</code>` : '',
     progress.blocked_reason ? `blocked: ${esc(progress.blocked_reason)}` : '',
+    progress.children_total != null ? `${esc(progress.children_complete)}/${esc(progress.children_total)} generated children complete` : '',
+    progress.children_by_state ? `child states: ${Object.entries(progress.children_by_state).map(([state, count]) => `${esc(state)} ${esc(count)}`).join(' · ')}` : '',
+    progress.children_recorded_total_tokens != null ? `recorded child tokens: ${esc(progress.children_recorded_total_tokens.toLocaleString())}` : '',
     progress.estimate ? esc(progress.estimate.label) : 'Estimate unavailable',
   ].filter(Boolean).join('<br>'));
   if (progress.ci) {
@@ -774,6 +938,8 @@ function showDetail(id) {
   }
   if (task.notes) field('notes', esc(task.notes));
   document.getElementById('detail').innerHTML = out.join('');
+  const approvalButton = document.querySelector('#detail .approval-button');
+  if (approvalButton) approvalButton.onclick = () => approveHumanAction(approvalButton);
 }
 
 // Highlight a node's dependency neighbourhood on click.
@@ -797,15 +963,6 @@ document.getElementById('zin').onclick = () => zoomGraph(1.35);
 document.getElementById('zout').onclick = () => zoomGraph(1 / 1.35);
 document.getElementById('fit').onclick = fitGraph;
 
-function setMode(next) {
-  mode = next;
-  document.getElementById('mode-deps').classList.toggle('on', next === 'deps');
-  document.getElementById('mode-tree').classList.toggle('on', next === 'tree');
-  cy.elements().remove();
-  render(snapshot, { relayout: true });
-}
-document.getElementById('mode-deps').onclick = () => setMode('deps');
-document.getElementById('mode-tree').onclick = () => setMode('tree');
 for (const id of ['f-cancelled', 'f-scope']) {
   document.getElementById(id).onchange = () => {
     if (!snapshot) return;
