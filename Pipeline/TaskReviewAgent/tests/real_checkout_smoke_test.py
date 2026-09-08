@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -20,7 +21,10 @@ from Pipeline.TaskReviewAgent.contracts import (  # noqa: E402
     semantic_sha256,
 )
 from Pipeline.TaskReviewAgent.coordination import StaticCoordinationObserver  # noqa: E402
+from Pipeline.TaskReviewAgent.durable_checkout import DurableTaskCheckoutManager  # noqa: E402
 from Pipeline.TaskReviewAgent.goal_loop import GoalAction, assess_goal_state  # noqa: E402
+from Pipeline.TaskReviewAgent import real_checkout as real_checkout_subject  # noqa: E402
+from Pipeline.TaskReviewAgent import real_observation as real_observation_subject  # noqa: E402
 from Pipeline.TaskReviewAgent.real_checkout import (  # noqa: E402
     RealTaskCheckoutManager,
     branch_name,
@@ -267,6 +271,120 @@ def test_real_checkout_requires_github_claim() -> None:
         require(not (checkout_root / TASK_ID).exists(), "unclaimed task checkout was created")
 
 
+def test_clean_committed_observation_is_cached_and_invalidated_by_head_change() -> None:
+    with tempfile.TemporaryDirectory(prefix="nsc-task-review-observation-cache-") as temporary:
+        root = Path(temporary)
+        controller, _, first_head = create_fixture(root)
+        subject = workflow(
+            controller=controller,
+            checkout_root=root / "operator",
+            coordination_status="available_unassigned",
+        )
+        observer = subject.base_observer
+        taskcontrol_calls: list[tuple[str, ...]] = []
+        original_taskcontrol = observer._taskcontrol
+
+        def counting_taskcontrol(*args: str, check: bool = True):
+            taskcontrol_calls.append(args)
+            return original_taskcontrol(*args, check=check)
+
+        with mock.patch.object(observer, "_taskcontrol", side_effect=counting_taskcontrol):
+            first = subject.observe_goal_state()
+            second = subject.observe_goal_state()
+            require(first["task"] == second["task"], "cached task observation changed")
+            require(
+                taskcontrol_calls == [("validate",), ("state", TASK_ID, "--json")],
+                f"identical clean observation repeated taskcontrol: {taskcontrol_calls}",
+            )
+
+            (controller / "README.md").write_text("new committed input\n", encoding="utf-8")
+            dirty = subject.observe_goal_state()
+            require(
+                dirty["environment"]["controller_clean"] is False,
+                "cache hid a dirty controller",
+            )
+            subject.observe_goal_state()
+            require(
+                taskcontrol_calls
+                == [
+                    ("validate",),
+                    ("state", TASK_ID, "--json"),
+                    ("validate",),
+                    ("state", TASK_ID, "--json"),
+                    ("validate",),
+                    ("state", TASK_ID, "--json"),
+                ],
+                f"dirty controller observation was cached: {taskcontrol_calls}",
+            )
+
+            git(controller, "add", "README.md")
+            git(controller, "commit", "-m", "Advance controller HEAD")
+            second_head = git(controller, "rev-parse", "HEAD")
+            require(second_head != first_head, "fixture HEAD did not advance")
+
+            changed = subject.observe_goal_state()
+            require(
+                changed["environment"]["source_head"] == second_head,
+                "cache hid the new controller HEAD",
+            )
+            require(
+                taskcontrol_calls
+                == [
+                    ("validate",),
+                    ("state", TASK_ID, "--json"),
+                    ("validate",),
+                    ("state", TASK_ID, "--json"),
+                    ("validate",),
+                    ("state", TASK_ID, "--json"),
+                    ("validate",),
+                    ("state", TASK_ID, "--json"),
+                ],
+                f"HEAD change did not invalidate taskcontrol cache: {taskcontrol_calls}",
+            )
+
+
+def test_clean_cached_source_identity_uses_two_git_processes_per_observation() -> None:
+    with tempfile.TemporaryDirectory(prefix="nsc-task-review-git-identity-") as temporary:
+        root = Path(temporary)
+        controller, _, _ = create_fixture(root)
+        subject = workflow(
+            controller=controller,
+            checkout_root=root / "operator",
+            coordination_status="available_unassigned",
+        )
+        observer = subject.base_observer
+        calls: list[tuple[str, ...]] = []
+        original_run = real_observation_subject._run
+
+        def counting_run(args, **values):
+            command = tuple(args)
+            if command and command[0] == "git":
+                calls.append(command)
+            return original_run(args, **values)
+
+        with mock.patch.object(real_observation_subject, "_run", side_effect=counting_run):
+            subject.observe_goal_state()
+            after_first = len(calls)
+            subject.observe_goal_state()
+
+        require(after_first == 3, f"initial source observation used {after_first} Git calls")
+        second_calls = calls[after_first:]
+        require(
+            len(second_calls) == 2,
+            f"cached source observation used {len(second_calls)} Git calls: {second_calls}",
+        )
+        require(
+            second_calls[0][-4:]
+            == ("rev-parse", "HEAD", "HEAD^{tree}", "refs/remotes/origin/main"),
+            f"source revisions were not read coherently: {second_calls[0]}",
+        )
+        require(
+            second_calls[1][-4:]
+            == ("status", "--porcelain=v1", "--branch", "--untracked-files=all"),
+            f"branch and dirty state were not read together: {second_calls[1]}",
+        )
+
+
 _REPO_BINDING_TASK_ID = "NSC-778"
 _REPO_BINDING_CONTRACT_PATH = f"Tasks/{_REPO_BINDING_TASK_ID}.yaml"
 _REPO_BINDING_TITLE = "Repository Binding Fixture"
@@ -354,6 +472,54 @@ def test_repo_binding_production_controller_allows_production_checkout() -> None
         require(
             result["status"] in ("unmanaged_exact", "ready"),
             f"matching production origin was rejected: {result}",
+        )
+
+
+def test_durable_checkout_inspection_consolidates_git_identity() -> None:
+    with tempfile.TemporaryDirectory(prefix="nsc-checkout-git-identity-") as temporary:
+        checkout_root = Path(temporary)
+        origin = "https://github.com/cathode26/NoSafeCircle.git"
+        checkout = checkout_root / _REPO_BINDING_TASK_ID
+        head, contract_sha = _build_local_checkout(checkout, origin_url=origin)
+        tree = git(checkout, "rev-parse", "HEAD^{tree}")
+        observation = _repo_binding_observation(
+            source_head=head,
+            source_tree=tree,
+            contract_sha256=contract_sha,
+            controller_remote=origin,
+        )
+        manager = DurableTaskCheckoutManager(
+            source_root=checkout_root,
+            task_id=_REPO_BINDING_TASK_ID,
+            checkout_root=checkout_root,
+            worker_id=WORKER_ID,
+        )
+        calls: list[tuple[str, ...]] = []
+        original_run = real_checkout_subject._run
+
+        def counting_run(args, **values):
+            command = tuple(args)
+            if command and command[0] == "git":
+                calls.append(command)
+            return original_run(args, **values)
+
+        with mock.patch.object(real_checkout_subject, "_run", side_effect=counting_run):
+            result = manager.inspect(observation)
+
+        require(
+            result["status"] in ("unmanaged_exact", "ready"),
+            f"consolidated checkout inspection changed the result: {result}",
+        )
+        require(len(calls) == 6, f"checkout inspection used {len(calls)} Git calls: {calls}")
+        require(
+            calls[1][-4:]
+            == ("rev-parse", "HEAD", "HEAD^{tree}", "refs/remotes/origin/main"),
+            f"checkout revisions were not read coherently: {calls[1]}",
+        )
+        require(
+            calls[2][-4:]
+            == ("status", "--porcelain=v1", "--branch", "--untracked-files=all"),
+            f"checkout branch and dirty state were not read together: {calls[2]}",
         )
 
 
@@ -564,7 +730,10 @@ def main() -> int:
     tests = (
         test_real_checkout_create_resume_and_conflict,
         test_real_checkout_requires_github_claim,
+        test_clean_committed_observation_is_cached_and_invalidated_by_head_change,
+        test_clean_cached_source_identity_uses_two_git_processes_per_observation,
         test_repo_binding_production_controller_allows_production_checkout,
+        test_durable_checkout_inspection_consolidates_git_identity,
         test_repo_binding_disposable_controller_allows_matching_disposable_checkout,
         test_repo_binding_disposable_controller_rejects_production_checkout,
         test_repo_binding_production_controller_rejects_other_github_checkout,

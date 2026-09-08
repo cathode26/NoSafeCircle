@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import shlex
+import sys
 import subprocess
 import tempfile
 from dataclasses import dataclass, field
@@ -656,7 +657,7 @@ def scenario_json_output(root: Path) -> None:
     assert isinstance(payload["suggested_commands"], list)
 
     script = Path(__file__).resolve().parent / "validate_draft_evidence.py"
-    cli = run(root, "python3", str(script), "--record", fixture.record_path, "--root", str(root), "--json")
+    cli = run(root, sys.executable, str(script), "--record", fixture.record_path, "--root", str(root), "--json")
     cli_payload = json.loads(cli.stdout)
     assert cli_payload == payload
 

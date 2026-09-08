@@ -10,7 +10,7 @@ from typing import Any, Mapping
 TOKEN_USAGE_SCHEMA_VERSION = "1.0"
 TOKEN_USAGE_SCOPE = "through_delivery_evidence"
 TOKEN_USAGE_STATUSES = frozenset({"complete", "incomplete"})
-TASK_ID_RE = re.compile(r"NSC-[0-9]{3}")
+TASK_ID_RE = re.compile(r"^NSC-(?:[0-9]{3}|[1-9][0-9]{3,8})$")
 RUN_ID_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,199}")
 
 _TOKEN_FIELDS = ("input_tokens", "output_tokens", "total_tokens")

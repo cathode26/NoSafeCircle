@@ -86,6 +86,43 @@ This mode deliberately refuses delivered production work, an existing checkout,
 any branch or claim, or an open Issue/PR. A production delivery revert remains a
 separately reviewed Git change; it is never inferred from stale cache cleanup.
 
+### Retire one proven abandoned quarantined gate waiter
+
+Use this explicit operator boundary only after an independent read shows one
+closed, incomplete managed workflow still retained as a
+`workflow_missing_or_invalid` durable waiter. Obtain the current 40-character
+gate OID from that same read and run one task per invocation. Dry run:
+
+```text
+python Pipeline/TaskReviewAgent/reset_task.py <exact-task-id> --source <absolute-clean-controller-main> --checkout-root <absolute-checkout-root> --retire-abandoned-gate-waiter --expected-gate-oid <exact-current-40-character-gate-oid>
+```
+
+The JSON plan is ready only when it proves the exact repository/ref/revision,
+reservation, one CLOSED Issue and its full managed snapshot, recorded
+branch/head/checkout, absent recorded and canonical checkouts, absent exact
+remote task branch, candidate not reachable from the observed remote `main`, no
+gate owner, and no Issue lease or task/resource claim. Any existing checkout is
+refused without inspecting or deleting it, so a dirty checkout is preserved.
+
+After reviewing every proof field, apply the same exact task and pre-image OID:
+
+```text
+python Pipeline/TaskReviewAgent/reset_task.py <exact-task-id> --source <absolute-clean-controller-main> --checkout-root <absolute-checkout-root> --retire-abandoned-gate-waiter --expected-gate-oid <same-exact-pre-image-gate-oid> --apply --confirm-repository <exact-owner/repository>
+```
+
+The command performs only one append-only, non-forced gate update. A moved OID
+or any changed proof stops without retrying against new facts. Repeating the
+same command after its exact event is idempotent. The event is
+`gate_abandoned_waiter_retired`, never `complete` or `delivered`; it preserves
+the proof and advisory next-waiter intent. Do not use
+`withdraw(..., issue_state="complete")` for this case.
+
+Evaluate neighboring waiters independently. A child task whose canonical reset
+removed its branch, checkout, and state is not thereby abandoned: it must still
+match the same exact closed-incomplete Issue, reservation, head non-reachability,
+owner, lease, claim, and gate-OID proof. Any unresolved quarantine remains in
+the queue and continues to block unknown or overlapping resources.
+
 When Vincent explicitly authorizes repeating a task whose delivery is already
 conformant on production `main`, use the separate delivered-production mode:
 
@@ -146,6 +183,47 @@ python Pipeline/TaskReviewAgent/reset_task.py NSC-### --source C:\path\to\clean\
 If any child was already consumed, any later history exists, the source is
 dirty, or the receipt identities no longer match, stop and handle the dependency
 explicitly rather than trying to erase the decomposition.
+
+#### Recover an undo that was already published
+
+Do not weaken the exact-HEAD undo when the additive undo commit already reached
+`main` but its reset receipt and operational cleanup did not. In a disposable
+private rehearsal repository only, use the explicit recovery mode:
+
+```powershell
+python Pipeline/TaskReviewAgent/reset_task.py NSC-### --source C:\path\to\rehearsal --checkout-root C:\path\to\checkout-root --recover-published-decomposition-undo --graph-delta C:\path\to\graph_delta.json
+```
+
+The dry run requires one valid open `complete` decomposition Issue whose
+terminal hashed event binds the exact plan and D1C apply commit. It then proves
+there is exactly one immediate additive undo commit with the expected subject,
+automation identity, parent, inverse path set, source tree, and source-graph
+hash, and that this undo is in current `main`'s first-parent history. Every
+later commit must leave the original D1C paths, every child-owned repository
+path, and each child's delivery-evidence path untouched. Any child Issue
+(including a closed Issue), branch, checkout, worktree, claim, active state,
+current contract, implementation file, or delivery evidence refuses recovery.
+
+After reviewing the exact undo SHA, apply cleanup with all three confirmations:
+
+```powershell
+python Pipeline/TaskReviewAgent/reset_task.py NSC-### --source C:\path\to\rehearsal --checkout-root C:\path\to\checkout-root --recover-published-decomposition-undo --graph-delta C:\path\to\graph_delta.json --apply --confirm-repository owner/private-rehearsal --confirm-plan-id <exact-GDP-plan-id> --confirm-undo-commit <exact-40-character-SHA>
+```
+
+This recovery creates no Git commit and performs no push. It first writes a
+no-overwrite receipt, then adds one marker-bound audit comment and closes the
+completed parent Issue without editing its hashed workflow history, removes
+only the exact clean manifest-bound parent checkout/local branch, and archives
+the parent's active controller state. If an external interruption occurs,
+resume the exact receipt with the same repository, plan, and undo confirmations;
+already completed cleanup steps are verified and not repeated.
+
+The completed-Issue guard recognizes that exact authorized recovery marker only
+on a valid closed `complete/decomposition_apply` workflow. It then retains the
+Issue as immutable audit history while excluding it from current workflow
+authority, so a later fresh decomposition creates a new managed Issue. A normal
+completed implementation, an unauthorized marker, or malformed/duplicate
+recovery evidence remains terminal or fails closed.
 
 ### 1. Close the abandoned pull request
 
@@ -245,13 +323,13 @@ branch, verifies/removes only the clean canonical checkout, archives active
 state, retains immutable outputs, and leaves `main` unchanged:
 
 ```powershell
-python C:\NSC\NSC\NoSafeCircle\Pipeline\TaskReviewAgent\reset_task.py NSC-901 --source C:\NSC\Rehearsal\NoSafeCircle-Homework-Rehearsal --checkout-root C:\NSC\Rehearsal --abandon-incomplete-rehearsal
+python C:\NSC\NSC\NoSafeCircle\Pipeline\TaskReviewAgent\reset_task.py NSC-901 --source C:\NSC\Rehearsal\Pipeline-Rehearsal --checkout-root C:\NSC\Rehearsal --abandon-incomplete-rehearsal
 ```
 
 After reviewing the dry run:
 
 ```powershell
-python C:\NSC\NSC\NoSafeCircle\Pipeline\TaskReviewAgent\reset_task.py NSC-901 --source C:\NSC\Rehearsal\NoSafeCircle-Homework-Rehearsal --checkout-root C:\NSC\Rehearsal --abandon-incomplete-rehearsal --apply --confirm-repository cathode26/NoSafeCircle-Homework-Rehearsal
+python C:\NSC\NSC\NoSafeCircle\Pipeline\TaskReviewAgent\reset_task.py NSC-901 --source C:\NSC\Rehearsal\Pipeline-Rehearsal --checkout-root C:\NSC\Rehearsal --abandon-incomplete-rehearsal --apply --confirm-repository fixture-owner/pipeline-rehearsal
 ```
 
 This mode refuses a completed Issue, a task already contained in `main`, a
@@ -288,13 +366,13 @@ The checked-in helper performs this procedure with exact-ref and repository
 guards. It is read-only unless `--apply` is supplied:
 
 ```powershell
-python C:\NSC\NSC\NoSafeCircle\Pipeline\TaskReviewAgent\reset_rehearsal_task.py NSC-901 --source C:\NSC\Rehearsal\NoSafeCircle-Homework-Rehearsal --checkout-root C:\NSC\Rehearsal
+python C:\NSC\NSC\NoSafeCircle\Pipeline\TaskReviewAgent\reset_rehearsal_task.py NSC-901 --source C:\NSC\Rehearsal\Pipeline-Rehearsal --checkout-root C:\NSC\Rehearsal
 ```
 
 After reviewing the dry-run inventory, the complete one-command reset is:
 
 ```powershell
-python C:\NSC\NSC\NoSafeCircle\Pipeline\TaskReviewAgent\reset_rehearsal_task.py NSC-901 --source C:\NSC\Rehearsal\NoSafeCircle-Homework-Rehearsal --checkout-root C:\NSC\Rehearsal --apply --confirm-repository cathode26/NoSafeCircle-Homework-Rehearsal
+python C:\NSC\NSC\NoSafeCircle\Pipeline\TaskReviewAgent\reset_rehearsal_task.py NSC-901 --source C:\NSC\Rehearsal\Pipeline-Rehearsal --checkout-root C:\NSC\Rehearsal --apply --confirm-repository fixture-owner/pipeline-rehearsal
 ```
 
 The helper derives the default private Issue archive as
@@ -304,6 +382,15 @@ against the source checkout's actual `origin`, not trusted as repository
 authority. The helper refuses repositories that are public, archived, do not
 contain `rehearsal` in their GitHub name, or whose exact merge/Issue/PR/checkout
 identities cannot be proven.
+
+If the additive reset commit was successfully pushed and the completed Issue
+was transferred before a transient archive-observation failure, rerun the
+identical applied command. The helper recognizes a trailer-bound reset commit
+on top of later unrelated `main` history, revalidates the original merge path
+set and preserved unrelated files, reuses that exact commit, and continues the
+remaining cleanup without creating a second revert. It still refuses an
+unrelated recorded merge, any intervening task-path change, or any extra path in
+the reset commit.
 
 “Uncommit” in this procedure always means a new additive revert commit. The
 helper never resets, rebases, force-pushes, or deletes the original merge from

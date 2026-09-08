@@ -53,6 +53,7 @@ def build_decomposition_reviewer_prompt(
     graph_delta: Any | None,
     review_history: Iterable[dict[str, Any]],
     unresolved_findings: Iterable[ReviewFinding],
+    same_provider_separate_session_review: bool = False,
 ) -> str:
     """Build one exact independent-review prompt for the current candidate."""
 
@@ -60,6 +61,15 @@ def build_decomposition_reviewer_prompt(
     unresolved = [finding.to_dict() for finding in unresolved_findings]
     finding_prefix = f"round-{round_number:02d}-"
     graph_view = graph_delta_review_view(graph_delta)
+
+    independence_rule = (
+        "The conversation that most recently authored a candidate may not approve that "
+        "candidate. You are a separately leased reviewer conversation with no access to "
+        "the author's conversation history, so you may independently pass this candidate "
+        "when it is semantically acceptable."
+        if same_provider_separate_session_review
+        else "The provider that most recently authored a candidate may not approve that candidate."
+    )
 
     return f"""You are the independent D1B.2 decomposition reviewer for round {round_number}.
 
@@ -91,7 +101,7 @@ Your output is a structured review. You may do exactly one of the following:
 
 Round-robin rules:
 
-- The provider that most recently authored a candidate may not approve that candidate.
+- {independence_rule}
 - If you revise, you become the new candidate author; another provider must review it.
 - Every new finding ID must begin with `{finding_prefix}` and use lowercase kebab-case
   after that prefix, for example `{finding_prefix}duplicate-chapel-validation`.

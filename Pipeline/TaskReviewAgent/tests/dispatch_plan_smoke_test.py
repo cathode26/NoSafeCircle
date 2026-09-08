@@ -186,6 +186,11 @@ def test_resume_beats_every_fresh_candidate() -> None:
     )
     require(plan.decision == "resume_existing", f"resume did not win: {plan.decision}")
     require(plan.resume["task_id"] == "NSC-700", f"wrong resume target: {plan.resume}")
+    require(
+        plan.resume["task_contract_sha256"]
+        == tasks["NSC-700"]["task_contract_sha256"],
+        f"resume lost its Issue-bound task contract: {plan.resume}",
+    )
     require(plan.selected_fresh_candidate is None, "fresh candidate selected despite resume")
     require(plan.ranked_eligible_candidates == (), "fresh pool was ranked despite resume")
     require(plan.autonomous_dispatch is False, "autonomous dispatch flag drifted")

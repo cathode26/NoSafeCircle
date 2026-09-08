@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
 TASKGRAPH = ROOT / "Pipeline" / "TaskGraph"
@@ -213,10 +214,36 @@ def test_false_tree_mapping_fails_closed() -> None:
             )
 
 
+def test_large_committed_manifest_uses_bounded_git_processes() -> None:
+    real_run = subprocess.run
+    git_processes = 0
+
+    def counting_run(*args, **kwargs):
+        nonlocal git_processes
+        argv = args[0] if args else kwargs.get("args")
+        if isinstance(argv, (list, tuple)) and argv and Path(str(argv[0])).name.lower() in {
+            "git",
+            "git.exe",
+        }:
+            git_processes += 1
+        return real_run(*args, **kwargs)
+
+    with mock.patch("history_identity_migrations.subprocess.run", side_effect=counting_run):
+        repo = HistoryAwareGitRepository(ROOT)
+
+    translations = repo.history_identity.to_dict()
+    require(len(translations) >= 50, "committed scaling fixture no longer has enough mappings")
+    require(
+        git_processes <= 10,
+        f"history migration validation launched {git_processes} Git processes",
+    )
+
+
 def main() -> int:
     tests = (
         test_translation_works_without_old_object_in_fresh_clone,
         test_false_tree_mapping_fails_closed,
+        test_large_committed_manifest_uses_bounded_git_processes,
     )
     for test in tests:
         test()

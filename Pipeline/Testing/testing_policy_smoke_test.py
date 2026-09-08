@@ -109,8 +109,10 @@ def main() -> int:
     for fact in ("preHead", "preTree", "postHead", "postTree", "TestPlatform", "TestFilter",
                  "result", "total", "passed", "failed", "skipped", "xmlHash", "logHash"):
         require(runner[manifest_start:final_success], rf"\${fact}\b", f"Manifest does not include deterministic fact {fact}")
-    require(runner, r"Get-FileHash.+xmlPath.+SHA256", "Runner does not hash the XML artifact")
-    require(runner, r"Get-FileHash.+logPath.+SHA256", "Runner does not hash the log artifact")
+    require(runner, r"function\s+Get-Sha256Hex.+File\]::OpenRead\(\$Path\).+SHA256\]::Create\(\).+ComputeHash\(\$stream\).+ToLowerInvariant\(\)",
+            "Runner does not stream SHA256 artifact hashes across PowerShell hosts")
+    require(runner, r"xmlHash\s*=\s*Get-Sha256Hex\s+\$xmlPath", "Runner does not hash the XML artifact")
+    require(runner, r"logHash\s*=\s*Get-Sha256Hex\s+\$logPath", "Runner does not hash the log artifact")
     require(runner, r"UTF8Encoding\(\$false\)", "Runner does not explicitly write UTF-8 without BOM")
     require(runner, r"manifestTemporaryPath.+Guid.+FileStream.+Flush\(\$true\).+File\]::Move\(\$manifestTemporaryPath, \$manifestPath\)",
             "Runner does not atomically publish a flushed unique temporary manifest")

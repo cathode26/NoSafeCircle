@@ -19,10 +19,17 @@ if str(ROOT) not in sys.path:
 
 from Pipeline.TaskReviewAgent.codex_supervisor import SupervisorDecision  # noqa: E402
 from Pipeline.TaskReviewAgent.operator_logging import (  # noqa: E402
+    action_display_name,
+    remember_validation_authority_for_logging,
     remember_supervisor_decision_for_logging,
 )
 from Pipeline.TaskReviewAgent.progress import ProgressLog, summarize_result  # noqa: E402
 from Pipeline.TaskReviewAgent.token_usage import build_task_token_usage  # noqa: E402
+from Pipeline.TaskReviewAgent.validation_authority_language import (  # noqa: E402
+    authority_kind_from_observation,
+    delivery_review_proposal_phrase,
+    merge_closeout_expected_validation,
+)
 
 
 def require(condition: bool, message: str) -> None:
@@ -252,6 +259,62 @@ def test_result_summary_is_bounded() -> None:
     require("file_contents" not in summary, "file contents leaked into summary")
 
 
+def test_validation_authority_wording_matches_durable_authority() -> None:
+    automated_observation = {
+        "coordination": {"workflow_state": {"human_result": None}},
+        "downstream": {
+            "receipt": {"validation_authority": {"kind": "automated"}}
+        },
+    }
+    human_observation = {
+        "coordination": {"workflow_state": {"human_result": "pass"}},
+        "downstream": {},
+    }
+    require(
+        authority_kind_from_observation(automated_observation) == "automated",
+        "automated authority was not derived from the durable receipt",
+    )
+    require(
+        authority_kind_from_observation(human_observation) == "human",
+        "human PASS was not derived from durable workflow state",
+    )
+
+    automated_messages = (
+        action_display_name("publish_delivery_review", authority_kind="automated"),
+        merge_closeout_expected_validation("automated"),
+        delivery_review_proposal_phrase("automated"),
+    )
+    for message in automated_messages:
+        folded = message.casefold()
+        require("human pass" not in folded, f"automated wording claimed a human PASS: {message}")
+        require("human approval" not in folded, f"automated wording claimed approval: {message}")
+        require("already-approved" not in folded, f"automated wording claimed prior approval: {message}")
+        require("automated validation" in folded, f"automated authority was hidden: {message}")
+
+    require(
+        "human PASS" in action_display_name(
+            "publish_delivery_review", authority_kind="human"
+        ),
+        "genuine human authority lost its established operator wording",
+    )
+    neutral = action_display_name("publish_delivery_review", authority_kind="unknown")
+    require(
+        "validation authority" in neutral.casefold()
+        and "human" not in neutral.casefold(),
+        f"unknown authority did not fail neutral: {neutral}",
+    )
+
+    remember_validation_authority_for_logging("automated")
+    try:
+        contextual = action_display_name("publish_delivery_review")
+        require(
+            "automated validation" in contextual.casefold(),
+            "operator context did not carry the observed automated authority",
+        )
+    finally:
+        remember_validation_authority_for_logging(None)
+
+
 def _write_crew_run(
     checkout: Path,
     *,
@@ -421,6 +484,7 @@ def main() -> int:
     tests = (
         test_operator_log_is_unity_friendly_and_diagnostic,
         test_result_summary_is_bounded,
+        test_validation_authority_wording_matches_durable_authority,
         test_task_usage_aggregates_multiple_supervisor_and_crew_runs,
     )
     for test in tests:

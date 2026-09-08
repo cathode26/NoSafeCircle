@@ -4,13 +4,15 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import datetime as dt
+import hashlib
 import json
 import re
 import sys
 import time
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -19,10 +21,30 @@ if str(ROOT) not in sys.path:
 
 from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task  # noqa: E402
 from Pipeline.TaskReviewAgent.contracts import semantic_sha256, validate_task_id  # noqa: E402
+from Pipeline.TaskReviewAgent.actor_policy import (  # noqa: E402
+    actor_login,
+    default_actor_policy,
+)
+from Pipeline.TaskReviewAgent.decomposition_undo_retirement import (  # noqa: E402
+    PublishedUndoRetirement,
+    PublishedUndoRetirementError,
+    classify_retired_decomposition_completion,
+    parse_authorized_recovery_comment,
+    render_published_undo_recovery_comment,
+)
 from Pipeline.TaskReviewAgent.git_identity_guard import (  # noqa: E402
     validated_agent_git_identity,
 )
+from Pipeline.TaskReviewAgent.integration_gate import (  # noqa: E402
+    ABANDONED_WAITER_RETIREMENT_AUTHORITY,
+    ABANDONED_WAITER_RETIREMENT_SCHEMA,
+    GitIntegrationGate,
+)
 from Pipeline.TaskReviewAgent.issue_workflow import (  # noqa: E402
+    ALL_STATE_LABELS,
+    STATE_LABELS,
+    WorkflowActor,
+    WorkflowEventType,
     WorkflowPhase,
     WorkflowState,
     parse_events,
@@ -30,6 +52,12 @@ from Pipeline.TaskReviewAgent.issue_workflow import (  # noqa: E402
     validate_event_chain,
 )
 from Pipeline.TaskReviewAgent.real_checkout import branch_name  # noqa: E402
+from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
+    GhIssueBackend,
+    _snapshot,
+    _task_marker,
+    closed_incomplete_duplicate,
+)
 from Pipeline.TaskReviewAgent.reset_rehearsal_task import (  # noqa: E402
     CommandRunner,
     RehearsalResetError,
@@ -65,6 +93,26 @@ from Pipeline.TaskReviewAgent.reset_rehearsal_task import (  # noqa: E402
 
 class TaskResetError(RehearsalResetError):
     """Raised when production abandoned-state cleanup cannot be proven safe."""
+
+
+def _coordinated_receipt_path(state_root: Path, task_id: str, requested: Path) -> Path:
+    """Let a whole-run coordinator reserve an exact canonical no-overwrite receipt."""
+    requested = Path(requested)
+    expected = (state_root / "reset-runs" / task_id).resolve()
+    if (requested.is_symlink() or requested.resolve().parent != expected
+            or re.fullmatch(r"[a-z0-9][a-z0-9-]{0,100}\.json", requested.name) is None):
+        raise TaskResetError("coordinated receipt must be an exact file in the task reset directory")
+    if any(parent.is_symlink() for parent in requested.parents):
+        raise TaskResetError("coordinated receipt traverses a symlink")
+    return requested.resolve()
+
+
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 PRODUCTION_RESET_TASK_TRAILER = "NSC-Production-Reset-Task"
@@ -404,6 +452,183 @@ def _validate_branchless_checkout_source(
     return manifest_head
 
 
+def _validate_branchless_unpublished_candidate(
+    runner: CommandRunner,
+    source: Path,
+    checkout: Path,
+    state_root: Path,
+    *,
+    task: dict[str, Any],
+    manifest: dict[str, Any],
+    branch: str,
+    current_main: str,
+) -> str:
+    """Prove one clean candidate committed locally before its handoff failed.
+
+    Candidate integration commits before its authoritative validation and push.
+    If that validation fails, lease release deliberately clears the projected
+    Issue branch/head even though the exact clean local commit remains.  The
+    reset may remove it only when the checkout manifest, ExecutionCrew receipt,
+    candidate/result artifacts, commit parent, trailers, contract, and changed
+    path set all bind the same unpublished candidate.
+    """
+
+    base = _validate_branchless_checkout_source(
+        runner,
+        source,
+        manifest=manifest,
+        current_main=current_main,
+    )
+    head = _git_text(runner, checkout, "rev-parse", "HEAD", check=False)
+    if head == base:
+        return base
+    if re.fullmatch(r"[0-9a-f]{40}", head) is None:
+        raise TaskResetError("branchless candidate checkout HEAD is invalid")
+    if _git_text(runner, checkout, "branch", "--show-current") != branch:
+        raise TaskResetError("branchless candidate checkout branch is invalid")
+    if _git_text(
+        runner,
+        checkout,
+        "status",
+        "--porcelain=v1",
+        "--untracked-files=all",
+    ):
+        raise TaskResetError("branchless candidate checkout is dirty")
+    parents = _commit_parents(runner, checkout, head)
+    if len(parents) != 1:
+        raise TaskResetError("branchless candidate must have exactly one parent")
+    parent = parents[0]
+    for old, new, message in (
+        (base, parent, "candidate parent predates its checkout source"),
+        (parent, current_main, "candidate parent is outside current main history"),
+    ):
+        if (
+            _git(
+                runner,
+                source,
+                "merge-base",
+                "--is-ancestor",
+                old,
+                new,
+                check=False,
+            ).returncode
+            != 0
+        ):
+            raise TaskResetError(message)
+
+    execution_path = state_root / f"{task.get('id')}.execution.json"
+    try:
+        execution = json.loads(execution_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise TaskResetError(
+            "branchless candidate ExecutionCrew receipt is not valid UTF-8 JSON"
+        ) from exc
+    if not isinstance(execution, dict):
+        raise TaskResetError("branchless candidate ExecutionCrew receipt is invalid")
+    receipt_hash = execution.get("receipt_sha256")
+    receipt_body = {
+        key: value for key, value in execution.items() if key != "receipt_sha256"
+    }
+    if receipt_hash != semantic_sha256(receipt_body):
+        raise TaskResetError("branchless candidate ExecutionCrew receipt hash is invalid")
+    expected = {
+        "schema_version": "1.0",
+        "task_id": task.get("id"),
+        "source_head": base,
+        "task_contract_sha256": task.get("task_contract_sha256"),
+        "crew_status": "review_ready",
+        "returncode": 0,
+    }
+    mismatched = [
+        key for key, value in expected.items() if execution.get(key) != value
+    ]
+    if mismatched:
+        raise TaskResetError(
+            "branchless candidate ExecutionCrew identity differs: "
+            + ", ".join(mismatched)
+        )
+    changed = execution.get("final_actual_changed_paths")
+    if (
+        not isinstance(changed, list)
+        or not changed
+        or any(not isinstance(path, str) or not path for path in changed)
+        or len(set(changed)) != len(changed)
+    ):
+        raise TaskResetError("branchless candidate changed-path receipt is invalid")
+    expected_paths = tuple(sorted(changed, key=str.casefold))
+    observed_paths = tuple(
+        sorted(_changed_paths(runner, checkout, parent, head), key=str.casefold)
+    )
+    if observed_paths != expected_paths:
+        raise TaskResetError("branchless candidate commit changed an unexpected path set")
+
+    for path_key, hash_key, label in (
+        ("candidate_path", "candidate_sha256", "candidate patch"),
+        ("result_path", "result_sha256", "ExecutionCrew result"),
+    ):
+        raw_path = execution.get(path_key)
+        expected_hash = execution.get(hash_key)
+        try:
+            artifact = Path(str(raw_path)).resolve()
+        except (OSError, ValueError) as exc:
+            raise TaskResetError(f"branchless {label} path is invalid") from exc
+        if (
+            not artifact.is_relative_to(checkout.resolve())
+            or not artifact.is_file()
+            or artifact.is_symlink()
+            or not isinstance(expected_hash, str)
+            or re.fullmatch(r"[0-9a-f]{64}", expected_hash) is None
+            or _file_sha256(artifact) != expected_hash
+        ):
+            raise TaskResetError(f"branchless {label} identity is invalid")
+
+    contract_path = f"Tasks/{task.get('id')}.yaml"
+    contract = _git(
+        runner,
+        checkout,
+        "show",
+        f"{parent}:{contract_path}",
+        check=False,
+    )
+    contract_bytes = (
+        contract.stdout.encode("utf-8")
+        if isinstance(contract.stdout, str)
+        else contract.stdout
+    )
+    if (
+        contract.returncode != 0
+        or hashlib.sha256(contract_bytes).hexdigest()
+        != task.get("task_contract_sha256")
+    ):
+        raise TaskResetError("branchless candidate parent has the wrong task contract")
+    message = _git_text(runner, checkout, "show", "-s", "--format=%B", head)
+    trailer_expectations = {
+        "ExecutionCrew-Run": execution.get("run_id"),
+        "ExecutionCrew-Candidate-SHA256": execution.get("candidate_sha256"),
+        "Task-Contract-SHA256": task.get("task_contract_sha256"),
+    }
+    for name, value in trailer_expectations.items():
+        matches = re.findall(rf"^{re.escape(name)}: (.+)$", message, flags=re.MULTILINE)
+        if matches != [value]:
+            raise TaskResetError(f"branchless candidate commit has invalid {name} trailer")
+    if not message.startswith(f"Implement {task.get('id')}: "):
+        raise TaskResetError("branchless candidate commit subject is invalid")
+    if (
+        _git(
+            runner,
+            source,
+            "merge-base",
+            "--is-ancestor",
+            head,
+            current_main,
+            check=False,
+        ).returncode
+        == 0
+    ):
+        raise TaskResetError("branchless candidate is already contained in main")
+    return head
+
+
 def _is_unpushed_decomposition_baseline(
     workflow_state: Any,
     task: Mapping[str, Any],
@@ -611,6 +836,32 @@ class AbandonedRehearsalTaskReset(RehearsalTaskReset):
                     manifest=manifest,
                     current_main=head,
                 )
+                observed_checkout_head = _git_text(
+                    self.runner,
+                    self.checkout,
+                    "rev-parse",
+                    "HEAD",
+                    check=False,
+                )
+                if observed_checkout_head != checkout_head:
+                    if (
+                        workflow_state.state is not WorkflowState.AGENT_READY
+                        or workflow_state.phase is not WorkflowPhase.IMPLEMENTATION
+                        or remote_branch_oid is not None
+                    ):
+                        raise TaskResetError(
+                            "branchless abandoned checkout moved beyond its baseline"
+                        )
+                    checkout_head = _validate_branchless_unpublished_candidate(
+                        self.runner,
+                        self.source,
+                        self.checkout,
+                        self.state_root,
+                        task=self.task,
+                        manifest=manifest,
+                        branch=self.branch,
+                        current_main=head,
+                    )
             assert checkout_head is not None
             checkout_facts = _inspect_checkout(
                 self.runner,
@@ -703,9 +954,12 @@ class AbandonedRehearsalTaskReset(RehearsalTaskReset):
             cwd=self.source,
         )
 
-    def apply(self, plan: dict[str, Any]) -> dict[str, Any]:
+    def apply(self, plan: dict[str, Any], *, receipt_path: Path | None = None) -> dict[str, Any]:
         timestamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d-%H%M%SZ")
         report_path = self.state_root / "reset-runs" / self.task_id / f"{timestamp}.json"
+        if receipt_path is not None:
+            report_path = _coordinated_receipt_path(self.state_root, self.task_id, receipt_path)
+            timestamp = report_path.stem
         report = {**plan, "status": "applying", "report_path": str(report_path)}
         _create_report(report_path, report)
         try:
@@ -953,16 +1207,47 @@ def _require_task_paths_unchanged_since_merge(
     current_main: str,
     paths: Sequence[str],
 ) -> None:
-    changed = [
-        path
-        for path in paths
-        if _tree_entry(runner, source, merge_commit, path)
-        != _tree_entry(runner, source, current_main, path)
-    ]
-    if changed:
+    protected = {str(path).casefold(): str(path) for path in paths}
+    later_commits = tuple(
+        line
+        for line in _git_text(
+            runner,
+            source,
+            "rev-list",
+            "--ancestry-path",
+            current_main,
+            f"^{merge_commit}",
+        ).splitlines()
+        if line
+    )
+    touched: dict[str, list[str]] = {}
+    for commit in later_commits:
+        parents = _commit_parents(runner, source, commit)
+        if not parents:
+            raise TaskResetError("later production history contains a parentless commit")
+        changed = {
+            line.casefold()
+            for line in _git_text(
+                runner,
+                source,
+                "diff",
+                "--name-only",
+                "--no-renames",
+                parents[0],
+                commit,
+            ).splitlines()
+            if line
+        }
+        protected_hits = sorted(
+            (original for folded, original in protected.items() if folded in changed),
+            key=str.casefold,
+        )
+        if protected_hits:
+            touched[commit] = protected_hits
+    if touched:
         raise TaskResetError(
-            "later production commits changed task-owned paths; automatic revert is refused: "
-            + ", ".join(changed)
+            "later production commits changed task-owned paths; automatic revert is refused:\n"
+            + json.dumps(touched, indent=2, sort_keys=True)
         )
 
 
@@ -974,7 +1259,10 @@ def _committed_task_contracts(
     )
     contracts: dict[str, dict[str, Any]] = {}
     for path in listing.splitlines():
-        if not re.fullmatch(r"Tasks/NSC-[0-9]{3}\.yaml", path):
+        if not re.fullmatch(
+            r"Tasks/NSC-(?:[0-9]{3}|[1-9][0-9]{3,8})\.yaml",
+            path,
+        ):
             continue
         raw = _git_text(runner, source, "show", f"HEAD:{path}")
         try:
@@ -982,7 +1270,8 @@ def _committed_task_contracts(
         except json.JSONDecodeError as exc:
             raise TaskResetError(f"committed task contract is invalid JSON: {path}") from exc
         task_id = contract.get("id") if isinstance(contract, dict) else None
-        if not isinstance(task_id, str) or task_id in contracts:
+        expected_task_id = Path(path).stem
+        if task_id != expected_task_id or task_id in contracts:
             raise TaskResetError(f"committed task identity is invalid or duplicated: {path}")
         contracts[task_id] = contract
     return contracts
@@ -1373,6 +1662,373 @@ class ProductionDeliveredTaskReset(RehearsalTaskReset):
         return revert_commit
 
 
+class AbandonedGateWaiterRetirement:
+    """Retire one exact closed, abandoned quarantined gate waiter.
+
+    This is a host/operator boundary. It never edits the Issue, task branch,
+    checkout, TaskGraph, or main, and it never treats abandonment as delivery.
+    """
+
+    def __init__(
+        self,
+        *,
+        source: Path,
+        checkout_root: Path,
+        task_id: str,
+        expected_gate_oid: str,
+        runner: CommandRunner | None = None,
+        gate: GitIntegrationGate | None = None,
+        issue_backend: Any | None = None,
+        task: Mapping[str, Any] | None = None,
+        claims_reader: Any | None = None,
+    ) -> None:
+        self.runner = runner or CommandRunner()
+        self.source = Path(source).resolve()
+        self.checkout_root = Path(checkout_root).resolve()
+        self.task_id = validate_task_id(task_id)
+        if re.fullmatch(r"[0-9a-f]{40}", str(expected_gate_oid)) is None:
+            raise TaskResetError(
+                "abandoned gate-waiter retirement requires an exact expected gate OID"
+            )
+        self.expected_gate_oid = str(expected_gate_oid)
+        self.gate = gate or GitIntegrationGate(self.source)
+        self.issue_backend = issue_backend
+        self.task = dict(task) if task is not None else load_committed_task(
+            self.source, self.task_id
+        )
+        self.claims_reader = claims_reader or (
+            lambda: _relevant_claims(self.source, self.task)
+        )
+        self.canonical_checkout = self.checkout_root / self.task_id
+
+    def _repository_confirmation(self) -> str:
+        origin = _git_text(self.runner, self.source, "remote", "get-url", "origin")
+        try:
+            return _repository_from_origin(origin)
+        except RehearsalResetError:
+            # Local bare repositories exist only for offline deterministic tests.
+            if self.gate.repository_id.startswith("file://"):
+                return self.gate.repository_id
+            raise
+
+    def _issue_candidates(self) -> list[dict[str, Any]]:
+        reader = getattr(self.issue_backend, "list_all_issues", None)
+        if not callable(reader):
+            raise TaskResetError(
+                "Issue backend cannot enumerate closed workflow candidates"
+            )
+        marker = _task_marker(self.task_id)
+        candidates = []
+        for issue in reader():
+            if not isinstance(issue, Mapping):
+                continue
+            title = str(issue.get("title") or "")
+            body = str(issue.get("body") or "")
+            if title == self.task_id or title.startswith(self.task_id + " —") or marker in body:
+                candidates.append(dict(issue))
+        return candidates
+
+    @staticmethod
+    def _path_present(path: Path) -> bool:
+        return path.exists() or path.is_symlink()
+
+    def _existing_retirement_plan(self) -> dict[str, Any] | None:
+        proof = self.gate.abandoned_waiter_retirement(
+            expected_oid=self.expected_gate_oid,
+            task_id=self.task_id,
+        )
+        if proof is None:
+            return None
+        return {
+            "schema_version": ABANDONED_WAITER_RETIREMENT_SCHEMA,
+            "operation": "retire_abandoned_gate_waiter",
+            "repository": self._repository_confirmation(),
+            "task_id": self.task_id,
+            "expected_gate_oid": self.expected_gate_oid,
+            "retirement_proof": proof,
+            "status": "already_retired",
+        }
+
+    def preflight(self) -> dict[str, Any]:
+        if not self.source.is_dir() or not self.checkout_root.is_dir():
+            raise TaskResetError("source and checkout root must already exist")
+        if (
+            self.task.get("id") != self.task_id
+            or re.fullmatch(
+                r"[0-9a-f]{64}", str(self.task.get("task_contract_sha256", ""))
+            )
+            is None
+        ):
+            raise TaskResetError("committed task identity or contract hash is invalid")
+        if Path(_git_text(
+            self.runner, self.source, "rev-parse", "--show-toplevel",
+        )).resolve() != self.source:
+            raise TaskResetError("source is not the exact Git repository root")
+        if _git_text(self.runner, self.source, "branch", "--show-current") != "main":
+            raise TaskResetError("gate-waiter retirement requires the controller main branch")
+        if _git_text(
+            self.runner,
+            self.source,
+            "status",
+            "--porcelain=v1",
+            "--untracked-files=all",
+        ):
+            raise TaskResetError("gate-waiter retirement requires a completely clean controller")
+        repository = self._repository_confirmation()
+        if self.issue_backend is None:
+            if repository.startswith("file://"):
+                raise TaskResetError("local retirement tests require an explicit Issue backend")
+            self.issue_backend = GhIssueBackend(
+                source_root=self.source,
+                repository=repository,
+            )
+
+        existing = self._existing_retirement_plan()
+        if existing is not None:
+            return existing
+
+        current_oid, gate_state = self.gate.read()
+        if current_oid != self.expected_gate_oid:
+            raise TaskResetError(
+                "integration gate OID moved; repeat the read-only retirement preflight"
+            )
+        waiters = [
+            item for item in gate_state["queue"] if item.get("task_id") == self.task_id
+        ]
+        if len(waiters) != 1 or not waiters[0].get("quarantine"):
+            if (
+                isinstance(gate_state.get("owner"), Mapping)
+                and gate_state["owner"].get("task_id") == self.task_id
+            ):
+                raise TaskResetError(
+                    "task still has a gate owner; owner recovery must be completed first"
+                )
+            raise TaskResetError("task is not one exact quarantined gate waiter")
+        waiter = copy.deepcopy(waiters[0])
+        reservation = waiter.get("reservation")
+        quarantine = waiter.get("quarantine")
+        if (
+            not isinstance(reservation, Mapping)
+            or reservation.get("task_contract_sha256")
+            != self.task.get("task_contract_sha256")
+            or reservation.get("exclusive_resources")
+            != sorted(set(self.task.get("exclusive_resources") or []))
+            or not isinstance(quarantine, Mapping)
+            or quarantine.get("reason") != "workflow_missing_or_invalid"
+            or quarantine.get("observed_issue_numbers")
+            != [reservation.get("issue_number")]
+        ):
+            raise TaskResetError(
+                "quarantined waiter reservation, contract, resources, or observed Issue changed"
+            )
+        candidates = self._issue_candidates()
+        if len(candidates) != 1:
+            raise TaskResetError(
+                "retirement requires exactly one candidate Issue for the task"
+            )
+        listed_issue = candidates[0]
+        issue_number = reservation.get("issue_number")
+        if type(issue_number) is not int or listed_issue.get("number") != issue_number:
+            raise TaskResetError(
+                "quarantined waiter Issue number differs from the unique candidate Issue"
+            )
+        exact_issue = self.issue_backend.get_issue(issue_number)
+        if (
+            not isinstance(exact_issue, Mapping)
+            or exact_issue.get("number") != issue_number
+            or str(exact_issue.get("state") or "").upper() != "CLOSED"
+        ):
+            raise TaskResetError("abandoned waiter Issue is not positively CLOSED")
+        snapshot = _snapshot(self.issue_backend, exact_issue)
+        if (
+            not closed_incomplete_duplicate(exact_issue, snapshot)
+            or not snapshot.managed
+            or not snapshot.valid
+            or snapshot.state is None
+            or snapshot.pending_transition is not None
+            or snapshot.state.task_id != self.task_id
+            or snapshot.state.task_contract_sha256
+            != self.task.get("task_contract_sha256")
+            or snapshot.state.state is not WorkflowState.AGENT_READY
+            or snapshot.state.phase not in {
+                WorkflowPhase.DELIVERY_EVIDENCE,
+                WorkflowPhase.MERGE_CLOSEOUT,
+            }
+            or snapshot.state.worker_id is not None
+            or snapshot.state.lease_id is not None
+        ):
+            raise TaskResetError(
+                "closed Issue is not one fully read, coherent, incomplete delivery workflow"
+            )
+        expected_branch = branch_name(self.task_id, self.task.get("title"))
+        workflow = snapshot.state
+        candidate = workflow.head_commit
+        recorded_checkout_text = workflow.checkout_path
+        if (
+            workflow.branch != expected_branch
+            or candidate is None
+            or workflow.human_handoff_commit != candidate
+            or recorded_checkout_text is None
+        ):
+            raise TaskResetError(
+                "closed workflow branch, head, handoff, or recorded checkout is incomplete"
+            )
+        try:
+            recorded_checkout = Path(recorded_checkout_text)
+            if not recorded_checkout.is_absolute():
+                raise ValueError("not absolute")
+            recorded_checkout = recorded_checkout.resolve()
+            recorded_checkout.relative_to(self.checkout_root)
+        except (OSError, ValueError) as exc:
+            raise TaskResetError(
+                "recorded abandoned checkout path is invalid or outside the checkout root"
+            ) from exc
+        absent_paths = sorted(
+            {str(recorded_checkout), str(self.canonical_checkout.resolve())},
+            key=str.casefold,
+        )
+        for path_text in absent_paths:
+            if self._path_present(Path(path_text)):
+                raise TaskResetError(
+                    f"abandoned waiter checkout still exists at {path_text}; no removal is authorized"
+                )
+
+        task_ref = f"refs/heads/{expected_branch}"
+        remote_task_oid = _remote_ref_oid(
+            self.runner, self.source, "origin", task_ref,
+        )
+        if remote_task_oid is not None:
+            raise TaskResetError(
+                f"remote task branch still exists at {remote_task_oid}"
+            )
+        if _git(
+            self.runner,
+            self.source,
+            "cat-file",
+            "-e",
+            f"{candidate}^{{commit}}",
+            check=False,
+        ).returncode != 0:
+            raise TaskResetError(
+                "candidate head object is unavailable; non-reachability from main is unproven"
+            )
+        main_head = _git_text(self.runner, self.source, "rev-parse", "HEAD")
+        remote_main = _remote_ref_oid(
+            self.runner, self.source, "origin", "refs/heads/main",
+        )
+        if remote_main != main_head:
+            raise TaskResetError(
+                "controller main does not exactly match the observed remote main"
+            )
+        ancestry = _git(
+            self.runner,
+            self.source,
+            "merge-base",
+            "--is-ancestor",
+            candidate,
+            main_head,
+            check=False,
+        )
+        if ancestry.returncode == 0:
+            raise TaskResetError("abandoned waiter candidate is already contained in main")
+        if ancestry.returncode != 1:
+            raise TaskResetError(
+                "candidate reachability from main could not be proven"
+            )
+        owner = copy.deepcopy(gate_state.get("owner"))
+        if isinstance(owner, Mapping) and owner.get("task_id") == self.task_id:
+            raise TaskResetError("abandoned waiter still has a gate owner")
+        claims = self.claims_reader()
+        if not isinstance(claims, list) or claims:
+            raise TaskResetError(
+                "task/resource claims still record a live assignment or lease"
+            )
+        managed_snapshot = snapshot.to_dict()
+        proof = {
+            "schema_version": ABANDONED_WAITER_RETIREMENT_SCHEMA,
+            "authority": ABANDONED_WAITER_RETIREMENT_AUTHORITY,
+            "repository": self.gate.repository_id,
+            "target_branch": self.gate.target_branch,
+            "gate_ref": self.gate.ref,
+            "expected_gate_oid": current_oid,
+            "expected_gate_revision": gate_state["revision"],
+            "task_id": self.task_id,
+            "task_contract_sha256": self.task["task_contract_sha256"],
+            "retired_waiter": waiter,
+            "issue": {
+                "number": issue_number,
+                "url": snapshot.issue_url,
+                "state": "CLOSED",
+                "classification": "closed_incomplete_invalid_not_complete",
+                "body_sha256": hashlib.sha256(snapshot.body.encode("utf-8")).hexdigest(),
+                "managed_snapshot": managed_snapshot,
+                "event_ids": [event.event_id for event in snapshot.events],
+            },
+            "task_branch": expected_branch,
+            "candidate_head": candidate,
+            "recorded_checkout": str(recorded_checkout),
+            "canonical_checkout": str(self.canonical_checkout.resolve()),
+            "absent_checkout_paths": absent_paths,
+            "remote_task_ref": task_ref,
+            "remote_task_branch_oid": None,
+            "main_head": main_head,
+            "candidate_reachable_from_main": False,
+            "observed_gate_owner": owner,
+            "live_assignment": {
+                "workflow_state": workflow.state.value,
+                "worker_id": workflow.worker_id,
+                "lease_id": workflow.lease_id,
+                "claim_refs": [],
+            },
+        }
+        return {
+            "schema_version": ABANDONED_WAITER_RETIREMENT_SCHEMA,
+            "operation": "retire_abandoned_gate_waiter",
+            "repository": repository,
+            "task_id": self.task_id,
+            "expected_gate_oid": current_oid,
+            "retirement_proof": proof,
+        }
+
+    def apply(self, plan: Mapping[str, Any]) -> dict[str, Any]:
+        if (
+            not isinstance(plan, Mapping)
+            or plan.get("operation") != "retire_abandoned_gate_waiter"
+            or plan.get("task_id") != self.task_id
+            or plan.get("expected_gate_oid") != self.expected_gate_oid
+            or not isinstance(plan.get("retirement_proof"), Mapping)
+        ):
+            raise TaskResetError("abandoned waiter retirement plan identity changed")
+        existing = self.gate.abandoned_waiter_retirement(
+            expected_oid=self.expected_gate_oid,
+            task_id=self.task_id,
+            proof=plan["retirement_proof"],
+        )
+        if existing is not None:
+            return {
+                "status": "already_retired",
+                "operation": "retire_abandoned_gate_waiter",
+                "task_id": self.task_id,
+                "expected_gate_oid": self.expected_gate_oid,
+                "retirement_proof": existing,
+            }
+        verified = self.preflight()
+        if semantic_sha256(verified) != semantic_sha256(dict(plan)):
+            raise TaskResetError(
+                "abandoned waiter facts changed between preflight and apply"
+            )
+        result = self.gate.retire_abandoned_waiter(
+            expected_oid=self.expected_gate_oid,
+            proof=plan["retirement_proof"],
+        )
+        return {
+            **result,
+            "operation": "retire_abandoned_gate_waiter",
+            "expected_gate_oid": self.expected_gate_oid,
+            "retirement_proof": result["proof"],
+        }
+
+
 class ProductionAbandonedStateCleanup:
     """Archive exact stale cache files only after production is already fresh."""
 
@@ -1549,6 +2205,9 @@ class ProductionAbandonedStateCleanup:
 
 
 DECOMPOSITION_UNDO_OPERATION = "decomposition_undo_reset"
+PUBLISHED_DECOMPOSITION_UNDO_RECOVERY_OPERATION = (
+    "published_decomposition_undo_recovery"
+)
 
 
 def _decomposition_children(task: dict[str, Any]) -> tuple[str, ...]:
@@ -1961,7 +2620,7 @@ class DecompositionUndoReset:
         _write_report(report_path, report)
         return report
 
-    def apply(self, plan: dict[str, Any]) -> dict[str, Any]:
+    def apply(self, plan: dict[str, Any], *, receipt_path: Path | None = None) -> dict[str, Any]:
         from Pipeline.TaskGraph.undo_graph_delta import (
             GraphDeltaUndoError,
             undo_graph_delta,
@@ -1974,6 +2633,9 @@ class DecompositionUndoReset:
             / self.task_id
             / f"{timestamp}-undo-decomposition.json"
         )
+        if receipt_path is not None:
+            report_path = _coordinated_receipt_path(self.state_root, self.task_id, receipt_path)
+            timestamp = report_path.stem
         report = {**plan, "status": "applying", "report_path": str(report_path)}
         _create_report(report_path, report)
         try:
@@ -2099,6 +2761,1216 @@ class DecompositionUndoReset:
         return self._finish_cleanup(report, report, path, timestamp)
 
 
+class PublishedDecompositionUndoRecovery(DecompositionUndoReset):
+    """Retire stale coordination after an exact undo already reached main.
+
+    This is deliberately separate from :class:`DecompositionUndoReset`.  It
+    never creates or publishes a Git commit and it does not make the ordinary
+    exact-HEAD undo accept later history.  The completed decomposition Issue is
+    the authority for the historical apply commit; the operator separately
+    confirms the exact additive undo commit before cleanup can begin.
+    """
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self.checkout = self.checkout_root / self.task_id
+        self.task = load_committed_task(self.source, self.task_id)
+        self.branch = branch_name(self.task_id, self.task.get("title"))
+
+    @staticmethod
+    def _issue_labels(issue: dict[str, Any]) -> set[str]:
+        values: set[str] = set()
+        for item in issue.get("labels") or []:
+            if isinstance(item, dict) and isinstance(item.get("name"), str):
+                values.add(item["name"])
+            elif isinstance(item, str):
+                values.add(item)
+        return values
+
+    def _issue_view(self, number: int) -> dict[str, Any]:
+        value = _json_command(
+            self.runner,
+            (
+                "gh",
+                "issue",
+                "view",
+                str(number),
+                "--repo",
+                self.repository,
+                "--json",
+                "number,state,url,body,author,labels,comments",
+            ),
+            cwd=self.source,
+        )
+        if not isinstance(value, dict) or value.get("number") != number:
+            raise TaskResetError("completed decomposition Issue view was invalid")
+        return value
+
+    def _validated_completed_issue(
+        self,
+        issue: dict[str, Any],
+        *,
+        expected_github_state: str,
+    ) -> tuple[Any, tuple[Any, ...], dict[str, Any]]:
+        number = issue.get("number")
+        if type(number) is not int:
+            raise TaskResetError("completed decomposition Issue number is invalid")
+        exact = self._issue_view(number)
+        if exact.get("state") != expected_github_state:
+            raise TaskResetError(
+                "completed decomposition Issue GitHub state changed"
+            )
+        login = actor_login(exact)
+        if login is None or not default_actor_policy().is_authorized_actor(login):
+            raise TaskResetError(
+                "completed decomposition Issue author is not an authorized workflow actor"
+            )
+        body = exact.get("body")
+        comments = exact.get("comments")
+        if not isinstance(body, str) or not isinstance(comments, list):
+            raise TaskResetError("completed decomposition Issue content is invalid")
+        state = parse_state(body)
+        if state is None or state.task_id != self.task_id:
+            raise TaskResetError(
+                "completed decomposition Issue does not contain the exact task state"
+            )
+        if (
+            state.state is not WorkflowState.COMPLETE
+            or state.phase is not WorkflowPhase.DECOMPOSITION_APPLY
+            or state.current_actor is not WorkflowActor.NONE
+        ):
+            raise TaskResetError(
+                "Issue is not an exact completed decomposition_apply workflow"
+            )
+        state_labels = self._issue_labels(exact) & ALL_STATE_LABELS
+        if state_labels != {STATE_LABELS[WorkflowState.COMPLETE.value]}:
+            raise TaskResetError(
+                "completed decomposition Issue does not have exactly the complete state label"
+            )
+        if state.branch != self.branch or state.checkout_path != str(self.checkout):
+            raise TaskResetError(
+                "completed decomposition Issue branch or checkout identity differs"
+            )
+        if state.task_contract_sha256 != self.task.get("task_contract_sha256"):
+            raise TaskResetError(
+                "completed decomposition Issue task-contract identity differs"
+            )
+        events = tuple(parse_events(comments))
+        validate_event_chain(state, events)
+        completed = events[-1] if events else None
+        if (
+            completed is None
+            or completed.event_type is not WorkflowEventType.COMPLETED
+            or completed.actor_type is not WorkflowActor.AGENT
+            or completed.to_phase is not WorkflowPhase.DECOMPOSITION_APPLY
+            or completed.to_state is not WorkflowState.COMPLETE
+        ):
+            raise TaskResetError(
+                "completed decomposition Issue has no exact terminal application event"
+            )
+        details = dict(completed.details)
+        if details.get("work_type") != "decomposition":
+            raise TaskResetError(
+                "completed decomposition Issue terminal event has the wrong work type"
+            )
+        return state, events, details
+
+    @staticmethod
+    def _commit_identity_fields(
+        runner: CommandRunner, source: Path, commit: str
+    ) -> tuple[str, str, str, str]:
+        value = _git_text(
+            runner,
+            source,
+            "show",
+            "-s",
+            "--format=%an%x00%ae%x00%cn%x00%ce",
+            commit,
+        ).split("\0")
+        if len(value) != 4:
+            raise TaskResetError("Git commit identity record was invalid")
+        return tuple(value)  # type: ignore[return-value]
+
+    def _require_automation_commit(self, commit: str, *, label: str) -> None:
+        name, email = validated_agent_git_identity()
+        actual = self._commit_identity_fields(self.runner, self.source, commit)
+        expected = (name, email, name, email)
+        if actual != expected:
+            raise TaskResetError(
+                f"{label} was not authored and committed by the approved automation identity"
+            )
+
+    def _proposed_children(self) -> tuple[dict[str, Any], ...]:
+        payload = self.stored.to_dict()
+        children = payload.get("proposed_child_contracts")
+        after = payload.get("parent_after_summary")
+        expected_ids = (
+            after.get("decomposition_children") if isinstance(after, dict) else None
+        )
+        if (
+            not isinstance(children, list)
+            or not children
+            or any(not isinstance(item, dict) for item in children)
+            or not isinstance(expected_ids, list)
+        ):
+            raise TaskResetError("stored graph delta has an invalid child set")
+        ids = [item.get("id") for item in children]
+        if ids != expected_ids or any(not isinstance(item, str) for item in ids):
+            raise TaskResetError(
+                "stored graph delta child contracts differ from the parent child set"
+            )
+        return tuple(dict(item) for item in children)
+
+    @staticmethod
+    def _repo_paths_for_child(child: dict[str, Any]) -> tuple[str, ...]:
+        values: set[str] = set()
+        for resource in child.get("exclusive_resources") or []:
+            if not isinstance(resource, str):
+                continue
+            for prefix in ("repo-file:", "unity-scene:", "unity-prefab:"):
+                if resource.startswith(prefix):
+                    values.add(resource.removeprefix(prefix))
+                    break
+        provenance = child.get("provenance")
+        for path in (
+            provenance.get("expected_paths", [])
+            if isinstance(provenance, dict)
+            else []
+        ):
+            if isinstance(path, str):
+                values.add(path)
+        safe: list[str] = []
+        for value in values:
+            candidate = Path(value)
+            if (
+                not value
+                or candidate.is_absolute()
+                or candidate.as_posix() != value
+                or ".." in candidate.parts
+            ):
+                raise TaskResetError(
+                    f"stored child contract contains an unsafe repository path: {value!r}"
+                )
+            safe.append(value)
+        return tuple(sorted(safe, key=str.casefold))
+
+    def _historical_plan(
+        self,
+        current_head: str,
+        completed_details: dict[str, Any],
+        children: tuple[dict[str, Any], ...],
+    ) -> dict[str, Any]:
+        from Pipeline.TaskGraph.undo_graph_delta import _commit_graph_hash
+
+        payload = self.stored.to_dict()
+        plan_id = payload.get("plan_id")
+        apply_commit = completed_details.get("applied_commit")
+        if completed_details.get("graph_delta_plan_id") != plan_id:
+            raise TaskResetError(
+                "completed decomposition Issue plan differs from graph-delta authority"
+            )
+        if (
+            not isinstance(apply_commit, str)
+            or re.fullmatch(r"[0-9a-f]{40}", apply_commit) is None
+        ):
+            raise TaskResetError(
+                "completed decomposition Issue has an invalid applied commit"
+            )
+        if not _git_text(
+            self.runner,
+            self.source,
+            "rev-parse",
+            "--verify",
+            f"{apply_commit}^{{commit}}",
+            check=False,
+        ):
+            raise TaskResetError("completed decomposition apply commit is unavailable")
+        parents = _commit_parents(self.runner, self.source, apply_commit)
+        if len(parents) != 1:
+            raise TaskResetError("D1C apply commit must have exactly one parent")
+        source_commit = parents[0]
+        expected_apply_subject = (
+            f"taskgraph: apply {self.task_id} decomposition {plan_id}"
+        )
+        if (
+            _git_text(
+                self.runner,
+                self.source,
+                "show",
+                "-s",
+                "--format=%s",
+                apply_commit,
+            )
+            != expected_apply_subject
+        ):
+            raise TaskResetError("completed Issue does not identify the exact D1C commit")
+        self._require_automation_commit(apply_commit, label="D1C apply commit")
+        if _commit_graph_hash(self.source, source_commit) != payload.get(
+            "source_graph_semantic_hash"
+        ):
+            raise TaskResetError(
+                "D1C apply parent differs from the reviewed source graph"
+            )
+        if _commit_graph_hash(self.source, apply_commit) != payload.get(
+            "proposed_graph_semantic_hash"
+        ):
+            raise TaskResetError(
+                "D1C apply commit differs from the reviewed proposed graph"
+            )
+        changed_paths = tuple(
+            sorted(
+                _changed_paths(self.runner, self.source, source_commit, apply_commit),
+                key=str.casefold,
+            )
+        )
+        if not changed_paths:
+            raise TaskResetError("D1C apply commit changed no paths")
+
+        first_parent = _git_text(
+            self.runner, self.source, "rev-list", "--first-parent", current_head
+        ).splitlines()
+        if apply_commit not in first_parent:
+            raise TaskResetError(
+                "completed D1C apply commit is not in current main's first-parent history"
+            )
+        expected_undo_subject = (
+            f"taskgraph: undo {self.task_id} decomposition {plan_id}"
+        )
+        undo_candidates = [
+            commit
+            for commit in first_parent
+            if _commit_parents(self.runner, self.source, commit) == (apply_commit,)
+            and _git_text(
+                self.runner,
+                self.source,
+                "show",
+                "-s",
+                "--format=%s",
+                commit,
+            )
+            == expected_undo_subject
+        ]
+        if len(undo_candidates) != 1:
+            raise TaskResetError(
+                "expected exactly one immediate additive undo commit in current main history"
+            )
+        undo_commit = undo_candidates[0]
+        self._require_automation_commit(undo_commit, label="decomposition undo commit")
+        source_tree = _git_text(
+            self.runner, self.source, "rev-parse", f"{source_commit}^{{tree}}"
+        )
+        undo_tree = _git_text(
+            self.runner, self.source, "rev-parse", f"{undo_commit}^{{tree}}"
+        )
+        if undo_tree != source_tree:
+            raise TaskResetError(
+                "published decomposition undo tree does not equal the D1C source tree"
+            )
+        undo_paths = tuple(
+            sorted(
+                _changed_paths(self.runner, self.source, apply_commit, undo_commit),
+                key=str.casefold,
+            )
+        )
+        if undo_paths != changed_paths:
+            raise TaskResetError(
+                "published decomposition undo path set differs from the D1C apply"
+            )
+        if _commit_graph_hash(self.source, undo_commit) != payload.get(
+            "source_graph_semantic_hash"
+        ):
+            raise TaskResetError(
+                "published decomposition undo does not restore the reviewed source graph"
+            )
+
+        protected_exact = set(changed_paths)
+        protected_prefixes: set[str] = set()
+        for child in children:
+            child_id = str(child["id"])
+            protected_exact.update(self._repo_paths_for_child(child))
+            protected_prefixes.add(f"Pipeline/TaskGraph/evidence/{child_id}/")
+        later_commits = tuple(
+            _git_text(
+                self.runner,
+                self.source,
+                "rev-list",
+                "--ancestry-path",
+                current_head,
+                f"^{undo_commit}",
+            ).splitlines()
+        )
+        touched: dict[str, list[str]] = {}
+        for commit in later_commits:
+            commit_parents = _commit_parents(self.runner, self.source, commit)
+            if not commit_parents:
+                raise TaskResetError("later main history contains a parentless commit")
+            paths = tuple(
+                line
+                for line in _git_text(
+                    self.runner,
+                    self.source,
+                    "diff",
+                    "--name-only",
+                    "--no-renames",
+                    commit_parents[0],
+                    commit,
+                ).splitlines()
+                if line
+            )
+            protected = [
+                path
+                for path in paths
+                if path in protected_exact
+                or any(path.startswith(prefix) for prefix in protected_prefixes)
+            ]
+            if protected:
+                touched[commit] = sorted(protected, key=str.casefold)
+        if touched:
+            raise TaskResetError(
+                "later history touched decomposition or child-owned paths; recovery refuses:\n"
+                + json.dumps(touched, indent=2, sort_keys=True)
+            )
+        return {
+            "plan_id": plan_id,
+            "apply_commit": apply_commit,
+            "source_commit": source_commit,
+            "source_tree": source_tree,
+            "apply_tree": _git_text(
+                self.runner, self.source, "rev-parse", f"{apply_commit}^{{tree}}"
+            ),
+            "undo_commit": undo_commit,
+            "undo_tree": undo_tree,
+            "changed_paths": list(changed_paths),
+            "source_graph_semantic_hash": payload.get("source_graph_semantic_hash"),
+            "proposed_graph_semantic_hash": payload.get(
+                "proposed_graph_semantic_hash"
+            ),
+            "later_commits": list(later_commits),
+            "protected_child_paths": sorted(
+                protected_exact - set(changed_paths), key=str.casefold
+            ),
+            "protected_evidence_prefixes": sorted(
+                protected_prefixes, key=str.casefold
+            ),
+        }
+
+    def _child_consumption_from_stored(
+        self,
+        child: dict[str, Any],
+        *,
+        source_commit: str,
+    ) -> list[str]:
+        child_id = validate_task_id(str(child.get("id") or ""))
+        reasons: list[str] = []
+        issues = _managed_task_issues(
+            self.runner, self.source, self.repository, child_id, "all"
+        )
+        if issues:
+            reasons.append(
+                "managed Issue(s) "
+                + ", ".join(sorted(str(item.get("number")) for item in issues))
+            )
+        child_branch = branch_name(child_id, child.get("title"))
+        remote = _remote_ref_oid(
+            self.runner, self.source, "origin", f"refs/heads/{child_branch}"
+        )
+        if remote:
+            reasons.append(f"remote branch refs/heads/{child_branch} at {remote}")
+        local = _git_text(
+            self.runner,
+            self.source,
+            "rev-parse",
+            "--verify",
+            f"refs/heads/{child_branch}",
+            check=False,
+        )
+        if local:
+            reasons.append(f"local branch refs/heads/{child_branch} at {local}")
+        child_checkout = self.checkout_root / child_id
+        child_checkout_present = child_checkout.exists()
+        if not child_checkout_present:
+            try:
+                child_checkout_present = _path_is_reparse_point(child_checkout)
+            except OSError:
+                child_checkout_present = False
+        if child_checkout_present:
+            reasons.append(f"task checkout {child_checkout}")
+        worktrees = _controller_task_worktrees(
+            self.runner, self.source, child_id, child_branch
+        )
+        if worktrees:
+            reasons.append(f"linked worktree(s) {json.dumps(worktrees, sort_keys=True)}")
+        claims = _relevant_claims(self.source, child)
+        if claims:
+            reasons.append(
+                "claim ref(s) "
+                + ", ".join(sorted(str(entry.get("ref")) for entry in claims))
+            )
+        state_files = [
+            str(path)
+            for path in _state_paths(self.state_root, child_id)
+            if path.is_file()
+        ]
+        if state_files:
+            reasons.append("active state file(s) " + ", ".join(state_files))
+        if (self.source / "Tasks" / f"{child_id}.yaml").exists():
+            reasons.append("current TaskGraph child contract")
+        for path in self._repo_paths_for_child(child):
+            if _tree_entry(self.runner, self.source, "HEAD", path) != _tree_entry(
+                self.runner, self.source, source_commit, path
+            ):
+                reasons.append(f"current child-owned path changed from baseline: {path}")
+        evidence = self.source / "Pipeline" / "TaskGraph" / "evidence" / child_id
+        if evidence.exists():
+            reasons.append(f"current child evidence {evidence}")
+        return reasons
+
+    def preflight(self) -> dict[str, Any]:
+        if (
+            Path(
+                _git_text(self.runner, self.source, "rev-parse", "--show-toplevel")
+            ).resolve()
+            != self.source
+        ):
+            raise TaskResetError("source is not the exact Git repository root")
+        if _git_text(self.runner, self.source, "branch", "--show-current") != "main":
+            raise TaskResetError("published-undo recovery requires the controller on main")
+        if _git_text(
+            self.runner,
+            self.source,
+            "status",
+            "--porcelain=v1",
+            "--untracked-files=all",
+        ):
+            raise TaskResetError(
+                "controller checkout is not completely clean; recovery never cleans it"
+            )
+        metadata = _repo_metadata(self.runner, self.source, self.repository)
+        _require_private_rehearsal_repository(metadata, self.repository)
+        _git(self.runner, self.source, "fetch", "--prune", "origin", "main")
+        head = _git_text(self.runner, self.source, "rev-parse", "HEAD")
+        if _git_text(self.runner, self.source, "rev-parse", "origin/main") != head:
+            raise TaskResetError("controller HEAD must equal fetched origin/main")
+        if _remote_ref_oid(
+            self.runner, self.source, "origin", "refs/heads/main"
+        ) != head:
+            raise TaskResetError("remote main differs from the exact local HEAD")
+        if self._stored_parent_task_id() != self.task_id:
+            raise TaskResetError("stored graph delta belongs to a different parent")
+
+        issues = _managed_task_issues(
+            self.runner, self.source, self.repository, self.task_id, "open"
+        )
+        if len(issues) != 1:
+            raise TaskResetError(
+                "exactly one open completed decomposition Issue must authorize recovery"
+            )
+        state, _, completed_details = self._validated_completed_issue(
+            issues[0], expected_github_state="OPEN"
+        )
+        children = self._proposed_children()
+        history = self._historical_plan(head, completed_details, children)
+        if state.head_commit != history["source_commit"]:
+            raise TaskResetError(
+                "completed decomposition Issue baseline differs from the D1C source commit"
+            )
+        if state.human_handoff_commit != history["source_commit"]:
+            raise TaskResetError(
+                "completed decomposition Issue handoff differs from the D1C source commit"
+            )
+
+        _validate_taskgraph(self.runner, self.source)
+        current_parent = load_committed_task(self.source, self.task_id)
+        if (
+            current_parent.get("decomposition_state") == "decomposed"
+            or current_parent.get("decomposition_children")
+            or current_parent.get("execution_scope") != "needs_execution_decomposition"
+        ):
+            raise TaskResetError(
+                "current parent contract is not restored for fresh decomposition"
+            )
+        blocked: dict[str, list[str]] = {}
+        for child in children:
+            reasons = self._child_consumption_from_stored(
+                child,
+                source_commit=str(history["source_commit"]),
+            )
+            if reasons:
+                blocked[str(child["id"])] = reasons
+        if blocked:
+            raise TaskResetError(
+                "decomposition children were consumed or remain reserved; recovery refuses:\n"
+                + json.dumps(blocked, indent=2, sort_keys=True)
+            )
+        if _relevant_claims(self.source, current_parent):
+            raise TaskResetError("parent task/resource claim refs still exist")
+        if _remote_ref_oid(
+            self.runner, self.source, "origin", f"refs/heads/{self.branch}"
+        ) is not None:
+            raise TaskResetError("parent decomposition branch still exists remotely")
+        if _task_pull_requests(
+            self.runner, self.source, self.repository, self.branch, "open"
+        ):
+            raise TaskResetError("parent decomposition branch has an open pull request")
+        parent_worktrees = _controller_task_worktrees(
+            self.runner, self.source, self.task_id, self.branch
+        )
+        if parent_worktrees:
+            raise TaskResetError(
+                "parent task-specific linked worktree exists; recovery refuses:\n"
+                + json.dumps(parent_worktrees, indent=2, sort_keys=True)
+            )
+
+        checkout_facts = None
+        manifest = None
+        if self.checkout.exists():
+            manifest = _validate_branchless_checkout_manifest(
+                self.state_root / f"{self.task_id}.json",
+                task=current_parent,
+                checkout=self.checkout,
+                branch=self.branch,
+                source_head=str(history["source_commit"]),
+                source_tree=str(history["source_tree"]),
+                origin=self.origin,
+            )
+            checkout_facts = _inspect_checkout(
+                self.runner,
+                self.checkout,
+                expected_root=self.checkout_root,
+                expected_origin=self.origin,
+                expected_branch=self.branch,
+                expected_head=str(history["source_commit"]),
+                remote_branch_oid=None,
+            )
+            processes = _processes_using_checkout(
+                self.runner, self.source, self.checkout
+            )
+            containers = _containers_using_checkout(
+                self.runner, self.source, self.checkout
+            )
+            if processes or containers:
+                raise TaskResetError(
+                    "parent decomposition checkout is still in use:\n"
+                    + json.dumps(
+                        {"processes": processes, "containers": containers},
+                        indent=2,
+                        sort_keys=True,
+                    )
+                )
+        elif (self.state_root / f"{self.task_id}.json").is_file():
+            raise TaskResetError(
+                "parent checkout manifest exists but the exact checkout is absent"
+            )
+        local_branch = _git_text(
+            self.runner,
+            self.source,
+            "rev-parse",
+            "--verify",
+            f"refs/heads/{self.branch}",
+            check=False,
+        ) or None
+        if local_branch is not None and local_branch != history["source_commit"]:
+            raise TaskResetError("parent local branch differs from the source baseline")
+        active_state = [
+            str(path)
+            for path in _state_paths(self.state_root, self.task_id)
+            if path.is_file()
+        ]
+        active_state_sha256 = {
+            Path(value).name: _file_sha256(Path(value)) for value in active_state
+        }
+        task_state = _task_state(self.runner, self.source, self.task_id)
+        if not _abandoned_rehearsal_state_is_undelivered(
+            current_parent, task_state.get("state")
+        ):
+            raise TaskResetError(
+                "restored parent is not eligible for fresh decomposition"
+            )
+        return {
+            "schema_version": "1.0",
+            "operation": PUBLISHED_DECOMPOSITION_UNDO_RECOVERY_OPERATION,
+            "repository": self.repository,
+            "task_id": self.task_id,
+            "graph_delta_path": str(self.graph_delta_path),
+            "main_head": head,
+            **history,
+            "decomposition_children": [str(item["id"]) for item in children],
+            "issue": {
+                "number": issues[0]["number"],
+                "url": issues[0].get("url"),
+            },
+            "checkout": checkout_facts,
+            "checkout_manifest_sha256": (
+                manifest.get("manifest_sha256") if isinstance(manifest, dict) else None
+            ),
+            "local_branch_oid": local_branch,
+            "active_state_files": active_state,
+            "active_state_file_sha256": active_state_sha256,
+            "retained_outputs": str(self.state_root / "outputs" / self.task_id),
+            "taskgraph_state": task_state.get("state"),
+            "git_commit_created": False,
+            "git_push_required": False,
+            "audit_history_rewritten": False,
+        }
+
+    def _recovery_comment(self, plan: dict[str, Any]) -> str:
+        return render_published_undo_recovery_comment(
+            PublishedUndoRetirement(
+                task_id=self.task_id,
+                plan_id=str(plan["plan_id"]),
+                apply_commit=str(plan["apply_commit"]),
+                undo_commit=str(plan["undo_commit"]),
+            )
+        )
+
+    def _require_recovery_comment_binding(
+        self,
+        issue: dict[str, Any],
+        report: dict[str, Any],
+        *,
+        require_closed_workflow: bool,
+    ) -> PublishedUndoRetirement:
+        comments = issue.get("comments")
+        if not isinstance(comments, list):
+            raise TaskResetError("recovery Issue comments are unavailable")
+        try:
+            evidence = (
+                classify_retired_decomposition_completion(issue, comments)
+                if require_closed_workflow
+                else parse_authorized_recovery_comment(comments)
+            )
+        except PublishedUndoRetirementError as exc:
+            raise TaskResetError(f"recovery audit comment is invalid: {exc}") from exc
+        if evidence is None:
+            raise TaskResetError(
+                "closed parent Issue lacks exact authorized recovery audit marker evidence"
+                if require_closed_workflow
+                else "parent Issue lacks exact authorized recovery audit marker evidence"
+            )
+        expected = PublishedUndoRetirement(
+            task_id=self.task_id,
+            plan_id=str(report["plan_id"]),
+            apply_commit=str(report["apply_commit"]),
+            undo_commit=str(report["undo_commit"]),
+        )
+        if evidence != expected:
+            raise TaskResetError(
+                "recovery audit comment does not bind the receipt's task, plan, "
+                "apply commit, and undo commit"
+            )
+        return evidence
+
+    def _close_exact_issue(self, report: dict[str, Any]) -> None:
+        number = int(report["issue"]["number"])
+        exact = self._issue_view(number)
+        if exact.get("state") == "CLOSED":
+            self._validated_completed_issue(
+                exact, expected_github_state="CLOSED"
+            )
+            self._require_recovery_comment_binding(
+                self._issue_view(number),
+                report,
+                require_closed_workflow=True,
+            )
+            return
+        self._validated_completed_issue(exact, expected_github_state="OPEN")
+        body = self._recovery_comment(report)
+        comments = exact.get("comments") or []
+        try:
+            existing = parse_authorized_recovery_comment(comments)
+        except PublishedUndoRetirementError as exc:
+            raise TaskResetError(f"recovery audit comment is invalid: {exc}") from exc
+        if existing is not None:
+            self._require_recovery_comment_binding(
+                exact,
+                report,
+                require_closed_workflow=False,
+            )
+        else:
+            self.runner.run(
+                (
+                    "gh",
+                    "issue",
+                    "comment",
+                    str(number),
+                    "--repo",
+                    self.repository,
+                    "--body",
+                    body,
+                ),
+                cwd=self.source,
+            )
+        self.runner.run(
+            (
+                "gh",
+                "issue",
+                "close",
+                str(number),
+                "--repo",
+                self.repository,
+            ),
+            cwd=self.source,
+        )
+        _wait_for_managed_issue_close(
+            self.runner, self.source, self.repository, self.task_id, number
+        )
+        closed = self._issue_view(number)
+        self._validated_completed_issue(closed, expected_github_state="CLOSED")
+        self._require_recovery_comment_binding(
+            self._issue_view(number),
+            report,
+            require_closed_workflow=True,
+        )
+
+    def _remove_exact_checkout(self, report: dict[str, Any]) -> None:
+        checkout = report.get("checkout")
+        if self.checkout.exists():
+            if not isinstance(checkout, dict):
+                raise TaskResetError("recovery receipt did not inventory the checkout")
+            _validate_branchless_checkout_manifest(
+                self.state_root / f"{self.task_id}.json",
+                task=load_committed_task(self.source, self.task_id),
+                checkout=self.checkout,
+                branch=self.branch,
+                source_head=str(report["source_commit"]),
+                source_tree=str(report["source_tree"]),
+                origin=self.origin,
+            )
+        AbandonedRehearsalTaskReset._remove_checkout_and_local_branch(
+            self,
+            {
+                "checkout_head": report["source_commit"],
+                "task_head": report["source_commit"],
+            },
+        )
+
+    def _archive_recovery_state(self, report: dict[str, Any]) -> tuple[Path | None, tuple[str, ...]]:
+        names = tuple(
+            sorted(Path(value).name for value in report.get("active_state_files") or [])
+        )
+        if not names:
+            return None, ()
+        archive = Path(str(report["planned_state_archive"]))
+        if archive.resolve().parent != (
+            self.state_root / "archive" / self.task_id
+        ).resolve():
+            raise TaskResetError("recovery receipt state archive path escaped its task")
+        archive.mkdir(parents=True, exist_ok=True)
+        active_by_name = {
+            path.name: path
+            for path in _state_paths(self.state_root, self.task_id)
+            if path.is_file()
+        }
+        archived_by_name = {
+            path.name: path for path in archive.iterdir() if path.is_file()
+        }
+        if set(active_by_name) | set(archived_by_name) != set(names):
+            raise TaskResetError(
+                "active/archived parent state differs from the recovery receipt"
+            )
+        if set(active_by_name) & set(archived_by_name):
+            raise TaskResetError("parent state exists in both active and archive locations")
+        expected_hashes = report.get("active_state_file_sha256")
+        if not isinstance(expected_hashes, dict) or {
+            **{name: _file_sha256(path) for name, path in active_by_name.items()},
+            **{name: _file_sha256(path) for name, path in archived_by_name.items()},
+        } != expected_hashes:
+            raise TaskResetError("parent state file content changed after recovery preflight")
+        for name, source in active_by_name.items():
+            destination = archive / name
+            if destination.exists():
+                raise TaskResetError(f"state archive destination exists: {destination}")
+            source.replace(destination)
+        archived = tuple(sorted(path.name for path in archive.iterdir() if path.is_file()))
+        if archived != names:
+            raise TaskResetError("recovery state archive filename verification failed")
+        return archive, archived
+
+    def _verify_recovery_main(self, report: dict[str, Any]) -> None:
+        if _git_text(self.runner, self.source, "branch", "--show-current") != "main":
+            raise TaskResetError("published-undo recovery requires main")
+        if _git_text(
+            self.runner,
+            self.source,
+            "status",
+            "--porcelain=v1",
+            "--untracked-files=all",
+        ):
+            raise TaskResetError("controller became dirty during recovery")
+        _git(self.runner, self.source, "fetch", "--prune", "origin", "main")
+        head = _git_text(self.runner, self.source, "rev-parse", "HEAD")
+        remote = _git_text(self.runner, self.source, "rev-parse", "origin/main")
+        if head != report.get("main_head") or remote != head:
+            raise TaskResetError("current main moved after the recovery preflight")
+
+    def _revalidate_recovery_authority(self, report: dict[str, Any]) -> None:
+        """Re-prove immutable authority and non-consumption before each cleanup step."""
+
+        self._verify_recovery_main(report)
+        metadata = _repo_metadata(self.runner, self.source, self.repository)
+        _require_private_rehearsal_repository(metadata, self.repository)
+        if self._stored_parent_task_id() != self.task_id:
+            raise TaskResetError("stored graph delta belongs to a different parent")
+
+        issue_record = report.get("issue")
+        if not isinstance(issue_record, dict):
+            raise TaskResetError("recovery receipt has an invalid Issue record")
+        number = issue_record.get("number")
+        if type(number) is not int or number < 1:
+            raise TaskResetError("recovery receipt has an invalid Issue identity")
+        exact_issue = self._issue_view(number)
+        github_state = str(exact_issue.get("state") or "").upper()
+        if github_state not in {"OPEN", "CLOSED"}:
+            raise TaskResetError("recovery Issue state was not observable")
+        state, _, completed_details = self._validated_completed_issue(
+            exact_issue,
+            expected_github_state=github_state,
+        )
+        open_issues = _managed_task_issues(
+            self.runner, self.source, self.repository, self.task_id, "open"
+        )
+        open_numbers = {
+            item.get("number") for item in open_issues if isinstance(item, dict)
+        }
+        expected_open_numbers = {number} if github_state == "OPEN" else set()
+        if open_numbers != expected_open_numbers:
+            raise TaskResetError(
+                "parent managed Issue set changed after the recovery preflight"
+            )
+        if github_state == "CLOSED":
+            self._require_recovery_comment_binding(
+                exact_issue,
+                report,
+                require_closed_workflow=True,
+            )
+
+        children = self._proposed_children()
+        history = self._historical_plan(
+            str(report["main_head"]), completed_details, children
+        )
+        for field in (
+            "plan_id",
+            "apply_commit",
+            "source_commit",
+            "source_tree",
+            "apply_tree",
+            "undo_commit",
+            "undo_tree",
+            "changed_paths",
+            "source_graph_semantic_hash",
+            "proposed_graph_semantic_hash",
+            "later_commits",
+            "protected_child_paths",
+            "protected_evidence_prefixes",
+        ):
+            if report.get(field) != history.get(field):
+                raise TaskResetError(
+                    f"recovery receipt {field} differs from current graph/history authority"
+                )
+        expected_children = [str(item["id"]) for item in children]
+        if report.get("decomposition_children") != expected_children:
+            raise TaskResetError(
+                "recovery receipt child set differs from graph-delta authority"
+            )
+        if state.head_commit != history["source_commit"]:
+            raise TaskResetError(
+                "completed decomposition Issue baseline differs from the D1C source commit"
+            )
+        if state.human_handoff_commit != history["source_commit"]:
+            raise TaskResetError(
+                "completed decomposition Issue handoff differs from the D1C source commit"
+            )
+
+        _validate_taskgraph(self.runner, self.source)
+        parent = load_committed_task(self.source, self.task_id)
+        if (
+            parent.get("decomposition_state") == "decomposed"
+            or parent.get("decomposition_children")
+            or parent.get("execution_scope") != "needs_execution_decomposition"
+        ):
+            raise TaskResetError(
+                "current parent contract is not restored for fresh decomposition"
+            )
+        blocked: dict[str, list[str]] = {}
+        for child in children:
+            reasons = self._child_consumption_from_stored(
+                child,
+                source_commit=str(history["source_commit"]),
+            )
+            if reasons:
+                blocked[str(child["id"])] = reasons
+        if blocked:
+            raise TaskResetError(
+                "decomposition children were consumed or remain reserved; recovery refuses:\n"
+                + json.dumps(blocked, indent=2, sort_keys=True)
+            )
+        if _relevant_claims(self.source, parent):
+            raise TaskResetError("parent task/resource claim refs still exist")
+        if _remote_ref_oid(
+            self.runner, self.source, "origin", f"refs/heads/{self.branch}"
+        ) is not None:
+            raise TaskResetError("parent decomposition branch appeared remotely")
+        if _task_pull_requests(
+            self.runner, self.source, self.repository, self.branch, "open"
+        ):
+            raise TaskResetError("parent decomposition branch has an open pull request")
+        parent_worktrees = _controller_task_worktrees(
+            self.runner, self.source, self.task_id, self.branch
+        )
+        if parent_worktrees:
+            raise TaskResetError(
+                "parent task-specific linked worktree exists; recovery refuses:\n"
+                + json.dumps(parent_worktrees, indent=2, sort_keys=True)
+            )
+
+        if self.checkout.exists():
+            if not isinstance(report.get("checkout"), dict):
+                raise TaskResetError(
+                    "a parent checkout appeared after the recovery preflight"
+                )
+            manifest = _validate_branchless_checkout_manifest(
+                self.state_root / f"{self.task_id}.json",
+                task=parent,
+                checkout=self.checkout,
+                branch=self.branch,
+                source_head=str(history["source_commit"]),
+                source_tree=str(history["source_tree"]),
+                origin=self.origin,
+            )
+            if manifest.get("manifest_sha256") != report.get(
+                "checkout_manifest_sha256"
+            ):
+                raise TaskResetError("parent checkout manifest changed after preflight")
+            _inspect_checkout(
+                self.runner,
+                self.checkout,
+                expected_root=self.checkout_root,
+                expected_origin=self.origin,
+                expected_branch=self.branch,
+                expected_head=str(history["source_commit"]),
+                remote_branch_oid=None,
+            )
+            processes = _processes_using_checkout(
+                self.runner, self.source, self.checkout
+            )
+            containers = _containers_using_checkout(
+                self.runner, self.source, self.checkout
+            )
+            if processes or containers:
+                raise TaskResetError(
+                    "parent decomposition checkout became active during recovery"
+                )
+
+        local_branch = _git_text(
+            self.runner,
+            self.source,
+            "rev-parse",
+            "--verify",
+            f"refs/heads/{self.branch}",
+            check=False,
+        ) or None
+        recorded_branch = report.get("local_branch_oid")
+        if local_branch is not None and local_branch != recorded_branch:
+            raise TaskResetError("parent local branch changed after preflight")
+
+        expected_state_names = {
+            Path(value).name for value in report.get("active_state_files") or []
+        }
+        active_names = {
+            path.name
+            for path in _state_paths(self.state_root, self.task_id)
+            if path.is_file()
+        }
+        archive = Path(str(report.get("planned_state_archive") or "")).resolve()
+        expected_archive_parent = (
+            self.state_root / "archive" / self.task_id
+        ).resolve()
+        if archive.parent != expected_archive_parent:
+            raise TaskResetError("recovery receipt state archive path escaped its task")
+        archived_names = (
+            {path.name for path in archive.iterdir() if path.is_file()}
+            if archive.is_dir()
+            else set()
+        )
+        if active_names & archived_names or active_names | archived_names != expected_state_names:
+            raise TaskResetError(
+                "active/archived parent state differs from the recovery receipt"
+            )
+        expected_state_hashes = report.get("active_state_file_sha256")
+        archived_state_paths = tuple(archive.iterdir()) if archive.is_dir() else ()
+        current_state_hashes = {
+            **{
+                path.name: _file_sha256(path)
+                for path in _state_paths(self.state_root, self.task_id)
+                if path.is_file()
+            },
+            **{
+                path.name: _file_sha256(path)
+                for path in archived_state_paths
+                if path.is_file()
+            },
+        }
+        if not isinstance(expected_state_hashes, dict) or (
+            current_state_hashes != expected_state_hashes
+        ):
+            raise TaskResetError("parent state file content changed after recovery preflight")
+        task_state = _task_state(self.runner, self.source, self.task_id).get("state")
+        if not _abandoned_rehearsal_state_is_undelivered(parent, task_state):
+            raise TaskResetError(
+                "restored parent is not eligible for fresh decomposition"
+            )
+
+    def _finish_recovery(self, report: dict[str, Any], path: Path) -> dict[str, Any]:
+        self._revalidate_recovery_authority(report)
+        number = int(report["issue"]["number"])
+        self._validated_completed_issue(
+            self._issue_view(number), expected_github_state="CLOSED"
+        )
+        if _managed_task_issues(
+            self.runner, self.source, self.repository, self.task_id, "open"
+        ):
+            raise TaskResetError("parent managed Issue remains open after recovery")
+        if self.checkout.exists():
+            raise TaskResetError("parent checkout remains after recovery")
+        if any(path.is_file() for path in _state_paths(self.state_root, self.task_id)):
+            raise TaskResetError("active parent state remains after recovery")
+        if _remote_ref_oid(
+            self.runner, self.source, "origin", f"refs/heads/{self.branch}"
+        ) is not None:
+            raise TaskResetError("parent remote branch appeared during recovery")
+        parent = load_committed_task(self.source, self.task_id)
+        if _relevant_claims(self.source, parent):
+            raise TaskResetError("parent claim appeared during recovery")
+        for child in self._proposed_children():
+            reasons = self._child_consumption_from_stored(
+                child,
+                source_commit=str(report["source_commit"]),
+            )
+            if reasons:
+                raise TaskResetError(
+                    f"child {child['id']} changed during recovery: " + "; ".join(reasons)
+                )
+        _validate_taskgraph(self.runner, self.source)
+        task_state = _task_state(self.runner, self.source, self.task_id).get("state")
+        if not _abandoned_rehearsal_state_is_undelivered(parent, task_state):
+            raise TaskResetError("parent is not eligible for fresh decomposition")
+        report.update(
+            {
+                "status": "complete",
+                "taskgraph_state": task_state,
+                "parent_eligible_for_fresh_decomposition": True,
+                "origin_main": report["main_head"],
+            }
+        )
+        _write_report(path, report)
+        return report
+
+    def _continue_recovery(self, report: dict[str, Any], path: Path) -> dict[str, Any]:
+        self._revalidate_recovery_authority(report)
+        self._close_exact_issue(report)
+        report["status"] = "issue_closed"
+        _write_report(path, report)
+        self._revalidate_recovery_authority(report)
+        self._remove_exact_checkout(report)
+        report["status"] = "checkout_removed"
+        _write_report(path, report)
+        self._revalidate_recovery_authority(report)
+        archive, names = self._archive_recovery_state(report)
+        report.update(
+            {
+                "state_archive": str(archive) if archive else None,
+                "archived_state_files": list(names),
+                "status": "state_archived",
+            }
+        )
+        _write_report(path, report)
+        return self._finish_recovery(report, path)
+
+    def apply(self, plan: dict[str, Any]) -> dict[str, Any]:
+        timestamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d-%H%M%SZ")
+        path = (
+            self.state_root
+            / "reset-runs"
+            / self.task_id
+            / f"{timestamp}-recover-published-decomposition-undo.json"
+        )
+        report = {
+            **plan,
+            "reset_timestamp": timestamp,
+            "planned_state_archive": str(
+                self.state_root / "archive" / self.task_id / timestamp
+            ),
+            "report_path": str(path),
+            "status": "applying",
+        }
+        _create_report(path, report)
+        try:
+            verification = self.preflight()
+            for field in (
+                "repository",
+                "task_id",
+                "plan_id",
+                "apply_commit",
+                "undo_commit",
+                "source_commit",
+                "source_tree",
+                "apply_tree",
+                "undo_tree",
+                "main_head",
+                "changed_paths",
+                "source_graph_semantic_hash",
+                "proposed_graph_semantic_hash",
+                "later_commits",
+                "protected_child_paths",
+                "protected_evidence_prefixes",
+                "decomposition_children",
+                "issue",
+                "checkout",
+                "checkout_manifest_sha256",
+                "local_branch_oid",
+                "active_state_files",
+                "active_state_file_sha256",
+            ):
+                if verification.get(field) != plan.get(field):
+                    raise TaskResetError(f"{field} changed between preflight and apply")
+            return self._continue_recovery(report, path)
+        except Exception as exc:
+            report.update({"status": "stopped", "error": str(exc)})
+            _write_report(path, report)
+            raise
+
+    def resume(self, report_path: Path) -> dict[str, Any]:
+        path = Path(report_path).resolve()
+        expected_parent = (self.state_root / "reset-runs" / self.task_id).resolve()
+        if path.parent != expected_parent or not path.is_file():
+            raise TaskResetError("resume receipt is not the exact task recovery path")
+        try:
+            report = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+            raise TaskResetError("recovery receipt is not valid UTF-8 JSON") from exc
+        if not isinstance(report, dict):
+            raise TaskResetError("recovery receipt must contain one JSON object")
+        fixed = {
+            "operation": PUBLISHED_DECOMPOSITION_UNDO_RECOVERY_OPERATION,
+            "repository": self.repository,
+            "task_id": self.task_id,
+            "graph_delta_path": str(self.graph_delta_path),
+            "report_path": str(path),
+        }
+        for field, expected in fixed.items():
+            if report.get(field) != expected:
+                raise TaskResetError(f"recovery receipt {field} identity differs")
+        if report.get("status") == "complete":
+            return report
+        for field in ("main_head", "apply_commit", "undo_commit", "source_commit"):
+            if not isinstance(report.get(field), str) or re.fullmatch(
+                r"[0-9a-f]{40}", str(report.get(field))
+            ) is None:
+                raise TaskResetError(f"recovery receipt has an invalid {field}")
+        self._revalidate_recovery_authority(report)
+        return self._continue_recovery(report, path)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("task_id", help="Exact task ID, for example NSC-042")
@@ -2107,6 +3979,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--archive-repository")
     parser.add_argument("--confirm-repository")
     parser.add_argument(
+        "--expected-gate-oid",
+        help="Exact durable gate OID required by abandoned waiter retirement",
+    )
+    parser.add_argument(
         "--resume-report",
         type=Path,
         help="Resume one exact stopped abandoned-rehearsal reset receipt",
@@ -2114,11 +3990,21 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--graph-delta",
         type=Path,
-        help="Exact stored graph_delta.json authority for --undo-decomposition",
+        help=(
+            "Exact stored graph_delta.json authority for --undo-decomposition or "
+            "--recover-published-decomposition-undo"
+        ),
     )
     parser.add_argument(
         "--confirm-plan-id",
-        help="Exact decomposition plan id required by --undo-decomposition --apply",
+        help="Exact decomposition plan id required by decomposition reset apply modes",
+    )
+    parser.add_argument(
+        "--confirm-undo-commit",
+        help=(
+            "Exact published additive undo commit required by "
+            "--recover-published-decomposition-undo --apply"
+        ),
     )
     parser.add_argument("--apply", action="store_true")
     modes = parser.add_mutually_exclusive_group(required=True)
@@ -2150,15 +4036,47 @@ def main(argv: Sequence[str] | None = None) -> int:
             "parent eligible for a fresh decomposition run"
         ),
     )
+    modes.add_argument(
+        "--recover-published-decomposition-undo",
+        action="store_true",
+        help=(
+            "Retire exact stale coordination after a separately verified additive "
+            "decomposition undo is already in private rehearsal main history"
+        ),
+    )
+    modes.add_argument(
+        "--retire-abandoned-gate-waiter",
+        action="store_true",
+        help=(
+            "Retire one exact quarantined waiter after proving its closed Issue, "
+            "absent branch/checkouts, unmerged head, and absent live lease"
+        ),
+    )
     args = parser.parse_args(argv)
     try:
+        if args.retire_abandoned_gate_waiter and args.expected_gate_oid is None:
+            raise TaskResetError(
+                "--retire-abandoned-gate-waiter requires --expected-gate-oid"
+            )
+        if args.expected_gate_oid is not None and not args.retire_abandoned_gate_waiter:
+            raise TaskResetError(
+                "--expected-gate-oid is valid only with --retire-abandoned-gate-waiter"
+            )
         source = args.source.resolve()
         checkout_root = (args.checkout_root or source.parent).resolve()
         runner = CommandRunner()
         repository = _repository_from_origin(
             _git_text(runner, source, "remote", "get-url", "origin")
         )
-        if args.production_state_cleanup:
+        if args.retire_abandoned_gate_waiter:
+            operation = AbandonedGateWaiterRetirement(
+                source=source,
+                checkout_root=checkout_root,
+                task_id=args.task_id,
+                expected_gate_oid=args.expected_gate_oid,
+                runner=runner,
+            )
+        elif args.production_state_cleanup:
             operation: Any = ProductionAbandonedStateCleanup(
                 source=source,
                 checkout_root=checkout_root,
@@ -2197,6 +4115,19 @@ def main(argv: Sequence[str] | None = None) -> int:
                 graph_delta=args.graph_delta,
                 runner=runner,
             )
+        elif args.recover_published_decomposition_undo:
+            if args.graph_delta is None:
+                raise TaskResetError(
+                    "--recover-published-decomposition-undo requires "
+                    "--graph-delta <graph_delta.json>"
+                )
+            operation = PublishedDecompositionUndoRecovery(
+                source=source,
+                checkout_root=checkout_root,
+                task_id=args.task_id,
+                graph_delta=args.graph_delta,
+                runner=runner,
+            )
         else:
             owner, name = repository.split("/", 1)
             archive = args.archive_repository or f"{owner}/{name}-Archive"
@@ -2208,15 +4139,40 @@ def main(argv: Sequence[str] | None = None) -> int:
                 runner=runner,
             )
         if args.resume_report is not None:
-            if not (args.abandon_incomplete_rehearsal or args.undo_decomposition):
+            if not (
+                args.abandon_incomplete_rehearsal
+                or args.undo_decomposition
+                or args.recover_published_decomposition_undo
+            ):
                 raise TaskResetError(
                     "--resume-report requires --abandon-incomplete-rehearsal or "
-                    "--undo-decomposition"
+                    "a decomposition reset mode"
                 )
             if not args.apply:
                 raise TaskResetError("--resume-report requires --apply")
             if not args.confirm_repository or args.confirm_repository.casefold() != repository.casefold():
                 raise TaskResetError(f"--apply requires --confirm-repository {repository}")
+            if args.recover_published_decomposition_undo:
+                try:
+                    recovery_receipt = json.loads(
+                        args.resume_report.resolve().read_text(encoding="utf-8")
+                    )
+                except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+                    raise TaskResetError(
+                        "published-undo recovery receipt is not readable UTF-8 JSON"
+                    ) from exc
+                if not isinstance(recovery_receipt, dict):
+                    raise TaskResetError(
+                        "published-undo recovery receipt must contain one JSON object"
+                    )
+                if args.confirm_plan_id != recovery_receipt.get("plan_id"):
+                    raise TaskResetError(
+                        "recovery resume requires --confirm-plan-id matching its receipt"
+                    )
+                if args.confirm_undo_commit != recovery_receipt.get("undo_commit"):
+                    raise TaskResetError(
+                        "recovery resume requires --confirm-undo-commit matching its receipt"
+                    )
             report = operation.resume(args.resume_report)
             print(json.dumps(report, indent=2, sort_keys=True))
             return 0
@@ -2226,9 +4182,18 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
         if not args.confirm_repository or args.confirm_repository.casefold() != repository.casefold():
             raise TaskResetError(f"--apply requires --confirm-repository {repository}")
-        if args.undo_decomposition and args.confirm_plan_id != plan["plan_id"]:
+        if (
+            args.undo_decomposition or args.recover_published_decomposition_undo
+        ) and args.confirm_plan_id != plan["plan_id"]:
             raise TaskResetError(
                 f"--apply requires --confirm-plan-id {plan['plan_id']}"
+            )
+        if (
+            args.recover_published_decomposition_undo
+            and args.confirm_undo_commit != plan["undo_commit"]
+        ):
+            raise TaskResetError(
+                f"--apply requires --confirm-undo-commit {plan['undo_commit']}"
             )
         report = operation.apply(plan)
         print(json.dumps(report, indent=2, sort_keys=True))

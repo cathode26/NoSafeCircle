@@ -13,7 +13,7 @@ from AgentRuntime.contracts import (
     validate_repository_path,
 )
 
-TASK_ID_RE = re.compile(r"^NSC-\d{3,}$")
+TASK_ID_RE = re.compile(r"^NSC-(?:[0-9]{3}|[1-9][0-9]{3,8})$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 LOCAL_KEY_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 ENTRY_PATTERNS = {
@@ -144,9 +144,11 @@ class ParentTaskIdentity:
     @classmethod
     def from_dict(cls, raw: Any, label: str = "parent_task") -> "ParentTaskIdentity":
         value = _object(raw, label, {"task_id", "contract_revision", "contract_sha256"})
-        task_id = _text(value["task_id"], f"{label}.task_id")
-        if not TASK_ID_RE.fullmatch(task_id):
-            raise DecompositionContractError(f"{label}.task_id has invalid NSC identity: {task_id!r}.")
+        task_id = value["task_id"]
+        if type(task_id) is not str or not TASK_ID_RE.fullmatch(task_id):
+            raise DecompositionContractError(
+                f"{label}.task_id has invalid NSC identity: {task_id!r}."
+            )
         revision = _positive_int(value["contract_revision"], f"{label}.contract_revision")
         sha256 = _text(value["contract_sha256"], f"{label}.contract_sha256")
         if not SHA256_RE.fullmatch(sha256):
@@ -248,10 +250,20 @@ class ChildProposal:
         local_key = _text(value["local_key"], f"{label}.local_key")
         if not LOCAL_KEY_RE.fullmatch(local_key):
             raise DecompositionContractError(f"{label}.local_key must be a conservative lowercase ASCII slug.")
-        existing = _string_tuple(value["existing_task_dependencies"], f"{label}.existing_task_dependencies")
+        existing_values = _list(
+            value["existing_task_dependencies"],
+            f"{label}.existing_task_dependencies",
+        )
+        existing: tuple[str, ...] = tuple(existing_values)
         for task_id in existing:
-            if not TASK_ID_RE.fullmatch(task_id):
-                raise DecompositionContractError(f"{label}.existing_task_dependencies contains invalid task ID {task_id!r}.")
+            if type(task_id) is not str or not TASK_ID_RE.fullmatch(task_id):
+                raise DecompositionContractError(
+                    f"{label}.existing_task_dependencies contains invalid task ID {task_id!r}."
+                )
+        if len(existing) != len(set(existing)):
+            raise DecompositionContractError(
+                f"{label}.existing_task_dependencies contains duplicate values."
+            )
         local_dependencies = _string_tuple(value["local_dependencies"], f"{label}.local_dependencies")
         for dependency in local_dependencies:
             if not LOCAL_KEY_RE.fullmatch(dependency):
@@ -404,8 +416,8 @@ class InboundDependencyRewrite:
     @classmethod
     def from_dict(cls, raw: Any, label: str) -> "InboundDependencyRewrite":
         value = _object(raw, label, {"dependent_task_id", "replacement_local_keys", "reason"})
-        dependent_task_id = _text(value["dependent_task_id"], f"{label}.dependent_task_id")
-        if not TASK_ID_RE.fullmatch(dependent_task_id):
+        dependent_task_id = value["dependent_task_id"]
+        if type(dependent_task_id) is not str or not TASK_ID_RE.fullmatch(dependent_task_id):
             raise DecompositionContractError(
                 f"{label}.dependent_task_id has invalid NSC identity: {dependent_task_id!r}."
             )

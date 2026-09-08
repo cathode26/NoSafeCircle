@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import json
+import shlex
+import subprocess
 import sys
 import tempfile
+from collections import Counter
 from copy import deepcopy
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -49,6 +52,39 @@ EXPECTED_PUBLICATION_ORDER = (
 )
 
 
+_GIT_PROCESS_COUNTS: list[Counter] = []
+
+
+def _git_process_audit(event: str, arguments: tuple[object, ...]) -> None:
+    if event != "subprocess.Popen" or not _GIT_PROCESS_COUNTS:
+        return
+    executable, command = arguments[:2]
+    if isinstance(command, str):
+        command = shlex.split(command, posix=False)
+    name = Path(str(executable or (command[0] if command else ""))).name.lower()
+    if name not in {"git", "git.exe"}:
+        return
+    counts = _GIT_PROCESS_COUNTS[-1]
+    counts["total"] += 1
+    for verb in ("hash-object", "cat-file", "rev-parse", "ls-tree"):
+        if verb in command:
+            counts[verb] += 1
+            break
+
+
+sys.addaudithook(_git_process_audit)
+
+
+def count_git_processes(callable_) -> tuple[object, Counter]:
+    counts: Counter = Counter()
+    _GIT_PROCESS_COUNTS.append(counts)
+    try:
+        value = callable_()
+    finally:
+        _GIT_PROCESS_COUNTS.pop()
+    return value, counts
+
+
 @dataclass(frozen=True)
 class Fixture:
     root: Path
@@ -66,6 +102,37 @@ def create_fixture(root: Path) -> Fixture:
     )
     (root / "Pipeline" / "TaskGraph").mkdir(parents=True)
     persist_work_graph(source_plan, inputs, root=root)
+    subprocess.run(("git", "init", "--quiet"), cwd=root, check=True)
+    subprocess.run(
+        ("git", "config", "core.autocrlf", "false"), cwd=root, check=True
+    )
+    subprocess.run(
+        ("git", "config", "user.name", "D1C materialization fixture"),
+        cwd=root,
+        check=True,
+    )
+    subprocess.run(
+        ("git", "config", "user.email", "d1c-materialize@nosafecircle.invalid"),
+        cwd=root,
+        check=True,
+    )
+    subprocess.run(
+        ("git", "add", "--", "Tasks", "Pipeline/TaskGraph"),
+        cwd=root,
+        check=True,
+    )
+    subprocess.run(
+        (
+            "git",
+            "commit",
+            "--quiet",
+            "--no-gpg-sign",
+            "-m",
+            "fixture: graph source",
+        ),
+        cwd=root,
+        check=True,
+    )
     source = load_persistent_work_graph(root)
     result = validated_result(source.plan)
     stored_plan = plan_graph_delta(source, result.parent_task, result)
@@ -91,7 +158,7 @@ def file_snapshot(root: Path) -> dict[str, bytes]:
     return {
         path.relative_to(root).as_posix(): path.read_bytes()
         for path in sorted(root.rglob("*"))
-        if path.is_file()
+        if path.is_file() and ".git" not in path.relative_to(root).parts
     }
 
 
@@ -136,6 +203,137 @@ def changed_paths(
         for relative in set(before) | set(after)
         if before.get(relative) != after.get(relative)
     }
+
+
+def verify_artifact_comparison_uses_one_exact_commit_cache() -> None:
+    """Keep legacy decisions byte-identical while collapsing committed reads."""
+
+    with tempfile.TemporaryDirectory() as temp:
+        fixture = create_fixture(Path(temp))
+        taskgraph = Path("Pipeline") / "TaskGraph"
+        parent_path = Path("Tasks") / "NSC-042.yaml"
+        id_map_path = taskgraph / "WORK_ID_MAP.json"
+        resources_path = taskgraph / "RESOURCE_GROUPS.yaml"
+
+        changed_parent = read_object(fixture.root / parent_path)
+        changed_parent["notes"] = "comparison fixture changed parent"
+        unchanged_id_map = read_object(fixture.root / id_map_path)
+        changed_resources = read_object(fixture.root / resources_path)
+        changed_resources["resource_groups"] = [
+            *changed_resources["resource_groups"],
+            {
+                "id": "comparison-fixture",
+                "description": "Only exercises committed artifact comparison.",
+            },
+        ]
+        comparisons = (
+            (parent_path, changed_parent),
+            (id_map_path, unchanged_id_map),
+            (resources_path, changed_resources),
+        )
+
+        def legacy_compare() -> tuple[object, ...]:
+            artifacts: list[object] = []
+            for relative_path, payload in comparisons:
+                text = graph_apply_materialize.canonical_json_text(payload)
+                current_bytes = (fixture.root / relative_path).read_bytes()
+                relative = relative_path.as_posix()
+                current_blob = graph_apply_materialize.hash_object_as_committed(
+                    fixture.root, relative, current_bytes
+                )
+                desired_blob = graph_apply_materialize.hash_object_as_committed(
+                    fixture.root, relative, text.encode("utf-8")
+                )
+                repository = graph_apply_materialize.GitRepository(fixture.root)
+                committed_blob = (
+                    repository.blob("HEAD", relative)
+                    if repository.exists("HEAD", relative)
+                    else None
+                )
+                if current_blob != desired_blob or committed_blob != desired_blob:
+                    artifacts.append(
+                        graph_apply_materialize._Artifact(
+                            relative_path=relative_path,
+                            text=text,
+                        )
+                    )
+            return tuple(artifacts)
+
+        def cached_compare() -> tuple[object, ...]:
+            artifacts: list[object] = []
+            committed_baseline = graph_apply_materialize._CommittedArtifactBaseline(
+                graph_apply_materialize.GitRepository(fixture.root)
+            )
+            for relative_path, payload in comparisons:
+                graph_apply_materialize._artifact_if_changed(
+                    artifacts,
+                    fixture.root,
+                    relative_path,
+                    payload,
+                    committed_baseline=committed_baseline,
+                )
+            committed_head = committed_baseline.commit
+            assert committed_head is not None and len(committed_head) == 40
+            assert all(character in "0123456789abcdef" for character in committed_head)
+            return tuple(artifacts)
+
+        legacy_artifacts, legacy_processes = count_git_processes(legacy_compare)
+        cached_artifacts, cached_processes = count_git_processes(cached_compare)
+        assert cached_artifacts == legacy_artifacts
+        assert [
+            artifact.text.encode("utf-8") for artifact in cached_artifacts
+        ] == [artifact.text.encode("utf-8") for artifact in legacy_artifacts]
+        assert legacy_processes == Counter(
+            {"total": 12, "hash-object": 6, "cat-file": 3, "rev-parse": 3}
+        ), legacy_processes
+        assert cached_processes == Counter(
+            {"total": 8, "hash-object": 6, "rev-parse": 1, "ls-tree": 1}
+        ), cached_processes
+
+        # A symbolic lookup here would silently follow the new HEAD and classify
+        # the now-committed worktree content unchanged. The captured exact
+        # commit must instead retain the original comparison expectation.
+        committed_baseline = graph_apply_materialize._CommittedArtifactBaseline(
+            graph_apply_materialize.GitRepository(fixture.root)
+        )
+        captured_head = committed_baseline.exact_commit()
+        (fixture.root / parent_path).write_text(
+            graph_apply_materialize.canonical_json_text(changed_parent),
+            encoding="utf-8",
+            newline="\n",
+        )
+        subprocess.run(
+            ("git", "add", "--", parent_path.as_posix()),
+            cwd=fixture.root,
+            check=True,
+        )
+        subprocess.run(
+            (
+                "git",
+                "commit",
+                "--quiet",
+                "--no-gpg-sign",
+                "-m",
+                "fixture: move HEAD",
+            ),
+            cwd=fixture.root,
+            check=True,
+        )
+        assert committed_baseline.repository.head() != captured_head
+        moved_artifacts: list[object] = []
+        graph_apply_materialize._artifact_if_changed(
+            moved_artifacts,
+            fixture.root,
+            parent_path,
+            changed_parent,
+            committed_baseline=committed_baseline,
+        )
+        assert [artifact.relative_path for artifact in moved_artifacts] == [parent_path]
+
+        print(
+            "artifact comparison: legacy_git=12 exact_commit_git=8 "
+            "decisions=byte-identical moving_ref=captured"
+        )
 
 
 def task_map(tasks) -> dict[str, dict]:
@@ -493,6 +691,7 @@ def clean_apply_once() -> tuple[
 
 
 def main() -> int:
+    verify_artifact_comparison_uses_one_exact_commit_cache()
     verify_d1c_child_orphan_semantics()
     verify_non_fresh_refusal()
     verify_prepublication_failures()

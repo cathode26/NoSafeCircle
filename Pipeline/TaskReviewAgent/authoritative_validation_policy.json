@@ -21,5 +21,6 @@
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
     }
-  }
+  },
+  "decomposition_child_templates": {}
 }

@@ -40,6 +40,7 @@ from typing import Any
 from conformance_records import (
     CANON_PATH,
     EVIDENCE_ROOT,
+    TASK_ID_PATTERN,
     TASK_ID_RE,
     ConformanceRecordError,
     GitRepository,
@@ -51,7 +52,9 @@ from conformance_records import (
 
 ROOT = Path(__file__).resolve().parents[2]
 
-_TASK_FROM_RECORD_PATH_RE = re.compile(rf"^{re.escape(EVIDENCE_ROOT)}/({TASK_ID_RE.pattern})/records/")
+_TASK_FROM_RECORD_PATH_RE = re.compile(
+    rf"^{re.escape(EVIDENCE_ROOT)}/({TASK_ID_PATTERN})/records/"
+)
 
 
 class DraftEvidenceError(RuntimeError):

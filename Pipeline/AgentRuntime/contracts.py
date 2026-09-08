@@ -31,6 +31,7 @@ FAILURE_CLASSIFICATIONS = frozenset(
         "permission_denied",
         "schema_error",
         "budget_exhausted",
+        "quota_exhausted",
         "invalid_request",
         "internal_error",
     }
@@ -327,11 +328,14 @@ class Usage:
     output_tokens: int
     total_tokens: int
     estimated_cost_usd: float | None = None
+    cached_input_tokens: int | None = None
 
     def __post_init__(self) -> None:
         values = (self.input_tokens, self.output_tokens, self.total_tokens)
         if any(isinstance(v, bool) or not isinstance(v, int) or v < 0 for v in values):
             raise ContractValidationError("token usage values must be non-negative integers")
+        if self.cached_input_tokens is not None and (type(self.cached_input_tokens) is not int or not 0 <= self.cached_input_tokens <= self.input_tokens):
+            raise ContractValidationError("cached input tokens must be a non-negative subset of input tokens")
         if self.estimated_cost_usd is not None and (
             isinstance(self.estimated_cost_usd, bool)
             or not isinstance(self.estimated_cost_usd, (int, float))
@@ -343,12 +347,14 @@ class Usage:
             )
 
     def to_dict(self) -> dict[str, Any]:
-        return {"input_tokens": self.input_tokens, "output_tokens": self.output_tokens, "total_tokens": self.total_tokens, "estimated_cost_usd": self.estimated_cost_usd}
+        return {"input_tokens": self.input_tokens, "output_tokens": self.output_tokens, "total_tokens": self.total_tokens, "estimated_cost_usd": self.estimated_cost_usd,
+                **({"cached_input_tokens": self.cached_input_tokens} if self.cached_input_tokens is not None else {})}
 
     @classmethod
     def from_dict(cls, value: Mapping[str, Any]) -> "Usage":
-        _expect_fields(value, {"input_tokens", "output_tokens", "total_tokens", "estimated_cost_usd"}, where="usage")
-        return cls(value["input_tokens"], value["output_tokens"], value["total_tokens"], value["estimated_cost_usd"])
+        fields = {"input_tokens", "output_tokens", "total_tokens", "estimated_cost_usd"}
+        _expect_fields(value, fields | ({"cached_input_tokens"} if "cached_input_tokens" in value else set()), where="usage")
+        return cls(value["input_tokens"], value["output_tokens"], value["total_tokens"], value["estimated_cost_usd"], value.get("cached_input_tokens"))
 
 
 @dataclass(frozen=True)

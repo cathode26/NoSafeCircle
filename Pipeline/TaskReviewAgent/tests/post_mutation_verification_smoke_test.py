@@ -86,10 +86,18 @@ def task() -> dict[str, Any]:
 def immediate_verification_reads(attempts: int = 3) -> Iterator[None]:
     original = store_module.POST_MUTATION_VERIFICATION_DELAYS_SECONDS
     store_module.POST_MUTATION_VERIFICATION_DELAYS_SECONDS = (0.0,) * attempts
+    # Every mutation here is preceded by a real reservation scan, which walks
+    # its own separate ladder. This suite asserts nothing about that ladder, so
+    # sleeping through it is pure wall clock: it cost four minutes at the
+    # 7-second ladder and would cost over eight at the 15-second one. Neutralize
+    # it too, and keep the same number of read rounds so the scan still runs.
+    reservation = store_module.RESERVATION_CONSISTENCY_DELAYS_SECONDS
+    store_module.RESERVATION_CONSISTENCY_DELAYS_SECONDS = (0.0,) * len(reservation)
     try:
         yield
     finally:
         store_module.POST_MUTATION_VERIFICATION_DELAYS_SECONDS = original
+        store_module.RESERVATION_CONSISTENCY_DELAYS_SECONDS = reservation
 
 
 def active_service(

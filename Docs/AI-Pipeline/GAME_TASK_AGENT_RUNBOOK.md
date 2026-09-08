@@ -4,6 +4,13 @@
 
 The Game Task Agent connects the durable GitHub Issue workflow to the existing real implementation pipeline:
 
+For explicit whole-run provider selection, use the canonical launcher's
+`-ProviderProfile` option. The [provider profiles and budget-routing guide](PROVIDER_PROFILES_AND_BUDGET_ROUTING.md)
+defines `all-claude`, `all-codex`, `claude-architect-balanced`, and
+`codex-architect-balanced`, including their immutable manifest fields,
+credential preflight, independent role review, and run-scoped token budgets.
+Existing commands without a profile preserve their documented routing.
+
 ```text
 explicit eligible task or validated agent-ready Issue
         ↓
@@ -60,25 +67,133 @@ Install the isolated Python dependency once:
 python -m pip install -r Pipeline/TaskReviewAgent/requirements.txt
 ```
 
-## Start one explicit task
+## Execution modes
+
+One launcher serves three callers. The mode is chosen structurally, never by heuristic:
+
+| Caller | Selected by | Path |
+| --- | --- | --- |
+| Normal operator, one explicit task | `-TaskId` with no `-RunId` | architect-managed autonomous graph run |
+| Scheduler-spawned internal worker | non-empty `-RunId` | existing direct pipeline worker |
+| Operator recovery/debugging | explicit `-DirectManual` | existing direct pipeline worker |
+
+The autonomous controller starts its own workers through this same script, so the scheduler `-RunId` is what keeps delegation non-recursive: a worker that carries one can never delegate back to the controller that spawned it. Contradictory combinations fail before either pipeline starts.
+
+## Start one explicit task (architect-managed, the normal command)
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Pipeline\TaskReviewAgent\Start-GameTaskAgent.ps1 -TaskId NSC-### -ExecutionProvider claude
 ```
 
-The explicit task must pass the real TaskGraph eligibility and dependency checks. The agent does not silently switch to another task when the named task is blocked.
+This delegates exactly once to the existing autonomous graph controller (`Start-AutonomousGraphRun.ps1` -> `run_autonomous_graph.py`) with maximum worker capacity 1. The run therefore receives Software Architect difficulty scoring, architect-selected rigor/validation profiles and crew sizing, the scheduler-owned architect and ExecutionCrew session pools, Issue-state wake-up, continuous worker supervision, and graph-complete receipt semantics. The launcher implements none of that itself.
 
-Use Codex for ExecutionCrew instead:
+Because the architect resolves them per task, these are refused rather than silently dropped in this mode: `-CrewProfile`, `-ValidationProfile`, `-Model`, `-SupervisorReasoningEffort`, `-ExecutionReasoningEffort`, `-EnableExecutionSessionPool`, `-WorkerId`, `-OutputRoot`, `-UnityExecutable`, `-HumanActionWaitMinutes`, `-HumanActionPollSeconds`, and the scheduler admission fields. Use `-DirectManual` to set them yourself. `-ExecutionProvider`, `-ArchitectProvider`, `-ExecutionModel`, `-MaxTurns` and `-CheckoutRoot` are forwarded only when you actually supply them. Omitting `-ArchitectProvider` preserves the autonomous controller's established architect-provider default. To require an all-OpenAI run explicitly, use both `-ExecutionProvider codex` and `-ArchitectProvider codex`.
+
+The explicit task must still pass the real TaskGraph eligibility and dependency checks. The run does not silently switch to another task when the named task is blocked.
+
+### What the target task actually covers
+
+The requested task becomes the controller's `--target-task-id`. The controller expands that target transitively through each task's committed `decomposition_children`, subtracts any exclusions, and admits only the resulting set. Concretely:
+
+- a concrete implementation task with no children runs alone;
+- a decomposed parent also covers its children, and their children, to any depth;
+- `depends_on` is **not** expanded. A task reachable only as a dependency never enters run scope. If a target's dependency has not been delivered, the target simply stays undispatchable and the run reports a wait or deadlock rather than quietly starting unrelated work.
+
+The run finishes when every task in that set is conformant, its managed Issue is complete, and no assignment, transition, or reservation remains.
+
+### Run identity and resuming
+
+Each launch mints a durable, operator-visible autonomous run ID in the project's established shape -- lower-case task ID, compact UTC stamp, and a short discriminator so two launches in the same second cannot adopt each other's run, for example `nsc-914-20260904t181500z-3f9ab2`. The launcher prints it and prints the exact resume command. A worker `-RunId` is never reused as the controller run identity.
+
+To resume an interrupted run deliberately, supply the same ID:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Pipeline\TaskReviewAgent\Start-GameTaskAgent.ps1 -TaskId NSC-### -AutonomousRunId nsc-914-20260904t181500z-3f9ab2
+```
+
+A resume must match the persisted manifest. Capacity is part of that manifest, so a run created at a non-default `-MaxWorkers` must be resumed with the same value; a mismatch fails closed instead of silently re-scoping. A run whose `graph-complete.json` receipt already exists returns success from the receipt probe alone, before GitHub, Docker, the architect, or any worker is touched.
+
+After that receipt probe reports work remains and launcher preflight succeeds,
+the architect-managed controller starts or reuses a hidden GauntletView bound to
+the exact immutable run identity and controller branch, then prints its loopback
+URL. It never opens a browser or replaces an unknown listener. The viewer remains read-only unless the
+operator explicitly adds `-EnableGauntletViewHumanApproval`. That separate
+switch exposes only the current managed Issue's one-time, same-origin exact-plan
+or exact-commit human action; omission performs zero Issue transitions. It is
+an architect-managed option and is refused for scheduler children,
+`-DirectManual`, and observe mode. See
+`Pipeline/TaskReviewAgent/GauntletView/README.md` for its identity and stale-click
+guards.
+
+### Repository assertion
+
+The controller requires an explicit `--confirm-repository`. When you do not supply `-ConfirmRepository`, the launcher resolves it from the source checkout's Git `origin` using the same committed authority the controller then re-asserts against that origin. Supplying it yourself keeps it a real assertion that fails closed on a mismatch.
+
+### Synthetic evidence is disabled in the public build
+
+The launcher never infers `-EnableSyntheticEvidence`, and `-EnableSyntheticEvidence:$false` means "not requested". This public build has no authorized synthetic-evidence repository: explicit enablement, including enablement saved in a resumed run, is rejected before run artifacts, claims, or workers are created. There is no environment override. Positive deterministic fixtures use scoped test-only authority with invented identities; they do not enable synthetic validation in production or create a human PASS.
+
+### Recovery and debugging: direct/manual mode
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Pipeline\TaskReviewAgent\Start-GameTaskAgent.ps1 -TaskId NSC-### -ExecutionProvider claude -DirectManual
+```
+
+`-DirectManual` keeps the previous conservative behavior exactly: the direct `run_pipeline_agent.py` worker, ExecutionCrew's `full`/`full_relevant` default when no profile override is given, existing `-CrewProfile`/`-ValidationProfile` override behavior, and the existing explicit-task admission preflight. It stays ephemeral: it never fabricates an autonomous scheduler identity, and `-EnableExecutionSessionPool` is refused because direct/manual holds no scheduler-issued pool authority.
+
+Use Codex for ExecutionCrew instead (still architect-managed):
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Pipeline\TaskReviewAgent\Start-GameTaskAgent.ps1 -TaskId NSC-### -ExecutionProvider codex
 ```
 
-The OpenAI supervisor model can be selected independently:
+Use Codex for both the Software Architect and ExecutionCrew:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Pipeline\TaskReviewAgent\Start-GameTaskAgent.ps1 -TaskId NSC-### -ExecutionProvider claude -Model gpt-5.6
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Pipeline\TaskReviewAgent\Start-GameTaskAgent.ps1 -TaskId NSC-### -ExecutionProvider codex -ArchitectProvider codex
 ```
+
+The OpenAI supervisor model belongs to the direct worker, so selecting it explicitly selects direct/manual mode:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Pipeline\TaskReviewAgent\Start-GameTaskAgent.ps1 -TaskId NSC-### -ExecutionProvider claude -DirectManual -Model gpt-5.6
+```
+
+## Supervisor session pooling (off by default)
+
+Each judgment turn of the Codex goal supervisor is an ephemeral Codex CLI
+process unless the durable supervisor session pool is activated. Activation is
+an explicit operator decision because `codex exec resume` does not accept
+`--sandbox`, so the pinned `--sandbox danger-full-access` policy must be
+reproduced through an option resume does accept, and that reproduction has not
+been proven live by this repository. See "Durable supervisor session pool" in
+`Pipeline/TaskReviewAgent/README.md` for the verification an operator must
+run first. Once verified, export the exact control at the top of the launch:
+
+```powershell
+$env:NSC_CODEX_RESUME_SANDBOX_ARGUMENT = '["-c","sandbox_mode=\"danger-full-access\""]'
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Pipeline\TaskReviewAgent\Start-GameTaskAgent.ps1 -TaskId NSC-### -ExecutionProvider claude
+```
+
+The launcher validates the control (only `-c`/`--config` `sandbox...=value`
+pairs are accepted), prints `Supervisor session pool: warm Codex resume
+ACTIVE` or `OFF` so the state is never implicit, and keeps the decision in
+`NSC_CODEX_RESUME_SANDBOX_ARGUMENT` for the architect controller, its
+workers, and the direct worker; it is never passed as a native command-line
+argument. With the gate off nothing is pooled, and the
+`supervisor_session_pool` progress event, every `supervisor_decision` event,
+and the worker result say so.
+
+A pooled conversation is task-scoped and bound to the exact supervisor model,
+reasoning effort, repository origin, resume control, and external Docker volume
+that actually holds the supervisor's session files
+(`NSC_TASK_SUPERVISOR_CODEX_VOLUME`, default
+`nosafecircle_codex-config`). Launch the same task with the same selected
+volume so its later delivery/merge-closeout worker resumes the conversation
+the implementation phase proved; selecting a different volume retires the old
+record and cold-starts. The Compose project remains a separate compatibility
+fact. The scheduler routes one supervisor effort per task and the downstream
+worker honours it for the same reason.
 
 ## Resume durable agent-ready work
 
@@ -122,6 +237,14 @@ Each scheduler session also appends its exact JSON event stream to
 `Pipeline/ArchitectureReview/outputs/orchestrator/events/<scheduler-id>.jsonl`.
 Use that journal to diagnose admission delays, worker parentage, drain behavior,
 and process failures; console output alone is not durable evidence.
+
+If a previous controller was interrupted during a paid architect call, its
+durable session remains `assigned` because the provider outcome is unknowable.
+The next controller does not resume that conversation. After it exclusively
+acquires the repository scheduler lock, it records an
+`assignment_interrupted` retirement for the exact old assignment and starts a
+fresh architect session. Corrupt state and reconciliation persistence failures
+remain hard stops.
 
 GitHub can briefly expose an updated managed-Issue body before its matching
 event comment. Queue and reservation reads retry that narrowly recognized skew
@@ -224,6 +347,17 @@ cleanly when the timeout expires or the Issue enters another state.
 Scheduler-launched workers still stop at this boundary so human-owned tasks do
 not occupy scheduler capacity. Direct operators may disable or tune the bounded
 wait with `-HumanActionWaitMinutes` and `-HumanActionPollSeconds`.
+
+The public build disables the private synthetic machine-evidence boundary.
+`synthetic_gauntlet_approver.py` has no authorized repository, and the autonomous
+launcher rejects synthetic evidence before starting or resuming a run.
+Deterministic fixtures exercise the reusable evidence contracts with scoped
+test-only policy. Production Unity validation executes
+the current clean controller runner against the exact task checkout via
+`-ProjectPath`; it never executes a historical checkout's runner. The manifest
+binds the executed runner bytes and controller source commit/tree, while
+integration history separately proves the checkout did not author its runner.
+Automated evidence does not post, infer, or impersonate a human PASS/APPROVE.
 
 ## Vincent's task
 
@@ -374,3 +508,15 @@ The Game Task Agent cannot:
 - merge the task.
 
 A wrong branch, unexpected remote movement, dirty checkout, changed task contract, candidate hash mismatch, path mismatch, TaskGraph failure, Issue event-chain problem, or resource conflict stops for reconciliation and remains visible in the durable Issue log.
+
+## Deterministic end-to-end acceptance
+
+`Pipeline/TaskReviewAgent/tests/production_end_to_end_smoke_test.py` exercises fast, standard, and deep task routes through the autonomous lifecycle inside disposable temporary repositories and is registered in the Core deterministic workflow. The fast scenario adds one isolated script and its `.meta` companion (architect `fast`, resolved lean/targeted). The standard scenario adds three isolated scripts with their companions; six exact paths exceed the lean bound without touching a scene, prefab, ProjectSettings, package, or pipeline surface (architect `standard`, resolved standard/task_specific). The deep scenario covers a serialized scene surface and full relevant validation. Focused guards prove deterministic routing cannot lower these surfaces below their required rigor.
+
+```powershell
+python Pipeline/TaskReviewAgent/tests/production_end_to_end_smoke_test.py
+```
+
+It runs the real `AutonomousGraphController`, `PollingOrchestrator`, Stage 2 planner, Issue workflow state machine, reusable evidence adapter under scoped fixture authority, durable checkout, and downstream delivery controller. It proves explicit target admission; deterministic rigor routing; exactly one implementation worker; an identity-bound worker result; the committed and pushed fixture handoff; automated evidence reusing the exact pre-handoff Unity manifest without recording a human result; fixture delivery evidence, pull request, merge, and Issue completion; a valid `graph-complete.json`; and no residual lease, assignment, reservation, or dirty checkout. Negative cases reject forged worker identity, stale or tampered evidence, impersonated human results, and hidden re-execution. None of these fixture outcomes supplies the human Unity verification required by production tasks.
+
+The architect model, the worker process, the ExecutionCrew code change, the Unity runner, the TaskGraph/TaskDelivery command-line tools, GitHub transport, the `gh` PR/Issue CLI, and the Codex decision provider are deterministic fixture stand-ins; nothing reaches GitHub, Docker, a paid provider, Unity, or any real checkout, Issue, claim, or rehearsal repository.

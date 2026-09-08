@@ -14,21 +14,43 @@ for module_root in (ROOT, ROOT / "Pipeline/TaskGraph"):
 
 from Pipeline.AgentRuntime.agent_runner import AgentRunner
 from Pipeline.AgentRuntime.config import RuntimeConfiguration
-from Pipeline.AgentRuntime.contracts import AGENT_INVOCATION_REQUEST_SCHEMA_VERSION, AgentInvocationRequest, Budgets, WriteBoundaries, validate_repository_path
+from Pipeline.AgentRuntime.contracts import AGENT_INVOCATION_REQUEST_SCHEMA_VERSION, AgentInvocationRequest, Budgets, ContractValidationError, WriteBoundaries, validate_repository_path
 from Pipeline.AgentRuntime.providers.claude_code import ClaudeCodeProvider, ClaudeLiveRenderer
 from Pipeline.AgentRuntime.providers.openai_codex import OpenAICodexProvider
+from Pipeline.AgentRuntime.provider_failover import may_handoff_to_codex, validate_quota_route
+from Pipeline.AgentRuntime.provider_sessions import (
+    ProviderSessionBinding,
+    ProviderSessionConfirmation,
+    ProviderSessionLedger,
+)
+from Pipeline.ExecutionCrew.session_pool import (
+    CREW_SESSION_PROTOCOL_VERSION,
+    DURABLE_ASSIGNMENT_RESULT_SCHEMA_VERSION,
+    POOL_SCHEMA_VERSION,
+    AssignmentLease,
+    DurableAssignmentResult,
+    SessionPoolError,
+    assignment_capsule,
+    pooled_assignment_evidence,
+)
 from Pipeline.AgentRuntime.json_values import thaw_json
 from Pipeline.TaskExecution.contracts import TASK_EXECUTION_REQUEST_SCHEMA_VERSION, TaskContractIdentity, TaskExecutionRequest
 from Pipeline.TaskExecution.task_runner import TaskExecutionRunner
+from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task
 from Pipeline.ExecutionCrew.contract_locality import (
     CONTRACT_LOCALITY_AUDIT_SCHEMA_VERSION,
     ContractLocalityError,
+    auditor_dependent_contract_payload,
     build_task_catalog,
     direct_dependency_contracts,
     direct_dependent_contracts,
     validate_locality_audit_output,
 )
-from Pipeline.ExecutionCrew.prompts import contract_locality_auditor_prompt, implementer_prompt, test_author_prompt, validator_prompt
+from Pipeline.ExecutionCrew.prompts import COMMITTED_GDD_PATH, contract_locality_auditor_prompt, implementer_prompt, test_author_prompt, validator_prompt
+from Pipeline.ExecutionCrew.role_profiles import (
+    PROFILE_ROLE_CAPABILITY_CLASSES,
+    ROLE_CAPABILITY_CLASSES,
+)
 from Pipeline.ExecutionCrew.schemas import (
     CONTRACT_LOCALITY_AUDITOR_OUTPUT_SCHEMA,
     IMPLEMENTER_OUTPUT_SCHEMA,
@@ -43,17 +65,45 @@ from Pipeline.ExecutionCrew.schemas import (
 from work_graph_validate import WorkGraphValidationError, _validate_v2_task
 from persistent_work_graph import PersistentWorkGraph, PersistentWorkGraphError, load_persistent_work_graph
 
-TASK_ID_RE = re.compile(r"^NSC-[0-9]{3}$")
+TASK_ID_RE = re.compile(r"^NSC-(?:[0-9]{3}|[1-9][0-9]{3,8})$")
 RUN_ID_RE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,126}[A-Za-z0-9])?$")
 GIT_OBJECT_RE = re.compile(r"^[0-9a-f]{40}$")
-GDD_PATH = "Docs/GDD/No_Safe_Circle_GDD.md"
+GDD_PATH = COMMITTED_GDD_PATH
 POLICY_PATH = "Docs/Engineering/UNITY_TESTING_POLICY.md"
 ENGINEERING_STANDARDS_PATH = "Docs/Engineering/ENGINEERING_STANDARDS.md"
 MAX_REVIEW_FEEDBACK_BYTES = 64 * 1024
 MAX_RETRY_CANDIDATE_BYTES = 16 * 1024 * 1024
 OPENAI_REASONING_EFFORTS = ("none","minimal","low","medium","high","xhigh","max")
+CHECKOUT_IDENTITY_PREFIX = "manifest-sha256:"
+LEASE_BUNDLE_SCHEMA_VERSION = "1.0"
+CREW_VALIDATION_PROFILE_PAIRS = {
+    "lean": "targeted",
+    "standard": "task_specific",
+    "full": "full_relevant",
+}
+CREW_PROFILE_ROLES = {
+    "lean": ("implementer", "validator"),
+    "standard": ("implementer", "test_author", "validator"),
+    "full": (
+        "contract_locality_auditor",
+        "implementer",
+        "test_author",
+        "validator",
+    ),
+}
 
 class CrewBlocked(RuntimeError): pass
+
+
+class CrewSessionIdentityUnproven(CrewBlocked):
+    """Raised when a persistent role ran but no conversation identity was proven.
+
+    Distinct from the generic block so the operator, the receipts, and any later
+    caller can tell "the provider never named the conversation" apart from every
+    other reason a crew stops. It stays a ``CrewBlocked`` so existing fail-closed
+    handling is unchanged: the run still ends without an authoritative result and
+    the reserved conversations are still quarantined by their owner.
+    """
 
 def validate_host_output_root(value: str) -> PureWindowsPath:
     """Lexically validate a HOST-facing Windows path; never resolved against this (Linux) filesystem."""
@@ -75,6 +125,8 @@ class RetryContext:
     provider: str
     execution_model: str | None
     execution_reasoning_effort: str | None
+    crew_profile: str
+    validation_profile: str
     implementation_paths: tuple[str, ...]
     test_paths: tuple[str, ...]
     new_implementation_paths: tuple[str, ...]
@@ -86,6 +138,8 @@ class RetryContext:
     feedback_bytes: bytes
     feedback_text: str
     feedback_sha256: str
+    provider_allowlist: tuple[str, ...] | None
+    quota_fallback_provider: str | None
 
 @dataclass(frozen=True)
 class RolePathPlan:
@@ -183,7 +237,8 @@ def _requested_paths(value: Any, *, field: str) -> tuple[str, ...]:
         raise CrewBlocked(f"prior {field} is invalid: {exc}") from exc
 
 def _legacy_requested_scope(prior_dir: Path, *, task_id: str, provider: str,
-                            contract_identity: TaskContractIdentity) -> tuple[tuple[str, ...], tuple[str, ...]]:
+                            contract_identity: TaskContractIdentity,
+                            crew_profile: str, provider_handoffs: Mapping[str, Any] | None = None) -> tuple[tuple[str, ...], tuple[str, ...]]:
     task_execution = _resolve_existing_under(
         prior_dir, prior_dir / "task_execution", field="prior task_execution directory"
     )
@@ -210,7 +265,13 @@ def _legacy_requested_scope(prior_dir: Path, *, task_id: str, provider: str,
         if request.task_contract_identity != contract_identity:
             raise CrewBlocked("prior TaskExecution contract identity does not match crew_result.json")
         if invocation.provider_configuration_key != expected_configuration_key:
-            raise CrewBlocked("prior TaskExecution provider does not match crew_result.json")
+            handoff = (provider_handoffs or {}).get(invocation.role)
+            if (provider != "claude" or invocation.provider_configuration_key != "codex-crew"
+                    or not isinstance(handoff, Mapping) or handoff.get("role") != invocation.role
+                    or handoff.get("from_provider") != "claude-code" or handoff.get("to_provider") != "openai-codex"
+                    or handoff.get("failure_classification") != "quota_exhausted"
+                    or invocation.run_id not in handoff.get("target_invocations", [])):
+                raise CrewBlocked("prior TaskExecution provider does not match crew_result.json")
         if invocation.role in by_role:
             by_role[invocation.role].append(invocation.write_boundaries)
         elif invocation.role not in read_only_role_counts:
@@ -225,7 +286,9 @@ def _legacy_requested_scope(prior_dir: Path, *, task_id: str, provider: str,
     # review_ready runs. When absent, do not reject the retry; when present, the write-authority
     # check above already proved it had empty WriteBoundaries.
     recovered: dict[str, tuple[str, ...]] = {}
-    for role, boundaries in by_role.items():
+    required_writers = ("implementer",) if crew_profile == "lean" else ("implementer", "test_author")
+    for role in required_writers:
+        boundaries = by_role[role]
         if not boundaries:
             raise CrewBlocked(f"prior {role} TaskExecution request artifact is missing")
         variants = {item.allowed_paths for item in boundaries}
@@ -235,7 +298,15 @@ def _legacy_requested_scope(prior_dir: Path, *, task_id: str, provider: str,
         if not recovered[role]:
             raise CrewBlocked(f"prior {role} WriteBoundaries are empty")
     implementation_paths = recovered["implementer"]
-    test_paths = recovered["test_author"]
+    if crew_profile == "lean":
+        denied_variants = {item.denied_paths for item in by_role["implementer"]}
+        if len(denied_variants) != 1 or not next(iter(denied_variants)):
+            raise CrewBlocked(
+                "prior lean Implementer denied paths do not prove test authority"
+            )
+        test_paths = next(iter(denied_variants))
+    else:
+        test_paths = recovered["test_author"]
     for boundaries in by_role["implementer"]:
         if boundaries.denied_paths != test_paths:
             raise CrewBlocked("prior Implementer denied paths do not match Test Author authority")
@@ -275,6 +346,14 @@ def load_retry_context(*, source: Path, identity: SourceIdentity, output_root: P
     provider = prior.get("provider")
     execution_model = prior.get("execution_model")
     execution_reasoning_effort = prior.get("execution_reasoning_effort")
+    has_crew_profile = "crew_profile" in prior
+    has_validation_profile = "validation_profile" in prior
+    if has_crew_profile != has_validation_profile:
+        raise CrewBlocked("prior crew_result.json has incomplete rigor profile metadata")
+    crew_profile = prior.get("crew_profile", "full")
+    validation_profile = prior.get("validation_profile", "full_relevant")
+    if CREW_VALIDATION_PROFILE_PAIRS.get(crew_profile) != validation_profile:
+        raise CrewBlocked("prior crew_result.json has an unsupported rigor profile pair")
     source_head = prior.get("source_head")
     source_tree = prior.get("source_tree")
     if not isinstance(task_id, str) or not TASK_ID_RE.fullmatch(task_id):
@@ -311,8 +390,21 @@ def load_retry_context(*, source: Path, identity: SourceIdentity, output_root: P
         raise CrewBlocked("prior source HEAD must be an ancestor of the current source HEAD")
     if ancestor.returncode != 0:
         raise CrewBlocked("prior source ancestry could not be proven")
+    permitted_value = prior.get("provider_allowlist")
+    if permitted_value is not None and type(permitted_value) is not list:
+        raise CrewBlocked("prior provider allowlist is invalid")
+    permitted = None if permitted_value is None else tuple(permitted_value)
+    fallback = prior.get("quota_fallback_provider")
+    try:
+        validate_quota_route(provider, permitted, fallback)
+    except ValueError as exc:
+        raise CrewBlocked(f"prior provider policy is invalid: {exc}") from exc
+    handoffs = prior.get("provider_handoffs", {})
+    if type(handoffs) is not dict or (handoffs and (fallback != "codex" or permitted is None or "codex" not in permitted)):
+        raise CrewBlocked("prior provider handoffs were not authorized")
     implementation_paths, test_paths = _legacy_requested_scope(
-        prior_dir, task_id=task_id, provider=provider, contract_identity=contract_identity
+        prior_dir, task_id=task_id, provider=provider,
+        contract_identity=contract_identity, crew_profile=crew_profile, provider_handoffs=handoffs
     )
     has_implementation = "requested_implementation_paths" in prior
     has_tests = "requested_test_paths" in prior
@@ -429,6 +521,8 @@ def load_retry_context(*, source: Path, identity: SourceIdentity, output_root: P
         provider=provider,
         execution_model=execution_model,
         execution_reasoning_effort=execution_reasoning_effort,
+        crew_profile=crew_profile,
+        validation_profile=validation_profile,
         implementation_paths=implementation_paths,
         test_paths=test_paths,
         new_implementation_paths=new_implementation_paths,
@@ -440,6 +534,8 @@ def load_retry_context(*, source: Path, identity: SourceIdentity, output_root: P
         feedback_bytes=feedback_bytes,
         feedback_text=feedback_text,
         feedback_sha256=hashlib.sha256(feedback_bytes).hexdigest(),
+        provider_allowlist=permitted,
+        quota_fallback_provider=fallback,
     )
 
 def committed_bytes(source: Path, head: str, path: str) -> bytes:
@@ -1085,8 +1181,472 @@ def aggregate_token_usage(invocations: Sequence[Mapping[str, Any]]) -> dict[str,
         "missing_usage_invocation_count": missing,
     }
 
+def resolve_role_session(role_session_bindings: Mapping[str, Any]|None, role: str,
+                         provider_identifier: str) -> ProviderSessionBinding|None:
+    """Return the exact opt-in session binding for this role, or None.
+
+    Sessions are role-specific and provider-specific. A binding filed under one
+    role but naming another, or naming another provider, is refused here rather
+    than being handed to an adapter, so a pooled worker can never silently
+    continue an Implementer conversation as a Validator or a Claude
+    conversation through Codex.
+    """
+
+    if not role_session_bindings:
+        return None
+    binding = role_session_bindings.get(role)
+    if binding is None:
+        return None
+    if type(binding) is not ProviderSessionBinding:
+        raise CrewBlocked("provider session binding must be an exact ProviderSessionBinding")
+    if binding.role != role:
+        raise CrewBlocked(
+            f"provider session is bound to role {binding.role!r} and cannot be used for role {role!r}"
+        )
+    if binding.provider_identifier != provider_identifier:
+        raise CrewBlocked(
+            f"provider session is bound to provider {binding.provider_identifier!r} "
+            f"and cannot be used through {provider_identifier!r}"
+        )
+    return binding
+
+
+ROLE_EVIDENCE_OBLIGATIONS = {
+    "lead_developer": ("Diagnose unresolved review disagreement; write nothing and grant no acceptance authority.",),
+    "contract_locality_auditor": (
+        "Classify every current AC-### and VAL-### exactly once; write nothing.",
+    ),
+    "implementer": (
+        "Edit only the exact approved implementation paths for this assignment.",
+        "ExecutionCrew validates this attempt's actual changed paths deterministically.",
+    ),
+    "test_author": (
+        "Author Unity tests only within the exact approved test paths for this assignment.",
+        "Follow the committed Unity testing policy; tests must not mutate tracked files.",
+    ),
+    "validator": (
+        "Semantically review the supplied candidate only; write nothing.",
+    ),
+}
+
+
+# AgentRuntime failure classifications, expressed in the committed session
+# lifecycle's assignment-outcome vocabulary so the retirement policy stays in
+# one module. A transport/timeout/permission failure is a provider failure; a
+# schema failure is an output failure; the rest are neither and stay explicit.
+FAILURE_ASSIGNMENT_OUTCOMES = {
+    "provider_error": "provider_failure",
+    "timeout": "provider_failure",
+    "permission_denied": "provider_failure",
+    "schema_error": "output_failure",
+    "budget_exhausted": "other_failure",
+    "invalid_request": "other_failure",
+    "internal_error": "other_failure",
+}
+# The failures that say something about the shape of one turn's output rather
+# than about the conversation, the repository, or the crew's authority. These
+# are the only failures a bounded in-session role repair is offered for; a
+# timeout, a permission denial, a rejected request, or an exhausted budget are
+# facts about the assignment itself and are never retried here.
+PROVIDER_FORMAT_FAILURE_CLASSIFICATIONS = frozenset({"provider_error", "schema_error"})
+
+
+def crew_repository_identity(root: Path) -> str:
+    """Return the repository this checkout actually points at.
+
+    Pooled reuse crosses tasks and runs, so the repository identity may not be
+    asserted by the caller alone: it is read from the checkout's configured
+    origin and then required to equal both the scheduler-proven value and every
+    lease. A checkout with no origin cannot prove which repository it is and is
+    refused rather than assumed.
+    """
+
+    try:
+        origin = git(root, "remote", "get-url", "origin", check=False).stdout.strip()
+    except OSError as exc:
+        raise CrewBlocked("source checkout repository identity could not be read") from exc
+    if not origin:
+        raise CrewBlocked(
+            "pooled role session leases require a source checkout with a configured origin remote"
+        )
+    return origin
+
+
+def _strict_json_file(path: Path, *, label: str) -> Any:
+    try:
+        payload = path.read_bytes()
+    except OSError as exc:
+        raise CrewBlocked(f"{label} is missing or unreadable") from exc
+
+    def reject_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError(f"duplicate key {key!r}")
+            result[key] = value
+        return result
+
+    try:
+        value = json.loads(
+            payload.decode("utf-8"),
+            object_pairs_hook=reject_duplicates,
+            parse_constant=lambda item: (_ for _ in ()).throw(
+                ValueError(f"invalid JSON constant {item}")
+            ),
+        )
+    except (UnicodeError, json.JSONDecodeError, ValueError, RecursionError) as exc:
+        raise CrewBlocked(f"{label} is not strict UTF-8 JSON: {exc}") from exc
+    return value, payload
+
+
+def load_role_session_lease_bundle(path: Path, *, run_id: str) -> dict[str, AssignmentLease]:
+    """Load the exact host-authored lease bundle mounted read-only into Docker."""
+
+    value, _ = _strict_json_file(path, label="role-session lease bundle")
+    if type(value) is not dict or set(value) != {"schema_version", "run_id", "leases"}:
+        raise CrewBlocked("role-session lease bundle fields differ from schema")
+    if value["schema_version"] != LEASE_BUNDLE_SCHEMA_VERSION:
+        raise CrewBlocked("role-session lease bundle has an unsupported schema")
+    if value["run_id"] != run_id:
+        raise CrewBlocked("role-session lease bundle names a different run")
+    leases = value["leases"]
+    if type(leases) is not dict or set(leases) not in (set(ROLE_CAPABILITY_CLASSES), set(PROFILE_ROLE_CAPABILITY_CLASSES)):
+        raise CrewBlocked("role-session lease bundle must carry all four crew roles")
+    try:
+        return {role: AssignmentLease.from_dict(leases[role]) for role in leases}
+    except SessionPoolError as exc:
+        raise CrewBlocked(f"role-session lease bundle is invalid: {exc}") from exc
+
+
+def checkout_manifest_identity(path: Path, *, task_id: str,
+                               repository_identity: str, source_branch: str,
+                               source_commit: str, worker_slot_id: str,
+                               task_contract_sha256: str) -> str:
+    """Prove the external host checkout manifest and return its byte identity.
+
+    The manifest deliberately contains a Windows host path that cannot equal
+    Docker's `/workspace`.  Both sides instead bind the lease to the SHA-256 of
+    these exact mounted bytes, while Docker independently checks the task,
+    branch, repository, authority, and internal semantic hash.
+    """
+
+    value, payload = _strict_json_file(path, label="checkout identity manifest")
+    if type(value) is not dict:
+        raise CrewBlocked("checkout identity manifest must be an object")
+    manifest_hash = value.get("manifest_sha256")
+    body = {key: item for key, item in value.items() if key != "manifest_sha256"}
+    semantic = hashlib.sha256(
+        json.dumps(
+            body, ensure_ascii=False, allow_nan=False, separators=(",", ":"), sort_keys=True
+        ).encode("utf-8")
+    ).hexdigest()
+    if manifest_hash != semantic:
+        raise CrewBlocked("checkout identity manifest semantic hash is invalid")
+    manifest_contract = (value.get("schema_version"), value.get("authority"))
+    if manifest_contract not in {
+        ("1.0", "checkout_preparation_only"),
+        ("2.0", "durable_checkout_identity"),
+    }:
+        raise CrewBlocked("checkout identity manifest contract is unsupported")
+    if value.get("task_id") != task_id:
+        raise CrewBlocked("checkout identity manifest names a different task")
+    if (
+        value.get("task_contract_path") != f"Tasks/{task_id}.yaml"
+        or value.get("task_contract_sha256") != task_contract_sha256
+    ):
+        raise CrewBlocked("checkout identity manifest names a different task contract")
+    if value.get("branch") != source_branch:
+        raise CrewBlocked("checkout identity manifest names a different branch")
+    if value.get("remote_url") != repository_identity:
+        raise CrewBlocked("checkout identity manifest names a different repository")
+    checkout_path = value.get("checkout_path")
+    if type(checkout_path) is not str or not PureWindowsPath(checkout_path).is_absolute():
+        raise CrewBlocked("checkout identity manifest lacks an absolute Windows host path")
+    if manifest_contract == ("1.0", "checkout_preparation_only") and (
+        value.get("worker_id") != worker_slot_id
+        or value.get("source_head") != source_commit
+    ):
+        raise CrewBlocked(
+            "prepared checkout manifest differs from the scheduler worker or source commit"
+        )
+    return CHECKOUT_IDENTITY_PREFIX + hashlib.sha256(payload).hexdigest()
+
+
+def validate_role_session_leases(role_session_leases: Mapping[str, Any]|None, *, task_id: str,
+                                 run_id: str, provider_identifier: str, model: str|None,
+                                 reasoning_effort: str|None, source_commit: str,
+                                 checkout_identity: str, repository_identity: str,
+                                 role_capability_classes: Mapping[str, str]|None=None,
+                                 protocol_version: str=CREW_SESSION_PROTOCOL_VERSION,
+                                 role_routes: Mapping[str, Any]|None=None,
+                                 ) -> dict[str, AssignmentLease]:
+    """Bind every supplied lease to this exact execution before any provider work.
+
+    A lease is authority for one assignment only. Every identity this run can
+    prove independently is required to match: task, worker run, role, provider,
+    routed model and reasoning effort, the exact captured source commit, the
+    exact source checkout, the scheduler-proven repository, the capability class
+    this run will actually invoke that role with, and the crew/session protocol
+    version. A human-review retry, another task, another checkout, another
+    repository, a re-routed capability class, or a differently versioned crew can
+    never silently inherit somebody else's warm conversation.
+    """
+
+    if not role_session_leases:
+        return {}
+    classes = (PROFILE_ROLE_CAPABILITY_CLASSES if role_routes else ROLE_CAPABILITY_CLASSES) if role_capability_classes is None else role_capability_classes
+    leases: dict[str, AssignmentLease] = {}
+    for role, lease in role_session_leases.items():
+        if role_routes is not None:
+            route = role_routes[role]
+            provider_identifier = crew_provider_identifier(route["provider"])
+            model, reasoning_effort = route["model"], route["reasoning_effort"]
+        if type(lease) is not AssignmentLease:
+            raise CrewBlocked("role session lease must be an exact AssignmentLease")
+        if lease.pool_schema_version != POOL_SCHEMA_VERSION:
+            raise CrewBlocked("session lease pool schema version differs from this build")
+        if lease.protocol_version != protocol_version:
+            raise CrewBlocked(
+                f"session lease speaks crew/session protocol {lease.protocol_version!r} "
+                f"and cannot be used by protocol {protocol_version!r}"
+            )
+        if lease.role != role:
+            raise CrewBlocked(
+                f"session lease is bound to role {lease.role!r} and cannot be used for role {role!r}"
+            )
+        expected_class = classes.get(role)
+        if expected_class is None:
+            raise CrewBlocked(f"role {role!r} has no routed capability class for a pooled session")
+        if lease.capability_class != expected_class:
+            raise CrewBlocked(
+                f"session lease is bound to capability class {lease.capability_class!r} "
+                f"and cannot be used for {role!r}, which this run routes as {expected_class!r}"
+            )
+        if lease.task_id != task_id:
+            raise CrewBlocked(
+                f"session lease is bound to task {lease.task_id!r} and cannot be used for {task_id!r}"
+            )
+        if lease.worker_run_id != run_id:
+            raise CrewBlocked(
+                f"session lease is bound to worker run {lease.worker_run_id!r} and cannot be used for {run_id!r}"
+            )
+        if lease.provider_identifier != provider_identifier:
+            raise CrewBlocked(
+                f"session lease is bound to provider {lease.provider_identifier!r} "
+                f"and cannot be used through {provider_identifier!r}"
+            )
+        if model is not None and lease.model != model:
+            raise CrewBlocked("session lease model differs from this run's routed model")
+        if lease.reasoning_effort != reasoning_effort:
+            raise CrewBlocked("session lease reasoning effort differs from this run")
+        if lease.source_commit != source_commit:
+            raise CrewBlocked(
+                f"session lease is bound to source commit {lease.source_commit} "
+                f"and cannot be used at {source_commit}"
+            )
+        if lease.checkout_identity != checkout_identity:
+            raise CrewBlocked(
+                f"session lease is bound to source checkout {lease.checkout_identity!r} "
+                f"and cannot be used from {checkout_identity!r}"
+            )
+        if lease.repository_identity != repository_identity:
+            raise CrewBlocked(
+                f"session lease is bound to repository {lease.repository_identity!r} "
+                f"and cannot be used against {repository_identity!r}"
+            )
+        leases[role] = lease
+    return leases
+
+
+def role_result_artifact(role: str, attempt: int) -> str:
+    """Return the exact run-relative path one role attempt's result is persisted at.
+
+    The path is known before the bytes are written, so the durable assignment
+    binding inside the artifact can name the artifact it lives in.
+    """
+
+    return f"role_results/{role}_{attempt}.json"
+
+
+def write_role_result(run_dir: Path, role: str, attempt: int, record: Mapping[str, Any]) -> tuple[str, str]:
+    """Persist one role result and return its exact run-relative path and SHA-256.
+
+    Pooled reuse is decided against this artifact, so the bytes are written
+    without newline translation and hashed exactly as written; a later reader on
+    any platform must be able to recompute the same digest.
+    """
+
+    relative = role_result_artifact(role, attempt)
+    payload = (json.dumps(record, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    (run_dir / relative).write_bytes(payload)
+    return relative, hashlib.sha256(payload).hexdigest()
+
+
+def role_assignment_decision(agent_status: str, failure_classification: str,
+                             semantic_rejected: bool, changed_paths_rejected: bool
+                             ) -> tuple[str, str]:
+    """Return the exact (status, assignment_outcome) one role assignment reached.
+
+    One definition serves both the binding written into the role artifact and the
+    durable result the pool checks in, so the two can never disagree about what
+    this assignment actually produced.
+    """
+
+    if agent_status != "succeeded":
+        return "failed", FAILURE_ASSIGNMENT_OUTCOMES.get(failure_classification, "other_failure")
+    if semantic_rejected or changed_paths_rejected:
+        return "completed", "output_failure"
+    return "completed", "completed"
+
+
+def assert_pooled_provider_route(configuration: Any, registry: Mapping[str, Any], *, key: str,
+                                 capability_class: str, lease: AssignmentLease) -> None:
+    """Prove this invocation resolves exactly the lease's provider and routed model.
+
+    A lease is authority for one conversation on one provider at one model, so the
+    configuration this role is about to be invoked through is resolved by the one
+    runtime resolver and required to name that exact provider and model. An
+    injected provider factory is held to the identical rule: a pooled role can
+    never be invoked through a provider or model its lease did not authorize.
+    """
+
+    if type(lease) is not AssignmentLease:
+        raise CrewBlocked("a pooled invocation requires an exact AssignmentLease")
+    resolve = getattr(configuration, "resolve", None)
+    if resolve is None:
+        raise CrewBlocked("pooled roles require an exact runtime configuration")
+    try:
+        selection = resolve(key, capability_class, registry)
+    except ContractValidationError as exc:
+        raise CrewBlocked(f"pooled provider configuration could not be resolved: {exc}") from exc
+    if selection.provider != lease.provider_identifier:
+        raise CrewBlocked(
+            f"pooled {lease.role} configuration resolves provider {selection.provider!r}; "
+            f"its lease authorizes {lease.provider_identifier!r}"
+        )
+    if selection.model != lease.model:
+        raise CrewBlocked(
+            f"pooled {lease.role} configuration resolves model {selection.model!r}; "
+            f"its lease authorizes {lease.model!r}"
+        )
+
+
+def assert_pooled_result_identity(result: Any, *, lease: AssignmentLease) -> None:
+    """Prove the AgentResult this pooled role produced names the lease's identity.
+
+    ``AgentResult`` reports the provider and model AgentRuntime actually selected.
+    Both must equal the lease. The single exception is the provider-neutral
+    contract's pre-invocation ``invalid_request``, which reports no provider and
+    no model precisely because nothing was invoked; that failure is recorded as a
+    failure and can never become reusable evidence.
+    """
+
+    if (result.provider, result.model) in {
+        (lease.provider_identifier, lease.model), (None, None),
+    }:
+        return
+    raise CrewBlocked(
+        f"pooled {lease.role} ran on provider {result.provider!r} model {result.model!r}; "
+        f"its lease authorizes {lease.provider_identifier!r} {lease.model!r}"
+    )
+
+
+def assert_lease_invocation_identity(lease: AssignmentLease, *, role: str, capability_class: str,
+                                     **identity: Any) -> None:
+    """Re-prove one lease at the exact invocation that is about to use it.
+
+    The routed capability class exists only at the invocation, so this is the
+    boundary where the complete pooled identity is checked against the values
+    the role is actually invoked with. It reuses the one lease validator rather
+    than restating a second, drifting copy of those rules.
+    """
+
+    validate_role_session_leases(
+        {role: lease}, role_capability_classes={role: capability_class}, **identity
+    )
+
+
+def durable_assignment_result(*, lease: AssignmentLease, confirmed: Any, crew_run_id: str,
+                              artifact: str, artifact_sha256: str, agent_status: str,
+                              failure_classification: str, semantic_rejected: bool,
+                              changed_paths_rejected: bool) -> DurableAssignmentResult:
+    """Return the durable evidence that this exact role assignment produced.
+
+    A session becomes reusable only through this value. It repeats every lease
+    identity, names the exact persisted role-result artifact and its SHA-256, and
+    records both the deterministic changed-path decision and the semantic
+    decision ExecutionCrew actually reached. A role whose AgentRuntime result
+    failed, whose structured output was rejected, or whose actual changed paths
+    were rejected can never report a reusable outcome from here.
+    """
+
+    if type(lease) is not AssignmentLease:
+        raise CrewBlocked("durable role evidence requires an exact AssignmentLease")
+    if type(confirmed) is not ProviderSessionConfirmation:
+        raise CrewBlocked("durable role evidence requires an exact ProviderSessionConfirmation")
+    status, outcome = role_assignment_decision(
+        agent_status, failure_classification, semantic_rejected, changed_paths_rejected
+    )
+    try:
+        return DurableAssignmentResult(
+            schema_version=DURABLE_ASSIGNMENT_RESULT_SCHEMA_VERSION,
+            pool_schema_version=lease.pool_schema_version,
+            protocol_version=lease.protocol_version,
+            lease_id=lease.lease_id,
+            record_id=lease.record_id,
+            crew_run_id=crew_run_id,
+            task_id=lease.task_id,
+            worker_run_id=lease.worker_run_id,
+            worker_slot_id=lease.worker_slot_id,
+            session_class=lease.session_class,
+            role=lease.role,
+            capability_class=lease.capability_class,
+            provider_identifier=lease.provider_identifier,
+            model=lease.model,
+            reasoning_effort=lease.reasoning_effort,
+            repository_identity=lease.repository_identity,
+            source_commit=lease.source_commit,
+            checkout_identity=lease.checkout_identity,
+            status=status,
+            assignment_outcome=outcome,
+            semantic_validation="rejected" if semantic_rejected else "accepted",
+            changed_path_validation="rejected" if changed_paths_rejected else "accepted",
+            role_result_artifact=artifact,
+            role_result_sha256=artifact_sha256,
+            known_context_window_percent=None,
+            latency_sample=None,
+            confirmed_session=confirmed,
+        )
+    except SessionPoolError as exc:
+        raise CrewBlocked(f"durable role evidence could not be built: {exc}") from exc
+
+
+def repair_attempt_session(confirmed: Any) -> ProviderSessionBinding:
+    """Return the binding this role's next attempt must invoke with.
+
+    A repair attempt is the same assignment continuing, not a new one, so it
+    resumes the exact conversation the previous attempt confirmed instead of
+    opening a second provider session for the same role.
+    """
+
+    if type(confirmed) is not ProviderSessionConfirmation:
+        raise CrewBlocked("repair continuity requires an exact ProviderSessionConfirmation")
+    return confirmed.resume_binding()
+
+
+def crew_provider_identifier(provider_name: str) -> str:
+    if provider_name == "claude":
+        return "claude-code"
+    if provider_name == "codex":
+        return "openai-codex"
+    raise CrewBlocked("provider must be claude or codex")
+
+
 def construct_real_provider(provider_name: str, repository_root: Path, writable: bool,
-                            openai_reasoning_effort: str|None=None):
+                            openai_reasoning_effort: str|None=None,
+                            session: ProviderSessionBinding|None=None,
+                            session_ledger: ProviderSessionLedger|None=None,
+                            codex_resume_sandbox_argument: tuple[str,...]|None=None):
     if provider_name == "claude":
         # ExecutionCrew always wants live, human-readable Claude activity on
         # stderr while a real Claude-backed role is running. This is
@@ -1094,7 +1654,8 @@ def construct_real_provider(provider_name: str, repository_root: Path, writable:
         # ClaudeCodeProvider directly do not get an observer unless they ask.
         return ClaudeCodeProvider(repository_root=repository_root,
                                   externally_isolated_writable_repository=writable,
-                                  live_observer=ClaudeLiveRenderer().feed)
+                                  live_observer=ClaudeLiveRenderer().feed,
+                                  session=session, session_ledger=session_ledger)
     if provider_name == "codex":
         effort = openai_reasoning_effort or "high"
         if effort not in OPENAI_REASONING_EFFORTS:
@@ -1104,6 +1665,8 @@ def construct_real_provider(provider_name: str, repository_root: Path, writable:
             externally_isolated_writable_repository=writable,
             externally_enforced_read_only_repository=not writable,
             reasoning_effort=effort,
+            session=session, session_ledger=session_ledger,
+            resume_sandbox_argument=codex_resume_sandbox_argument,
         )
     raise CrewBlocked("provider must be claude or codex")
 
@@ -1112,15 +1675,29 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
              new_implementation_paths: tuple[str,...]=(), new_test_paths: tuple[str,...]=(), run_id: str|None=None,
              retry_run_id: str|None=None, review_feedback_file: Path|None=None, host_output_root: str|None=None,
              execution_model: str|None=None, openai_reasoning_effort: str|None=None,
+             crew_profile: str|None=None, validation_profile: str|None=None,
              retry_expected_provider: str|None=None,
              provider_factory: ProviderFactory|None=None, _require_physical_read_only_source: bool=True,
+             role_session_bindings: Mapping[str, ProviderSessionBinding]|None=None,
+             role_session_leases: Mapping[str, AssignmentLease]|None=None,
+             scheduler_repository_identity: str|None=None,
+             checkout_identity_manifest: Path|None=None,
+             codex_resume_sandbox_argument: tuple[str,...]|None=None,
+             provider_allowlist: tuple[str,...]|None=None,
+             quota_fallback_provider: str|None=None,
+             provider_topology: Mapping[str, Any]|None=None,
+             role_routes: Mapping[str, Any]|None=None,
              _persistent_work_graph_loader: Callable[[Path], PersistentWorkGraph]|None=None):
     started=time.monotonic()
     host_root_path = validate_host_output_root(host_output_root) if host_output_root is not None else None
     retry_mode = retry_run_id is not None
     if retry_mode and any((task_id is not None, provider_name is not None, implementation_paths, test_paths,
-                           new_implementation_paths, new_test_paths)):
-        raise CrewBlocked("retry mode inherits task, provider, and write paths; do not supply them explicitly")
+                           new_implementation_paths, new_test_paths, crew_profile is not None,
+                           validation_profile is not None)):
+        raise CrewBlocked(
+            "retry mode inherits task, provider, write paths, and rigor profiles; "
+            "do not supply them explicitly"
+        )
     if not retry_mode and review_feedback_file is not None:
         raise CrewBlocked("--review-feedback-file is valid only with --retry-run")
     if not retry_mode and retry_expected_provider is not None:
@@ -1150,6 +1727,12 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
         )
         if retry_expected_provider is not None and retry_expected_provider != retry_context.provider:
             raise CrewBlocked("routed retry provider differs from the prior run identity")
+        if provider_allowlist is not None and provider_allowlist != retry_context.provider_allowlist:
+            raise CrewBlocked("routed retry provider allowlist differs from the prior run")
+        if quota_fallback_provider is not None and quota_fallback_provider != retry_context.quota_fallback_provider:
+            raise CrewBlocked("routed retry quota handoff policy differs from the prior run")
+        provider_allowlist = retry_context.provider_allowlist
+        quota_fallback_provider = retry_context.quota_fallback_provider
         if execution_model is not None:
             if retry_context.execution_model is None:
                 raise CrewBlocked("prior run lacks execution model identity; routed retry cannot prove compatibility")
@@ -1168,9 +1751,48 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
         test_paths = retry_context.test_paths
         new_implementation_paths = retry_context.new_implementation_paths
         new_test_paths = retry_context.new_test_paths
+        crew_profile = retry_context.crew_profile
+        validation_profile = retry_context.validation_profile
+    else:
+        if crew_profile is None and validation_profile is None:
+            crew_profile, validation_profile = "full", "full_relevant"
+        elif crew_profile is None or validation_profile is None:
+            raise CrewBlocked(
+                "crew profile and validation profile must be supplied together"
+            )
+    if CREW_VALIDATION_PROFILE_PAIRS.get(crew_profile) != validation_profile:
+        raise CrewBlocked("crew profile and validation profile are not a supported rigor pair")
+    required_roles = CREW_PROFILE_ROLES[crew_profile]
     assert task_id is not None
     if not TASK_ID_RE.fullmatch(task_id): raise CrewBlocked("task ID must match NSC-###")
     if not isinstance(provider_name, str): raise CrewBlocked("provider is required")
+    if (provider_topology is None) != (role_routes is None):
+        raise CrewBlocked("profile crew routing requires both topology and role routes")
+    if provider_topology is not None:
+        from Pipeline.TaskReviewAgent.provider_profiles import ProviderTopology, validate_crew_routes, preflight_topology
+        topology = ProviderTopology.from_dict(provider_topology)
+        validate_crew_routes(topology, provider_name, role_routes)
+        if tuple(provider_allowlist or ()) != topology.provider_allowlist or quota_fallback_provider is not None:
+            raise CrewBlocked("crew allowlist or quota handoff differs from profile")
+        if not role_session_leases or set(role_session_leases) != set(role_routes):
+            raise CrewBlocked("profile roles require distinct host-issued pooled leases")
+        if role_routes["implementer"]["model"] != execution_model or role_routes["implementer"]["reasoning_effort"] != openai_reasoning_effort:
+            raise CrewBlocked("implementer route differs from its host profile")
+        preflight_topology(topology)
+        if topology.codex_resume_required:
+            from Pipeline.TaskReviewAgent.supervisor_session_pool import codex_resume_activation_from_environment
+            verified_control = codex_resume_activation_from_environment().argument
+            if codex_resume_sandbox_argument is not None and codex_resume_sandbox_argument != verified_control:
+                raise CrewBlocked("crew Codex resume control differs from the verified profile control")
+            codex_resume_sandbox_argument = verified_control
+        if retry_mode:
+            prior, _ = _strict_json_file(output_root/retry_run_id/"crew_result.json", label="prior profile result")
+            if prior.get("provider_topology") != provider_topology or prior.get("role_routes") != role_routes:
+                raise CrewBlocked("retry provider topology or role map changed")
+    try:
+        validate_quota_route(provider_name, provider_allowlist, quota_fallback_provider)
+    except ValueError as exc:
+        raise CrewBlocked(str(exc)) from exc
     if provider_name in ("claude","codex"):
         _, route_configuration = runtime_configuration(provider_name, execution_model)
         route_values = route_configuration.provider_configurations[
@@ -1187,8 +1809,18 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
         execution_reasoning_effort = openai_reasoning_effort
     else:
         raise CrewBlocked("provider must be claude or codex")
+    if role_session_bindings and role_session_leases:
+        raise CrewBlocked("supply role session bindings or pooled leases, not both")
+    if role_session_leases and run_id is None:
+        raise CrewBlocked("pooled role session leases require the exact worker run ID")
+    if role_session_leases and scheduler_repository_identity is None:
+        raise CrewBlocked("pooled role session leases require the scheduler-proven repository identity")
+    if scheduler_repository_identity is not None and not role_session_leases:
+        raise CrewBlocked("a scheduler-proven repository identity is meaningful only with pooled leases")
     if not implementation_paths and not new_implementation_paths: raise CrewBlocked("at least one implementation path is required")
     if not test_paths and not new_test_paths: raise CrewBlocked("at least one test path is required for Stage 5B")
+    if crew_profile == "lean" and new_test_paths:
+        raise CrewBlocked("lean crew requires an existing committed test path; new tests require standard rigor")
     interval=heartbeat_interval()
     run_id=run_id or f"{task_id.lower()}-{time.strftime('%Y%m%dt%H%M%Sz',time.gmtime())}"
     if not RUN_ID_RE.fullmatch(run_id): raise CrewBlocked("run ID must be one conservative path component")
@@ -1197,7 +1829,11 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
     if retry_context is not None:
         (run_dir/"human_review_feedback.txt").write_bytes(retry_context.feedback_bytes)
     progress=ProgressReporter(run_dir/"progress.jsonl",run_id=run_id,task_id=task_id,provider=provider_name,started=started)
-    progress.emit("run_started",f"ExecutionCrew started: {task_id} / {provider_name}")
+    progress.emit(
+        "run_started", f"ExecutionCrew started: {task_id} / {provider_name}",
+        crew_profile=crew_profile, validation_profile=validation_profile,
+        required_roles=list(required_roles),
+    )
     progress.emit("source_preflight_completed",f"Source preflight passed: HEAD {identity.head[:8]}",status="passed")
     if retry_context is not None:
         progress.emit(
@@ -1233,7 +1869,7 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
     except ContractLocalityError as exc:
         raise CrewBlocked(str(exc)) from exc
     dependency_contracts=direct_dependency_contracts(task,tasks_by_id)
-    dependent_contracts=direct_dependent_contracts(task_id,tasks_by_id)
+    dependent_contracts=auditor_dependent_contract_payload(direct_dependent_contracts(task_id,tasks_by_id))
     valid_task_ids=frozenset(tasks_by_id)
     impl_plan, test_plan = preflight_role_paths(
         source_root, identity.head, implementation_paths, new_implementation_paths,
@@ -1244,23 +1880,236 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
     test_bounds = WriteBoundaries(test_paths, implementation_paths)
     role_records=[]; reasons=[]; impl_actual=set(); test_actual=set(); pipeline_generated=set(); validator_status=None; attempts=0
     usage_invocations: list[dict[str, Any]] = []
+    provider_session_records: list[dict[str, Any]] = []
+    provider_handoffs: dict[str, dict[str, Any]] = {}
+    provider_quota_failures: dict[str, dict[str, Any]] = {}
+    role_provider_overrides: dict[str, str] = {}
+    pooled_repository_identity = None
+    pooled_checkout_identity = identity.root
+    if role_session_leases:
+        # The repository is proven from the checkout itself and then required to
+        # equal the scheduler's proven value, so neither the caller nor a lease
+        # can assert an identity this execution cannot independently confirm.
+        pooled_repository_identity = crew_repository_identity(source_root)
+        if scheduler_repository_identity != pooled_repository_identity:
+            raise CrewBlocked(
+                f"scheduler-proven repository {scheduler_repository_identity!r} differs from "
+                f"the source checkout's repository {pooled_repository_identity!r}"
+            )
+        if checkout_identity_manifest is not None:
+            worker_slots = {lease.worker_slot_id for lease in role_session_leases.values()}
+            if len(worker_slots) != 1:
+                raise CrewBlocked("pooled role leases disagree on scheduler worker slot")
+            pooled_checkout_identity = checkout_manifest_identity(
+                checkout_identity_manifest,
+                task_id=task_id,
+                repository_identity=pooled_repository_identity,
+                source_branch=identity.branch,
+                source_commit=identity.head,
+                worker_slot_id=next(iter(worker_slots)),
+                task_contract_sha256=contract_identity.sha256,
+            )
+    pooled_leases = validate_role_session_leases(
+        role_session_leases, task_id=task_id, run_id=run_id,
+        provider_identifier=crew_provider_identifier(provider_name) if provider_name in ("claude","codex") else "",
+        model=execution_model, reasoning_effort=execution_reasoning_effort,
+        source_commit=identity.head, checkout_identity=pooled_checkout_identity,
+        repository_identity=pooled_repository_identity or "",
+        role_routes=role_routes,
+    ) if role_session_leases else {}
+    role_durable_results: dict[str, DurableAssignmentResult] = {}
+    role_confirmations: dict[str, ProviderSessionConfirmation] = {}
+    # One live binding per role. A pooled lease seeds it; every confirmed
+    # invocation replaces it with a resume binding so the SAME role keeps the
+    # SAME conversation across its repair attempt. No role is ever skipped
+    # because its session happens to be warm.
+    role_sessions: dict[str, ProviderSessionBinding] = {
+        role: lease.session_binding() for role, lease in pooled_leases.items()
+    }
+    # A capsule is owed once per pooled assignment, on the first invocation that
+    # actually reuses a warm conversation -- not on an intra-run repair attempt,
+    # which is the same assignment continuing.
+    capsule_owed: set[str] = {
+        role for role, lease in pooled_leases.items() if lease.mode == "resume"
+    }
+    # At most one in-session repair per role per crew run. The bound lives here,
+    # not in the retry itself, so a role cannot spend a second repair on its
+    # second attempt.
+    session_repair_used: set[str] = set()
+    for pooled_role in sorted(pooled_leases):
+        pooled_lease = pooled_leases[pooled_role]
+        progress.emit(
+            "pooled_role_checked_out",
+            f"{pooled_role.replace('_',' ').title()} checked out pooled session "
+            f"{pooled_lease.session_id or '(cold)'} to {pooled_lease.mode}",
+            role=pooled_role, status="checked_out", lease_id=pooled_lease.lease_id,
+            record_id=pooled_lease.record_id, worker_slot_id=pooled_lease.worker_slot_id,
+            session_mode=pooled_lease.mode, session_id=pooled_lease.session_id,
+            capability_class=pooled_lease.capability_class,
+        )
     latest_impl={}; latest_test={}; candidate_path=None; diagnostic_path=None; accepted_candidate=None
     contract_locality_status=None; contract_locality_audit_path=None; contract_locality_audit_host_path=None
     crew_status=None; final_paths: list[str]=[]
     human_review_feedback = retry_context.feedback_text if retry_context is not None else None
     retry_seed_mode = None
     retry_seed_candidate_sha256 = retry_context.candidate_sha256 if retry_context is not None else None
-    def invoke(role:str, attempt:int, repo:Path, writable:bool, prompt:str, schema:Mapping[str,Any], capability_class:str, boundaries:WriteBoundaries):
-        invocation_id=f"{task_id.lower()}-{role.replace('_','-')}-{attempt}-{hashlib.sha256(run_id.encode()).hexdigest()[:12]}"
+    def record_role_result(role:str, attempt:int, record:dict, *, agent_status:str,
+                           failure_classification:str, semantic_rejected:bool,
+                           changed_paths_rejected:bool) -> tuple[str, str]:
+        """Persist one role result and publish the durable evidence bound to it.
+
+        A pooled role's artifact carries the complete assignment binding in its
+        own persisted bytes -- crew run, lease, session record, task, worker run
+        and slot, source commit, source checkout, repository, role, capability
+        class, protocol, provider, routed model and reasoning, the exact provider
+        confirmation, the outcome and both validation decisions, and the artifact
+        path itself -- so durable evidence and its exact assignment are one
+        object. Only a role that actually ran on a pooled lease publishes
+        anything, and what it publishes always states its real AgentRuntime
+        status and both validation decisions. A role that is never invoked --
+        because the contract audit stopped the run, or an earlier role failed --
+        leaves no evidence at all, so its lease can never be recycled on this
+        run's word.
+        """
+
+        lease = None if role in provider_quota_failures else pooled_leases.get(role)
+        binding = None
+        if lease is not None:
+            confirmed = role_confirmations.get(role)
+            if confirmed is None:
+                raise CrewBlocked(
+                    f"{role} ran on a pooled lease without a confirmed provider session identity"
+                )
+            status, outcome = role_assignment_decision(
+                agent_status, failure_classification, semantic_rejected, changed_paths_rejected
+            )
+            try:
+                binding = pooled_assignment_evidence(
+                    lease=lease, confirmed=confirmed, crew_run_id=run_id,
+                    artifact=role_result_artifact(role, attempt), status=status,
+                    assignment_outcome=outcome,
+                    semantic_validation="rejected" if semantic_rejected else "accepted",
+                    changed_path_validation="rejected" if changed_paths_rejected else "accepted",
+                )
+            except SessionPoolError as exc:
+                raise CrewBlocked(f"role assignment binding could not be built: {exc}") from exc
+            record["pooled_assignment_evidence"] = binding
+        artifact, artifact_sha256 = write_role_result(run_dir, role, attempt, record)
+        if lease is None:
+            return artifact, artifact_sha256
+        result_value = durable_assignment_result(
+            lease=lease, confirmed=role_confirmations[role], crew_run_id=run_id,
+            artifact=artifact, artifact_sha256=artifact_sha256, agent_status=agent_status,
+            failure_classification=failure_classification,
+            semantic_rejected=semantic_rejected,
+            changed_paths_rejected=changed_paths_rejected,
+        )
+        # The persisted binding and the durable result are built from the same
+        # lease and the same decision, so any drift between the two constructions
+        # is a defect here rather than an unprovable artifact at check-in.
+        if result_value.role_evidence_binding() != binding:
+            raise CrewBlocked(
+                f"{role} durable evidence disagrees with the assignment binding it persisted"
+            )
+        role_durable_results[role] = result_value
+        progress.emit(
+            "pooled_role_evidence_published",
+            f"{role.replace('_',' ').title()} {attempt} published durable evidence: "
+            f"{result_value.status}/{result_value.assignment_outcome} "
+            f"({'reusable' if result_value.is_reusable else 'not reusable'})",
+            role=role, attempt=attempt, status=result_value.status,
+            assignment_outcome=result_value.assignment_outcome,
+            reusable=result_value.is_reusable, lease_id=lease.lease_id,
+            worker_slot_id=lease.worker_slot_id,
+            session_id=result_value.confirmed_session.session_id,
+            role_result_artifact=artifact, role_result_sha256=artifact_sha256,
+        )
+        return artifact, artifact_sha256
+
+    def invoke_once(role:str, attempt:int, repo:Path, writable:bool, prompt:str, schema:Mapping[str,Any], capability_class:str, boundaries:WriteBoundaries, *, invocation_suffix:str=""):
+        invocation_id=f"{task_id.lower()}-{role.replace('_','-')}-{attempt}-{hashlib.sha256(run_id.encode()).hexdigest()[:12]}{invocation_suffix}"
         caps=("repository_read","repository_search","repository_write") if writable else ("repository_read","repository_search")
-        if provider_factory: key,config,registry=provider_factory(provider_name,repo,writable,role)
+        session_binding=None; session_ledger=None
+        if provider_factory and role_session_bindings:
+            raise CrewBlocked("provider session bindings require the real provider path")
+        routed_provider=role_provider_overrides.get(role, provider_name)
+        switched = role in role_provider_overrides
+        routed_model=None if switched else execution_model
+        routed_effort=None if switched else execution_reasoning_effort
+        if role_routes is not None:
+            routed_provider = role_routes[role]["provider"]
+            routed_model = role_routes[role]["model"]
+            routed_effort = role_routes[role]["reasoning_effort"]
+        lease=None if switched else pooled_leases.get(role)
+        if lease is not None:
+            # This is the real invocation boundary: the capability class is only
+            # known here, so the complete pooled identity is re-proven against the
+            # exact routed values this role is about to be invoked with.
+            assert_lease_invocation_identity(
+                lease, role=role, capability_class=capability_class, task_id=task_id,
+                run_id=run_id, provider_identifier=crew_provider_identifier(routed_provider),
+                model=routed_model, reasoning_effort=routed_effort,
+                source_commit=identity.head, checkout_identity=pooled_checkout_identity,
+                repository_identity=pooled_repository_identity or "",
+            )
+        if switched:
+            session_binding = role_sessions.get(role) or ProviderSessionBinding("openai-codex", role, "start")
+        elif pooled_leases or role_session_bindings:
+            session_binding=role_sessions.get(role) or resolve_role_session(
+                role_session_bindings,role,crew_provider_identifier(routed_provider)
+            )
+        if session_binding is not None:
+            session_ledger=ProviderSessionLedger()
+            if role in capsule_owed:
+                # Remembered context must never widen current authority: the
+                # capsule closes the previous assignment and restates the
+                # complete authority this one actually has.
+                capsule_owed.discard(role)
+                try:
+                    prompt = assignment_capsule(
+                        pooled_leases[role], checkout_root=str(repo), capabilities=caps,
+                        allowed_paths=boundaries.allowed_paths,
+                        denied_paths=boundaries.denied_paths,
+                        evidence_obligations=ROLE_EVIDENCE_OBLIGATIONS.get(role, ()),
+                    ) + "\n\n" + prompt
+                except SessionPoolError as exc:
+                    raise CrewBlocked(f"assignment capsule could not be built: {exc}") from exc
+        if provider_factory:
+            # A four-argument factory keeps its historical ephemeral contract; a
+            # pooled assignment must be handed the exact binding and ledger, so a
+            # factory that cannot accept them is refused rather than silently
+            # running the role without its conversation.
+            if session_binding is None:
+                key,config,registry=provider_factory(routed_provider,repo,writable,role)
+            else:
+                try:
+                    key,config,registry=provider_factory(
+                        routed_provider,repo,writable,role,session_binding,session_ledger
+                    )
+                except TypeError as exc:
+                    raise CrewBlocked(
+                        "pooled role sessions require a provider factory that accepts the "
+                        f"session binding and ledger: {exc}"
+                    ) from exc
         else:
-            key,config=runtime_configuration(provider_name,execution_model)
+            key,config=runtime_configuration(routed_provider,routed_model)
             provider=construct_real_provider(
-                provider_name,repo,writable,
-                openai_reasoning_effort=execution_reasoning_effort,
+                routed_provider,repo,writable,
+                openai_reasoning_effort=routed_effort,
+                session=session_binding,session_ledger=session_ledger,
+                codex_resume_sandbox_argument=codex_resume_sandbox_argument,
             )
             registry={provider.provider_identifier:provider}
+        if lease is not None:
+            # The real pooled invocation boundary. Whatever supplied the
+            # configuration, the provider and model this role is about to be
+            # invoked through must be exactly the ones its lease authorized.
+            assert_pooled_provider_route(config,registry,key=key,
+                                         capability_class=capability_class,lease=lease)
+        if provider_allowlist is not None:
+            selection = config.resolve(key, capability_class, registry)
+            if selection.provider != crew_provider_identifier(routed_provider):
+                raise CrewBlocked("provider configuration disagrees with the permitted role route")
         inv=AgentInvocationRequest(AGENT_INVOCATION_REQUEST_SCHEMA_VERSION,invocation_id,role,prompt,
             tuple(dict.fromkeys((f"Tasks/{task_id}.yaml",GDD_PATH,POLICY_PATH,ENGINEERING_STANDARDS_PATH,*implementation_paths,*test_paths))),caps,boundaries,schema,capability_class,
             Budgets(int(os.getenv(f"NSC_{role.upper()}_TURN_LIMIT","32")),float(os.getenv(f"NSC_{role.upper()}_TIMEOUT_SECONDS","1200"))),
@@ -1286,10 +2135,15 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
             progress.emit("role_completed",f"{display} {attempt} completed: failed ({duration:.1f}s)",role=role,attempt=attempt,status="failed",duration_seconds=duration)
             raise failure
         assert result is not None
-        if provider_factory is None and execution_model is not None and result.model != execution_model:
+        if provider_factory is None and routed_model is not None and result.model != routed_model:
             raise CrewBlocked(
-                f"AgentRuntime used model {result.model!r}; expected routed model {execution_model!r}"
+                f"AgentRuntime used model {result.model!r}; expected routed model {routed_model!r}"
             )
+        if lease is not None:
+            # The returned identity is proven against the lease as well, so the
+            # provider and model this assignment reports are the ones it was
+            # authorized to use rather than the ones it claims to have used.
+            assert_pooled_result_identity(result,lease=lease)
         usage_invocations.append(
             {
                 "role": role,
@@ -1298,33 +2152,216 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
                 "usage": result.usage,
             }
         )
+        if result.failure_classification == "quota_exhausted" and result.provider == "claude-code":
+            # Account exhaustion invalidates reuse even if the CLI stopped before
+            # naming a conversation. Never turn an unconfirmed UUID into evidence.
+            evidence = {}
+            for name in ("request.json", "result.json", "provider.log"):
+                relative = f"agent_runtime/{result.run_id}/{name}"
+                evidence[name] = {"path": relative, "sha256": hashlib.sha256((run_dir / relative).read_bytes()).hexdigest()}
+            relative = f"task_execution/{result.run_id}/task_request.json"
+            evidence["task_request.json"] = {"path": relative, "sha256": hashlib.sha256((run_dir / relative).read_bytes()).hexdigest()}
+            provider_quota_failures[role] = {
+                "role": role, "attempt": attempt, "run_id": result.run_id,
+                "lease_id": None if lease is None else lease.lease_id,
+                "session_binding": None if session_binding is None else session_binding.to_dict(),
+                "confirmed_session": None if session_ledger is None or session_ledger.confirmed is None else session_ledger.confirmed.to_dict(),
+                "session_disposition": "quarantined", "evidence": evidence,
+            }
+            role_confirmations.pop(role, None)
+            role_sessions.pop(role, None)
+            progress.emit("provider_quota_exhausted", f"{display} exhausted Claude account quota; its session is quarantined",
+                          role=role, attempt=attempt, status="quarantined", failure_classification="quota_exhausted")
+        elif session_ledger is not None:
+            # The adapter records only an identity the provider transcript
+            # actually proved, so a persistent role that reached here without a
+            # confirmation is a contradiction rather than a silent ephemeral run.
+            confirmed = session_ledger.confirmed
+            if confirmed is None:
+                # The provider never named the conversation, so nothing here can
+                # supply one. The precise cause is stated instead of the old
+                # generic sentence, which read as "the crew asked for a session"
+                # and hid both the AgentRuntime failure that actually happened
+                # and which conversation is now unusable.
+                requested = session_binding.session_id or "(provider-assigned)"
+                detail = (
+                    f"{role} attempt {attempt} asked to {session_binding.mode} provider session "
+                    f"{requested} but the provider transcript never confirmed it "
+                    f"(AgentRuntime status {result.status!r}, failure "
+                    f"{result.failure_classification!r}); the conversation is unproven, "
+                    "quarantined, and never reused"
+                )
+                progress.emit(
+                    "provider_session_identity_unproven", detail, role=role, attempt=attempt,
+                    status="quarantined", session_mode=session_binding.mode,
+                    requested_session_id=session_binding.session_id,
+                    lease_id=None if lease is None else lease.lease_id,
+                    worker_slot_id=None if lease is None else lease.worker_slot_id,
+                    agent_status=result.status,
+                    failure_classification=result.failure_classification,
+                )
+                raise CrewSessionIdentityUnproven(detail)
+            progress.emit(
+                "provider_session_confirmed",
+                f"{display} {attempt} confirmed provider session {confirmed.session_id}",
+                role=role, attempt=attempt, status="confirmed", session_mode=confirmed.mode,
+                session_id=confirmed.session_id,
+                lease_id=None if lease is None else lease.lease_id,
+                worker_slot_id=None if lease is None else lease.worker_slot_id,
+                agent_status=result.status,
+                failure_classification=result.failure_classification,
+            )
+            provider_session_records.append(
+                {
+                    "role": role, "attempt": attempt, "run_id": result.run_id,
+                    "lease_id": None if lease is None else lease.lease_id,
+                    "worker_slot_id": None if lease is None else lease.worker_slot_id,
+                    **confirmed.to_dict(),
+                }
+            )
+            # A confirmed identity is not yet reusability: this role's durable
+            # evidence is only published once its validations have been decided.
+            # The assignment's own confirmation is the first one, which matches
+            # the lease's start/resume decision; a repair attempt necessarily
+            # resumes that same conversation and does not restate it.
+            role_confirmations.setdefault(role, confirmed)
+            # The same role's repair attempt must continue this exact
+            # conversation rather than opening a second one.
+            role_sessions[role] = repair_attempt_session(confirmed)
         progress.emit("role_completed",f"{display} {attempt} completed: {result.status} ({duration:.1f}s)",role=role,attempt=attempt,status=result.status,duration_seconds=duration)
+        if switched:
+            provider_handoffs[role].setdefault("target_invocations", []).append(result.run_id)
         return inv,result
-    locality_prompt=contract_locality_auditor_prompt(
-        task_id=task_id,title=task["title"],task_contract=task_text,gdd=gdd,
-        execution_scope=str(task.get("execution_scope") or ""),execution_reason=str(task.get("execution_reason") or ""),
-        decomposition_state=str(task.get("decomposition_state") or ""),decomposition_reason=str(task.get("decomposition_reason") or ""),
-        dependency_contracts=dependency_contracts,dependent_contracts=dependent_contracts,
-        task_catalog=task_catalog,source_head=identity.head,source_tree=identity.tree,
-    )
-    audit_inv,audit_res=invoke("contract_locality_auditor",1,source_root,False,locality_prompt,CONTRACT_LOCALITY_AUDITOR_OUTPUT_SCHEMA,"high_reasoning",WriteBoundaries((),()))
-    audit_scope=source_revalidation(source_root,identity)
-    audit_output=thaw_json(audit_res.structured_output) if audit_res.status=="succeeded" else {}
-    if audit_res.status!="succeeded": audit_scope.append(f"AgentResult failed: {audit_res.failure_classification}")
-    else: audit_scope += validate_locality_audit_output(audit_output,task=task,valid_task_ids=valid_task_ids)
-    audit_record={"role":"contract_locality_auditor","attempt":1,"agent_status":audit_res.status,"failure_classification":audit_res.failure_classification,"structured_output":audit_output,"role_claimed_paths":[],"agent_runtime_claimed_paths":list(audit_res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":[],"scope_check_reasons":audit_scope,"duration_seconds":audit_res.duration_seconds,"model":audit_res.model,"provider":audit_res.provider,"usage":None if audit_res.usage is None else audit_res.usage.to_dict()}
-    (run_dir/"role_results/contract_locality_auditor_1.json").write_text(json.dumps(audit_record,indent=2,sort_keys=True)+"\n")
-    role_records.append("role_results/contract_locality_auditor_1.json")
-    progress.emit("contract_locality_audit_completed",f"Contract Locality Auditor completed: {audit_output.get('status') if audit_res.status=='succeeded' else audit_res.status}",role="contract_locality_auditor",attempt=1,status=audit_output.get("status") if audit_res.status=="succeeded" else audit_res.status)
-    if audit_scope:
-        reasons += [f"contract locality auditor: {reason}" for reason in audit_scope]; crew_status="rejected"
+
+    def invoke(role:str, attempt:int, repo:Path, writable:bool, prompt:str, schema:Mapping[str,Any], capability_class:str, boundaries:WriteBoundaries):
+        """Invoke one role, with at most one in-session repair of a format failure.
+
+        A provider-format failure -- the provider ended its own turn unhappily,
+        or its structured output could not be parsed -- says nothing about the
+        conversation, the earlier roles, or the work already on disk. The
+        bounded recovery is therefore the narrowest one that can exist: retry
+        this one role, exactly once per crew run, inside the exact conversation
+        the transcript already confirmed, so nothing that already succeeded is
+        recomputed and no second conversation is opened for the same role.
+
+        The retry is offered only when the identity was confirmed. An unproven
+        identity has already failed closed above; a fresh session would discard
+        the context that makes the repair cheap and would need an identity this
+        run cannot prove, so it is never substituted. If the repair also fails,
+        the role's real failure is returned and the crew stops on it -- earlier
+        roles keep their durable evidence and check in normally.
+        """
+
+        before_quota = snapshot(repo) if quota_fallback_provider is not None else None
+        inv, result = invoke_once(role, attempt, repo, writable, prompt, schema,
+                                  capability_class, boundaries)
+        if (
+            role not in session_repair_used
+            and role in role_confirmations
+            and result.status != "succeeded"
+            and result.failure_classification in PROVIDER_FORMAT_FAILURE_CLASSIFICATIONS
+        ):
+            session_repair_used.add(role)
+            confirmed = role_confirmations[role]
+            progress.emit(
+                "role_session_repair_started",
+                f"{role.replace('_',' ').title()} {attempt} failed "
+                f"{result.failure_classification}; retrying only this role in confirmed session "
+                f"{confirmed.session_id}",
+                role=role, attempt=attempt, status="retrying",
+                failure_classification=result.failure_classification,
+                session_id=confirmed.session_id, session_mode="resume",
+            )
+            inv, result = invoke_once(role, attempt, repo, writable, prompt, schema,
+                                       capability_class, boundaries, invocation_suffix="-r2")
+        if may_handoff_to_codex(result, primary=provider_name, provider_allowlist=provider_allowlist,
+                                fallback=quota_fallback_provider, already_handed_off=role in provider_handoffs):
+            assert before_quota is not None
+            after_quota = snapshot(repo)
+            partial_paths, partial_reasons = incremental_check(before_quota, after_quota, inv, require_change=False)
+            # Inspect the failed provider's changes before Codex can touch them,
+            # so a successful second provider cannot conceal an out-of-scope edit.
+            partial_reasons.extend(source_revalidation(source_root, identity))
+            if partial_reasons:
+                progress.emit("provider_handoff_refused", "Claude quota handoff refused: " + "; ".join(partial_reasons),
+                              role=role, attempt=attempt, status="blocked")
+                return inv, result
+            partial_patch = full_patch(repo, before_quota.head, tuple(
+                path for path in partial_paths if path not in before_quota.entries
+            ))
+            patch_path = f"role_results/{role}_{attempt}_before_quota_handoff.patch"
+            (run_dir / patch_path).write_bytes(partial_patch)
+            handoff = {
+                "role": role, "attempt": attempt, "from_provider": "claude-code", "to_provider": "openai-codex",
+                "failure_classification": "quota_exhausted", "failed_run_id": result.run_id,
+                "allowed_capabilities": list(inv.allowed_capabilities), "write_boundaries": inv.write_boundaries.to_dict(),
+                "task_contract_identity": contract_identity.to_dict(), "source_head": identity.head,
+                "partial_changed_paths": partial_paths, "partial_patch_path": patch_path,
+                "partial_patch_sha256": hashlib.sha256(partial_patch).hexdigest(),
+                "session_disposition": "quarantined", "target_session_mode": "start", "status": "started",
+            }
+            provider_handoffs[role] = handoff
+            handoff_path = run_dir / f"role_results/{role}_{attempt}_provider_handoff.json"
+            handoff_path.write_text(json.dumps(handoff, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+            progress.emit("provider_handoff_started", f"{role} continuing once with fresh Codex after confirmed Claude quota exhaustion",
+                          role=role, attempt=attempt, **{key: handoff[key] for key in ("from_provider", "to_provider", "failed_run_id")})
+            role_provider_overrides[role] = "codex"
+            session_repair_used.add(role)
+            prompt += ("\n\nThe previous Claude invocation stopped with confirmed account quota exhaustion. "
+                       "This is a fresh Codex conversation for the same role and task. Its permitted partial changes "
+                       "remain in this disposable repository. Inspect those changes before continuing. "
+                       "They are unverified work, not evidence of completion. Current write boundaries and all "
+                       "validation and human gates remain authoritative. Partial changed paths: " + json.dumps(partial_paths))
+            inv, result = invoke_once(role, attempt, repo, writable, prompt, schema,
+                                      capability_class, boundaries, invocation_suffix="-codex")
+            if result.provider != "openai-codex":
+                raise CrewBlocked("quota handoff ran through an unauthorized provider")
+            handoff.update({"status": result.status, "target_run_id": result.run_id, "target_model": result.model,
+                            "target_failure_classification": result.failure_classification})
+            handoff_path.write_text(json.dumps(handoff, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+            progress.emit("provider_handoff_completed", f"{role} Codex handoff completed: {result.status}",
+                          role=role, attempt=attempt, status=result.status)
+            return inv, result
+        return inv, result
+
+    if "contract_locality_auditor" in required_roles:
+        locality_prompt=contract_locality_auditor_prompt(
+            task_id=task_id,title=task["title"],task_contract=task_text,gdd=gdd,
+            execution_scope=str(task.get("execution_scope") or ""),execution_reason=str(task.get("execution_reason") or ""),
+            decomposition_state=str(task.get("decomposition_state") or ""),decomposition_reason=str(task.get("decomposition_reason") or ""),
+            dependency_contracts=dependency_contracts,dependent_contracts=dependent_contracts,
+            task_catalog=task_catalog,source_head=identity.head,source_tree=identity.tree,
+        )
+        audit_inv,audit_res=invoke("contract_locality_auditor",1,source_root,False,locality_prompt,CONTRACT_LOCALITY_AUDITOR_OUTPUT_SCHEMA,"high_reasoning",WriteBoundaries((),()))
+        audit_deterministic=source_revalidation(source_root,identity)
+        audit_scope=list(audit_deterministic)
+        audit_output=thaw_json(audit_res.structured_output) if audit_res.status=="succeeded" else {}
+        audit_semantic=[]
+        if audit_res.status!="succeeded": audit_scope.append(f"AgentResult failed: {audit_res.failure_classification}")
+        else:
+            audit_semantic=validate_locality_audit_output(audit_output,task=task,valid_task_ids=valid_task_ids)
+            audit_scope += audit_semantic
+        audit_record={"role":"contract_locality_auditor","attempt":1,"agent_status":audit_res.status,"failure_classification":audit_res.failure_classification,"structured_output":audit_output,"role_claimed_paths":[],"agent_runtime_claimed_paths":list(audit_res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":[],"scope_check_reasons":audit_scope,"deterministic_changed_path_validation":"rejected" if audit_deterministic else "accepted","semantic_validation":"rejected" if audit_semantic else "accepted","duration_seconds":audit_res.duration_seconds,"model":audit_res.model,"provider":audit_res.provider,"usage":None if audit_res.usage is None else audit_res.usage.to_dict()}
+        record_role_result("contract_locality_auditor",1,audit_record,
+                           agent_status=audit_res.status,failure_classification=audit_res.failure_classification,
+                           semantic_rejected=bool(audit_semantic),changed_paths_rejected=bool(audit_deterministic))
+        role_records.append("role_results/contract_locality_auditor_1.json")
+        progress.emit("contract_locality_audit_completed",f"Contract Locality Auditor completed: {audit_output.get('status') if audit_res.status=='succeeded' else audit_res.status}",role="contract_locality_auditor",attempt=1,status=audit_output.get("status") if audit_res.status=="succeeded" else audit_res.status)
+        if audit_scope:
+            reasons += [f"contract locality auditor: {reason}" for reason in audit_scope]; crew_status="rejected"
+        else:
+            contract_locality_status=audit_output["status"]
+            audit_artifact={"schema_version":CONTRACT_LOCALITY_AUDIT_SCHEMA_VERSION,"run_id":run_id,"task_id":task_id,"provider":provider_name,"source_head":identity.head,"source_tree":identity.tree,"task_contract_identity":contract_identity.to_dict(),"result":audit_output}
+            (run_dir/"contract_locality_audit.json").write_text(json.dumps(audit_artifact,indent=2,sort_keys=True)+"\n")
+            contract_locality_audit_path=str(run_dir/"contract_locality_audit.json")
+            contract_locality_audit_host_path=str(host_root_path/run_id/"contract_locality_audit.json") if host_root_path is not None else None
+            if contract_locality_status=="contract_review_required": crew_status="contract_review_required"
     else:
-        contract_locality_status=audit_output["status"]
-        audit_artifact={"schema_version":CONTRACT_LOCALITY_AUDIT_SCHEMA_VERSION,"run_id":run_id,"task_id":task_id,"provider":provider_name,"source_head":identity.head,"source_tree":identity.tree,"task_contract_identity":contract_identity.to_dict(),"result":audit_output}
-        (run_dir/"contract_locality_audit.json").write_text(json.dumps(audit_artifact,indent=2,sort_keys=True)+"\n")
-        contract_locality_audit_path=str(run_dir/"contract_locality_audit.json")
-        contract_locality_audit_host_path=str(host_root_path/run_id/"contract_locality_audit.json") if host_root_path is not None else None
-        if contract_locality_status=="contract_review_required": crew_status="contract_review_required"
+        contract_locality_status="not_required_by_profile"
+        progress.emit(
+            "role_skipped", "Contract Locality Auditor omitted by deterministic crew profile",
+            role="contract_locality_auditor", status="not_required", crew_profile=crew_profile,
+        )
     if crew_status is None:
         with tempfile.TemporaryDirectory(prefix="nsc-execution-crew-") as temporary:
             clone=clone_exact(source_root,identity.head,Path(temporary))
@@ -1352,8 +2389,9 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
                 repair_actual=set()
                 findings=None if attempt==1 else latest_validator.get("blocking_issues",[])
                 before=snapshot(clone)
-                inv,res=invoke("implementer",attempt,clone,True,implementer_prompt(task_id=task_id,title=task["title"],task_contract=task_text,gdd=gdd,implementation_paths=impl_plan.existing_paths,new_implementation_paths=impl_plan.new_paths,pipeline_sidecars=impl_plan.pipeline_generated_sidecars,other_role_paths=test_paths,findings=findings,human_review_feedback=human_review_feedback),IMPLEMENTER_OUTPUT_SCHEMA,"standard",impl_bounds)
+                inv,res=invoke("implementer",attempt,clone,True,implementer_prompt(task_id=task_id,title=task["title"],task_contract=task_text,gdd_path=GDD_PATH,implementation_paths=impl_plan.existing_paths,new_implementation_paths=impl_plan.new_paths,pipeline_sidecars=impl_plan.pipeline_generated_sidecars,other_role_paths=test_paths,findings=findings,human_review_feedback=human_review_feedback),IMPLEMENTER_OUTPUT_SCHEMA,"standard",impl_bounds)
                 after=snapshot(clone); actual,scope=incremental_check(before,after,inv,require_change=(attempt==1 and retry_context is None)); scope+=source_revalidation(source_root,identity)
+                deterministic_scope=list(scope)
                 raw_output=thaw_json(res.structured_output) if res.status=="succeeded" else {}
                 output,normalized_discarded=normalize_role_structured_output("implementer",raw_output)
                 blockers=normalized_agent_blockers(output.get("blockers",[])); scope += ([] if res.status=="succeeded" else [f"AgentResult failed: {res.failure_classification}"])
@@ -1362,42 +2400,61 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
                     for new_path, sidecar in zip(impl_plan.new_paths, (_sidecar(path) for path in impl_plan.new_paths)):
                         if before.entries.get(new_path) is None and after.entries.get(new_path) == _entry_state(clone/new_path, tracked=False) and sidecar:
                             (clone/sidecar).write_bytes(unity_meta_bytes(new_path)); generated.append(sidecar); pipeline_generated.add(sidecar)
-                record={"role":"implementer","attempt":attempt,"agent_status":res.status,"failure_classification":res.failure_classification,"structured_output":output,"role_claimed_paths":normalized_agent_claimed_paths(output.get("claimed_changed_paths",[])),"agent_runtime_claimed_paths":list(res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":actual,"pipeline_generated_paths":generated,"scope_check_reasons":scope,"duration_seconds":res.duration_seconds,"model":res.model,"provider":res.provider,"usage":None if res.usage is None else res.usage.to_dict(),**_normalization_audit_fields(normalized_discarded)}
-                (run_dir/f"role_results/implementer_{attempt}.json").write_text(json.dumps(record,indent=2,sort_keys=True)+"\n"); role_records.append(f"role_results/implementer_{attempt}.json"); impl_actual.update(actual); latest_impl=output
+                record={"role":"implementer","attempt":attempt,"agent_status":res.status,"failure_classification":res.failure_classification,"structured_output":output,"role_claimed_paths":normalized_agent_claimed_paths(output.get("claimed_changed_paths",[])),"agent_runtime_claimed_paths":list(res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":actual,"pipeline_generated_paths":generated,"scope_check_reasons":scope,"deterministic_changed_path_validation":"rejected" if deterministic_scope else "accepted","semantic_validation":"rejected" if blockers else "accepted","duration_seconds":res.duration_seconds,"model":res.model,"provider":res.provider,"usage":None if res.usage is None else res.usage.to_dict(),**_normalization_audit_fields(normalized_discarded)}
+                record_role_result("implementer",attempt,record,agent_status=res.status,
+                                   failure_classification=res.failure_classification,
+                                   semantic_rejected=bool(blockers),changed_paths_rejected=bool(deterministic_scope))
+                role_records.append(f"role_results/implementer_{attempt}.json"); impl_actual.update(actual); latest_impl=output
                 progress.emit("scope_check_completed",f"Implementer {attempt} scope check {'passed' if not scope else 'failed'}: {len(actual)} changed paths",role="implementer",attempt=attempt,status="passed" if not scope else "failed",changed_paths=actual,changed_path_count=len(actual))
                 if attempt==2: repair_actual.update(actual)
                 if blockers or scope: reasons += [*(f"implementer blocker: {x}" for x in blockers),*scope]; crew_status="blocked" if blockers else "rejected"; stop=True; break
-                impl_new_surface=tuple(sorted((*impl_plan.new_paths, *impl_plan.pipeline_generated_sidecars)))
-                impl_patch=paths_patch(clone,identity.head,implementation_paths,impl_new_surface).decode("utf-8","replace")
-                before=snapshot(clone)
-                inv,res=invoke("test_author",attempt,clone,True,test_author_prompt(task_id=task_id,title=task["title"],task_contract=task_text,gdd=gdd,policy=policy,implementation_patch=impl_patch,implementation_paths=implementation_paths,implementation_actual_paths=sorted(impl_actual),test_paths=test_plan.existing_paths,new_test_paths=test_plan.new_paths,pipeline_sidecars=test_plan.pipeline_generated_sidecars,findings=findings,human_review_feedback=human_review_feedback),TEST_AUTHOR_OUTPUT_SCHEMA,"low_cost",test_bounds)
-                # An existing authoritative test may already prove the new production
-                # behavior.  The independent Test Author must inspect it, but should
-                # not be forced to churn that file merely to satisfy a non-empty diff.
-                # New test paths remain an explicit creation obligation.
-                after=snapshot(clone); actual,scope=incremental_check(
-                    before,
-                    after,
-                    inv,
-                    require_change=(
-                        attempt == 1
-                        and retry_context is None
-                        and bool(test_plan.new_paths)
-                    ),
-                ); scope+=source_revalidation(source_root,identity)
-                raw_output=thaw_json(res.structured_output) if res.status=="succeeded" else {}
-                output,normalized_discarded=normalize_role_structured_output("test_author",raw_output)
-                blockers=normalized_agent_blockers(output.get("blockers",[])); scope += ([] if res.status=="succeeded" else [f"AgentResult failed: {res.failure_classification}"])
-                generated=[]
-                if not scope and not blockers:
-                    for new_path, sidecar in zip(test_plan.new_paths, (_sidecar(path) for path in test_plan.new_paths)):
-                        if before.entries.get(new_path) is None and after.entries.get(new_path) == _entry_state(clone/new_path, tracked=False) and sidecar:
-                            (clone/sidecar).write_bytes(unity_meta_bytes(new_path)); generated.append(sidecar); pipeline_generated.add(sidecar)
-                record={"role":"test_author","attempt":attempt,"agent_status":res.status,"failure_classification":res.failure_classification,"structured_output":output,"role_claimed_paths":normalized_agent_claimed_paths(output.get("claimed_changed_paths",[])),"agent_runtime_claimed_paths":list(res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":actual,"pipeline_generated_paths":generated,"scope_check_reasons":scope,"duration_seconds":res.duration_seconds,"model":res.model,"provider":res.provider,"usage":None if res.usage is None else res.usage.to_dict(),**_normalization_audit_fields(normalized_discarded)}
-                (run_dir/f"role_results/test_author_{attempt}.json").write_text(json.dumps(record,indent=2,sort_keys=True)+"\n"); role_records.append(f"role_results/test_author_{attempt}.json"); test_actual.update(actual); latest_test=output
-                progress.emit("scope_check_completed",f"Test Author {attempt} scope check {'passed' if not scope else 'failed'}: {len(actual)} changed paths",role="test_author",attempt=attempt,status="passed" if not scope else "failed",changed_paths=actual,changed_path_count=len(actual))
-                if attempt==2: repair_actual.update(actual)
-                if blockers or scope: reasons += [*(f"test author blocker: {x}" for x in blockers),*scope]; crew_status="blocked" if blockers else "rejected"; stop=True; break
+                if "test_author" in required_roles:
+                    impl_new_surface=tuple(sorted((*impl_plan.new_paths, *impl_plan.pipeline_generated_sidecars)))
+                    impl_patch=paths_patch(clone,identity.head,implementation_paths,impl_new_surface).decode("utf-8","replace")
+                    before=snapshot(clone)
+                    inv,res=invoke("test_author",attempt,clone,True,test_author_prompt(task_id=task_id,title=task["title"],task_contract=task_text,gdd_path=GDD_PATH,policy=policy,implementation_patch=impl_patch,implementation_paths=implementation_paths,implementation_actual_paths=sorted(impl_actual),test_paths=test_plan.existing_paths,new_test_paths=test_plan.new_paths,pipeline_sidecars=test_plan.pipeline_generated_sidecars,findings=findings,human_review_feedback=human_review_feedback),TEST_AUTHOR_OUTPUT_SCHEMA,"low_cost",test_bounds)
+                    # An existing authoritative test may already prove the new production
+                    # behavior.  The independent Test Author must inspect it, but should
+                    # not be forced to churn that file merely to satisfy a non-empty diff.
+                    # New test paths remain an explicit creation obligation.
+                    after=snapshot(clone); actual,scope=incremental_check(
+                        before,
+                        after,
+                        inv,
+                        require_change=(
+                            attempt == 1
+                            and retry_context is None
+                            and bool(test_plan.new_paths)
+                        ),
+                    ); scope+=source_revalidation(source_root,identity)
+                    deterministic_scope=list(scope)
+                    raw_output=thaw_json(res.structured_output) if res.status=="succeeded" else {}
+                    output,normalized_discarded=normalize_role_structured_output("test_author",raw_output)
+                    blockers=normalized_agent_blockers(output.get("blockers",[])); scope += ([] if res.status=="succeeded" else [f"AgentResult failed: {res.failure_classification}"])
+                    generated=[]
+                    if not scope and not blockers:
+                        for new_path, sidecar in zip(test_plan.new_paths, (_sidecar(path) for path in test_plan.new_paths)):
+                            if before.entries.get(new_path) is None and after.entries.get(new_path) == _entry_state(clone/new_path, tracked=False) and sidecar:
+                                (clone/sidecar).write_bytes(unity_meta_bytes(new_path)); generated.append(sidecar); pipeline_generated.add(sidecar)
+                    record={"role":"test_author","attempt":attempt,"agent_status":res.status,"failure_classification":res.failure_classification,"structured_output":output,"role_claimed_paths":normalized_agent_claimed_paths(output.get("claimed_changed_paths",[])),"agent_runtime_claimed_paths":list(res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":actual,"pipeline_generated_paths":generated,"scope_check_reasons":scope,"deterministic_changed_path_validation":"rejected" if deterministic_scope else "accepted","semantic_validation":"rejected" if blockers else "accepted","duration_seconds":res.duration_seconds,"model":res.model,"provider":res.provider,"usage":None if res.usage is None else res.usage.to_dict(),**_normalization_audit_fields(normalized_discarded)}
+                    record_role_result("test_author",attempt,record,agent_status=res.status,
+                                       failure_classification=res.failure_classification,
+                                       semantic_rejected=bool(blockers),changed_paths_rejected=bool(deterministic_scope))
+                    role_records.append(f"role_results/test_author_{attempt}.json"); test_actual.update(actual); latest_test=output
+                    progress.emit("scope_check_completed",f"Test Author {attempt} scope check {'passed' if not scope else 'failed'}: {len(actual)} changed paths",role="test_author",attempt=attempt,status="passed" if not scope else "failed",changed_paths=actual,changed_path_count=len(actual))
+                    if attempt==2: repair_actual.update(actual)
+                    if blockers or scope: reasons += [*(f"test author blocker: {x}" for x in blockers),*scope]; crew_status="blocked" if blockers else "rejected"; stop=True; break
+                else:
+                    latest_test={
+                        "status":"not_required_by_profile",
+                        "crew_profile":crew_profile,
+                        "existing_test_paths":list(test_plan.existing_paths),
+                    }
+                    progress.emit(
+                        "role_skipped", "Test Author omitted by deterministic crew profile",
+                        role="test_author", attempt=attempt, status="not_required",
+                        crew_profile=crew_profile,
+                    )
                 if (retry_context is not None and attempt==1 and retry_seed_snapshot is not None
                         and not changed_paths(retry_seed_snapshot, snapshot(clone))):
                     reasons.append("human-review retry made no deterministic correction")
@@ -1406,18 +2463,49 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
                     reasons.append("repair cycle made no deterministic changes"); crew_status="needs_human"; stop=True; break
                 new_surface=tuple(sorted((*impl_plan.new_paths, *test_plan.new_paths, *pipeline_generated)))
                 candidate=full_patch(clone,identity.head,new_surface); final_paths=changed_paths(baseline_clone,snapshot(clone))
-                inv,res=invoke("validator",attempt,source_root,False,validator_prompt(task_id=task_id,title=task["title"],task_contract=task_text,gdd=gdd,candidate_patch=candidate.decode("utf-8","replace"),changed_paths=final_paths,implementer_output=latest_impl,test_author_output=latest_test,human_review_feedback=human_review_feedback),VALIDATOR_OUTPUT_SCHEMA,"high_reasoning",WriteBoundaries((),()))
+                inv,res=invoke("validator",attempt,source_root,False,validator_prompt(task_id=task_id,title=task["title"],task_contract=task_text,gdd_path=GDD_PATH,candidate_patch=candidate.decode("utf-8","replace"),changed_paths=final_paths,implementer_output=latest_impl,test_author_output=latest_test,human_review_feedback=human_review_feedback),VALIDATOR_OUTPUT_SCHEMA,"high_reasoning",WriteBoundaries((),()))
                 scope=source_revalidation(source_root,identity)
+                deterministic_scope=list(scope)
                 raw_output=thaw_json(res.structured_output) if res.status=="succeeded" else {}
                 output,normalized_discarded=normalize_role_structured_output("validator",raw_output)
                 validator_status=output.get("status")
+                validator_semantic=[]
                 if res.status!="succeeded": scope.append(f"AgentResult failed: {res.failure_classification}")
-                else: scope += validator_semantic_reasons(output, expected_requirement_ids)
-                record={"role":"validator","attempt":attempt,"agent_status":res.status,"failure_classification":res.failure_classification,"structured_output":output,"role_claimed_paths":[],"agent_runtime_claimed_paths":list(res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":[],"scope_check_reasons":scope,"duration_seconds":res.duration_seconds,"model":res.model,"provider":res.provider,"usage":None if res.usage is None else res.usage.to_dict(),**_normalization_audit_fields(normalized_discarded)}
-                (run_dir/f"role_results/validator_{attempt}.json").write_text(json.dumps(record,indent=2,sort_keys=True)+"\n"); role_records.append(f"role_results/validator_{attempt}.json"); latest_validator=output
+                else:
+                    validator_semantic=validator_semantic_reasons(output, expected_requirement_ids)
+                    scope += validator_semantic
+                record={"role":"validator","attempt":attempt,"agent_status":res.status,"failure_classification":res.failure_classification,"structured_output":output,"role_claimed_paths":[],"agent_runtime_claimed_paths":list(res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":[],"scope_check_reasons":scope,"deterministic_changed_path_validation":"rejected" if deterministic_scope else "accepted","semantic_validation":"rejected" if validator_semantic else "accepted","duration_seconds":res.duration_seconds,"model":res.model,"provider":res.provider,"usage":None if res.usage is None else res.usage.to_dict(),**_normalization_audit_fields(normalized_discarded)}
+                record_role_result("validator",attempt,record,agent_status=res.status,
+                                   failure_classification=res.failure_classification,
+                                   semantic_rejected=bool(validator_semantic),changed_paths_rejected=bool(deterministic_scope))
+                role_records.append(f"role_results/validator_{attempt}.json"); latest_validator=output
                 progress.emit("validator_completed",f"Validator {attempt} completed: {validator_status or res.status}",role="validator",attempt=attempt,status=validator_status or res.status)
                 if scope: reasons+=scope; crew_status="rejected"; stop=True; break
                 if validator_status=="pass": crew_status="review_ready"; accepted_candidate=candidate; stop=True; break
+                if role_routes is not None and (validator_status == "blocked_by_design" or attempt == 2):
+                    # One pooled, read-only diagnosis. It cannot override the validator
+                    # or grant acceptance, graph, Issue, or checkout authority.
+                    lead_prompt = "Act as the Lead Developer. Diagnose the unresolved review disagreement. Write nothing. " + validator_prompt(
+                        task_id=task_id,title=task["title"],task_contract=task_text,gdd_path=GDD_PATH,
+                        candidate_patch=candidate.decode("utf-8","replace"),changed_paths=final_paths,
+                        implementer_output=latest_impl,test_author_output=latest_test,
+                        human_review_feedback=json.dumps(output))
+                    _, lead_result = invoke("lead_developer",1,source_root,False,lead_prompt,
+                        VALIDATOR_OUTPUT_SCHEMA,"high_reasoning",WriteBoundaries((),()))
+                    lead_scope = source_revalidation(source_root,identity)
+                    lead_output = thaw_json(lead_result.structured_output) if lead_result.status == "succeeded" else {}
+                    lead_semantic = validator_semantic_reasons(lead_output, expected_requirement_ids) if lead_result.status == "succeeded" else []
+                    record_role_result("lead_developer",1,dict(role="lead_developer",attempt=1,
+                        agent_status=lead_result.status,failure_classification=lead_result.failure_classification,
+                        structured_output=lead_output,scope_check_reasons=lead_scope,
+                        deterministic_changed_path_validation="rejected" if lead_scope else "accepted",
+                        semantic_validation="rejected" if lead_semantic else "accepted",
+                        model=lead_result.model,provider=lead_result.provider),
+                        agent_status=lead_result.status,failure_classification=lead_result.failure_classification,
+                        semantic_rejected=bool(lead_semantic),changed_paths_rejected=bool(lead_scope))
+                    role_records.append("role_results/lead_developer_1.json")
+                    if lead_scope:
+                        reasons += lead_scope; crew_status="rejected"; stop=True; break
                 if validator_status=="blocked_by_design":
                     reasons.append("validator blocked_by_design")
                     crew_status="contract_review_required" if validator_requires_contract_review(output) else "blocked"
@@ -1503,7 +2591,40 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
             human_next_action = "Inspect the blocking reason; no diagnostic patch was produced."
         human_commands = patch_commands(human_artifact, applyable=False)
     human_result = {"status":human_status,"reason":human_reason,"artifact_path":human_artifact,"next_action":human_next_action,"commands":human_commands}
-    result={"schema_version":"1.0","run_id":run_id,"task_id":task_id,"task_contract_identity":contract_identity.to_dict(),"source_head":identity.head,"source_tree":identity.tree,"source_branch":identity.branch,"provider":provider_name,"execution_model":execution_model,"execution_reasoning_effort":execution_reasoning_effort,"crew_status":crew_status,"attempts_used":attempts,"requested_implementation_paths":list(implementation_paths),"requested_test_paths":list(test_paths),"requested_existing_implementation_paths":list(impl_plan.existing_paths),"requested_new_implementation_paths":list(impl_plan.new_paths),"requested_existing_test_paths":list(test_plan.existing_paths),"requested_new_test_paths":list(test_plan.new_paths),"pipeline_generated_paths":sorted(pipeline_generated),"implementation_actual_changed_paths":sorted(impl_actual-pipeline_generated),"test_actual_changed_paths":sorted(test_actual-pipeline_generated),"final_actual_changed_paths":final_paths,"role_results":role_records,"token_usage":aggregate_token_usage(usage_invocations),"candidate_patch_path":candidate_path,"candidate_patch_sha256":(hashlib.sha256(accepted_candidate).hexdigest() if crew_status=="review_ready" and accepted_candidate is not None else None),"retry_seed_candidate_sha256":retry_seed_candidate_sha256,"retry_seed_mode":retry_seed_mode,"workspace_diagnostic_patch_path":diagnostic_path,"candidate_patch_host_path":host_candidate_path,"workspace_diagnostic_patch_host_path":host_diagnostic_path,"contract_locality_status":contract_locality_status,"contract_locality_audit_path":contract_locality_audit_path,"contract_locality_audit_host_path":contract_locality_audit_host_path,"rejection_reasons":reasons,"validator_status":validator_status,"review_origin":review_origin,"human_next_step":human_next_action,"human_result":human_result,"duration_seconds":time.monotonic()-started}
+    # Every pooled lease this run held is reported, including roles that were
+    # never invoked, so a scheduler can return an unused lease deliberately
+    # instead of inferring anything from silence. Durable evidence exists only
+    # for a role that actually ran, and only an outcome that AgentRuntime,
+    # semantic validation, and the deterministic changed-path check all accepted
+    # advertises a reusable conversation.
+    pooled_lease_records = {
+        role: {
+            **lease.to_dict(),
+            "invoked": role in role_durable_results or role in provider_quota_failures,
+            "durable_assignment_result": (
+                None if role not in role_durable_results
+                else role_durable_results[role].to_dict()
+            ),
+        }
+        for role, lease in pooled_leases.items()
+    }
+    durable_result_records = {
+        role: result_value.to_dict() for role, result_value in role_durable_results.items()
+    }
+    reusable_role_sessions = {
+        role: result_value.confirmed_session.session_id
+        for role, result_value in role_durable_results.items()
+        if result_value.is_reusable
+    }
+    result={"schema_version":"1.0","run_id":run_id,"task_id":task_id,"task_contract_identity":contract_identity.to_dict(),"source_head":identity.head,"source_tree":identity.tree,"source_branch":identity.branch,"provider":provider_name,"execution_model":execution_model,"execution_reasoning_effort":execution_reasoning_effort,"crew_profile":crew_profile,"validation_profile":validation_profile,"required_roles":list(required_roles),"crew_status":crew_status,"attempts_used":attempts,"requested_implementation_paths":list(implementation_paths),"requested_test_paths":list(test_paths),"requested_existing_implementation_paths":list(impl_plan.existing_paths),"requested_new_implementation_paths":list(impl_plan.new_paths),"requested_existing_test_paths":list(test_plan.existing_paths),"requested_new_test_paths":list(test_plan.new_paths),"pipeline_generated_paths":sorted(pipeline_generated),"implementation_actual_changed_paths":sorted(impl_actual-pipeline_generated),"test_actual_changed_paths":sorted(test_actual-pipeline_generated),"final_actual_changed_paths":final_paths,"role_results":role_records,"token_usage":aggregate_token_usage(usage_invocations),"provider_sessions":provider_session_records,"pooled_role_leases":pooled_lease_records,"durable_assignment_results":durable_result_records,"reusable_role_sessions":reusable_role_sessions,"candidate_patch_path":candidate_path,"candidate_patch_sha256":(hashlib.sha256(accepted_candidate).hexdigest() if crew_status=="review_ready" and accepted_candidate is not None else None),"retry_seed_candidate_sha256":retry_seed_candidate_sha256,"retry_seed_mode":retry_seed_mode,"workspace_diagnostic_patch_path":diagnostic_path,"candidate_patch_host_path":host_candidate_path,"workspace_diagnostic_patch_host_path":host_diagnostic_path,"contract_locality_status":contract_locality_status,"contract_locality_audit_path":contract_locality_audit_path,"contract_locality_audit_host_path":contract_locality_audit_host_path,"rejection_reasons":reasons,"validator_status":validator_status,"review_origin":review_origin,"human_next_step":human_next_action,"human_result":human_result,"duration_seconds":time.monotonic()-started}
+    result["provider_invocation_artifacts"] = [dict(path=f"agent_runtime/{item['run_id']}/result.json",
+        sha256=hashlib.sha256((run_dir/"agent_runtime"/item["run_id"]/"result.json").read_bytes()).hexdigest()) for item in usage_invocations]
+    if provider_topology is not None:
+        result.update(provider_topology=provider_topology, role_routes=role_routes)
+
+    result.update({"provider_allowlist": None if provider_allowlist is None else list(provider_allowlist),
+                   "quota_fallback_provider": quota_fallback_provider,
+                   "provider_handoffs": provider_handoffs, "provider_quota_failures": provider_quota_failures})
     (run_dir/"crew_result.json").write_text(json.dumps(result,indent=2,sort_keys=True)+"\n")
     progress.emit("run_completed",f"ExecutionCrew completed: {crew_status}",status=crew_status,duration_seconds=round(result["duration_seconds"],3))
     return result
@@ -1557,9 +2678,16 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--task-id")
     parser.add_argument("--provider",choices=("claude","codex"))
+    parser.add_argument("--provider-allowlist", help="Explicit comma-separated permitted providers")
+    parser.add_argument("--quota-fallback-provider", choices=("codex",))
     parser.add_argument("--expected-provider",choices=("claude","codex"))
     parser.add_argument("--model")
     parser.add_argument("--openai-reasoning-effort",choices=OPENAI_REASONING_EFFORTS)
+    parser.add_argument("--crew-profile",choices=tuple(CREW_VALIDATION_PROFILE_PAIRS))
+    parser.add_argument(
+        "--validation-profile",
+        choices=tuple(CREW_VALIDATION_PROFILE_PAIRS.values()),
+    )
     parser.add_argument("--implementation-path",action="append")
     parser.add_argument("--test-path",action="append")
     parser.add_argument("--new-implementation-path",action="append")
@@ -1569,12 +2697,21 @@ def main():
     parser.add_argument("--source",type=Path,default=ROOT)
     parser.add_argument("--output-root",type=Path,default=default_output_root)
     parser.add_argument("--host-output-root",help="Human-facing HOST (e.g. Windows) absolute path mirroring --output-root, for display only")
+    parser.add_argument("--run-id")
+    parser.add_argument("--role-session-leases",type=Path)
+    parser.add_argument("--provider-role-profile",type=Path)
+    parser.add_argument("--scheduler-repository-identity")
+    parser.add_argument("--checkout-identity-manifest",type=Path)
     args=parser.parse_args()
     host_output_root=args.host_output_root if args.host_output_root is not None else os.getenv("NSC_EXECUTION_HOST_OUTPUT_ROOT")
     if args.retry_run:
         if any((args.task_id, args.provider, args.implementation_path, args.test_path,
-                args.new_implementation_path, args.new_test_path)):
-            parser.error("--retry-run inherits task, provider, and write paths; do not supply them")
+                args.new_implementation_path, args.new_test_path, args.crew_profile,
+                args.validation_profile)):
+            parser.error(
+                "--retry-run inherits task, provider, write paths, and rigor profiles; "
+                "do not supply them"
+            )
         if args.review_feedback_file is None:
             parser.error("--review-feedback-file is required with --retry-run")
     else:
@@ -1589,7 +2726,52 @@ def main():
             parser.error("normal mode requires " + ", ".join(missing))
         if args.review_feedback_file is not None:
             parser.error("--review-feedback-file requires --retry-run")
-    try: result=run_crew(source=args.source,output_root=args.output_root,task_id=args.task_id,provider_name=args.provider,implementation_paths=tuple(args.implementation_path or ()),test_paths=tuple(args.test_path or ()),new_implementation_paths=tuple(args.new_implementation_path or ()),new_test_paths=tuple(args.new_test_path or ()),retry_run_id=args.retry_run,review_feedback_file=args.review_feedback_file,host_output_root=host_output_root,execution_model=args.model,openai_reasoning_effort=args.openai_reasoning_effort,retry_expected_provider=args.expected_provider)
+    pooled_options = (
+        args.run_id,
+        args.role_session_leases,
+        args.scheduler_repository_identity,
+        args.checkout_identity_manifest,
+    )
+    if any(value is not None for value in pooled_options):
+        if not all(value is not None for value in pooled_options):
+            parser.error("pooled execution requires --run-id, --role-session-leases, --scheduler-repository-identity, and --checkout-identity-manifest together")
+        if args.provider_role_profile is None and (args.provider == "codex" or (args.retry_run and args.expected_provider == "codex")):
+            parser.error("production session pooling currently supports Claude only")
+    role_session_leases = None
+    if args.role_session_leases is not None:
+        try:
+            role_session_leases = load_role_session_lease_bundle(
+                args.role_session_leases, run_id=args.run_id
+            )
+        except CrewBlocked as exc:
+            parser.error(str(exc))
+    profile_options = {}
+    if args.provider_role_profile is not None:
+        from Pipeline.TaskReviewAgent.provider_profiles import ProviderTopology, profile_runtime_binding
+        value, _ = _strict_json_file(args.provider_role_profile, label="host crew profile")
+        if set(value) != {"topology", "role_routes", "runtime_binding", "run_id", "task_id", "task_contract_sha256"} or value["run_id"] != args.run_id:
+            parser.error("host crew profile fields or run identity differ")
+        topology = ProviderTopology.from_dict(value["topology"])
+        stores = value["runtime_binding"]["conversation_stores"]
+        project = stores[0].removeprefix("compose:").split("/")[0]
+        if value["runtime_binding"] != profile_runtime_binding(topology, project):
+            parser.error("crew conversation store or resume control differs from host profile")
+        if args.task_id is not None and value["task_id"] != args.task_id:
+            parser.error("crew profile names a different task")
+        try:
+            source_head = git(
+                args.source, "rev-parse", "--verify", "HEAD"
+            ).stdout.strip()
+            load_committed_task(
+                args.source,
+                value["task_id"],
+                expected_sha256=value["task_contract_sha256"],
+                commit=source_head,
+            )
+        except (OSError, subprocess.CalledProcessError, ValueError):
+            parser.error("crew profile names a different committed contract")
+        profile_options = dict(provider_topology=value["topology"], role_routes=value["role_routes"])
+    try: result=run_crew(source=args.source,output_root=args.output_root,task_id=args.task_id,provider_name=args.provider,implementation_paths=tuple(args.implementation_path or ()),test_paths=tuple(args.test_path or ()),new_implementation_paths=tuple(args.new_implementation_path or ()),new_test_paths=tuple(args.new_test_path or ()),run_id=args.run_id,retry_run_id=args.retry_run,review_feedback_file=args.review_feedback_file,host_output_root=host_output_root,execution_model=args.model,openai_reasoning_effort=args.openai_reasoning_effort,crew_profile=args.crew_profile,validation_profile=args.validation_profile,retry_expected_provider=args.expected_provider,role_session_leases=role_session_leases,scheduler_repository_identity=args.scheduler_repository_identity,checkout_identity_manifest=args.checkout_identity_manifest,provider_allowlist=None if args.provider_allowlist is None else tuple(args.provider_allowlist.split(",")),quota_fallback_provider=args.quota_fallback_provider,**profile_options)
     except (CrewBlocked,ValueError,OSError,subprocess.CalledProcessError) as exc:
         reason=str(exc)
         print(f"ExecutionCrew blocked: {reason}",file=sys.stderr)

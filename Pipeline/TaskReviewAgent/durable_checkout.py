@@ -33,6 +33,12 @@ class DurableCheckoutError(TaskReviewContractError):
     """Raised when a workflow-owned checkout cannot be created or resumed safely."""
 
 
+_STALE_MAIN_REASON = "checkout origin/main does not match current controller main"
+_REMOTE_HANDOFF_REASON = "recorded handoff commit is not the pushed remote task branch"
+_DIRTY_WORKTREE_REASON = "checkout working tree is not clean"
+_FRESH_TREE_REASON = "fresh checkout tree does not match observed source tree"
+
+
 def _workflow_state(observation: dict[str, Any]) -> dict[str, Any] | None:
     coordination = observation.get("coordination")
     if not isinstance(coordination, dict):
@@ -57,6 +63,76 @@ def _require_observation(observation: dict[str, Any], task_id: str) -> None:
         raise DurableCheckoutError("checkout observation task identity changed")
     if not isinstance(coordination, dict):
         raise DurableCheckoutError("checkout observation is missing Issue workflow facts")
+
+
+def _checkout_git_identity(root: Path) -> tuple[str, str, str, str, str]:
+    """Read HEAD/tree/origin-main and branch/status with two normal Git calls."""
+
+    revisions = _git(
+        root,
+        "rev-parse",
+        "HEAD",
+        "HEAD^{tree}",
+        "refs/remotes/origin/main",
+        check=False,
+    )
+    if revisions.returncode == 0:
+        try:
+            values = [
+                line
+                for line in revisions.stdout.decode("utf-8").splitlines()
+                if line.strip()
+            ]
+        except UnicodeDecodeError as exc:
+            raise DurableCheckoutError(
+                "durable checkout Git revisions were not valid UTF-8"
+            ) from exc
+        if len(values) != 3:
+            raise DurableCheckoutError(
+                "git rev-parse returned an incomplete durable checkout identity"
+            )
+        head, tree, origin_main = values
+    else:
+        # Preserve the historical conflict-reporting behavior when origin/main
+        # or another revision is unavailable instead of turning inspect into a
+        # mutating repair attempt or silently accepting partial stdout.
+        head = _git_text(root, "rev-parse", "--verify", "HEAD", check=False)
+        tree = _git_text(root, "rev-parse", "HEAD^{tree}", check=False)
+        origin_main = _git_text(
+            root,
+            "rev-parse",
+            "--verify",
+            "refs/remotes/origin/main",
+            check=False,
+        )
+
+    status_result = _git(
+        root,
+        "status",
+        "--porcelain=v1",
+        "--branch",
+        "--untracked-files=all",
+        check=False,
+    )
+    if status_result.returncode != 0:
+        return head, tree, "", "<git-status-unavailable>", origin_main
+    try:
+        status_output = status_result.stdout.decode("utf-8").splitlines()
+    except UnicodeDecodeError as exc:
+        raise DurableCheckoutError("checkout Git status was not valid UTF-8") from exc
+    if not status_output or not status_output[0].startswith("## "):
+        return head, tree, "", "<git-status-missing-branch>", origin_main
+    branch_header = status_output[0][3:]
+    if branch_header.startswith("HEAD ("):
+        branch = ""
+    elif branch_header.startswith("No commits yet on "):
+        branch = branch_header.removeprefix("No commits yet on ")
+    elif branch_header.startswith("Initial commit on "):
+        branch = branch_header.removeprefix("Initial commit on ")
+    else:
+        branch = branch_header.split("...", 1)[0]
+    status = "\n".join(line for line in status_output[1:] if line.strip())
+    return head, tree, branch, status, origin_main
 
 
 class DurableTaskCheckoutManager:
@@ -246,28 +322,14 @@ class DurableTaskCheckoutManager:
             reasons.append("canonical checkout path is nested inside another Git repository")
             return {"status": "conflict", **base}
 
-        head = _git_text(self.checkout_path, "rev-parse", "--verify", "HEAD", check=False)
-        tree = _git_text(self.checkout_path, "rev-parse", "HEAD^{tree}", check=False)
-        branch = _git_text(self.checkout_path, "branch", "--show-current", check=False)
-        status = _git_text(
-            self.checkout_path,
-            "status",
-            "--porcelain=v1",
-            "--untracked-files=all",
-            check=False,
+        head, tree, branch, status, origin_main = _checkout_git_identity(
+            self.checkout_path
         )
         remote_url = _git_text(
             self.checkout_path,
             "remote",
             "get-url",
             "origin",
-            check=False,
-        )
-        origin_main = _git_text(
-            self.checkout_path,
-            "rev-parse",
-            "--verify",
-            "refs/remotes/origin/main",
             check=False,
         )
         remote_branch = _git_text(
@@ -441,6 +503,312 @@ class DurableTaskCheckoutManager:
         if validation.returncode != 0 or b"taskcontrol validate: PASS" not in validation.stdout:
             raise DurableCheckoutError("TaskGraph validation did not pass in new checkout")
 
+    def _remote_branch_head(self, branch: str) -> str | None:
+        result = _git(
+            self.checkout_path,
+            "ls-remote",
+            "--heads",
+            "origin",
+            f"refs/heads/{branch}",
+            check=False,
+        )
+        if result.returncode != 0:
+            raise DurableCheckoutError(
+                f"could not verify remote branch refs/heads/{branch}"
+            )
+        try:
+            lines = [
+                line.strip()
+                for line in result.stdout.decode("utf-8").splitlines()
+                if line.strip()
+            ]
+        except UnicodeDecodeError as exc:
+            raise DurableCheckoutError("remote branch identity was not valid UTF-8") from exc
+        if not lines:
+            return None
+        if len(lines) != 1:
+            raise DurableCheckoutError(
+                f"remote branch refs/heads/{branch} resolved ambiguously"
+            )
+        fields = lines[0].split()
+        expected_ref = f"refs/heads/{branch}"
+        if (
+            len(fields) != 2
+            or fields[1] != expected_ref
+            or len(fields[0]) != 40
+            or any(character not in "0123456789abcdef" for character in fields[0])
+        ):
+            raise DurableCheckoutError(
+                f"remote branch refs/heads/{branch} returned an invalid identity"
+            )
+        return fields[0]
+
+    def _is_ancestor(self, older: str, newer: str) -> bool:
+        result = _git(
+            self.checkout_path,
+            "merge-base",
+            "--is-ancestor",
+            older,
+            newer,
+            check=False,
+        )
+        if result.returncode not in {0, 1}:
+            raise DurableCheckoutError(
+                f"could not compare decomposition checkout ancestry {older}..{newer}"
+            )
+        return result.returncode == 0
+
+    def _fresh_decomposition_projection(
+        self,
+        observation: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Project the active lease as a new proposal for physical verification only.
+
+        A rejected or stale D1B handoff remains in the durable Issue history until
+        the replacement proposal publishes its own handoff.  The current lease's
+        ``source_head`` is nevertheless current main.  Clearing the historical
+        handoff fields in this local copy lets the strict checkout inspector prove
+        the physical checkout as a fresh review-only source without mutating or
+        weakening the Issue authority itself.
+        """
+
+        coordination = dict(observation["coordination"])
+        workflow = dict(coordination["workflow_state"])
+        workflow["head_commit"] = None
+        workflow["human_handoff_commit"] = None
+        coordination["workflow_state"] = workflow
+        identity = {
+            "environment": observation["environment"],
+            "task": observation["task"],
+            "coordination": coordination,
+        }
+        return {
+            **observation,
+            "coordination": coordination,
+            "observation_sha256": semantic_sha256(identity),
+        }
+
+    @staticmethod
+    def _blocked_decomposition_refresh(
+        inspected: dict[str, Any],
+        reason: str,
+    ) -> dict[str, Any]:
+        reasons = list(inspected.get("reasons") or [])
+        if reason not in reasons:
+            reasons.append(reason)
+        return {**inspected, "status": "blocked", "reasons": reasons}
+
+    def _recover_fresh_decomposition_main_advance(
+        self,
+        observation: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        """Fast-forward one exact clean review-only checkout to current main.
+
+        This applies after an exact prior decomposition attempt left its read-only
+        checkout behind, whether it stopped before handoff or its handoff was later
+        rejected/invalidated. D1B creates no source commit and normally does not
+        push its identity branch. Every physical and remote identity is re-proven
+        before the sole allowed mutation: ``git merge --ff-only`` along main.
+        """
+
+        if self.work_type != "decomposition" or not self.checkout_path.is_dir():
+            return None
+        workflow = _workflow_state(observation)
+        coordination = observation.get("coordination") or {}
+        if not isinstance(workflow, dict):
+            return None
+        historical_head = str(workflow.get("head_commit") or "")
+        human_handoff_head = str(workflow.get("human_handoff_commit") or "")
+        fresh_retry_without_handoff = not historical_head and not human_handoff_head
+        expected_branch = self.expected_branch(observation)
+        if (
+            workflow.get("state") != "agent_working"
+            or workflow.get("phase") != "decomposition"
+            or workflow.get("current_actor") != "agent"
+            or workflow.get("worker_id") != self.worker_id
+            or workflow.get("human_result") is not None
+            or coordination.get("workflow_status") != "agent_working_by_worker"
+        ):
+            return None
+        if fresh_retry_without_handoff:
+            # Before the first handoff the workflow state intentionally has no
+            # branch/checkout fields. The manager's canonical path and the signed
+            # external manifest provide those bindings. Refuse any conflicting
+            # value if a future state-machine revision starts recording them.
+            if workflow.get("checkout_path") not in (None, str(self.checkout_path)):
+                return None
+            if workflow.get("branch") not in (None, expected_branch):
+                return None
+        elif (
+            workflow.get("checkout_path") != str(self.checkout_path)
+            or workflow.get("branch") != expected_branch
+        ):
+            return None
+        if not fresh_retry_without_handoff and (
+            not historical_head or human_handoff_head != historical_head
+        ):
+            return None
+
+        inspected = self.inspect(observation)
+        if inspected.get("status") != "conflict":
+            return None
+        reasons = list(inspected.get("reasons") or [])
+        head_reasons = {
+            reason
+            for reason in reasons
+            if reason.startswith("checkout HEAD ")
+            and " does not match workflow head " in reason
+        }
+        permitted = {
+            _STALE_MAIN_REASON,
+            _REMOTE_HANDOFF_REASON,
+            *head_reasons,
+        }
+        if fresh_retry_without_handoff:
+            permitted.add(_FRESH_TREE_REASON)
+        unexpected = set(reasons) - permitted
+        if unexpected == {_DIRTY_WORKTREE_REASON}:
+            return self._blocked_decomposition_refresh(
+                inspected,
+                "dirty review-only decomposition checkout cannot be advanced or cleaned automatically",
+            )
+        if not reasons or unexpected:
+            return None
+
+        environment = observation["environment"]
+        current_head = str(environment.get("source_head") or "")
+        current_tree = str(environment.get("source_tree") or "")
+        remote_url = str(inspected.get("remote_url") or "")
+        manifest = self._read_manifest()
+        local_head = str(inspected.get("head_commit") or "")
+        manifest_head = str((manifest or {}).get("initial_source_head") or "")
+        manifest_tree = str((manifest or {}).get("initial_source_tree") or "")
+        if (
+            inspected.get("branch") != expected_branch
+            or inspected.get("clean") is not True
+            or not remote_url
+            or not self._remote_allowed(remote_url)
+            or _normalized_remote(remote_url)
+            != _normalized_remote(str(environment.get("remote_url") or ""))
+            or manifest is None
+            or not self._manifest_matches(observation, remote_url)
+            or not local_head
+            or not manifest_head
+            or not manifest_tree
+            or not current_head
+            or not current_tree
+        ):
+            return None
+
+        manifest_commit_tree = _git_text(
+            self.checkout_path,
+            "rev-parse",
+            f"{manifest_head}^{{tree}}",
+            check=False,
+        )
+        if manifest_commit_tree != manifest_tree:
+            return self._blocked_decomposition_refresh(
+                inspected,
+                "external decomposition checkout manifest source tree no longer matches its commit",
+            )
+        _git(
+            self.checkout_path,
+            "fetch",
+            "--no-tags",
+            "origin",
+            "+refs/heads/main:refs/remotes/origin/main",
+        )
+        if (
+            _git_text(
+                self.checkout_path,
+                "rev-parse",
+                "--verify",
+                "refs/remotes/origin/main",
+                check=False,
+            )
+            != current_head
+        ):
+            return self._blocked_decomposition_refresh(
+                inspected,
+                "remote main moved during decomposition checkout recovery",
+            )
+        remote_task_head = self._remote_branch_head(expected_branch)
+        permitted_remote_heads = {None}
+        if historical_head:
+            permitted_remote_heads.add(historical_head)
+        if remote_task_head not in permitted_remote_heads:
+            return self._blocked_decomposition_refresh(
+                inspected,
+                "remote decomposition task branch moved away from the prior review-only handoff",
+            )
+
+        if historical_head and not self._is_ancestor(historical_head, manifest_head):
+            return self._blocked_decomposition_refresh(
+                inspected,
+                "external decomposition checkout manifest does not descend from the prior handoff",
+            )
+        if not self._is_ancestor(manifest_head, local_head):
+            return self._blocked_decomposition_refresh(
+                inspected,
+                "decomposition checkout HEAD does not descend from its external manifest",
+            )
+        if not self._is_ancestor(local_head, current_head):
+            reason = (
+                "prior decomposition handoff is not an ancestor of current controller main"
+                if local_head == historical_head
+                else "decomposition checkout HEAD is not an ancestor of current controller main"
+            )
+            return self._blocked_decomposition_refresh(
+                inspected,
+                reason,
+            )
+
+        fast_forwarded = local_head != current_head
+        if fast_forwarded:
+            _git(self.checkout_path, "merge", "--ff-only", current_head)
+
+        if (
+            _git_text(self.checkout_path, "rev-parse", "HEAD", check=False)
+            != current_head
+            or _git_text(
+                self.checkout_path,
+                "status",
+                "--porcelain=v1",
+                "--untracked-files=all",
+                check=False,
+            )
+        ):
+            raise DurableCheckoutError(
+                "decomposition checkout recovery could not verify current main after fast-forward"
+            )
+        remote_task_after = self._remote_branch_head(expected_branch)
+        if remote_task_after not in permitted_remote_heads:
+            return self._blocked_decomposition_refresh(
+                inspected,
+                "remote decomposition task branch moved during checkout recovery",
+            )
+
+        projected = self._fresh_decomposition_projection(observation)
+        self._write_manifest(projected, remote_url)
+        verified = self.inspect(projected)
+        if verified.get("status") != "ready":
+            raise DurableCheckoutError(
+                "refreshed review-only decomposition checkout failed strict verification"
+            )
+        return {
+            **verified,
+            "status": "resumed",
+            "resume_mode": True,
+            "review_only_decomposition_refresh": True,
+            "review_only_decomposition_rebased": (historical_head or manifest_head) != current_head,
+            "checkout_fast_forwarded": fast_forwarded,
+            "historical_workflow_head": historical_head or None,
+            "prior_checkout_head": local_head,
+            "recovered_checkout_head": current_head,
+            "durable_manifest_migrated": True,
+            "recovery_authority": "clean_review_only_decomposition_main_ancestry",
+        }
+
     def prepare(self, observation: dict[str, Any]) -> dict[str, Any]:
         reasons = self._preparation_reasons(observation)
         if reasons:
@@ -450,6 +818,9 @@ class DurableTaskCheckoutManager:
                 "branch": self.expected_branch(observation),
                 "reasons": reasons,
             }
+        recovered = self._recover_fresh_decomposition_main_advance(observation)
+        if recovered is not None:
+            return recovered
         inspected = self.inspect(observation)
         if inspected["status"] == "ready":
             return {**inspected, "status": "resumed"}
@@ -476,7 +847,17 @@ class DurableTaskCheckoutManager:
         )
         try:
             shutil.rmtree(temporary)
-            _run(("git", "clone", remote_url, str(temporary)), cwd=self.checkout_root)
+            _run(
+                (
+                    "git",
+                    "-c",
+                    "core.longpaths=true",
+                    "clone",
+                    remote_url,
+                    str(temporary),
+                ),
+                cwd=self.checkout_root,
+            )
             _git(temporary, "config", "core.longpaths", "true")
             _git(temporary, "fetch", "origin", "main")
             if self.is_resume(observation):

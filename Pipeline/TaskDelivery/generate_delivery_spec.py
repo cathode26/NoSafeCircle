@@ -17,7 +17,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[2]
 TASKGRAPH = ROOT / "Pipeline" / "TaskGraph"
 TESTING = ROOT / "Pipeline" / "Testing"
-for module_path in (str(TASKGRAPH), str(TESTING)):
+for module_path in (str(ROOT), str(TASKGRAPH), str(TESTING)):
     if module_path not in sys.path:
         sys.path.insert(0, module_path)
 
@@ -205,12 +205,44 @@ def _manifest_entry(manifest: Any) -> dict[str, Any]:
             "test_platform": manifest.unity.test_platform, "test_filter": manifest.unity.test_filter}
 
 
-def _unity_artifacts(manifests: list[Any]) -> list[dict[str, Any]]:
+def _require_source_validation_policy(root: Path, task_id: str, manifests: list[Any]) -> None:
+    if not any(item.unity.test_platform == "SyntheticSource" for item in manifests):
+        return
+    from Pipeline.TaskReviewAgent.committed_tasks import CommittedTaskError, load_committed_task
+    from Pipeline.TaskReviewAgent.downstream_pipeline import DownstreamPipelineError
+    from Pipeline.TaskReviewAgent.downstream_resilience import validation_plan_for
+    from Pipeline.TaskReviewAgent.issue_workflow_store import (
+        IssueWorkflowStoreError, resolve_issue_backend_repository,
+    )
+    try:
+        task = load_committed_task(root, task_id)
+        plan = validation_plan_for(root, task)
+        repository = resolve_issue_backend_repository(root)
+    except (CommittedTaskError, DownstreamPipelineError, IssueWorkflowStoreError, OSError) as exc:
+        raise TaskDeliveryError(f"Source evidence requires the exact committed SyntheticSource policy: {exc}") from exc
+    if (
+        plan is None
+        or plan.get("required_test_platforms") != ["SyntheticSource"]
+        or len(manifests) != 1
+        or manifests[0].unity.test_filter != plan.get("test_filters", {}).get("SyntheticSource")
+    ):
+        raise TaskDeliveryError("Source evidence requires the exact committed SyntheticSource policy.")
+    if any(
+        not isinstance(getattr(item, "repository", None), str)
+        or item.repository.casefold() != repository.casefold()
+        for item in manifests
+    ):
+        raise TaskDeliveryError("Source validation manifest targets a different repository.")
+
+
+def _validation_artifacts(manifests: list[Any]) -> list[dict[str, Any]]:
     artifacts = []
     for index, manifest in enumerate(manifests, 1):
-        label = f"Unity-{manifest.unity.test_platform}-{index:02d}"
+        source_validation = manifest.unity.test_platform == "SyntheticSource"
+        prefix = "source" if source_validation else "unity"
+        label = f"{'Source' if source_validation else 'Unity'}-{manifest.unity.test_platform}-{index:02d}"
         for suffix, artifact_type, fact in (("results", "unity_test_results", manifest.xml), ("log", "unity_log", manifest.log)):
-            artifacts.append({"id": f"unity_{index:02d}_{suffix}", "type": artifact_type,
+            artifacts.append({"id": f"{prefix}_{index:02d}_{suffix}", "type": "other" if source_validation else artifact_type,
                               "source_path": str(fact.path), "name": label,
                               "sha256": fact.sha256, "size_bytes": fact.size_bytes,
                               "validation_manifest": str(manifest.path)})
@@ -255,6 +287,7 @@ def create_draft(*, root: Path, task_id: str, manifest_paths: list[Path], output
     validated, validated_tree = next(iter(identities))
     if (head, tree) != (validated, validated_tree):
         raise TaskDeliveryError("Current HEAD/tree does not match the validated state.")
+    _require_source_validation_policy(root, task_id, manifests)
 
     crew_paths: dict[str, list[str]] = {}
     inferred_base = None
@@ -288,7 +321,7 @@ def create_draft(*, root: Path, task_id: str, manifest_paths: list[Path], output
         candidates.append({"path": path, "sources": sorted(reasons[path]), "suggested_role": "implementation" if confirmed else "task resource",
                            "selected": confirmed, "role": ""})
 
-    artifacts = _unity_artifacts(manifests)
+    artifacts = _validation_artifacts(manifests)
     for index, path in enumerate(human_validation or [], 1):
         artifacts.append(_human_artifact(path.resolve(strict=True), index))
     gates = [{"gate_id": gate["gate_id"], "reference": gate["reference"], "requirement": gate["requirement"],
@@ -405,10 +438,11 @@ def finalize_review(*, root: Path, review_path: Path, output: Path) -> Path:
             raise TaskDeliveryError("A validation manifest no longer matches the reviewed state or inventory.")
         manifests_by_path[canonical_path] = manifest
 
-    expected_unity = _unity_artifacts(list(manifests_by_path.values()))
-    reviewed_unity = [item for item in review["artifacts"] if isinstance(item, dict) and item.get("validation_manifest") is not None]
-    if reviewed_unity != expected_unity:
-        raise TaskDeliveryError("Unity artifact inventory was edited or no longer matches its validation manifests.")
+    _require_source_validation_policy(root, task_meta["id"], list(manifests_by_path.values()))
+    expected_artifacts = _validation_artifacts(list(manifests_by_path.values()))
+    reviewed_artifacts = [item for item in review["artifacts"] if isinstance(item, dict) and item.get("validation_manifest") is not None]
+    if reviewed_artifacts != expected_artifacts:
+        raise TaskDeliveryError("Validation artifact inventory was edited or no longer matches its validation manifests.")
     artifacts = [_verify_external_artifact(item, manifests_by_path) for item in review["artifacts"]]
     artifact_ids = [item["id"] for item in artifacts]
     if len(artifact_ids) != len(set(artifact_ids)):
@@ -456,13 +490,30 @@ def finalize_review(*, root: Path, review_path: Path, output: Path) -> Path:
         gates.append({"gate_id": item["gate_id"], "evidence": evidence, "notes": _meaningful(item["notes"], f"gate {item['gate_id']} notes")})
 
     approval = _exact_object(review["human_approval"], "human_approval", {"required", "decision", "approved_by", "notes"})
-    if approval["required"] is not True or approval["decision"] != "approved":
-        raise TaskDeliveryError("Required human approval must be internally consistent and approved.")
-    approved_by = _meaningful(approval["approved_by"], "human_approval.approved_by")
-    approval_notes = _meaningful(approval["notes"], "human_approval.notes")
+    if approval["required"] is True:
+        if approval["decision"] != "approved":
+            raise TaskDeliveryError("Required human approval must be internally consistent and approved.")
+        approved_by = _meaningful(approval["approved_by"], "human_approval.approved_by")
+        approval_notes = _meaningful(approval["notes"], "human_approval.notes")
+    elif approval["required"] is False:
+        if approval["decision"] != "not_required" or approval["approved_by"] != "":
+            raise TaskDeliveryError(
+                "Non-required human approval must use decision not_required and blank approved_by."
+            )
+        approved_by = ""
+        approval_notes = _meaningful(approval["notes"], "human_approval.notes")
+        if re.fullmatch(
+            r"Automated validation event [0-9a-f]{64}; committed validation policy [0-9a-f]{64}\.\Z",
+            approval_notes,
+        ) is None:
+            raise TaskDeliveryError(
+                "Non-required human approval notes must bind exact automated validation event and policy IDs."
+            )
+    else:
+        raise TaskDeliveryError("human_approval.required must be boolean.")
     spec = {"schema_version": "1.0", "task_id": task_meta["id"], "validated_commit": head, "base_commit": base,
             "candidate_commit": candidate, "surfaces": surfaces, "artifacts": artifacts, "gates": gates,
-            "human_approval": {"required": True, "decision": "approved", "approved_by": approved_by, "notes": approval_notes}}
+            "human_approval": {"required": approval["required"], "decision": approval["decision"], "approved_by": approved_by, "notes": approval_notes}}
     try:
         parse_delivery_spec(spec)
     except RecordDeliveryError as exc:

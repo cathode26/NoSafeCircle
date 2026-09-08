@@ -250,8 +250,21 @@ def make_manifest(directory: Path, *, commit: str, tree: str) -> Path:
         "schema_version": "1.0",
         "manifest_type": "unity_test_validation",
         "status": "passed",
-        "validated_state": {"commit": commit, "tree": tree},
-        "unity": {"test_platform": "PlayMode", "test_filter": "Synthetic.Tests"},
+        "validated_state": {
+            "commit": commit,
+            "tree": tree,
+            "post_commit": commit,
+            "post_tree": tree,
+            "repository_clean_before": True,
+            "repository_clean_after": True,
+        },
+        "unity": {
+            "version": "6000.0.0f1",
+            "executable": "C:/Unity/Unity.exe",
+            "exit_code": 0,
+            "test_platform": "PlayMode",
+            "test_filter": "Synthetic.Tests",
+        },
         "test_run": {
             "result": "Passed",
             "total": 1,
@@ -271,6 +284,7 @@ def make_manifest(directory: Path, *, commit: str, tree: str) -> Path:
                 "size_bytes": log.stat().st_size,
             },
         },
+        "runner": {"path": "Pipeline/Testing/run_unity_tests_clean.ps1"},
     }
     manifest.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return manifest
@@ -286,9 +300,45 @@ def test_manifest_rejects_zero_discovered_tests() -> None:
         try:
             _manifest(manifest)
         except DownstreamPipelineError as exc:
-            require("zero tests" in str(exc), "wrong zero-test manifest error")
+            require("greater than zero" in str(exc), "wrong zero-test manifest error")
         else:
             raise AssertionError("zero-test validation manifest was accepted")
+
+
+def test_manifest_rejects_artifact_path_traversal() -> None:
+    """A manifest may not select an artifact outside its own directory."""
+
+    with tempfile.TemporaryDirectory(prefix="nsc-manifest-traversal-") as temporary:
+        root = Path(temporary)
+        manifest_root = root / "manifest"
+        outside = root / "outside"
+        outside.mkdir(parents=True)
+        escaped_xml = outside / "test-results.xml"
+        escaped_xml.write_text(
+            '<test-run result="Passed" total="1" passed="1" failed="0" skipped="0" />\n',
+            encoding="utf-8",
+        )
+        manifest = make_manifest(
+            manifest_root,
+            commit="1" * 40,
+            tree="2" * 40,
+        )
+        raw = json.loads(manifest.read_text(encoding="utf-8"))
+        raw["artifacts"]["xml"].update(
+            relative_path="../outside/test-results.xml",
+            sha256=hashlib.sha256(escaped_xml.read_bytes()).hexdigest(),
+            size_bytes=escaped_xml.stat().st_size,
+        )
+        manifest.write_text(json.dumps(raw), encoding="utf-8")
+        resolved = (manifest.parent / raw["artifacts"]["xml"]["relative_path"]).resolve()
+        try:
+            _manifest(manifest)
+        except DownstreamPipelineError as exc:
+            require("traversal" in str(exc), "wrong traversal manifest error")
+        else:
+            raise AssertionError(
+                f"artifact traversal escaped {manifest.parent.resolve()} and resolved to {resolved}"
+            )
 
 
 def test_delivery_draft_uses_stable_main_base() -> None:
@@ -358,6 +408,11 @@ def test_delivery_draft_uses_stable_main_base() -> None:
             {"head_commit": human_head, "branch": BRANCH},
         )
         controller._assert_human_tested_head = lambda state: None
+        controller._latest_validation_authority = lambda: {
+            "kind": "human",
+            "result": "pass",
+            "tested_commit": human_head,
+        }
         controller._human_validation_artifact = lambda commit: {
             "path": str(human_path),
             "sha256": hashlib.sha256(human_path.read_bytes()).hexdigest(),
@@ -373,6 +428,41 @@ def test_delivery_draft_uses_stable_main_base() -> None:
             "draft used only the final repair parent",
         )
         require(facts["validated_commit"] == human_head, "draft commit changed")
+
+        captured.clear()
+        automated_output = root / "automated-output"
+        automated_output.mkdir()
+        automated = object.__new__(ResumableDownstreamTaskController)
+        automated.task_id = TASK_ID
+        automated.checkout = repository
+        automated.command_runner = runner
+        automated.state = {
+            "validation_manifests": [_manifest(manifest_path)],
+            "delivery_base_commit": main_commit,
+        }
+        automated._require_lease = controller._require_lease
+        automated._assert_human_tested_head = lambda state: None
+        automated._latest_validation_authority = lambda: {
+            "kind": "automated",
+            "event_id": "automation-event-123",
+            "policy_sha256": "f" * 64,
+            "tested_commit": human_head,
+        }
+        automated._human_validation_artifact = lambda commit: (_ for _ in ()).throw(
+            AssertionError("automated authority created a human validation artifact")
+        )
+        automated._output_root = lambda commit: automated_output
+        automated._persist = lambda: None
+        automated.create_delivery_review_draft()
+        automated_command = captured["command"]
+        require(
+            "--human-validation" not in automated_command,
+            "automated authority was passed through the human-validation CLI",
+        )
+        require(
+            automated.state["human_validation"] is None,
+            "automated authority persisted a human validation artifact",
+        )
 
 
 class CompleteIssue:
@@ -882,6 +972,7 @@ def test_persisted_evidence_ref_refresh_preserves_recovered_head() -> None:
         "checkout": {
             "status": "ready",
             "head_commit": EVIDENCE_HEAD,
+            "branch": BRANCH,
             "clean": True,
             "origin_main_refresh_required": True,
             "persisted_evidence_recovery": {
@@ -894,6 +985,7 @@ def test_persisted_evidence_ref_refresh_preserves_recovered_head() -> None:
         "checkout": {
             "status": "ready",
             "head_commit": EVIDENCE_HEAD,
+            "branch": BRANCH,
             "clean": True,
             "persisted_evidence_recovery": {
                 "status": "recovered",
@@ -918,6 +1010,112 @@ def test_persisted_evidence_ref_refresh_preserves_recovered_head() -> None:
     )
 
 
+def test_conformant_merge_closeout_refreshes_refs_without_fresh_preparation() -> None:
+    calls: list[tuple[str, ...]] = []
+
+    def runner(
+        args: Sequence[str], cwd: Path, timeout_seconds: float
+    ) -> subprocess.CompletedProcess[bytes]:
+        del cwd, timeout_seconds
+        command = tuple(args)
+        calls.append(command)
+        require(command[0] == "git" and "fetch" in command, "unexpected command")
+        return subprocess.CompletedProcess(command, 0, b"", b"")
+
+    def reject_fresh_preparation() -> dict[str, Any]:
+        raise AssertionError(
+            "a conformant merge-closeout task fell into fresh implementation preparation"
+        )
+
+    workflow = SimpleNamespace(
+        worker_id="worker-a",
+        last_checkout_result=None,
+        prepare_task_checkout=reject_fresh_preparation,
+    )
+    controller = object.__new__(ResumableDownstreamTaskController)
+    controller.checkout = Path(".")
+    controller.command_runner = runner
+    controller.workflow = workflow
+    controller.last_observation = {
+        "task": {"derived_state": "conformant"},
+        "coordination": {
+            "workflow_state": {
+                "state": "agent_working",
+                "phase": "merge_closeout",
+                "worker_id": "worker-a",
+                "branch": BRANCH,
+                "head_commit": EVIDENCE_HEAD,
+            }
+        },
+        "checkout": {
+            "status": "ready",
+            "head_commit": EVIDENCE_HEAD,
+            "branch": BRANCH,
+            "clean": True,
+            "origin_main_refresh_required": True,
+        },
+    }
+    controller.observe = lambda: {
+        "checkout": {
+            "status": "ready",
+            "head_commit": EVIDENCE_HEAD,
+            "branch": BRANCH,
+            "clean": True,
+        }
+    }
+
+    result = controller.prepare_task_checkout()
+    require(result["head_commit"] == EVIDENCE_HEAD, "evidence head changed")
+    require(result["origin_main_refreshed"] is True, "main ref was not refreshed")
+    require(
+        result["recovery_authority"] == "exact_downstream_resume_identity",
+        "downstream ref refresh did not record its narrow authority",
+    )
+    require(workflow.last_checkout_result == result, "workflow result was not recorded")
+    require(len(calls) == 1, "ref refresh ran an unexpected number of commands")
+    require(
+        f"+refs/heads/{BRANCH}:refs/remotes/origin/{BRANCH}" not in calls[0],
+        "ordinary closeout refresh unnecessarily required the task branch remote",
+    )
+
+
+def test_implementation_phase_cannot_use_downstream_ref_refresh() -> None:
+    prepared: list[bool] = []
+
+    def ordinary_preparation() -> dict[str, Any]:
+        prepared.append(True)
+        return {"status": "ordinary_preparation_guard"}
+
+    controller = object.__new__(ResumableDownstreamTaskController)
+    controller.workflow = SimpleNamespace(
+        worker_id="worker-a",
+        prepare_task_checkout=ordinary_preparation,
+    )
+    controller.last_observation = {
+        "task": {"derived_state": "conformant"},
+        "coordination": {
+            "workflow_state": {
+                "state": "agent_working",
+                "phase": "implementation",
+                "worker_id": "worker-a",
+                "branch": BRANCH,
+                "head_commit": EVIDENCE_HEAD,
+            }
+        },
+        "checkout": {
+            "status": "ready",
+            "head_commit": EVIDENCE_HEAD,
+            "branch": BRANCH,
+            "clean": True,
+            "origin_main_refresh_required": True,
+        },
+    }
+
+    result = controller.prepare_task_checkout()
+    require(result["status"] == "ordinary_preparation_guard", "guard was bypassed")
+    require(prepared == [True], "ordinary preparation authority was not consulted")
+
+
 def main() -> int:
     tests = (
         test_issue_lifecycle_resumes_evidence_head,
@@ -929,9 +1127,12 @@ def main() -> int:
         test_pull_request_reuse_ignores_historical_runs,
         test_interrupted_pr_open_recovers_exact_persisted_evidence_head,
         test_persisted_evidence_ref_refresh_preserves_recovered_head,
+        test_conformant_merge_closeout_refreshes_refs_without_fresh_preparation,
+        test_implementation_phase_cannot_use_downstream_ref_refresh,
         test_post_merge_accepts_newer_main,
         test_delivery_review_materializes_exact_proposal,
         test_manifest_rejects_zero_discovered_tests,
+        test_manifest_rejects_artifact_path_traversal,
     )
     for test in tests:
         test()

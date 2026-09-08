@@ -15,7 +15,7 @@ from Pipeline.TaskGraph.token_usage_metrics import (
 )
 
 
-_TASK_ID_RE = re.compile(r"NSC-[0-9]{3}")
+_TASK_ID_RE = re.compile(r"^NSC-(?:[0-9]{3}|[1-9][0-9]{3,8})$")
 _RUN_ID_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,199}")
 _TOKEN_FIELDS = ("input_tokens", "output_tokens", "total_tokens")
 _CREW_USAGE_FIELDS = {

@@ -178,6 +178,8 @@ def test_controller_reaches_human_issue_handoff() -> None:
                 "source_tree": git(checkout, "rev-parse", "HEAD^{tree}"),
                 "source_branch": git(checkout, "branch", "--show-current"),
                 "provider": "claude",
+                "crew_profile": "full",
+                "validation_profile": "full_relevant",
                 "crew_status": "review_ready",
                 "requested_implementation_paths": [IMPLEMENTATION],
                 "requested_test_paths": [NEW_TEST],
@@ -239,6 +241,42 @@ def test_controller_reaches_human_issue_handoff() -> None:
         require(prepared["status"] in ("created", "ready"), f"checkout failed: {prepared}")
         third = controller.observe()
         require(third["production_pipeline"]["next_action"] == "validate_execution_scope", "scope not requested")
+        for provider, model in (("claude", None), ("claude", "manual-model"), ("codex", "manual-codex")):
+            manual = ProductionTaskController(
+                workflow=workflow,
+                execution_provider=provider,
+                execution_model=model,
+            )
+            manual.observe()
+            require(manual.execution is not None, "manual controller omitted ExecutionCrew bridge")
+            require(
+                manual.execution.enable_session_pool is False,
+                f"manual {provider}/{model} controller enabled the scheduler-owned pool",
+            )
+        scheduler = ProductionTaskController(
+            workflow=workflow,
+            execution_provider="claude",
+            execution_model="scheduler-model",
+            enable_execution_session_pool=True,
+        )
+        scheduler.observe()
+        require(scheduler.execution is not None, "scheduler controller omitted ExecutionCrew bridge")
+        require(
+            scheduler.execution.enable_session_pool is True,
+            "scheduler opt-in did not reach ExecutionCrew bridge",
+        )
+        for provider, permitted, fallback in (
+            ("codex", ("codex",), None),
+            ("claude", ("claude", "codex"), "codex"),
+        ):
+            restricted = ProductionTaskController(
+                workflow=workflow, execution_provider=provider,
+                provider_allowlist=permitted, quota_fallback_provider=fallback,
+            )
+            restricted.observe()
+            require(restricted.execution is not None, "restricted controller omitted its bridge")
+            require(restricted.execution.provider_allowlist == permitted, "controller lost provider restriction")
+            require(restricted.execution.quota_fallback_provider == fallback, "controller lost quota policy")
 
         scope_result = controller.validate_execution_scope(
             existing_implementation_paths=[IMPLEMENTATION],

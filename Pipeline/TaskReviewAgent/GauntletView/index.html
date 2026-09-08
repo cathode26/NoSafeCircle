@@ -1,0 +1,1066 @@
+<!-- NSC gauntlet live task graph. Read-only view; see server.py. -->
+<title>NSC Gauntlet Graph</title>
+<script src="/vendor/cytoscape.min.js"></script>
+<script src="/vendor/dagre.min.js"></script>
+<script src="/vendor/cytoscape-dagre.min.js"></script>
+<style>
+  :root {
+    --bg: #0e1117;
+    --panel: #161b22;
+    --line: #262c36;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --detail-width: 320px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; height: 100vh; overflow: hidden;
+    background: var(--bg); color: var(--text);
+    font: 13px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: grid; grid-template-columns: clamp(210px, 20vw, 278px) minmax(0, 1fr) var(--detail-width);
+  }
+  aside { background: var(--panel); overflow-y: auto; padding: 14px; }
+  aside.left { border-right: 1px solid var(--line); }
+  aside.right { border-left: 1px solid var(--line); }
+  [hidden] { display: none !important; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  h1 { font-size: 14px; margin: 0 0 2px; letter-spacing: .2px; }
+  h2 {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .09em;
+    color: var(--muted); margin: 18px 0 7px; font-weight: 600;
+  }
+  main { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+  #cy { width: 100%; flex: 1; min-height: 0; background: var(--bg); }
+  #pipeline-activity {
+    margin: 12px 14px 0; border: 1px solid #38516c;
+    border-top: 3px solid var(--accent); border-radius: 8px;
+    background: var(--panel); height: 176px; flex: none; overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  .panel-header { display: flex; align-items: center; gap: 10px; padding: 8px 12px; flex: none; }
+  .pipeline-title { min-width: 0; flex: 1; }
+  #pipeline-body { overflow-y: auto; min-height: 0; flex: 1; padding: 0 12px 8px; }
+  #pipeline-activity h2 { margin: 0 0 4px; color: var(--accent); }
+  #pipeline-headline { font-size: 16px; line-height: 1.3; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .resize-handle { background: var(--line); touch-action: none; display: flex; align-items: center; justify-content: center; }
+  .resize-handle:hover, .resize-handle:focus-visible { background: #38516c; }
+  .resize-handle::after { content: ''; background: var(--muted); border-radius: 2px; }
+  #pipeline-resize::after { width: 36px; height: 2px; }
+  #detail-resize::after { width: 2px; height: 36px; }
+  #pipeline-resize { height: 8px; flex: none; cursor: ns-resize; }
+  #detail-panel { padding: 0; overflow: hidden; min-width: 0; display: grid; grid-template-columns: 8px minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  #detail-resize { grid-column: 1; grid-row: 1 / 3; cursor: ew-resize; }
+  #detail-header { grid-column: 2; justify-content: space-between; }
+  #detail-header h2 { margin: 0; }
+  #detail { grid-column: 2; overflow-y: auto; padding: 0 14px 14px; min-width: 0; }
+  #detail-panel.collapsed { grid-template-columns: 0 minmax(0, 1fr); }
+  #detail-panel.collapsed #detail-heading { display: none; }
+  #detail-panel.collapsed #detail-header { padding: 8px 4px; justify-content: center; }
+  body.resizing { user-select: none; }
+  .pipeline-note { font-size: 12px; color: #b8c4d1; margin: 5px 0; }
+  .pipeline-candidates { display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0; }
+  .pipeline-candidates span { border: 1px solid var(--line); border-radius: 4px; padding: 2px 6px; font-size: 11px; }
+  .pipeline-counters { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 5px 16px; margin: 10px 0; }
+  .pipeline-counters span { display: block; color: var(--muted); font-size: 10px; }
+  .pipeline-counters b { font-size: 14px; font-variant-numeric: tabular-nums; }
+  #pipeline-stage-elapsed, #pipeline-run-elapsed { font-size: 14px; color: var(--text); }
+  #pipeline-freshness { font-size: 11px; color: #b8c4d1; }
+  #pipeline-freshness.stale { color: #ffd23f; }
+  .pipeline-timeline { padding: 0; margin: 6px 0 0; list-style: none; max-height: 90px; overflow-y: auto; }
+  .pipeline-timeline li { border-top: 1px solid var(--line); padding: 3px 0; font-size: 11px; }
+  .pipeline-timeline time { color: var(--muted); margin-right: 8px; }
+  .sub { color: var(--muted); font-size: 11px; margin-bottom: 4px; word-break: break-all; }
+
+  .stat { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; }
+  .stat span:last-child { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  .legend { display: flex; align-items: center; gap: 8px; padding: 3px 0; cursor: pointer; }
+  .legend:hover { color: var(--accent); }
+  .legend.off { opacity: .35; }
+  .swatch { width: 11px; height: 11px; border-radius: 3px; flex: none; border: 1px solid #0006; }
+  .legend .count { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .lgroup {
+    font-size: 9px; text-transform: uppercase; letter-spacing: .1em;
+    color: #6e7681; margin: 10px 0 3px; font-weight: 600;
+  }
+  .lgroup:first-child { margin-top: 2px; }
+
+  label.check { display: flex; align-items: center; gap: 7px; padding: 3px 0; cursor: pointer; }
+
+  .btns { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  button {
+    background: #21262d; color: var(--text); border: 1px solid var(--line);
+    border-radius: 6px; padding: 5px 10px; cursor: pointer; font: inherit; font-size: 12px;
+  }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button.on { background: var(--accent); color: #0d1117; border-color: var(--accent); font-weight: 600; }
+
+  #detail .field { margin-bottom: 10px; }
+  #detail .k {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .07em;
+    color: var(--muted); margin-bottom: 2px;
+  }
+  #detail .v { word-break: break-word; }
+  #detail code {
+    background: #0d1117; border: 1px solid var(--line); border-radius: 4px;
+    padding: 1px 5px; font-size: 11px; display: inline-block; margin: 1px 2px 1px 0;
+  }
+  #detail ul { margin: 3px 0; padding-left: 16px; }
+  #detail li { margin-bottom: 3px; }
+  .pill {
+    display: inline-block; padding: 2px 9px; border-radius: 999px;
+    font-size: 11px; font-weight: 600; color: #0d1117;
+  }
+  .github-navigation { margin: 2px 0 14px; }
+  .issue-button {
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 1px solid var(--accent); border-radius: 7px; padding: 6px 11px;
+    color: var(--accent); font-weight: 650; text-decoration: none;
+  }
+  .issue-button:hover { background: #58a6ff1a; }
+  .issue-button.primary {
+    display: flex; width: 100%; padding: 9px 12px;
+    background: var(--accent); color: #0d1117; font-size: 13px;
+  }
+  .issue-button.primary:hover { background: #79b8ff; }
+  .issue-number { color: var(--muted); font-size: 11px; margin-top: 5px; }
+  .issue-unavailable {
+    border: 1px dashed var(--line); border-radius: 7px; padding: 7px 9px;
+    color: var(--muted); font-size: 12px;
+  }
+  .approval-panel {
+    border: 1px solid #d2a8ff; border-radius: 8px; padding: 10px;
+    margin: 2px 0 14px; background: #d2a8ff12;
+  }
+  .approval-panel .binding { color: var(--muted); font-size: 11px; line-height: 1.55; }
+  .approval-button {
+    width: 100%; margin-top: 9px; padding: 9px 12px; border-color: #d2a8ff;
+    color: #d2a8ff; font-weight: 700;
+  }
+  .approval-button:disabled { opacity: .55; cursor: wait; }
+  .approval-status { margin-top: 7px; font-size: 11px; color: var(--muted); }
+  .stage-expander { margin: 0 0 7px 0; font-weight: 700; }
+  .stage-timeline { margin: 7px 0 0; padding-left: 22px; }
+  .stage-timeline .active { color: var(--accent); font-weight: 700; }
+  .stage-timeline .future { color: var(--muted); }
+  .empty { color: var(--muted); font-style: italic; }
+  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; }
+  .live { background: #3fb950; box-shadow: 0 0 7px #3fb950; }
+  .dead { background: #6e7681; }
+</style>
+
+<aside class="left">
+  <h1>NSC Gauntlet</h1>
+  <div class="sub" id="runline">connecting…</div>
+  <div class="sub"><span class="dot dead" id="livedot"></span><span id="livetext">offline</span></div>
+
+  <h2>Run</h2>
+  <div id="runstats"></div>
+
+  <h2>View</h2>
+  <div class="btns">
+    <button id="mode-all" class="on" disabled>Relationships</button>
+  </div>
+  <div class="sub">solid arrow · depends on<br>dashed lime arrow · generated child</div>
+  <div class="btns">
+    <button id="zin">Zoom +</button>
+    <button id="zout">Zoom −</button>
+    <button id="fit">Fit</button>
+  </div>
+
+  <h2>Filter</h2>
+  <div class="sub" id="display-scope"></div>
+  <label class="check"><input type="checkbox" id="f-cancelled"> show cancelled</label>
+  <label class="check"><input type="checkbox" id="f-scope" checked> run scope only</label>
+
+  <h2>States</h2>
+  <div id="legend"></div>
+</aside>
+
+<main>
+  <section id="pipeline-activity" aria-label="Pipeline Activity">
+    <div class="panel-header">
+      <div class="pipeline-title">
+        <h2>Pipeline Activity</h2>
+        <div id="pipeline-headline" role="status" aria-live="polite">Reading durable run artifacts…</div>
+      </div>
+      <button id="pipeline-toggle" aria-label="Collapse Pipeline Activity" aria-expanded="true" aria-controls="pipeline-body">Collapse</button>
+    </div>
+    <div id="pipeline-body"></div>
+    <div id="pipeline-resize" class="resize-handle" role="separator" tabindex="0" aria-label="Resize Pipeline Activity height" aria-orientation="horizontal" aria-controls="pipeline-activity" title="Drag or use Up/Down to resize Pipeline Activity"></div>
+  </section>
+  <div id="cy"></div>
+</main>
+
+<aside class="right" id="detail-panel" aria-label="Task details">
+  <div id="detail-resize" class="resize-handle" role="separator" tabindex="0" aria-label="Resize task details width" aria-orientation="vertical" aria-controls="detail-panel" title="Drag or use Left/Right to resize task details"></div>
+  <div class="panel-header" id="detail-header">
+    <h2 id="detail-heading">Task detail</h2>
+    <button id="detail-toggle" aria-label="Collapse task details" aria-expanded="true" aria-controls="detail" title="Collapse task details">›</button>
+  </div>
+  <div id="detail"><div class="empty">Click a node.</div></div>
+</aside>
+
+<script>
+// Keys are server state values and must not change; labels and order are
+// presentation. Grouped by who currently holds the task.
+const STATES = {
+  ready:          { color: '#a855f7', label: 'Task Unstarted', group: 'awaiting admission',
+                    hint: 'dependencies satisfied; waiting for the controller to admit it' },
+  decomposition_ready: { color: '#ffd23f', label: 'Decomposition Available', group: 'awaiting admission',
+                    hint: 'dependencies satisfied; this contract is ready for decomposition' },
+  pending:        { color: '#56606b', label: 'Task Dependencies Unmet', group: 'awaiting admission',
+                    hint: 'one or more depends_on tasks are not complete yet' },
+
+  human_action:   { color: '#ff4fb3', label: 'Task Needs You', group: 'on you',
+                    hint: 'human_action_required — your Unity checklist' },
+  blocked:        { color: '#ff7a00', label: 'Task Blocked',   group: 'on you',
+                    hint: 'worker stopped short — you inspect blockers or repair the environment' },
+  failed:         { color: '#ef233c', label: 'Task Failed',    group: 'on you',
+                    hint: 'worker run failed — you diagnose' },
+
+  active:         { color: '#3b82f6', label: 'Task Working',   group: 'in flight',
+                    hint: 'a worker is running this right now' },
+  aggregate:      { color: '#b6ff00', label: 'Decomposed Parent', group: 'in flight',
+                    hint: 'non-executable parent; status is rolled up from its generated children' },
+  checks_pending: { color: '#00e5ff', label: 'Task In CI',     group: 'in flight',
+                    hint: 'waiting on GitHub pull-request checks' },
+  integration_queued: { color: '#f8fafc', label: 'Verified — Waiting for CI Slot', group: 'in flight',
+                    hint: 'verified work is queued behind the local integration gate' },
+  delivery_ready: { color: '#ff9ff3', label: 'Verified — Ready to Continue', group: 'in flight',
+                    hint: 'the exact human-approved handoff is agent-ready but not yet gate-queued' },
+
+  complete:       { color: '#22c55e', label: 'Task Complete',  group: 'finished',
+                    hint: 'committed TaskGraph conformance evidence proves delivery' },
+  cancelled:      { color: '#9a6a3a', label: 'Task Retired',   group: 'finished',
+                    hint: 'contract cancelled/superseded in the task graph' },
+  excluded:       { color: '#aab4c0', label: 'Task Excluded',  group: 'finished',
+                    hint: 'named in the run manifest exclusion list' },
+};
+
+cytoscape.use(cytoscapeDagre);
+
+const hidden = new Set(['cancelled']);
+let snapshot = null;
+const approvalOutcomes = new Map();
+let lastStates = new Map();
+
+const cy = cytoscape({
+  container: document.getElementById('cy'),
+  minZoom: 0.05,
+  maxZoom: 3,
+  wheelSensitivity: 0.25,
+  style: [
+    {
+      selector: 'node',
+      style: {
+        shape: 'round-rectangle',
+        width: 248,
+        height: 'label',
+        padding: 11,
+        'background-color': '#21262d',
+        'border-width': 2,
+        'border-color': '#484f58',
+        label: 'data(label)',
+        color: '#e6edf3',
+        'font-size': 11,
+        'text-wrap': 'wrap',
+        'text-max-width': 224,
+        'text-valign': 'center',
+        'text-halign': 'center',
+        'line-height': 1.35,
+        'min-zoomed-font-size': 7,
+      },
+    },
+    {
+      selector: 'edge',
+      style: {
+        width: 1.4,
+        'line-color': '#30363d',
+        'target-arrow-color': '#30363d',
+        'target-arrow-shape': 'triangle',
+        'arrow-scale': 0.85,
+        'curve-style': 'bezier',
+      },
+    },
+    { selector: 'edge[kind = "parent"]', style: {
+      width: 2.2, 'line-style': 'dashed', 'line-color': '#b6ff00',
+      'target-arrow-color': '#b6ff00', 'target-arrow-shape': 'vee',
+    } },
+    { selector: 'node:selected', style: { 'border-width': 4, 'border-color': '#58a6ff' } },
+    {
+      selector: '.faded',
+      style: { opacity: 0.16, 'text-opacity': 0.16 },
+    },
+    {
+      selector: '.hl',
+      style: { 'line-color': '#58a6ff', 'target-arrow-color': '#58a6ff', width: 2.4, opacity: 1 },
+    },
+  ],
+});
+
+// One selector per state keeps repaints cheap on update.
+for (const [state, meta] of Object.entries(STATES)) {
+  cy.style().selector(`node[state = "${state}"]`).style({
+    'border-color': meta.color,
+    'background-color': shade(meta.color),
+  }).update();
+}
+function shade(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  return `rgb(${Math.round(r * .22 + 22)},${Math.round(g * .22 + 26)},${Math.round(b * .22 + 32)})`;
+}
+
+// Storage is optional (private browsing, blocked storage, or corrupt old values).
+function readPreference(key) {
+  try { return JSON.parse(localStorage.getItem(key)); } catch { return null; }
+}
+function savePreference(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* Keep this session usable. */ }
+}
+
+function initializePanels() {
+  const key = 'nsc.gauntlet.panels.v1';
+  const saved = readPreference(key) || {};
+  const main = document.querySelector('main');
+  const pipeline = document.getElementById('pipeline-activity');
+  const detail = document.getElementById('detail-panel');
+  const pipelineToggle = document.getElementById('pipeline-toggle');
+  const detailToggle = document.getElementById('detail-toggle');
+  const finite = (value, fallback) => typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+  const clamp = (value, min, max) => Math.round(Math.max(min, Math.min(max, value)));
+  const state = {
+    pipelineHeight: clamp(finite(saved.pipelineHeight, 176), 120, 480),
+    detailWidth: clamp(finite(saved.detailWidth, 320), 220, 560),
+    pipelineCollapsed: saved.pipelineCollapsed === true,
+    detailCollapsed: saved.detailCollapsed === true,
+  };
+  const panels = [
+    {size: 'pipelineHeight', collapsed: 'pipelineCollapsed', handle: document.getElementById('pipeline-resize'),
+      min: 120, max: () => Math.max(120, Math.min(480, Math.floor(main.clientHeight * .45))),
+      coordinate: 'clientY', direction: 1, increaseKey: 'ArrowDown', decreaseKey: 'ArrowUp'},
+    {size: 'detailWidth', collapsed: 'detailCollapsed', handle: document.getElementById('detail-resize'),
+      min: 220, max: () => Math.max(220, Math.min(560, Math.floor(document.body.clientWidth * .45),
+        document.body.clientWidth - document.querySelector('aside.left').offsetWidth - 360)),
+      coordinate: 'clientX', direction: -1, increaseKey: 'ArrowLeft', decreaseKey: 'ArrowRight'},
+  ];
+  function apply() {
+    const height = clamp(state.pipelineHeight, panels[0].min, panels[0].max());
+    const width = clamp(state.detailWidth, panels[1].min, panels[1].max());
+    pipeline.style.height = `${state.pipelineCollapsed ? 64 : height}px`;
+    document.body.style.setProperty('--detail-width', `${state.detailCollapsed ? 44 : width}px`);
+    document.getElementById('pipeline-body').hidden = state.pipelineCollapsed;
+    document.getElementById('detail').hidden = state.detailCollapsed;
+    detail.classList.toggle('collapsed', state.detailCollapsed);
+    pipelineToggle.textContent = state.pipelineCollapsed ? 'Expand' : 'Collapse';
+    pipelineToggle.setAttribute('aria-expanded', String(!state.pipelineCollapsed));
+    pipelineToggle.setAttribute('aria-label', `${state.pipelineCollapsed ? 'Expand' : 'Collapse'} Pipeline Activity`);
+    detailToggle.textContent = state.detailCollapsed ? '‹' : '›';
+    detailToggle.setAttribute('aria-expanded', String(!state.detailCollapsed));
+    detailToggle.setAttribute('aria-label', `${state.detailCollapsed ? 'Expand' : 'Collapse'} task details`);
+    detailToggle.title = detailToggle.getAttribute('aria-label');
+    for (const panel of panels) {
+      panel.handle.hidden = state[panel.collapsed];
+      panel.handle.setAttribute('aria-valuemin', panel.min);
+      panel.handle.setAttribute('aria-valuemax', panel.max());
+      panel.handle.setAttribute('aria-valuenow', clamp(state[panel.size], panel.min, panel.max()));
+    }
+    cy.resize();
+  }
+  function toggle(field) {
+    state[field] = !state[field];
+    apply();
+    savePreference(key, state);
+  }
+  pipelineToggle.onclick = () => toggle('pipelineCollapsed');
+  detailToggle.onclick = () => toggle('detailCollapsed');
+  for (const panel of panels) {
+    let drag = null;
+    panel.handle.onpointerdown = event => {
+      if (event.button !== 0 || !event.isPrimary) return;
+      event.preventDefault();
+      panel.handle.focus();
+      panel.handle.setPointerCapture(event.pointerId);
+      drag = {id: event.pointerId, start: event[panel.coordinate],
+        size: clamp(state[panel.size], panel.min, panel.max())};
+      document.body.classList.add('resizing');
+    };
+    panel.handle.onpointermove = event => {
+      if (!drag || event.pointerId !== drag.id) return;
+      state[panel.size] = clamp(drag.size + (event[panel.coordinate] - drag.start) * panel.direction,
+        panel.min, panel.max());
+      apply();
+    };
+    function finishDrag(event) {
+      if (!drag || event.pointerId !== drag.id) return;
+      drag = null;
+      if (panel.handle.hasPointerCapture(event.pointerId)) panel.handle.releasePointerCapture(event.pointerId);
+      document.body.classList.remove('resizing');
+      savePreference(key, state);
+    }
+    panel.handle.onpointerup = finishDrag;
+    panel.handle.onpointercancel = finishDrag;
+    panel.handle.onlostpointercapture = finishDrag;
+    panel.handle.onkeydown = event => {
+      const current = clamp(state[panel.size], panel.min, panel.max());
+      const values = {Home: panel.min, End: panel.max(),
+        [panel.increaseKey]: current + 20, [panel.decreaseKey]: current - 20};
+      if (!(event.key in values)) return;
+      event.preventDefault();
+      state[panel.size] = clamp(values[event.key], panel.min, panel.max());
+      apply();
+      savePreference(key, state);
+    };
+  }
+  // Observe the actual canvas container, including layout changes without a
+  // window resize. Resizing preserves node positions and the operator's zoom.
+  new ResizeObserver(() => cy.resize()).observe(document.getElementById('cy'));
+  window.addEventListener('resize', apply);
+  apply();
+}
+initializePanels();
+
+let scopePreferenceKey = null;
+let stageExpansionPreferenceKey = null;
+const expandedStageNodes = new Set();
+function configureDisplayScope(snap) {
+  const ids = snap.display?.task_ids;
+  const nextKey = 'nsc.gauntlet.run-filter.v1:' + JSON.stringify([snap.tasks_dir, snap.state_root, ids ?? null]);
+  if (nextKey !== scopePreferenceKey) {
+    scopePreferenceKey = nextKey;
+    const saved = readPreference(scopePreferenceKey);
+    document.getElementById('f-scope').checked = typeof saved === 'boolean' ? saved : !Array.isArray(ids);
+  }
+  const missing = snap.display?.missing_task_ids || [];
+  document.getElementById('display-scope').textContent =
+    (Array.isArray(ids) ? `Display selection: ${ids.join(', ')}` : 'Display selection: all contracts') +
+    (missing.length ? ` · Missing contracts: ${missing.join(', ')}` : '');
+}
+
+function fitGraph() {
+  cy.resize();
+  cy.fit(undefined, 40);
+}
+function zoomGraph(factor) {
+  cy.resize();
+  cy.zoom({level: cy.zoom() * factor, renderedPosition: {x: cy.width() / 2, y: cy.height() / 2}});
+}
+
+function visible(task) {
+  if (hidden.has(task.state)) return false;
+  if (document.getElementById('f-scope').checked && !task.in_scope) return false;
+  if (!document.getElementById('f-cancelled').checked && task.state === 'cancelled') return false;
+  return true;
+}
+
+function labelFor(task) {
+  const title = task.title.length > 76 ? task.title.slice(0, 74) + '…' : task.title;
+  const active = task.state === 'active';
+  const expanded = active && expandedStageNodes.has(task.id);
+  const heading = active ? `${task.node_heading || task.id} ${expanded ? '[-]' : '[+]'}` : task.id;
+  const lines = active && !expanded ? task.node_summary_lines : task.node_lines;
+  return Array.isArray(lines) && lines.length
+    ? `${heading}\n${lines.join('\n')}`
+    : `${task.id}\n${title}`;
+}
+
+function toggleStageExpansion(taskId) {
+  if (!snapshot) return;
+  const task = snapshot.tasks.find(item => item.id === taskId);
+  if (!task || task.state !== 'active') return;
+  expandedStageNodes.has(taskId) ? expandedStageNodes.delete(taskId) : expandedStageNodes.add(taskId);
+  saveStageExpansion();
+  const node = cy.getElementById(taskId);
+  if (node.nonempty()) node.data('label', labelFor(task));
+  showDetail(taskId);
+}
+
+function buildElements(tasks) {
+  const shown = tasks.filter(visible);
+  const ids = new Set(shown.map(t => t.id));
+  const nodes = shown.map(t => ({
+    data: { id: t.id, label: labelFor(t), state: t.state },
+  }));
+  const edges = [];
+  for (const t of shown) {
+    for (const dep of t.depends_on) {
+      if (ids.has(dep)) edges.push({ data: { id: `${dep}->${t.id}`, source: dep, target: t.id, kind: 'dep' } });
+    }
+    if (t.parent && ids.has(t.parent)) {
+      edges.push({ data: { id: `${t.parent}=>${t.id}`, source: t.parent, target: t.id, kind: 'parent' } });
+    }
+  }
+  return { nodes, edges };
+}
+
+function layout() {
+  const MAX_COLUMNS = 4;
+  const X_STEP = 290;
+  const Y_STEP = 170;
+  const FAMILY_GAP = 90;
+  const nodes = [...cy.nodes()].sort((a, b) => a.id().localeCompare(b.id()));
+  const outgoing = new Map(nodes.map(node => [node.id(), new Set()]));
+  const incoming = new Map(nodes.map(node => [node.id(), new Set()]));
+  const adjacent = new Map(nodes.map(node => [node.id(), new Set()]));
+  cy.edges().forEach(edge => {
+    const source = edge.source().id(), target = edge.target().id();
+    if (!outgoing.has(source) || !outgoing.has(target)) return;
+    outgoing.get(source).add(target);
+    incoming.get(target).add(source);
+    adjacent.get(source).add(target);
+    adjacent.get(target).add(source);
+  });
+
+  // A lane is exactly one connected component of committed dependency and
+  // decomposition edges. No title, task-number, or visual guess creates a lane.
+  const unseen = new Set(nodes.map(node => node.id()));
+  const components = [];
+  while (unseen.size) {
+    const first = [...unseen].sort()[0];
+    const queue = [first], ids = [];
+    unseen.delete(first);
+    while (queue.length) {
+      const id = queue.shift();
+      ids.push(id);
+      for (const next of [...adjacent.get(id)].sort()) {
+        if (unseen.delete(next)) queue.push(next);
+      }
+    }
+    components.push(ids.sort());
+  }
+
+  let outerRowY = 0, usedColumns = 0, outerRowHeight = 0;
+  const positions = {};
+  for (const ids of components.sort((a, b) => a[0].localeCompare(b[0]))) {
+    const member = new Set(ids);
+    const indegree = new Map(ids.map(id => [id, [...incoming.get(id)].filter(x => member.has(x)).length]));
+    const rank = new Map(ids.map(id => [id, 0]));
+    const queue = ids.filter(id => indegree.get(id) === 0).sort();
+    const visited = new Set();
+    while (queue.length) {
+      const id = queue.shift();
+      visited.add(id);
+      for (const next of [...outgoing.get(id)].filter(x => member.has(x)).sort()) {
+        rank.set(next, Math.max(rank.get(next), rank.get(id) + 1));
+        indegree.set(next, indegree.get(next) - 1);
+        if (indegree.get(next) === 0) queue.push(next);
+      }
+      queue.sort();
+    }
+    // TaskGraph should be acyclic. If an invalid cycle reaches the read-only
+    // viewer, retain every node in a final row without inventing direction.
+    const maxRank = Math.max(0, ...rank.values());
+    for (const id of ids) if (!visited.has(id)) rank.set(id, maxRank + 1);
+
+    const rankGroups = new Map();
+    for (const id of ids) {
+      const level = rank.get(id);
+      if (!rankGroups.has(level)) rankGroups.set(level, []);
+      rankGroups.get(level).push(id);
+    }
+    const componentRows = [];
+    for (const level of [...rankGroups.keys()].sort((a, b) => a - b)) {
+      const levelIds = rankGroups.get(level).sort();
+      for (let start = 0; start < levelIds.length; start += MAX_COLUMNS) {
+        componentRows.push(levelIds.slice(start, start + MAX_COLUMNS));
+      }
+    }
+    const width = Math.max(1, ...componentRows.map(row => row.length));
+    if (usedColumns && usedColumns + width > MAX_COLUMNS) {
+      outerRowY += outerRowHeight + FAMILY_GAP;
+      usedColumns = 0;
+      outerRowHeight = 0;
+    }
+    const centerX = (usedColumns + (width - 1) / 2) * X_STEP;
+    componentRows.forEach((row, rowIndex) => {
+      row.forEach((id, column) => {
+        positions[id] = {
+          x: centerX + (column - (row.length - 1) / 2) * X_STEP,
+          y: outerRowY + rowIndex * Y_STEP,
+        };
+      });
+    });
+    usedColumns += width;
+    outerRowHeight = Math.max(outerRowHeight, componentRows.length * Y_STEP);
+  }
+  cy.layout({
+    name: 'preset',
+    positions: node => positions[node.id()],
+    animate: false,
+    fit: false,
+  }).run();
+}
+
+function configureStageExpansion(snap) {
+  const nextKey = 'nsc.gauntlet.stage-expansion.v1:' + JSON.stringify([snap.tasks_dir, snap.state_root]);
+  if (nextKey === stageExpansionPreferenceKey) return;
+  stageExpansionPreferenceKey = nextKey;
+  expandedStageNodes.clear();
+  const saved = readPreference(nextKey);
+  if (Array.isArray(saved)) {
+    const active = new Set(snap.tasks.filter(task => task.state === 'active').map(task => task.id));
+    for (const taskId of saved) if (active.has(taskId)) expandedStageNodes.add(taskId);
+  }
+}
+
+function saveStageExpansion() {
+  savePreference(stageExpansionPreferenceKey, [...expandedStageNodes].sort());
+}
+
+function render(snap, { relayout }) {
+  configureDisplayScope(snap);
+  configureStageExpansion(snap);
+  renderPipelineActivity(snap.pipeline_activity);
+  cy.resize();
+  const { nodes, edges } = buildElements(snap.tasks);
+  const wantNodes = new Set(nodes.map(n => n.data.id));
+  const wantEdges = new Set(edges.map(e => e.data.id));
+
+  let structural = false;
+
+  cy.nodes().forEach(n => { if (!wantNodes.has(n.id())) { n.remove(); structural = true; } });
+  cy.edges().forEach(e => { if (!wantEdges.has(e.id())) { e.remove(); structural = true; } });
+
+  for (const n of nodes) {
+    const existing = cy.getElementById(n.data.id);
+    if (existing.empty()) {
+      cy.add({ group: 'nodes', data: n.data });
+      structural = true;
+    } else {
+      if (existing.data('state') !== n.data.state) {
+        existing.data('state', n.data.state);
+        pulse(existing);
+      }
+      if (existing.data('label') !== n.data.label) existing.data('label', n.data.label);
+    }
+  }
+  for (const e of edges) {
+    if (cy.getElementById(e.data.id).empty()) { cy.add({ group: 'edges', data: e.data }); structural = true; }
+  }
+
+  if (structural || relayout) {
+    layout();
+    if (relayout) fitGraph();
+  }
+  updateLegend(snap);
+}
+
+function pulse(node) {
+  node.animate({ style: { 'border-width': 9 } }, { duration: 220 })
+      .animate({ style: { 'border-width': 2 } }, { duration: 600 });
+}
+
+function updateLegend(snap) {
+  const counts = {};
+  for (const t of snap.tasks) counts[t.state] = (counts[t.state] || 0) + 1;
+  const el = document.getElementById('legend');
+  el.innerHTML = '';
+  let group = null;
+  for (const [state, meta] of Object.entries(STATES)) {
+    if (meta.group !== group) {
+      group = meta.group;
+      const head = document.createElement('div');
+      head.className = 'lgroup';
+      head.textContent = group;
+      el.appendChild(head);
+    }
+    const row = document.createElement('div');
+    row.className = 'legend' + (hidden.has(state) ? ' off' : '');
+    row.title = `${meta.hint} · state key "${state}"`;
+    row.innerHTML =
+      `<span class="swatch" style="background:${meta.color}"></span>` +
+      `<span>${meta.label}</span><span class="count">${counts[state] || 0}</span>`;
+    row.onclick = () => {
+      hidden.has(state) ? hidden.delete(state) : hidden.add(state);
+      render(snapshot, { relayout: false });
+    };
+    el.appendChild(row);
+  }
+
+  const run = snap.run;
+  const p = run.progress || {};
+  document.getElementById('runline').textContent =
+    (run.run_id || 'no active run') + (run.repository ? ` · ${run.repository}` : '');
+  document.getElementById('runstats').innerHTML = [
+    ['tasks', snap.tasks.length],
+    ['in run scope', run.targets.length],
+    ['capacity', run.max_capacity ?? '—'],
+    ['workers now', snap.scheduler.active.length],
+    ['poll cycles', p.poll_cycles_total ?? '—'],
+    ['worker launches', p.worker_launches_total ?? '—'],
+    ['architect calls', p.architect_invocations_total ?? '—'],
+    ['graph complete', run.complete ? 'yes' : 'no'],
+  ].map(([k, v]) => `<div class="stat"><span>${k}</span><span>${v}</span></div>`).join('');
+}
+
+function esc(s) {
+  return String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+}
+
+function escAttr(s) {
+  return esc(s).replace(/["']/g, c => ({ '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+let pipelineSample = null;
+let pipelineReceivedAt = 0;
+
+function pipelineDuration(seconds) {
+  if (seconds == null) return 'unavailable';
+  const s = Math.max(0, Math.floor(seconds));
+  return s >= 3600 ? `${Math.floor(s / 3600)}h ${Math.floor(s % 3600 / 60)}m`
+    : `${Math.floor(s / 60)}m ${s % 60}s`;
+}
+
+function renderPipelineActivity(activity) {
+  if (!activity) return;
+  if (pipelineSample !== activity) {
+    pipelineSample = activity;
+    pipelineReceivedAt = performance.now();
+  }
+  document.getElementById('pipeline-headline').textContent = activity.headline;
+  document.getElementById('pipeline-headline').title = activity.headline;
+  const c = activity.counters;
+  const value = v => v == null ? 'unavailable' : esc(v);
+  const counters = [
+    ['Recorded active workers / capacity', `${value(c.active_workers)} / ${value(c.capacity)}`],
+    ['Ready or queued in scope', value(c.eligible_or_queued)],
+    ['Dependencies unmet in scope', value(c.dependency_blocked)],
+    ['Complete in scope', value(c.completed)],
+    ['Architect calls completed (recorded)', value(c.architect_calls_completed)],
+    ['Worker launches', value(c.worker_launches)],
+    ['Wakeups / pokes (saved counter)', value(c.wakeups)],
+    [activity.terminal ? 'Time since terminal record' : 'Current stage elapsed', '<span id="pipeline-stage-elapsed"></span>'],
+    ['Total run elapsed', '<span id="pipeline-run-elapsed"></span>'],
+  ];
+  const architect = activity.provider_call_open ?
+    `<p class="pipeline-note">${esc(activity.description)}</p>` +
+    `<div class="pipeline-note">Provider: <b>${esc(activity.provider)}</b> · Model: <b>${esc(activity.model)}</b> (${esc(activity.provider_source)}) · Candidates: ${value(activity.candidate_count)}</div>` +
+    `<p class="pipeline-note">${esc(activity.call_status)}</p>` +
+    `<div class="pipeline-candidates">${activity.candidates.map(item => `<span>${esc(item.task_id)} · ${item.work_types.length ? esc(item.work_types.join(', ')) : 'work types unavailable'}</span>`).join('')}</div>` :
+    (activity.description ? `<p class="pipeline-note">${esc(activity.description)}</p>` : '');
+  document.getElementById('pipeline-body').innerHTML =
+    '<div id="pipeline-freshness"></div>' +
+    `<div class="pipeline-note">${esc(activity.liveness)}</div>` + architect +
+    `<div class="pipeline-counters">${counters.map(([label, count]) => `<div><span>${label}</span><b>${count}</b></div>`).join('')}</div>` +
+    '<h2>Recent activity</h2>' +
+    `<ol class="pipeline-timeline">${activity.recent_activity.map(item => `<li><time>${esc(item.timestamp_utc || 'time unavailable')}</time>${esc(item.headline)}</li>`).join('') || '<li>No durable events available.</li>'}</ol>`;
+  updatePipelineTimers();
+}
+
+function updatePipelineTimers() {
+  if (!pipelineSample) return;
+  const delta = Math.max(0, performance.now() - pipelineReceivedAt) / 1000;
+  const elapsed = pipelineSample.stage_elapsed_seconds;
+  const age = pipelineSample.last_event_age_seconds;
+  document.getElementById('pipeline-stage-elapsed').textContent = pipelineDuration(elapsed == null ? null : elapsed + delta);
+  const runElapsed = pipelineSample.run_elapsed_seconds;
+  document.getElementById('pipeline-run-elapsed').textContent = pipelineDuration(
+    runElapsed == null ? null : runElapsed + (pipelineSample.terminal ? 0 : delta));
+  const freshness = document.getElementById('pipeline-freshness');
+  freshness.textContent = age == null
+    ? 'Last durable event time unavailable; process status is unknown from artifacts.'
+    : `No new durable event for ${pipelineDuration(age + delta)}; process status is unknown from artifacts.`;
+  freshness.classList.toggle('stale', age == null || age + delta >= pipelineSample.stale_after_seconds);
+}
+// SSE sends only artifact changes. The local clock must keep advancing during
+// quiet provider calls and disconnected streams without claiming process life.
+setInterval(updatePipelineTimers, 1000);
+
+function githubIssueNavigation(task) {
+  const w = task.worker;
+  const repository = snapshot && snapshot.run && snapshot.run.repository;
+  const safeRepository = typeof repository === 'string' &&
+    /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}\/[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(repository);
+  const validNumber = w && Number.isInteger(w.issue_number) && w.issue_number > 0;
+  const expectedUrl = safeRepository && validNumber
+    ? `https://github.com/${repository}/issues/${w.issue_number}`
+    : null;
+  if (!expectedUrl || w.issue_url !== expectedUrl) {
+    return '<div class="github-navigation"><div class="issue-unavailable">GitHub Issue unavailable</div></div>';
+  }
+  const primary = task.state === 'human_action' ? ' primary' : '';
+  return `<div class="github-navigation">` +
+    `<a class="issue-button${primary}" href="${escAttr(expectedUrl)}" target="_blank" rel="noopener noreferrer">Open GitHub Issue</a>` +
+    `<div class="issue-number">Issue <code>#${esc(w.issue_number)}</code></div></div>`;
+}
+
+function githubPullRequestNavigation(task) {
+  const w = task.worker;
+  const repository = snapshot && snapshot.run && snapshot.run.repository;
+  const safeRepository = typeof repository === 'string' &&
+    /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}\/[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(repository);
+  const validNumber = w && Number.isInteger(w.pull_request_number) && w.pull_request_number > 0;
+  const expectedUrl = safeRepository && validNumber
+    ? `https://github.com/${repository}/pull/${w.pull_request_number}`
+    : null;
+  if (!expectedUrl || w.pull_request_url !== expectedUrl) return '';
+  return `<div class="github-navigation">` +
+    `<a class="issue-button" href="${escAttr(expectedUrl)}" target="_blank" rel="noopener noreferrer">Open Pull Request / Checks</a>` +
+    `<div class="issue-number">Pull request <code>#${esc(w.pull_request_number)}</code></div></div>`;
+}
+
+function humanApprovalControl(task) {
+  const actions = snapshot && Array.isArray(snapshot.human_actions) ? snapshot.human_actions : [];
+  const action = actions.find(item => item.task_id === task.id);
+  const outcome = approvalOutcomes.get(task.id);
+  if (!action) return outcome
+    ? `<div class="approval-panel"><strong>Last human action</strong><div class="approval-status">${esc(outcome)}</div></div>`
+    : '';
+  const exact = action.exact_commit
+    ? `commit <code>${esc(action.exact_commit)}</code>`
+    : `plan <code>${esc(action.decomposition_plan_id)}</code><br>plan SHA-256 <code>${esc(action.decomposition_plan_sha256)}</code>`;
+  return `<div class="approval-panel">` +
+    `<strong>Exact human authority</strong><div class="binding">` +
+    `Task <code>${esc(action.task_id)}</code> · Issue <code>#${esc(action.issue_number)}</code><br>` +
+    `Repository <code>${esc(action.repository)}</code><br>` +
+    `Run <code>${esc(action.autonomous_run_id)}</code><br>` +
+    `Workflow <code>${esc(action.workflow_state)}</code> / <code>${esc(action.workflow_phase)}</code><br>` +
+    `Schema <code>${esc(action.workflow_schema_version)}</code><br>` +
+    `Version <code>${esc(action.workflow_state_version)}</code> · event <code>${esc(action.workflow_event_id)}</code><br>` +
+    `${exact}</div>` +
+    `<button class="approval-button" data-task-id="${escAttr(action.task_id)}" data-action-token="${escAttr(action.action_token)}">${esc(action.label)}</button>` +
+    `<div class="approval-status" aria-live="polite"></div></div>`;
+}
+
+async function approveHumanAction(button) {
+  const panel = button.closest('.approval-panel');
+  const status = panel.querySelector('.approval-status');
+  const taskId = button.dataset.taskId;
+  button.disabled = true;
+  status.textContent = 'Revalidating exact Issue binding…';
+  try {
+    const response = await fetch('/api/approve', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action_token: button.dataset.actionToken }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.message || 'Approval rejected');
+    const message = result.status === 'mutation_succeeded_poke_failed'
+      ? 'GitHub transition succeeded; local architect poke failed. Its bounded poll remains authoritative.'
+      : 'GitHub transition succeeded and the local architect was notified.';
+    approvalOutcomes.set(taskId, message);
+    status.textContent = message;
+    const refreshed = await fetch('/api/state', { credentials: 'same-origin' });
+    if (refreshed.ok) {
+      snapshot = await refreshed.json();
+      render(snapshot, { relayout: false });
+      showDetail(taskId);
+    }
+  } catch (error) {
+    const message = `Stopped: ${error.message}`;
+    approvalOutcomes.set(taskId, message);
+    status.textContent = message;
+  }
+}
+
+function duration(value) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return 'unavailable';
+  const seconds = Math.round(value);
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const rest = seconds % 60;
+  if (hours) return `${hours}h ${minutes}m`;
+  if (minutes) return rest ? `${minutes}m ${rest}s` : `${minutes}m`;
+  return `${rest}s`;
+}
+
+function tokenCostDetail(task) {
+  const usage = task.token_cost || {};
+  const complete = task.state === 'complete';
+  const rows = [];
+  const costName = complete ? 'Final recorded cost' : 'Cost so far';
+  const tokenName = complete ? 'Final recorded tokens' : 'Tokens used so far';
+  rows.push(`${costName}: ${esc(usage.cost_label || 'unavailable')}`);
+  rows.push(`${tokenName}: ${usage.recorded_total_tokens == null ? 'unavailable' : esc(usage.recorded_total_tokens.toLocaleString())}`);
+  rows.push(`Projected cost at completion: ${esc(usage.projection_label || 'insufficient history')}`);
+  if (usage.direct_agent_cost_usd != null) rows.push(`Direct agent cost: $${esc(usage.direct_agent_cost_usd.toFixed(2))}`);
+  if (usage.allocated_shared_cost_usd) rows.push(`Allocated shared cost: $${esc(usage.allocated_shared_cost_usd.toFixed(2))}`);
+  if (usage.coverage_percent == null) {
+    rows.push(`Usage coverage: ${usage.missing_usage_calls ? `partial — ${esc(usage.missing_usage_calls)} calls missing usage` : 'unavailable'}`);
+  } else {
+    rows.push(`Usage coverage: ${esc(usage.coverage_percent)}%${usage.missing_usage_calls ? ` — ${esc(usage.missing_usage_calls)} calls missing usage` : ''}`);
+  }
+  rows.push(`Cost source: ${esc(usage.cost_source || 'unavailable')}`);
+  rows.push(`Token source: ${esc(usage.token_source || 'unavailable')}`);
+  rows.push(`Pricing version: ${esc(usage.pricing_version || 'unavailable (persisted estimate)')}`);
+  rows.push(`Provider calls: ${esc(usage.total_calls || 0)} · failed/incomplete ${esc(usage.failed_or_incomplete_calls || 0)}`);
+  rows.push(`Estimated cache savings: ${usage.estimated_cache_savings_usd == null ? 'unavailable' : '$' + esc(usage.estimated_cache_savings_usd.toFixed(2))}`);
+  rows.push(`Updated: ${esc(usage.usage_updated_at || 'unavailable')}`);
+  if (usage.input_tokens || usage.cached_input_tokens || usage.cache_read_input_tokens || usage.output_tokens) {
+    rows.push(`Input tokens: ${esc(usage.input_tokens.toLocaleString())}`);
+    rows.push(`Cached input/cache reads: ${esc((usage.cached_input_tokens + usage.cache_read_input_tokens).toLocaleString())}`);
+    rows.push(`Cache creation/writes: ${esc(usage.cache_creation_input_tokens.toLocaleString())}`);
+    rows.push(`Output tokens: ${esc(usage.output_tokens.toLocaleString())}`);
+    if (usage.reasoning_tokens) rows.push(`Reasoning tokens: ${esc(usage.reasoning_tokens.toLocaleString())}`);
+  }
+  if (Array.isArray(usage.breakdown) && usage.breakdown.some(item => item.provider || item.role)) {
+    rows.push('<br>Breakdown:');
+    for (const item of usage.breakdown) {
+      rows.push(`${esc(item.role || 'role unavailable')} · ${esc(item.provider || 'provider unavailable')} · ` +
+        `${item.cost_usd == null ? 'cost unavailable' : '$' + esc(item.cost_usd.toFixed(2))}`);
+    }
+  }
+  for (const item of usage.shared_calls || []) {
+    rows.push(`Shared call ${esc(item.call_id)}: ${item.complete_cost_usd == null ? 'cost unavailable' : '$' + esc(item.complete_cost_usd.toFixed(2))}`);
+    rows.push(`Allocated share: ${item.allocated_cost_usd == null ? 'unavailable' : '$' + esc(item.allocated_cost_usd.toFixed(2))} · ${esc(item.allocation_method)}`);
+  }
+  return rows.join('<br>');
+}
+
+function showDetail(id) {
+  const task = snapshot.tasks.find(t => t.id === id);
+  if (!task) return;
+  const meta = STATES[task.state] || { color: '#8b949e', label: task.state };
+  const w = task.worker;
+  const out = [];
+  const field = (k, v) => out.push(`<div class="field"><div class="k">${k}</div><div class="v">${v}</div></div>`);
+
+  out.push(`<div class="field"><span class="pill" style="background:${meta.color}">${esc(meta.label)}</span></div>`);
+  field('task', `<strong>${esc(task.id)}</strong><br>${esc(task.title)}`);
+  out.push(githubIssueNavigation(task));
+  out.push(githubPullRequestNavigation(task));
+  out.push(humanApprovalControl(task));
+  field('classification',
+    `<code>${esc(task.kind)}</code><code>${esc(task.decomposition_state)}</code>` +
+    `<code>${esc(task.execution_scope || '—')}</code><code>${esc(task.disposition)}</code>`);
+  if (task.parent) field('parent', `<code>${esc(task.parent)}</code>`);
+  field('depends on', task.depends_on.length
+    ? task.depends_on.map(d => `<code>${esc(d)}</code>`).join('')
+    : '<span class="empty">nothing</span>');
+
+  if (w) {
+    field('worker', [
+      w.active ? 'Worker active' : (w.status ? `status <code>${esc(w.status)}</code>` : 'worker not active'),
+      w.monitoring_ci ? 'Monitoring CI' : '',
+      w.turn != null ? `Current turn <code>${esc(w.turn)}</code>` : '',
+      w.phase ? `phase <code>${esc(w.phase)}</code>` : '',
+      w.issue_state ? `issue <code>${esc(w.issue_state)}</code>` : '',
+      w.action ? `action <code>${esc(w.action)}</code>` : '',
+    ].filter(Boolean).join('<br>'));
+    if (w.message) field('last event', esc(w.message));
+    field('run', `<code>${esc(w.run_id)}</code><br><span class="sub">updated ${esc(w.updated_at)}</span>`);
+  }
+  const progress = task.progress || {};
+  if (task.state === 'active') {
+    const expanded = expandedStageNodes.has(task.id);
+    const current = (progress.pipeline_stages || []).find(stage => stage.status === 'active');
+    const currentText = current
+      ? `${esc(current.display_label || current.label)} · current stage elapsed ${esc(duration(current.elapsed_seconds))}`
+      : 'phase unavailable · current stage elapsed unavailable';
+    const currentAgent = progress.current_agent;
+    const currentAgentText = currentAgent
+      ? `<br>current agent ${esc(currentAgent.label)} · ${esc(currentAgent.action)} · ${esc(duration(currentAgent.duration_seconds))}`
+      : '<br>current agent unavailable';
+    const timeline = expanded ? '<ol class="stage-timeline">' + (progress.pipeline_stages || []).map(stage =>
+      `<li class="${escAttr(stage.status)}">${stage.status === 'active' ? '▶ ' : stage.status === 'complete' ? '✓ ' : ''}` +
+      `${esc(stage.display_label || stage.label)}${stage.elapsed_seconds == null ? '' : ` · ${esc(duration(stage.elapsed_seconds))}`}</li>`
+    ).join('') + '</ol>' : '';
+    const agentRoster = expanded ? '<ol class="stage-timeline agent-roster">' + (progress.agents || []).map(agent => {
+      const provider = agent.provider || 'provider unavailable';
+      const model = agent.model || 'model unavailable';
+      const tokens = agent.total_tokens == null ? 'tokens unavailable' : `${esc(agent.total_tokens)} tokens`;
+      const cost = agent.cost_usd == null ? 'cost unavailable' : `$${esc(agent.cost_usd.toFixed(4))}`;
+      return `<li class="${escAttr(agent.status)}">${agent.status === 'running' ? '▶ ' : agent.status === 'completed' ? '✓ ' : ''}` +
+        `${esc(agent.label)} · ${esc(agent.status.replaceAll('_', ' '))} · ${esc(duration(agent.duration_seconds))}<br>` +
+        `<span class="sub">${esc(agent.action)} · ${esc(provider)} / ${esc(model)} · ${tokens} · ${cost}</span></li>`;
+    }).join('') + '</ol><div class="sub">Artifact evidence is not independent proof of process liveness.</div>' : '';
+    field('pipeline timing',
+      `<button class="stage-expander" data-task-id="${escAttr(task.id)}" aria-expanded="${expanded}">` +
+      `${expanded ? '− Collapse' : '+ Expand'} all six stages</button><br>` +
+      `total task elapsed ${esc(duration(progress.durable_task_elapsed_seconds))}<br>${currentText}${currentAgentText}${timeline}${agentRoster}`);
+  }
+  field('progress', [
+    progress.phase ? `phase <code>${esc(progress.phase)}</code>` : 'phase unavailable',
+    progress.action ? `action <code>${esc(progress.action)}</code>` : 'action unavailable',
+    progress.attempt != null ? `attempt <code>${esc(progress.attempt)}</code>` : '',
+    progress.queue_position != null ? `integration queue position <code>${esc(progress.queue_position)}</code>` : '',
+    progress.blocked_reason ? `blocked: ${esc(progress.blocked_reason)}` : '',
+    progress.children_total != null ? `${esc(progress.children_complete)}/${esc(progress.children_total)} generated children complete` : '',
+    progress.children_by_state ? `child states: ${Object.entries(progress.children_by_state).map(([state, count]) => `${esc(state)} ${esc(count)}`).join(' · ')}` : '',
+    progress.children_recorded_total_tokens != null ? `recorded child tokens: ${esc(progress.children_recorded_total_tokens.toLocaleString())}` : '',
+    progress.estimate ? esc(progress.estimate.label) : 'Estimate unavailable',
+  ].filter(Boolean).join('<br>'));
+  if (progress.ci) {
+    field('CI checks', [
+      `${esc(progress.ci.passed)}/${esc(progress.ci.total)} passed · ${esc(progress.ci.failed)} failed · ${esc(progress.ci.running)} running · ${esc(progress.ci.queued)} queued`,
+      progress.ci.running_check ? `running: ${esc(progress.ci.running_check)}${progress.ci.running_step ? ` — ${esc(progress.ci.running_step)}` : ''}` : '',
+      `observed ${esc(progress.ci.observed_at || 'unavailable')}${progress.ci.stale ? ' · stale' : ''}`,
+    ].filter(Boolean).join('<br>'));
+  } else if (task.state === 'checks_pending') {
+    field('CI checks', 'Check status unavailable');
+  }
+  if (['active', 'checks_pending', 'complete'].includes(task.state) ||
+      task.token_cost?.recorded_cost_usd != null || task.token_cost?.recorded_total_tokens != null) {
+    field('Token &amp; cost', tokenCostDetail(task));
+  }
+  if (task.reason) field('why this shape', esc(task.reason));
+  if (task.acceptance.length) {
+    field('acceptance criteria', '<ul>' + task.acceptance.map(a => `<li>${esc(a)}</li>`).join('') + '</ul>');
+  }
+  if (task.resources.length) {
+    field('exclusive resources', task.resources.map(r => `<code>${esc(r)}</code>`).join(''));
+  }
+  if (task.notes) field('notes', esc(task.notes));
+  document.getElementById('detail').innerHTML = out.join('');
+  const approvalButton = document.querySelector('#detail .approval-button');
+  if (approvalButton) approvalButton.onclick = () => approveHumanAction(approvalButton);
+  const stageExpander = document.querySelector('#detail .stage-expander');
+  if (stageExpander) stageExpander.onclick = () => toggleStageExpansion(stageExpander.dataset.taskId);
+}
+
+// Highlight a node's dependency neighbourhood on click.
+cy.on('tap', 'node', evt => {
+  const node = evt.target;
+  // Clear the previous selection's highlight, or edges accumulate across clicks.
+  cy.elements().removeClass('hl').addClass('faded');
+  const hood = node.closedNeighborhood();
+  hood.removeClass('faded');
+  hood.edges().addClass('hl');
+  const task = snapshot && snapshot.tasks.find(item => item.id === node.id());
+  if (task && task.state === 'active') toggleStageExpansion(node.id());
+  else showDetail(node.id());
+});
+cy.on('tap', evt => {
+  if (evt.target === cy) {
+    cy.elements().removeClass('faded').removeClass('hl');
+    document.getElementById('detail').innerHTML = '<div class="empty">Click a node.</div>';
+  }
+});
+
+document.getElementById('zin').onclick = () => zoomGraph(1.35);
+document.getElementById('zout').onclick = () => zoomGraph(1 / 1.35);
+document.getElementById('fit').onclick = fitGraph;
+
+for (const id of ['f-cancelled', 'f-scope']) {
+  document.getElementById(id).onchange = () => {
+    if (!snapshot) return;
+    if (id === 'f-scope') savePreference(scopePreferenceKey, document.getElementById(id).checked);
+    render(snapshot, { relayout: true });
+  };
+}
+
+function setLive(on) {
+  document.getElementById('livedot').className = 'dot ' + (on ? 'live' : 'dead');
+  document.getElementById('livetext').textContent = on ? 'live · watching files' : 'offline';
+}
+
+fetch('/api/state').then(r => r.json()).then(snap => {
+  snapshot = snap;
+  render(snap, { relayout: true });
+
+  const stream = new EventSource('/api/stream');
+  stream.onopen = () => setLive(true);
+  stream.onerror = () => setLive(false);
+  stream.onmessage = evt => {
+    setLive(true);
+    snapshot = JSON.parse(evt.data);
+    render(snapshot, { relayout: false });
+    const sel = cy.$('node:selected');
+    if (sel.nonempty()) showDetail(sel.id());
+  };
+});
+</script>

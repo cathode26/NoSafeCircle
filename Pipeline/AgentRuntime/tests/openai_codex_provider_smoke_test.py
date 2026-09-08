@@ -201,6 +201,71 @@ def main() -> int:
             assert read_runner.calls[0]["cwd"] == repository
             assert b"Relevant repository paths" in read_runner.calls[0]["stdin"]
 
+        no_tool_runner = FakeRunner(stdout=(
+            b'{"type":"item.completed","item":{"id":"reason-1",'
+            b'"type":"reasoning","text":"bounded"}}\n'
+            b'{"type":"item.completed","item":{"id":"message-1",'
+            b'"type":"agent_message","text":"done"}}\n' + completed_event
+        ))
+        no_tool_provider = OpenAICodexProvider(
+            process_runner=no_tool_runner,
+            temporary_directory_parent=outside,
+            repository_root=repository,
+            externally_enforced_read_only_repository=True,
+            prohibit_tool_execution=True,
+        )
+        no_tool_provider.invoke(
+            request(
+                capabilities=("repository_read", "repository_search"),
+                context_paths=("Tasks/NSC-1006.yaml",),
+                run_id="codex-no-tool-policy",
+            ),
+            "gpt-concrete-2",
+        )
+        no_tool_call = no_tool_runner.calls[0]
+        for feature in (
+            "shell_tool", "unified_exec", "apps",
+            "browser_use", "browser_use_external", "browser_use_full_cdp_access",
+            "computer_use", "in_app_browser", "standalone_web_search",
+        ):
+            positions = [
+                index for index, value in enumerate(no_tool_call["argv"])
+                if value == "--disable"
+            ]
+            assert any(no_tool_call["argv"][index + 1] == feature for index in positions)
+        no_tool_prompt = no_tool_call["stdin"].decode("utf-8")
+        assert "Allowed evidence operations: Read, Glob, and Grep only." in no_tool_prompt
+        assert "Prohibited: Bash, command execution, editing" in no_tool_prompt
+        assert "Do not substitute shell commands" in no_tool_prompt
+        assert "no-tool architect policy above overrides repository inspection" in no_tool_prompt
+
+        for prohibited_item in ("command_execution", "file_change", "web_search"):
+            prohibited_runner = FakeRunner(stdout=(
+                json.dumps({
+                    "type": "item.completed",
+                    "item": {"id": "forbidden-1", "type": prohibited_item},
+                }, separators=(",", ":")).encode("utf-8")
+                + b"\n" + completed_event
+            ))
+            prohibited_provider = OpenAICodexProvider(
+                process_runner=prohibited_runner,
+                temporary_directory_parent=outside,
+                repository_root=repository,
+                externally_enforced_read_only_repository=True,
+                prohibit_tool_execution=True,
+            )
+            rejects(
+                lambda prohibited_provider=prohibited_provider, prohibited_item=prohibited_item:
+                    prohibited_provider.invoke(
+                        request(
+                            capabilities=("repository_read", "repository_search"),
+                            run_id=f"codex-reject-{prohibited_item.replace('_', '-')}",
+                        ),
+                        "gpt-concrete-2",
+                    ),
+                ProviderOutputInvalid,
+            )
+
         no_profile = OpenAICodexProvider(process_runner=FakeRunner(),
             temporary_directory_parent=outside, repository_root=repository)
         rejects(lambda: no_profile.invoke(request(capabilities=("repository_read",)), "gpt"), ProviderRequestRejected)

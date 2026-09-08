@@ -19,6 +19,7 @@ from .contracts import (
 from .json_values import JsonValueError, freeze_json, validate_json, validate_text
 from .providers.base import (
     ProviderBudgetExhausted,
+    ProviderQuotaExhausted,
     ProviderFailure,
     ProviderInvocationError,
     ProviderInvocationResponse,
@@ -182,6 +183,10 @@ class AgentRunner:
         except ProviderBudgetExhausted as exc:
             return self._provider_exception_result(
                 request, run_dir, selection, "budget_exhausted", exc, started
+            )
+        except ProviderQuotaExhausted as exc:
+            return self._provider_exception_result(
+                request, run_dir, selection, "quota_exhausted", exc, started
             )
         except ProviderOutputInvalid as exc:
             return self._provider_exception_result(
