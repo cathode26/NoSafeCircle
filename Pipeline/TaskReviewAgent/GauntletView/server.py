@@ -2119,6 +2119,58 @@ class Snapshot:
                 except OSError:
                     continue
                 parts.append(f"{name}:{stat.st_mtime_ns}:{stat.st_size}")
+            scheduler_events = self.cache.get(run_dir / "events.jsonl", read_jsonl)
+            projection = self.scheduler_projection(
+                scheduler_events if isinstance(scheduler_events, list) else []
+            )
+            # An active crew is stored inside its exact scheduler-created task
+            # checkout, not under the supervisor output root. Watch only
+            # identity-bound checkouts below state_root; never follow a path
+            # supplied by a browser request or a free-form artifact field.
+            for task_id, lifecycle in projection["lifecycle"].items():
+                checkout_text = lifecycle.get("checkout_path")
+                if lifecycle.get("active") is not True or not isinstance(checkout_text, str):
+                    continue
+                try:
+                    checkout = Path(checkout_text).resolve()
+                    state_root = self.state_root.resolve()
+                except (OSError, RuntimeError):
+                    continue
+                if (
+                    TASK_FILE_RE.fullmatch(f"{task_id}.yaml") is None
+                    or checkout.name != task_id
+                    or not checkout.is_relative_to(state_root)
+                ):
+                    continue
+                crew_outputs = checkout / "Pipeline" / "ExecutionCrew" / "outputs"
+                try:
+                    crew_outputs = crew_outputs.resolve()
+                    if not crew_outputs.is_relative_to(checkout) or not crew_outputs.is_dir():
+                        continue
+                    crew_runs = list(crew_outputs.iterdir())
+                except OSError:
+                    continue
+                for crew_run in crew_runs:
+                    if (
+                        not crew_run.is_dir()
+                        or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", crew_run.name) is None
+                    ):
+                        continue
+                    watched = [
+                        crew_run / "progress.jsonl",
+                        crew_run / "crew_result.json",
+                        *(crew_run / "role_results").glob("*.json"),
+                        *(crew_run / "agent_runtime").glob("*/result.json"),
+                    ]
+                    for path in watched:
+                        try:
+                            stat = path.stat()
+                        except OSError:
+                            continue
+                        parts.append(
+                            f"crew/{task_id}/{crew_run.name}/{path.relative_to(crew_run)}:"
+                            f"{stat.st_mtime_ns}:{stat.st_size}"
+                        )
         try:
             for task_dir in self.outputs.iterdir():
                 try:

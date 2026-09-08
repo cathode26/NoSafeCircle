@@ -2196,6 +2196,63 @@ class PipelineActivityTests(unittest.TestCase):
         self.assertNotEqual(before, self.fixture.snapshot().fingerprint())
         self.assertEqual(self.activity()["headline"], "Run failed")
 
+    def test_exact_active_execution_crew_receipt_updates_sse_fingerprint(self) -> None:
+        self.fixture.add_task(
+            progress_events=[
+                event("state_observed", {"phase": "implementation"}),
+                event("pipeline_action_started", {"action": "run_execution_crew"}),
+            ]
+        )
+        checkout = self.fixture.state / "NSC-112"
+        crew = checkout / "Pipeline" / "ExecutionCrew" / "outputs" / "crew-current"
+        write_jsonl(
+            crew / "progress.jsonl",
+            [
+                {
+                    "event": "run_started",
+                    "timestamp_utc": "2026-09-07T01:00:01Z",
+                    "run_id": "crew-current",
+                    "task_id": "NSC-112",
+                    "required_roles": ["implementer"],
+                },
+                {
+                    "event": "role_started",
+                    "timestamp_utc": "2026-09-07T01:00:02Z",
+                    "run_id": "crew-current",
+                    "task_id": "NSC-112",
+                    "role": "implementer",
+                    "attempt": 1,
+                },
+            ],
+        )
+        self.fixture.write_scheduler_events(
+            [
+                {
+                    "event": "worker_launched",
+                    "timestamp_utc": "2026-09-07T01:00:00Z",
+                    "task_id": "NSC-112",
+                    "run_id": "worker-run-a",
+                    "worker_id": "worker-a",
+                    "work_type": "implementation",
+                    "checkout_path": str(checkout),
+                }
+            ]
+        )
+
+        before = self.fixture.snapshot().fingerprint()
+        write_json(
+            crew / "role_results" / "implementer_1.json",
+            {
+                "role": "implementer",
+                "attempt": 1,
+                "provider": "codex",
+                "model": "fixture-model",
+                "usage": {"total_tokens": 321},
+            },
+        )
+
+        self.assertNotEqual(before, self.fixture.snapshot().fingerprint())
+
     def test_unknown_events_order_and_recent_timeline(self):
         value = self.activity([self.row("future_event", 2), self.started])
         self.assertEqual(value["stage"], "architect")
