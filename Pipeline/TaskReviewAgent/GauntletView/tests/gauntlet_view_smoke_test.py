@@ -1266,6 +1266,139 @@ class GauntletViewCompactProgressTests(unittest.TestCase):
         self.assertLess(expanded.index("Implementer"), expanded.index("Test Author"))
         self.assertLess(expanded.index("Test Author"), expanded.index("Validator"))
 
+    def test_active_decomposition_names_exact_author_and_reviewer_agents(self) -> None:
+        _, supervisor_progress = self.fixture.add_task()
+        supervisor_progress.unlink()
+        output_root = (
+            self.fixture.root / "Downloads" / "NoSafeCircleOutput" / "NSC-112"
+        )
+        decomposition_run = output_root / "worker-run-a"
+        write_jsonl(
+            decomposition_run / "progress.jsonl",
+            [
+                {
+                    "event": "run_started",
+                    "timestamp_utc": "2026-09-07T01:00:00Z",
+                    "run_id": "worker-run-a",
+                    "task_id": "NSC-112",
+                    "provider": "round-robin",
+                },
+                {
+                    "event": "round_provider_started",
+                    "timestamp_utc": "2026-09-07T01:00:01Z",
+                    "run_id": "worker-run-a",
+                    "task_id": "NSC-112",
+                    "provider": "round-robin",
+                    "round_number": 1,
+                    "round_role": "task_decomposer",
+                    "round_provider": "codex",
+                },
+                {
+                    "event": "round_provider_completed",
+                    "timestamp_utc": "2026-09-07T01:01:30Z",
+                    "run_id": "worker-run-a",
+                    "task_id": "NSC-112",
+                    "provider": "round-robin",
+                    "round_number": 1,
+                    "round_role": "task_decomposer",
+                    "round_provider": "codex",
+                    "duration_seconds": 89.3,
+                    "status": "succeeded",
+                },
+                {
+                    "event": "round_provider_started",
+                    "timestamp_utc": "2026-09-07T01:01:31Z",
+                    "run_id": "worker-run-a",
+                    "task_id": "NSC-112",
+                    "provider": "round-robin",
+                    "round_number": 2,
+                    "round_role": "decomposition_reviewer",
+                    "round_provider": "claude",
+                },
+            ],
+        )
+        runtime_reference = "rounds/01/agent_runtime/decomposer-result/result.json"
+        write_json(
+            decomposition_run / "rounds" / "01" / "round_result.json",
+            {
+                "role": "task_decomposer",
+                "actual_provider": "openai-codex",
+                "actual_model": "gpt-fixture",
+                "agent_runtime_result_path": runtime_reference,
+            },
+        )
+        write_json(
+            decomposition_run / runtime_reference,
+            {
+                "model": "gpt-fixture",
+                "usage": {"total_tokens": 4321, "estimated_cost_usd": 0.25},
+            },
+        )
+        source = self.fixture.tasks.parent
+        argv = [
+            "python",
+            "-u",
+            str(source / "Pipeline" / "TaskReviewAgent" / "host_decomposition_launcher.py"),
+            "--task-id",
+            "NSC-112",
+            "--source",
+            str(source),
+            "--checkout-root",
+            str(self.fixture.state),
+            "--worker-id",
+            "worker-a",
+            "--output-root",
+            str(output_root),
+            "--scheduler-output-root",
+            str(self.fixture.state / ".task-review-agent" / "outputs"),
+            "--run-id",
+            "worker-run-a",
+        ]
+        self.fixture.write_scheduler_events(
+            [
+                {
+                    "event": "worker_launched",
+                    "timestamp_utc": "2026-09-07T01:00:00Z",
+                    "task_id": "NSC-112",
+                    "run_id": "worker-run-a",
+                    "worker_id": "worker-a",
+                    "work_type": "decomposition",
+                    "checkout_path": str(self.fixture.state / "NSC-112"),
+                    "argv": argv,
+                }
+            ]
+        )
+
+        with mock.patch.dict(server.os.environ, {"USERPROFILE": str(self.fixture.root)}):
+            with mock.patch.object(server.time, "time", return_value=1788742981):
+                task = self.fixture.task()
+                before = self.fixture.snapshot().fingerprint()
+                write_json(
+                    decomposition_run / "rounds" / "02" / "round_result.json",
+                    {"role": "decomposition_reviewer", "actual_provider": "claude-code"},
+                )
+                after = self.fixture.snapshot().fingerprint()
+
+        roles = [
+            agent
+            for agent in task["progress"]["agents"]
+            if agent["role"] in {"task_decomposer", "decomposition_reviewer"}
+        ]
+        self.assertEqual(
+            [(agent["role"], agent["status"], round(agent["duration_seconds"])) for agent in roles],
+            [
+                ("task_decomposer", "completed", 89),
+                ("decomposition_reviewer", "running", 90),
+            ],
+        )
+        self.assertEqual(
+            (roles[0]["provider"], roles[0]["model"], roles[0]["total_tokens"], roles[0]["cost_usd"]),
+            ("openai-codex", "gpt-fixture", 4321, 0.25),
+        )
+        self.assertEqual(task["progress"]["current_agent"]["role"], "decomposition_reviewer")
+        self.assertIn("CURRENT AGENT Decomposition Reviewer", "\n".join(task["node_summary_lines"]))
+        self.assertNotEqual(before, after)
+
     def test_retry_count_and_current_attempt_timing_are_separate(self) -> None:
         self.fixture.add_task(
             progress_events=[

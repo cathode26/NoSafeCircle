@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import re
 import sys
 import time
@@ -1069,6 +1070,7 @@ class Snapshot:
                     "work_type": event.get("work_type"),
                     "phase": phase,
                     "checkout_path": event.get("checkout_path"),
+                    "argv": event.get("argv"),
                 }
             elif isinstance(task_id, str) and kind in ("worker_finished", "worker_returned_to_pool"):
                 lifecycle[task_id] = {
@@ -1261,6 +1263,192 @@ class Snapshot:
             "projection_sample_count": 0,
             "projected_final_cost_usd": None,
         }
+
+    @staticmethod
+    def _exact_argv_option(argv: Any, name: str) -> str | None:
+        if not isinstance(argv, list) or any(not isinstance(item, str) for item in argv):
+            return None
+        positions = [index for index, item in enumerate(argv) if item == name]
+        if len(positions) != 1 or positions[0] + 1 >= len(argv):
+            return None
+        value = argv[positions[0] + 1]
+        return value if value and not value.startswith("--") else None
+
+    def bound_decomposition_run(
+        self, *, task_id: str, lifecycle: dict[str, Any] | None
+    ) -> Path | None:
+        """Resolve only the production scheduler's exact decomposition output."""
+
+        if not lifecycle or lifecycle.get("active") is not True:
+            return None
+        run_id = lifecycle.get("run_id")
+        argv = lifecycle.get("argv")
+        if (
+            lifecycle.get("work_type") != "decomposition"
+            or not isinstance(run_id, str)
+            or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", run_id) is None
+            or self._exact_argv_option(argv, "--task-id") != task_id
+            or self._exact_argv_option(argv, "--run-id") != run_id
+        ):
+            return None
+        profile = os.environ.get("USERPROFILE")
+        if not profile:
+            return None
+        source_text = self._exact_argv_option(argv, "--source")
+        state_text = self._exact_argv_option(argv, "--checkout-root")
+        scheduler_output_text = self._exact_argv_option(argv, "--scheduler-output-root")
+        output_text = self._exact_argv_option(argv, "--output-root")
+        if None in (source_text, state_text, scheduler_output_text, output_text):
+            return None
+        try:
+            source = self.tasks_dir.parent.resolve()
+            state_root = self.state_root.resolve()
+            expected_script = (
+                source / "Pipeline" / "TaskReviewAgent" / "host_decomposition_launcher.py"
+            ).resolve()
+            script_values = [
+                Path(item).resolve()
+                for item in argv
+                if isinstance(item, str) and item.casefold().endswith("host_decomposition_launcher.py")
+            ]
+            selected_source = Path(source_text).resolve()
+            selected_state = Path(state_text).resolve()
+            selected_scheduler_output = Path(scheduler_output_text).resolve()
+            selected_output = Path(output_text).resolve()
+            expected_output = (
+                Path(profile).resolve()
+                / "Downloads"
+                / "NoSafeCircleOutput"
+                / task_id
+            ).resolve()
+        except (OSError, RuntimeError):
+            return None
+        if (
+            script_values != [expected_script]
+            or selected_source != source
+            or selected_state != state_root
+            or selected_scheduler_output != self.outputs.resolve()
+            or selected_output != expected_output
+        ):
+            return None
+        selected = selected_output / run_id
+        try:
+            resolved = selected.resolve()
+        except (OSError, RuntimeError):
+            return None
+        return resolved if resolved.parent == selected_output and resolved.is_dir() else None
+
+    def decomposition_agents(
+        self,
+        *,
+        task_id: str,
+        lifecycle: dict[str, Any] | None,
+        active: bool,
+        now: float,
+    ) -> list[dict[str, Any]]:
+        run_dir = self.bound_decomposition_run(task_id=task_id, lifecycle=lifecycle)
+        if run_dir is None:
+            return []
+        rows = self.cache.get(run_dir / "progress.jsonl", read_jsonl)
+        if not isinstance(rows, list):
+            return []
+        states: dict[int, dict[str, Any]] = {}
+        order: list[int] = []
+        run_terminal = False
+        for row in rows:
+            if (
+                not isinstance(row, dict)
+                or row.get("task_id") != task_id
+                or row.get("run_id") != run_dir.name
+            ):
+                continue
+            kind = row.get("event")
+            if not isinstance(kind, str):
+                continue
+            if kind == "run_completed":
+                run_terminal = True
+            if kind.startswith("round_provider_"):
+                round_number = row.get("round_number")
+                role = row.get("round_role")
+                provider = row.get("round_provider")
+            elif kind.startswith("provider_"):
+                round_number = 1
+                role = "task_decomposer"
+                provider = row.get("provider")
+            else:
+                continue
+            if (
+                type(round_number) is not int
+                or round_number < 1
+                or role not in {"task_decomposer", "decomposition_reviewer"}
+            ):
+                continue
+            if round_number not in order:
+                order.append(round_number)
+            item = states.setdefault(
+                round_number,
+                {
+                    "role": role,
+                    "attempt": round_number,
+                    "started_at": None,
+                    "completed_at": None,
+                    "receipt_duration": None,
+                    "status": "queued",
+                    "provider": provider if isinstance(provider, str) else None,
+                },
+            )
+            if kind.endswith("started"):
+                item["started_at"] = row.get("timestamp_utc")
+                item["status"] = "recorded_incomplete"
+            elif kind.endswith("completed"):
+                item["completed_at"] = row.get("timestamp_utc")
+                item["receipt_duration"] = positive_number(row.get("duration_seconds"))
+                item["status"] = "failed" if row.get("status") == "failed" else "completed"
+
+        agents = []
+        for round_number in order:
+            item = states[round_number]
+            start = parse_timestamp(item.get("started_at"))
+            end = parse_timestamp(item.get("completed_at"))
+            if item["status"] == "recorded_incomplete" and active and not run_terminal:
+                item["status"] = "running"
+                end = now
+            elapsed = item.get("receipt_duration")
+            if elapsed is None and start is not None and end is not None and end >= start:
+                elapsed = end - start
+            round_result = self.cache.get(
+                run_dir / "rounds" / f"{round_number:02d}" / "round_result.json", read_json
+            )
+            if not isinstance(round_result, dict) or round_result.get("role") != item["role"]:
+                round_result = {}
+            result_reference = round_result.get("agent_runtime_result_path")
+            runtime_result = {}
+            if (
+                isinstance(result_reference, str)
+                and ".." not in Path(result_reference).parts
+                and result_reference.endswith("/result.json")
+            ):
+                candidate = (run_dir / result_reference).resolve()
+                if candidate.is_relative_to(run_dir):
+                    value = self.cache.get(candidate, read_json)
+                    runtime_result = value if isinstance(value, dict) else {}
+            usage = runtime_result.get("usage") if isinstance(runtime_result.get("usage"), dict) else {}
+            agents.append(
+                {
+                    "role": item["role"],
+                    "label": AGENT_ROLE_LABELS[item["role"]],
+                    "attempt": round_number,
+                    "status": item["status"],
+                    "action": AGENT_ROLE_ACTIONS[item["role"]],
+                    "duration_seconds": elapsed,
+                    "provider": round_result.get("actual_provider") or item.get("provider"),
+                    "model": round_result.get("actual_model") or runtime_result.get("model"),
+                    "total_tokens": usage.get("total_tokens") if type(usage.get("total_tokens")) is int else None,
+                    "cost_usd": positive_number(usage.get("estimated_cost_usd")),
+                    "source": f"Pipeline/TaskDecomposition output round {round_number}",
+                }
+            )
+        return agents
 
     def execution_crew_agents(
         self,
@@ -1753,6 +1941,12 @@ class Snapshot:
                 active=active,
                 now=time.time(),
             )
+            decomposition_agents = self.decomposition_agents(
+                task_id=task_id,
+                lifecycle=lifecycle,
+                active=active,
+                now=time.time(),
+            )
             agents = []
             if summary and (
                 not summary.get("scheduler_projected")
@@ -1790,6 +1984,7 @@ class Snapshot:
                         "source": "task worker progress",
                     }
                 )
+            agents.extend(decomposition_agents)
             for agent in crew_agents:
                 agent["action"] = AGENT_ROLE_ACTIONS.get(
                     agent["role"], "processing its assigned task"
@@ -2128,6 +2323,26 @@ class Snapshot:
             # identity-bound checkouts below state_root; never follow a path
             # supplied by a browser request or a free-form artifact field.
             for task_id, lifecycle in projection["lifecycle"].items():
+                decomposition_run = self.bound_decomposition_run(
+                    task_id=task_id, lifecycle=lifecycle
+                )
+                if decomposition_run is not None:
+                    watched_decomposition = [
+                        decomposition_run / "progress.jsonl",
+                        decomposition_run / "decomposition_run_result.json",
+                        *decomposition_run.glob("rounds/*/round_result.json"),
+                        *decomposition_run.glob("rounds/*/agent_runtime/*/result.json"),
+                        *decomposition_run.glob("agent_runtime/*/result.json"),
+                    ]
+                    for path in watched_decomposition:
+                        try:
+                            stat = path.stat()
+                        except OSError:
+                            continue
+                        parts.append(
+                            f"decomposition/{task_id}/{path.relative_to(decomposition_run)}:"
+                            f"{stat.st_mtime_ns}:{stat.st_size}"
+                        )
                 checkout_text = lifecycle.get("checkout_path")
                 if lifecycle.get("active") is not True or not isinstance(checkout_text, str):
                     continue
