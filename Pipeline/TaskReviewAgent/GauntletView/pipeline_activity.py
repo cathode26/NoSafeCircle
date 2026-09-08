@@ -100,7 +100,12 @@ def ordered_events(events, timeline, worker_events, run_id):
 def build_pipeline_activity(*, manifest, progress, receipt, events, timeline,
                             worker_events, tasks, now):
     rows = ordered_events(events, timeline, worker_events, manifest.get("run_id"))
-    scope = set(manifest.get("target_task_ids") or [])
+    # Task projection has already expanded manifest roots through exact committed
+    # decomposition parent/child bindings. Reuse that truth so a generated child
+    # launch is not discarded as out of scope by this reducer.
+    scope = set(manifest.get("target_task_ids") or []).union(
+        task.get("id") for task in tasks if task.get("in_scope") is True
+    )
     progress = progress if isinstance(progress, dict) else {}
     runtime = manifest.get("runtime_configuration")
     runtime = runtime if isinstance(runtime, dict) else {}
@@ -122,6 +127,9 @@ def build_pipeline_activity(*, manifest, progress, receipt, events, timeline,
     provider, model = "unavailable", "unavailable"
     provider_source = "unavailable"
     last_wait_stage = None
+    scheduler_waiting = None
+    capacity_full = None
+    run_started_at = None
 
     def stage(row, key, headline, detail=""):
         return {"stage": key, "headline": headline, "description": detail,
@@ -134,6 +142,8 @@ def build_pipeline_activity(*, manifest, progress, receipt, events, timeline,
     for index, row in enumerate(rows):
         kind = row["event"]
         task_id = row.get("_task_id") if row["source"] == "worker" else row.get("task_id")
+        if kind == "autonomous_run_started" and run_started_at is None:
+            run_started_at = timestamp(row.get("timestamp_utc"))
         next_stage = None
         if row["source"] == "worker":
             if task_id not in active or active[task_id] != row.get("_worker_run_id"):
@@ -150,6 +160,7 @@ def build_pipeline_activity(*, manifest, progress, receipt, events, timeline,
                 if previous and previous.get("action") == action and kind.endswith("heartbeat"):
                     next_stage["started_at"] = previous["started_at"]
                 next_stage["action"] = action
+                next_stage["task_id"] = task_id
                 worker_stages[task_id] = next_stage
             elif kind in {"pipeline_action_completed", "pipeline_action_failed", "run_finished", "terminal_state"}:
                 worker_stages.pop(task_id, None)
@@ -232,6 +243,7 @@ def build_pipeline_activity(*, manifest, progress, receipt, events, timeline,
                     next_stage = stage(row, "scheduler_wait", "Scheduler is waiting; wait mode unavailable")
                 if last_wait_stage:
                     next_stage["description"] = last_wait_stage["headline"] + "."
+                scheduler_waiting = next_stage
             elif kind == "architect_session_reconciled":
                 provider_open = False
                 next_stage = stage(row, "unknown", "Previous Software Architect call was interrupted; current activity unavailable")
@@ -240,6 +252,7 @@ def build_pipeline_activity(*, manifest, progress, receipt, events, timeline,
                 launches.add(row.get("run_id") or (task_id, row.get("timestamp_utc")))
                 admitted.add(task_id)
                 next_stage = stage(row, "worker_launch", f"Starting {task_id} work")
+                next_stage["task_id"] = task_id
                 worker_stages[task_id] = next_stage
             elif kind in {"worker_finished", "worker_failed", "worker_returned_to_pool"}:
                 active.pop(task_id, None)
@@ -253,6 +266,8 @@ def build_pipeline_activity(*, manifest, progress, receipt, events, timeline,
                 next_stage = stage(row, *SCHEDULER_STAGES[kind])
                 if isinstance(row.get("reason"), str):
                     next_stage["description"] = row["reason"][:500]
+                if kind == "scheduler_blocked" and row.get("reason") == "local max_workers capacity is full":
+                    capacity_full = next_stage
                 if kind == "poll_started":
                     last_wait_stage = None
             if next_stage and next_stage["stage"] not in {"failed", "stopped", "complete"}:
@@ -268,6 +283,43 @@ def build_pipeline_activity(*, manifest, progress, receipt, events, timeline,
                "recorded_worker": recorded_worker, "scheduler": scheduler_stage,
                "unknown": stage({}, "unknown", "Pipeline activity unavailable")}
     chosen = next(choices[key] for key in PRECEDENCE if choices[key] is not None)
+    if chosen is recorded_worker:
+        chosen = dict(chosen)
+        task_id = chosen.get("task_id")
+        task = next((item for item in tasks if item.get("id") == task_id), None)
+        title = task.get("title") if isinstance(task, dict) else None
+        title = title if isinstance(title, str) and title.strip() else task_id
+        action = chosen.get("action")
+        current_agent = (
+            task.get("progress", {}).get("current_agent") if isinstance(task, dict) else None
+        )
+        if isinstance(current_agent, dict):
+            worker_text = f"{current_agent.get('label') or 'Agent'} is {current_agent.get('action') or 'working'}"
+            duration_value = current_agent.get("duration_seconds")
+            if duration_value is not None:
+                worker_text += f" ({duration(duration_value)})"
+            headline = f"{task_id}: {worker_text}"
+        elif action and chosen.get("headline"):
+            worker_text = chosen["headline"].replace(str(task_id), str(title))
+            headline = f"{task_id}: {worker_text}"
+        else:
+            headline = f"{task_id} work is in progress"
+        capacity = integer(manifest.get("max_capacity"))
+        if scheduler_waiting is not None or capacity_full is not None:
+            if capacity_full is not None and capacity == 1 and len(active) == 1:
+                headline += "; scheduler is holding the only slot until it returns."
+            elif capacity_full is not None and capacity is not None and len(active) >= capacity:
+                headline += f"; scheduler is holding all {capacity} slots until a worker returns."
+            else:
+                headline += "; scheduler is waiting for its worker to return."
+            mechanics = (scheduler_waiting or capacity_full).get("headline")
+            chosen["description"] = f"Scheduler wake mechanics: {mechanics}."
+        if capacity_full is not None:
+            normal = f"Worker capacity is full ({len(active)}/{capacity}); this is normal while recorded work is active."
+            chosen["description"] = " ".join(
+                item for item in (chosen.get("description"), normal) if item
+            )
+        chosen["headline"] = headline
     provider_open = provider_open and terminal is None
     dated = [timestamp(item["timestamp_utc"]) for item in recent if timestamp(item["timestamp_utc"]) is not None]
     last_at = max(dated) if dated else None
@@ -285,6 +337,12 @@ def build_pipeline_activity(*, manifest, progress, receipt, events, timeline,
                         if provider_open else "No open provider call established by the selected stage."),
         "liveness": "Artifact-only liveness is not proof of process liveness.",
         "stage_elapsed_seconds": elapsed, "last_event_age_seconds": age,
+        "run_elapsed_seconds": (
+            max(0, (timestamp(terminal.get("started_at")) if terminal else now) - run_started_at)
+            if run_started_at is not None
+            and (terminal is None or timestamp(terminal.get("started_at")) is not None)
+            else None
+        ),
         "sampled_at_epoch": now, "stale_after_seconds": STALE_SECONDS,
         "terminal": terminal is not None,
         "freshness": (f"No new durable event for {duration(age)}; process status is unknown from artifacts."

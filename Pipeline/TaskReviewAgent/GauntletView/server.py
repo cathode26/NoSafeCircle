@@ -74,6 +74,14 @@ PHASE_STAGES = {
     "delivery_evidence": (5, "PRODUCING EVIDENCE"),
     "merge_closeout": (6, "IN CI"),
 }
+PIPELINE_STAGE_LABELS = {
+    1: "WAITING",
+    2: "CHECKOUT",
+    3: "IMPLEMENT",
+    4: "VALIDATE",
+    5: "EVIDENCE",
+    6: "CI",
+}
 ACTION_LABELS = {
     "run_execution_crew": "Execution crew",
     "search_repository": "Inspecting repository",
@@ -83,6 +91,58 @@ ACTION_LABELS = {
     "produce_delivery_evidence": "Delivery evidence",
     "inspect_or_merge_pull_request": "Monitoring pull-request checks",
     "run_decomposition": "Decomposition",
+}
+ACTION_STAGES = {
+    "prepare_task_checkout": 2,
+    "run_execution_crew": 3,
+    "repair_candidate": 3,
+    "run_decomposition": 3,
+    "integrate_current_main": 3,
+    "run_authoritative_unity_test": 4,
+    "run_unity_tests": 4,
+    "run_validation": 4,
+    "produce_delivery_evidence": 5,
+    "publish_delivery_evidence": 5,
+    "create_delivery_review_draft": 5,
+    "publish_delivery_review": 5,
+    "finalize_delivery_evidence_and_open_pr": 5,
+    "inspect_or_merge_pull_request": 6,
+}
+AGENT_ROLE_LABELS = {
+    "task_supervisor": "Task Supervisor",
+    "execution_crew": "ExecutionCrew",
+    "task_decomposer": "Decomposition Author",
+    "decomposition_reviewer": "Decomposition Reviewer",
+    "contract_locality_auditor": "Contract Locality Auditor",
+    "implementer": "Implementer",
+    "test_author": "Test Author",
+    "validator": "Validator",
+    "lead_developer": "Lead Developer / Repair",
+    "repair": "Lead Developer / Repair",
+    "decomposition_worker": "Decomposition Worker",
+}
+AGENT_ROLE_ACTIONS = {
+    "task_supervisor": "coordinating the task workflow",
+    "execution_crew": "implementing the task",
+    "decomposition_worker": "running the decomposition workflow",
+    "task_decomposer": "authoring the decomposition plan",
+    "decomposition_reviewer": "reviewing the decomposition plan",
+    "contract_locality_auditor": "auditing contract locality",
+    "implementer": "implementing the task",
+    "test_author": "authoring task tests",
+    "validator": "validating the candidate",
+    "lead_developer": "repairing the candidate",
+    "repair": "repairing the candidate",
+}
+SUPERVISOR_ACTIONS = {
+    "run_execution_crew": "coordinating ExecutionCrew",
+    "repair_candidate": "coordinating candidate repair",
+    "run_decomposition": "coordinating decomposition",
+    "prepare_task_checkout": "preparing the task checkout",
+    "run_unity_tests": "coordinating Unity tests",
+    "run_validation": "coordinating validation",
+    "produce_delivery_evidence": "coordinating delivery evidence",
+    "inspect_or_merge_pull_request": "monitoring pull-request checks",
 }
 
 # Worker terminal statuses seen in progress.jsonl -> node state.
@@ -289,6 +349,93 @@ def duration_text(seconds: Any) -> str:
     if minutes:
         return f"{minutes}m" if seconds_int == 0 else f"{minutes}m {seconds_int}s"
     return f"{seconds_int}s"
+
+
+def pipeline_stage_projection(
+    records: list[dict[str, Any]], worker: dict[str, Any] | None, *, active: bool, now: float
+) -> tuple[list[dict[str, Any]], float | None, float | None]:
+    """Build six honest stage clocks from persisted UTC event timestamps only."""
+
+    current_stage = None
+    if worker:
+        current_stage = PHASE_STAGES.get(worker.get("phase"), (None, None))[0]
+        current_stage = current_stage or ACTION_STAGES.get(worker.get("action"))
+    evidence: dict[int, dict[str, Any]] = {}
+    for record in records:
+        for stage_number, item in (record.get("stage_evidence") or {}).items():
+            if stage_number not in PIPELINE_STAGE_LABELS or not isinstance(item, dict):
+                continue
+            start = parse_timestamp(item.get("started_at"))
+            end = parse_timestamp(item.get("completed_at"))
+            if start is None:
+                continue
+            evidence[stage_number] = {"start": start, "end": end}
+    if worker:
+        for stage_number, item in (worker.get("stage_evidence") or {}).items():
+            if stage_number not in PIPELINE_STAGE_LABELS or not isinstance(item, dict):
+                continue
+            start = parse_timestamp(item.get("started_at"))
+            end = parse_timestamp(item.get("completed_at"))
+            if start is not None:
+                evidence[stage_number] = {"start": start, "end": end}
+
+    rows = []
+    for stage_number, label in PIPELINE_STAGE_LABELS.items():
+        timing = evidence.get(stage_number)
+        status = (
+            "active"
+            if active and stage_number == current_stage
+            else "complete"
+            if (timing and timing.get("end") is not None)
+            or (current_stage is not None and stage_number < current_stage)
+            else "future"
+        )
+        elapsed = None
+        if timing:
+            end = timing.get("end")
+            if status == "active":
+                end = now
+            if end is not None and end >= timing["start"]:
+                elapsed = end - timing["start"]
+        phase_label = PHASE_STAGES.get(worker.get("phase"), (None, None))[1] if worker else None
+        display_label = (
+            f"{label} / {phase_label}"
+            if status == "active" and isinstance(phase_label, str) and phase_label != label
+            else label
+        )
+        rows.append(
+            {
+                "number": stage_number,
+                "label": label,
+                "display_label": display_label,
+                "status": status,
+                "elapsed_seconds": elapsed,
+            }
+        )
+
+    starts = [
+        parsed
+        for parsed in (parse_timestamp(record.get("first_timestamp")) for record in records)
+        if parsed is not None
+    ]
+    if worker:
+        worker_start = parse_timestamp(worker.get("first_timestamp"))
+        if worker_start is not None:
+            starts.append(worker_start)
+    task_start = min(starts) if starts else None
+    task_end = now if active else parse_timestamp(worker.get("last_timestamp")) if worker else None
+    task_elapsed = (
+        task_end - task_start
+        if task_start is not None and task_end is not None and task_end >= task_start
+        else None
+    )
+    active_timing = evidence.get(current_stage) if current_stage is not None else None
+    stage_elapsed = (
+        now - active_timing["start"]
+        if active and active_timing and now >= active_timing["start"]
+        else None
+    )
+    return rows, stage_elapsed, task_elapsed
 
 
 def nested_objects(fields: dict[str, Any]) -> list[dict[str, Any]]:
@@ -516,7 +663,9 @@ def summarize_worker_run(path: Path) -> dict:
         "finished": False,
         "turn": None,
         "action": None,
+        "action_timestamp": None,
         "phase": None,
+        "phase_timestamp": None,
         "issue_state": None,
         "message": None,
         "issue_number": None,
@@ -534,13 +683,33 @@ def summarize_worker_run(path: Path) -> dict:
         "stage_elapsed_seconds": None,
         "role": None,
         "provider": None,
+        "model": None,
+        "crew_run_id": None,
         "attempt": None,
         "blocked_reason": None,
         "ci_checks": None,
         "ci_observed_at": None,
+        "stage_evidence": {},
     }
     action_started_elapsed: float | None = None
     previous_action: str | None = None
+    current_stage: int | None = None
+
+    def observe_stage(stage_number: int | None, observed_at: Any) -> None:
+        nonlocal current_stage
+        if stage_number not in PIPELINE_STAGE_LABELS or parse_timestamp(observed_at) is None:
+            return
+        if current_stage == stage_number:
+            return
+        if current_stage is not None:
+            prior = summary["stage_evidence"].get(current_stage)
+            if prior is not None and prior.get("completed_at") is None:
+                prior["completed_at"] = observed_at
+        summary["stage_evidence"].setdefault(
+            stage_number, {"started_at": observed_at, "completed_at": None}
+        )
+        current_stage = stage_number
+
     for event in events:
         if not isinstance(event, dict):
             continue
@@ -566,6 +735,7 @@ def summarize_worker_run(path: Path) -> dict:
                 summary["attempt"] = attempt
             summary["role"] = values.get("role") or summary["role"]
             summary["provider"] = values.get("provider") or summary["provider"]
+            summary["model"] = values.get("model") or summary["model"]
             for field in ISSUE_NUMBER_FIELDS:
                 issue_number = validated_issue_number(values.get(field))
                 if issue_number is not None:
@@ -585,7 +755,11 @@ def summarize_worker_run(path: Path) -> dict:
                     summary["ci_checks"] = values[check_field]
                     summary["ci_observed_at"] = timestamp
         if kind == "state_observed":
-            summary["phase"] = fields.get("phase") or summary["phase"]
+            phase = fields.get("phase")
+            if isinstance(phase, str) and phase:
+                summary["phase"] = phase
+                summary["phase_timestamp"] = timestamp
+                observe_stage(PHASE_STAGES.get(phase, (None, None))[0], timestamp)
             summary["issue_state"] = fields.get("issue_state") or summary["issue_state"]
         if kind in (
             "pipeline_action_started",
@@ -605,7 +779,9 @@ def summarize_worker_run(path: Path) -> dict:
                         else elapsed
                     )
                     previous_action = action
+                    summary["action_timestamp"] = timestamp
                 summary["action"] = action
+                observe_stage(ACTION_STAGES.get(action), timestamp)
                 # An action name alone is not CI evidence. The classifier combines
                 # merge-closeout + this action + an exact PR, while a durable
                 # checks_pending result remains sufficient on its own.
@@ -638,6 +814,15 @@ def summarize_worker_run(path: Path) -> dict:
             if candidate is not None:
                 summary["projection_state"] = candidate
                 summary["projection_timestamp"] = timestamp
+            if current_stage is not None and parse_timestamp(timestamp) is not None:
+                current = summary["stage_evidence"].get(current_stage)
+                if current is not None and current.get("completed_at") is None:
+                    current["completed_at"] = timestamp
+        if kind == "action_completed" and fields.get("action") == "run_execution_crew":
+            result_summary = fields.get("result_summary")
+            crew_run_id = result_summary.get("run_id") if isinstance(result_summary, dict) else None
+            if isinstance(crew_run_id, str) and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", crew_run_id):
+                summary["crew_run_id"] = crew_run_id
     if summary["elapsed_seconds"] is not None:
         if action_started_elapsed is None:
             summary["stage_elapsed_seconds"] = summary["elapsed_seconds"]
@@ -852,6 +1037,7 @@ class Snapshot:
     def scheduler_projection(events: list[dict]) -> dict[str, Any]:
         lifecycle: dict[str, dict[str, Any]] = {}
         transitions: dict[str, dict[str, Any]] = {}
+        resume_phases: dict[str, dict[str, Any]] = {}
         queued: list[str] = []
         gate_timestamp = None
         for event in events:
@@ -860,14 +1046,36 @@ class Snapshot:
             task_id = event.get("task_id")
             kind = event.get("event")
             timestamp = event.get("timestamp_utc")
+            if (
+                isinstance(task_id, str)
+                and kind == "integration_gate_resume_admitted"
+                and isinstance(event.get("resume_phase"), str)
+            ):
+                resume_phases[task_id] = {
+                    "phase": event["resume_phase"],
+                    "timestamp": timestamp,
+                }
             if isinstance(task_id, str) and kind == "worker_launched":
+                phase = event.get("resume_phase")
+                if not isinstance(phase, str):
+                    phase = (resume_phases.get(task_id) or {}).get("phase")
+                if not isinstance(phase, str) and event.get("work_type") == "decomposition":
+                    phase = "decomposition"
                 lifecycle[task_id] = {
                     "active": True,
                     "timestamp": timestamp,
                     "worker_id": event.get("worker_id"),
+                    "run_id": event.get("run_id"),
+                    "work_type": event.get("work_type"),
+                    "phase": phase,
+                    "checkout_path": event.get("checkout_path"),
                 }
             elif isinstance(task_id, str) and kind in ("worker_finished", "worker_returned_to_pool"):
-                lifecycle[task_id] = {"active": False, "timestamp": timestamp}
+                lifecycle[task_id] = {
+                    "active": False,
+                    "timestamp": timestamp,
+                    "run_id": event.get("run_id"),
+                }
             transition = event.get("workflow_transition")
             if not isinstance(transition, dict):
                 fields = event.get("fields")
@@ -1054,6 +1262,152 @@ class Snapshot:
             "projected_final_cost_usd": None,
         }
 
+    def execution_crew_agents(
+        self,
+        *,
+        task_id: str,
+        lifecycle: dict[str, Any] | None,
+        worker: dict[str, Any] | None,
+        active: bool,
+        now: float,
+    ) -> list[dict[str, Any]]:
+        """Read one uniquely bound crew run; artifacts never prove liveness alone."""
+
+        if not lifecycle or not isinstance(lifecycle.get("checkout_path"), str):
+            return []
+        try:
+            checkout = Path(lifecycle["checkout_path"]).resolve()
+            state_root = self.state_root.resolve()
+        except (OSError, RuntimeError):
+            return []
+        if checkout.name != task_id or not checkout.is_relative_to(state_root):
+            return []
+        outputs = checkout / "Pipeline" / "ExecutionCrew" / "outputs"
+        if not outputs.is_dir():
+            return []
+
+        run_id = worker.get("crew_run_id") if worker else None
+        selected: tuple[Path, list[dict[str, Any]]] | None = None
+        if isinstance(run_id, str) and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", run_id):
+            run_dir = outputs / run_id
+            rows = self.cache.get(run_dir / "progress.jsonl", read_jsonl)
+            if isinstance(rows, list):
+                selected = (run_dir, rows)
+        elif active and worker and worker.get("action") == "run_execution_crew":
+            action_started = parse_timestamp(worker.get("action_timestamp"))
+            candidates = []
+            try:
+                run_dirs = list(outputs.iterdir())
+            except OSError:
+                run_dirs = []
+            for run_dir in run_dirs:
+                if not run_dir.is_dir() or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", run_dir.name) is None:
+                    continue
+                rows = self.cache.get(run_dir / "progress.jsonl", read_jsonl)
+                if not isinstance(rows, list) or not rows:
+                    continue
+                start = next((row for row in rows if row.get("event") == "run_started"), None)
+                started_at = parse_timestamp(start.get("timestamp_utc")) if isinstance(start, dict) else None
+                if (
+                    not isinstance(start, dict)
+                    or start.get("task_id") != task_id
+                    or start.get("run_id") != run_dir.name
+                    or started_at is None
+                    or action_started is None
+                    or started_at < action_started
+                ):
+                    continue
+                candidates.append((run_dir, rows))
+            if len(candidates) == 1:
+                selected = candidates[0]
+        if selected is None:
+            return []
+
+        run_dir, rows = selected
+        run_terminal = any(row.get("event") in {"run_completed", "run_failed"} for row in rows)
+        required: list[str] = []
+        role_states: dict[str, dict[str, Any]] = {}
+        order: list[str] = []
+        for row in rows:
+            if not isinstance(row, dict) or row.get("task_id") != task_id or row.get("run_id") != run_dir.name:
+                continue
+            kind = row.get("event")
+            if kind == "run_started" and isinstance(row.get("required_roles"), list):
+                required = [role for role in row["required_roles"] if isinstance(role, str)]
+                continue
+            role = row.get("role")
+            if not isinstance(role, str) or re.fullmatch(r"[a-z][a-z0-9_]*", role) is None:
+                continue
+            attempt = row.get("attempt") if type(row.get("attempt")) is int and row.get("attempt") > 0 else 1
+            key = f"{role}:{attempt}"
+            if key not in order:
+                order.append(key)
+            item = role_states.setdefault(
+                key,
+                {
+                    "role": role,
+                    "attempt": attempt,
+                    "started_at": None,
+                    "completed_at": None,
+                    "status": "queued",
+                    "provider": row.get("provider") if isinstance(row.get("provider"), str) else None,
+                },
+            )
+            if kind == "role_started":
+                item["started_at"] = row.get("timestamp_utc")
+                item["status"] = "recorded_incomplete"
+            elif kind == "role_completed":
+                item["completed_at"] = row.get("timestamp_utc")
+                item["status"] = "failed" if row.get("status") == "failed" else "completed"
+            elif kind == "role_skipped":
+                item["completed_at"] = row.get("timestamp_utc")
+                item["status"] = "omitted"
+
+        for role in required:
+            if not any(item["role"] == role for item in role_states.values()):
+                key = f"{role}:1"
+                order.append(key)
+                role_states[key] = {
+                    "role": role,
+                    "attempt": 1,
+                    "started_at": None,
+                    "completed_at": None,
+                    "status": "queued",
+                    "provider": None,
+                }
+
+        agents = []
+        for key in order:
+            item = role_states[key]
+            start = parse_timestamp(item.get("started_at"))
+            end = parse_timestamp(item.get("completed_at"))
+            if item["status"] == "recorded_incomplete" and active and not run_terminal:
+                item["status"] = "running"
+                end = now
+            duration = end - start if start is not None and end is not None and end >= start else None
+            role_result = self.cache.get(
+                run_dir / "role_results" / f"{item['role']}_{item['attempt']}.json", read_json
+            )
+            role_result = role_result if isinstance(role_result, dict) else {}
+            if role_result.get("role") != item["role"] or role_result.get("attempt") != item["attempt"]:
+                role_result = {}
+            usage = role_result.get("usage") if isinstance(role_result.get("usage"), dict) else {}
+            agents.append(
+                {
+                    "role": item["role"],
+                    "label": AGENT_ROLE_LABELS.get(item["role"], item["role"].replace("_", " ").title()),
+                    "attempt": item["attempt"],
+                    "status": item["status"],
+                    "duration_seconds": duration,
+                    "provider": role_result.get("provider") or item.get("provider"),
+                    "model": role_result.get("model"),
+                    "total_tokens": usage.get("total_tokens") if type(usage.get("total_tokens")) is int else None,
+                    "cost_usd": positive_number(usage.get("estimated_cost_usd")),
+                    "source": f"Pipeline/ExecutionCrew/outputs/{run_dir.name}",
+                }
+            )
+        return agents
+
     @staticmethod
     def classify(
         *,
@@ -1076,10 +1430,18 @@ class Snapshot:
         projection = worker.get("projection_state") if worker else None
         projection_time = worker.get("projection_timestamp") if worker else None
         active = bool(worker and not worker.get("finished"))
-        if lifecycle and newer(lifecycle.get("timestamp"), worker.get("last_timestamp") if worker else None):
+        exact_active_launch = bool(
+            lifecycle
+            and lifecycle.get("active") is True
+            and isinstance(lifecycle.get("run_id"), str)
+            and (worker is None or worker.get("run_id") == lifecycle.get("run_id"))
+        )
+        if exact_active_launch:
+            active = True
+        elif lifecycle and newer(lifecycle.get("timestamp"), worker.get("last_timestamp") if worker else None):
             active = lifecycle.get("active") is True
         workflow_newer = bool(transition and newer(transition.get("timestamp"), projection_time))
-        launch_newer = bool(
+        launch_newer = exact_active_launch or bool(
             lifecycle
             and lifecycle.get("active") is True
             and newer(lifecycle.get("timestamp"), projection_time)
@@ -1208,33 +1570,49 @@ class Snapshot:
             return [first, f"Verified {duration_text(progress.get('queue_wait_seconds'))} ago"]
         if state != "active":
             return None
-        phase = worker.get("phase")
-        stage, label = PHASE_STAGES.get(
-            phase, (None, str(phase or "PHASE UNAVAILABLE").replace("_", " ").upper())
-        )
-        first = f"{label} · Stage {stage}/6" if stage else label
-        action = ACTION_LABELS.get(
-            worker.get("action"),
-            str(worker.get("action") or "Current phase unavailable").replace("_", " ").title(),
-        )
-        elapsed = duration_text(progress.get("stage_elapsed_seconds"))
-        second = f"{action} · {elapsed} elapsed" if elapsed != "unavailable" else f"{action} · elapsed unavailable"
+        stage_rows = progress.get("pipeline_stages") or []
+        stage_parts = []
+        for item in stage_rows:
+            marker = "▶" if item.get("status") == "active" else ("✓" if item.get("status") == "complete" else "")
+            shown_label = item.get("display_label") or item["label"]
+            label = f"[{shown_label}]" if item.get("status") == "active" else shown_label
+            elapsed = duration_text(item.get("elapsed_seconds"))
+            suffix = (
+                f" {elapsed}"
+                if elapsed != "unavailable"
+                else " · elapsed unavailable"
+                if item.get("status") == "active"
+                else ""
+            )
+            stage_parts.append(f"{marker}{label}{suffix}")
+        stage_lines = [" · ".join(stage_parts[:3]), " · ".join(stage_parts[3:])] if stage_parts else ["PHASE UNAVAILABLE"]
+        agent_lines = []
+        for agent in progress.get("agents") or []:
+            marker = {
+                "running": "▶",
+                "completed": "✓",
+                "failed": "!",
+                "omitted": "○",
+                "queued": "…",
+            }.get(agent.get("status"), "?")
+            elapsed = duration_text(agent.get("duration_seconds"))
+            timing = f" · {elapsed}" if elapsed != "unavailable" else " · duration unavailable"
+            action = agent.get("action")
+            activity = f" · {action}" if isinstance(action, str) and action else ""
+            turn = f" · turn {worker['turn']}" if agent.get("role") == "task_supervisor" and worker.get("turn") else ""
+            agent_lines.append(
+                f"{marker} {agent['label']}{activity} · "
+                f"{str(agent.get('status') or 'unavailable').replace('_', ' ')}{timing}{turn}"
+            )
+        if not agent_lines:
+            action = ACTION_LABELS.get(
+                worker.get("action"),
+                str(worker.get("action") or "Current phase unavailable").replace("_", " ").title(),
+            )
+            agent_lines = [action]
         if worker.get("phase") == "decomposition" and progress.get("children_total") is not None:
-            third = f"{progress['children_complete']}/{progress['children_total']} children complete"
-        else:
-            activity = []
-            if worker.get("role"):
-                activity.append(str(worker["role"]).replace("_", " ").title())
-            if worker.get("provider"):
-                activity.append(str(worker["provider"]))
-            if worker.get("turn") is not None:
-                activity.append(f"turn {worker['turn']}")
-            if (progress.get("attempt") or 0) > 1:
-                activity.append(f"attempt {progress['attempt']}")
-            if task["token_cost"].get("recorded_cost_usd") is not None:
-                activity.append(f"cost so far {task['token_cost']['cost_label']}")
-            third = " · ".join(activity) if activity else progress["estimate"]["label"]
-        return [first, second, third]
+            agent_lines.append(f"{progress['children_complete']}/{progress['children_total']} children complete")
+        return [*stage_lines, *agent_lines]
 
     def build(self) -> dict:
         contracts = self.load_contracts()
@@ -1297,25 +1675,161 @@ class Snapshot:
                 allowed_run_ids = current_run_worker_ids.get(task_id, set())
                 records = [record for record in records if record.get("run_id") in allowed_run_ids]
             summary = dict(records[-1]) if records else None
+            lifecycle = scheduler_projection["lifecycle"].get(task_id)
+            transition = scheduler_projection["transitions"].get(task_id)
+            if summary is None and lifecycle and lifecycle.get("active") is True:
+                launch_at = lifecycle.get("timestamp")
+                phase = lifecycle.get("phase") or (transition.get("phase") if transition else None)
+                stage_number = PHASE_STAGES.get(phase, (None, None))[0]
+                summary = {
+                    "status": None,
+                    "finished": False,
+                    "turn": None,
+                    "action": None,
+                    "phase": phase,
+                    "phase_timestamp": launch_at,
+                    "issue_state": transition.get("state") if transition else None,
+                    "message": "Worker launch recorded by the scheduler",
+                    "issue_number": None,
+                    "issue_url": None,
+                    "pull_request_number": None,
+                    "pull_request_url": None,
+                    "projection_state": None,
+                    "projection_timestamp": None,
+                    "first_timestamp": launch_at,
+                    "last_timestamp": launch_at,
+                    "worker_id": lifecycle.get("worker_id"),
+                    "run_id": lifecycle.get("run_id"),
+                    "elapsed_seconds": None,
+                    "stage_elapsed_seconds": None,
+                    "role": None,
+                    "provider": None,
+                    "attempt": None,
+                    "blocked_reason": None,
+                    "ci": None,
+                    "stage_evidence": (
+                        {stage_number: {"started_at": launch_at, "completed_at": None}}
+                        if stage_number is not None and parse_timestamp(launch_at) is not None
+                        else {}
+                    ),
+                    "scheduler_projected": True,
+                }
+            elif summary and not summary.get("phase"):
+                phase = (lifecycle or {}).get("phase") or (
+                    transition.get("phase") if transition else None
+                )
+                if isinstance(phase, str):
+                    phase_at = (lifecycle or {}).get("timestamp") or (
+                        transition.get("timestamp") if transition else None
+                    )
+                    summary["phase"] = phase
+                    summary["phase_timestamp"] = phase_at
+                    stage_number = PHASE_STAGES.get(phase, (None, None))[0]
+                    if stage_number is not None and parse_timestamp(phase_at) is not None:
+                        summary.setdefault("stage_evidence", {}).setdefault(
+                            stage_number,
+                            {"started_at": phase_at, "completed_at": None},
+                        )
             state, active = self.classify(
                 contract=contract,
                 task_id=task_id,
                 excluded=excluded,
                 worker=summary,
-                lifecycle=scheduler_projection["lifecycle"].get(task_id),
-                transition=scheduler_projection["transitions"].get(task_id),
+                lifecycle=lifecycle,
+                transition=transition,
                 queued=scheduler_projection["queued"],
                 taskgraph_available=taskgraph_available,
                 taskgraph=taskgraph_states.get(task_id),
             )
+            token_cost = self.token_cost(task_id, records, events, taskgraph_states.get(task_id))
+            elapsed_values = [positive_number(record.get("elapsed_seconds")) or 0 for record in records]
+            stage_rows, durable_stage_elapsed, durable_task_elapsed = pipeline_stage_projection(
+                records, summary, active=active, now=time.time()
+            )
+            crew_agents = self.execution_crew_agents(
+                task_id=task_id,
+                lifecycle=lifecycle,
+                worker=summary,
+                active=active,
+                now=time.time(),
+            )
+            agents = []
+            if summary and (
+                not summary.get("scheduler_projected")
+                or summary.get("phase") in {"decomposition", "decomposition_apply"}
+            ):
+                outer_role = (
+                    "decomposition_worker"
+                    if summary.get("scheduler_projected") and summary.get("phase") in {"decomposition", "decomposition_apply"}
+                    else "task_supervisor"
+                )
+                outer_status = (
+                    "running"
+                    if active
+                    else "failed"
+                    if state in {"failed", "blocked"}
+                    else "completed"
+                    if summary.get("finished")
+                    else "recorded_incomplete"
+                )
+                agents.append(
+                    {
+                        "role": outer_role,
+                        "label": AGENT_ROLE_LABELS[outer_role],
+                        "attempt": summary.get("attempt") or 1,
+                        "status": outer_status,
+                        "action": (
+                            SUPERVISOR_ACTIONS.get(summary.get("action"))
+                            or AGENT_ROLE_ACTIONS[outer_role]
+                        ),
+                        "duration_seconds": durable_task_elapsed,
+                        "provider": summary.get("provider"),
+                        "model": summary.get("model"),
+                        "total_tokens": None,
+                        "cost_usd": None,
+                        "source": "task worker progress",
+                    }
+                )
+            for agent in crew_agents:
+                agent["action"] = AGENT_ROLE_ACTIONS.get(
+                    agent["role"], "processing its assigned task"
+                )
+            agents.extend(crew_agents)
+            if (
+                active
+                and summary
+                and summary.get("action") == "run_execution_crew"
+                and not any(agent.get("status") == "running" for agent in crew_agents)
+            ):
+                action_started = parse_timestamp(summary.get("action_timestamp"))
+                agents.append(
+                    {
+                        "role": "execution_crew",
+                        "label": AGENT_ROLE_LABELS["execution_crew"],
+                        "attempt": summary.get("attempt") or 1,
+                        "status": "running",
+                        "action": f"implementing {contract.get('title') or task_id}",
+                        "duration_seconds": (
+                            max(0.0, time.time() - action_started)
+                            if action_started is not None
+                            else None
+                        ),
+                        "provider": summary.get("provider"),
+                        "model": summary.get("model"),
+                        "total_tokens": None,
+                        "cost_usd": None,
+                        "source": "task worker action",
+                    }
+                )
+            current_agent = next(
+                (agent for agent in reversed(agents) if agent.get("status") == "running"),
+                None,
+            )
             if summary:
                 summary["active"] = active
                 summary["monitoring_ci"] = state == "checks_pending" and active
-                for internal in ("progress_path", "mtime", "run_result"):
+                for internal in ("progress_path", "mtime", "run_result", "stage_evidence"):
                     summary.pop(internal, None)
-            token_cost = self.token_cost(task_id, records, events, taskgraph_states.get(task_id))
-            elapsed_values = [positive_number(record.get("elapsed_seconds")) or 0 for record in records]
-            transition = scheduler_projection["transitions"].get(task_id)
             queue_position = (
                 scheduler_projection["queued"].index(task_id) + 1
                 if task_id in scheduler_projection["queued"]
@@ -1330,6 +1844,11 @@ class Snapshot:
                 "current_attempt_elapsed_seconds": elapsed_values[-1] if elapsed_values else None,
                 "stage_elapsed_seconds": summary.get("stage_elapsed_seconds") if summary else None,
                 "total_elapsed_seconds": sum(elapsed_values) if elapsed_values else None,
+                "durable_stage_elapsed_seconds": durable_stage_elapsed,
+                "durable_task_elapsed_seconds": durable_task_elapsed,
+                "pipeline_stages": stage_rows,
+                "agents": agents,
+                "current_agent": current_agent,
                 "queue_position": queue_position,
                 "queue_wait_seconds": max(0.0, time.time() - queue_started) if queue_started is not None else None,
                 "ci": summary.get("ci") if summary else None,
@@ -1480,6 +1999,32 @@ class Snapshot:
             lines = self.node_lines(task)
             if lines:
                 task["node_lines"] = lines
+            if task["state"] == "active":
+                total = duration_text(task["progress"].get("durable_task_elapsed_seconds"))
+                task["node_heading"] = f"{task['id']} · TOTAL TASK {total}"
+                current = next(
+                    (
+                        item
+                        for item in task["progress"].get("pipeline_stages", [])
+                        if item.get("status") == "active"
+                    ),
+                    None,
+                )
+                if current:
+                    stage_elapsed = duration_text(current.get("elapsed_seconds"))
+                    task["node_summary_lines"] = [
+                        f"▶ [{current.get('display_label') or current['label']}] · CURRENT STAGE {stage_elapsed}"
+                    ]
+                else:
+                    task["node_summary_lines"] = [
+                        "▶ [PHASE UNAVAILABLE] · CURRENT STAGE unavailable"
+                    ]
+                current_agent = task["progress"].get("current_agent")
+                if current_agent:
+                    agent_elapsed = duration_text(current_agent.get("duration_seconds"))
+                    task["node_summary_lines"].append(
+                        f"CURRENT AGENT {current_agent['label']} · {current_agent['action']} · {agent_elapsed}"
+                    )
 
         blocked_reasons = [
             e.get("reason") or e.get("message")

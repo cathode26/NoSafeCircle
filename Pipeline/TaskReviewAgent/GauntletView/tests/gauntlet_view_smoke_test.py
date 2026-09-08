@@ -519,6 +519,78 @@ class GauntletViewStateAndSseTests(unittest.TestCase):
         self.assertEqual(task["state"], "decomposition_ready")
         self.assertEqual(task["node_lines"], ["DECOMPOSITION AVAILABLE"])
 
+    def test_active_decomposition_launch_outranks_same_second_finished_artifact(self) -> None:
+        self.fixture.add_task(
+            progress_events=[
+                event("run_finished", {"status": "stopped"}, timestamp="2026-09-07T01:00:00Z")
+            ]
+        )
+        contract_path = self.fixture.tasks / "NSC-112.yaml"
+        contract = json.loads(contract_path.read_text(encoding="utf-8"))
+        contract["execution_scope"] = "needs_execution_decomposition"
+        write_json(contract_path, contract)
+        self.fixture.write_scheduler_events(
+            [
+                {
+                    "event": "worker_launched",
+                    "timestamp_utc": "2026-09-07T01:00:00Z",
+                    "task_id": "NSC-112",
+                    "run_id": "worker-run-a",
+                    "worker_id": "worker-a",
+                    "work_type": "decomposition",
+                }
+            ]
+        )
+
+        task = self.fixture.task()
+
+        self.assertEqual(task["state"], "active")
+        self.assertEqual(task["worker"]["phase"], "decomposition")
+        self.assertIn("DECOMPOSING", "\n".join(task["node_lines"]))
+        self.assertNotIn("DECOMPOSITION AVAILABLE", task["node_lines"])
+
+    def test_deterministic_decomposition_apply_uses_exact_scheduler_phase(self) -> None:
+        self.fixture.add_task(
+            progress_events=[event("run_started", timestamp="2026-09-07T01:00:02Z")]
+        )
+        self.fixture.write_scheduler_events(
+            [
+                {
+                    "event": "local_resume_hint_send_completed",
+                    "timestamp_utc": "2026-09-07T01:00:00Z",
+                    "task_id": "NSC-112",
+                    "workflow_transition": {
+                        "from_state": "human_action_required",
+                        "from_phase": "decomposition_apply_authorization",
+                        "to_state": "agent_ready",
+                        "to_phase": "decomposition_apply",
+                    },
+                },
+                {
+                    "event": "integration_gate_resume_admitted",
+                    "timestamp_utc": "2026-09-07T01:00:01Z",
+                    "task_id": "NSC-112",
+                    "resume_phase": "decomposition_apply",
+                },
+                {
+                    "event": "worker_launched",
+                    "timestamp_utc": "2026-09-07T01:00:02Z",
+                    "task_id": "NSC-112",
+                    "run_id": "worker-run-a",
+                    "worker_id": "worker-a",
+                    "work_type": "implementation",
+                },
+            ]
+        )
+
+        task = self.fixture.task()
+
+        self.assertEqual(task["state"], "active")
+        self.assertEqual(task["worker"]["phase"], "decomposition_apply")
+        self.assertEqual(task["progress"]["phase"], "decomposition_apply")
+        self.assertIn("DECOMPOSING", "\n".join(task["node_lines"]))
+        self.assertNotIn("PHASE UNAVAILABLE", "\n".join(task["node_lines"]))
+
     def test_ordinary_available_work_remains_ready(self) -> None:
         self.fixture.add_task(
             progress_events=[event("run_finished", {"status": "stopped"})]
@@ -1056,11 +1128,143 @@ class GauntletViewCompactProgressTests(unittest.TestCase):
                 ),
             ]
         )
-        rendered = "\n".join(self.fixture.task()["node_lines"])
-        self.assertIn("IMPLEMENTING · Stage 3/6", rendered)
-        self.assertIn("Execution crew", rendered)
-        self.assertIn("7m elapsed", rendered)
+        with mock.patch.object(server.time, "time", return_value=1788743220):
+            rendered = "\n".join(self.fixture.task()["node_lines"])
+        self.assertNotIn("Stage 3/6", rendered)
+        self.assertIn("ExecutionCrew", rendered)
+        self.assertIn("IMPLEMENT / IMPLEMENTING", rendered)
+        self.assertIn("7m", rendered)
         self.assertIn("turn 6", rendered)
+
+    def test_active_node_clocks_use_durable_stage_and_task_start_timestamps(self) -> None:
+        self.fixture.add_task(
+            progress_events=[
+                event("run_started", timestamp="2026-09-07T00:59:00Z", elapsed_seconds=9999),
+                event(
+                    "state_observed",
+                    {"phase": "waiting", "turn": 1},
+                    timestamp="2026-09-07T01:00:00Z",
+                    elapsed_seconds=9999,
+                ),
+                event(
+                    "state_observed",
+                    {"phase": "checkout_preparation", "turn": 1},
+                    timestamp="2026-09-07T01:01:00Z",
+                    elapsed_seconds=9999,
+                ),
+                event(
+                    "state_observed",
+                    {"phase": "implementation", "turn": 2},
+                    timestamp="2026-09-07T01:02:00Z",
+                    elapsed_seconds=9999,
+                ),
+                event(
+                    "pipeline_action_started",
+                    {"action": "run_execution_crew", "turn": 2},
+                    timestamp="2026-09-07T01:02:00Z",
+                    elapsed_seconds=9999,
+                ),
+            ]
+        )
+
+        with mock.patch.object(server.time, "time", return_value=1788743100):
+            task = self.fixture.task()
+
+        self.assertEqual(task["progress"]["durable_stage_elapsed_seconds"], 180)
+        self.assertEqual(task["progress"]["durable_task_elapsed_seconds"], 360)
+        stages = task["progress"]["pipeline_stages"]
+        self.assertEqual([stage["label"] for stage in stages], [
+            "WAITING", "CHECKOUT", "IMPLEMENT", "VALIDATE", "EVIDENCE", "CI",
+        ])
+        self.assertEqual(
+            [(stage["status"], stage["elapsed_seconds"]) for stage in stages],
+            [
+                ("complete", 60),
+                ("complete", 60),
+                ("active", 180),
+                ("future", None),
+                ("future", None),
+                ("future", None),
+            ],
+        )
+        rendered = "\n".join(task["node_lines"])
+        self.assertIn("IMPLEMENT / IMPLEMENTING", rendered)
+        self.assertEqual(task["node_heading"], "NSC-112 · TOTAL TASK 6m")
+        self.assertIn("CURRENT STAGE 3m", task["node_summary_lines"][0])
+
+    def test_active_execution_crew_roles_have_ordered_durable_receipt_details(self) -> None:
+        self.fixture.add_task(
+            progress_events=[
+                event("run_started", timestamp="2026-09-07T01:00:00Z"),
+                event("state_observed", {"phase": "implementation"}, timestamp="2026-09-07T01:01:00Z"),
+                event(
+                    "pipeline_action_started",
+                    {"action": "run_execution_crew"},
+                    timestamp="2026-09-07T01:01:00Z",
+                ),
+            ]
+        )
+        checkout = self.fixture.state / "NSC-112"
+        crew = checkout / "Pipeline" / "ExecutionCrew" / "outputs" / "crew-current"
+        write_jsonl(
+            crew / "progress.jsonl",
+            [
+                {"event": "run_started", "timestamp_utc": "2026-09-07T01:01:01Z", "run_id": "crew-current", "task_id": "NSC-112", "provider": "codex", "required_roles": ["implementer", "test_author", "validator"]},
+                {"event": "role_started", "timestamp_utc": "2026-09-07T01:02:00Z", "run_id": "crew-current", "task_id": "NSC-112", "provider": "codex", "role": "implementer", "attempt": 1},
+                {"event": "role_completed", "timestamp_utc": "2026-09-07T01:03:29Z", "run_id": "crew-current", "task_id": "NSC-112", "provider": "codex", "role": "implementer", "attempt": 1, "status": "succeeded"},
+                {"event": "role_started", "timestamp_utc": "2026-09-07T01:03:30Z", "run_id": "crew-current", "task_id": "NSC-112", "provider": "codex", "role": "test_author", "attempt": 1},
+                {"event": "role_completed", "timestamp_utc": "2026-09-07T01:09:18Z", "run_id": "crew-current", "task_id": "NSC-112", "provider": "codex", "role": "test_author", "attempt": 1, "status": "succeeded"},
+                {"event": "role_started", "timestamp_utc": "2026-09-07T01:09:19Z", "run_id": "crew-current", "task_id": "NSC-112", "provider": "codex", "role": "validator", "attempt": 1},
+            ],
+        )
+        write_json(
+            crew / "role_results" / "implementer_1.json",
+            {
+                "role": "implementer",
+                "attempt": 1,
+                "provider": "codex",
+                "model": "gpt-fixture",
+                "usage": {"total_tokens": 1234, "estimated_cost_usd": 0.125},
+            },
+        )
+        self.fixture.write_scheduler_events(
+            [
+                {
+                    "event": "worker_launched",
+                    "timestamp_utc": "2026-09-07T01:00:00Z",
+                    "task_id": "NSC-112",
+                    "run_id": "worker-run-a",
+                    "worker_id": "worker-a",
+                    "work_type": "implementation",
+                    "checkout_path": str(checkout),
+                }
+            ]
+        )
+
+        with mock.patch.object(server.time, "time", return_value=1788743451):
+            task = self.fixture.task()
+
+        crew_agents = [agent for agent in task["progress"]["agents"] if agent["role"] != "task_supervisor"]
+        self.assertEqual(
+            [(agent["role"], agent["status"], agent["duration_seconds"]) for agent in crew_agents],
+            [
+                ("implementer", "completed", 89),
+                ("test_author", "completed", 348),
+                ("validator", "running", 92),
+            ],
+        )
+        self.assertEqual(
+            (crew_agents[0]["provider"], crew_agents[0]["model"], crew_agents[0]["total_tokens"], crew_agents[0]["cost_usd"]),
+            ("codex", "gpt-fixture", 1234, 0.125),
+        )
+        self.assertIsNone(crew_agents[2]["model"])
+        self.assertIsNone(crew_agents[2]["total_tokens"])
+        self.assertEqual(task["progress"]["current_agent"]["role"], "validator")
+        self.assertIn("CURRENT AGENT Validator", "\n".join(task["node_summary_lines"]))
+        self.assertIn("1m 32s", "\n".join(task["node_summary_lines"]))
+        expanded = "\n".join(task["node_lines"])
+        self.assertLess(expanded.index("Implementer"), expanded.index("Test Author"))
+        self.assertLess(expanded.index("Test Author"), expanded.index("Validator"))
 
     def test_retry_count_and_current_attempt_timing_are_separate(self) -> None:
         self.fixture.add_task(
@@ -1245,7 +1449,7 @@ class GauntletViewCompactProgressTests(unittest.TestCase):
         self.assertEqual(task["progress"]["children_total"], 2)
         self.assertIn("1/2 children complete", "\n".join(task["node_lines"]))
 
-    def test_older_artifacts_without_timing_fields_remain_compatible(self) -> None:
+    def test_event_timestamps_drive_clocks_when_legacy_elapsed_field_is_absent(self) -> None:
         self.fixture.add_task(
             progress_events=[
                 event("state_observed", {"phase": "implementation"}),
@@ -1254,7 +1458,7 @@ class GauntletViewCompactProgressTests(unittest.TestCase):
         )
         task = self.fixture.task()
         self.assertEqual(task["state"], "active")
-        self.assertIn("elapsed unavailable", "\n".join(task["node_lines"]))
+        self.assertNotIn("elapsed unavailable", "\n".join(task["node_lines"]))
 
 
 class GauntletViewTokenCostTests(unittest.TestCase):
@@ -1778,6 +1982,107 @@ class PipelineActivityTests(unittest.TestCase):
         self.assertIn("safely in parallel", value["description"])
         self.assertIn("recorded as in progress", value["call_status"])
 
+    def test_pipeline_reports_durable_total_run_and_current_stage_clocks(self):
+        write_jsonl(
+            self.fixture.run / "run_timeline.jsonl",
+            [
+                {
+                    "event": "autonomous_run_started",
+                    "timestamp_utc": "2026-09-07T00:55:00Z",
+                    "run_id": "run-a",
+                }
+            ],
+        )
+
+        value = self.activity()
+
+        self.assertEqual(value["stage_elapsed_seconds"], 300)
+        self.assertEqual(value["run_elapsed_seconds"], 600)
+
+    def test_dynamic_child_worker_outranks_capacity_full_scheduler_wait(self):
+        parent_path = self.fixture.tasks / f"{self.ids[0]}.yaml"
+        parent = json.loads(parent_path.read_text(encoding="utf-8"))
+        parent["decomposition_state"] = "decomposed"
+        parent["decomposition_children"] = ["NSC-1011"]
+        write_json(parent_path, parent)
+        _, child_progress = self.fixture.add_task("NSC-1011", parent=self.ids[0])
+        child_progress.unlink()
+        self.fixture.add_worker_run(
+            "NSC-1011",
+            "child-current",
+            progress_events=[
+                event(
+                    "pipeline_action_started",
+                    {"action": "run_execution_crew"},
+                    timestamp="2026-09-07T01:00:03Z",
+                )
+            ],
+            mtime=1788742803,
+        )
+        self.manifest["max_capacity"] = 1
+        write_json(self.fixture.run / "manifest.json", self.manifest)
+
+        value = self.activity(
+            [
+                self.row(
+                    "worker_launched",
+                    2,
+                    task_id="NSC-1011",
+                    run_id="child-current",
+                    worker_id="worker-child",
+                    work_type="implementation",
+                ),
+                self.row(
+                    "scheduler_blocked",
+                    4,
+                    reason="local max_workers capacity is full",
+                    active_worker_count=1,
+                ),
+                self.row(
+                    "architect_wait_started",
+                    5,
+                    wait_mode="event_or_fallback",
+                    active_worker_count=1,
+                ),
+            ]
+        )
+
+        self.assertEqual(value["stage"], "implementation")
+        self.assertEqual(
+            value["headline"],
+            "NSC-1011: ExecutionCrew is implementing Task NSC-1011 (4m 57s); "
+            "scheduler is holding the only slot until it returns.",
+        )
+        self.assertEqual(value["counters"]["active_workers"], 1)
+        self.assertEqual(value["counters"]["capacity"], 1)
+        self.assertIn("normal", value["description"].casefold())
+        self.assertNotIn("admissions are blocked", value["headline"].casefold())
+
+    def test_recorded_worker_without_action_still_outranks_generic_wait_headline(self):
+        value = self.activity(
+            [
+                self.row(
+                    "worker_launched",
+                    2,
+                    task_id=self.ids[0],
+                    run_id="current",
+                    worker_id="worker-a",
+                ),
+                self.row(
+                    "architect_wait_started",
+                    3,
+                    wait_mode="event_or_fallback",
+                    active_worker_count=1,
+                ),
+            ]
+        )
+
+        self.assertEqual(
+            value["headline"],
+            f"{self.ids[0]} work is in progress; scheduler is waiting for its worker to return.",
+        )
+        self.assertIn("state-change poke", value["description"])
+
     def test_completion_followed_by_launch(self):
         value = self.activity([self.started, self.row("architect_completed", 5, task_id=self.ids[0]),
                                self.row("worker_launched", 6, task_id=self.ids[0], run_id="current")])
@@ -1902,7 +2207,10 @@ class PipelineActivityTests(unittest.TestCase):
             "pipeline_action_started", {"action": "run_execution_crew"},
             timestamp="2026-09-07T01:00:04Z")], mtime=1788742804)
         rows = [self.row("worker_launched", 2, task_id=self.ids[0], run_id="current")]
-        self.assertEqual(self.activity(rows)["headline"], "ExecutionCrew is implementing NSC-1000")
+        self.assertEqual(
+            self.activity(rows)["headline"],
+            "NSC-1000: ExecutionCrew is implementing Task NSC-1000 (4m 56s)",
+        )
         self.assertEqual(self.activity()["stage"], "architect")
 
     def test_open_architect_outranks_concurrent_worker_activity(self):
@@ -1953,6 +2261,12 @@ class PipelineActivityTests(unittest.TestCase):
         self.assertLess(html.index('id="pipeline-activity"'), html.index('id="cy"'))
         self.assertIn("renderPipelineActivity(snap.pipeline_activity)", html)
         self.assertIn("updatePipelineTimers", html)
+        self.assertIn("Current stage elapsed", html)
+        self.assertIn("Total run elapsed", html)
+        self.assertIn("expandedStageNodes", html)
+        self.assertIn("+ Expand", html)
+        self.assertIn("− Collapse", html)
+        self.assertIn("configureStageExpansion(snap)", html)
         self.assertIn("esc(item.headline)", html)
         self.assertIn("process status is unknown from artifacts", html)
 

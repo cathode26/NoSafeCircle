@@ -81,6 +81,31 @@ test('committed relationship families are vertical and rows never exceed four co
     assert.ok(columns.length <= 4, `layout row exceeded four columns: ${columns}`);
   }
 });
+test('active node stage expander stays compact and persists across SSE and reload', async () => {
+  const collapsed = await page.evaluate(() => cy.getElementById('NSC-1002').data('label'));
+  assert.match(collapsed, /NSC-1002 · TOTAL TASK .* \[\+\]/);
+  assert.match(collapsed, /CURRENT STAGE/);
+  assert.doesNotMatch(collapsed, /WAITING.*CHECKOUT.*IMPLEMENT.*VALIDATE.*EVIDENCE.*CI/s);
+
+  await page.evaluate(() => cy.getElementById('NSC-1002').emit('tap'));
+  const expanded = await page.evaluate(() => cy.getElementById('NSC-1002').data('label'));
+  assert.match(expanded, /\[-\]/);
+  assert.match(expanded, /WAITING.*CHECKOUT.*IMPLEMENT.*VALIDATE.*EVIDENCE.*CI/s);
+  assert.match(await page.locator('#detail').textContent(), /Collapse all six stages/);
+
+  fs.writeFileSync(process.env.NSC_VIEW_TEST_PROGRESS, JSON.stringify({poll_cycles_total: 17}));
+  await page.waitForFunction(() => snapshot.run.progress.poll_cycles_total === 17);
+  assert.match(await page.evaluate(() => cy.getElementById('NSC-1002').data('label')), /\[-\]/);
+
+  await reload();
+  assert.match(await page.evaluate(() => cy.getElementById('NSC-1002').data('label')), /\[-\]/);
+  await page.evaluate(() => showDetail('NSC-1002'));
+  await page.locator('#detail .stage-expander').click();
+  const recollapsed = await page.evaluate(() => cy.getElementById('NSC-1002').data('label'));
+  assert.match(recollapsed, /\[\+\]/);
+  assert.match(await page.locator('#detail').textContent(), /current stage elapsed/);
+  assert.equal(await page.locator('#detail .stage-timeline').count(), 0);
+});
 test('run filter is optional, persisted, and does not replace display selection', async () => {
   await assertEight();
   await page.locator('#f-scope').check();

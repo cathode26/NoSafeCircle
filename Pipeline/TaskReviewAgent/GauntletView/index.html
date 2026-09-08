@@ -64,7 +64,7 @@
   .pipeline-counters { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 5px 16px; margin: 10px 0; }
   .pipeline-counters span { display: block; color: var(--muted); font-size: 10px; }
   .pipeline-counters b { font-size: 14px; font-variant-numeric: tabular-nums; }
-  #pipeline-elapsed { font-size: 14px; color: var(--text); }
+  #pipeline-stage-elapsed, #pipeline-run-elapsed { font-size: 14px; color: var(--text); }
   #pipeline-freshness { font-size: 11px; color: #b8c4d1; }
   #pipeline-freshness.stale { color: #ffd23f; }
   .pipeline-timeline { padding: 0; margin: 6px 0 0; list-style: none; max-height: 90px; overflow-y: auto; }
@@ -140,6 +140,10 @@
   }
   .approval-button:disabled { opacity: .55; cursor: wait; }
   .approval-status { margin-top: 7px; font-size: 11px; color: var(--muted); }
+  .stage-expander { margin: 0 0 7px 0; font-weight: 700; }
+  .stage-timeline { margin: 7px 0 0; padding-left: 22px; }
+  .stage-timeline .active { color: var(--accent); font-weight: 700; }
+  .stage-timeline .future { color: var(--muted); }
   .empty { color: var(--muted); font-style: italic; }
   .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; }
   .live { background: #3fb950; box-shadow: 0 0 7px #3fb950; }
@@ -419,6 +423,8 @@ function initializePanels() {
 initializePanels();
 
 let scopePreferenceKey = null;
+let stageExpansionPreferenceKey = null;
+const expandedStageNodes = new Set();
 function configureDisplayScope(snap) {
   const ids = snap.display?.task_ids;
   const nextKey = 'nsc.gauntlet.run-filter.v1:' + JSON.stringify([snap.tasks_dir, snap.state_root, ids ?? null]);
@@ -451,9 +457,24 @@ function visible(task) {
 
 function labelFor(task) {
   const title = task.title.length > 76 ? task.title.slice(0, 74) + '…' : task.title;
-  return Array.isArray(task.node_lines) && task.node_lines.length
-    ? `${task.id}\n${task.node_lines.join('\n')}`
+  const active = task.state === 'active';
+  const expanded = active && expandedStageNodes.has(task.id);
+  const heading = active ? `${task.node_heading || task.id} ${expanded ? '[-]' : '[+]'}` : task.id;
+  const lines = active && !expanded ? task.node_summary_lines : task.node_lines;
+  return Array.isArray(lines) && lines.length
+    ? `${heading}\n${lines.join('\n')}`
     : `${task.id}\n${title}`;
+}
+
+function toggleStageExpansion(taskId) {
+  if (!snapshot) return;
+  const task = snapshot.tasks.find(item => item.id === taskId);
+  if (!task || task.state !== 'active') return;
+  expandedStageNodes.has(taskId) ? expandedStageNodes.delete(taskId) : expandedStageNodes.add(taskId);
+  saveStageExpansion();
+  const node = cy.getElementById(taskId);
+  if (node.nonempty()) node.data('label', labelFor(task));
+  showDetail(taskId);
 }
 
 function buildElements(tasks) {
@@ -572,8 +593,25 @@ function layout() {
   }).run();
 }
 
+function configureStageExpansion(snap) {
+  const nextKey = 'nsc.gauntlet.stage-expansion.v1:' + JSON.stringify([snap.tasks_dir, snap.state_root]);
+  if (nextKey === stageExpansionPreferenceKey) return;
+  stageExpansionPreferenceKey = nextKey;
+  expandedStageNodes.clear();
+  const saved = readPreference(nextKey);
+  if (Array.isArray(saved)) {
+    const active = new Set(snap.tasks.filter(task => task.state === 'active').map(task => task.id));
+    for (const taskId of saved) if (active.has(taskId)) expandedStageNodes.add(taskId);
+  }
+}
+
+function saveStageExpansion() {
+  savePreference(stageExpansionPreferenceKey, [...expandedStageNodes].sort());
+}
+
 function render(snap, { relayout }) {
   configureDisplayScope(snap);
+  configureStageExpansion(snap);
   renderPipelineActivity(snap.pipeline_activity);
   cy.resize();
   const { nodes, edges } = buildElements(snap.tasks);
@@ -693,7 +731,8 @@ function renderPipelineActivity(activity) {
     ['Architect calls completed (recorded)', value(c.architect_calls_completed)],
     ['Worker launches', value(c.worker_launches)],
     ['Wakeups / pokes (saved counter)', value(c.wakeups)],
-    [activity.terminal ? 'Time since terminal record' : 'Current stage elapsed', '<span id="pipeline-elapsed"></span>'],
+    [activity.terminal ? 'Time since terminal record' : 'Current stage elapsed', '<span id="pipeline-stage-elapsed"></span>'],
+    ['Total run elapsed', '<span id="pipeline-run-elapsed"></span>'],
   ];
   const architect = activity.provider_call_open ?
     `<p class="pipeline-note">${esc(activity.description)}</p>` +
@@ -715,7 +754,10 @@ function updatePipelineTimers() {
   const delta = Math.max(0, performance.now() - pipelineReceivedAt) / 1000;
   const elapsed = pipelineSample.stage_elapsed_seconds;
   const age = pipelineSample.last_event_age_seconds;
-  document.getElementById('pipeline-elapsed').textContent = pipelineDuration(elapsed == null ? null : elapsed + delta);
+  document.getElementById('pipeline-stage-elapsed').textContent = pipelineDuration(elapsed == null ? null : elapsed + delta);
+  const runElapsed = pipelineSample.run_elapsed_seconds;
+  document.getElementById('pipeline-run-elapsed').textContent = pipelineDuration(
+    runElapsed == null ? null : runElapsed + (pipelineSample.terminal ? 0 : delta));
   const freshness = document.getElementById('pipeline-freshness');
   freshness.textContent = age == null
     ? 'Last durable event time unavailable; process status is unknown from artifacts.'
@@ -903,11 +945,37 @@ function showDetail(id) {
     field('run', `<code>${esc(w.run_id)}</code><br><span class="sub">updated ${esc(w.updated_at)}</span>`);
   }
   const progress = task.progress || {};
+  if (task.state === 'active') {
+    const expanded = expandedStageNodes.has(task.id);
+    const current = (progress.pipeline_stages || []).find(stage => stage.status === 'active');
+    const currentText = current
+      ? `${esc(current.display_label || current.label)} · current stage elapsed ${esc(duration(current.elapsed_seconds))}`
+      : 'phase unavailable · current stage elapsed unavailable';
+    const currentAgent = progress.current_agent;
+    const currentAgentText = currentAgent
+      ? `<br>current agent ${esc(currentAgent.label)} · ${esc(currentAgent.action)} · ${esc(duration(currentAgent.duration_seconds))}`
+      : '<br>current agent unavailable';
+    const timeline = expanded ? '<ol class="stage-timeline">' + (progress.pipeline_stages || []).map(stage =>
+      `<li class="${escAttr(stage.status)}">${stage.status === 'active' ? '▶ ' : stage.status === 'complete' ? '✓ ' : ''}` +
+      `${esc(stage.display_label || stage.label)}${stage.elapsed_seconds == null ? '' : ` · ${esc(duration(stage.elapsed_seconds))}`}</li>`
+    ).join('') + '</ol>' : '';
+    const agentRoster = expanded ? '<ol class="stage-timeline agent-roster">' + (progress.agents || []).map(agent => {
+      const provider = agent.provider || 'provider unavailable';
+      const model = agent.model || 'model unavailable';
+      const tokens = agent.total_tokens == null ? 'tokens unavailable' : `${esc(agent.total_tokens)} tokens`;
+      const cost = agent.cost_usd == null ? 'cost unavailable' : `$${esc(agent.cost_usd.toFixed(4))}`;
+      return `<li class="${escAttr(agent.status)}">${agent.status === 'running' ? '▶ ' : agent.status === 'completed' ? '✓ ' : ''}` +
+        `${esc(agent.label)} · ${esc(agent.status.replaceAll('_', ' '))} · ${esc(duration(agent.duration_seconds))}<br>` +
+        `<span class="sub">${esc(agent.action)} · ${esc(provider)} / ${esc(model)} · ${tokens} · ${cost}</span></li>`;
+    }).join('') + '</ol><div class="sub">Artifact evidence is not independent proof of process liveness.</div>' : '';
+    field('pipeline timing',
+      `<button class="stage-expander" data-task-id="${escAttr(task.id)}" aria-expanded="${expanded}">` +
+      `${expanded ? '− Collapse' : '+ Expand'} all six stages</button><br>` +
+      `total task elapsed ${esc(duration(progress.durable_task_elapsed_seconds))}<br>${currentText}${currentAgentText}${timeline}${agentRoster}`);
+  }
   field('progress', [
     progress.phase ? `phase <code>${esc(progress.phase)}</code>` : 'phase unavailable',
     progress.action ? `action <code>${esc(progress.action)}</code>` : 'action unavailable',
-    `current stage elapsed ${esc(duration(progress.stage_elapsed_seconds))}`,
-    `total elapsed ${esc(duration(progress.total_elapsed_seconds))}`,
     progress.attempt != null ? `attempt <code>${esc(progress.attempt)}</code>` : '',
     progress.queue_position != null ? `integration queue position <code>${esc(progress.queue_position)}</code>` : '',
     progress.blocked_reason ? `blocked: ${esc(progress.blocked_reason)}` : '',
@@ -940,6 +1008,8 @@ function showDetail(id) {
   document.getElementById('detail').innerHTML = out.join('');
   const approvalButton = document.querySelector('#detail .approval-button');
   if (approvalButton) approvalButton.onclick = () => approveHumanAction(approvalButton);
+  const stageExpander = document.querySelector('#detail .stage-expander');
+  if (stageExpander) stageExpander.onclick = () => toggleStageExpansion(stageExpander.dataset.taskId);
 }
 
 // Highlight a node's dependency neighbourhood on click.
@@ -950,7 +1020,9 @@ cy.on('tap', 'node', evt => {
   const hood = node.closedNeighborhood();
   hood.removeClass('faded');
   hood.edges().addClass('hl');
-  showDetail(node.id());
+  const task = snapshot && snapshot.tasks.find(item => item.id === node.id());
+  if (task && task.state === 'active') toggleStageExpansion(node.id());
+  else showDetail(node.id());
 });
 cy.on('tap', evt => {
   if (evt.target === cy) {
