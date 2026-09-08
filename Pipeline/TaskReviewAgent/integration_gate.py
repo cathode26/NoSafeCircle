@@ -35,6 +35,18 @@ MARKER = "nsc-durable-integration-gate"
 SHA = re.compile(r"[0-9a-f]{40}\Z")
 TOKEN = re.compile(r"[0-9a-f]{32}\Z")
 
+
+def _same_checkout_path(left: object, right: object) -> bool:
+    """Compare host paths after resolving aliases without requiring existence."""
+    if not isinstance(left, str) or not left or not isinstance(right, str) or not right:
+        return False
+    try:
+        left_identity = str(Path(left).resolve(strict=False)).casefold()
+        right_identity = str(Path(right).resolve(strict=False)).casefold()
+    except (OSError, RuntimeError, ValueError):
+        return False
+    return left_identity == right_identity
+
 # Owner records written before the versioned publication protocol carry neither
 # the approved source head nor the exact expected target-branch commit, so they
 # cannot express publication authority. They stay READABLE -- history and audit
@@ -502,7 +514,7 @@ class GitIntegrationGate:
             or not SHA.fullmatch(str(candidate))
             or workflow.get("head_commit") != candidate
             or workflow.get("human_handoff_commit") != candidate
-            or workflow.get("checkout_path") != recorded_checkout
+            or not _same_checkout_path(workflow.get("checkout_path"), recorded_checkout)
             or not isinstance(recorded_checkout, str)
             or not recorded_checkout
             or not isinstance(canonical_checkout, str)

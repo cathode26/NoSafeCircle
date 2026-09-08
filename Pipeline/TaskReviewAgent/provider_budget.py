@@ -385,7 +385,7 @@ def compatible_crew_sessions(*, checkout_root: Path, repository: str, topology: 
     from .provider_profiles import profile_runtime_binding, crew_role_routes
     from .execution_session_pool import _exclusive_file_lock
     from Pipeline.ExecutionCrew.session_pool import SessionPool, SessionCompatibility
-    from Pipeline.ExecutionCrew.run_crew import PROFILE_ROLE_CAPABILITY_CLASSES
+    from Pipeline.ExecutionCrew.role_profiles import PROFILE_ROLE_CAPABILITY_CLASSES
     binding = profile_runtime_binding(topology, compose_project)
     root = checkout_root/".task-review-agent"/"session-pools"/hashlib.sha256(repository.encode()).hexdigest()
     root = root/("profile-crew-"+semantic_sha256(binding))

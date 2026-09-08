@@ -47,6 +47,10 @@ from Pipeline.ExecutionCrew.contract_locality import (
     validate_locality_audit_output,
 )
 from Pipeline.ExecutionCrew.prompts import COMMITTED_GDD_PATH, contract_locality_auditor_prompt, implementer_prompt, test_author_prompt, validator_prompt
+from Pipeline.ExecutionCrew.role_profiles import (
+    PROFILE_ROLE_CAPABILITY_CLASSES,
+    ROLE_CAPABILITY_CLASSES,
+)
 from Pipeline.ExecutionCrew.schemas import (
     CONTRACT_LOCALITY_AUDITOR_OUTPUT_SCHEMA,
     IMPLEMENTER_OUTPUT_SCHEMA,
@@ -1226,16 +1230,6 @@ ROLE_EVIDENCE_OBLIGATIONS = {
 }
 
 
-# The exact model capability class each role is invoked with. It is part of the
-# pooled compatibility identity, so a lease that was minted for one class must
-# never be handed to a role this run routes at another.
-ROLE_CAPABILITY_CLASSES = {
-    "contract_locality_auditor": "high_reasoning",
-    "implementer": "standard",
-    "test_author": "low_cost",
-    "validator": "high_reasoning",
-}
-PROFILE_ROLE_CAPABILITY_CLASSES = {**ROLE_CAPABILITY_CLASSES, "lead_developer": "high_reasoning"}
 # AgentRuntime failure classifications, expressed in the committed session
 # lifecycle's assignment-outcome vocabulary so the retirement policy stays in
 # one module. A transport/timeout/permission failure is a provider failure; a

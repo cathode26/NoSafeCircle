@@ -294,7 +294,7 @@ class DisplayScopeTests(unittest.TestCase):
             "--source-commit", "a" * 40,
             "--source-branch", "main",
             "--run-id", "run-a",
-            "--repository", "cathode26/NoSafeCircle-Homework-Rehearsal",
+            "--repository", "fixture-owner/pipeline-rehearsal",
         ]
         for task_id in DISPLAY_IDS:
             argv += ["--display-task-id", task_id]

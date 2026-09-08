@@ -33,7 +33,10 @@ from typing import Any, BinaryIO, Iterable, Iterator, Mapping
 from Pipeline.AgentRuntime.session_lifecycle import SessionLifecycleTelemetry
 from Pipeline.AgentRuntime.contracts import AgentResult
 from Pipeline.TaskExecution.contracts import TaskExecutionRequest
-from Pipeline.ExecutionCrew.run_crew import ROLE_CAPABILITY_CLASSES, PROFILE_ROLE_CAPABILITY_CLASSES
+from Pipeline.ExecutionCrew.role_profiles import (
+    PROFILE_ROLE_CAPABILITY_CLASSES,
+    ROLE_CAPABILITY_CLASSES,
+)
 from Pipeline.ExecutionCrew.session_pool import (
     CREW_SESSION_ROLES,
     AssignmentLease,

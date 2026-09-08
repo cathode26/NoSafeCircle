@@ -250,7 +250,7 @@ test('task details preserve workflow labels and exact Issue and PR links', async
   await page.evaluate(() => showDetail('NSC-1001'));
   assert.match(await page.locator('#detail').textContent(), /Task Needs You/);
   assert.equal(await page.getByRole('link', {name: 'Open GitHub Issue'}).getAttribute('href'),
-    'https://github.com/cathode26/NoSafeCircle-Homework-Rehearsal/issues/112');
+    'https://github.com/fixture-owner/pipeline-rehearsal/issues/112');
   assert.equal(await page.locator('#detail a[href$="/pull/116"]').count(), 1);
 });
 test('out-of-range saved sizes are clamped and corrupt preferences recover', async () => {

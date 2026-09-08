@@ -1,9 +1,17 @@
 # Public orchestration integration
 
 This integration starts at public commit
-`73fae3818ded52eec10e12230de7403cafda4081` and ports the reusable implementation
-at source boundary `bb560d0e56b77156b0d59cd1f60b1ac2fb02a371`.
-It does not merge the source history. The explicitly authorized follow-up
+`73fae3818ded52eec10e12230de7403cafda4081` and selectively ports the reusable
+orchestration implementation through rehearsal source boundary
+`e942015b2ab8614289ec477487dd183d665744ef`. It does not merge the source
+history. Rehearsal task contracts, TaskGraph materializations, game assets,
+generated evidence, delivery commits, and merge commits after the original
+`bb560d0e56b77156b0d59cd1f60b1ac2fb02a371` boundary remain excluded. The
+later reusable selection includes provider profiles, Windows checkout fixes,
+decomposition admission/recovery/resume, integration-gate liveness, and the
+current read-only GauntletView operator experience.
+
+The explicitly authorized follow-up
 `11dcd130665d531d556af48756d4d5291cd3991e` adds bounded workflow-write observation
 and post-poll retry handling; its private incident document and historical Issue
 fixture are excluded. The equivalent six-event regression uses invented,
@@ -14,6 +22,11 @@ The separately authorized visualizer follow-up
 navigation, local CI snapshots, and persisted usage displays. Its tests use
 invented repository identities; its public defaults still read only this
 checkout unless the operator explicitly supplies another root.
+
+The public port also keeps shared ExecutionCrew role-capability identities in a
+dependency-neutral module. This preserves the exact routing values while
+preventing the public CI entrypoint from recursively importing a partially
+initialized crew runner through `TaskReviewAgent.__init__`.
 
 The port retains provider routing and session ownership, rigor profiles,
 autonomous graph observation, decomposition application and recovery, the
