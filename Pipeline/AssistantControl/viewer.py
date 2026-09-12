@@ -5,6 +5,7 @@ import json
 import os
 import re
 import socket
+import sys
 import threading
 import time
 import uuid
@@ -121,11 +122,16 @@ class AssistantSnapshot:
                     if git(self.source, "rev-parse", "HEAD").decode().strip() != head:
                         raise ValueError("Source advanced while committed task contracts were being read")
                     self.contracts, self.contract_head = contracts, head
+                taskgraph_states = self._taskgraph_states(self.contract_head)
                 state["run"]["source_commit"] = self.contract_head
                 state["run"]["source_branch"] = git(self.source, "branch", "--show-current").decode().strip()
                 simulation = self._load_simulation()
                 state["tasks"] = [
-                    self.task_row(contract, read_durable_state=simulation is None)
+                    self.task_row(
+                        contract,
+                        read_durable_state=simulation is None,
+                        taskgraph_state=taskgraph_states.get(contract["id"]),
+                    )
                     for contract in self.contracts
                 ]
                 if simulation is None:
@@ -162,6 +168,25 @@ class AssistantSnapshot:
             self.cached_state = state
             self.cached_at = time.monotonic()
             return state
+
+    def _taskgraph_states(self, head: str) -> dict[str, dict]:
+        """Read committed delivery state once for the whole viewer snapshot."""
+        # The inspected source may be a minimal fixture (or an older project
+        # checkout).  Execute the viewer's own evaluator against that source,
+        # matching AssistantControl.dependencies instead of importing code
+        # from the project being displayed.
+        taskgraph = str(Path(__file__).resolve().parents[1] / "TaskGraph")
+        if taskgraph not in sys.path:
+            sys.path.insert(0, taskgraph)
+        from current_conformance import ConformanceEvaluationContext
+
+        context = ConformanceEvaluationContext(self.source)
+        if context.head != head:
+            raise ValueError("TaskGraph delivery state differs from the committed contract snapshot")
+        return {
+            contract["id"]: context.evaluate(contract["id"]).to_dict()
+            for contract in self.contracts
+        }
 
     def _human_review_attention(self, rows: list[dict], *, now_epoch: float) -> dict:
         """Describe exact candidates waiting for Vincent and their alarm state.
@@ -657,7 +682,10 @@ class AssistantSnapshot:
             "updated_at": simulation.get("updated_at"),
         }
 
-    def task_row(self, contract: dict, *, read_durable_state: bool = True) -> dict:
+    def task_row(
+        self, contract: dict, *, read_durable_state: bool = True,
+        taskgraph_state: Mapping[str, Any] | None = None,
+    ) -> dict:
         task_id = contract["id"]
         active = contract.get("contract_disposition") == "active"
         executable = active and contract.get("execution_scope") != "not_applicable"
@@ -671,18 +699,25 @@ class AssistantSnapshot:
             "execution_scope": contract.get("execution_scope"),
             "resources": contract.get("exclusive_resources") or [],
             "acceptance": [item.get("requirement") for item in contract.get("acceptance_criteria", [])],
-            "in_scope": executable or visible_parent,
+            "in_scope": False,
             "state": ("ready" if executable else "aggregate" if active else "cancelled"),
             "checkout_path": None, "checkout_exists": False,
             "checkout_commit": None, "worker": None,
             "progress": {"phase": "not_started"}, "token_cost": None,
             "notes": contract.get("notes"), "reason": contract.get("decomposition_reason"),
-            "taskgraph": None,
+            "taskgraph": dict(taskgraph_state) if taskgraph_state is not None else None,
         }
+        if active and taskgraph_state is not None and taskgraph_state.get("state") == "conformant":
+            row["state"] = "complete"
+            row["progress"] = {
+                "phase": "taskgraph_conformant",
+                "transition_context": "Committed TaskGraph evidence proves this task is complete.",
+            }
         if not read_durable_state:
             return row
         decomposition_receipt = self.manager.records / f"{task_id}.decomposition.json"
         if decomposition_receipt.is_file():
+            row["in_scope"] = True
             try:
                 decomposition = json.loads(decomposition_receipt.read_text(encoding="utf-8"))
                 if (decomposition.get("schema_version") != "assistant-decomposition/v1"
@@ -734,6 +769,7 @@ class AssistantSnapshot:
                 }
         receipt = self.manager.records / f"{task_id}.json"
         if receipt.exists():
+            row["in_scope"] = True
             try:
                 checkout = self.manager.observe(task_id)
                 row.update({"checkout_path": checkout["checkout"], "checkout_exists": True,

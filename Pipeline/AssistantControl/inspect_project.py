@@ -14,12 +14,78 @@ from pathlib import Path
 from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task
 
 
+def _msys_startup_access_denied(stderr: bytes) -> bool:
+    """Recognize Git-for-Windows failing before Git itself can start.
+
+    This is not a repository/authentication failure.  Git's MSYS helper can
+    intermittently fail to create its signal pipe or file mapping when the
+    child was launched with CREATE_NO_WINDOW.  Retry that exact startup
+    failure once without the flag; preserve every other Git failure verbatim.
+    """
+    if os.name != "nt" or b"Win32 error 5" not in stderr:
+        return False
+    return any(marker in stderr for marker in (
+        b"fatal error - couldn't create signal pipe",
+        b"fatal error - CreateFileMapping",
+    ))
+
+
+def _bundle_clone_after_msys_failure(
+    source: Path, args: tuple[str, ...], *, timeout_seconds: float,
+    creationflags: int,
+) -> subprocess.CompletedProcess[bytes] | None:
+    """Clone a local repository without Git's failing MSYS upload-pack path."""
+    if not args or args[0] != "clone" or "--no-local" not in args or len(args) < 3:
+        return None
+    clone_source = Path(args[-2])
+    destination = Path(args[-1])
+    if not clone_source.is_absolute():
+        clone_source = (source / clone_source).resolve()
+    else:
+        clone_source = clone_source.resolve()
+    if not clone_source.is_dir() or destination.exists() or destination.is_symlink():
+        return None
+    bundle = destination.with_name(destination.name + ".bundle")
+    if bundle.exists() or bundle.is_symlink():
+        return None
+    common = ["git", "--no-optional-locks"]
+    try:
+        bundled = subprocess.run(
+            [*common, "-C", str(clone_source), "bundle", "create", str(bundle), "--all"],
+            capture_output=True, timeout=timeout_seconds, creationflags=creationflags,
+        )
+        if bundled.returncode:
+            return bundled
+        clone_args = tuple(arg for arg in args[:-2] if arg != "--no-local")
+        cloned = subprocess.run(
+            [*common, "-C", str(source), *clone_args, str(bundle), str(destination)],
+            capture_output=True, timeout=timeout_seconds, creationflags=creationflags,
+        )
+        if cloned.returncode:
+            return cloned
+        rebound = subprocess.run(
+            [*common, "-C", str(destination), "remote", "set-url", "origin", str(clone_source)],
+            capture_output=True, timeout=timeout_seconds, creationflags=creationflags,
+        )
+        return rebound
+    finally:
+        if bundle.is_file():
+            bundle.unlink()
+
+
 def git(source: Path, *args: str, timeout_seconds: float = 30) -> bytes:
     creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0
+    command = ["git", "--no-optional-locks", "-C", str(source), *args]
     result = subprocess.run(
-        ["git", "--no-optional-locks", "-C", str(source), *args],
+        command,
         capture_output=True, timeout=timeout_seconds, creationflags=creationflags,
     )
+    if result.returncode and _msys_startup_access_denied(result.stderr):
+        recovered = _bundle_clone_after_msys_failure(
+            source, args, timeout_seconds=timeout_seconds, creationflags=creationflags,
+        )
+        if recovered is not None:
+            result = recovered
     if result.returncode:
         raise RuntimeError(result.stderr.decode("utf-8", errors="replace").strip())
     return result.stdout

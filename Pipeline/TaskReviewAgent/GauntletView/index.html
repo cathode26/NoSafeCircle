@@ -670,10 +670,16 @@ function buildElements(tasks) {
   const edges = [];
   for (const t of shown) {
     for (const dep of t.depends_on) {
-      if (ids.has(dep)) edges.push({ data: { id: `${dep}->${t.id}`, source: dep, target: t.id, kind: 'dep' } });
+      if (ids.has(dep)) edges.push({
+        data: { id: `${dep}->${t.id}`, source: dep, target: t.id, kind: 'dep' },
+        selectable: false,
+      });
     }
     if (t.parent && ids.has(t.parent)) {
-      edges.push({ data: { id: `${t.parent}=>${t.id}`, source: t.parent, target: t.id, kind: 'parent' } });
+      edges.push({
+        data: { id: `${t.parent}=>${t.id}`, source: t.parent, target: t.id, kind: 'parent' },
+        selectable: false,
+      });
     }
   }
   return { nodes, edges };
@@ -1682,11 +1688,20 @@ async function createTaskIssue(button) {
 // Highlight a node's dependency neighbourhood on click.
 cy.on('tap', 'node', evt => {
   const node = evt.target;
+  // A faded node is outside the focused task's immediate graph context. Keep
+  // it inert until the operator clears focus by clicking the background.
+  if (node.hasClass('faded')) {
+    node.unselect();
+    return;
+  }
   // Clear the previous selection's highlight, or edges accumulate across clicks.
+  cy.nodes().selectify().grabify();
   cy.elements().removeClass('hl').addClass('faded');
   const hood = node.closedNeighborhood();
   hood.removeClass('faded');
   hood.edges().addClass('hl');
+  hood.nodes().selectify().grabify();
+  cy.nodes('.faded').unselect().unselectify().ungrabify();
   const task = snapshot && snapshot.tasks.find(item => item.id === node.id());
   if (task && task.state === 'active') toggleStageExpansion(node.id());
   else showDetail(node.id());
@@ -1694,6 +1709,7 @@ cy.on('tap', 'node', evt => {
 cy.on('tap', evt => {
   if (evt.target === cy) {
     cy.elements().removeClass('faded').removeClass('hl');
+    cy.nodes().selectify().grabify();
     document.getElementById('detail').innerHTML = '<div class="empty">Click a node.</div>';
   }
 });

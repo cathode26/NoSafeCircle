@@ -56,6 +56,7 @@ class ViewerTests(unittest.TestCase):
                     b"const scopeOnly = document.getElementById('f-scope').checked", document,
                 )
                 self.assertIn(b"if (scopeOnly && !t.in_scope) continue", document)
+                self.assertIn(b"selectable: false", document)
             with urlopen(base + "/api/state") as response:
                 self.assertEqual("no-store", response.headers["Cache-Control"])
                 state = json.load(response)
