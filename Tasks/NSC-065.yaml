@@ -1,0 +1,90 @@
+{
+  "schema_version": "2.0",
+  "id": "NSC-065",
+  "contract_revision": 1,
+  "contract_disposition": "active",
+  "title": "PixelLab Sealed Door Art Direction and Selection",
+  "reconciliation_key": "pixellab-sealed-door-art-selection",
+  "kind": "implementation",
+  "type": "art-acquisition",
+  "execution_scope": "single_agent",
+  "execution_reason": "The assistant can use PixelLab to select a readable sealed-door visual family without changing DoorInteractable behavior, scene state, prefabs, sorting, or room geometry.",
+  "decomposition_state": "concrete",
+  "decomposition_reason": "The sealed/open/locked/broken visual states and final-door distinction define one focused source-art selection task that ends before Unity integration.",
+  "parent": "NSC-018",
+  "depends_on": [],
+  "exclusive_resources": [
+    "logical:pixellab-sealed-door-art",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source",
+    "repo-file:Docs/Art/Doors/PIXELLAB_GENERATION.md"
+  ],
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "GDD — sealed-door interaction and development-time generative art",
+      "requirement": "Use the approved PixelLab capability to create a coherent isometric door source-art family and record exact prompts, settings, dimensions, perspective, and selected generation identifiers. If PixelLab is unavailable, stop as blocked."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "GDD — Door and Pursuit Rules",
+      "requirement": "The review family makes sealed, opening or open, locked, damaged, and broken states visually distinct while keeping the same door identity, ground contact, opening width, lighting, and isometric perspective."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "GDD — final escape",
+      "requirement": "The final exit has an obvious but coherent visual distinction from D1 through D4 without changing its interaction footprint or implying different opening rules."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "Human-approved presentation direction, 2026-09-12",
+      "requirement": "Doors fit the dark-but-cute horror-comedy world, remain readable beside wall art and character silhouettes, and avoid graphic gore or borrowed franchise imagery."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "Art-selection boundary",
+      "requirement": "Create a contact sheet, choose one coherent family, and retain only selected source files. This task does not edit DoorInteractable, feedback behavior, prefabs, the scene, the builder, sorting, collision, navigation, or five-second timing."
+    }
+  ],
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "Source-art completeness review",
+      "requirement": "A deterministic inventory confirms every required visual state, the final-door variant, transparent backgrounds, consistent dimensions/perspective, and exact provenance with no ambiguous filenames."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "Assistant art-selection review",
+      "requirement": "The assistant verifies state readability at gameplay scale and coherence with the selected wizard and environment art before authorizing later Unity integration."
+    }
+  ],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "Future door-art Unity integration",
+      "requirement": "A separate task imports only the approved sources and connects visual states to Door-owned semantics while preserving interaction, sorting, collision, passability, and room geometry."
+    }
+  ],
+  "gdd_evidence": [
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md — Executive Summary and Game Mechanics",
+      "requirement": "Each room ends at a sealed door and the final door is the escape boundary."
+    },
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md — 2.5D Isometric Visual and World Representation",
+      "requirement": "Interactive doors use world-space SpriteRenderer prefabs and remain separate from gameplay simulation."
+    }
+  ],
+  "basis": "human_approved_gameplay_presentation",
+  "source_scope": "required",
+  "confidence": "high",
+  "notes": "This task selects source art only. Vincent will approve the in-game readability later, after a separate Unity integration task wires the selected art to Door state.",
+  "repository_state_at_bootstrap": "missing",
+  "repository_evidence_at_bootstrap": [],
+  "provenance": {
+    "origin": "human_approved_gameplay_presentation_followup",
+    "approved_development_tool": "PixelLab MCP",
+    "approved_at_utc_date": "2026-09-12",
+    "gdd_rag_validated": true,
+    "gdd_rag_chunk_ids": ["nsc-gdd-002", "nsc-gdd-005", "nsc-gdd-071", "nsc-gdd-072"]
+  }
+}

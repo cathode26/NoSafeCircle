@@ -1,0 +1,90 @@
+{
+  "schema_version": "2.0",
+  "id": "NSC-064",
+  "contract_revision": 1,
+  "contract_disposition": "active",
+  "title": "PixelLab Dungeon Architecture Art Direction and Selection",
+  "reconciliation_key": "pixellab-dungeon-architecture-art-selection",
+  "kind": "implementation",
+  "type": "art-acquisition",
+  "execution_scope": "single_agent",
+  "execution_reason": "The assistant can use PixelLab to acquire a bounded environment-art kit without editing the authored five-room geometry, Unity Tilemaps, scene, builder, collision, or navigation.",
+  "decomposition_state": "concrete",
+  "decomposition_reason": "The GDD names the five room identities and the hybrid Tilemap/SpriteRenderer boundary; this task selects one coherent source-art kit and ends before Unity integration.",
+  "parent": "NSC-022",
+  "depends_on": [],
+  "exclusive_resources": [
+    "logical:pixellab-dungeon-architecture-art",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source",
+    "repo-file:Docs/Art/Environment/PIXELLAB_GENERATION.md"
+  ],
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "GDD — Dungeon Floor Structure and development-time generative art",
+      "requirement": "Use the approved PixelLab capability to create a coherent dark-fantasy isometric source-art kit and record exact prompts, settings, dimensions, perspective, tile conventions, and selected generation identifiers. If PixelLab is unavailable, stop as blocked."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "GDD — five named rooms",
+      "requirement": "The review set visually supports the Ruined Entry, Bone Archive, Chapel of Ash, Lower Vault, and Final Room through compatible floor, wall, rubble, shelf, pew, column, storage, and central-obstacle motifs without changing their approved gameplay geometry."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "GDD — hybrid isometric architecture",
+      "requirement": "Repeatable floors and walls are designed for Unity Isometric Tilemaps, while tall or independently sorted props are delivered as transparent world-space sprite candidates. Perspective, scale, lighting, edge connections, and palette remain coherent with the selected wizard."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "Human-approved presentation direction, 2026-09-12",
+      "requirement": "The kit reads as dark-but-cute horror-comedy: spooky, worn, readable, and charming, with enough contrast for gameplay silhouettes and no graphic gore or borrowed franchise imagery."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "Art-selection boundary",
+      "requirement": "Create contact sheets, choose one cohesive source-art family, and retain only selected sources. This task does not create Unity Tile assets, edit the scene or builder, alter collision/navigation, or author room layouts."
+    }
+  ],
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "Source-art completeness review",
+      "requirement": "A deterministic inventory identifies every selected floor, wall, connection, and prop source, its intended Tilemap or SpriteRenderer use, dimensions, transparency, and generation provenance."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "Assistant art-selection review",
+      "requirement": "The assistant verifies the kit is mutually coherent and maps every selected motif to at least one named room without claiming that the Unity world is already authored."
+    }
+  ],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "Future environment-art Unity integration",
+      "requirement": "A separate task imports the approved sources, builds deterministic Tile and Sprite assets, and applies them without changing the independently authored gameplay geometry."
+    }
+  ],
+  "gdd_evidence": [
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md — Dungeon Floor Structure",
+      "requirement": "The floor contains five visually and tactically distinct named spaces."
+    },
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md — 2.5D Isometric Visual and World Representation",
+      "requirement": "Repeatable architecture uses Isometric Tilemaps and independently sorted props use SpriteRenderers, separate from gameplay geometry."
+    }
+  ],
+  "basis": "human_approved_gameplay_presentation",
+  "source_scope": "required",
+  "confidence": "high",
+  "notes": "This task selects source art only. Existing blockout coordinates, routes, collision, doors, and navigation remain authoritative and unchanged.",
+  "repository_state_at_bootstrap": "missing",
+  "repository_evidence_at_bootstrap": [],
+  "provenance": {
+    "origin": "human_approved_gameplay_presentation_followup",
+    "approved_development_tool": "PixelLab MCP",
+    "approved_at_utc_date": "2026-09-12",
+    "gdd_rag_validated": true,
+    "gdd_rag_chunk_ids": ["nsc-gdd-014", "nsc-gdd-016", "nsc-gdd-049", "nsc-gdd-071"]
+  }
+}

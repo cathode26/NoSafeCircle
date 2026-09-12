@@ -1,0 +1,90 @@
+{
+  "schema_version": "2.0",
+  "id": "NSC-063",
+  "contract_revision": 1,
+  "contract_disposition": "active",
+  "title": "PixelLab Stationary Enemy Art Direction and Selection",
+  "reconciliation_key": "pixellab-stationary-enemy-art-selection",
+  "kind": "implementation",
+  "type": "art-acquisition",
+  "execution_scope": "single_agent",
+  "execution_reason": "The assistant can use PixelLab to create and compare the two required enemy archetypes without changing enemy behavior or Unity scene state. This task produces selected source art and provenance only.",
+  "decomposition_state": "concrete",
+  "decomposition_reason": "The two enemy identities, isometric presentation, idle-only demonstration boundary, and source-art selection deliverable define one focused acquisition task.",
+  "parent": "NSC-010",
+  "depends_on": [],
+  "exclusive_resources": [
+    "logical:pixellab-enemy-character-art",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source",
+    "repo-file:Docs/Art/Enemies/PIXELLAB_GENERATION.md"
+  ],
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "GDD — Required Enemy Roster and development-time generative art",
+      "requirement": "Use the approved PixelLab capability to create distinct Melee Enemy and Ranged Enemy source-art candidates, recording exact prompts, settings, dimensions, direction convention, and selected generation identifiers. If PixelLab is unavailable, stop as blocked instead of substituting another generator."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "GDD — 2.5D Isometric Visual and World Representation",
+      "requirement": "Each selected enemy has a transparent-background, feet-anchored isometric sprite set for north-east, north-west, south-east, and south-west facings, with coherent identity, scale, lighting, palette, and ground contact."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "Human-approved presentation direction, 2026-09-12",
+      "requirement": "Both enemies fit the same dark-but-cute horror-comedy world as the selected wizard. The Melee Enemy reads as a close-range pursuer and the Ranged Enemy reads as a distant caster or projectile threat without copying recognizable franchise characters or using graphic gore."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "Human-approved stationary demonstration boundary, 2026-09-12",
+      "requirement": "The review set includes a coherent idle animation or stable standing frame for every gameplay facing. This art-selection task does not implement pursuit, attacks, navigation, damage, prefabs, Animator assets, or scene placement."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "Art-selection boundary",
+      "requirement": "Create a contact sheet or animation preview, select one cohesive Melee Enemy set and one cohesive Ranged Enemy set, and retain only the selected source files as authorized inputs for a later Unity-integration task."
+    }
+  ],
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "Source-art completeness review",
+      "requirement": "A deterministic inventory confirms both enemy archetypes, all four gameplay facings, transparent backgrounds, consistent dimensions, and the selected idle frames or animations with no missing or ambiguous files."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "Assistant art-selection review",
+      "requirement": "The assistant records why the selected pair is readable, coherent with the wizard and environment, and suitable for later stationary Unity placement."
+    }
+  ],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "Future stationary enemy Unity integration",
+      "requirement": "A separate task imports only the approved source art as world-space SpriteRenderer prefabs and initially demonstrates the enemies stationary, without claiming pursuit or attack behavior."
+    }
+  ],
+  "gdd_evidence": [
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md — Required Enemy Roster",
+      "requirement": "The game requires distinct Melee and Ranged Enemy archetypes."
+    },
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md — 2.5D Isometric Visual and World Representation",
+      "requirement": "Enemies use world-space SpriteRenderer prefabs and remain separate from gameplay simulation."
+    }
+  ],
+  "basis": "human_approved_gameplay_presentation",
+  "source_scope": "required",
+  "confidence": "high",
+  "notes": "This task deliberately acquires art before behavior. Vincent will approve Unity appearance later, after a separate integration task places stationary enemies in the game.",
+  "repository_state_at_bootstrap": "missing",
+  "repository_evidence_at_bootstrap": [],
+  "provenance": {
+    "origin": "human_approved_gameplay_presentation_followup",
+    "approved_development_tool": "PixelLab MCP",
+    "approved_at_utc_date": "2026-09-12",
+    "gdd_rag_validated": true,
+    "gdd_rag_chunk_ids": ["nsc-gdd-002", "nsc-gdd-052", "nsc-gdd-062"]
+  }
+}
