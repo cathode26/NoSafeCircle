@@ -58,6 +58,7 @@
                    "ranged-enemy-projectile-attack":  "NSC-054",
                    "ruined-entry-blockout":  "NSC-044",
                    "seamless-scalable-wall-tiling":  "NSC-042",
+                   "selected-wizard-world-placement":  "NSC-068",
                    "shared-hierarchy-fader-foundation":  "NSC-058",
                    "tilemap-navigation-package-configuration":  "NSC-024",
                    "title-screen-start-game-flow":  "NSC-066",

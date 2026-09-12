@@ -1,16 +1,16 @@
 {
   "schema_version": "2.0",
   "id": "NSC-067",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "contract_disposition": "active",
   "title": "Four-Wizard Selection Screen",
   "reconciliation_key": "four-wizard-selection-screen",
   "kind": "implementation",
   "type": "character-selection-ui",
   "execution_scope": "single_agent",
-  "execution_reason": "Displaying four approved wizard options, retaining one selection, and starting gameplay with that presentation form one bounded UI-to-player integration task.",
+  "execution_reason": "Displaying four approved wizard options and recording one confirmed selection form one bounded UI task. Applying that selection to the world Player and enabling gameplay are separated into NSC-068.",
   "decomposition_state": "concrete",
-  "decomposition_reason": "The four options, source-art owner, preceding title transition, selection behavior, gameplay handoff, and preservation constraints are fully specified.",
+  "decomposition_reason": "The four options, source-art owner, preceding title transition, selection behavior, and confirmed-selection handoff are fully specified.",
   "parent": "NSC-002",
   "depends_on": [
     "NSC-062",
@@ -38,17 +38,17 @@
     {
       "criterion_id": "AC-003",
       "reference": "Human-approved wizard-selection flow, 2026-09-12",
-      "requirement": "Selecting an option visibly marks exactly one wizard as selected. A clearly labeled confirmation action remains unavailable until a valid option is selected, then starts gameplay once with that exact presentation and skin choice."
+      "requirement": "Selecting an option visibly marks exactly one wizard as selected. A clearly labeled confirmation action remains unavailable until a valid option is selected, then records exactly one confirmed presentation and skin choice for NSC-068."
     },
     {
       "criterion_id": "AC-004",
-      "reference": "NSC-062 presentation-only boundary",
-      "requirement": "The chosen wizard changes presentation only. It preserves the existing Player root, CharacterController, colliders, movement, health, mana, spells, interaction components, world position, four-direction animation behavior, and NSC-039 sorting convention."
+      "reference": "Selection-screen ownership boundary",
+      "requirement": "This task does not instantiate, move, replace, enable, or otherwise modify the world Player. It records the selected NSC-062 presentation identity through a small explicit handoff that NSC-068 consumes."
     },
     {
       "criterion_id": "AC-005",
       "reference": "Game-entry state ownership",
-      "requirement": "Gameplay input remains inactive throughout wizard selection. Confirming a valid choice hides the selection UI, applies the selected wizard through the presentation API established by NSC-062, enables gameplay through existing owner-controlled boundaries, and cannot create duplicate players or repeated start transitions."
+      "requirement": "Gameplay input remains inactive throughout wizard selection. Confirming a valid choice produces one transition to the world-entry step and cannot create duplicate confirmations, duplicate menu objects, or an unselected fallback wizard."
     },
     {
       "criterion_id": "AC-006",
@@ -65,12 +65,12 @@
     {
       "gate_id": "VAL-002",
       "reference": "Play Mode selection validation",
-      "requirement": "Play Mode coverage proves Start Game opens selection, gameplay input stays inactive, confirmation is unavailable without a choice, each of the four choices can be selected, and confirmation starts gameplay exactly once with the selected wizard."
+      "requirement": "Play Mode coverage proves Start Game opens selection, gameplay input stays inactive, confirmation is unavailable without a choice, each of the four choices can be selected, and confirmation records exactly one matching selection for NSC-068."
     },
     {
       "gate_id": "VAL-003",
-      "reference": "Gameplay preservation validation",
-      "requirement": "For every wizard option, automated coverage confirms the same Player root and gameplay components remain active and the chosen idle/walk presentation follows movement without changing collision, movement, health, mana, spell, or interaction behavior."
+      "reference": "Selection ownership validation",
+      "requirement": "Automated coverage confirms the selection screen does not instantiate or modify the world Player, and its confirmed-selection handoff distinguishes all four options without a default or stale prior choice."
     },
     {
       "gate_id": "VAL-004",
@@ -80,10 +80,16 @@
     {
       "gate_id": "VAL-005",
       "reference": "Developer visual approval",
-      "requirement": "Vincent opens Assets/Scenes/DoorPrototype.unity in Play Mode, checks the title-to-selection flow, selects all four wizard options in separate runs, and approves readability, option identity, respectful presentation, selected-state feedback, animation, ground contact, and entry into gameplay."
+      "requirement": "Vincent opens Assets/Scenes/DoorPrototype.unity in Play Mode, checks the title-to-selection flow, selects all four wizard options in separate runs, and approves readability, option identity, respectful presentation, and selected-state feedback. World placement and gameplay entry are reviewed under NSC-068."
     }
   ],
-  "downstream_integration_obligations": [],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "NSC-068 Selected Wizard World Placement and Gameplay Entry",
+      "requirement": "NSC-068 consumes the exact confirmed selection, applies the matching NSC-062 presentation to the existing Player, places that Player at the world spawn, and only then enables gameplay."
+    }
+  ],
   "gdd_evidence": [
     {
       "reference": "Human-approved wizard-selection flow, 2026-09-12",
@@ -97,7 +103,7 @@
   "basis": "human_approved_gameplay_presentation",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "This task consumes the four integrated wizard presentations from NSC-062 and the title transition from NSC-066. It selects presentation for the current game start only; profile persistence, save data, unlocks, stats, and different gameplay abilities are outside scope.",
+  "notes": "This task consumes the four integrated wizard presentations from NSC-062 and the title transition from NSC-066. It ends after recording a confirmed choice for NSC-068. Player placement, gameplay activation, profile persistence, save data, unlocks, stats, and different gameplay abilities are outside scope.",
   "repository_state_at_bootstrap": "missing",
   "repository_evidence_at_bootstrap": [],
   "provenance": {
@@ -105,7 +111,9 @@
     "wizard_art_source_task_id": "NSC-061",
     "wizard_integration_task_id": "NSC-062",
     "title_screen_task_id": "NSC-066",
+    "world_entry_task_id": "NSC-068",
     "created_by_human_request": true,
-    "approved_at_utc_date": "2026-09-12"
+    "approved_at_utc_date": "2026-09-12",
+    "revision_reason": "Human requested a separate task to apply the selected wizard and place the Player in the world."
   }
 }

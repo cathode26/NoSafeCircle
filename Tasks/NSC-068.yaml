@@ -1,0 +1,116 @@
+{
+  "schema_version": "2.0",
+  "id": "NSC-068",
+  "contract_revision": 1,
+  "contract_disposition": "active",
+  "title": "Selected Wizard World Placement and Gameplay Entry",
+  "reconciliation_key": "selected-wizard-world-placement",
+  "kind": "implementation",
+  "type": "player-world-entry",
+  "execution_scope": "single_agent",
+  "execution_reason": "Consuming one confirmed wizard choice, applying it to the existing Player, placing that Player at the established world spawn, and enabling gameplay form one bounded handoff task.",
+  "decomposition_state": "concrete",
+  "decomposition_reason": "The selection input, four presentation mappings, existing Player ownership, established scene spawn, and gameplay-enable boundary define a concrete implementation and validation target.",
+  "parent": "NSC-002",
+  "depends_on": [
+    "NSC-062",
+    "NSC-067"
+  ],
+  "exclusive_resources": [
+    "logical:game-entry-menu-flow",
+    "logical:wizard-presentation-selection",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/WizardGameEntryController.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/WizardGameEntryPlayModeTests.cs",
+    "unity-scene:Assets/Scenes/DoorPrototype.unity"
+  ],
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "NSC-067 confirmed wizard selection",
+      "requirement": "Consume the exact presentation and skin choice confirmed by NSC-067. Each of the four possible choices maps to its matching integrated NSC-062 wizard art and animation set; no choice may silently fall back to another wizard or the procedural purple placeholder."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "Existing Player ownership and canonical world spawn",
+      "requirement": "Apply the selected presentation to the existing Player and place that same Player at the established initial world spawn in Assets/Scenes/DoorPrototype.unity. Do not instantiate a second Player, replace the Player root, move the spawn to suit the artwork, or leave a hidden duplicate behind."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "NSC-062 presentation-only boundary",
+      "requirement": "Changing the selected wizard changes presentation only. Preserve the Player root, CharacterController, colliders, movement, health, mana, spells, interaction components, world scale, feet origin, four-direction animation behavior, and NSC-039 sorting convention."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "Human-approved game-entry flow, 2026-09-12",
+      "requirement": "Gameplay remains inactive until a valid confirmed selection has been applied and the Player is at the world spawn. The world-entry step then hides the menu UI and enables gameplay exactly once through existing owner-controlled boundaries."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "Current-session selection continuity",
+      "requirement": "The chosen wizard remains attached to the existing Player when gameplay systems reposition that Player during the current run. This task does not add profiles, save files, unlocks, or cross-session persistence and does not take ownership of floor-restart behavior."
+    },
+    {
+      "criterion_id": "AC-006",
+      "reference": "DoorPrototypeSceneBuilder repeatability",
+      "requirement": "DoorPrototypeSceneBuilder.Build installs the world-entry coordinator and its references idempotently without duplicating Player objects, menu transitions, components, listeners, or spawn markers, and without resetting an active Play Mode selection."
+    }
+  ],
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "Four-option world-entry validation",
+      "requirement": "Play Mode coverage starts separately with each of the four confirmed NSC-067 choices and proves the matching NSC-062 presentation is applied to the one existing Player at the same established world spawn."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "No-selection and duplicate-entry validation",
+      "requirement": "Play Mode coverage proves gameplay cannot start without a valid confirmed selection and repeated confirmation or entry callbacks cannot create another Player or enable gameplay more than once."
+    },
+    {
+      "gate_id": "VAL-003",
+      "reference": "Gameplay preservation validation",
+      "requirement": "For every wizard option, automated coverage confirms the same Player root and gameplay components remain present, movement drives the correct directional animation, collision and sorting are unchanged, and repositioning the Player does not replace the selected visual."
+    },
+    {
+      "gate_id": "VAL-004",
+      "reference": "Builder regression validation",
+      "requirement": "Repeated DoorPrototypeSceneBuilder.Build runs preserve one title-to-selection-to-world path, one Player, one world-entry coordinator, and the established spawn and component references."
+    },
+    {
+      "gate_id": "VAL-005",
+      "reference": "Developer visual approval",
+      "requirement": "Vincent enters Play Mode with each wizard choice and confirms the correct animated wizard appears at the intended world spawn, remains readable beside the wall and door, sorts correctly while moving, and enters gameplay without a duplicate or placeholder Player."
+    }
+  ],
+  "downstream_integration_obligations": [],
+  "gdd_evidence": [
+    {
+      "reference": "Human-approved wizard-entry flow, 2026-09-12",
+      "requirement": "After choosing a wizard, the corresponding wizard must be placed in the game world before gameplay begins."
+    },
+    {
+      "reference": "GDD — single wizard player and world-space SpriteRenderer representation",
+      "requirement": "The game has one wizard Player whose visual uses the shared world-space sorting convention while gameplay state remains owned by the existing Player components."
+    }
+  ],
+  "basis": "human_approved_gameplay_presentation",
+  "source_scope": "required",
+  "confidence": "high",
+  "notes": "This task is the boundary between menu selection and the existing game world. It consumes NSC-067's confirmed choice and NSC-062's presentation API. It does not create a new player system, alter wizard abilities, or add persistent profiles.",
+  "repository_state_at_bootstrap": "missing",
+  "repository_evidence_at_bootstrap": [
+    {
+      "path": "Assets/Scenes/DoorPrototype.unity",
+      "evidence_type": "scene",
+      "observation": "The canonical scene already contains the existing Player root and initial world placement that this task must preserve."
+    }
+  ],
+  "provenance": {
+    "origin": "human_approved_gameplay_presentation_followup",
+    "wizard_integration_task_id": "NSC-062",
+    "wizard_selection_task_id": "NSC-067",
+    "created_by_human_request": true,
+    "approved_at_utc_date": "2026-09-12"
+  }
+}
