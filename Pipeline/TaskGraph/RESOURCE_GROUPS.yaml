@@ -107,7 +107,8 @@
         "five-room-continuity-door-sequence",
         "door-lock-break-state",
         "door-passability-publication",
-        "door-breach-feedback"
+        "door-breach-feedback",
+        "animated-pixellab-wizard-character-variants"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
       "work_ids": [
@@ -136,7 +137,8 @@
         "NSC-049",
         "NSC-050",
         "NSC-051",
-        "NSC-052"
+        "NSC-052",
+        "NSC-061"
       ]
     },
     {
@@ -185,7 +187,8 @@
         "five-room-continuity-door-sequence",
         "door-lock-break-state",
         "door-passability-publication",
-        "door-breach-feedback"
+        "door-breach-feedback",
+        "animated-pixellab-wizard-character-variants"
       ],
       "resource_key": "unity-scene:Assets/Scenes/DoorPrototype.unity",
       "work_ids": [
@@ -214,7 +217,8 @@
         "NSC-049",
         "NSC-050",
         "NSC-051",
-        "NSC-052"
+        "NSC-052",
+        "NSC-061"
       ]
     }
   ],
