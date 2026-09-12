@@ -1,0 +1,71 @@
+{
+  "group_id": "03fa1d53-1111-463c-a1c7-bf5342ae1971",
+  "states": [
+    {
+      "character": {
+        "id": "10a82915-82e8-48a3-92bd-a261b2d992e1",
+        "name": "Idle",
+        "prompt": "A tall adult male wizard with deep brown Black skin, a short trimmed beard, close-cropped natural hair, broad rugged shoulders. A weathered pulp-horror-survivor-turned-charming wizard, 2.5D isometric dark-fantasy RPG character, dark spooky dungeon color palette of deep plum and teal-black shadows with warm lantern-glow highlights, battle-worn patched wizard's robe under a rugged leather duster, tall scuffed boots, a leather bandolier of small glass potion vials, a gnarled wooden traveling staff, a lopsided patched pointed wizard hat, a dog-eared spellbook tucked under one arm, cute expressive proportions, an endearingly overconfident smirk mixed with a put-upon exhausted expression, horror-comedy charm, readable heroic silhouette, original fantasy character, no real-world celebrity likeness, no franchise costume or logo, no chainsaw, no shotgun, no blood or gore, not sexualized, family-friendly tone",
+        "size": {
+          "width": 180,
+          "height": 180
+        },
+        "template_id": "mannequin",
+        "directions": 8,
+        "view": "low top-down",
+        "created_at": "2026-09-12T14:14:26.833983+00:00"
+      },
+      "folder": "Idle",
+      "frames": {
+        "rotations": {
+          "south": "Idle/rotations/south.png",
+          "south-east": "Idle/rotations/south-east.png",
+          "east": "Idle/rotations/east.png",
+          "north-east": "Idle/rotations/north-east.png",
+          "north": "Idle/rotations/north.png",
+          "north-west": "Idle/rotations/north-west.png",
+          "west": "Idle/rotations/west.png",
+          "south-west": "Idle/rotations/south-west.png"
+        },
+        "animations": {
+          "Walk": {
+            "south-west": [
+              "Idle/animations/Walk/south-west/frame_000.png",
+              "Idle/animations/Walk/south-west/frame_001.png",
+              "Idle/animations/Walk/south-west/frame_002.png",
+              "Idle/animations/Walk/south-west/frame_003.png",
+              "Idle/animations/Walk/south-west/frame_004.png",
+              "Idle/animations/Walk/south-west/frame_005.png"
+            ],
+            "north-east": [
+              "Idle/animations/Walk/north-east/frame_000.png",
+              "Idle/animations/Walk/north-east/frame_001.png",
+              "Idle/animations/Walk/north-east/frame_002.png",
+              "Idle/animations/Walk/north-east/frame_003.png",
+              "Idle/animations/Walk/north-east/frame_004.png",
+              "Idle/animations/Walk/north-east/frame_005.png"
+            ],
+            "south-east": [
+              "Idle/animations/Walk/south-east/frame_000.png",
+              "Idle/animations/Walk/south-east/frame_001.png",
+              "Idle/animations/Walk/south-east/frame_002.png",
+              "Idle/animations/Walk/south-east/frame_003.png",
+              "Idle/animations/Walk/south-east/frame_004.png",
+              "Idle/animations/Walk/south-east/frame_005.png"
+            ],
+            "north-west": [
+              "Idle/animations/Walk/north-west/frame_000.png",
+              "Idle/animations/Walk/north-west/frame_001.png",
+              "Idle/animations/Walk/north-west/frame_002.png",
+              "Idle/animations/Walk/north-west/frame_003.png",
+              "Idle/animations/Walk/north-west/frame_004.png",
+              "Idle/animations/Walk/north-west/frame_005.png"
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "export_version": "3.1",
+  "export_date": "2026-09-12T14:55:08.566951"
+}

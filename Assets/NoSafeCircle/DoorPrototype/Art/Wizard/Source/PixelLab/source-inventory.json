@@ -1,0 +1,868 @@
+{
+  "schema_version": "nsc-pixellab-wizard-source/v1",
+  "task_id": "NSC-061",
+  "integration_task_id": "NSC-062",
+  "selection": "180x180 four-character cohesive wizard family",
+  "sources": [
+    {
+      "source_key": "masculine-dark",
+      "name": "Wizard - Masculine Dark",
+      "character_id": "10a82915-82e8-48a3-92bd-a261b2d992e1",
+      "selection_status": "selected_for_nsc_062",
+      "generator": {
+        "tool": "PixelLab MCP",
+        "template_id": "mannequin",
+        "service_model": "not exposed by PixelLab export metadata",
+        "width": 180,
+        "height": 180,
+        "directions": 8,
+        "view": "low top-down",
+        "created_at": "2026-09-12T14:14:26.833983+00:00",
+        "prompt": "A tall adult male wizard with deep brown Black skin, a short trimmed beard, close-cropped natural hair, broad rugged shoulders. A weathered pulp-horror-survivor-turned-charming wizard, 2.5D isometric dark-fantasy RPG character, dark spooky dungeon color palette of deep plum and teal-black shadows with warm lantern-glow highlights, battle-worn patched wizard's robe under a rugged leather duster, tall scuffed boots, a leather bandolier of small glass potion vials, a gnarled wooden traveling staff, a lopsided patched pointed wizard hat, a dog-eared spellbook tucked under one arm, cute expressive proportions, an endearingly overconfident smirk mixed with a put-upon exhausted expression, horror-comedy charm, readable heroic silhouette, original fantasy character, no real-world celebrity likeness, no franchise costume or logo, no chainsaw, no shotgun, no blood or gore, not sexualized, family-friendly tone",
+        "walk_animation": "classic walking",
+        "walk_frames_per_direction": 6
+      },
+      "raw_export": {
+        "path": "masculine-dark/raw/Wizard_-_Masculine_Dark.zip",
+        "original_filename": "Wizard_-_Masculine_Dark.zip",
+        "export_version": "3.1",
+        "export_date": "2026-09-12T14:55:08.566951",
+        "size_bytes": 177643,
+        "sha256": "97cc3eeb9a0fd4d7a7c2202b38939e8806668315b5d21f889fa963433c197967"
+      },
+      "authorized_files": [
+        {
+          "path": "masculine-dark/selected/standing/east.png",
+          "size_bytes": 4592,
+          "sha256": "00e44120a2b2b5e00cdaf327cfbc64280cea5aaab2ee2d4aa779640970e97253"
+        },
+        {
+          "path": "masculine-dark/selected/standing/north-east.png",
+          "size_bytes": 4787,
+          "sha256": "cb5364fe6d782407853a94b72a33405de550e974cce06c39923e52316c552119"
+        },
+        {
+          "path": "masculine-dark/selected/standing/north-west.png",
+          "size_bytes": 4541,
+          "sha256": "9f7b06caea6e8e3741505b07dd5c528a4090a68db2e1891fad4c2a0aff2d790c"
+        },
+        {
+          "path": "masculine-dark/selected/standing/north.png",
+          "size_bytes": 4479,
+          "sha256": "396f0e4f698a39ff4c139562d72e039b246961ded3e8028f80ad9d3f0807b9ff"
+        },
+        {
+          "path": "masculine-dark/selected/standing/south-east.png",
+          "size_bytes": 5285,
+          "sha256": "816c043f101d7660ad1b724c57b6473bd9940c525241a6bd83d237ad0146af85"
+        },
+        {
+          "path": "masculine-dark/selected/standing/south-west.png",
+          "size_bytes": 5430,
+          "sha256": "bee9ce3abd0fe538948edf13733d991ab33a7ad0606f36d96712187f968e7d01"
+        },
+        {
+          "path": "masculine-dark/selected/standing/south.png",
+          "size_bytes": 5345,
+          "sha256": "538e8d16f8f4d4b5a495d60183aea12be6bbc47bb9a9183e32f60aa0ef299fb3"
+        },
+        {
+          "path": "masculine-dark/selected/standing/west.png",
+          "size_bytes": 4374,
+          "sha256": "1e67b7e1d90d3b354528bfedd0760538fc68d1c4efda4fc2f66ea936ba04050f"
+        },
+        {
+          "path": "masculine-dark/selected/walk/north-east/frame_000.png",
+          "size_bytes": 4632,
+          "sha256": "ffe36c14668b89816f9eea0dd4a62cb8b0fb77f0c8deb779d2632beaf560ae46"
+        },
+        {
+          "path": "masculine-dark/selected/walk/north-east/frame_001.png",
+          "size_bytes": 4880,
+          "sha256": "49c4899a1f3ee4e62da580b8d9ae4e4c85d504da6bce27306e962dfbe7b64837"
+        },
+        {
+          "path": "masculine-dark/selected/walk/north-east/frame_002.png",
+          "size_bytes": 4700,
+          "sha256": "565d62fedf469ba3dbde9392e906ab8f29fc717df4cc77fa13d2dd799f46e650"
+        },
+        {
+          "path": "masculine-dark/selected/walk/north-east/frame_003.png",
+          "size_bytes": 5847,
+          "sha256": "9cf80c3bf6f30a1055b2f6eb8d16e469b4abc3046d082bced8e754436e692d0b"
+        },
+        {
+          "path": "masculine-dark/selected/walk/north-east/frame_004.png",
+          "size_bytes": 5477,
+          "sha256": "af6d85db59ae40171f3ae8c17d5b4c5058467f543d43231d3911cac32e4a8fd7"
+        },
+        {
+          "path": "masculine-dark/selected/walk/north-east/frame_005.png",
+          "size_bytes": 5355,
+          "sha256": "41c74ef507b5ca093aa348da3010187f209d043f8e5e213c8f73566a774a79b1"
+        },
+        {
+          "path": "masculine-dark/selected/walk/north-west/frame_000.png",
+          "size_bytes": 4951,
+          "sha256": "d120f76f0100a0da1ecd84cf59e2b425243f6b0d32c3e08bbd3647b556c3841b"
+        },
+        {
+          "path": "masculine-dark/selected/walk/north-west/frame_001.png",
+          "size_bytes": 5340,
+          "sha256": "0faf99a4f2b1f22f6473794e20270b065f79612ff0371b684c37db625d3e78d4"
+        },
+        {
+          "path": "masculine-dark/selected/walk/north-west/frame_002.png",
+          "size_bytes": 5015,
+          "sha256": "d8aec00ca0fe7e157dec29e693b712bdd7ffb88c3a79012620475fbdf685c719"
+        },
+        {
+          "path": "masculine-dark/selected/walk/north-west/frame_003.png",
+          "size_bytes": 4770,
+          "sha256": "54e3bc11947f886d83cd2b79b010dcfb4d5dd236a80176cb3352ed0812975cde"
+        },
+        {
+          "path": "masculine-dark/selected/walk/north-west/frame_004.png",
+          "size_bytes": 5270,
+          "sha256": "a4998c4e70528a3b33184237479b91629991eccd1e8fc217941e3bfba25f70bf"
+        },
+        {
+          "path": "masculine-dark/selected/walk/north-west/frame_005.png",
+          "size_bytes": 5300,
+          "sha256": "ebd8ec0b32dfc827820d5bce4bfcbd34d4b6f10e6c3047de4522dc89e78b38a1"
+        },
+        {
+          "path": "masculine-dark/selected/walk/south-east/frame_000.png",
+          "size_bytes": 5693,
+          "sha256": "dfed9ed5c212b7a478135a3dcff64edd593af1f9b02f42b799d9ad5314d021ac"
+        },
+        {
+          "path": "masculine-dark/selected/walk/south-east/frame_001.png",
+          "size_bytes": 5975,
+          "sha256": "8114f9e2e22088cda80082c86d19c4084a95be8479dba038a4a486a13e122e50"
+        },
+        {
+          "path": "masculine-dark/selected/walk/south-east/frame_002.png",
+          "size_bytes": 5729,
+          "sha256": "0cc59dc2a65861f497b6298a02a473853eb7686afe646d0200f364a741e9cc62"
+        },
+        {
+          "path": "masculine-dark/selected/walk/south-east/frame_003.png",
+          "size_bytes": 5490,
+          "sha256": "c15b85b2010a17db326609e4ee811d395170c392599c33418539d91116258e91"
+        },
+        {
+          "path": "masculine-dark/selected/walk/south-east/frame_004.png",
+          "size_bytes": 5870,
+          "sha256": "f41ffcab7d187620deb8c5d5e175892041bd598fca1196895f3c045a66c906b0"
+        },
+        {
+          "path": "masculine-dark/selected/walk/south-east/frame_005.png",
+          "size_bytes": 5683,
+          "sha256": "6d0be5a327258b0047625fd1d6226a6cd22b498ec18a2d3f49a1e11e02e203b3"
+        },
+        {
+          "path": "masculine-dark/selected/walk/south-west/frame_000.png",
+          "size_bytes": 5422,
+          "sha256": "dfe6fced63bfa6ee1ab5429153b3347897479d183f5faf7d495bd62d770e5f70"
+        },
+        {
+          "path": "masculine-dark/selected/walk/south-west/frame_001.png",
+          "size_bytes": 5503,
+          "sha256": "19c093c3a7d71f19752a785a4494ca04d9898f041c054ea795393c6baa26ecac"
+        },
+        {
+          "path": "masculine-dark/selected/walk/south-west/frame_002.png",
+          "size_bytes": 5454,
+          "sha256": "844bf3b4dab713ef60c78dacb78227f8be0aae079e136bc15acb9e8dd3be282f"
+        },
+        {
+          "path": "masculine-dark/selected/walk/south-west/frame_003.png",
+          "size_bytes": 6003,
+          "sha256": "db7692e6025cbff4a3ef3f2665d8892b79cb1a9514f72005f24cd9502ce0e5d7"
+        },
+        {
+          "path": "masculine-dark/selected/walk/south-west/frame_004.png",
+          "size_bytes": 5908,
+          "sha256": "2eb02ea852c16095b6ac3d25f038f5e31a558136a0a4f2091fae37a649e6c58e"
+        },
+        {
+          "path": "masculine-dark/selected/walk/south-west/frame_005.png",
+          "size_bytes": 5737,
+          "sha256": "08c4c0575c5b38ec99f01f9580012e19a76cfa3e493e1847e16e12f67737448e"
+        }
+      ],
+      "verification": {
+        "standing_directions": [
+          "north",
+          "north-east",
+          "east",
+          "south-east",
+          "south",
+          "south-west",
+          "west",
+          "north-west"
+        ],
+        "standing_direction_count": 8,
+        "walking_directions": [
+          "north-east",
+          "north-west",
+          "south-east",
+          "south-west"
+        ],
+        "walking_direction_count": 4,
+        "walking_frames_per_direction": 6,
+        "authorized_png_count": 32,
+        "dimensions": "180x180",
+        "transparent_background_required": true
+      },
+      "excluded_from_authorized_source": []
+    },
+    {
+      "source_key": "feminine-dark",
+      "name": "Wizard - Feminine Dark",
+      "character_id": "c00d5bec-0da3-4bce-8d7c-dc2f5d2c33d4",
+      "selection_status": "selected_for_nsc_062",
+      "generator": {
+        "tool": "PixelLab MCP",
+        "template_id": "mannequin",
+        "service_model": "not exposed by PixelLab export metadata",
+        "width": 180,
+        "height": 180,
+        "directions": 8,
+        "view": "low top-down",
+        "created_at": "2026-09-12T14:14:33.140319+00:00",
+        "prompt": "A lean adult female wizard with deep brown Black skin, natural coily hair twists escaping her hat, wiry rugged build. A weathered pulp-horror-survivor-turned-charming wizard, 2.5D isometric dark-fantasy RPG character, dark spooky dungeon color palette of deep plum and teal-black shadows with warm lantern-glow highlights, battle-worn patched wizard's robe under a rugged leather duster, tall scuffed boots, a leather bandolier of small glass potion vials, a gnarled wooden traveling staff, a lopsided patched pointed wizard hat, a dog-eared spellbook tucked under one arm, cute expressive proportions, an endearingly overconfident smirk mixed with a put-upon exhausted expression, horror-comedy charm, readable heroic silhouette, original fantasy character, no real-world celebrity likeness, no franchise costume or logo, no chainsaw, no shotgun, no blood or gore, not sexualized, family-friendly tone",
+        "walk_animation": "classic walking",
+        "walk_frames_per_direction": 6
+      },
+      "raw_export": {
+        "path": "feminine-dark/raw/Wizard_-_Feminine_Dark.zip",
+        "original_filename": "Wizard_-_Feminine_Dark.zip",
+        "export_version": "3.1",
+        "export_date": "2026-09-12T14:55:18.393183",
+        "size_bytes": 186077,
+        "sha256": "717b1f30ea923a7a13d19c79277328e947871ead114334d17bbb620d52c008cf"
+      },
+      "authorized_files": [
+        {
+          "path": "feminine-dark/selected/standing/east.png",
+          "size_bytes": 4582,
+          "sha256": "c3b486275c162054711113a28c51c7555c6fe7cd26d9d65aa318f2ac443cce51"
+        },
+        {
+          "path": "feminine-dark/selected/standing/north-east.png",
+          "size_bytes": 4432,
+          "sha256": "2a39e1ca52d4b48fe2f4a720292c8557822f8b6ddb470f9b55cbd9812569bcd8"
+        },
+        {
+          "path": "feminine-dark/selected/standing/north-west.png",
+          "size_bytes": 4477,
+          "sha256": "155e91c6847ddb5b921f5468fb138c0cfde733aad207f24d62ee4e1e1876160d"
+        },
+        {
+          "path": "feminine-dark/selected/standing/north.png",
+          "size_bytes": 4519,
+          "sha256": "ab7621341ff81b19f7ae15d7d6433185bd9ba9a84f5174c582e2ee22b4aaa3b0"
+        },
+        {
+          "path": "feminine-dark/selected/standing/south-east.png",
+          "size_bytes": 5847,
+          "sha256": "c6babb7dcc35d55c3619439fce4b1dfa4368e295bc7e2aa6ba7dc14e1610a3a9"
+        },
+        {
+          "path": "feminine-dark/selected/standing/south-west.png",
+          "size_bytes": 5740,
+          "sha256": "8a179271069d613bde40c6a6a2d0abc027967883e1b529234aa81dec4a0fa6a5"
+        },
+        {
+          "path": "feminine-dark/selected/standing/south.png",
+          "size_bytes": 5632,
+          "sha256": "d55ab6672764aeb6329f74be1b3baf1bb0c98afa27881f05a8b34fc1b88128af"
+        },
+        {
+          "path": "feminine-dark/selected/standing/west.png",
+          "size_bytes": 4417,
+          "sha256": "0d0ce80ca583efc63262f5ebb970cb93e774cd0d43e66a1a6bc5e430e9f5572b"
+        },
+        {
+          "path": "feminine-dark/selected/walk/north-east/frame_000.png",
+          "size_bytes": 4830,
+          "sha256": "c6cdaf14c47247de19b4d6316d9d6a52732b3cb5670a80e865a6331b2d34baf1"
+        },
+        {
+          "path": "feminine-dark/selected/walk/north-east/frame_001.png",
+          "size_bytes": 4900,
+          "sha256": "eac04fb17054dc0faa34909185d12070a5d4e5dcc4e438615fc1bb59eb387a77"
+        },
+        {
+          "path": "feminine-dark/selected/walk/north-east/frame_002.png",
+          "size_bytes": 5217,
+          "sha256": "7d4ad7af05032507d67a0c4dd7017fdd28e349a62201b953e14c8f59ef6b07f1"
+        },
+        {
+          "path": "feminine-dark/selected/walk/north-east/frame_003.png",
+          "size_bytes": 4899,
+          "sha256": "e1ff424060eaaf2f497f122732b8bbec9dfd0aa692560e8821005929c1629b98"
+        },
+        {
+          "path": "feminine-dark/selected/walk/north-east/frame_004.png",
+          "size_bytes": 5119,
+          "sha256": "17a4e1962cbfaa737a39e8575b9621d9b4affa1cf018ddc650d1b4654ae92c56"
+        },
+        {
+          "path": "feminine-dark/selected/walk/north-east/frame_005.png",
+          "size_bytes": 4926,
+          "sha256": "9b17e96a45d2b1a0e8e59f80a42933bb9b3dad693b703a162fd86aa49b30d934"
+        },
+        {
+          "path": "feminine-dark/selected/walk/north-west/frame_000.png",
+          "size_bytes": 5152,
+          "sha256": "2cf1b36dadbf44ef38a24f8fe0515560b1c9503d081a6755dd51349bf0200142"
+        },
+        {
+          "path": "feminine-dark/selected/walk/north-west/frame_001.png",
+          "size_bytes": 5362,
+          "sha256": "3f7d615d14829ff6a2bfd24c3b7033504a8e6cd2981c91ce858f3e212828c4bd"
+        },
+        {
+          "path": "feminine-dark/selected/walk/north-west/frame_002.png",
+          "size_bytes": 5383,
+          "sha256": "d75c77b069958d259860ae8d1ecd71097a48a7740688c3e330f3a496e38b038d"
+        },
+        {
+          "path": "feminine-dark/selected/walk/north-west/frame_003.png",
+          "size_bytes": 5280,
+          "sha256": "16da406f32fb6af57a656870846a107cae072c2a38f6fdb23a5de8e7561ac5e5"
+        },
+        {
+          "path": "feminine-dark/selected/walk/north-west/frame_004.png",
+          "size_bytes": 6022,
+          "sha256": "66b1ef4713a40825a7fc64d047f6789e69d7393eb920913bb09f1b1d8bbe60c3"
+        },
+        {
+          "path": "feminine-dark/selected/walk/north-west/frame_005.png",
+          "size_bytes": 6056,
+          "sha256": "4a920bf07dc14333e168e138a5f14d7e186ee65d3ac0841ef90c045b1466b966"
+        },
+        {
+          "path": "feminine-dark/selected/walk/south-east/frame_000.png",
+          "size_bytes": 6410,
+          "sha256": "f4b5cbf447e4a0ba9649bced92f16fc23b058e0d0da5fb9d52c42547f49c9487"
+        },
+        {
+          "path": "feminine-dark/selected/walk/south-east/frame_001.png",
+          "size_bytes": 6148,
+          "sha256": "15c34f1e21b77c938077c1f414518e6aacb8cc428924b7e039aad20efeb3cc55"
+        },
+        {
+          "path": "feminine-dark/selected/walk/south-east/frame_002.png",
+          "size_bytes": 6259,
+          "sha256": "78917b06d7077a3253d4ee06d9719dacd903b2b878fede60751b3b3fa9f48c78"
+        },
+        {
+          "path": "feminine-dark/selected/walk/south-east/frame_003.png",
+          "size_bytes": 6189,
+          "sha256": "bd330c951b580571f2dca6873a72b5463944a75e30a785433f73a12fc8f6d936"
+        },
+        {
+          "path": "feminine-dark/selected/walk/south-east/frame_004.png",
+          "size_bytes": 6340,
+          "sha256": "b8e823b5501a87ca989799cfe18a3354562f93195a46ac9f0a4464ac233a5f95"
+        },
+        {
+          "path": "feminine-dark/selected/walk/south-east/frame_005.png",
+          "size_bytes": 6508,
+          "sha256": "ec62ffaec41bec79ad33fa11f5ac55cd59ee1983083d5fc45f0683d5e546701f"
+        },
+        {
+          "path": "feminine-dark/selected/walk/south-west/frame_000.png",
+          "size_bytes": 6156,
+          "sha256": "d750d664adade4e83a086596d5d2c0ad57db5e36f26ca2145ef9df4e9c6add99"
+        },
+        {
+          "path": "feminine-dark/selected/walk/south-west/frame_001.png",
+          "size_bytes": 6130,
+          "sha256": "9a7b308ae169a51d728d74c896daaa0a42e869a685b910572b2bdb1b55b688d5"
+        },
+        {
+          "path": "feminine-dark/selected/walk/south-west/frame_002.png",
+          "size_bytes": 6082,
+          "sha256": "f21046626739ae26c33696fb844bfe5d373c0074f429be3dc19a28f9d0c872f9"
+        },
+        {
+          "path": "feminine-dark/selected/walk/south-west/frame_003.png",
+          "size_bytes": 6186,
+          "sha256": "bc8d644da7fb7eca84c00758834c88dbbaa70bb1f0ef54147bf7594ec9d3a4b9"
+        },
+        {
+          "path": "feminine-dark/selected/walk/south-west/frame_004.png",
+          "size_bytes": 6094,
+          "sha256": "9917745016c768b4bfb178464b0259432a0b5de21fd87a7421c757ff0f6fdb8c"
+        },
+        {
+          "path": "feminine-dark/selected/walk/south-west/frame_005.png",
+          "size_bytes": 5987,
+          "sha256": "fe5de18ac0f91e74a7ab896699f67636ae1d4cad85155d6c851fd525f3b58013"
+        }
+      ],
+      "verification": {
+        "standing_directions": [
+          "north",
+          "north-east",
+          "east",
+          "south-east",
+          "south",
+          "south-west",
+          "west",
+          "north-west"
+        ],
+        "standing_direction_count": 8,
+        "walking_directions": [
+          "north-east",
+          "north-west",
+          "south-east",
+          "south-west"
+        ],
+        "walking_direction_count": 4,
+        "walking_frames_per_direction": 6,
+        "authorized_png_count": 32,
+        "dimensions": "180x180",
+        "transparent_background_required": true
+      },
+      "excluded_from_authorized_source": []
+    },
+    {
+      "source_key": "masculine-light",
+      "name": "Wizard - Masculine Light",
+      "character_id": "3b41ccd5-0eb7-4b0b-9f1e-04b3956c5c75",
+      "selection_status": "selected_for_nsc_062",
+      "generator": {
+        "tool": "PixelLab MCP",
+        "template_id": "mannequin",
+        "service_model": "not exposed by PixelLab export metadata",
+        "width": 180,
+        "height": 180,
+        "directions": 8,
+        "view": "low top-down",
+        "created_at": "2026-09-12T14:14:23.509203+00:00",
+        "prompt": "A stocky adult male wizard with light pale skin, scruffy sandy-brown stubble beard, tousled windswept brown hair escaping his hat, broad rugged shoulders. A weathered pulp-horror-survivor-turned-charming wizard, 2.5D isometric dark-fantasy RPG character, dark spooky dungeon color palette of deep plum and teal-black shadows with warm lantern-glow highlights, battle-worn patched wizard's robe under a rugged leather duster, tall scuffed boots, a leather bandolier of small glass potion vials, a gnarled wooden traveling staff, a lopsided patched pointed wizard hat, a dog-eared spellbook tucked under one arm, cute expressive proportions, an endearingly overconfident smirk mixed with a put-upon exhausted expression, horror-comedy charm, readable heroic silhouette, original fantasy character, no real-world celebrity likeness, no franchise costume or logo, no chainsaw, no shotgun, no blood or gore, not sexualized, family-friendly tone",
+        "walk_animation": "classic walking",
+        "walk_frames_per_direction": 6
+      },
+      "raw_export": {
+        "path": "masculine-light/raw/Wizard_-_Masculine_Light.zip",
+        "original_filename": "Wizard_-_Masculine_Light.zip",
+        "export_version": "3.1",
+        "export_date": "2026-09-12T14:55:22.117668",
+        "size_bytes": 299421,
+        "sha256": "a36540da22f603a63535f6275f3c4d5926795270c6798fcad4bc6f289f89fe49"
+      },
+      "authorized_files": [
+        {
+          "path": "masculine-light/selected/standing/east.png",
+          "size_bytes": 5312,
+          "sha256": "07140fa1ebc445050fff9551aee79a64cee9605b7fbd26529a78a1ed86305285"
+        },
+        {
+          "path": "masculine-light/selected/standing/north-east.png",
+          "size_bytes": 5324,
+          "sha256": "e436943310b9660cc77fdaeba2d90928a1e9aa28b8407e7a43debc9070820a70"
+        },
+        {
+          "path": "masculine-light/selected/standing/north-west.png",
+          "size_bytes": 5251,
+          "sha256": "a006c5fb950c3f91e8487a1b85028e74e17dff410ae9449ddf14f1c1f7fc6bcf"
+        },
+        {
+          "path": "masculine-light/selected/standing/north.png",
+          "size_bytes": 4769,
+          "sha256": "9d9d2439be4ffad94e311cc40ec68acf127313a11f79be6e1c9288169bc921b8"
+        },
+        {
+          "path": "masculine-light/selected/standing/south-east.png",
+          "size_bytes": 5929,
+          "sha256": "89258c88260bfa1a62ac3d393a3c98ba61067c08b2bf7d805b0cf2d76d6df301"
+        },
+        {
+          "path": "masculine-light/selected/standing/south-west.png",
+          "size_bytes": 6093,
+          "sha256": "ced95ffdc00a47368f817f087232b38e293aed9e1dd10f413d263555f258e527"
+        },
+        {
+          "path": "masculine-light/selected/standing/south.png",
+          "size_bytes": 6494,
+          "sha256": "38c4f378898a0ae57bb495a4d8d5ca68482c1deda911f38f8181bd0896405116"
+        },
+        {
+          "path": "masculine-light/selected/standing/west.png",
+          "size_bytes": 5202,
+          "sha256": "b80d02c8d0e0d65202fa685a2cdbc3ff47c4f58bd3039e62d2bb8405e296a32e"
+        },
+        {
+          "path": "masculine-light/selected/walk/north-east/frame_000.png",
+          "size_bytes": 5924,
+          "sha256": "4c7bb3906839fd21b58af08faecf47cb66eed5698bbedac57c5bd46696aaedf1"
+        },
+        {
+          "path": "masculine-light/selected/walk/north-east/frame_001.png",
+          "size_bytes": 5905,
+          "sha256": "c6a6fdcbbc552097ed121f7d42510a327c2dcceb5e028e7639ae4298bf1678ea"
+        },
+        {
+          "path": "masculine-light/selected/walk/north-east/frame_002.png",
+          "size_bytes": 6308,
+          "sha256": "b8806347791a9e5f9362397946e46f93d64b3a359f0d15a8d5da80e82e9d3269"
+        },
+        {
+          "path": "masculine-light/selected/walk/north-east/frame_003.png",
+          "size_bytes": 5700,
+          "sha256": "4cacbfd9a075d429859ee4c7d88b9f113df5219841484a368859edf9b28ce42b"
+        },
+        {
+          "path": "masculine-light/selected/walk/north-east/frame_004.png",
+          "size_bytes": 6051,
+          "sha256": "6c488c029cceb614cf3d25c52cd80f848bc914814375475a7f95d86cb4adbeff"
+        },
+        {
+          "path": "masculine-light/selected/walk/north-east/frame_005.png",
+          "size_bytes": 6163,
+          "sha256": "21f6b401a4a4a52ad17cc4e8a2311af9891d0a8c8a2519852ff2386b37a880ee"
+        },
+        {
+          "path": "masculine-light/selected/walk/north-west/frame_000.png",
+          "size_bytes": 5259,
+          "sha256": "8f9ff699c28cac1ed6ca50f8319b8620464d997638122f631f7a476769c4b6ad"
+        },
+        {
+          "path": "masculine-light/selected/walk/north-west/frame_001.png",
+          "size_bytes": 5574,
+          "sha256": "3377bd9778802aa2fa9afdb5b9ef5297fb2419e63d89c449ff7d0015d8b13d38"
+        },
+        {
+          "path": "masculine-light/selected/walk/north-west/frame_002.png",
+          "size_bytes": 5721,
+          "sha256": "2abc23b80ae6b103285b406cca2048a2b4d8b4f50c0bc6ede18650d652bc7f54"
+        },
+        {
+          "path": "masculine-light/selected/walk/north-west/frame_003.png",
+          "size_bytes": 5858,
+          "sha256": "aadd907c62c1f9d73cd4217f69681766fb74f82ce02e3ceb6e9389c1179e913c"
+        },
+        {
+          "path": "masculine-light/selected/walk/north-west/frame_004.png",
+          "size_bytes": 5971,
+          "sha256": "405b6373a0c79e1ced722aba7c70c6943d9847ccd2f54179bd2659a8cc08a27e"
+        },
+        {
+          "path": "masculine-light/selected/walk/north-west/frame_005.png",
+          "size_bytes": 6033,
+          "sha256": "dde7108fd0907d7a9488700e29cff19fe478121d562e74ca21a1d8a0a20af540"
+        },
+        {
+          "path": "masculine-light/selected/walk/south-east/frame_000.png",
+          "size_bytes": 6328,
+          "sha256": "7e69bb86f003bceff5f6dfd3e885fee2ed2630d4ccb80e577ab4bff876e1015c"
+        },
+        {
+          "path": "masculine-light/selected/walk/south-east/frame_001.png",
+          "size_bytes": 6720,
+          "sha256": "8d17eaa8b070cf605a723b79f46776a8f4801acee8e51f9928f9602d686773d6"
+        },
+        {
+          "path": "masculine-light/selected/walk/south-east/frame_002.png",
+          "size_bytes": 6351,
+          "sha256": "377fb9f357a62bada541a9dad3c735f843b55e04f253a80dbf1faed9a7722930"
+        },
+        {
+          "path": "masculine-light/selected/walk/south-east/frame_003.png",
+          "size_bytes": 6592,
+          "sha256": "64fc316233178008aaedc55583512f012fd045e5c83202e5d3953a361a1240b7"
+        },
+        {
+          "path": "masculine-light/selected/walk/south-east/frame_004.png",
+          "size_bytes": 7022,
+          "sha256": "2c5942a62c2ddb6ebd8d3aed3101578dad69279a5e2274954f42007c704ce94a"
+        },
+        {
+          "path": "masculine-light/selected/walk/south-east/frame_005.png",
+          "size_bytes": 6830,
+          "sha256": "bec335bbf2c557cceb90ed8967be12da539bea2913e5f502dc66525b3f8d38f5"
+        },
+        {
+          "path": "masculine-light/selected/walk/south-west/frame_000.png",
+          "size_bytes": 6066,
+          "sha256": "67298665b61f0f994ac8f8000b8eb040ba25a0f884b4f2aba9438f89d78da561"
+        },
+        {
+          "path": "masculine-light/selected/walk/south-west/frame_001.png",
+          "size_bytes": 6084,
+          "sha256": "9528454727275886b48679b5431ab5512fa59a0f94c777284ee57048ecd22af8"
+        },
+        {
+          "path": "masculine-light/selected/walk/south-west/frame_002.png",
+          "size_bytes": 6109,
+          "sha256": "4d2deb60365ef4871b211e45101ca9b6900b575f34edc43ab312c0df4f5a4057"
+        },
+        {
+          "path": "masculine-light/selected/walk/south-west/frame_003.png",
+          "size_bytes": 6557,
+          "sha256": "7494bdcd53161f8294c36ac1b3bd21dc70a7c727392ddae6c6a9652b66eac5a3"
+        },
+        {
+          "path": "masculine-light/selected/walk/south-west/frame_004.png",
+          "size_bytes": 6403,
+          "sha256": "674a66220b414329b3fc7b9d4259b97bd1c06de31bcdb7e578b1613b906a6e39"
+        },
+        {
+          "path": "masculine-light/selected/walk/south-west/frame_005.png",
+          "size_bytes": 6483,
+          "sha256": "b0f43f751c2928e51530f7b628c4e3e638baa00bab4615763a996d3385e91690"
+        }
+      ],
+      "verification": {
+        "standing_directions": [
+          "north",
+          "north-east",
+          "east",
+          "south-east",
+          "south",
+          "south-west",
+          "west",
+          "north-west"
+        ],
+        "standing_direction_count": 8,
+        "walking_directions": [
+          "north-east",
+          "north-west",
+          "south-east",
+          "south-west"
+        ],
+        "walking_direction_count": 4,
+        "walking_frames_per_direction": 6,
+        "authorized_png_count": 32,
+        "dimensions": "180x180",
+        "transparent_background_required": true
+      },
+      "excluded_from_authorized_source": [
+        "Idle/animations/Idle"
+      ]
+    },
+    {
+      "source_key": "feminine-light",
+      "name": "Wizard - Feminine Light",
+      "character_id": "c0be0b26-4477-4d1b-b6f0-cf57f3213a4f",
+      "selection_status": "selected_for_nsc_062",
+      "generator": {
+        "tool": "PixelLab MCP",
+        "template_id": "mannequin",
+        "service_model": "not exposed by PixelLab export metadata",
+        "width": 180,
+        "height": 180,
+        "directions": 8,
+        "view": "low top-down",
+        "created_at": "2026-09-12T14:14:30.080456+00:00",
+        "prompt": "A lean adult female wizard with light pale skin and freckles, a windswept auburn hair braid escaping her hat, wiry rugged build. A weathered pulp-horror-survivor-turned-charming wizard, 2.5D isometric dark-fantasy RPG character, dark spooky dungeon color palette of deep plum and teal-black shadows with warm lantern-glow highlights, battle-worn patched wizard's robe under a rugged leather duster, tall scuffed boots, a leather bandolier of small glass potion vials, a gnarled wooden traveling staff, a lopsided patched pointed wizard hat, a dog-eared spellbook tucked under one arm, cute expressive proportions, an endearingly overconfident smirk mixed with a put-upon exhausted expression, horror-comedy charm, readable heroic silhouette, original fantasy character, no real-world celebrity likeness, no franchise costume or logo, no chainsaw, no shotgun, no blood or gore, not sexualized, family-friendly tone",
+        "walk_animation": "classic walking",
+        "walk_frames_per_direction": 6
+      },
+      "raw_export": {
+        "path": "feminine-light/raw/Wizard_-_Feminine_Light.zip",
+        "original_filename": "Wizard_-_Feminine_Light.zip",
+        "export_version": "3.1",
+        "export_date": "2026-09-12T14:55:25.573109",
+        "size_bytes": 238836,
+        "sha256": "63b30bd14e456fe4210b5045bdf044c332da2d433fc5c7606441dcc356a304d0"
+      },
+      "authorized_files": [
+        {
+          "path": "feminine-light/selected/standing/east.png",
+          "size_bytes": 4399,
+          "sha256": "4d21d532b3cbc0d7feeba8af02f90d8a79ea5c3eaa21f0bdb7c41049cfe6f5b3"
+        },
+        {
+          "path": "feminine-light/selected/standing/north-east.png",
+          "size_bytes": 3894,
+          "sha256": "7935a8cdaba7bab47d5240141e2affe977bb6cad5053cc049e1c7240f7ba6c0b"
+        },
+        {
+          "path": "feminine-light/selected/standing/north-west.png",
+          "size_bytes": 3902,
+          "sha256": "e2bb98f77ccbf51e9557b3dbf2c34f1a78a4ad034ae1d048ecdf308bfcf9d55e"
+        },
+        {
+          "path": "feminine-light/selected/standing/north.png",
+          "size_bytes": 4095,
+          "sha256": "ca99f2d588b065a9c78fc2dd7546727f078937a2788bd693d65d0d735c3d17b1"
+        },
+        {
+          "path": "feminine-light/selected/standing/south-east.png",
+          "size_bytes": 5105,
+          "sha256": "8618621e94b42c0c476b54eddbeb9fdd6992caba70c1c93565f6a8a8830bc3c6"
+        },
+        {
+          "path": "feminine-light/selected/standing/south-west.png",
+          "size_bytes": 5197,
+          "sha256": "f997fde0cfd2fd4d0ee82642c79d069cfa249e68a7abf65e78f2b5f5f623aa8a"
+        },
+        {
+          "path": "feminine-light/selected/standing/south.png",
+          "size_bytes": 5228,
+          "sha256": "f0d75e2e90dabe1b87d8c5ea91aab7f7436e3b9034f699bf9a3910d6a949bdf7"
+        },
+        {
+          "path": "feminine-light/selected/standing/west.png",
+          "size_bytes": 4594,
+          "sha256": "7f528c26d27cd09db5b7074e046c0f428013c176f3557e56828db18847b6f70f"
+        },
+        {
+          "path": "feminine-light/selected/walk/north-east/frame_000.png",
+          "size_bytes": 3806,
+          "sha256": "98fdaa0cc4661aac4ad28dc20b37c354ce7064054a844fe40ede1c2281c33674"
+        },
+        {
+          "path": "feminine-light/selected/walk/north-east/frame_001.png",
+          "size_bytes": 4117,
+          "sha256": "5cfb0395a1cbec3fff605a783ebab9a4d1525e9bc719016739cf12b7e55cb7b5"
+        },
+        {
+          "path": "feminine-light/selected/walk/north-east/frame_002.png",
+          "size_bytes": 4148,
+          "sha256": "36bda7699a3f9dbd647b10f1c93d2a1fb7efafecea2169197c543a356ea3476c"
+        },
+        {
+          "path": "feminine-light/selected/walk/north-east/frame_003.png",
+          "size_bytes": 4116,
+          "sha256": "dea0686201c551fa2a48b75b1a404ab0d1517321dcce103a9222421d9570ccf3"
+        },
+        {
+          "path": "feminine-light/selected/walk/north-east/frame_004.png",
+          "size_bytes": 4198,
+          "sha256": "447e07c087cc933acbdeafe48628b126f341a708073691ef4a43014d95a2904a"
+        },
+        {
+          "path": "feminine-light/selected/walk/north-east/frame_005.png",
+          "size_bytes": 4334,
+          "sha256": "8939f14e249b1eab139a9406249f2dacb2635b1189d7c057276bafa043728548"
+        },
+        {
+          "path": "feminine-light/selected/walk/north-west/frame_000.png",
+          "size_bytes": 4383,
+          "sha256": "b58056d6cb82783aeb9844cc45454ac1b2030f45590f68979267bd861cdd77db"
+        },
+        {
+          "path": "feminine-light/selected/walk/north-west/frame_001.png",
+          "size_bytes": 4403,
+          "sha256": "610b44fadaee7167dffb6915c16513995b6c610c484dab71d2bab7f1e639d77a"
+        },
+        {
+          "path": "feminine-light/selected/walk/north-west/frame_002.png",
+          "size_bytes": 4526,
+          "sha256": "82bdb01f3e3418fbefe3f298379bd9cc42b64dc7ddaa860129a748c132f9dfab"
+        },
+        {
+          "path": "feminine-light/selected/walk/north-west/frame_003.png",
+          "size_bytes": 4171,
+          "sha256": "a4b9ae51cccb69999f163bc06fa016a76993c656b1b6019ba07fb5261ab137ed"
+        },
+        {
+          "path": "feminine-light/selected/walk/north-west/frame_004.png",
+          "size_bytes": 4251,
+          "sha256": "4713a65dcf2471f6254183550af9104cca49f20a67acb60c126200bbf3dcda64"
+        },
+        {
+          "path": "feminine-light/selected/walk/north-west/frame_005.png",
+          "size_bytes": 4092,
+          "sha256": "37c86b234fe9af030761bcda3419df1b6b33db2979711c4dc8a4e47748940dff"
+        },
+        {
+          "path": "feminine-light/selected/walk/south-east/frame_000.png",
+          "size_bytes": 5256,
+          "sha256": "e473e6809231df23446d158828b4306486553b7da8705cc49b7f8fdb26523ccd"
+        },
+        {
+          "path": "feminine-light/selected/walk/south-east/frame_001.png",
+          "size_bytes": 5260,
+          "sha256": "62a8db97f6c9023ef79d60a543459350398b0d23df3fef103943a88905ce5d9a"
+        },
+        {
+          "path": "feminine-light/selected/walk/south-east/frame_002.png",
+          "size_bytes": 5474,
+          "sha256": "995ebb4cfe1cf87d4b1de9097cf09cea139bfc72adf277492966aabe96a0bb94"
+        },
+        {
+          "path": "feminine-light/selected/walk/south-east/frame_003.png",
+          "size_bytes": 5584,
+          "sha256": "1dcfa32232c60492fee5277381a6ca31768aa1bcf0e6a39bb24d49a8695e1988"
+        },
+        {
+          "path": "feminine-light/selected/walk/south-east/frame_004.png",
+          "size_bytes": 5926,
+          "sha256": "54e9b5a40e5a212ad8a5144aab3fe9b0110af3861f8f3962c9d8e8a28cf82abd"
+        },
+        {
+          "path": "feminine-light/selected/walk/south-east/frame_005.png",
+          "size_bytes": 5593,
+          "sha256": "026210c3d2d6ba56ea776830a13c6676537a5c0c071b366ed18995f4a7fff915"
+        },
+        {
+          "path": "feminine-light/selected/walk/south-west/frame_000.png",
+          "size_bytes": 5792,
+          "sha256": "c886b5d5fe17b0b5c4b4d239462c7786a2c25ec97acf6a984585b739b9f00df0"
+        },
+        {
+          "path": "feminine-light/selected/walk/south-west/frame_001.png",
+          "size_bytes": 5521,
+          "sha256": "836e85cba3df7bc7fe4cc16140718cb43b9a444ed0af9f85a33c617b4cb63291"
+        },
+        {
+          "path": "feminine-light/selected/walk/south-west/frame_002.png",
+          "size_bytes": 5780,
+          "sha256": "eac53f1aafc249c9f5e4cc233b0b2bb023a9216021ddea1d1bb00de82f03ee7d"
+        },
+        {
+          "path": "feminine-light/selected/walk/south-west/frame_003.png",
+          "size_bytes": 5485,
+          "sha256": "5ac80825ac2002c48f3ebd4fa13d06eef392f325700aa14c564e33029b577440"
+        },
+        {
+          "path": "feminine-light/selected/walk/south-west/frame_004.png",
+          "size_bytes": 5638,
+          "sha256": "e6095796b00aa640dde4b8489460fe89f8f566912b8004f9e6aa6484fe34d399"
+        },
+        {
+          "path": "feminine-light/selected/walk/south-west/frame_005.png",
+          "size_bytes": 5547,
+          "sha256": "3f58025fb3972d7a76b05693d9ff1f7ea023eb2362197f6446862e8c65497863"
+        }
+      ],
+      "verification": {
+        "standing_directions": [
+          "north",
+          "north-east",
+          "east",
+          "south-east",
+          "south",
+          "south-west",
+          "west",
+          "north-west"
+        ],
+        "standing_direction_count": 8,
+        "walking_directions": [
+          "north-east",
+          "north-west",
+          "south-east",
+          "south-west"
+        ],
+        "walking_direction_count": 4,
+        "walking_frames_per_direction": 6,
+        "authorized_png_count": 32,
+        "dimensions": "180x180",
+        "transparent_background_required": true
+      },
+      "excluded_from_authorized_source": [
+        "Idle/animations/Walking"
+      ]
+    }
+  ]
+}
