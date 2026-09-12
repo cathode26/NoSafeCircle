@@ -217,6 +217,9 @@ class ViewerTests(unittest.TestCase):
             {row["id"] for row in state["tasks"] if row["in_scope"]},
         )
         self.assertFalse(next(row for row in state["tasks"] if row["id"] == "NSC-9999")["in_scope"])
+        excluded = next(row for row in state["tasks"] if row["id"] == "NSC-9999")
+        self.assertEqual("excluded", excluded["state"])
+        self.assertEqual("excluded_from_current_run", excluded["progress"]["phase"])
 
     def test_graph_controller_scope_does_not_include_missing_targets_or_children(self):
         reader = AssistantSnapshot(self.root, self.viewer_root())
@@ -229,7 +232,9 @@ class ViewerTests(unittest.TestCase):
         reader._apply_controller_scope(state, ["NSC-898", "NSC-missing"])
 
         self.assertEqual(["NSC-898", "NSC-1011"], state["run"]["targets"])
-        self.assertFalse(next(row for row in state["tasks"] if row["id"] == "NSC-9999")["in_scope"])
+        excluded = next(row for row in state["tasks"] if row["id"] == "NSC-9999")
+        self.assertFalse(excluded["in_scope"])
+        self.assertEqual("excluded", excluded["state"])
 
     def test_stale_running_graph_projects_unknown_without_rewriting_evidence(self):
         root = self.viewer_root()

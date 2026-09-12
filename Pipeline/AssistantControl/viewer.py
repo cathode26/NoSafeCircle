@@ -548,7 +548,16 @@ class AssistantSnapshot:
                     scoped.add(task_id)
                     changed = True
         for row in rows:
-            row["in_scope"] = row.get("id") in scoped
+            in_scope = row.get("id") in scoped
+            row["in_scope"] = in_scope
+            if not in_scope:
+                row["state"] = "excluded"
+                row["progress"] = {
+                    "phase": "excluded_from_current_run",
+                    "transition_context": (
+                        "This task is outside the active AssistantControl graph scope."
+                    ),
+                }
         state["run"]["targets"] = [row["id"] for row in rows if row.get("id") in scoped]
 
     @staticmethod
