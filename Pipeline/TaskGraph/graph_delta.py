@@ -24,7 +24,8 @@ from work_graph_transform import WorkGraphPlan
 from work_graph_validate import WorkGraphValidationError, validate_work_graph_plan
 
 GRAPH_DELTA_SCHEMA_VERSION = "1.1"
-NSC_ID_RE = re.compile(r"^NSC-(\d{3,})$")
+NSC_ID_RE = re.compile(r"^NSC-([0-9]{3}|[1-9][0-9]{3,8})$")
+MAX_NSC_TASK_NUMBER = 999_999_999
 
 
 class GraphDeltaPlanningError(RuntimeError):
@@ -416,6 +417,14 @@ def plan_graph_delta(source_graph: Any, parent_selector: Any, decomposition_resu
             raise GraphDeltaPlanningError(f"Existing task ID is not numeric NSC form: {task_id!r}.")
         existing_numbers.append(int(match.group(1)))
     next_number = max(existing_numbers) + 1
+    final_number = next_number + len(children) - 1
+    if final_number > MAX_NSC_TASK_NUMBER:
+        raise GraphDeltaPlanningError(
+            "Task ID allocator exhausted: "
+            f"next child would start at NSC-{next_number:03d}, "
+            f"{len(children)} child allocation(s) would end at NSC-{final_number:03d}, "
+            f"and the maximum canonical task ID is NSC-{MAX_NSC_TASK_NUMBER}."
+        )
     allocation = {
         child.local_key: f"NSC-{next_number + index:03d}"
         for index, child in enumerate(children)

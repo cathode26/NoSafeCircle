@@ -42,6 +42,7 @@ from Pipeline.TaskReviewAgent.git_identity_guard import (  # noqa: E402
 from Pipeline.TaskReviewAgent.issue_workflow import (  # noqa: E402
     ALL_STATE_LABELS,
     STATE_LABELS,
+    WorkflowContractError,
     WorkflowState,
     parse_events,
     parse_state,
@@ -283,26 +284,97 @@ def _trailer(runner: CommandRunner, root: Path, commit: str, name: str) -> str |
 
 
 def _resolve_main_state(
-    runner: CommandRunner, root: Path, task_id: str, head: str
+    runner: CommandRunner,
+    root: Path,
+    task_id: str,
+    head: str,
+    *,
+    require_reset_marker: bool = False,
 ) -> tuple[str, bool]:
     parents = _commit_parents(runner, root, head)
     task_trailer = _trailer(runner, root, head, RESET_TASK_TRAILER)
     merge_trailer = _trailer(runner, root, head, RESET_MERGE_TRAILER)
     if task_trailer is None and merge_trailer is None:
-        if len(parents) != 2:
-            raise RehearsalResetError(
-                "current main is not the task merge commit and is not a resumable reset commit"
+        if len(parents) == 2 and not require_reset_marker:
+            return head, False
+
+        # A completed reset remains the recovery authority when later,
+        # unrelated infrastructure commits have advanced main. Locate only the
+        # newest matching marker on first-parent history, validate that marker
+        # through this same exact-reset path, and then prove every later commit
+        # left the reverted task surface untouched.
+        first_parent_history = tuple(
+            line
+            for line in _git_text(
+                runner, root, "rev-list", "--first-parent", head
+            ).splitlines()
+            if line
+        )
+        for candidate in first_parent_history[1:]:
+            if _trailer(runner, root, candidate, RESET_TASK_TRAILER) != task_id:
+                continue
+            resolved_merge, already_reverted = _resolve_main_state(
+                runner, root, task_id, candidate
             )
-        return head, False
+            merge_parents = _commit_parents(runner, root, resolved_merge)
+            if len(merge_parents) != 2:
+                raise RehearsalResetError(
+                    "recorded task merge is not a two-parent merge commit"
+                )
+            changed_paths = _changed_paths(
+                runner, root, merge_parents[0], resolved_merge
+            )
+            _require_task_paths_unchanged_since_merge(
+                runner,
+                root,
+                merge_commit=candidate,
+                current_main=head,
+                paths=changed_paths,
+            )
+            return resolved_merge, already_reverted
+
+        raise RehearsalResetError(
+            "current main is not the task merge commit and is not a resumable reset commit"
+        )
     if task_trailer != task_id or merge_trailer is None or GIT_SHA_RE.fullmatch(merge_trailer) is None:
         raise RehearsalResetError("current reset-commit trailers do not match this task")
-    if parents != (merge_trailer,):
-        raise RehearsalResetError("reset commit is not the direct child of its recorded merge")
+    if len(parents) != 1:
+        raise RehearsalResetError("reset commit must have exactly one parent")
+    reset_parent = parents[0]
+    if (
+        _git(
+            runner,
+            root,
+            "merge-base",
+            "--is-ancestor",
+            merge_trailer,
+            reset_parent,
+            check=False,
+        ).returncode
+        != 0
+    ):
+        raise RehearsalResetError(
+            "recorded task merge is not an ancestor of the reset commit parent"
+        )
     merge_parents = _commit_parents(runner, root, merge_trailer)
     if len(merge_parents) != 2:
         raise RehearsalResetError("recorded task merge is not a two-parent merge commit")
-    if _commit_tree(runner, root, head) != _commit_tree(runner, root, merge_parents[0]):
-        raise RehearsalResetError("reset commit tree does not equal the task merge first parent")
+    changed_paths = _changed_paths(runner, root, merge_parents[0], merge_trailer)
+    _require_task_paths_unchanged_since_merge(
+        runner,
+        root,
+        merge_commit=merge_trailer,
+        current_main=reset_parent,
+        paths=changed_paths,
+    )
+    _validate_additive_revert_commit(
+        runner,
+        root,
+        previous_main=reset_parent,
+        revert_commit=head,
+        merge_parent=merge_parents[0],
+        expected_paths=changed_paths,
+    )
     return merge_trailer, True
 
 
@@ -338,16 +410,49 @@ def _require_task_paths_unchanged_since_merge(
     current_main: str,
     paths: Sequence[str],
 ) -> None:
-    changed = [
-        path
-        for path in paths
-        if _tree_entry(runner, root, merge_commit, path)
-        != _tree_entry(runner, root, current_main, path)
-    ]
-    if changed:
+    protected = {str(path).casefold(): str(path) for path in paths}
+    later_commits = tuple(
+        line
+        for line in _git_text(
+            runner,
+            root,
+            "rev-list",
+            "--ancestry-path",
+            current_main,
+            f"^{merge_commit}",
+        ).splitlines()
+        if line
+    )
+    touched: dict[str, list[str]] = {}
+    for commit in later_commits:
+        parents = _commit_parents(runner, root, commit)
+        if not parents:
+            raise RehearsalResetError(
+                "later main history contains a parentless commit"
+            )
+        changed = {
+            line.casefold()
+            for line in _git_text(
+                runner,
+                root,
+                "diff",
+                "--name-only",
+                "--no-renames",
+                parents[0],
+                commit,
+            ).splitlines()
+            if line
+        }
+        protected_hits = sorted(
+            (original for folded, original in protected.items() if folded in changed),
+            key=str.casefold,
+        )
+        if protected_hits:
+            touched[commit] = protected_hits
+    if touched:
         raise RehearsalResetError(
-            "later commits changed task-owned paths; rehearsal reset is refused: "
-            + ", ".join(changed)
+            "later commits changed task-owned paths; rehearsal reset is refused:\n"
+            + json.dumps(touched, indent=2, sort_keys=True)
         )
 
 
@@ -536,16 +641,16 @@ def _validate_complete_issue(
     issue: dict[str, Any],
     *,
     require_state_label: bool,
-) -> None:
+) -> dict[str, Any]:
     number = issue.get("number")
-    state = issue.get("workflow_state")
-    if type(number) is not int or state is None:
+    listed_state = issue.get("workflow_state")
+    if type(number) is not int or listed_state is None:
         raise RehearsalResetError("completed Issue identity is invalid")
-    if issue.get("state") != "CLOSED":
-        raise RehearsalResetError("completed task Issue must be closed")
-    state_labels = _issue_labels(issue) & ALL_STATE_LABELS
-    if require_state_label and state_labels != {STATE_LABELS[WorkflowState.COMPLETE.value]}:
-        raise RehearsalResetError("source Issue must have exactly the complete workflow label")
+    # `gh issue list` and `gh issue view` are separately cached GitHub queries.
+    # The list result is discovery only: after a transfer it can expose a newer
+    # dashboard body while the separately fetched comments are still one event
+    # behind. Re-read body, labels, metadata, and comments together so the
+    # hashed state is compared only with the event chain from one exact view.
     value = _json_command(
         runner,
         (
@@ -556,15 +661,64 @@ def _validate_complete_issue(
             "--repo",
             repository,
             "--json",
-            "comments",
+            "number,title,state,url,body,labels,comments",
         ),
         cwd=root,
     )
-    comments = value.get("comments") if isinstance(value, dict) else None
-    if not isinstance(comments, list):
-        raise RehearsalResetError("completed Issue comments were not readable")
-    events = parse_events(comments)
-    validate_event_chain(state, events)
+    if not isinstance(value, dict) or value.get("number") != number:
+        raise RehearsalResetError("exact completed Issue view has the wrong identity")
+    if issue.get("url") != value.get("url"):
+        raise RehearsalResetError("exact completed Issue URL differs from discovery")
+    if value.get("state") != "CLOSED":
+        raise RehearsalResetError("completed task Issue must be closed")
+    body = value.get("body")
+    comments = value.get("comments")
+    if not isinstance(body, str) or not isinstance(comments, list):
+        raise RehearsalResetError("completed Issue body or comments were not readable")
+    try:
+        state = parse_state(body)
+    except WorkflowContractError as exc:
+        raise RehearsalResetError(
+            f"exact completed Issue state is invalid: {exc}"
+        ) from exc
+    if state is None:
+        raise RehearsalResetError("exact completed Issue has no workflow state")
+    stable_fields = (
+        "task_id",
+        "state",
+        "phase",
+        "current_actor",
+        "task_contract_sha256",
+        "worker_id",
+        "lease_id",
+        "branch",
+        "head_commit",
+        "checkout_path",
+        "human_handoff_commit",
+        "human_result",
+    )
+    if any(
+        getattr(state, field) != getattr(listed_state, field)
+        for field in stable_fields
+    ):
+        raise RehearsalResetError(
+            "exact completed Issue workflow identity differs from discovery"
+        )
+    state_labels = _issue_labels(value) & ALL_STATE_LABELS
+    if require_state_label and state_labels != {
+        STATE_LABELS[WorkflowState.COMPLETE.value]
+    }:
+        raise RehearsalResetError(
+            "source Issue must have exactly the complete workflow label"
+        )
+    try:
+        events = parse_events(comments)
+        validate_event_chain(state, events)
+    except WorkflowContractError as exc:
+        raise RehearsalResetError(
+            f"exact completed Issue event chain is invalid: {exc}"
+        ) from exc
+    return {**value, "workflow_state": state}
 
 
 def _find_complete_issue(
@@ -586,14 +740,13 @@ def _find_complete_issue(
         )
     if not matches:
         return None
-    _validate_complete_issue(
+    return _validate_complete_issue(
         runner,
         root,
         repository,
         matches[0],
         require_state_label=require_state_label,
     )
-    return matches[0]
 
 
 def _find_unique_source_complete_issue(
@@ -644,14 +797,13 @@ def _find_unique_source_complete_issue(
         raise RehearsalResetError(
             "exactly one closed completed source Issue must identify the delivered run"
         )
-    _validate_complete_issue(
+    return _validate_complete_issue(
         runner,
         root,
         repository,
         matches[0],
         require_state_label=True,
     )
-    return matches[0]
 
 
 def _find_pull_request_for_task_head(
@@ -758,6 +910,11 @@ def _inspect_checkout(
         raise RehearsalResetError("checkout path escaped the exact configured checkout root")
     if _path_is_reparse_point(checkout):
         raise RehearsalResetError("checkout path is a symbolic link or reparse point")
+    git_admin = checkout / ".git"
+    if not git_admin.is_dir() or _path_is_reparse_point(git_admin):
+        raise RehearsalResetError(
+            "task checkout must be one standalone Git clone, not a linked worktree"
+        )
     facts = {
         "path": str(checkout),
         "root": _git_text(runner, checkout, "rev-parse", "--show-toplevel"),
@@ -964,7 +1121,11 @@ class RehearsalTaskReset:
         source_issue = None
         try:
             merge_commit, already_reverted = _resolve_main_state(
-                self.runner, self.source, self.task_id, head
+                self.runner,
+                self.source,
+                self.task_id,
+                head,
+                require_reset_marker=task_state.get("state") == "not_delivered",
             )
             pull_request = _find_pull_request(
                 self.runner,
@@ -1292,23 +1453,34 @@ class RehearsalTaskReset:
             cwd=self.source,
         )
         reported_url = transfer.stdout.strip()
+        last_observation_error: RehearsalResetError | None = None
         for delay in (0.0, 1.0, 2.0, 4.0):
             if delay:
                 time.sleep(delay)
-            archived = _find_complete_issue(
-                self.runner,
-                self.source,
-                self.archive_repository,
-                self.task_id,
-                self.branch,
-                str(plan["task_head"]),
-                require_state_label=False,
-            )
+            try:
+                archived = _find_complete_issue(
+                    self.runner,
+                    self.source,
+                    self.archive_repository,
+                    self.task_id,
+                    self.branch,
+                    str(plan["task_head"]),
+                    require_state_label=False,
+                )
+            except RehearsalResetError as exc:
+                last_observation_error = exc
+                continue
             if archived is not None:
                 return str(archived["url"])
+        detail = (
+            f"; last archive observation error: {last_observation_error}"
+            if last_observation_error is not None
+            else ""
+        )
         raise RehearsalResetError(
             "Issue transfer ran but the exact completed Issue was not visible in the archive"
             + (f"; gh reported {reported_url}" if reported_url else "")
+            + detail
         )
 
     def _delete_task_branch(self, plan: dict[str, Any]) -> None:

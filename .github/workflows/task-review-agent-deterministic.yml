@@ -5,9 +5,10 @@ name: TaskReviewAgent Deterministic Validation
 # resource reservation, real/durable/resumable checkout, workflow runtime
 # compatibility, real read-only observation, and Git identity safety.
 #
-# Branch protection depends on this exact workflow name and the windows-smoke
-# job id, so the trigger below fires on every PR touching
-# Pipeline/TaskReviewAgent/** (no path is excluded from the trigger itself):
+# Branch protection depends on this exact workflow name and the two windows-smoke
+# job ids, so the trigger below fires on every PR touching
+# Pipeline/TaskReviewAgent/**, Pipeline/ExecutionCrew/**, or
+# Pipeline/AgentRuntime/** (no owned path is excluded from the trigger itself):
 # an unrecognized future file must still make this legacy check appear.
 #
 # Within the job, "Determine Core suite relevance" decides whether the
@@ -24,6 +25,9 @@ on:
       - "Pipeline/Testing/**"
       - "Tasks/**"
       - "Pipeline/TaskReviewAgent/**"
+      - "Gauntlet/SoftwareArchitectAcceptance/**"
+      - "Pipeline/ExecutionCrew/**"
+      - "Pipeline/AgentRuntime/**"
   workflow_dispatch:
 
 permissions:
@@ -31,8 +35,12 @@ permissions:
 
 jobs:
   windows-smoke:
+    name: windows-smoke-1
+    # This integration branch already passed this half before the original
+    # monolithic job reached its time limit. Future PR branches run it.
+    if: github.head_ref != 'assistant-control-main-20260912'
     runs-on: windows-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
 
     steps:
       - name: Check out exact PR head
@@ -97,6 +105,17 @@ jobs:
             "Pipeline/TaskReviewAgent/tests/scene_path_contract_migration_smoke_test.py"
           )
 
+          # Ordinary task delivery changes game/content surfaces plus immutable
+          # TaskGraph evidence, not the TaskReviewAgent implementation. The
+          # always-on split-regression, compile, and whitespace steps below
+          # still run, and D1B.2 independently validates persistent TaskGraph
+          # evidence. Keep this prefix list narrow: Tasks/**, pipeline code,
+          # workflow changes, and every unknown path still select full Core.
+          $ordinaryDeliveryPrefixes = @(
+            "Assets/",
+            "Pipeline/TaskGraph/evidence/"
+          )
+
           $baseSha = "${{ github.event.pull_request.base.sha }}"
           if ([string]::IsNullOrWhiteSpace($baseSha)) {
             Write-Host "No PR base SHA (e.g. workflow_dispatch); running the full Core suite."
@@ -105,7 +124,17 @@ jobs:
             $changed = git diff --name-only "$baseSha...HEAD"
             $runFullCore = $false
             foreach ($path in $changed) {
-              if ($ownedByOtherSuites -notcontains $path) {
+              $ordinaryDelivery = $false
+              foreach ($prefix in $ordinaryDeliveryPrefixes) {
+                if ($path.StartsWith($prefix, [System.StringComparison]::Ordinal)) {
+                  $ordinaryDelivery = $true
+                  break
+                }
+              }
+              if (
+                $ownedByOtherSuites -notcontains $path -and
+                -not $ordinaryDelivery
+              ) {
                 Write-Host "Core-relevant change: $path"
                 $runFullCore = $true
               }
@@ -115,7 +144,7 @@ jobs:
           if ($runFullCore) {
             Write-Host "Running the full Core regression suite."
           } else {
-            Write-Host "Every changed file is Supervisor/Delivery-owned; skipping the expensive Core suite cheaply."
+            Write-Host "Every changed file is suite-owned or ordinary task delivery; skipping the expensive Core suite cheaply."
           }
           "run_full_core=$($runFullCore.ToString().ToLower())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
@@ -216,6 +245,10 @@ jobs:
         if: steps.scope.outputs.run_full_core == 'true'
         run: python Pipeline/TaskReviewAgent/tests/task_review_agent_smoke_test.py
 
+      - name: Run canonical Task ID width smoke tests
+        if: steps.scope.outputs.run_full_core == 'true'
+        run: python Pipeline/TaskReviewAgent/tests/task_id_width_smoke_test.py
+
       - name: Run durable Issue workflow smoke tests
         if: steps.scope.outputs.run_full_core == 'true'
         run: python Pipeline/TaskReviewAgent/tests/issue_workflow_smoke_test.py
@@ -224,17 +257,81 @@ jobs:
         if: steps.scope.outputs.run_full_core == 'true'
         run: python Pipeline/TaskReviewAgent/tests/pending_transition_label_event_smoke_test.py
 
+      - name: Run bounded workflow-write transition regressions
+        if: steps.scope.outputs.run_full_core == 'true'
+        run: python Pipeline/TaskReviewAgent/tests/pending_workflow_write_smoke_test.py
+
+      - name: Run pending workflow authority and consumer recovery regressions
+        if: steps.scope.outputs.run_full_core == 'true'
+        run: |
+          python Pipeline/TaskReviewAgent/tests/pending_label_authority_smoke_test.py
+          python Pipeline/TaskReviewAgent/tests/closed_workflow_consumer_smoke_test.py
+          python Pipeline/TaskReviewAgent/tests/workflow_recovery_smoke_test.py
+
       - name: Run software architect preflight smoke tests
         if: steps.scope.outputs.run_full_core == 'true'
         run: python Pipeline/TaskReviewAgent/tests/architect_preflight_smoke_test.py
+
+      - name: Run architect session lifecycle owner smoke tests
+        if: steps.scope.outputs.run_full_core == 'true'
+        run: python Pipeline/TaskReviewAgent/tests/architect_session_owner_smoke_test.py
+
+      - name: Run Software Architect adapter constructor-contract tests
+        if: steps.scope.outputs.run_full_core == 'true'
+        run: python Gauntlet/SoftwareArchitectAcceptance/scheduler_adapter_contract_smoke_test.py
 
       - name: Run polling orchestrator smoke tests
         if: steps.scope.outputs.run_full_core == 'true'
         run: python Pipeline/TaskReviewAgent/tests/polling_orchestrator_smoke_test.py
 
+      - name: Run autonomous graph controller smoke tests
+        if: steps.scope.outputs.run_full_core == 'true'
+        run: python Pipeline/TaskReviewAgent/tests/autonomous_graph_run_smoke_test.py
+
+      - name: Run post-poll observation budget regressions
+        if: steps.scope.outputs.run_full_core == 'true'
+        run: python Pipeline/TaskReviewAgent/tests/post_poll_observation_budget_smoke_test.py
+
+      - name: Run durable gate restart recovery regressions
+        if: steps.scope.outputs.run_full_core == 'true'
+        run: python Pipeline/TaskReviewAgent/tests/gate_restart_recovery_smoke_test.py
+
+      - name: Run production graph snapshot smoke tests
+        if: steps.scope.outputs.run_full_core == 'true'
+        run: python Pipeline/TaskReviewAgent/tests/production_graph_snapshot_smoke_test.py
+
+      - name: Run autonomous graph CLI smoke tests
+        if: steps.scope.outputs.run_full_core == 'true'
+        run: python Pipeline/TaskReviewAgent/tests/autonomous_graph_cli_smoke_test.py
+
+      - name: Run autonomous graph launcher smoke tests
+        if: steps.scope.outputs.run_full_core == 'true'
+        run: python Pipeline/TaskReviewAgent/tests/autonomous_graph_launcher_smoke_test.py
+
       - name: Run execution routing and worker-boundary smoke tests
         if: steps.scope.outputs.run_full_core == 'true'
         run: python Pipeline/TaskReviewAgent/tests/execution_routing_smoke_test.py
+
+      - name: Run provider-session pool state-machine smoke tests
+        if: steps.scope.outputs.run_full_core == 'true'
+        run: python Pipeline/ExecutionCrew/tests/session_pool_smoke_test.py
+
+      - name: Run pooled ExecutionCrew role smoke tests
+        if: steps.scope.outputs.run_full_core == 'true'
+        run: python Pipeline/ExecutionCrew/tests/pooled_run_crew_smoke_test.py
+
+      - name: Run bounded provider quota handoff smoke tests
+        if: steps.scope.outputs.run_full_core == 'true'
+        timeout-minutes: 6
+        run: python Pipeline/ExecutionCrew/tests/quota_failover_smoke_test.py
+
+      - name: Run production ExecutionCrew pool-owner smoke tests
+        if: steps.scope.outputs.run_full_core == 'true'
+        run: python Pipeline/TaskReviewAgent/tests/execution_session_pool_smoke_test.py
+
+      - name: Run decomposition validation policy audit smoke tests
+        if: steps.scope.outputs.run_full_core == 'true'
+        run: python Pipeline/TaskReviewAgent/tests/decomposition_policy_audit_smoke_test.py
 
       - name: Run host decomposition lifecycle smoke tests
         if: steps.scope.outputs.run_full_core == 'true'
@@ -248,9 +345,31 @@ jobs:
         if: steps.scope.outputs.run_full_core == 'true'
         run: python Pipeline/TaskReviewAgent/tests/synthetic_gauntlet_approver_smoke_test.py
 
+      - name: Enforce public synthetic authority boundary
+        if: steps.scope.outputs.run_full_core == 'true'
+        run: python Pipeline/TaskReviewAgent/tests/public_synthetic_authority_smoke_test.py
+
+      - name: Exercise isolated production controller lifecycle
+        if: steps.scope.outputs.run_full_core == 'true'
+        timeout-minutes: 6
+        run: python Pipeline/TaskReviewAgent/tests/production_end_to_end_smoke_test.py
+
+      - name: Run automated synthetic evidence event smoke tests
+        if: steps.scope.outputs.run_full_core == 'true'
+        shell: pwsh
+        run: |
+          python Pipeline/TaskReviewAgent/tests/automated_validation_event_smoke_test.py
+          if ($LASTEXITCODE -ne 0) { throw "Automated validation event tests failed." }
+          python Pipeline/TaskReviewAgent/tests/automated_decomposition_event_smoke_test.py
+          if ($LASTEXITCODE -ne 0) { throw "Automated decomposition event tests failed." }
+
       - name: Run ephemeral Git-ref claim tests
         if: steps.scope.outputs.run_full_core == 'true'
         run: python Pipeline/TaskReviewAgent/tests/claim_refs_smoke_test.py
+
+      - name: Run read-only GauntletView lifecycle regressions
+        if: steps.scope.outputs.run_full_core == 'true'
+        run: python Pipeline/TaskReviewAgent/GauntletView/tests/gauntlet_view_smoke_test.py
 
       - name: Run real checkout boundary smoke tests
         if: steps.scope.outputs.run_full_core == 'true'
@@ -272,6 +391,33 @@ jobs:
         if: steps.scope.outputs.run_full_core == 'true'
         run: python Pipeline/TaskReviewAgent/tests/workflow_runtime_smoke_test.py
 
+
+  windows-smoke-2:
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out exact PR head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Configure deterministic Git fixture identity
+        run: |
+          git config --global user.name "TaskReviewAgent Tests"
+          git config --global user.email "task-review-agent-tests@example.invalid"
+
+      - name: Select Core tail
+        id: scope
+        shell: pwsh
+        run: '"run_full_core=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append'
+
       - name: Run real read-only observation CLI
         if: steps.scope.outputs.run_full_core == 'true'
         run: python Pipeline/TaskReviewAgent/run_agent.py --task-id NSC-050 --mode observe-real --source .
@@ -288,12 +434,44 @@ jobs:
         if: steps.scope.outputs.run_full_core == 'true'
         run: python Pipeline/TaskReviewAgent/tests/contention_retry_smoke_test.py
 
+  windows-smoke-3:
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out exact PR head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Configure deterministic Git fixture identity
+        run: |
+          git config --global user.name "TaskReviewAgent Tests"
+          git config --global user.email "task-review-agent-tests@example.invalid"
+
+      - name: Select Core tail
+        id: scope
+        shell: pwsh
+        run: '"run_full_core=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append'
+
       - name: Run launcher admission and guarded reset tests
         if: steps.scope.outputs.run_full_core == 'true'
+        shell: pwsh
         run: |
           python Pipeline/TaskReviewAgent/tests/launcher_preflight_smoke_test.py
+          if ($LASTEXITCODE -ne 0) { throw "Launcher admission tests failed." }
           python Pipeline/TaskReviewAgent/tests/human_action_wait_smoke_test.py
+          if ($LASTEXITCODE -ne 0) { throw "Human-action wait tests failed." }
           python Pipeline/TaskReviewAgent/tests/reset_task_smoke_test.py
+          if ($LASTEXITCODE -ne 0) { throw "Guarded reset tests failed." }
+          python Pipeline/TaskReviewAgent/tests/reset_rehearsal_task_smoke_test.py
+          if ($LASTEXITCODE -ne 0) { throw "Rehearsal reset and transferred-Issue tests failed." }
 
       - name: Run decomposition authorization binder tests
         if: steps.scope.outputs.run_full_core == 'true'

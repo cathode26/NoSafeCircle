@@ -7,7 +7,7 @@ import subprocess
 import sys
 import tempfile
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -20,6 +20,7 @@ for module_root in (str(ROOT), str(PIPELINE), str(HERE)):
         sys.path.insert(0, module_root)
 
 import apply_graph_delta as apply_module
+import graph_apply_materialize as materialize_module
 from TaskDecomposition.policy import validate_decomposition_result
 from TaskDecomposition.tests.decomposition_contracts_smoke_test import (
     decomposed_result,
@@ -694,6 +695,7 @@ def verify_materialization_failures_never_commit() -> None:
     with tempfile.TemporaryDirectory(prefix="d1c-slice3-midpublish-") as temporary:
         fixture = create_fixture(Path(temporary))
         count = commit_count(fixture.root)
+        before = worktree_snapshot(fixture.root)
 
         def fail_after_first_replacement(slice1_result, root):
             def hook(boundary: GraphApplyPublicationBoundary) -> None:
@@ -718,9 +720,103 @@ def verify_materialization_failures_never_commit() -> None:
         assert result.status == "materialization_failed"
         assert result.failure_phase == "materialization"
         assert result.published_paths == (first_path,)
-        assert (fixture.root / first_path).is_file()
+        assert "Pre-commit rollback outcome" in result.reason
         assert_no_new_commit(fixture.root, fixture.initial_head, count)
-        assert first_path in status(fixture.root)
+        assert status(fixture.root) == ""
+        assert index_paths(fixture.root) == ()
+        assert worktree_snapshot(fixture.root) == before
+
+
+def verify_precommit_materialization_failure_rolls_back() -> None:
+    with tempfile.TemporaryDirectory(prefix="d1c-slice3-precommit-rollback-") as temporary:
+        fixture = create_fixture(Path(temporary))
+        count = commit_count(fixture.root)
+        before = worktree_snapshot(fixture.root)
+
+        def report_incomplete_change_set(slice1_result, root):
+            materialized = materialize_graph_apply(slice1_result, root)
+            return replace(
+                materialized,
+                changed_paths=materialized.changed_paths[:-1],
+            )
+
+        with approved_identity_environment():
+            result = apply_fixture(
+                fixture,
+                materialize_operation=report_incomplete_change_set,
+            )
+        dirty = status(fixture.root)
+        assert result.status == "materialization_failed"
+        assert result.failure_phase == "changed_path_verification"
+        assert result.reason.startswith(
+            "Materialized working-tree paths differ from the exact Slice 2 change set"
+        )
+        assert_no_new_commit(fixture.root, fixture.initial_head, count)
+        assert dirty == "", (
+            "pre-commit materialization failure left working tree dirty: " + dirty
+        )
+        assert index_paths(fixture.root) == ()
+        assert worktree_snapshot(fixture.root) == before
+
+    with tempfile.TemporaryDirectory(prefix="d1c-slice3-commit-rollback-") as temporary:
+        fixture = create_fixture(Path(temporary))
+        count = commit_count(fixture.root)
+        before = worktree_snapshot(fixture.root)
+        failed_commit = subprocess.CompletedProcess(
+            args=("git", "commit"),
+            returncode=1,
+            stdout=b"",
+            stderr=b"injected commit failure",
+        )
+
+        with (
+            approved_identity_environment(),
+            patch.object(apply_module, "_create_commit", return_value=failed_commit),
+        ):
+            result = apply_fixture(fixture)
+        assert result.status == "materialization_failed"
+        assert result.failure_phase == "git_commit"
+        assert result.reason.startswith(
+            "Local git commit failed with exit 1; no commit was created: "
+            "injected commit failure"
+        )
+        assert "Pre-commit rollback outcome" in result.reason
+        assert_no_new_commit(fixture.root, fixture.initial_head, count)
+        assert status(fixture.root) == ""
+        assert index_paths(fixture.root) == ()
+        assert worktree_snapshot(fixture.root) == before
+
+
+def verify_precommit_rollback_refuses_unrelated_dirty_path() -> None:
+    with tempfile.TemporaryDirectory(prefix="d1c-slice3-precommit-refusal-") as temporary:
+        fixture = create_fixture(Path(temporary))
+        count = commit_count(fixture.root)
+        unrelated = fixture.root / "ConcurrentUntracked.txt"
+        concurrent_bytes = b"Concurrent actor untracked work.\n"
+        snapshot_after_materialization: list[dict[str, bytes]] = []
+
+        def materialize_with_unrelated_write(slice1_result, root):
+            materialized = materialize_graph_apply(slice1_result, root)
+            unrelated.write_bytes(concurrent_bytes)
+            snapshot_after_materialization.append(repository_bytes_snapshot(root))
+            return materialized
+
+        with approved_identity_environment():
+            result = apply_fixture(
+                fixture,
+                materialize_operation=materialize_with_unrelated_write,
+            )
+        assert result.status == "materialization_failed"
+        assert result.failure_phase == "changed_path_verification"
+        assert result.reason.startswith(
+            "Materialized working-tree paths differ from the exact Slice 2 change set"
+        )
+        assert "rollback refused" in result.reason.lower()
+        assert "ConcurrentUntracked.txt" in result.reason
+        assert_no_new_commit(fixture.root, fixture.initial_head, count)
+        assert repository_bytes_snapshot(fixture.root) == snapshot_after_materialization[0]
+        assert unrelated.read_bytes() == concurrent_bytes
+        assert "ConcurrentUntracked.txt" in status(fixture.root)
         assert index_paths(fixture.root) == ()
 
 
@@ -1238,6 +1334,256 @@ def verify_commit_stage_hook_detection() -> None:
         assert status(fixture.root) == ""
 
 
+def crlf_source_plan() -> WorkGraphPlan:
+    """A source graph whose decomposition leaves RESOURCE_GROUPS.yaml unchanged."""
+
+    base = make_plan()
+    tasks = []
+    for entry in deepcopy(base.tasks):
+        if entry["id"] == "NSC-042":
+            entry["exclusive_resources"] = []
+        tasks.append(entry)
+    return WorkGraphPlan(
+        id_map=deepcopy(base.id_map),
+        tasks=tuple(tasks),
+        resource_groups=(
+            {
+                "reconciliation_keys": ["existing-runtime"],
+                "resource_key": "logical:shared",
+                "work_ids": ["NSC-010"],
+            },
+        ),
+        project_requirements=deepcopy(base.project_requirements),
+    )
+
+
+def crlf_decomposition_result(plan: WorkGraphPlan):
+    parent = next(entry for entry in plan.tasks if entry["id"] == "NSC-042")
+    raw = decomposed_result(parent)
+    raw["children"][0]["existing_task_dependencies"] = ["NSC-010"]
+    raw["children"][0]["exclusive_resources"] = []
+    raw["children"][1]["exclusive_resources"] = []
+    raw["inbound_dependency_rewrites"] = [
+        {
+            "dependent_task_id": "NSC-030",
+            "replacement_local_keys": ["runtime-integration"],
+            "reason": "The downstream consumer needs the finished integrated capability.",
+        }
+    ]
+    return validate_decomposition_result(
+        raw,
+        parent_task=parent,
+        existing_reconciliation_keys=plan.id_map,
+    )
+
+
+def initialize_artifact_comparison_repository(
+    root: Path,
+    relative_path: str,
+    committed_bytes: bytes,
+    *,
+    core_autocrlf: bool,
+    attributes: str | None = None,
+) -> None:
+    git(root, "init")
+    git(root, "config", "core.autocrlf", "true" if core_autocrlf else "false")
+    git(root, "config", "user.name", FIXTURE_NAME)
+    git(root, "config", "user.email", FIXTURE_EMAIL)
+    paths = [relative_path]
+    if attributes is not None:
+        (root / ".gitattributes").write_text(
+            attributes,
+            encoding="utf-8",
+            newline="\n",
+        )
+        paths.append(".gitattributes")
+    target = root / relative_path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(committed_bytes)
+    git(root, "add", "--", *paths)
+    git(root, "commit", "--no-gpg-sign", "-m", "fixture: comparison source")
+
+
+def artifact_is_changed(root: Path, relative_path: str, payload: object) -> bool:
+    artifacts = []
+    committed_baseline = materialize_module._CommittedArtifactBaseline(
+        materialize_module.GitRepository(root)
+    )
+    materialize_module._artifact_if_changed(
+        artifacts,
+        root,
+        Path(relative_path),
+        payload,
+        committed_baseline=committed_baseline,
+    )
+    return bool(artifacts)
+
+
+def verify_config_faithful_artifact_comparison() -> None:
+    relative_path = "Pipeline/TaskGraph/COMPARISON.yaml"
+    payload = {"value": "baseline", "items": ["one", "two"]}
+    canonical = canonical_json_text(payload).encode("utf-8")
+    assert b"\n" in canonical
+    cases = (
+        ("normalized CRLF", canonical.replace(b"\n", b"\r\n"), True, None, False),
+        (
+            "binary CRLF",
+            canonical.replace(b"\n", b"\r\n"),
+            True,
+            "Pipeline/TaskGraph/COMPARISON.yaml -text\n",
+            True,
+        ),
+        ("lone CR", canonical.replace(b"\n", b"\r", 1), True, None, True),
+        (
+            "CR inside JSON string value",
+            canonical.replace(b"baseline", b"base\rline"),
+            True,
+            None,
+            True,
+        ),
+        ("mixed endings", canonical.replace(b"\n", b"\r\n", 1), True, None, False),
+        ("empty file", b"", True, None, True),
+        ("missing file", None, True, None, True),
+    )
+    for label, working_bytes, autocrlf, attributes, expected_changed in cases:
+        with tempfile.TemporaryDirectory(
+            prefix="d1c-artifact-comparison-"
+        ) as temporary:
+            root = Path(temporary)
+            initialize_artifact_comparison_repository(
+                root,
+                relative_path,
+                canonical,
+                core_autocrlf=autocrlf,
+                attributes=attributes,
+            )
+            target = root / relative_path
+            if working_bytes is None:
+                target.unlink()
+            else:
+                target.write_bytes(working_bytes)
+            git_changed = bool(
+                git(root, "diff", "--name-only", "HEAD", "--", relative_path)
+            )
+            assert git_changed is expected_changed, (
+                f"{label}: fixture expected git changed={expected_changed}, "
+                f"observed {git_changed}"
+            )
+            observed_changed = artifact_is_changed(root, relative_path, payload)
+            assert observed_changed is expected_changed, (
+                f"{label}: artifact comparison classified changed={observed_changed}; "
+                f"git classified changed={expected_changed}"
+            )
+
+
+def verify_crlf_worktree_change_detection() -> None:
+    """A CRLF worktree must not desynchronize Slice 2 from git's changed paths.
+
+    Every other fixture pins ``core.autocrlf`` off, but the real controller
+    checkout runs on Windows with it on, so git materializes a committed LF blob
+    as CRLF. Slice 2 compared raw worktree bytes against canonical LF output and
+    reported an unchanged metadata file as changed, while the diff-based changed
+    path observation correctly reported nothing for that path. Changed path
+    verification then rejected the exact plan and historically left the shared
+    checkout dirty for every later resume.
+    """
+
+    with tempfile.TemporaryDirectory(prefix="d1c-slice3-crlf-") as temporary:
+        root = Path(temporary)
+        plan = crlf_source_plan()
+        validate_work_graph_plan(plan)
+        validate_decomposition_graph_semantics(plan)
+        initial_head = initialize_repository(root, plan)
+        source = load_persistent_work_graph(root)
+        result = crlf_decomposition_result(source.plan)
+        stored = plan_graph_delta(source, result.parent_task, result)
+
+        resource_groups = "Pipeline/TaskGraph/RESOURCE_GROUPS.yaml"
+        committed_resource_bytes = git(
+            root, "show", f"{initial_head}:{resource_groups}"
+        ).encode("utf-8")
+
+        # Seed Git's stat cache while CRLF is significant, then enable the
+        # checkout's real normalization policy. This deterministically reproduces
+        # status reporting M while diff reports no normalized tracked change.
+        resource_path = root / resource_groups
+        resource_path.write_bytes(
+            resource_path.read_bytes().replace(b"\n", b"\r\n")
+        )
+        assert resource_groups in status(root)
+        git(root, "config", "core.autocrlf", "true")
+        assert b"\r\n" in resource_path.read_bytes()
+        assert resource_groups in status(root)
+        assert git(root, "diff", "--name-only", "HEAD", "--", resource_groups) == ""
+        count = commit_count(root)
+
+        with approved_identity_environment():
+            applied = apply_graph_delta(
+                root, result.parent_task, result, stored, expected_head=initial_head
+            )
+
+        assert applied.status == "applied", f"{applied.status}: {applied.reason}"
+        # The unchanged metadata file is neither published nor committed, and the
+        # committed content is exactly what it already was.
+        assert resource_groups not in applied.published_paths
+        assert resource_groups not in applied.committed_paths
+        assert commit_count(root) == count + 1
+        assert (
+            git(root, "show", f"HEAD:{resource_groups}").encode("utf-8")
+            == committed_resource_bytes
+        )
+        assert git(root, "diff", "--name-only", "HEAD", "--") == ""
+        assert git(root, "ls-files", "--others", "--exclude-standard") == ""
+
+
+def verify_committed_crlf_metadata_is_canonicalized() -> None:
+    with tempfile.TemporaryDirectory(prefix="d1c-slice3-committed-crlf-") as temporary:
+        root = Path(temporary)
+        plan = crlf_source_plan()
+        validate_work_graph_plan(plan)
+        validate_decomposition_graph_semantics(plan)
+        initialize_repository(root, plan)
+        git(root, "config", "core.autocrlf", "false")
+
+        resource_groups = "Pipeline/TaskGraph/RESOURCE_GROUPS.yaml"
+        resource_path = root / resource_groups
+        resource_path.write_bytes(
+            resource_path.read_bytes().replace(b"\n", b"\r\n")
+        )
+        git(root, "add", "--", resource_groups)
+        git(root, "commit", "--no-gpg-sign", "-m", "fixture: committed CRLF metadata")
+        crlf_head = git(root, "rev-parse", "HEAD")
+        assert b"\r" in apply_module._require_git(
+            root, "show", f"{crlf_head}:{resource_groups}"
+        )
+        assert status(root) == ""
+        git(root, "config", "core.autocrlf", "true")
+        assert git(root, "diff", "--name-only", "HEAD", "--", resource_groups) == ""
+
+        source = load_persistent_work_graph(root)
+        result = crlf_decomposition_result(source.plan)
+        stored = plan_graph_delta(source, result.parent_task, result)
+        with approved_identity_environment():
+            applied = apply_graph_delta(
+                root,
+                result.parent_task,
+                result,
+                stored,
+                expected_head=crlf_head,
+            )
+
+        assert applied.status == "applied", f"{applied.status}: {applied.reason}"
+        assert resource_groups in applied.published_paths, (
+            "committed CRLF metadata blob was not selected for canonical rewrite"
+        )
+        assert resource_groups in applied.committed_paths
+        committed_bytes = apply_module._require_git(
+            root, "show", f"HEAD:{resource_groups}"
+        )
+        assert b"\r" not in committed_bytes
+        assert status(root) == ""
+
+
 def run_tests() -> int:
     first_signature = verify_fresh_apply_and_exact_replay()
     second_signature = verify_fresh_apply_and_exact_replay()
@@ -1249,6 +1595,8 @@ def run_tests() -> int:
     verify_expected_head_fence()
     verify_git_preconditions()
     verify_materialization_failures_never_commit()
+    verify_precommit_materialization_failure_rolls_back()
+    verify_precommit_rollback_refuses_unrelated_dirty_path()
     verify_false_validator_authority_rolls_back()
     verify_concurrent_work_refuses_destructive_rollback()
     verify_post_commit_rollback_and_severe_failure()
@@ -1257,6 +1605,9 @@ def run_tests() -> int:
     verify_no_network_or_remote_git_operation()
     verify_exact_default_identity_is_required()
     verify_commit_stage_hook_detection()
+    verify_config_faithful_artifact_comparison()
+    verify_crlf_worktree_change_detection()
+    verify_committed_crlf_metadata_is_canonicalized()
 
     print("graph_apply_smoke_test: PASS")
     return 0

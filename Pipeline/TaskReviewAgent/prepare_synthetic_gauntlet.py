@@ -15,6 +15,7 @@ tool does not commit or push. A failed materialization is rolled back in-process
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
 from copy import deepcopy
 import hashlib
 import json
@@ -39,7 +40,7 @@ from work_graph_validate import validate_work_graph_plan  # noqa: E402
 from decomposition_graph_semantics import (  # noqa: E402
     validate_decomposition_graph_semantics,
 )
-from graph_delta import semantic_json_sha256  # noqa: E402
+from graph_delta import NSC_ID_RE, semantic_json_sha256  # noqa: E402
 
 
 GAUNTLET_SCHEMA_VERSION = "1.0"
@@ -55,7 +56,27 @@ TEST_RELATIVE = Path(
 )
 TEST_META_RELATIVE = Path(str(TEST_RELATIVE) + ".meta")
 POLICY_RELATIVE = Path("Pipeline/TaskReviewAgent/authoritative_validation_policy.json")
+MANIFEST_RELATIVE = Path("Pipeline/TaskGraph/SYNTHETIC_GAUNTLET.json")
 SHA40 = re.compile(r"[0-9a-f]{40}")
+# A locally prepared bundle carries no implied publication destination.
+# Materialization still requires an explicitly authorized repository.
+PRIVATE_REPOSITORY = ""
+
+
+@dataclass(frozen=True)
+class GauntletProfile:
+    name: str
+    first_id: int
+    count: int
+    decomposition_every_waves: int
+
+    def decomposes(self, index: int) -> bool:
+        return index % (GAUNTLET_WAVE_SIZE * self.decomposition_every_waves) == 0
+
+
+LEGACY_PROFILE = GauntletProfile("eighty", 911, 80, 1)
+THOUSAND_PROFILE = GauntletProfile("thousand", 2000, 1000, 5)
+PROFILES = {profile.name: profile for profile in (LEGACY_PROFILE, THOUSAND_PROFILE)}
 
 
 class SyntheticGauntletError(RuntimeError):
@@ -97,9 +118,25 @@ def _test_filter(number: int, suffix: str = "") -> str:
     return f"{TEST_FILTER}.{_test_method(number, suffix)}"
 
 
-def _dependency_ids(index: int) -> list[str]:
+def _dependency_ids(index: int, profile: GauntletProfile = LEGACY_PROFILE) -> list[str]:
     if index < GAUNTLET_WAVE_SIZE:
         return []
+    if profile == THOUSAND_PROFILE:
+        wave, column = divmod(index, GAUNTLET_WAVE_SIZE)
+        previous = profile.first_id + index - GAUNTLET_WAVE_SIZE
+        dependencies = {previous}
+        # Column chains bound the initial partial-order width to ten. Cross-lane
+        # edges only point backwards, so adding diamonds/barriers cannot cycle.
+        if wave % 5 == 0:
+            dependencies.add(profile.first_id + (wave - 1) * 10 + (column - 1) % 10)
+        if wave % 4 == 1 and column in (2, 3):
+            dependencies.add(profile.first_id + (wave - 1) * 10 + 2)
+        if wave % 4 == 2 and column == 2:
+            dependencies.add(profile.first_id + (wave - 1) * 10 + 3)
+        if wave % 10 == 0:
+            dependencies.update(range(profile.first_id + (wave - 1) * 10,
+                                      profile.first_id + wave * 10))
+        return [_task_id(number) for number in sorted(dependencies)]
     dependencies = [_task_id(GAUNTLET_FIRST_ID + index - GAUNTLET_WAVE_SIZE)]
     column = index % GAUNTLET_WAVE_SIZE
     if column > 0:
@@ -125,10 +162,10 @@ def _gate(identifier: str, requirement: str) -> dict[str, str]:
     }
 
 
-def _concrete_task(number: int, index: int) -> dict[str, Any]:
+def _concrete_task(number: int, index: int, profile: GauntletProfile = LEGACY_PROFILE) -> dict[str, Any]:
     task_id = _task_id(number)
     source, meta = _value_paths(number)
-    dependencies = _dependency_ids(index)
+    dependencies = _dependency_ids(index, profile)
     dependency_text = (
         "No earlier gauntlet value is required."
         if not dependencies
@@ -196,11 +233,11 @@ def _concrete_task(number: int, index: int) -> dict[str, Any]:
     }
 
 
-def _decomposition_task(number: int, index: int) -> dict[str, Any]:
+def _decomposition_task(number: int, index: int, profile: GauntletProfile = LEGACY_PROFILE) -> dict[str, Any]:
     task_id = _task_id(number)
     alpha, alpha_meta = _value_paths(number, "Alpha")
     beta, beta_meta = _value_paths(number, "Beta")
-    dependencies = _dependency_ids(index)
+    dependencies = _dependency_ids(index, profile)
     return {
         "schema_version": "2.0",
         "id": task_id,
@@ -298,11 +335,11 @@ def _cancel_for_gauntlet(task: Mapping[str, Any]) -> dict[str, Any]:
     return cancelled
 
 
-def _preserve_42(task: Mapping[str, Any]) -> dict[str, Any]:
+def _preserve_42(task: Mapping[str, Any], profile: GauntletProfile = LEGACY_PROFILE) -> dict[str, Any]:
     preserved = deepcopy(dict(task))
     preserved["contract_revision"] = int(preserved["contract_revision"]) + 1
     preserved["parent"] = ROOT_TASK_ID
-    preserved["depends_on"] = [_task_id(GAUNTLET_FIRST_ID + GAUNTLET_TASK_COUNT - 1)]
+    preserved["depends_on"] = [_task_id(profile.first_id + profile.count - 1)]
     provenance = deepcopy(preserved.get("provenance") or {})
     provenance["synthetic_gauntlet_rewire"] = GAUNTLET_ID
     provenance["synthetic_gauntlet_original_parent"] = task.get("parent")
@@ -313,11 +350,11 @@ def _preserve_42(task: Mapping[str, Any]) -> dict[str, Any]:
     return preserved
 
 
-def _test_source() -> bytes:
+def _test_source(profile: GauntletProfile = LEGACY_PROFILE) -> bytes:
     methods: list[str] = []
-    for index in range(GAUNTLET_TASK_COUNT):
-        number = GAUNTLET_FIRST_ID + index
-        suffixes = ("Alpha", "Beta") if index % GAUNTLET_WAVE_SIZE == 0 else ("",)
+    for index in range(profile.count):
+        number = profile.first_id + index
+        suffixes = ("Alpha", "Beta") if profile.decomposes(index) else ("",)
         for suffix in suffixes:
             method = _test_method(number, suffix)
             type_name = f"MuffcabbageGauntlet{number:03d}{suffix}"
@@ -386,11 +423,12 @@ def _validation_policy(
         if provenance.get("gauntlet_id") != GAUNTLET_ID:
             continue
         number = int(task_id.split("-")[1])
+        platform = "SyntheticSource" if provenance.get("profile") == "thousand" else "EditMode"
         if task.get("execution_scope") == "single_agent":
             policy["tasks"][task_id] = {
                 "task_contract_sha256": _sha256(task_bytes[task_id]),
-                "required_test_platforms": ["EditMode"],
-                "test_filters": {"EditMode": _test_filter(number)},
+                "required_test_platforms": [platform],
+                "test_filters": {platform: _test_filter(number)},
                 "authority": "committed_private_synthetic_gauntlet_validation_policy",
             }
             continue
@@ -406,16 +444,16 @@ def _validation_policy(
                         f"repo-file:{alpha}",
                         f"repo-file:{alpha_meta}",
                     ],
-                    "required_test_platforms": ["EditMode"],
-                    "test_filters": {"EditMode": _test_filter(number, "Alpha")},
+                    "required_test_platforms": [platform],
+                    "test_filters": {platform: _test_filter(number, "Alpha")},
                 },
                 {
                     "required_exclusive_resources": [
                         f"repo-file:{beta}",
                         f"repo-file:{beta_meta}",
                     ],
-                    "required_test_platforms": ["EditMode"],
-                    "test_filters": {"EditMode": _test_filter(number, "Beta")},
+                    "required_test_platforms": [platform],
+                    "test_filters": {platform: _test_filter(number, "Beta")},
                 },
             ],
             "authority": (
@@ -478,13 +516,23 @@ def build_validation_repair_bundle(
     }
 
 
-def build_bundle(source: Path) -> tuple[dict[Path, bytes], dict[str, Any]]:
+def build_bundle(source: Path, profile: str = "eighty", *, target_repository: str | None = None) -> tuple[dict[Path, bytes], dict[str, Any]]:
+    if profile not in PROFILES:
+        raise SyntheticGauntletError(f"unsupported gauntlet profile: {profile}")
+    if target_repository is not None:
+        target_repository = authorized_repository(target_repository)
+    selected = PROFILES[profile]
     graph = load_persistent_work_graph(source)
     by_id = graph.tasks_by_id
     if ROOT_TASK_ID not in by_id or PRESERVED_TASK_ID not in by_id:
         raise SyntheticGauntletError("source graph must contain NSC-001 and NSC-042")
-    if any(_task_id(number) in by_id for number in range(GAUNTLET_FIRST_ID, 991)):
-        raise SyntheticGauntletError("synthetic NSC-911 through NSC-990 contracts already exist")
+    ids = {_task_id(number) for number in range(selected.first_id, selected.first_id + selected.count)}
+    used_numbers = {int(task_id[4:]) for task_id in (*by_id, *graph.plan.id_map.values())
+                    if isinstance(task_id, str) and NSC_ID_RE.fullmatch(task_id)}
+    if used_numbers.intersection(range(selected.first_id, selected.first_id + selected.count)):
+        if selected == LEGACY_PROFILE:
+            raise SyntheticGauntletError("synthetic NSC-911 through NSC-990 contracts already exist")
+        raise SyntheticGauntletError("reserved thousand ID range collides with repository contracts or ID map")
 
     tasks: list[dict[str, Any]] = []
     for task in graph.plan.tasks:
@@ -492,30 +540,53 @@ def build_bundle(source: Path) -> tuple[dict[Path, bytes], dict[str, Any]]:
         if task_id == ROOT_TASK_ID:
             tasks.append(deepcopy(task))
         elif task_id == PRESERVED_TASK_ID:
-            tasks.append(_preserve_42(task))
+            tasks.append(_preserve_42(task, selected))
         else:
             tasks.append(_cancel_for_gauntlet(task))
 
     decomposition_ids: list[str] = []
     concrete_ids: list[str] = []
-    for index in range(GAUNTLET_TASK_COUNT):
-        number = GAUNTLET_FIRST_ID + index
-        if index % GAUNTLET_WAVE_SIZE == 0:
-            task = _decomposition_task(number, index)
+    for index in range(selected.count):
+        number = selected.first_id + index
+        if selected.decomposes(index):
+            task = _decomposition_task(number, index, selected)
             decomposition_ids.append(task["id"])
         else:
-            task = _concrete_task(number, index)
+            task = _concrete_task(number, index, selected)
             concrete_ids.append(task["id"])
+        if selected == THOUSAND_PROFILE:
+            task["provenance"]["profile"] = profile
+            task["provenance"]["seed"] = 0
+            for gate in task["completion_gates"]:
+                gate["reference"] = "Exact private synthetic C# source validation"
+                gate["requirement"] = gate["requirement"].replace("Unity EditMode filter", "SyntheticSource filter")
+            if selected.decomposes(index):
+                task["decomposition_reason"] += (
+                    f" Allocate globally unique local keys nsc-{number}-alpha and nsc-{number}-beta "
+                    "in that order; Beta depends on Alpha. "
+                    "Each child inherits all original parent dependencies. Every inbound dependent "
+                    "must name both children. This preserves the ten column-chain width bound."
+                )
+            elif index % 100 in (8, 9):
+                task["exclusive_resources"].append(f"logical:thousand-pair-{index // 100:02d}")
         tasks.append(task)
 
     tasks.sort(key=lambda item: int(item["id"].split("-")[1]))
     id_map = deepcopy(graph.plan.id_map)
     for task in tasks:
         id_map[task["reconciliation_key"]] = task["id"]
+    resource_groups = list(deepcopy(graph.plan.resource_groups))
+    if selected == THOUSAND_PROFILE:
+        for group in range(10):
+            resource = f"logical:thousand-pair-{group:02d}"
+            owners = [task for task in tasks if resource in task["exclusive_resources"]]
+            resource_groups.append({"resource_key": resource,
+                                    "work_ids": [task["id"] for task in owners],
+                                    "reconciliation_keys": [task["reconciliation_key"] for task in owners]})
     plan = WorkGraphPlan(
         id_map=id_map,
         tasks=tuple(tasks),
-        resource_groups=deepcopy(graph.plan.resource_groups),
+        resource_groups=resource_groups,
         project_requirements=deepcopy(graph.plan.project_requirements),
     )
     validate_work_graph_plan(plan)
@@ -559,14 +630,19 @@ def build_bundle(source: Path) -> tuple[dict[Path, bytes], dict[str, Any]]:
 
     policy = _validation_policy(source, tasks, task_bytes)
     bundle[POLICY_RELATIVE] = _json_bytes(policy)
-    bundle[TEST_RELATIVE] = _test_source()
+    bundle[TEST_RELATIVE] = _test_source(selected)
     bundle[TEST_META_RELATIVE] = _meta_source()
+    if selected == THOUSAND_PROFILE:
+        # Source-only checks have their own committed runner. Preserve the
+        # existing Unity test asset instead of replacing historical tests.
+        del bundle[TEST_RELATIVE]
+        del bundle[TEST_META_RELATIVE]
 
     summary = {
         "schema_version": GAUNTLET_SCHEMA_VERSION,
         "gauntlet_id": GAUNTLET_ID,
-        "initial_synthetic_tasks": GAUNTLET_TASK_COUNT,
-        "dependency_waves": GAUNTLET_TASK_COUNT // GAUNTLET_WAVE_SIZE,
+        "initial_synthetic_tasks": selected.count,
+        "dependency_waves": selected.count // GAUNTLET_WAVE_SIZE,
         "wave_size": GAUNTLET_WAVE_SIZE,
         "decomposition_parents": decomposition_ids,
         "concrete_tasks": len(concrete_ids),
@@ -586,7 +662,87 @@ def build_bundle(source: Path) -> tuple[dict[Path, bytes], dict[str, Any]]:
             )
         ),
     }
+    if selected == THOUSAND_PROFILE:
+        if (source / MANIFEST_RELATIVE).exists():
+            raise SyntheticGauntletError("a gauntlet manifest already exists; never overwrite a run scope")
+        initial = [task for task in tasks if task["id"] in ids]
+        expected_paths = [path for task in initial for path in task["provenance"]["expected_paths"]]
+        if len(set(path.casefold() for path in expected_paths)) != len(expected_paths):
+            raise SyntheticGauntletError("thousand output paths collide")
+        tracked = set(_run(source, "git", "ls-files").splitlines())
+        tracked_lower = {path.casefold() for path in tracked}
+        committed_directories = {Path(path).parent.as_posix() for path in tracked}
+        proposed_guids = [_guid(path) for path in expected_paths if path.endswith(".cs")]
+        existing_guids = set()
+        for relative in tracked:
+            if relative.endswith(".meta") and (source / relative).is_file():
+                existing_guids.update(re.findall(r"(?m)^guid:\s*([0-9a-fA-F]{32})\s*$",
+                    (source / relative).read_text(encoding="utf-8")))
+        if len(set(proposed_guids)) != len(proposed_guids) or set(proposed_guids) & {value.lower() for value in existing_guids}:
+            raise SyntheticGauntletError("thousand deterministic GUIDs collide with each other or committed assets")
+        for path in expected_paths:
+            if path.casefold() in tracked_lower or (source / path).exists():
+                raise SyntheticGauntletError(f"thousand output already exists: {path}")
+            if Path(path).parent.as_posix() not in committed_directories:
+                raise SyntheticGauntletError(f"output directory is not committed: {path}")
+        source_origin = _run(source, "git", "remote", "get-url", "origin")
+        if target_repository is None:
+            try:
+                source_repository = _repository_from_origin(source_origin)
+            except SyntheticGauntletError:
+                # A local tooling checkout may prepare a read-only bundle.
+                # Materialization separately requires its exact GitHub binding.
+                target_repository = PRIVATE_REPOSITORY
+            else:
+                target_repository = authorized_repository(source_repository)
+        summary.update({
+            "schema_version": "2.0", "profile": profile, "seed": 0,
+            "id_range": [selected.first_id, selected.first_id + selected.count - 1],
+            "expected_dynamic_children": len(decomposition_ids) * 2,
+            "post_decomposition_contracts": selected.count + len(decomposition_ids) * 2,
+            "implementation_jobs": len(concrete_ids) + len(decomposition_ids) * 2,
+            "child_identity_rule": "canonical graph_delta allocator above current maximum; alpha then beta; never pre-reserve child IDs",
+            "dependency_edges": sum(len(task["depends_on"]) for task in initial),
+            "resource_groups_added": 10, "maximum_initial_ready_width": 10,
+            "source_head": _run(source, "git", "rev-parse", "HEAD"),
+            "source_tree": _run(source, "git", "rev-parse", "HEAD^{tree}"),
+            "source_origin": source_origin,
+            "target_repository": target_repository,
+            "excluded_task_ids": [PRESERVED_TASK_ID],
+            "target_task_ids": sorted(ids),
+            "artifacts": {path.as_posix(): _sha256(data) for path, data in sorted(bundle.items())},
+            "source_artifacts": {path.as_posix(): _sha256((source / path).read_bytes())
+                                 if (source / path).is_file() else None for path in sorted(bundle)},
+        })
+        summary["manifest_sha256"] = _sha256(_json_bytes(summary))
+        bundle[MANIFEST_RELATIVE] = _json_bytes(summary)
     return bundle, summary
+
+
+def validate_manifest(bundle: Mapping[Path, bytes]) -> Mapping[str, Any]:
+    """Validate the complete generated byte set, never a selected subset."""
+    try:
+        manifest = json.loads(bundle[MANIFEST_RELATIVE])
+        unsigned = {key: value for key, value in manifest.items() if key != "manifest_sha256"}
+        if (manifest["schema_version"] != "2.0" or manifest["profile"] != "thousand"
+                or manifest["initial_synthetic_tasks"] != 1000
+                or manifest["expected_dynamic_children"] != 40
+                or manifest["post_decomposition_contracts"] != 1040
+                or manifest["id_range"] != [2000, 2999]
+                or manifest["target_task_ids"] != [f"NSC-{number}" for number in range(2000, 3000)]
+                or manifest["target_repository"] != authorized_repository(manifest["target_repository"])
+                or manifest["excluded_task_ids"] != [PRESERVED_TASK_ID]
+                or manifest["manifest_sha256"] != _sha256(_json_bytes(unsigned))):
+            raise SyntheticGauntletError("unsupported or corrupt thousand manifest")
+        expected = {path.as_posix(): _sha256(data) for path, data in sorted(bundle.items())
+                    if path != MANIFEST_RELATIVE}
+        if manifest["artifacts"] != expected:
+            raise SyntheticGauntletError("gauntlet artifact hashes or path set differ from manifest")
+        if set(manifest["source_artifacts"]) != set(expected):
+            raise SyntheticGauntletError("source artifact hash coverage differs from generated artifacts")
+        return manifest
+    except (KeyError, TypeError, ValueError) as exc:
+        raise SyntheticGauntletError("invalid gauntlet manifest") from exc
 
 
 def _run(source: Path, *command: str) -> str:
@@ -617,6 +773,27 @@ def _repository_from_origin(origin: str) -> str:
     return f"{match.group(1)}/{match.group(2)}"
 
 
+def authorized_repository(repository: str) -> str:
+    """Canonical identity from the explicit machine-evidence allowlist."""
+    from Pipeline.TaskReviewAgent.issue_workflow import AUTOMATED_VALIDATION_REPOSITORIES
+    if isinstance(repository, str):
+        for allowed in AUTOMATED_VALIDATION_REPOSITORIES:
+            if repository.casefold() == allowed.casefold():
+                return allowed
+    raise SyntheticGauntletError("synthetic gauntlet requires an exact private rehearsal repository")
+
+
+def verify_manifest_source(source: Path, manifest: Mapping[str, Any]) -> str:
+    """Refuse materialization when source or target differs from prepared bytes."""
+    origin = _run(source, "git", "remote", "get-url", "origin")
+    repository = authorized_repository(_repository_from_origin(origin))
+    if (repository != manifest["target_repository"] or origin != manifest["source_origin"]
+            or _run(source, "git", "rev-parse", "HEAD") != manifest["source_head"]
+            or _run(source, "git", "rev-parse", "HEAD^{tree}") != manifest["source_tree"]):
+        raise SyntheticGauntletError("manifest source or target repository moved before materialization")
+    return repository
+
+
 def _preflight_mutation(
     source: Path,
     *,
@@ -632,8 +809,7 @@ def _preflight_mutation(
         )
     if repository.casefold() == "cathode26/nosafecircle":
         raise SyntheticGauntletError("synthetic gauntlet setup refuses the production repository")
-    if "rehearsal" not in repository.casefold():
-        raise SyntheticGauntletError("repository name must explicitly identify a rehearsal")
+    repository = authorized_repository(repository)
     metadata = json.loads(
         _run(
             source,
@@ -677,6 +853,41 @@ def _write_atomic(path: Path, data: bytes) -> None:
 
 
 def apply_bundle(source: Path, bundle: Mapping[Path, bytes]) -> None:
+    for relative in bundle:
+        if relative.is_absolute() or ".." in relative.parts:
+            raise SyntheticGauntletError("bundle paths must remain repository-relative")
+        path = source / relative
+        if any(parent.is_symlink() for parent in (path, *path.parents)):
+            raise SyntheticGauntletError(f"bundle path traverses a symlink: {relative}")
+    if MANIFEST_RELATIVE in bundle:
+        manifest = validate_manifest(bundle)
+        verify_manifest_source(source, manifest)
+        for relative, expected in manifest["source_artifacts"].items():
+            path = source / relative
+            actual = _sha256(path.read_bytes()) if path.is_file() else None
+            if actual != expected or path.is_symlink():
+                raise SyntheticGauntletError(f"source artifact moved before materialization: {relative}")
+    graph = load_persistent_work_graph(source)
+    validate_work_graph_plan(graph.plan)
+    validate_decomposition_graph_semantics(graph.plan)
+    proposed_tasks = {task["id"]: deepcopy(task) for task in graph.plan.tasks}
+    for relative, data in bundle.items():
+        if relative.parent == Path("Tasks"):
+            task = json.loads(data)
+            if task.get("id") != relative.stem:
+                raise SyntheticGauntletError("bundle contract identity differs from its filename")
+            proposed_tasks[relative.stem] = task
+    def metadata(name: str, field: str, fallback: Any) -> Any:
+        data = bundle.get(Path("Pipeline/TaskGraph") / name)
+        return json.loads(data)[field] if data is not None else fallback
+    proposed = WorkGraphPlan(
+        id_map=metadata("WORK_ID_MAP.json", "id_map", graph.plan.id_map),
+        tasks=tuple(proposed_tasks.values()),
+        resource_groups=metadata("RESOURCE_GROUPS.yaml", "resource_groups", graph.plan.resource_groups),
+        project_requirements=metadata("PROJECT_REQUIREMENTS.yaml", "requirements", graph.plan.project_requirements),
+    )
+    validate_work_graph_plan(proposed)
+    validate_decomposition_graph_semantics(proposed)
     absolute = {source / relative: data for relative, data in bundle.items()}
     before = {path: path.read_bytes() if path.is_file() else None for path in absolute}
     try:
@@ -685,6 +896,8 @@ def apply_bundle(source: Path, bundle: Mapping[Path, bytes]) -> None:
         graph = load_persistent_work_graph(source)
         validate_work_graph_plan(graph.plan)
         validate_decomposition_graph_semantics(graph.plan)
+        if MANIFEST_RELATIVE in bundle:
+            _run(source, sys.executable, str(source / "Pipeline/TaskGraph/taskcontrol.py"), "validate")
         _run(source, "git", "diff", "--check")
     except Exception:
         for path in sorted(before, key=lambda item: item.as_posix(), reverse=True):
@@ -703,14 +916,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--expected-head")
     parser.add_argument("--confirm-repository")
     parser.add_argument("--repair-validation", action="store_true")
+    parser.add_argument("--profile", choices=tuple(PROFILES), default="eighty")
     parser.add_argument("--apply", action="store_true")
     args = parser.parse_args(argv)
     try:
         source = args.source.resolve()
+        if args.repair_validation and args.profile != "eighty":
+            raise SyntheticGauntletError("validation repair is restricted to the eighty profile")
         bundle, summary = (
             build_validation_repair_bundle(source)
             if args.repair_validation
-            else build_bundle(source)
+            else build_bundle(source, args.profile, target_repository=args.confirm_repository)
         )
         if not args.apply:
             print(json.dumps({**summary, "status": "ready_dry_run"}, indent=2, sort_keys=True))
@@ -724,6 +940,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             expected_head=args.expected_head.strip().lower(),
             confirmed_repository=args.confirm_repository.strip(),
         )
+        _run(source, sys.executable, str(source / "Pipeline/TaskGraph/taskcontrol.py"), "validate")
         apply_bundle(source, bundle)
         print(
             json.dumps(

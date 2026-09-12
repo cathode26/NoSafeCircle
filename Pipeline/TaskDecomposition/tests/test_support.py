@@ -259,7 +259,10 @@ def decomposed_result(parent: dict[str, Any], *, missing_dependency: bool = Fals
             "decomposition_reason": "Canon is sufficient.",
             "existing_task_dependencies": ["NSC-999" if missing_dependency else "NSC-003"],
             "local_dependencies": [],
-            "exclusive_resources": ["repo-file:Assets/Shared.cs"],
+            "exclusive_resources": [
+                "repo-file:Assets/Shared.cs",
+                "unity-scene:Assets/Synthetic.unity",
+            ],
             "acceptance_criteria": [
                 {"criterion_id": "AC-001", "reference": "Parent AC-001", "requirement": "Child acceptance."}
             ],
@@ -327,7 +330,8 @@ def needs_human_result(parent: dict[str, Any]) -> dict[str, Any]:
 
 
 def fake_factory(provider: FakeProvider):
-    def factory(provider_name: str, _source: Path):
+    def factory(provider_name: str, _source: Path, role: str):
+        assert role in {"task_decomposer", "decomposition_reviewer"}, role
         key = f"{provider_name}-decomposition"
         model = "deterministic-fake-model"
         configuration = RuntimeConfiguration({

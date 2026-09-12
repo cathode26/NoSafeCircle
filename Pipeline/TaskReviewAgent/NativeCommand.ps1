@@ -5,8 +5,13 @@ function Invoke-NscNativeCommand {
         [ValidateNotNullOrEmpty()]
         [string]$FilePath,
 
+        # Keep the caller's token types until validation. A [string[]]
+        # parameter coerces a null element to an empty string during binding,
+        # making the null guard below unreachable before Windows drops the
+        # empty native-process argument.
         [Parameter()]
-        [string[]]$ArgumentList = @(),
+        [AllowEmptyCollection()]
+        [object[]]$ArgumentList = @(),
 
         [switch]$StreamOutput
     )
@@ -21,11 +26,16 @@ function Invoke-NscNativeCommand {
             throw 'Native command arguments must not be null.'
         }
 
+        $Text = [string]$Argument
+        if ([string]::IsNullOrWhiteSpace($Text)) {
+            throw 'Native command arguments must not be empty or whitespace-only.'
+        }
+
         # Windows here-strings use CRLF. Passing one directly to Linux bash
         # leaves a carriage return on tokens such as `set -eu`, which Bash then
         # interprets as an invalid option. Native multiline payloads are textual
         # protocol values, so normalize them before crossing the OS boundary.
-        $Normalized = $Argument.Replace("`r`n", "`n").Replace("`r", "`n")
+        $Normalized = $Text.Replace("`r`n", "`n").Replace("`r", "`n")
         [void]$NormalizedArguments.Add($Normalized)
     }
 

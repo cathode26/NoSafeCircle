@@ -37,6 +37,7 @@ from apply_graph_delta import (
     _repository_preflight,
     _require_no_commit_stage_hooks,
     _stored_authority,
+    _working_tree_paths,
 )
 from graph_delta import GraphDeltaPlan, _plan_payload, semantic_json_sha256
 from persistent_work_graph import load_persistent_work_graph
@@ -239,6 +240,13 @@ def _create_undo_commit(root: Path, plan: GraphDeltaUndoPlan) -> str:
     return _git_text(root, "rev-parse", "HEAD")
 
 
+def _has_normalized_changes(root: Path) -> bool:
+    if _working_tree_paths(root):
+        return True
+    index = _git(root, "diff", "--cached", "--quiet", "--exit-code", "HEAD", "--")
+    return index.returncode != 0
+
+
 def undo_graph_delta(
     target_root: Path,
     stored_graph_delta: GraphDeltaPlan,
@@ -292,13 +300,11 @@ def undo_graph_delta(
             raise GraphDeltaUndoError("undo commit tree does not equal the D1C source tree")
         if _graph_hash(root) != plan.source_graph_semantic_hash:
             raise GraphDeltaUndoError("committed undo did not restore the source TaskGraph")
-        if _git_text(root, "status", "--porcelain=v1", "--untracked-files=all"):
+        if _has_normalized_changes(root):
             raise GraphDeltaUndoError("committed graph-delta undo left a dirty checkout")
     except Exception:
         current = _git_text(root, "rev-parse", "HEAD", check=False)
-        if current != plan.apply_commit or _git_text(
-            root, "status", "--porcelain=v1", "--untracked-files=all"
-        ):
+        if current != plan.apply_commit or _has_normalized_changes(root):
             _git(root, "reset", "--hard", plan.apply_commit)
         raise
     return GraphDeltaUndoResult(

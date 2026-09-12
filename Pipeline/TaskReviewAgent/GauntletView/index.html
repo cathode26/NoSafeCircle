@@ -1,0 +1,1782 @@
+<!-- NSC gauntlet live task graph. Read-only view; see server.py. -->
+<title>NSC Gauntlet Graph</title>
+<script src="/vendor/cytoscape.min.js"></script>
+<script src="/vendor/dagre.min.js"></script>
+<script src="/vendor/cytoscape-dagre.min.js"></script>
+<script src="https://www.youtube.com/iframe_api"></script>
+<style>
+  :root {
+    --bg: #0e1117;
+    --panel: #161b22;
+    --line: #262c36;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --detail-width: 320px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; height: 100vh; overflow: hidden;
+    background: var(--bg); color: var(--text);
+    font: 13px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: grid; grid-template-columns: clamp(210px, 20vw, 278px) minmax(0, 1fr) var(--detail-width);
+  }
+  aside { background: var(--panel); overflow-y: auto; padding: 14px; }
+  aside.left { border-right: 1px solid var(--line); }
+  aside.right { border-left: 1px solid var(--line); }
+  [hidden] { display: none !important; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  h1 { font-size: 14px; margin: 0 0 2px; letter-spacing: .2px; }
+  h2 {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .09em;
+    color: var(--muted); margin: 18px 0 7px; font-weight: 600;
+  }
+  main { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+  #run-details { margin: 12px 14px 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); flex: none; height: 148px; overflow: hidden; display: flex; flex-direction: column; }
+  #run-details h2 { margin: 0 0 4px; }
+  .run-details-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  #run-details .run-details-header h2 { margin: 0; }
+  #run-details-body { margin-top: 6px; min-height: 0; overflow-y: auto; flex: 1; }
+  #run-details-heading { color: var(--accent); }
+  .run-location { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 8px; }
+  .run-location code { min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; font: 12px/1.45 ui-monospace, Consolas, monospace; }
+  #run-source { font-size: 13px; }
+  .run-secondary { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(0, 2fr); gap: 12px; margin-top: 10px; }
+  .run-secondary > div { min-width: 0; }
+  .run-copy { padding: 2px 7px; font-size: 11px; }
+  .run-copy:disabled { cursor: default; opacity: .45; }
+  #run-copy-status { font-size: 11px; color: var(--muted); }
+  @media (max-width: 1050px) { .run-secondary { grid-template-columns: minmax(0, 1fr); } }
+  #cy { width: 100%; flex: 1; min-height: 0; background: var(--bg); }
+  #pipeline-activity {
+    margin: 12px 14px 0; border: 1px solid #38516c;
+    border-top: 3px solid var(--accent); border-radius: 8px;
+    background: var(--panel); height: 176px; flex: none; overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  .panel-header { display: flex; align-items: center; gap: 10px; padding: 8px 12px; flex: none; }
+  .pipeline-title { min-width: 0; flex: 1; }
+  #pipeline-body { overflow-y: auto; min-height: 0; flex: 1; padding: 0 12px 8px; }
+  #pipeline-activity h2 { margin: 0 0 4px; color: var(--accent); }
+  #pipeline-headline { font-size: 16px; line-height: 1.3; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .resize-handle { background: var(--line); touch-action: none; display: flex; align-items: center; justify-content: center; }
+  .resize-handle:hover, .resize-handle:focus-visible { background: #38516c; }
+  .resize-handle::after { content: ''; background: var(--muted); border-radius: 2px; }
+  #pipeline-resize::after { width: 36px; height: 2px; }
+  #run-details-resize::after { width: 36px; height: 2px; }
+  #detail-resize::after { width: 2px; height: 36px; }
+  #run-details-resize { height: 8px; flex: none; cursor: ns-resize; margin: 4px -12px -10px; }
+  #pipeline-resize { height: 8px; flex: none; cursor: ns-resize; }
+  #detail-panel { padding: 0; overflow: hidden; min-width: 0; display: grid; grid-template-columns: 8px minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  #detail-resize { grid-column: 1; grid-row: 1 / 3; cursor: ew-resize; }
+  #detail-header { grid-column: 2; justify-content: space-between; }
+  #detail-header h2 { margin: 0; }
+  #detail { grid-column: 2; overflow-y: auto; padding: 0 14px 14px; min-width: 0; }
+  #detail-panel.collapsed { grid-template-columns: 0 minmax(0, 1fr); }
+  #detail-panel.collapsed #detail-heading { display: none; }
+  #detail-panel.collapsed #detail-header { padding: 8px 4px; justify-content: center; }
+  body.resizing { user-select: none; }
+  .pipeline-note { font-size: 12px; color: #b8c4d1; margin: 5px 0; }
+  .pipeline-candidates { display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0; }
+  .pipeline-candidates span { border: 1px solid var(--line); border-radius: 4px; padding: 2px 6px; font-size: 11px; }
+  .pipeline-counters { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 5px 16px; margin: 10px 0; }
+  .pipeline-counters span { display: block; color: var(--muted); font-size: 10px; }
+  .pipeline-counters b { font-size: 14px; font-variant-numeric: tabular-nums; }
+  #pipeline-stage-elapsed, #pipeline-run-elapsed { font-size: 14px; color: var(--text); }
+  #pipeline-freshness { font-size: 11px; color: #b8c4d1; }
+  #pipeline-freshness.stale { color: #ffd23f; }
+  .pipeline-timeline { padding: 0; margin: 6px 0 0; list-style: none; max-height: 90px; overflow-y: auto; }
+  .pipeline-timeline li { border-top: 1px solid var(--line); padding: 3px 0; font-size: 11px; }
+  .pipeline-timeline time { color: var(--muted); margin-right: 8px; }
+  .sub { color: var(--muted); font-size: 11px; margin-bottom: 4px; word-break: break-all; }
+  #review-alarm {
+    position: fixed; inset: 0; z-index: 10000; background: rgba(3, 7, 12, .96);
+    display: grid; place-items: center; padding: 28px;
+  }
+  #review-alarm-card {
+    width: min(920px, 92vw); padding: 28px; text-align: center;
+    border: 2px solid #ff4fb3; border-radius: 16px; background: #0e1117;
+    box-shadow: 0 0 52px rgba(255, 79, 179, .35);
+  }
+  #review-alarm h2 { margin: 0 0 8px; color: #ff4fb3; font-size: 24px; }
+  #review-alarm p { margin: 8px 0 18px; font-size: 17px; }
+  #review-alarm-media { width: min(760px, 84vw); aspect-ratio: 16 / 9; margin: 0 auto; }
+  #review-alarm-media iframe { width: 100%; height: 100%; border: 0; }
+
+  .stat { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; }
+  .stat span:last-child { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  .legend { display: flex; align-items: center; gap: 8px; padding: 3px 0; cursor: pointer; }
+  .legend:hover { color: var(--accent); }
+  .legend.off { opacity: .35; }
+  .swatch { width: 11px; height: 11px; border-radius: 3px; flex: none; border: 1px solid #0006; }
+  .legend .count { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .lgroup {
+    font-size: 9px; text-transform: uppercase; letter-spacing: .1em;
+    color: #6e7681; margin: 10px 0 3px; font-weight: 600;
+  }
+  .lgroup:first-child { margin-top: 2px; }
+
+  label.check { display: flex; align-items: center; gap: 7px; padding: 3px 0; cursor: pointer; }
+
+  .btns { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  button {
+    background: #21262d; color: var(--text); border: 1px solid var(--line);
+    border-radius: 6px; padding: 5px 10px; cursor: pointer; font: inherit; font-size: 12px;
+  }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button.on { background: var(--accent); color: #0d1117; border-color: var(--accent); font-weight: 600; }
+
+  #detail .field { margin-bottom: 10px; }
+  #detail .k {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .07em;
+    color: var(--muted); margin-bottom: 2px;
+  }
+  #detail .v { word-break: break-word; }
+  #detail code {
+    background: #0d1117; border: 1px solid var(--line); border-radius: 4px;
+    padding: 1px 5px; font-size: 11px; display: inline-block; margin: 1px 2px 1px 0;
+  }
+  #detail ul { margin: 3px 0; padding-left: 16px; }
+  #detail li { margin-bottom: 3px; }
+  .pill {
+    display: inline-block; padding: 2px 9px; border-radius: 999px;
+    font-size: 11px; font-weight: 600; color: #0d1117;
+  }
+  .github-navigation { margin: 2px 0 14px; }
+  .issue-button {
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 1px solid var(--accent); border-radius: 7px; padding: 6px 11px;
+    color: var(--accent); font-weight: 650; text-decoration: none;
+  }
+  .issue-button:hover { background: #58a6ff1a; }
+  .issue-button.primary {
+    display: flex; width: 100%; padding: 9px 12px;
+    background: var(--accent); color: #0d1117; font-size: 13px;
+  }
+  .issue-button.primary:hover { background: #79b8ff; }
+  .issue-number { color: var(--muted); font-size: 11px; margin-top: 5px; }
+  .issue-unavailable {
+    border: 1px dashed var(--line); border-radius: 7px; padding: 7px 9px;
+    color: var(--muted); font-size: 12px;
+  }
+  .approval-panel {
+    border: 1px solid #d2a8ff; border-radius: 8px; padding: 10px;
+    margin: 2px 0 14px; background: #d2a8ff12;
+  }
+  .approval-panel .binding { color: var(--muted); font-size: 11px; line-height: 1.55; }
+  .approval-button {
+    width: 100%; margin-top: 9px; padding: 9px 12px; border-color: #d2a8ff;
+    color: #d2a8ff; font-weight: 700;
+  }
+  .approval-button:disabled { opacity: .55; cursor: wait; }
+  .approval-status { margin-top: 7px; font-size: 11px; color: var(--muted); }
+  .stage-expander { margin: 0 0 7px 0; font-weight: 700; }
+  .stage-timeline { margin: 7px 0 0; padding-left: 22px; }
+  .stage-timeline .active { color: var(--accent); font-weight: 700; }
+  .stage-timeline .future { color: var(--muted); }
+  .empty { color: var(--muted); font-style: italic; }
+  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; }
+  .live { background: #3fb950; box-shadow: 0 0 7px #3fb950; }
+  .dead { background: #6e7681; }
+  .mode-marker {
+    border: 2px solid #ffd23f; color: #ffd23f; border-radius: 6px;
+    padding: 7px; margin: 8px 0; font-weight: 750; letter-spacing: .07em;
+  }
+  .stop-run {
+    width: 100%; margin: 4px 0 8px; padding: 7px; border-radius: 6px; cursor: pointer;
+    border: 2px solid #ff7a00; background: transparent; color: #ff7a00; font-weight: 700;
+  }
+  .stop-run:disabled { opacity: .55; cursor: default; }
+</style>
+
+<aside class="left">
+  <h1>NSC Gauntlet</h1>
+  <div class="mode-marker" id="mode-marker" hidden>LOCAL REHEARSAL</div>
+  <button class="stop-run" id="stop-run" hidden onclick="toggleLocalRun(this)">Stop run</button>
+  <button class="stop-run" id="force-stop-run" hidden onclick="requestLocalForceStop(this)">Stop now (kill crews)</button>
+  <button class="stop-run" id="reset-run" hidden onclick="requestLocalReset(this)">Reset (delete this run)</button>
+  <div class="sub" id="stop-status" hidden></div>
+  <div class="sub" id="architect-line" hidden><span class="dot dead" id="architect-dot"></span><span id="architect-text">architect: unknown</span></div>
+  <button class="stop-run" id="poke-architect" hidden onclick="requestLocalPoke(this)">Poke the architect</button>
+  <div class="sub" id="runline">connecting…</div>
+  <div class="sub"><span class="dot dead" id="livedot"></span><span id="livetext">offline</span></div>
+
+  <h2>Run</h2>
+  <div id="runstats"></div>
+
+  <h2>View</h2>
+  <div class="btns">
+    <button id="mode-all" class="on" disabled>Relationships</button>
+  </div>
+  <div class="sub">solid arrow · depends on<br>dashed lime arrow · generated child</div>
+  <div class="btns">
+    <button id="zin">Zoom +</button>
+    <button id="zout">Zoom −</button>
+    <button id="fit">Fit</button>
+  </div>
+
+  <h2>Filter</h2>
+  <div class="sub" id="display-scope"></div>
+  <label class="check"><input type="checkbox" id="f-cancelled"> show cancelled</label>
+  <label class="check"><input type="checkbox" id="f-scope" checked> run scope only</label>
+
+  <h2>States</h2>
+  <div id="legend"></div>
+</aside>
+
+<main>
+  <section id="run-details" aria-labelledby="run-details-heading">
+    <div class="run-details-header">
+      <h2 id="run-details-heading">Project checkout</h2>
+      <button id="run-details-toggle" aria-label="Collapse Project checkout" aria-expanded="true" aria-controls="run-details-body">Collapse</button>
+    </div>
+    <div id="run-details-body">
+      <div class="run-location">
+        <code id="run-source">Unavailable</code>
+        <button id="copy-run-source" class="run-copy" aria-label="Copy project checkout path" disabled>Copy</button>
+      </div>
+      <div class="run-secondary">
+        <div>
+          <h2>Uncommitted local build SHA-256</h2>
+          <div class="run-location">
+            <code id="run-runtime">Unavailable</code>
+            <button id="copy-run-runtime" class="run-copy" aria-label="Copy uncommitted local build SHA-256" disabled>Copy</button>
+          </div>
+        </div>
+        <div>
+          <h2>Source branch</h2>
+          <div class="run-location">
+            <code id="run-branch">Unavailable</code>
+            <button id="copy-run-branch" class="run-copy" aria-label="Copy source branch" disabled>Copy</button>
+          </div>
+        </div>
+        <div>
+          <h2>GitHub repository</h2>
+          <div class="run-location">
+            <code id="run-github">Unavailable</code>
+            <button id="copy-run-github" class="run-copy" aria-label="Copy GitHub repository URL" disabled>Copy</button>
+          </div>
+        </div>
+        <div>
+          <h2>Run folder</h2>
+          <div class="run-location">
+            <code id="run-folder">Unavailable</code>
+            <button id="copy-run-folder" class="run-copy" aria-label="Copy exact run folder" disabled>Copy</button>
+          </div>
+        </div>
+      </div>
+      <div id="run-copy-status" role="status" aria-live="polite"></div>
+    </div>
+    <div id="run-details-resize" class="resize-handle" role="separator" tabindex="0" aria-label="Resize Project checkout height" aria-orientation="horizontal" aria-controls="run-details" title="Drag or use Up/Down to resize Project checkout"></div>
+  </section>
+  <section id="pipeline-activity" aria-label="Pipeline Activity">
+    <div class="panel-header">
+      <div class="pipeline-title">
+        <h2>Pipeline Activity</h2>
+        <div id="pipeline-headline" role="status" aria-live="polite">Reading durable run artifacts…</div>
+      </div>
+      <button id="pipeline-toggle" aria-label="Collapse Pipeline Activity" aria-expanded="true" aria-controls="pipeline-body">Collapse</button>
+    </div>
+    <div id="pipeline-body"></div>
+    <div id="pipeline-resize" class="resize-handle" role="separator" tabindex="0" aria-label="Resize Pipeline Activity height" aria-orientation="horizontal" aria-controls="pipeline-activity" title="Drag or use Up/Down to resize Pipeline Activity"></div>
+  </section>
+  <div id="cy"></div>
+</main>
+
+<aside class="right" id="detail-panel" aria-label="Task details">
+  <div id="detail-resize" class="resize-handle" role="separator" tabindex="0" aria-label="Resize task details width" aria-orientation="vertical" aria-controls="detail-panel" title="Drag or use Left/Right to resize task details"></div>
+  <div class="panel-header" id="detail-header">
+    <h2 id="detail-heading">Task detail</h2>
+    <button id="detail-toggle" aria-label="Collapse task details" aria-expanded="true" aria-controls="detail" title="Collapse task details">›</button>
+  </div>
+  <div id="detail"><div class="empty">Click a node.</div></div>
+</aside>
+
+<section id="review-alarm" hidden aria-live="assertive" aria-label="Overdue human review alarm">
+  <div id="review-alarm-card">
+    <h2>I’m sorry, Vincent. I’m afraid I can’t do that.</h2>
+    <p id="review-alarm-message">Approve or deny the exact candidate to stop the alarm.</p>
+    <div id="review-alarm-media"><div id="review-alarm-player"></div></div>
+  </div>
+</section>
+
+<script>
+// Keys are server state values and must not change; labels and order are
+// presentation. Grouped by who currently holds the task.
+const STATES = {
+  assistant_idle: { color: '#0b7348', borderWidth: 4, borderStyle: 'dashed',
+                    label: 'Awaiting Instruction', group: 'awaiting admission',
+                    hint: 'managed through conversation; readiness is checked before admission' },
+  ready:          { color: '#a855f7', label: 'Task Unstarted', group: 'awaiting admission',
+                    hint: 'dependencies satisfied; waiting for the controller to admit it' },
+  decomposition_ready: { color: '#ffd23f', label: 'Decomposition Available', group: 'awaiting admission',
+                    hint: 'dependencies satisfied; this contract is ready for decomposition' },
+  pending:        { color: '#56606b', label: 'Task Dependencies Unmet', group: 'awaiting admission',
+                    hint: 'one or more depends_on tasks are not complete yet' },
+
+  human_action:   { color: '#ff4fb3', label: 'Task Needs You', group: 'on you',
+                    hint: 'human_action_required — your Unity checklist' },
+  local_review_ready: { color: '#f4c2ff', label: 'Local Review Ready', group: 'on you',
+                    hint: 'local candidate awaiting review; no publication or task completion' },
+  blocked:        { color: '#ff7a00', label: 'Task Blocked',   group: 'on you',
+                    hint: 'worker stopped short — you inspect blockers or repair the environment' },
+  failed:         { color: '#ef233c', label: 'Task Failed',    group: 'on you',
+                    hint: 'worker run failed — you diagnose' },
+
+  active:         { color: '#3b82f6', label: 'Task Working',   group: 'in flight',
+                    hint: 'a worker is running this right now' },
+  aggregate:      { color: '#b6ff00', label: 'Decomposed Parent', group: 'in flight',
+                    hint: 'non-executable parent; status is rolled up from its generated children' },
+  checks_pending: { color: '#00e5ff', label: 'Task In CI',     group: 'in flight',
+                    hint: 'waiting on GitHub pull-request checks' },
+  integration_queued: { color: '#f8fafc', label: 'Candidate Ready — Waiting for Merge Gate', group: 'in flight',
+                    hint: 'an implemented candidate is queued for merge, post-merge validation, and human handoff' },
+  delivery_ready: { color: '#ff9ff3', label: 'Verified — Ready to Continue', group: 'in flight',
+                    hint: 'the exact human-approved handoff is agent-ready but not yet gate-queued' },
+
+  complete:       { color: '#22c55e', label: 'Task Complete',  group: 'finished',
+                    hint: 'committed TaskGraph conformance evidence proves delivery' },
+  local_accepted: { color: '#22c55e', label: 'Locally Accepted', group: 'finished',
+                    hint: 'candidate integrated into the run-owned local Source; no production delivery or human PASS is claimed' },
+  cancelled:      { color: '#9a6a3a', label: 'Task Retired',   group: 'finished',
+                    hint: 'contract cancelled/superseded in the task graph' },
+  excluded:       { color: '#aab4c0', label: 'Task Excluded',  group: 'finished',
+                    hint: 'named in the run manifest exclusion list' },
+};
+
+cytoscape.use(cytoscapeDagre);
+
+const hidden = new Set(['cancelled']);
+let snapshot = null;
+const approvalOutcomes = new Map();
+let lastStates = new Map();
+
+const cy = cytoscape({
+  container: document.getElementById('cy'),
+  minZoom: 0.05,
+  maxZoom: 3,
+  wheelSensitivity: 0.25,
+  style: [
+    {
+      selector: 'node',
+      style: {
+        shape: 'round-rectangle',
+        width: 248,
+        height: 'label',
+        padding: 11,
+        'background-color': '#21262d',
+        'border-width': 2,
+        'border-color': '#484f58',
+        label: 'data(label)',
+        color: '#e6edf3',
+        'font-size': 11,
+        'text-wrap': 'wrap',
+        'text-max-width': 224,
+        'text-valign': 'center',
+        'text-halign': 'center',
+        'line-height': 1.35,
+        'min-zoomed-font-size': 7,
+      },
+    },
+    {
+      selector: 'edge',
+      style: {
+        width: 1.4,
+        'line-color': '#30363d',
+        'target-arrow-color': '#30363d',
+        'target-arrow-shape': 'triangle',
+        'arrow-scale': 0.85,
+        'curve-style': 'bezier',
+      },
+    },
+    { selector: 'edge[kind = "parent"]', style: {
+      width: 2.2, 'line-style': 'dashed', 'line-color': '#b6ff00',
+      'target-arrow-color': '#b6ff00', 'target-arrow-shape': 'vee',
+    } },
+    { selector: 'node:selected', style: { 'border-width': 4, 'border-color': '#58a6ff' } },
+    {
+      selector: '.faded',
+      style: { opacity: 0.16, 'text-opacity': 0.16 },
+    },
+    {
+      selector: '.hl',
+      style: { 'line-color': '#58a6ff', 'target-arrow-color': '#58a6ff', width: 2.4, opacity: 1 },
+    },
+  ],
+});
+
+// One selector per state keeps repaints cheap on update.
+for (const [state, meta] of Object.entries(STATES)) {
+  cy.style().selector(`node[state = "${state}"]`).style({
+    'border-color': meta.color,
+    'border-width': meta.borderWidth || 2,
+    'border-style': meta.borderStyle || 'solid',
+    'background-color': shade(meta.color),
+  }).update();
+}
+function shade(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  return `rgb(${Math.round(r * .22 + 22)},${Math.round(g * .22 + 26)},${Math.round(b * .22 + 32)})`;
+}
+
+// Storage is optional (private browsing, blocked storage, or corrupt old values).
+function readPreference(key) {
+  try { return JSON.parse(localStorage.getItem(key)); } catch { return null; }
+}
+function savePreference(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* Keep this session usable. */ }
+}
+
+function initializePanels() {
+  const key = 'nsc.gauntlet.panels.v1';
+  const saved = readPreference(key) || {};
+  const main = document.querySelector('main');
+  const pipeline = document.getElementById('pipeline-activity');
+  const detail = document.getElementById('detail-panel');
+  const pipelineToggle = document.getElementById('pipeline-toggle');
+  const detailToggle = document.getElementById('detail-toggle');
+  const finite = (value, fallback) => typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+  const clamp = (value, min, max) => Math.round(Math.max(min, Math.min(max, value)));
+  const state = {
+    pipelineHeight: clamp(finite(saved.pipelineHeight, 176), 120, 480),
+    detailWidth: clamp(finite(saved.detailWidth, 320), 220, 560),
+    pipelineCollapsed: saved.pipelineCollapsed === true,
+    detailCollapsed: saved.detailCollapsed === true,
+  };
+  const panels = [
+    {size: 'pipelineHeight', collapsed: 'pipelineCollapsed', handle: document.getElementById('pipeline-resize'),
+      min: 120, max: () => Math.max(120, Math.min(480, Math.floor(main.clientHeight * .45))),
+      coordinate: 'clientY', direction: 1, increaseKey: 'ArrowDown', decreaseKey: 'ArrowUp'},
+    {size: 'detailWidth', collapsed: 'detailCollapsed', handle: document.getElementById('detail-resize'),
+      min: 220, max: () => Math.max(220, Math.min(560, Math.floor(document.body.clientWidth * .45),
+        document.body.clientWidth - document.querySelector('aside.left').offsetWidth - 360)),
+      coordinate: 'clientX', direction: -1, increaseKey: 'ArrowLeft', decreaseKey: 'ArrowRight'},
+  ];
+  function apply() {
+    const height = clamp(state.pipelineHeight, panels[0].min, panels[0].max());
+    const width = clamp(state.detailWidth, panels[1].min, panels[1].max());
+    pipeline.style.height = `${state.pipelineCollapsed ? 64 : height}px`;
+    document.body.style.setProperty('--detail-width', `${state.detailCollapsed ? 44 : width}px`);
+    document.getElementById('pipeline-body').hidden = state.pipelineCollapsed;
+    document.getElementById('detail').hidden = state.detailCollapsed;
+    detail.classList.toggle('collapsed', state.detailCollapsed);
+    pipelineToggle.textContent = state.pipelineCollapsed ? 'Expand' : 'Collapse';
+    pipelineToggle.setAttribute('aria-expanded', String(!state.pipelineCollapsed));
+    pipelineToggle.setAttribute('aria-label', `${state.pipelineCollapsed ? 'Expand' : 'Collapse'} Pipeline Activity`);
+    detailToggle.textContent = state.detailCollapsed ? '‹' : '›';
+    detailToggle.setAttribute('aria-expanded', String(!state.detailCollapsed));
+    detailToggle.setAttribute('aria-label', `${state.detailCollapsed ? 'Expand' : 'Collapse'} task details`);
+    detailToggle.title = detailToggle.getAttribute('aria-label');
+    for (const panel of panels) {
+      panel.handle.hidden = state[panel.collapsed];
+      panel.handle.setAttribute('aria-valuemin', panel.min);
+      panel.handle.setAttribute('aria-valuemax', panel.max());
+      panel.handle.setAttribute('aria-valuenow', clamp(state[panel.size], panel.min, panel.max()));
+    }
+    cy.resize();
+  }
+  function toggle(field) {
+    state[field] = !state[field];
+    apply();
+    savePreference(key, state);
+  }
+  pipelineToggle.onclick = () => toggle('pipelineCollapsed');
+  detailToggle.onclick = () => toggle('detailCollapsed');
+  for (const panel of panels) {
+    let drag = null;
+    panel.handle.onpointerdown = event => {
+      if (event.button !== 0 || !event.isPrimary) return;
+      event.preventDefault();
+      panel.handle.focus();
+      panel.handle.setPointerCapture(event.pointerId);
+      drag = {id: event.pointerId, start: event[panel.coordinate],
+        size: clamp(state[panel.size], panel.min, panel.max())};
+      document.body.classList.add('resizing');
+    };
+    panel.handle.onpointermove = event => {
+      if (!drag || event.pointerId !== drag.id) return;
+      state[panel.size] = clamp(drag.size + (event[panel.coordinate] - drag.start) * panel.direction,
+        panel.min, panel.max());
+      apply();
+    };
+    function finishDrag(event) {
+      if (!drag || event.pointerId !== drag.id) return;
+      drag = null;
+      if (panel.handle.hasPointerCapture(event.pointerId)) panel.handle.releasePointerCapture(event.pointerId);
+      document.body.classList.remove('resizing');
+      savePreference(key, state);
+    }
+    panel.handle.onpointerup = finishDrag;
+    panel.handle.onpointercancel = finishDrag;
+    panel.handle.onlostpointercapture = finishDrag;
+    panel.handle.onkeydown = event => {
+      const current = clamp(state[panel.size], panel.min, panel.max());
+      const values = {Home: panel.min, End: panel.max(),
+        [panel.increaseKey]: current + 20, [panel.decreaseKey]: current - 20};
+      if (!(event.key in values)) return;
+      event.preventDefault();
+      state[panel.size] = clamp(values[event.key], panel.min, panel.max());
+      apply();
+      savePreference(key, state);
+    };
+  }
+  // Observe the actual canvas container, including layout changes without a
+  // window resize. Resizing preserves node positions and the operator's zoom.
+  new ResizeObserver(() => cy.resize()).observe(document.getElementById('cy'));
+  window.addEventListener('resize', apply);
+  apply();
+}
+initializePanels();
+initializeRunDetails();
+
+function initializeRunDetails() {
+  const key = 'nsc.gauntlet.run-details.v1';
+  const section = document.getElementById('run-details');
+  const body = document.getElementById('run-details-body');
+  const toggle = document.getElementById('run-details-toggle');
+  const handle = document.getElementById('run-details-resize');
+  const stored = readPreference(key);
+  const state = {
+    collapsed: stored === true || stored?.collapsed === true,
+    height: typeof stored?.height === 'number' && Number.isFinite(stored.height) ? stored.height : 148,
+  };
+  const limits = () => ({min: 72, max: Math.max(72, Math.min(360, Math.floor(document.querySelector('main').clientHeight * .4)))});
+  const clampHeight = value => {
+    const {min, max} = limits();
+    return Math.round(Math.max(min, Math.min(max, value)));
+  };
+  let drag = null;
+  function apply() {
+    state.height = clampHeight(state.height);
+    section.style.height = `${state.collapsed ? 46 : state.height}px`;
+    body.hidden = state.collapsed;
+    handle.hidden = state.collapsed;
+    toggle.textContent = state.collapsed ? 'Expand' : 'Collapse';
+    toggle.setAttribute('aria-expanded', String(!state.collapsed));
+    toggle.setAttribute('aria-label', `${state.collapsed ? 'Expand' : 'Collapse'} Project checkout`);
+    const {min, max} = limits();
+    handle.setAttribute('aria-valuemin', min);
+    handle.setAttribute('aria-valuemax', max);
+    handle.setAttribute('aria-valuenow', state.height);
+    cy.resize();
+  }
+  toggle.onclick = () => {
+    state.collapsed = !state.collapsed;
+    apply();
+    savePreference(key, state);
+  };
+  handle.onpointerdown = event => {
+    if (event.button !== 0 || !event.isPrimary) return;
+    event.preventDefault();
+    handle.focus();
+    handle.setPointerCapture(event.pointerId);
+    drag = {id: event.pointerId, start: event.clientY, height: state.height};
+    document.body.classList.add('resizing');
+  };
+  handle.onpointermove = event => {
+    if (!drag || event.pointerId !== drag.id) return;
+    state.height = clampHeight(drag.height + event.clientY - drag.start);
+    apply();
+  };
+  function finishDrag(event) {
+    if (!drag || event.pointerId !== drag.id) return;
+    drag = null;
+    if (handle.hasPointerCapture(event.pointerId)) handle.releasePointerCapture(event.pointerId);
+    document.body.classList.remove('resizing');
+    savePreference(key, state);
+  }
+  handle.onpointerup = finishDrag;
+  handle.onpointercancel = finishDrag;
+  handle.onlostpointercapture = finishDrag;
+  handle.onkeydown = event => {
+    const {min, max} = limits();
+    const values = {Home: min, End: max, ArrowDown: state.height + 20, ArrowUp: state.height - 20};
+    if (!(event.key in values)) return;
+    event.preventDefault();
+    state.height = clampHeight(values[event.key]);
+    apply();
+    savePreference(key, state);
+  };
+  window.addEventListener('resize', apply);
+  apply();
+}
+
+let scopePreferenceKey = null;
+let stageExpansionPreferenceKey = null;
+const expandedStageNodes = new Set();
+function configureDisplayScope(snap) {
+  const ids = snap.display?.task_ids;
+  const nextKey = 'nsc.gauntlet.run-filter.v1:' + JSON.stringify([snap.tasks_dir, snap.state_root, ids ?? null]);
+  if (nextKey !== scopePreferenceKey) {
+    scopePreferenceKey = nextKey;
+    const saved = readPreference(scopePreferenceKey);
+    document.getElementById('f-scope').checked = typeof saved === 'boolean' ? saved : !Array.isArray(ids);
+  }
+  const missing = snap.display?.missing_task_ids || [];
+  document.getElementById('display-scope').textContent =
+    (Array.isArray(ids) ? `Display selection: ${ids.join(', ')}` : 'Display selection: all contracts') +
+    (missing.length ? ` · Missing contracts: ${missing.join(', ')}` : '');
+}
+
+function fitGraph() {
+  cy.resize();
+  cy.fit(undefined, 40);
+}
+function zoomGraph(factor) {
+  cy.resize();
+  cy.zoom({level: cy.zoom() * factor, renderedPosition: {x: cy.width() / 2, y: cy.height() / 2}});
+}
+
+function visible(task) {
+  if (hidden.has(task.state)) return false;
+  if (document.getElementById('f-scope').checked && !task.in_scope) return false;
+  if (!document.getElementById('f-cancelled').checked && task.state === 'cancelled') return false;
+  return true;
+}
+
+function labelFor(task) {
+  const title = task.title.length > 76 ? task.title.slice(0, 74) + '…' : task.title;
+  const active = task.state === 'active';
+  const expanded = active && expandedStageNodes.has(task.id);
+  const heading = active ? `${task.node_heading || task.id} ${expanded ? '[-]' : '[+]'}` : task.id;
+  const lines = active && !expanded ? task.node_summary_lines : task.node_lines;
+  if (task.state === 'aggregate' && Array.isArray(lines) && lines.length) {
+    return `${heading}\n${title}\n${lines.join('\n')}`;
+  }
+  return Array.isArray(lines) && lines.length
+    ? `${heading}\n${title}\n${lines.join('\n')}`
+    : `${task.id}\n${title}`;
+}
+
+function toggleStageExpansion(taskId) {
+  if (!snapshot) return;
+  const task = snapshot.tasks.find(item => item.id === taskId);
+  if (!task || task.state !== 'active') return;
+  expandedStageNodes.has(taskId) ? expandedStageNodes.delete(taskId) : expandedStageNodes.add(taskId);
+  saveStageExpansion();
+  const node = cy.getElementById(taskId);
+  if (node.nonempty()) node.data('label', labelFor(task));
+  showDetail(taskId);
+}
+
+function buildElements(tasks) {
+  const shown = tasks.filter(visible);
+  const ids = new Set(shown.map(t => t.id));
+  const nodes = shown.map(t => ({
+    data: { id: t.id, label: labelFor(t), state: t.state },
+  }));
+  const edges = [];
+  for (const t of shown) {
+    for (const dep of t.depends_on) {
+      if (ids.has(dep)) edges.push({ data: { id: `${dep}->${t.id}`, source: dep, target: t.id, kind: 'dep' } });
+    }
+    if (t.parent && ids.has(t.parent)) {
+      edges.push({ data: { id: `${t.parent}=>${t.id}`, source: t.parent, target: t.id, kind: 'parent' } });
+    }
+  }
+  return { nodes, edges };
+}
+
+function layout() {
+  const MAX_COLUMNS = 4;
+  const X_STEP = 290;
+  const Y_STEP = 170;
+  const FAMILY_GAP = 90;
+  const nodes = [...cy.nodes()].sort((a, b) => a.id().localeCompare(b.id()));
+  const outgoing = new Map(nodes.map(node => [node.id(), new Set()]));
+  const incoming = new Map(nodes.map(node => [node.id(), new Set()]));
+  const adjacent = new Map(nodes.map(node => [node.id(), new Set()]));
+  cy.edges().forEach(edge => {
+    const source = edge.source().id(), target = edge.target().id();
+    if (!outgoing.has(source) || !outgoing.has(target)) return;
+    outgoing.get(source).add(target);
+    incoming.get(target).add(source);
+    adjacent.get(source).add(target);
+    adjacent.get(target).add(source);
+  });
+
+  // A lane is exactly one connected component of committed dependency and
+  // decomposition edges. No title, task-number, or visual guess creates a lane.
+  const unseen = new Set(nodes.map(node => node.id()));
+  const components = [];
+  while (unseen.size) {
+    const first = [...unseen].sort()[0];
+    const queue = [first], ids = [];
+    unseen.delete(first);
+    while (queue.length) {
+      const id = queue.shift();
+      ids.push(id);
+      for (const next of [...adjacent.get(id)].sort()) {
+        if (unseen.delete(next)) queue.push(next);
+      }
+    }
+    components.push(ids.sort());
+  }
+
+  let outerRowY = 0, usedColumns = 0, outerRowHeight = 0;
+  const positions = {};
+  for (const ids of components.sort((a, b) => a[0].localeCompare(b[0]))) {
+    const member = new Set(ids);
+    const indegree = new Map(ids.map(id => [id, [...incoming.get(id)].filter(x => member.has(x)).length]));
+    const rank = new Map(ids.map(id => [id, 0]));
+    const queue = ids.filter(id => indegree.get(id) === 0).sort();
+    const visited = new Set();
+    while (queue.length) {
+      const id = queue.shift();
+      visited.add(id);
+      for (const next of [...outgoing.get(id)].filter(x => member.has(x)).sort()) {
+        rank.set(next, Math.max(rank.get(next), rank.get(id) + 1));
+        indegree.set(next, indegree.get(next) - 1);
+        if (indegree.get(next) === 0) queue.push(next);
+      }
+      queue.sort();
+    }
+    // TaskGraph should be acyclic. If an invalid cycle reaches the read-only
+    // viewer, retain every node in a final row without inventing direction.
+    const maxRank = Math.max(0, ...rank.values());
+    for (const id of ids) if (!visited.has(id)) rank.set(id, maxRank + 1);
+
+    const rankGroups = new Map();
+    for (const id of ids) {
+      const level = rank.get(id);
+      if (!rankGroups.has(level)) rankGroups.set(level, []);
+      rankGroups.get(level).push(id);
+    }
+    const componentRows = [];
+    for (const level of [...rankGroups.keys()].sort((a, b) => a - b)) {
+      const levelIds = rankGroups.get(level).sort();
+      for (let start = 0; start < levelIds.length; start += MAX_COLUMNS) {
+        componentRows.push(levelIds.slice(start, start + MAX_COLUMNS));
+      }
+    }
+    const width = Math.max(1, ...componentRows.map(row => row.length));
+    if (usedColumns && usedColumns + width > MAX_COLUMNS) {
+      outerRowY += outerRowHeight + FAMILY_GAP;
+      usedColumns = 0;
+      outerRowHeight = 0;
+    }
+    const centerX = (usedColumns + (width - 1) / 2) * X_STEP;
+    componentRows.forEach((row, rowIndex) => {
+      row.forEach((id, column) => {
+        positions[id] = {
+          x: centerX + (column - (row.length - 1) / 2) * X_STEP,
+          y: outerRowY + rowIndex * Y_STEP,
+        };
+      });
+    });
+    usedColumns += width;
+    outerRowHeight = Math.max(outerRowHeight, componentRows.length * Y_STEP);
+  }
+  cy.layout({
+    name: 'preset',
+    positions: node => positions[node.id()],
+    animate: false,
+    fit: false,
+  }).run();
+}
+
+function configureStageExpansion(snap) {
+  const nextKey = 'nsc.gauntlet.stage-expansion.v1:' + JSON.stringify([snap.tasks_dir, snap.state_root]);
+  if (nextKey === stageExpansionPreferenceKey) return;
+  stageExpansionPreferenceKey = nextKey;
+  expandedStageNodes.clear();
+  const saved = readPreference(nextKey);
+  if (Array.isArray(saved)) {
+    const active = new Set(snap.tasks.filter(task => task.state === 'active').map(task => task.id));
+    for (const taskId of saved) if (active.has(taskId)) expandedStageNodes.add(taskId);
+  }
+}
+
+function saveStageExpansion() {
+  savePreference(stageExpansionPreferenceKey, [...expandedStageNodes].sort());
+}
+
+function render(snap, { relayout }) {
+  renderRunDetails(snap.run);
+  syncReviewAlarm(snap);
+  configureDisplayScope(snap);
+  configureStageExpansion(snap);
+  renderPipelineActivity(snap.pipeline_activity);
+  cy.resize();
+  const { nodes, edges } = buildElements(snap.tasks);
+  const wantNodes = new Set(nodes.map(n => n.data.id));
+  const wantEdges = new Set(edges.map(e => e.data.id));
+
+  let structural = false;
+
+  cy.nodes().forEach(n => { if (!wantNodes.has(n.id())) { n.remove(); structural = true; } });
+  cy.edges().forEach(e => { if (!wantEdges.has(e.id())) { e.remove(); structural = true; } });
+
+  for (const n of nodes) {
+    const existing = cy.getElementById(n.data.id);
+    if (existing.empty()) {
+      cy.add({ group: 'nodes', data: n.data });
+      structural = true;
+    } else {
+      if (existing.data('state') !== n.data.state) {
+        existing.data('state', n.data.state);
+        pulse(existing);
+      }
+      if (existing.data('label') !== n.data.label) existing.data('label', n.data.label);
+    }
+  }
+  for (const e of edges) {
+    if (cy.getElementById(e.data.id).empty()) { cy.add({ group: 'edges', data: e.data }); structural = true; }
+  }
+
+  if (structural || relayout) {
+    layout();
+    if (relayout) fitGraph();
+  }
+  updateLegend(snap);
+}
+
+let reviewAlarmActive = false;
+let reviewAlarmTimer = null;
+let reviewAlarmPlayer = null;
+let reviewAlarmGeneration = 0;
+let youtubeReviewApiReady = false;
+
+window.onYouTubeIframeAPIReady = () => {
+  youtubeReviewApiReady = true;
+  if (reviewAlarmActive && !reviewAlarmPlayer) startReviewAlarmVideo(reviewAlarmGeneration);
+};
+
+function resetReviewAlarmPlayer() {
+  if (reviewAlarmPlayer && typeof reviewAlarmPlayer.destroy === 'function') {
+    reviewAlarmPlayer.destroy();
+  }
+  reviewAlarmPlayer = null;
+  document.getElementById('review-alarm-media').innerHTML = '<div id="review-alarm-player"></div>';
+}
+
+function speakHalWarning(generation, after) {
+  if (!reviewAlarmActive || generation !== reviewAlarmGeneration) return;
+  let continued = false;
+  const continueOnce = () => {
+    if (continued) return;
+    continued = true;
+    if (reviewAlarmActive && generation === reviewAlarmGeneration) after();
+  };
+  if (window.speechSynthesis) {
+    const warning = new SpeechSynthesisUtterance("I'm sorry, Vincent. I'm afraid I can't do that.");
+    warning.rate = 0.72;
+    warning.pitch = 0.55;
+    warning.volume = 1;
+    const voices = window.speechSynthesis.getVoices();
+    warning.voice = voices.find(voice => /david|mark|male/i.test(voice.name)) || voices[0] || null;
+    warning.onend = continueOnce;
+    warning.onerror = continueOnce;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(warning);
+  }
+  reviewAlarmTimer = setTimeout(continueOnce, 4200);
+}
+
+function startReviewAlarmVideo(generation) {
+  if (!reviewAlarmActive || generation !== reviewAlarmGeneration || reviewAlarmPlayer) return;
+  if (!youtubeReviewApiReady || !window.YT || !window.YT.Player) {
+    reviewAlarmTimer = setTimeout(() => startReviewAlarmVideo(generation), 500);
+    return;
+  }
+  reviewAlarmPlayer = new YT.Player('review-alarm-player', {
+    videoId: 'dQw4w9WgXcQ',
+    playerVars: { autoplay: 1, controls: 0, disablekb: 1, rel: 0 },
+    events: {
+      onReady: event => event.target.playVideo(),
+      onStateChange: event => {
+        if (event.data !== YT.PlayerState.ENDED || !reviewAlarmActive ||
+            generation !== reviewAlarmGeneration) return;
+        speakHalWarning(generation, () => {
+          if (reviewAlarmPlayer) {
+            reviewAlarmPlayer.seekTo(0, true);
+            reviewAlarmPlayer.playVideo();
+          }
+        });
+      },
+    },
+  });
+}
+
+function syncReviewAlarm(snap) {
+  const attention = snap && snap.assistant_attention;
+  const alarm = attention && attention.review_alarm;
+  const active = !!(alarm && alarm.active);
+  const panel = document.getElementById('review-alarm');
+  if (!active) {
+    if (reviewAlarmTimer) clearTimeout(reviewAlarmTimer);
+    reviewAlarmTimer = null;
+    if (reviewAlarmActive && window.speechSynthesis) window.speechSynthesis.cancel();
+    reviewAlarmActive = false;
+    reviewAlarmGeneration += 1;
+    panel.hidden = true;
+    resetReviewAlarmPlayer();
+    return;
+  }
+  panel.hidden = false;
+  const tasks = Array.isArray(attention.task_ids) ? attention.task_ids.join(', ') : 'this task';
+  document.getElementById('review-alarm-message').textContent =
+    `${tasks} has waited more than 30 minutes. Approve or deny its exact candidate to stop the alarm.`;
+  if (reviewAlarmActive) return;
+  reviewAlarmActive = true;
+  reviewAlarmGeneration += 1;
+  const generation = reviewAlarmGeneration;
+  speakHalWarning(generation, () => startReviewAlarmVideo(generation));
+}
+
+function pulse(node) {
+  node.animate({ style: { 'border-width': 9 } }, { duration: 220 })
+      .animate({ style: { 'border-width': 2 } }, { duration: 600 });
+}
+
+function renderRunDetails(run = {}) {
+  const status = document.getElementById('run-copy-status');
+  for (const [field, label, raw] of [
+    ['source', 'Project checkout path', run.source_repository],
+    ['branch', 'Source branch', run.source_branch],
+    ['runtime', 'Uncommitted local build SHA-256', run.local_runtime_patch_sha256],
+    ['github', 'GitHub repository', run.github_url],
+    ['folder', 'Run folder', run.dir],
+  ]) {
+    const value = typeof raw === 'string' && raw.trim() ? raw : null;
+    const text = document.getElementById(`run-${field}`);
+    const button = document.getElementById(`copy-run-${field}`);
+    if (text.textContent !== (value ?? 'Unavailable')) {
+      button.textContent = 'Copy';
+      status.textContent = '';
+    }
+    text.textContent = value ?? 'Unavailable';
+    button.disabled = value === null;
+    button.onclick = value === null ? null : async () => {
+      try {
+        await navigator.clipboard.writeText(value);
+        button.textContent = 'Copied';
+        status.textContent = `${label} copied.`;
+      } catch (_) {
+        status.textContent = `Copy unavailable. Select the ${label.toLowerCase()} text and copy it manually.`;
+      }
+    };
+  }
+}
+
+function legendState(task) {
+  return task.state === 'complete' && task.local_acceptance ? 'local_accepted' : task.state;
+}
+
+function updateLegend(snap) {
+  const counts = {};
+  const scopeOnly = document.getElementById('f-scope').checked;
+  for (const t of snap.tasks) {
+    if (scopeOnly && !t.in_scope) continue;
+    counts[legendState(t)] = (counts[legendState(t)] || 0) + 1;
+  }
+  const el = document.getElementById('legend');
+  el.innerHTML = '';
+  let group = null;
+  for (const [state, meta] of Object.entries(STATES)) {
+    if (state === 'assistant_idle' && snap.run.mode !== 'assistant') continue;
+    if (['local_review_ready', 'local_accepted'].includes(state) && !['local_rehearsal', 'assistant'].includes(snap.run.mode)) continue;
+    if (snap.run.mode === 'local_rehearsal' && ['complete', 'checks_pending', 'integration_queued'].includes(state)) continue;
+    if (meta.group !== group) {
+      group = meta.group;
+      const head = document.createElement('div');
+      head.className = 'lgroup';
+      head.textContent = group;
+      el.appendChild(head);
+    }
+    const row = document.createElement('div');
+    row.className = 'legend' + (hidden.has(state) ? ' off' : '');
+    const hint = snap.run.mode === 'assistant' && state === 'local_accepted'
+      ? 'exact human-approved candidate integrated locally; no production delivery claim' : meta.hint;
+    row.title = `${hint} · state key "${state}"`;
+    row.innerHTML =
+      `<span class="swatch" style="background:${meta.color}"></span>` +
+      `<span>${meta.label}</span><span class="count">${counts[state] || 0}</span>`;
+    row.onclick = () => {
+      const key = state === 'local_accepted' && snap.run.mode === 'local_rehearsal' ? 'complete' : state;
+      hidden.has(key) ? hidden.delete(key) : hidden.add(key);
+      render(snapshot, { relayout: false });
+    };
+    el.appendChild(row);
+  }
+
+  const run = snap.run;
+  const p = run.progress || {};
+  const local = run.mode === 'local_rehearsal';
+  const operatorInfo = run.operator || {};
+  // The persistent viewer controls production runs too; buttons key off it, not the mode.
+  const controllable = local || !!operatorInfo.viewer_persistent;
+  const markerNode = document.getElementById('mode-marker');
+  markerNode.hidden = !controllable;
+  markerNode.textContent = run.marker || (local ? 'LOCAL REHEARSAL' : 'PRODUCTION');
+  const stopButton = document.getElementById('stop-run');
+  const stopStatus = document.getElementById('stop-status');
+  if (stopButton) {
+    stopButton.hidden = !controllable;
+    if (controllable && run.stop_requested) {
+      stopButton.disabled = true;
+      stopButton.textContent = 'Stop requested';
+      stopStatus.hidden = false;
+      const stop = run.stop || {};
+      if (stop.acknowledged) {
+        const since = stop.draining_since_utc ? stop.draining_since_utc.slice(11, 19) + 'Z' : 'now';
+        const limit = stop.drain_limit_seconds ? Math.round(stop.drain_limit_seconds / 60) + ' min' : 'a bounded time';
+        const count = stop.active_children == null ? 'its' : String(stop.active_children);
+        stopStatus.textContent = `Draining ${count} running crews since ${since} (up to ${limit}); they finish on their own, then the scheduler exits. Nothing is deleted. Immediate stop: NscRun stop -Force.`;
+      } else {
+        stopStatus.textContent = 'Stop requested; the scheduler finishes its current step, then drains. Immediate stop: NscRun stop -Force.';
+      }
+    } else if (controllable && !stopButton.dataset.pending) {
+      const op = run.operator || {};
+      if (op.start_pending) {
+        stopButton.disabled = true;
+        stopButton.dataset.mode = 'starting';
+        stopButton.textContent = 'Starting…';
+        stopStatus.hidden = false;
+        stopStatus.textContent = 'Launching a run in place: login check, preflight, images, scheduler. The page follows it when it appears.';
+      } else if (op.start_available) {
+        stopButton.disabled = false;
+        stopButton.dataset.mode = 'start';
+        stopButton.textContent = 'Start run';
+        stopStatus.hidden = !(run.run_id || op.start_error || op.observe_error);
+        if (op.start_error) stopStatus.textContent = 'Last start failed: ' + op.start_error;
+        else if (op.observe_error) stopStatus.textContent = 'Newest run is not shown (' + op.observe_error + '). Start launches a new run; NscRun reset -Force deletes the old one.';
+        else if (run.run_id) stopStatus.textContent = 'This run has stopped. Start launches a new run; Reset deletes this one.';
+      } else if (op.start_blocker && op.viewer_persistent && (!run.run_id || op.stop_receipt_present || op.scheduler_stopped)) {
+        stopButton.disabled = true;
+        stopButton.dataset.mode = 'start';
+        stopButton.textContent = 'Start run';
+        stopStatus.hidden = false;
+        stopStatus.textContent = 'Cannot start: ' + op.start_blocker + '. Commit or discard those changes, then this button enables itself.';
+      } else {
+        stopButton.disabled = false;
+        stopButton.dataset.mode = 'stop';
+        stopButton.textContent = 'Stop run';
+        stopStatus.hidden = true;
+      }
+    }
+    const architect = run.architect || null;
+    const architectLine = document.getElementById('architect-line');
+    const pokeButton = document.getElementById('poke-architect');
+    architectLine.hidden = !(controllable && run.run_id);
+    pokeButton.hidden = !(controllable && run.run_id);
+    if (controllable && run.run_id && architect) {
+      const age = architect.seconds_since_event == null ? '' : ` · last event ${architect.seconds_since_event}s ago (${architect.last_event || '?'})`;
+      const calls = (run.progress && run.progress.architect_invocations_total != null) ? ` · ${run.progress.architect_invocations_total} architect calls` : '';
+      document.getElementById('architect-dot').className = 'dot ' + (architect.alive ? 'live' : 'dead');
+      document.getElementById('architect-text').textContent =
+        (architect.alive ? `architect host alive (pid ${architect.pid})` : (architect.finished ? 'architect host exited' : 'architect host not running')) + age + calls;
+      if (!pokeButton.dataset.pending) pokeButton.disabled = !(architect.alive && architect.wake_endpoint);
+      pokeButton.title = architect.wake_endpoint ? 'Wakes the scheduler now so it polls and invokes the architect if there is eligible work' : 'No live wake endpoint';
+    }
+    const operator = run.operator || {};
+    const forceButton = document.getElementById('force-stop-run');
+    const resetButton = document.getElementById('reset-run');
+    forceButton.hidden = !(controllable && operator.force_stop_available);
+    resetButton.hidden = !(controllable && operator.launch_receipt);
+    if (!forceButton.dataset.pending) forceButton.disabled = !!operator.stop_receipt_present;
+    if (!resetButton.dataset.pending) {
+      resetButton.disabled = !operator.reset_available;
+      resetButton.title = operator.reset_available ? 'Deletes this run directory and its containers' : 'Stop the run first';
+    }
+  }
+  document.getElementById('runline').textContent =
+    (run.mode === 'assistant' ? 'Assistant-managed project' : (run.run_id || 'no active run')) + (run.repository ? ` · ${run.repository}` : '');
+  document.getElementById('runstats').innerHTML = [
+    ['tasks', snap.tasks.length],
+    ['in run scope', run.targets.length],
+    ['capacity', run.max_capacity ?? '—'],
+    ['workers now', snap.scheduler.active.length],
+    ['poll cycles', p.poll_cycles_total ?? '—'],
+    ['worker launches', p.worker_launches_total ?? '—'],
+    ['architect calls', p.architect_invocations_total ?? '—'],
+    [run.mode === 'assistant' ? 'control' : (local ? 'local run status' : 'graph complete'),
+      run.mode === 'assistant' ? 'conversation' : (local ? run.status : (run.complete ? 'yes' : 'no'))],
+  ].filter(([k]) => run.mode !== 'assistant' || !['capacity', 'poll cycles', 'worker launches', 'architect calls'].includes(k))
+    .map(([k, v]) => `<div class="stat"><span>${esc(k)}</span><span>${esc(v)}</span></div>`).join('');
+}
+
+function esc(s) {
+  return String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+}
+
+function escAttr(s) {
+  return esc(s).replace(/["']/g, c => ({ '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+let pipelineSample = null;
+let pipelineReceivedAt = 0;
+
+function pipelineDuration(seconds) {
+  if (seconds == null) return 'unavailable';
+  const s = Math.max(0, Math.floor(seconds));
+  return s >= 3600 ? `${Math.floor(s / 3600)}h ${Math.floor(s % 3600 / 60)}m`
+    : `${Math.floor(s / 60)}m ${s % 60}s`;
+}
+
+function showActivityUnavailable(message = 'This response has no pipeline activity details.') {
+  pipelineSample = null;
+  pipelineReceivedAt = 0;
+  const headline = document.getElementById('pipeline-headline');
+  headline.textContent = 'Pipeline activity unavailable';
+  headline.title = message;
+  document.getElementById('pipeline-body').innerHTML = `<p class="pipeline-note">${esc(message)}</p>`;
+}
+
+function validPipelineActivity(activity) {
+  const record = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+  const count = value => value === null || (Number.isSafeInteger(value) && value >= 0);
+  const seconds = value => value === null || (Number.isFinite(value) && value >= 0);
+  if (!record(activity)) return false;
+  const strings = ['headline', 'description', 'provider_profile', 'provider', 'provider_source',
+    'model', 'model_source', 'call_status', 'liveness'];
+  if (!strings.every(key => typeof activity[key] === 'string') || !activity.headline.trim()) return false;
+  if (typeof activity.terminal !== 'boolean' || typeof activity.provider_call_open !== 'boolean') return false;
+  // Production snapshots omit mode; local snapshots add their two local counters.
+  if (activity.mode !== undefined && activity.mode !== 'local_rehearsal') return false;
+  if (!['stage_elapsed_seconds', 'run_elapsed_seconds', 'last_event_age_seconds']
+    .every(key => seconds(activity[key]))) return false;
+  if (!Number.isFinite(activity.stale_after_seconds) || activity.stale_after_seconds < 0) return false;
+  const counterKeys = ['active_workers', 'capacity', 'eligible_or_queued', 'dependency_blocked',
+    'completed', 'architect_calls_completed', 'worker_launches', 'wakeups'];
+  if (activity.mode === 'local_rehearsal') counterKeys.push('awaiting_worker', 'local_review_ready');
+  if (!record(activity.counters) || !counterKeys.every(key => count(activity.counters[key]))) return false;
+  if (!count(activity.candidate_count) || !Array.isArray(activity.candidates) ||
+    !activity.candidates.every(item => record(item) && typeof item.task_id === 'string' &&
+      Array.isArray(item.work_types) && item.work_types.every(value => typeof value === 'string'))) return false;
+  return Array.isArray(activity.recent_activity) && activity.recent_activity.every(item =>
+    record(item) && typeof item.headline === 'string' &&
+    (item.timestamp_utc === null || typeof item.timestamp_utc === 'string'));
+}
+
+function renderPipelineActivity(activity) {
+  if (!validPipelineActivity(activity)) {
+    showActivityUnavailable(activity == null
+      ? 'This response has no pipeline activity details.'
+      : 'This response has incomplete or invalid pipeline activity details.');
+    return;
+  }
+  if (pipelineSample !== activity) {
+    pipelineSample = activity;
+    pipelineReceivedAt = performance.now();
+  }
+  document.getElementById('pipeline-headline').textContent = activity.headline;
+  document.getElementById('pipeline-headline').title = activity.headline;
+  const architectIdentity = snapshot && snapshot.run.mode === 'assistant' ? '' :
+    `<div class="pipeline-note">Provider profile: <b>${esc(activity.provider_profile)}</b> · ` +
+    `Software Architect: <b>${esc(activity.provider)}</b> · Model: <b>${esc(activity.model)}</b></div>`;
+  const architect = architectIdentity + (activity.provider_call_open ?
+    `<p class="pipeline-note">${esc(activity.description)}</p>` +
+    `<p class="pipeline-note">${esc(activity.call_status)}</p>` +
+    `<div class="pipeline-candidates">${activity.candidates.map(item => `<span>${esc(item.task_id)} · ${item.work_types.length ? esc(item.work_types.join(', ')) : 'work types unavailable'}</span>`).join('')}</div>` :
+    (activity.description ? `<p class="pipeline-note">${esc(activity.description)}</p>` : ''));
+  const timingParts = [];
+  if (activity.stage_elapsed_seconds != null) {
+    timingParts.push(`${activity.terminal ? 'Final stage' : 'Current stage'}: <span id="pipeline-stage-elapsed"></span>`);
+  }
+  if (activity.run_elapsed_seconds != null) {
+    timingParts.push(`Run: <span id="pipeline-run-elapsed"></span>`);
+  }
+  const timing = timingParts.length
+    ? `<div class="pipeline-note">${timingParts.join(' · ')}</div>`
+    : '';
+  document.getElementById('pipeline-body').innerHTML =
+    '<div id="pipeline-freshness"></div>' +
+    architect +
+    timing +
+    '<h2>Recent activity</h2>' +
+    `<ol class="pipeline-timeline">${activity.recent_activity.map(item => `<li><time>${esc(item.timestamp_utc || 'time unavailable')}</time>${esc(item.headline)}</li>`).join('') || '<li>No durable events available.</li>'}</ol>`;
+  updatePipelineTimers();
+}
+
+function updatePipelineTimers() {
+  if (!pipelineSample) return;
+  const delta = Math.max(0, performance.now() - pipelineReceivedAt) / 1000;
+  const elapsed = pipelineSample.stage_elapsed_seconds;
+  const age = pipelineSample.last_event_age_seconds;
+  const stageElement = document.getElementById('pipeline-stage-elapsed');
+  if (stageElement) stageElement.textContent = pipelineDuration(
+    elapsed + (pipelineSample.terminal ? 0 : delta));
+  const runElapsed = pipelineSample.run_elapsed_seconds;
+  const runElement = document.getElementById('pipeline-run-elapsed');
+  if (runElement) runElement.textContent = pipelineDuration(
+    runElapsed + (pipelineSample.terminal ? 0 : delta));
+  const freshness = document.getElementById('pipeline-freshness');
+  if (snapshot && snapshot.run.mode === 'assistant') {
+    freshness.textContent = 'Read-only view. Worker process status is shown on each task.';
+    freshness.classList.remove('stale');
+    return;
+  }
+  freshness.textContent = age == null
+    ? 'Last durable event time unavailable; process status is unknown from artifacts.'
+    : `No new durable event for ${pipelineDuration(age + delta)}; process status is unknown from artifacts.`;
+  freshness.classList.toggle('stale', age == null || age + delta >= pipelineSample.stale_after_seconds);
+}
+// SSE sends only artifact changes. The local clock must keep advancing during
+// quiet provider calls and disconnected streams without claiming process life.
+setInterval(updatePipelineTimers, 1000);
+
+function githubIssueNavigation(task) {
+  if (snapshot && snapshot.run && snapshot.run.mode === 'local_rehearsal') {
+    return '<div class="github-navigation"><div class="issue-unavailable">No GitHub Issue — local rehearsal</div></div>';
+  }
+  const w = task.worker;
+  const repository = snapshot && snapshot.run && snapshot.run.repository;
+  const safeRepository = typeof repository === 'string' &&
+    /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}\/[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(repository);
+  const validNumber = w && Number.isInteger(w.issue_number) && w.issue_number > 0;
+  const expectedUrl = safeRepository && validNumber
+    ? `https://github.com/${repository}/issues/${w.issue_number}`
+    : null;
+  if (!expectedUrl || w.issue_url !== expectedUrl) {
+    return '<div class="github-navigation"><div class="issue-unavailable">GitHub Issue unavailable</div></div>';
+  }
+  const primary = task.state === 'human_action' ? ' primary' : '';
+  return `<div class="github-navigation">` +
+    `<a class="issue-button${primary}" href="${escAttr(expectedUrl)}" target="_blank" rel="noopener noreferrer">Open GitHub Issue</a>` +
+    `<div class="issue-number">Issue <code>#${esc(w.issue_number)}</code></div></div>`;
+}
+
+function githubPullRequestNavigation(task) {
+  if (snapshot && snapshot.run && snapshot.run.mode === 'local_rehearsal') return '';
+  const w = task.worker;
+  const repository = snapshot && snapshot.run && snapshot.run.repository;
+  const safeRepository = typeof repository === 'string' &&
+    /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}\/[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(repository);
+  const validNumber = w && Number.isInteger(w.pull_request_number) && w.pull_request_number > 0;
+  const expectedUrl = safeRepository && validNumber
+    ? `https://github.com/${repository}/pull/${w.pull_request_number}`
+    : null;
+  if (!expectedUrl || w.pull_request_url !== expectedUrl) return '';
+  return `<div class="github-navigation">` +
+    `<a class="issue-button" href="${escAttr(expectedUrl)}" target="_blank" rel="noopener noreferrer">Open Pull Request / Checks</a>` +
+    `<div class="issue-number">Pull request <code>#${esc(w.pull_request_number)}</code></div></div>`;
+}
+
+function humanApprovalControl(task) {
+  const actions = snapshot && Array.isArray(snapshot.human_actions) ? snapshot.human_actions : [];
+  const action = actions.find(item => item.task_id === task.id);
+  const outcome = approvalOutcomes.get(task.id);
+  if (!action) return outcome
+    ? `<div class="approval-panel"><strong>Last human action</strong><div class="approval-status">${esc(outcome)}</div></div>`
+    : '';
+  const exact = action.exact_commit
+    ? `commit <code>${esc(action.exact_commit)}</code>`
+    : `plan <code>${esc(action.decomposition_plan_id)}</code><br>plan SHA-256 <code>${esc(action.decomposition_plan_sha256)}</code>`;
+  return `<div class="approval-panel">` +
+    `<strong>Exact human authority</strong><div class="binding">` +
+    `Task <code>${esc(action.task_id)}</code> · Issue <code>#${esc(action.issue_number)}</code><br>` +
+    `Repository <code>${esc(action.repository)}</code><br>` +
+    `Run <code>${esc(action.autonomous_run_id)}</code><br>` +
+    `Workflow <code>${esc(action.workflow_state)}</code> / <code>${esc(action.workflow_phase)}</code><br>` +
+    `Schema <code>${esc(action.workflow_schema_version)}</code><br>` +
+    `Version <code>${esc(action.workflow_state_version)}</code> · event <code>${esc(action.workflow_event_id)}</code><br>` +
+    `${exact}</div>` +
+    `<button class="approval-button" data-task-id="${escAttr(action.task_id)}" data-action-token="${escAttr(action.action_token)}">${esc(action.label)}</button>` +
+    `<div class="approval-status" aria-live="polite"></div></div>`;
+}
+
+async function requestLocalStop(button) {
+  if (!window.confirm('Stop this local run? Running crews finish first; nothing is deleted.')) return;
+  const status = document.getElementById('stop-status');
+  button.disabled = true;
+  button.dataset.pending = '1';
+  button.textContent = 'Stopping…';
+  status.hidden = false;
+  status.textContent = 'Sending the stop request…';
+  try {
+    const response = await fetch('/api/local/stop', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirm: true }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.message || 'Stop rejected');
+    status.textContent = result.wake_sent
+      ? 'Stop requested; the scheduler was woken and is draining its workers.'
+      : 'Stop requested; the scheduler will notice at its next poll.';
+    button.textContent = 'Stop requested';
+  } catch (error) {
+    status.textContent = 'Stop failed: ' + (error && error.message ? error.message : error);
+    button.disabled = false;
+    button.textContent = 'Stop run';
+  } finally {
+    delete button.dataset.pending;
+  }
+}
+
+async function postLocalAction(path, button, label, confirmText, onOk) {
+  if (!window.confirm(confirmText)) return;
+  const status = document.getElementById('stop-status');
+  button.disabled = true;
+  button.dataset.pending = '1';
+  status.hidden = false;
+  status.textContent = label + '…';
+  try {
+    const response = await fetch(path, {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirm: true }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.message || 'Rejected');
+    status.textContent = onOk(result);
+  } catch (error) {
+    status.textContent = label + ' failed: ' + (error && error.message ? error.message : error);
+    button.disabled = false;
+  } finally {
+    delete button.dataset.pending;
+  }
+}
+
+function toggleLocalRun(button) {
+  if (button.dataset.mode === 'start') return requestLocalStart(button);
+  if (button.dataset.mode === 'starting') return;
+  return requestLocalStop(button);
+}
+
+function requestLocalStart(button) {
+  return postLocalAction('/api/local/start', button, 'Start',
+    'Start a new run in this checkout?',
+    (result) => 'Start requested; launching in the background (log: ' + result.log + '). The page follows the run when it appears.');
+}
+
+function requestLocalPoke(button) {
+  const status = document.getElementById('stop-status');
+  button.disabled = true;
+  button.dataset.pending = '1';
+  fetch('/api/local/poke', { method: 'POST', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirm: true }) })
+    .then(async (response) => { const result = await response.json(); if (!response.ok) throw new Error(result.message || 'Poke rejected'); return result; })
+    .then(() => { status.hidden = false; status.textContent = 'Poked: the scheduler was woken and will poll now.'; })
+    .catch((error) => { status.hidden = false; status.textContent = 'Poke failed: ' + (error && error.message ? error.message : error); })
+    .finally(() => { delete button.dataset.pending; button.disabled = false; });
+}
+
+function requestLocalForceStop(button) {
+  return postLocalAction('/api/local/force-stop', button, 'Stop now',
+    'Kill this run\'s crews and scheduler now? The run directory stays; Reset deletes it.',
+    () => 'Force stop started; the scheduler and its crews are being killed. Reset becomes available when the stop receipt is written.');
+}
+
+function requestLocalReset(button) {
+  const persistent = !!(snapshot && snapshot.run && snapshot.run.operator && snapshot.run.operator.viewer_persistent);
+  return postLocalAction('/api/local/reset', button, 'Reset',
+    persistent ? 'Delete this run directory and its containers? This page stays and shows the next run.'
+               : 'Delete this run directory and its containers? This viewer will close.',
+    () => persistent ? 'Reset scheduled; this page will show the next run when it starts.'
+                     : 'Reset scheduled; this viewer is closing. Launch again with NscRun start.');
+}
+
+async function approveHumanAction(button) {
+  const panel = button.closest('.approval-panel');
+  const status = panel.querySelector('.approval-status');
+  const taskId = button.dataset.taskId;
+  button.disabled = true;
+  status.textContent = 'Revalidating exact Issue binding…';
+  try {
+    const response = await fetch('/api/approve', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action_token: button.dataset.actionToken }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.message || 'Approval rejected');
+    const message = result.status === 'mutation_succeeded_poke_failed'
+      ? 'GitHub transition succeeded; local architect poke failed. Its bounded poll remains authoritative.'
+      : 'GitHub transition succeeded and the local architect was notified.';
+    approvalOutcomes.set(taskId, message);
+    status.textContent = message;
+    const refreshed = await fetch('/api/state', { credentials: 'same-origin' });
+    if (refreshed.ok) {
+      snapshot = await refreshed.json();
+      render(snapshot, { relayout: false });
+      showDetail(taskId);
+    }
+  } catch (error) {
+    const message = `Stopped: ${error.message}`;
+    approvalOutcomes.set(taskId, message);
+    status.textContent = message;
+  }
+}
+
+function duration(value) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return 'unavailable';
+  const seconds = Math.round(value);
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const rest = seconds % 60;
+  if (hours) return `${hours}h ${minutes}m`;
+  if (minutes) return rest ? `${minutes}m ${rest}s` : `${minutes}m`;
+  return `${rest}s`;
+}
+
+function tokenCostDetail(task) {
+  const usage = task.token_cost || {};
+  const complete = task.state === 'complete';
+  const local = snapshot && snapshot.run && snapshot.run.mode === 'local_rehearsal';
+  const rows = [];
+  const costName = complete ? 'Final recorded cost' : 'Cost so far';
+  const tokenName = complete ? 'Final recorded tokens' : 'Tokens used so far';
+  rows.push(`${costName}: ${esc(usage.cost_label || 'unavailable')}`);
+  rows.push(`${tokenName}: ${usage.recorded_total_tokens == null ? 'unavailable' : esc(usage.recorded_total_tokens.toLocaleString())}`);
+  if (!local) rows.push(`Projected cost at completion: ${esc(usage.projection_label || 'insufficient history')}`);
+  if (usage.direct_agent_cost_usd != null) rows.push(`Direct agent cost: $${esc(usage.direct_agent_cost_usd.toFixed(2))}`);
+  if (usage.allocated_shared_cost_usd) rows.push(`Allocated shared cost: $${esc(usage.allocated_shared_cost_usd.toFixed(2))}`);
+  if (usage.coverage_percent == null) {
+    rows.push(`Usage coverage: ${usage.missing_usage_calls ? `partial — ${esc(usage.missing_usage_calls)} calls missing usage` : 'unavailable'}`);
+  } else {
+    rows.push(`Usage coverage: ${esc(usage.coverage_percent)}%${usage.missing_usage_calls ? ` — ${esc(usage.missing_usage_calls)} calls missing usage` : ''}`);
+  }
+  rows.push(`Cost source: ${esc(usage.cost_source || 'unavailable')}`);
+  rows.push(`Token source: ${esc(usage.token_source || 'unavailable')}`);
+  rows.push(`Pricing version: ${esc(usage.pricing_version || 'unavailable (persisted estimate)')}`);
+  rows.push(`Provider calls: ${esc(usage.total_calls || 0)} · failed/incomplete ${esc(usage.failed_or_incomplete_calls || 0)}`);
+  rows.push(`Estimated cache savings: ${usage.estimated_cache_savings_usd == null ? 'unavailable' : '$' + esc(usage.estimated_cache_savings_usd.toFixed(2))}`);
+  rows.push(`Updated: ${esc(usage.usage_updated_at || 'unavailable')}`);
+  if (usage.input_tokens || usage.cached_input_tokens || usage.cache_read_input_tokens || usage.output_tokens) {
+    rows.push(`Input tokens: ${esc(usage.input_tokens.toLocaleString())}`);
+    rows.push(`Cached input/cache reads: ${esc((usage.cached_input_tokens + usage.cache_read_input_tokens).toLocaleString())}`);
+    rows.push(`Cache creation/writes: ${esc(usage.cache_creation_input_tokens.toLocaleString())}`);
+    rows.push(`Output tokens: ${esc(usage.output_tokens.toLocaleString())}`);
+    if (usage.reasoning_tokens) rows.push(`Reasoning tokens: ${esc(usage.reasoning_tokens.toLocaleString())}`);
+  }
+  if (Array.isArray(usage.breakdown) && usage.breakdown.some(item => item.provider || item.role)) {
+    rows.push('<br>Breakdown:');
+    for (const item of usage.breakdown) {
+      rows.push(`${esc(item.role || 'role unavailable')} · ${esc(item.provider || 'provider unavailable')} · ` +
+        `${item.cost_usd == null ? 'cost unavailable' : '$' + esc(item.cost_usd.toFixed(2))}`);
+    }
+  }
+  for (const item of usage.shared_calls || []) {
+    rows.push(`Shared call ${esc(item.call_id)}: ${item.complete_cost_usd == null ? 'cost unavailable' : '$' + esc(item.complete_cost_usd.toFixed(2))}`);
+    if (item.role) rows.push(`${esc(item.role)} · ${esc(item.provider || 'provider unavailable')}`);
+    rows.push(`Allocated share: ${item.allocated_cost_usd == null ? 'unavailable' : '$' + esc(item.allocated_cost_usd.toFixed(2))} · ${esc(item.allocation_method)}`);
+  }
+  return rows.join('<br>');
+}
+
+function showDetail(id) {
+  const task = snapshot.tasks.find(t => t.id === id);
+  if (!task) return;
+  const meta = STATES[legendState(task)] || { color: '#8b949e', label: task.state };
+  const w = task.worker;
+  const out = [];
+  const field = (k, v) => out.push(`<div class="field"><div class="k">${k}</div><div class="v">${v}</div></div>`);
+
+  out.push(`<div class="field"><span class="pill" style="background:${meta.color}">${esc(meta.label)}</span></div>`);
+  field('task', `<strong>${esc(task.id)}</strong><br>${esc(task.title)}`);
+  out.push(operatorTaskControls(task));
+  out.push(githubIssueNavigation(task));
+  out.push(githubPullRequestNavigation(task));
+  out.push(humanApprovalControl(task));
+  field('classification',
+    `<code>${esc(task.kind)}</code><code>${esc(task.decomposition_state)}</code>` +
+    `<code>${esc(task.execution_scope || '—')}</code><code>${esc(task.disposition)}</code>`);
+  if (task.parent) field('parent', `<code>${esc(task.parent)}</code>`);
+  field('depends on', task.depends_on.length
+    ? task.depends_on.map(d => `<code>${esc(d)}</code>`).join('')
+    : '<span class="empty">nothing</span>');
+  if (task.checkout_path) {
+    field('checkout folder',
+      `<code>${esc(task.checkout_path)}</code> ` +
+      `<button class="run-copy checkout-copy" data-path="${escAttr(task.checkout_path)}" aria-label="Copy checkout folder">Copy</button>` +
+      `<div class="sub">${task.checkout_exists ? 'exists on disk' : 'not created yet; the worker makes it when it prepares the checkout'}</div>`);
+  }
+
+  if (task.checkout_commit) field('checkout commit', `<code>${esc(task.checkout_commit)}</code>`);
+  if (task.successful_project_path) field('successful project',
+    `<code>${esc(task.successful_project_path)}</code><br><code>${esc(task.successful_project_commit)}</code>`);
+  if (w) {
+    field('worker', [
+      w.active ? 'Worker active' : (w.status ? `status <code>${esc(w.status)}</code>` : 'worker not active'),
+      w.worker_id ? `worker <code>${esc(w.worker_id)}</code>` : '',
+      w.provider ? `provider <code>${esc(w.provider)}</code>` : '',
+      w.provider_profile ? `profile <code>${esc(w.provider_profile)}</code>` : '',
+      w.monitoring_ci ? 'Monitoring CI' : '',
+      w.turn != null ? `Current turn <code>${esc(w.turn)}</code>` : '',
+      w.phase ? `phase <code>${esc(w.phase)}</code>` : '',
+      w.issue_state ? `issue <code>${esc(w.issue_state)}</code>` : '',
+      w.action ? `action <code>${esc(w.action)}</code>` : '',
+    ].filter(Boolean).join('<br>'));
+    if (w.message) field('last event', esc(w.message));
+    field('run', `<code>${esc(w.run_id)}</code><br><span class="sub">updated ${esc(w.updated_at)}</span>`);
+  }
+  const progress = task.progress || {};
+  if (progress.transition_context) field('latest durable transition', esc(progress.transition_context));
+  if (['active', 'complete'].includes(task.state)) {
+    const expanded = expandedStageNodes.has(task.id);
+    const current = (progress.pipeline_stages || []).find(stage => stage.status === 'active');
+    const latestRecorded = [...(progress.pipeline_stages || [])].reverse().find(
+      stage => stage.elapsed_seconds != null && stage.status !== 'future');
+    const currentText = current
+      ? `${esc(current.display_label || current.label)} · current stage elapsed ${esc(duration(current.elapsed_seconds))}`
+      : latestRecorded
+      ? `${esc(latestRecorded.display_label || latestRecorded.label)} · final recorded stage ${esc(duration(latestRecorded.elapsed_seconds))}`
+      : 'stage timing unavailable';
+    const currentAgent = progress.current_agent;
+    const latestAgent = [...(progress.agents || [])].reverse().find(agent => agent.duration_seconds != null);
+    const currentAgentText = currentAgent
+      ? `<br>current agent ${esc(currentAgent.label)} · ${esc(currentAgent.action)} · ${esc(duration(currentAgent.duration_seconds))}`
+      : latestAgent
+      ? `<br>latest recorded agent ${esc(latestAgent.label)} · ${esc(latestAgent.action)} · ${esc(duration(latestAgent.duration_seconds))}`
+      : '<br>agent timing unavailable';
+    const timeline = expanded ? '<ol class="stage-timeline">' + (progress.pipeline_stages || []).map(stage =>
+      `<li class="${escAttr(stage.status)}">${stage.status === 'complete' ? '✓ ' : ''}` +
+      `${esc(stage.display_label || stage.label)}${stage.elapsed_seconds == null ? '' : ` · ${esc(duration(stage.elapsed_seconds))}`}</li>`
+    ).join('') + '</ol>' : '';
+    const agentRoster = expanded ? '<ol class="stage-timeline agent-roster">' + (progress.agents || []).map(agent => {
+      const provider = agent.provider || 'provider unavailable';
+      const model = agent.model || 'model unavailable';
+      const tokens = agent.total_tokens == null ? 'tokens unavailable' : `${esc(agent.total_tokens)} tokens`;
+      const cost = agent.cost_usd == null ? 'cost unavailable' : `$${esc(agent.cost_usd.toFixed(4))}`;
+      return `<li class="${escAttr(agent.status)}">${agent.status === 'completed' ? '✓ ' : ''}` +
+        `${esc(agent.label)} · ${esc(agent.status.replaceAll('_', ' '))} · ${esc(duration(agent.duration_seconds))}<br>` +
+        `<span class="sub">${esc(agent.action)} · ${esc(provider)} / ${esc(model)} · ${tokens} · ${cost}</span></li>`;
+    }).join('') + '</ol>' : '';
+    // A production task reports the full six-stage pipeline. A local rehearsal
+    // reports only the stage it is actually in, so name the real count rather
+    // than promising six the operator will not get.
+    const stageCount = (progress.pipeline_stages || []).length;
+    const stageLabel = stageCount === 6 ? 'all six stages'
+      : stageCount === 1 ? 'the recorded stage'
+      : `all ${stageCount} stages`;
+    field('pipeline timing',
+      `<button class="stage-expander" data-task-id="${escAttr(task.id)}" aria-expanded="${expanded}">` +
+      `${expanded ? '− Collapse' : '+ Expand'} ${stageLabel}</button><br>` +
+      `total task elapsed ${esc(duration(progress.durable_task_elapsed_seconds))}<br>${currentText}${currentAgentText}${timeline}${agentRoster}`);
+  }
+  field('progress', [
+    progress.phase ? `phase <code>${esc(progress.phase)}</code>` : 'phase unavailable',
+    progress.action ? `action <code>${esc(progress.action)}</code>` : 'action unavailable',
+    progress.attempt != null ? `attempt <code>${esc(progress.attempt)}</code>` : '',
+    progress.queue_position != null ? `integration queue position <code>${esc(progress.queue_position)}</code>` : '',
+    progress.queue_wait_seconds != null ? `recorded merge-gate wait <code>${esc(duration(progress.queue_wait_seconds))}</code>` : '',
+    progress.blocked_reason ? `blocked: ${esc(progress.blocked_reason)}` : '',
+    progress.children_total != null ? `${esc(progress.children_complete)}/${esc(progress.children_total)} generated children complete` : '',
+    progress.children_by_state ? `child states: ${Object.entries(progress.children_by_state).map(([state, count]) => `${esc(state)} ${esc(count)}`).join(' · ')}` : '',
+    progress.children_recorded_total_tokens != null ? `recorded child tokens: ${esc(progress.children_recorded_total_tokens.toLocaleString())}` : '',
+    progress.estimate ? esc(progress.estimate.label) : 'Estimate unavailable',
+  ].filter(Boolean).join('<br>'));
+  if (progress.ci) {
+    field('CI checks', [
+      `${esc(progress.ci.passed)}/${esc(progress.ci.total)} passed · ${esc(progress.ci.failed)} failed · ${esc(progress.ci.running)} running · ${esc(progress.ci.queued)} queued`,
+      progress.ci.running_check ? `running: ${esc(progress.ci.running_check)}${progress.ci.running_step ? ` — ${esc(progress.ci.running_step)}` : ''}` : '',
+      `observed ${esc(progress.ci.observed_at || 'unavailable')}${progress.ci.stale ? ' · stale' : ''}`,
+    ].filter(Boolean).join('<br>'));
+  } else if (task.state === 'checks_pending') {
+    field('CI checks', 'Check status unavailable');
+  }
+  if (['active', 'checks_pending', 'complete'].includes(task.state) ||
+      task.token_cost?.recorded_cost_usd != null || task.token_cost?.recorded_total_tokens != null) {
+    field('Token &amp; cost', tokenCostDetail(task));
+  }
+  if (task.reason) field('why this shape', esc(task.reason));
+  if (task.acceptance.length) {
+    field('acceptance criteria', '<ul>' + task.acceptance.map(a => `<li>${esc(a)}</li>`).join('') + '</ul>');
+  }
+  if (task.resources.length) {
+    field('exclusive resources', task.resources.map(r => `<code>${esc(r)}</code>`).join(''));
+  }
+  if (task.notes) field('notes', esc(task.notes));
+  document.getElementById('detail').innerHTML = out.join('');
+  const approvalButton = document.querySelector('#detail .approval-button');
+  if (approvalButton) approvalButton.onclick = () => approveHumanAction(approvalButton);
+  const stageExpander = document.querySelector('#detail .stage-expander');
+  if (stageExpander) stageExpander.onclick = () => toggleStageExpansion(stageExpander.dataset.taskId);
+  const scopeButton = document.querySelector('#detail .scope-button');
+  if (scopeButton) scopeButton.onclick = () => toggleTaskScope(scopeButton);
+  const checkoutCopy = document.querySelector('#detail .checkout-copy');
+  if (checkoutCopy) checkoutCopy.onclick = async () => {
+    try { await navigator.clipboard.writeText(checkoutCopy.dataset.path); checkoutCopy.textContent = 'Copied'; }
+    catch (_) { checkoutCopy.textContent = 'Select and copy'; }
+  };
+  const issueButton = document.querySelector('#detail .create-issue-button');
+  if (issueButton) issueButton.onclick = () => createTaskIssue(issueButton);
+}
+
+// Persistent viewer only: which tasks Start passes as -TaskId, and (production)
+// creating the task's GitHub Issue plus the NSC-Vincent inbox up front.
+const PROCESSED_STATES = ['active', 'complete', 'human_action', 'checks_pending', 'integration_queued',
+                          'delivery_ready', 'local_review_ready', 'failed'];
+
+function operatorTaskControls(task) {
+  const op = snapshot && snapshot.run && snapshot.run.operator;
+  if (!op || !op.viewer_persistent) return '';
+  const enabled = (op.scope_task_ids || []).includes(task.id);
+  const processed = PROCESSED_STATES.includes(task.state) || !!task.local_acceptance;
+  const out = [];
+  const review = op.runs_mode === 'production'
+    ? `<div class="sub">${op.human_review ? 'Human review on: every task waits for your PASS on its GitHub Issue.' : 'Synthetic auto-approval on: only NSC-042 waits for you.'}</div>`
+    : '';
+  out.push('<div class="field"><div class="k">run scope</div><div class="v">' +
+    (processed
+      ? `<span class="sub">${enabled ? 'Enabled' : 'Not enabled'} · this task has already been processed; only unstarted tasks can be toggled.</span>`
+      : `<button class="issue-button scope-button" data-task-id="${escAttr(task.id)}" data-enabled="${enabled ? '1' : '0'}">` +
+        `${enabled ? 'Disable for run' : 'Enable for run'}</button> ` +
+        `<span class="sub">${enabled ? 'Start will run this task.' : 'Start will skip this task.'}</span>`) +
+    review + '</div></div>');
+  if (op.runs_mode === 'production') {
+    const issue = (op.issues || {})[task.id];
+    const link = (url, n) => url ? `<a href="${escAttr(url)}" target="_blank" rel="noopener noreferrer">#${esc(n)}</a>` : `#${esc(n)}`;
+    const line = issue
+      ? `<div class="sub">${issue.status === 'created' ? 'Created Issue ' : 'Issue already exists: '}${link(issue.issue_url, issue.issue_number)}` +
+        (issue.state ? ` (${esc(issue.state)})` : '') +
+        `<br>NSC-Vincent inbox ${link(issue.inbox_url, issue.inbox_number)} (${esc(issue.inbox_disposition)})</div>`
+      : '';
+    out.push('<div class="field"><div class="k">github</div><div class="v">' +
+      `<button class="issue-button create-issue-button" data-task-id="${escAttr(task.id)}">Create GitHub Issue</button> ` +
+      '<span class="sub">Creates this task\'s Issue and the NSC-Vincent inbox, or reports the ones that already exist.</span>' +
+      line + '</div></div>');
+  }
+  return out.join('');
+}
+
+async function postTaskAction(path, button, payload, label) {
+  const status = document.getElementById('stop-status');
+  button.disabled = true;
+  status.hidden = false;
+  status.textContent = label + '…';
+  try {
+    const response = await fetch(path, {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ confirm: true }, payload)),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.message || 'Rejected');
+    return result;
+  } catch (error) {
+    status.textContent = label + ' failed: ' + (error && error.message ? error.message : error);
+    button.disabled = false;
+    return null;
+  }
+}
+
+async function toggleTaskScope(button) {
+  const taskId = button.dataset.taskId;
+  const enabled = button.dataset.enabled !== '1';
+  const result = await postTaskAction('/api/local/scope', button, { task_id: taskId, enabled },
+    (enabled ? 'Enabling ' : 'Disabling ') + taskId);
+  if (!result) return;
+  snapshot.run.operator.scope_task_ids = result.scope_task_ids;
+  document.getElementById('stop-status').textContent = (enabled ? 'Enabled ' : 'Disabled ') + taskId +
+    '. Start will run: ' + (result.scope_task_ids.join(', ') || 'nothing (enable a task first)');
+  showDetail(taskId);
+}
+
+async function createTaskIssue(button) {
+  const taskId = button.dataset.taskId;
+  const result = await postTaskAction('/api/local/issue', button, { task_id: taskId },
+    'Creating the GitHub Issue for ' + taskId + ' and the NSC-Vincent inbox');
+  if (!result) return;
+  snapshot.run.operator.issues = Object.assign({}, snapshot.run.operator.issues || {}, { [taskId]: result });
+  document.getElementById('stop-status').textContent =
+    (result.status === 'created' ? 'Created Issue #' : 'Issue already exists: #') + result.issue_number + ' for ' + taskId +
+    '; NSC-Vincent #' + result.inbox_number + ' (' + result.inbox_disposition + ').';
+  showDetail(taskId);
+}
+
+// Highlight a node's dependency neighbourhood on click.
+cy.on('tap', 'node', evt => {
+  const node = evt.target;
+  // Clear the previous selection's highlight, or edges accumulate across clicks.
+  cy.elements().removeClass('hl').addClass('faded');
+  const hood = node.closedNeighborhood();
+  hood.removeClass('faded');
+  hood.edges().addClass('hl');
+  const task = snapshot && snapshot.tasks.find(item => item.id === node.id());
+  if (task && task.state === 'active') toggleStageExpansion(node.id());
+  else showDetail(node.id());
+});
+cy.on('tap', evt => {
+  if (evt.target === cy) {
+    cy.elements().removeClass('faded').removeClass('hl');
+    document.getElementById('detail').innerHTML = '<div class="empty">Click a node.</div>';
+  }
+});
+
+document.getElementById('zin').onclick = () => zoomGraph(1.35);
+document.getElementById('zout').onclick = () => zoomGraph(1 / 1.35);
+document.getElementById('fit').onclick = fitGraph;
+
+for (const id of ['f-cancelled', 'f-scope']) {
+  document.getElementById(id).onchange = () => {
+    if (!snapshot) return;
+    if (id === 'f-scope') savePreference(scopePreferenceKey, document.getElementById(id).checked);
+    render(snapshot, { relayout: true });
+  };
+}
+
+function setLive(on) {
+  document.getElementById('livedot').className = 'dot ' + (on ? 'live' : 'dead');
+  document.getElementById('livetext').textContent = on ? 'live · watching files' : 'offline';
+}
+
+function validateStateSnapshot(snap) {
+  if (!snap || !Array.isArray(snap.tasks) || !snap.run ||
+      typeof snap.run !== 'object' || Array.isArray(snap.run)) {
+    throw new Error('State response is missing task or run data.');
+  }
+  if (!validPipelineActivity(snap.pipeline_activity)) {
+    throw new Error('State response has incomplete or invalid pipeline activity details.');
+  }
+}
+
+let stateStream = null;
+
+function startStateStream() {
+  if (stateStream) {
+    stateStream.close();
+    stateStream = null;
+  }
+  const stream = new EventSource('/api/stream');
+  stateStream = stream;
+  stream.onopen = () => { if (stateStream === stream) setLive(true); };
+  stream.onerror = () => { if (stateStream === stream) setLive(false); };
+  stream.onmessage = evt => {
+    if (stateStream !== stream) return;
+    try {
+      const snap = JSON.parse(evt.data);
+      validateStateSnapshot(snap);
+      snapshot = snap;
+      render(snap, { relayout: false });
+      const sel = cy.$('node:selected');
+      if (sel.nonempty()) showDetail(sel.id());
+      setLive(true);
+    } catch (error) {
+      stream.close();
+      stateStream = null;
+      snapshot = null;
+      setLive(false);
+      showActivityUnavailable('State update unavailable. Reload the page to reconnect.');
+    }
+  };
+}
+
+async function loadInitialState(attempt = 1) {
+  const controller = new AbortController();
+  const deadline = setTimeout(() => controller.abort(), 15000);
+  try {
+    const response = await fetch('/api/state', {signal: controller.signal});
+    if (!response.ok) throw new Error(`State request failed (HTTP ${response.status}).`);
+    const snap = await response.json();
+    validateStateSnapshot(snap);
+    snapshot = snap;
+    render(snap, { relayout: true });
+    startStateStream();
+  } catch (error) {
+    snapshot = null;
+    setLive(false);
+    const reason = error.name === 'AbortError' ? 'State request timed out.' : String(error.message || error).slice(0, 300);
+    showActivityUnavailable(`${reason} ${attempt < 3 ? 'Retrying in 3 seconds.' : 'Reload the page to retry.'}`);
+    if (attempt < 3) setTimeout(() => loadInitialState(attempt + 1), 3000);
+  } finally {
+    clearTimeout(deadline);
+  }
+}
+
+loadInitialState();
+</script>

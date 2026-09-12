@@ -258,6 +258,7 @@ def test_deferred_resume_pokes_exact_verified_github_state() -> None:
         human_handoff_commit=COMMIT,
         state_version=3,
         event_id="c" * 64,
+        to_phase="delivery_evidence",
     )
 
 

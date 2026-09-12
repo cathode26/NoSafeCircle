@@ -5,7 +5,7 @@ import json
 import re
 from typing import Any
 
-from work_graph_validate import WorkGraphValidationError
+from work_graph_validate import WORK_ID_PATTERN, WorkGraphValidationError
 
 
 class DecompositionGraphSemanticsError(WorkGraphValidationError):
@@ -68,7 +68,12 @@ def validate_decomposition_graph_semantics(plan: Any) -> None:
                 f"{plan_id}: provenance.parent_task_id does not identify its parent "
                 f"(direct parent={direct_parent_id!r})."
             )
-        recorded_parent_id = recorded_parent_id.strip()
+        if WORK_ID_PATTERN.fullmatch(recorded_parent_id) is None:
+            raise DecompositionGraphSemanticsError(
+                f"Active decomposition child {child_id} from graph delta plan {plan_id}: "
+                "provenance.parent_task_id must be an exact canonical NSC task ID, "
+                f"not {recorded_parent_id!r}."
+            )
         if direct_parent_id != recorded_parent_id:
             raise DecompositionGraphSemanticsError(
                 f"Orphaned active decomposition child {child_id} from graph delta plan "

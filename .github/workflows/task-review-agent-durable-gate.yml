@@ -1,0 +1,57 @@
+name: TaskReviewAgent Durable Gate Validation
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/task-review-agent-durable-gate.yml"
+      - "Pipeline/TaskReviewAgent/**"
+      - "Pipeline/TaskGraph/**"
+      - "Tasks/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-smoke-durable-gate:
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out exact PR head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Configure deterministic Git fixture identity
+        run: |
+          git config --global user.name "TaskReviewAgent Tests"
+          git config --global user.email "task-review-agent-tests@example.invalid"
+
+      - name: Run durable integration and commit gate regressions
+        shell: pwsh
+        run: |
+          python Pipeline/TaskReviewAgent/tests/integration_gate_smoke_test.py
+          if ($LASTEXITCODE -ne 0) { throw "Durable integration gate tests failed." }
+          python Pipeline/TaskReviewAgent/tests/integration_window_smoke_test.py
+          if ($LASTEXITCODE -ne 0) { throw "Integration window tests failed." }
+          python Pipeline/TaskReviewAgent/tests/integration_gate_base_regression_test.py
+          if ($LASTEXITCODE -ne 0) { throw "Integration gate behavioral regressions failed." }
+          python Pipeline/TaskReviewAgent/tests/publication_fence_smoke_test.py
+          if ($LASTEXITCODE -ne 0) { throw "Base-bound publication fence regressions failed." }
+          python Pipeline/TaskReviewAgent/tests/gate_resume_smoke_test.py
+          if ($LASTEXITCODE -ne 0) { throw "Deterministic gate resume tests failed." }
+          python Pipeline/TaskReviewAgent/tests/autonomous_gate_wake_smoke_test.py
+          if ($LASTEXITCODE -ne 0) { throw "Autonomous gate wake tests failed." }
+          python Pipeline/TaskReviewAgent/tests/source_commit_snapshot_smoke_test.py
+          if ($LASTEXITCODE -ne 0) { throw "Committed source snapshot tests failed." }
+          python Pipeline/TaskReviewAgent/tests/coherent_snapshot_apply_race_smoke_test.py
+          if ($LASTEXITCODE -ne 0) { throw "Coherent snapshot apply-race tests failed." }
+          python Pipeline/TaskReviewAgent/tests/gauntlet_view_public_roots_smoke_test.py
+          if ($LASTEXITCODE -ne 0) { throw "Public viewer root isolation tests failed." }

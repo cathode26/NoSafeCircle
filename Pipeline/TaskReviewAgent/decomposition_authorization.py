@@ -754,6 +754,54 @@ def _invocation_ids_in_round(
     return identities
 
 
+def _independent_codex_roles(run: Mapping[str, Any]) -> bool:
+    """Accept two Codex roles only with exact, distinct pooled conversations.
+
+    The containing run and invocation artifacts remain hash-bound by the normal
+    authorization binder. A provider name alone never establishes independence.
+    """
+    if run.get("provider_order") not in (["codex", "codex"], ["claude", "claude"]) or run.get("max_calls") != 2 or run.get("calls_used") != 2:
+        return False
+    provider = run["provider_order"][0]
+    identifier = "openai-codex" if provider == "codex" else "claude-code"
+    try:
+        from Pipeline.AgentRuntime.provider_sessions import ProviderSessionConfirmation
+        from uuid import UUID
+        sessions = run["pooled_sessions"]
+        roles = ("task_decomposer", "decomposition_reviewer")
+        if set(sessions) != {f"{provider}:{role}" for role in roles}:
+            return False
+        identities = []
+        leases = []
+        for index, role in enumerate(roles, 1):
+            session = sessions[f"{provider}:{role}"]
+            if any(str(UUID(session[key])) != session[key] for key in ("lease_id", "record_id")):
+                return False
+            confirmation = session["confirmed_session"]
+            parsed = ProviderSessionConfirmation(**{key: confirmation[key] for key in
+                ("provider_identifier", "role", "mode", "session_id")})
+            if confirmation != parsed.to_dict() or parsed.role != role or parsed.provider_identifier != identifier:
+                return False
+            if session["identity_unproven"] is not None or session["invoked"] is not True or session["role"] != role:
+                return False
+            evidence, = session["rounds"]
+            if evidence != run["rounds"][index - 1].get("pooled_session"):
+                return False
+            if any(evidence[key] != expected for key, expected in {
+                "run_id": run["run_id"], "task_id": run["task_id"], "role": role,
+                "round_number": index, "confirmed_session": confirmation,
+                "lease_id": session["lease_id"], "record_id": session["record_id"],
+                "provider_identifier": identifier, "agent_status": "succeeded",
+                "invocation_id": Path(run["rounds"][index - 1]["task_execution_request_path"]).parent.name,
+            }.items()):
+                return False
+            identities.append(parsed.session_id)
+            leases.append(session["lease_id"])
+        return len(set(identities)) == 2 and len(set(leases)) == 2
+    except (KeyError, TypeError, ValueError, IndexError, AttributeError):
+        return False
+
+
 def _validated_provider_order(run: Mapping[str, Any]) -> tuple[str, ...] | None:
     """The exact rotation the producer validated, or ``None`` when impossible."""
 
@@ -761,7 +809,7 @@ def _validated_provider_order(run: Mapping[str, Any]) -> tuple[str, ...] | None:
     if type(order) is not list:
         return None
     try:
-        return validate_provider_order(order)
+        return validate_provider_order(order, independent_codex_roles=_independent_codex_roles(run))
     except DecompositionPreflightError:
         return None
 
@@ -1025,7 +1073,7 @@ def _review_invalid_reasons(
     if not approver_supported:
         reasons.append("independent_reviewer_identity_missing")
     else:
-        if approver == author_provider:
+        if approver == author_provider and not _independent_codex_roles(run):
             reasons.append("reviewer_is_latest_candidate_author")
         if approver != record.reviewer_provider:
             reasons.append("reviewer_provider_binding_mismatch")

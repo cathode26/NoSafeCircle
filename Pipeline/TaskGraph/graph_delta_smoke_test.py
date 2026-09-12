@@ -18,7 +18,9 @@ for path in (str(HERE), str(PIPELINE)):
 from TaskDecomposition.contracts import DecompositionResult
 from TaskDecomposition.policy import semantic_json_sha256 as contract_hash
 from TaskDecomposition.policy import validate_decomposition_result
-from TaskDecomposition.tests.decomposition_contracts_smoke_test import decomposed_result
+from TaskDecomposition.tests.decomposition_contracts_smoke_test import (
+    decomposed_result as base_decomposed_result,
+)
 from decomposition_graph_semantics import validate_decomposition_graph_semantics
 from graph_delta import GraphDeltaPlanningError, plan_graph_delta
 from work_graph_transform import WorkGraphPlan
@@ -107,14 +109,21 @@ def make_plan() -> WorkGraphPlan:
     )
 
 
+def decomposed_result(parent: dict) -> dict:
+    """Build a proposal that obeys the production resource-partition boundary."""
+    raw = base_decomposed_result(parent)
+    raw["children"][0]["exclusive_resources"] = list(
+        parent.get("exclusive_resources") or ()
+    )
+    return raw
+
+
 def validated_result(plan: WorkGraphPlan, *, invalid_dependency: bool = False):
     parent = next(task for task in plan.tasks if task["id"] == "NSC-042")
     raw = decomposed_result(parent)
     raw["children"][0]["existing_task_dependencies"] = [
         "NSC-020" if invalid_dependency else "NSC-010"
     ]
-    raw["children"][0]["exclusive_resources"] = ["logical:shared", "logical:new-shared"]
-    raw["children"][1]["exclusive_resources"] = ["logical:new-shared"]
     raw["inbound_dependency_rewrites"] = [
         {
             "dependent_task_id": "NSC-030",
@@ -218,8 +227,7 @@ def main() -> int:
     changes = {change["resource_key"]: change for change in payload["resource_group_changes"]}
     assert changes["logical:shared"]["change_type"] == "updated"
     assert changes["logical:shared"]["after"]["work_ids"] == ["NSC-010", "NSC-043"]
-    assert changes["logical:new-shared"]["change_type"] == "created"
-    assert changes["logical:new-shared"]["after"]["work_ids"] == ["NSC-043", "NSC-044"]
+    assert set(changes) == {"logical:shared"}
     validation = payload["proposed_graph_validation"]
     assert validation["result"] == "valid"
     assert validation["decomposition_aggregate_semantics"] == "valid"

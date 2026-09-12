@@ -202,8 +202,9 @@ def create_fixture(
     (seed / f"Tasks/{TASK_ID}.yaml").write_text(
         "id: NSC-777\n",
         encoding="utf-8",
+        newline="\n",
     )
-    (seed / "Assets/Feature.cs").write_text("base\n", encoding="utf-8")
+    (seed / "Assets/Feature.cs").write_text("base\n", encoding="utf-8", newline="\n")
     (seed / "Pipeline/TaskGraph/taskcontrol.py").write_text(
         "import sys\n"
         "if sys.argv[1:] == ['validate']:\n"
@@ -211,6 +212,7 @@ def create_fixture(
         "    raise SystemExit(0)\n"
         "raise SystemExit(2)\n",
         encoding="utf-8",
+        newline="\n",
     )
     base = commit_all(seed, "Create base")
     git(seed, "remote", "add", "origin", str(remote))
@@ -229,6 +231,7 @@ def create_fixture(
     (seed / "Assets/Feature.cs").write_text(
         "task implementation\n",
         encoding="utf-8",
+        newline="\n",
     )
     task_head = commit_all(seed, "Implement task")
     git(seed, "push", "-u", "origin", BRANCH)
@@ -238,12 +241,14 @@ def create_fixture(
         (seed / "Assets/MainlineRuntime.cs").write_text(
             "runtime change\n",
             encoding="utf-8",
+            newline="\n",
         )
     else:
         (seed / "Pipeline/TaskReviewAgent").mkdir(parents=True)
         (seed / "Pipeline/TaskReviewAgent/runtime.py").write_text(
             "automation change\n",
             encoding="utf-8",
+            newline="\n",
         )
     main_head = commit_all(seed, "Advance main")
     git(seed, "push", "origin", "main")
@@ -342,7 +347,7 @@ def controller_for(
         not bool(git(checkout, "status", "--porcelain=v1")),
         "checkout is dirty",
     )
-    controller._latest_human_validation = lambda: {
+    human_validation = {
         "result": "pass",
         "tested_commit": task_head,
         "body": (
@@ -350,6 +355,11 @@ def controller_for(
             "Result: PASS\n"
             f"Tested commit: `{task_head}`\n"
         ),
+    }
+    controller._latest_human_validation = lambda: dict(human_validation)
+    controller._latest_validation_authority = lambda: {
+        "kind": "human",
+        **human_validation,
     }
     controller._ensure_git_identity = lambda: None
     controller._persist = lambda: None
@@ -567,7 +577,7 @@ def _run_partial_evidence_closeout_integration(
         evidence_path = "Pipeline/TaskGraph/evidence/NSC-777/record.json"
         target = checkout / evidence_path
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text("{}\n", encoding="utf-8")
+        target.write_text("{}\n", encoding="utf-8", newline="\n")
         evidence = commit_all(checkout, "Record delivery evidence")
         git(checkout, "push", "origin", BRANCH)
         captured: dict[str, Any] = {}
@@ -629,6 +639,12 @@ def _run_partial_evidence_closeout_integration(
             "tested_commit": implementation,
             "body": "synthetic PASS",
         }
+        controller._latest_validation_authority = lambda: {
+            "kind": "human",
+            "result": "pass",
+            "tested_commit": implementation,
+            "body": "synthetic PASS",
+        }
         controller._ensure_git_identity = lambda: None
         controller._persist = lambda: None
 
@@ -661,6 +677,244 @@ def test_released_evidence_head_integrates_new_main_after_pr_checks() -> None:
     _run_partial_evidence_closeout_integration(workflow_head_tracks_evidence=True)
 
 
+def test_merge_rechecks_main_after_checks_before_mutating_main() -> None:
+    with tempfile.TemporaryDirectory(prefix="nsc-mainline-pre-merge-") as temporary:
+        checkout, base, task_head, main_head = create_fixture(
+            Path(temporary),
+            sensitive=False,
+        )
+        captured: dict[str, Any] = {}
+        workflow_state = {
+            "state": "agent_working",
+            "phase": "merge_closeout",
+            "worker_id": "worker-a",
+            "head_commit": task_head,
+            "human_handoff_commit": task_head,
+            "branch": BRANCH,
+        }
+        observation = {
+            "task": {"task_id": TASK_ID, **task()},
+            # This deliberately models the observation made before PR checks
+            # started.  origin/main advances while the worker waits.
+            "environment": {"source_head": base},
+            "coordination": {"workflow_state": workflow_state},
+            "checkout": {
+                "status": "ready",
+                "head_commit": task_head,
+                "branch": BRANCH,
+                "clean": True,
+            },
+        }
+        controller = object.__new__(ResumableDownstreamTaskController)
+        controller.task_id = TASK_ID
+        controller.checkout = checkout
+        commands: list[tuple[str, ...]] = []
+
+        def command_runner(args, cwd, timeout_seconds):
+            command = tuple(args)
+            commands.append(command)
+            if command and command[0] == "gh":
+                return subprocess.CompletedProcess(command, 0, b"", b"")
+            return _default_runner(command, cwd, timeout_seconds)
+
+        controller.command_runner = command_runner
+        controller.workflow = SimpleNamespace(
+            worker_id="worker-a",
+            issue_workflow=None,
+            publish_human_handoff=lambda **values: captured.update(values) or values,
+        )
+        controller.state = {
+            "pull_request_number": 1,
+            "pull_request_url": "https://example.invalid/pull/1",
+            "evidence_commit": task_head,
+            "validation_manifests": [{"stale": True}],
+        }
+        controller.observe = lambda: observation
+        controller._require_lease = lambda phase: (
+            observation,
+            workflow_state,
+        )
+        controller._assert_checkout = lambda: require(
+            not bool(git(checkout, "status", "--porcelain=v1")),
+            "checkout is dirty",
+        )
+        controller._latest_human_validation = lambda: {
+            "result": "pass",
+            "tested_commit": task_head,
+            "body": "synthetic PASS",
+        }
+        controller._latest_validation_authority = lambda: {
+            "kind": "human",
+            "result": "pass",
+            "tested_commit": task_head,
+            "body": "synthetic PASS",
+        }
+        controller._ensure_git_identity = lambda: None
+        controller._persist = lambda: None
+        controller._bound_repository = lambda: "example/fixture"
+        controller._view_pr = lambda _number: {
+            "number": 1,
+            "url": "https://example.invalid/pull/1",
+            "state": "OPEN",
+            "headRefOid": task_head,
+            "mergeable": "MERGEABLE",
+            "statusCheckRollup": [],
+        }
+        controller._check_state = lambda _checks: {
+            "passed": [],
+            "pending": [],
+            "failed": [],
+        }
+
+        result = controller.inspect_or_merge_pull_request()
+
+        require(
+            result["status"] == "human_revalidation_required",
+            f"advanced main was merged without task-branch reintegration: {result}",
+        )
+        integrated = git(checkout, "rev-parse", "HEAD")
+        require(
+            git(checkout, "rev-list", "--parents", "-n", "1", integrated).split()
+            == [integrated, task_head, main_head],
+            "the pre-merge guard did not preserve main as the second parent",
+        )
+        require(
+            captured.get("head_commit") == integrated,
+            "the exact integrated commit was not handed back for validation",
+        )
+        require(
+            controller.state.get("merged_commit") is None,
+            "main was recorded merged before the integrated branch was revalidated",
+        )
+        require(
+            not any(command and command[0] == "gh" for command in commands),
+            "the stale PR was merged before current main was revalidated",
+        )
+
+
+def test_merged_closeout_refreshes_stale_main_then_recognizes_ancestry() -> None:
+    with tempfile.TemporaryDirectory(prefix="nsc-merged-closeout-resume-") as temporary:
+        root = Path(temporary)
+        checkout, _base, task_head, stale_main = create_fixture(
+            root,
+            sensitive=False,
+        )
+        remote = Path(git(checkout, "remote", "get-url", "origin"))
+        publisher = root / "publisher"
+        run("git", "clone", str(remote), str(publisher), cwd=root)
+        git(publisher, "config", "user.name", "Merged Closeout Test")
+        git(publisher, "config", "user.email", "merged-closeout@example.invalid")
+        git(publisher, "merge", "--no-ff", f"origin/{BRANCH}", "-m", "Merge task")
+        merged_commit = git(publisher, "rev-parse", "HEAD")
+        git(publisher, "push", "origin", "main")
+        (publisher / "Pipeline/TaskReviewAgent/later.py").write_text(
+            "# later controller fix\n",
+            encoding="utf-8",
+            newline="\n",
+        )
+        current_main = commit_all(publisher, "Advance main after task merge")
+        git(publisher, "push", "origin", "main")
+        require(
+            git(publisher, "merge-base", "--is-ancestor", task_head, current_main)
+            == "",
+            "fixture did not contain the exact task head in current main",
+        )
+        require(merged_commit != current_main, "fixture did not advance after merge")
+        require(
+            git(checkout, "rev-parse", "origin/main") == stale_main,
+            "task checkout unexpectedly refreshed current main",
+        )
+
+        class MergedCloseoutWorkflow:
+            def __init__(self) -> None:
+                self.worker_id = "worker-a"
+                self.last_checkout_result: dict[str, Any] | None = None
+                self.state = {
+                    "state": "agent_ready",
+                    "phase": "merge_closeout",
+                    "worker_id": None,
+                    "branch": BRANCH,
+                    "head_commit": task_head,
+                }
+
+            def observe_goal_state(self) -> dict[str, Any]:
+                refreshed = git(checkout, "rev-parse", "origin/main") == current_main
+                checkout_state: dict[str, Any] = {
+                    "status": "ready",
+                    "head_commit": task_head,
+                    "branch": BRANCH,
+                    "clean": True,
+                }
+                if not refreshed:
+                    checkout_state["origin_main_refresh_required"] = True
+                return {
+                    "environment": {"source_head": current_main},
+                    "task": {
+                        "task_id": TASK_ID,
+                        "derived_state": "conformant",
+                        **task(),
+                    },
+                    "coordination": {"workflow_state": dict(self.state)},
+                    "checkout": checkout_state,
+                }
+
+            def acquire_agent_lease(self, **_values: Any) -> dict[str, Any]:
+                self.state.update(state="agent_working", worker_id=self.worker_id)
+                return {"status": "acquired"}
+
+            def prepare_task_checkout(self) -> dict[str, Any]:
+                raise AssertionError(
+                    "merged closeout fell into fresh implementation preparation"
+                )
+
+        workflow = MergedCloseoutWorkflow()
+        controller = object.__new__(ResumableDownstreamTaskController)
+        controller.task_id = TASK_ID
+        controller.checkout = checkout
+        controller.command_runner = _default_runner
+        controller.workflow = workflow
+        controller.state = {
+            "evidence_commit": task_head,
+            "pull_request_number": 82,
+            "pull_request_url": "https://example.invalid/pull/82",
+        }
+        controller.last_observation = None
+        controller._latest_delivery_approval = lambda: {"decision": "approve"}
+
+        initial = controller.observe()
+        require(
+            initial["downstream"]["next_action"] == "acquire_agent_lease",
+            "agent-ready merge closeout did not request its lease",
+        )
+        controller.acquire_agent_lease(
+            planned_approach="Verify the already-merged pull request.",
+            expected_validation="Prove the exact merge commit remains in current main.",
+        )
+        stale = controller.observe()
+        require(
+            stale["downstream"]["mainline_reintegration"]["status"]
+            == "main_commit_unavailable",
+            "fixture did not reproduce the stale-ref ancestry gap",
+        )
+        require(
+            stale["downstream"]["next_action"] == "prepare_task_checkout",
+            "fixture did not reproduce the bad deterministic route",
+        )
+
+        refreshed = controller.prepare_task_checkout()
+        require(refreshed["origin_main_refreshed"] is True, "main ref was not refreshed")
+        resumed = controller.observe()
+        require(
+            resumed["downstream"]["mainline_reintegration"]["status"]
+            == "task_already_in_main",
+            "exact task ancestry in current main was not recognized",
+        )
+        require(
+            resumed["downstream"]["next_action"] == "inspect_or_merge_pull_request",
+            "merged closeout did not continue to exact pull-request verification",
+        )
+
+
 def main() -> int:
     tests = (
         test_classifier_is_narrow,
@@ -669,6 +923,8 @@ def main() -> int:
         test_runtime_sensitive_integration_creates_new_handoff,
         test_interrupted_evidence_closeout_integrates_new_main_before_pr,
         test_released_evidence_head_integrates_new_main_after_pr_checks,
+        test_merge_rechecks_main_after_checks_before_mutating_main,
+        test_merged_closeout_refreshes_stale_main_then_recognizes_ancestry,
     )
     for test in tests:
         test()

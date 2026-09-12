@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections import Counter
 from typing import Any, Iterable
 
 from .contracts import DecompositionContractError, DecompositionResult, ENTRY_PATTERNS
@@ -130,9 +131,27 @@ def validate_decomposition_result(
                 f"Child {child.local_key!r} may not depend on selected aggregate parent {identity.task_id}."
             )
 
+    if result.decision == "decomposed":
+        parent_resources = tuple(parent_task.get("exclusive_resources") or ())
+        assigned_resources = tuple(
+            resource
+            for child in result.children
+            for resource in child.exclusive_resources
+        )
+        parent_counts = Counter(parent_resources)
+        assigned_counts = Counter(assigned_resources)
+        if parent_counts != assigned_counts:
+            missing = sorted((parent_counts - assigned_counts).elements())
+            extra = sorted((assigned_counts - parent_counts).elements())
+            raise DecompositionPolicyError(
+                "Child exclusive_resources must exactly partition the parent "
+                f"exclusive_resources (missing={missing}, extra={extra})."
+            )
+
     parent_entries = _parent_entries(parent_task)
     coverage_by_parent: dict[tuple[str, str], Any] = {}
     traced_child_entries: set[tuple[str, str, str]] = set()
+    obligation_target_owners: dict[tuple[str, str, str], tuple[str, str]] = {}
     child_by_key = {child.local_key: child for child in result.children}
 
     for rewrite in result.inbound_dependency_rewrites:
@@ -187,6 +206,22 @@ def validate_decomposition_result(
             child = child_by_key.get(target.local_key)
             if child is None:
                 raise DecompositionPolicyError(f"Coverage target references unknown child {target.local_key!r}.")
+            if record.parent_entry_type in {"acceptance_criteria", "completion_gates"}:
+                if target.child_entry_type != record.parent_entry_type:
+                    raise DecompositionPolicyError(
+                        f"Parent {record.parent_entry_type}/{record.parent_entry_id} must map to child "
+                        f"{record.parent_entry_type} entries, not {target.child_entry_type}."
+                    )
+                target_key = (target.local_key, target.child_entry_type, target.child_entry_id)
+                previous_parent = obligation_target_owners.get(target_key)
+                if previous_parent is not None and previous_parent != parent_key:
+                    raise DecompositionPolicyError(
+                        f"Distinct parent obligations must have injective child mappings; "
+                        f"{target.local_key}/{target.child_entry_type}/{target.child_entry_id} "
+                        f"is reused by {previous_parent[0]}/{previous_parent[1]} and "
+                        f"{parent_key[0]}/{parent_key[1]}."
+                    )
+                obligation_target_owners[target_key] = parent_key
             if target.child_entry_id not in child.entry_ids(target.child_entry_type):
                 raise DecompositionPolicyError(
                     f"Coverage target references unknown child entry {target.local_key}/{target.child_entry_type}/{target.child_entry_id}."

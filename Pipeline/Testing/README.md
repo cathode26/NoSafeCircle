@@ -52,6 +52,8 @@ Using `powershell.exe -NoProfile -ExecutionPolicy Bypass -File` prevents a local
 
 The runner waits for the exact Unity process to finish, captures that process's exit code, and then waits for a short bounded period for the XML result to become visible. It still performs the post-run HEAD, tree, and status checks when Unity fails or XML is absent. The runner fails if Unity changes HEAD or leaves any working-tree change, even when all assertions pass. It never restores or hides the changes, and it preserves the unique temporary artifact directory on every result.
 
+Immediately before starting Unity, every production launcher removes the project's `Library/ilpp.pid` and refuses to launch if the path remains. Any future warm-Library copy must exclude `Library/ilpp.pid`; the marker is process-local state and must never be seeded into another checkout.
+
 Only after Unity exits zero, the XML is well formed and Passed with zero failures, and every post-run Git safety check passes, the runner atomically publishes `validation-manifest.json` beside the XML and log. A successful run prints its full host path, for example:
 
 ```text
@@ -59,7 +61,7 @@ Validation manifest: C:\Users\Name\AppData\Local\Temp\NoSafeCircle-UnityTests-..
 VALIDATION PASSED: assertions passed and the repository remained clean.
 ```
 
-The strict manifest records the tested commit/tree, clean-before/after facts, Unity invocation metadata, result counts, and the relative paths, byte sizes, and SHA-256 values of its XML/log artifacts. It is machine-readable validation fact, not a claim that those tests prove any task gate and not a claim of conformance.
+The strict manifest records the tested commit/tree, clean-before/after facts, Unity invocation metadata, result counts, and the relative paths, byte sizes, and SHA-256 values of its XML/log artifacts. Unity-manifest schema 1.1 also binds the runner's repository-relative path, the SHA-256 of the exact on-disk script bytes PowerShell executed, and the runner repository's source commit and root tree. Before launch, the wrapper proves with Git's path filters that those checkout-specific bytes are the committed runner; this keeps CRLF checkouts valid without confusing their raw execution hash with the canonical Git blob. `-ProjectPath` may target a different clean Git checkout, so runner source identity and validated project identity are deliberately separate. Schema 1.0 remains parseable, but synthetic reuse that requires runner authority accepts it only when the integration receipt and immutable Git history independently prove the historical runner. The manifest is machine-readable validation fact, not a claim that those tests prove any task gate and not a claim of conformance.
 
 These safeguards improve test execution but do not establish that Stage 1 is complete.
 

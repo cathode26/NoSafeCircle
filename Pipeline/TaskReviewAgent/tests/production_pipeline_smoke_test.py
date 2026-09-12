@@ -388,6 +388,8 @@ def prepare_builder_execution(
             "source_tree": git(checkout, "rev-parse", "HEAD^{tree}"),
             "source_branch": BRANCH,
             "provider": "claude",
+            "crew_profile": "full",
+            "validation_profile": "full_relevant",
             "crew_status": "review_ready",
             "requested_implementation_paths": [DOOR_BUILDER],
             "requested_test_paths": [DOOR_TEST],
@@ -579,6 +581,8 @@ def test_scope_execution_commit_push() -> None:
                 "source_tree": git(checkout, "rev-parse", "HEAD^{tree}"),
                 "source_branch": BRANCH,
                 "provider": "claude",
+                "crew_profile": "full",
+                "validation_profile": "full_relevant",
                 "crew_status": "review_ready",
                 "requested_implementation_paths": [IMPLEMENTATION],
                 "requested_test_paths": [NEW_TEST],
@@ -795,12 +799,21 @@ def test_door_builder_outputs_and_incidental_cleanup() -> None:
             run_id=run_id,
         )
         executable = fake_unity_executable(root)
+        ilpp_pid_path = checkout / "Library" / "ilpp.pid"
+        ilpp_pid_path.parent.mkdir()
+        ilpp_pid_path.write_text(str(os.getpid()), encoding="ascii")
+        with (checkout / ".git/info/exclude").open("a", encoding="utf-8", newline="\n") as stream:
+            stream.write("/Library/\n")
         events: list[str] = []
 
         def fake_unity_runner(args, cwd, timeout):
             _ = timeout
             require(cwd.resolve() == checkout.resolve(), "Unity did not run in the canonical checkout")
             assert_builder_command(args, checkout=checkout, executable=executable)
+            require(
+                not os.path.lexists(ilpp_pid_path),
+                "DoorPrototype Unity started with a stale ILPP PID marker",
+            )
             require(
                 tuple(
                     sorted(
@@ -879,6 +892,7 @@ def test_door_builder_outputs_and_incidental_cleanup() -> None:
             )
         )
         require(events == ["verify", "builder", "verify"], f"wrong integration order: {events}")
+        require(not os.path.lexists(ilpp_pid_path), "ILPP PID marker survived the builder")
         require(committed == expected, f"wrong builder commit path set: {committed}")
         require(integrated.changed_paths == committed, "receipt does not match committed paths")
         require(EDITOR_BUILD_SETTINGS not in committed, "EditorBuildSettings was committed")
@@ -914,6 +928,57 @@ def test_door_builder_outputs_and_incidental_cleanup() -> None:
             cwd=root,
         ).stdout.strip()
         require(remote_head == integrated.commit, "builder integration was not pushed")
+
+
+def test_door_builder_locked_ilpp_pid_refuses_launch() -> None:
+    with tempfile.TemporaryDirectory(prefix="nsc-door-builder-locked-ilpp-") as temporary:
+        root = Path(temporary)
+        run_id = "nsc-777-door-builder-locked-ilpp"
+        checkout, _, task, source_head, scope, bridge = prepare_builder_execution(
+            root,
+            run_id=run_id,
+        )
+        executable = fake_unity_executable(root)
+        ilpp_pid_path = checkout / "Library" / "ilpp.pid"
+        ilpp_pid_path.parent.mkdir()
+        ilpp_pid_path.write_text(str(os.getpid()), encoding="ascii")
+        with (checkout / ".git/info/exclude").open("a", encoding="utf-8", newline="\n") as stream:
+            stream.write("/Library/\n")
+        unity_started = False
+
+        def forbidden_unity_runner(args, cwd, timeout):
+            nonlocal unity_started
+            _ = (args, cwd, timeout)
+            unity_started = True
+            raise AssertionError("Unity started while its ILPP PID marker was locked")
+
+        integrator = CandidateIntegrator(
+            checkout=checkout,
+            branch=BRANCH,
+            task_title=task["title"],
+            scope=scope,
+            execution=bridge,
+            unity_command_runner=forbidden_unity_runner,
+            unity_executable=executable,
+        )
+        marker_handle = ilpp_pid_path.open("rb")
+        try:
+            try:
+                integrator.integrate(run_id)
+            except CandidateIntegrationError as exc:
+                require("ILPP PID marker could not be removed" in str(exc), f"wrong failure: {exc}")
+            else:
+                raise AssertionError("locked ILPP PID marker was accepted")
+        finally:
+            marker_handle.close()
+
+        require(not unity_started, "Unity runner was called after ILPP marker cleanup failed")
+        require(ilpp_pid_path.is_file(), "locked ILPP PID marker unexpectedly disappeared")
+        require(git(checkout, "rev-parse", "HEAD") == source_head, "failure created a commit")
+        require(
+            git(checkout, "ls-remote", "--heads", "origin", f"refs/heads/{BRANCH}") == "",
+            "failure pushed the task branch",
+        )
 
 
 def test_door_builder_untracked_incidental_fails_closed() -> None:
@@ -1112,13 +1177,15 @@ def main() -> int:
     print("PASS test_scope_execution_commit_push")
     test_door_builder_outputs_and_incidental_cleanup()
     print("PASS test_door_builder_outputs_and_incidental_cleanup")
+    test_door_builder_locked_ilpp_pid_refuses_launch()
+    print("PASS test_door_builder_locked_ilpp_pid_refuses_launch")
     test_door_builder_untracked_incidental_fails_closed()
     print("PASS test_door_builder_untracked_incidental_fails_closed")
     test_door_builder_nonzero_prevents_commit_and_push()
     print("PASS test_door_builder_nonzero_prevents_commit_and_push")
     test_builder_existing_commit_resume_boundary()
     print("PASS test_builder_existing_commit_resume_boundary")
-    print("TaskReviewAgent production pipeline smoke tests: PASS (5 tests)")
+    print("TaskReviewAgent production pipeline smoke tests: PASS (6 tests)")
     return 0
 
 

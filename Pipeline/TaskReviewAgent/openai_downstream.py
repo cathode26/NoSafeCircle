@@ -2,18 +2,27 @@
 
 from __future__ import annotations
 
+from functools import partial
+import uuid
+
 from typing import Any, Mapping
 
 from .codex_supervisor import (
     CodexDockerDecisionProvider,
+    build_supervisor_decision_provider,
     CodexSupervisorError,
     DecisionProvider,
     SupervisorDecision,
     render_supervisor_prompt,
 )
+from .provider_policy import (
+    DEFAULT_SUPERVISOR_PROVIDER,
+    resolve_supervisor_provider,
+)
 from .contracts import TASK_REVIEW_SCHEMA_VERSION, TaskReviewContractError, TaskReviewRequest
 from .downstream_runtime import ResumableDownstreamTaskController
 from .progress import NullProgress, ProgressLog, ProgressSink, summarize_result
+from .validation_authority_language import authority_kind_from_observation
 
 
 class OpenAIDownstreamPipelineError(TaskReviewContractError):
@@ -40,12 +49,13 @@ _ACTIONS = {
         "gate_mappings, approval_notes."
     ),
     "publish_delivery_review": (
-        "Apply the existing exact-commit human PASS to the delivery proposal and continue "
+        "Apply the existing exact-commit validation authority -- a human PASS or a "
+        "policy-bound automated validation event -- to the delivery proposal and continue "
         "without a second approval. The host rejects dirty or changed checkouts. No arguments."
     ),
     "finalize_delivery_evidence_and_open_pr": (
-        "After the unchanged exact-commit PASS is carried forward, package evidence, prove "
-        "conformance, push, and open PR. No arguments."
+        "After the unchanged exact-commit validation authority is carried forward, package "
+        "evidence, prove conformance, push, and open PR. No arguments."
     ),
     "inspect_or_merge_pull_request": (
         "Inspect checks; release if pending, block on failure, or merge exact passing head. No arguments."
@@ -57,7 +67,8 @@ _ACTIONS = {
 
 _GOAL_AND_RULES = """
 GOAL
-Resume the durable Issue after Vincent's Unity PASS and move it through authoritative Unity
+Resume the durable Issue after its exact-commit validation authority -- Vincent's Unity PASS,
+or a policy-bound automated validation event -- and move it through authoritative Unity
 validation, hash-bound delivery evidence, TaskGraph conformance, pull
 request checks, exact merge, fresh-main verification, and Issue completion.
 
@@ -74,9 +85,12 @@ OPERATING RULES
 - After drafting, inspect every surface candidate, evidence artifact, and completion gate.
 - Select only truthful committed conformance surfaces, give each a concrete semantic role, and map
   each gate to specific evidence with a gate-specific explanation.
-- A PASS for the exact unchanged commit carries forward as delivery authorization. After creating
-  the hash-bound proposal, advance automatically only while the canonical checkout remains clean.
-- If any new or uncommitted repository change appears after PASS, stop for human reconciliation.
+- The recorded validation authority for the exact unchanged commit carries forward as delivery
+  authorization. Never describe automated validation authority as a human PASS or human approval.
+  After creating the hash-bound proposal, advance automatically only while the canonical checkout
+  remains clean.
+- If any new or uncommitted repository change appears after that validation, stop for human
+  reconciliation.
 - Finalization must establish TaskGraph conformant before PR creation.
 - Pending checks release the lease for a later generic run. Merge only the exact recorded head with
   history preserved. If main advanced beyond the validated integration, stop rather than merge.
@@ -258,6 +272,9 @@ def _observation_fields(observation: Mapping[str, Any]) -> dict[str, Any]:
         "next_action": downstream.get("next_action"),
         "checkout_status": checkout.get("status"),
         "issue_number": coordination.get("issue_number"),
+        # Operator wording for the delivery-review step follows the durable
+        # authority, so every observation republishes it.
+        "validation_authority_kind": authority_kind_from_observation(observation),
     }
 
 
@@ -292,8 +309,17 @@ def run_openai_downstream_pipeline(
     max_turns: int = 100,
     decision_provider: DecisionProvider | None = None,
     progress: ProgressSink | None = None,
+    session_owner: Any = None,
+    supervisor_provider: str | None = None,
+    reasoning_effort: str | None = None,
 ) -> dict[str, Any]:
-    """Drive downstream work with Codex CLI while host tools retain authority."""
+    """Drive downstream work with Codex CLI while host tools retain authority.
+
+    ``reasoning_effort`` is the routed supervisor effort. The downstream phase
+    of a task must use the same effort as its implementation phase, because the
+    task-scoped supervisor conversation is compatible only with the exact model
+    and effort it was started under.
+    """
 
     if isinstance(max_turns, bool) or not isinstance(max_turns, int) or not 4 <= max_turns <= 160:
         raise OpenAIDownstreamPipelineError("max_turns must be an integer from 4 through 160")
@@ -303,11 +329,34 @@ def run_openai_downstream_pipeline(
         decision_provider=decision_provider,
         progress=progress,
     )
-    provider = decision_provider or CodexDockerDecisionProvider(
+    if decision_provider is not None and session_owner is not None:
+        raise OpenAIDownstreamPipelineError(
+            "an injected decision provider cannot also receive a supervisor session owner"
+        )
+    # The default and Codex routes keep constructing the module-global
+    # ``CodexDockerDecisionProvider`` by name, so the existing injection seam --
+    # tests and operator layers that rebind that global -- is unchanged. Only an
+    # explicitly selected non-default supervisor goes through the registry
+    # factory, which is the one place that knows each provider's Compose
+    # service, credential volume, and turn entrypoint.
+    supervisor_factory = (
+        CodexDockerDecisionProvider
+        if resolve_supervisor_provider(supervisor_provider) == DEFAULT_SUPERVISOR_PROVIDER
+        else partial(
+            build_supervisor_decision_provider,
+            supervisor_provider=supervisor_provider,
+        )
+    )
+    provider = decision_provider or supervisor_factory(
         source=controller.workflow.base_observer.root,
         model=model,
+        reasoning_effort=reasoning_effort,
+        session_owner=session_owner,
     )
     history: list[dict[str, Any]] = []
+    integration_window = getattr(controller, "integration_window", None)
+    if integration_window is not None:
+        integration_window.bind_run(getattr(active_progress, "run_id", None) or uuid.uuid4().hex)
 
     try:
         for turn in range(1, max_turns + 1):
@@ -317,6 +366,16 @@ def run_openai_downstream_pipeline(
                 turn=turn,
             ):
                 observation = controller.observe()
+            if integration_window is not None:
+                gate_result = integration_window.checkpoint(observation)
+                if gate_result is not None:
+                    if gate_result["status"] == "continue":
+                        continue
+                    active_progress.emit("integration_gate_waiting", "Delivery is queued behind the current integration owner",
+                                         gate_ref=integration_window.gate.ref, turn=turn)
+                    if owns_progress:
+                        active_progress.finish(str(gate_result["status"]))
+                    return gate_result
             observed = _observation_fields(observation)
             active_progress.emit(
                 "state_observed",
@@ -326,6 +385,8 @@ def run_openai_downstream_pipeline(
             )
             terminal = _terminal_outcome(request, observation)
             if terminal is not None:
+                if integration_window is not None and integration_window.held:
+                    integration_window.settle(observation, str(terminal.get("status")))
                 active_progress.emit(
                     "terminal_state",
                     f"Reached terminal downstream state {terminal.get('status')}",
@@ -342,9 +403,14 @@ def run_openai_downstream_pipeline(
                 history=history,
                 actions=_ACTIONS,
             )
+            bind_observation = getattr(provider, "bind_turn_observation", None)
+            if callable(bind_observation):
+                # The authority capsule of a pooled turn names the same phase,
+                # Issue state, and source identity the prompt was rendered from.
+                bind_observation(observation)
             with active_progress.heartbeat(
                 "codex_supervisor",
-                f"Turn {turn}: Codex is choosing the next downstream action",
+                f"Turn {turn}: Supervisor is choosing the next downstream action",
                 turn=turn,
                 expected_next_action=observed.get("next_action"),
             ):
@@ -356,7 +422,7 @@ def run_openai_downstream_pipeline(
                 )
             active_progress.emit(
                 "supervisor_decision",
-                f"Turn {turn}: Codex selected {decision.action}",
+                f"Turn {turn}: Supervisor selected {decision.action}",
                 turn=turn,
                 action=decision.action,
                 rationale=" ".join(decision.rationale.split())[:500],
@@ -368,7 +434,11 @@ def run_openai_downstream_pipeline(
                     turn=turn,
                     action=decision.action,
                 ):
+                    if integration_window is not None:
+                        integration_window.before_action(decision.action)
                     result = _execute(decision, controller)
+                    if integration_window is not None:
+                        integration_window.after_action(decision.action)
                 active_progress.emit(
                     "action_completed",
                     f"Turn {turn}: {decision.action} completed",
@@ -385,6 +455,15 @@ def run_openai_downstream_pipeline(
                     }
                 )
             except TaskReviewContractError as exc:
+                if integration_window is not None:
+                    integration_window.failure(exc, action=decision.action)
+                    if owns_progress:
+                        active_progress.finish("blocked")
+                    return {
+                        "schema_version": "1.0", "task_id": request.task_id,
+                        "status": "blocked", "authority": "durable_integration_gate",
+                        "blockers": [str(exc)], "deterministic_final_state": controller.observe(),
+                    }
                 active_progress.emit(
                     "action_rejected",
                     f"Turn {turn}: {decision.action} was rejected by deterministic validation",
@@ -405,7 +484,9 @@ def run_openai_downstream_pipeline(
         raise OpenAIDownstreamPipelineError(
             f"Codex supervisor exhausted {max_turns} decisions without a deterministic terminal state"
         )
-    except BaseException:
+    except BaseException as exc:
+        if integration_window is not None:
+            integration_window.failure(exc)
         if owns_progress:
             active_progress.finish("failed")
         raise

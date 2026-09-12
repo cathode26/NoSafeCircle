@@ -16,7 +16,15 @@ from __future__ import annotations
 from typing import Any, Iterable, Mapping
 
 from . import issue_workflow_store as store
-from .issue_workflow import WorkflowContractError, WorkflowState, parse_state
+from .decomposition_undo_retirement import (
+    PublishedUndoRetirementError,
+    classify_retired_decomposition_completion,
+)
+from .issue_workflow import (
+    WorkflowContractError,
+    WorkflowState,
+    parse_state,
+)
 
 
 _INSTALLED = False
@@ -56,9 +64,9 @@ def _completed_aware_candidates(
 ) -> list[dict[str, Any]]:
     """Return active matches plus the canonical closed COMPLETE workflow.
 
-    Closed non-complete Issues are ignored. They may be manually closed drafts,
-    abandoned duplicates, or historical operator mistakes; none can authorize a
-    new run. A closed COMPLETE Issue remains the durable terminal authority.
+    Historical non-delivery drafts remain excluded. Delivery completion prefixes
+    reach full-history classification before duplicate filtering; closure alone
+    never authorizes a new run. A coherent COMPLETE Issue is terminal authority.
     """
 
     task_id = store.validate_task_id(task_id)
@@ -70,10 +78,71 @@ def _completed_aware_candidates(
             # Public-repository Issues from unauthorized logins never become
             # managed workflow authority, open or closed.
             continue
-        if _issue_closed(issue) and not _closed_complete(issue):
+        if not store.closed_workflow_candidate(issue):
             continue
         candidates.append(issue)
     return candidates
+
+
+def _completed_aware_find(
+    self: store.IssueWorkflowService,
+    task_id: str,
+) -> store.IssueWorkflowSnapshot | None:
+    """Find current authority while honoring a verified decomposition retirement.
+
+    A normal closed COMPLETE Issue remains terminal forever.  The sole
+    exception is a valid closed ``decomposition_apply`` workflow carrying the
+    exact authorized marker written by ``reset_task.py`` after it independently
+    proved an already-published additive undo.  That Issue remains immutable
+    audit history but no longer owns the replacement run.
+    """
+
+    task_id = store.validate_task_id(task_id)
+    candidates = _completed_aware_candidates(self.backend.list_issues(), task_id)
+    from .gate_waiter_reconciliation import quarantined_waiters
+    if any(waiter["task_id"] == task_id for waiter in quarantined_waiters(self.backend)):
+        raise store.IssueWorkflowStoreError(f"{task_id} has durable quarantined ownership; reconcile before resuming")
+    active: list[dict[str, Any]] = []
+    deadline = (
+        self.consistency_retry_budget.deadline()
+        if self.consistency_retry_budget is not None
+        else None
+    )
+    for issue in candidates:
+        if not (_issue_closed(issue) and _closed_complete(issue)):
+            if _issue_closed(issue):
+                snapshot = store._consistent_snapshot(self.backend, issue, deadline=deadline)
+                if snapshot is None or store.closed_incomplete_duplicate(issue, snapshot):
+                    continue
+            active.append(issue)
+            continue
+        number = issue.get("number")
+        if type(number) is not int or number < 1:
+            raise store.IssueWorkflowStoreError(
+                "closed completed Issue is missing a positive integer number"
+            )
+        try:
+            retired = classify_retired_decomposition_completion(
+                issue,
+                self.backend.get_comments(number),
+            )
+        except PublishedUndoRetirementError as exc:
+            raise store.IssueWorkflowStoreError(
+                f"closed completed Issue #{number} has invalid published-undo "
+                f"retirement evidence: {exc}"
+            ) from exc
+        if retired is not None:
+            continue
+        active.append(issue)
+
+    if len(active) > 1:
+        raise store.IssueWorkflowStoreError(
+            f"multiple open GitHub Issues match {task_id}: "
+            + ", ".join(str(item.get("number")) for item in active)
+        )
+    if not active:
+        return None
+    return store._consistent_snapshot(self.backend, active[0], deadline=deadline)
 
 
 def _gh_list_all_issues(self: Any) -> list[dict[str, Any]]:
@@ -99,11 +168,13 @@ def install_completed_issue_guard() -> None:
     _ORIGINALS.update(
         {
             "find_candidates": store._find_candidates,
+            "find": store.IssueWorkflowService.find,
             "gh_list_issues": store.GhIssueBackend.list_issues,
             "list_agent_ready": store.IssueWorkflowService.list_agent_ready,
         }
     )
     store._find_candidates = _completed_aware_candidates
+    store.IssueWorkflowService.find = _completed_aware_find
     store.GhIssueBackend.list_issues = _gh_list_all_issues
     store.IssueWorkflowService.list_agent_ready = _open_agent_ready_only
     _INSTALLED = True

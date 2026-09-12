@@ -14,7 +14,7 @@ from Pipeline.AgentRuntime.contracts import (
 
 
 TASK_EXECUTION_REQUEST_SCHEMA_VERSION = "1.0"
-_TASK_ID = re.compile(r"^NSC-[0-9]{3}$")
+_TASK_ID = re.compile(r"^NSC-(?:[0-9]{3}|[1-9][0-9]{3,8})$")
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
 

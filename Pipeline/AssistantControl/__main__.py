@@ -1,0 +1,456 @@
+"""JSON commands used by the assistant; no commands launch work implicitly."""
+import argparse
+import json
+import subprocess
+import time
+from pathlib import Path
+
+from Pipeline.AssistantControl.checkouts import Checkouts
+from Pipeline.AssistantControl.inspect_project import inspect
+
+
+def _wait_foreground_worker(manager, task_id: str, run_id: str,
+                            process_identity: dict) -> dict:
+    """Wait for exactly the launcher child and return its durable worker view."""
+    from Pipeline.AssistantControl import worker_control
+
+    stop_sent = False
+    while True:
+        try:
+            observed = worker_control.status(manager, task_id)
+            worker = observed.get("worker") or {}
+            if (worker.get("task_id") != task_id or worker.get("run_id") != run_id
+                    or worker.get("process_identity") != process_identity):
+                raise ValueError("foreground worker identity changed; exact run retained for inspection")
+            if observed.get("host_identity_alive") is False:
+                return observed
+            time.sleep(0.05)
+        except KeyboardInterrupt:
+            if stop_sent:
+                raise
+            worker_control.request_stop(manager, task_id, run_id=run_id)
+            stop_sent = True
+
+
+def main(argv=None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--source", type=Path, default=Path.cwd())
+    parser.add_argument("--checkout-root", type=Path)
+    commands = parser.add_subparsers(dest="command", required=True)
+    status = commands.add_parser("status", help="Read source and committed tasks; no admission claim")
+    status.add_argument("--task")
+    dependencies = commands.add_parser("dependencies", help="Read committed dependency delivery evidence")
+    dependencies.add_argument("task")
+    readiness = commands.add_parser(
+        "readiness", help="Read dependency, checkout, capacity and resource readiness without reserving",
+    )
+    readiness.add_argument("task")
+    readiness.add_argument("--capacity", type=int, default=1)
+    viewer = commands.add_parser("viewer", help="Serve the existing graph as a read-only dashboard")
+    viewer.add_argument("--port", type=int, default=8813)
+    prepare = commands.add_parser("prepare", help="Create an isolated task project; does not start a worker")
+    prepare.add_argument("task")
+    prepare.add_argument("--source-commit", required=True, help="Exact HEAD from the previous inspection")
+    refresh = commands.add_parser("refresh-prepared", help="Update a pristine, never-started task checkout to an inspected Source commit")
+    refresh.add_argument("task")
+    refresh.add_argument("--source-commit", required=True)
+    checkout = commands.add_parser("checkout", help="Read an existing assistant-owned task checkout")
+    checkout.add_argument("task")
+    result = commands.add_parser(
+        "inspect-result", help="Authenticate and summarize a retained crew result and patch",
+    )
+    result.add_argument("task")
+    result.add_argument("--run-id", help="Exact assistant worker run; defaults to latest receipt")
+    scope = commands.add_parser("scope", help="Validate an explicit scope; does not admit or launch work")
+    scope.add_argument("task")
+    scope.add_argument("--plan", type=Path, required=True, help="ExecutionScopePlan JSON file")
+    scope.add_argument("--lease-id", required=True)
+    candidate = commands.add_parser("candidate", help="Verify an existing crew result and commit it for human review; never launches a provider")
+    candidate.add_argument("task")
+    candidate.add_argument("--run-id", required=True)
+    candidate.add_argument("--config", type=Path, required=True, help="The bridge configuration used by that crew")
+    materialize = commands.add_parser(
+        "materialize-candidate",
+        help="Run the Door Prototype Unity builder and focused tests for one exact crew candidate",
+    )
+    materialize.add_argument("task")
+    materialize.add_argument("--candidate-commit", required=True)
+    materialize.add_argument("--unity-executable", type=Path)
+    post_crew = commands.add_parser(
+        "post-crew",
+        help=(
+            "Register a finished crew run's candidate and, if the task registers "
+            "a Unity builder, materialize and validate it in one bounded step"
+        ),
+    )
+    post_crew.add_argument("task")
+    post_crew.add_argument("--run-id", required=True)
+    post_crew.add_argument("--config", type=Path, required=True, help="The bridge configuration used by that crew")
+    post_crew.add_argument("--unity-executable", type=Path)
+    restored = commands.add_parser(
+        "register-restored-candidate",
+        help="Register a committed assistant-restored candidate for Vincent's review; no crew-review claim",
+    )
+    restored.add_argument("task")
+    restored.add_argument("--base-commit", required=True)
+    restored.add_argument("--candidate-commit", required=True)
+    restored.add_argument("--candidate-tree", required=True)
+    restored.add_argument("--task-contract-sha256", required=True)
+    restored.add_argument("--changed-paths", type=Path, required=True)
+    restored.add_argument("--evidence", type=Path, required=True)
+    restored.add_argument("--reference-provenance", type=Path, required=True)
+    worker_status = commands.add_parser("worker-status", help="Inspect host identity and retained worker state")
+    worker_status.add_argument("task")
+    settlement = commands.add_parser("settle-worker", help="Release ended worker capacity after verified process/container exit")
+    settlement.add_argument("task")
+    settlement.add_argument("--run-id", required=True)
+    revision = commands.add_parser("revise", help="Reopen an explicitly rejected candidate without discarding its work")
+    revision.add_argument("task")
+    revision.add_argument("--candidate-commit", required=True)
+    reset_task_cmd = commands.add_parser(
+        "reset-task",
+        help=(
+            "Dry-run (default) or --apply a selective revert of one exact "
+            "integrated task's own commits on a local no-remote "
+            "gauntlet-replay/* branch, preserving every other task's work"
+        ),
+    )
+    reset_task_cmd.add_argument("task")
+    reset_task_cmd.add_argument("--apply", action="store_true")
+    sync = commands.add_parser("sync-candidate", help="Merge an inspected Source commit into an approved candidate for fresh human testing; no provider or publication")
+    sync.add_argument("task")
+    sync.add_argument("--candidate-commit", required=True)
+    sync.add_argument("--source-commit", required=True)
+    stop = commands.add_parser("stop-worker", help="Request cooperative stop of one exact run; never deletes work")
+    stop.add_argument("task")
+    stop.add_argument("--run-id", required=True)
+    stop.add_argument("--force", action="store_true", help="Terminate exact host and stop run-bound containers; preserve files")
+    admission = commands.add_parser("reserve", help="Reserve capacity and resources; does not launch work")
+    admission.add_argument("task")
+    admission.add_argument("--run-id", required=True)
+    admission.add_argument("--capacity", type=int, default=1)
+    run = commands.add_parser("run-worker", aliases=["start-worker"], help="Run an authorized crew; start-worker launches it detached")
+    run.add_argument("task")
+    run.add_argument("--run-id", required=True)
+    run.add_argument("--lease-id", required=True)
+    run.add_argument("--config", type=Path, required=True)
+    run.add_argument("--authorize-provider-spend", action="store_true")
+    decision = commands.add_parser("review", help="Record Vincent's explicit decision on the exact tested candidate")
+    decision.add_argument("task")
+    decision.add_argument("--tested-commit", required=True)
+    decision.add_argument("--decision", choices=("approve", "reject"), required=True)
+    decision.add_argument("--message", required=True)
+    integration = commands.add_parser("integrate", help="Integrate only the exact approved candidate locally")
+    integration.add_argument("task")
+    integration.add_argument("--source-commit", required=True)
+    integration.add_argument("--target-branch", required=True)
+    publish = commands.add_parser(
+        "publish-approved",
+        help="Push one exact human-approved candidate and create or reuse its sole pull request",
+    )
+    publish.add_argument("task")
+    publish.add_argument("--candidate-commit", required=True)
+    publish.add_argument("--base-branch", default="main")
+    publish.add_argument("--repo", help="Optional owner/repo assertion; must match Source origin")
+    inspect_ci = commands.add_parser(
+        "inspect-ci",
+        help="Record pull-request checks only when its head is the exact approved candidate",
+    )
+    inspect_ci.add_argument("task")
+    inspect_ci.add_argument("--candidate-commit", required=True)
+    inspect_ci.add_argument("--base-branch", default="main")
+    inspect_ci.add_argument("--repo", help="Optional owner/repo assertion; must match Source origin")
+    archive = commands.add_parser("preserve-success", help="Keep an approved, integrated Unity project in SuccessfullTasks")
+    archive.add_argument("task")
+    archive.add_argument("--success-root", type=Path, default=Path("C:/NSC/SuccessfullTasks"))
+    decompose = commands.add_parser("decompose", help="Run one bounded two-role decomposition proposal; no graph mutation")
+    decompose.add_argument("task")
+    decompose.add_argument("--run-id", required=True)
+    decompose.add_argument("--providers", default="claude,codex")
+    decompose.add_argument("--compose-project", default="nosafecircle")
+    decompose.add_argument("--authorize-provider-spend", action="store_true")
+    inspect_decomposition = commands.add_parser("inspect-decomposition", help="Recheck the exact retained decomposition review")
+    inspect_decomposition.add_argument("task")
+    apply_decomposition = commands.add_parser("apply-decomposition", help="Apply one exact reviewed decomposition locally; never pushes")
+    apply_decomposition.add_argument("task")
+    apply_decomposition.add_argument("--run-id", required=True)
+    apply_decomposition.add_argument("--source-commit", required=True)
+    apply_decomposition.add_argument("--target-branch", required=True)
+    graph_plan = commands.add_parser(
+        "graph-plan", help="Show the next bounded graph actions without mutating or starting providers",
+    )
+    graph_plan.add_argument("--task", action="append", required=True,
+                            help="Target task; repeat for a bounded graph")
+    graph_plan.add_argument("--human-review-task", action="append", default=[])
+    graph_plan.add_argument("--auto-approve-gauntlet", action="store_true")
+    graph_plan.add_argument("--capacity", type=int, default=1)
+    graph_plan.add_argument("--target-branch")
+    graph_plan.add_argument("--scope-dir", type=Path)
+    run_graph = commands.add_parser(
+        "run-graph", help="Resume the bounded local graph until complete, blocked, or awaiting human review",
+    )
+    run_graph.add_argument("--task", action="append", required=True,
+                           help="Target task; repeat for a bounded graph")
+    run_graph.add_argument(
+        "--worker-config", type=Path,
+        help="Required for normal execution; optional in --delegate-safe mode",
+    )
+    maintenance_plan = commands.add_parser("maintenance-plan", help="Create one authenticated bounded maintenance ticket")
+    maintenance_plan.add_argument("task")
+    maintenance_plan.add_argument("--action", required=True,
+                                   choices=("inspect-worker", "verify-candidate", "settle-worker", "cleanup-worker-docker"))
+    maintenance_plan.add_argument("--run-id", required=True)
+    maintenance_run = commands.add_parser("maintenance-run", help="Run one owned maintenance ticket")
+    maintenance_run.add_argument("ticket", type=Path)
+    run_graph.add_argument("--human-review-task", action="append", default=[])
+    run_graph.add_argument("--auto-approve-gauntlet", action="store_true")
+    run_graph.add_argument("--authorize-provider-spend", action="store_true")
+    run_graph.add_argument("--capacity", type=int, default=1)
+    run_graph.add_argument("--target-branch")
+    run_graph.add_argument("--scope-dir", type=Path)
+    run_graph.add_argument("--providers", default="claude,codex")
+    run_graph.add_argument("--compose-project", default="nosafecircle")
+    run_graph.add_argument("--max-actions", type=int, default=100)
+    run_graph.add_argument("--once", action="store_true",
+                           help="Perform at most one durable graph transition")
+    run_graph.add_argument(
+        "--delegate-safe", action="store_true",
+        help="Permit only bounded non-provider, non-approval, non-integration transitions",
+    )
+    args = parser.parse_args(argv)
+    try:
+        if args.command == "status":
+            result = inspect(args.source, args.task)
+        elif args.command == "dependencies":
+            from Pipeline.AssistantControl.dependencies import inspect_dependencies
+            result = inspect_dependencies(args.source, args.task, args.checkout_root)
+        else:
+            if args.checkout_root is None:
+                raise ValueError("Specify --checkout-root outside the source project")
+            manager = Checkouts(args.source, args.checkout_root)
+            if args.command == "maintenance-plan":
+                from Pipeline.AssistantControl.maintenance import MaintenanceExecutor
+                result = MaintenanceExecutor(manager).plan(args.task, args.action, run_id=args.run_id)
+                print(json.dumps(result, indent=2)); return 0
+            if args.command == "maintenance-run":
+                from Pipeline.AssistantControl.maintenance import MaintenanceExecutor
+                result = MaintenanceExecutor(manager).run(args.ticket)
+                print(json.dumps(result, indent=2)); return 0
+            if args.command == "viewer":
+                from Pipeline.AssistantControl.viewer import make_server
+                server = make_server(args.source, args.checkout_root, args.port)
+                print(json.dumps({"viewer_url": f"http://127.0.0.1:{server.server_port}/", "read_only": True}), flush=True)
+                try:
+                    server.serve_forever()
+                except KeyboardInterrupt:
+                    pass
+                finally:
+                    server.server_close()
+                return 0
+            if args.command in {"graph-plan", "run-graph"}:
+                from Pipeline.AssistantControl.graph_controller import (
+                    DELEGATE_SAFE_ACTIONS,
+                    GraphController,
+                    GraphPolicy,
+                )
+                human = frozenset({"NSC-042", *args.human_review_task})
+                policy = GraphPolicy(
+                    targets=tuple(dict.fromkeys(args.task)),
+                    human_review_tasks=human,
+                    auto_approve_gauntlet=args.auto_approve_gauntlet,
+                    capacity=args.capacity,
+                    target_branch=args.target_branch,
+                    scope_dir=args.scope_dir,
+                    decomposition_providers=getattr(args, "providers", "claude,codex"),
+                    compose_project=getattr(args, "compose_project", "nosafecircle"),
+                )
+                config = {}
+                if args.command == "run-graph":
+                    if args.delegate_safe and args.authorize_provider_spend:
+                        raise ValueError(
+                            "--delegate-safe cannot be combined with --authorize-provider-spend"
+                        )
+                    if args.worker_config is None:
+                        if not args.delegate_safe:
+                            raise ValueError(
+                                "run-graph requires --worker-config unless --delegate-safe is used"
+                            )
+                    else:
+                        config = json.loads(args.worker_config.read_text(encoding="utf-8-sig"))
+                        if not isinstance(config, dict):
+                            raise ValueError("Worker configuration must be a JSON object")
+                controller = GraphController(
+                    manager, policy, config,
+                    execution_authorized=(
+                        args.command == "run-graph" and args.authorize_provider_spend
+                        and not args.delegate_safe
+                    ),
+                )
+                result = (controller.plan() if args.command == "graph-plan"
+                          else controller.run(
+                              max_actions=1 if args.once else args.max_actions,
+                              allowed_actions=(DELEGATE_SAFE_ACTIONS if args.delegate_safe else None),
+                          ))
+                print(json.dumps(result, indent=2))
+                return 0 if result.get("status") not in {"blocked", "command_failed"} else 1
+            if args.command == "readiness":
+                from Pipeline.AssistantControl.readiness import inspect_readiness
+                result = inspect_readiness(manager, args.task, capacity=args.capacity)
+            elif args.command == "prepare":
+                result = manager.prepare(args.task, expected_commit=args.source_commit)
+            elif args.command == "checkout":
+                result = manager.observe(args.task)
+            elif args.command == "inspect-result":
+                from Pipeline.AssistantControl.result_inspection import inspect_result
+                result = inspect_result(
+                    manager, args.task, assistant_run_id=args.run_id,
+                )
+            elif args.command == "scope":
+                from Pipeline.AssistantControl.scope import AssistantScopePlanner
+                plan = json.loads(args.plan.read_text(encoding="utf-8-sig"))
+                result = AssistantScopePlanner(manager).validate_and_persist(
+                    args.task, plan, lease_id=args.lease_id)
+            elif args.command == "candidate":
+                from Pipeline.AssistantControl.candidate import register_candidate
+                config = json.loads(args.config.read_text(encoding="utf-8-sig"))
+                if not isinstance(config, dict):
+                    raise ValueError("Candidate configuration must be a JSON object")
+                result = register_candidate(manager, args.task, args.run_id, config)
+            elif args.command == "materialize-candidate":
+                from Pipeline.AssistantControl.unity_materialization import materialize_candidate
+                result = materialize_candidate(
+                    manager, args.task, args.candidate_commit,
+                    unity_executable=args.unity_executable,
+                )
+            elif args.command == "post-crew":
+                from Pipeline.AssistantControl.post_crew_workflow import run_post_crew_workflow
+                config = json.loads(args.config.read_text(encoding="utf-8-sig"))
+                if not isinstance(config, dict):
+                    raise ValueError("Candidate configuration must be a JSON object")
+                result = run_post_crew_workflow(
+                    manager, args.task, args.run_id, config,
+                    unity_executable=args.unity_executable,
+                )
+            elif args.command == "register-restored-candidate":
+                from Pipeline.AssistantControl.assistant_restored_candidate import (
+                    register_assistant_restored_candidate,
+                )
+                result = register_assistant_restored_candidate(
+                    manager,
+                    args.task,
+                    base_commit=args.base_commit,
+                    candidate_commit=args.candidate_commit,
+                    candidate_tree=args.candidate_tree,
+                    task_contract_sha256=args.task_contract_sha256,
+                    changed_paths=json.loads(args.changed_paths.read_text(encoding="utf-8-sig")),
+                    evidence=json.loads(args.evidence.read_text(encoding="utf-8-sig")),
+                    reference_provenance=json.loads(
+                        args.reference_provenance.read_text(encoding="utf-8-sig")
+                    ),
+                )
+            elif args.command == "refresh-prepared":
+                from Pipeline.AssistantControl.prepared_refresh import refresh_prepared
+                result = refresh_prepared(manager, args.task, expected_source_commit=args.source_commit)
+            elif args.command in {"worker-status", "stop-worker"}:
+                from Pipeline.AssistantControl import worker_control
+                result = (worker_control.status(manager, args.task) if args.command == "worker-status"
+                          else (worker_control.force_stop(manager, args.task, run_id=args.run_id) if args.force
+                                else worker_control.request_stop(manager, args.task, run_id=args.run_id)))
+            elif args.command == "reserve":
+                from Pipeline.AssistantControl.admission import reserve
+                result = reserve(manager, args.task, args.run_id, capacity=args.capacity)
+            elif args.command == "settle-worker":
+                from Pipeline.AssistantControl.worker_settlement import settle_completed
+                result = settle_completed(manager, args.task, run_id=args.run_id)
+            elif args.command == "revise":
+                from Pipeline.AssistantControl.revisions import begin_revision
+                result = begin_revision(manager, args.task, expected_candidate=args.candidate_commit)
+            elif args.command == "reset-task":
+                from Pipeline.AssistantControl.reset_task import reset_task
+                result = reset_task(manager, args.task, apply=args.apply)
+            elif args.command == "sync-candidate":
+                from Pipeline.AssistantControl.source_update import synchronize_candidate
+                result = synchronize_candidate(manager, args.task,
+                                               expected_candidate=args.candidate_commit,
+                                               expected_source_commit=args.source_commit)
+            elif args.command in {"run-worker", "start-worker"}:
+                if not args.authorize_provider_spend:
+                    raise ValueError("Explicit provider-spend authorization is required; no worker started")
+                config = json.loads(args.config.read_text(encoding="utf-8-sig"))
+                if not isinstance(config, dict):
+                    raise ValueError("Worker configuration must be a JSON object")
+                config["execution_authorized"] = True
+                if args.command == "start-worker":
+                    from Pipeline.AssistantControl.worker_launcher import start
+                    result = start(manager, args.task, args.run_id, args.lease_id, config,
+                                   execution_authorized=True)
+                else:
+                    from Pipeline.AssistantControl.worker_launcher import start
+                    started = start(manager, args.task, args.run_id, args.lease_id, config,
+                                    execution_authorized=True)
+                    if (started.get("task_id") != args.task
+                            or started.get("run_id") != args.run_id):
+                        raise ValueError("foreground launcher returned a different task or run")
+                    identity = started.get("process_identity")
+                    if not isinstance(identity, dict):
+                        raise ValueError("foreground launcher returned no exact child identity")
+                    observed = _wait_foreground_worker(
+                        manager, args.task, args.run_id, identity)
+                    result = {**started, "worker": observed.get("worker"),
+                              "worker_status": observed}
+            elif args.command == "preserve-success":
+                from Pipeline.AssistantControl.successful_tasks import preserve_success
+                result = preserve_success(manager, args.task, args.success_root)
+            elif args.command in {"publish-approved", "inspect-ci"}:
+                from Pipeline.AssistantControl.publication import PublicationAdapter
+                publication = PublicationAdapter(manager)
+                values = {
+                    "candidate_commit": args.candidate_commit,
+                    "base_branch": args.base_branch,
+                    "repository": args.repo,
+                }
+                result = (
+                    publication.publish_approved(args.task, **values)
+                    if args.command == "publish-approved"
+                    else publication.inspect_ci(args.task, **values)
+                )
+            elif args.command in {"decompose", "inspect-decomposition", "apply-decomposition"}:
+                from Pipeline.AssistantControl import decomposition
+                if args.command == "decompose":
+                    result = decomposition.run(
+                        manager, args.task, args.run_id,
+                        providers=args.providers,
+                        compose_project=args.compose_project,
+                        execution_authorized=args.authorize_provider_spend,
+                    )
+                elif args.command == "inspect-decomposition":
+                    result = decomposition.inspect(manager, args.task)
+                else:
+                    result = decomposition.apply(
+                        manager, args.task,
+                        run_id=args.run_id,
+                        expected_source_commit=args.source_commit,
+                        target_branch=args.target_branch,
+                    )
+            else:
+                from Pipeline.AssistantControl.review import ReviewGate
+                gate = ReviewGate(manager)
+                if args.command == "review":
+                    result = gate.decide(args.task, tested_commit=args.tested_commit,
+                                         decision=args.decision, message=args.message)
+                else:
+                    result = gate.integrate(args.task, expected_source_commit=args.source_commit,
+                                            target_branch=args.target_branch)
+        print(json.dumps(result, indent=2))
+        if args.command == "run-worker" and (result.get("worker") or {}).get("status") != "succeeded":
+            return 1
+        if args.command == "decompose" and result.get("status") != "review_ready":
+            return 1
+        return 0
+    except (ValueError, RuntimeError, OSError, subprocess.TimeoutExpired) as exc:
+        print(json.dumps({"status": "command_failed", "error": str(exc)}))
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

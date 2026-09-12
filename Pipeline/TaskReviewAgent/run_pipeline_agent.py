@@ -18,8 +18,16 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from Pipeline.TaskReviewAgent.provider_policy import (  # noqa: E402
+    resolve_supervisor_provider,
+)
+from Pipeline.TaskReviewAgent.supervisor_providers import (  # noqa: E402
+    supervisor_provider_profile,
+)
 from Pipeline.TaskReviewAgent.codex_supervisor import (  # noqa: E402
     describe_codex_runtime,
+    resolve_supervisor_model,
+    resolve_supervisor_reasoning_effort,
 )
 from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task  # noqa: E402
 from Pipeline.TaskReviewAgent.contracts import (  # noqa: E402
@@ -63,11 +71,28 @@ from Pipeline.TaskReviewAgent.openai_pipeline import (  # noqa: E402
 from Pipeline.TaskReviewAgent.production_pipeline import (  # noqa: E402
     ProductionTaskController,
 )
+from Pipeline.TaskReviewAgent.provider_policy import (  # noqa: E402
+    parse_provider_allowlist,
+    require_permitted_provider,
+)
 from Pipeline.TaskReviewAgent.execution_routing import (  # noqa: E402
     OPENAI_REASONING_EFFORTS,
 )
 from Pipeline.TaskReviewAgent.progress import ProgressLog  # noqa: E402
+from Pipeline.TaskReviewAgent.real_checkout import default_checkout_root  # noqa: E402
 from Pipeline.TaskReviewAgent.real_workflow import RealTaskReviewWorkflow  # noqa: E402
+from Pipeline.TaskReviewAgent.supervisor_session_pool import (  # noqa: E402
+    CODEX_RESUME_SANDBOX_ARGUMENT_ENVIRONMENT,
+    SUPERVISOR_CONTEXT_WINDOW_ENVIRONMENT,
+    ClaudeResumeActivation,
+    CodexResumeActivation,
+    SupervisorSessionOwner,
+    SupervisorSessionPoolError,
+    codex_resume_activation_from_environment,
+    context_window_tokens_from_environment,
+    gate_off_activation_state,
+    validate_context_window_tokens,
+)
 from Pipeline.TaskReviewAgent.taskgraph_review_issues import (  # noqa: E402
     ReviewIssueMaterializationResult,
     materialize_taskgraph_review_issues,
@@ -112,12 +137,24 @@ def build_parser() -> argparse.ArgumentParser:
         default=os.getenv("TASK_REVIEW_EXECUTION_PROVIDER", "claude"),
     )
     parser.add_argument("--unity-executable")
+    parser.add_argument("--provider-allowlist", type=parse_provider_allowlist)
+    parser.add_argument("--provider-assignment-path", type=Path)
     parser.add_argument("--output-root", type=Path)
     parser.add_argument("--run-id")
     parser.add_argument("--admission-source-head")
     parser.add_argument("--task-contract-sha256")
     parser.add_argument("--admission-issue-number", type=int)
     parser.add_argument("--model")
+    parser.add_argument(
+        "--supervisor-provider",
+        choices=("claude", "codex"),
+        default=None,
+        help=(
+            "Provider that runs the TaskReviewAgent goal supervisor. Omitting "
+            "it keeps the historical Codex supervisor. This is independent of "
+            "--execution-provider and of the software architect's provider."
+        ),
+    )
     parser.add_argument(
         "--supervisor-reasoning-effort",
         choices=OPENAI_REASONING_EFFORTS,
@@ -131,7 +168,38 @@ def build_parser() -> argparse.ArgumentParser:
         choices=OPENAI_REASONING_EFFORTS,
         help="Explicit OpenAI/Codex ExecutionCrew reasoning effort.",
     )
+    parser.add_argument("--crew-profile", choices=("lean", "standard", "full"))
+    parser.add_argument(
+        "--validation-profile",
+        choices=("targeted", "task_specific", "full_relevant"),
+    )
+    parser.add_argument(
+        "--enable-execution-session-pool",
+        action="store_true",
+        help="Scheduler-owned opt-in for production Claude ExecutionCrew pooling.",
+    )
     parser.add_argument("--max-turns", type=int, default=120)
+    parser.add_argument(
+        "--supervisor-codex-resume-sandbox-argument",
+        help=(
+            "JSON array of the exact operator-verified argv fragment that "
+            "reproduces the supervisor's pinned Codex sandbox policy on "
+            "`codex exec resume`. Supplying it activates durable supervisor "
+            "session pooling. Defaults to "
+            f"{CODEX_RESUME_SANDBOX_ARGUMENT_ENVIRONMENT}; absent means the "
+            "resume gate is off and every supervisor turn stays ephemeral."
+        ),
+    )
+    parser.add_argument(
+        "--supervisor-context-window-tokens",
+        type=int,
+        help=(
+            "Explicit context window of the supervisor model, used only to "
+            "derive known context utilization from the exact input token count "
+            "Codex reports. Defaults to "
+            f"{SUPERVISOR_CONTEXT_WINDOW_ENVIRONMENT}; absent means unknown."
+        ),
+    )
     parser.add_argument(
         "--mode",
         choices=("openai", "observe"),
@@ -142,6 +210,40 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     return parser
+
+
+def _supervisor_resume_activation(
+    args: argparse.Namespace,
+) -> ClaudeResumeActivation | CodexResumeActivation | None:
+    """Return the selected supervisor's exact resume activation, or None.
+
+    Codex still requires an operator-verified sandbox control and stays gated
+    off without one. Claude resumes natively, so it activates unconditionally.
+    """
+
+    supervisor_provider = resolve_supervisor_provider(args.supervisor_provider)
+    supplied = args.supervisor_codex_resume_sandbox_argument
+    if supervisor_provider != "codex":
+        if supplied is not None:
+            raise GenericSelectionError(
+                "the Codex resume sandbox control applies only to a Codex "
+                f"supervisor; this run selected {supervisor_provider!r}"
+            )
+        # Claude resumes natively with its own conversation identity, and the
+        # durable pool already mints that identity at start for any provider
+        # that does not assign its own thread (durable_session_pool: a cold
+        # lease carries record_id unless scope.provider_assigns_session_id).
+        # No operator-verified control is needed or accepted.
+        return ClaudeResumeActivation()
+    if supplied is not None:
+        return CodexResumeActivation.parse(supplied)
+    return codex_resume_activation_from_environment()
+
+
+def _supervisor_context_window(args: argparse.Namespace) -> int | None:
+    if args.supervisor_context_window_tokens is not None:
+        return validate_context_window_tokens(args.supervisor_context_window_tokens)
+    return context_window_tokens_from_environment()
 
 
 def _workflow_state(observation: dict) -> dict:
@@ -262,7 +364,7 @@ def _worker_terminal_contract(status: str) -> tuple[str, int]:
         return "human_action_required", 0
     if status == "complete":
         return "completed", 0
-    if status in {"blocked", "needs_human", "checks_pending"}:
+    if status in {"blocked", "needs_human", "checks_pending", "integration_gate_waiting"}:
         return "blocked", 3
     if status == "no_safe_work":
         return "no_safe_work", 4
@@ -328,9 +430,36 @@ def _result_issue_number(result: dict[str, Any]) -> int | None:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     progress: ProgressLog | None = None
+    supervisor_owner: SupervisorSessionOwner | None = None
     scheduler_result = False
     try:
+        supervisor_provider = resolve_supervisor_provider(args.supervisor_provider)
+        require_permitted_provider(args.execution_provider, args.provider_allowlist, role="execution")
+        # The selected supervisor is authorised before any provider, Docker,
+        # session, or GitHub construction, so a supervisor outside the
+        # allowlist stops the run rather than being discovered later.
+        require_permitted_provider(
+            supervisor_provider, args.provider_allowlist, role="supervisor"
+        )
         scheduler_result = _scheduler_result_enabled(args)
+        provider_profile = None
+        if args.provider_assignment_path is not None:
+            from Pipeline.TaskReviewAgent.provider_budget import load_worker_profile
+            provider_profile = load_worker_profile(args.provider_assignment_path, task_id=args.task_id,
+                worker_run_id=args.run_id, contract_sha256=args.task_contract_sha256,
+                provider=args.execution_provider, model=args.execution_model, supervisor=supervisor_provider, bind=True)
+            if tuple(provider_profile["topology"]["provider_allowlist"]) != args.provider_allowlist:
+                raise GenericSelectionError("worker allowlist differs from resolved profile")
+        if args.enable_execution_session_pool and not scheduler_result:
+            raise GenericSelectionError(
+                "ExecutionCrew session pooling requires scheduler-owned run identity"
+            )
+        if args.enable_execution_session_pool and (
+            (args.execution_provider != "claude" and provider_profile is None) or args.execution_model is None
+        ):
+            raise GenericSelectionError(
+                "ExecutionCrew session pooling requires a routed Claude model"
+            )
         selection = None
         if args.task_id:
             request = TaskReviewRequest(args.task_id)
@@ -365,7 +494,7 @@ def main(argv: list[str] | None = None) -> int:
                 "selected_pipeline": None,
                 "dispatch_plan": plan.to_dict(),
                 "worker_id": args.worker_id,
-                "runtime": describe_codex_runtime(),
+                "runtime": describe_codex_runtime(supervisor_provider),
                 "authority": "read_only_dispatch_plan_observation",
             }
             print(json.dumps(result, indent=2, sort_keys=True))
@@ -425,7 +554,7 @@ def main(argv: list[str] | None = None) -> int:
                     "selected_pipeline": None,
                     "generic_dispatch": dispatch_result.to_dict(),
                     "worker_id": args.worker_id,
-                    "runtime": describe_codex_runtime(),
+                    "runtime": describe_codex_runtime(supervisor_provider),
                     "authority": "generic_dispatch_resolution_only",
                 }
                 print(json.dumps(result, indent=2, sort_keys=True))
@@ -506,21 +635,70 @@ def main(argv: list[str] | None = None) -> int:
             controller_options: dict[str, Any] = {
                 "workflow": workflow,
                 "execution_provider": args.execution_provider,
+                "enable_execution_session_pool": args.enable_execution_session_pool,
             }
             # Keep the historical manual/default constructor call shape when
             # no routed values were supplied. Scheduler-launched workers carry
             # both values explicitly.
             if args.execution_model is not None:
                 controller_options["execution_model"] = args.execution_model
+            if args.provider_allowlist is not None:
+                controller_options["provider_allowlist"] = args.provider_allowlist
+                if provider_profile is None and args.execution_provider == "claude" and "codex" in args.provider_allowlist:
+                    controller_options["quota_fallback_provider"] = "codex"
             if args.execution_reasoning_effort is not None:
                 controller_options["execution_reasoning_effort"] = (
                     args.execution_reasoning_effort
                 )
+            if args.crew_profile is not None:
+                controller_options["crew_profile"] = args.crew_profile
+            if args.validation_profile is not None:
+                controller_options["validation_profile"] = args.validation_profile
+            if provider_profile is not None:
+                controller_options["provider_profile"] = provider_profile
             controller = ProductionTaskController(**controller_options)
             authority = "read_only_production_pipeline_observation"
 
         if args.mode == "openai":
             controller = GuardedTaskController(controller, progress=progress)
+            assert progress is not None
+            resume_activation = _supervisor_resume_activation(args)
+            if resume_activation is not None:
+                # The durable supervisor conversation is task-scoped and owned
+                # by this worker for its lifetime. It exists only when the
+                # operator activated the Codex resume gate; with the gate off
+                # every turn stays exactly the historical ephemeral turn and
+                # the worker says so instead of implying warm pooling.
+                supervisor_owner = SupervisorSessionOwner(
+                    source=workflow.base_observer.root,
+                    checkout_root=args.checkout_root or default_checkout_root(),
+                    task_id=request.task_id,
+                    worker_id=args.worker_id,
+                    run_id=progress.run_id,
+                    model=resolve_supervisor_model(args.model),
+                    reasoning_effort=resolve_supervisor_reasoning_effort(
+                        args.supervisor_reasoning_effort
+                    ),
+                    resume_activation=resume_activation,
+                    supervisor_provider=supervisor_provider,
+                    context_window_tokens=_supervisor_context_window(args),
+                )
+                activation = supervisor_owner.activation_state()
+            else:
+                activation = gate_off_activation_state(request.task_id, supervisor_provider)
+            progress.emit(
+                "supervisor_session_pool",
+                (
+                    "Supervisor session pooling: warm resume ACTIVE"
+                    if activation["warm_pooling_active"]
+                    else "Supervisor session pooling: warm resume OFF (ephemeral turns)"
+                ),
+                warm_pooling_active=activation["warm_pooling_active"],
+                reason=activation["reason"],
+                resume_contract=activation["resume_contract"],
+                conversation_store=activation["conversation_store"],
+                reconciliation=activation["reconciliation"],
+            )
 
         if args.mode == "observe":
             result = {
@@ -530,17 +708,30 @@ def main(argv: list[str] | None = None) -> int:
                 "selection": selection,
                 "worker_id": args.worker_id,
                 "execution_provider": args.execution_provider,
-                "runtime": describe_codex_runtime(),
+                "supervisor_provider": supervisor_provider,
+                "runtime": describe_codex_runtime(supervisor_provider),
                 "observation": controller.observe(),
                 "authority": authority,
             }
         elif downstream:
+            downstream_options: dict[str, Any] = {
+                "model": args.model,
+                "max_turns": args.max_turns,
+                "progress": progress,
+                "session_owner": supervisor_owner,
+                "supervisor_provider": supervisor_provider,
+            }
+            # The routed supervisor effort reaches the downstream phase too,
+            # so the task's pooled supervisor conversation keeps one
+            # compatibility key from implementation through closeout.
+            if args.supervisor_reasoning_effort is not None:
+                downstream_options["reasoning_effort"] = (
+                    args.supervisor_reasoning_effort
+                )
             outcome = run_openai_downstream_pipeline(
                 request,
                 controller,
-                model=args.model,
-                max_turns=args.max_turns,
-                progress=progress,
+                **downstream_options,
             )
             result = {
                 "schema_version": "1.0",
@@ -548,7 +739,12 @@ def main(argv: list[str] | None = None) -> int:
                 "selected_pipeline": "downstream",
                 "selection": selection,
                 "worker_id": args.worker_id,
-                "runtime": describe_codex_runtime(),
+                "runtime": describe_codex_runtime(supervisor_provider),
+                "supervisor_session_pool": (
+                    gate_off_activation_state(request.task_id, supervisor_provider)
+                    if supervisor_owner is None
+                    else supervisor_owner.activation_state()
+                ),
                 "outcome": outcome,
             }
         else:
@@ -556,6 +752,8 @@ def main(argv: list[str] | None = None) -> int:
                 "model": args.model,
                 "max_turns": args.max_turns,
                 "progress": progress,
+                "session_owner": supervisor_owner,
+                "supervisor_provider": supervisor_provider,
             }
             if args.supervisor_reasoning_effort is not None:
                 supervisor_options["reasoning_effort"] = (
@@ -575,9 +773,15 @@ def main(argv: list[str] | None = None) -> int:
                 "execution_provider": args.execution_provider,
                 "execution_model": args.execution_model,
                 "execution_reasoning_effort": args.execution_reasoning_effort,
+                "supervisor_provider": supervisor_provider,
                 "supervisor_model": args.model,
                 "supervisor_reasoning_effort": args.supervisor_reasoning_effort,
-                "runtime": describe_codex_runtime(),
+                "runtime": describe_codex_runtime(supervisor_provider),
+                "supervisor_session_pool": (
+                    gate_off_activation_state(request.task_id, supervisor_provider)
+                    if supervisor_owner is None
+                    else supervisor_owner.activation_state()
+                ),
                 "outcome": outcome,
             }
         status = _outcome_status(result)
@@ -640,6 +844,7 @@ def main(argv: list[str] | None = None) -> int:
         GenericSelectionError,
         IssueWorkflowStoreError,
         OpenAIDownstreamPipelineError,
+        SupervisorSessionPoolError,
         WorkerResultError,
         OSError,
         ValueError,
@@ -666,6 +871,9 @@ def main(argv: list[str] | None = None) -> int:
                 )
         print(f"GAME TASK AGENT: STOP\n{exc}", file=sys.stderr, flush=True)
         return 2
+    finally:
+        if supervisor_owner is not None:
+            supervisor_owner.close()
 
 
 if __name__ == "__main__":

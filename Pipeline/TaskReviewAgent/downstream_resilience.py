@@ -290,6 +290,17 @@ def validation_plan_for(
             f"authoritative validation policy for {task_id} has invalid platforms"
         )
     normalized_filters: dict[str, str] = {}
+    if "SyntheticSource" in platforms:
+        from Pipeline.Testing.synthetic_source_validation import source_contract, git
+        from .prepare_synthetic_gauntlet import authorized_repository, _repository_from_origin, SyntheticGauntletError
+        try:
+            if platforms != ["SyntheticSource"]:
+                raise ValueError("wrong source-validation repository or platform set")
+            source_repository = authorized_repository(_repository_from_origin(
+                git(repository, "remote", "get-url", "origin")))
+            source_contract(repository, dict(task))
+        except (ValueError, OSError, SyntheticGauntletError) as exc:
+            raise DownstreamPipelineError(f"invalid private source-validation policy: {exc}") from exc
     for platform in platforms:
         value = filters.get(platform)
         if not isinstance(value, str) or not value.strip():
@@ -306,9 +317,179 @@ def validation_plan_for(
         or "committed_task_authoritative_validation_policy",
         "policy_path": _VALIDATION_POLICY_RELATIVE.as_posix(),
     }
+    if "SyntheticSource" in platforms:
+        payload["repository"] = source_repository
     if inherited_from is not None:
         payload["inherited_from_decomposition"] = inherited_from
     return {**payload, "policy_sha256": semantic_sha256(payload)}
+
+
+def require_decomposition_policy_document(document: Any) -> Mapping[str, Any]:
+    """Fail closed unless the document is the exact decomposition policy schema.
+
+    The decomposition reader has always demanded the exact three-key document
+    shape. It is named here so a repository-level auditor and the reader agree
+    on one definition of "this file is the decomposition policy" instead of two
+    that can drift apart.
+    """
+
+    if (
+        not isinstance(document, Mapping)
+        or document.get("schema_version") != VALIDATION_POLICY_SCHEMA_VERSION
+        or set(document)
+        != {"schema_version", "tasks", "decomposition_child_templates"}
+        or not isinstance(document.get("tasks"), Mapping)
+    ):
+        raise DownstreamPipelineError(
+            "authoritative decomposition validation policy schema is unsupported"
+        )
+    return document
+
+
+def read_decomposition_policy_document(root: Path | str) -> Mapping[str, Any]:
+    """Read and shape-check the working-tree decomposition policy document."""
+
+    repository = Path(root).resolve()
+    policy_path = repository / _VALIDATION_POLICY_RELATIVE
+    try:
+        document = json.loads(policy_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise DownstreamPipelineError(
+            "authoritative decomposition validation policy is unreadable"
+        ) from exc
+    return require_decomposition_policy_document(document)
+
+
+def resolve_decomposition_template(
+    document: Mapping[str, Any],
+    task_id: Any,
+    *,
+    parent_semantic_hash: str,
+) -> dict[str, Any]:
+    """Resolve one exact committed child template out of an already-shaped document.
+
+    This holds the complete template and variant rule set. It is deliberately
+    pure -- no filesystem, no Git, no repository root -- so the same rules can be
+    applied to the working tree, to a document read at a bound source commit, or
+    to a generated bundle, without any caller restating them.
+    """
+
+    if not isinstance(task_id, str) or not task_id.strip():
+        raise DownstreamPipelineError("decomposition parent task identity is missing")
+    if re.fullmatch(r"[0-9a-f]{64}", parent_semantic_hash) is None:
+        raise DownstreamPipelineError(
+            "decomposition parent semantic hash is invalid"
+        )
+    templates = document.get("decomposition_child_templates")
+    if not isinstance(templates, Mapping):
+        raise DownstreamPipelineError(
+            "authoritative validation policy omitted decomposition templates"
+        )
+    raw = templates.get(task_id)
+    if not isinstance(raw, Mapping):
+        raise DownstreamPipelineError(
+            f"authoritative validation template for {task_id} is missing"
+        )
+    expected_fields = {
+        "parent_task_contract_sha256",
+        "validation_variants",
+        "authority",
+    }
+    if set(raw) != expected_fields:
+        raise DownstreamPipelineError(
+            f"authoritative validation template for {task_id} has invalid fields"
+        )
+    if raw.get("parent_task_contract_sha256") != parent_semantic_hash:
+        raise DownstreamPipelineError(
+            f"authoritative validation template for {task_id} is stale"
+        )
+    expected_authority = (
+        "committed_private_synthetic_gauntlet_decomposition_child_policy"
+    )
+    if raw.get("authority") != expected_authority:
+        raise DownstreamPipelineError(
+            f"authoritative validation template for {task_id} has invalid authority"
+        )
+    raw_variants = raw.get("validation_variants")
+    if not isinstance(raw_variants, list) or not raw_variants:
+        raise DownstreamPipelineError(
+            f"authoritative validation template for {task_id} has no variants"
+        )
+    normalized: list[dict[str, Any]] = []
+    seen_resources: set[tuple[str, ...]] = set()
+    for variant in raw_variants:
+        if not isinstance(variant, Mapping) or set(variant) != {
+            "required_exclusive_resources",
+            "required_test_platforms",
+            "test_filters",
+        }:
+            raise DownstreamPipelineError(
+                f"authoritative validation template for {task_id} has invalid variant fields"
+            )
+        resources = variant.get("required_exclusive_resources")
+        platforms = variant.get("required_test_platforms")
+        filters = variant.get("test_filters")
+        if (
+            not isinstance(resources, list)
+            or not resources
+            or any(type(item) is not str or not item.strip() for item in resources)
+            or len(set(resources)) != len(resources)
+            or not isinstance(platforms, list)
+            or not platforms
+            or any(item not in _VALID_PLATFORMS for item in platforms)
+            or len(set(platforms)) != len(platforms)
+            or not isinstance(filters, Mapping)
+            or set(filters) != set(platforms)
+            or any(
+                not isinstance(filters.get(platform), str)
+                or not str(filters[platform]).strip()
+                for platform in platforms
+            )
+        ):
+            raise DownstreamPipelineError(
+                f"authoritative validation template for {task_id} has invalid variant values"
+            )
+        resource_tuple = tuple(sorted((item.strip() for item in resources), key=str.casefold))
+        if resource_tuple in seen_resources:
+            raise DownstreamPipelineError(
+                f"authoritative validation template for {task_id} has duplicate variants"
+            )
+        seen_resources.add(resource_tuple)
+        normalized.append(
+            {
+                "required_exclusive_resources": list(resource_tuple),
+                "required_test_platforms": list(platforms),
+                "test_filters": {
+                    platform: str(filters[platform]).strip()
+                    for platform in platforms
+                },
+            }
+        )
+    normalized.sort(key=lambda item: tuple(item["required_exclusive_resources"]))
+    payload = {
+        "parent_task_id": task_id,
+        "parent_contract_sha256": parent_semantic_hash,
+        "validation_variants": normalized,
+        "authority": expected_authority,
+        "policy_path": _VALIDATION_POLICY_RELATIVE.as_posix(),
+    }
+    return {**payload, "policy_sha256": semantic_sha256(payload)}
+
+
+def decomposition_validation_policy_for(
+    root: Path | str,
+    task: Mapping[str, Any],
+    *,
+    parent_semantic_hash: str,
+) -> dict[str, Any]:
+    """Resolve the exact committed validation template for a decomposition parent."""
+
+    document = read_decomposition_policy_document(root)
+    return resolve_decomposition_template(
+        document,
+        task.get("task_id") or task.get("id"),
+        parent_semantic_hash=parent_semantic_hash,
+    )
 
 
 def _migration_ledger_entry(
@@ -1033,6 +1214,7 @@ def _release_active_lease(
     *,
     reason: str,
     details: Mapping[str, Any],
+    terminal_block: bool = False,
 ) -> bool:
     underlying = getattr(controller, "_controller", controller)
     workflow = getattr(underlying, "workflow", None)
@@ -1050,15 +1232,33 @@ def _release_active_lease(
         or state.worker_id != worker_id
     ):
         return False
+    event_type = (
+        WorkflowEventType.BLOCKED
+        if terminal_block
+        else WorkflowEventType.AGENT_LEASE_RELEASED
+    )
+    target_state = (
+        WorkflowState.BLOCKED if terminal_block else WorkflowState.AGENT_READY
+    )
     next_state, event = transition(
         state,
-        event_type=WorkflowEventType.AGENT_LEASE_RELEASED,
+        event_type=event_type,
         actor_type=WorkflowActor.AGENT,
         actor_id=worker_id,
-        to_state=WorkflowState.AGENT_READY,
+        to_state=target_state,
         to_phase=state.phase,
         details={"reason": reason, **dict(details)},
         now=utc_now(),
+    )
+    disposition = "blocked the task" if terminal_block else "released its lease"
+    resume_guidance = (
+        "The Issue is now a durable terminal blocker. Correct the recorded failure, "
+        "then have a human explicitly unblock the task before another worker is admitted."
+        if terminal_block
+        else (
+            "The Issue remains the durable resume token. A later generic run must "
+            "re-observe Git, TaskGraph, checkout, and Issue identities before acting."
+        )
     )
     service.backend.add_comment(
         snapshot.issue_number,
@@ -1066,14 +1266,13 @@ def _release_active_lease(
             event,
             "\n".join(
                 (
-                    "The agent released its lease because deterministic work could not continue safely.",
+                    f"The agent {disposition} because deterministic work could not continue safely.",
                     "",
                     f"- **Reason:** `{reason}`",
                     f"- **Action:** `{details.get('action')}`",
                     f"- **Error:** {details.get('error')}",
                     "",
-                    "The Issue remains the durable resume token. A later generic run must "
-                    "re-observe Git, TaskGraph, checkout, and Issue identities before acting.",
+                    resume_guidance,
                 )
             ),
         ),
@@ -1084,8 +1283,12 @@ def _release_active_lease(
             snapshot.body,
             next_state,
             next_action=(
-                "Run the generic Game Task Agent again after the recorded deterministic "
-                "failure is corrected."
+                "Correct the recorded deterministic failure and explicitly unblock the task."
+                if terminal_block
+                else (
+                    "Run the generic Game Task Agent again after the recorded deterministic "
+                    "failure is corrected."
+                )
             ),
         ),
         labels=labels_for_state(next_state.state, snapshot.labels),
@@ -1094,7 +1297,11 @@ def _release_active_lease(
     service.verify_post_mutation_state(
         task_id,
         next_state,
-        transition_name="deterministic failure lease release",
+        transition_name=(
+            "deterministic failure terminal block"
+            if terminal_block
+            else "deterministic failure lease release"
+        ),
     )
     return True
 
@@ -1132,6 +1339,7 @@ def _record_action_rejection(
         self,
         reason="repeated_action_rejection",
         details=details,
+        terminal_block=True,
     )
     if released:
         self._terminal_reasons = [
@@ -1143,7 +1351,7 @@ def _record_action_rejection(
         if progress is not None:
             progress.emit(
                 "repeated_action_rejection",
-                "Repeated deterministic action rejection released the agent lease",
+                "Repeated deterministic action rejection durably blocked the task",
                 action=action,
                 error=payload["error"],
                 rejection_fingerprint=fingerprint,
@@ -1309,6 +1517,10 @@ def install_downstream_resilience() -> None:
 
 
 __all__ = [
+    "decomposition_validation_policy_for",
     "install_downstream_resilience",
+    "read_decomposition_policy_document",
+    "require_decomposition_policy_document",
+    "resolve_decomposition_template",
     "validation_plan_for",
 ]

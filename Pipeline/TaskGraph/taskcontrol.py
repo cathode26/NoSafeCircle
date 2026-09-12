@@ -282,7 +282,23 @@ def command_states(graph, as_json: bool = False, state_filter: str | None = None
         results.append(result)
 
     if as_json:
-        print(json.dumps([result.to_dict() for result in results], indent=2, sort_keys=True))
+        payload = []
+        for result in results:
+            task = graph.tasks_by_id[result.task_id]
+            children = task.get("decomposition_children")
+            payload.append(
+                {
+                    **result.to_dict(),
+                    # This is committed TaskGraph structure, not derived
+                    # conformance. Publishing it in the same all-task payload
+                    # lets graph-completion observers expand a D1C parent and
+                    # its exact children without a second task-file scan.
+                    "decomposition_children": (
+                        list(children) if isinstance(children, list) else []
+                    ),
+                }
+            )
+        print(json.dumps(payload, indent=2, sort_keys=True))
         return 0
 
     print("ID       DERIVED_STATE        DISPOSITION   KIND           TITLE")

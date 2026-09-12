@@ -34,6 +34,7 @@ from TaskDecomposition.context_builder import (
 )
 from TaskDecomposition.contracts import (
     DecompositionContractError,
+    TASK_ID_RE,
 )
 from TaskDecomposition.gdd_rag_review_context import (
     DEFAULT_MAX_CHUNKS,
@@ -299,7 +300,7 @@ def run_reviewer_replay_ab(
     """Review the same validated candidate once with full GDD and once with GDDRAG."""
 
     started = time.monotonic()
-    if not re.fullmatch(r"NSC-[0-9]{3}", task_id):
+    if type(task_id) is not str or TASK_ID_RE.fullmatch(task_id) is None:
         raise DecompositionPreflightError("task ID must match NSC-###")
     validate_provider_order((candidate_author_provider, reviewer_provider))
     selected_arm_order = _validate_arm_order(arm_order)
@@ -384,6 +385,7 @@ def run_reviewer_replay_ab(
         reviewer_provider,
         source_identity.root,
         provider_factory,
+        role="decomposition_reviewer",
     )
     changed_during_provider_setup = source_revalidation_reasons(source_identity)
     if changed_during_provider_setup:

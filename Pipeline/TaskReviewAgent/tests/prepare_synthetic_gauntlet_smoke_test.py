@@ -312,11 +312,11 @@ def test_public_or_production_repository_is_refused_before_mutation() -> None:
 
     def public_run(_source, *command):
         if command[:4] == ("git", "remote", "get-url", "origin"):
-            return "https://github.com/cathode26/NoSafeCircle-Homework-Rehearsal.git"
+            return "https://github.com/fixture-owner/pipeline-rehearsal.git"
         if command[:3] == ("gh", "repo", "view"):
             return json.dumps(
                 {
-                    "nameWithOwner": "cathode26/NoSafeCircle-Homework-Rehearsal",
+                    "nameWithOwner": "fixture-owner/pipeline-rehearsal",
                     "isPrivate": False,
                     "defaultBranchRef": {"name": "main"},
                 }
@@ -329,7 +329,7 @@ def test_public_or_production_repository_is_refused_before_mutation() -> None:
             gauntlet._preflight_mutation(
                 ROOT,
                 expected_head="a" * 40,
-                confirmed_repository="cathode26/NoSafeCircle-Homework-Rehearsal",
+                confirmed_repository="fixture-owner/pipeline-rehearsal",
             )
         except gauntlet.SyntheticGauntletError as exc:
             require("private" in str(exc), str(exc))
@@ -374,4 +374,5 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    from Pipeline.TaskReviewAgent.tests.synthetic_fixture_authority import run_with_synthetic_authority
+    raise SystemExit(run_with_synthetic_authority(main))

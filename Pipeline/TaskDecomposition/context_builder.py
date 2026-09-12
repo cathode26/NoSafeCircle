@@ -30,7 +30,7 @@ from persistent_work_graph import (
 )
 
 
-TASK_ID_RE = re.compile(r"^NSC-[0-9]{3}$")
+TASK_ID_RE = re.compile(r"^NSC-(?:[0-9]{3}|[1-9][0-9]{3,8})$")
 GDD_PATH = "Docs/GDD/No_Safe_Circle_GDD.md"
 RESOURCE_GROUPS_PATH = "Pipeline/TaskGraph/RESOURCE_GROUPS.yaml"
 _RESOURCE_PATH_PREFIXES = ("repo-file:", "unity-scene:", "unity-prefab:")
@@ -212,10 +212,10 @@ def _parse_json_object(raw: bytes, label: str) -> dict[str, Any]:
 
 
 def _task_number(task: dict[str, Any]) -> int:
-    match = re.fullmatch(r"NSC-([0-9]+)", str(task.get("id", "")))
-    if match is None:
+    task_id = task.get("id")
+    if type(task_id) is not str or TASK_ID_RE.fullmatch(task_id) is None:
         raise DecompositionPreflightError(f"validated graph contains invalid task ID: {task.get('id')!r}")
-    return int(match.group(1))
+    return int(task_id[4:])
 
 
 def _ordered(tasks: list[dict[str, Any]]) -> list[dict[str, Any]]:

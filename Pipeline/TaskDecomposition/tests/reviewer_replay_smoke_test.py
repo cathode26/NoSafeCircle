@@ -64,8 +64,9 @@ class QueueProvider:
 
 
 def provider_factory(provider: QueueProvider):
-    def factory(provider_name: str, _source: Path):
+    def factory(provider_name: str, _source: Path, role: str):
         assert provider_name == "claude"
+        assert role == "decomposition_reviewer", role
         key = "claude-decomposition"
         configuration = RuntimeConfiguration(
             {
