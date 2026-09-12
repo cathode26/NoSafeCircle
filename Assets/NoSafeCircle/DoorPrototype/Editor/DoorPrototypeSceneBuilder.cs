@@ -364,21 +364,15 @@ namespace NoSafeCircle.DoorPrototype.Editor
                 doorPosition + new Vector3(-2.5f, 0f, WallVisualOffset),
                 Quaternion.identity,
                 WorldSpriteSortingOrder);
-        // Each gameplay wall spans three world units. Split it into three one-cell
-        // visual segments so Individual Tilemap sorting has multiple ground-contact
-        // sort positions instead of treating the whole long wall as one renderer.
-        for (var wallOffset = -1; wallOffset <= 1; wallOffset++)
-        {
-            wallTilemap.SetTile(
-                new Vector3Int(wallOffset, -wallOffset, 0),
-                tiles.Wall);
-
-            var rightWallCell = 5 + wallOffset;
-
-            wallTilemap.SetTile(
-                new Vector3Int(rightWallCell, -rightWallCell, 0),
-                tiles.Wall);
-        }
+            // NSC-042 AC-001/AC-003: each gameplay wall spans three world units and is
+            // painted as a repeated run of the same reusable one-cell wall Tile rather than
+            // one long renderer or a uniquely authored asset per cell. PaintStraightWallRun
+            // is the single place that repeats this convention, so a longer straight wall
+            // (e.g. approximately 100 cells) is authored by widening wallRunCellCount, never
+            // by adding more Tile/Sprite assets.
+            const int wallRunCellCount = 3;
+            PaintStraightWallRun(wallTilemap, tiles.Wall, 0, wallRunCellCount);
+            PaintStraightWallRun(wallTilemap, tiles.Wall, 5, wallRunCellCount);
 
             var architecturalTilemap = CreateVisualOnlyTilemap(
                 gridObject.transform,
@@ -430,6 +424,23 @@ namespace NoSafeCircle.DoorPrototype.Editor
                         tilemap.SetTile(cell, floorTile);
                     }
                 }
+            }
+        }
+
+        // NSC-042 AC-001/AC-003: paints an odd-length run of one-cell wall segments centered
+        // on centerCell along the existing x = -y wall diagonal, reusing the single supplied
+        // wallTile for every cell. This is the one reusable convention both current doorway
+        // walls call, so scaling straight-wall authoring to a much longer wall (tens or
+        // approximately a hundred cells) means calling this with a larger cellCount instead of
+        // hand-authoring more Tile/Sprite assets or duplicating the painting loop.
+        private static void PaintStraightWallRun(
+            Tilemap wallTilemap, TileBase wallTile, int centerCell, int cellCount)
+        {
+            var halfSpan = cellCount / 2;
+            for (var offset = -halfSpan; offset <= halfSpan; offset++)
+            {
+                var cell = centerCell + offset;
+                wallTilemap.SetTile(new Vector3Int(cell, -cell, 0), wallTile);
             }
         }
 
@@ -534,7 +545,8 @@ namespace NoSafeCircle.DoorPrototype.Editor
                             textureWidth,
                             textureHeight,
                             pixelsPerUnit,
-                            spritePivot))
+                            spritePivot,
+                            pixels))
                     {
                         ReplaceArchitecturalTileVisual(
                             existing,
@@ -631,7 +643,8 @@ namespace NoSafeCircle.DoorPrototype.Editor
             int textureWidth,
             int textureHeight,
             float pixelsPerUnit,
-            Vector2 spritePivot)
+            Vector2 spritePivot,
+            Color32[] expectedPixels)
         {
             var sprite = tile.sprite;
 
@@ -644,7 +657,7 @@ namespace NoSafeCircle.DoorPrototype.Editor
                 textureWidth * spritePivot.x,
                 textureHeight * spritePivot.y);
 
-            return
+            var dimensionsMatch =
                 sprite.texture.width == textureWidth &&
                 sprite.texture.height == textureHeight &&
                 Mathf.Approximately(sprite.rect.width, textureWidth) &&
@@ -653,6 +666,47 @@ namespace NoSafeCircle.DoorPrototype.Editor
                 Vector2.Distance(
                     sprite.pivot,
                     expectedPivotPixels) < 0.01f;
+
+            if (!dimensionsMatch)
+            {
+                return false;
+            }
+
+            // NSC-042: dimensions alone previously let a persisted asset authored under an
+            // older art convention (e.g. a wall texture whose brick pattern did not tile
+            // seamlessly) survive untouched forever, because its width/height/pivot never
+            // changed even though the intended pixel content did. Comparing actual pixel
+            // content ensures an authoring convention change like the seamless wall pattern
+            // fix is actually re-materialized into the persisted asset on the next Build().
+            return ArchitecturalTilePixelsMatch(sprite.texture, expectedPixels);
+        }
+
+        private static bool ArchitecturalTilePixelsMatch(Texture2D texture, Color32[] expectedPixels)
+        {
+            Color32[] actualPixels;
+            try
+            {
+                actualPixels = texture.GetPixels32();
+            }
+            catch (UnityException)
+            {
+                return false;
+            }
+
+            if (actualPixels.Length != expectedPixels.Length)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < actualPixels.Length; i++)
+            {
+                if (!actualPixels[i].Equals(expectedPixels[i]))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private static void ReplaceArchitecturalTileVisual(
@@ -744,6 +798,12 @@ namespace NoSafeCircle.DoorPrototype.Editor
             return pixels;
         }
 
+        // NSC-042 AC-001: blockWidth must evenly divide width. The wall Tile is reused
+        // unmodified for every one-cell wall segment (see PaintStraightWallRun above), so the
+        // brick coursing this method draws only reads as one continuous wall - rather than a
+        // row of visibly restarting pieces - when its own horizontal period tiles exactly into
+        // the texture's width with no leftover phase. A prior 48px block width against a 64px
+        // texture left a leftover partial block at each tile edge, which was the visible seam.
         private static Color32[] CreateWallPixels(int width, int height)
         {
             var pixels = new Color32[width * height];
@@ -751,7 +811,7 @@ namespace NoSafeCircle.DoorPrototype.Editor
             var alternateStone = new Color32(86, 82, 77, 255);
             var mortar = new Color32(39, 37, 36, 255);
             const int courseHeight = 32;
-            const int blockWidth = 48;
+            const int blockWidth = 32;
 
             for (var y = 0; y < height; y++)
             {

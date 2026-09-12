@@ -1614,6 +1614,158 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                     $"Expected independently sortable wall segment at {cell}.");
             }
         }
+        // NSC-042 AC-001: the wall texture's own brick block/mortar pattern must repeat at a
+        // period that evenly divides the texture's width, or the last block at the texture's
+        // right edge is truncated ("leftover partial block") - the exact defect that made
+        // repeated wall Tile instances read as visibly restarting pieces instead of one
+        // continuous wall. This measures the actual generated mortar-band period from the built
+        // wall texture rather than asserting a specific pixel constant.
+        [Test]
+        public void Build_WallTileTexture_HasSeamlessHorizontalRepeatPeriodDividingTextureWidth()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
+
+            var wallTilemap = GameObject.Find("IsometricVisualGrid/WallTilemap")?.GetComponent<Tilemap>();
+            Assert.IsNotNull(wallTilemap);
+
+            var wallTile = GetFirstTile(wallTilemap);
+            Assert.IsNotNull(wallTile);
+            var texture = wallTile.sprite.texture;
+            var width = texture.width;
+
+            const int sampleY = 16;
+            var mortarBandStartColumns = new List<int>();
+            for (var x = 0; x < width; x++)
+            {
+                var previousX = (x - 1 + width) % width;
+                if (IsDarkMortarPixel(texture.GetPixel(x, sampleY)) &&
+                    !IsDarkMortarPixel(texture.GetPixel(previousX, sampleY)))
+                {
+                    mortarBandStartColumns.Add(x);
+                }
+            }
+
+            Assert.GreaterOrEqual(mortarBandStartColumns.Count, 2,
+                "Expected at least two vertical mortar seams in the sampled wall course row to measure a " +
+                "repeat period.");
+
+            var period = mortarBandStartColumns[1] - mortarBandStartColumns[0];
+            Assert.Greater(period, 0);
+
+            Assert.AreEqual(0, width % period,
+                "The wall texture's brick block repeat period must evenly divide its own width so adjacent " +
+                "repeated wall Tiles join without a visible seam or pattern-phase reset.");
+        }
+
+        private static bool IsDarkMortarPixel(Color pixel)
+        {
+            var brightness = (pixel.r + pixel.g + pixel.b) / 3f;
+            return brightness < 0.2f;
+        }
+
+        // NSC-042 AC-001/AC-003/VAL-001: the single reusable helper both current doorway walls
+        // call to paint their wall segments must scale straight-wall authoring to representative
+        // lengths (3, 10, and approximately 100 cells) by repeating one shared Tile asset across
+        // contiguous cells, rather than requiring additional uniquely authored Tile/Sprite
+        // assets as the wall grows.
+        [TestCase(3)]
+        [TestCase(10)]
+        [TestCase(100)]
+        public void PaintStraightWallRun_ScalesWallLengthByRepeatingOneSharedTileWithoutGaps(int cellCount)
+        {
+            var method = typeof(DoorPrototypeSceneBuilder).GetMethod(
+                "PaintStraightWallRun", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.IsNotNull(method,
+                "Expected a private static PaintStraightWallRun(Tilemap, TileBase, int, int) helper.");
+
+            var tilemapObject = new GameObject("NSC042_TestWallRunTilemap");
+            var sharedWallTile = ScriptableObject.CreateInstance<Tile>();
+            try
+            {
+                var tilemap = tilemapObject.AddComponent<Tilemap>();
+
+                const int centerCell = 0;
+                method.Invoke(null, new object[] { tilemap, sharedWallTile, centerCell, cellCount });
+
+                var halfSpan = cellCount / 2;
+                var expectedCellCount = halfSpan * 2 + 1;
+
+                var occupiedCells = new List<Vector3Int>();
+                foreach (var cell in tilemap.cellBounds.allPositionsWithin)
+                {
+                    if (tilemap.HasTile(cell))
+                    {
+                        occupiedCells.Add(cell);
+                    }
+                }
+
+                Assert.AreEqual(expectedCellCount, occupiedCells.Count,
+                    $"AC-003/VAL-001: a {cellCount}-cell straight wall run request must paint a wall run " +
+                    "scaled to that length.");
+
+                foreach (var cell in occupiedCells)
+                {
+                    Assert.AreSame(sharedWallTile, tilemap.GetTile(cell),
+                        "AC-003: every cell of a long straight wall must reuse the exact same wall Tile " +
+                        "asset instead of requiring a uniquely authored Tile per cell.");
+                }
+
+                for (var offset = -halfSpan; offset <= halfSpan; offset++)
+                {
+                    var cell = new Vector3Int(centerCell + offset, -(centerCell + offset), 0);
+                    Assert.IsTrue(tilemap.HasTile(cell),
+                        $"AC-001: expected an uninterrupted wall cell at {cell}; a gap here would break wall " +
+                        "continuity.");
+                }
+            }
+            finally
+            {
+                Object.DestroyImmediate(sharedWallTile);
+                Object.DestroyImmediate(tilemapObject);
+            }
+        }
+
+        // NSC-042 AC-001 (regression-only): a persisted architectural Tile asset authored under
+        // an older art convention (e.g. the previous non-seamless wall texture) can have
+        // identical dimensions/pivot to the current convention while its pixel content still
+        // differs. Without comparing actual pixel content, such an asset would silently survive
+        // Build() forever. This proves the seamless wall pattern fix actually re-materializes
+        // into an already-persisted asset like the committed WallTile.asset, not just into a
+        // freshly created one.
+        [Test]
+        public void Build_PersistedWallTileWithStalePixelContentButMatchingDimensions_IsReplacedOnRebuild()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests(temporaryArchitecturalTileAssetFolder);
+
+            var wallTilePath = temporaryArchitecturalTileAssetFolder + "/WallTile.asset";
+            var wallTile = AssetDatabase.LoadAssetAtPath<Tile>(wallTilePath);
+            Assert.IsNotNull(wallTile);
+            var texture = wallTile.sprite.texture;
+            var currentConventionPixels = texture.GetPixels32();
+
+            var stalePixels = (Color32[])currentConventionPixels.Clone();
+            stalePixels[0] = new Color32(
+                (byte)(255 - stalePixels[0].r),
+                (byte)(255 - stalePixels[0].g),
+                (byte)(255 - stalePixels[0].b),
+                stalePixels[0].a);
+            texture.SetPixels32(stalePixels);
+            texture.Apply(false, false);
+            EditorUtility.SetDirty(wallTile);
+            AssetDatabase.SaveAssetIfDirty(wallTile);
+
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests(temporaryArchitecturalTileAssetFolder);
+
+            var rebuiltTile = AssetDatabase.LoadAssetAtPath<Tile>(wallTilePath);
+            Assert.IsNotNull(rebuiltTile);
+            var rebuiltPixels = rebuiltTile.sprite.texture.GetPixels32();
+
+            CollectionAssert.AreEqual(currentConventionPixels, rebuiltPixels,
+                "A persisted architectural Tile asset whose pixel content diverges from the current " +
+                "authoring convention - even with unchanged dimensions/pivot - must be re-materialized on " +
+                "the next Build() rather than silently surviving unchanged.");
+        }
+
         [Test]
         public void Build_DoorwayBlocker_IsSeparateBoxColliderWiredToDoorInteractable()
         {
