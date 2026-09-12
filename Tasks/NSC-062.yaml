@@ -1,0 +1,119 @@
+{
+  "schema_version": "2.0",
+  "id": "NSC-062",
+  "contract_revision": 1,
+  "contract_disposition": "active",
+  "title": "Animated Wizard Unity Integration",
+  "reconciliation_key": "animated-wizard-unity-integration",
+  "kind": "implementation",
+  "type": "character-presentation",
+  "execution_scope": "single_agent",
+  "execution_reason": "Once NSC-061 supplies approved source art, Unity import, directional animation wiring, builder integration, and automated validation form one bounded player-presentation implementation task.",
+  "decomposition_state": "concrete",
+  "decomposition_reason": "Approved source art, the four-direction idle/walk requirement, the existing player hierarchy, and the NSC-039 sorting convention define a concrete integration task.",
+  "parent": "NSC-002",
+  "depends_on": [
+    "NSC-039",
+    "NSC-061"
+  ],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Wizard",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/WizardAnimationController.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/WizardArtIntegrationTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/WizardAnimationPlayModeTests.cs",
+    "unity-scene:Assets/Scenes/DoorPrototype.unity"
+  ],
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "NSC-061 approved source-art handoff",
+      "requirement": "Import only the exact PixelLab source-art candidates approved in NSC-061. Preserve those source files and their provenance while creating deterministic Unity sprite and animation assets."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "Unity pixel-art import integration",
+      "requirement": "Import every approved frame with transparency, point filtering, no lossy texture compression, consistent pixels-per-unit, deterministic slicing or frame extraction, and a feet/ground-contact pivot compatible with the existing world-sprite convention. The built game has no PixelLab, network, credential, or generative-AI runtime dependency."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "NSC-039 world-space SpriteRenderer and sorting convention",
+      "requirement": "Replace Player/Visual's generated purple placeholder with two independent serialized choices: masculine/feminine presentation and light/White or dark/Black skin representation. All four combinations resolve to complete approved art and animation sets. Switching either choice changes presentation only and preserves the SpriteRenderer sorting layer/order, feet origin, Player root, CharacterController, gameplay colliders, movement behavior, and interaction components. A runtime selection menu is outside this task."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "Player visual animation behavior",
+      "requirement": "A focused player-owned presentation component selects the configured presentation and skin options and drives idle versus walk and four diagonal facings from actual player motion. It retains the last meaningful facing while idle, avoids direction flicker near zero velocity, and does not take ownership of movement, input, collision, health, mana, spells, or interaction state."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "DoorPrototypeSceneBuilder repeatability",
+      "requirement": "DoorPrototypeSceneBuilder.Build installs the persistent wizard art and animation wiring idempotently. Rebuilding must not restore the procedural purple silhouette, destroy approved PixelLab source art, duplicate components or children, lose controller/clip references, or hand-edit generated Unity YAML."
+    },
+    {
+      "criterion_id": "AC-006",
+      "reference": "Human visual review boundary",
+      "requirement": "Automated checks prove import, animation, wiring, and sorting invariants but do not claim aesthetic success. The integrated candidate remains pending until Vincent visually approves it in the DoorPrototype scene."
+    }
+  ],
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "Editor validation",
+      "requirement": "Automated Editor tests verify all four presentation/skin combinations have complete four-direction idle/walk frame sets, consistent dimensions and pivots, correct pixel-art import settings, and complete presentation/animation bindings."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "Builder regression validation",
+      "requirement": "Automated coverage runs the supported builder seam repeatedly and proves Player/Visual retains the imported wizard assets, one animation driver, the NSC-039 sorting convention, and all existing player gameplay components without duplicate hierarchy objects."
+    },
+    {
+      "gate_id": "VAL-003",
+      "reference": "Play Mode animation validation",
+      "requirement": "Play Mode coverage proves movement selects the appropriate directional walk animation, stopping selects its matching idle animation, the last facing persists while idle, and near-zero movement does not flicker between directions."
+    },
+    {
+      "gate_id": "VAL-004",
+      "reference": "Unity project validation",
+      "requirement": "Unity 6000.1.8f1 imports and compiles without errors, relevant Editor and Play Mode tests pass, and DoorPrototypeSceneBuilder.Build completes successfully on the candidate."
+    },
+    {
+      "gate_id": "VAL-005",
+      "reference": "Developer visual approval",
+      "requirement": "Vincent opens Assets/Scenes/DoorPrototype.unity in Play Mode, checks all four presentation/skin combinations, and approves their appearance, idle and walking loops in every direction, gameplay-scale readability, respectful treatment, ground contact, and sorting beside the current walls and door."
+    }
+  ],
+  "downstream_integration_obligations": [],
+  "gdd_evidence": [
+    {
+      "reference": "GDD — Environment Presentation and Authoring Direction",
+      "requirement": "The wizard uses a world-space SpriteRenderer and the same isometric sorting convention as other independently sorted objects."
+    },
+    {
+      "reference": "GDD — Development-time generative tools",
+      "requirement": "Generated directional sprite art is imported as ordinary Unity assets and creates no runtime AI dependency."
+    }
+  ],
+  "basis": "human_approved_gameplay_presentation",
+  "source_scope": "required",
+  "confidence": "high",
+  "notes": "This task begins only after NSC-061 records Vincent's exact art selection. Preserve movement and gameplay behavior. Human visual approval remains authoritative for the integrated result.",
+  "repository_state_at_bootstrap": "partial",
+  "repository_evidence_at_bootstrap": [
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+      "evidence_type": "code",
+      "observation": "BuildPlayer currently calls CreateWizardSilhouettePixels to generate a static purple WizardSprite placeholder for Player/Visual."
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/WizardSprite.asset",
+      "evidence_type": "asset",
+      "observation": "The current persistent wizard visual is a generated static placeholder without directional animation."
+    }
+  ],
+  "provenance": {
+    "origin": "human_approved_gameplay_presentation_followup",
+    "art_source_task_id": "NSC-061",
+    "approved_at_utc_date": "2026-09-12"
+  }
+}

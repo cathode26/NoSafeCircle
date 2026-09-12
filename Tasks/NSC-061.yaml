@@ -1,131 +1,84 @@
 {
   "schema_version": "2.0",
   "id": "NSC-061",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "contract_disposition": "active",
-  "title": "Animated PixelLab Wizard Character Variants",
-  "reconciliation_key": "animated-pixellab-wizard-character-variants",
+  "title": "PixelLab Wizard Art Direction and Selection",
+  "reconciliation_key": "pixellab-wizard-art-selection",
   "kind": "implementation",
-  "type": "character-presentation",
+  "type": "art-acquisition",
   "execution_scope": "single_agent",
-  "execution_reason": "PixelLab character acquisition, Unity sprite import, directional animation wiring, independently selectable masculine/feminine presentation and light/dark skin representation, and replacement of the existing wizard placeholder form one bounded player-presentation change. Human visual approval remains a completion gate.",
+  "execution_reason": "The assistant can operate PixelLab, compare coherent character generations against the approved art direction, and select the complete source-art set before Unity integration begins. This task produces selected source art and generation provenance only.",
   "decomposition_state": "concrete",
-  "decomposition_reason": "The approved PixelLab tool, four-direction idle/walk animation set, existing world-sprite sorting convention, player hierarchy, and visual target define a concrete implementation without further game-design decomposition.",
+  "decomposition_reason": "The requested character options, animation coverage, PixelLab capability, art direction, and human selection boundary completely define this focused art-acquisition task.",
   "parent": "NSC-002",
-  "depends_on": [
-    "NSC-039"
-  ],
+  "depends_on": [],
   "exclusive_resources": [
-    "logical:pixellab-wizard-character-variant-art",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Wizard",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/WizardAnimationController.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/WizardArtIntegrationTests.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/WizardAnimationPlayModeTests.cs",
-    "repo-file:Docs/Art/Wizard/PIXELLAB_GENERATION.md",
-    "unity-scene:Assets/Scenes/DoorPrototype.unity"
+    "logical:pixellab-wizard-character-art",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source",
+    "repo-file:Docs/Art/Wizard/PIXELLAB_GENERATION.md"
   ],
   "acceptance_criteria": [
     {
       "criterion_id": "AC-001",
-      "reference": "GDD — Development-time generative art and character presentation",
-      "requirement": "Use the approved PixelLab MCP capability to generate source pixel art covering masculine and feminine wizard presentations with both light/White and dark/Black skin representation. Preserve the accepted generated files in the repository and record the reproducible PixelLab prompts, model/tool settings, dimensions, direction convention, and any selected generation identifiers in Docs/Art/Wizard/PIXELLAB_GENERATION.md. If PixelLab is unavailable, report the task blocked rather than substituting hand-authored placeholder art."
+      "reference": "GDD — Development-time generative art",
+      "requirement": "The assistant uses the approved PixelLab capability to generate wizard source art and records the exact prompts, model/tool settings, dimensions, direction convention, and selected generation identifiers in Docs/Art/Wizard/PIXELLAB_GENERATION.md. If PixelLab is unavailable, the task stops as blocked rather than substituting another generator or hand-authored placeholder art."
     },
     {
       "criterion_id": "AC-002",
       "reference": "Human-approved art direction, 2026-09-12",
-      "requirement": "Present readable adult wizard options for a dark-but-cute horror-comedy with masculine and feminine presentation and respectful light/White and dark/Black skin representation. Every combination has rugged pulp-horror-survivor energy, weathered practical adventuring clothes combined with unmistakable wizard details, an expressive endearingly overconfident or put-upon face, and a strong silhouette at gameplay scale. The options belong to the same visual world without making the feminine or Black wizard a token recolor, stereotype, or lower-detail afterthought. The result should feel spooky, battered, funny, and charming rather than solemn, gruesome, sexualized, or grotesque. Evoke the requested archetype without reproducing an actor's recognizable likeness, franchise costume, logos, chainsaw, or shotgun."
+      "requirement": "The review set supports two independent choices: masculine or feminine presentation and light/White or dark/Black skin representation. All four combinations receive intentional, equally detailed character designs rather than recolors, stereotypes, or lower-quality alternatives."
     },
     {
       "criterion_id": "AC-003",
-      "reference": "GDD — isometric directional sprites",
-      "requirement": "For every supported presentation and skin-tone combination, provide cohesive transparent-background pixel-art animation for the four gameplay-facing diagonal directions (north-east, north-west, south-east, and south-west), with a looping idle and looping walk animation for every direction. Each character's identity, proportions, skin palette, lighting, equipment, frame dimensions, ground-contact pivot, and animation cadence remain consistent across all directions and frames, and all options use compatible scale and timing."
+      "reference": "Human-approved visual tone, 2026-09-12",
+      "requirement": "Every option belongs to a dark-but-cute horror-comedy: a rugged pulp-horror survivor reimagined as a charming wizard, with weathered practical clothing, unmistakable wizard details, an expressive overconfident or put-upon face, and a readable silhouette. The art feels spooky, battered, funny, and charming rather than solemn, gruesome, sexualized, or grotesque, and does not copy an actor's recognizable likeness or franchise-specific costume, logo, chainsaw, or shotgun."
     },
     {
       "criterion_id": "AC-004",
-      "reference": "Unity pixel-art import integration",
-      "requirement": "Import the PixelLab output as ordinary local Unity assets with deterministic slicing or frame extraction, transparency, point filtering, no lossy texture compression, consistent pixels-per-unit, and a feet/ground-contact pivot compatible with the existing world-sprite convention. The built game has no PixelLab, network, credential, or generative-AI runtime dependency."
+      "reference": "GDD — isometric directional sprites",
+      "requirement": "Each candidate intended for approval includes transparent-background source frames for north-east, north-west, south-east, and south-west facings, with coherent looping idle and walk animation for every direction. Identity, proportions, skin palette, lighting, equipment, frame dimensions, ground contact, and animation cadence stay consistent across the complete set."
     },
     {
       "criterion_id": "AC-005",
-      "reference": "NSC-039 world-space SpriteRenderer and sorting convention",
-      "requirement": "Replace Player/Visual's generated purple placeholder silhouette with two independent serialized choices: masculine/feminine presentation and light/White or dark/Black skin representation. All four combinations must resolve to complete approved art and animation sets. Switching either choice changes presentation only and preserves the established world-space SpriteRenderer sorting layer/order, feet-origin convention, Player root, CharacterController, gameplay colliders, movement behavior, and interaction components. A runtime character-selection menu is outside this task."
-    },
-    {
-      "criterion_id": "AC-006",
-      "reference": "Player visual animation behavior",
-      "requirement": "A focused player-owned presentation component independently selects the configured gender-presentation and skin-tone options, then drives idle versus walk and the four directional facings from actual player motion. It retains the last meaningful facing while idle, avoids rapid direction flicker near zero velocity, and does not take ownership of movement, input, collision, health, mana, spells, or interaction state."
-    },
-    {
-      "criterion_id": "AC-007",
-      "reference": "DoorPrototypeSceneBuilder repeatability",
-      "requirement": "DoorPrototypeSceneBuilder.Build installs the persistent wizard art and animation wiring idempotently. Rebuilding the scene must not restore the procedural purple silhouette, destroy imported PixelLab source art, duplicate components or child objects, lose clip/controller references, or hand-edit generated Unity YAML."
-    },
-    {
-      "criterion_id": "AC-008",
-      "reference": "Human visual review boundary",
-      "requirement": "Automated checks may prove import, animation, wiring, and sorting invariants, but they must not claim that the wizard looks good. The exact integrated candidate remains pending until the developer visually approves it in the DoorPrototype scene."
+      "reference": "Art-selection boundary",
+      "requirement": "The assistant compares clear contact sheets or animation previews, selects the strongest cohesive set against AC-002 through AC-004, records the selection and concise reasons, and retains only that selected source art as the authorized input to NSC-062. This task does not modify the Unity scene, builder, runtime scripts, Animator, import settings, or gameplay."
     }
   ],
   "completion_gates": [
     {
       "gate_id": "VAL-001",
-      "reference": "Editor validation",
-      "requirement": "Automated Editor tests verify all four presentation/skin combinations have complete directional idle/walk frame sets, use consistent dimensions and ground pivots, have the required pixel-art import settings, and are bound to the player presentation/animation controller without missing references."
+      "reference": "Source-art completeness review",
+      "requirement": "A deterministic inventory confirms the proposed selection contains all four presentation/skin combinations and all eight directional idle/walk sets per combination, with no missing or ambiguously named source frames."
     },
     {
       "gate_id": "VAL-002",
-      "reference": "Builder regression validation",
-      "requirement": "Automated coverage runs the supported builder seam repeatedly and proves Player/Visual retains the imported wizard assets, one animation driver, the NSC-039 sorting convention, and the existing player gameplay components without duplicated hierarchy objects."
-    },
-    {
-      "gate_id": "VAL-003",
-      "reference": "Play Mode animation validation",
-      "requirement": "Play Mode coverage proves nontrivial movement selects a directional walk animation, stopping selects the matching directional idle animation, the last facing is retained while idle, and near-zero movement does not flicker repeatedly between directions."
-    },
-    {
-      "gate_id": "VAL-004",
-      "reference": "Unity project validation",
-      "requirement": "Unity 6000.1.8f1 imports and compiles the project without errors, the relevant Editor and Play Mode tests pass, and DoorPrototypeSceneBuilder.Build completes successfully on the candidate."
-    },
-    {
-      "gate_id": "VAL-005",
-      "reference": "Developer visual approval",
-      "requirement": "The developer opens Assets/Scenes/DoorPrototype.unity in Play Mode, checks all four presentation/skin combinations, and approves their appearance, idle and walking loops in all four directions, gameplay-scale readability, respectful visual treatment, ground contact, and occlusion/sorting beside the current walls and door."
+      "reference": "Assistant art-selection review",
+      "requirement": "The assistant verifies the selected set satisfies the approved dark-but-cute horror-comedy direction, provides equally intentional representation across all four character combinations, and records the exact source-art files authorized for NSC-062."
     }
   ],
-  "downstream_integration_obligations": [],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "NSC-062 Animated Wizard Unity Integration",
+      "requirement": "NSC-062 imports and integrates only the exact PixelLab source-art candidates approved through this task."
+    }
+  ],
   "gdd_evidence": [
     {
-      "reference": "GDD — Environment Presentation and Authoring Direction",
-      "requirement": "The wizard uses a world-space SpriteRenderer and the same isometric sorting convention as other independently sorted objects."
-    },
-    {
       "reference": "GDD — Development-time generative tools",
-      "requirement": "Approved development-time tools may generate directional sprite art; imported outputs become ordinary local Unity assets with no runtime AI service."
+      "requirement": "Approved development-time tools may generate directional sprite art that is later imported as ordinary Unity assets with no runtime AI dependency."
     }
   ],
   "basis": "human_approved_gameplay_presentation",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "This task replaces only the wizard's placeholder presentation. Masculine/feminine presentation and light/White or dark/Black skin representation are independent serialized options. The game's visual tone is dark-but-cute horror-comedy. PixelLab acquisition is required supporting work, not permission to add unrelated art. Preserve movement and gameplay behavior. Human visual approval is authoritative for appearance and animation quality.",
-  "repository_state_at_bootstrap": "partial",
-  "repository_evidence_at_bootstrap": [
-    {
-      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
-      "evidence_type": "code",
-      "observation": "BuildPlayer currently calls CreateWizardSilhouettePixels to generate a static purple WizardSprite placeholder for Player/Visual."
-    },
-    {
-      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/WizardSprite.asset",
-      "evidence_type": "asset",
-      "observation": "The current persistent wizard visual is a generated static placeholder rather than directional animated character art."
-    }
-  ],
+  "notes": "This is an assistant-operated PixelLab generation and selection task. It deliberately ends before Unity integration. Gender presentation and skin representation are independent choices. Rejected generations are not delivery artifacts. Vincent retains final visual approval after NSC-062 integrates the selected art into Unity.",
+  "repository_state_at_bootstrap": "missing",
+  "repository_evidence_at_bootstrap": [],
   "provenance": {
     "origin": "human_approved_gameplay_presentation_followup",
     "approved_development_tool": "PixelLab MCP",
-    "approved_at_utc_date": "2026-09-12",
-    "requested_visual_direction": "dark-but-cute horror-comedy; rugged masculine and feminine pulp-horror survivors with light/White and dark/Black skin representation, reimagined as charming wizards"
+    "approved_at_utc_date": "2026-09-12"
   }
 }

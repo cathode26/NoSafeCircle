@@ -1,7 +1,7 @@
 {
     "id_map":  {
                    "active-enemy-registry":  "NSC-011",
-                   "animated-pixellab-wizard-character-variants":  "NSC-061",
+                   "animated-wizard-unity-integration":  "NSC-062",
                    "bone-archive-blockout":  "NSC-045",
                    "chapel-of-ash-blockout":  "NSC-046",
                    "combat":  "NSC-006",
@@ -44,6 +44,7 @@
                    "player":  "NSC-002",
                    "player-health":  "NSC-004",
                    "player-mana":  "NSC-005",
+                   "pixellab-wizard-art-selection":  "NSC-061",
                    "player-movement":  "NSC-003",
                    "player-resource-feedback-modernization":  "NSC-060",
                    "preferred-unity-tooling-library-integration":  "NSC-057",

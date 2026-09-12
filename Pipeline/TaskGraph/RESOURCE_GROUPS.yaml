@@ -108,7 +108,7 @@
         "door-lock-break-state",
         "door-passability-publication",
         "door-breach-feedback",
-        "animated-pixellab-wizard-character-variants"
+        "animated-wizard-unity-integration"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
       "work_ids": [
@@ -138,7 +138,7 @@
         "NSC-050",
         "NSC-051",
         "NSC-052",
-        "NSC-061"
+        "NSC-062"
       ]
     },
     {
@@ -188,7 +188,7 @@
         "door-lock-break-state",
         "door-passability-publication",
         "door-breach-feedback",
-        "animated-pixellab-wizard-character-variants"
+        "animated-wizard-unity-integration"
       ],
       "resource_key": "unity-scene:Assets/Scenes/DoorPrototype.unity",
       "work_ids": [
@@ -218,7 +218,7 @@
         "NSC-050",
         "NSC-051",
         "NSC-052",
-        "NSC-061"
+        "NSC-062"
       ]
     }
   ],
