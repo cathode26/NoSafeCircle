@@ -32,6 +32,9 @@ BUILDER = "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs
 TEST = "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs"
 WALL = "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/WallTile.asset"
 SCENE = "Assets/Scenes/DoorPrototype.unity"
+WIZARD_ROOT = "Assets/NoSafeCircle/DoorPrototype/Art/Wizard"
+WIZARD_SOURCE = WIZARD_ROOT + "/Source/approved.png"
+WIZARD_CONTROLLER = WIZARD_ROOT + "/Generated/WizardAnimator.controller"
 
 
 class MaterializationTests(unittest.TestCase):
@@ -54,6 +57,7 @@ class MaterializationTests(unittest.TestCase):
             (TEST, "class DoorPrototypeSceneBuilderTests {}\n"),
             (WALL, "old wall\n"),
             (SCENE, "old scene\n"),
+            (WIZARD_SOURCE, "approved pixels\n"),
             ("ProjectSettings/ProjectVersion.txt", "m_EditorVersion: 6000.1.8f1\n"),
             ("Pipeline/Testing/run_unity_tests_clean.ps1", "# fixture\n"),
             ("Pipeline/TaskGraph/taskcontrol.py", "print('taskcontrol validate: PASS')\n"),
@@ -70,6 +74,7 @@ class MaterializationTests(unittest.TestCase):
             "decomposition_reason": "fixture", "parent": None, "depends_on": [],
             "exclusive_resources": [
                 f"repo-file:{BUILDER}", f"repo-file:{TEST}", f"repo-file:{WALL}",
+                f"repo-file:{WIZARD_ROOT}",
                 f"unity-scene:{SCENE}",
             ],
             "acceptance_criteria": [], "completion_gates": [],
@@ -188,6 +193,57 @@ class MaterializationTests(unittest.TestCase):
                 allowed_generated_paths=(WALL,),
             )
         self.assertTrue((self.checkout / "unexpected.asset").is_file())
+
+    def test_shared_builder_allows_only_serialized_output_under_registered_root(self):
+        def art_runner(args, cwd, timeout):
+            target = cwd / WIZARD_CONTROLLER
+            target.parent.mkdir(parents=True)
+            target.write_text("generated controller  \n", newline="\n")
+            return subprocess.CompletedProcess(args, 0, b"", b"")
+        result = run_door_prototype_builder(
+            checkout=self.checkout, task_id="NSC-042",
+            state_root=self.manager.records, initial_changed_paths=(),
+            unity_executable=self.unity, unity_command_runner=art_runner,
+            allowed_generated_paths=(WALL,),
+            allowed_generated_roots=(WIZARD_ROOT,),
+        )
+        self.assertEqual((WIZARD_CONTROLLER,), result.builder_paths)
+        self.assertNotIn("  \n", (self.checkout / WIZARD_CONTROLLER).read_text())
+
+    def test_shared_builder_rejects_nonserialized_output_under_registered_root(self):
+        unexpected = WIZARD_ROOT + "/Generated/HandAuthored.cs"
+        def bad_art_runner(args, cwd, timeout):
+            target = cwd / unexpected
+            target.parent.mkdir(parents=True)
+            target.write_text("class HandAuthored {}\n", newline="\n")
+            return subprocess.CompletedProcess(args, 0, b"", b"")
+        with self.assertRaisesRegex(DoorPrototypeMaterializationError, "untracked paths outside"):
+            run_door_prototype_builder(
+                checkout=self.checkout, task_id="NSC-042",
+                state_root=self.manager.records, initial_changed_paths=(),
+                unity_executable=self.unity, unity_command_runner=bad_art_runner,
+                allowed_generated_paths=(WALL,),
+                allowed_generated_roots=(WIZARD_ROOT,),
+            )
+        self.assertTrue((self.checkout / unexpected).is_file())
+
+    def test_materialization_derives_task_owned_generated_art_root(self):
+        original = self.register_code_candidate()
+        def art_runner(args, cwd, timeout):
+            target = cwd / WIZARD_CONTROLLER
+            target.parent.mkdir(parents=True)
+            target.write_text("generated controller\n", newline="\n")
+            return subprocess.CompletedProcess(args, 0, b"", b"")
+        result = materialize_candidate(
+            self.manager, "NSC-042", original, unity_executable=self.unity,
+            unity_command_runner=art_runner,
+            validation_runner=self.passing_validation,
+        )
+        self.assertEqual([WIZARD_CONTROLLER], result["candidate"]["changed_paths"])
+        journal = json.loads((
+            self.manager.records / f"NSC-042.unity-materialization.{original}.json"
+        ).read_text())
+        self.assertEqual([WIZARD_ROOT], journal["registered_generated_roots"])
 
     def test_materializes_then_validates_exact_commit_for_human_review(self):
         original = self.register_code_candidate()

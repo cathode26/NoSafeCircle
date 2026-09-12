@@ -83,6 +83,18 @@
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
+    "NSC-062": {
+      "task_contract_sha256": "56d2e1d0034102ccba0c0751ae6beac9eae4f1e7506d3fa95682af145a6a5d84",
+      "required_test_platforms": [
+        "EditMode",
+        "PlayMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.WizardArtIntegrationTests",
+        "PlayMode": "NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
+    },
     "NSC-069": {
       "task_contract_sha256": "379ec1a261c77d8d4f495aaa1fa4b6c6285bb6d5ac3a22e9464342662be9019c",
       "required_test_platforms": [
