@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-061",
-  "contract_revision": 2,
+  "contract_revision": 3,
   "contract_disposition": "active",
   "title": "PixelLab Wizard Art Direction and Selection",
   "reconciliation_key": "pixellab-wizard-art-selection",
@@ -37,7 +37,7 @@
     {
       "criterion_id": "AC-004",
       "reference": "GDD — isometric directional sprites",
-      "requirement": "Each candidate intended for approval includes transparent-background source frames for north-east, north-west, south-east, and south-west facings, with coherent looping idle and walk animation for every direction. Identity, proportions, skin palette, lighting, equipment, frame dimensions, ground contact, and animation cadence stay consistent across the complete set."
+      "requirement": "Each candidate intended for approval includes transparent-background standing frames and coherent walking animation for north-east, north-west, south-east, and south-west facings. Unity may use the standing frame as a one-frame looping idle clip. Identity, proportions, skin palette, lighting, equipment, frame dimensions, ground contact, and animation cadence stay consistent across the complete set."
     },
     {
       "criterion_id": "AC-005",
@@ -49,7 +49,7 @@
     {
       "gate_id": "VAL-001",
       "reference": "Source-art completeness review",
-      "requirement": "A deterministic inventory confirms the proposed selection contains all four presentation/skin combinations and all eight directional idle/walk sets per combination, with no missing or ambiguously named source frames."
+      "requirement": "A deterministic inventory confirms the proposed selection contains all four presentation/skin combinations, all eight PixelLab base directions, and walking frames for the four diagonal gameplay facings per combination, with no missing or ambiguously named source frames."
     },
     {
       "gate_id": "VAL-002",
