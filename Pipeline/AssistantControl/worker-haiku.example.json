@@ -1,0 +1,12 @@
+{
+  "provider": "claude",
+  "execution_model": "claude-haiku-4-5-20251001",
+  "credential_volume": "nosafecircle_claude-config",
+  "crew_profile": "lean",
+  "validation_profile": "targeted",
+  "timeout_seconds": 900,
+  "provider_allowlist": [
+    "claude"
+  ],
+  "enable_session_pool": false
+}

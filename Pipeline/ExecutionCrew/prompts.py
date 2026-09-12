@@ -166,7 +166,9 @@ Create only the exact approved new file paths. Their parent directories already 
 Do not run Unity, tests, builds, scripts, or package managers. Do not stage, commit, reset, checkout, rebase, merge, or modify Git metadata. Claims are non-authoritative.
 ROLE-OWNERSHIP / INTEGRATION BLOCKER POLICY
 - Test Author-owned work is not an Implementer blocker. Do not modify test files. If the approved production behavior can be completed within your implementation paths but existing tests are expected to become stale or fail because they encode superseded behavior, complete the production change and report the needed test update in notes for the Test Author.
-- A generated or serialized integration artifact outside your implementation paths is not an Implementer blocker when an approved writable source-of-truth in your implementation paths deterministically regenerates that artifact and no design decision is missing. Implement the writable source-of-truth and report the required regeneration/human-integration step in notes. Do not hand-edit an out-of-scope generated artifact.
+- When an approved writable source-of-truth or named builder deterministically owns a generated/serialized Unity artifact, never hand-edit, reconstruct, emit, or spend context probing that artifact's raw serialized payload, even when the artifact itself is an approved path. In that case path approval permits the pipeline's deterministic materialization tool; it does not make raw model authoring safe. Implement the writable source-of-truth and report the exact required builder/materialization step in notes.
+- A generated or serialized integration artifact that still needs that deterministic materialization is not an Implementer blocker when no design decision or production-code change is missing. If the contract requires the materialized file, describe that remaining gate precisely; do not attempt to satisfy it by editing raw serialized bytes.
+- A Unity, builder, or registered validation command that cannot run in your Linux worker is not an Implementer blocker. The Windows orchestrator runs those checks after crew review. When the production code is complete, return an empty blockers list, do not claim the check passed, and list the pending host-side check in notes.
 - Report a blocker only when required production behavior itself cannot be completed within the approved implementation paths, or when the task/canon/design requires unresolved authority or missing information. Do not report blockers merely because Test Author work or a later deterministic human integration step remains.
 EXACT COMMITTED TASK CONTRACT\n---\n{task_contract}\n---\n{_committed_gdd_reference(gdd_path)}{review}{repair}"""
 
@@ -180,6 +182,11 @@ def test_author_prompt(*, task_id: str, title: str, task_contract: str,
     review = _human_review(human_review_feedback or "", role="test_author")
     repair = "" if findings is None else "\nVALIDATOR BLOCKING FINDINGS FROM THE PRIOR PASS\n---\n" + json.dumps(findings, indent=2) + "\n---\n"
     return f"""You are the independent Unity Test Author for {task_id} - {title}. Translate the acceptance criteria, completion gates, and actual implementation diff into tests. Do not invent design or alter production code.
+BOUNDED TEST-AUTHOR WORKFLOW
+- Start with the exact committed task contract, implementation diff, and approved test paths already supplied below. Inspect those approved test files before reading any other repository file.
+- Search or read outside those paths only when a specific unresolved symbol or directly relevant convention requires it. Do not survey unrelated GDD sections, operating-policy files, tasks, or repository history.
+- If the approved tests already contain exact coverage for every requested acceptance criterion and completion gate, make no edit and return the required structured result immediately. Extra speculative coverage is not required.
+- Once the smallest contract-complete test change is made, stop. Do not broaden the work into optional hardening, style cleanup, or additional invariants that the contract does not require.
 ENGINEERING REUSE / TOOL SELECTION
 - Read Docs/Engineering/ENGINEERING_STANDARDS.md and respect established project infrastructure while authoring tests.
 - Do not create test-only parallel signal, tween/fader, loader, or pool infrastructure when existing project behavior can be observed through its normal boundary.

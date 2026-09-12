@@ -4,7 +4,7 @@ The opt-in all-Codex route uses `--providers codex,codex --max-calls 2` with
 host-owned session pooling. Author and reviewer must prove different leased
 conversation identities. Ephemeral same-provider self-review is still rejected;
 revisions remain unresolved until a subsequent bounded reviewed attempt.
-Graph application still requires the exact reviewed plan and existing human authorization.
+See [the thousand-task runbook](../../Docs/AI-Pipeline/THOUSAND_TASK_GAUNTLET.md).
 
 ## D1A deterministic foundation
 

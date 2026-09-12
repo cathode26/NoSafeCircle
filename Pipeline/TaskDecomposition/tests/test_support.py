@@ -259,7 +259,10 @@ def decomposed_result(parent: dict[str, Any], *, missing_dependency: bool = Fals
             "decomposition_reason": "Canon is sufficient.",
             "existing_task_dependencies": ["NSC-999" if missing_dependency else "NSC-003"],
             "local_dependencies": [],
-            "exclusive_resources": ["repo-file:Assets/Shared.cs"],
+            "exclusive_resources": [
+                "repo-file:Assets/Shared.cs",
+                "unity-scene:Assets/Synthetic.unity",
+            ],
             "acceptance_criteria": [
                 {"criterion_id": "AC-001", "reference": "Parent AC-001", "requirement": "Child acceptance."}
             ],

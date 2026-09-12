@@ -8,6 +8,7 @@ import os
 import re
 import shutil
 import subprocess
+import time
 import sys
 import threading
 import uuid
@@ -23,6 +24,11 @@ from .execution_session_pool import (
     ExecutionCrewSessionPoolError,
     ExecutionCrewSessionPoolOwner,
     ExecutionCrewSessionPoolPersistenceError,
+)
+from .materialization_bridge import (
+    MATERIALIZATION_REQUIRED_STATUS,
+    materialization_blockers_only,
+    registered_materialization_paths,
 )
 
 
@@ -41,6 +47,38 @@ class ExecutionBridgeStartError(ExecutionBridgeError):
 
 class ExecutionBridgeTimeoutError(ExecutionBridgeError):
     """The Docker process was killed and reaped after its timeout."""
+
+
+class ExecutionBridgeAbortedError(ExecutionBridgeError):
+    """The crew was terminated because the run's operator stop request appeared."""
+
+
+STOP_REQUEST_ENV = "NSC_RUN_STOP_REQUEST_PATH"
+
+
+def _operator_stop_requested() -> bool:
+    path = os.environ.get(STOP_REQUEST_ENV)
+    if not path:
+        return False
+    try:
+        return Path(path).is_file()
+    except OSError:
+        return False
+
+
+def _kill_process_tree(process: "subprocess.Popen[bytes]") -> None:
+    """Kill the crew and everything it spawned (docker clients included)."""
+    if os.name == "nt":
+        subprocess.run(("taskkill", "/PID", str(process.pid), "/T", "/F"),
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+    try:
+        process.kill()
+    except OSError:
+        pass
+    try:
+        process.wait(timeout=30)
+    except subprocess.TimeoutExpired:
+        pass
 
 
 CommandRunner = Callable[
@@ -102,11 +140,23 @@ def _default_runner(
     ]
     for thread in threads:
         thread.start()
+    deadline = time.monotonic() + timeout_seconds
     try:
-        returncode = process.wait(timeout=timeout_seconds)
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise subprocess.TimeoutExpired(tuple(args), timeout_seconds)
+            try:
+                returncode = process.wait(timeout=min(2.0, remaining))
+                break
+            except subprocess.TimeoutExpired:
+                if _operator_stop_requested():
+                    _kill_process_tree(process)
+                    raise ExecutionBridgeAbortedError(
+                        "ExecutionCrew terminated by the run's operator stop request"
+                    ) from None
     except subprocess.TimeoutExpired as exc:
-        process.kill()
-        process.wait()
+        _kill_process_tree(process)
         raise ExecutionBridgeTimeoutError(
             f"ExecutionCrew exceeded {timeout_seconds:.0f} seconds"
         ) from exc
@@ -241,9 +291,13 @@ class ExecutionCrewBridge:
         provider_allowlist: tuple[str, ...] | None = None,
         quota_fallback_provider: str | None = None,
         provider_profile: dict | None = None,
+        local_rehearsal_context=None,
+        allow_materialization_bridge: bool = False,
     ) -> None:
         self.checkout = Path(checkout).resolve()
+        self.local_rehearsal_context = local_rehearsal_context
         self.provider_profile = provider_profile
+        self.allow_materialization_bridge = bool(allow_materialization_bridge)
         self.provider_allowlist = provider_allowlist
         self.quota_fallback_provider = quota_fallback_provider
         self.scope = scope
@@ -284,6 +338,9 @@ class ExecutionCrewBridge:
         if not self.timeout_seconds > 0:
             raise ExecutionBridgeError("ExecutionCrew timeout must be positive")
         self.compose_project = str(compose_project).strip()
+        if self.local_rehearsal_context is not None:
+            from .local_execution_fence import project_name
+            self.compose_project = project_name(self.local_rehearsal_context)
         if not self.compose_project:
             raise ExecutionBridgeError("Docker Compose project name must be non-empty")
         self.runtime_binding = None
@@ -298,6 +355,9 @@ class ExecutionCrewBridge:
         self.enable_session_pool = bool(enable_session_pool)
         self.session_pool_owner = session_pool_owner
         self.output_root = self.checkout / "Pipeline" / "ExecutionCrew" / "outputs"
+        if local_rehearsal_context is not None:
+            local_rehearsal_context.assert_current()
+            self.output_root = Path(local_rehearsal_context.state_root) / "crew-output" / scope.task_id
         self.state_root = self.checkout.parent / ".task-review-agent"
         self.state_path = self.state_root / f"{self.scope.task_id}.execution.json"
         self._receipt: ExecutionCrewReceipt | None = None
@@ -308,6 +368,12 @@ class ExecutionCrewBridge:
         return self._receipt
 
     def _preflight_docker(self) -> None:
+        if self.local_rehearsal_context is not None:
+            if self.command_runner is _default_runner and not self.local_rehearsal_context.allow_live_canary:
+                raise ExecutionBridgeError("local rehearsal provider launch requires explicit live canary authorization")
+            # The local runtime owner validates its exact isolated Compose
+            # project. A generic Docker probe is outside that process fence.
+            return
         if self.command_runner is not _default_runner:
             return
         if shutil.which("docker") is None:
@@ -336,6 +402,7 @@ class ExecutionCrewBridge:
         provider: str,
         retry_run_id: str | None,
         feedback_file: Path | None,
+        revision_feedback_file: Path | None = None,
         pool_assignment: Mapping[str, Any] | None = None,
     ) -> list[str]:
         try:
@@ -352,6 +419,24 @@ class ExecutionCrewBridge:
             "--rm",
             "-T",
         ]
+        if self.local_rehearsal_context is not None:
+            admitted_head, admitted_tree = (
+                self.local_rehearsal_context.task_admitted_source(accepted.task_id)
+            )
+            if admitted_head != accepted.source_head:
+                raise ExecutionBridgeError(
+                    "accepted scope differs from the task's admitted source"
+                )
+            crew_manifest = self.local_rehearsal_context.crew_manifest_path(
+                task_id=accepted.task_id,
+                lease_id=accepted.lease_id,
+                source_commit=accepted.source_head,
+                source_tree=admitted_tree,
+                task_contract_sha256=accepted.task_contract_sha256,
+                checkout_path=self.checkout,
+            )
+            command.extend(("--volume", f"{self.output_root}:/execution-output:rw",
+                            "--volume", f"{crew_manifest}:/nsc-local/run.json:ro"))
         if provider == "claude" and self.quota_fallback_provider == "codex":
             # Both CLIs are already installed in the shared image. Mount the same
             # project-scoped Codex config that codex-exec uses, only for a run
@@ -380,6 +465,11 @@ class ExecutionCrewBridge:
             if topology.codex_resume_required:
                 command.extend(("--env", "NSC_CODEX_RESUME_SANDBOX_ARGUMENT=" + json.dumps(self.runtime_binding["codex_resume_control"])))
             command.extend(("--volume", f"{pool_assignment['profile_path']}:/nsc-pool/profile.json:ro"))
+        # Operator budget overrides (NSC_<ROLE>_TURN_LIMIT / _TIMEOUT_SECONDS) are
+        # read by run_crew inside the container, so forward the ones that are set.
+        for name, value in sorted(os.environ.items()):
+            if re.fullmatch(r"NSC_[A-Z][A-Z_]*_(TURN_LIMIT|TIMEOUT_SECONDS)", name):
+                command.extend(("--env", f"{name}={value}"))
         command.extend([
             service,
             "python3",
@@ -389,6 +479,8 @@ class ExecutionCrewBridge:
             "--host-output-root",
             str(self.output_root),
         ])
+        if self.local_rehearsal_context is not None:
+            command.extend(("--local-rehearsal-manifest", "/nsc-local/run.json"))
         if self.provider_allowlist is not None:
             command.extend(("--provider-allowlist", ",".join(self.provider_allowlist)))
         if self.provider_profile is not None:
@@ -410,6 +502,8 @@ class ExecutionCrewBridge:
             )
         if self.execution_model is not None:
             command.extend(("--model", self.execution_model))
+        if self.allow_materialization_bridge:
+            command.append("--allow-materialization-bridge")
         if self.execution_reasoning_effort is not None:
             command.extend(
                 ("--openai-reasoning-effort", self.execution_reasoning_effort)
@@ -422,6 +516,15 @@ class ExecutionCrewBridge:
             relative = feedback_file.resolve().relative_to(self.checkout)
             command.extend(("--review-feedback-file", "/workspace/" + relative.as_posix()))
             return command
+
+        if revision_feedback_file is not None:
+            try:
+                relative = revision_feedback_file.resolve().relative_to(self.checkout)
+            except ValueError as exc:
+                raise ExecutionBridgeError(
+                    "revision feedback must be a regular file inside the task checkout"
+                ) from exc
+            command.extend(("--revision-feedback-file", "/workspace/" + relative.as_posix()))
 
         command.extend(
             (
@@ -452,7 +555,10 @@ class ExecutionCrewBridge:
         provider: str,
         retry_run_id: str | None = None,
         feedback_file: Path | str | None = None,
+        revision_feedback_file: Path | str | None = None,
     ) -> ExecutionCrewReceipt:
+        if self.local_rehearsal_context is not None:
+            self.local_rehearsal_context.assert_current()
         provider = str(provider).strip().casefold()
         if provider not in _PROVIDER:
             raise ExecutionBridgeError("ExecutionCrew provider must be claude or codex")
@@ -469,7 +575,11 @@ class ExecutionCrewBridge:
         accepted = self.scope.require(plan_id)
         if retry_run_id is not None and not _RUN_ID.fullmatch(str(retry_run_id)):
             raise ExecutionBridgeError("retry_run_id has an invalid identity")
+        if retry_run_id is not None and revision_feedback_file is not None:
+            raise ExecutionBridgeError("revision feedback cannot be combined with an ExecutionCrew retry")
         feedback = Path(feedback_file).resolve() if feedback_file is not None else None
+        revision_feedback = (Path(revision_feedback_file).resolve()
+                             if revision_feedback_file is not None else None)
         if feedback is not None:
             try:
                 feedback.relative_to(self.checkout)
@@ -497,6 +607,8 @@ class ExecutionCrewBridge:
                 checkout=self.checkout,
                 output_root=self.output_root,
                 **({"runtime_binding": self.runtime_binding} if self.runtime_binding is not None else {}),
+                **({"local_rehearsal_context": self.local_rehearsal_context}
+                   if self.local_rehearsal_context is not None else {}),
             )
             requested_run_id = (
                 f"{accepted.task_id.lower()}-pooled-{uuid.uuid4().hex[:16]}"
@@ -530,6 +642,7 @@ class ExecutionCrewBridge:
                 provider=provider,
                 retry_run_id=retry_run_id,
                 feedback=feedback,
+                revision_feedback=revision_feedback,
                 pool_owner=pool_owner,
                 pool_assignment=pool_assignment,
             )
@@ -561,6 +674,7 @@ class ExecutionCrewBridge:
         feedback: Path | None,
         pool_owner: "ExecutionCrewSessionPoolOwner | None",
         pool_assignment: Mapping[str, Any] | None,
+        revision_feedback: Path | None = None,
     ) -> ExecutionCrewReceipt:
         """Run one prepared ExecutionCrew invocation and settle its pooled leases."""
 
@@ -569,8 +683,20 @@ class ExecutionCrewBridge:
             provider=provider,
             retry_run_id=retry_run_id,
             feedback_file=feedback,
+            revision_feedback_file=revision_feedback,
             pool_assignment=pool_assignment,
         )
+        if self.local_rehearsal_context is not None:
+            self.local_rehearsal_context.record_stage(
+                accepted.task_id, "execution_crew", worker_id=self.worker_slot_id,
+                lease_id=accepted.lease_id, provider=provider, plan_id=accepted.plan_id,
+            )
+            # Deterministic injected runners observe the exact worker boundary
+            # without starting Docker or requiring provider availability.
+            if self.command_runner is _default_runner:
+                from .local_execution_fence import fenced_docker_command
+                command = list(fenced_docker_command(command, self.local_rehearsal_context,
+                                                    role="execution_crew", checkout=self.checkout))
         try:
             completed = self.command_runner(command, self.checkout, self.timeout_seconds)
         except ExecutionBridgeStartError:
@@ -636,13 +762,13 @@ class ExecutionCrewBridge:
 
         candidate_path: Path | None = None
         candidate_sha: str | None = None
-        if persisted.get("crew_status") == "review_ready":
+        if persisted.get("crew_status") in {"review_ready", MATERIALIZATION_REQUIRED_STATUS}:
             candidate_path = self.output_root / run_id / "candidate.patch"
             if not candidate_path.is_file():
                 self._quarantine_terminal_pool(
-                    pool_owner, pool_assignment, "review_ready run omitted candidate.patch"
+                    pool_owner, pool_assignment, "candidate handoff omitted candidate.patch"
                 )
-                raise ExecutionBridgeError("review_ready run is missing candidate.patch")
+                raise ExecutionBridgeError("candidate handoff is missing candidate.patch")
             candidate_sha = hashlib.sha256(candidate_path.read_bytes()).hexdigest()
             if candidate_sha != persisted.get("candidate_patch_sha256"):
                 self._quarantine_terminal_pool(
@@ -703,7 +829,7 @@ class ExecutionCrewBridge:
                 if str(item).strip()
             ),
         )
-        expected_return = 0 if receipt.crew_status == "review_ready" else 1
+        expected_return = 0 if receipt.crew_status in {"review_ready", MATERIALIZATION_REQUIRED_STATUS} else 1
         if completed.returncode not in (expected_return,):
             self._quarantine_terminal_pool(
                 pool_owner, pool_assignment, "Docker exit code disagreed with crew status"
@@ -882,12 +1008,32 @@ class ExecutionCrewBridge:
         status = result.get("crew_status")
         if status not in (
             "review_ready",
+            MATERIALIZATION_REQUIRED_STATUS,
             "blocked",
             "rejected",
             "needs_human",
             "contract_review_required",
         ):
             raise ExecutionBridgeError(f"unsupported ExecutionCrew crew_status: {status!r}")
+        if status == MATERIALIZATION_REQUIRED_STATUS:
+            if not self.allow_materialization_bridge:
+                raise ExecutionBridgeError(
+                    "materialization handoff is not enabled for this ExecutionCrew bridge"
+                )
+            registered = registered_materialization_paths(accepted.plan)
+            validation = result.get("materialization_validation")
+            qualified = materialization_blockers_only(validation, registered)
+            reported = result.get("materialization_required_paths")
+            if (qualified is None or not isinstance(reported, list)
+                    or tuple(reported) != qualified):
+                raise ExecutionBridgeError(
+                    "materialization handoff is not bound to exact registered generated outputs"
+                )
+            final_paths = tuple(result.get("final_actual_changed_paths") or ())
+            if set(qualified) & set(final_paths):
+                raise ExecutionBridgeError(
+                    "materialization handoff candidate already edits generated outputs"
+                )
 
     def require(self, run_id: str) -> ExecutionCrewReceipt:
         if self._receipt is None or self._receipt.run_id != run_id:
@@ -908,6 +1054,8 @@ class ExecutionCrewBridge:
     def _persist(self, receipt: ExecutionCrewReceipt) -> None:
         self.state_root.mkdir(parents=True, exist_ok=True)
         payload = receipt.to_dict()
+        if self.local_rehearsal_context is not None:
+            payload.update(authority="local_rehearsal_only", local_run_id=self.local_rehearsal_context.run_id)
         payload["receipt_sha256"] = semantic_sha256(payload)
         temporary = self.state_path.with_suffix(".json.tmp")
         temporary.write_text(
@@ -924,6 +1072,12 @@ class ExecutionCrewBridge:
             raw = json.loads(self.state_path.read_text(encoding="utf-8"))
             identity = dict(raw)
             receipt_hash = identity.pop("receipt_sha256")
+            if identity.get("authority") == "local_rehearsal_only":
+                if (self.local_rehearsal_context is None
+                        or identity.get("local_run_id") != self.local_rehearsal_context.run_id):
+                    return
+            elif self.local_rehearsal_context is not None:
+                return
             has_crew_profile = "crew_profile" in identity
             has_validation_profile = "validation_profile" in identity
             if has_crew_profile != has_validation_profile:

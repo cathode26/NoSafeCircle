@@ -244,6 +244,7 @@ def _real_provider_bundle(
         provider = OpenAICodexProvider(
             repository_root=source_root,
             externally_enforced_read_only_repository=True,
+            prohibit_external_integrations=True,
             session=session,
             session_ledger=session_ledger,
             resume_sandbox_argument=codex_resume_sandbox_argument,

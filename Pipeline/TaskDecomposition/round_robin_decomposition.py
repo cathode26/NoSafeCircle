@@ -216,6 +216,38 @@ def candidate_sha256(result: DecompositionResult) -> str:
     return hashlib.sha256(result.canonical_json().encode("utf-8")).hexdigest()
 
 
+def _normalize_empty_artifact_placeholder(raw: Any) -> Any:
+    """Treat the provider's empty optional object as the requested JSON null.
+
+    The decomposer prompt requires ``artifact_proposal: null`` for every
+    decision except ``needs_artifact``. Some structured-output providers still
+    populate the optional object with empty values. That carries no proposal
+    information, so normalize only that exact placeholder at the provider
+    boundary. Non-empty and malformed proposals remain subject to the strict
+    contract validator.
+    """
+    if not isinstance(raw, dict) or raw.get("decision") == "needs_artifact":
+        return raw
+    artifact = raw.get("artifact_proposal")
+    expected = {
+        "title", "purpose", "source_parent_obligations",
+        "authorized_decisions_needed", "out_of_scope",
+    }
+    if not isinstance(artifact, dict) or set(artifact) != expected:
+        return raw
+    if not (
+        artifact.get("title") == ""
+        and artifact.get("purpose") == ""
+        and artifact.get("source_parent_obligations") == []
+        and artifact.get("authorized_decisions_needed") == []
+        and artifact.get("out_of_scope") == []
+    ):
+        return raw
+    normalized = dict(raw)
+    normalized["artifact_proposal"] = None
+    return normalized
+
+
 def _validate_candidate(
     raw: Any,
     *,
@@ -225,7 +257,7 @@ def _validate_candidate(
     version: int,
 ) -> CandidateSnapshot:
     result = validate_decomposition_result(
-        raw,
+        _normalize_empty_artifact_placeholder(raw),
         parent_task=context_payload["selected_task"]["contract"],
         existing_reconciliation_keys=graph.plan.id_map.keys(),
     )

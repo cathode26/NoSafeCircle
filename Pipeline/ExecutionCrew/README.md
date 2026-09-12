@@ -43,6 +43,14 @@ A Validator that later reports `blocked_by_design` with a `criteria_results` `re
 
 The Implementer has `repository_read`, `repository_search`, and `repository_write`, model class `standard`, and may edit existing `--implementation-path` values or create exact `--new-implementation-path` values. The fresh Unity Test Author has the same capabilities, model class `low_cost`, and equivalent test-path authority. Requested role paths and pipeline sidecars are disjoint under conservative case-insensitive comparison. Its prompt includes the committed Unity testing policy and exact implementation diff. The fresh Validator is `high_reasoning` with only `repository_read` and `repository_search`; it reads the physically read-only committed source checkout as baseline context and semantically evaluates the candidate state represented by that baseline plus the exact candidate patch and actual changed paths. The baseline is intentionally unchanged, so absence of candidate edits there is not a defect and the Validator must not require them to be committed or applied before review. A pass is semantic review only, never a Unity, delivery, readiness, integration, or conformance claim. The source remains unchanged until a human approves and manually applies `candidate.patch`.
 
+For Codex routes, the low-cost Test Author uses a bounded role-specific
+reasoning effort (`low` for fast and standard tasks, and
+`medium` for deep tasks) while the Implementer, Validator, locality auditor,
+and Lead Developer retain the task tier's configured effort. The Test Author
+inspects approved tests first, stops immediately when exact required coverage
+already exists, and does not spend provider time on unrelated repository
+surveys or speculative hardening.
+
 ## Prompt context
 
 Exactly one role prompt carries the canonical GDD inline: the **Contract Locality

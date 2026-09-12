@@ -163,6 +163,19 @@ class ProfileTests(unittest.TestCase):
                 if topology.mixed:
                     with self.assertRaises(ValueError): validate_crew_routes(topology,primary,bad)
 
+    def test_codex_test_author_uses_bounded_low_cost_reasoning(self):
+        from Pipeline.TaskReviewAgent.provider_profiles import crew_role_routes
+        topology = self.topology("all-codex")
+        expected = {"fast": "low", "standard": "low", "deep": "medium"}
+        policy = load_execution_routing_policy({}, provider_allowlist=topology.provider_allowlist,
+            supervisor_provider=topology.architect, resolve_only_permitted=True)
+        for tier_name, test_author_effort in expected.items():
+            tier = getattr(policy, tier_name)
+            routes = crew_role_routes(topology, "codex", tier)
+            self.assertEqual(routes["test_author"]["reasoning_effort"], test_author_effort)
+            for role in ("implementer", "validator", "contract_locality_auditor", "lead_developer"):
+                self.assertEqual(routes[role]["reasoning_effort"], tier.openai_reasoning_effort)
+
     def test_decomposition_strategy_is_independent_of_implementer(self):
         from Pipeline.TaskReviewAgent.polling_orchestrator import build_decomposition_worker_command
         for name in PROFILES:

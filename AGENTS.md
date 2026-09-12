@@ -2,6 +2,21 @@
 
 This file is operating guidance, not GDD canon.
 
+## Conversation-operated work
+
+For Vincent's assistant-operated workflow, use `Pipeline/AssistantControl/README.md`.
+The assistant selects and controls work through conversation; its viewer is
+read-only. The legacy Issue/scheduler procedures below describe the older mode
+and do not require starting that scheduler, creating a managed Issue, or posting
+approval when using AssistantControl. Keep each task in its owned independent
+checkout. Only Vincent's explicit test decision may approve its exact candidate
+commit. Provider spending and GitHub publication require authorization for that
+action. Existing legacy mode remains available when explicitly requested.
+
+## Shared project guidance
+
+Before creating or revising a game task or decomposition child, read [Game Task Lessons Learned](Docs/AI-Pipeline/GAME_TASK_LESSONS_LEARNED.md). Apply the relevant lessons to worker tooling, generated Unity assets and the visual test plan. Add new confirmed lessons there after investigations; keep full logs in their original evidence locations.
+
 Any agent creating, modifying, or reviewing Unity runtime code, editor tools, tests, Addressables/build tooling, content-loading infrastructure, or related project architecture must first read `Docs/Engineering/ENGINEERING_STANDARDS.md`.
 
 Any agent given access to `/reference` or a host `ReferenceProjects` directory must first read `Docs/Engineering/REFERENCE_PROJECTS.md` and `Pipeline/ReferenceSources/reference_sources.json`. Reference projects are read-only, non-canonical evidence and never permission to copy or publish source.

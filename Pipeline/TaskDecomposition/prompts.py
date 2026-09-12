@@ -53,11 +53,33 @@ Authority and inspection rules:
   `nsc021_lifecycle_core`, `NSC021-Lifecycle-Core`, `door_lifecycle`,
   `door--lifecycle`.
 - Use exact existing canonical exclusive-resource keys where applicable.
+- For `decomposed`, partition the parent's complete `exclusive_resources` list across the
+  proposed children exactly once: every parent resource must appear on exactly one child,
+  the child-resource union must equal the parent list, and no child may omit or duplicate
+  a parent resource. `exclusive_resources` records ownership and validation scope; a
+  precommitted path being existing or read-only does not make it optional.
+- Keep every precommitted validation test script and its Unity sidecar together on the
+  matching child. In particular, `GauntletReplay1107AlphaTests.cs` and its `.meta` must
+  both belong to the Alpha child, while `GauntletReplay1107BetaTests.cs` and its `.meta`
+  must both belong to the Beta child. Match the test identity to the child's concrete
+  responsibility; never move a test or its `.meta` to another child or drop the `.meta`
+  because workers do not edit the existing test path.
 - Child local keys must not collide with any supplied reconciliation_key.
 - Every child must be implementation/single_agent/concrete, with at least one acceptance
   criterion and at least one completion gate.
 - Every child AC/VAL/INT entry must trace through parent coverage. Every parent AC/VAL/INT
   entry must have exactly one coverage record.
+- Each `parent_requirement_coverage[].child_targets[]` item is exactly three separate
+  fields: `local_key`, `child_entry_type`, and `child_entry_id`. `local_key` must be one
+  of the child `local_key` values in this result; `child_entry_type` must be the literal
+  entry collection name (`acceptance_criteria`, `completion_gates`, or
+  `downstream_integration_obligations`); and `child_entry_id` must be the bare ID from
+  that child collection (`AC-001`, `VAL-001`, or `INT-001`). Never combine these values
+  into a path or slash-delimited string such as
+  `some-child/acceptance_criteria/AC-001`.
+- Before returning, perform a coverage self-check: for every target, look up the exact
+  child by `local_key`, then verify that the exact `child_entry_type` collection contains
+  the exact bare `child_entry_id`; remove or correct any target that cannot be found.
 - A successful `decomposed` decision converts the selected parent into a non-executable
   aggregate feature. There is no later hidden implementation pass on the parent.
 - Every implementation action required to satisfy the parent must therefore exist in the

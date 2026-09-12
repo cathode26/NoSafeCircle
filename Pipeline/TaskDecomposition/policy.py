@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections import Counter
 from typing import Any, Iterable
 
 from .contracts import DecompositionContractError, DecompositionResult, ENTRY_PATTERNS
@@ -128,6 +129,23 @@ def validate_decomposition_result(
         if identity.task_id in child.existing_task_dependencies:
             raise DecompositionPolicyError(
                 f"Child {child.local_key!r} may not depend on selected aggregate parent {identity.task_id}."
+            )
+
+    if result.decision == "decomposed":
+        parent_resources = tuple(parent_task.get("exclusive_resources") or ())
+        assigned_resources = tuple(
+            resource
+            for child in result.children
+            for resource in child.exclusive_resources
+        )
+        parent_counts = Counter(parent_resources)
+        assigned_counts = Counter(assigned_resources)
+        if parent_counts != assigned_counts:
+            missing = sorted((parent_counts - assigned_counts).elements())
+            extra = sorted((assigned_counts - parent_counts).elements())
+            raise DecompositionPolicyError(
+                "Child exclusive_resources must exactly partition the parent "
+                f"exclusive_resources (missing={missing}, extra={extra})."
             )
 
     parent_entries = _parent_entries(parent_task)

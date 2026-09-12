@@ -1,0 +1,110 @@
+name: Assistant Candidate CI
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/assistant-candidate-ci.yml"
+      - "AGENTS.md"
+      - "Assets/**"
+      - "Packages/**"
+      - "ProjectSettings/**"
+      - "Tasks/**"
+      - "Pipeline/AssistantControl/**"
+      - "Pipeline/AgentRuntime/**"
+      - "Pipeline/ExecutionCrew/**"
+      - "Pipeline/TaskDecomposition/**"
+      - "Pipeline/TaskGraph/**"
+      - "Pipeline/TaskReviewAgent/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  exact-candidate:
+    name: Exact candidate integrity
+    runs-on: windows-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Compile Python pipeline
+        run: python -m compileall -q Pipeline/AssistantControl Pipeline/AgentRuntime Pipeline/ExecutionCrew Pipeline/TaskDecomposition Pipeline/TaskReviewAgent
+
+      - name: Validate the real task graph
+        run: python Pipeline/TaskGraph/taskcontrol.py validate
+
+      - name: Run focused orchestration checks
+        shell: pwsh
+        run: |
+          $tests = @(
+            "Pipeline.AssistantControl.test_decomposition",
+            "Pipeline.AssistantControl.test_decomposition_transport",
+            "Pipeline.AssistantControl.test_post_crew_workflow",
+            "Pipeline.AssistantControl.test_viewer.ViewerTests.test_review_alarm_activates_after_thirty_minutes_for_exact_candidate",
+            "Pipeline.AssistantControl.test_viewer.ViewerTests.test_review_alarm_disappears_after_approve_or_deny_state",
+            "Pipeline.TaskReviewAgent.tests.provider_profiles_test"
+          )
+          if (Test-Path -LiteralPath "Pipeline/AssistantControl/test_publication.py") {
+            $tests += "Pipeline.AssistantControl.test_publication"
+          }
+          python -m unittest @tests
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Run decomposition boundary checks
+        shell: pwsh
+        run: |
+          $tests = @(
+            "Pipeline/TaskDecomposition/tests/decomposition_contracts_smoke_test.py",
+            "Pipeline/TaskDecomposition/tests/live_decomposition_smoke_test.py",
+            "Pipeline/TaskDecomposition/tests/round_robin_decomposition_smoke_test.py"
+          )
+          foreach ($test in $tests) {
+            python $test
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+
+      - name: Run Codex provider boundary checks
+        shell: pwsh
+        run: |
+          $env:PYTHONPATH = $PWD.Path
+          $tests = @(
+            "Pipeline/AgentRuntime/tests/openai_codex_provider_smoke_test.py",
+            "Pipeline/AgentRuntime/tests/codex_external_integration_policy_test.py",
+            "Pipeline/AgentRuntime/tests/codex_role_plugin_policy_test.py"
+          )
+          foreach ($test in $tests) {
+            python $test
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+
+      - name: Validate changed-file whitespace
+        shell: pwsh
+        run: |
+          $baseSha = "${{ github.event.pull_request.base.sha }}"
+          if ([string]::IsNullOrWhiteSpace($baseSha)) {
+            git diff --check HEAD^
+          } else {
+            git diff --check "$baseSha...HEAD"
+          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Verify checks did not modify the project
+        shell: pwsh
+        run: |
+          $changes = @(git status --porcelain=v1 --untracked-files=all)
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($changes.Count -ne 0) {
+            $changes | Write-Host
+            throw "CI checks modified the exact candidate checkout."
+          }

@@ -376,6 +376,7 @@ def main() -> int:
             "reasoning_effort": raw["reasoning_effort"],
             "executable": "codex",
             "repository_root": ROOT,
+            "prohibit_external_integrations": True,
         }
         if session is not None:
             # A pooled turn is the ephemeral turn plus exactly one difference:

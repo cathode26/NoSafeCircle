@@ -9,16 +9,19 @@ enable the narrow one-time human approval described below; it is off by default.
 ## Run
 
 ```
-python Pipeline/TaskReviewAgent/GauntletView/server.py
+python C:\NSC\nsc-gauntlet-view\server.py
 ```
 
 Then open <http://127.0.0.1:8787>.
 
-By default it reads this checkout's `Tasks/` and run state. It never searches
-sibling checkouts. Select an external task-state directory explicitly:
+By default it finds the newest autonomous run under `C:\NSC\Rehearsal` (or
+`C:\NSC`) and the checkout beside it that has a `Tasks/` directory. Override
+either one:
 
 ```
-python Pipeline/TaskReviewAgent/GauntletView/server.py --tasks C:\Work\NoSafeCircle\Tasks --state C:\Work\TaskRuns --port 8787
+python server.py --tasks C:\NSC\Rehearsal\TenTaskClaudeController-20260905\Tasks ^
+                 --state C:\NSC\Rehearsal ^
+                 --port 8787
 ```
 
 `--state` is the directory that *contains* `.task-review-agent`, not the
@@ -64,6 +67,43 @@ python .\Pipeline\TaskReviewAgent\GauntletView\server.py --tasks .\Tasks --state
 
 Open <http://127.0.0.1:8788>. The task list is an example launch configuration;
 these IDs are not embedded in the server's graph rules.
+
+### Local rehearsal
+
+Select the exact run directory printed by the canonical launcher's explicit
+`-LocalRehearsal` mode. The path is the selected checkout root followed by
+`.task-review-agent\local-rehearsals\` and the exact autonomous run ID.
+For a run created with checkout root
+`C:\NSC\Rehearsal\LocalRehearsalRuns` and local run ID `nsc1001-claude`, run
+this command from `C:\NSC\Rehearsal\LocalRehearsalCanonicalRun`:
+
+```powershell
+python Pipeline\TaskReviewAgent\GauntletView\server.py --local-run-root C:\NSC\Rehearsal\LocalRehearsalRuns\.task-review-agent\local-rehearsals\nsc1001-claude --port 8787
+```
+
+The view displays **LOCAL REHEARSAL** and **No GitHub Issue — local rehearsal**.
+It reads the selected local backend's validated source identity, committed task
+contracts, workflow records, and event hashes. It does not discover another run
+or read its worker events. A stale source identity or invalid event chain fails
+closed. `--local-run-root` cannot be combined with `--tasks` or `--state`.
+
+The scheduler's `agent_working` transition appears as **Task Working**, including
+the stage, worker ID, provider/profile, elapsed time, and persisted token/cost
+receipts when present. Missing usage stays unavailable. A local candidate ends
+at **Local Review Ready**, **Task Blocked**, or **Task Failed**; the view never
+claims TaskGraph conformance, task delivery, or graph completion from local
+results and never constructs an Issue or PR link for a local run.
+
+Elapsed time starts when the task acquires its current worker lease and refreshes
+while that worker is active, including calls that write no intermediate stage
+events. Older records without a lease start show elapsed as unavailable. A
+released lease returns the node to **Task Unstarted**, ready for admission, so
+the view remains usable while the scheduler prepares another attempt.
+
+A recorded architect batch call is shared across its exact named tasks once.
+The view shows the recorded batch cost and each task's allocation; token
+remainders are assigned in task-ID order so the displayed allocations add up
+to the actual recorded total. It never fills missing usage with a price estimate.
 
 ## What it reads
 
@@ -144,7 +184,7 @@ file and does not add pipeline-side persistence. The optional schema is:
 ```json
 {
   "schema_version": "1.0",
-  "task_id": "NSC-701",
+  "task_id": "NSC-929",
   "run_id": "the-containing-run-directory-name",
   "repository": "owner/repository",
   "pull_request_number": 116,
@@ -191,12 +231,36 @@ active decomposition still uses the lifecycle state **Task Working**.
 Evidence is ordered by its durable observation timestamp. Current TaskGraph
 conformance wins for completion. A current failure or human-action transition
 wins over older CI evidence; current checks/PR inspection wins over generic
-worker activity; current implementation/repair wins over stale CI; and a task
-whose newest workflow transition is `agent_ready` in `delivery_evidence` or
-`merge_closeout`, with no active worker, is
-**Verified — Waiting for CI Slot** only when the newest local
-`integration_gate_observed.queued_task_ids` contains it. This prevents an old
-worker terminal event from making resumed or completed work regress.
+worker activity; and current implementation/repair wins over stale CI. A task
+whose newest workflow transition is `agent_ready` in `candidate_gate`,
+`delivery_evidence`, or `merge_closeout` uses the newest local
+`integration_gate_observed.queued_task_ids` to distinguish a queued candidate
+from delivery-ready work. The same exact current-run queue snapshot also marks
+an otherwise-ready in-scope inherited recovery task as **Candidate Ready —
+Waiting for Merge Gate**, even when this run did not relaunch that waiter. It
+never overrides active work, unmet dependencies, or a higher-precedence
+terminal state, and removal from the newest queue snapshot removes that
+projection. Queue data from another run is ignored.
+
+The newest current-run `integration_reservations_observed` snapshot can also
+restore an inherited managed-Issue handoff that this scheduler did not relaunch.
+An otherwise-ready in-scope task recorded by an Issue-derived durable reservation
+as `human_action_required`, locally inactive, and free of a pending transition is
+shown as **Task Needs You** with its exact durable workflow phase. Only the
+enumerated managed-Issue reservation evidence kinds are accepted; scheduler
+predictions and quarantined waiter records are not workflow-state authority.
+Each snapshot replaces the preceding snapshot, and current-run worker/workflow
+events with newer timestamps win. Active ownership, the merge-gate queue, unmet
+dependencies, and terminal or excluded task states are never repainted. A
+reservation from another autonomous run is ignored.
+
+When an exact durable action outcome explains a handoff, the node and details
+show that cause. `integrate_current_main` with
+`human_revalidation_required` says current main was merged into the candidate
+and revalidation is required; it never claims the task was published. Only an
+`inspect_or_merge_pull_request` result of `merged` says the task was published
+to main and post-merge verification is pending. With no recognized durable
+result, no causal explanation is invented.
 
 Active nodes receive up to three server-normalized status lines: semantic
 stage, readable current action, elapsed time, exact local CI rollup, retry or
@@ -269,7 +333,7 @@ The explicit `PRECEDENCE` table selects the first available class:
 
 | Priority | Durable evidence | Display |
 |---|---|---|
-| 1 | `autonomous_run_error`, fatal `poll_capacity_batch_completed`, `scheduler_stopped`, exact-run `graph_complete_receipt_written`, or `graph-complete.json` | Run failed/stopped or Graph complete |
+| 1 | `autonomous_run_error`, explicit `operator_stopped`, fatal `poll_capacity_batch_completed`, `scheduler_stopped`, exact-run `graph_complete_receipt_written`, or `graph-complete.json` | Run failed, **Run stopped by operator; durable task state was preserved**, or Graph complete |
 | 2 | `architect_started` with no subsequent matching return/failure/reconciliation | Software Architect reviewing the recorded eligible portfolio |
 | 3 | An in-scope `worker_launched` and that exact worker run's action journal | Starting work, checkout preparation, implementation, validation, integration, evidence, or CI inspection |
 | 4 | Latest recognized scheduler observation | Initialization, refresh boundary, portfolio boundary, cached decision, deliberate WAIT, fallback/event wait, integration gate, or scheduler idle |
@@ -283,8 +347,10 @@ except a normal stop after fatal failure preserves **Run failed**. A completion
 receipt without a terminal timeline supplies **Graph complete** with unavailable
 timing; a later timestamped failure is not erased by an older receipt. Terminal
 observations always outrank nonterminal records, including later drain activity.
-`KeyboardInterrupt` is displayed as stopped, not failed. A task failure alone
-does not prove the entire run failed.
+The controller records a graceful `KeyboardInterrupt` as `operator_stopped`, so
+the display can distinguish an operator stop from a genuine failure without
+inventing a paused or live state. A task failure alone does not prove the entire
+run failed.
 
 The current scheduler serializes architect calls. `architect_provider_call` is a
 **return receipt**, emitted after the provider invocation, before per-task
@@ -326,13 +392,15 @@ calls. Saved progress counters can lag events until the controller saves them.
 ### Exact honesty boundary
 
 The panel describes **recorded activity**, not live process inspection.
-For an open architect call it displays provider/model from the start event or
-the manifest's exact `runtime_configuration.architect_provider` and
-`architect_model`, explicitly labelled as configuration. It never substitutes
-the execution-worker model, infers a model from an all-Codex profile, or reuses
-an old call's model. Missing fields say **unavailable**. A recorded provider
-attempt does not prove billing success; the display says billing confirmation
-is unavailable until a receipt is written. No percentage or ETA is invented.
+The configured provider profile and Software Architect provider remain visible
+for the entire run, including after calls close and after a terminal record. The
+panel starts with the manifest's exact `runtime_configuration` and replaces it
+only with more specific provider/model evidence from this run's architect call
+or receipt. It never substitutes the execution-worker model or infers a model
+from a provider/profile name. Missing fields say **unavailable**. A recorded
+provider attempt does not prove billing success; an open-call display says
+billing confirmation is unavailable until a receipt is written. No percentage
+or ETA is invented.
 
 Elapsed time uses durable timestamps, never artifact mtimes. After 60 seconds
 without a new event, the freshness line is highlighted:
@@ -341,8 +409,12 @@ The same precise wording remains visible before that threshold. Without any
 timestamp it says the last event time is unavailable. An open call is described
 as **recorded as in progress**, alongside **Artifact-only liveness is not proof
 of process liveness.** No silence threshold means hung, alive, progressing, or
-failed. The browser clock advances the elapsed display between SSE changes and
-while disconnected; the stream indicator describes the visualizer connection.
+failed. The browser clock advances nonterminal elapsed displays between SSE
+changes and while disconnected; terminal run, task, stage, and agent-role clocks
+remain frozen at their last applicable durable boundary. Task-detail timing is
+derived only from the latest selected worker run; older immutable run artifacts
+remain available for audit but are not accumulated into the compact summary.
+The stream indicator describes the visualizer connection.
 
 Current artifacts cannot distinguish every internal substep. After a source or
 reservation completion record, the panel names the next expected step as
@@ -392,8 +464,8 @@ border, and the layout only re-runs when nodes or edges are added or removed.
 - **Relationships** lays the scoped graph top-to-bottom with both `depends_on`
   and committed generated-child relationships visible at once.
 - **Click a node** to see its full contract and its worker's current turn,
-  action, phase and issue state; its dependency neighbourhood is highlighted
-  and everything else fades.
+  action, phase, issue state, and recognized durable handoff cause; its
+  dependency neighbourhood is highlighted and everything else fades.
 - The detail panel puts **Open GitHub Issue** immediately below the selected
   task's state and title. `Task Needs You` uses the prominent primary treatment;
   active, checks-pending, blocked, failed and complete tasks use the same exact
@@ -401,7 +473,8 @@ border, and the layout only re-runs when nodes or edges are added or removed.
   prove the Issue identity, the panel says **GitHub Issue unavailable** instead
   of falling back to a repository link. Opening the Issue uses a new browser tab.
 - **Click a state in the legend** to show or hide it; hover a row to see what it
-  means and the underlying state key. `Task Retired` is hidden by default; retired contracts remain available through the filter.
+  means and the underlying state key. `Task Retired` is hidden by default (68 of
+  the 152 contracts on disk are cancelled history).
 - **run scope only** narrows to the task ids named in the run manifest.
 
 Legend labels are presentation only and live in the `STATES` map at the top of
@@ -412,7 +485,7 @@ Legend labels are presentation only and live in the `STATES` map at the top of
 | Task Working | `active` | a worker is running it right now |
 | Decomposed Parent | `aggregate` | non-executable parent with exact child state/token roll-up |
 | Task In CI | `checks_pending` | waiting on GitHub pull-request checks |
-| Verified — Waiting for CI Slot | `integration_queued` | `agent_ready` work queued behind the local integration gate |
+| Candidate Ready — Waiting for Merge Gate | `integration_queued` | unverified `agent_ready` candidate queued behind the serialized merge gate |
 | Verified — Ready to Continue | `delivery_ready` | `agent_ready` delivery work not currently queued at the gate |
 | Task Unstarted | `ready` | dependencies satisfied, nobody has picked it up |
 | Decomposition Available | `decomposition_ready` | dependencies satisfied and the exact TaskGraph contract is eligible for decomposition |

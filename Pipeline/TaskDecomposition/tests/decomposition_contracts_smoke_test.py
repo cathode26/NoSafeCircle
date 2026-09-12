@@ -318,14 +318,31 @@ def main() -> int:
     expect_failure(bad, parent, "duplicate local_key")
     expect_failure(decomposed_result(parent), parent, "collides", existing={"runtime-core"})
 
-    valid_resources = decomposed_result(parent)
-    valid_resources["children"][0]["exclusive_resources"] = [
+    resource_parent = deepcopy(parent)
+    resource_parent["exclusive_resources"] = [
         "repo-file:ProjectSettings/ProjectVersion.txt",
         "unity-scene:Assets/Scenes/Gameplay.unity",
         "unity-prefab:Assets/Prefabs/Player.prefab",
         "logical:gameplay-shared-surface",
     ]
-    validate_decomposition_result(valid_resources, parent_task=parent)
+    valid_resources = decomposed_result(resource_parent)
+    valid_resources["children"][0]["exclusive_resources"] = list(
+        resource_parent["exclusive_resources"]
+    )
+    validate_decomposition_result(valid_resources, parent_task=resource_parent)
+    for mutation in ("missing", "duplicate", "foreign"):
+        bad = deepcopy(valid_resources)
+        if mutation == "missing":
+            bad["children"][0]["exclusive_resources"].pop()
+        elif mutation == "duplicate":
+            bad["children"][0]["exclusive_resources"].append(
+                "repo-file:Assets/Shared.cs"
+            )
+        else:
+            bad["children"][0]["exclusive_resources"][0] = (
+                "repo-file:Assets/Other.cs"
+            )
+        expect_failure(bad, resource_parent, "exactly partition")
     for malformed_resource in (
         "unknown:value",
         "repo-file:",

@@ -36,7 +36,6 @@ from Pipeline.ExecutionCrew.session_pool import (
 from Pipeline.AgentRuntime.json_values import thaw_json
 from Pipeline.TaskExecution.contracts import TASK_EXECUTION_REQUEST_SCHEMA_VERSION, TaskContractIdentity, TaskExecutionRequest
 from Pipeline.TaskExecution.task_runner import TaskExecutionRunner
-from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task
 from Pipeline.ExecutionCrew.contract_locality import (
     CONTRACT_LOCALITY_AUDIT_SCHEMA_VERSION,
     ContractLocalityError,
@@ -61,6 +60,11 @@ from Pipeline.ExecutionCrew.schemas import (
     VALIDATOR_STATUS_REASON_CODES,
     ROLE_OUTPUT_NORMALIZATION,
     SourceIdentity,
+)
+from Pipeline.TaskReviewAgent.materialization_bridge import (
+    MATERIALIZATION_REQUIRED_STATUS,
+    materialization_blockers_only,
+    registered_materialization_paths,
 )
 from work_graph_validate import WorkGraphValidationError, _validate_v2_task
 from persistent_work_graph import PersistentWorkGraph, PersistentWorkGraphError, load_persistent_work_graph
@@ -93,6 +97,14 @@ CREW_PROFILE_ROLES = {
 }
 
 class CrewBlocked(RuntimeError): pass
+
+
+def load_committed_task(*args, **kwargs):
+    # The TaskReviewAgent package installs controller extensions importing this
+    # module's role constants. Import only after module initialization, while
+    # retaining the one shared committed Git-blob loader for contract identity.
+    from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task as load
+    return load(*args, **kwargs)
 
 
 class CrewSessionIdentityUnproven(CrewBlocked):
@@ -708,6 +720,27 @@ def unity_meta_bytes(path: str) -> bytes:
     digest = hashlib.sha256(b"NoSafeCircle.ExecutionCrew.UnityMeta/v1\0" + normalized.encode("utf-8")).hexdigest()[:32]
     return f"fileFormatVersion: 2\nguid: {digest}\n".encode("ascii")
 
+def discard_agent_pipeline_sidecars(root: Path, before: Snapshot, after: Snapshot,
+                                    new_paths: tuple[str, ...]) -> list[str]:
+    """Discard regular untracked sidecars that the pipeline will regenerate exactly."""
+    discarded = []
+    for new_path in new_paths:
+        sidecar = _sidecar(new_path)
+        created = after.entries.get(new_path)
+        agent_sidecar = after.entries.get(sidecar) if sidecar else None
+        if (sidecar is None or before.entries.get(new_path) is not None
+                or created is None or created.kind != "regular" or created.tracked
+                or before.entries.get(sidecar) is not None or agent_sidecar is None):
+            continue
+        # Symlinks, directories, tracked files, and other special entries remain in
+        # place so the ordinary boundary check rejects them.  Only the exact regular
+        # untracked companion is safe to unlink before deterministic regeneration.
+        if agent_sidecar.kind != "regular" or agent_sidecar.tracked:
+            continue
+        (root / sidecar).unlink()
+        discarded.append(sidecar)
+    return discarded
+
 def preflight_role_paths(root: Path, head: str, existing_implementation: tuple[str, ...],
                          new_implementation: tuple[str, ...], existing_tests: tuple[str, ...],
                          new_tests: tuple[str, ...]) -> tuple[RolePathPlan, RolePathPlan]:
@@ -1321,7 +1354,8 @@ def load_role_session_lease_bundle(path: Path, *, run_id: str) -> dict[str, Assi
 def checkout_manifest_identity(path: Path, *, task_id: str,
                                repository_identity: str, source_branch: str,
                                source_commit: str, worker_slot_id: str,
-                               task_contract_sha256: str) -> str:
+                               task_contract_sha256: str,
+                               local_rehearsal_manifest: Mapping[str, Any]|None=None) -> str:
     """Prove the external host checkout manifest and return its byte identity.
 
     The manifest deliberately contains a Windows host path that cannot equal
@@ -1343,10 +1377,19 @@ def checkout_manifest_identity(path: Path, *, task_id: str,
     if manifest_hash != semantic:
         raise CrewBlocked("checkout identity manifest semantic hash is invalid")
     manifest_contract = (value.get("schema_version"), value.get("authority"))
-    if manifest_contract not in {
+    permitted_contracts = {
         ("1.0", "checkout_preparation_only"),
         ("2.0", "durable_checkout_identity"),
-    }:
+    }
+    if local_rehearsal_manifest is not None:
+        permitted_contracts = {("3.0", "local_rehearsal_checkout")}
+        if (value.get("local_run_id") != local_rehearsal_manifest["run_id"]
+                or value.get("source_head") != source_commit
+                or value.get("source_tree") != local_rehearsal_manifest["source_tree"]
+                or value.get("worker_id") != worker_slot_id
+                or not value.get("lease_id")):
+            raise CrewBlocked("local checkout manifest differs from its run, source or worker lease")
+    if manifest_contract not in permitted_contracts:
         raise CrewBlocked("checkout identity manifest contract is unsupported")
     if value.get("task_id") != task_id:
         raise CrewBlocked("checkout identity manifest names a different task")
@@ -1662,6 +1705,7 @@ def construct_real_provider(provider_name: str, repository_root: Path, writable:
             raise CrewBlocked("OpenAI reasoning effort is unsupported")
         return OpenAICodexProvider(
             repository_root=repository_root,
+            prohibit_external_integrations=True,
             externally_isolated_writable_repository=writable,
             externally_enforced_read_only_repository=not writable,
             reasoning_effort=effort,
@@ -1670,10 +1714,26 @@ def construct_real_provider(provider_name: str, repository_root: Path, writable:
         )
     raise CrewBlocked("provider must be claude or codex")
 
+# Per-role invocation budgets. The implementer under the full profile edits
+# authored Unity assets and scenes (tens of thousands of YAML lines), which the
+# 32-turn default cannot finish: NSC-042 died on max_turns twice. Operators may
+# override any role with NSC_<ROLE>_TURN_LIMIT / NSC_<ROLE>_TIMEOUT_SECONDS.
+DEFAULT_ROLE_BUDGET = (32, 1200.0)
+ROLE_BUDGET_DEFAULTS = {("implementer", "full"): (96, 3600.0)}
+
+
+def role_budgets(role: str, crew_profile: str | None) -> Budgets:
+    import os
+    turns, timeout = ROLE_BUDGET_DEFAULTS.get((role, crew_profile or "full"), DEFAULT_ROLE_BUDGET)
+    return Budgets(int(os.getenv(f"NSC_{role.upper()}_TURN_LIMIT", str(turns))),
+                   float(os.getenv(f"NSC_{role.upper()}_TIMEOUT_SECONDS", str(timeout))))
+
+
 def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provider_name: str|None=None,
              implementation_paths: tuple[str,...]=(), test_paths: tuple[str,...]=(),
              new_implementation_paths: tuple[str,...]=(), new_test_paths: tuple[str,...]=(), run_id: str|None=None,
-             retry_run_id: str|None=None, review_feedback_file: Path|None=None, host_output_root: str|None=None,
+             retry_run_id: str|None=None, review_feedback_file: Path|None=None,
+             revision_feedback_file: Path|None=None, host_output_root: str|None=None,
              execution_model: str|None=None, openai_reasoning_effort: str|None=None,
              crew_profile: str|None=None, validation_profile: str|None=None,
              retry_expected_provider: str|None=None,
@@ -1687,10 +1747,14 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
              quota_fallback_provider: str|None=None,
              provider_topology: Mapping[str, Any]|None=None,
              role_routes: Mapping[str, Any]|None=None,
+             local_rehearsal_manifest: Path|None=None,
+             allow_materialization_bridge: bool=False,
              _persistent_work_graph_loader: Callable[[Path], PersistentWorkGraph]|None=None):
     started=time.monotonic()
     host_root_path = validate_host_output_root(host_output_root) if host_output_root is not None else None
     retry_mode = retry_run_id is not None
+    if retry_mode and revision_feedback_file is not None:
+        raise CrewBlocked("revision feedback cannot be combined with --retry-run")
     if retry_mode and any((task_id is not None, provider_name is not None, implementation_paths, test_paths,
                            new_implementation_paths, new_test_paths, crew_profile is not None,
                            validation_profile is not None)):
@@ -1707,6 +1771,22 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
     if not retry_mode and (not isinstance(task_id, str) or not TASK_ID_RE.fullmatch(task_id)):
         raise CrewBlocked("task ID must match NSC-###")
     identity=capture_source(source); source_root=Path(identity.root).resolve(strict=True)
+    local_manifest = None
+    if local_rehearsal_manifest is not None:
+        local_manifest, _ = _strict_json_file(local_rehearsal_manifest, label="local rehearsal manifest")
+        body = {key: value for key, value in local_manifest.items() if key != "manifest_sha256"}
+        expected_hash = hashlib.sha256(json.dumps(body, ensure_ascii=False, allow_nan=False,
+                    separators=(",", ":"), sort_keys=True).encode("utf-8")).hexdigest()
+        if (local_manifest.get("manifest_sha256") != expected_hash
+                or local_manifest.get("execution_mode") != "local_rehearsal"
+                or local_manifest.get("source_commit") != identity.head
+                or local_manifest.get("source_tree") != identity.tree
+                or task_id not in local_manifest.get("task_ids", ())):
+            raise CrewBlocked("local rehearsal manifest source, task or hash differs")
+        load_committed_task(source_root, task_id, commit=identity.head,
+                            expected_sha256=local_manifest["contracts"][task_id]["task_contract_sha256"])
+        if not role_session_leases or checkout_identity_manifest is None:
+            raise CrewBlocked("local rehearsal crew requires host-owned role leases and checkout identity")
     if _require_physical_read_only_source:
         statvfs = getattr(os, "statvfs", None)
         st_rdonly = getattr(os, "ST_RDONLY", None)
@@ -1718,6 +1798,21 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
         if not (statvfs(source_root).f_flag & st_rdonly):
             raise CrewBlocked("production source checkout must be physically mounted read-only")
     output_root = output_root.resolve()
+    revision_feedback_bytes = None
+    revision_feedback_text = None
+    if revision_feedback_file is not None:
+        feedback_path = _resolve_existing_under(
+            source_root, Path(revision_feedback_file), field="revision feedback file"
+        )
+        revision_feedback_bytes = _read_regular_bytes(
+            feedback_path, field="revision feedback", max_bytes=MAX_REVIEW_FEEDBACK_BYTES
+        )
+        try:
+            revision_feedback_text = revision_feedback_bytes.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise CrewBlocked("revision feedback must be valid UTF-8") from exc
+        if not revision_feedback_text.strip():
+            raise CrewBlocked("revision feedback must be non-empty")
     retry_context = None
     if retry_mode:
         assert retry_run_id is not None and review_feedback_file is not None
@@ -1828,6 +1923,8 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
     (run_dir/"role_results").mkdir()
     if retry_context is not None:
         (run_dir/"human_review_feedback.txt").write_bytes(retry_context.feedback_bytes)
+    elif revision_feedback_bytes is not None:
+        (run_dir/"human_review_feedback.txt").write_bytes(revision_feedback_bytes)
     progress=ProgressReporter(run_dir/"progress.jsonl",run_id=run_id,task_id=task_id,provider=provider_name,started=started)
     progress.emit(
         "run_started", f"ExecutionCrew started: {task_id} / {provider_name}",
@@ -1879,6 +1976,8 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
     impl_bounds = WriteBoundaries(implementation_paths, test_paths)
     test_bounds = WriteBoundaries(test_paths, implementation_paths)
     role_records=[]; reasons=[]; impl_actual=set(); test_actual=set(); pipeline_generated=set(); validator_status=None; attempts=0
+    materialization_required_paths: tuple[str, ...] = ()
+    materialization_validation: dict[str, Any] | None = None
     usage_invocations: list[dict[str, Any]] = []
     provider_session_records: list[dict[str, Any]] = []
     provider_handoffs: dict[str, dict[str, Any]] = {}
@@ -1908,6 +2007,7 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
                 source_commit=identity.head,
                 worker_slot_id=next(iter(worker_slots)),
                 task_contract_sha256=contract_identity.sha256,
+                **({"local_rehearsal_manifest": local_manifest} if local_manifest is not None else {}),
             )
     pooled_leases = validate_role_session_leases(
         role_session_leases, task_id=task_id, run_id=run_id,
@@ -1950,7 +2050,7 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
     latest_impl={}; latest_test={}; candidate_path=None; diagnostic_path=None; accepted_candidate=None
     contract_locality_status=None; contract_locality_audit_path=None; contract_locality_audit_host_path=None
     crew_status=None; final_paths: list[str]=[]
-    human_review_feedback = retry_context.feedback_text if retry_context is not None else None
+    human_review_feedback = retry_context.feedback_text if retry_context is not None else revision_feedback_text
     retry_seed_mode = None
     retry_seed_candidate_sha256 = retry_context.candidate_sha256 if retry_context is not None else None
     def record_role_result(role:str, attempt:int, record:dict, *, agent_status:str,
@@ -2112,7 +2212,7 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
                 raise CrewBlocked("provider configuration disagrees with the permitted role route")
         inv=AgentInvocationRequest(AGENT_INVOCATION_REQUEST_SCHEMA_VERSION,invocation_id,role,prompt,
             tuple(dict.fromkeys((f"Tasks/{task_id}.yaml",GDD_PATH,POLICY_PATH,ENGINEERING_STANDARDS_PATH,*implementation_paths,*test_paths))),caps,boundaries,schema,capability_class,
-            Budgets(int(os.getenv(f"NSC_{role.upper()}_TURN_LIMIT","32")),float(os.getenv(f"NSC_{role.upper()}_TIMEOUT_SECONDS","1200"))),
+            role_budgets(role, crew_profile),
             key)
         if key != inv.provider_configuration_key: raise CrewBlocked("provider factory configuration key changed")
         req=TaskExecutionRequest(TASK_EXECUTION_REQUEST_SCHEMA_VERSION,task_id,contract_identity,inv)
@@ -2390,17 +2490,24 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
                 findings=None if attempt==1 else latest_validator.get("blocking_issues",[])
                 before=snapshot(clone)
                 inv,res=invoke("implementer",attempt,clone,True,implementer_prompt(task_id=task_id,title=task["title"],task_contract=task_text,gdd_path=GDD_PATH,implementation_paths=impl_plan.existing_paths,new_implementation_paths=impl_plan.new_paths,pipeline_sidecars=impl_plan.pipeline_generated_sidecars,other_role_paths=test_paths,findings=findings,human_review_feedback=human_review_feedback),IMPLEMENTER_OUTPUT_SCHEMA,"standard",impl_bounds)
-                after=snapshot(clone); actual,scope=incremental_check(before,after,inv,require_change=(attempt==1 and retry_context is None)); scope+=source_revalidation(source_root,identity)
-                deterministic_scope=list(scope)
+                after=snapshot(clone)
                 raw_output=thaw_json(res.structured_output) if res.status=="succeeded" else {}
                 output,normalized_discarded=normalize_role_structured_output("implementer",raw_output)
-                blockers=normalized_agent_blockers(output.get("blockers",[])); scope += ([] if res.status=="succeeded" else [f"AgentResult failed: {res.failure_classification}"])
+                blockers=normalized_agent_blockers(output.get("blockers",[]))
+                discarded_sidecars = (discard_agent_pipeline_sidecars(
+                    clone, before, after, impl_plan.new_paths,
+                ) if res.status == "succeeded" and not blockers else [])
+                if discarded_sidecars:
+                    after = snapshot(clone)
+                actual,scope=incremental_check(before,after,inv,require_change=(attempt==1 and retry_context is None)); scope+=source_revalidation(source_root,identity)
+                deterministic_scope=list(scope)
+                scope += ([] if res.status=="succeeded" else [f"AgentResult failed: {res.failure_classification}"])
                 generated=[]
                 if not scope and not blockers:
                     for new_path, sidecar in zip(impl_plan.new_paths, (_sidecar(path) for path in impl_plan.new_paths)):
                         if before.entries.get(new_path) is None and after.entries.get(new_path) == _entry_state(clone/new_path, tracked=False) and sidecar:
                             (clone/sidecar).write_bytes(unity_meta_bytes(new_path)); generated.append(sidecar); pipeline_generated.add(sidecar)
-                record={"role":"implementer","attempt":attempt,"agent_status":res.status,"failure_classification":res.failure_classification,"structured_output":output,"role_claimed_paths":normalized_agent_claimed_paths(output.get("claimed_changed_paths",[])),"agent_runtime_claimed_paths":list(res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":actual,"pipeline_generated_paths":generated,"scope_check_reasons":scope,"deterministic_changed_path_validation":"rejected" if deterministic_scope else "accepted","semantic_validation":"rejected" if blockers else "accepted","duration_seconds":res.duration_seconds,"model":res.model,"provider":res.provider,"usage":None if res.usage is None else res.usage.to_dict(),**_normalization_audit_fields(normalized_discarded)}
+                record={"role":"implementer","attempt":attempt,"agent_status":res.status,"failure_classification":res.failure_classification,"structured_output":output,"role_claimed_paths":normalized_agent_claimed_paths(output.get("claimed_changed_paths",[])),"agent_runtime_claimed_paths":list(res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":actual,"pipeline_generated_paths":generated,"discarded_agent_pipeline_sidecars":discarded_sidecars,"scope_check_reasons":scope,"deterministic_changed_path_validation":"rejected" if deterministic_scope else "accepted","semantic_validation":"rejected" if blockers else "accepted","duration_seconds":res.duration_seconds,"model":res.model,"provider":res.provider,"usage":None if res.usage is None else res.usage.to_dict(),**_normalization_audit_fields(normalized_discarded)}
                 record_role_result("implementer",attempt,record,agent_status=res.status,
                                    failure_classification=res.failure_classification,
                                    semantic_rejected=bool(blockers),changed_paths_rejected=bool(deterministic_scope))
@@ -2417,7 +2524,16 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
                     # behavior.  The independent Test Author must inspect it, but should
                     # not be forced to churn that file merely to satisfy a non-empty diff.
                     # New test paths remain an explicit creation obligation.
-                    after=snapshot(clone); actual,scope=incremental_check(
+                    after=snapshot(clone)
+                    raw_output=thaw_json(res.structured_output) if res.status=="succeeded" else {}
+                    output,normalized_discarded=normalize_role_structured_output("test_author",raw_output)
+                    blockers=normalized_agent_blockers(output.get("blockers",[]))
+                    discarded_sidecars = (discard_agent_pipeline_sidecars(
+                        clone, before, after, test_plan.new_paths,
+                    ) if res.status == "succeeded" and not blockers else [])
+                    if discarded_sidecars:
+                        after = snapshot(clone)
+                    actual,scope=incremental_check(
                         before,
                         after,
                         inv,
@@ -2428,15 +2544,13 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
                         ),
                     ); scope+=source_revalidation(source_root,identity)
                     deterministic_scope=list(scope)
-                    raw_output=thaw_json(res.structured_output) if res.status=="succeeded" else {}
-                    output,normalized_discarded=normalize_role_structured_output("test_author",raw_output)
-                    blockers=normalized_agent_blockers(output.get("blockers",[])); scope += ([] if res.status=="succeeded" else [f"AgentResult failed: {res.failure_classification}"])
+                    scope += ([] if res.status=="succeeded" else [f"AgentResult failed: {res.failure_classification}"])
                     generated=[]
                     if not scope and not blockers:
                         for new_path, sidecar in zip(test_plan.new_paths, (_sidecar(path) for path in test_plan.new_paths)):
                             if before.entries.get(new_path) is None and after.entries.get(new_path) == _entry_state(clone/new_path, tracked=False) and sidecar:
                                 (clone/sidecar).write_bytes(unity_meta_bytes(new_path)); generated.append(sidecar); pipeline_generated.add(sidecar)
-                    record={"role":"test_author","attempt":attempt,"agent_status":res.status,"failure_classification":res.failure_classification,"structured_output":output,"role_claimed_paths":normalized_agent_claimed_paths(output.get("claimed_changed_paths",[])),"agent_runtime_claimed_paths":list(res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":actual,"pipeline_generated_paths":generated,"scope_check_reasons":scope,"deterministic_changed_path_validation":"rejected" if deterministic_scope else "accepted","semantic_validation":"rejected" if blockers else "accepted","duration_seconds":res.duration_seconds,"model":res.model,"provider":res.provider,"usage":None if res.usage is None else res.usage.to_dict(),**_normalization_audit_fields(normalized_discarded)}
+                    record={"role":"test_author","attempt":attempt,"agent_status":res.status,"failure_classification":res.failure_classification,"structured_output":output,"role_claimed_paths":normalized_agent_claimed_paths(output.get("claimed_changed_paths",[])),"agent_runtime_claimed_paths":list(res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":actual,"pipeline_generated_paths":generated,"discarded_agent_pipeline_sidecars":discarded_sidecars,"scope_check_reasons":scope,"deterministic_changed_path_validation":"rejected" if deterministic_scope else "accepted","semantic_validation":"rejected" if blockers else "accepted","duration_seconds":res.duration_seconds,"model":res.model,"provider":res.provider,"usage":None if res.usage is None else res.usage.to_dict(),**_normalization_audit_fields(normalized_discarded)}
                     record_role_result("test_author",attempt,record,agent_status=res.status,
                                        failure_classification=res.failure_classification,
                                        semantic_rejected=bool(blockers),changed_paths_rejected=bool(deterministic_scope))
@@ -2482,6 +2596,24 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
                 progress.emit("validator_completed",f"Validator {attempt} completed: {validator_status or res.status}",role="validator",attempt=attempt,status=validator_status or res.status)
                 if scope: reasons+=scope; crew_status="rejected"; stop=True; break
                 if validator_status=="pass": crew_status="review_ready"; accepted_candidate=candidate; stop=True; break
+                if validator_status == "needs_changes" and allow_materialization_bridge:
+                    registered = registered_materialization_paths(impl_plan)
+                    bridge_paths = materialization_blockers_only(output, registered)
+                    if bridge_paths is not None and not (set(bridge_paths) & set(final_paths)):
+                        materialization_required_paths = bridge_paths
+                        materialization_validation = {
+                            "status": output.get("status"),
+                            "blocking_issues": [dict(item) for item in output.get("blocking_issues", [])],
+                            "criteria_results": [dict(item) for item in output.get("criteria_results", [])],
+                        }
+                        reasons.append(
+                            "deterministic Unity materialization required: "
+                            + ", ".join(materialization_required_paths)
+                        )
+                        crew_status = MATERIALIZATION_REQUIRED_STATUS
+                        accepted_candidate = candidate
+                        stop = True
+                        break
                 if role_routes is not None and (validator_status == "blocked_by_design" or attempt == 2):
                     # One pooled, read-only diagnosis. It cannot override the validator
                     # or grant acceptance, graph, Issue, or checkout authority.
@@ -2518,35 +2650,41 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
             if final_snap.index!=baseline_clone.index: final_reasons.append("final clone index differs from clone baseline index")
             allowed=set(implementation_paths)|set(test_paths)|pipeline_generated
             final_reasons += [f"final changed path outside crew boundaries: {p}" for p in final_paths if p not in allowed]
-            if (crew_status=="review_ready" and retry_context is None
+            candidate_ready = crew_status in {"review_ready", MATERIALIZATION_REQUIRED_STATUS}
+            if (candidate_ready and retry_context is None
                     and not (set(final_paths)&set(implementation_paths))):
                 final_reasons.append("final candidate has no implementation change")
-            if (crew_status=="review_ready" and retry_context is None
+            if (candidate_ready and retry_context is None
                     and test_plan.new_paths
                     and not (set(final_paths)&set(test_plan.new_paths))):
                 final_reasons.append("final candidate has no test change")
-            if crew_status=="review_ready" and retry_context is not None and not final_paths:
+            if candidate_ready and retry_context is not None and not final_paths:
                 final_reasons.append("final retry candidate has no change relative to current source HEAD")
-            if (crew_status=="review_ready" and retry_context is not None
+            if (candidate_ready and retry_context is not None
                     and retry_seed_snapshot is not None
                     and not changed_paths(retry_seed_snapshot, final_snap)):
                 final_reasons.append(
                     "final human-review retry has no deterministic correction relative to seeded candidate"
                 )
-            if crew_status=="review_ready" and not accepted_candidate: final_reasons.append("final candidate patch is empty")
+            if candidate_ready and not accepted_candidate: final_reasons.append("final candidate patch is empty")
             present_new = {
                 path for path in (*impl_plan.new_paths, *test_plan.new_paths, *pipeline_generated)
                 if final_snap.entries.get(path) is not None and final_snap.entries[path].kind == "regular"
             }
             expected_diff_paths=sorted(set(diff_paths(clone,identity.head)) | present_new)
-            if crew_status=="review_ready" and expected_diff_paths!=final_paths: final_reasons.append("final Git diff paths differ from deterministic changed paths")
-            if crew_status=="review_ready" and accepted_candidate is not None:
+            if candidate_ready and expected_diff_paths!=final_paths: final_reasons.append("final Git diff paths differ from deterministic changed paths")
+            if candidate_ready and accepted_candidate is not None:
                 try: verify_patch_applies(source_root, accepted_candidate)
                 except CrewBlocked as exc: final_reasons.append(str(exc))
+            if crew_status == MATERIALIZATION_REQUIRED_STATUS:
+                if not materialization_required_paths:
+                    final_reasons.append("materialization bridge omitted registered generated paths")
+                elif set(materialization_required_paths) & set(final_paths):
+                    final_reasons.append("materialization bridge candidate edited generated outputs")
             final_reasons += source_revalidation(source_root,identity)
             if final_reasons:
                 reasons+=final_reasons; crew_status="rejected"
-            if crew_status=="review_ready":
+            if crew_status in {"review_ready", MATERIALIZATION_REQUIRED_STATUS}:
                 if accepted_candidate is None: raise CrewBlocked("review-ready result has no accepted candidate bytes")
                 (run_dir/"candidate.patch").write_bytes(accepted_candidate); candidate_path=str(run_dir/"candidate.patch")
             if crew_status!="review_ready":
@@ -2560,12 +2698,20 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
     }
     host_candidate_path = str(host_root_path/run_id/"candidate.patch") if host_root_path is not None and candidate_path else None
     host_diagnostic_path = str(host_root_path/run_id/"workspace_diagnostic.patch") if host_root_path is not None and diagnostic_path else None
-    human_status = {"review_ready":"REVIEW_READY","blocked":"BLOCKED","rejected":"REJECTED","needs_human":"NEEDS_HUMAN","contract_review_required":"CONTRACT_REVIEW_REQUIRED"}[crew_status]
+    human_status = {"review_ready":"REVIEW_READY",MATERIALIZATION_REQUIRED_STATUS:"MATERIALIZATION_REQUIRED","blocked":"BLOCKED","rejected":"REJECTED","needs_human":"NEEDS_HUMAN","contract_review_required":"CONTRACT_REVIEW_REQUIRED"}[crew_status]
     if crew_status=="review_ready":
         human_reason = "The candidate passed semantic crew review and awaits human review."
         human_artifact = host_candidate_path or candidate_path
         human_next_action = "Review candidate.patch; apply manually only if approved."
         human_commands = patch_commands(human_artifact, applyable=True)
+    elif crew_status==MATERIALIZATION_REQUIRED_STATUS:
+        human_reason = (
+            "Semantic review is complete; the registered deterministic Unity outputs "
+            "must be materialized and tested by AssistantControl."
+        )
+        human_artifact = host_candidate_path or candidate_path
+        human_next_action = "Run the AssistantControl post-crew materialization step; do not approve this intermediate result."
+        human_commands = patch_commands(human_artifact, applyable=False)
     elif crew_status=="contract_review_required":
         human_reason = ("The committed task contract contains one or more AC/VAL items that are not locally "
                          "implementable/provable under its current scope or dependencies.")
@@ -2616,7 +2762,7 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
         for role, result_value in role_durable_results.items()
         if result_value.is_reusable
     }
-    result={"schema_version":"1.0","run_id":run_id,"task_id":task_id,"task_contract_identity":contract_identity.to_dict(),"source_head":identity.head,"source_tree":identity.tree,"source_branch":identity.branch,"provider":provider_name,"execution_model":execution_model,"execution_reasoning_effort":execution_reasoning_effort,"crew_profile":crew_profile,"validation_profile":validation_profile,"required_roles":list(required_roles),"crew_status":crew_status,"attempts_used":attempts,"requested_implementation_paths":list(implementation_paths),"requested_test_paths":list(test_paths),"requested_existing_implementation_paths":list(impl_plan.existing_paths),"requested_new_implementation_paths":list(impl_plan.new_paths),"requested_existing_test_paths":list(test_plan.existing_paths),"requested_new_test_paths":list(test_plan.new_paths),"pipeline_generated_paths":sorted(pipeline_generated),"implementation_actual_changed_paths":sorted(impl_actual-pipeline_generated),"test_actual_changed_paths":sorted(test_actual-pipeline_generated),"final_actual_changed_paths":final_paths,"role_results":role_records,"token_usage":aggregate_token_usage(usage_invocations),"provider_sessions":provider_session_records,"pooled_role_leases":pooled_lease_records,"durable_assignment_results":durable_result_records,"reusable_role_sessions":reusable_role_sessions,"candidate_patch_path":candidate_path,"candidate_patch_sha256":(hashlib.sha256(accepted_candidate).hexdigest() if crew_status=="review_ready" and accepted_candidate is not None else None),"retry_seed_candidate_sha256":retry_seed_candidate_sha256,"retry_seed_mode":retry_seed_mode,"workspace_diagnostic_patch_path":diagnostic_path,"candidate_patch_host_path":host_candidate_path,"workspace_diagnostic_patch_host_path":host_diagnostic_path,"contract_locality_status":contract_locality_status,"contract_locality_audit_path":contract_locality_audit_path,"contract_locality_audit_host_path":contract_locality_audit_host_path,"rejection_reasons":reasons,"validator_status":validator_status,"review_origin":review_origin,"human_next_step":human_next_action,"human_result":human_result,"duration_seconds":time.monotonic()-started}
+    result={"schema_version":"1.0","run_id":run_id,"task_id":task_id,"task_contract_identity":contract_identity.to_dict(),"source_head":identity.head,"source_tree":identity.tree,"source_branch":identity.branch,"provider":provider_name,"execution_model":execution_model,"execution_reasoning_effort":execution_reasoning_effort,"crew_profile":crew_profile,"validation_profile":validation_profile,"required_roles":list(required_roles),"crew_status":crew_status,"attempts_used":attempts,"requested_implementation_paths":list(implementation_paths),"requested_test_paths":list(test_paths),"requested_existing_implementation_paths":list(impl_plan.existing_paths),"requested_new_implementation_paths":list(impl_plan.new_paths),"requested_existing_test_paths":list(test_plan.existing_paths),"requested_new_test_paths":list(test_plan.new_paths),"pipeline_generated_paths":sorted(pipeline_generated),"implementation_actual_changed_paths":sorted(impl_actual-pipeline_generated),"test_actual_changed_paths":sorted(test_actual-pipeline_generated),"final_actual_changed_paths":final_paths,"role_results":role_records,"token_usage":aggregate_token_usage(usage_invocations),"provider_sessions":provider_session_records,"pooled_role_leases":pooled_lease_records,"durable_assignment_results":durable_result_records,"reusable_role_sessions":reusable_role_sessions,"candidate_patch_path":candidate_path,"candidate_patch_sha256":(hashlib.sha256(accepted_candidate).hexdigest() if crew_status in {"review_ready", MATERIALIZATION_REQUIRED_STATUS} and accepted_candidate is not None else None),"retry_seed_candidate_sha256":retry_seed_candidate_sha256,"retry_seed_mode":retry_seed_mode,"revision_feedback_file":("human_review_feedback.txt" if revision_feedback_bytes is not None else None),"revision_feedback_sha256":(hashlib.sha256(revision_feedback_bytes).hexdigest() if revision_feedback_bytes is not None else None),"workspace_diagnostic_patch_path":diagnostic_path,"candidate_patch_host_path":host_candidate_path,"workspace_diagnostic_patch_host_path":host_diagnostic_path,"materialization_required_paths":list(materialization_required_paths),"materialization_validation":materialization_validation,"contract_locality_status":contract_locality_status,"contract_locality_audit_path":contract_locality_audit_path,"contract_locality_audit_host_path":contract_locality_audit_host_path,"rejection_reasons":reasons,"validator_status":validator_status,"review_origin":review_origin,"human_next_step":human_next_action,"human_result":human_result,"duration_seconds":time.monotonic()-started}
     result["provider_invocation_artifacts"] = [dict(path=f"agent_runtime/{item['run_id']}/result.json",
         sha256=hashlib.sha256((run_dir/"agent_runtime"/item["run_id"]/"result.json").read_bytes()).hexdigest()) for item in usage_invocations]
     if provider_topology is not None:
@@ -2625,6 +2771,8 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
     result.update({"provider_allowlist": None if provider_allowlist is None else list(provider_allowlist),
                    "quota_fallback_provider": quota_fallback_provider,
                    "provider_handoffs": provider_handoffs, "provider_quota_failures": provider_quota_failures})
+    if local_manifest is not None:
+        result.update(authority="local_rehearsal_only", local_run_id=local_manifest["run_id"])
     (run_dir/"crew_result.json").write_text(json.dumps(result,indent=2,sort_keys=True)+"\n")
     progress.emit("run_completed",f"ExecutionCrew completed: {crew_status}",status=crew_status,duration_seconds=round(result["duration_seconds"],3))
     return result
@@ -2654,6 +2802,10 @@ def print_human_summary(result: Mapping[str, Any]) -> None:
         # No patch exists in this result: the mandatory pre-Implementer audit itself stopped the run.
         lines += ["", "FIND AUDIT:", find_command]
         lines += ["", "INSPECT AUDIT:", commands.get("inspect")]
+        lines.append("")
+    elif status == "MATERIALIZATION_REQUIRED" and find_command:
+        lines += ["", "FIND CANDIDATE PATCH:", find_command]
+        lines += ["", "DO NOT APPLY YET:", "AssistantControl must materialize and pass focused tests first."]
         lines.append("")
     elif status != "REVIEW_READY" and find_command:
         lines += ["", "FIND DIAGNOSTIC PATCH:", find_command]
@@ -2694,6 +2846,7 @@ def main():
     parser.add_argument("--new-test-path",action="append")
     parser.add_argument("--retry-run")
     parser.add_argument("--review-feedback-file",type=Path)
+    parser.add_argument("--revision-feedback-file",type=Path)
     parser.add_argument("--source",type=Path,default=ROOT)
     parser.add_argument("--output-root",type=Path,default=default_output_root)
     parser.add_argument("--host-output-root",help="Human-facing HOST (e.g. Windows) absolute path mirroring --output-root, for display only")
@@ -2702,9 +2855,17 @@ def main():
     parser.add_argument("--provider-role-profile",type=Path)
     parser.add_argument("--scheduler-repository-identity")
     parser.add_argument("--checkout-identity-manifest",type=Path)
+    parser.add_argument("--local-rehearsal-manifest", type=Path)
+    parser.add_argument(
+        "--allow-materialization-bridge",
+        action="store_true",
+        help="Allow only the authenticated deterministic Unity materialization handoff",
+    )
     args=parser.parse_args()
     host_output_root=args.host_output_root if args.host_output_root is not None else os.getenv("NSC_EXECUTION_HOST_OUTPUT_ROOT")
     if args.retry_run:
+        if args.revision_feedback_file is not None:
+            parser.error("--revision-feedback-file cannot be combined with --retry-run")
         if any((args.task_id, args.provider, args.implementation_path, args.test_path,
                 args.new_implementation_path, args.new_test_path, args.crew_profile,
                 args.validation_profile)):
@@ -2771,7 +2932,9 @@ def main():
         except (OSError, subprocess.CalledProcessError, ValueError):
             parser.error("crew profile names a different committed contract")
         profile_options = dict(provider_topology=value["topology"], role_routes=value["role_routes"])
-    try: result=run_crew(source=args.source,output_root=args.output_root,task_id=args.task_id,provider_name=args.provider,implementation_paths=tuple(args.implementation_path or ()),test_paths=tuple(args.test_path or ()),new_implementation_paths=tuple(args.new_implementation_path or ()),new_test_paths=tuple(args.new_test_path or ()),run_id=args.run_id,retry_run_id=args.retry_run,review_feedback_file=args.review_feedback_file,host_output_root=host_output_root,execution_model=args.model,openai_reasoning_effort=args.openai_reasoning_effort,crew_profile=args.crew_profile,validation_profile=args.validation_profile,retry_expected_provider=args.expected_provider,role_session_leases=role_session_leases,scheduler_repository_identity=args.scheduler_repository_identity,checkout_identity_manifest=args.checkout_identity_manifest,provider_allowlist=None if args.provider_allowlist is None else tuple(args.provider_allowlist.split(",")),quota_fallback_provider=args.quota_fallback_provider,**profile_options)
+    if args.local_rehearsal_manifest is not None:
+        profile_options["local_rehearsal_manifest"] = args.local_rehearsal_manifest
+    try: result=run_crew(source=args.source,output_root=args.output_root,task_id=args.task_id,provider_name=args.provider,implementation_paths=tuple(args.implementation_path or ()),test_paths=tuple(args.test_path or ()),new_implementation_paths=tuple(args.new_implementation_path or ()),new_test_paths=tuple(args.new_test_path or ()),run_id=args.run_id,retry_run_id=args.retry_run,review_feedback_file=args.review_feedback_file,revision_feedback_file=args.revision_feedback_file,host_output_root=host_output_root,execution_model=args.model,openai_reasoning_effort=args.openai_reasoning_effort,crew_profile=args.crew_profile,validation_profile=args.validation_profile,retry_expected_provider=args.expected_provider,role_session_leases=role_session_leases,scheduler_repository_identity=args.scheduler_repository_identity,checkout_identity_manifest=args.checkout_identity_manifest,provider_allowlist=None if args.provider_allowlist is None else tuple(args.provider_allowlist.split(",")),quota_fallback_provider=args.quota_fallback_provider,allow_materialization_bridge=args.allow_materialization_bridge,**profile_options)
     except (CrewBlocked,ValueError,OSError,subprocess.CalledProcessError) as exc:
         reason=str(exc)
         print(f"ExecutionCrew blocked: {reason}",file=sys.stderr)
@@ -2779,5 +2942,5 @@ def main():
         return 2
     print(json.dumps(result,indent=2,sort_keys=True))
     print_human_summary(result)
-    return 0 if result["crew_status"]=="review_ready" else 1
+    return 0 if result["crew_status"] in {"review_ready", MATERIALIZATION_REQUIRED_STATUS} else 1
 if __name__=="__main__": raise SystemExit(main())

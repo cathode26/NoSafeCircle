@@ -15,6 +15,21 @@ from pathlib import Path
 from typing import Any, Callable, Sequence
 
 from .contracts import TaskReviewContractError, semantic_sha256
+from .authoritative_candidate_validation import (
+    AuthoritativeCandidateValidationError,
+    authoritative_validation_fact,
+    run_authoritative_candidate_validations,
+)
+from .door_prototype_materialization import (
+    DOOR_PROTOTYPE_BUILDER as _DOOR_PROTOTYPE_BUILDER,
+    DoorPrototypeMaterializationError,
+    UnityCommandRunner,
+    default_unity_command_runner,
+    is_door_prototype_builder_output as _is_door_prototype_builder_output,
+    normalize_unity_serialized_whitespace as _normalize_unity_serialized_whitespace,
+    resolve_unity_executable,
+    run_door_prototype_builder,
+)
 from .execution_bridge import ExecutionCrewBridge, ExecutionCrewReceipt
 from .pipeline_scope import RepositoryScopeAuthority
 from Pipeline.Testing.validation_manifest import (
@@ -31,24 +46,13 @@ from Pipeline.Testing.validation_manifest import (
 # with a controller-root-relative `manifest_relative_path` plus the XML and log
 # identities a later consumer needs to re-prove the same evidence. A 1.1 receipt
 # cannot supply those facts, so it fails closed rather than being reinterpreted.
-INTEGRATION_SCHEMA_VERSION = "1.2"
-SUPPORTED_INTEGRATION_SCHEMA_VERSIONS = frozenset({INTEGRATION_SCHEMA_VERSION})
+# 1.3 adds a durable candidate-ready stage and preserves the eventual human
+# checklist inputs.  Existing 1.2 receipts remain readable as already validated
+# pre-handoff commits; they are never reinterpreted as queued candidates.
+INTEGRATION_SCHEMA_VERSION = "1.3"
+SUPPORTED_INTEGRATION_SCHEMA_VERSIONS = frozenset({"1.2", INTEGRATION_SCHEMA_VERSION})
 _SHA40 = re.compile(r"^[0-9a-f]{40}$")
-_UNITY_VERSION = re.compile(r"^[0-9A-Za-z][0-9A-Za-z._-]*$")
 _UNITY_TEST_RUNNER = "Pipeline/Testing/run_unity_tests_clean.ps1"
-_DOOR_PROTOTYPE_BUILDER = (
-    "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs"
-)
-_DOOR_PROTOTYPE_ROOT = "Assets/NoSafeCircle/DoorPrototype/"
-_DOOR_PROTOTYPE_SCENE = "Assets/Scenes/DoorPrototype.unity"
-_DOOR_PROTOTYPE_BUILD_METHOD = (
-    "NoSafeCircle.DoorPrototype.Editor.DoorPrototypeSceneBuilder.Build"
-)
-
-
-UnityCommandRunner = Callable[
-    [Sequence[str], Path, float], subprocess.CompletedProcess[bytes]
-]
 
 
 class CandidateIntegrationError(TaskReviewContractError):
@@ -105,16 +109,6 @@ def _git_text(root: Path, *args: str, check: bool = True) -> str:
     return _decode(_git(root, *args, check=check).stdout, label="git stdout").strip()
 
 
-def _tracked_changed_paths(root: Path) -> tuple[str, ...]:
-    output = _git_text(root, "diff", "--name-only", "HEAD", "--")
-    return tuple(sorted((line for line in output.splitlines() if line), key=str.casefold))
-
-
-def _untracked_paths(root: Path) -> tuple[str, ...]:
-    output = _git_text(root, "ls-files", "--others", "--exclude-standard")
-    return tuple(sorted((line for line in output.splitlines() if line), key=str.casefold))
-
-
 def _changed_paths(root: Path, *, base: str | None = None) -> tuple[str, ...]:
     tracked = _git_text(
         root,
@@ -131,10 +125,6 @@ def _changed_paths(root: Path, *, base: str | None = None) -> tuple[str, ...]:
     )
     values = {line for line in (*tracked.splitlines(), *untracked.splitlines()) if line}
     return tuple(sorted(values, key=str.casefold))
-
-
-def _is_door_prototype_builder_output(path: str) -> bool:
-    return path.startswith(_DOOR_PROTOTYPE_ROOT) or path == _DOOR_PROTOTYPE_SCENE
 
 
 def _remote_head(root: Path, branch: str) -> str | None:
@@ -166,6 +156,10 @@ class CandidateIntegrationReceipt:
     changed_paths: tuple[str, ...]
     pre_handoff_validations: tuple[dict[str, Any], ...]
     completed_checks: tuple[str, ...]
+    lifecycle: str = "pre_handoff_validated"
+    implementation_summary: str | None = None
+    human_steps: tuple[str, ...] = ()
+    expected_result: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -186,6 +180,10 @@ class CandidateIntegrationReceipt:
                 dict(item) for item in self.pre_handoff_validations
             ],
             "completed_checks": list(self.completed_checks),
+            "lifecycle": self.lifecycle,
+            "implementation_summary": self.implementation_summary,
+            "human_steps": list(self.human_steps),
+            "expected_result": self.expected_result,
         }
 
 
@@ -230,6 +228,7 @@ def load_integration_receipt(state_path: Path | str) -> CandidateIntegrationRece
         )
     try:
         validations = tuple(dict(item) for item in identity["pre_handoff_validations"])
+        legacy = version == "1.2"
         return CandidateIntegrationReceipt(
             task_id=identity["task_id"],
             lease_id=identity["lease_id"],
@@ -245,6 +244,18 @@ def load_integration_receipt(state_path: Path | str) -> CandidateIntegrationRece
             changed_paths=tuple(identity["changed_paths"]),
             pre_handoff_validations=validations,
             completed_checks=tuple(identity["completed_checks"]),
+            lifecycle=(
+                "pre_handoff_validated"
+                if legacy
+                else identity["lifecycle"]
+            ),
+            implementation_summary=(
+                None if legacy else identity["implementation_summary"]
+            ),
+            human_steps=(
+                () if legacy else tuple(identity["human_steps"])
+            ),
+            expected_result=(None if legacy else identity["expected_result"]),
         )
     except (KeyError, TypeError, ValueError) as exc:
         raise CandidateIntegrationError(
@@ -541,6 +552,107 @@ def find_pre_handoff_validation(
     return None
 
 
+class CandidateCommitValidator:
+    """Shared local Git validation for production and nonpublishing candidates."""
+
+    def __init__(self, *, checkout: Path | str, branch: str,
+                 scope: RepositoryScopeAuthority) -> None:
+        self.checkout = Path(checkout).resolve()
+        self.branch = str(branch).strip()
+        self.scope = scope
+        if not self.branch:
+            raise CandidateIntegrationError("candidate validation requires a branch")
+
+    def assert_checkout_identity(self, execution: ExecutionCrewReceipt) -> None:
+        root = _git_text(self.checkout, "rev-parse", "--show-toplevel")
+        branch = _git_text(self.checkout, "symbolic-ref", "--quiet", "--short", "HEAD")
+        head = _git_text(self.checkout, "rev-parse", "HEAD")
+        if Path(root).resolve() != self.checkout:
+            raise CandidateIntegrationError("integration checkout root changed")
+        if branch != self.branch:
+            raise CandidateIntegrationError(
+                f"integration branch {branch!r} differs from workflow branch {self.branch!r}")
+        if head != execution.source_head:
+            raise CandidateIntegrationError(
+                f"integration checkout HEAD {head!r} differs from ExecutionCrew source "
+                f"{execution.source_head!r}")
+        if _git_text(self.checkout, "status", "--porcelain=v1", "--untracked-files=all"):
+            raise CandidateIntegrationError("integration requires a clean task checkout")
+
+    @staticmethod
+    def apply_candidate(root: Path, candidate: Path, execution: ExecutionCrewReceipt) -> None:
+        _git(root, "apply", "--3way", "--", str(candidate))
+        _git(root, "restore", "--staged", "--", *execution.final_actual_changed_paths)
+
+    def verify_applied_state(self, root: Path, execution: ExecutionCrewReceipt,
+                             *, expected_paths: tuple[str, ...] | None = None) -> None:
+        changed = _changed_paths(root)
+        expected = execution.final_actual_changed_paths if expected_paths is None else expected_paths
+        if changed != expected:
+            raise CandidateIntegrationError(
+                f"applied integration paths differ from the verified path set: {changed} != {expected}")
+        _normalize_unity_serialized_whitespace(Path(root), changed)
+        whitespace = _git(root, "diff", "--check", check=False)
+        if whitespace.returncode != 0:
+            raise CandidateIntegrationError(
+                "candidate failed git diff --check:\n"
+                + _decode(whitespace.stdout + whitespace.stderr, label="git diff check").strip())
+        taskcontrol = root / "Pipeline" / "TaskGraph" / "taskcontrol.py"
+        if not taskcontrol.is_file():
+            raise CandidateIntegrationError("candidate checkout is missing taskcontrol.py")
+        validation = _run((sys.executable, str(taskcontrol), "validate"), cwd=root,
+                          check=False, timeout_seconds=300.0)
+        stdout = _decode(validation.stdout, label="taskcontrol validate stdout")
+        if validation.returncode != 0 or "taskcontrol validate: PASS" not in stdout:
+            raise CandidateIntegrationError("TaskGraph validation failed after candidate application")
+        contract_path = str(self.scope.task.get("contract_path")
+                            or f"Tasks/{self.scope.task_id}.yaml")
+        contract = _git(root, "show", f"HEAD:{contract_path}", check=False)
+        if (contract.returncode != 0 or hashlib.sha256(contract.stdout).hexdigest()
+                != execution.task_contract_sha256):
+            raise CandidateIntegrationError("candidate application changed task-contract identity")
+
+    def validate_in_disposable_clone(self, candidate: Path, execution: ExecutionCrewReceipt,
+                                     *, base_head: str, scratch_root: Path | None = None,
+                                     register_clone=None, validation_source: Path | None = None) -> None:
+        if scratch_root is not None:
+            scratch_root.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix=f"{self.scope.task_id.casefold()}-candidate-",
+                                         dir=scratch_root) as temporary:
+            clone = Path(temporary) / "candidate"
+            _run(("git", "clone", "--no-local", "--no-hardlinks", "--no-checkout",
+                  str(validation_source or self.checkout), str(clone)),
+                 cwd=self.checkout.parent, timeout_seconds=600.0)
+            if register_clone is not None:
+                register_clone(clone)
+            if scratch_root is None:
+                _git(clone, "fetch", str(self.checkout),
+                     "+refs/remotes/origin/main:refs/remotes/source/main")
+            _git(clone, "checkout", "--detach", base_head)
+            self.apply_candidate(clone, candidate, execution)
+            self.verify_applied_state(clone, execution)
+
+    def expected_candidate_tree(self, candidate: Path, execution: ExecutionCrewReceipt,
+                                *, base_head: str, scratch_root: Path | None = None,
+                                register_clone=None, validation_source: Path | None = None) -> str:
+        """Return the exact tree produced by the authenticated patch."""
+        if scratch_root is not None:
+            scratch_root.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix=f"{self.scope.task_id.casefold()}-tree-",
+                                         dir=scratch_root) as temporary:
+            clone = Path(temporary) / "candidate"
+            _run(("git", "clone", "--no-local", "--no-hardlinks", "--no-checkout",
+                  str(validation_source or self.checkout), str(clone)),
+                 cwd=self.checkout.parent, timeout_seconds=600.0)
+            if register_clone is not None:
+                register_clone(clone)
+            _git(clone, "checkout", "--detach", base_head)
+            self.apply_candidate(clone, candidate, execution)
+            self.verify_applied_state(clone, execution)
+            _git(clone, "add", "--", *execution.final_actual_changed_paths)
+            return _git_text(clone, "write-tree")
+
+
 class CandidateIntegrator:
     """Keep candidate review authority separate from commit/push verification."""
 
@@ -556,11 +668,15 @@ class CandidateIntegrator:
         unity_executable: Path | str | None = None,
         unity_timeout_seconds: float = 1800.0,
     ) -> None:
+        from .local_execution_fence import refuse_production_operation
+        refuse_production_operation("production candidate integration")
         self.checkout = Path(checkout).resolve()
         self.branch = str(branch).strip()
         self.task_title = str(task_title).strip()
         self.scope = scope
         self.execution = execution
+        self.commit_validator = CandidateCommitValidator(
+            checkout=self.checkout, branch=self.branch, scope=self.scope)
         self.unity_command_runner = unity_command_runner or self._default_unity_command_runner
         self.unity_executable = (
             Path(unity_executable).resolve() if unity_executable is not None else None
@@ -578,6 +694,156 @@ class CandidateIntegrator:
     @property
     def receipt(self) -> CandidateIntegrationReceipt | None:
         return self._receipt
+
+    def stage_candidate(
+        self,
+        run_id: str,
+        *,
+        implementation_summary: str,
+        human_steps: Sequence[str],
+        expected_result: str,
+    ) -> CandidateIntegrationReceipt:
+        """Commit the reviewed candidate without crossing the merge gate.
+
+        The candidate is intentionally based on the ExecutionCrew source.  It
+        is safe to publish as a task-branch queue artifact, but it has not yet
+        synchronized current main and must not be exposed as a human handoff.
+        The gate owner performs that synchronization and exact-tree validation.
+        """
+
+        execution = self.execution.require(run_id)
+        if execution.crew_status != "review_ready":
+            raise CandidateIntegrationError(
+                f"only review_ready ExecutionCrew output can be staged; found {execution.crew_status}"
+            )
+        if execution.candidate_path is None or execution.candidate_sha256 is None:
+            raise CandidateIntegrationError("review_ready receipt omitted candidate identity")
+        if not execution.final_actual_changed_paths:
+            raise CandidateIntegrationError("review_ready candidate has no changed paths")
+        summary = str(implementation_summary).strip()
+        steps = tuple(str(item).strip() for item in human_steps if str(item).strip())
+        expected = str(expected_result).strip()
+        if not summary or not steps or not expected:
+            raise CandidateIntegrationError(
+                "candidate queueing requires the eventual concrete human checklist"
+            )
+        if self._receipt is not None:
+            self._verify_receipt(self._receipt, execution)
+            if (
+                self._receipt.lifecycle != "candidate_ready"
+                or self._receipt.implementation_summary != summary
+                or self._receipt.human_steps != steps
+                or self._receipt.expected_result != expected
+            ):
+                raise CandidateIntegrationError(
+                    "staged candidate retry changed its durable handoff inputs"
+                )
+            return self._receipt
+
+        existing_commit = self._existing_commit_for_run(execution)
+        if existing_commit is not None:
+            commit, integration_base = existing_commit
+            if integration_base != execution.source_head:
+                raise CandidateIntegrationError(
+                    "queued candidate was already integrated with main outside the merge gate"
+                )
+            self._push_exact(commit, allowed_remote_heads=(execution.source_head,))
+            receipt = self._create_receipt(
+                commit,
+                execution,
+                integration_base=integration_base,
+                pre_handoff_validations=(),
+                lifecycle="candidate_ready",
+                implementation_summary=summary,
+                human_steps=steps,
+                expected_result=expected,
+            )
+            self._persist(receipt)
+            self._receipt = receipt
+            return receipt
+
+        self._assert_checkout_identity(execution)
+        candidate = Path(execution.candidate_path)
+        self._validate_in_disposable_clone(
+            candidate,
+            execution,
+            base_head=execution.source_head,
+        )
+        self._apply_candidate(self.checkout, candidate, execution)
+        try:
+            self._verify_applied_state(self.checkout, execution)
+            final_changed_paths = execution.final_actual_changed_paths
+            if self._requires_door_prototype_builder(execution):
+                final_changed_paths = self._run_door_prototype_builder(execution)
+                self._normalize_door_prototype_scene(final_changed_paths)
+                self._verify_applied_state(
+                    self.checkout,
+                    execution,
+                    expected_paths=final_changed_paths,
+                )
+            _git(self.checkout, "add", "--", *final_changed_paths)
+            staged = tuple(
+                sorted(
+                    (
+                        line
+                        for line in _git_text(
+                            self.checkout, "diff", "--cached", "--name-only", "--"
+                        ).splitlines()
+                        if line
+                    ),
+                    key=str.casefold,
+                )
+            )
+            if staged != final_changed_paths:
+                raise CandidateIntegrationError(
+                    f"staged paths differ from verified candidate paths: {staged} != {final_changed_paths}"
+                )
+            if _git_text(self.checkout, "diff", "--name-only", "--"):
+                raise CandidateIntegrationError("candidate left unstaged tracked changes")
+            if _git_text(self.checkout, "ls-files", "--others", "--exclude-standard"):
+                raise CandidateIntegrationError("candidate left unstaged untracked files")
+            self._ensure_git_identity()
+            _git(
+                self.checkout,
+                "commit",
+                "-m",
+                f"Implement {self.scope.task_id}: {self.task_title}",
+                "-m",
+                (
+                    f"ExecutionCrew-Run: {execution.run_id}\n"
+                    f"ExecutionCrew-Candidate-SHA256: {execution.candidate_sha256}\n"
+                    f"Task-Contract-SHA256: {execution.task_contract_sha256}\n"
+                ),
+            )
+        except Exception as exc:
+            raise CandidateIntegrationError(
+                "candidate staging reached the canonical checkout but could not be "
+                "committed; reconcile the isolated task checkout before retrying: "
+                f"{exc}"
+            ) from exc
+
+        commit = _git_text(self.checkout, "rev-parse", "HEAD")
+        parent = _git_text(self.checkout, "rev-parse", "HEAD^")
+        if not _SHA40.fullmatch(commit) or parent != execution.source_head:
+            raise CandidateIntegrationError(
+                "queued candidate commit is not the exact child of the ExecutionCrew source"
+            )
+        if _changed_paths(self.checkout, base=execution.source_head) != final_changed_paths:
+            raise CandidateIntegrationError("queued candidate changed an unexpected path set")
+        self._push_exact(commit, allowed_remote_heads=(execution.source_head,))
+        receipt = self._create_receipt(
+            commit,
+            execution,
+            integration_base=execution.source_head,
+            pre_handoff_validations=(),
+            lifecycle="candidate_ready",
+            implementation_summary=summary,
+            human_steps=steps,
+            expected_result=expected,
+        )
+        self._persist(receipt)
+        self._receipt = receipt
+        return receipt
 
     def integrate(self, run_id: str) -> CandidateIntegrationReceipt:
         execution = self.execution.require(run_id)
@@ -691,28 +957,7 @@ class CandidateIntegrator:
         return receipt
 
     def _assert_checkout_identity(self, execution: ExecutionCrewReceipt) -> None:
-        top = _git_text(self.checkout, "rev-parse", "--show-toplevel", check=False)
-        if not top or Path(top).resolve() != self.checkout:
-            raise CandidateIntegrationError("integration checkout is not its standalone Git root")
-        branch = _git_text(self.checkout, "branch", "--show-current", check=False)
-        if branch != self.branch:
-            raise CandidateIntegrationError(
-                f"integration branch {branch!r} differs from workflow branch {self.branch!r}"
-            )
-        head = _git_text(self.checkout, "rev-parse", "HEAD", check=False)
-        if head != execution.source_head:
-            raise CandidateIntegrationError(
-                f"integration checkout HEAD {head!r} differs from ExecutionCrew source "
-                f"{execution.source_head!r}"
-            )
-        status = _git_text(
-            self.checkout,
-            "status",
-            "--porcelain=v1",
-            "--untracked-files=all",
-        )
-        if status:
-            raise CandidateIntegrationError("integration requires a clean task checkout")
+        self.commit_validator.assert_checkout_identity(execution)
 
     def _existing_commit_for_run(
         self,
@@ -822,20 +1067,13 @@ class CandidateIntegrator:
             )
         return main_head
 
-    @staticmethod
     def _apply_candidate(
+        self,
         root: Path,
         candidate: Path,
         execution: ExecutionCrewReceipt,
     ) -> None:
-        _git(root, "apply", "--3way", "--", str(candidate))
-        _git(
-            root,
-            "restore",
-            "--staged",
-            "--",
-            *execution.final_actual_changed_paths,
-        )
+        self.commit_validator.apply_candidate(root, candidate, execution)
 
     @staticmethod
     def _requires_door_prototype_builder(execution: ExecutionCrewReceipt) -> bool:
@@ -862,105 +1100,19 @@ class CandidateIntegrator:
         self,
         execution: ExecutionCrewReceipt,
     ) -> tuple[str, ...]:
-        executable = self._resolve_unity_executable()
-        self.state_root.mkdir(parents=True, exist_ok=True)
-        log_directory = Path(
-            tempfile.mkdtemp(
-                prefix=f"{self.scope.task_id.casefold()}-unity-builder-",
-                dir=self.state_root,
-            )
-        )
-        log_path = log_directory / "unity.log"
-        candidate_paths = _changed_paths(self.checkout)
-        if candidate_paths != execution.final_actual_changed_paths:
-            raise CandidateIntegrationError(
-                "canonical checkout changed after candidate verification and before the "
-                "DoorPrototype builder"
-            )
-        command = (
-            str(executable),
-            "-batchmode",
-            "-quit",
-            "-projectPath",
-            str(self.checkout),
-            "-executeMethod",
-            _DOOR_PROTOTYPE_BUILD_METHOD,
-            "-logFile",
-            str(log_path),
-        )
-        ilpp_pid_path = self.checkout / "Library" / "ilpp.pid"
         try:
-            ilpp_pid_path.unlink(missing_ok=True)
-            if os.path.lexists(ilpp_pid_path):
-                raise OSError("the path still exists after deletion")
-        except OSError as exc:
-            raise CandidateIntegrationError(
-                "DoorPrototype builder refused to launch because the stale Unity ILPP "
-                f"PID marker could not be removed: {ilpp_pid_path}"
-            ) from exc
-        try:
-            result = self.unity_command_runner(
-                command,
-                self.checkout,
-                self.unity_timeout_seconds,
+            result = run_door_prototype_builder(
+                checkout=self.checkout,
+                task_id=self.scope.task_id,
+                state_root=self.state_root,
+                initial_changed_paths=execution.final_actual_changed_paths,
+                unity_executable=self.unity_executable,
+                unity_command_runner=self.unity_command_runner,
+                timeout_seconds=self.unity_timeout_seconds,
             )
-        except (OSError, subprocess.TimeoutExpired) as exc:
-            raise CandidateIntegrationError(
-                f"DoorPrototype builder could not run; Unity log: {log_path}"
-            ) from exc
-        if result.returncode != 0:
-            stdout = _decode(result.stdout or b"", label="Unity stdout").strip()
-            stderr = _decode(result.stderr or b"", label="Unity stderr").strip()
-            detail = "\n".join(item for item in (stdout, stderr) if item)
-            raise CandidateIntegrationError(
-                f"DoorPrototype builder failed ({result.returncode}); Unity log: {log_path}"
-                + (f"\n{detail}" if detail else "")
-            )
-
-        tracked_paths = _tracked_changed_paths(self.checkout)
-        untracked_paths = _untracked_paths(self.checkout)
-        candidate_set = set(candidate_paths)
-        incidental_tracked = tuple(
-            path
-            for path in tracked_paths
-            if path not in candidate_set and not _is_door_prototype_builder_output(path)
-        )
-        if incidental_tracked:
-            _git(
-                self.checkout,
-                "restore",
-                "--source=HEAD",
-                "--staged",
-                "--worktree",
-                "--",
-                *incidental_tracked,
-            )
-
-        incidental_untracked = tuple(
-            path
-            for path in untracked_paths
-            if path not in candidate_set and not _is_door_prototype_builder_output(path)
-        )
-        if incidental_untracked:
-            raise CandidateIntegrationError(
-                "Unity created untracked paths outside the DoorPrototype builder-owned "
-                f"boundary: {incidental_untracked}"
-            )
-
-        post_unity_paths = set(tracked_paths).union(untracked_paths)
-        builder_paths = {
-            path
-            for path in post_unity_paths.difference(candidate_set)
-            if _is_door_prototype_builder_output(path)
-        }
-        expected_paths = tuple(sorted(candidate_set.union(builder_paths), key=str.casefold))
-        remaining_paths = _changed_paths(self.checkout)
-        if remaining_paths != expected_paths:
-            raise CandidateIntegrationError(
-                "dirty paths after Unity cleanup differ from candidate plus DoorPrototype "
-                f"builder output: {remaining_paths} != {expected_paths}"
-            )
-        return expected_paths
+        except DoorPrototypeMaterializationError as exc:
+            raise CandidateIntegrationError(str(exc)) from exc
+        return result.changed_paths
 
     def _normalize_door_prototype_scene(
         self,
@@ -968,53 +1120,15 @@ class CandidateIntegrator:
     ) -> None:
         """Remove builder-generated trailing space/tab without changing line endings."""
 
-        if _DOOR_PROTOTYPE_SCENE not in changed_paths:
-            return
-        scene = self.checkout / _DOOR_PROTOTYPE_SCENE
-        try:
-            original = scene.read_bytes()
-            normalized = re.sub(rb"[ \t]+(?=\r?\n|\Z)", b"", original)
-            if normalized != original:
-                scene.write_bytes(normalized)
-        except OSError as exc:
-            raise CandidateIntegrationError(
-                f"could not normalize DoorPrototype scene output: {scene}"
-            ) from exc
+        # The scene and every other Unity-serialised builder output get the same
+        # treatment; the builder rewrites them all with Unity's trailing spaces.
+        _normalize_unity_serialized_whitespace(self.checkout, tuple(changed_paths))
 
     def _resolve_unity_executable(self) -> Path:
-        if self.unity_executable is not None:
-            executable = self.unity_executable
-        else:
-            version_path = self.checkout / "ProjectSettings" / "ProjectVersion.txt"
-            try:
-                version_text = version_path.read_text(encoding="utf-8-sig")
-            except (OSError, UnicodeError) as exc:
-                raise CandidateIntegrationError(
-                    f"could not read Unity version from {version_path}"
-                ) from exc
-            match = re.search(r"^m_EditorVersion:\s*(\S.*?)\s*$", version_text, re.MULTILINE)
-            version = match.group(1) if match else ""
-            if not _UNITY_VERSION.fullmatch(version):
-                raise CandidateIntegrationError(
-                    f"ProjectVersion.txt has an invalid m_EditorVersion value: {version!r}"
-                )
-            program_files = os.getenv("ProgramFiles")
-            if not program_files:
-                raise CandidateIntegrationError(
-                    "ProgramFiles is unavailable for Unity Hub executable discovery"
-                )
-            executable = (
-                Path(program_files)
-                / "Unity"
-                / "Hub"
-                / "Editor"
-                / version
-                / "Editor"
-                / "Unity.exe"
-            )
-        if not executable.is_file():
-            raise CandidateIntegrationError(f"Unity executable does not exist: {executable}")
-        return executable
+        try:
+            return resolve_unity_executable(self.checkout, self.unity_executable)
+        except DoorPrototypeMaterializationError as exc:
+            raise CandidateIntegrationError(str(exc)) from exc
 
     @staticmethod
     def _default_unity_command_runner(
@@ -1022,12 +1136,7 @@ class CandidateIntegrator:
         cwd: Path,
         timeout_seconds: float,
     ) -> subprocess.CompletedProcess[bytes]:
-        return _run(
-            args,
-            cwd=cwd,
-            check=False,
-            timeout_seconds=timeout_seconds,
-        )
+        return default_unity_command_runner(args, cwd, timeout_seconds)
 
     def _run_pre_handoff_validations(
         self,
@@ -1035,126 +1144,22 @@ class CandidateIntegrator:
         execution: ExecutionCrewReceipt,
     ) -> tuple[dict[str, Any], ...]:
         """Run committed task-specific Unity checks before publishing the handoff."""
-
-        plan = self._pre_handoff_validation_plan()
-        if plan is None:
-            return ()
-
-        if _git_text(self.checkout, "rev-parse", "HEAD") != commit:
-            raise CandidateIntegrationError(
-                "pre-handoff validation commit is not the checked-out task head"
+        try:
+            return run_authoritative_candidate_validations(
+                checkout=self.checkout,
+                state_root=self.state_root,
+                task=self.scope.task,
+                task_id=self.scope.task_id,
+                run_id=execution.run_id,
+                commit=commit,
+                unity_executable=self.unity_executable,
+                command_runner=self.unity_command_runner,
             )
-        if _git_text(
-            self.checkout,
-            "status",
-            "--porcelain=v1",
-            "--untracked-files=all",
-        ):
-            raise CandidateIntegrationError(
-                "pre-handoff authoritative validation requires a clean task checkout"
-            )
-        tree = _git_text(self.checkout, "rev-parse", "HEAD^{tree}")
-        script = self.checkout / "Pipeline" / "Testing" / "run_unity_tests_clean.ps1"
-        if not script.is_file():
-            raise CandidateIntegrationError("clean Unity test runner is missing")
-
-        validation_root = (
-            self.state_root
-            / "outputs"
-            / self.scope.task_id
-            / execution.run_id
-            / "pre-handoff-validation"
-        )
-        facts: list[dict[str, Any]] = []
-        for platform in plan["required_test_platforms"]:
-            test_filter = plan["test_filters"][platform]
-            destination = validation_root / (
-                f"{platform}-"
-                f"{hashlib.sha256(test_filter.encode('utf-8')).hexdigest()[:12]}"
-            )
-            stored_manifest = destination / "validation-manifest.json"
-            if stored_manifest.is_file():
-                facts.append(
-                    self._pre_handoff_validation_fact(
-                        stored_manifest,
-                        commit=commit,
-                        tree=tree,
-                        platform=platform,
-                        test_filter=test_filter,
-                        policy_sha256=plan["policy_sha256"],
-                    )
-                )
-                continue
-            if destination.exists() or destination.is_symlink():
-                raise CandidateIntegrationError(
-                    "pre-handoff validation destination exists with unknown identity: "
-                    f"{destination}"
-                )
-
-            shell = "powershell.exe" if os.name == "nt" else "pwsh"
-            command = [
-                shell,
-                "-NoProfile",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-File",
-                str(script),
-                "-TestPlatform",
-                platform,
-                "-TestFilter",
-                test_filter,
-                "-ProjectPath",
-                str(self.checkout),
-            ]
-            if self.unity_executable is not None:
-                command.extend(("-UnityExecutable", str(self.unity_executable)))
-            if platform == "SyntheticSource":
-                command = [sys.executable, "-B", str(self.checkout / "Pipeline/Testing/synthetic_source_validation.py"),
-                           "--source", str(self.checkout), "--task-id", self.scope.task_id,
-                           "--test-filter", test_filter]
-            try:
-                result = self.unity_command_runner(
-                    command,
-                    self.checkout,
-                    float(os.getenv("NSC_TASK_AGENT_UNITY_TIMEOUT_SECONDS", "3600")),
-                )
-            except (OSError, subprocess.TimeoutExpired) as exc:
-                raise CandidateIntegrationError(
-                    f"pre-handoff {platform} Unity test could not run"
-                ) from exc
-            stdout = _decode(result.stdout or b"", label="Unity stdout")
-            stderr = _decode(result.stderr or b"", label="Unity stderr")
-            if result.returncode != 0:
-                detail = "\n".join(item for item in (stdout.strip(), stderr.strip()) if item)
-                raise CandidateIntegrationError(
-                    f"pre-handoff {platform} Unity test failed ({result.returncode})"
-                    + (f"\n{detail}" if detail else "")
-                )
-            match = re.search(r"(?im)^Validation manifest:\s*(.+?)\s*$", stdout)
-            if match is None:
-                raise CandidateIntegrationError(
-                    f"pre-handoff {platform} Unity test omitted its validation manifest"
-                )
-            try:
-                source_manifest = Path(match.group(1).strip()).resolve(strict=True)
-                load_validation_manifest(source_manifest)
-                destination.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copytree(source_manifest.parent, destination)
-            except (OSError, ValidationManifestError) as exc:
-                raise CandidateIntegrationError(
-                    f"pre-handoff {platform} Unity validation evidence is invalid: {exc}"
-                ) from exc
-            facts.append(
-                self._pre_handoff_validation_fact(
-                    stored_manifest,
-                    commit=commit,
-                    tree=tree,
-                    platform=platform,
-                    test_filter=test_filter,
-                    policy_sha256=plan["policy_sha256"],
-                )
-            )
-        return tuple(facts)
+        except AuthoritativeCandidateValidationError as exc:
+            # Preserve the established production diagnostic prefix for operators
+            # and existing recovery checks.
+            message = str(exc).replace("candidate ", "pre-handoff ", 1)
+            raise CandidateIntegrationError(message) from exc
 
     def _pre_handoff_validation_plan(self) -> dict[str, Any] | None:
         # Import lazily so the candidate integration primitive remains usable without
@@ -1176,35 +1181,17 @@ class CandidateIntegrator:
         test_filter: str,
         policy_sha256: str,
     ) -> dict[str, Any]:
-        # The shared importer owns every containment, traversal, identity, and
-        # artifact-hash check; this records only what a later consumer needs to
-        # find and re-prove the same evidence without trusting an absolute path.
         try:
-            imported = import_validation_manifest(
-                manifest_path,
-                controller_root=self.state_root,
-                expected_commit=commit,
-                expected_tree=tree,
-                expected_test_platform=platform,
-                expected_test_filter=test_filter,
+            return authoritative_validation_fact(
+                checkout=self.checkout, state_root=self.state_root,
+                manifest_path=manifest_path, commit=commit, tree=tree,
+                platform=platform, test_filter=test_filter,
+                policy_sha256=policy_sha256,
             )
-            require_source_validation_repository(self.checkout, imported)
-        except (OSError, ValidationManifestError) as exc:
+        except AuthoritativeCandidateValidationError as exc:
             raise CandidateIntegrationError(
-                f"stored pre-handoff Unity validation is invalid: {exc}"
+                str(exc).replace("stored candidate", "stored pre-handoff", 1)
             ) from exc
-        manifest = imported.manifest
-        return {
-            "test_platform": platform,
-            "test_filter": test_filter,
-            "commit": commit,
-            "tree": tree,
-            "manifest_relative_path": imported.relative_path,
-            "policy_sha256": policy_sha256,
-            "total": manifest.test_run.total,
-            "passed": manifest.test_run.passed,
-            **imported.identities(),
-        }
 
     def _validate_in_disposable_clone(
         self,
@@ -1256,6 +1243,7 @@ class CandidateIntegrator:
                 f"applied integration paths differ from the verified path set: "
                 f"{changed} != {expected}"
             )
+        _normalize_unity_serialized_whitespace(Path(root), changed)
         whitespace = _git(root, "diff", "--check", check=False)
         if whitespace.returncode != 0:
             raise CandidateIntegrationError(
@@ -1329,16 +1317,31 @@ class CandidateIntegrator:
         *,
         integration_base: str,
         pre_handoff_validations: tuple[dict[str, Any], ...],
+        lifecycle: str = "pre_handoff_validated",
+        implementation_summary: str | None = None,
+        human_steps: tuple[str, ...] = (),
+        expected_result: str | None = None,
     ) -> CandidateIntegrationReceipt:
         tree = _git_text(self.checkout, "rev-parse", f"{commit}^{{tree}}")
         changed_paths = _changed_paths(self.checkout, base=integration_base)
         if not self._paths_match_execution(changed_paths, execution):
             raise CandidateIntegrationError("integrated commit has an unauthorized path set")
+        if lifecycle not in {"candidate_ready", "pre_handoff_validated"}:
+            raise CandidateIntegrationError("candidate receipt lifecycle is invalid")
         checks = [
             "ExecutionCrew contract-locality audit and semantic validator completed.",
             "candidate.patch SHA-256 matched crew_result.json.",
-            "Current origin/main was fetched immediately before candidate integration.",
-            "candidate.patch applied cleanly with three-way resolution in a disposable clone based on current main.",
+            (
+                "candidate.patch applied cleanly in a disposable clone based on "
+                "the ExecutionCrew source; current main remains owned by the merge gate."
+                if lifecycle == "candidate_ready"
+                else "Current origin/main was fetched immediately before candidate integration."
+            ),
+            (
+                "The queued commit has not been handed to Vincent for testing."
+                if lifecycle == "candidate_ready"
+                else "candidate.patch applied cleanly with three-way resolution in a disposable clone based on current main."
+            ),
             "Applied path set exactly matched ExecutionCrew final_actual_changed_paths.",
             "git diff --check passed.",
             "TaskGraph validation passed after candidate application.",
@@ -1378,6 +1381,10 @@ class CandidateIntegrator:
             changed_paths=changed_paths,
             pre_handoff_validations=pre_handoff_validations,
             completed_checks=tuple(checks),
+            lifecycle=lifecycle,
+            implementation_summary=implementation_summary,
+            human_steps=human_steps,
+            expected_result=expected_result,
         )
 
     def _verify_receipt(
@@ -1395,10 +1402,26 @@ class CandidateIntegrator:
             raise CandidateIntegrationError("integration receipt does not match ExecutionCrew run")
         if not self._paths_match_execution(receipt.changed_paths, execution):
             raise CandidateIntegrationError("integration receipt has an unauthorized path set")
+        if receipt.lifecycle not in {"candidate_ready", "pre_handoff_validated"}:
+            raise CandidateIntegrationError("integration receipt lifecycle is invalid")
+        if receipt.lifecycle == "candidate_ready" and (
+            not isinstance(receipt.implementation_summary, str)
+            or not receipt.implementation_summary.strip()
+            or not receipt.human_steps
+            or not isinstance(receipt.expected_result, str)
+            or not receipt.expected_result.strip()
+        ):
+            raise CandidateIntegrationError(
+                "queued candidate receipt omitted its eventual human checklist"
+            )
         plan = self._pre_handoff_validation_plan()
-        expected = () if plan is None else tuple(
-            (platform, plan["test_filters"][platform], plan["policy_sha256"])
-            for platform in plan["required_test_platforms"]
+        expected = (
+            ()
+            if receipt.lifecycle == "candidate_ready" or plan is None
+            else tuple(
+                (platform, plan["test_filters"][platform], plan["policy_sha256"])
+                for platform in plan["required_test_platforms"]
+            )
         )
         try:
             actual = tuple(

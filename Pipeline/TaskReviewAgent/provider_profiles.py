@@ -19,6 +19,21 @@ PROFILE_DEFINITIONS = {
 }
 PROVIDER_PROFILES = tuple(PROFILE_DEFINITIONS)
 
+# The Test Author is deliberately the crew's low-cost role.  Routing it at the
+# task tier's full Codex reasoning effort made a tiny, already-covered test
+# change spend almost six minutes surveying unrelated policy and repository
+# context.  Keep deep tasks more rigorous than ordinary tasks, but do not let
+# this bounded role inherit the Implementer/Validator effort wholesale.
+_CODEX_TEST_AUTHOR_REASONING = {
+    "none": "none",
+    "minimal": "low",
+    "low": "low",
+    "medium": "low",
+    "high": "low",
+    "xhigh": "medium",
+    "max": "medium",
+}
+
 
 @dataclass(frozen=True)
 class ProviderTopology:
@@ -176,9 +191,12 @@ def crew_role_routes(topology: ProviderTopology, implementer: str, tier) -> dict
         provider = implementer if role in ("implementer", "test_author") else topology.reviewer_for(implementer)
         if provider not in tier.allowed_execution_providers:
             raise ProviderPolicyError("required independent role provider is unavailable under tier safety policy")
+        reasoning_effort = tier.openai_reasoning_effort if provider == "codex" else None
+        if provider == "codex" and role == "test_author":
+            reasoning_effort = _CODEX_TEST_AUTHOR_REASONING[reasoning_effort]
         result[role] = dict(provider=provider,
             model=tier.claude_model if provider == "claude" else tier.openai_model,
-            reasoning_effort=tier.openai_reasoning_effort if provider == "codex" else None)
+            reasoning_effort=reasoning_effort)
     validate_crew_routes(topology, implementer, result)
     return result
 

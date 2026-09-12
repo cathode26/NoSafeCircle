@@ -23,12 +23,12 @@ from unittest import mock
 VIEW_ROOT = Path(__file__).resolve().parents[1]
 SERVER_PATH = VIEW_ROOT / "server.py"
 INDEX_PATH = VIEW_ROOT / "index.html"
-EXPECTED_REPOSITORY = "fixture-owner/pipeline-rehearsal"
+EXPECTED_REPOSITORY = "cathode26/NoSafeCircle-Homework-Rehearsal"
 EXPECTED_ISSUE_URL = (
-    "https://github.com/fixture-owner/pipeline-rehearsal/issues/112"
+    "https://github.com/cathode26/NoSafeCircle-Homework-Rehearsal/issues/112"
 )
 EXPECTED_PR_URL = (
-    "https://github.com/fixture-owner/pipeline-rehearsal/pull/116"
+    "https://github.com/cathode26/NoSafeCircle-Homework-Rehearsal/pull/116"
 )
 
 SPEC = importlib.util.spec_from_file_location("gauntlet_view_server", SERVER_PATH)
@@ -99,14 +99,24 @@ class Fixture:
     def close(self) -> None:
         shutil.rmtree(self.root)
 
-    def write_manifest(self, repository: object) -> None:
+    def write_manifest(
+        self,
+        repository: object,
+        *,
+        target_task_ids: list[str] | None = None,
+        excluded_task_ids: list[str] | None = None,
+    ) -> None:
         write_json(
             self.run / "manifest.json",
             {
                 "run_id": "run-a",
                 "github_repository": repository,
-                "target_task_ids": ["NSC-112"],
-                "excluded_task_ids": [],
+                "target_task_ids": (
+                    target_task_ids if target_task_ids is not None else ["NSC-112"]
+                ),
+                "excluded_task_ids": (
+                    excluded_task_ids if excluded_task_ids is not None else []
+                ),
                 "max_capacity": 3,
             },
         )
@@ -134,9 +144,48 @@ class Fixture:
             "event": "integration_gate_observed",
             "timestamp_utc": "2026-09-07T02:01:00Z",
             "gate_ref": "refs/nsc/integration-gate",
-            "owner": "NSC-701",
+            "owner": "NSC-929",
             "queued_task_ids": queued_task_ids,
             "next_task_id": queued_task_ids[0] if queued_task_ids else None,
+        }
+
+    @staticmethod
+    def reservation_event(
+        reservations: list[dict],
+        *,
+        timestamp: str = "2026-09-08T05:00:01Z",
+    ) -> dict:
+        return {
+            "event": "integration_reservations_observed",
+            "timestamp_utc": timestamp,
+            "reservation_count": len(reservations),
+            "reservations": reservations,
+        }
+
+    @staticmethod
+    def durable_human_reservation(task_id: str) -> dict:
+        suffix = task_id.removeprefix("NSC-")
+        return {
+            "actual_paths": [
+                f"Assets/NoSafeCircle/DoorPrototype/Scripts/Gauntlet{suffix}.cs",
+                f"Assets/NoSafeCircle/DoorPrototype/Scripts/Gauntlet{suffix}.cs.meta",
+            ],
+            "authorized_decomposition_apply_commit": None,
+            "branch": f"nsc-{suffix}-gauntlet-{suffix}",
+            "checkout_path": f"C:\\NSC\\Recovery\\{task_id}",
+            "confidence": 1.0,
+            "evidence_type": "durable_branch_or_checkout_actual_paths",
+            "exclusive_resources": [],
+            "head": "a" * 40,
+            "local_active": False,
+            "pending_transition": None,
+            "phase": "unity_runtime_validation",
+            "predicted_paths": [],
+            "shared_systems": [],
+            "surface_unknown": False,
+            "task_id": task_id,
+            "unity_serialized_assets": [],
+            "workflow_state": "human_action_required",
         }
 
     def add_task(
@@ -321,12 +370,12 @@ class GauntletViewIssueTests(unittest.TestCase):
 
     def test_invalid_repository_slugs_are_rejected(self) -> None:
         invalid = (
-            "fixture-owner",
-            "fixture-owner/repo/extra",
-            "https://github.com/fixture-owner/repo",
-            "fixture-owner/../repo",
-            "fixture-owner/repo?tab=issues",
-            "fixture-owner//repo",
+            "cathode26",
+            "cathode26/repo/extra",
+            "https://github.com/cathode26/repo",
+            "cathode26/../repo",
+            "cathode26/repo?tab=issues",
+            "cathode26//repo",
             112,
         )
         for repository in invalid:
@@ -355,7 +404,7 @@ class GauntletViewIssueTests(unittest.TestCase):
             "javascript:alert(1)",
             "data:text/html,<script>alert(1)</script>",
             "https://evil.example/issues/112",
-            "https://github.com/fixture-owner/Other/issues/112",
+            "https://github.com/cathode26/Other/issues/112",
             EXPECTED_ISSUE_URL + '?next=" onmouseover="alert(1)',
         )
         html = INDEX_PATH.read_text(encoding="utf-8")
@@ -546,6 +595,8 @@ class GauntletViewStateAndSseTests(unittest.TestCase):
 
         self.assertEqual(task["state"], "active")
         self.assertEqual(task["worker"]["phase"], "decomposition")
+        self.assertEqual(task["active_work_type"], "decomposition")
+        self.assertEqual(task["title"], "Task NSC-112")
         self.assertIn("DECOMPOSING", "\n".join(task["node_lines"]))
         self.assertNotIn("DECOMPOSITION AVAILABLE", task["node_lines"])
 
@@ -711,6 +762,617 @@ class GauntletViewStateAndSseTests(unittest.TestCase):
         self.seed_human_action_then_agent_ready_queue()
         self.assertEqual(self.fixture.task()["state"], "integration_queued")
 
+    def test_current_run_gate_queue_projects_inherited_recovery_waiters(self) -> None:
+        """The live all-Claude recovery shape has no new worker launch per waiter."""
+        targets = [
+            "NSC-1001",
+            "NSC-1003",
+            "NSC-1004",
+            "NSC-1005",
+            "NSC-1007",
+            "NSC-1008",
+            "NSC-898",
+            "NSC-899",
+        ]
+        queued = ["NSC-1013", "NSC-1014", "NSC-1003", "NSC-1004"]
+        self.fixture.write_manifest(EXPECTED_REPOSITORY, target_task_ids=targets)
+        self.fixture.add_task("NSC-1007")
+        parent_path = self.fixture.tasks / "NSC-1007.yaml"
+        parent = json.loads(parent_path.read_text(encoding="utf-8"))
+        parent["decomposition_state"] = "decomposed"
+        parent["decomposition_children"] = ["NSC-1013", "NSC-1014"]
+        write_json(parent_path, parent)
+        for task_id in queued:
+            self.fixture.add_task(
+                task_id,
+                parent="NSC-1007" if task_id in {"NSC-1013", "NSC-1014"} else None,
+                progress_events=[
+                    event("terminal_state", {"status": "human_action_required"}),
+                    event("run_finished", {"status": "human_action_required"}),
+                ],
+            )
+        self.fixture.write_scheduler_events(
+            [
+                {
+                    "event": "poll_started",
+                    "timestamp_utc": "2026-09-08T05:00:00Z",
+                    "active_worker_count": 1,
+                },
+                {
+                    "event": "integration_gate_observed",
+                    "timestamp_utc": "2026-09-08T05:00:01Z",
+                    "gate_ref": "refs/nsc/integration-gate",
+                    "owner": "NSC-899",
+                    "queued_task_ids": queued,
+                    "next_task_id": "NSC-1013",
+                },
+            ]
+        )
+
+        snapshot = self.fixture.snapshot().build()
+        by_id = {task["id"]: task for task in snapshot["tasks"]}
+
+        self.assertEqual(
+            [by_id[task_id]["state"] for task_id in queued],
+            ["integration_queued"] * len(queued),
+        )
+        self.assertEqual(
+            [by_id[task_id]["progress"]["queue_position"] for task_id in queued],
+            [1, 2, 3, 4],
+        )
+        self.assertEqual(
+            by_id["NSC-1013"]["node_lines"][0],
+            "WAITING FOR MERGE GATE · queue position 1",
+        )
+
+    def test_latest_current_run_gate_snapshot_removal_clears_projected_queue(self) -> None:
+        self.fixture.add_task(
+            progress_events=[
+                event("terminal_state", {"status": "human_action_required"}),
+                event("run_finished", {"status": "human_action_required"}),
+            ]
+        )
+        self.fixture.write_scheduler_events(
+            [
+                {
+                    "event": "poll_started",
+                    "timestamp_utc": "2026-09-08T05:00:00Z",
+                    "active_worker_count": 0,
+                },
+                self.fixture.gate_event(["NSC-112"]),
+                {
+                    **self.fixture.gate_event([]),
+                    "timestamp_utc": "2026-09-08T05:02:00Z",
+                },
+            ]
+        )
+
+        self.assertEqual(self.fixture.task()["state"], "ready")
+
+    def test_gate_queue_from_a_different_run_is_not_reused(self) -> None:
+        self.fixture.add_task(
+            progress_events=[
+                event("terminal_state", {"status": "human_action_required"}),
+                event("run_finished", {"status": "human_action_required"}),
+            ]
+        )
+        old_run = self.fixture.run.parent / "old-run"
+        write_json(
+            old_run / "manifest.json",
+            {
+                "run_id": "old-run",
+                "github_repository": EXPECTED_REPOSITORY,
+                "target_task_ids": ["NSC-112"],
+                "excluded_task_ids": [],
+                "max_capacity": 1,
+            },
+        )
+        write_jsonl(old_run / "events.jsonl", [self.fixture.gate_event(["NSC-112"])])
+        self.fixture.write_scheduler_events(
+            [
+                {
+                    "event": "poll_started",
+                    "timestamp_utc": "2026-09-08T05:00:00Z",
+                    "active_worker_count": 0,
+                }
+            ]
+        )
+
+        task = next(
+            task
+            for task in server.Snapshot(
+                self.fixture.tasks,
+                self.fixture.state,
+                run_dir=self.fixture.run,
+            ).build()["tasks"]
+            if task["id"] == "NSC-112"
+        )
+
+        self.assertEqual(task["state"], "ready")
+
+    def test_gate_queue_does_not_override_dependency_unmet_or_active_work(self) -> None:
+        self.fixture.write_manifest(
+            EXPECTED_REPOSITORY,
+            target_task_ids=["NSC-112", "NSC-113", "NSC-114"],
+        )
+        self.fixture.add_task("NSC-112")
+        blocked_path = self.fixture.tasks / "NSC-112.yaml"
+        blocked = json.loads(blocked_path.read_text(encoding="utf-8"))
+        blocked["depends_on"] = ["NSC-114"]
+        write_json(blocked_path, blocked)
+        self.fixture.add_task("NSC-113", progress_events=[event("run_started")])
+        self.fixture.add_task("NSC-114", progress_events=[event("run_started")])
+        self.fixture.write_scheduler_events(
+            [
+                {
+                    "event": "poll_started",
+                    "timestamp_utc": "2026-09-08T05:00:00Z",
+                    "active_worker_count": 1,
+                },
+                {
+                    "event": "worker_launched",
+                    "timestamp_utc": "2026-09-08T05:00:01Z",
+                    "task_id": "NSC-113",
+                    "run_id": "worker-run-a",
+                    "worker_id": "worker-current",
+                },
+                {
+                    **self.fixture.gate_event(["NSC-112", "NSC-113"]),
+                    "timestamp_utc": "2026-09-08T05:00:02Z",
+                },
+            ]
+        )
+
+        snapshot = self.fixture.snapshot().build()
+        by_id = {task["id"]: task for task in snapshot["tasks"]}
+
+        self.assertEqual(by_id["NSC-112"]["state"], "pending")
+        self.assertEqual(by_id["NSC-113"]["state"], "active")
+
+    def test_gate_queue_does_not_override_higher_precedence_task_states(self) -> None:
+        task_states = {
+            "NSC-120": "human_action_required",
+            "NSC-121": "blocked",
+            "NSC-122": "failed",
+        }
+        task_ids = [*task_states, "NSC-123", "NSC-124", "NSC-125"]
+        self.fixture.write_manifest(
+            EXPECTED_REPOSITORY,
+            target_task_ids=task_ids,
+            excluded_task_ids=["NSC-124"],
+        )
+        for task_id, terminal in task_states.items():
+            self.fixture.add_task(
+                task_id,
+                progress_events=[
+                    event("terminal_state", {"status": terminal}),
+                    event("run_finished", {"status": terminal}),
+                ],
+            )
+        self.fixture.add_task("NSC-123")
+        self.fixture.add_task("NSC-124")
+        self.fixture.add_task("NSC-125")
+        cancelled_path = self.fixture.tasks / "NSC-125.yaml"
+        cancelled = json.loads(cancelled_path.read_text(encoding="utf-8"))
+        cancelled["contract_disposition"] = "cancelled"
+        write_json(cancelled_path, cancelled)
+        scheduler_events = [
+            {
+                "event": "poll_started",
+                "timestamp_utc": "2026-09-08T05:00:00Z",
+                "active_worker_count": 0,
+            }
+        ]
+        for index, task_id in enumerate(task_states, start=1):
+            scheduler_events.extend(
+                [
+                    {
+                        "event": "worker_launched",
+                        "timestamp_utc": f"2026-09-08T05:00:0{index}Z",
+                        "task_id": task_id,
+                        "run_id": "worker-run-a",
+                        "worker_id": f"worker-{index}",
+                    },
+                    {
+                        "event": "worker_finished",
+                        "timestamp_utc": f"2026-09-08T05:01:0{index}Z",
+                        "task_id": task_id,
+                        "run_id": "worker-run-a",
+                        "worker_id": f"worker-{index}",
+                    },
+                ]
+            )
+        scheduler_events.append(self.fixture.gate_event(task_ids))
+        self.fixture.write_scheduler_events(scheduler_events)
+
+        with mock.patch.object(
+            server.Snapshot,
+            "taskgraph_states",
+            return_value=(True, {"NSC-123": {"state": "conformant"}}),
+        ):
+            snapshot = self.fixture.snapshot().build()
+        by_id = {task["id"]: task for task in snapshot["tasks"]}
+
+        self.assertEqual(by_id["NSC-120"]["state"], "human_action")
+        self.assertEqual(by_id["NSC-121"]["state"], "blocked")
+        self.assertEqual(by_id["NSC-122"]["state"], "failed")
+        self.assertEqual(by_id["NSC-123"]["state"], "complete")
+        self.assertEqual(by_id["NSC-124"]["state"], "excluded")
+        self.assertEqual(by_id["NSC-125"]["state"], "cancelled")
+
+    def test_current_run_reservations_project_inherited_human_action_tasks(self) -> None:
+        """Exact recovery-v3 shape: Issue state exists without a new worker event."""
+        targets = ["NSC-1001", "NSC-1003", "NSC-1004", "NSC-1005", "NSC-1007"]
+        children = ["NSC-1015", "NSC-1016"]
+        self.fixture.write_manifest(EXPECTED_REPOSITORY, target_task_ids=targets)
+        self.fixture.add_task("NSC-1007")
+        parent_path = self.fixture.tasks / "NSC-1007.yaml"
+        parent = json.loads(parent_path.read_text(encoding="utf-8"))
+        parent["decomposition_state"] = "decomposed"
+        parent["decomposition_children"] = children
+        write_json(parent_path, parent)
+        for task_id in children:
+            self.fixture.add_task(task_id, parent="NSC-1007")
+        self.fixture.write_scheduler_events(
+            [
+                {
+                    "event": "poll_started",
+                    "timestamp_utc": "2026-09-08T05:00:00Z",
+                    "active_worker_count": 0,
+                },
+                self.fixture.reservation_event(
+                    [self.fixture.durable_human_reservation(task_id) for task_id in children]
+                ),
+            ]
+        )
+
+        snapshot = self.fixture.snapshot().build()
+        by_id = {task["id"]: task for task in snapshot["tasks"]}
+
+        self.assertEqual([by_id[task_id]["state"] for task_id in children], ["human_action"] * 2)
+        for task_id in children:
+            progress = by_id[task_id]["progress"]
+            self.assertEqual(progress["phase"], "unity_runtime_validation")
+            self.assertEqual(progress["inherited_workflow_state"], "human_action_required")
+            self.assertEqual(progress["inherited_workflow_source"], "current-run integration reservation")
+            self.assertIn("UNITY RUNTIME VALIDATION", by_id[task_id]["node_lines"])
+
+    def test_latest_reservation_snapshot_removal_clears_inherited_human_action(self) -> None:
+        self.fixture.add_task()
+        self.fixture.write_scheduler_events(
+            [
+                {
+                    "event": "poll_started",
+                    "timestamp_utc": "2026-09-08T05:00:00Z",
+                    "active_worker_count": 0,
+                },
+                self.fixture.reservation_event(
+                    [self.fixture.durable_human_reservation("NSC-112")]
+                ),
+                self.fixture.reservation_event([], timestamp="2026-09-08T05:01:00Z"),
+            ]
+        )
+
+        task = self.fixture.task()
+
+        self.assertEqual(task["state"], "ready")
+        self.assertIsNone(task["progress"].get("inherited_workflow_state"))
+
+    def test_reservation_from_a_different_run_cannot_repaint_current_run(self) -> None:
+        self.fixture.add_task()
+        old_run = self.fixture.run.parent / "old-run"
+        write_json(
+            old_run / "manifest.json",
+            {
+                "run_id": "old-run",
+                "github_repository": EXPECTED_REPOSITORY,
+                "target_task_ids": ["NSC-112"],
+                "excluded_task_ids": [],
+                "max_capacity": 1,
+            },
+        )
+        write_jsonl(
+            old_run / "events.jsonl",
+            [self.fixture.reservation_event([self.fixture.durable_human_reservation("NSC-112")])],
+        )
+        self.fixture.write_scheduler_events(
+            [
+                {
+                    "event": "poll_started",
+                    "timestamp_utc": "2026-09-08T05:02:00Z",
+                    "active_worker_count": 0,
+                }
+            ]
+        )
+
+        task = next(
+            task
+            for task in server.Snapshot(
+                self.fixture.tasks,
+                self.fixture.state,
+                run_dir=self.fixture.run,
+            ).build()["tasks"]
+            if task["id"] == "NSC-112"
+        )
+
+        self.assertEqual(task["state"], "ready")
+
+    def test_newer_worker_launch_and_gate_transition_override_inherited_human_action(self) -> None:
+        self.fixture.write_manifest(
+            EXPECTED_REPOSITORY,
+            target_task_ids=["NSC-112", "NSC-113"],
+        )
+        self.fixture.add_task("NSC-112")
+        self.fixture.add_task("NSC-113")
+        self.fixture.write_scheduler_events(
+            [
+                {
+                    "event": "poll_started",
+                    "timestamp_utc": "2026-09-08T05:00:00Z",
+                    "active_worker_count": 0,
+                },
+                self.fixture.reservation_event(
+                    [
+                        self.fixture.durable_human_reservation("NSC-112"),
+                        self.fixture.durable_human_reservation("NSC-113"),
+                    ]
+                ),
+                {
+                    "event": "worker_launched",
+                    "timestamp_utc": "2026-09-08T05:01:00Z",
+                    "task_id": "NSC-112",
+                    "run_id": "worker-run-a",
+                    "worker_id": "worker-current",
+                },
+                {
+                    **self.fixture.agent_ready_event("NSC-113"),
+                    "timestamp_utc": "2026-09-08T05:01:01Z",
+                },
+                {
+                    **self.fixture.gate_event(["NSC-113"]),
+                    "timestamp_utc": "2026-09-08T05:01:02Z",
+                },
+            ]
+        )
+
+        snapshot = self.fixture.snapshot().build()
+        by_id = {task["id"]: task for task in snapshot["tasks"]}
+
+        self.assertEqual(by_id["NSC-112"]["state"], "active")
+        self.assertEqual(by_id["NSC-113"]["state"], "integration_queued")
+
+    def test_inherited_human_action_does_not_override_unmet_dependencies_or_exclusion(self) -> None:
+        self.fixture.write_manifest(
+            EXPECTED_REPOSITORY,
+            target_task_ids=["NSC-112", "NSC-113", "NSC-114"],
+            excluded_task_ids=["NSC-113"],
+        )
+        self.fixture.add_task("NSC-112")
+        blocked_path = self.fixture.tasks / "NSC-112.yaml"
+        blocked = json.loads(blocked_path.read_text(encoding="utf-8"))
+        blocked["depends_on"] = ["NSC-114"]
+        write_json(blocked_path, blocked)
+        self.fixture.add_task("NSC-113")
+        self.fixture.add_task("NSC-114")
+        self.fixture.write_scheduler_events(
+            [
+                {
+                    "event": "poll_started",
+                    "timestamp_utc": "2026-09-08T05:00:00Z",
+                    "active_worker_count": 0,
+                },
+                self.fixture.reservation_event(
+                    [
+                        self.fixture.durable_human_reservation("NSC-112"),
+                        self.fixture.durable_human_reservation("NSC-113"),
+                    ]
+                ),
+            ]
+        )
+
+        snapshot = self.fixture.snapshot().build()
+        by_id = {task["id"]: task for task in snapshot["tasks"]}
+
+        self.assertEqual(by_id["NSC-112"]["state"], "pending")
+        self.assertEqual(by_id["NSC-113"]["state"], "excluded")
+
+    def test_inherited_human_action_does_not_override_terminal_worker_results(self) -> None:
+        terminal_states = {
+            "NSC-120": "complete",
+            "NSC-121": "blocked",
+            "NSC-122": "failed",
+        }
+        self.fixture.write_manifest(
+            EXPECTED_REPOSITORY,
+            target_task_ids=list(terminal_states),
+        )
+        scheduler_events = [
+            {
+                "event": "poll_started",
+                "timestamp_utc": "2026-09-08T05:00:00Z",
+                "active_worker_count": 0,
+            }
+        ]
+        for index, (task_id, terminal) in enumerate(terminal_states.items(), start=1):
+            self.fixture.add_task(
+                task_id,
+                progress_events=[
+                    event("terminal_state", {"status": terminal}),
+                    event("run_finished", {"status": terminal}),
+                ],
+            )
+            scheduler_events.extend(
+                [
+                    {
+                        "event": "worker_launched",
+                        "timestamp_utc": f"2026-09-08T05:00:0{index}Z",
+                        "task_id": task_id,
+                        "run_id": "worker-run-a",
+                        "worker_id": f"worker-{index}",
+                    },
+                    {
+                        "event": "worker_finished",
+                        "timestamp_utc": f"2026-09-08T05:01:0{index}Z",
+                        "task_id": task_id,
+                        "run_id": "worker-run-a",
+                        "worker_id": f"worker-{index}",
+                    },
+                ]
+            )
+        scheduler_events.append(
+            self.fixture.reservation_event(
+                [
+                    self.fixture.durable_human_reservation(task_id)
+                    for task_id in terminal_states
+                ],
+                timestamp="2026-09-08T05:02:00Z",
+            )
+        )
+        self.fixture.write_scheduler_events(scheduler_events)
+
+        snapshot = self.fixture.snapshot().build()
+        by_id = {task["id"]: task for task in snapshot["tasks"]}
+
+        self.assertEqual(by_id["NSC-120"]["state"], "complete")
+        self.assertEqual(by_id["NSC-121"]["state"], "blocked")
+        self.assertEqual(by_id["NSC-122"]["state"], "failed")
+
+    def test_non_issue_reservation_evidence_cannot_project_human_action(self) -> None:
+        self.fixture.add_task()
+        unsafe = self.fixture.durable_human_reservation("NSC-112")
+        unsafe["evidence_type"] = "scheduler_prediction_and_actual_git"
+        self.fixture.write_scheduler_events(
+            [
+                {
+                    "event": "poll_started",
+                    "timestamp_utc": "2026-09-08T05:00:00Z",
+                    "active_worker_count": 0,
+                },
+                self.fixture.reservation_event([unsafe]),
+            ]
+        )
+
+        self.assertEqual(self.fixture.task()["state"], "ready")
+
+    def test_current_main_integration_explains_human_revalidation_handoff(self) -> None:
+        """Exact NSC-1013 sequence: candidate sync, then revalidation handoff."""
+        self.fixture.add_task(
+            progress_events=[
+                event(
+                    "state_observed",
+                    {
+                        "issue_state": "agent_working",
+                        "phase": "delivery_evidence",
+                        "next_action": "integrate_current_main",
+                        "turn": 3,
+                    },
+                ),
+                event(
+                    "pipeline_action_started",
+                    {"action": "integrate_current_main", "turn": 3},
+                    timestamp="2026-09-08T06:52:49Z",
+                ),
+                event(
+                    "action_completed",
+                    {
+                        "action": "integrate_current_main",
+                        "result_summary": {"status": "human_revalidation_required"},
+                        "turn": 3,
+                    },
+                    timestamp="2026-09-08T06:54:55Z",
+                ),
+            ]
+        )
+
+        task = self.fixture.task()
+
+        self.assertEqual(task["state"], "human_action")
+        self.assertEqual(
+            task["progress"]["transition_context"],
+            "Current main merged into candidate successfully — waiting for revalidation review.",
+        )
+        self.assertIn("CURRENT MAIN INTEGRATED INTO CANDIDATE", task["node_lines"])
+        self.assertIn("Waiting for revalidation review", task["node_lines"])
+
+    def test_published_main_explains_pending_post_merge_verification(self) -> None:
+        self.fixture.add_task(
+            progress_events=[
+                event(
+                    "state_observed",
+                    {"issue_state": "agent_working", "phase": "merge_closeout", "turn": 8},
+                ),
+                event(
+                    "action_completed",
+                    {
+                        "action": "inspect_or_merge_pull_request",
+                        "result_summary": {"status": "merged"},
+                        "turn": 8,
+                    },
+                    timestamp="2026-09-08T07:00:00Z",
+                ),
+            ]
+        )
+        with mock.patch.object(
+            server.Snapshot,
+            "taskgraph_states",
+            return_value=(True, {"NSC-112": {"state": "not_delivered"}}),
+        ):
+            task = self.fixture.task()
+
+        self.assertEqual(
+            task["progress"]["transition_context"],
+            "Published to main successfully — post-merge verification pending.",
+        )
+        self.assertIn("PUBLISHED TO MAIN", task["node_lines"])
+        self.assertIn("Post-merge verification pending", task["node_lines"])
+
+    def test_human_action_without_causal_event_does_not_invent_transition_context(self) -> None:
+        self.fixture.add_task(
+            progress_events=[
+                event(
+                    "action_completed",
+                    {
+                        "action": "integrate_commit_push_and_handoff",
+                        "result_summary": {"status": "human_action_required"},
+                        "turn": 6,
+                    },
+                ),
+                event("terminal_state", {"status": "human_action_required"}),
+                event("run_finished", {"status": "human_action_required"}),
+            ]
+        )
+
+        task = self.fixture.task()
+
+        self.assertEqual(task["state"], "human_action")
+        self.assertIsNone(task["progress"].get("transition_context"))
+        self.assertNotIn("main", "\n".join(task.get("node_lines") or []).casefold())
+
+    def test_started_successor_action_clears_prior_transition_context(self) -> None:
+        self.fixture.add_task(
+            progress_events=[
+                event(
+                    "action_completed",
+                    {
+                        "action": "integrate_current_main",
+                        "result_summary": {"status": "human_revalidation_required"},
+                        "turn": 3,
+                    },
+                ),
+                event(
+                    "pipeline_action_started",
+                    {"action": "create_delivery_review_draft", "turn": 4},
+                    timestamp="2026-09-08T07:00:00Z",
+                ),
+            ]
+        )
+
+        task = self.fixture.task()
+
+        self.assertEqual(task["state"], "active")
+        self.assertIsNone(task["progress"]["transition_context"])
+        self.assertNotIn("REVALIDATION REQUIRED", task["node_lines"])
+
     def test_queued_work_is_not_displayed_as_task_needs_you(self) -> None:
         self.seed_human_action_then_agent_ready_queue()
         self.assertNotEqual(self.fixture.task()["state"], "human_action")
@@ -852,7 +1514,7 @@ class GauntletViewStateAndSseTests(unittest.TestCase):
         if include_pr:
             fields["pull_request_url"] = EXPECTED_PR_URL
         self.fixture.add_task(
-            "NSC-701",
+            "NSC-929",
             progress_events=[
                 event("state_observed", fields),
                 event(
@@ -872,7 +1534,7 @@ class GauntletViewStateAndSseTests(unittest.TestCase):
                 {
                     "event": "worker_launched",
                     "timestamp_utc": "2026-09-07T00:59:00Z",
-                    "task_id": "NSC-701",
+                    "task_id": "NSC-929",
                     "worker_id": "worker-a",
                 }
             ]
@@ -880,13 +1542,13 @@ class GauntletViewStateAndSseTests(unittest.TestCase):
 
     def test_active_pr_monitor_projects_as_checks_pending(self) -> None:
         self.seed_nsc_929_pr_monitor()
-        task = self.fixture.task("NSC-701")
+        task = self.fixture.task("NSC-929")
         self.assertEqual(task["state"], "checks_pending")
         self.assertEqual(task["worker"]["pull_request_url"], EXPECTED_PR_URL)
 
     def test_ci_node_retains_active_worker_and_turn_information(self) -> None:
         self.seed_nsc_929_pr_monitor()
-        worker = self.fixture.task("NSC-701")["worker"]
+        worker = self.fixture.task("NSC-929")["worker"]
         self.assertIs(worker["active"], True)
         self.assertIs(worker["monitoring_ci"], True)
         self.assertEqual(worker["turn"], 4)
@@ -1018,7 +1680,7 @@ class GauntletViewStateAndSseTests(unittest.TestCase):
 
     def test_no_pr_evidence_does_not_classify_arbitrary_active_work_as_ci(self) -> None:
         self.seed_nsc_929_pr_monitor(include_pr=False)
-        self.assertEqual(self.fixture.task("NSC-701")["state"], "active")
+        self.assertEqual(self.fixture.task("NSC-929")["state"], "active")
 
     def test_current_checks_pending_result_projects_as_ci(self) -> None:
         self.fixture.add_task(
@@ -1136,6 +1798,148 @@ class GauntletViewCompactProgressTests(unittest.TestCase):
         self.assertIn("7m", rendered)
         self.assertIn("turn 6", rendered)
 
+    def test_operator_stage_labels_hide_internal_phase_names(self) -> None:
+        self.assertEqual(server.PHASE_STAGES["execution_scope"][1], "CHECKING TASK FILES")
+        self.assertEqual(
+            server.PHASE_STAGES["execution_crew"][1],
+            "IMPLEMENTING AND VALIDATING",
+        )
+
+    def test_live_nsc_1001_delivery_action_overrides_generic_phase_wording(self) -> None:
+        self.fixture.add_task(
+            "NSC-1001",
+            progress_events=[
+                event("run_started", timestamp="2026-09-07T00:59:00Z"),
+                event(
+                    "state_observed",
+                    {"phase": "delivery_evidence", "turn": 9},
+                    timestamp="2026-09-07T01:00:00Z",
+                ),
+                event(
+                    "pipeline_action_started",
+                    {"action": "integrate_current_main", "turn": 9},
+                    timestamp="2026-09-07T01:02:00Z",
+                ),
+            ],
+        )
+
+        with mock.patch.object(server.time, "time", return_value=1788743100):
+            task = self.fixture.task("NSC-1001")
+
+        self.assertEqual(task["state"], "active")
+        active_stage = next(
+            stage
+            for stage in task["progress"]["pipeline_stages"]
+            if stage["status"] == "active"
+        )
+        self.assertEqual(active_stage["number"], 5)
+        self.assertEqual(
+            active_stage["display_label"],
+            "EVIDENCE / MERGING MAIN INTO TASK BRANCH",
+        )
+        rendered = "\n".join(task["node_lines"])
+        self.assertIn("EVIDENCE / MERGING MAIN INTO TASK BRANCH", rendered)
+        self.assertNotIn("PRODUCING EVIDENCE", rendered)
+        self.assertEqual(
+            task["progress"]["current_agent"]["action"],
+            "merging main into the task branch",
+        )
+
+    def test_delivery_submission_actions_have_precise_ci_submission_wording(self) -> None:
+        actions = (
+            "create_delivery_review_draft",
+            "create_delivery_review_proposal",
+            "publish_delivery_review",
+            "publish_delivery_evidence",
+            "finalize_delivery_evidence",
+            "finalize_delivery_evidence_and_open_pr",
+            "open_pull_request",
+        )
+        for index, action in enumerate(actions, start=2):
+            task_id = f"NSC-10{index:02d}"
+            with self.subTest(action=action):
+                self.fixture.add_task(
+                    task_id,
+                    progress_events=[
+                        event(
+                            "state_observed",
+                            {"phase": "delivery_evidence"},
+                            timestamp="2026-09-07T01:00:00Z",
+                        ),
+                        event(
+                            "pipeline_action_started",
+                            {"action": action},
+                            timestamp="2026-09-07T01:02:00Z",
+                        ),
+                    ],
+                )
+                task = self.fixture.task(task_id)
+                active_stage = next(
+                    stage
+                    for stage in task["progress"]["pipeline_stages"]
+                    if stage["status"] == "active"
+                )
+                self.assertEqual(active_stage["number"], 5)
+                self.assertEqual(
+                    active_stage["display_label"], "EVIDENCE / SUBMITTING FOR CI"
+                )
+                self.assertEqual(
+                    task["progress"]["current_agent"]["action"],
+                    "submitting the task for CI",
+                )
+
+    def test_in_ci_wording_requires_exact_durable_pull_request_evidence(self) -> None:
+        self.fixture.add_task(
+            "NSC-1001",
+            progress_events=[
+                event(
+                    "state_observed",
+                    {"phase": "merge_closeout"},
+                    timestamp="2026-09-07T01:00:00Z",
+                ),
+                event(
+                    "pipeline_action_started",
+                    {"action": "inspect_or_merge_pull_request"},
+                    timestamp="2026-09-07T01:02:00Z",
+                ),
+            ],
+        )
+        without_pr = self.fixture.task("NSC-1001")
+        without_pr_stage = next(
+            stage
+            for stage in without_pr["progress"]["pipeline_stages"]
+            if stage["status"] == "active"
+        )
+        self.assertEqual(without_pr["state"], "active")
+        self.assertNotIn("IN CI", without_pr_stage["display_label"])
+
+        self.fixture.add_task(
+            "NSC-1002",
+            progress_events=[
+                event(
+                    "state_observed",
+                    {
+                        "phase": "merge_closeout",
+                        "pull_request_url": EXPECTED_PR_URL,
+                    },
+                    timestamp="2026-09-07T01:00:00Z",
+                ),
+                event(
+                    "pipeline_action_started",
+                    {"action": "inspect_or_merge_pull_request"},
+                    timestamp="2026-09-07T01:02:00Z",
+                ),
+            ],
+        )
+        with_pr = self.fixture.task("NSC-1002")
+        with_pr_stage = next(
+            stage
+            for stage in with_pr["progress"]["pipeline_stages"]
+            if stage["status"] == "active"
+        )
+        self.assertEqual(with_pr["state"], "checks_pending")
+        self.assertEqual(with_pr_stage["display_label"], "CI / IN CI")
+
     def test_active_node_clocks_use_durable_stage_and_task_start_timestamps(self) -> None:
         self.fixture.add_task(
             progress_events=[
@@ -1189,7 +1993,7 @@ class GauntletViewCompactProgressTests(unittest.TestCase):
         )
         rendered = "\n".join(task["node_lines"])
         self.assertIn("IMPLEMENT / IMPLEMENTING", rendered)
-        self.assertEqual(task["node_heading"], "NSC-112 · TOTAL TASK 6m")
+        self.assertEqual(task["node_heading"], "NSC-112 · Time 6m")
         self.assertIn("CURRENT STAGE 3m", task["node_summary_lines"][0])
 
     def test_active_execution_crew_roles_have_ordered_durable_receipt_details(self) -> None:
@@ -1399,7 +2203,7 @@ class GauntletViewCompactProgressTests(unittest.TestCase):
         self.assertIn("CURRENT AGENT Decomposition Reviewer", "\n".join(task["node_summary_lines"]))
         self.assertNotEqual(before, after)
 
-    def test_retry_count_and_current_attempt_timing_are_separate(self) -> None:
+    def test_retry_count_keeps_only_latest_attempt_timing_summary(self) -> None:
         self.fixture.add_task(
             progress_events=[
                 event("state_observed", {"phase": "repair"}),
@@ -1428,7 +2232,7 @@ class GauntletViewCompactProgressTests(unittest.TestCase):
         self.assertEqual(progress["retry_count"], 1)
         self.assertEqual(progress["current_attempt_elapsed_seconds"], 90)
         self.assertEqual(progress["stage_elapsed_seconds"], 90)
-        self.assertEqual(progress["total_elapsed_seconds"], 150)
+        self.assertEqual(progress["total_elapsed_seconds"], 90)
 
     def test_completed_task_exposes_total_duration_without_live_node_noise(self) -> None:
         self.fixture.add_task(
@@ -1442,24 +2246,86 @@ class GauntletViewCompactProgressTests(unittest.TestCase):
         self.assertEqual(task["progress"]["total_elapsed_seconds"], 872)
         self.assertNotIn("node_lines", task)
 
-    def test_gate_waiter_has_queue_position_and_wait_duration(self) -> None:
+    def test_gate_waiters_have_merge_gate_label_positions_and_wait_duration(self) -> None:
         self.fixture.add_task(
             progress_events=[
                 event("terminal_state", {"status": "human_action_required"}),
                 event("run_finished", {"status": "human_action_required"}),
             ]
         )
+        self.fixture.add_task(
+            "NSC-930",
+            progress_events=[
+                event("terminal_state", {"status": "human_action_required"}),
+                event("run_finished", {"status": "human_action_required"}),
+            ],
+        )
         self.fixture.write_scheduler_events(
             [
                 self.fixture.agent_ready_event(),
-                self.fixture.gate_event(["NSC-112", "NSC-702"]),
+                self.fixture.agent_ready_event("NSC-930"),
+                self.fixture.gate_event(["NSC-112", "NSC-930"]),
             ]
         )
-        task = self.fixture.task()
-        self.assertEqual(task["state"], "integration_queued")
-        self.assertEqual(task["progress"]["queue_position"], 1)
-        self.assertGreater(task["progress"]["queue_wait_seconds"], 0)
-        self.assertIn("queue position 1", "\n".join(task["node_lines"]))
+        first = self.fixture.task()
+        second = self.fixture.task("NSC-930")
+        self.assertEqual(first["state"], "integration_queued")
+        self.assertEqual(second["state"], "integration_queued")
+        self.assertEqual(first["progress"]["queue_position"], 1)
+        self.assertEqual(second["progress"]["queue_position"], 2)
+        self.assertGreater(first["progress"]["queue_wait_seconds"], 0)
+        first_lines = "\n".join(first["node_lines"])
+        second_lines = "\n".join(second["node_lines"])
+        self.assertIn("WAITING FOR MERGE GATE · queue position 1", first_lines)
+        self.assertIn("WAITING FOR MERGE GATE · queue position 2", second_lines)
+        self.assertNotIn("CI SLOT", first_lines + second_lines)
+
+    def test_synthetic_transition_intent_does_not_upgrade_durable_human_action(self) -> None:
+        self.fixture.add_task(
+            "NSC-1001",
+            progress_events=[
+                event(
+                    "state_observed",
+                    {
+                        "phase": "unity_runtime_validation",
+                        "issue_state": "human_action_required",
+                    },
+                    timestamp="2026-09-07T01:00:00Z",
+                ),
+                event(
+                    "terminal_state",
+                    {"status": "human_action_required"},
+                    timestamp="2026-09-07T01:00:01Z",
+                ),
+                event(
+                    "run_finished",
+                    {"status": "human_action_required"},
+                    timestamp="2026-09-07T01:00:02Z",
+                ),
+            ],
+        )
+        self.fixture.write_scheduler_events(
+            [
+                {
+                    "event": "synthetic_evidence_transition_planned",
+                    "timestamp_utc": "2026-09-07T02:00:00Z",
+                    "task_id": "NSC-1001",
+                    "workflow_transition": {
+                        "from_state": "human_action_required",
+                        "from_phase": "unity_runtime_validation",
+                        "to_state": "agent_ready",
+                        "to_phase": "delivery_evidence",
+                    },
+                },
+                self.fixture.gate_event(["NSC-1001"]),
+            ]
+        )
+
+        task = self.fixture.task("NSC-1001")
+
+        self.assertEqual(task["state"], "human_action")
+        self.assertNotEqual(task["state"], "integration_queued")
+        self.assertNotIn("Verified", "\n".join(task.get("node_lines") or []))
 
     def test_insufficient_history_reports_estimate_unavailable(self) -> None:
         self.fixture.add_task(
@@ -2031,8 +2897,16 @@ class GauntletViewHtmlTests(unittest.TestCase):
     def test_integration_queue_state_has_explicit_label(self) -> None:
         self.assertRegex(
             self.html,
-            r"integration_queued:\s*\{[^}]*label:\s*'Verified — Waiting for CI Slot'",
+            r"integration_queued:\s*\{[^}]*label:\s*'Candidate Ready — Waiting for Merge Gate'",
         )
+        self.assertNotIn("Verified — Waiting for CI Slot", self.html)
+
+    def test_task_detail_renders_only_durable_transition_context(self) -> None:
+        self.assertIn(
+            "if (progress.transition_context) field('latest durable transition'",
+            self.html,
+        )
+        self.assertIn("esc(progress.transition_context)", self.html)
 
     def test_issue_and_pull_request_links_remain_clickable(self) -> None:
         self.assertIn(">Open GitHub Issue</a>", self.html)
@@ -2052,6 +2926,14 @@ class GauntletViewHtmlTests(unittest.TestCase):
         label_end = self.html.index("function buildElements", label_start)
         label_source = self.html[label_start:label_end]
         self.assertIn("task.node_lines", label_source)
+
+    def test_active_node_label_retains_title_and_explicit_work_type(self) -> None:
+        label_start = self.html.index("function labelFor(task)")
+        label_end = self.html.index("function toggleStageExpansion", label_start)
+        label_source = self.html[label_start:label_end]
+        self.assertIn("${title}\\n[${workType}]", label_source)
+        self.assertIn("task.active_work_type === 'decomposition'", label_source)
+        self.assertIn("task.active_work_type === 'implementation'", label_source)
 
     def test_detail_has_recorded_token_and_cost_section(self) -> None:
         self.assertIn("Token &amp; cost", self.html)
@@ -2132,6 +3014,214 @@ class PipelineActivityTests(unittest.TestCase):
         self.assertEqual(value["stage_elapsed_seconds"], 300)
         self.assertEqual(value["run_elapsed_seconds"], 600)
 
+    def test_old_all_claude_terminal_run_clears_finished_nsc_1004_and_freezes_clocks(self):
+        """Exact regression shape from the failed all-Claude NSC-1004 run.
+
+        Classification: pure/component regression.  The fixture models the
+        scheduler launch, a merge-closeout CI action, the worker's durable
+        failure, the newer agent-ready Issue observation, and the controller's
+        later fatal terminal record.  No process or GitHub state is consulted.
+        """
+
+        task_id = self.ids[0]
+        self.manifest["runtime_configuration"] = {
+            "architect_provider": "claude",
+            "architect_model": None,
+            "provider_allowlist": ["claude"],
+            "provider_topology": {
+                "profile": "all-claude",
+                "architect": "claude",
+            },
+        }
+        write_json(self.fixture.run / "manifest.json", self.manifest)
+        self.fixture.add_worker_run(
+            task_id,
+            "scheduler-nsc-1004-fixture",
+            progress_events=[
+                event(
+                    "state_observed",
+                    {"phase": "merge_closeout", "issue_state": "agent_ready"},
+                    timestamp="2026-09-07T01:00:40Z",
+                ),
+                event(
+                    "pipeline_action_started",
+                    {"action": "inspect_or_merge_pull_request"},
+                    timestamp="2026-09-07T01:00:50Z",
+                ),
+                event(
+                    "run_finished",
+                    {"status": "failed"},
+                    timestamp="2026-09-07T01:01:00Z",
+                    elapsed_seconds=20,
+                ),
+            ],
+            mtime=1788742860,
+        )
+        rows = [
+            self.row("autonomous_run_started", 0),
+            {
+                **self.row("worker_launched", 30),
+                "task_id": task_id,
+                "run_id": "scheduler-nsc-1004-fixture",
+                "worker_id": "all-claude-slot-01",
+            },
+            {
+                **self.row("local_resume_hint_send_completed", 31),
+                "task_id": task_id,
+                "timestamp_utc": "2026-09-07T01:01:10Z",
+                "workflow_transition": {
+                    "from_state": "agent_working",
+                    "from_phase": "merge_closeout",
+                    "to_state": "agent_ready",
+                    "to_phase": "merge_closeout",
+                },
+            },
+        ]
+        self.fixture.write_scheduler_events(rows)
+        write_jsonl(
+            self.fixture.run / "run_timeline.jsonl",
+            [
+                self.row("autonomous_run_started", 0, run_id="run-a"),
+                {
+                    **self.row(
+                        "autonomous_run_error",
+                        0,
+                        run_id="run-a",
+                        exception_type="RuntimeError",
+                    ),
+                    "timestamp_utc": "2026-09-07T01:01:20Z",
+                },
+            ],
+        )
+
+        with mock.patch.object(server.time, "time", return_value=1788748200):
+            first = self.fixture.snapshot().build()
+        with mock.patch.object(server.time, "time", return_value=1788755400):
+            later = self.fixture.snapshot().build()
+
+        first_task = next(task for task in first["tasks"] if task["id"] == task_id)
+        later_task = next(task for task in later["tasks"] if task["id"] == task_id)
+        self.assertEqual(first_task["state"], "delivery_ready")
+        self.assertFalse(first_task["worker"]["active"])
+        self.assertIsNone(first_task["progress"]["current_agent"])
+        self.assertFalse(
+            any(stage["status"] == "active" for stage in first_task["progress"]["pipeline_stages"])
+        )
+        self.assertEqual(
+            first_task["progress"]["durable_task_elapsed_seconds"],
+            later_task["progress"]["durable_task_elapsed_seconds"],
+        )
+        self.assertEqual(
+            first_task["progress"]["durable_stage_elapsed_seconds"],
+            later_task["progress"]["durable_stage_elapsed_seconds"],
+        )
+        self.assertEqual(first_task["progress"]["durable_stage_elapsed_seconds"], 20)
+        self.assertEqual(first["pipeline_activity"]["counters"]["active_workers"], 0)
+        self.assertEqual(
+            first["pipeline_activity"]["stage_elapsed_seconds"],
+            later["pipeline_activity"]["stage_elapsed_seconds"],
+        )
+        self.assertEqual(
+            first["pipeline_activity"]["run_elapsed_seconds"],
+            later["pipeline_activity"]["run_elapsed_seconds"],
+        )
+
+    def test_all_codex_identity_survives_eleven_closed_calls_and_terminal_state(self):
+        """The configured architect remains named after the provider call closes."""
+
+        self.manifest["runtime_configuration"]["architect_model"] = None
+        write_json(self.fixture.run / "manifest.json", self.manifest)
+        rows = [self.row("autonomous_run_started", 0)]
+        for invocation in range(11):
+            rows.extend(
+                [
+                    self.row(
+                        "architect_started",
+                        invocation * 2,
+                        portfolio_size=1,
+                        eligible_pairs=[{"task_id": self.ids[0], "work_types": ["implementation"]}],
+                    ),
+                    self.row(
+                        "architect_provider_call",
+                        invocation * 2 + 1,
+                        analysis_id=f"analysis-{invocation}",
+                        agent_runtime_run_id=f"architect-call-{invocation}",
+                        provider="openai-codex",
+                        model="gpt-5.6-sol",
+                    ),
+                ]
+            )
+        rows.append(self.row("autonomous_run_error", 22, exception_type="RuntimeError"))
+
+        value = self.activity(rows)
+
+        self.assertTrue(value["terminal"])
+        self.assertFalse(value["provider_call_open"])
+        self.assertEqual(value["provider_profile"], "all-codex")
+        self.assertEqual(value["configured_architect_provider"], "codex")
+        self.assertEqual(value["provider"], "openai-codex")
+        self.assertEqual(value["model"], "gpt-5.6-sol")
+        self.assertEqual(value["provider_source"], "completed provider receipt")
+        self.assertEqual(value["model_source"], "completed provider receipt")
+        self.assertEqual(value["counters"]["architect_calls_completed"], 11)
+
+    def test_completed_task_detail_retains_latest_frozen_stage_and_role_timing(self):
+        task_id = self.ids[0]
+        self.fixture.add_worker_run(
+            task_id,
+            "completed-current",
+            progress_events=[
+                event(
+                    "state_observed",
+                    {"phase": "implementation", "provider": "codex", "model": "gpt-5.6-sol"},
+                    timestamp="2026-09-07T01:00:00Z",
+                ),
+                event(
+                    "pipeline_action_started",
+                    {"action": "run_execution_crew"},
+                    timestamp="2026-09-07T01:00:10Z",
+                ),
+                event(
+                    "terminal_state",
+                    {"status": "complete"},
+                    timestamp="2026-09-07T01:01:00Z",
+                    elapsed_seconds=60,
+                ),
+                event(
+                    "run_finished",
+                    {"status": "complete"},
+                    timestamp="2026-09-07T01:01:00Z",
+                    elapsed_seconds=60,
+                ),
+            ],
+            mtime=1788742860,
+        )
+        self.fixture.write_scheduler_events(
+            [
+                {
+                    **self.row("worker_launched", 0),
+                    "task_id": task_id,
+                    "run_id": "completed-current",
+                    "worker_id": "worker-completed",
+                    "checkout_path": str(self.fixture.state / task_id),
+                },
+                {**self.row("worker_finished", 0), "task_id": task_id, "timestamp_utc": "2026-09-07T01:01:00Z"},
+            ]
+        )
+
+        with mock.patch.object(server.time, "time", return_value=1788755400):
+            task = next(
+                item for item in self.fixture.snapshot().build()["tasks"] if item["id"] == task_id
+            )
+
+        self.assertEqual(task["state"], "complete")
+        self.assertEqual(task["progress"]["total_elapsed_seconds"], 60)
+        self.assertEqual(task["progress"]["durable_task_elapsed_seconds"], 60)
+        self.assertEqual(task["progress"]["durable_stage_elapsed_seconds"], 60)
+        self.assertTrue(any(stage["elapsed_seconds"] is not None for stage in task["progress"]["pipeline_stages"]))
+        self.assertFalse(any(stage["status"] == "active" for stage in task["progress"]["pipeline_stages"]))
+        self.assertFalse(any(agent["status"] == "running" for agent in task["progress"]["agents"]))
+
     def test_dynamic_child_worker_outranks_capacity_full_scheduler_wait(self):
         parent_path = self.fixture.tasks / f"{self.ids[0]}.yaml"
         parent = json.loads(parent_path.read_text(encoding="utf-8"))
@@ -2190,6 +3280,86 @@ class PipelineActivityTests(unittest.TestCase):
         self.assertEqual(value["counters"]["capacity"], 1)
         self.assertIn("normal", value["description"].casefold())
         self.assertNotIn("admissions are blocked", value["headline"].casefold())
+
+    def test_live_nsc_1001_integration_action_names_precise_pipeline_activity(self):
+        self.fixture.add_worker_run(
+            "NSC-1001",
+            "integration-current",
+            progress_events=[
+                event(
+                    "state_observed",
+                    {"phase": "delivery_evidence", "issue_state": "agent_working"},
+                    timestamp="2026-09-07T01:00:02Z",
+                ),
+                event(
+                    "pipeline_action_started",
+                    {"action": "integrate_current_main"},
+                    timestamp="2026-09-07T01:00:03Z",
+                ),
+            ],
+            mtime=1788742803,
+        )
+
+        value = self.activity(
+            [
+                self.row(
+                    "integration_gate_observed",
+                    0,
+                    owner="NSC-1001",
+                    queued_task_ids=["NSC-1002"],
+                ),
+                self.row(
+                    "worker_launched",
+                    1,
+                    task_id="NSC-1001",
+                    run_id="integration-current",
+                    worker_id="worker-owner",
+                    work_type="implementation",
+                )
+            ]
+        )
+
+        self.assertEqual(value["stage"], "integration")
+        self.assertIn(
+            "NSC-1001: Task Supervisor is merging main into the task branch",
+            value["headline"],
+        )
+        self.assertNotIn("coordinating the task workflow", value["headline"])
+
+    def test_delivery_submission_action_names_precise_pipeline_activity(self):
+        self.fixture.add_worker_run(
+            "NSC-1001",
+            "submission-current",
+            progress_events=[
+                event(
+                    "state_observed",
+                    {"phase": "delivery_evidence", "issue_state": "agent_working"},
+                    timestamp="2026-09-07T01:00:02Z",
+                ),
+                event(
+                    "pipeline_action_started",
+                    {"action": "finalize_delivery_evidence_and_open_pr"},
+                    timestamp="2026-09-07T01:00:03Z",
+                ),
+            ],
+            mtime=1788742803,
+        )
+
+        value = self.activity(
+            [
+                self.row(
+                    "worker_launched",
+                    1,
+                    task_id="NSC-1001",
+                    run_id="submission-current",
+                    worker_id="worker-owner",
+                    work_type="implementation",
+                )
+            ]
+        )
+
+        self.assertEqual(value["stage"], "evidence")
+        self.assertIn("submitting the task for CI", value["headline"])
 
     def test_recorded_worker_without_action_still_outranks_generic_wait_headline(self):
         value = self.activity(
@@ -2282,6 +3452,93 @@ class PipelineActivityTests(unittest.TestCase):
         self.assertEqual(value["headline"], "Run failed")
         self.assertFalse(value["provider_call_open"])
 
+    def test_newer_run_start_recovers_same_immutable_run_from_prior_failure(self):
+        task_id = self.ids[0]
+        self.fixture.add_worker_run(
+            task_id,
+            "recovered-worker",
+            progress_events=[
+                event(
+                    "pipeline_action_started",
+                    {"action": "run_execution_crew"},
+                    timestamp="2026-09-07T01:00:08Z",
+                )
+            ],
+            mtime=1788742808,
+        )
+        # The recovery marker is supplied by the run timeline while the older
+        # fatal result is supplied by the scheduler journal.  The reducer must
+        # merge those authoritative timestamps, not prefer either file.
+        write_jsonl(
+            self.fixture.run / "run_timeline.jsonl",
+            [
+                self.row("autonomous_run_started", 0, run_id="run-a"),
+                self.row("autonomous_run_started", 5, run_id="run-a"),
+            ],
+        )
+
+        value = self.activity(
+            [
+                self.row("poll_capacity_batch_completed", 2, fatal=True),
+                self.row("poll_started", 6),
+                self.row(
+                    "worker_launched",
+                    7,
+                    task_id=task_id,
+                    run_id="recovered-worker",
+                ),
+            ]
+        )
+
+        self.assertFalse(value["terminal"])
+        self.assertEqual(value["stage"], "implementation")
+        self.assertIn("ExecutionCrew is implementing", value["headline"])
+        self.assertEqual(value["counters"]["active_workers"], 1)
+
+    def test_newer_scheduler_tail_without_run_restart_preserves_terminal_truth(self):
+        cases = [
+            (
+                self.row(
+                    "autonomous_run_error",
+                    2,
+                    run_id="run-a",
+                    exception_type="RuntimeError",
+                ),
+                "failed",
+                "Run failed",
+            ),
+            (
+                self.row(
+                    "operator_stopped",
+                    2,
+                    run_id="run-a",
+                    reason="keyboard_interrupt",
+                ),
+                "stopped",
+                "Run stopped by operator; durable task state was preserved",
+            ),
+        ]
+        for terminal_row, expected_stage, expected_headline in cases:
+            with self.subTest(terminal_event=terminal_row["event"]):
+                write_jsonl(
+                    self.fixture.run / "run_timeline.jsonl",
+                    [
+                        self.row("autonomous_run_started", 0, run_id="run-a"),
+                        terminal_row,
+                    ],
+                )
+
+                value = self.activity(
+                    [
+                        self.row("scheduler_draining", 3),
+                        self.row("poll_started", 6),
+                    ]
+                )
+
+                self.assertTrue(value["terminal"])
+                self.assertEqual(value["stage"], expected_stage)
+                self.assertEqual(value["headline"], expected_headline)
+
     def test_stopped_outranks_earlier_architect(self):
         self.assertEqual(self.activity([self.started, self.row("scheduler_stopped", 2)])["headline"], "Run stopped")
 
@@ -2296,6 +3553,21 @@ class PipelineActivityTests(unittest.TestCase):
         self.assertEqual(value["provider"], "codex")
         self.assertEqual(value["model"], "gpt-5.4")
         self.assertEqual(value["provider_source"], "manifest configuration")
+        value = self.activity(
+            [
+                self.started,
+                self.row(
+                    "architect_provider_call",
+                    1,
+                    provider="openai-codex",
+                    agent_runtime_run_id="receipt-without-model",
+                ),
+            ]
+        )
+        self.assertEqual(value["provider"], "openai-codex")
+        self.assertEqual(value["provider_source"], "completed provider receipt")
+        self.assertEqual(value["model"], "gpt-5.4")
+        self.assertEqual(value["model_source"], "manifest configuration")
         self.manifest["runtime_configuration"].pop("architect_model")
         write_json(self.fixture.run / "manifest.json", self.manifest)
         self.assertEqual(self.activity()["model"], "unavailable")
@@ -2328,6 +3600,95 @@ class PipelineActivityTests(unittest.TestCase):
             self.row("autonomous_run_error", 1, run_id="run-a", exception_type="RuntimeError")])
         self.assertNotEqual(before, self.fixture.snapshot().fingerprint())
         self.assertEqual(self.activity()["headline"], "Run failed")
+
+    def test_operator_stop_is_distinct_durable_terminal_and_real_error_stays_failed(self):
+        task_id = self.ids[0]
+        self.fixture.add_worker_run(
+            task_id,
+            "operator-stopped-worker",
+            progress_events=[
+                event(
+                    "state_observed",
+                    {"phase": "implementation"},
+                    timestamp="2026-09-07T01:00:01Z",
+                ),
+                event(
+                    "pipeline_action_started",
+                    {"action": "run_execution_crew"},
+                    timestamp="2026-09-07T01:00:02Z",
+                ),
+            ],
+            mtime=1788742802,
+        )
+        self.fixture.write_scheduler_events(
+            [
+                {
+                    **self.row("worker_launched", 0),
+                    "task_id": task_id,
+                    "run_id": "operator-stopped-worker",
+                    "worker_id": "operator-slot-01",
+                }
+            ]
+        )
+        write_jsonl(
+            self.fixture.run / "run_timeline.jsonl",
+            [
+                self.row("autonomous_run_started", 0, run_id="run-a"),
+                self.row(
+                    "operator_stopped",
+                    5,
+                    run_id="run-a",
+                    reason="keyboard_interrupt",
+                ),
+            ],
+        )
+        stopped = self.activity([])
+        self.assertEqual(
+            stopped["headline"],
+            "Run stopped by operator; durable task state was preserved",
+        )
+        self.assertEqual(stopped["stage"], "stopped")
+        self.assertTrue(stopped["terminal"])
+        self.assertEqual(stopped["stage_elapsed_seconds"], 5)
+        with mock.patch.object(server.time, "time", return_value=1788755400):
+            first = self.fixture.snapshot().build()
+        with mock.patch.object(server.time, "time", return_value=1788762600):
+            later = self.fixture.snapshot().build()
+        first_task = next(task for task in first["tasks"] if task["id"] == task_id)
+        later_task = next(task for task in later["tasks"] if task["id"] == task_id)
+        self.assertEqual(first_task["state"], "ready")
+        self.assertFalse(first_task["worker"]["active"])
+        self.assertEqual(
+            first_task["progress"]["durable_task_elapsed_seconds"],
+            later_task["progress"]["durable_task_elapsed_seconds"],
+        )
+        self.assertEqual(
+            first_task["progress"]["durable_stage_elapsed_seconds"],
+            later_task["progress"]["durable_stage_elapsed_seconds"],
+        )
+        self.assertFalse(
+            any(agent["status"] == "running" for agent in first_task["progress"]["agents"])
+        )
+        self.assertEqual(
+            [agent["duration_seconds"] for agent in first_task["progress"]["agents"]],
+            [agent["duration_seconds"] for agent in later_task["progress"]["agents"]],
+        )
+
+        write_jsonl(
+            self.fixture.run / "run_timeline.jsonl",
+            [
+                self.row("autonomous_run_started", 0, run_id="run-a"),
+                self.row(
+                    "autonomous_run_error",
+                    5,
+                    run_id="run-a",
+                    exception_type="RuntimeError",
+                ),
+            ],
+        )
+        failed = self.activity([])
+        self.assertEqual(failed["headline"], "Run failed")
+        self.assertEqual(failed["stage"], "failed")
 
     def test_exact_active_execution_crew_receipt_updates_sse_fingerprint(self) -> None:
         self.fixture.add_task(
@@ -2451,8 +3812,12 @@ class PipelineActivityTests(unittest.TestCase):
         self.assertLess(html.index('id="pipeline-activity"'), html.index('id="cy"'))
         self.assertIn("renderPipelineActivity(snap.pipeline_activity)", html)
         self.assertIn("updatePipelineTimers", html)
-        self.assertIn("Current stage elapsed", html)
+        self.assertIn("Final stage elapsed", html)
         self.assertIn("Total run elapsed", html)
+        self.assertIn("Provider profile:", html)
+        self.assertIn("Software Architect:", html)
+        self.assertIn("pipelineSample.terminal ? 0 : delta", html)
+        self.assertIn("['active', 'complete']", html)
         self.assertIn("expandedStageNodes", html)
         self.assertIn("+ Expand", html)
         self.assertIn("− Collapse", html)

@@ -93,7 +93,7 @@ def main() -> int:
         response = provider.invoke(request(), "gpt-concrete-1")
         call = runner.calls[0]
         assert call["stdin"] == b"Return JSON."
-        assert call["cwd"] != repository and call["cwd"].parent == outside
+        assert call["cwd"] != repository and call["cwd"].parent.samefile(outside)
         assert call["timeout"] == 60
         argv = call["argv"]
         assert argv[:2] == ("codex", "exec") and argv[-1] == "-"
@@ -198,7 +198,7 @@ def main() -> int:
                 externally_enforced_read_only_repository=True)
             read_provider.invoke(request(capabilities=capabilities,
                 context_paths=("Docs/AI-Pipeline/START_HERE.md",)), "gpt-concrete-2")
-            assert read_runner.calls[0]["cwd"] == repository
+            assert read_runner.calls[0]["cwd"].samefile(repository)
             assert b"Relevant repository paths" in read_runner.calls[0]["stdin"]
 
         no_tool_runner = FakeRunner(stdout=(
@@ -227,6 +227,7 @@ def main() -> int:
             "shell_tool", "unified_exec", "apps",
             "browser_use", "browser_use_external", "browser_use_full_cdp_access",
             "computer_use", "in_app_browser", "standalone_web_search",
+            "plugins", "plugin_sharing", "remote_plugin",
         ):
             positions = [
                 index for index, value in enumerate(no_tool_call["argv"])
@@ -310,7 +311,7 @@ def main() -> int:
             externally_isolated_writable_repository=True)
         writable.invoke(write_request, "gpt-write")
         write_call = write_runner.calls[0]
-        assert write_call["cwd"] == repository.resolve()
+        assert write_call["cwd"].samefile(repository)
         write_prompt = write_call["stdin"].decode("utf-8")
         assert "disposable isolated writable repository" in write_prompt
         assert ("Allowed write paths:\n- allowed/file.txt\n- allowed/subdir\n"

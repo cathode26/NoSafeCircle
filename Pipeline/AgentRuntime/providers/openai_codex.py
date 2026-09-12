@@ -45,6 +45,17 @@ _NO_TOOL_FEATURES = (
     "in_app_browser",
     "standalone_web_search",
 )
+_EXTERNAL_INTEGRATION_FEATURES = (
+    # These default-on features initialize remote plugin catalogs and MCP
+    # transports even when the model never requests an external tool. Local
+    # provider gateways correctly reject those unrelated requests. Repository
+    # readers disable only this external surface and retain shell_tool and
+    # unified_exec for file inspection inside the read-only mount.
+    "apps",
+    "plugins",
+    "plugin_sharing",
+    "remote_plugin",
+)
 _NO_TOOL_ITEM_TYPES = frozenset({"agent_message", "reasoning"})
 _SOURCE_REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 _MISSING = object()
@@ -80,6 +91,7 @@ class OpenAICodexProvider:
         session_ledger: ProviderSessionLedger | None = None,
         resume_sandbox_argument: tuple[str, ...] | None = None,
         prohibit_tool_execution: bool = False,
+        prohibit_external_integrations: bool = False,
     ) -> None:
         if type(executable) is not str or not executable:
             raise ValueError("executable must be a non-empty string")
@@ -104,6 +116,8 @@ class OpenAICodexProvider:
             raise ValueError("unsupported Codex reasoning effort")
         if type(prohibit_tool_execution) is not bool:
             raise ValueError("prohibit_tool_execution must be boolean")
+        if type(prohibit_external_integrations) is not bool:
+            raise ValueError("prohibit_external_integrations must be boolean")
         if type(externally_enforced_read_only_repository) is not bool:
             raise ValueError("read-only repository profile must be boolean")
         if type(externally_isolated_writable_repository) is not bool:
@@ -124,6 +138,7 @@ class OpenAICodexProvider:
         self.session_ledger = session_ledger
         self.resume_sandbox_argument = resume_sandbox_argument
         self.prohibit_tool_execution = prohibit_tool_execution
+        self.prohibit_external_integrations = prohibit_external_integrations
 
     @property
     def provider_identifier(self) -> str:
@@ -271,9 +286,16 @@ class OpenAICodexProvider:
 
     def _argv(self, model: str, schema_path: Path, final_path: Path) -> tuple[str, ...]:
         session = self.session
+        features = (
+            _NO_TOOL_FEATURES + _EXTERNAL_INTEGRATION_FEATURES
+            if self.prohibit_tool_execution
+            else _EXTERNAL_INTEGRATION_FEATURES
+            if self.prohibit_external_integrations
+            else ()
+        )
         disabled_features = tuple(
             value
-            for feature in (_NO_TOOL_FEATURES if self.prohibit_tool_execution else ())
+            for feature in dict.fromkeys(features)
             for value in ("--disable", feature)
         )
         if session is not None and session.is_resume:

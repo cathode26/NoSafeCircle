@@ -344,7 +344,7 @@ def _normalized_resources(value: Any, *, task_id: str) -> tuple[str, ...]:
     return tuple(resources)
 
 
-def _historical_parent_hash(
+def historical_parent_hash(
     *, task_id: str, children: list[Mapping[str, Any]]
 ) -> str:
     """Return the pre-apply parent hash this template's own children agree on.
@@ -411,7 +411,7 @@ def _audit_one_template(
     applied = is_decomposed_parent(parent)
     children = decomposition_children_of(tasks, task_id) if applied else []
     if applied:
-        expected_hash = _historical_parent_hash(task_id=task_id, children=children)
+        expected_hash = historical_parent_hash(task_id=task_id, children=children)
     else:
         if not is_decomposition_eligible_parent(parent):
             raise ValidationPolicyAuditError(
@@ -617,6 +617,7 @@ __all__ = [
     "audit_decomposition_policy",
     "decomposition_children_of",
     "decomposition_preflight",
+    "historical_parent_hash",
     "is_decomposed_parent",
     "is_decomposition_eligible_parent",
     "parent_semantic_hash",

@@ -164,6 +164,8 @@ def main() -> int:
         assert not claude_registry["claude-code"].externally_isolated_writable_repository
         assert codex_registry["openai-codex"].repository_root == source.resolve()
         assert codex_registry["openai-codex"].externally_enforced_read_only_repository
+        assert codex_registry["openai-codex"].prohibit_external_integrations
+        assert not codex_registry["openai-codex"].prohibit_tool_execution
         assert not codex_registry["openai-codex"].externally_isolated_writable_repository
 
         # 1. Valid decomposition: one TaskExecution invocation plus accepted D1A artifacts.
@@ -233,6 +235,17 @@ def main() -> int:
             "descriptive domain name"
             in normalized_prompt
         )
+        assert "each `parent_requirement_coverage[].child_targets[]` item is exactly three separate fields" in normalized_prompt
+        assert "child_entry_id` must be the bare id from that child collection" in normalized_prompt
+        assert "never combine these values into a path or slash-delimited string" in normalized_prompt
+        assert "perform a coverage self-check" in normalized_prompt
+        assert "some-child/acceptance_criteria/ac-001" in normalized_prompt
+        assert "partition the parent's complete `exclusive_resources` list across the proposed children exactly once" in normalized_prompt
+        assert "the child-resource union must equal the parent list" in normalized_prompt
+        assert "precommitted path being existing or read-only does not make it optional" in normalized_prompt
+        assert "gauntletreplay1107alphatests.cs" in normalized_prompt
+        assert "gauntletreplay1107betatests.cs" in normalized_prompt
+        assert "never move a test or its `.meta` to another child or drop the `.meta`" in normalized_prompt
         assert "`door-lock-break-lifecycle`" in prompt
         assert "`nsc021_lifecycle_core`" in prompt
         assert "generated decomposition output is review-only evidence" in normalized_prompt

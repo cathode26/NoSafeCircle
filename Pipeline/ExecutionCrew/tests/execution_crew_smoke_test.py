@@ -197,7 +197,7 @@ class FakeProvider:
             if not ("public int Mana" in request.prompt or "EnemyHealth" in request.prompt or "New behavior" in request.prompt):
                 assert s.scenario=="retry_test_only" and "public int Mana" in (self.repo/IMPL).read_text()
             if attempt==2: assert "fix mana" in request.prompt and ("Repaired" in request.prompt or s.scenario in ("no_op_repair","retry_revert_on_repair"))
-            if s.scenario in ("new_files","mixed","cross_new","new_helper"):
+            if s.scenario in ("new_files","mixed","cross_new","new_helper","new_agent_meta"):
                 if s.scenario=="cross_new": write(self.repo/NEW_IMPL,"public class EnemyHealth { public int IllegallyRewritten; }\n")
                 write(self.repo/NEW_TEST,"public class EnemyHealthPlayModeTests {"+(" public void Reviewed() {}" if s.feedback else "")+" }\n")
             elif s.scenario=="test_impl": write(self.repo/IMPL,"public class PlayerMana { public int Rewritten; }\n")
@@ -465,10 +465,16 @@ def main():
         else: raise AssertionError(message)
         assert not state.calls
 
-    for scenario,index in (("new_agent_meta",53),("new_directory",54)):
-        rejected,_,rejected_dir=execute(source,outputs,scenario,index,implementation_paths=(),test_paths=(),new_implementation_paths=(NEW_IMPL,),new_test_paths=(NEW_TEST,))
-        assert rejected["crew_status"]=="rejected" and rejected["pipeline_generated_paths"]==[]
-        assert rejected["candidate_patch_path"] is None
+    agent_meta,_,agent_meta_dir=execute(source,outputs,"new_agent_meta",53,implementation_paths=(),test_paths=(),new_implementation_paths=(NEW_IMPL,),new_test_paths=(NEW_TEST,))
+    assert agent_meta["crew_status"]=="review_ready"
+    assert agent_meta["pipeline_generated_paths"]==sidecars
+    implementer_record=json.loads((agent_meta_dir/"role_results/implementer_1.json").read_text())
+    assert implementer_record["discarded_agent_pipeline_sidecars"]==[NEW_IMPL+".meta"]
+    assert (agent_meta_dir/"candidate.patch").read_bytes().count(b"new file mode 100644")==4
+
+    rejected,_,rejected_dir=execute(source,outputs,"new_directory",54,implementation_paths=(),test_paths=(),new_implementation_paths=(NEW_IMPL,),new_test_paths=(NEW_TEST,))
+    assert rejected["crew_status"]=="rejected" and rejected["pipeline_generated_paths"]==[]
+    assert rejected["candidate_patch_path"] is None
 
     mixed,mixed_state,_=execute(source,outputs,"mixed",144,implementation_paths=(IMPL,),test_paths=(),new_implementation_paths=(NEW_IMPL,),new_test_paths=(NEW_TEST,))
     assert mixed["crew_status"]=="review_ready"

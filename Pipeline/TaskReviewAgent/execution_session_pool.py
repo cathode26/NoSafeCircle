@@ -20,14 +20,17 @@ signals no process, touches no container, and deletes no provider history.
 from __future__ import annotations
 
 from contextlib import contextmanager
+import errno
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import re
 import socket
 import subprocess
 import tempfile
+import time
 from typing import Any, BinaryIO, Iterable, Iterator, Mapping
 
 from Pipeline.AgentRuntime.session_lifecycle import SessionLifecycleTelemetry
@@ -156,24 +159,39 @@ def _write_verified(path: Path, payload: bytes) -> None:
 
 
 @contextmanager
-def _exclusive_file_lock(path: Path) -> Iterator[None]:
-    """Hold one cross-process file lock for a short pool transaction."""
+def _exclusive_file_lock(path: Path, *, timeout_seconds: float = 300.0) -> Iterator[None]:
+    """Hold a transaction lock, waiting a bounded time for its current owner.
 
-    path.parent.mkdir(parents=True, exist_ok=True)
-    stream = path.open("a+b")
+    Windows LK_LOCK stops retrying after roughly ten seconds. Local workflow
+    transactions can legitimately hold this shared helper's lock longer while
+    checking Git. Timeout is a waiting failure, never proof that an owner died.
+    """
+
+    if (isinstance(timeout_seconds, bool) or not isinstance(timeout_seconds, (int, float))
+            or not math.isfinite(timeout_seconds) or timeout_seconds < 0):
+        raise ValueError("file lock timeout_seconds must be finite and nonnegative")
+    deadline = time.monotonic() + timeout_seconds
+    retry_errors = {errno.EACCES, errno.EAGAIN, errno.EWOULDBLOCK, errno.EINTR}
+    if os.name == "nt":
+        retry_errors.add(errno.EDEADLK)
+    stream = _open_lock_region(path)
     try:
-        if stream.seek(0, os.SEEK_END) == 0:
-            stream.write(b"\0")
-            stream.flush()
-        stream.seek(0)
-        if os.name == "nt":
-            import msvcrt
-
-            msvcrt.locking(stream.fileno(), msvcrt.LK_LOCK, 1)
-        else:
-            import fcntl
-
-            fcntl.flock(stream.fileno(), fcntl.LOCK_EX)
+        while True:
+            try:
+                _lock_region_exclusive_nonblocking(stream)
+                break
+            except OSError as exc:
+                if exc.errno not in retry_errors:
+                    raise
+                remaining = deadline - time.monotonic()
+                if remaining > 0:
+                    time.sleep(min(0.05, remaining))
+                if remaining <= 0 or time.monotonic() >= deadline:
+                    raise TimeoutError(
+                        errno.ETIMEDOUT,
+                        f"timed out after {timeout_seconds:g}s waiting for exclusive file lock",
+                        str(path),
+                    ) from exc
         try:
             yield
         finally:
@@ -388,8 +406,10 @@ class ExecutionCrewSessionPoolOwner:
         output_root: Path | str | None = None,
         manifest_path: Path | str | None = None,
         runtime_binding: dict | None = None,
+        local_rehearsal_context=None,
     ) -> None:
         self.checkout = Path(checkout).resolve()
+        self.local_rehearsal_context = local_rehearsal_context
         self.runtime_binding = runtime_binding
         self.pool_capacity = 50 if runtime_binding is not None else POOL_CAPACITY
         self.output_root = Path(
@@ -479,10 +499,28 @@ class ExecutionCrewSessionPoolOwner:
                 "external checkout identity manifest hash is invalid"
             )
         manifest_contract = (value.get("schema_version"), value.get("authority"))
-        if manifest_contract not in {
+        permitted_contracts = {
             ("1.0", "checkout_preparation_only"),
             ("2.0", "durable_checkout_identity"),
-        }:
+        }
+        if self.local_rehearsal_context is not None:
+            from .local_task_checkout import LOCAL_CHECKOUT_CONTRACT
+            permitted_contracts = {LOCAL_CHECKOUT_CONTRACT}
+            self.local_rehearsal_context.assert_current()
+            # The pooled checkout keeps the source commit its task was admitted
+            # at; the run's own source may have advanced since through an
+            # authorized local decomposition application.
+            admitted_head, admitted_tree = self.local_rehearsal_context.task_admitted_source(task_id)
+            if (value.get("local_run_id") != self.local_rehearsal_context.run_id
+                    or value.get("source_head") != admitted_head
+                    or value.get("source_tree") != admitted_tree
+                    or value.get("worker_id") != worker_slot_id):
+                raise ExecutionCrewSessionPoolError("local pool checkout has stale run, source or worker authority")
+            state = self.local_rehearsal_context.workflow_service(worker_slot_id).observe(task_id)
+            lease = (state.get("workflow_state") or {}).get("lease_id")
+            if not lease or value.get("lease_id") != lease:
+                raise ExecutionCrewSessionPoolError("local pool checkout lease is stale")
+        if manifest_contract not in permitted_contracts:
             raise ExecutionCrewSessionPoolError(
                 "external checkout identity manifest has an unsupported contract"
             )

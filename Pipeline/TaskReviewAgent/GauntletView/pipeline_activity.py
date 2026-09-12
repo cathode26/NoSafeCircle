@@ -9,10 +9,15 @@ from datetime import datetime
 
 STALE_SECONDS = 60
 # Highest applicable row wins. Within a row, the newest durable timestamp wins;
-# equal timestamps retain journal order. Failure survives a subsequent drain/stop.
+# equal timestamps retain journal order. Failure survives a subsequent drain/stop
+# within one controller epoch; a strictly newer run-start record begins recovery.
 PRECEDENCE = ("terminal", "open_architect", "recorded_worker", "scheduler", "unknown")
 TERMINALS = {
     "autonomous_run_error": ("failed", "Run failed"),
+    "operator_stopped": (
+        "stopped",
+        "Run stopped by operator; durable task state was preserved",
+    ),
     "scheduler_stopped": ("stopped", "Run stopped"),
     "graph_complete_receipt_written": ("complete", "Graph complete"),
 }
@@ -40,10 +45,13 @@ WORKER_ACTIONS = {
     "run_unity_tests": ("validation", "Running Unity validation for {task}"),
     "run_validation": ("validation", "Validator is checking {task}"),
     "produce_delivery_evidence": ("evidence", "Producing delivery evidence for {task}"),
-    "publish_delivery_evidence": ("evidence", "Publishing delivery evidence for {task}"),
-    "create_delivery_review_draft": ("evidence", "Building the delivery-evidence draft for {task}"),
-    "publish_delivery_review": ("evidence", "Publishing delivery review for {task}"),
-    "finalize_delivery_evidence_and_open_pr": ("evidence", "Publishing delivery evidence and opening the pull request for {task}"),
+    "publish_delivery_evidence": ("evidence", "Submitting {task} for CI"),
+    "create_delivery_review_draft": ("evidence", "Submitting {task} for CI"),
+    "create_delivery_review_proposal": ("evidence", "Submitting {task} for CI"),
+    "publish_delivery_review": ("evidence", "Submitting {task} for CI"),
+    "finalize_delivery_evidence": ("evidence", "Submitting {task} for CI"),
+    "finalize_delivery_evidence_and_open_pr": ("evidence", "Submitting {task} for CI"),
+    "open_pull_request": ("evidence", "Submitting {task} for CI"),
     "inspect_or_merge_pull_request": ("ci", "Checking pull-request CI and merge status for {task}"),
     "run_decomposition": ("decomposition", "Reviewing task decomposition for {task}"),
 }
@@ -97,6 +105,80 @@ def ordered_events(events, timeline, worker_events, run_id):
     return sorted(rows, key=lambda e: timestamp(e.get("timestamp_utc")) or float("-inf"))
 
 
+def build_local_pipeline_activity(*, local, tasks, now):
+    """Project admitted local task state without implying production delivery.
+
+    Local events do not establish scheduler launch totals or run/stage clocks.
+    Keep those unknown instead of treating missing observations as zero.
+    """
+    activity = build_pipeline_activity(
+        manifest={"run_id": local["run_id"], "max_capacity": local.get("max_capacity")},
+        progress={}, receipt=None, events=[], timeline=[], worker_events=[], tasks=tasks, now=now,
+    )
+    automatic = [task for task in tasks if task["state"] == "active" and task["worker"].get("host_action")]
+    active = [task for task in tasks if task["state"] == "active" and not task["worker"].get("host_action")]
+    waiting = sum(task["state"] == "ready" for task in tasks)
+    review_ready = sum(task["state"] == "local_review_ready" for task in tasks)
+    accepted = sum(task["state"] == "complete" and bool(task.get("local_acceptance")) for task in tasks)
+    settled_parents = sum(task["state"] == "aggregate"
+                          and bool(task["progress"].get("children_total"))
+                          and task["progress"].get("children_complete") == task["progress"]["children_total"]
+                          for task in tasks)
+    attention = sum(task["state"] in {"blocked", "failed", "human_action"} for task in tasks)
+    parents = sum(task["state"] == "aggregate" for task in tasks)
+    terminal = bool(tasks) and review_ready + accepted + settled_parents == len(tasks)
+    if active:
+        stage = "local_working"
+        headline = "Local task work in progress"
+    elif automatic:
+        stage, headline = "local_decomposition", "Local rehearsal: automatic decomposition in progress"
+    elif attention:
+        stage, headline = "local_attention", "Local pipeline blocked"
+    elif waiting:
+        stage, headline = "local_waiting", "Local pipeline idle"
+    elif terminal:
+        stage, headline = (("local_accepted", "Local task work accepted") if accepted and not review_ready
+                           else ("local_review_ready", "Local pipeline idle"))
+    elif review_ready or accepted or parents:
+        # Nothing runs and nothing needs attention; an unsettled decomposed
+        # parent or a candidate awaiting integration is idle, not unknown.
+        stage, headline = "local_review_ready", "Local pipeline idle"
+    else:
+        stage, headline = "unknown", "Local pipeline activity unavailable"
+    rows = ordered_events(local.get("events") or [], [], [], local["run_id"])
+    dated = [timestamp(row.get("timestamp_utc")) for row in rows]
+    dated = [value for value in dated if value is not None]
+    age = max(0, now - max(dated)) if dated else None
+    architect = next((row.get("fields") for row in reversed(rows)
+                      if row["event"] == "architect_provider_call"
+                      and isinstance(row.get("fields"), dict)), {})
+    provider, model = text(architect.get("provider")), text(architect.get("model"))
+    activity.update(
+        mode="local_rehearsal", stage=stage, headline=headline, terminal=terminal,
+        source="validated local snapshot",
+        description=(f"{len(automatic)} automatic decomposition in progress."
+                     if automatic else ""),
+        provider_profile=text(local.get("provider_profile")), provider=provider, model=model,
+        provider_source="recorded" if provider != "unavailable" else "unavailable",
+        model_source="recorded" if model != "unavailable" else "unavailable",
+        stage_elapsed_seconds=active[0]["worker"].get("stage_elapsed_seconds") if len(active) == 1 else None,
+        last_event_age_seconds=age,
+        freshness=(f"No new durable event for {duration(age)}; process status is unknown from artifacts."
+                   if age is not None else "Last durable event time unavailable; process status is unknown from artifacts."),
+        recent_activity=[{
+            "event": row["event"], "timestamp_utc": row.get("timestamp_utc"),
+            "source": "validated local events",
+            "headline": (f"{row['task_id']}: " if row.get("task_id") else "") + row["event"].replace("_", " "),
+        } for row in reversed(rows[-8:])],
+    )
+    activity["counters"].update(
+        active_workers=len(active), awaiting_worker=waiting, local_review_ready=review_ready,
+        automatic_decomposition_tasks=len(automatic),
+        eligible_or_queued=None, dependency_blocked=None, completed=None, local_accepted=accepted,
+    )
+    return activity
+
+
 def build_pipeline_activity(*, manifest, progress, receipt, events, timeline,
                             worker_events, tasks, now):
     rows = ordered_events(events, timeline, worker_events, manifest.get("run_id"))
@@ -109,6 +191,8 @@ def build_pipeline_activity(*, manifest, progress, receipt, events, timeline,
     progress = progress if isinstance(progress, dict) else {}
     runtime = manifest.get("runtime_configuration")
     runtime = runtime if isinstance(runtime, dict) else {}
+    topology = runtime.get("provider_topology")
+    topology = topology if isinstance(topology, dict) else {}
     scheduler_stage = None
     terminal = None
     architect = None
@@ -124,8 +208,18 @@ def build_pipeline_activity(*, manifest, progress, receipt, events, timeline,
     completion_key = None
     launches = set()
     recent = []
-    provider, model = "unavailable", "unavailable"
-    provider_source = "unavailable"
+    provider_profile = text(topology.get("profile"))
+    configured_architect_provider = text(
+        runtime.get("architect_provider") or topology.get("architect")
+    )
+    provider = configured_architect_provider
+    model = text(runtime.get("architect_model"))
+    provider_source = (
+        "manifest configuration"
+        if configured_architect_provider != "unavailable"
+        else "unavailable"
+    )
+    model_source = "manifest configuration" if model != "unavailable" else "unavailable"
     last_wait_stage = None
     scheduler_waiting = None
     capacity_full = None
@@ -142,8 +236,32 @@ def build_pipeline_activity(*, manifest, progress, receipt, events, timeline,
     for index, row in enumerate(rows):
         kind = row["event"]
         task_id = row.get("_task_id") if row["source"] == "worker" else row.get("task_id")
-        if kind == "autonomous_run_started" and run_started_at is None:
-            run_started_at = timestamp(row.get("timestamp_utc"))
+        if kind == "autonomous_run_started":
+            row_started_at = timestamp(row.get("timestamp_utc"))
+            if run_started_at is None:
+                run_started_at = row_started_at
+            terminal_at = timestamp(terminal.get("started_at")) if terminal else None
+            if (
+                terminal
+                and terminal.get("stage") in {"failed", "stopped"}
+                and row_started_at is not None
+                and terminal_at is not None
+                and row_started_at > terminal_at
+            ):
+                # Restarting the same immutable run appends another authoritative
+                # run-start record.  That begins a new controller epoch; stale
+                # in-memory activity from the stopped epoch cannot describe it.
+                terminal = None
+                architect = None
+                provider_open = False
+                analysis_id = None
+                waits.clear()
+                admitted.clear()
+                active.clear()
+                worker_stages.clear()
+                last_wait_stage = None
+                scheduler_waiting = None
+                capacity_full = None
         next_stage = None
         if row["source"] == "worker":
             if task_id not in active or active[task_id] != row.get("_worker_run_id"):
@@ -176,6 +294,9 @@ def build_pipeline_activity(*, manifest, progress, receipt, events, timeline,
                 # A normal scheduler stop does not erase a preceding fatal result.
                 if not terminal or terminal["stage"] != "failed" or key == "complete":
                     terminal = stage(row, key, headline)
+                    terminal["prior_stage_started_at"] = (
+                        scheduler_stage.get("started_at") if scheduler_stage else None
+                    )
                 next_stage = terminal
             elif kind == "architect_started":
                 architect = row
@@ -189,11 +310,14 @@ def build_pipeline_activity(*, manifest, progress, receipt, events, timeline,
                 candidate_count = integer(row.get("portfolio_size"))
                 if candidate_count is None and isinstance(pairs, list) and len(candidates) == len(pairs):
                     candidate_count = len(candidates)
-                provider = text(row.get("provider") or runtime.get("architect_provider"))
-                model = text(row.get("model") or runtime.get("architect_model"))
-                provider_source = "start event" if row.get("provider") else "manifest configuration"
-                if provider == "unavailable":
-                    provider_source = "unavailable"
+                started_provider = text(row.get("provider") or configured_architect_provider)
+                started_model = text(row.get("model") or runtime.get("architect_model"))
+                if started_provider != "unavailable":
+                    provider = started_provider
+                    provider_source = "start event" if row.get("provider") else "manifest configuration"
+                if started_model != "unavailable":
+                    model = started_model
+                    model_source = "start event" if row.get("model") else "manifest configuration"
                 headline = (f"Software Architect is reviewing {candidate_count} eligible tasks" if candidate_count is not None
                             else "Software Architect is deciding which tasks can start safely")
                 next_stage = stage(row, "architect", headline,
@@ -213,8 +337,14 @@ def build_pipeline_activity(*, manifest, progress, receipt, events, timeline,
                         completion_key = ("start", architect["_sequence"]) if architect else ("row", index)
                 completions.add(completion_key)
                 if kind == "architect_provider_call":
-                    provider, model = text(row.get("provider")), text(row.get("model"))
-                    provider_source = "completed provider receipt"
+                    completed_provider = text(row.get("provider"))
+                    completed_model = text(row.get("model"))
+                    if completed_provider != "unavailable":
+                        provider = completed_provider
+                        provider_source = "completed provider receipt"
+                    if completed_model != "unavailable":
+                        model = completed_model
+                        model_source = "completed provider receipt"
                 elif kind == "architect_completed" and isinstance(task_id, str):
                     admitted.add(task_id)
                 next_stage = stage(row, "architect_decided", "Software Architect decision recorded; checking safe task starts")
@@ -278,6 +408,11 @@ def build_pipeline_activity(*, manifest, progress, receipt, events, timeline,
     if receipt and terminal is None:
         terminal = stage({}, "complete", "Graph complete")
         terminal["source"] = "graph-complete.json (timestamp unavailable)"
+    if terminal is not None:
+        # A terminal controller no longer supervises any worker.  Immutable
+        # launch/Issue history remains visible, but cannot prove live activity.
+        active.clear()
+        worker_stages.clear()
     recorded_worker = max(worker_stages.values(), key=lambda v: timestamp(v.get("started_at")) or float("-inf"), default=None)
     choices = {"terminal": terminal, "open_architect": architect if provider_open else None,
                "recorded_worker": recorded_worker, "scheduler": scheduler_stage,
@@ -325,13 +460,27 @@ def build_pipeline_activity(*, manifest, progress, receipt, events, timeline,
     last_at = max(dated) if dated else None
     age = max(0, now - last_at) if last_at is not None else None
     started_at = timestamp(chosen.get("started_at"))
-    elapsed = max(0, now - started_at) if started_at is not None else None
+    if terminal is not None:
+        terminal_at = timestamp(terminal.get("started_at"))
+        prior_started_at = timestamp(terminal.get("prior_stage_started_at")) or run_started_at
+        elapsed = (
+            max(0, terminal_at - prior_started_at)
+            if terminal_at is not None and prior_started_at is not None
+            else 0
+            if terminal_at is not None
+            else None
+        )
+    else:
+        elapsed = max(0, now - started_at) if started_at is not None else None
     in_scope = [task for task in tasks if task["id"] in scope]
     scheduler_observed = any(row["source"] == "scheduler" for row in rows)
     launch_total = integer(progress.get("worker_launches_total"))
     return {
         **chosen, "provider_call_open": provider_open,
-        "provider": provider, "model": model, "provider_source": provider_source,
+        "provider_profile": provider_profile,
+        "configured_architect_provider": configured_architect_provider,
+        "provider": provider, "model": model,
+        "provider_source": provider_source, "model_source": model_source,
         "candidate_count": candidate_count, "candidates": candidates,
         "call_status": ("Paid provider call recorded as in progress; billing confirmation is unavailable until a receipt is written."
                         if provider_open else "No open provider call established by the selected stage."),
