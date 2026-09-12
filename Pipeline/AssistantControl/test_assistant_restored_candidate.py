@@ -1,5 +1,6 @@
 """Disposable real-Git tests for assistant-restored candidate registration."""
 import json
+import hashlib
 import subprocess
 import tempfile
 import unittest
@@ -31,6 +32,14 @@ class RestoredCandidateTests(unittest.TestCase):
         (self.source / "Tasks/NSC-042.yaml").write_text(json.dumps({
             "id": "NSC-042", "title": "Fixture", "contract_disposition": "active",
             "depends_on": [], "exclusive_resources": ["repo-file:Assets/NoSafeCircle/Feature/Feature.cs"],
+        }))
+        (self.source / "Tasks/NSC-061.yaml").write_text(json.dumps({
+            "id": "NSC-061", "title": "Art fixture", "contract_disposition": "active",
+            "type": "art-acquisition", "depends_on": [],
+            "exclusive_resources": [
+                "repo-file:Assets/NoSafeCircle/Art/Source",
+                "repo-file:Docs/Art/Wizard",
+            ],
         }))
         self.git("add", ".")
         self.git("commit", "-q", "-m", "base")
@@ -125,6 +134,64 @@ class RestoredCandidateTests(unittest.TestCase):
         self.assertEqual("ready_pending", result["launch"]["status"])
         self.assertEqual("failed", result["worker"]["status"])
         self.assertEqual("awaiting_human", result["status"])
+
+    def test_registers_inventory_backed_art_without_code_scope(self):
+        record = self.checkouts.prepare("NSC-061")
+        checkout = Path(record["checkout"])
+        art_root = checkout / "Assets/NoSafeCircle/Art/Source/PixelLab"
+        selected = art_root / "wizard/selected/standing/east.png"
+        raw = art_root / "wizard/raw/Wizard.zip"
+        selected.parent.mkdir(parents=True)
+        raw.parent.mkdir(parents=True)
+        selected.write_bytes(b"selected-png")
+        raw.write_bytes(b"raw-zip")
+        inventory = {
+            "schema_version": "nsc-pixellab-wizard-source/v1",
+            "task_id": "NSC-061",
+            "sources": [{
+                "source_key": "wizard",
+                "authorized_files": [{
+                    "path": "wizard/selected/standing/east.png",
+                    "size_bytes": selected.stat().st_size,
+                    "sha256": hashlib.sha256(selected.read_bytes()).hexdigest(),
+                }],
+                "raw_export": {
+                    "path": "wizard/raw/Wizard.zip",
+                    "size_bytes": raw.stat().st_size,
+                    "sha256": hashlib.sha256(raw.read_bytes()).hexdigest(),
+                },
+            }],
+        }
+        inventory_path = art_root / "source-inventory.json"
+        inventory_path.write_text(json.dumps(inventory))
+        docs = checkout / "Docs/Art/Wizard/PIXELLAB_GENERATION.md"
+        docs.parent.mkdir(parents=True)
+        docs.write_text("# Selected wizard\n")
+        subprocess.run(["git", "-C", str(checkout), "add", "."], check=True)
+        subprocess.run(["git", "-C", str(checkout), "commit", "-q", "-m", "art candidate"], check=True)
+        base = record["source_commit"]
+        commit = subprocess.run(
+            ["git", "-C", str(checkout), "rev-parse", "HEAD"],
+            capture_output=True, check=True,
+        ).stdout.decode().strip()
+        tree = subprocess.run(
+            ["git", "-C", str(checkout), "rev-parse", "HEAD^{tree}"],
+            capture_output=True, check=True,
+        ).stdout.decode().strip()
+        paths = subprocess.run(
+            ["git", "-C", str(checkout), "diff", "--name-only", f"{base}..{commit}", "--"],
+            capture_output=True, check=True,
+        ).stdout.decode().splitlines()
+        result = register_assistant_restored_candidate(
+            self.checkouts, "NSC-061", base_commit=base, candidate_commit=commit,
+            candidate_tree=tree, task_contract_sha256=record["task_contract_sha256"],
+            changed_paths=paths, evidence={"selection": "approved"},
+            reference_provenance={"source": "PixelLab"},
+        )
+        self.assertEqual("awaiting_human", result["status"])
+        self.assertEqual("assistant_restored_art", result["candidate"]["kind"])
+        self.assertEqual(1, result["candidate"]["art_inventory"]["authorized_png_count"])
+        self.assertIsNone(result["candidate"]["lease_id"])
 
 
 if __name__ == "__main__":

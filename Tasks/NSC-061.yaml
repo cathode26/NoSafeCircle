@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-061",
-  "contract_revision": 3,
+  "contract_revision": 4,
   "contract_disposition": "active",
   "title": "PixelLab Wizard Art Direction and Selection",
   "reconciliation_key": "pixellab-wizard-art-selection",
@@ -16,7 +16,7 @@
   "exclusive_resources": [
     "logical:pixellab-wizard-character-art",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source",
-    "repo-file:Docs/Art/Wizard/PIXELLAB_GENERATION.md"
+    "repo-file:Docs/Art/Wizard"
   ],
   "acceptance_criteria": [
     {

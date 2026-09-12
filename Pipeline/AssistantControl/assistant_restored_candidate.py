@@ -23,6 +23,8 @@ class AssistantRestoredCandidateError(ValueError):
 
 _SHA = re.compile(r"^[0-9a-f]{40}$")
 _TERMINAL_WORKER = {"succeeded", "failed", "stopped", "spawn_failed"}
+_ART_SUFFIXES = {".gif", ".json", ".md", ".png", ".zip"}
+_MAX_ART_PATHS = 512
 
 
 def _read_owned(checkouts: Checkouts, task_id: str) -> tuple[Path, dict[str, Any]]:
@@ -83,6 +85,150 @@ def _provenance(value: Any, field: str) -> Any:
         raise AssistantRestoredCandidateError(f"{field} must be JSON-serializable") from exc
 
 
+def _inside(path: str, root: str) -> bool:
+    folded = path.casefold()
+    base = root.rstrip("/").casefold()
+    return folded == base or folded.startswith(base + "/")
+
+
+def _verify_art_candidate(
+    checkout: Path, task: Mapping[str, Any], paths: Sequence[str],
+) -> dict[str, Any]:
+    """Verify a bounded, inventory-backed art-acquisition candidate.
+
+    ExecutionScopePlan deliberately describes code and tests.  Art selection has
+    a different deterministic boundary: committed repo-file roots, a bounded
+    media/provenance allowlist, and an inventory that authenticates every
+    selected PNG and retained raw export.
+    """
+    if task.get("type") != "art-acquisition":
+        raise AssistantRestoredCandidateError(
+            "candidate requires a registered execution scope"
+        )
+    if len(paths) > _MAX_ART_PATHS:
+        raise AssistantRestoredCandidateError(
+            f"art candidate exceeds the {_MAX_ART_PATHS}-path limit"
+        )
+    roots = tuple(
+        resource[len("repo-file:"):].rstrip("/")
+        for resource in task.get("exclusive_resources", [])
+        if isinstance(resource, str) and resource.startswith("repo-file:")
+    )
+    if not roots:
+        raise AssistantRestoredCandidateError(
+            "art candidate task has no repository resource roots"
+        )
+    outside = [path for path in paths if not any(_inside(path, root) for root in roots)]
+    if outside:
+        raise AssistantRestoredCandidateError(
+            "art candidate diff is outside task repository resources: " + ", ".join(outside)
+        )
+    unsupported = [
+        path for path in paths if PurePosixPath(path).suffix.casefold() not in _ART_SUFFIXES
+    ]
+    if unsupported:
+        raise AssistantRestoredCandidateError(
+            "art candidate contains unsupported file types: " + ", ".join(unsupported)
+        )
+
+    inventory_paths = [path for path in paths if path.endswith("/source-inventory.json")]
+    if len(inventory_paths) != 1:
+        raise AssistantRestoredCandidateError(
+            "art candidate requires exactly one committed source-inventory.json"
+        )
+    inventory_path = inventory_paths[0]
+    try:
+        inventory = json.loads((checkout / Path(inventory_path)).read_text(encoding="utf-8-sig"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise AssistantRestoredCandidateError("art source inventory is unreadable") from exc
+    if (not isinstance(inventory, Mapping)
+            or inventory.get("schema_version") != "nsc-pixellab-wizard-source/v1"
+            or inventory.get("task_id") != task.get("id")):
+        raise AssistantRestoredCandidateError("art source inventory identity differs")
+    sources = inventory.get("sources")
+    if not isinstance(sources, list) or not sources:
+        raise AssistantRestoredCandidateError("art source inventory has no selected sources")
+
+    inventory_root = PurePosixPath(inventory_path).parent
+    authorized: set[str] = set()
+    raw_exports: set[str] = set()
+    source_keys: set[str] = set()
+
+    def verify_file(item: Any, *, expected_suffix: str | None = None) -> str:
+        if not isinstance(item, Mapping):
+            raise AssistantRestoredCandidateError("art inventory file entry is malformed")
+        relative = item.get("path")
+        size = item.get("size_bytes")
+        digest = item.get("sha256")
+        if (not isinstance(relative, str) or not relative or "\\" in relative
+                or PurePosixPath(relative).is_absolute()
+                or any(part in {"", ".", ".."} for part in PurePosixPath(relative).parts)
+                or not isinstance(size, int) or size < 0
+                or not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest)):
+            raise AssistantRestoredCandidateError("art inventory file identity is malformed")
+        full = (inventory_root / PurePosixPath(relative)).as_posix()
+        if expected_suffix and PurePosixPath(full).suffix.casefold() != expected_suffix:
+            raise AssistantRestoredCandidateError("authorized art entry is not a PNG")
+        file_path = checkout / Path(full)
+        try:
+            data = file_path.read_bytes()
+        except OSError as exc:
+            raise AssistantRestoredCandidateError(
+                f"art inventory file is missing: {full}"
+            ) from exc
+        if len(data) != size or hashlib.sha256(data).hexdigest() != digest:
+            raise AssistantRestoredCandidateError(
+                f"art inventory hash or size differs: {full}"
+            )
+        if full not in paths:
+            raise AssistantRestoredCandidateError(
+                f"art inventory references a file outside the candidate diff: {full}"
+            )
+        return full
+
+    for source in sources:
+        if not isinstance(source, Mapping):
+            raise AssistantRestoredCandidateError("art source inventory entry is malformed")
+        key = source.get("source_key")
+        if not isinstance(key, str) or not key or key in source_keys:
+            raise AssistantRestoredCandidateError("art source key is missing or duplicated")
+        source_keys.add(key)
+        files = source.get("authorized_files")
+        if not isinstance(files, list) or not files:
+            raise AssistantRestoredCandidateError(
+                f"art source {key} has no authorized files"
+            )
+        for item in files:
+            full = verify_file(item, expected_suffix=".png")
+            if full in authorized:
+                raise AssistantRestoredCandidateError("authorized art path is duplicated")
+            authorized.add(full)
+        raw = verify_file(source.get("raw_export"))
+        if raw in raw_exports:
+            raise AssistantRestoredCandidateError("raw art export path is duplicated")
+        raw_exports.add(raw)
+
+    selected_on_disk = {
+        path for path in paths
+        if "/selected/" in path and PurePosixPath(path).suffix.casefold() == ".png"
+    }
+    if selected_on_disk != authorized:
+        raise AssistantRestoredCandidateError(
+            "selected PNG files do not exactly match the authorized art inventory"
+        )
+    return {
+        "schema_version": inventory["schema_version"],
+        "inventory_path": inventory_path,
+        "inventory_sha256": hashlib.sha256(
+            (checkout / Path(inventory_path)).read_bytes()
+        ).hexdigest(),
+        "source_count": len(source_keys),
+        "authorized_png_count": len(authorized),
+        "raw_export_count": len(raw_exports),
+        "resource_roots": list(roots),
+    }
+
+
 def register_assistant_restored_candidate(
     checkouts: Checkouts,
     task_id: str,
@@ -128,30 +274,41 @@ def register_assistant_restored_candidate(
             raise AssistantRestoredCandidateError("candidate tree differs from the exact committed tree")
         if record.get("task_contract_sha256") != task_contract_sha256:
             raise AssistantRestoredCandidateError("candidate contract hash differs from the owned task record")
-        load_committed_task(checkout, task_id, commit=candidate_commit,
-                            expected_sha256=task_contract_sha256)
+        task = load_committed_task(checkout, task_id, commit=candidate_commit,
+                                   expected_sha256=task_contract_sha256)
         raw_scope = record.get("scope")
-        if not isinstance(raw_scope, Mapping):
-            raise AssistantRestoredCandidateError("candidate requires a registered execution scope")
-        plan = ExecutionScopePlan.from_dict(raw_scope["plan"])
-        allowed = set(plan.existing_implementation_paths + plan.new_implementation_paths
-                      + plan.existing_test_paths + plan.new_test_paths)
-        if not set(paths).issubset(allowed):
-            raise AssistantRestoredCandidateError("candidate diff is outside the registered path scope")
+        art_inventory = None
+        if isinstance(raw_scope, Mapping):
+            plan = ExecutionScopePlan.from_dict(raw_scope["plan"])
+            allowed = set(plan.existing_implementation_paths + plan.new_implementation_paths
+                          + plan.existing_test_paths + plan.new_test_paths)
+            if not set(paths).issubset(allowed):
+                raise AssistantRestoredCandidateError("candidate diff is outside the registered path scope")
+            plan_id = raw_scope.get("plan_id")
+            lease_id = raw_scope.get("lease_id")
+            candidate_kind = "assistant_restored"
+        else:
+            art_inventory = _verify_art_candidate(checkout, task, paths)
+            plan_id = "assistant-art-" + hashlib.sha256(
+                json.dumps(art_inventory, sort_keys=True, separators=(",", ":")).encode("utf-8")
+            ).hexdigest()[:24]
+            lease_id = None
+            candidate_kind = "assistant_restored_art"
         actual = tuple(sorted((line for line in git(checkout, "diff", "--name-only",
                                                      f"{base_commit}..{candidate_commit}", "--")
                                .decode().splitlines() if line), key=str.casefold))
         if actual != paths:
             raise AssistantRestoredCandidateError("registered changed_paths do not match the committed diff")
         candidate = {
-            "kind": "assistant_restored", "crew_review": False,
+            "kind": candidate_kind, "crew_review": False,
             "base_commit": base_commit, "commit": candidate_commit, "tree": candidate_tree,
             "parent": base_commit, "task_contract_sha256": task_contract_sha256,
             "source_base": base_commit, "candidate_commit": candidate_commit,
             "candidate_tree": candidate_tree, "candidate_parent": base_commit,
-            "plan_id": raw_scope.get("plan_id"), "lease_id": raw_scope.get("lease_id"),
+            "plan_id": plan_id, "lease_id": lease_id,
             "changed_paths": list(paths),
             "evidence": evidence, "reference_provenance": reference_provenance,
+            "art_inventory": art_inventory,
         }
         previous = record.get("candidate")
         if previous is not None and previous != candidate:
