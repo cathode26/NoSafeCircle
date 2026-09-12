@@ -1,0 +1,111 @@
+{
+  "schema_version": "2.0",
+  "id": "NSC-067",
+  "contract_revision": 1,
+  "contract_disposition": "active",
+  "title": "Four-Wizard Selection Screen",
+  "reconciliation_key": "four-wizard-selection-screen",
+  "kind": "implementation",
+  "type": "character-selection-ui",
+  "execution_scope": "single_agent",
+  "execution_reason": "Displaying four approved wizard options, retaining one selection, and starting gameplay with that presentation form one bounded UI-to-player integration task.",
+  "decomposition_state": "concrete",
+  "decomposition_reason": "The four options, source-art owner, preceding title transition, selection behavior, gameplay handoff, and preservation constraints are fully specified.",
+  "parent": "NSC-002",
+  "depends_on": [
+    "NSC-062",
+    "NSC-066"
+  ],
+  "exclusive_resources": [
+    "logical:game-entry-menu-flow",
+    "logical:wizard-presentation-selection",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/WizardSelectionController.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/WizardSelectionPlayModeTests.cs",
+    "unity-scene:Assets/Scenes/DoorPrototype.unity"
+  ],
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "NSC-061 and NSC-062 wizard presentation choices",
+      "requirement": "After Start Game, show a wizard-selection screen with all four integrated combinations: masculine/light skin, masculine/dark skin, feminine/light skin, and feminine/dark skin. Each option uses the exact approved and integrated wizard presentation rather than a placeholder or runtime-generated substitute."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "Human-approved wizard-selection flow, 2026-09-12",
+      "requirement": "Each wizard option has a readable visual preview and respectful plain-language label. The four options receive equal visual prominence and are selectable through the project's supported pointer input."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "Human-approved wizard-selection flow, 2026-09-12",
+      "requirement": "Selecting an option visibly marks exactly one wizard as selected. A clearly labeled confirmation action remains unavailable until a valid option is selected, then starts gameplay once with that exact presentation and skin choice."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "NSC-062 presentation-only boundary",
+      "requirement": "The chosen wizard changes presentation only. It preserves the existing Player root, CharacterController, colliders, movement, health, mana, spells, interaction components, world position, four-direction animation behavior, and NSC-039 sorting convention."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "Game-entry state ownership",
+      "requirement": "Gameplay input remains inactive throughout wizard selection. Confirming a valid choice hides the selection UI, applies the selected wizard through the presentation API established by NSC-062, enables gameplay through existing owner-controlled boundaries, and cannot create duplicate players or repeated start transitions."
+    },
+    {
+      "criterion_id": "AC-006",
+      "reference": "DoorPrototypeSceneBuilder repeatability",
+      "requirement": "DoorPrototypeSceneBuilder.Build installs the wizard-selection panel, four option bindings, confirmation action, and controller idempotently without replacing approved source art, duplicating menu objects, or resetting the selected presentation during an active play session."
+    }
+  ],
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "Editor wizard-option validation",
+      "requirement": "Automated Editor coverage proves all four selection entries resolve to distinct, complete NSC-062 presentation bindings and that no option is missing, duplicated, or mapped to the wrong presentation/skin combination."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "Play Mode selection validation",
+      "requirement": "Play Mode coverage proves Start Game opens selection, gameplay input stays inactive, confirmation is unavailable without a choice, each of the four choices can be selected, and confirmation starts gameplay exactly once with the selected wizard."
+    },
+    {
+      "gate_id": "VAL-003",
+      "reference": "Gameplay preservation validation",
+      "requirement": "For every wizard option, automated coverage confirms the same Player root and gameplay components remain active and the chosen idle/walk presentation follows movement without changing collision, movement, health, mana, spell, or interaction behavior."
+    },
+    {
+      "gate_id": "VAL-004",
+      "reference": "Builder regression validation",
+      "requirement": "Repeated DoorPrototypeSceneBuilder.Build runs preserve one complete title-to-selection-to-gameplay path and do not duplicate selection entries, controllers, listeners, or Player objects."
+    },
+    {
+      "gate_id": "VAL-005",
+      "reference": "Developer visual approval",
+      "requirement": "Vincent opens Assets/Scenes/DoorPrototype.unity in Play Mode, checks the title-to-selection flow, selects all four wizard options in separate runs, and approves readability, option identity, respectful presentation, selected-state feedback, animation, ground contact, and entry into gameplay."
+    }
+  ],
+  "downstream_integration_obligations": [],
+  "gdd_evidence": [
+    {
+      "reference": "Human-approved wizard-selection flow, 2026-09-12",
+      "requirement": "After Start Game, the player chooses one of the four approved wizard presentation and skin combinations before gameplay begins."
+    },
+    {
+      "reference": "GDD — player and world-space SpriteRenderer representation",
+      "requirement": "The chosen wizard remains the existing player character and uses the approved world-space sprite sorting and gameplay ownership boundaries."
+    }
+  ],
+  "basis": "human_approved_gameplay_presentation",
+  "source_scope": "required",
+  "confidence": "high",
+  "notes": "This task consumes the four integrated wizard presentations from NSC-062 and the title transition from NSC-066. It selects presentation for the current game start only; profile persistence, save data, unlocks, stats, and different gameplay abilities are outside scope.",
+  "repository_state_at_bootstrap": "missing",
+  "repository_evidence_at_bootstrap": [],
+  "provenance": {
+    "origin": "human_approved_gameplay_presentation_followup",
+    "wizard_art_source_task_id": "NSC-061",
+    "wizard_integration_task_id": "NSC-062",
+    "title_screen_task_id": "NSC-066",
+    "created_by_human_request": true,
+    "approved_at_utc_date": "2026-09-12"
+  }
+}

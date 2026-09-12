@@ -108,7 +108,9 @@
         "door-lock-break-state",
         "door-passability-publication",
         "door-breach-feedback",
-        "animated-wizard-unity-integration"
+        "animated-wizard-unity-integration",
+        "title-screen-start-game-flow",
+        "four-wizard-selection-screen"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
       "work_ids": [
@@ -138,7 +140,9 @@
         "NSC-050",
         "NSC-051",
         "NSC-052",
-        "NSC-062"
+        "NSC-062",
+        "NSC-066",
+        "NSC-067"
       ]
     },
     {
@@ -188,7 +192,9 @@
         "door-lock-break-state",
         "door-passability-publication",
         "door-breach-feedback",
-        "animated-wizard-unity-integration"
+        "animated-wizard-unity-integration",
+        "title-screen-start-game-flow",
+        "four-wizard-selection-screen"
       ],
       "resource_key": "unity-scene:Assets/Scenes/DoorPrototype.unity",
       "work_ids": [
@@ -218,7 +224,20 @@
         "NSC-050",
         "NSC-051",
         "NSC-052",
-        "NSC-062"
+        "NSC-062",
+        "NSC-066",
+        "NSC-067"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "title-screen-start-game-flow",
+        "four-wizard-selection-screen"
+      ],
+      "resource_key": "logical:game-entry-menu-flow",
+      "work_ids": [
+        "NSC-066",
+        "NSC-067"
       ]
     }
   ],

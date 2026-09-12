@@ -1,0 +1,91 @@
+{
+  "schema_version": "2.0",
+  "id": "NSC-066",
+  "contract_revision": 1,
+  "contract_disposition": "active",
+  "title": "Title Screen and Start Game Flow",
+  "reconciliation_key": "title-screen-start-game-flow",
+  "kind": "implementation",
+  "type": "game-flow-ui",
+  "execution_scope": "single_agent",
+  "execution_reason": "A title panel, one Start Game action, and a small transition into character selection form one bounded UI and game-flow task in the existing canonical scene.",
+  "decomposition_state": "concrete",
+  "decomposition_reason": "The required title text, Start Game action, initial input state, transition boundary, existing scene, and validation behavior are fully specified.",
+  "parent": "NSC-001",
+  "depends_on": [],
+  "exclusive_resources": [
+    "logical:game-entry-menu-flow",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/TitleScreenController.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/TitleScreenPlayModeTests.cs",
+    "unity-scene:Assets/Scenes/DoorPrototype.unity"
+  ],
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "Human-approved game-entry flow, 2026-09-12",
+      "requirement": "Entering the canonical game scene first displays a readable title screen containing the game title No Safe Circle and a clearly labeled Start Game button. The gameplay view is not presented as already running behind an ambiguous overlay."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "Human-approved game-entry flow, 2026-09-12",
+      "requirement": "Before Start Game is activated, normal player movement, spell, and door-interaction input cannot affect gameplay. The implementation uses existing owner-controlled input or gameplay-enable boundaries where available rather than mutating unrelated systems' internal state."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "Human-approved game-entry flow, 2026-09-12",
+      "requirement": "Activating Start Game exactly once hides the title panel and requests the next game-entry step: wizard selection. It does not bypass selection, start multiple transitions, reload the scene, or create duplicate menu objects."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "Existing project input and UI conventions",
+      "requirement": "Start Game works with the project's supported pointer input and remains legible at the canonical game resolution. This task does not add account, save-slot, settings, credits, networking, or runtime AI features."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "DoorPrototypeSceneBuilder repeatability",
+      "requirement": "DoorPrototypeSceneBuilder.Build installs the title screen and its controller idempotently in Assets/Scenes/DoorPrototype.unity without duplicating the Canvas, EventSystem, title panel, button, listeners, or controller when Build is run repeatedly."
+    }
+  ],
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "Play Mode title-screen validation",
+      "requirement": "Play Mode coverage proves the title screen is the initial visible game-entry state, gameplay input is inactive before Start Game, and one Start Game activation produces exactly one wizard-selection request."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "Builder regression validation",
+      "requirement": "Automated coverage runs DoorPrototypeSceneBuilder.Build repeatedly and proves there is one title panel, one Start Game button, one controller, and one listener path afterward."
+    },
+    {
+      "gate_id": "VAL-003",
+      "reference": "Developer visual review",
+      "requirement": "Vincent opens Assets/Scenes/DoorPrototype.unity in Play Mode and confirms the title screen is readable, says No Safe Circle, exposes Start Game clearly, and transitions to the wizard-selection step."
+    }
+  ],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "NSC-067 Four-Wizard Selection Screen",
+      "requirement": "NSC-067 consumes the Start Game transition and supplies the wizard-selection step without changing the title screen's initial-state or single-transition guarantees."
+    }
+  ],
+  "gdd_evidence": [
+    {
+      "reference": "Human-approved game-entry flow, 2026-09-12",
+      "requirement": "The game opens on a title screen with Start Game before presenting wizard selection and gameplay."
+    }
+  ],
+  "basis": "human_approved_gameplay_presentation",
+  "source_scope": "required",
+  "confidence": "high",
+  "notes": "This task establishes the first screen and transition only. NSC-067 owns choosing a wizard and entering gameplay. Keep the implementation small and inside the current canonical scene unless a later human-approved design changes scene ownership.",
+  "repository_state_at_bootstrap": "missing",
+  "repository_evidence_at_bootstrap": [],
+  "provenance": {
+    "origin": "human_approved_gameplay_presentation_followup",
+    "created_by_human_request": true,
+    "approved_at_utc_date": "2026-09-12"
+  }
+}
