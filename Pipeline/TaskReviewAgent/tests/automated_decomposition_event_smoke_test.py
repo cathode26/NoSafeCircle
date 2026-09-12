@@ -1,0 +1,633 @@
+#!/usr/bin/env python3
+"""Deterministic tests for automated private-gauntlet decomposition approval."""
+
+from __future__ import annotations
+
+import copy
+import sys
+from dataclasses import replace
+from pathlib import Path
+from unittest.mock import patch
+
+ROOT = Path(__file__).resolve().parents[3]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from Pipeline.TaskReviewAgent.contracts import semantic_sha256  # noqa: E402
+from Pipeline.TaskReviewAgent.issue_workflow import (  # noqa: E402
+    AUTOMATED_DECOMPOSITION_EVIDENCE_AUTHORITY,
+    AUTOMATED_DECOMPOSITION_EVIDENCE_SCHEMA_VERSION,
+    AUTOMATED_DECOMPOSITION_POLICY_AUTHORITY,
+    AUTOMATED_DECOMPOSITION_REVIEW_AUTHORITY,
+    AUTOMATED_DECOMPOSITION_REVIEW_STATUS,
+    AUTOMATED_VALIDATION_GAUNTLET_ID,
+    AUTOMATED_VALIDATION_REPOSITORY,
+    IssueWorkflowEvent,
+    WorkflowActor,
+    WorkflowContractError,
+    WorkflowEventType,
+    WorkflowPhase,
+    WorkflowState,
+    parse_events,
+    transition,
+    validate_event_chain,
+)
+from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
+    IssueWorkflowService,
+    IssueWorkflowStoreError,
+    MemoryIssueBackend,
+)
+import Pipeline.TaskReviewAgent.issue_workflow_store as workflow_store  # noqa: E402
+from Pipeline.TaskReviewAgent.dispatch_plan import PlanScopedIssueBackend  # noqa: E402
+
+TASK_ID = "NSC-911"
+CONTRACT_HASH = "a" * 64
+PARENT_HASH = "b" * 64
+SOURCE_COMMIT = "1" * 40
+SOURCE_TREE = "2" * 40
+PLAN_ID = "GDP-" + ("3" * 64)
+GRAPH_DELTA_HASH = "4" * 64
+DECOMPOSITION_RESULT_HASH = "5" * 64
+POLICY_HASH = "6" * 64
+BRANCH = "nsc-911-synthetic-gauntlet"
+CHECKOUT = r"C:\NSC\Rehearsal\NSC-911"
+WORKER_ID = "synthetic-decomposition-service"
+PARENT_RESOURCES = [
+    "repo-file:Assets/Gauntlet/MuffcabbageGauntlet911Alpha.cs",
+    "repo-file:Assets/Gauntlet/MuffcabbageGauntlet911Alpha.cs.meta",
+    "repo-file:Assets/Gauntlet/MuffcabbageGauntlet911Beta.cs",
+    "repo-file:Assets/Gauntlet/MuffcabbageGauntlet911Beta.cs.meta",
+]
+
+
+def require(condition: bool, message: str) -> None:
+    if not condition:
+        raise AssertionError(message)
+
+
+def expect_store_error(action, text: str) -> None:
+    try:
+        action()
+    except IssueWorkflowStoreError as exc:
+        require(text in str(exc), f"unexpected error: {exc}")
+    else:
+        raise AssertionError(f"expected IssueWorkflowStoreError containing {text!r}")
+
+
+def expect_contract_error(action, text: str) -> None:
+    try:
+        action()
+    except WorkflowContractError as exc:
+        require(text in str(exc), f"unexpected error: {exc}")
+    else:
+        raise AssertionError(f"expected WorkflowContractError containing {text!r}")
+
+
+def task() -> dict:
+    return {
+        "id": TASK_ID,
+        "title": "Split the synthetic Alpha and Beta values",
+        "contract_revision": 1,
+        "kind": "implementation",
+        "execution_scope": "decomposable",
+        "decomposition_state": "candidate",
+        "execution_reason": "Exercise private rehearsal decomposition.",
+        "depends_on": [],
+        "exclusive_resources": list(PARENT_RESOURCES),
+        "acceptance_criteria": [
+            {"criterion_id": "AC-001", "requirement": "Alpha and Beta are separate."}
+        ],
+        "completion_gates": [
+            {"gate_id": "VAL-001", "requirement": "Both exact child tests pass."}
+        ],
+        "provenance": {
+            "origin": "human_approved_synthetic_gauntlet",
+            "gauntlet_id": AUTOMATED_VALIDATION_GAUNTLET_ID,
+            "requires_decomposition": True,
+        },
+        "task_contract_sha256": CONTRACT_HASH,
+    }
+
+
+class VerifyingService(IssueWorkflowService):
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.post_verification_calls = 0
+
+    def verify_post_mutation_state(self, *args, **kwargs):
+        self.post_verification_calls += 1
+        return super().verify_post_mutation_state(*args, **kwargs)
+
+
+def waiting_service(
+    *, with_vincent_inbox: bool = False
+) -> tuple[VerifyingService, MemoryIssueBackend, dict]:
+    backend = MemoryIssueBackend()
+    backend.repository = AUTOMATED_VALIDATION_REPOSITORY
+    selected = task()
+    service = VerifyingService(
+        backend=backend,
+        task_loader=lambda _task_id: selected,
+        worker_id=WORKER_ID,
+        vincent_inbox_title=(
+            workflow_store.VINCENT_INBOX_TITLE if with_vincent_inbox else None
+        ),
+    )
+    service.acquire_agent_lease(
+        task=selected,
+        source_head=SOURCE_COMMIT,
+        branch=BRANCH,
+        checkout_path=CHECKOUT,
+        planned_approach="Produce and independently review one exact graph delta.",
+        expected_validation="Require a fresh disjoint two-child partition.",
+        now="2026-09-04T13:00:00Z",
+    )
+    if with_vincent_inbox:
+        backend.create_issue(
+            title=workflow_store.VINCENT_INBOX_TITLE,
+            body=(
+                "# NSC-Vincent\n\n"
+                "Human-action routing inbox.\n\n"
+                f"{workflow_store.VINCENT_INBOX_MARKER}\n"
+            ),
+            labels=[],
+            assignees=["cathode26"],
+        )
+    service.publish_decomposition_handoff(
+        task_id=TASK_ID,
+        source_head=SOURCE_COMMIT,
+        checkout_path=CHECKOUT,
+        decomposition_run_id="20260904-130100Z",
+        artifact_root=(
+            r"C:\Users\VincentLiguori\Downloads\NoSafeCircleOutput"
+            r"\NSC-911\20260904-130100Z"
+        ),
+        graph_delta_plan_id=PLAN_ID,
+        graph_delta_sha256=GRAPH_DELTA_HASH,
+        summary="Fresh two-child Alpha/Beta split passed independent review.",
+        branch=BRANCH,
+        now="2026-09-04T13:01:00Z",
+    )
+    state = service.find(TASK_ID).state
+    assert state is not None
+    evidence = {
+        "schema_version": AUTOMATED_DECOMPOSITION_EVIDENCE_SCHEMA_VERSION,
+        "authority": AUTOMATED_DECOMPOSITION_EVIDENCE_AUTHORITY,
+        "repository": AUTOMATED_VALIDATION_REPOSITORY,
+        "repository_private": True,
+        "gauntlet_id": AUTOMATED_VALIDATION_GAUNTLET_ID,
+        "task_id": TASK_ID,
+        "handoff_event_id": state.last_event_id,
+        "branch": BRANCH,
+        "source_commit": SOURCE_COMMIT,
+        "source_tree": SOURCE_TREE,
+        "task_contract_sha256": CONTRACT_HASH,
+        "graph_delta_plan_id": PLAN_ID,
+        "graph_delta_sha256": GRAPH_DELTA_HASH,
+        "decomposition_result_sha256": DECOMPOSITION_RESULT_HASH,
+        "parent_contract_sha256": PARENT_HASH,
+        "parent_exclusive_resources": list(PARENT_RESOURCES),
+        "children": [
+            {
+                "task_id": "NSC-991",
+                "task_contract_sha256": "7" * 64,
+                "exclusive_resources": list(PARENT_RESOURCES[:2]),
+            },
+            {
+                "task_id": "NSC-992",
+                "task_contract_sha256": "8" * 64,
+                "exclusive_resources": list(PARENT_RESOURCES[2:]),
+            },
+        ],
+        "validation_policy_authority": AUTOMATED_DECOMPOSITION_POLICY_AUTHORITY,
+        "validation_policy_sha256": POLICY_HASH,
+        "review": {
+            "authority": AUTOMATED_DECOMPOSITION_REVIEW_AUTHORITY,
+            "status": AUTOMATED_DECOMPOSITION_REVIEW_STATUS,
+            "fresh_plan_status": "fresh",
+            "recomputed_plan_id": PLAN_ID,
+            "exact_child_count": 2,
+            "resources_disjoint": True,
+            "resources_partition_parent": True,
+        },
+    }
+    service.post_verification_calls = 0
+    return service, backend, evidence
+
+
+def test_exact_review_advances_without_fabricating_human_approval() -> None:
+    service, backend, evidence = waiting_service()
+    result = service.apply_automated_decomposition_result(
+        task_id=TASK_ID,
+        evidence=evidence,
+        actor_id=WORKER_ID,
+        now="2026-09-04T13:02:00Z",
+    )
+    state = service.find(TASK_ID).state
+    assert state is not None
+    require(result["status"] == "agent_ready", str(result))
+    require(result["decision"] == "approve", str(result))
+    require(state.state is WorkflowState.AGENT_READY, str(state))
+    require(state.phase is WorkflowPhase.DECOMPOSITION_APPLY, str(state))
+    require(state.current_actor is WorkflowActor.AGENT, str(state))
+    require(state.human_result is None, "automated review fabricated human approval")
+    require(service.post_verification_calls == 1, "post-verification was skipped")
+    issue = backend.list_issues()[0]
+    event = parse_events(backend.get_comments(issue["number"]))[-1]
+    require(
+        event.event_type
+        is WorkflowEventType.AUTOMATED_DECOMPOSITION_APPLICATION_APPROVED,
+        str(event),
+    )
+    require(event.actor_type is WorkflowActor.AGENT, str(event))
+    require(event.actor_id == WORKER_ID, str(event))
+    require(event.details == evidence, "decomposition evidence changed in persistence")
+    require(result["automated_decomposition_event_id"] == event.event_id, str(result))
+
+
+def test_automated_decomposition_notification_cleanup_is_safely_absent() -> None:
+    service, backend, evidence = waiting_service(with_vincent_inbox=True)
+    service.apply_automated_decomposition_result(
+        task_id=TASK_ID,
+        evidence=evidence,
+        actor_id=WORKER_ID,
+        now="2026-09-04T13:02:00Z",
+    )
+    inbox = next(
+        issue
+        for issue in backend.list_issues()
+        if issue["title"] == workflow_store.VINCENT_INBOX_TITLE
+    )
+    require(
+        backend.get_comments(inbox["number"]) == [],
+        "decomposition handoff unexpectedly created a Vincent notification",
+    )
+    require(
+        service.clear_vincent_notification_after_automated_evidence(TASK_ID)
+        == "absent",
+        "decomposition notification cleanup was not safely absent",
+    )
+
+
+def _assert_rejected_without_mutation(mutator, expected: str) -> None:
+    service, backend, evidence = waiting_service()
+    issues_before = copy.deepcopy(backend.list_issues())
+    comments_before = copy.deepcopy(backend.get_comments(issues_before[0]["number"]))
+    mutator(evidence)
+    expect_store_error(
+        lambda: service.apply_automated_decomposition_result(
+            task_id=TASK_ID,
+            evidence=evidence,
+            actor_id=WORKER_ID,
+            now="2026-09-04T13:02:00Z",
+        ),
+        expected,
+    )
+    require(backend.list_issues() == issues_before, "invalid evidence mutated the Issue")
+    require(
+        backend.get_comments(issues_before[0]["number"]) == comments_before,
+        "invalid evidence appended a workflow event",
+    )
+    require(service.post_verification_calls == 0, "invalid evidence reached verification")
+
+
+def test_envelope_and_handoff_bindings_are_exact() -> None:
+    cases = (
+        (lambda e: e.update(extra=True), "keys mismatch"),
+        (lambda e: e.pop("source_tree"), "keys mismatch"),
+        (lambda e: e.update(repository="cathode26/NoSafeCircle"), "repository must be exactly"),
+        (lambda e: e.update(repository_private=False), "repository_private must be exactly"),
+        (lambda e: e.update(gauntlet_id="other"), "gauntlet_id must be exactly"),
+        (lambda e: e.update(task_id="NSC-912"), "task_id does not match"),
+        (lambda e: e.update(task_id="not-a-task"), "task_id has an invalid identity"),
+        (lambda e: e.update(handoff_event_id="9" * 64), "handoff_event_id does not match"),
+        (lambda e: e.update(branch="other"), "branch does not match"),
+        (lambda e: e.update(source_commit="9" * 40), "source_commit does not match"),
+        (lambda e: e.update(source_tree="bad"), "source_tree"),
+        (lambda e: e.update(task_contract_sha256="9" * 64), "task contract"),
+        (lambda e: e.update(parent_contract_sha256="bad"), "parent_contract_sha256"),
+        (
+            lambda e: e.update(graph_delta_plan_id="GDP-" + ("9" * 64)),
+            "graph_delta_plan_id does not match",
+        ),
+        (lambda e: e.update(graph_delta_sha256="9" * 64), "graph_delta_sha256 does not match"),
+        (lambda e: e.update(decomposition_result_sha256="bad"), "decomposition_result_sha256"),
+        (lambda e: e.update(validation_policy_authority="wrong"), "validation_policy_authority"),
+        (lambda e: e.update(validation_policy_sha256="bad"), "validation_policy_sha256"),
+    )
+    for mutator, expected in cases:
+        _assert_rejected_without_mutation(mutator, expected)
+
+
+def test_exact_two_child_disjoint_partition_is_required() -> None:
+    cases = (
+        (lambda e: e["children"].pop(), "exactly two children"),
+        (lambda e: e["children"].reverse(), "task IDs must be sorted"),
+        (lambda e: e["children"][1].update(task_id="NSC-991"), "sorted and unique"),
+        (lambda e: e["children"][0].update(task_contract_sha256="bad"), "task_contract_sha256"),
+        (
+            lambda e: e["children"][1].update(
+                exclusive_resources=list(e["children"][0]["exclusive_resources"])
+            ),
+            "resources must be disjoint",
+        ),
+        (
+            lambda e: e["children"][1]["exclusive_resources"].__setitem__(
+                0, "repo-file:Assets/Gauntlet/AAAAUnexpected.cs"
+            ),
+            "exactly partition",
+        ),
+        (
+            lambda e: e["children"][0]["exclusive_resources"].reverse(),
+            "sorted and unique",
+        ),
+        (
+            lambda e: e["parent_exclusive_resources"].pop(),
+            "exactly 4 resources",
+        ),
+        (
+            lambda e: e["children"][0]["exclusive_resources"].__setitem__(
+                0, "logical:not-a-file"
+            ),
+            "canonical Assets repo-file",
+        ),
+        (lambda e: e["children"][0].update(extra=True), "keys mismatch"),
+    )
+    for mutator, expected in cases:
+        _assert_rejected_without_mutation(mutator, expected)
+
+
+def test_review_decomposition_plan_result_is_pinned() -> None:
+    cases = (
+        (lambda e: e["review"].update(status="review_ready"), "review status"),
+        (lambda e: e["review"].update(fresh_plan_status="already_applied"), "fresh_plan_status"),
+        (
+            lambda e: e["review"].update(
+                recomputed_plan_id="GDP-" + ("9" * 64)
+            ),
+            "recomputed_plan_id",
+        ),
+        (lambda e: e["review"].update(exact_child_count=3), "exact_child_count"),
+        (lambda e: e["review"].update(resources_disjoint=False), "resources_disjoint"),
+        (
+            lambda e: e["review"].update(resources_partition_parent=False),
+            "resources_partition_parent",
+        ),
+        (lambda e: e["review"].update(extra=True), "keys mismatch"),
+    )
+    for mutator, expected in cases:
+        _assert_rejected_without_mutation(mutator, expected)
+
+
+def test_actor_phase_and_target_are_fail_closed() -> None:
+    service, backend, evidence = waiting_service()
+    issues_before = copy.deepcopy(backend.list_issues())
+    expect_store_error(
+        lambda: service.apply_automated_decomposition_result(
+            task_id=TASK_ID,
+            evidence=[],  # type: ignore[arg-type]
+            actor_id=WORKER_ID,
+            now="2026-09-04T13:02:00Z",
+        ),
+        "evidence must be an object",
+    )
+    expect_store_error(
+        lambda: service.apply_automated_decomposition_result(
+            task_id=TASK_ID,
+            evidence=evidence,
+            actor_id="another-worker",
+            now="2026-09-04T13:02:00Z",
+        ),
+        "authenticated service worker",
+    )
+    require(backend.list_issues() == issues_before, "wrong actor mutated Issue")
+    state = service.find(TASK_ID).state
+    assert state is not None
+    base = {
+        "event_type": WorkflowEventType.AUTOMATED_DECOMPOSITION_APPLICATION_APPROVED,
+        "actor_type": WorkflowActor.AGENT,
+        "actor_id": WORKER_ID,
+        "to_state": WorkflowState.AGENT_READY,
+        "to_phase": WorkflowPhase.DECOMPOSITION_APPLY,
+        "details": evidence,
+        "now": "2026-09-04T13:02:00Z",
+    }
+    expect_contract_error(
+        lambda: transition(state, **{**base, "actor_type": WorkflowActor.HUMAN}),
+        "target state or actor",
+    )
+    expect_contract_error(
+        lambda: transition(
+            replace(state, phase=WorkflowPhase.UNITY_RUNTIME_VALIDATION), **base
+        ),
+        "decomposition_apply_authorization phase",
+    )
+    expect_contract_error(
+        lambda: transition(
+            state, **{**base, "to_phase": WorkflowPhase.DECOMPOSITION}
+        ),
+        "must enter decomposition_apply",
+    )
+
+
+def test_event_chain_revalidates_handoff_and_evidence() -> None:
+    service, backend, evidence = waiting_service()
+    service.apply_automated_decomposition_result(
+        task_id=TASK_ID,
+        evidence=evidence,
+        actor_id=WORKER_ID,
+        now="2026-09-04T13:02:00Z",
+    )
+    snapshot = service.find(TASK_ID)
+    assert snapshot is not None and snapshot.state is not None
+    events = list(parse_events(backend.get_comments(snapshot.issue_number)))
+    original = events[-1]
+    forged_details = copy.deepcopy(original.details)
+    forged_details["graph_delta_sha256"] = "9" * 64
+    forged = IssueWorkflowEvent.create(
+        task_id=original.task_id,
+        sequence=original.sequence,
+        previous_event_id=original.previous_event_id,
+        event_type=original.event_type,
+        from_state=original.from_state,
+        to_state=original.to_state,
+        from_phase=original.from_phase,
+        to_phase=original.to_phase,
+        actor_type=original.actor_type,
+        actor_id=original.actor_id,
+        task_contract_sha256=original.task_contract_sha256,
+        occurred_at_utc=original.occurred_at_utc,
+        details=forged_details,
+    )
+    events[-1] = forged
+    forged_state = replace(snapshot.state, last_event_id=forged.event_id)
+    expect_contract_error(
+        lambda: validate_event_chain(forged_state, events),
+        "graph_delta_sha256 does not match",
+    )
+
+
+def test_existing_human_approval_event_is_byte_compatible() -> None:
+    service, backend, _evidence = waiting_service()
+    backend.repository = "cathode26/NoSafeCircle"
+    body = (
+        "## Decomposition application result\n\n"
+        "Result: APPROVE\n"
+        f"Reviewed plan_id: `{PLAN_ID}`\n"
+    )
+    result = service.apply_decomposition_result(
+        task_id=TASK_ID,
+        result_body=body,
+        actor_id="cathode26",
+        now="2026-09-04T13:02:00Z",
+    )
+    event = parse_events(backend.get_comments(result["issue_number"]))[-1]
+    require(
+        event.event_type is WorkflowEventType.DECOMPOSITION_APPLICATION_APPROVED,
+        str(event),
+    )
+    require(event.actor_type is WorkflowActor.HUMAN, str(event))
+    require(
+        event.details
+        == {
+            "reviewed_plan_id": PLAN_ID,
+            "human_comment_sha256": semantic_sha256({"body": body}),
+        },
+        str(event.details),
+    )
+
+
+def test_new_rehearsal_evidence_is_bound_to_its_repository() -> None:
+    repository = "fixture-owner/agent-rehearsal"
+    service, backend, evidence = waiting_service()
+    evidence["repository"] = repository
+    before = backend.list_issues()
+    comments = backend.get_comments(before[0]["number"])
+    try:
+        service.apply_automated_decomposition_result(
+            task_id=TASK_ID, evidence=evidence, actor_id=WORKER_ID,
+            now="2026-09-04T14:02:00Z",
+        )
+    except Exception as exc:
+        require("does not match the Issue backend" in str(exc), str(exc))
+    else:
+        raise AssertionError("evidence crossed repository authority")
+    require(backend.list_issues() == before, "mismatched evidence changed Issue state")
+    require(backend.get_comments(before[0]["number"]) == comments, "mismatched evidence wrote a comment")
+    backend.repository = repository
+    result = service.apply_automated_decomposition_result(
+        task_id=TASK_ID, evidence=evidence, actor_id=WORKER_ID,
+        now="2026-09-04T14:02:00Z",
+    )
+    snapshot = service.find(TASK_ID)
+    require(result["status"] == "agent_ready", str(result))
+    require(snapshot.state.human_result is None, "machine evidence fabricated human PASS")
+    require(snapshot.events[-1].details["repository"] == repository, "repository binding was replaced")
+
+
+def test_persisted_automated_history_cannot_cross_repositories() -> None:
+    repositories = (
+        AUTOMATED_VALIDATION_REPOSITORY,
+        "fixture-owner/agent-rehearsal",
+    )
+    for source_repository, other_repository in (
+        repositories, tuple(reversed(repositories))
+    ):
+        for resumed, cached in ((False, False), (False, True), (True, False), (True, True)):
+            service, backend, evidence = waiting_service(with_vincent_inbox=True)
+            backend.repository = source_repository
+            evidence["repository"] = source_repository
+            service.apply_automated_decomposition_result(
+                task_id=TASK_ID, evidence=evidence, actor_id=WORKER_ID,
+                now="2026-09-04T14:02:00Z",
+            )
+            if resumed:
+                service.acquire_agent_lease(
+                    task=task(), source_head=SOURCE_COMMIT, branch=BRANCH,
+                    checkout_path=CHECKOUT, planned_approach="Resume exact approved work.",
+                    expected_validation="Reuse the recorded machine evidence.",
+                    now="2026-09-04T14:03:00Z",
+                )
+            if cached:
+                service.backend = PlanScopedIssueBackend(backend)
+            original = service.find(TASK_ID)
+            assert original is not None and original.state is not None
+            require(original.valid, str(original.reasons))
+            require(original.state.human_result is None, "machine evidence became human PASS")
+            if resumed:
+                require(
+                    original.events[-1].event_type is WorkflowEventType.AGENT_LEASE_ACQUIRED,
+                    "test did not place automated evidence earlier in the history",
+                )
+            validate_event_chain(original.state, original.events)
+            for target_repository in (other_repository, "cathode26/NoSafeCircle", None):
+                # Copy authentic persisted state and hashed comments without rewriting them.
+                copied_backend = copy.deepcopy(backend)
+                copied_backend.repository = target_repository
+                copied_service = VerifyingService(
+                    backend=PlanScopedIssueBackend(copied_backend) if cached else copied_backend,
+                    task_loader=lambda _task_id: task(),
+                    worker_id=WORKER_ID,
+                    vincent_inbox_title=workflow_store.VINCENT_INBOX_TITLE,
+                )
+                issues_before = copied_backend.list_issues()
+                comments_before = {
+                    issue["number"]: copied_backend.get_comments(issue["number"])
+                    for issue in issues_before
+                }
+                with patch.object(
+                    workflow_store.time, "sleep",
+                    side_effect=AssertionError("repository mismatch must not wait"),
+                ):
+                    snapshot = copied_service.find(TASK_ID)
+                    assert snapshot is not None
+                    require(
+                        not snapshot.valid,
+                        f"replayed automated history was accepted: {source_repository} -> "
+                        f"{target_repository}, resumed={resumed}, cached={cached}",
+                    )
+                    require(
+                        "does not match the Issue backend" in "; ".join(snapshot.reasons),
+                        str(snapshot.reasons),
+                    )
+                    require(snapshot.events == original.events, "read rewrote event history")
+                    require(snapshot.state == original.state, "read rewrote workflow state")
+                    require(snapshot.pending_transition is None, "replay became a pending transition")
+                    expect_store_error(copied_service.list_agent_ready, "Issue backend")
+                    expect_store_error(
+                        lambda: copied_service.clear_vincent_notification_after_automated_evidence(TASK_ID),
+                        "valid managed Issue",
+                    )
+                require(copied_backend.list_issues() == issues_before, "replay mutated Issues")
+                require(
+                    all(copied_backend.get_comments(number) == comments
+                        for number, comments in comments_before.items()),
+                    "replay mutated comments or human notifications",
+                )
+            backend.repository = source_repository.upper()
+            require(service.find(TASK_ID).valid, "repository case changed authority")
+
+
+def main() -> int:
+    tests = (
+        test_persisted_automated_history_cannot_cross_repositories,
+        test_new_rehearsal_evidence_is_bound_to_its_repository,
+        test_exact_review_advances_without_fabricating_human_approval,
+        test_automated_decomposition_notification_cleanup_is_safely_absent,
+        test_envelope_and_handoff_bindings_are_exact,
+        test_exact_two_child_disjoint_partition_is_required,
+        test_review_decomposition_plan_result_is_pinned,
+        test_actor_phase_and_target_are_fail_closed,
+        test_event_chain_revalidates_handoff_and_evidence,
+        test_existing_human_approval_event_is_byte_compatible,
+    )
+    for test_case in tests:
+        test_case()
+        print(f"PASS {test_case.__name__}")
+    print(f"PASS automated decomposition event smoke suite ({len(tests)} tests)")
+    return 0
+
+
+if __name__ == "__main__":
+    from Pipeline.TaskReviewAgent.tests.synthetic_fixture_authority import run_with_synthetic_authority
+    raise SystemExit(run_with_synthetic_authority(main))

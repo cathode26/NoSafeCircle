@@ -54,6 +54,7 @@ _SENSITIVE_PREFIXES = (
 )
 _STALE_RECEIPT_KEYS = (
     "validation_manifests",
+    "validation_authority",
     "implementation_commit",
     "implementation_tree",
     "human_validation",
@@ -264,6 +265,31 @@ def _mainline_status(
             "main_head": main_head,
         }
     if ancestry.returncode != 1:
+        return {
+            "status": "main_commit_unavailable",
+            "task_head": task_head,
+            "main_head": main_head,
+        }
+    reverse_ancestry = _git(
+        controller.command_runner,
+        controller.checkout,
+        "merge-base",
+        "--is-ancestor",
+        task_head,
+        main_head,
+        check=False,
+    )
+    if (
+        reverse_ancestry.returncode == 0
+        and phase == WorkflowPhase.MERGE_CLOSEOUT.value
+    ):
+        return {
+            "status": "task_already_in_main",
+            "task_head": task_head,
+            "main_head": main_head,
+            "authority": "git_ancestry",
+        }
+    if reverse_ancestry.returncode not in (0, 1):
         return {
             "status": "main_commit_unavailable",
             "task_head": task_head,
@@ -609,14 +635,15 @@ def _verified_evidence_head_for_integration(
     task_head: str,
     recovery: Mapping[str, Any] | None,
 ) -> dict[str, Any] | None:
-    """Bind a merge-closeout evidence HEAD back to its human-tested commit.
+    """Bind a merge-closeout evidence HEAD back to its validated commit.
 
     A normal pending-check release advances the Issue's ``head_commit`` to the
     published evidence commit while preserving ``human_handoff_commit`` as the
-    exact implementation commit Vincent tested.  An interrupted publication
-    can retain the older Issue head and expose the same identity through the
-    validated checkout recovery record.  Accept only those two exact shapes,
-    then independently re-prove the persisted evidence tree and changed paths.
+    exact implementation commit validated by either human or authorized
+    synthetic-gauntlet evidence.  An interrupted publication can retain the
+    older Issue head and expose the same identity through the validated checkout
+    recovery record.  Accept only those two exact shapes, then independently
+    re-prove the persisted evidence tree and changed paths.
     """
 
     if workflow_state.get("phase") != WorkflowPhase.MERGE_CLOSEOUT.value:
@@ -798,6 +825,93 @@ def _patched_human_validation_artifact(
     return _ORIGINALS["human_validation_artifact"](self, commit)
 
 
+def _fresh_mainline_status_before_merge(self: Any) -> dict[str, Any]:
+    """Re-prove the task/main relation immediately before a merge mutation."""
+
+    self._assert_checkout()
+    task_head = _git_text(
+        self.command_runner,
+        self.checkout,
+        "rev-parse",
+        "HEAD",
+    )
+    _git(
+        self.command_runner,
+        self.checkout,
+        "fetch",
+        "origin",
+        "+refs/heads/main:refs/remotes/origin/main",
+        timeout_seconds=900.0,
+    )
+    main_head = _git_text(
+        self.command_runner,
+        self.checkout,
+        "rev-parse",
+        "origin/main",
+    )
+    if not _SHA40.fullmatch(task_head) or not _SHA40.fullmatch(main_head):
+        raise DownstreamPipelineError(
+            "task HEAD or origin/main did not resolve before pull-request merge"
+        )
+    main_is_integrated = _git(
+        self.command_runner,
+        self.checkout,
+        "merge-base",
+        "--is-ancestor",
+        main_head,
+        task_head,
+        check=False,
+    )
+    if main_is_integrated.returncode == 0:
+        return {
+            "status": "integrated",
+            "task_head": task_head,
+            "main_head": main_head,
+            "authority": "fresh_pre_merge_git_ancestry",
+        }
+    if main_is_integrated.returncode != 1:
+        raise DownstreamPipelineError(
+            "could not prove current main ancestry before pull-request merge"
+        )
+    task_is_in_main = _git(
+        self.command_runner,
+        self.checkout,
+        "merge-base",
+        "--is-ancestor",
+        task_head,
+        main_head,
+        check=False,
+    )
+    if task_is_in_main.returncode == 0:
+        return {
+            "status": "task_already_in_main",
+            "task_head": task_head,
+            "main_head": main_head,
+            "authority": "fresh_pre_merge_git_ancestry",
+        }
+    if task_is_in_main.returncode != 1:
+        raise DownstreamPipelineError(
+            "could not prove task ancestry before pull-request merge"
+        )
+    return {
+        "status": "required",
+        "task_head": task_head,
+        "main_head": main_head,
+        "authority": "fresh_pre_merge_git_ancestry",
+    }
+
+
+def _guard_current_main_before_pull_request_merge(
+    self: Any,
+) -> dict[str, Any] | None:
+    self._require_lease(WorkflowPhase.MERGE_CLOSEOUT)
+    status = _fresh_mainline_status_before_merge(self)
+    self._mainline_reintegration_status = status
+    if status["status"] == "required":
+        return self.integrate_current_main()
+    return None
+
+
 def _integrate_current_main(self: Any) -> dict[str, Any]:
     observation = self.observe()
     workflow_state = _workflow_state(observation)
@@ -843,20 +957,22 @@ def _integrate_current_main(self: Any) -> dict[str, Any]:
         raise DownstreamPipelineError(
             "integration requires the exact Issue branch and head"
         )
-    human = self._latest_human_validation()
-    expected_human_commit = (
+    validation_authority = self._latest_validation_authority()
+    expected_validated_commit = (
         str(evidence_head["implementation_commit"])
         if evidence_head is not None
         else task_head
     )
     if (
-        human is None
-        or human.get("result") != "pass"
-        or human.get("tested_commit") != expected_human_commit
+        not isinstance(validation_authority, Mapping)
+        or validation_authority.get("kind") not in {"human", "automated"}
+        or validation_authority.get("result") != "pass"
+        or validation_authority.get("tested_commit") != expected_validated_commit
     ):
         raise DownstreamPipelineError(
-            "integration requires the recorded exact human PASS"
+            "integration requires the recorded exact validation authority"
         )
+    validation_authority_kind = str(validation_authority["kind"])
 
     _git(
         self.command_runner,
@@ -1137,12 +1253,16 @@ def _integrate_current_main(self: Any) -> dict[str, Any]:
             },
         )
 
-    receipt_payload = {
+    receipt_payload: dict[str, Any] = {
         "schema_version": INTEGRATION_RECEIPT_VERSION,
         "task_id": self.task_id,
         "branch": branch,
         "prior_task_head": task_head,
-        "human_tested_commit": expected_human_commit,
+        "human_tested_commit": (
+            expected_validated_commit
+            if validation_authority_kind == "human"
+            else None
+        ),
         "main_head": main_head,
         "merge_base": merge_base,
         "integrated_commit": integrated_commit,
@@ -1162,19 +1282,34 @@ def _integrate_current_main(self: Any) -> dict[str, Any]:
         "created_at_utc": utc_now(),
         "authority": "deterministic_mainline_reintegration",
     }
+    if validation_authority_kind == "automated":
+        # Keep machine evidence machine-owned.  The strict downstream resolver
+        # has already rebound the event, committed policy, Issue state, branch,
+        # commit, tree, and private rehearsal repository.  Recording that exact
+        # authority must never populate the legacy human-tested field.
+        receipt_payload.update(
+            {
+                "validation_authority_kind": "automated",
+                "validated_commit": expected_validated_commit,
+                "automated_validation_event_id": validation_authority.get(
+                    "event_id"
+                ),
+            }
+        )
     receipt = {
         **receipt_payload,
         "receipt_sha256": semantic_sha256(receipt_payload),
     }
     _invalidate_downstream_receipt(self, receipt)
 
+    automated_validation = validation_authority_kind == "automated"
     handoff = self.workflow.publish_human_handoff(
         branch=branch,
         head_commit=integrated_commit,
         implementation_summary=(
-            "Merged current main into the previously human-tested task branch. "
+            "Merged current main into the previously validated task branch. "
             "Because the merge created a new commit, that exact integrated commit "
-            "requires a new Unity result before delivery."
+            "requires new exact validation before delivery."
         ),
         completed_checks=[
             "Merge commit preserves the prior task head as first parent.",
@@ -1183,15 +1318,30 @@ def _integrate_current_main(self: Any) -> dict[str, Any]:
             f"Integration classification: {receipt['classification']}",
             f"Integration receipt: {receipt['receipt_sha256']}",
         ],
-        human_steps=[
-            "Open the recorded NSC task checkout in Unity.",
-            "Run the Issue's named EditMode/PlayMode tests.",
-            "Repeat the prior gameplay checks on this exact integrated commit.",
-            "Post PASS or FAIL for the exact commit and apply nsc-state:agent-ready.",
-        ],
+        human_steps=(
+            [
+                "Run the committed private synthetic-gauntlet validator on this exact integrated commit.",
+                "Require its hash-bound automated validation event to name this branch, commit, tree, task contract, and test policy.",
+                "If automated validation refuses, report the exact blocker without creating a human PASS.",
+            ]
+            if automated_validation
+            else [
+                "Open the recorded NSC task checkout in Unity.",
+                "Run the Issue's named EditMode/PlayMode tests.",
+                "Repeat the prior gameplay checks on this exact integrated commit.",
+                "Post PASS or FAIL for the exact commit and apply nsc-state:agent-ready.",
+            ]
+        ),
         expected_result=(
-            "The integrated commit preserves the task behavior and all required "
-            "tests pass without unexpected Console errors."
+            (
+                "The committed private synthetic-gauntlet validator accepts the "
+                "integrated commit without creating human approval."
+            )
+            if automated_validation
+            else (
+                "The integrated commit preserves the task behavior and all required "
+                "tests pass without unexpected Console errors."
+            )
         ),
     )
     return {
@@ -1278,6 +1428,9 @@ def install_mainline_reintegration() -> None:
     controller._assert_human_tested_head = _patched_assert_human_tested_head
     controller._human_validation_artifact = _patched_human_validation_artifact
     controller.integrate_current_main = _integrate_current_main
+    controller.guard_current_main_before_pull_request_merge = (
+        _guard_current_main_before_pull_request_merge
+    )
 
     openai._ACTIONS["integrate_current_main"] = (
         "Merge current origin/main into the exact task branch with history preserved, "

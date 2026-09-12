@@ -219,6 +219,10 @@ def test_real_repository_observation() -> None:
         "task contract exact-byte hash is wrong",
     )
     require(task["depends_on"] == contract["depends_on"], "dependency list changed")
+    require(
+        task["provenance"] == (contract.get("provenance") or {}),
+        "task provenance differs from committed contract",
+    )
 
     selected_state = task_state("NSC-050")
     require(

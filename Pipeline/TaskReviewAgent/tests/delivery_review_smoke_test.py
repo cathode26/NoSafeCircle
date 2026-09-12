@@ -18,6 +18,7 @@ from Pipeline.TaskReviewAgent.delivery_review import (  # noqa: E402
     create_delivery_review_proposal,
     file_sha256,
     materialize_approved_review,
+    materialize_automated_review,
 )
 
 TASK_ID = "NSC-777"
@@ -246,8 +247,71 @@ def test_invalid_proposals_fail_closed() -> None:
         )
 
 
+def test_automated_review_records_no_human_approval() -> None:
+    with tempfile.TemporaryDirectory(prefix="nsc-delivery-review-auto-") as temporary:
+        root = Path(temporary)
+        draft_path = root / "delivery-draft.json"
+        proposal_path = root / "delivery-proposal.json"
+        approved_path = root / "delivery-approved.json"
+        value = draft()
+        value["artifacts"] = [value["artifacts"][0]]
+        draft_path.write_text(
+            json.dumps(value, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+            newline="\n",
+        )
+        proposal = create_delivery_review_proposal(
+            draft_path=draft_path,
+            output_path=proposal_path,
+            task_id=TASK_ID,
+            branch="nsc-777-synthetic",
+            selected_surfaces=[
+                {
+                    "path": "Assets/NoSafeCircle/Synthetic/Feature.cs",
+                    "role": "runtime behavior owner",
+                }
+            ],
+            gate_mappings=[
+                {
+                    "gate_id": "VAL-001",
+                    "evidence": ["unity_01_results"],
+                    "notes": "The exact committed Unity test validates this gate.",
+                }
+            ],
+            approval_notes="Machine validation may package this synthetic task.",
+            created_by="task-review-agent-smoke",
+        )
+        result = materialize_automated_review(
+            proposal_path=proposal_path,
+            expected_proposal_sha256=proposal["proposal_sha256"],
+            output_path=approved_path,
+            validation_event_id="e" * 64,
+            validation_policy_sha256="d" * 64,
+        )
+        approved = json.loads(
+            Path(result["approved_review_path"]).read_text(encoding="utf-8")
+        )
+        require(
+            approved["human_approval"]
+            == {
+                "required": False,
+                "decision": "not_required",
+                "approved_by": "",
+                "notes": (
+                    f"Automated validation event {'e' * 64}; committed "
+                    f"validation policy {'d' * 64}."
+                ),
+            },
+            "automated review fabricated or omitted approval authority",
+        )
+
+
 def main() -> int:
-    tests = (test_proposal_and_approved_review, test_invalid_proposals_fail_closed)
+    tests = (
+        test_proposal_and_approved_review,
+        test_invalid_proposals_fail_closed,
+        test_automated_review_records_no_human_approval,
+    )
     for test in tests:
         test()
         print(f"PASS {test.__name__}")

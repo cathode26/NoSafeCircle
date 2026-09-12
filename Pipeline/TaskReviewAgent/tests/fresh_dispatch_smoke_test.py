@@ -68,6 +68,19 @@ NAMESPACE = "refs/nsc/claims"
 SHARED_RESOURCE = "unity-scene:Assets/Scenes/StageThreeFixture.unity"
 
 
+# The literal is repeated here on purpose. Importing this constant would make
+# every test below die at import time against the base commit, which proves
+# nothing about behavior; with the fallback each test instead fails on its own
+# named behavioural assertion. The equality check keeps the two in step.
+_SKEW_KIND_LITERAL = "transient_observation_consistency_skew"
+try:
+    from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
+        BLOCKED_KIND_TRANSIENT_CONSISTENCY_SKEW,
+    )
+except ImportError:  # pragma: no cover - only reachable before the fix
+    BLOCKED_KIND_TRANSIENT_CONSISTENCY_SKEW = _SKEW_KIND_LITERAL
+
+
 def require(condition: bool, message: str) -> None:
     if not condition:
         raise AssertionError(message)
@@ -771,6 +784,18 @@ def test_lease_outcome_decision_classifies_blocked_kinds() -> None:
         )
         == "issue_initialization_blocked",
         "an exact-authority verification failure must never retry",
+    )
+    require(
+        decision(
+            {
+                "status": "blocked",
+                "blocked_kind": BLOCKED_KIND_TRANSIENT_CONSISTENCY_SKEW,
+            }
+        )
+        == "issue_initialization_blocked",
+        "an unread reservation picture must stay terminal here: bounded GitHub "
+        "read skew proves nothing about another worker's durable authority, so "
+        "it is not benign contention Stage 3 may retry against another task",
     )
     require(
         decision({"status": "blocked", "blocked_kind": "some_future_unrecognized_kind"})

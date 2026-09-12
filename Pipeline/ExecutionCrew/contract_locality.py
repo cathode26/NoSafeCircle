@@ -198,3 +198,72 @@ def validate_locality_audit_output(
         reasons.append("contract locality auditor status=contract_review_required requires at least one nonlocal entry")
 
     return reasons
+
+
+# The auditor decides locality from what a related task *requires* or *owns*.
+# These dependent-contract fields state neither: each one either repeats a value
+# the deterministic task catalog in the same prompt already carries for every
+# committed task, or records how that contract was derived. Requirement text --
+# acceptance criteria, completion gates, downstream integration obligations,
+# notes, exclusive resources, the execution/decomposition reasoning that says
+# what a task keeps versus defers, and the depends_on edge itself -- is never
+# omitted, so no locality decision loses an input it can turn on.
+#
+# This is a denylist on purpose. A field this module has not classified is
+# retained, so a future task-contract schema addition cannot leave the audit
+# silently.
+DEPENDENT_CONTRACT_OMITTED_FIELDS: frozenset[str] = frozenset({
+    # Already carried verbatim, for every committed task, by the task catalog.
+    "decomposition_state",
+    "execution_scope",
+    "kind",
+    "parent",
+    "reconciliation_key",
+    "type",
+    # Derivation metadata. `gdd_evidence` is an excerpt of the canonical GDD the
+    # auditor already holds in full, and the bootstrap repository observations
+    # are a stale snapshot of a tree the auditor can read directly at the
+    # audited head through its repository_read capability.
+    "contract_revision",
+    "gdd_evidence",
+    "provenance",
+    "repository_evidence_at_bootstrap",
+    "repository_state_at_bootstrap",
+    "schema_version",
+})
+
+# Synthesized by the payload below. A committed contract must not already carry
+# them, or the audit would read a contract value as pipeline metadata.
+_DEPENDENT_PAYLOAD_SYNTHETIC_FIELDS = ("committed_contract_path", "omitted_fields")
+
+
+def auditor_dependent_contract_payload(
+    dependent_contracts: Mapping[str, Mapping[str, Any]]
+) -> dict[str, dict[str, Any]]:
+    """Project each direct dependent contract onto its locality-bearing fields.
+
+    Every retained field keeps its exact committed value: nothing is summarized,
+    truncated, reordered, or replaced by a title. Each entry additionally names
+    the exact committed file holding the whole contract, so the omitted fields
+    stay deterministically reachable through the repository read capability the
+    auditor already has, at the same commit the audit is bound to.
+    """
+    payload: dict[str, dict[str, Any]] = {}
+    for task_id in sorted(dependent_contracts):
+        contract = dependent_contracts[task_id]
+        reserved = [field for field in _DEPENDENT_PAYLOAD_SYNTHETIC_FIELDS if field in contract]
+        if reserved:
+            raise ContractLocalityError(
+                f"{task_id} already defines reserved auditor payload field(s): {', '.join(reserved)}"
+            )
+        retained = {
+            field: value
+            for field, value in contract.items()
+            if field not in DEPENDENT_CONTRACT_OMITTED_FIELDS
+        }
+        payload[task_id] = {
+            **retained,
+            "committed_contract_path": f"Tasks/{task_id}.yaml",
+            "omitted_fields": sorted(set(contract) & DEPENDENT_CONTRACT_OMITTED_FIELDS),
+        }
+    return payload

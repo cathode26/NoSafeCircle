@@ -8,13 +8,9 @@ import subprocess
 import sys
 import tempfile
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any, Callable, Literal
 
-from TaskDecomposition.context_builder import (
-    DecompositionPreflightError,
-    capture_clean_source,
-)
 from decomposition_graph_semantics import validate_decomposition_graph_semantics
 from graph_apply_materialize import (
     GraphApplyMaterializationError,
@@ -522,35 +518,11 @@ def _require_no_commit_stage_hooks(root: Path) -> None:
 
 
 def _repository_preflight(target_root: Path) -> tuple[Path, str]:
-    root = Path(target_root).resolve()
-    if not root.is_dir():
-        raise GraphApplyRepositoryError(
-            f"target_root must be an existing local Git repository directory: {root}"
-        )
-    try:
-        identity = capture_clean_source(root)
-    except DecompositionPreflightError as exc:
-        raise GraphApplyRepositoryError(
-            f"Target repository precondition failed: {_bounded_detail(exc)}"
-        ) from exc
-    if identity.root != root:
-        raise GraphApplyRepositoryError(
-            "target_root must be the exact local Git repository root, not a subdirectory."
-        )
-    if not identity.branch:
+    root, head, branch = _normalized_repository_identity(target_root)
+    if not branch:
         raise GraphApplyRepositoryError(
             "Target repository must have an attached branch; detached HEAD is unsafe for "
             "the local commit/rollback boundary."
-        )
-    index = _git(root, "diff", "--cached", "--quiet", "--exit-code", "HEAD", "--")
-    if index.returncode == 1:
-        raise GraphApplyRepositoryError(
-            "Target repository index must be empty before graph application."
-        )
-    if index.returncode != 0:
-        raise GraphApplyRepositoryError(
-            "Target repository index state could not be read: "
-            f"{_decode_output(index.stderr)}"
         )
     try:
         _approved_identity()
@@ -559,7 +531,7 @@ def _repository_preflight(target_root: Path) -> tuple[Path, str]:
             f"Approved automation Git identity is unavailable: {_bounded_detail(exc)}"
         ) from exc
     _require_no_commit_stage_hooks(root)
-    return root, identity.head
+    return root, head
 
 
 def _approved_identity() -> tuple[str, str]:
@@ -738,26 +710,11 @@ def inspect_graph_delta_replay(
     """
 
     asserted_head = _require_expected_head(expected_head)
-    root = Path(target_root).resolve()
-    if not root.is_dir():
-        raise GraphApplyRepositoryError(
-            "target_root must be an existing local Git repository directory: "
-            f"{root}"
-        )
-    try:
-        identity = capture_clean_source(root)
-    except DecompositionPreflightError as exc:
-        raise GraphApplyRepositoryError(
-            f"Target repository precondition failed: {_bounded_detail(exc)}"
-        ) from exc
-    if identity.root != root:
-        raise GraphApplyRepositoryError(
-            "target_root must be the exact local Git repository root, not a subdirectory."
-        )
-    if asserted_head is not None and identity.head != asserted_head:
+    root, head, _branch = _normalized_repository_identity(target_root)
+    if asserted_head is not None and head != asserted_head:
         raise GraphApplyRepositoryError(
             "Target repository HEAD does not match caller-observed expected_head "
-            f"(expected={asserted_head}, actual={identity.head})."
+            f"(expected={asserted_head}, actual={head})."
         )
     authority = _stored_authority(stored_graph_delta, original_parent_selector)
     try:
@@ -767,7 +724,7 @@ def inspect_graph_delta_replay(
             "Current committed graph failed full persistent replay validation: "
             f"{_bounded_detail(exc)}"
         ) from exc
-    _require_same_clean_head(root, identity.head)
+    _require_same_clean_head(root, head)
     replay = _inspect_replay(graph, authority)
     return GraphApplyReplayInspection(
         status=replay.status,
@@ -775,7 +732,7 @@ def inspect_graph_delta_replay(
         parent_task_id=authority.parent_task_id,
         reason=replay.reason,
         failures=replay.failures,
-        current_head=identity.head,
+        current_head=head,
     )
 
 
@@ -814,16 +771,11 @@ def _require_same_clean_head(root: Path, expected_head: str) -> None:
         raise GraphApplyRepositoryError(
             f"Target repository HEAD changed during preflight: {expected_head} -> {current}."
         )
-    status = _require_git(
-        root,
-        "status",
-        "--porcelain=v1",
-        "-z",
-        "--untracked-files=all",
-    )
-    if status:
+    dirty_paths = _working_tree_paths(root)
+    if dirty_paths:
         raise GraphApplyRepositoryError(
-            "Target repository changed during preflight and is no longer completely clean."
+            "Target repository changed during preflight and is no longer completely "
+            f"clean (paths={list(dirty_paths)})."
         )
     index = _git(root, "diff", "--cached", "--quiet", "--exit-code", "HEAD", "--")
     if index.returncode != 0:
@@ -845,13 +797,6 @@ def _nul_paths(raw: bytes, label: str) -> tuple[str, ...]:
 
 
 def _working_tree_paths(root: Path) -> tuple[str, ...]:
-    _require_git(
-        root,
-        "status",
-        "--porcelain=v1",
-        "-z",
-        "--untracked-files=all",
-    )
     tracked = _nul_paths(
         _require_git(root, "diff", "--name-only", "-z", "--no-renames", "HEAD", "--"),
         "git diff",
@@ -861,6 +806,57 @@ def _working_tree_paths(root: Path) -> tuple[str, ...]:
         "git ls-files",
     )
     return tuple(sorted(set((*tracked, *untracked))))
+
+
+def _normalized_repository_identity(
+    target_root: Path,
+) -> tuple[Path, str, str | None]:
+    """Bind exact repository identity to Git-normalized tracked cleanliness."""
+
+    root = Path(target_root).resolve()
+    if not root.is_dir():
+        raise GraphApplyRepositoryError(
+            f"target_root must be an existing local Git repository directory: {root}"
+        )
+    repository_root = Path(_git_text(root, "rev-parse", "--show-toplevel")).resolve()
+    if repository_root != root:
+        raise GraphApplyRepositoryError(
+            "target_root must be the exact local Git repository root, not a subdirectory."
+        )
+    head = _git_text(root, "rev-parse", "--verify", "HEAD")
+    _git_text(root, "rev-parse", "--verify", "HEAD^{tree}")
+    branch_result = _git(root, "symbolic-ref", "--quiet", "--short", "HEAD")
+    if branch_result.returncode == 0:
+        branch = branch_result.stdout.decode("utf-8", "replace").strip()
+        if not branch:
+            raise GraphApplyRepositoryError(
+                "Attached target repository branch resolved to an empty name."
+            )
+    elif branch_result.returncode == 1:
+        branch = None
+    else:
+        raise GraphApplyRepositoryError(
+            "Target repository branch could not be resolved: "
+            f"{_decode_output(branch_result.stderr)}"
+        )
+
+    dirty_paths = _working_tree_paths(root)
+    if dirty_paths:
+        raise GraphApplyRepositoryError(
+            "Target repository must be clean in Git's normalized tracked-content view "
+            f"and contain no untracked files (paths={list(dirty_paths)})."
+        )
+    index = _git(root, "diff", "--cached", "--quiet", "--exit-code", "HEAD", "--")
+    if index.returncode == 1:
+        raise GraphApplyRepositoryError(
+            "Target repository index must be empty before graph application."
+        )
+    if index.returncode != 0:
+        raise GraphApplyRepositoryError(
+            "Target repository index state could not be read: "
+            f"{_decode_output(index.stderr)}"
+        )
+    return root, head, branch
 
 
 def _expected_changed_paths(
@@ -884,6 +880,194 @@ def _expected_changed_paths(
                 f"Slice 2 returned an unsafe changed path: {path!r}."
             )
     return paths
+
+
+def _validated_published_paths(paths: tuple[str, ...]) -> tuple[str, ...]:
+    seen: set[str] = set()
+    for path in paths:
+        if type(path) is not str or not path:
+            raise GraphApplyRepositoryError(
+                f"Slice 2 returned an unsafe published path: {path!r}."
+            )
+        if path in seen:
+            raise GraphApplyRepositoryError(
+                "Slice 2 returned duplicate published paths."
+            )
+        seen.add(path)
+        posix_path = PurePosixPath(path)
+        windows_path = PureWindowsPath(path)
+        if (
+            posix_path.is_absolute()
+            or windows_path.is_absolute()
+            or not posix_path.parts
+            or posix_path.as_posix() != path
+            or "\\" in path
+            or "\0" in path
+            or ".." in posix_path.parts
+        ):
+            raise GraphApplyRepositoryError(
+                f"Slice 2 returned an unsafe published path: {path!r}."
+            )
+    return paths
+
+
+def _tracked_paths_at_head(
+    root: Path,
+    head: str,
+    paths: tuple[str, ...],
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    tracked: list[str] = []
+    untracked: list[str] = []
+    for path in paths:
+        entries = _nul_paths(
+            _require_git(root, "ls-tree", "-z", "--name-only", head, "--", path),
+            "git ls-tree",
+        )
+        if entries == (path,):
+            tracked.append(path)
+        elif not entries:
+            untracked.append(path)
+        else:
+            raise GraphApplyRepositoryError(
+                "Rollback could not classify the published path exactly at the "
+                f"pre-materialization HEAD: {path!r}."
+            )
+    return tuple(tracked), tuple(untracked)
+
+
+def _restore_precommit_materialization(
+    root: Path,
+    old_head: str,
+    published_paths: tuple[str, ...],
+) -> str:
+    mutation_started = False
+    try:
+        published = _validated_published_paths(published_paths)
+        current_head = _git_text(root, "rev-parse", "--verify", "HEAD")
+        if current_head != old_head:
+            return (
+                "rollback refused and left the working tree untouched because HEAD "
+                "no longer names the pre-materialization commit "
+                f"(expected={old_head}, actual={current_head})"
+            )
+
+        dirty_paths = _working_tree_paths(root)
+        outside_paths = tuple(sorted(set(dirty_paths) - set(published)))
+        if outside_paths:
+            return (
+                "rollback refused and left the working tree untouched because dirty "
+                "paths outside Slice 2's published set are present "
+                f"(outside={list(outside_paths)}, published={list(published)})"
+            )
+        if not dirty_paths:
+            _require_clean_committed_head(root, old_head)
+            return (
+                "no restoration was required; HEAD still names the "
+                "pre-materialization commit and the working tree is clean"
+            )
+
+        tracked, untracked = _tracked_paths_at_head(root, old_head, dirty_paths)
+        for path in dirty_paths:
+            target = root.joinpath(*PurePosixPath(path).parts)
+            try:
+                target.resolve(strict=False).relative_to(root)
+            except ValueError:
+                return (
+                    "rollback refused and left the working tree untouched because a "
+                    f"published path resolves outside the repository: {path!r}"
+                )
+            if path in untracked and target.exists() and not (
+                target.is_file() or target.is_symlink()
+            ):
+                return (
+                    "rollback refused and left the working tree untouched because an "
+                    f"untracked published path is not a file: {path!r}"
+                )
+
+        current_head = _git_text(root, "rev-parse", "--verify", "HEAD")
+        if current_head != old_head:
+            return (
+                "rollback refused and left the working tree untouched because HEAD "
+                "moved before restoration "
+                f"(expected={old_head}, actual={current_head})"
+            )
+        current_dirty_paths = _working_tree_paths(root)
+        current_outside_paths = tuple(
+            sorted(set(current_dirty_paths) - set(published))
+        )
+        if current_outside_paths:
+            return (
+                "rollback refused and left the working tree untouched because dirty "
+                "paths outside Slice 2's published set appeared before restoration "
+                f"(outside={list(current_outside_paths)}, published={list(published)})"
+            )
+        if current_dirty_paths != dirty_paths:
+            return (
+                "rollback refused and left the working tree untouched because the "
+                "dirty path set changed before restoration "
+                f"(before={list(dirty_paths)}, current={list(current_dirty_paths)})"
+            )
+
+        mutation_started = True
+        if tracked:
+            _require_git(
+                root,
+                "restore",
+                "--source",
+                old_head,
+                "--staged",
+                "--worktree",
+                "--",
+                *tracked,
+            )
+        if untracked:
+            _require_git(root, "reset", "-q", old_head, "--", *untracked)
+            for path in untracked:
+                target = root.joinpath(*PurePosixPath(path).parts)
+                if target.exists() or target.is_symlink():
+                    target.unlink()
+        _require_clean_committed_head(root, old_head)
+        return (
+            "restored only Slice 2's published paths to the exact clean "
+            f"pre-materialization commit {old_head}"
+        )
+    except GraphApplyRepositoryError as exc:
+        action = "failed after restoration began" if mutation_started else "refused"
+        preservation = "" if mutation_started else " and left the working tree untouched"
+        return f"rollback {action}{preservation}: {_bounded_detail(exc)}"
+    except OSError as exc:
+        action = "failed after restoration began" if mutation_started else "refused"
+        preservation = "" if mutation_started else " and left the working tree untouched"
+        return f"rollback {action}{preservation}: {_bounded_detail(exc)}"
+
+
+def _materialization_failure_result(
+    *,
+    authority: _StoredPlanAuthority,
+    reason: str,
+    failure_phase: GraphApplyFailurePhase,
+    root: Path,
+    old_head: str,
+    published_paths: tuple[str, ...],
+) -> GraphApplyResult:
+    rollback_outcome = _restore_precommit_materialization(
+        root,
+        old_head,
+        published_paths,
+    )
+    try:
+        current_head = _git_text(root, "rev-parse", "--verify", "HEAD")
+    except GraphApplyRepositoryError:
+        current_head = old_head
+    return _empty_result(
+        status="materialization_failed",
+        authority=authority,
+        reason=f"{reason} Pre-commit rollback outcome: {rollback_outcome}.",
+        failure_phase=failure_phase,
+        old_head=old_head,
+        current_head=current_head,
+        published_paths=published_paths,
+    )
 
 
 def _stage_and_check(root: Path, expected_paths: tuple[str, ...]) -> None:
@@ -1012,16 +1196,11 @@ def _require_clean_committed_head(root: Path, expected_head: str) -> None:
         raise GraphApplyRepositoryError(
             f"Committed validation expected HEAD {expected_head}, got {current_head}."
         )
-    status = _require_git(
-        root,
-        "status",
-        "--porcelain=v1",
-        "-z",
-        "--untracked-files=all",
-    )
-    if status:
+    dirty_paths = _working_tree_paths(root)
+    if dirty_paths:
         raise GraphApplyRepositoryError(
-            "Repository is not clean at the committed-state validation boundary."
+            "Repository is not clean at the committed-state validation boundary "
+            f"(paths={list(dirty_paths)})."
         )
     index = _git(root, "diff", "--cached", "--quiet", "--exit-code", "HEAD", "--")
     if index.returncode != 0:
@@ -1124,17 +1303,13 @@ def _rollback_failed_commit(root: Path, old_head: str, failed_commit: str) -> No
             "Rollback refused because HEAD no longer names the failed D1C commit "
             f"(expected={failed_commit}, actual={current})."
         )
-    status = _require_git(
-        root,
-        "status",
-        "--porcelain=v1",
-        "-z",
-        "--untracked-files=all",
-    )
-    if status:
+    dirty_paths = _working_tree_paths(root)
+    index = _git(root, "diff", "--cached", "--quiet", "--exit-code", "HEAD", "--")
+    if dirty_paths or index.returncode != 0:
         raise GraphApplyRepositoryError(
             "Destructive rollback refused because the failed D1C commit checkout "
-            f"contains concurrent index/worktree changes: {_decode_output(status)}"
+            "contains concurrent normalized index/worktree changes "
+            f"(paths={list(dirty_paths)}, index_exit={index.returncode})."
         )
     _require_git(root, "reset", "--hard", old_head)
     _require_clean_committed_head(root, old_head)
@@ -1172,17 +1347,21 @@ def _perform_rollback(
                 "Destructive rollback refused because HEAD no longer names the failed "
                 f"D1C commit (expected={failed_commit}, actual={current})."
             )
-        status = _require_git(
+        dirty_paths = _working_tree_paths(root)
+        index = _git(
             root,
-            "status",
-            "--porcelain=v1",
-            "-z",
-            "--untracked-files=all",
+            "diff",
+            "--cached",
+            "--quiet",
+            "--exit-code",
+            "HEAD",
+            "--",
         )
-        if status:
+        if dirty_paths or index.returncode != 0:
             raise GraphApplyRepositoryError(
-                "Destructive rollback refused because authoritative Git status contains "
-                f"concurrent index/worktree changes: {_decode_output(status)}"
+                "Destructive rollback refused because Git's normalized view contains "
+                "concurrent index/worktree changes "
+                f"(paths={list(dirty_paths)}, index_exit={index.returncode})."
             )
         operation(root, old_head, failed_commit)
     except Exception as rollback_error:
@@ -1322,45 +1501,43 @@ def apply_graph_delta(
     try:
         materialized = materialize(slice1_result, root)
     except GraphApplyMaterializationError as exc:
-        return _empty_result(
-            status="materialization_failed",
+        return _materialization_failure_result(
             authority=authority,
             reason=str(exc),
             failure_phase="materialization",
+            root=root,
             old_head=old_head,
-            current_head=old_head,
             published_paths=tuple(exc.published_paths),
         )
     except Exception as exc:
-        return _empty_result(
-            status="materialization_failed",
+        return _materialization_failure_result(
             authority=authority,
             reason=f"Unexpected Slice 2 materialization failure: {_bounded_detail(exc)}",
             failure_phase="materialization",
+            root=root,
             old_head=old_head,
-            current_head=old_head,
+            published_paths=(),
         )
     if type(materialized) is not GraphApplyMaterializationResult:
-        return _empty_result(
-            status="materialization_failed",
+        return _materialization_failure_result(
             authority=authority,
             reason="Slice 2 returned an invalid materialization result type.",
             failure_phase="materialization",
+            root=root,
             old_head=old_head,
-            current_head=old_head,
+            published_paths=(),
         )
     if (
         materialized.status != "materialized"
         or materialized.plan_id != authority.plan_id
         or materialized.parent_task_id != authority.parent_task_id
     ):
-        return _empty_result(
-            status="materialization_failed",
+        return _materialization_failure_result(
             authority=authority,
             reason="Slice 2 returned inconsistent materialization identity.",
             failure_phase="materialization",
+            root=root,
             old_head=old_head,
-            current_head=old_head,
             published_paths=tuple(materialized.publication_order),
         )
 
@@ -1368,29 +1545,27 @@ def apply_graph_delta(
         expected_paths = _expected_changed_paths(materialized)
         _stage_and_check(root, expected_paths)
     except GraphApplyRepositoryError as exc:
-        return _empty_result(
-            status="materialization_failed",
+        return _materialization_failure_result(
             authority=authority,
             reason=str(exc),
             failure_phase="changed_path_verification",
+            root=root,
             old_head=old_head,
-            current_head=old_head,
             published_paths=tuple(materialized.publication_order),
         )
 
     commit = _create_commit(root, authority)
     head_after_commit_attempt = _git_text(root, "rev-parse", "--verify", "HEAD")
     if commit.returncode != 0 and head_after_commit_attempt == old_head:
-        return _empty_result(
-            status="materialization_failed",
+        return _materialization_failure_result(
             authority=authority,
             reason=(
                 f"Local git commit failed with exit {commit.returncode}; no commit was "
                 f"created: {_decode_output(commit.stderr)}"
             ),
             failure_phase="git_commit",
+            root=root,
             old_head=old_head,
-            current_head=old_head,
             published_paths=tuple(materialized.publication_order),
         )
 

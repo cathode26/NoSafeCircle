@@ -10,15 +10,17 @@ ROOT = Path(__file__).resolve().parents[3]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from Pipeline.ExecutionCrew.prompts import implementer_prompt, test_author_prompt, validator_prompt
+from Pipeline.ExecutionCrew.prompts import COMMITTED_GDD_PATH, implementer_prompt, test_author_prompt, validator_prompt
 
 
 def main() -> int:
+    # These three roles are pointed at the committed GDD rather than handed an
+    # inline copy of it; the auditor keeps the inline copy. See
+    # prompt_context_reduction_smoke_test.py for that boundary.
     common = {
         "task_id": "NSC-999",
         "title": "Prompt Policy Fixture",
         "task_contract": '{"id":"NSC-999"}',
-        "gdd": "# GDD\nApproved behavior.\n",
     }
 
     implementer = implementer_prompt(
@@ -30,8 +32,15 @@ def main() -> int:
     )
     assert "Test Author-owned work is not an Implementer blocker" in implementer
     assert "Do not modify test files" in implementer
-    assert "generated or serialized integration artifact outside your implementation paths is not an Implementer blocker" in implementer
-    assert "required regeneration/human-integration step" in implementer
+    assert "never hand-edit, reconstruct, emit, or spend context probing" in implementer
+    assert "even when the artifact itself is an approved path" in implementer
+    assert "path approval permits the pipeline's deterministic materialization tool" in implementer
+    assert "do not attempt to satisfy it by editing raw serialized bytes" in implementer
+    assert "exact required builder/materialization step" in implementer
+    assert "cannot run in your Linux worker is not an Implementer blocker" in implementer
+    assert "return an empty blockers list" in implementer
+    assert "do not claim the check passed" in implementer
+    assert "pending host-side check in notes" in implementer
     assert "Do not report blockers merely because Test Author work or a later deterministic human integration step remains" in implementer
     for required in ("EXISTING TRACKED FILES YOU MAY EDIT", "APPROVED EXACT NEW FILES YOU MAY CREATE", "PIPELINE-OWNED SIDECARS YOU MUST NOT CREATE OR EDIT", "do not treat that absence as a blocker"):
         assert required in implementer
@@ -50,6 +59,10 @@ def main() -> int:
     assert "explicitly supersedes" in test_author
     assert "updating that stale assertion is your responsibility rather than an Implementer blocker" in test_author
     assert "APPROVED EXACT NEW FILES YOU MAY CREATE" in test_author and "Do not create directories, helper/sibling files, or .meta files" in test_author
+    assert "Inspect those approved test files before reading any other repository file" in test_author
+    assert "make no edit and return the required structured result immediately" in test_author
+    assert "Extra speculative coverage is not required" in test_author
+    assert "Do not survey unrelated GDD sections" in test_author
 
     validator = validator_prompt(
         **common,
@@ -62,6 +75,10 @@ def main() -> int:
     assert "not by itself a source-level failure" in validator
     assert "Keep Unity/runtime gates not_proven" in validator
     assert "pipeline-generated asset identity" in validator
+
+    for role_prompt in (implementer, test_author, validator):
+        assert "COMMITTED CANONICAL GDD - READ IT; IT IS NOT INLINED IN THIS PROMPT" in role_prompt
+        assert COMMITTED_GDD_PATH in role_prompt
 
     print("ExecutionCrew prompt blocker-policy smoke: PASS")
     return 0

@@ -158,12 +158,14 @@ def main() -> int:
             codex_configuration.to_dict()["provider_configurations"][codex_key]["provider"]
             == "openai-codex"
         )
-        _, _, claude_registry = _real_provider_bundle("claude", source)
-        _, _, codex_registry = _real_provider_bundle("codex", source)
+        _, _, claude_registry = _real_provider_bundle("claude", source, "task_decomposer")
+        _, _, codex_registry = _real_provider_bundle("codex", source, "task_decomposer")
         assert claude_registry["claude-code"].repository_root == source
         assert not claude_registry["claude-code"].externally_isolated_writable_repository
         assert codex_registry["openai-codex"].repository_root == source.resolve()
         assert codex_registry["openai-codex"].externally_enforced_read_only_repository
+        assert codex_registry["openai-codex"].prohibit_external_integrations
+        assert not codex_registry["openai-codex"].prohibit_tool_execution
         assert not codex_registry["openai-codex"].externally_isolated_writable_repository
 
         # 1. Valid decomposition: one TaskExecution invocation plus accepted D1A artifacts.
@@ -233,6 +235,18 @@ def main() -> int:
             "descriptive domain name"
             in normalized_prompt
         )
+        assert "each `parent_requirement_coverage[].child_targets[]` item is exactly three separate fields" in normalized_prompt
+        assert "child_entry_id` must be the bare id from that child collection" in normalized_prompt
+        assert "never combine these values into a path or slash-delimited string" in normalized_prompt
+        assert "perform a coverage self-check" in normalized_prompt
+        assert "some-child/acceptance_criteria/ac-001" in normalized_prompt
+        assert "partition the parent's complete `exclusive_resources` list across the proposed children exactly once" in normalized_prompt
+        assert "the child-resource union must equal the parent list" in normalized_prompt
+        assert "precommitted path being existing or read-only does not make it optional" in normalized_prompt
+        assert "keep every precommitted validation test script and its unity sidecar together" in normalized_prompt
+        assert "match each test's identity to the child's concrete responsibility" in normalized_prompt
+        assert "gauntletreplay1107" not in normalized_prompt
+        assert "never move a test or its `.meta` to another child or drop the `.meta`" in normalized_prompt
         assert "`door-lock-break-lifecycle`" in prompt
         assert "`nsc021_lifecycle_core`" in prompt
         assert "generated decomposition output is review-only evidence" in normalized_prompt
@@ -448,8 +462,8 @@ def main() -> int:
         # 15. Injected factory/configuration mismatches fail closed before invocation.
         mismatch_provider = CountingProvider(already_concrete_result(parent))
 
-        def mismatch_factory(provider_name: str, source_root: Path):
-            key, configuration, registry = fake_factory(mismatch_provider)(provider_name, source_root)
+        def mismatch_factory(provider_name: str, source_root: Path, role: str):
+            key, configuration, registry = fake_factory(mismatch_provider)(provider_name, source_root, role)
             return "wrong-decomposition", configuration, registry
 
         expect_blocked(

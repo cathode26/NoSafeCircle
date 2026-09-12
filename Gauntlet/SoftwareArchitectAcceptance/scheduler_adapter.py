@@ -442,8 +442,7 @@ START comes from conflict/admission reasoning.
 """
 
 ADAPTER_MAX_ARCHITECT_INVOCATIONS_PER_POLL = 64
-ADAPTER_MAX_ARCHITECT_INVOCATIONS_PER_SESSION = 512
-"""Architect budgets, set above anything the manifest needs, for the same reason."""
+"""Per-poll architect budget, set above anything the manifest needs."""
 
 ADVISORY_ARTIFACT_DIRECTORY = "architect-advisories"
 """Where production advisory artifacts are persisted for a scenario.
@@ -473,7 +472,6 @@ POLL_STATUS_OUTCOMES: dict[str, str] = {
     "missing_candidate": "blocked",
     "duplicate_planned_candidate": "blocked",
     "candidate_verification_failed": "blocked",
-    "architect_session_budget_exhausted": "blocked",
     "candidate_bound_exceeded": "blocked",
 }
 
@@ -506,6 +504,10 @@ PRODUCTION_DIAGNOSTIC_EVENTS = frozenset(
         # `architect_human_review` or the launch, all of which are translated.
         "architect_started",
         "architect_completed",
+        # Resume ordering is already carried by the selected task identity in
+        # `worker_launched` and `PollCycleResult`. This marker only explains
+        # why production selected that task ahead of fresh candidates.
+        "resume_priority_applied",
         # Observability notes about an active assignment's checkout. What the
         # conflict policy actually consumes is the reservation's
         # `surface_unknown` flag and its paths, which reach evidence through
@@ -517,6 +519,10 @@ PRODUCTION_DIAGNOSTIC_EVENTS = frozenset(
         # `reservation_observation_failed` status.
         "scheduler_wait_observation_failure",
         "scheduler_observation_recovered",
+        # The fixture pins a clean source HEAD through its injected read-only
+        # refresher; this record confirms that observation and has no separate
+        # admission meaning beyond the later poll result.
+        "source_main_refreshed",
         # Worker reaping records. A worker this harness launched is passive and
         # never exits, and a failed launch is reported by the poll status.
         "worker_finished",
@@ -813,12 +819,14 @@ class RealPollingArchitectAdapter:
             max_architect_invocations_per_poll=(
                 ADAPTER_MAX_ARCHITECT_INVOCATIONS_PER_POLL
             ),
-            max_architect_invocations_per_session=(
-                ADAPTER_MAX_ARCHITECT_INVOCATIONS_PER_SESSION
-            ),
             plan_builder=self._build_plan,
             task_loader=self._load_task,
             reservation_observer=self._observe_reservations,
+            source_refresher=lambda _source: {
+                "before": world.source_head(),
+                "after": world.source_head(),
+                "changed": False,
+            },
             process_factory=self.process_factory,
             event_emitter=production.orchestrator.JsonEventEmitter(self.events),
             monotonic_clock=lambda: self._clock,
@@ -957,10 +965,12 @@ class RealPollingArchitectAdapter:
     def _architect_runner(
         self,
         *,
-        task: Mapping[str, Any],
+        task: Mapping[str, Any] | None = None,
+        candidates: Sequence[Mapping[str, Any]] | None = None,
         source_head: str,
         reservations: Sequence[Any],
         scheduler_id: str,
+        admission_limit: int | None = None,
     ) -> Any:
         """Turn the scenario's architect answer into a validated advisory.
 
@@ -973,30 +983,98 @@ class RealPollingArchitectAdapter:
 
         production = _production()
         world = self._require_world()
-        task_id = str(task.get("id", ""))
-        declared = world.advisory(task_id)
-        if declared is None:
+        if (task is None) == (candidates is None):
             raise production.preflight.ArchitectPreflightError(
-                "the architect produced no usable advisory for "
-                f"{task_id}: the invocation is unavailable"
+                "acceptance architect requires exactly one task or portfolio"
             )
-        advisory = production.preflight.ArchitectAdvisory.from_dict(
-            _production_advisory_payload(
-                declared, task=task, source_head=source_head
+        if candidates is not None:
+            # The manifest observes one scheduling decision per step. Returning
+            # the first safe portfolio admission is a valid architect answer
+            # and keeps each production launch bound to exactly one step's
+            # evidence without reducing the scheduler's worker capacity.
+            limit = min(1, len(candidates) if admission_limit is None else admission_limit)
+            considerations = []
+            admissions = []
+            for entry in candidates:
+                candidate_task = entry["task"]
+                advisory = self._validated_advisory(
+                    world,
+                    production,
+                    task=candidate_task,
+                    source_head=source_head,
+                )
+                gate = production.preflight.evaluate_architect_policy(advisory)
+                for work_type in entry["eligible_work_types"]:
+                    matches = work_type == advisory.work_type_recommendation
+                    disposition = (
+                        "admit"
+                        if matches
+                        and gate.decision == "start"
+                        and len(admissions) < limit
+                        else (
+                            gate.decision
+                            if matches and gate.decision in {"wait", "human_review"}
+                            else "wait"
+                        )
+                    )
+                    considerations.append(
+                        production.preflight.ArchitectBatchConsideration(
+                            task_id=advisory.task_id,
+                            work_type=work_type,
+                            disposition=disposition,
+                            rationale=(
+                                "Acceptance fixture translated through the production "
+                                f"{disposition} gate."
+                            ),
+                        )
+                    )
+                    if disposition == "admit":
+                        admissions.append(advisory)
+            self._analysis_index += 1
+            analysis_id = f"architect-portfolio-acceptance-{self._analysis_index:04d}"
+            artifact_path = self._artifact_root / f"{analysis_id}.json"
+            batch = production.preflight.ArchitectBatch(
+                source_head=source_head,
+                batch_rationale=(
+                    "Acceptance fixture portfolio translated through production policy."
+                ),
+                considered=tuple(considerations),
+                admissions=tuple(admissions),
             )
+            metadata = {
+                "provider": "none",
+                "model": None,
+                "invocation": "deterministic_scenario_fixture",
+                "scenario_id": world.scenario_id,
+                "network_access": False,
+            }
+            production.preflight._safe_write_json(
+                artifact_path,
+                {
+                    "schema_version": production.preflight.ARCHITECT_BATCH_SCHEMA_VERSION,
+                    "analysis_id": analysis_id,
+                    "structured_architect_output": batch.to_dict(),
+                    "invocation": metadata,
+                },
+            )
+            return production.preflight.ArchitectBatchAnalysis(
+                analysis_id=analysis_id,
+                batch=batch,
+                artifact_path=artifact_path,
+                active_surface_fingerprint=(
+                    production.preflight.active_surface_fingerprint(reservations)
+                ),
+                invocation_metadata=metadata,
+            )
+
+        assert task is not None
+        advisory = self._validated_advisory(
+            world,
+            production,
+            task=task,
+            source_head=source_head,
         )
-        if advisory.task_id != task_id:
-            raise production.preflight.ArchitectPreflightError(
-                "architect changed candidate task identity"
-            )
-        if advisory.source_head != source_head:
-            raise production.preflight.ArchitectPreflightError(
-                "architect changed source HEAD identity"
-            )
-        if advisory.task_contract_sha256 != task.get("task_contract_sha256"):
-            raise production.preflight.ArchitectPreflightError(
-                "architect changed task-contract hash identity"
-            )
+        task_id = advisory.task_id
         self._analysis_index += 1
         analysis_id = (
             f"architect-{task_id.casefold()}-acceptance-{self._analysis_index:04d}"
@@ -1028,6 +1106,43 @@ class RealPollingArchitectAdapter:
             ),
             invocation_metadata=metadata,
         )
+
+    def _validated_advisory(
+        self,
+        world: ScenarioWorld,
+        production: _ProductionScheduler,
+        *,
+        task: Mapping[str, Any],
+        source_head: str,
+    ) -> Any:
+        """Validate one fixture answer through the production advisory contract."""
+
+        task_id = str(task.get("id", ""))
+        declared = world.advisory(task_id)
+        if declared is None:
+            raise production.preflight.ArchitectPreflightError(
+                "the architect produced no usable advisory for "
+                f"{task_id}: the invocation is unavailable"
+            )
+        advisory = production.preflight.ArchitectAdvisory.from_dict(
+            _production_advisory_payload(
+                declared, task=task, source_head=source_head
+            )
+        )
+        if advisory.task_id != task_id:
+            raise production.preflight.ArchitectPreflightError(
+                "architect changed candidate task identity"
+            )
+        if advisory.source_head != source_head:
+            raise production.preflight.ArchitectPreflightError(
+                "architect changed source HEAD identity"
+            )
+        if advisory.task_contract_sha256 != task.get("task_contract_sha256"):
+            raise production.preflight.ArchitectPreflightError(
+                "architect changed task-contract hash identity"
+            )
+        self._validated_advisories[task_id] = advisory
+        return advisory
 
     # -- output translation ----------------------------------------------
 
@@ -1379,6 +1494,7 @@ def _production_advisory_payload(
     payload.setdefault("conflict_reasons", [])
     payload.setdefault("evidence", [])
     payload.setdefault("assumptions", [])
+    payload.setdefault("work_type_recommendation", "implementation")
     payload.setdefault(
         "unknown_surface_disjointness",
         [

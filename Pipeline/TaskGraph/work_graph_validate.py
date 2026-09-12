@@ -13,7 +13,7 @@ from task_contract_schema import (
 )
 
 PROJECT_ROOT_KEY = "no-safe-circle"
-WORK_ID_PATTERN = re.compile(r"^NSC-(\d{3,})$")
+WORK_ID_PATTERN = re.compile(r"^NSC-([0-9]{3}|[1-9][0-9]{3,8})$")
 ENTRY_ID_PATTERNS = {
     "acceptance_criteria": ("criterion_id", re.compile(r"^AC-\d{3,}$")),
     "completion_gates": ("gate_id", re.compile(r"^VAL-\d{3,}$")),
@@ -34,6 +34,22 @@ ALLOWED_EXECUTION_SCOPES = {
 
 class WorkGraphValidationError(RuntimeError):
     """Raised when an in-memory work graph violates deterministic graph invariants."""
+
+
+def _require_work_id(
+    value: Any,
+    label: str,
+    *,
+    allow_empty: bool = False,
+    allow_missing: bool = False,
+) -> str:
+    if allow_missing and value is None:
+        return ""
+    if allow_empty and value == "":
+        return ""
+    if type(value) is not str or WORK_ID_PATTERN.fullmatch(value) is None:
+        raise WorkGraphValidationError(f"{label} must be a canonical NSC task ID.")
+    return value
 
 
 @dataclass(frozen=True)
@@ -219,12 +235,18 @@ def validate_work_graph_plan(plan: Any) -> WorkGraphValidationSummary:
     schema_version = _task_schema_version(plan.tasks)
     tasks_by_id: dict[str, dict[str, Any]] = {}
     tasks_by_key: dict[str, dict[str, Any]] = {}
+    parents_by_id: dict[str, str] = {}
 
     for index, task in enumerate(plan.tasks):
         if not isinstance(task, dict):
             raise WorkGraphValidationError(f"tasks[{index}] is not an object.")
 
-        task_id = _require_non_empty_text(task.get("id"), f"tasks[{index}].id")
+        task_id = _require_work_id(task.get("id"), f"tasks[{index}].id")
+        parent = _require_work_id(
+            task.get("parent"),
+            f"{task_id}.parent",
+            allow_empty=True,
+        )
         key = _require_non_empty_text(
             task.get("reconciliation_key"), f"tasks[{index}].reconciliation_key"
         )
@@ -236,8 +258,6 @@ def validate_work_graph_plan(plan: Any) -> WorkGraphValidationSummary:
             raise WorkGraphValidationError(f"Duplicate task id: {task_id}")
         if key in tasks_by_key:
             raise WorkGraphValidationError(f"Duplicate reconciliation_key: {key}")
-        if not WORK_ID_PATTERN.fullmatch(task_id):
-            raise WorkGraphValidationError(f"Invalid persistent task id: {task_id!r}")
         if plan.id_map.get(key) != task_id:
             raise WorkGraphValidationError(
                 f"ID map mismatch for {key}: expected {plan.id_map.get(key)!r}, task has {task_id!r}"
@@ -265,8 +285,9 @@ def validate_work_graph_plan(plan: Any) -> WorkGraphValidationSummary:
 
         tasks_by_id[task_id] = task
         tasks_by_key[key] = task
+        parents_by_id[task_id] = parent
 
-    root_tasks = [task for task in plan.tasks if not str(task.get("parent") or "").strip()]
+    root_tasks = [tasks_by_id[task_id] for task_id, parent in parents_by_id.items() if not parent]
     if len(root_tasks) != 1:
         raise WorkGraphValidationError(
             f"Work graph must contain exactly one root task; found {len(root_tasks)}."
@@ -283,7 +304,7 @@ def validate_work_graph_plan(plan: Any) -> WorkGraphValidationSummary:
     parent_edges: dict[str, list[str]] = {task_id: [] for task_id in tasks_by_id}
     parent_edge_count = 0
     for task_id, task in tasks_by_id.items():
-        parent = str(task.get("parent") or "").strip()
+        parent = parents_by_id[task_id]
         if task_id == root["id"]:
             if parent:
                 raise WorkGraphValidationError("Project root may not have a parent.")
@@ -309,7 +330,7 @@ def validate_work_graph_plan(plan: Any) -> WorkGraphValidationSummary:
                     f"Parent hierarchy does not terminate at the project root for {task_id}."
                 )
             seen.add(cursor)
-            parent = str(tasks_by_id[cursor].get("parent") or "").strip()
+            parent = parents_by_id[cursor]
             if not parent:
                 raise WorkGraphValidationError(
                     f"Task {task_id} is disconnected from project root {root['id']}."
@@ -323,7 +344,7 @@ def validate_work_graph_plan(plan: Any) -> WorkGraphValidationSummary:
         if len(dependencies) != len(set(dependencies)):
             raise WorkGraphValidationError(f"Task {task_id} contains duplicate dependencies.")
         for dependency_id in dependencies:
-            dependency_id = _require_non_empty_text(
+            dependency_id = _require_work_id(
                 dependency_id, f"{task_id}.depends_on entry"
             )
             if dependency_id == task_id:
@@ -346,7 +367,12 @@ def validate_work_graph_plan(plan: Any) -> WorkGraphValidationSummary:
 
     if schema_version == TASK_CONTRACT_SCHEMA_VERSION:
         for task_id, task in tasks_by_id.items():
-            target = str(task.get("superseded_by") or "").strip()
+            target = _require_work_id(
+                task.get("superseded_by"),
+                f"{task_id}.superseded_by",
+                allow_empty=True,
+                allow_missing=True,
+            )
             if not target:
                 continue
             if target == task_id:
@@ -393,7 +419,7 @@ def validate_work_graph_plan(plan: Any) -> WorkGraphValidationSummary:
             )
         members: set[str] = set()
         for work_id, reconciliation_key in zip(work_ids, keys):
-            work_id = _require_non_empty_text(work_id, f"resource group {resource_key}.work_id")
+            work_id = _require_work_id(work_id, f"resource group {resource_key}.work_id")
             reconciliation_key = _require_non_empty_text(
                 reconciliation_key, f"resource group {resource_key}.reconciliation_key"
             )

@@ -1,0 +1,512 @@
+# NSC Gauntlet Graph
+
+A live, zoomable view of the gauntlet task graph. Standalone mode is read-only:
+it opens contract and run files, never writes to them, and never mutates Git,
+GitHub, Docker or any provider. Its TaskGraph completion check is a local,
+read-only evaluation of committed HEAD. Architect-managed launch may explicitly
+enable the narrow one-time human approval described below; it is off by default.
+
+## Run
+
+```
+python C:\NSC\nsc-gauntlet-view\server.py
+```
+
+Then open <http://127.0.0.1:8787>.
+
+By default it finds the newest autonomous run under `C:\NSC\Rehearsal` (or
+`C:\NSC`) and the checkout beside it that has a `Tasks/` directory. Override
+either one:
+
+```
+python server.py --tasks C:\NSC\Rehearsal\TenTaskClaudeController-20260905\Tasks ^
+                 --state C:\NSC\Rehearsal ^
+                 --port 8787
+```
+
+`--state` is the directory that *contains* `.task-review-agent`, not the
+`.task-review-agent` directory itself.
+
+### Operator display selection
+
+Repeat `--display-task-id NSC-ID` to select the contracts to watch. This is
+independent of the newest autonomous run's execution targets. The server first
+evaluates the full authoritative graph, including dependencies outside the
+selection, then limits the API's `tasks` array to the selected contracts. The
+`display.task_ids` field records the selection on both `/api/state` and every
+SSE snapshot. `run.targets` and each task's `in_scope` still describe execution.
+The root selection does not change when a new run or SSE update arrives. When a
+displayed root becomes a committed decomposed parent, its exact
+`decomposition_children` closure materializes automatically. A child is admitted
+only when its own committed `parent` points back to that parent. This is
+recomputed on every refresh, so a generated contract appears without a server
+restart; unrelated hierarchy and `depends_on` tasks are never pulled into the
+display.
+
+With an explicit selection, **run scope only** starts off. Turning it on
+temporarily intersects the selection with the current run; turning it off shows
+the whole selection again. That filter preference is saved per task directory,
+state directory and display selection, independently of the run ID. Without an
+explicit selection, the existing initial run filter is retained. The state
+legend and cancelled-task filter continue to work as before.
+
+Invalid or missing task IDs stop launch with a clear error. If a selected
+contract later disappears, `display.missing_task_ids` and the sidebar report it;
+the server does not fabricate a node or state. The selection is launch
+configuration, so page refreshes and SSE updates retain it without writing any
+task, run, Issue or history artifact.
+
+This standalone PowerShell example launches a separate read-only viewer on port
+8788 showing NSC-1001 through NSC-1008. It reads the specified contracts and run
+artifacts; it does not start a scheduler. A port already in use causes standalone
+launch to fail rather than replace a process.
+
+```powershell
+python .\Pipeline\TaskReviewAgent\GauntletView\server.py --tasks .\Tasks --state C:\NSC\Rehearsal --port 8788 --display-task-id NSC-1001 --display-task-id NSC-1002 --display-task-id NSC-1003 --display-task-id NSC-1004 --display-task-id NSC-1005 --display-task-id NSC-1006 --display-task-id NSC-1007 --display-task-id NSC-1008
+```
+
+Open <http://127.0.0.1:8788>. The task list is an example launch configuration;
+these IDs are not embedded in the server's graph rules.
+
+### Local rehearsal
+
+Select the exact run directory printed by the canonical launcher's explicit
+`-LocalRehearsal` mode. The path is the selected checkout root followed by
+`.task-review-agent\local-rehearsals\` and the exact autonomous run ID.
+For a run created with checkout root
+`C:\NSC\Rehearsal\LocalRehearsalRuns` and local run ID `nsc1001-claude`, run
+this command from `C:\NSC\Rehearsal\LocalRehearsalCanonicalRun`:
+
+```powershell
+python Pipeline\TaskReviewAgent\GauntletView\server.py --local-run-root C:\NSC\Rehearsal\LocalRehearsalRuns\.task-review-agent\local-rehearsals\nsc1001-claude --port 8787
+```
+
+The view displays **LOCAL REHEARSAL** and **No GitHub Issue — local rehearsal**.
+It reads the selected local backend's validated source identity, committed task
+contracts, workflow records, and event hashes. It does not discover another run
+or read its worker events. A stale source identity or invalid event chain fails
+closed. `--local-run-root` cannot be combined with `--tasks` or `--state`.
+
+The scheduler's `agent_working` transition appears as **Task Working**, including
+the stage, worker ID, provider/profile, elapsed time, and persisted token/cost
+receipts when present. Missing usage stays unavailable. A local candidate ends
+at **Local Review Ready**, **Task Blocked**, or **Task Failed**; the view never
+claims TaskGraph conformance, task delivery, or graph completion from local
+results and never constructs an Issue or PR link for a local run.
+
+Elapsed time starts when the task acquires its current worker lease and refreshes
+while that worker is active, including calls that write no intermediate stage
+events. Older records without a lease start show elapsed as unavailable. A
+released lease returns the node to **Task Unstarted**, ready for admission, so
+the view remains usable while the scheduler prepares another attempt.
+
+A recorded architect batch call is shared across its exact named tasks once.
+The view shows the recorded batch cost and each task's allocation; token
+remainders are assigned in task-ID order so the displayed allocations add up
+to the actual recorded total. It never fills missing usage with a price estimate.
+
+## What it reads
+
+| Source | Used for |
+|---|---|
+| `Tasks/NSC-*.yaml` | nodes, `parent`, `depends_on`, title, resources, acceptance criteria |
+| `.task-review-agent/autonomous-runs/<repo>/<run>/manifest.json` | run scope, capacity, excluded ids |
+| `.../progress.json` | poll cycles, worker launches, architect invocations |
+| `.../events.jsonl` | `worker_launched` / `worker_finished` → which tasks are active now |
+| `.../run_timeline.jsonl` | exact-run start, error, and graph-complete observations; participates in SSE fingerprinting |
+| `.../graph-complete.json` | terminal receipt |
+| `.task-review-agent/outputs/<TASK>/<run>/progress.jsonl` | per-task turn, action, phase, Issue/PR identity, provider-usage receipts, Issue state, terminal status |
+| `.task-review-agent/outputs/<TASK>/<run>/run_result.json` | durable fallback Issue number for the newest worker run |
+| `.task-review-agent/outputs/<TASK>/<run>/ci_snapshot.json` | optional bounded local snapshot of PR checks already observed by the worker |
+| committed TaskGraph conformance at `Pipeline/TaskGraph/evidence/<TASK>/records/` | authoritative delivered/complete state |
+| committed `Pipeline/TaskGraph/evidence/<TASK>/metrics/token-usage.json` | authoritative completed-task token total, when valid and present |
+
+For each task it takes the newest run directory by `progress.jsonl` mtime, and
+reads only the tail of that file, so a long run stays cheap to poll.
+
+The server recognizes `issue_url`, `result_issue_url`, `issue_number`, and
+`result_issue_number` in that progress tail. If the early Issue event has
+fallen outside the tail, it uses the newest run's durable `run_result.json`
+Issue number. The manifest repository must be exactly two safe GitHub path
+components and the Issue number must be a positive integer. The displayed URL
+is then constructed as `https://github.com/<owner>/<repository>/issues/<number>`;
+artifact-supplied text is never passed through as a link. In standalone mode
+this remains entirely local and read-only: the visualizer makes no GitHub or
+other network calls.
+
+### Architect-managed listener and optional approval
+
+`Start-AutonomousGraphRun.ps1` asks the controller to start or safely reuse one
+hidden loopback listener after its completion probe and provider preflight. The
+listener identity binds the exact source checkout, controller branch and initial
+commit, durable state root, immutable autonomous run directory and ID,
+repository, and original display roots. `/api/health` publishes that identity. Reuse requires an exact
+match across every field; an occupied unknown or mismatched port is never killed
+or reused, and the launcher selects another port or fails clearly. It prints the
+URL and never opens a browser. Standalone `server.py` use remains supported.
+
+Human mutation is separately opt-in with
+`-EnableGauntletViewHumanApproval` on an architect-managed launch. Without it,
+the server constructs no Issue service, returns no actions, and performs zero
+workflow transitions. Synthetic evidence is also independently off by default.
+
+When enabled, task detail offers exactly one of:
+
+- **Approve exact decomposition plan and continue** for
+  `human_action_required / decomposition_apply_authorization`;
+- **Mark exact commit tested PASS and continue** for
+  `human_action_required / unity_runtime_validation`.
+
+The panel shows task, Issue, repository, run, workflow state/phase/version/event,
+and exact plan ID/hash or commit. The POST body accepts only a cryptographically
+random one-time capability from the exact same loopback origin. It accepts no
+repository, Issue, command, or path. At click time the controller consumes the
+capability, rereads the immutable run identity and managed Issue, revalidates the
+complete hash/event chain and exact binding, rejects stale/double/terminal or
+changed state, and calls the existing canonical human transition service. It
+then waits a bounded interval for GitHub read consistency and publishes the
+existing local resume hint. The result distinguishes a durable GitHub mutation
+from a later best-effort architect-poke failure. Decomposition approval and an
+implementation PASS are distinct authorities; neither path fabricates a human
+decision without this explicit click.
+
+The same rule protects pull-request links: the visualizer accepts an exact PR
+number or an exact `https://github.com/<manifest-repository>/pull/<number>` as
+evidence, then constructs the link itself. It never exposes an arbitrary
+artifact URL as an `href`.
+
+### Optional local CI snapshot
+
+A PR-monitoring worker may persist the checks it already fetched beside its
+`progress.jsonl` as `ci_snapshot.json`. This visualizer does not create that
+file and does not add pipeline-side persistence. The optional schema is:
+
+```json
+{
+  "schema_version": "1.0",
+  "task_id": "NSC-929",
+  "run_id": "the-containing-run-directory-name",
+  "repository": "owner/repository",
+  "pull_request_number": 116,
+  "pull_request_url": "https://github.com/owner/repository/pull/116",
+  "observed_at_utc": "2026-09-07T01:23:45Z",
+  "checks": [
+    {
+      "name": "windows-core",
+      "status": "IN_PROGRESS",
+      "conclusion": null,
+      "step": "Core tests"
+    }
+  ]
+}
+```
+
+`pull_request_url` and each check's `conclusion` and `step` are optional. The
+task ID and run ID must match the containing directory, the repository must
+exactly match the validated manifest repository, the PR number must be a
+positive integer, and `observed_at_utc` must be timezone-aware ISO-8601. Check
+statuses use the GitHub rollup vocabulary (`QUEUED`, `PENDING`, `IN_PROGRESS`,
+or `COMPLETED`); conclusions such as `SUCCESS`, `FAILURE`, `CANCELLED`, and
+`TIMED_OUT` are preserved. A snapshot older than 60 seconds is shown as stale
+without changing the lifecycle state. If no trustworthy local rollup exists,
+the UI honestly says **Check status unavailable**. It never contacts GitHub to
+fill the gap.
+
+### State projection and freshness
+
+The visual state describes lifecycle meaning separately from process activity.
+An active worker in `merge_closeout` running
+`inspect_or_merge_pull_request` with exact open-PR evidence is **Task In CI**;
+the details still say **Worker active**, **Monitoring CI**, and show its turn.
+Ordinary implementation, repair, validation, evidence, and decomposition work
+remains **Task Working**.
+
+Available work is also separated by TaskGraph contract type. A dependency-ready
+active `implementation` contract whose `execution_scope` is
+`needs_execution_decomposition` and whose `decomposition_state` is `concrete`
+is **Decomposition Available**, with a gold node distinct from ordinary purple
+**Task Unstarted** work. The distinction applies only while the task is ready;
+active decomposition still uses the lifecycle state **Task Working**.
+
+Evidence is ordered by its durable observation timestamp. Current TaskGraph
+conformance wins for completion. A current failure or human-action transition
+wins over older CI evidence; current checks/PR inspection wins over generic
+worker activity; and current implementation/repair wins over stale CI. A task
+whose newest workflow transition is `agent_ready` in `candidate_gate`,
+`delivery_evidence`, or `merge_closeout` uses the newest local
+`integration_gate_observed.queued_task_ids` to distinguish a queued candidate
+from delivery-ready work. The same exact current-run queue snapshot also marks
+an otherwise-ready in-scope inherited recovery task as **Candidate Ready —
+Waiting for Merge Gate**, even when this run did not relaunch that waiter. It
+never overrides active work, unmet dependencies, or a higher-precedence
+terminal state, and removal from the newest queue snapshot removes that
+projection. Queue data from another run is ignored.
+
+The newest current-run `integration_reservations_observed` snapshot can also
+restore an inherited managed-Issue handoff that this scheduler did not relaunch.
+An otherwise-ready in-scope task recorded by an Issue-derived durable reservation
+as `human_action_required`, locally inactive, and free of a pending transition is
+shown as **Task Needs You** with its exact durable workflow phase. Only the
+enumerated managed-Issue reservation evidence kinds are accepted; scheduler
+predictions and quarantined waiter records are not workflow-state authority.
+Each snapshot replaces the preceding snapshot, and current-run worker/workflow
+events with newer timestamps win. Active ownership, the merge-gate queue, unmet
+dependencies, and terminal or excluded task states are never repainted. A
+reservation from another autonomous run is ignored.
+
+When an exact durable action outcome explains a handoff, the node and details
+show that cause. `integrate_current_main` with
+`human_revalidation_required` says current main was merged into the candidate
+and revalidation is required; it never claims the task was published. Only an
+`inspect_or_merge_pull_request` result of `merged` says the task was published
+to main and post-merge verification is pending. With no recognized durable
+result, no causal explanation is invented.
+
+Active nodes receive up to three server-normalized status lines: semantic
+stage, readable current action, elapsed time, exact local CI rollup, retry or
+decomposition context, and a recorded cost line when available. Turn count is
+never treated as percent complete. Timing estimates require at least three
+matching local historical run samples, are displayed as a range, and become
+**Running longer than usual** after the historical upper bound instead of
+showing a negative ETA. Older artifacts degrade to `unavailable`.
+
+### Token and cost data
+
+GauntletView contains no pricing table and performs no repricing. In-flight
+figures come from durable `provider_usage` receipts in that task's own worker
+journals, deduplicated by run ID and turn so refreshes and pooled-session reuse
+cannot charge the same receipt twice or move usage between assignments.
+Missing receipt data makes the result explicitly partial (`at least ...` and a
+missing-call count). Provider/model/role and cache categories appear only when
+the receipt preserves them. Explicit scheduler batch receipts are allocated
+only when they name the exact tasks, with the full shared cost and equal-share
+method both displayed; nothing is guessed from an unlabeled batch.
+
+For delivered work, the TaskGraph evaluator reads committed conformance and
+the strict committed `metrics/token-usage.json`; that total replaces rather
+than overlaps operational token receipts. A projected final cost is separate
+from recorded cost and appears only after at least three comparable completed
+tasks have persisted costs. Local Unity execution time is never presented as
+model cost. No provider is contacted.
+
+## Pipeline Activity and artifact precedence
+
+The compact panel above the graph explains global orchestration independently
+of task workflow state. An eligible task stays **Task Unstarted** while the
+Software Architect considers it. No task is marked working by the activity
+reducer. The existing graph orientation, colors, Issue links, compact progress,
+cost details, and workflow classification remain unchanged.
+
+Pipeline Activity starts at 176px high. **Collapse / Expand** keeps a 64px
+header with the current recorded stage visible while releasing graph height.
+Drag its bottom grip to resize it between 120px and the smaller of 480px or
+45% of the viewport height. The body scrolls independently.
+
+Task details start at 320px wide. The header arrow collapses them to a 44px
+reopen control; the graph receives the released width. Drag the left grip to
+resize between 220px and 560px, further limited to 45% of the viewport width
+and enough room for at least 360px of graph width at desktop sizes. Selecting a
+node updates hidden details and **never reopens a collapsed panel**.
+
+Both panels save their expanded size and collapsed state in browser
+`localStorage` (`nsc.gauntlet.panels.v1`). Resizing the browser clamps the visible
+size while retaining the saved preference for a larger window. Storage is
+optional: corrupt or blocked storage falls back to defaults without breaking
+the view. These preferences are local to the browser and viewer origin/port.
+
+Collapse buttons work with Enter/Space. Focus a grip and use Up/Down for
+Pipeline Activity or Left/Right for details in 20px steps; Home/End chooses
+the minimum/maximum. Grips expose orientation and current size to assistive
+technology. Panel resizing updates Cytoscape's actual container without changing
+node positions, ordering, graph direction or zoom. **Fit** and **Zoom +/−** use
+the resulting graph area.
+
+The Relationships view draws dependency arrows and dashed lime generated-child
+arrows simultaneously. Layout lanes are the connected components of those exact
+committed edges only. Roots and decomposition parents are above descendants;
+rank rows are capped at four task columns and wider or independent families wrap
+to following rows. A two-child decomposition is centered under its parent.
+
+`pipeline_activity.py` is a deterministic reducer with an injected clock and no
+file, process, provider, Docker, or GitHub access. `server.py` loads its inputs.
+The explicit `PRECEDENCE` table selects the first available class:
+
+| Priority | Durable evidence | Display |
+|---|---|---|
+| 1 | `autonomous_run_error`, explicit `operator_stopped`, fatal `poll_capacity_batch_completed`, `scheduler_stopped`, exact-run `graph_complete_receipt_written`, or `graph-complete.json` | Run failed, **Run stopped by operator; durable task state was preserved**, or Graph complete |
+| 2 | `architect_started` with no subsequent matching return/failure/reconciliation | Software Architect reviewing the recorded eligible portfolio |
+| 3 | An in-scope `worker_launched` and that exact worker run's action journal | Starting work, checkout preparation, implementation, validation, integration, evidence, or CI inspection |
+| 4 | Latest recognized scheduler observation | Initialization, refresh boundary, portfolio boundary, cached decision, deliberate WAIT, fallback/event wait, integration gate, or scheduler idle |
+| 5 | No usable evidence | Pipeline activity unavailable |
+
+Records are ordered by timezone-aware durable timestamps, with journal order as
+the tie-breaker. Untimed records precede timed records and cannot supply elapsed
+time. Unknown event names remain in recent activity and do not replace a known
+stage. Exact duplicate records are ignored. The latest terminal observation wins,
+except a normal stop after fatal failure preserves **Run failed**. A completion
+receipt without a terminal timeline supplies **Graph complete** with unavailable
+timing; a later timestamped failure is not erased by an older receipt. Terminal
+observations always outrank nonterminal records, including later drain activity.
+The controller records a graceful `KeyboardInterrupt` as `operator_stopped`, so
+the display can distinguish an operator stop from a genuine failure without
+inventing a paused or live state. A task failure alone does not prove the entire
+run failed.
+
+The current scheduler serializes architect calls. `architect_provider_call` is a
+**return receipt**, emitted after the provider invocation, before per-task
+`architect_completed` records. Both can close the open call; capacity decisions,
+an unusable-call `architect_wait`, and session reconciliation also retire it.
+Different explicit source heads are not matched. Completed calls are deduplicated
+by invocation/analysis identity or their start record; per-task admissions are
+not counted as separate calls from one batch. The saved
+`architect_invocations_total` counts attempts and is not used as completed calls.
+
+`architect_wait_started` is a scheduler sleep, never a provider invocation.
+`wait_mode=fallback_timer` and `event_or_fallback` have separate headlines.
+`cached=true` identifies a cached verdict. **All-WAIT** requires noncached wait
+records for every task in the last recorded portfolio, linked to the same
+returned analysis, with no task admitted from that analysis. One task's WAIT or
+`plan_idle` alone cannot establish an all-WAIT decision. The wait headline carries
+the preceding decision as explanatory text when the scheduler enters its sleep.
+
+Worker action evidence is joined only through this autonomous run's
+`worker_launched.task_id` and `run_id`, using a bounded local path under
+`.task-review-agent/outputs`. No artifact-supplied absolute path is followed.
+Historical worker runs are excluded from global stage and freshness. Action
+completion removes its active headline; heartbeats advance freshness without
+resetting a known action start. Concurrent work is summarized by the most recent
+recorded worker stage; the active count still includes every recorded worker.
+Once the newest autonomous run begins scheduling, its in-scope task nodes use
+only the exact worker run IDs recorded by that run. Immutable output from an
+older attempt remains on disk but cannot make a freshly reset task look blocked,
+active, completed, or more expensive than its current attempt.
+
+Counters use manifest capacity and scope, current node dependency/completion
+projection, this run's launch/return records, deduplicated architect returns, and
+saved progress totals for launches and wakeups. Ready/queued counts describe
+workflow availability, not a promise that the scheduler will admit those tasks.
+Manifest candidates are shown separately during architect review. Zero recorded
+returns means zero observed returns, not proof that missing journals contain no
+calls. Saved progress counters can lag events until the controller saves them.
+
+### Exact honesty boundary
+
+The panel describes **recorded activity**, not live process inspection.
+The configured provider profile and Software Architect provider remain visible
+for the entire run, including after calls close and after a terminal record. The
+panel starts with the manifest's exact `runtime_configuration` and replaces it
+only with more specific provider/model evidence from this run's architect call
+or receipt. It never substitutes the execution-worker model or infers a model
+from a provider/profile name. Missing fields say **unavailable**. A recorded
+provider attempt does not prove billing success; an open-call display says
+billing confirmation is unavailable until a receipt is written. No percentage
+or ETA is invented.
+
+Elapsed time uses durable timestamps, never artifact mtimes. After 60 seconds
+without a new event, the freshness line is highlighted:
+**No new durable event for X; process status is unknown from artifacts.**
+The same precise wording remains visible before that threshold. Without any
+timestamp it says the last event time is unavailable. An open call is described
+as **recorded as in progress**, alongside **Artifact-only liveness is not proof
+of process liveness.** No silence threshold means hung, alive, progressing, or
+failed. The browser clock advances nonterminal elapsed displays between SSE
+changes and while disconnected; terminal run, task, stage, and agent-role clocks
+remain frozen at their last applicable durable boundary. Task-detail timing is
+derived only from the latest selected worker run; older immutable run artifacts
+remain available for audit but are not accumulated into the compact summary.
+The stream indicator describes the visualizer connection.
+
+Current artifacts cannot distinguish every internal substep. After a source or
+reservation completion record, the panel names the next expected step as
+**next**, not as a proven start. A broad `run_execution_crew` action does not
+prove which internal crew role is currently running. Unity's broad validation
+action does not establish Edit Mode versus Play Mode; it says **Unity
+validation**. CI inspection does not prove Unity validation is running. A
+controller exit that has no stop/error/complete record remains **unknown from
+artifacts**. Existing node CI and Issue projections remain available in task
+details; the global reducer does not turn old snapshots into live activity.
+
+The reducer trusts local journal provenance and existing completion receipts as
+the visualizer already does; it is not a cryptographic run-audit verifier.
+
+### Focused validation
+
+`python -m unittest discover -s Pipeline/TaskReviewAgent/GauntletView/tests -p "*_smoke_test.py"`
+runs the pure/component regressions, including display-scope HTTP/SSE coverage
+and the existing Pipeline Activity cases. These
+use disposable synthetic artifacts and a fixed clock; they never run a gauntlet
+or Unity. The new cases also cover launch-before-progress-file compatibility,
+exact worker-run matching, and terminal precedence. Check the inline JavaScript
+with `node --check`, compile changed Python files, and run `git diff --check`.
+
+`python Pipeline/TaskReviewAgent/GauntletView/tests/browser_smoke_test.py` runs
+15 additional real-browser checks with Node.js, Playwright and a local Chromium
+installation. Set `NODE_PATH` if Playwright is outside Node's normal module
+path, and `NSC_VIEW_CHROMIUM` to an installed Chromium executable if Playwright's
+browser is unavailable. Optional `NSC_VIEW_SCREENSHOTS` saves fixture screenshots.
+The runner owns an ephemeral loopback server and isolated headless browser,
+blocks external browser requests, uses vendored scripts, and checks artifact
+hashes. Its one deliberate fixture progress update drives a real SSE refresh.
+It does not attach to the operator's browser or visualizer. Missing dependencies
+fail the browser command; they are not counted as skipped/passed tests.
+
+## Live updates
+
+The page opens an SSE connection to `/api/stream`. The server fingerprints the
+mtime and size of every file above once per second and pushes a new snapshot
+only when something actually changed; otherwise it sends a keepalive. The page
+applies changes incrementally — a state change repaints one node and pulses its
+border, and the layout only re-runs when nodes or edges are added or removed.
+
+## Controls
+
+- **Mouse wheel** zoom, **drag** to pan, or the **Zoom +/− / Fit** buttons.
+- **Relationships** lays the scoped graph top-to-bottom with both `depends_on`
+  and committed generated-child relationships visible at once.
+- **Click a node** to see its full contract and its worker's current turn,
+  action, phase, issue state, and recognized durable handoff cause; its
+  dependency neighbourhood is highlighted and everything else fades.
+- The detail panel puts **Open GitHub Issue** immediately below the selected
+  task's state and title. `Task Needs You` uses the prominent primary treatment;
+  active, checks-pending, blocked, failed and complete tasks use the same exact
+  managed-Issue destination when available. If local durable evidence cannot
+  prove the Issue identity, the panel says **GitHub Issue unavailable** instead
+  of falling back to a repository link. Opening the Issue uses a new browser tab.
+- **Click a state in the legend** to show or hide it; hover a row to see what it
+  means and the underlying state key. `Task Retired` is hidden by default (68 of
+  the 152 contracts on disk are cancelled history).
+- **run scope only** narrows to the task ids named in the run manifest.
+
+Legend labels are presentation only and live in the `STATES` map at the top of
+`index.html`. The server emits these state keys:
+
+| Label | State key | Meaning |
+|---|---|---|
+| Task Working | `active` | a worker is running it right now |
+| Decomposed Parent | `aggregate` | non-executable parent with exact child state/token roll-up |
+| Task In CI | `checks_pending` | waiting on GitHub pull-request checks |
+| Candidate Ready — Waiting for Merge Gate | `integration_queued` | unverified `agent_ready` candidate queued behind the serialized merge gate |
+| Verified — Ready to Continue | `delivery_ready` | `agent_ready` delivery work not currently queued at the gate |
+| Task Unstarted | `ready` | dependencies satisfied, nobody has picked it up |
+| Decomposition Available | `decomposition_ready` | dependencies satisfied and the exact TaskGraph contract is eligible for decomposition |
+| Task Dependencies Unmet | `pending` | a `depends_on` task is not complete |
+| Task Needs You | `human_action` | your Unity checklist |
+| Task Complete | `complete` | current committed TaskGraph conformance proves delivery |
+| Task Blocked | `blocked` | worker stopped short — you inspect or repair |
+| Task Failed | `failed` | worker run failed — you diagnose |
+| Task Retired | `cancelled` | contract cancelled/superseded |
+| Task Excluded | `excluded` | in the manifest exclusion list |
+
+The legend uses a high-separation categorical palette across every state, not
+neighboring shades for related states. In particular: `Task Working` is blue,
+`Task In CI` is cyan, `Task Needs You` is pink, `Task Blocked` is orange,
+`Task Failed` is red, `Task Retired` is brown, and `Task Excluded` is silver.
+Ordinary available work is purple while available decomposition is yellow.
+
+Labels fade out below a zoom threshold so a 1,000-node graph stays readable
+when fully zoomed out.
+
+## Vendored libraries
+
+`vendor/` holds Cytoscape.js 3.30.2, dagre 0.8.5 and cytoscape-dagre 2.5.0
+(all MIT). They are served from disk, so this works with no network access.

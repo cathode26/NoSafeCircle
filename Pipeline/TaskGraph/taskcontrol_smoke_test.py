@@ -127,6 +127,7 @@ def main() -> int:
                 "state": "conformant",
                 "task_id": "NSC-003",
                 "title": graph.tasks_by_id["NSC-003"]["title"],
+                "decomposition_children": [],
             }
         ]
 

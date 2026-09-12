@@ -494,6 +494,48 @@ def test_action_narrowing_and_host_validation_are_strict() -> None:
         )
 
 
+def test_proven_mainline_drift_wins_over_stale_tracking_ref() -> None:
+    actions = {
+        "prepare_task_checkout": "prepare",
+        "integrate_current_main": "integrate",
+    }
+    observation = {
+        "checkout": {
+            "status": "ready",
+            "origin_main_refresh_required": True,
+        },
+        "downstream": {
+            "next_action": "prepare_task_checkout",
+            "mainline_reintegration": {
+                "status": "required",
+                "task_head": "a" * 40,
+                "main_head": "b" * 40,
+                "authority": "git_ancestry",
+            },
+        },
+    }
+    require(
+        allowed_actions_for(observation, [], actions)
+        == ("integrate_current_main",),
+        "proven divergent main was masked by the stale tracking-ref hint",
+    )
+    observation["downstream"] = {
+        "next_action": "verify_post_merge_and_complete",
+        "mainline_reintegration": {
+            "status": "task_already_in_main",
+            "task_head": "a" * 40,
+            "main_head": "c" * 40,
+            "authority": "git_ancestry",
+        },
+    }
+    actions["verify_post_merge_and_complete"] = "verify"
+    require(
+        allowed_actions_for(observation, [], actions)
+        == ("verify_post_merge_and_complete",),
+        "an already-merged task was sent back through checkout preparation",
+    )
+
+
 def test_controller_rejects_empty_prefixes() -> None:
     controller = object.__new__(ResumableDownstreamTaskController)
     try:
@@ -525,7 +567,7 @@ def test_history_is_bounded() -> None:
     require(compact[0]["result"]["events_count"] == 1, "safe event count was lost")
 
 
-def test_same_state_rejection_streak_releases_after_three() -> None:
+def test_same_state_rejection_streak_blocks_after_three() -> None:
     from Pipeline.TaskReviewAgent import downstream_resilience as resilience
 
     observation = {
@@ -578,6 +620,7 @@ def test_same_state_rejection_streak_releases_after_three() -> None:
         calls[0]["reason"] == "same_state_action_rejection_streak",
         "wrong release reason",
     )
+    require(calls[0]["terminal_block"] is True, "streak was not terminally blocked")
 
 
 def test_mainline_drift_is_reported_before_pass_receipt_work() -> None:
@@ -610,27 +653,65 @@ def test_mainline_drift_is_reported_before_pass_receipt_work() -> None:
             raise AssertionError("advanced main was treated as integrated")
 
 
+def _validation_plan_fixture(
+    task_id: str,
+    *,
+    required_test_platforms: list[str],
+    test_filters: dict[str, str],
+) -> dict[str, Any]:
+    contract_hash = hashlib.sha256(task_id.encode("utf-8")).hexdigest()
+    with tempfile.TemporaryDirectory(prefix="nsc-deterministic-validation-policy-") as temporary:
+        root = Path(temporary)
+        policy_path = (
+            root
+            / "Pipeline"
+            / "TaskReviewAgent"
+            / "authoritative_validation_policy.json"
+        )
+        policy_path.parent.mkdir(parents=True)
+        policy_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": "1.0",
+                    "tasks": {
+                        task_id: {
+                            "task_contract_sha256": contract_hash,
+                            "required_test_platforms": required_test_platforms,
+                            "test_filters": test_filters,
+                            "authority": "fixture_deterministic_validation_policy",
+                        }
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        plan = validation_plan_for(
+            root,
+            {"task_id": task_id, "task_contract_sha256": contract_hash},
+        )
+        require(plan is not None, f"{task_id} fixture policy is missing")
+        return plan
+
+
 def test_nsc020_policy_remains_playmode_only() -> None:
-    task_bytes = subprocess.check_output(
-        ["git", "-C", str(ROOT), "show", "HEAD:Tasks/NSC-020.yaml"]
+    plan = _validation_plan_fixture(
+        "NSC-020",
+        required_test_platforms=["PlayMode"],
+        test_filters={
+            "PlayMode": "NoSafeCircle.DoorPrototype.Tests.DoorInteractionPlayModeTests"
+        },
     )
-    task = json.loads(task_bytes.decode("utf-8"))
-    task["task_id"] = task["id"]
-    task["task_contract_sha256"] = hashlib.sha256(task_bytes).hexdigest()
-    plan = validation_plan_for(ROOT, task)
-    require(plan is not None, "NSC-020 policy is missing")
     require(plan["required_test_platforms"] == ["PlayMode"], "NSC-020 policy broadened")
 
 
 def test_nsc042_policy_is_exact_editmode_filter() -> None:
-    task_bytes = subprocess.check_output(
-        ["git", "-C", str(ROOT), "show", "HEAD:Tasks/NSC-042.yaml"]
+    plan = _validation_plan_fixture(
+        "NSC-042",
+        required_test_platforms=["EditMode"],
+        test_filters={
+            "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests"
+        },
     )
-    task = json.loads(task_bytes.decode("utf-8"))
-    task["task_id"] = task["id"]
-    task["task_contract_sha256"] = hashlib.sha256(task_bytes).hexdigest()
-    plan = validation_plan_for(ROOT, task)
-    require(plan is not None, "NSC-042 policy is missing")
     require(plan["required_test_platforms"] == ["EditMode"], "NSC-042 platform broadened")
     require(
         plan["test_filters"]["EditMode"]
@@ -647,9 +728,10 @@ def main() -> int:
         test_automation_receipt_rebuilds_from_issue_and_git,
         test_automation_receipt_rejects_task_blob_change,
         test_action_narrowing_and_host_validation_are_strict,
+        test_proven_mainline_drift_wins_over_stale_tracking_ref,
         test_controller_rejects_empty_prefixes,
         test_history_is_bounded,
-        test_same_state_rejection_streak_releases_after_three,
+        test_same_state_rejection_streak_blocks_after_three,
         test_mainline_drift_is_reported_before_pass_receipt_work,
         test_nsc020_policy_remains_playmode_only,
         test_nsc042_policy_is_exact_editmode_filter,

@@ -22,6 +22,7 @@ from Pipeline.AgentRuntime.providers.fake import FakeProvider
 from TaskDecomposition.context_builder import DecompositionPreflightError
 from TaskDecomposition.policy import validate_decomposition_result
 from TaskDecomposition.round_robin_decomposition import (
+    _normalize_empty_artifact_placeholder,
     candidate_sha256,
     run_round_robin_decomposition,
     validate_provider_order,
@@ -77,7 +78,8 @@ class QueueProvider:
 
 
 def provider_factory(providers: dict[str, QueueProvider]):
-    def factory(provider_name: str, _source: Path):
+    def factory(provider_name: str, _source: Path, role: str):
+        assert role in {"task_decomposer", "decomposition_reviewer"}, role
         key = f"{provider_name}-decomposition"
         configuration = RuntimeConfiguration(
             {
@@ -213,6 +215,20 @@ def main() -> int:
         tasks = create_repository(source)
         parent = tasks["NSC-010"]
         initial_raw = decomposed_result(parent)
+        empty_placeholder = deepcopy(initial_raw)
+        empty_placeholder["artifact_proposal"] = {
+            "title": "",
+            "purpose": "",
+            "source_parent_obligations": [],
+            "authorized_decisions_needed": [],
+            "out_of_scope": [],
+        }
+        normalized = _normalize_empty_artifact_placeholder(empty_placeholder)
+        assert normalized["artifact_proposal"] is None
+        assert empty_placeholder["artifact_proposal"] is not None
+        nonempty_placeholder = deepcopy(empty_placeholder)
+        nonempty_placeholder["artifact_proposal"]["title"] = "Unexpected proposal"
+        assert _normalize_empty_artifact_placeholder(nonempty_placeholder) is nonempty_placeholder
         initial = validated_candidate(initial_raw, parent, tasks)
         initial_hash = candidate_sha256(initial)
         revised_raw = deepcopy(initial_raw)

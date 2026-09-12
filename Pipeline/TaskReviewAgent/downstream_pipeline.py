@@ -10,14 +10,21 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import uuid
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping, Sequence
+
+from Pipeline.Testing.validation_manifest import (
+    ValidationManifestError,
+    load_validation_manifest,
+)
 
 from .contracts import TaskReviewContractError, semantic_sha256
 from .delivery_review import (
     DeliveryReviewError,
     create_delivery_review_proposal,
     file_sha256,
+    materialize_automated_review,
     materialize_approved_review,
 )
 from .downstream_issue import DownstreamIssueCoordinator, DownstreamIssueError
@@ -34,7 +41,7 @@ from .token_usage import build_task_token_usage, write_task_token_usage
 
 DOWNSTREAM_SCHEMA_VERSION = "1.0"
 _SHA40 = re.compile(r"^[0-9a-f]{40}$")
-_VALID_PLATFORMS = {"EditMode", "PlayMode"}
+_VALID_PLATFORMS = {"EditMode", "PlayMode", "SyntheticSource"}
 
 
 class DownstreamPipelineError(TaskReviewContractError):
@@ -202,70 +209,17 @@ def _required_platforms(task: Mapping[str, Any]) -> tuple[str, ...]:
 
 
 def _manifest(path: Path) -> dict[str, Any]:
-    raw = _json_object(path.read_bytes(), "validation manifest")
-    if (
-        raw.get("schema_version") != "1.0"
-        or raw.get("manifest_type") != "unity_test_validation"
-        or raw.get("status") != "passed"
-    ):
-        raise DownstreamPipelineError("validation manifest is not a passed v1 Unity manifest")
-    state = raw.get("validated_state")
-    unity = raw.get("unity")
-    test_run = raw.get("test_run")
-    artifacts = raw.get("artifacts")
-    if (
-        not isinstance(state, Mapping)
-        or not isinstance(unity, Mapping)
-        or not isinstance(test_run, Mapping)
-        or not isinstance(artifacts, Mapping)
-    ):
-        raise DownstreamPipelineError("validation manifest omitted required sections")
-    commit = state.get("commit")
-    tree = state.get("tree")
-    platform = unity.get("test_platform")
-    test_filter = unity.get("test_filter")
-    if not isinstance(commit, str) or not _SHA40.fullmatch(commit):
-        raise DownstreamPipelineError("validation manifest commit is invalid")
-    if not isinstance(tree, str) or not _SHA40.fullmatch(tree):
-        raise DownstreamPipelineError("validation manifest tree is invalid")
-    if platform not in _VALID_PLATFORMS:
-        raise DownstreamPipelineError("validation manifest platform is invalid")
-    if not isinstance(test_filter, str) or not test_filter.strip():
-        raise DownstreamPipelineError("validation manifest filter is invalid")
-    if test_run.get("result") != "Passed":
-        raise DownstreamPipelineError("validation manifest test result is not Passed")
-    counts: dict[str, int] = {}
-    for key in ("total", "passed", "failed", "skipped"):
-        value = test_run.get(key)
-        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
-            raise DownstreamPipelineError(
-                f"validation manifest test_run.{key} is invalid"
-            )
-        counts[key] = value
-    if counts["total"] <= 0:
-        raise DownstreamPipelineError("validation manifest discovered zero tests")
-    if counts["failed"] != 0:
-        raise DownstreamPipelineError("validation manifest reports failed tests")
-    if counts["total"] < counts["passed"] + counts["failed"] + counts["skipped"]:
-        raise DownstreamPipelineError("validation manifest test counts are inconsistent")
-    for key in ("xml", "log"):
-        fact = artifacts.get(key)
-        if not isinstance(fact, Mapping):
-            raise DownstreamPipelineError(f"validation manifest omitted {key} artifact")
-        relative = fact.get("relative_path")
-        if not isinstance(relative, str) or not relative:
-            raise DownstreamPipelineError(f"validation manifest {key} path is invalid")
-        artifact_path = path.parent / relative
-        actual = _file_fact(artifact_path)
-        if actual["sha256"] != fact.get("sha256") or actual["size_bytes"] != fact.get("size_bytes"):
-            raise DownstreamPipelineError(f"validation manifest {key} artifact changed")
+    try:
+        manifest = load_validation_manifest(path)
+    except (OSError, ValidationManifestError) as exc:
+        raise DownstreamPipelineError(f"validation manifest is invalid: {exc}") from exc
     return {
-        "path": str(path.resolve()),
-        "sha256": file_sha256(path),
-        "commit": commit,
-        "tree": tree,
-        "test_platform": platform,
-        "test_filter": test_filter,
+        "path": str(manifest.path),
+        "sha256": file_sha256(manifest.path),
+        "commit": manifest.validated_state.commit,
+        "tree": manifest.validated_state.tree,
+        "test_platform": manifest.unity.test_platform,
+        "test_filter": manifest.unity.test_filter,
     }
 
 
@@ -501,21 +455,42 @@ class DownstreamTaskController:
         checkout = observation.get("checkout")
         checkout = checkout if isinstance(checkout, Mapping) else {}
         recovery = checkout.get("persisted_evidence_recovery")
-        if isinstance(recovery, Mapping) and recovery.get("status") == "recovered":
-            state = _workflow_state(observation)
+        state = _workflow_state(observation)
+        persisted_evidence_refresh = (
+            isinstance(recovery, Mapping)
+            and recovery.get("status") == "recovered"
+        )
+        downstream_ref_refresh = (
+            checkout.get("status") == "ready"
+            and checkout.get("origin_main_refresh_required") is True
+            and isinstance(state, Mapping)
+            and state.get("state") == WorkflowState.AGENT_WORKING.value
+            and state.get("worker_id") == self.workflow.worker_id
+            and state.get("phase")
+            in {
+                WorkflowPhase.DELIVERY_EVIDENCE.value,
+                WorkflowPhase.MERGE_CLOSEOUT.value,
+            }
+        )
+        if persisted_evidence_refresh or downstream_ref_refresh:
             branch = state.get("branch") if isinstance(state, Mapping) else None
-            evidence_commit = recovery.get("evidence_commit")
+            expected_head = (
+                recovery.get("evidence_commit")
+                if persisted_evidence_refresh and isinstance(recovery, Mapping)
+                else state.get("head_commit")
+            )
             if (
                 not isinstance(branch, str)
                 or not branch.strip()
-                or not isinstance(evidence_commit, str)
-                or not _SHA40.fullmatch(evidence_commit)
-                or checkout.get("head_commit") != evidence_commit
+                or not isinstance(expected_head, str)
+                or not _SHA40.fullmatch(expected_head)
+                or checkout.get("head_commit") != expected_head
+                or checkout.get("branch") != branch
                 or checkout.get("status") != "ready"
                 or checkout.get("clean") is not True
             ):
                 raise DownstreamPipelineError(
-                    "persisted evidence ref refresh requires an exact recovered checkout"
+                    "downstream ref refresh requires an exact recovered checkout"
                 )
             _git(
                 self.command_runner,
@@ -523,32 +498,46 @@ class DownstreamTaskController:
                 "fetch",
                 "origin",
                 "+refs/heads/main:refs/remotes/origin/main",
-                f"+refs/heads/{branch}:refs/remotes/origin/{branch}",
+                *(
+                    (f"+refs/heads/{branch}:refs/remotes/origin/{branch}",)
+                    if persisted_evidence_refresh
+                    else ()
+                ),
             )
             refreshed = self.observe()
             refreshed_checkout = refreshed.get("checkout")
             refreshed_checkout = (
                 refreshed_checkout if isinstance(refreshed_checkout, Mapping) else {}
             )
-            refreshed_recovery = refreshed_checkout.get(
-                "persisted_evidence_recovery"
-            )
             if (
                 refreshed_checkout.get("status") != "ready"
-                or refreshed_checkout.get("head_commit") != evidence_commit
+                or refreshed_checkout.get("head_commit") != expected_head
+                or refreshed_checkout.get("branch") != branch
                 or refreshed_checkout.get("clean") is not True
-                or not isinstance(refreshed_recovery, Mapping)
-                or refreshed_recovery.get("status") != "recovered"
-                or refreshed_recovery.get("evidence_commit") != evidence_commit
+                or refreshed_checkout.get("origin_main_refresh_required") is True
             ):
                 raise DownstreamPipelineError(
-                    "persisted evidence checkout changed while refreshing remote refs"
+                    "downstream checkout changed while refreshing remote refs"
                 )
+            if persisted_evidence_refresh:
+                refreshed_recovery = refreshed_checkout.get(
+                    "persisted_evidence_recovery"
+                )
+                if (
+                    not isinstance(refreshed_recovery, Mapping)
+                    or refreshed_recovery.get("status") != "recovered"
+                    or refreshed_recovery.get("evidence_commit") != expected_head
+                ):
+                    raise DownstreamPipelineError(
+                        "persisted evidence recovery changed while refreshing remote refs"
+                    )
             result = {
                 **dict(refreshed_checkout),
                 "origin_main_refreshed": True,
                 "recovery_authority": (
                     "persisted_downstream_receipt_and_exact_git_identity"
+                    if persisted_evidence_refresh
+                    else "exact_downstream_resume_identity"
                 ),
             }
             self.workflow.last_checkout_result = _copy(result)
@@ -658,6 +647,13 @@ class DownstreamTaskController:
         ]
         if self.unity_executable:
             command.extend(("-UnityExecutable", self.unity_executable))
+        if test_platform == "SyntheticSource":
+            from .downstream_resilience import validation_plan_for
+            plan = validation_plan_for(self.checkout, observation["task"])
+            if plan is None or plan["test_filters"].get(test_platform) != test_filter:
+                raise DownstreamPipelineError("SyntheticSource requires the exact committed private policy")
+            command = [sys.executable, "-B", str(self.checkout / "Pipeline/Testing/synthetic_source_validation.py"),
+                       "--source", str(self.checkout), "--task-id", self.task_id, "--test-filter", test_filter]
         result = _run(
             self.command_runner,
             command,
@@ -710,6 +706,12 @@ class DownstreamTaskController:
     def create_delivery_review_draft(self) -> dict[str, Any]:
         observation, workflow_state = self._require_lease(WorkflowPhase.DELIVERY_EVIDENCE)
         self._assert_human_tested_head(workflow_state)
+        authority = self._latest_validation_authority()
+        if authority is None:
+            raise DownstreamPipelineError("exact validation authority is unavailable")
+        validation_label = (
+            "validated" if authority.get("kind") == "automated" else "human-tested"
+        )
         required = set(_required_platforms(observation["task"]))
         manifests = [
             _manifest(Path(item["path"]))
@@ -723,9 +725,15 @@ class DownstreamTaskController:
             )
         for item in manifests:
             if item["commit"] != workflow_state["head_commit"]:
-                raise DownstreamPipelineError("validation manifest is stale for the human-tested commit")
+                raise DownstreamPipelineError(
+                    f"validation manifest is stale for the {validation_label} commit"
+                )
 
-        human = self._human_validation_artifact(workflow_state["head_commit"])
+        human = (
+            self._human_validation_artifact(workflow_state["head_commit"])
+            if authority.get("kind") == "human"
+            else None
+        )
         output_root = self._output_root(workflow_state["head_commit"])
         draft_path = output_root / "delivery-review-draft.json"
         if draft_path.exists():
@@ -750,11 +758,10 @@ class DownstreamTaskController:
             self.task_id,
             "--base-commit",
             base_commit,
-            "--human-validation",
-            human["path"],
-            "--output",
-            str(draft_path),
         ]
+        if human is not None:
+            command.extend(("--human-validation", human["path"]))
+        command.extend(("--output", str(draft_path)))
         for manifest in manifests:
             command.extend(("--validation-manifest", manifest["path"]))
         _run(self.command_runner, command, cwd=self.checkout, timeout_seconds=900.0)
@@ -772,6 +779,8 @@ class DownstreamTaskController:
                 "proposal_sha256": None,
             }
         )
+        if authority.get("kind") == "automated":
+            self.state["validation_authority"] = authority
         self._persist()
         return self.delivery_review_facts()
 
@@ -855,8 +864,12 @@ class DownstreamTaskController:
                 "delivery acceptance requires a clean canonical checkout"
             )
         self._assert_checkout()
+        validation_authority = None
         if active_delivery:
             self._assert_human_tested_head(workflow_state)
+            validation_authority = self._latest_validation_authority()
+            if validation_authority is None:
+                raise DownstreamPipelineError("exact validation authority is unavailable")
         facts = self.delivery_review_facts()
         proposal_path = self.state.get("proposal_path")
         proposal_sha = self.state.get("proposal_sha256")
@@ -865,7 +878,13 @@ class DownstreamTaskController:
         proposal = _json_object(Path(proposal_path).read_bytes(), "delivery proposal")
         if proposal.get("validated_commit") != workflow_state.get("head_commit"):
             raise DownstreamPipelineError(
-                "delivery proposal does not target the unchanged human-tested commit"
+                "delivery proposal does not target the unchanged "
+                + (
+                    "validated commit"
+                    if validation_authority is not None
+                    and validation_authority.get("kind") == "automated"
+                    else "human-tested commit"
+                )
             )
         return self.issue.accept_unchanged_delivery_after_human_pass(
             task_id=self.task_id,
@@ -876,13 +895,21 @@ class DownstreamTaskController:
             draft_sha256=facts["draft_sha256"],
             proposal_path=proposal_path,
             proposal_sha256=proposal_sha,
+            validation_authority=validation_authority,
         )
 
     def finalize_delivery_evidence_and_open_pr(self) -> dict[str, Any]:
         observation, workflow_state = self._require_lease(WorkflowPhase.MERGE_CLOSEOUT)
         approval = self._latest_delivery_approval()
         if approval is None or approval.get("decision") != "approve":
-            raise DownstreamPipelineError("current delivery proposal has not been human-approved")
+            automated = (
+                isinstance(self.state.get("validation_authority"), Mapping)
+                and self.state["validation_authority"].get("kind") == "automated"
+            )
+            raise DownstreamPipelineError(
+                "current delivery proposal has not been "
+                + ("machine-accepted" if automated else "human-approved")
+            )
         proposal_path = self.state.get("proposal_path")
         proposal_sha = self.state.get("proposal_sha256")
         if not isinstance(proposal_path, str) or proposal_sha != approval.get("proposal_sha256"):
@@ -891,12 +918,33 @@ class DownstreamTaskController:
         output_root = self._output_root(workflow_state["head_commit"])
         approved_review = output_root / "delivery-review-approved.json"
         if not approved_review.exists():
-            materialized = materialize_approved_review(
-                proposal_path=Path(proposal_path),
-                expected_proposal_sha256=proposal_sha,
-                output_path=approved_review,
-                approved_by=approval.get("actor_id") or "Vincent",
-            )
+            if approval.get("approval_basis") == "unchanged_automated_validated_commit":
+                authority = self._latest_validation_authority()
+                if (
+                    authority is None
+                    or authority.get("kind") != "automated"
+                    or authority.get("event_id")
+                    != approval.get("automated_validation_event_id")
+                    or authority.get("policy_sha256")
+                    != approval.get("validation_policy_sha256")
+                ):
+                    raise DownstreamPipelineError(
+                        "automated delivery acceptance no longer matches validation authority"
+                    )
+                materialized = materialize_automated_review(
+                    proposal_path=Path(proposal_path),
+                    expected_proposal_sha256=proposal_sha,
+                    output_path=approved_review,
+                    validation_event_id=authority["event_id"],
+                    validation_policy_sha256=authority["policy_sha256"],
+                )
+            else:
+                materialized = materialize_approved_review(
+                    proposal_path=Path(proposal_path),
+                    expected_proposal_sha256=proposal_sha,
+                    output_path=approved_review,
+                    approved_by=approval.get("actor_id") or "Vincent",
+                )
             self.state.update(materialized)
         elif self.state.get("approved_review_sha256") != file_sha256(approved_review):
             raise DownstreamPipelineError("approved delivery review identity changed")
@@ -1074,27 +1122,386 @@ class DownstreamTaskController:
             raise DownstreamPipelineError(
                 f"pull request is not mergeable: {pull_request.get('mergeable')}"
             )
-        command = (
-            "gh",
-            "pr",
-            "merge",
-            str(number),
-            "--repo",
-            self._bound_repository(),
-            "--merge",
-            "--match-head-commit",
-            self.state["evidence_commit"],
+        mainline_guard = getattr(
+            self,
+            "guard_current_main_before_pull_request_merge",
+            None,
         )
-        _run(self.command_runner, command, cwd=self.checkout, timeout_seconds=900.0)
-        merged_pr = self._view_pr(number)
-        if merged_pr.get("state") != "MERGED":
-            raise DownstreamPipelineError("GitHub did not report the pull request merged")
-        merge_commit = (merged_pr.get("mergeCommit") or {}).get("oid")
-        if not isinstance(merge_commit, str) or not _SHA40.fullmatch(merge_commit):
-            raise DownstreamPipelineError("merged pull request omitted merge commit")
-        self.state["merged_commit"] = merge_commit
+        if callable(mainline_guard):
+            guarded_result = mainline_guard()
+            if guarded_result is not None:
+                return guarded_result
+        return self._publish_approved_head(number, pull_request)
+
+    # ------------------------------------------------------------------
+    # Authoritative publication (see publication_fence for the protocol).
+    # ------------------------------------------------------------------
+
+    def _publication_target_branch(self) -> str:
+        """The branch the gate serializes, so publication and gate agree."""
+
+        gate = getattr(getattr(self, "integration_window", None), "gate", None)
+        branch = getattr(gate, "target_branch", None)
+        return branch if isinstance(branch, str) and branch else "main"
+
+    def _proven_publication_base(
+        self,
+        pull_request: Mapping[str, Any],
+    ) -> tuple[str, str]:
+        """The exact base and approved head this publication is authorized for.
+
+        Both come from the fresh pre-merge mainline proof, never from a
+        convenience re-read: the proof is what established that current main is
+        already integrated into the approved head, so it is the only value the
+        mutation may be fenced against.
+        """
+
+        status = getattr(self, "_mainline_reintegration_status", None)
+        if (
+            not isinstance(status, Mapping)
+            or status.get("status") != "integrated"
+            or status.get("authority") != "fresh_pre_merge_git_ancestry"
+        ):
+            raise DownstreamPipelineError(
+                "publication requires the fresh pre-merge mainline proof; run the "
+                "current-main guard before the authoritative branch mutation"
+            )
+        expected_main = str(status.get("main_head") or "")
+        source_head = str(status.get("task_head") or "")
+        if not _SHA40.fullmatch(expected_main) or not _SHA40.fullmatch(source_head):
+            raise DownstreamPipelineError(
+                "the mainline proof did not resolve exact base and source commit identities"
+            )
+        evidence = self.state.get("evidence_commit")
+        if source_head != evidence or pull_request.get("headRefOid") != evidence:
+            raise DownstreamPipelineError(
+                "approved source head is not the checked pull-request head; refusing to publish"
+            )
+        return expected_main, source_head
+
+    def _accepted_validation_commit(
+        self,
+        source_head: str,
+        pull_request: Mapping[str, Any],
+    ) -> str:
+        """The exact SHA the required checks were accepted for.
+
+        Two different validations cover a delivery, and only one of them covers
+        the commit that is actually published:
+
+        * the human/automated Unity authority is accepted for the IMPLEMENTATION
+          commit, and the existing readers prove the evidence head descends from
+          it (see ``_verified_evidence_head_for_integration``);
+        * the required GitHub checks are accepted for the PULL-REQUEST HEAD,
+          which is the commit this fence publishes.
+
+        GitHub returns ``headRefOid`` and that head's ``statusCheckRollup`` in
+        the same pull-request GraphQL object. Real CheckRun rollup entries do
+        not normally include a per-entry ``headSha``. The top-level head is
+        therefore the required binding; when a test adapter or future payload
+        does supply a per-entry commit, it must agree as an additional guard.
+        """
+
+        rollup = pull_request.get("statusCheckRollup")
+        checks = self._check_state(rollup)
+        if checks["failed"] or checks["pending"]:
+            raise DownstreamPipelineError(
+                "publication requires every reported check to have passed"
+            )
+        entries = rollup if isinstance(rollup, list) else []
+        for index, item in enumerate(entries):
+            if not isinstance(item, Mapping):
+                continue
+            reported = item.get("headSha") or item.get("head_sha")
+            if reported is None:
+                continue
+            reported = str(reported)
+            if not _SHA40.fullmatch(reported):
+                raise DownstreamPipelineError(
+                    f"pull-request check {index + 1} reported an invalid commit {reported!r}"
+                )
+            if reported != source_head:
+                raise DownstreamPipelineError(
+                    f"pull-request check {index + 1} was accepted for {reported}, not for "
+                    f"the approved candidate {source_head}; refusing to publish a topology "
+                    "the required checks did not evaluate"
+                )
+        return source_head
+
+    def _publication_authority(
+        self,
+        expected_main: str,
+        source_head: str,
+        validated_commit: str,
+    ) -> tuple[Any, Any, Any]:
+        """Bind an owner-bound publication operation before anything mutates."""
+
+        from .publication_fence import (
+            PUBLICATION_PROTOCOL_VERSION,
+            PublicationBinding,
+            new_operation_id,
+        )
+
+        window = getattr(self, "integration_window", None)
+        gate = getattr(window, "gate", None)
+        identity = getattr(window, "identity", None)
+        target = self._publication_target_branch()
+        if gate is not None and identity is not None:
+            record = gate.bind_publication(
+                identity,
+                source_head=source_head,
+                validated_commit=validated_commit,
+                expected_main=expected_main,
+            )
+            binding = PublicationBinding(
+                protocol_version=record["protocol_version"],
+                repository=record["repository"],
+                target_branch=record["target_branch"],
+                task_id=record["task_id"],
+                run_id=record["run_id"],
+                worker_id=record["worker_id"],
+                lease_id=record["lease_id"],
+                source_head=record["source_head"],
+                validated_commit=record["validated_commit"],
+                expected_main=record["expected_main"],
+                operation_id=record["operation_id"],
+                base_epoch=record["base_epoch"],
+            )
+            return binding, gate, identity
+        # Deliberately un-gated low-level fixtures keep the same fenced
+        # primitive and the same durable local record; they simply have no
+        # remote owner journal to bind it into.
+        prior = self.state.get("publication")
+        reuse = (
+            isinstance(prior, Mapping)
+            and prior.get("source_head") == source_head
+            and prior.get("expected_main") == expected_main
+        )
+        binding = PublicationBinding(
+            protocol_version=PUBLICATION_PROTOCOL_VERSION,
+            repository=self._bound_repository(),
+            target_branch=target,
+            task_id=self.task_id,
+            run_id=str(getattr(self.workflow, "run_id", None) or "ungated-local-run"),
+            worker_id=str(self.workflow.worker_id),
+            lease_id=str(prior.get("lease_id")) if reuse else uuid.uuid4().hex,
+            source_head=source_head,
+            validated_commit=validated_commit,
+            expected_main=expected_main,
+            operation_id=str(prior.get("operation_id")) if reuse else new_operation_id(),
+            base_epoch=int(prior.get("base_epoch", 1)) if reuse else 1,
+        )
+        return binding, None, None
+
+    def _record_publication(
+        self,
+        binding: Any,
+        status: Any,
+        *,
+        gate: Any,
+        identity: Any,
+        publication_commit: str | None = None,
+        observed_pre_image: str | None = None,
+        observed_target: str | None = None,
+        detail: str = "",
+    ) -> None:
+        """Persist one publication transition durably BEFORE returning or raising."""
+
+        value = str(getattr(status, "value", status))
+        record = dict(
+            binding.to_dict(),
+            status=value,
+            publication_commit=publication_commit,
+            observed_pre_image=observed_pre_image,
+            observed_target=observed_target,
+            detail=detail[:2000],
+        )
+        prior = self.state.get("publication")
+        if isinstance(prior, Mapping):
+            for key in ("publication_commit", "observed_pre_image", "observed_target"):
+                if record[key] is None and prior.get(key) is not None:
+                    record[key] = prior[key]
+        self.state["publication"] = record
         self._persist()
+        if gate is not None and identity is not None:
+            gate.record_publication(
+                identity,
+                operation_id=binding.operation_id,
+                status=value,
+                publication_commit=record["publication_commit"],
+                observed_pre_image=record["observed_pre_image"],
+                observed_target=record["observed_target"],
+                detail=detail,
+            )
+
+    def _gate_authority(self) -> tuple[Any, Any]:
+        window = getattr(self, "integration_window", None)
+        return getattr(window, "gate", None), getattr(window, "identity", None)
+
+    def _adopt_prior_publication(self) -> Any:
+        """Resolve what an earlier attempt already did, before anything rebinds.
+
+        A crash between the authoritative mutation and the local receipt must
+        never produce a second publication, and an outcome that cannot be proven
+        must never be retried. This runs FIRST, from the durable record and one
+        read of the authoritative branch -- never from a freshly derived base,
+        which after a successful publication would name the candidate itself.
+        """
+
+        from .publication_fence import (
+            DEFINITELY_PUBLISHED,
+            REQUIRES_RECONCILIATION,
+            PublicationBinding,
+            PublicationOutcome,
+            PublicationStatus,
+            observed_target_commit,
+        )
+
+        prior = self.state.get("publication")
+        if not isinstance(prior, Mapping):
+            return None
+        try:
+            status = PublicationStatus(str(prior.get("status")))
+            binding = PublicationBinding.from_dict(
+                {name: prior.get(name) for name in PublicationBinding.FIELDS}
+            )
+        except Exception as exc:
+            raise DownstreamPipelineError(
+                "durable publication record is malformed; reconcile it explicitly "
+                f"rather than discarding it: {exc}"
+            ) from exc
+        if status in {PublicationStatus.NOT_ATTEMPTED, PublicationStatus.PREPARED}:
+            return None
+        commit = prior.get("publication_commit")
+        if not isinstance(commit, str) or not _SHA40.fullmatch(commit):
+            raise DownstreamPipelineError(
+                f"publication operation {binding.operation_id} recorded {status.value} "
+                "without the exact commit it attempted; reconcile before retrying"
+            )
+        observed = observed_target_commit(
+            self.command_runner,
+            self.checkout,
+            remote="origin",
+            target_branch=binding.target_branch,
+        )
+        if observed == commit:
+            # Proven durable on the remote. Adopt it; never publish again, and
+            # never read a missing local receipt as failure.
+            return PublicationOutcome(
+                status=PublicationStatus.PUBLISHED,
+                binding=binding,
+                publication_commit=commit,
+                observed_pre_image=prior.get("observed_pre_image"),
+                observed_target=observed,
+                detail="recovered: the authoritative branch already holds this exact publication",
+            )
+        if status in DEFINITELY_PUBLISHED or status in REQUIRES_RECONCILIATION:
+            raise DownstreamPipelineError(
+                f"publication operation {binding.operation_id} recorded {status.value} but "
+                f"{binding.target_branch} is {observed}; quarantine and reconcile before retrying"
+            )
+        # A proven refusal published nothing: the ordinary path may re-derive the
+        # base, and the gate refuses to re-lease the same candidate.
+        return None
+
+    def _settle_published(
+        self,
+        number: int,
+        outcome: Any,
+        *,
+        gate: Any,
+        identity: Any,
+    ) -> dict[str, Any]:
+        self._record_publication(
+            outcome.binding,
+            outcome.status,
+            gate=gate,
+            identity=identity,
+            publication_commit=outcome.publication_commit,
+            observed_pre_image=outcome.observed_pre_image,
+            observed_target=outcome.observed_target,
+            detail=outcome.detail,
+        )
+        self.state["merged_commit"] = outcome.publication_commit
+        self._persist()
+        merged_pr = self._view_pr(number)
+        reported = merged_pr.get("mergeCommit") or {}
+        reported_oid = reported.get("oid") if isinstance(reported, Mapping) else None
+        if (
+            merged_pr.get("state") == "MERGED"
+            and isinstance(reported_oid, str)
+            and _SHA40.fullmatch(reported_oid)
+            and reported_oid != outcome.publication_commit
+        ):
+            raise DownstreamPipelineError(
+                f"pull request reports merge commit {reported_oid} but this run published "
+                f"{outcome.publication_commit}; reconcile before completing"
+            )
         return {"status": "merged", "pull_request": merged_pr}
+
+    def _publish_approved_head(
+        self,
+        number: int,
+        pull_request: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        """Advance the authoritative branch atomically, or refuse and reintegrate."""
+
+        from .publication_fence import (
+            PublicationStatus,
+            prove_publishable_candidate,
+            publish_with_base_fence,
+        )
+
+        gate, identity = self._gate_authority()
+        adopted = self._adopt_prior_publication()
+        if adopted is not None:
+            return self._settle_published(number, adopted, gate=gate, identity=identity)
+        expected_main, source_head = self._proven_publication_base(pull_request)
+        validated_commit = self._accepted_validation_commit(source_head, pull_request)
+        binding, gate, identity = self._publication_authority(
+            expected_main, source_head, validated_commit
+        )
+        publication_commit = prove_publishable_candidate(
+            self.command_runner,
+            self.checkout,
+            binding=binding,
+        )
+        self._record_publication(
+            binding,
+            PublicationStatus.ATTEMPTING,
+            gate=gate,
+            identity=identity,
+            publication_commit=publication_commit,
+            detail="issuing the base-bound authoritative ref transaction",
+        )
+        outcome = publish_with_base_fence(
+            self.command_runner,
+            self.checkout,
+            binding=binding,
+            publication_commit=publication_commit,
+        )
+        if outcome.status is PublicationStatus.PUBLISHED:
+            return self._settle_published(number, outcome, gate=gate, identity=identity)
+        self._record_publication(
+            binding,
+            outcome.status,
+            gate=gate,
+            identity=identity,
+            publication_commit=outcome.publication_commit,
+            observed_pre_image=outcome.observed_pre_image,
+            observed_target=outcome.observed_target,
+            detail=outcome.detail,
+        )
+        if outcome.status is PublicationStatus.REJECTED_BASE_MOVED:
+            # Fail closed and return to the existing reintegration/revalidation
+            # path: merge current main into the task branch, resolve conflicts,
+            # rerun the required tests, produce a new exact handoff commit and
+            # obtain renewed approval before publication is attempted again.
+            return self.integrate_current_main()
+        raise DownstreamPipelineError(
+            f"authoritative {binding.target_branch} publication did not succeed "
+            f"({outcome.status.value}): {outcome.detail}"
+        )
 
     def verify_post_merge_and_complete(self) -> dict[str, Any]:
         _, _ = self._require_lease(WorkflowPhase.MERGE_CLOSEOUT)
@@ -1225,6 +1632,13 @@ class DownstreamTaskController:
 
         service = self.workflow.issue_workflow
         backend = getattr(service, "backend", None) if service is not None else None
+        # The host's journal reconciliation retains the real backend for Issue
+        # operations while exposing quarantined reservations to resource readers.
+        # Unwrap only this concrete host type: a repository string or arbitrary
+        # proxy never confers GitHub authority, and checkout binding still applies.
+        from .gate_waiter_reconciliation import ReconciledIssueBackend
+        while type(backend) is ReconciledIssueBackend:
+            backend = backend._backend
         if not isinstance(backend, GhIssueBackend):
             raise DownstreamPipelineError(
                 "downstream GitHub PR/Issue commands require a real GhIssueBackend-bound "
@@ -1288,6 +1702,12 @@ class DownstreamTaskController:
                 }
         return None
 
+    def _latest_validation_authority(self) -> dict[str, Any] | None:
+        """Return the legacy human authority unless an installed extension adds more."""
+
+        human = self._latest_human_validation()
+        return {"kind": "human", **human} if human is not None else None
+
     def _human_validation_artifact(self, commit: str) -> dict[str, Any]:
         current = self.state.get("human_validation")
         if isinstance(current, Mapping):
@@ -1335,13 +1755,29 @@ class DownstreamTaskController:
                 and event.details.get("review_kind") == "delivery_spec"
                 and event.details.get("decision") in ("approve", "request_changes")
             ):
-                return {
+                approval = {
                     "decision": event.details.get("decision"),
                     "proposal_sha256": event.details.get("proposal_sha256"),
                     "actor_id": event.details.get("authorized_by") or event.actor_id,
                     "event_id": event.event_id,
                     "comment_body": event.details.get("human_comment_body"),
                 }
+                if (
+                    event.details.get("approval_basis")
+                    == "unchanged_automated_validated_commit"
+                ):
+                    approval.update(
+                        {
+                            "approval_basis": event.details["approval_basis"],
+                            "automated_validation_event_id": event.details.get(
+                                "automated_validation_event_id"
+                            ),
+                            "validation_policy_sha256": event.details.get(
+                                "validation_policy_sha256"
+                            ),
+                        }
+                    )
+                return approval
         return None
 
     def _validate_staged_whitespace(self, created: list[str]) -> None:

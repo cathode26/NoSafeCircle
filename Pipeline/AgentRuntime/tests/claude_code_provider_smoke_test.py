@@ -357,7 +357,7 @@ def test_repository_capability_invocations() -> None:
         effective_prompt = call["stdin"].decode("utf-8")
         assert effective_prompt.startswith("Return the bounded result.\n\n")
         assert "Repository context:" in effective_prompt
-        assert "Repository root: /workspace" in effective_prompt
+        assert f"Repository root: {ROOT.as_posix()}" in effective_prompt
         assert "Use repository tools only for the No Safe Circle project." in effective_prompt
         assert (
             "Do not intentionally inspect /home, provider credentials, environment "
@@ -425,7 +425,7 @@ def test_forbidden_capabilities_context_and_token_limits() -> None:
         original_paths = candidate.context_paths
         provider.invoke(candidate, MODEL)
         effective_prompt = fake.calls[0]["stdin"].decode("utf-8")
-        assert "Repository root: /workspace" in effective_prompt
+        assert f"Repository root: {ROOT.as_posix()}" in effective_prompt
         assert "- Docs/AI-Pipeline/START_HERE.md" in effective_prompt
         assert "- Tasks/NSC-001.yaml" in effective_prompt
         assert "Use repository tools only for the No Safe Circle project." in effective_prompt
@@ -580,7 +580,7 @@ def test_success_raw_log_and_usage_normalization() -> None:
         response = provider.invoke(request(), MODEL)
     assert response.structured_output == {"message": "ok"}
     assert response.raw_log == raw.decode("utf-8")
-    assert response.usage == Usage(66, 9, 75, 0.125)
+    assert response.usage == Usage(66, 9, 75, 0.125, cached_input_tokens=22)
     assert response.claimed_changed_paths == ()
     assert response.claimed_test_commands == ()
     assert response.claims_execution_occurred is False
@@ -600,7 +600,7 @@ def test_success_raw_log_and_usage_normalization() -> None:
             process_runner=FakeProcessRunner(stdout=encoded(fallback)),
             temporary_directory_parent=Path(outer),
         ).invoke(request(), MODEL)
-    assert response.usage == Usage(31, 17, 48, 2)
+    assert response.usage == Usage(31, 17, 48, 2, cached_input_tokens=11)
 
 
 def invoke_with_stdout(stdout: bytes, **runner_changes: Any) -> Any:

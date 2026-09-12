@@ -651,6 +651,11 @@ def test_decomposition_handoff_binds_exact_plan_and_resumes_apply_phase() -> Non
     )
     require(completed["status"] == "complete", str(completed))
     require(completed["workflow_state"]["state"] == "complete", str(completed))
+    require(completed["issue_closed"] is True, str(completed))
+    require(
+        backend.issues[completed["issue_number"]]["state"] == "CLOSED",
+        "decomposition completion left its managed Issue open",
+    )
 
 
 
@@ -762,6 +767,53 @@ def test_github_notification_deletion_uses_exact_graphql_node_id() -> None:
         lambda: GhIssueBackend.delete_comment(backend, 17, 123),
         "GraphQL node ID",
     )
+
+
+def test_github_decomposition_close_is_single_write_with_verified_readback() -> None:
+    calls: list[tuple[tuple[str, ...], bool]] = []
+
+    def run(args, *, check=True):
+        calls.append((tuple(args), check))
+        return subprocess.CompletedProcess(tuple(args), 0, "", "")
+
+    backend = SimpleNamespace(
+        repository="fixture-owner/pipeline-rehearsal",
+        _run=run,
+        _view_issue=lambda issue_number: {"number": issue_number, "state": "CLOSED"},
+    )
+    closed = GhIssueBackend.close_issue(backend, 86)
+    require(closed["state"] == "CLOSED", str(closed))
+    require(len(calls) == 1, f"close mutation repeated: {calls}")
+    require(
+        calls[0][0]
+        == (
+            "gh",
+            "issue",
+            "close",
+            "86",
+            "--repo",
+            "fixture-owner/pipeline-rehearsal",
+            "--reason",
+            "completed",
+        ),
+        str(calls[0]),
+    )
+    require(calls[0][1] is False, "uncertain close did not use readback recovery")
+
+    uncertain_calls: list[tuple[str, ...]] = []
+
+    def accepted_timeout(args, *, check=True):
+        uncertain_calls.append(tuple(args))
+        raise subprocess.TimeoutExpired(args, 180)
+
+    uncertain = SimpleNamespace(
+        repository="fixture-owner/pipeline-rehearsal",
+        _run=accepted_timeout,
+        _view_issue=lambda issue_number: {"number": issue_number, "state": "CLOSED"},
+    )
+    recovered = GhIssueBackend.close_issue(uncertain, 86)
+    require(recovered["state"] == "CLOSED", str(recovered))
+    require(len(uncertain_calls) == 1, "uncertain close mutation was repeated")
 
 
 def test_configured_vincent_inbox_is_preflighted_before_source_handoff_mutation() -> None:
@@ -1256,7 +1308,17 @@ def test_deferred_retry_gives_a_late_listed_issue_the_same_rounds() -> None:
 
 
 def test_shared_ladder_bounds_injected_sleep_for_one_and_many_issues() -> None:
-    """B6: total injected sleep stays at the seven-second scan deadline."""
+    """B6: total injected sleep stays at the committed scan deadline.
+
+    The bound is read from the committed ladder rather than restated as a
+    literal, so widening the ladder can never silently widen this bound: the
+    exact sequence is asserted below.
+    """
+
+    budget_seconds = sum(
+        issue_workflow_store_module.RESERVATION_CONSISTENCY_DELAYS_SECONDS
+    )
+    require(budget_seconds == 15.0, f"the committed scan budget changed: {budget_seconds}")
 
     single_backend = PerIssueSkewMemoryBackend()
     single_tasks = seed_scan_issues(single_backend, count=1)
@@ -1269,7 +1331,11 @@ def test_shared_ladder_bounds_injected_sleep_for_one_and_many_issues() -> None:
 
     require(len(single_conflicts) == 1, str(single_conflicts))
     require(
-        sum(single_clock.sleeps) <= 7.0,
+        single_clock.sleeps == [1.0, 2.0, 4.0, 8.0],
+        f"one Issue did not walk the committed ladder: {single_clock.sleeps}",
+    )
+    require(
+        sum(single_clock.sleeps) <= budget_seconds,
         f"one Issue exceeded the scan deadline: {single_clock.sleeps}",
     )
 
@@ -1284,7 +1350,7 @@ def test_shared_ladder_bounds_injected_sleep_for_one_and_many_issues() -> None:
 
     require(len(many_conflicts) == 24, str(len(many_conflicts)))
     require(
-        sum(many_clock.sleeps) <= 7.0,
+        sum(many_clock.sleeps) <= budget_seconds,
         f"a 24-Issue listing exceeded the scan deadline: {many_clock.sleeps}",
     )
     require(
@@ -1295,7 +1361,7 @@ def test_shared_ladder_bounds_injected_sleep_for_one_and_many_issues() -> None:
 
 
 def test_shared_budget_bounds_repeated_candidate_scans() -> None:
-    """B6: one admission cannot re-arm seven seconds for every candidate."""
+    """B6: one admission cannot re-arm the scan budget for every candidate."""
 
     backend = PerIssueSkewMemoryBackend()
     tasks = seed_scan_issues(backend, count=1)
@@ -1314,8 +1380,104 @@ def test_shared_budget_bounds_repeated_candidate_scans() -> None:
 
     require(len(first_conflicts) == 1 and len(second_conflicts) == 1, str((first_conflicts, second_conflicts)))
     require(
-        clock.sleeps == [1.0, 2.0, 4.0],
+        clock.sleeps == [1.0, 2.0, 4.0, 8.0],
         f"the consistency deadline was re-armed across candidates: {clock.sleeps}",
+    )
+
+
+def test_concurrent_skew_converges_on_the_fifth_observation() -> None:
+    """The scan ladder outlasts the skew a live ten-task run actually produced.
+
+    During the private NSC-911..NSC-920 run three managed Issues transitioned
+    at once and GitHub exposed each new body before its matching workflow-event
+    comment. The scan observed every one of them four times -- the listing plus
+    the sleepless exact re-read plus the 1s, 2s and 4s rounds -- and each read
+    still showed the older event chain, so admission failed closed and the
+    worker lost a supervisor turn to a blocker it could not record.
+
+    The same skew is coherent on the fifth exact read, which only the 8-second
+    round reaches. This models exactly that: stale through the four observations
+    the base ladder performs, coherent on the fifth.
+    """
+
+    backend = PerIssueSkewMemoryBackend()
+    tasks = seed_scan_issues(backend, count=3)
+    checker = scan_service(backend, tasks)
+    # One listing read plus four exact re-reads are the base ladder's whole
+    # budget. Hiding the newest comment for exactly that many reads keeps every
+    # Issue skewed through them and coherent on the next one.
+    skewed = sorted(backend.issues)
+    for issue_number in skewed:
+        backend.hidden_comment_reads[issue_number] = 5
+    before = json.dumps(
+        {
+            "issues": {str(number): backend.issues[number] for number in skewed},
+            "comments": {
+                str(number): backend.comments.get(number, []) for number in skewed
+            },
+        },
+        sort_keys=True,
+    )
+    next_issue_before = backend.next_issue
+
+    with fake_consistency_clock() as clock:
+        acquired = checker.acquire_agent_lease(
+            task=CHECKER_TASK,
+            source_head=SOURCE_HEAD,
+            branch=BRANCH,
+            checkout_path=CHECKOUT,
+            planned_approach="Admit the checker through converging GitHub skew.",
+            expected_validation="The reservation picture becomes readable.",
+            now="2026-09-05T09:00:00Z",
+        )
+
+    # Under the base 1+2+4 ladder the fifth observation never happens, the
+    # three Issues stay incoherent, and this is a blocked admission naming them
+    # as invalid rather than an acquired lease.
+    require(
+        acquired["status"] == "acquired",
+        f"admission did not survive bounded GitHub skew: {acquired}",
+    )
+    require(
+        clock.sleeps == [1.0, 2.0, 4.0, 8.0],
+        f"the shared scan ladder is not 1+2+4+8 seconds: {clock.sleeps}",
+    )
+    require(
+        sum(clock.sleeps) == 15.0,
+        f"the scan budget is not the 15-second settle window: {clock.sleeps}",
+    )
+    reads = {number: backend.exact_reads.get(number, 0) for number in skewed}
+    require(
+        set(reads.values()) == {5},
+        f"each skewed Issue did not receive exactly five exact reads: {reads}",
+    )
+
+    # Resolving observation skew is a read. The scan must never create, repair,
+    # relabel, or comment on any Issue it was merely inspecting.
+    after = json.dumps(
+        {
+            "issues": {str(number): backend.issues[number] for number in skewed},
+            "comments": {
+                str(number): backend.comments.get(number, []) for number in skewed
+            },
+        },
+        sort_keys=True,
+    )
+    require(after == before, "the consistency scan mutated an unrelated Issue")
+    require(
+        backend.next_issue == next_issue_before + 1,
+        "the scan created an Issue other than the checker's own: "
+        f"{next_issue_before} -> {backend.next_issue}",
+    )
+
+    # Stated last so the behavioural assertions above are what fails against
+    # the base ladder, not a constant comparison that short-circuits them.
+    require(
+        issue_workflow_store_module.RESERVATION_CONSISTENCY_DELAYS_SECONDS
+        == (0.0, 1.0, 2.0, 4.0, 8.0),
+        "the committed reservation consistency ladder is not the 15-second "
+        "mutation-settle ladder: "
+        f"{issue_workflow_store_module.RESERVATION_CONSISTENCY_DELAYS_SECONDS}",
     )
 
 
@@ -1439,7 +1601,7 @@ def test_persistent_incoherence_still_fails_closed_after_the_ladder() -> None:
             checker._resource_conflicts_classified(CHECKER_TASK)
         )
 
-    require(clock.sleeps == [1.0, 2.0, 4.0], f"unexpected ladder: {clock.sleeps}")
+    require(clock.sleeps == [1.0, 2.0, 4.0, 8.0], f"unexpected ladder: {clock.sleeps}")
     require(len(conflicts) == 1 and diagnostics == [], str((conflicts, diagnostics)))
     require(
         f"Issue #{issue_number} claims managed workflow state but is invalid"
@@ -1450,7 +1612,21 @@ def test_persistent_incoherence_still_fails_closed_after_the_ladder() -> None:
         "state_version does not match workflow event count" in conflicts[0],
         conflicts[0],
     )
-    require(blocked_kind is None, f"unreadable state was typed benign: {blocked_kind}")
+    # An unread picture is now typed so one caller may repoll it, but it is
+    # still not benign contention: fresh dispatch keeps it terminal (see
+    # fresh_dispatch_smoke_test.test_lease_outcome_decision_classifies_blocked_kinds).
+    require(
+        blocked_kind
+        == issue_workflow_store_module.BLOCKED_KIND_TRANSIENT_CONSISTENCY_SKEW,
+        f"exhausted skew was not typed as an observation failure: {blocked_kind}",
+    )
+    require(
+        blocked_kind
+        != issue_workflow_store_module.BLOCKED_KIND_DURABLE_RESOURCE_RESERVATION_CONFLICT
+        and blocked_kind
+        != issue_workflow_store_module.BLOCKED_KIND_DURABLE_OWNERSHIP_BY_OTHER,
+        f"unreadable state was typed benign: {blocked_kind}",
+    )
 
     with fake_consistency_clock():
         expect_error(checker.list_agent_ready, "is invalid")
@@ -1459,6 +1635,155 @@ def test_persistent_incoherence_still_fails_closed_after_the_ladder() -> None:
         backend.issues[issue_number]["state"] == "OPEN",
         "the failing scan must not mutate the Issue",
     )
+
+
+def _tamper_event_payload(backend, issue_number: int, worker_id: str) -> None:
+    """Rewrite one durable event comment so its recorded id no longer matches."""
+
+    comment = backend.comments[issue_number][0]
+    comment["body"] = comment["body"].replace(
+        f'"worker_id": "{worker_id}"', '"worker_id": "tampered"'
+    )
+
+
+def test_real_corruption_is_never_typed_as_observation_skew() -> None:
+    """A repair-worthy Issue must not borrow the repollable classification.
+
+    The typed skew kind exists so one caller may repoll an UNREAD reservation
+    picture. Tampered event history is read perfectly well and is simply wrong,
+    so it must keep the untyped terminal shape that no caller retries.
+    """
+
+    backend = PerIssueSkewMemoryBackend()
+    tasks = seed_scan_issues(backend, count=1)
+    checker = scan_service(backend, tasks)
+    issue_number = next(iter(backend.issues))
+    _tamper_event_payload(backend, issue_number, "agent-00")
+
+    with fake_consistency_clock() as clock:
+        conflicts, _diagnostics, blocked_kind = (
+            checker._resource_conflicts_classified(CHECKER_TASK)
+        )
+
+    require(len(conflicts) == 1, str(conflicts))
+    require(
+        "event_id does not match event payload" in conflicts[0],
+        f"the fixture did not produce real corruption: {conflicts[0]}",
+    )
+    require(
+        blocked_kind is None,
+        f"tampered event history was typed as retryable: {blocked_kind}",
+    )
+    require(
+        clock.sleeps == [],
+        f"corruption must not spend the consistency ladder: {clock.sleeps}",
+    )
+    require(
+        backend.issues[issue_number]["state"] == "OPEN",
+        "the failing scan must not mutate the Issue",
+    )
+
+
+def test_skew_beside_corruption_is_never_typed_as_observation_skew() -> None:
+    """One repair-worthy Issue removes the repollable classification entirely.
+
+    The scan reports one picture. If any part of it is genuinely broken, the
+    whole picture is terminal, even when every other blocking Issue is only
+    inside the bounded visibility window.
+    """
+
+    backend = PerIssueSkewMemoryBackend()
+    tasks = seed_scan_issues(backend, count=2)
+    checker = scan_service(backend, tasks)
+    corrupt, skewed = sorted(backend.issues)
+    _tamper_event_payload(backend, corrupt, "agent-00")
+    backend.hidden_comment_reads[skewed] = NEVER_CONVERGES
+
+    with fake_consistency_clock():
+        conflicts, _diagnostics, blocked_kind = (
+            checker._resource_conflicts_classified(CHECKER_TASK)
+        )
+
+    require(len(conflicts) == 2, str(conflicts))
+    require(
+        blocked_kind is None,
+        f"corruption beside skew was typed as retryable: {blocked_kind}",
+    )
+
+
+def test_an_unreadable_issue_is_never_typed_as_observation_skew() -> None:
+    """A GitHub failure is an operational error, not a visibility window."""
+
+    backend = PerIssueSkewMemoryBackend()
+    tasks = seed_scan_issues(backend, count=1)
+    checker = scan_service(backend, tasks)
+    issue_number = next(iter(backend.issues))
+    backend.hidden_comment_reads[issue_number] = NEVER_CONVERGES
+
+    def refuse(number: int):
+        raise issue_workflow_store_module.IssueWorkflowStoreError(
+            "gh api rate limit exceeded"
+        )
+
+    backend.get_issue = refuse
+
+    with fake_consistency_clock():
+        conflicts, _diagnostics, blocked_kind = (
+            checker._resource_conflicts_classified(CHECKER_TASK)
+        )
+
+    require(len(conflicts) == 1, str(conflicts))
+    require(
+        "could not be inspected" in conflicts[0]
+        and "rate limit" in conflicts[0],
+        f"the operational failure was swallowed: {conflicts[0]}",
+    )
+    require(
+        blocked_kind is None,
+        f"an operational GitHub failure was typed as retryable: {blocked_kind}",
+    )
+
+
+def test_a_pending_transition_is_never_typed_as_observation_skew() -> None:
+    """PENDING_TRANSITION keeps its own classification and its own exclusion.
+
+    A recognized in-flight transition converges on the GitHub Action, not on
+    read consistency. It never joins the consistency queue and it must never be
+    reclassified as a repollable read, or the two bounded waits would compound.
+    """
+
+    excluded = issue_workflow_store_module._is_exhausted_consistency_skew
+    pending = replace(
+        _skew_snapshot_fixture(),
+        pending_transition=SimpleNamespace(to_dict=lambda: {"kind": "agent_ready"}),
+    )
+    require(
+        not excluded(pending),
+        "a recognized in-flight transition was typed as a repollable read",
+    )
+    require(
+        excluded(_skew_snapshot_fixture()),
+        "the same snapshot without a pending transition is the skew case",
+    )
+
+
+def _skew_snapshot_fixture():
+    """One invalid snapshot whose only reason is the bounded visibility skew."""
+
+    backend = PerIssueSkewMemoryBackend()
+    tasks = seed_scan_issues(backend, count=1)
+    issue_number = next(iter(backend.issues))
+    backend.hidden_comment_reads[issue_number] = NEVER_CONVERGES
+    snapshot = issue_workflow_store_module._snapshot(
+        backend, backend.issues[issue_number]
+    )
+    require(
+        set(snapshot.reasons)
+        <= issue_workflow_store_module._TRANSIENT_RESERVATION_SNAPSHOT_REASONS
+        and snapshot.reasons,
+        f"the fixture did not produce only skew reasons: {snapshot.reasons}",
+    )
+    return snapshot
 
 
 def test_queue_reads_retry_body_before_comment_visibility_skew() -> None:
@@ -1983,6 +2308,7 @@ def main() -> int:
         test_decomposition_handoff_binds_exact_plan_and_resumes_apply_phase,
         test_human_handoff_notifies_vincent_once_and_exact_retry_is_notification_only,
         test_github_notification_deletion_uses_exact_graphql_node_id,
+        test_github_decomposition_close_is_single_write_with_verified_readback,
         test_configured_vincent_inbox_is_preflighted_before_source_handoff_mutation,
         test_vincent_notification_accepted_write_timeout_and_stale_reads_never_rewrite,
         test_post_mutation_verification_retries_stale_reads_without_repeating_writes,
@@ -1995,6 +2321,11 @@ def main() -> int:
         test_deferred_retry_gives_a_late_listed_issue_the_same_rounds,
         test_shared_ladder_bounds_injected_sleep_for_one_and_many_issues,
         test_shared_budget_bounds_repeated_candidate_scans,
+        test_concurrent_skew_converges_on_the_fifth_observation,
+        test_real_corruption_is_never_typed_as_observation_skew,
+        test_skew_beside_corruption_is_never_typed_as_observation_skew,
+        test_an_unreadable_issue_is_never_typed_as_observation_skew,
+        test_a_pending_transition_is_never_typed_as_observation_skew,
         test_exact_reads_are_bounded_without_per_issue_sleep_amplification,
         test_pending_retry_cap_overflow_is_explicit_and_fails_closed,
         test_persistent_incoherence_still_fails_closed_after_the_ladder,

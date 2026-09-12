@@ -1,3 +1,9 @@
+from ..provider_sessions import (
+    ProviderSessionBinding,
+    ProviderSessionConfirmation,
+    ProviderSessionError,
+    ProviderSessionLedger,
+)
 from .base import (
     AgentProvider,
     ProviderInvocationResponse,
@@ -15,5 +21,9 @@ __all__ = [
     "OpenAICodexProvider",
     "ProviderInvocationResponse",
     "ProviderRequestRejected",
+    "ProviderSessionBinding",
+    "ProviderSessionConfirmation",
+    "ProviderSessionError",
+    "ProviderSessionLedger",
     "ProviderTransportError",
 ]

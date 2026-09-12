@@ -197,7 +197,7 @@ class FakeProvider:
             if not ("public int Mana" in request.prompt or "EnemyHealth" in request.prompt or "New behavior" in request.prompt):
                 assert s.scenario=="retry_test_only" and "public int Mana" in (self.repo/IMPL).read_text()
             if attempt==2: assert "fix mana" in request.prompt and ("Repaired" in request.prompt or s.scenario in ("no_op_repair","retry_revert_on_repair"))
-            if s.scenario in ("new_files","mixed","cross_new","new_helper"):
+            if s.scenario in ("new_files","mixed","cross_new","new_helper","new_agent_meta"):
                 if s.scenario=="cross_new": write(self.repo/NEW_IMPL,"public class EnemyHealth { public int IllegallyRewritten; }\n")
                 write(self.repo/NEW_TEST,"public class EnemyHealthPlayModeTests {"+(" public void Reviewed() {}" if s.feedback else "")+" }\n")
             elif s.scenario=="test_impl": write(self.repo/IMPL,"public class PlayerMana { public int Rewritten; }\n")
@@ -236,9 +236,9 @@ def factory(state):
         return key,config,{"fake":FakeProvider(state,repo,writable,role)}
     return create
 
-def execute(source,outputs,scenario,index,*,provider="fake",implementation_paths=(IMPL,),test_paths=(TEST,),new_implementation_paths=(),new_test_paths=(),host_output_root=None,execution_model=None,openai_reasoning_effort=None):
+def execute(source,outputs,scenario,index,*,provider="fake",implementation_paths=(IMPL,),test_paths=(TEST,),new_implementation_paths=(),new_test_paths=(),host_output_root=None,execution_model=None,openai_reasoning_effort=None,crew_profile=None,validation_profile=None):
     run_id=f"smoke-{scenario}-{index}"; state=State(scenario,source)
-    result=run_crew(source=source,output_root=outputs,task_id=TASK,provider_name=provider,implementation_paths=implementation_paths,test_paths=test_paths,new_implementation_paths=new_implementation_paths,new_test_paths=new_test_paths,run_id=run_id,provider_factory=factory(state),_require_physical_read_only_source=False,host_output_root=host_output_root,execution_model=execution_model,openai_reasoning_effort=openai_reasoning_effort)
+    result=run_crew(source=source,output_root=outputs,task_id=TASK,provider_name=provider,implementation_paths=implementation_paths,test_paths=test_paths,new_implementation_paths=new_implementation_paths,new_test_paths=new_test_paths,run_id=run_id,provider_factory=factory(state),_require_physical_read_only_source=False,host_output_root=host_output_root,execution_model=execution_model,openai_reasoning_effort=openai_reasoning_effort,crew_profile=crew_profile,validation_profile=validation_profile)
     return result,state,outputs/run_id
 
 def retry_execute(source,outputs,scenario,index,prior_run_id,feedback_path,feedback_text,*,host_output_root=None):
@@ -308,6 +308,71 @@ def main():
     try: run_crew(source=source,output_root=outputs,task_id=TASK,provider_name="fake",implementation_paths=(IMPL,),test_paths=(TEST,),run_id="readonly",provider_factory=factory(State("pass",source)))
     except CrewBlocked as exc: assert "physically mounted read-only" in str(exc)
     else: raise AssertionError("writable production source accepted")
+
+    # Rigor is executable authority, not advisory metadata. Lean uses the
+    # existing committed test and keeps an independent Validator; standard adds
+    # Test Author; the backward-compatible default remains the full four roles.
+    lean,lean_state,lean_dir=execute(
+        source,outputs,"seed_preserve",270,provider="claude",
+        crew_profile="lean",validation_profile="targeted"
+    )
+    assert lean["crew_profile"]=="lean" and lean["validation_profile"]=="targeted"
+    assert lean["required_roles"]==["implementer","validator"]
+    assert [role for role,_,_ in lean_state.calls]==["implementer","validator"]
+    assert lean["contract_locality_status"]=="not_required_by_profile"
+    assert lean["contract_locality_audit_path"] is None
+    assert lean["role_results"]==[
+        "role_results/implementer_1.json","role_results/validator_1.json"
+    ]
+    standard,standard_state,_=execute(
+        source,outputs,"pass",271,crew_profile="standard",validation_profile="task_specific"
+    )
+    assert standard["required_roles"]==["implementer","test_author","validator"]
+    assert [role for role,_,_ in standard_state.calls]==["implementer","test_author","validator"]
+    assert standard["contract_locality_status"]=="not_required_by_profile"
+    default_full,default_full_state,_=execute(source,outputs,"pass",272)
+    assert default_full["crew_profile"]=="full" and default_full["validation_profile"]=="full_relevant"
+    assert [role for role,_,_ in default_full_state.calls]==[
+        "contract_locality_auditor","implementer","test_author","validator"
+    ]
+
+    for index,profile,validation,message in (
+        (273,"lean","task_specific","supported rigor pair"),
+        (274,"lean",None,"supplied together"),
+    ):
+        profile_state=State("pass",source)
+        try:
+            run_crew(
+                source=source,output_root=outputs,task_id=TASK,provider_name="fake",
+                implementation_paths=(IMPL,),test_paths=(TEST,),run_id=f"profile-{index}",
+                provider_factory=factory(profile_state),_require_physical_read_only_source=False,
+                crew_profile=profile,validation_profile=validation,
+            )
+        except CrewBlocked as exc: assert message in str(exc),str(exc)
+        else: raise AssertionError("invalid rigor profile pair was accepted")
+        assert not profile_state.calls
+
+    lean_new_test_state=State("new_files",source)
+    try:
+        run_crew(
+            source=source,output_root=outputs,task_id=TASK,provider_name="fake",
+            implementation_paths=(IMPL,),new_test_paths=(NEW_TEST,),run_id="profile-275",
+            provider_factory=factory(lean_new_test_state),_require_physical_read_only_source=False,
+            crew_profile="lean",validation_profile="targeted",
+        )
+    except CrewBlocked as exc: assert "existing committed test path" in str(exc),str(exc)
+    else: raise AssertionError("lean crew accepted new test authority")
+    assert not lean_new_test_state.calls
+
+    lean_feedback=outputs/"lean-feedback.txt"
+    lean_feedback.write_text("Correct the reviewed lean candidate.\n",encoding="utf-8",newline="\n")
+    lean_retry,lean_retry_state,_=retry_execute(
+        source,outputs,"seed_preserve",276,lean["run_id"],lean_feedback,
+        "Correct the reviewed lean candidate.\n",
+    )
+    assert lean_retry["crew_profile"]=="lean" and lean_retry["validation_profile"]=="targeted"
+    assert [role for role,_,_ in lean_retry_state.calls]==["implementer","validator"]
+
     for index,(implementation_paths,test_paths,message) in enumerate((
         ((IMPL,),(IMPL,),"disjoint"),
         (("Assets/Scripts/Missing.cs",),(TEST,),"implementation role path"),
@@ -400,10 +465,16 @@ def main():
         else: raise AssertionError(message)
         assert not state.calls
 
-    for scenario,index in (("new_agent_meta",53),("new_directory",54)):
-        rejected,_,rejected_dir=execute(source,outputs,scenario,index,implementation_paths=(),test_paths=(),new_implementation_paths=(NEW_IMPL,),new_test_paths=(NEW_TEST,))
-        assert rejected["crew_status"]=="rejected" and rejected["pipeline_generated_paths"]==[]
-        assert rejected["candidate_patch_path"] is None
+    agent_meta,_,agent_meta_dir=execute(source,outputs,"new_agent_meta",53,implementation_paths=(),test_paths=(),new_implementation_paths=(NEW_IMPL,),new_test_paths=(NEW_TEST,))
+    assert agent_meta["crew_status"]=="review_ready"
+    assert agent_meta["pipeline_generated_paths"]==sidecars
+    implementer_record=json.loads((agent_meta_dir/"role_results/implementer_1.json").read_text())
+    assert implementer_record["discarded_agent_pipeline_sidecars"]==[NEW_IMPL+".meta"]
+    assert (agent_meta_dir/"candidate.patch").read_bytes().count(b"new file mode 100644")==4
+
+    rejected,_,rejected_dir=execute(source,outputs,"new_directory",54,implementation_paths=(),test_paths=(),new_implementation_paths=(NEW_IMPL,),new_test_paths=(NEW_TEST,))
+    assert rejected["crew_status"]=="rejected" and rejected["pipeline_generated_paths"]==[]
+    assert rejected["candidate_patch_path"] is None
 
     mixed,mixed_state,_=execute(source,outputs,"mixed",144,implementation_paths=(IMPL,),test_paths=(),new_implementation_paths=(NEW_IMPL,),new_test_paths=(NEW_TEST,))
     assert mixed["crew_status"]=="review_ready"

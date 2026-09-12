@@ -31,6 +31,7 @@ import os
 import re
 import subprocess
 import sys
+import threading
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -46,9 +47,18 @@ PIPELINE_ROOT = ROOT / "Pipeline"
 if str(PIPELINE_ROOT) not in sys.path:
     sys.path.insert(0, str(PIPELINE_ROOT))
 
+from Pipeline.TaskReviewAgent.provider_policy import (  # noqa: E402
+    provider_allowlist as validate_provider_allowlist,
+    parse_provider_allowlist,
+    require_permitted_provider,
+    resolve_supervisor_provider,
+)
+
 from Pipeline.TaskReviewAgent.architect_preflight import (  # noqa: E402
     ARCHITECT_ADVISORY_SCHEMA_VERSION,
     ARCHITECT_BATCH_SCHEMA_VERSION,
+    ARCHITECT_SESSION_CAPABILITIES,
+    ARCHITECT_SESSION_PROTOCOL,
     DEFAULT_ARCHITECT_MAX_TURNS,
     DEFAULT_ARCHITECT_MIN_CONFIDENCE,
     DEFAULT_ARCHITECT_TIMEOUT_SECONDS,
@@ -68,10 +78,28 @@ from Pipeline.TaskReviewAgent.architect_preflight import (  # noqa: E402
     effective_candidate_surface,
     evaluate_architect_policy,
     unconfirmed_unknown_surface_task_ids,
+    _default_architecture_review_model,
+)
+from Pipeline.TaskReviewAgent.architect_session_owner import (  # noqa: E402
+    ARCHITECT_SESSION_ROLE,
+    ArchitectSessionCompatibility,
+    ArchitectSessionInvocationError,
+    ArchitectSessionOwner,
+    ArchitectSessionOwnerError,
+    JsonArchitectSessionStore,
+    provider_session_confirmation_from_dict,
+)
+from Pipeline.AgentRuntime.provider_sessions import (  # noqa: E402
+    ProviderSessionBinding,
 )
 from Pipeline.TaskReviewAgent.committed_tasks import (  # noqa: E402
     CommittedTaskError,
     load_committed_task,
+)
+from Pipeline.TaskReviewAgent.source_commit_snapshot import (  # noqa: E402
+    SourceCommitAdmissionSnapshot,
+    SourceCommitSnapshotError,
+    source_commit_admission_snapshot,
 )
 from Pipeline.TaskReviewAgent.contracts import (  # noqa: E402
     GIT_SHA_RE,
@@ -82,6 +110,10 @@ from Pipeline.TaskReviewAgent.decomposition_replay import (  # noqa: E402
     find_exact_d1c_commit,
     inspect_authorized_decomposition_replay,
 )
+from Pipeline.TaskReviewAgent.decomposition_undo_retirement import (  # noqa: E402
+    PublishedUndoRetirementError,
+    classify_retired_decomposition_completion,
+)
 from Pipeline.TaskReviewAgent.dispatch_plan import (  # noqa: E402
     DispatchPlan,
     TaskcontrolStateObservationError,
@@ -89,18 +121,28 @@ from Pipeline.TaskReviewAgent.dispatch_plan import (  # noqa: E402
 )
 import Pipeline.TaskReviewAgent.dispatch_plan as dispatch_plan_module  # noqa: E402
 from Pipeline.TaskReviewAgent.issue_queue import repo_root  # noqa: E402
+from Pipeline.TaskReviewAgent.human_action_wait import (  # noqa: E402
+    LocalArchitectWakeListener,
+)
+from Pipeline.TaskReviewAgent.jsonl_journal import append_jsonl_bytes  # noqa: E402
 from Pipeline.TaskReviewAgent.issue_workflow import (  # noqa: E402
+    ALL_STATE_LABELS,
+    STATE_LABELS,
     STATE_RE,
+    WorkflowContractError,
     WorkflowPhase,
     WorkflowState,
+    parse_state,
 )
 from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
     GhIssueBackend,
     IssueBackend,
     IssueConsistencyRetryBudget,
+    IssueWorkflowSnapshot,
     IssueWorkflowService,
     IssueWorkflowStoreError,
     _consistent_snapshots,
+    _is_exhausted_consistency_skew,
     issue_author_authorized,
 )
 from Pipeline.TaskReviewAgent.real_checkout import default_checkout_root  # noqa: E402
@@ -113,11 +155,18 @@ from Pipeline.TaskReviewAgent.execution_routing import (  # noqa: E402
     ExecutionRoutingPolicy,
     ResolvedExecutionRoute,
     load_execution_routing_policy,
+    restrict_execution_routing_policy,
     resolve_execution_route,
+    resolve_task_rigor,
 )
 from Pipeline.TaskDecomposition.context_builder import (  # noqa: E402
     DecompositionPreflightError,
-    validate_task_selection as validate_decomposition_selection,
+    validate_task_selection as validate_decomposition_task_selection,
+)
+from Pipeline.TaskReviewAgent.decomposition_policy_audit import (  # noqa: E402
+    VALIDATION_POLICY_RELATIVE,
+    ValidationPolicyAuditError,
+    audit_decomposition_policy,
 )
 from Pipeline.AgentRuntime.contracts import (  # noqa: E402
     ContractValidationError,
@@ -126,10 +175,9 @@ from Pipeline.AgentRuntime.contracts import (  # noqa: E402
 
 
 SCHEDULER_SCHEMA_VERSION = "1.0"
-DEFAULT_POLL_SECONDS = 60.0
+DEFAULT_POLL_SECONDS = 300.0
 DEFAULT_MAX_WORKERS = 1
 DEFAULT_MAX_ARCHITECT_INVOCATIONS_PER_POLL = 3
-DEFAULT_MAX_ARCHITECT_INVOCATIONS_PER_SESSION = 12
 DEFAULT_ARCHITECT_MIN_REANALYSIS_SECONDS = 300.0
 DEFAULT_MAX_CONSECUTIVE_OBSERVATION_FAILURES = 3
 DEFAULT_FATAL_DRAIN_SECONDS = 1800.0
@@ -153,6 +201,26 @@ _DECOMPOSITION_COMPATIBLE_STAGE2_REASONS = frozenset(
 )
 
 
+def _stage2_skip_may_offer_decomposition(
+    plan: DispatchPlan,
+    candidate: Mapping[str, Any],
+) -> bool:
+    """Identify a Stage-2 skip whose only blockers are decomposition shape."""
+
+    task_id = candidate.get("task_id")
+    if type(task_id) is not str or task_id in plan.excluded_task_ids:
+        return False
+    reasons = tuple(candidate.get("reason_codes") or ())
+    return bool(reasons) and all(
+        type(reason) is str
+        and (
+            reason in _DECOMPOSITION_COMPATIBLE_STAGE2_REASONS
+            or reason.startswith("dependency_blocked:")
+        )
+        for reason in reasons
+    )
+
+
 class PollingOrchestratorError(TaskReviewContractError):
     """The scheduler could not safely continue."""
 
@@ -163,6 +231,10 @@ class SchedulerAlreadyActive(PollingOrchestratorError):
 
 class IntegrationObservationError(PollingOrchestratorError):
     """An in-flight integration surface could not be observed safely."""
+
+
+class TransientIntegrationObservationError(IntegrationObservationError):
+    """Only the existing bounded body/event read-consistency skew remains."""
 
 
 def utc_now() -> str:
@@ -299,6 +371,37 @@ class IntegrationReservation:
         }
 
 
+@dataclass(frozen=True)
+class DurableWorkflowObservation:
+    """One shared managed-Issue batch and reservations derived from it."""
+
+    snapshots: tuple[IssueWorkflowSnapshot, ...]
+    reservations: tuple[IntegrationReservation, ...]
+
+    def __post_init__(self) -> None:
+        if type(self.snapshots) not in {tuple, list} or not all(
+            hasattr(item, "issue_number") and hasattr(item, "state")
+            for item in self.snapshots
+        ):
+            raise IntegrationObservationError(
+                "durable workflow snapshots must contain parsed Issue workflow values"
+            )
+        if not all(type(item) is IntegrationReservation for item in self.reservations):
+            raise IntegrationObservationError(
+                "durable workflow reservations must contain exact IntegrationReservation values"
+            )
+        snapshots = tuple(sorted(self.snapshots, key=lambda item: item.issue_number))
+        reservations = tuple(
+            sorted(self.reservations, key=lambda item: (item.task_id, item.evidence_type))
+        )
+        if len({item.issue_number for item in snapshots}) != len(snapshots):
+            raise IntegrationObservationError(
+                "durable workflow observation contains duplicate Issue numbers"
+            )
+        object.__setattr__(self, "snapshots", snapshots)
+        object.__setattr__(self, "reservations", reservations)
+
+
 @dataclass
 class ActiveAssignment:
     task_id: str
@@ -367,6 +470,7 @@ class JsonEventEmitter:
         journal_path: Path | str | None = None,
     ) -> None:
         self.stream = sys.stdout if stream is None else stream
+        self._lock = threading.Lock()
         self.journal_path = (
             Path(journal_path).resolve() if journal_path is not None else None
         )
@@ -386,12 +490,14 @@ class JsonEventEmitter:
             allow_nan=False,
             sort_keys=True,
         ) + "\n"
-        self.stream.write(line)
-        self.stream.flush()
-        if self.journal_path is not None:
-            with self.journal_path.open("a", encoding="utf-8", newline="\n") as handle:
-                handle.write(line)
-                handle.flush()
+        # The local resume-hint listener records from its socket thread.  Keep
+        # console and journal lines whole when that telemetry lands alongside
+        # ordinary scheduler activity.
+        with self._lock:
+            self.stream.write(line)
+            self.stream.flush()
+            if self.journal_path is not None:
+                append_jsonl_bytes(self.journal_path, line.encode("utf-8"))
 
 
 class SchedulerLock:
@@ -450,6 +556,10 @@ class SchedulerLock:
             handle.close()
             self._handle = None
 
+    @property
+    def is_held(self) -> bool:
+        return self._handle is not None
+
     def __enter__(self) -> "SchedulerLock":
         self.acquire()
         return self
@@ -499,6 +609,56 @@ def _run_git(
         raise IntegrationObservationError(
             f"Git observation failed for {root}: {type(exc).__name__}: {exc}"
         ) from exc
+
+
+def committed_path_probe(source: Path, commit: str) -> Callable[[str], bool]:
+    """Return a bounded "does this exact path already exist at this commit" oracle.
+
+    The rigor policy uses it to tell a brand-new deterministic `<script>.cs.meta`
+    import sidecar apart from an edit to one that already exists. The committed
+    tree is loaded once, compared case-insensitively for the Windows/Unity
+    checkout contract, and cached for the complete admission batch. A Git
+    observation failure raises instead of being misreported as a missing path.
+    """
+
+    committed_paths: frozenset[str] | None = None
+
+    def load_committed_paths() -> frozenset[str]:
+        nonlocal committed_paths
+        if committed_paths is not None:
+            return committed_paths
+        result = _run_git(
+            source,
+            "ls-tree",
+            "-r",
+            "--name-only",
+            "-z",
+            commit,
+        )
+        if result.returncode != 0:
+            detail = result.stderr.decode("utf-8", errors="replace").strip()
+            raise IntegrationObservationError(
+                f"could not inspect committed paths at {commit}"
+                + (f": {detail[:500]}" if detail else "")
+            )
+        try:
+            values = result.stdout.decode("utf-8").split("\x00")
+        except UnicodeDecodeError as exc:
+            raise IntegrationObservationError(
+                "committed path observation was not UTF-8"
+            ) from exc
+        committed_paths = frozenset(
+            value.replace("\\", "/").casefold() for value in values if value
+        )
+        return committed_paths
+
+    def probe(path: str) -> bool:
+        normalized = str(path).replace("\\", "/")
+        while normalized.startswith("./"):
+            normalized = normalized[2:]
+        return normalized.casefold() in load_committed_paths()
+
+    return probe
 
 
 def _git_text(root: Path, *args: str) -> str:
@@ -587,7 +747,7 @@ def refresh_source_main(source: Path | str) -> dict[str, Any]:
     return {"before": before, "after": after, "changed": before != after}
 
 
-def _authorized_local_ahead_recovery_task(
+def authorized_local_ahead_recovery_task(
     refresh: Mapping[str, Any],
     reservations: Iterable[IntegrationReservation],
 ) -> str | None:
@@ -619,6 +779,9 @@ def _authorized_local_ahead_recovery_task(
             "authorized decomposition-apply recovery"
         )
     return matches[0].task_id
+
+
+_authorized_local_ahead_recovery_task = authorized_local_ahead_recovery_task
 
 
 def _decode_z_paths(raw: bytes) -> tuple[str, ...]:
@@ -699,7 +862,7 @@ def read_branch_changed_paths(
     return _decode_z_paths(result.stdout)
 
 
-def observe_durable_integration_reservations(
+def observe_durable_workflows(
     *,
     source: Path | str,
     checkout_root: Path | str,
@@ -707,8 +870,8 @@ def observe_durable_integration_reservations(
     backend: IssueBackend | None = None,
     task_loader: Callable[[str], Mapping[str, Any]] | None = None,
     consistency_retry_budget: IssueConsistencyRetryBudget | None = None,
-) -> tuple[IntegrationReservation, ...]:
-    """Enumerate incomplete valid managed workflows through existing parsing.
+) -> DurableWorkflowObservation:
+    """Observe valid managed workflows and derive reservations from one batch.
 
     ``IssueWorkflowService`` currently exposes no public all-incomplete
     enumeration. The observer therefore reuses the store's bounded consistency
@@ -717,6 +880,8 @@ def observe_durable_integration_reservations(
     No backend mutation method is called.
     """
 
+    from .issue_workflow_store import closed_workflow_candidate, closed_incomplete_duplicate
+
     source_root = Path(source).resolve()
     checkout_parent = Path(checkout_root)
     selected_backend = backend or GhIssueBackend(source_root=source_root)
@@ -724,16 +889,47 @@ def observe_durable_integration_reservations(
         lambda task_id: load_committed_task(source_root, task_id)
     )
     reservations: list[IntegrationReservation] = []
+    snapshots: list[IssueWorkflowSnapshot] = []
     candidates: list[Mapping[str, Any]] = []
     for issue in selected_backend.list_issues():
-        if str(issue.get("state") or "").upper() == "CLOSED":
-            continue
         body = str(issue.get("body") or "")
         if STATE_RE.search(body) is None:
             continue
         if not issue_author_authorized(issue):
             continue
+        issue_is_open = str(issue.get("state") or "").upper() != "CLOSED"
+        if not issue_is_open:
+            try:
+                closed_state = parse_state(body)
+            except WorkflowContractError:
+                continue
+            if not closed_workflow_candidate(issue):
+                continue
+            number = issue.get("number")
+            if type(number) is not int or number < 1:
+                raise IntegrationObservationError(
+                    "closed completed managed Issue is missing a positive integer number"
+                )
+            try:
+                retired = classify_retired_decomposition_completion(
+                    issue,
+                    selected_backend.get_comments(number),
+                )
+            except PublishedUndoRetirementError as exc:
+                raise IntegrationObservationError(
+                    f"closed completed Issue #{number} has invalid published-undo "
+                    f"retirement evidence: {exc}"
+                ) from exc
+            if retired is not None:
+                # The recovery writer already proved this exact published D1C
+                # application was additively undone. Keep the immutable Issue
+                # as audit history, but do not let the bulk graph observer
+                # count it beside the replacement workflow. This is the same
+                # shared classifier used by per-task discovery; malformed or
+                # conflicting trusted evidence still fails closed above.
+                continue
         candidates.append(issue)
+    issues_by_number = {issue["number"]: issue for issue in candidates}
     scanned = _consistent_snapshots(
         selected_backend,
         candidates,
@@ -743,6 +939,7 @@ def observe_durable_integration_reservations(
             else None
         ),
     )
+    transient_errors: list[str] = []
     for entry in scanned:
         if entry.error is not None:
             raise IntegrationObservationError(
@@ -751,6 +948,8 @@ def observe_durable_integration_reservations(
             )
         snapshot = entry.snapshot
         if snapshot is None:
+            continue
+        if closed_incomplete_duplicate(issues_by_number.get(snapshot.issue_number, {}), snapshot):
             continue
         # A recognized in-flight transition is an expected, bounded GitHub
         # Action window, not an observation failure. It is read from the
@@ -767,12 +966,26 @@ def observe_durable_integration_reservations(
                 + "; ".join(snapshot.reasons)
             )
         if not snapshot.valid and pending_transition is None:
+            if (
+                _is_exhausted_consistency_skew(snapshot)
+                and set(snapshot.labels) & ALL_STATE_LABELS
+                == {STATE_LABELS[snapshot.state.state.value]}
+            ):
+                # Inspect the rest of this same batch before declaring it
+                # retryable: a malformed Issue beside a visibility skew still
+                # fails closed immediately. No partial observation is returned.
+                transient_errors.append(
+                    f"managed Issue #{snapshot.issue_number} is unread: "
+                    + "; ".join(snapshot.reasons)
+                )
+                continue
             raise IntegrationObservationError(
                 f"managed Issue #{snapshot.issue_number} is invalid: "
                 + "; ".join(snapshot.reasons)
             )
+        snapshots.append(snapshot)
         state = snapshot.state
-        if state.state is WorkflowState.COMPLETE:
+        if state.state is WorkflowState.COMPLETE and pending_transition is None:
             continue
         try:
             task = dict(load_task(state.task_id))
@@ -861,11 +1074,25 @@ def observe_durable_integration_reservations(
                 pass
 
         actual = _path_tuple(paths)
-        if observed_checkout is not None:
+        precheckout_surface_is_empty = (
+            observed_checkout is None
+            and state.branch is None
+            and state.head_commit is None
+        )
+        if precheckout_surface_is_empty:
+            # A managed Issue that stopped before creating a branch, commit, or
+            # Git checkout has no integration surface yet. Its committed
+            # exclusive_resources still reserve the declared scope, but it must
+            # not become an unknown global surface that forces unrelated gate
+            # waiters back through the architect.
+            surface_unknown = False
+        elif observed_checkout is not None:
             surface_unknown = not (working_tree_observed and branch_observed)
         else:
             surface_unknown = not branch_observed
-        if not surface_unknown:
+        if precheckout_surface_is_empty:
+            evidence_type = "durable_precheckout_surface_observed_empty"
+        elif not surface_unknown:
             evidence_type = (
                 "durable_branch_or_checkout_actual_paths"
                 if actual
@@ -899,9 +1126,42 @@ def observe_durable_integration_reservations(
                 authorized_decomposition_apply_commit=authorized_apply_commit,
             )
         )
-    return tuple(
-        sorted(reservations, key=lambda item: (item.task_id, item.evidence_type))
+    if transient_errors:
+        raise TransientIntegrationObservationError("; ".join(transient_errors))
+    from .gate_waiter_reconciliation import quarantined_waiters
+    for waiter in quarantined_waiters(selected_backend):
+        reservation = waiter.get("reservation")
+        reservations.append(IntegrationReservation(
+            task_id=waiter["task_id"], workflow_state="quarantined", phase=None,
+            branch=None, head=None, checkout_path=None,
+            exclusive_resources=tuple(reservation["exclusive_resources"]) if reservation else (),
+            predicted_paths=(), actual_paths=(), unity_serialized_assets=(), shared_systems=(),
+            confidence=0.0, evidence_type="durable_waiter_quarantine", surface_unknown=True))
+    return DurableWorkflowObservation(
+        snapshots=tuple(snapshots),
+        reservations=tuple(reservations),
     )
+
+
+def observe_durable_integration_reservations(
+    *,
+    source: Path | str,
+    checkout_root: Path | str,
+    worker_id: str,
+    backend: IssueBackend | None = None,
+    task_loader: Callable[[str], Mapping[str, Any]] | None = None,
+    consistency_retry_budget: IssueConsistencyRetryBudget | None = None,
+) -> tuple[IntegrationReservation, ...]:
+    """Compatibility view over :func:`observe_durable_workflows`."""
+
+    return observe_durable_workflows(
+        source=source,
+        checkout_root=checkout_root,
+        worker_id=worker_id,
+        backend=backend,
+        task_loader=task_loader,
+        consistency_retry_budget=consistency_retry_budget,
+    ).reservations
 
 
 class _FreshPoolWorkflow:
@@ -950,13 +1210,15 @@ def build_poll_dispatch_plan(
         policy = dispatch_plan_module.load_dispatch_policy()
         root = repo_root(Path(source).resolve())
         source_commit = dispatch_plan_module._git_head(root)
-        task_ids = dispatch_plan_module.list_committed_task_ids(root)
+        commit_snapshot = source_commit_admission_snapshot(root, source_commit)
+        task_ids = list(commit_snapshot.task_ids)
+        snapshot_task_loader = commit_snapshot.task_loader()
         cached_backend = backend or dispatch_plan_module._PlanScopedIssueBackend(
             GhIssueBackend(source_root=root)
         )
         issue_workflow = IssueWorkflowService(
             backend=cached_backend,
-            task_loader=lambda task_id: load_committed_task(root, task_id),
+            task_loader=snapshot_task_loader,
             worker_id=worker_id,
             consistency_retry_budget=consistency_retry_budget,
         )
@@ -981,12 +1243,13 @@ def build_poll_dispatch_plan(
             expected_task_ids=task_ids,
             source_commit=source_commit,
             recognized_states=policy.known_dependency_states,
+            commit_snapshot=commit_snapshot,
         )
         try:
             fresh_plan = plan_dispatch(
                 source_commit=source_commit,
                 task_ids=task_ids,
-                task_loader=lambda task_id: load_committed_task(root, task_id),
+                task_loader=snapshot_task_loader,
                 state_provider=state_provider,
                 issue_workflow=_FreshPoolWorkflow(issue_workflow),
                 claimed_refs=claimed_refs,
@@ -1081,6 +1344,7 @@ def build_poll_dispatch_plan(
         additional_resumes.append(
             {
                 "task_id": ready_task_id,
+                "task_contract_sha256": ready_state.get("task_contract_sha256"),
                 "issue_number": snapshot.get("issue_number"),
                 "issue_url": snapshot.get("issue_url"),
                 "phase": ready_state.get("phase"),
@@ -1103,6 +1367,7 @@ def build_poll_dispatch_plan(
         decision="resume_existing",
         resume={
             "task_id": selected_task_id,
+            "task_contract_sha256": state.get("task_contract_sha256"),
             "issue_number": selected.get("issue_number"),
             "issue_url": selected.get("issue_url"),
             "phase": state.get("phase"),
@@ -1134,17 +1399,37 @@ class DockerArchitectRunner:
         timeout_seconds: float = DEFAULT_ARCHITECT_TIMEOUT_SECONDS,
         compose_project: str = COMPOSE_PROJECT,
         command_runner: Callable[..., subprocess.CompletedProcess[bytes]] | None = None,
+        resume_activation: Any = None,
     ) -> None:
         self.source = Path(source).resolve()
         self.artifact_root = Path(artifact_root)
         self.provider = str(provider).strip().casefold()
         if self.provider not in {"claude", "codex"}:
             raise PollingOrchestratorError("architect provider must be claude or codex")
-        self.model = str(model).strip() if model else None
+        self.model = (
+            str(model).strip()
+            if model
+            else _default_architecture_review_model(self.provider)
+        )
         self.max_turns = max_turns
         self.timeout_seconds = timeout_seconds
         self.compose_project = str(compose_project).strip()
         self.command_runner = command_runner or self._run
+        from Pipeline.TaskReviewAgent.supervisor_session_pool import CodexResumeActivation, resolve_compose_project
+        self.compose_project = resolve_compose_project(self.compose_project)
+        if resume_activation is not None and (
+            self.provider != "codex" or type(resume_activation) is not CodexResumeActivation
+        ):
+            raise PollingOrchestratorError("architect resume control requires exact Codex activation")
+        self.resume_activation = resume_activation
+        self.session_compatibility = ArchitectSessionCompatibility(
+            "claude-code" if self.provider == "claude" else "openai-codex",
+            ARCHITECT_SESSION_ROLE,
+            self.model,
+            None if self.provider == "claude" else "max",
+            ARCHITECT_SESSION_PROTOCOL,
+            ARCHITECT_SESSION_CAPABILITIES,
+        )
 
     @staticmethod
     def _run(
@@ -1195,8 +1480,7 @@ class DockerArchitectRunner:
             "--timeout-seconds",
             str(self.timeout_seconds),
         ]
-        if self.model:
-            command.extend(("--model", self.model))
+        command.extend(("--model", self.model))
         return tuple(command)
 
     def __call__(
@@ -1208,6 +1492,7 @@ class DockerArchitectRunner:
         reservations: Sequence[IntegrationReservation],
         scheduler_id: str,
         admission_limit: int | None = None,
+        session_binding: ProviderSessionBinding | None = None,
     ) -> ArchitectAnalysis | ArchitectBatchAnalysis:
         if (task is None) == (candidates is None):
             raise ArchitectPreflightError(
@@ -1217,6 +1502,16 @@ class DockerArchitectRunner:
             "source_head": source_head,
             "reservations": [item.to_dict() for item in reservations],
         }
+        if session_binding is not None:
+            if type(session_binding) is not ProviderSessionBinding:
+                raise ArchitectPreflightError(
+                    "architect session binding must be an exact ProviderSessionBinding"
+                )
+            request["provider_session"] = session_binding.to_dict()
+            if self.provider == "codex":
+                if self.resume_activation is None:
+                    raise ArchitectPreflightError("pooled Codex architect requires verified resume control")
+                request["codex_resume_sandbox_argument"] = list(self.resume_activation.argument)
         if task is not None:
             request["task"] = dict(task)
         else:
@@ -1249,6 +1544,32 @@ class DockerArchitectRunner:
         )
         if completed.returncode != 0:
             detail = completed.stderr.decode("utf-8", errors="replace").strip()
+            try:
+                failure = json.loads(detail)
+            except json.JSONDecodeError:
+                failure = None
+            if (
+                type(failure) is dict
+                and set(failure)
+                == {
+                    "schema_version",
+                    "status",
+                    "error_type",
+                    "error",
+                    "failure_classification",
+                    "lifecycle_outcome",
+                    "confirmed_session_id",
+                }
+                and failure["schema_version"] == "1.0"
+                and failure["status"] == "architect_session_invocation_failed"
+                and failure["error_type"] == "ArchitectSessionInvocationError"
+            ):
+                raise ArchitectSessionInvocationError(
+                    failure["lifecycle_outcome"],
+                    failure["failure_classification"],
+                    failure["confirmed_session_id"],
+                    failure["error"],
+                )
             raise ArchitectPreflightError(
                 f"architect container exited {completed.returncode}"
                 + (f": {detail[:900]}" if detail else "")
@@ -1259,6 +1580,51 @@ class DockerArchitectRunner:
             raise ArchitectPreflightError(
                 "architect container did not return one JSON result"
             ) from exc
+        confirmation = None
+        if session_binding is not None:
+            candidate_metadata = (
+                value.get("invocation_metadata") if isinstance(value, dict) else None
+            )
+            try:
+                confirmation = provider_session_confirmation_from_dict(
+                    candidate_metadata.get("provider_session_confirmation")
+                    if isinstance(candidate_metadata, Mapping)
+                    else None
+                )
+            except ArchitectSessionOwnerError as exc:
+                raise ArchitectSessionInvocationError(
+                    "identity_failure",
+                    "schema_error",
+                    None,
+                    str(exc),
+                ) from exc
+            if (
+                confirmation.provider_identifier
+                != session_binding.provider_identifier
+                or confirmation.role != session_binding.role
+                or confirmation.mode != session_binding.mode
+                or (
+                    session_binding.session_id is not None
+                    and confirmation.session_id != session_binding.session_id
+                )
+            ):
+                raise ArchitectSessionInvocationError(
+                    "identity_failure",
+                    "schema_error",
+                    confirmation.session_id,
+                    "architect container returned a mismatched session confirmation",
+                )
+
+        def output_failure(message: str) -> Exception:
+            if confirmation is None:
+                return ArchitectPreflightError(message)
+            return ArchitectSessionInvocationError(
+                "output_failure",
+                "schema_error",
+                confirmation.session_id,
+                message,
+            )
+
         result_key = "advisory" if task is not None else "batch"
         expected = {
             "schema_version",
@@ -1269,35 +1635,38 @@ class DockerArchitectRunner:
             "invocation_metadata",
         }
         if not isinstance(value, dict) or set(value) != expected:
-            raise ArchitectPreflightError("architect container result envelope is invalid")
+            raise output_failure("architect container result envelope is invalid")
         expected_version = (
             ARCHITECT_ADVISORY_SCHEMA_VERSION
             if task is not None
             else ARCHITECT_BATCH_SCHEMA_VERSION
         )
         if value.get("schema_version") != expected_version:
-            raise ArchitectPreflightError("architect container schema version is invalid")
-        advisory = (
-            ArchitectAdvisory.from_dict(value["advisory"])
-            if task is not None
-            else None
-        )
-        batch = ArchitectBatch.from_dict(value["batch"]) if task is None else None
+            raise output_failure("architect container schema version is invalid")
+        try:
+            advisory = (
+                ArchitectAdvisory.from_dict(value["advisory"])
+                if task is not None
+                else None
+            )
+            batch = ArchitectBatch.from_dict(value["batch"]) if task is None else None
+        except ArchitectPreflightError as exc:
+            raise output_failure(str(exc)) from exc
         artifact_name = value["artifact_name"]
         if (
             type(artifact_name) is not str
             or Path(artifact_name).name != artifact_name
             or not artifact_name.endswith(".json")
         ):
-            raise ArchitectPreflightError("architect artifact name is invalid")
+            raise output_failure("architect artifact name is invalid")
         artifact_path = self.artifact_root / artifact_name
         if not artifact_path.is_file():
-            raise ArchitectPreflightError(
+            raise output_failure(
                 f"architect advisory artifact is not visible on the host: {artifact_path}"
             )
         metadata = value["invocation_metadata"]
         if not isinstance(metadata, Mapping):
-            raise ArchitectPreflightError("architect invocation metadata is invalid")
+            raise output_failure("architect invocation metadata is invalid")
         analysis_values = {
             "analysis_id": str(value["analysis_id"]),
             "artifact_path": artifact_path,
@@ -1324,6 +1693,9 @@ def build_worker_command(
     admission_source_head: str | None = None,
     task_contract_sha256: str | None = None,
     admission_issue_number: int | None = None,
+    provider_allowlist: tuple[str, ...] | None = None,
+    supervisor_provider: str | None = None,
+    provider_assignment_path: Path | None = None,
 ) -> tuple[str, ...]:
     # The Game Task Agent controller owns Git/GitHub/claim/Issue/checkout
     # authority and therefore runs on the Windows host. Claude/Codex remain
@@ -1333,12 +1705,18 @@ def build_worker_command(
     if type(worker_id) is not str or not worker_id.strip():
         raise PollingOrchestratorError("worker_id must be a non-empty string")
     if route is not None:
+        if route.rigor is None:
+            raise PollingOrchestratorError(
+                "scheduler execution route omitted deterministic rigor authority"
+            )
         provider = route.execution_provider
         supervisor_model = route.supervisor_model
         supervisor_reasoning_effort = route.supervisor_reasoning_effort
         execution_model = route.execution_model
         execution_reasoning_effort = route.execution_reasoning_effort
         supervisor_turns = route.max_supervisor_turns
+        crew_profile = route.rigor.crew_profile
+        validation_profile = route.rigor.validation_profile
     else:
         provider = str(execution_provider).strip().casefold()
         supervisor_model = str(model).strip() if model else None
@@ -1346,6 +1724,8 @@ def build_worker_command(
         execution_model = None
         execution_reasoning_effort = None
         supervisor_turns = max_turns
+        crew_profile = None
+        validation_profile = None
     if provider not in {"claude", "codex"}:
         raise PollingOrchestratorError("execution provider must be claude or codex")
     if (
@@ -1393,6 +1773,22 @@ def build_worker_command(
         command.extend(
             ("--execution-reasoning-effort", execution_reasoning_effort)
         )
+    if crew_profile is not None and validation_profile is not None:
+        command.extend(("--crew-profile", crew_profile))
+        command.extend(("--validation-profile", validation_profile))
+    if route is not None and (provider == "claude" or provider_assignment_path is not None) and execution_model:
+        command.append("--enable-execution-session-pool")
+    if provider_assignment_path is not None:
+        command.extend(("--provider-assignment-path", str(provider_assignment_path)))
+    selected_supervisor = resolve_supervisor_provider(supervisor_provider)
+    # Every worker argv names the exact supervisor the scheduler selected, so a
+    # worker can never resolve a different one from an ambient default.
+    command.extend(("--supervisor-provider", selected_supervisor))
+    permitted = validate_provider_allowlist(provider_allowlist)
+    require_permitted_provider(provider, permitted, role="execution")
+    require_permitted_provider(selected_supervisor, permitted, role="supervisor")
+    if permitted is not None:
+        command.extend(("--provider-allowlist", ",".join(permitted)))
     result_identity = (run_id, admission_source_head, task_contract_sha256)
     if any(value is not None for value in result_identity):
         if not all(isinstance(value, str) and value for value in result_identity):
@@ -1436,6 +1832,10 @@ def build_decomposition_worker_command(
     admission_source_head: str | None = None,
     task_contract_sha256: str | None = None,
     admission_issue_number: int | None = None,
+    enable_session_pool: bool = False,
+    provider_allowlist: tuple[str, ...] | None = None,
+    all_codex: bool = False,
+    decomposition_strategy: str | None = None,
 ) -> tuple[str, ...]:
     """Build the distinct host boundary for review-only decomposition work."""
 
@@ -1467,6 +1867,27 @@ def build_decomposition_worker_command(
         "--output-root",
         str(selected_output),
     ]
+    permitted = validate_provider_allowlist(provider_allowlist)
+    if permitted is not None:
+        command.extend(("--provider-allowlist", ",".join(permitted)))
+    if decomposition_strategy is not None:
+        orders = {"claude_role_pair": ("claude", "claude"), "codex_role_pair": ("codex", "codex"),
+                  "cross_provider_round_robin": ("codex", "claude")}
+        if decomposition_strategy not in orders or not enable_session_pool:
+            raise PollingOrchestratorError("profile decomposition requires a known strategy and pooled sessions")
+        order = orders[decomposition_strategy]
+        for provider in order:
+            require_permitted_provider(provider, permitted, role="decomposition")
+        command.extend(("--providers", ",".join(order)))
+        if len(set(order)) == 1:
+            command.extend(("--max-calls", "2"))
+    elif all_codex:
+        require_permitted_provider("codex", permitted, role="decomposition")
+        if not enable_session_pool:
+            raise PollingOrchestratorError("all-Codex decomposition requires independent pooled role sessions")
+        command.extend(("--providers", "codex,codex", "--max-calls", "2"))
+    elif permitted is not None:
+        command.extend(("--providers", ",".join(provider for provider in ("codex", "claude") if provider in permitted)))
     result_identity = (
         scheduler_output_root,
         run_id,
@@ -1506,6 +1927,12 @@ def build_decomposition_worker_command(
         raise PollingOrchestratorError(
             "decomposition admission Issue number requires result identity"
         )
+    if enable_session_pool:
+        if run_id is None:
+            raise PollingOrchestratorError(
+                "decomposition session pooling requires scheduler-owned run identity"
+            )
+        command.append("--enable-decomposition-session-pool")
     return tuple(command)
 
 
@@ -1515,6 +1942,20 @@ class PollCycleResult:
     task_id: str | None = None
     worker_id: str | None = None
     fatal: bool = False
+
+
+@dataclass(frozen=True)
+class DecompositionApplyResumeDecision:
+    """Host-owned route for one already-approved decomposition application.
+
+    The scheduler does not acquire D1C mutation authority here.  The launched
+    host decomposition worker must still re-prove the exact approved plan,
+    current main, workflow lease, and global D1C claim before changing Git.
+    """
+
+    entry: tuple[dict[str, Any], str | None, dict[str, Any]]
+    surface: PredictedChangeSurface
+    evidence: Mapping[str, Any]
 
 
 @dataclass(frozen=True)
@@ -1542,11 +1983,12 @@ class PollingOrchestrator:
         architect_runner: Callable[..., ArchitectAnalysis | ArchitectBatchAnalysis],
         routing_policy: ExecutionRoutingPolicy | None = None,
         routing_policy_loader: Callable[[], ExecutionRoutingPolicy] | None = None,
+        provider_allowlist: tuple[str, ...] | None = None,
+        supervisor_provider: str | None = None,
+        provider_topology: Any = None,
+        provider_budget: Any = None,
         max_architect_invocations_per_poll: int = (
             DEFAULT_MAX_ARCHITECT_INVOCATIONS_PER_POLL
-        ),
-        max_architect_invocations_per_session: int = (
-            DEFAULT_MAX_ARCHITECT_INVOCATIONS_PER_SESSION
         ),
         architect_min_reanalysis_seconds: float = (
             DEFAULT_ARCHITECT_MIN_REANALYSIS_SECONDS
@@ -1563,6 +2005,7 @@ class PollingOrchestrator:
         process_factory: Callable[..., Any] = subprocess.Popen,
         event_emitter: JsonEventEmitter | None = None,
         excluded_task_ids: Sequence[str] = (),
+        admission_allowlist: Sequence[str] | None = None,
         dry_run: bool = False,
         compose_project: str = COMPOSE_PROJECT,
         monotonic_clock: Callable[[], float] = time.monotonic,
@@ -1580,6 +2023,17 @@ class PollingOrchestrator:
         self.max_workers = max_workers
         self.architect_min_confidence = architect_min_confidence
         self.architect_runner = architect_runner
+        self.provider_topology = provider_topology
+        self.provider_budget = provider_budget
+        if (provider_topology is None) != (provider_budget is None):
+            raise PollingOrchestratorError("profile routing requires its durable host budget ledger")
+        self.provider_allowlist = validate_provider_allowlist(provider_allowlist)
+        self.supervisor_provider = resolve_supervisor_provider(supervisor_provider)
+        require_permitted_provider(
+            self.supervisor_provider, self.provider_allowlist, role="supervisor"
+        )
+        if self.execution_provider is not None:
+            require_permitted_provider(self.execution_provider, self.provider_allowlist, role="execution")
         if routing_policy is not None and routing_policy_loader is not None:
             raise PollingOrchestratorError(
                 "supply routing_policy or routing_policy_loader, not both"
@@ -1591,12 +2045,12 @@ class PollingOrchestrator:
                 default_provider_override=self.execution_provider,
                 supervisor_model_override=self.model,
                 max_turns_override=self.max_turns,
+                supervisor_provider=self.supervisor_provider,
+                provider_allowlist=self.provider_allowlist,
+                resolve_only_permitted=self.provider_topology is not None,
             )
         )
         self.max_architect_invocations_per_poll = max_architect_invocations_per_poll
-        self.max_architect_invocations_per_session = (
-            max_architect_invocations_per_session
-        )
         self.architect_min_reanalysis_seconds = architect_min_reanalysis_seconds
         self.max_consecutive_observation_failures = (
             max_consecutive_observation_failures
@@ -1604,12 +2058,28 @@ class PollingOrchestrator:
         self.fatal_drain_seconds = fatal_drain_seconds
         self.decision_cache = decision_cache or ArchitectDecisionCache()
         self.architect_invocations_this_poll = 0
-        self.architect_invocations_this_session = 0
+        self.worker_launches_this_poll = 0
+        self.worker_launches_total = 0
+        self._worker_launch_task_ids_this_poll: list[str] | None = None
         self.architect_cooldowns: dict[str, ArchitectCooldownEntry] = {}
         self.consecutive_observation_failures = 0
         self.consecutive_source_refresh_failures = 0
+        # The immutable facts of the source commit this poll admits against.
+        # Rebound whenever the observed commit changes, so an obsolete commit
+        # is never reused and nothing mutable is carried between launches.
+        self._current_admission_snapshot: SourceCommitAdmissionSnapshot | None = None
+        # The autonomous controller opens one of these scopes around exactly
+        # one outer scheduler step. The first source refresh is authoritative
+        # for that step; coherent snapshots and the initial poll share it.
+        # Launch-time revalidation always forces a new refresh and replaces the
+        # scoped value. Nothing survives into the next step.
+        self._source_refresh_step_active = False
+        # Single bounded entry: (fully resolved after-commit SHA, refresh data).
+        self._source_refresh_step_result: tuple[str, dict[str, Any]] | None = None
+        self.capacity_health_failures: list[tuple[float, str]] = []
         self.plan_builder = plan_builder
         self._uses_default_plan_builder = plan_builder is build_poll_dispatch_plan
+        self._uses_default_task_loader = task_loader is None
         self.task_loader = task_loader or (
             lambda task_id: load_committed_task(self.source, task_id)
         )
@@ -1627,9 +2097,20 @@ class PollingOrchestrator:
         self.excluded_task_ids = frozenset(
             validate_task_id(task_id) for task_id in excluded_task_ids
         )
+        self.admission_allowlist: frozenset[str] | None = None
+        self.set_admission_allowlist(admission_allowlist)
         self.dry_run = bool(dry_run)
         self.compose_project = str(compose_project).strip()
         self.monotonic_clock = monotonic_clock
+        self.worker_completion_event = threading.Event()
+        self.architect_wake_listener: LocalArchitectWakeListener | None = None
+        self._activity_listener_start_attempted = False
+        self._activity_listener_closed = False
+        self.architect_notification_revision = 0
+        self.worker_slots = tuple(
+            f"{self.scheduler_id}-slot-{index:02d}"
+            for index in range(1, max_workers + 1)
+        )
         self.active_assignments: dict[str, ActiveAssignment] = {}
         self.failed_child: tuple[str, int | None, int] | None = None
         if not self.scheduler_id:
@@ -1651,14 +2132,6 @@ class PollingOrchestrator:
         ):
             raise PollingOrchestratorError(
                 "max_architect_invocations_per_poll must be a positive integer"
-            )
-        if (
-            isinstance(max_architect_invocations_per_session, bool)
-            or not isinstance(max_architect_invocations_per_session, int)
-            or max_architect_invocations_per_session < 1
-        ):
-            raise PollingOrchestratorError(
-                "max_architect_invocations_per_session must be a positive integer"
             )
         if (
             isinstance(max_consecutive_observation_failures, bool)
@@ -1700,9 +2173,125 @@ class PollingOrchestrator:
                 "architect_min_confidence must be in [0, 1]"
             )
 
-    def _reap_workers(self) -> tuple[bool, frozenset[str]]:
+    def _watch_worker_return(self, assignment: ActiveAssignment) -> None:
+        """Wake the architect when a real child returns its terminal status.
+
+        The watcher owns no mutation and never terminates a worker. Test doubles
+        that expose only ``poll`` deliberately keep the legacy timer seam.
+        """
+
+        wait = getattr(assignment.process, "wait", None)
+        if not callable(wait):
+            return
+
+        def observe_return() -> None:
+            try:
+                wait()
+            finally:
+                self.worker_completion_event.set()
+
+        threading.Thread(
+            target=observe_return,
+            name=f"architect-worker-return-{assignment.task_id.casefold()}",
+            daemon=True,
+        ).start()
+
+    def _wait_for_architect_activity(self, poll_seconds: float) -> str:
+        """Wait for a worker return, using the poll interval only as fallback."""
+
+        if any(
+            assignment.process.poll() is not None
+            for assignment in self.active_assignments.values()
+        ):
+            return "worker_returned"
+        self.worker_completion_event.clear()
+        gate_admission = getattr(self, "integration_gate_admission", None)
+        gate_listener = getattr(gate_admission, "listener", None)
+        if gate_listener is not None and gate_listener.pending.is_set():
+            gate_listener.pending.clear()
+            return "integration_gate_released"
+        # Close the clear/check race: a worker may return immediately before its
+        # watcher publishes the event.
+        if any(
+            assignment.process.poll() is not None
+            for assignment in self.active_assignments.values()
+        ):
+            return "worker_returned"
+        notification: dict[str, Any] | None = None
+        if self.architect_wake_listener is not None:
+            revision, notification = (
+                self.architect_wake_listener.notification_snapshot()
+            )
+            if revision > self.architect_notification_revision:
+                self.architect_notification_revision = revision
+                self.events.emit(
+                    "issue_state_change_notified_to_architect",
+                    notification=notification,
+                )
+                return "issue_state_changed"
+        watchable = bool(self.active_assignments) and all(
+            callable(getattr(assignment.process, "wait", None))
+            for assignment in self.active_assignments.values()
+        )
+        event_waitable = watchable or self.architect_wake_listener is not None or gate_listener is not None
+        self.events.emit(
+            "architect_wait_started",
+            wait_mode=("event_or_fallback" if event_waitable else "fallback_timer"),
+            fallback_seconds=poll_seconds,
+            active_worker_count=len(self.active_assignments),
+        )
+        if event_waitable:
+            listener = self.architect_wake_listener
+            if listener is not None:
+                listener.begin_scheduler_wait()
+            try:
+                activity_observed = self.worker_completion_event.wait(
+                    timeout=poll_seconds
+                )
+            finally:
+                if listener is not None:
+                    listener.end_scheduler_wait()
+            if activity_observed:
+                if any(
+                    assignment.process.poll() is not None
+                    for assignment in self.active_assignments.values()
+                ):
+                    self.events.emit(
+                        "worker_returned_to_architect",
+                        active_worker_count=len(self.active_assignments),
+                    )
+                    return "worker_returned"
+                if self.architect_wake_listener is not None:
+                    revision, notification = (
+                        self.architect_wake_listener.notification_snapshot()
+                    )
+                    self.architect_notification_revision = max(
+                        self.architect_notification_revision,
+                        revision,
+                    )
+                self.events.emit(
+                    "issue_state_change_notified_to_architect",
+                    notification=notification,
+                )
+                return "issue_state_changed"
+        else:
+            time.sleep(poll_seconds)
+        return "fallback_elapsed"
+
+    def _checkout_worker_slot(self) -> str:
+        active_worker_ids = {
+            assignment.worker_id for assignment in self.active_assignments.values()
+        }
+        for worker_id in self.worker_slots:
+            if worker_id not in active_worker_ids:
+                return worker_id
+        raise PollingOrchestratorError(
+            "worker pool has no idle slot despite available scheduler capacity"
+        )
+
+    def _collect_returned_workers(self) -> tuple[bool, frozenset[str]]:
         failed = False
-        reaped_task_ids: set[str] = set()
+        returned_task_ids: set[str] = set()
         for task_id, assignment in list(self.active_assignments.items()):
             try:
                 returncode = assignment.process.poll()
@@ -1725,7 +2314,7 @@ class PollingOrchestrator:
             if returncode is None:
                 continue
             del self.active_assignments[task_id]
-            reaped_task_ids.add(task_id)
+            returned_task_ids.add(task_id)
             try:
                 if assignment.pid is None:
                     raise WorkerResultError(
@@ -1761,6 +2350,18 @@ class PollingOrchestrator:
                 )
                 continue
             terminal_status = worker_result["terminal_status"]
+            if terminal_status in {
+                "human_action_required",
+                "completed",
+                "blocked",
+                "no_safe_work",
+            }:
+                self.events.emit(
+                    "worker_returned_to_pool",
+                    task_id=task_id,
+                    worker_id=assignment.worker_id,
+                    terminal_status=terminal_status,
+                )
             if returncode == 0:
                 self.events.emit(
                     "worker_finished",
@@ -1805,23 +2406,34 @@ class PollingOrchestrator:
                 checkout_path=str(assignment.checkout_path),
                 returncode=returncode,
             )
-        return failed, frozenset(reaped_task_ids)
+        return failed, frozenset(returned_task_ids)
 
-    def _drain_active_workers(self, *, poll_seconds: float) -> bool:
-        """Supervise existing children for a bounded interval after fatal stop."""
+    def drain_active_workers(
+        self,
+        *,
+        poll_seconds: float,
+        stop_reason: str = "a fatal cycle",
+    ) -> bool:
+        """Supervise existing children for a bounded interval after a stop.
+
+        ``stop_reason`` names what actually stopped admissions. This scheduler's
+        own loop drains only after a fatal cycle, but the autonomous controller
+        above it drains on every terminal classification, so a hardcoded "fatal"
+        sent operators hunting for a failure that never happened.
+        """
 
         deadline = self.monotonic_clock() + self.fatal_drain_seconds
         self.events.emit(
             "scheduler_draining",
             reason=(
-                "new admissions stopped after a fatal cycle; existing children "
+                f"new admissions stopped after {stop_reason}; existing children "
                 "remain supervised for a bounded interval"
             ),
             fatal_drain_seconds=self.fatal_drain_seconds,
             active_children=self.active_child_summary(),
         )
         while self.active_assignments:
-            self._reap_workers()
+            self._collect_returned_workers()
             if not self.active_assignments:
                 return True
             remaining = deadline - self.monotonic_clock()
@@ -1842,6 +2454,26 @@ class PollingOrchestrator:
             )
             time.sleep(min(poll_seconds, remaining))
         return True
+
+    def set_admission_allowlist(self, task_ids: Sequence[str] | None) -> None:
+        """Restrict architect visibility and launch authority to exact task IDs.
+
+        ``None`` preserves the normal unscoped polling behavior. Autonomous
+        controllers replace the exact allowlist before each capacity pass after
+        observing their root tasks and authorized decomposition descendants.
+        """
+
+        if task_ids is None:
+            self.admission_allowlist = None
+            return
+        if type(task_ids) not in {list, tuple, set, frozenset}:
+            raise PollingOrchestratorError(
+                "admission allowlist must be a built-in task-ID collection"
+            )
+        normalized = frozenset(validate_task_id(task_id) for task_id in task_ids)
+        if not normalized:
+            raise PollingOrchestratorError("admission allowlist must not be empty")
+        self.admission_allowlist = normalized
 
     def _refresh_active_reservations(self) -> tuple[IntegrationReservation, ...]:
         reservations: list[IntegrationReservation] = []
@@ -1950,64 +2582,384 @@ class PollingOrchestrator:
         """
 
         by_id: dict[str, tuple[dict[str, Any], str | None, dict[str, Any]]] = {}
+        decomposition_offerable = self._decomposition_offerable(plan)
         for candidate, resume_phase in ordered:
             task_id = validate_task_id(candidate.get("task_id"))
-            task = self._load_candidate(plan, candidate, task_id)
-            if resume_phase in {
-                WorkflowPhase.DECOMPOSITION.value,
-                WorkflowPhase.DECOMPOSITION_APPLY.value,
-            }:
-                work_types = ["decomposition"]
-            else:
-                work_types = ["implementation"]
-            if resume_phase is None:
-                try:
-                    validate_decomposition_selection(task_id, task)
-                except DecompositionPreflightError:
-                    pass
-                else:
-                    work_types.append("decomposition")
-            portfolio_entry = {
-                "task": task,
-                "eligible_work_types": sorted(work_types),
-            }
-            if resume_phase is not None:
-                portfolio_entry["resume_phase"] = resume_phase
-            by_id[task_id] = (
-                dict(candidate),
+            entry = self._ranked_portfolio_entry(
+                plan,
+                candidate,
                 resume_phase,
-                portfolio_entry,
+                task_id,
+                decomposition_offerable=decomposition_offerable,
             )
+            if entry is None:
+                continue
+            by_id[task_id] = entry
 
         for candidate in plan.skipped_candidates:
             task_id_raw = candidate.get("task_id")
             if type(task_id_raw) is not str or task_id_raw in by_id:
                 continue
-            if task_id_raw in plan.excluded_task_ids:
-                continue
-            reasons = tuple(candidate.get("reason_codes") or ())
-            if not reasons or any(
-                type(reason) is not str
-                or (
-                    reason not in _DECOMPOSITION_COMPATIBLE_STAGE2_REASONS
-                    and not reason.startswith("dependency_blocked:")
-                )
-                for reason in reasons
-            ):
-                continue
-            task_id = validate_task_id(task_id_raw)
-            task = self._load_candidate(plan, candidate, task_id)
-            try:
-                validate_decomposition_selection(task_id, task)
-            except DecompositionPreflightError:
-                continue
-            by_id[task_id] = (
-                dict(candidate),
-                None,
-                {"task": task, "eligible_work_types": ["decomposition"]},
+            entry = self._skipped_portfolio_entry(
+                plan,
+                candidate,
+                task_id_raw,
+                decomposition_offerable=decomposition_offerable,
             )
+            if entry is None:
+                continue
+            by_id[validate_task_id(task_id_raw)] = entry
 
+        # One HEAD observation proves the whole portfolio was read from the
+        # exact commit Stage 2 planned against. This used to run once per
+        # candidate, which bought no extra safety -- nothing can launch while
+        # a portfolio is being built -- and cost one Git process per candidate.
+        self._verify_planned_source_head(plan)
         return tuple(by_id[task_id] for task_id in sorted(by_id))
+
+    def _decomposition_offerable(self, plan: DispatchPlan) -> bool:
+        """Prove the repository-wide child-template policy once per source commit.
+
+        The policy is a property of the repository, not of any one candidate,
+        so proving it per candidate would repeat the work and let a
+        repository-wide failure disappear into a per-candidate "not
+        decomposition-relevant" skip, which is a different fact. The proof is
+        also identical for every admission at one source commit, so a
+        successful proof is memoized on that commit's snapshot instead of
+        being rebuilt for each architect batch and again before each launch.
+        A failure is not memoized and is re-emitted for every admission that
+        asks, exactly as before.
+        """
+
+        snapshot = self._admission_snapshot(plan.source_commit)
+
+        def prove() -> bool:
+            tasks = {
+                task_id: snapshot.task(task_id)
+                for task_id in snapshot.task_ids
+            }
+            audit_decomposition_policy(
+                self.source,
+                commit=plan.source_commit,
+                document=snapshot.committed_json_document(
+                    VALIDATION_POLICY_RELATIVE
+                ),
+                tasks=tasks,
+            )
+            return True
+
+        try:
+            return bool(snapshot.memoized("decomposition_policy_audit", prove))
+        except (ValidationPolicyAuditError, SourceCommitSnapshotError) as exc:
+            self.events.emit(
+                "decomposition_policy_unprovable",
+                reason=str(exc),
+                policy_path=(
+                    "Pipeline/TaskReviewAgent/authoritative_validation_policy.json"
+                ),
+            )
+            return False
+
+    def _ranked_portfolio_entry(
+        self,
+        plan: DispatchPlan,
+        candidate: Mapping[str, Any],
+        resume_phase: str | None,
+        task_id: str,
+        *,
+        decomposition_offerable: bool,
+    ) -> tuple[dict[str, Any], str | None, dict[str, Any]] | None:
+        """Bind one ranked/resume candidate's eligible work types, or refuse it."""
+
+        task = self._load_candidate(plan, candidate, task_id)
+        initialized_decomposition_resume = (
+            resume_phase == WorkflowPhase.IMPLEMENTATION.value
+            and task.get("execution_scope") == "needs_execution_decomposition"
+        )
+        if initialized_decomposition_resume:
+            # Issue initialization necessarily begins in the implementation
+            # phase before the architect has selected a work type. The exact
+            # bound task contract remains routing authority: an interrupted
+            # pre-launch attempt must not permanently turn a task that
+            # requires decomposition into ordinary implementation work.
+            if not decomposition_offerable:
+                return None
+            try:
+                validate_decomposition_task_selection(task_id, task)
+            except DecompositionPreflightError:
+                return None
+            work_types = ["decomposition"]
+        elif resume_phase in {
+            WorkflowPhase.DECOMPOSITION.value,
+            WorkflowPhase.DECOMPOSITION_APPLY.value,
+        }:
+            work_types = ["decomposition"]
+        else:
+            work_types = ["implementation"]
+        if resume_phase is None and decomposition_offerable:
+            try:
+                validate_decomposition_task_selection(task_id, task)
+            except DecompositionPreflightError:
+                # This contract is not decomposition-relevant. The
+                # repository-wide policy was already proven above, so this
+                # skip means only what it has always meant.
+                pass
+            else:
+                work_types.append("decomposition")
+        portfolio_entry = {
+            "task": task,
+            "eligible_work_types": sorted(work_types),
+        }
+        if resume_phase is not None:
+            portfolio_entry["resume_phase"] = resume_phase
+        return (dict(candidate), resume_phase, portfolio_entry)
+
+    def _prove_decomposition_apply_resume(
+        self,
+        entries: tuple[tuple[dict[str, Any], str | None, dict[str, Any]], ...],
+        *,
+        source_head: str,
+        reservations: tuple[IntegrationReservation, ...],
+    ) -> DecompositionApplyResumeDecision | None:
+        """Skip provider judgment only for the first exact approved D1C resume.
+
+        A decomposition-apply Issue already contains the human-authorized plan
+        identity and fixes the work type.  Starting its host worker is safe
+        without buying another architect turn because that worker independently
+        re-proves the plan and serializes the mutation through the global D1C
+        claim.  Any competing active or uncertain durable work preserves the
+        ordinary architect path.
+        """
+
+        if not entries or entries[0][1] != WorkflowPhase.DECOMPOSITION_APPLY.value:
+            return None
+        candidate, resume_phase, portfolio_entry = entries[0]
+        if portfolio_entry.get("eligible_work_types") != ["decomposition"]:
+            return None
+        task = portfolio_entry.get("task")
+        if not isinstance(task, Mapping):
+            return None
+        task_id = str(task.get("id") or "")
+        try:
+            task_id = validate_task_id(task_id)
+            validate_decomposition_task_selection(task_id, task)
+        except (TaskReviewContractError, DecompositionPreflightError):
+            return None
+        contract_sha256 = str(task.get("task_contract_sha256") or "")
+        if (
+            not GIT_SHA_RE.fullmatch(source_head)
+            or re.fullmatch(r"[0-9a-f]{64}", contract_sha256) is None
+            or candidate.get("task_contract_sha256") != contract_sha256
+            or type(candidate.get("issue_number")) is not int
+            or candidate["issue_number"] < 1
+        ):
+            return None
+
+        for reservation in reservations:
+            if reservation.task_id.casefold() == task_id.casefold():
+                continue
+            if (
+                reservation.pending_transition is not None
+                or reservation.local_active
+                or reservation.workflow_state == WorkflowState.AGENT_WORKING.value
+            ):
+                return None
+
+        unknown = assess_unknown_surface_reservations(
+            candidate_task_id=task_id,
+            candidate_exclusive_resources=task.get("exclusive_resources") or (),
+            reservations=reservations,
+        )
+        if unknown.blocking_task_ids or unknown.architect_confirmable_task_ids:
+            return None
+
+        surface = effective_candidate_surface(
+            candidate_task_id=task_id,
+            predicted_surface=PredictedChangeSurface(
+                exact_paths=(
+                    f"Tasks/{task_id}.yaml",
+                    "Pipeline/TaskGraph/WORK_ID_MAP.json",
+                ),
+                path_patterns=("Tasks/*.yaml",),
+                unity_serialized_assets=(),
+                symbols_or_components=(),
+                shared_systems=("logical:taskgraph-decomposition-apply",),
+            ),
+            reservations=reservations,
+        )
+        if detect_deterministic_conflict(
+            candidate_task_id=task_id,
+            candidate_exclusive_resources=task.get("exclusive_resources") or (),
+            candidate_surface=surface,
+            reservations=reservations,
+        ) is not None:
+            return None
+        return DecompositionApplyResumeDecision(
+            entry=(candidate, resume_phase, portfolio_entry),
+            surface=surface,
+            evidence={
+                "authority": "approved_decomposition_apply_issue",
+                "task_id": task_id,
+                "task_contract_sha256": contract_sha256,
+                "source_head": source_head,
+                "issue_number": candidate["issue_number"],
+                "global_claim": "logical:taskgraph-decomposition-apply",
+            },
+        )
+
+    def _skipped_portfolio_entry(
+        self,
+        plan: DispatchPlan,
+        candidate: Mapping[str, Any],
+        task_id_raw: str,
+        *,
+        decomposition_offerable: bool,
+    ) -> tuple[dict[str, Any], str | None, dict[str, Any]] | None:
+        """Offer one Stage-2-skipped candidate to the decomposition pool, or refuse it.
+
+        A skipped entry may enter the pool only when every rejection reason is
+        an intrinsic implementation-shape/dependency reason. Issue ownership,
+        claims, resources, malformed state, disposition, and delivery-state
+        rejection therefore remain hard exclusions.
+        """
+
+        if not _stage2_skip_may_offer_decomposition(plan, candidate):
+            return None
+        if not decomposition_offerable:
+            return None
+        task_id = validate_task_id(task_id_raw)
+        task = self._load_candidate(plan, candidate, task_id)
+        try:
+            validate_decomposition_task_selection(task_id, task)
+        except DecompositionPreflightError:
+            return None
+        return (
+            dict(candidate),
+            None,
+            {"task": task, "eligible_work_types": ["decomposition"]},
+        )
+
+    def _revalidate_admitted_pair(
+        self,
+        plan: DispatchPlan,
+        *,
+        task_id: str,
+        work_type: str,
+    ) -> tuple[dict[str, Any], str | None, dict[str, Any]] | None:
+        """Re-prove ONE architect-admitted (task, work type) pair against a fresh plan.
+
+        Pre-launch revalidation used to rebuild the entire portfolio and then
+        immediately keep a single entry, so every launch paid for every other
+        candidate's contract load and HEAD observation. Only the admitted pair
+        can be launched, so only the admitted pair is rebuilt -- through the
+        identical entry builders the full portfolio uses, so a pair that would
+        not survive a full rebuild does not survive here either.
+
+        Returns ``None`` when the pair is no longer admissible in the fresh
+        plan, which the caller treats exactly as a withdrawn candidate.
+        """
+
+        task_id = validate_task_id(task_id)
+        entry: tuple[dict[str, Any], str | None, dict[str, Any]] | None = None
+        decomposition_offerable = self._decomposition_offerable(plan)
+        for candidate, resume_phase in self._ordered_candidates(plan):
+            if candidate.get("task_id") != task_id:
+                continue
+            entry = self._ranked_portfolio_entry(
+                plan,
+                candidate,
+                resume_phase,
+                task_id,
+                decomposition_offerable=decomposition_offerable,
+            )
+            break
+        if entry is None:
+            for candidate in plan.skipped_candidates:
+                if candidate.get("task_id") != task_id:
+                    continue
+                entry = self._skipped_portfolio_entry(
+                    plan,
+                    candidate,
+                    task_id,
+                    decomposition_offerable=decomposition_offerable,
+                )
+                break
+        # The same single HEAD observation the full portfolio performs, so a
+        # source move still discards this admission before the launch starts.
+        self._verify_planned_source_head(plan)
+        if entry is None or work_type not in entry[2]["eligible_work_types"]:
+            return None
+        return entry
+
+    def _admission_snapshot(self, source_commit: str) -> SourceCommitAdmissionSnapshot:
+        """The immutable repository facts of one exact commit, reused this poll.
+
+        Keyed strictly by the verified source commit. Mutable authority --
+        Issues, claims, leases, reservations, active-checkout observations,
+        source-refresh outcomes and worker state -- is never stored here and
+        is re-observed for every launch.
+        """
+
+        current = self._current_admission_snapshot
+        if current is not None and current.source_commit == source_commit:
+            return current
+        snapshot = source_commit_admission_snapshot(self.source, source_commit)
+        self._current_admission_snapshot = snapshot
+        return snapshot
+
+    def begin_source_refresh_step(self) -> None:
+        """Start one bounded outer-step refresh scope with no prior result."""
+
+        if self._source_refresh_step_active:
+            raise PollingOrchestratorError("source refresh step scope is already active")
+        self._source_refresh_step_active = True
+        self._source_refresh_step_result = None
+
+    def end_source_refresh_step(self) -> None:
+        """Discard every refresh result before another outer step can start."""
+
+        if not self._source_refresh_step_active:
+            raise PollingOrchestratorError("source refresh step scope is not active")
+        self._source_refresh_step_result = None
+        self._source_refresh_step_active = False
+
+    def source_refresh_for_step(self, *, force: bool = False) -> dict[str, Any]:
+        """Refresh once per outer step, except for mandatory forced checks.
+
+        A forced call clears the prior result before attempting the refresh, so
+        a failed pre-launch check can never fall back to a stale successful
+        result. Outside a controller-owned step this method performs a normal
+        refresh on every call.
+        """
+
+        if type(force) is not bool:
+            raise PollingOrchestratorError("source refresh force flag must be boolean")
+        cached_entry = self._source_refresh_step_result
+        if self._source_refresh_step_active and cached_entry is not None and not force:
+            _cached_commit, cached = cached_entry
+            return dict(cached)
+        if self._source_refresh_step_active:
+            self._source_refresh_step_result = None
+        refreshed = dict(self.source_refresher(self.source))
+        if self._source_refresh_step_active:
+            source_commit = refreshed.get("after")
+            if type(source_commit) is not str or re.fullmatch(
+                r"[0-9a-f]{40}", source_commit
+            ) is None:
+                raise PollingOrchestratorError(
+                    "source refresh step cache requires one exact resolved commit SHA"
+                )
+            self._source_refresh_step_result = (source_commit, dict(refreshed))
+        return refreshed
+
+    def _verify_planned_source_head(self, plan: DispatchPlan) -> None:
+        """Refuse to keep any admission once committed HEAD has moved."""
+
+        head = _git_text(self.source, "rev-parse", "--verify", "HEAD")
+        if head != plan.source_commit:
+            raise PollingOrchestratorError(
+                f"source HEAD moved from {plan.source_commit} to {head} after Stage 2"
+            )
 
     def _load_candidate(
         self,
@@ -2016,7 +2968,10 @@ class PollingOrchestrator:
         task_id: str,
     ) -> dict[str, Any]:
         task_id = validate_task_id(task_id)
-        task = dict(self.task_loader(task_id))
+        if self._uses_default_task_loader:
+            task = self._admission_snapshot(plan.source_commit).task(task_id)
+        else:
+            task = dict(self.task_loader(task_id))
         if task.get("id") != task_id:
             raise PollingOrchestratorError("committed task loader changed task identity")
         contract_hash = task.get("task_contract_sha256")
@@ -2027,11 +2982,10 @@ class PollingOrchestrator:
             raise PollingOrchestratorError(
                 "Stage-2 candidate task-contract hash differs from committed HEAD"
             )
-        head = _git_text(self.source, "rev-parse", "--verify", "HEAD")
-        if head != plan.source_commit:
-            raise PollingOrchestratorError(
-                f"source HEAD moved from {plan.source_commit} to {head} after Stage 2"
-            )
+        # The HEAD observation that used to run here now runs exactly once per
+        # portfolio (:meth:`_verify_planned_source_head`). Repeating it per
+        # candidate proved nothing extra -- no worker or provider can start
+        # while a portfolio is being built -- and cost one Git process each.
         return task
 
     @staticmethod
@@ -2053,6 +3007,61 @@ class PollingOrchestrator:
             not_before=(
                 self.monotonic_clock() + self.architect_min_reanalysis_seconds
             ),
+        )
+
+    def _emit_architect_provider_call(
+        self,
+        analysis: ArchitectAnalysis | ArchitectBatchAnalysis,
+        *,
+        source_head: str | None = None,
+    ) -> None:
+        """Record this run's claim on one architect AgentRuntime invocation.
+
+        An AgentRuntime ``result.json`` names the invocation but not the run
+        that caused it, and its root outlives every run that writes into it. So
+        the journal is the only place a run can state "this exact call is
+        mine", and a later evidence report has no other honest way to separate
+        this run's architect calls from an earlier run's calls for the same
+        task. The record is emitted as soon as the analysis is well formed,
+        before any admission or capacity policy can reject the batch, because
+        the provider call and its token cost already happened.
+
+        A metadata payload that carries no invocation identity emits null,
+        which states that the call happened without a recoverable join key.
+        That is deliberately different from emitting nothing, and it is never
+        widened into a match on role, task name, or wall-clock proximity.
+        """
+
+        metadata = analysis.invocation_metadata
+        if not isinstance(metadata, Mapping):
+            raise ArchitectPreflightError("architect invocation metadata is invalid")
+
+        def text(name: str) -> str | None:
+            value = metadata.get(name)
+            if value is None:
+                return None
+            if type(value) is not str or not value.strip():
+                raise ArchitectPreflightError(
+                    f"architect invocation metadata {name} is invalid"
+                )
+            return value
+
+        if self.provider_budget is not None:
+            from .provider_budget import PROVIDER_NAMES
+            actual_provider = PROVIDER_NAMES.get(text("provider"))
+            if actual_provider != self.provider_topology.architect:
+                raise ArchitectPreflightError("architect usage provider differs from immutable topology")
+            self.provider_budget.observe(invocation_id=text("agent_runtime_run_id") or analysis.analysis_id,
+                provider=actual_provider, role="polling_architect",
+                usage=metadata.get("usage"), evidence=str(analysis.artifact_path))
+        self.events.emit(
+            "architect_provider_call",
+            analysis_id=analysis.analysis_id,
+            agent_runtime_run_id=text("agent_runtime_run_id"),
+            provider=text("provider"),
+            model=text("model"),
+            advisory_artifact_path=str(analysis.artifact_path),
+            source_head=source_head,
         )
 
     def _record_gate(
@@ -2113,7 +3122,7 @@ class PollingOrchestrator:
     def poll_once(self, *, reset_architect_budget: bool = True) -> PollCycleResult:
         if reset_architect_budget:
             self.architect_invocations_this_poll = 0
-        worker_failed, just_reaped_task_ids = self._reap_workers()
+        worker_failed, just_returned_task_ids = self._collect_returned_workers()
         if worker_failed:
             self.events.emit(
                 "scheduler_blocked",
@@ -2130,9 +3139,11 @@ class PollingOrchestrator:
         refresh: dict[str, Any] = {}
         if not self.dry_run:
             try:
-                refresh = dict(self.source_refresher(self.source))
+                refresh = self.source_refresh_for_step()
             except (IntegrationObservationError, OSError) as exc:
                 self.consecutive_source_refresh_failures += 1
+                self.capacity_health_failures = [*self.capacity_health_failures[-19:],
+                    (self.monotonic_clock(), "source_refresh")]
                 fatal = (
                     self.consecutive_source_refresh_failures
                     >= self.max_consecutive_observation_failures
@@ -2186,12 +3197,17 @@ class PollingOrchestrator:
             )
             consistency_retry_budget = IssueConsistencyRetryBudget()
         try:
+            gate_admission = getattr(self, "integration_gate_admission", None)
+            if shared_issue_backend is not None and gate_admission is not None:
+                shared_issue_backend = gate_admission.prepare_backend(shared_issue_backend)
             reservations = self._integration_reservations(
                 backend=shared_issue_backend,
                 consistency_retry_budget=consistency_retry_budget,
             )
         except (IntegrationObservationError, IssueWorkflowStoreError, OSError) as exc:
             self.consecutive_observation_failures += 1
+            self.capacity_health_failures = [*self.capacity_health_failures[-19:],
+                (self.monotonic_clock(), "reservation_observation")]
             if (
                 self.consecutive_observation_failures
                 >= self.max_consecutive_observation_failures
@@ -2277,7 +3293,7 @@ class PollingOrchestrator:
         integration_fingerprint = active_surface_fingerprint(reservations)
         temporary_exclusions = set(self.active_assignments).union(
             self.excluded_task_ids,
-            just_reaped_task_ids,
+            just_returned_task_ids,
             (item["task_id"] for item in pending_transitions),
         )
         if local_ahead_recovery_task_id is not None:
@@ -2339,7 +3355,25 @@ class PollingOrchestrator:
                 resume_task_id=(plan.resume or {}).get("task_id"),
                 fresh_candidate_count=0,
             )
-        if plan.decision == "no_safe_work":
+        decomposition_only_plan = (
+            plan.decision == "no_safe_work"
+            and any(
+                _stage2_skip_may_offer_decomposition(plan, candidate)
+                for candidate in plan.skipped_candidates
+            )
+        )
+        target_scoped_decomposition_plan = (
+            self.admission_allowlist is not None
+            and any(
+                candidate.get("task_id") in self.admission_allowlist
+                and _stage2_skip_may_offer_decomposition(plan, candidate)
+                for candidate in plan.skipped_candidates
+            )
+        )
+        decomposition_fallback_plan = (
+            decomposition_only_plan or target_scoped_decomposition_plan
+        )
+        if plan.decision == "no_safe_work" and not decomposition_only_plan:
             self.events.emit(
                 "plan_idle",
                 decision=plan.decision,
@@ -2353,7 +3387,11 @@ class PollingOrchestrator:
                 plan_reasons=list(plan.reasons),
             )
             return PollCycleResult("blocked_invalid_state", fatal=True)
-        if plan.decision not in {"fresh_candidate", "resume_existing"}:
+        if plan.decision not in {
+            "fresh_candidate",
+            "resume_existing",
+            "no_safe_work",
+        }:
             self.events.emit(
                 "scheduler_blocked",
                 reason=f"unsupported Stage-2 decision {plan.decision!r}",
@@ -2361,13 +3399,48 @@ class PollingOrchestrator:
             return PollCycleResult("unsupported_plan", fatal=True)
 
         candidates = self._ordered_candidates(plan)
+        if self.admission_allowlist is not None:
+            outside_scope = tuple(
+                sorted(
+                    entry[0].get("task_id")
+                    for entry in candidates
+                    if entry[0].get("task_id") not in self.admission_allowlist
+                )
+            )
+            candidates = tuple(
+                entry
+                for entry in candidates
+                if entry[0].get("task_id") in self.admission_allowlist
+            )
+            if outside_scope:
+                self.events.emit(
+                    "candidate_skipped_outside_admission_scope",
+                    task_ids=list(outside_scope),
+                    admission_allowlist=sorted(self.admission_allowlist),
+                    reason=(
+                        "candidate is outside the controller-proven root and "
+                        "authorized decomposition-descendant scope"
+                    ),
+                )
         if local_ahead_recovery_task_id is not None:
             candidates = tuple(
                 entry
                 for entry in candidates
                 if entry[0].get("task_id") == local_ahead_recovery_task_id
             )
-        if not candidates:
+        if (
+            not candidates
+            and self.admission_allowlist is not None
+            and not decomposition_fallback_plan
+        ):
+            self.events.emit(
+                "plan_idle",
+                decision="no_candidate_inside_admission_scope",
+                admission_allowlist=sorted(self.admission_allowlist),
+                exclusions=sorted(temporary_exclusions),
+            )
+            return PollCycleResult("idle")
+        if not candidates and not decomposition_fallback_plan:
             self.events.emit(
                 "scheduler_blocked",
                 reason=(
@@ -2387,12 +3460,46 @@ class PollingOrchestrator:
                 error=_bounded_error(exc),
             )
             return PollCycleResult("candidate_verification_failed", fatal=True)
+        if self.admission_allowlist is not None:
+            outside_mixed_scope = tuple(
+                sorted(
+                    entry[2]["task"]["id"]
+                    for entry in mixed_portfolio
+                    if entry[2]["task"]["id"] not in self.admission_allowlist
+                )
+            )
+            mixed_portfolio = tuple(
+                entry
+                for entry in mixed_portfolio
+                if entry[2]["task"]["id"] in self.admission_allowlist
+            )
+            if outside_mixed_scope:
+                self.events.emit(
+                    "candidate_skipped_outside_admission_scope",
+                    task_ids=list(outside_mixed_scope),
+                    admission_allowlist=sorted(self.admission_allowlist),
+                    reason=(
+                        "decomposition candidate is outside the controller-proven "
+                        "root and authorized decomposition-descendant scope"
+                    ),
+                )
         if local_ahead_recovery_task_id is not None:
             mixed_portfolio = tuple(
                 entry
                 for entry in mixed_portfolio
                 if entry[2]["task"]["id"] == local_ahead_recovery_task_id
             )
+        if not mixed_portfolio and decomposition_fallback_plan:
+            self.events.emit(
+                "plan_idle",
+                decision="no_decomposition_candidate_inside_admission_scope",
+                admission_allowlist=(
+                    sorted(self.admission_allowlist)
+                    if self.admission_allowlist is not None
+                    else None
+                ),
+            )
+            return PollCycleResult("idle")
         if not mixed_portfolio:
             self.events.emit(
                 "scheduler_blocked",
@@ -2474,6 +3581,9 @@ class PollingOrchestrator:
                 continue
             prefiltered_portfolio.append(entry)
         mixed_portfolio = tuple(prefiltered_portfolio)
+        gate_admission = getattr(self, "integration_gate_admission", None)
+        if gate_admission is not None and not self.dry_run:
+            mixed_portfolio = gate_admission.filter(mixed_portfolio)
         if not mixed_portfolio:
             self.events.emit(
                 "plan_idle",
@@ -2515,184 +3625,157 @@ class PollingOrchestrator:
                 portfolio_size=len(mixed_portfolio),
             )
             return PollCycleResult("dry_run_candidate", task_id=selected_id)
-        if (
-            self.architect_invocations_this_session
-            >= self.max_architect_invocations_per_session
-        ):
-            self.events.emit(
-                "scheduler_blocked",
-                reason="cumulative architect session invocation cap is exhausted",
-            )
-            return PollCycleResult("architect_session_budget_exhausted", fatal=True)
-        if (
-            self.architect_invocations_this_poll
-            >= self.max_architect_invocations_per_poll
-        ):
-            self.events.emit(
-                "scheduler_blocked",
-                reason="per-poll architect invocation budget is exhausted",
-            )
-            return PollCycleResult("architect_budget_exhausted")
-        portfolio_request = [item[2] for item in mixed_portfolio]
-        admission_limit = min(
-            self.max_workers - len(self.active_assignments),
-            MAX_CANDIDATES_PER_POLL,
+        from .gate_resume import prove_resume, remember_route
+        deterministic_resume = (
+            prove_resume(gate_admission, mixed_portfolio, source_head=plan.source_commit,
+                         refresh=refresh, reservations=reservations)
+            if gate_admission is not None else None
         )
-        self.events.emit(
-            "architect_started",
+        decomposition_apply_resume = self._prove_decomposition_apply_resume(
+            mixed_portfolio,
             source_head=plan.source_commit,
-            portfolio_size=len(portfolio_request),
-            eligible_pairs=[
-                {
-                    "task_id": item["task"]["id"],
-                    "work_types": item["eligible_work_types"],
-                }
-                for item in portfolio_request
-            ],
+            reservations=reservations,
         )
-        self.architect_invocations_this_poll += 1
-        self.architect_invocations_this_session += 1
-        try:
-            portfolio_analysis = self.architect_runner(
-                candidates=portfolio_request,
-                source_head=plan.source_commit,
-                reservations=reservations,
-                scheduler_id=self.scheduler_id,
-                admission_limit=admission_limit,
-            )
-            if not isinstance(portfolio_analysis, ArchitectBatchAnalysis):
-                raise ArchitectPreflightError(
-                    "mixed-portfolio architect did not return a batch analysis"
-                )
-            entry_by_pair = {
-                (item[2]["task"]["id"], work_type): item
-                for item in mixed_portfolio
-                for work_type in item[2]["eligible_work_types"]
-            }
-            ordered_admissions = []
-            for advisory in portfolio_analysis.batch.admissions:
-                selected_key = (
-                    advisory.task_id,
-                    advisory.work_type_recommendation,
-                )
-                selected_entry = entry_by_pair.get(selected_key)
-                if selected_entry is None:
-                    raise ArchitectPreflightError(
-                        "architect selected a pair outside the revalidated mixed portfolio"
-                    )
-                ordered_admissions.append((*selected_entry, advisory))
-        except Exception as exc:
-            self.events.emit(
-                "architect_wait",
-                analysis_id=None,
-                advisory_artifact_path=None,
-                reasons=["mixed-portfolio architect invocation failed or was unusable"],
-                error=_bounded_error(exc),
-                cached=False,
-            )
-            return PollCycleResult("idle")
-        candidates = tuple(ordered_admissions)
-
-        analysis = portfolio_analysis
-        admitted_task_ids = {
-            advisory.task_id for advisory in analysis.batch.admissions
-        }
-        considerations_by_task: dict[str, list[Any]] = {}
-        for item in analysis.batch.considered:
-            considerations_by_task.setdefault(item.task_id, []).append(item)
-        for task_id, task_considerations in considerations_by_task.items():
-            if task_id in admitted_task_ids:
-                continue
-            matching_entry = next(
-                (
-                    entry
-                    for entry in mixed_portfolio
-                    if entry[2]["task"]["id"] == task_id
-                ),
-                None,
-            )
-            if matching_entry is None:
-                continue
-            task = matching_entry[2]["task"]
-            cache_key = architect_decision_cache_key(
-                task_id=task_id,
-                task_contract_sha256=str(task["task_contract_sha256"]),
-                source_head=plan.source_commit,
-                integration_fingerprint=integration_fingerprint,
-            )
-            cooldown_key = self._cooldown_key(
-                task_id=task_id,
-                task_contract_sha256=str(task["task_contract_sha256"]),
-                source_head=plan.source_commit,
-            )
-            human = next(
-                (
-                    item
-                    for item in task_considerations
-                    if item.disposition == "human_review"
-                ),
-                None,
-            )
-            chosen = human or task_considerations[0]
-            decision = ArchitectPolicyDecision(
-                "human_review" if human is not None else "wait",
-                (chosen.rationale,),
-            )
-            self._record_gate(
-                task_id=task_id,
-                cache_key=cache_key,
-                cooldown_key=cooldown_key,
-                decision=decision,
-                analysis=analysis,
-            )
-            temporary_exclusions.add(task_id)
-
-        # Validate the complete ordered prefix before spawning anything. This is a
-        # policy check, not schema recovery: malformed/incomplete batches have
-        # already failed above and therefore launch zero workers.
-        safe_candidates: list[tuple[Any, Any, Any, ArchitectAdvisory]] = []
-        planned_reservations = list(reservations)
-        for candidate, resume_phase, portfolio_entry, advisory in candidates:
-            task_id = advisory.task_id
-            task = portfolio_entry["task"]
-            effective_surface = effective_candidate_surface(
-                candidate_task_id=task_id,
-                predicted_surface=advisory.predicted_change_surface,
-                reservations=planned_reservations,
-            )
-            conflict = detect_deterministic_conflict(
-                candidate_task_id=task_id,
-                candidate_exclusive_resources=task.get("exclusive_resources") or (),
-                candidate_surface=effective_surface,
-                reservations=planned_reservations,
-            )
-            unknown_surface = assess_unknown_surface_reservations(
-                candidate_task_id=task_id,
-                candidate_exclusive_resources=task.get("exclusive_resources") or (),
-                reservations=planned_reservations,
-            )
-            unconfirmed = unconfirmed_unknown_surface_task_ids(advisory, unknown_surface)
-            gate = evaluate_architect_policy(
-                advisory, min_confidence=self.architect_min_confidence
-            )
+        if deterministic_resume is not None:
+            safe_candidates = [(*deterministic_resume.entry, None)]
+            analysis = None
+        elif decomposition_apply_resume is not None:
+            safe_candidates = [(*decomposition_apply_resume.entry, None)]
+            analysis = None
+        else:
             if (
-                conflict is not None
-                or unknown_surface.blocks_without_architect
-                or unconfirmed
-                or gate.decision != "start"
+                self.architect_invocations_this_poll
+                >= self.max_architect_invocations_per_poll
             ):
-                reasons = []
-                if conflict is not None:
-                    reasons.append(conflict.reason)
-                reasons.extend(unknown_surface.reasons if unknown_surface.blocks_without_architect else ())
-                reasons.extend(
-                    f"the architect did not establish that {task_id} is disjoint "
-                    f"from the unobservable integration surface of {other_id}"
-                    for other_id in unconfirmed
+                self.events.emit(
+                    "scheduler_blocked",
+                    reason="per-poll architect invocation budget is exhausted",
                 )
-                reasons.extend(gate.reasons if gate.decision != "start" else ())
-                if conflict is not None:
-                    self._emit_conflict(task_id, conflict)
+                return PollCycleResult("architect_budget_exhausted")
+            capacity_context = {
+                "safety_ceiling": self.max_workers,
+                "active_workers": len(self.active_assignments),
+                "ready_portfolio_width": len(mixed_portfolio),
+                "execution_provider": self.execution_provider,
+                "provider_available_capacity": "not_observed",
+                "observation_failures": self.consecutive_observation_failures,
+                "source_refresh_failures": self.consecutive_source_refresh_failures,
+                "tasks_in_cooldown": len(self.architect_cooldowns),
+                "health_observation_scope": "current_scheduler_process",
+                "recent_failures": [{"kind": kind, "age_seconds": round(max(0, self.monotonic_clock() - observed), 3)}
+                    for observed, kind in self.capacity_health_failures
+                    if 0 <= self.monotonic_clock() - observed <= 300],
+            }
+            if self.provider_budget is not None:
+                capacity_context["provider_budget_snapshot"] = self._provider_snapshot()
+                capacity_context["provider_topology"] = self.provider_topology.to_dict()
+            portfolio_request = [{**item[2], "capacity_context": capacity_context} for item in mixed_portfolio]
+            admission_limit = min(
+                self.max_workers - len(self.active_assignments),
+                MAX_CANDIDATES_PER_POLL,
+            )
+            self.events.emit(
+                "architect_started",
+                source_head=plan.source_commit,
+                portfolio_size=len(portfolio_request),
+                eligible_pairs=[
+                    {
+                        "task_id": item["task"]["id"],
+                        "work_types": item["eligible_work_types"],
+                    }
+                    for item in portfolio_request
+                ],
+            )
+            self.architect_invocations_this_poll += 1
+            budget_recorded = False
+            try:
+                portfolio_analysis = self.architect_runner(
+                    candidates=portfolio_request,
+                    source_head=plan.source_commit,
+                    reservations=reservations,
+                    scheduler_id=self.scheduler_id,
+                    admission_limit=admission_limit,
+                )
+                if not isinstance(portfolio_analysis, ArchitectBatchAnalysis):
+                    raise ArchitectPreflightError(
+                        "mixed-portfolio architect did not return a batch analysis"
+                    )
+                self._emit_architect_provider_call(
+                    portfolio_analysis, source_head=plan.source_commit
+                )
+                budget_recorded = True
+                desired = portfolio_analysis.batch.desired_active_capacity
+                if desired is not None:
+                    if type(desired) is not int or not 0 <= desired <= self.max_workers:
+                        raise ArchitectPreflightError("architect desired capacity exceeds the safety ceiling")
+                    if not portfolio_analysis.batch.capacity_rationale:
+                        raise ArchitectPreflightError("architect capacity decision omitted its rationale")
+                    if len(portfolio_analysis.batch.admissions) > max(0, desired - len(self.active_assignments)):
+                        raise ArchitectPreflightError("architect admissions exceed its desired active capacity")
+                elif any(item[2]["task"].get("provenance", {}).get("profile") == "thousand" for item in mixed_portfolio):
+                    raise ArchitectPreflightError("thousand profile requires an explicit architect capacity decision")
+                self.events.emit("architect_capacity_decided", analysis_id=portfolio_analysis.analysis_id,
+                    source_head=plan.source_commit, context=capacity_context,
+                    desired_active_capacity=desired, capacity_rationale=portfolio_analysis.batch.capacity_rationale,
+                    advisory_artifact_path=str(portfolio_analysis.artifact_path))
+                entry_by_pair = {
+                    (item[2]["task"]["id"], work_type): item
+                    for item in mixed_portfolio
+                    for work_type in item[2]["eligible_work_types"]
+                }
+                ordered_admissions = []
+                for advisory in portfolio_analysis.batch.admissions:
+                    selected_key = (
+                        advisory.task_id,
+                        advisory.work_type_recommendation,
+                    )
+                    selected_entry = entry_by_pair.get(selected_key)
+                    if selected_entry is None:
+                        raise ArchitectPreflightError(
+                            "architect selected a pair outside the revalidated mixed portfolio"
+                        )
+                    ordered_admissions.append((*selected_entry, advisory))
+            except Exception as exc:
+                if self.provider_budget is not None:
+                    from .provider_budget import ProviderBudgetError
+                    if isinstance(exc, ProviderBudgetError):
+                        raise
+                    if not budget_recorded:
+                        self.provider_budget.observe(invocation_id="architect-attempt:" + uuid.uuid4().hex,
+                            provider=self.provider_topology.architect, role="polling_architect", usage=None,
+                            status="uncertain", evidence="host architect attempt failed without usable invocation receipt")
+                self.events.emit(
+                    "architect_wait",
+                    analysis_id=None,
+                    advisory_artifact_path=None,
+                    reasons=["mixed-portfolio architect invocation failed or was unusable"],
+                    error=_bounded_error(exc),
+                    cached=False,
+                )
+                return PollCycleResult("idle")
+            candidates = tuple(ordered_admissions)
+
+            analysis = portfolio_analysis
+            admitted_task_ids = {
+                advisory.task_id for advisory in analysis.batch.admissions
+            }
+            considerations_by_task: dict[str, list[Any]] = {}
+            for item in analysis.batch.considered:
+                considerations_by_task.setdefault(item.task_id, []).append(item)
+            for task_id, task_considerations in considerations_by_task.items():
+                if task_id in admitted_task_ids:
+                    continue
+                matching_entry = next(
+                    (
+                        entry
+                        for entry in mixed_portfolio
+                        if entry[2]["task"]["id"] == task_id
+                    ),
+                    None,
+                )
+                if matching_entry is None:
+                    continue
+                task = matching_entry[2]["task"]
                 cache_key = architect_decision_cache_key(
                     task_id=task_id,
                     task_contract_sha256=str(task["task_contract_sha256"]),
@@ -2704,55 +3787,161 @@ class PollingOrchestrator:
                     task_contract_sha256=str(task["task_contract_sha256"]),
                     source_head=plan.source_commit,
                 )
+                human = next(
+                    (
+                        item
+                        for item in task_considerations
+                        if item.disposition == "human_review"
+                    ),
+                    None,
+                )
+                chosen = human or task_considerations[0]
+                if desired is not None and human is None and chosen.disposition == "wait":
+                    # Capacity/health waits are reconsidered next admission cycle.
+                    # A graph-bound task WAIT cache would otherwise freeze a zero
+                    # capacity decision forever when no worker can move main.
+                    self.events.emit("architect_capacity_deferred", task_id=task_id,
+                        analysis_id=analysis.analysis_id, desired_active_capacity=desired,
+                        reason=chosen.rationale)
+                    temporary_exclusions.add(task_id)
+                    continue
+                decision = ArchitectPolicyDecision(
+                    "human_review" if human is not None else "wait",
+                    (chosen.rationale,),
+                )
                 self._record_gate(
                     task_id=task_id,
                     cache_key=cache_key,
                     cooldown_key=cooldown_key,
-                    decision=ArchitectPolicyDecision(
-                        "human_review" if gate.decision == "human_review" else "wait",
-                        tuple(reasons) or ("ordered architect admission was not safe",),
-                    ),
+                    decision=decision,
                     analysis=analysis,
                 )
                 temporary_exclusions.add(task_id)
-                self.events.emit(
-                    "architect_batch_candidate_withdrawn",
-                    task_id=task_id,
-                    reasons=reasons,
-                    retained_task_ids=[item[3].task_id for item in safe_candidates],
-                    reason=(
-                        "this admission failed its deterministic gate; later ordered "
-                        "admissions remain independently eligible"
-                    ),
+
+            # Validate the complete ordered prefix before spawning anything. This is a
+            # policy check, not schema recovery: malformed/incomplete batches have
+            # already failed above and therefore launch zero workers.
+            safe_candidates: list[tuple[Any, Any, Any, ArchitectAdvisory]] = []
+            planned_reservations = list(reservations)
+            for candidate, resume_phase, portfolio_entry, advisory in candidates:
+                task_id = advisory.task_id
+                task = portfolio_entry["task"]
+                effective_surface = effective_candidate_surface(
+                    candidate_task_id=task_id,
+                    predicted_surface=advisory.predicted_change_surface,
+                    reservations=planned_reservations,
                 )
-                continue
-            safe_candidates.append((candidate, resume_phase, portfolio_entry, advisory))
-            planned_reservations.append(
-                IntegrationReservation(
-                    task_id=task_id,
-                    workflow_state="architect_batch_planned",
-                    phase=resume_phase,
-                    branch=None,
-                    head=plan.source_commit,
-                    checkout_path=None,
-                    exclusive_resources=_text_tuple(task.get("exclusive_resources") or ()),
-                    predicted_paths=advisory.predicted_change_surface.exact_paths,
-                    actual_paths=(),
-                    unity_serialized_assets=(
-                        advisory.predicted_change_surface.unity_serialized_assets
-                    ),
-                    shared_systems=advisory.predicted_change_surface.shared_systems,
-                    confidence=advisory.confidence,
-                    evidence_type="architect_batch_ordered_prediction",
-                    surface_unknown=False,
-                    local_active=True,
+                conflict = detect_deterministic_conflict(
+                    candidate_task_id=task_id,
+                    candidate_exclusive_resources=task.get("exclusive_resources") or (),
+                    candidate_surface=effective_surface,
+                    reservations=planned_reservations,
                 )
-            )
+                unknown_surface = assess_unknown_surface_reservations(
+                    candidate_task_id=task_id,
+                    candidate_exclusive_resources=task.get("exclusive_resources") or (),
+                    reservations=planned_reservations,
+                )
+                unconfirmed = unconfirmed_unknown_surface_task_ids(advisory, unknown_surface)
+                gate = evaluate_architect_policy(
+                    advisory, min_confidence=self.architect_min_confidence
+                )
+                if (
+                    conflict is not None
+                    or unknown_surface.blocks_without_architect
+                    or unconfirmed
+                    or gate.decision != "start"
+                ):
+                    reasons = []
+                    if conflict is not None:
+                        reasons.append(conflict.reason)
+                    reasons.extend(unknown_surface.reasons if unknown_surface.blocks_without_architect else ())
+                    reasons.extend(
+                        f"the architect did not establish that {task_id} is disjoint "
+                        f"from the unobservable integration surface of {other_id}"
+                        for other_id in unconfirmed
+                    )
+                    reasons.extend(gate.reasons if gate.decision != "start" else ())
+                    if conflict is not None:
+                        self._emit_conflict(task_id, conflict)
+                    cache_key = architect_decision_cache_key(
+                        task_id=task_id,
+                        task_contract_sha256=str(task["task_contract_sha256"]),
+                        source_head=plan.source_commit,
+                        integration_fingerprint=integration_fingerprint,
+                    )
+                    cooldown_key = self._cooldown_key(
+                        task_id=task_id,
+                        task_contract_sha256=str(task["task_contract_sha256"]),
+                        source_head=plan.source_commit,
+                    )
+                    self._record_gate(
+                        task_id=task_id,
+                        cache_key=cache_key,
+                        cooldown_key=cooldown_key,
+                        decision=ArchitectPolicyDecision(
+                            "human_review" if gate.decision == "human_review" else "wait",
+                            tuple(reasons) or ("ordered architect admission was not safe",),
+                        ),
+                        analysis=analysis,
+                    )
+                    temporary_exclusions.add(task_id)
+                    self.events.emit(
+                        "architect_batch_candidate_withdrawn",
+                        task_id=task_id,
+                        reasons=reasons,
+                        retained_task_ids=[item[3].task_id for item in safe_candidates],
+                        reason=(
+                            "this admission failed its deterministic gate; later ordered "
+                            "admissions remain independently eligible"
+                        ),
+                    )
+                    continue
+                safe_candidates.append((candidate, resume_phase, portfolio_entry, advisory))
+                planned_reservations.append(
+                    IntegrationReservation(
+                        task_id=task_id,
+                        workflow_state="architect_batch_planned",
+                        phase=resume_phase,
+                        branch=None,
+                        head=plan.source_commit,
+                        checkout_path=None,
+                        exclusive_resources=_text_tuple(task.get("exclusive_resources") or ()),
+                        predicted_paths=advisory.predicted_change_surface.exact_paths,
+                        actual_paths=(),
+                        unity_serialized_assets=(
+                            advisory.predicted_change_surface.unity_serialized_assets
+                        ),
+                        shared_systems=advisory.predicted_change_surface.shared_systems,
+                        confidence=advisory.confidence,
+                        evidence_type="architect_batch_ordered_prediction",
+                        surface_unknown=False,
+                        local_active=True,
+                    )
+                )
 
         last_launch: PollCycleResult | None = None
+        # The committed-path inventory is a fact of this exact commit, so it is
+        # served from the commit snapshot and shared by every admission at that
+        # commit instead of being rebuilt for each architect batch.
+        admission_path_probe = self._admission_snapshot(
+            plan.source_commit
+        ).committed_path_probe()
         considered: set[str] = set()
         for candidate, resume_phase, _portfolio_entry, advisory in safe_candidates:
-            task_id = advisory.task_id
+            task_id = _portfolio_entry["task"]["id"]
+            if advisory is not None:
+                work_type = advisory.work_type_recommendation
+                surface = advisory.predicted_change_surface
+                confidence = advisory.confidence
+            elif deterministic_resume is not None:
+                work_type = "implementation"
+                surface = deterministic_resume.surface
+                confidence = 1.0
+            else:
+                work_type = "decomposition"
+                surface = decomposition_apply_resume.surface
+                confidence = 1.0
             if task_id in considered:
                 self.events.emit(
                     "scheduler_blocked",
@@ -2774,7 +3963,7 @@ class PollingOrchestrator:
             # Stage 2 immediately before every launch, and throw away each Issue
             # cache after use because the newly spawned child can claim an Issue.
             try:
-                refresh = dict(self.source_refresher(self.source))
+                refresh = self.source_refresh_for_step(force=True)
                 refreshed_head = str(refresh.get("after") or "")
                 if refreshed_head != plan.source_commit:
                     raise PollingOrchestratorError(
@@ -2788,6 +3977,9 @@ class PollingOrchestrator:
                         GhIssueBackend(source_root=self.source)
                     )
                     fresh_budget = IssueConsistencyRetryBudget()
+                    gate_admission = getattr(self, "integration_gate_admission", None)
+                    if gate_admission is not None:
+                        fresh_backend = gate_admission.prepare_backend(fresh_backend)
                 fresh_reservations = self._integration_reservations(
                     backend=fresh_backend,
                     consistency_retry_budget=fresh_budget,
@@ -2847,19 +4039,17 @@ class PollingOrchestrator:
                         "Stage 2 returned an unusable decision during batch revalidation: "
                         f"{fresh_plan.decision}"
                     )
-                fresh_entries = self._mixed_portfolio(
-                    fresh_plan, self._ordered_candidates(fresh_plan)
-                )
-                fresh_entry = next(
-                    (
-                        entry
-                        for entry in fresh_entries
-                        if entry[2]["task"]["id"] == task_id
-                        and advisory.work_type_recommendation
-                        in entry[2]["eligible_work_types"]
-                    ),
-                    None,
-                )
+                if (
+                    self.admission_allowlist is not None
+                    and task_id not in self.admission_allowlist
+                ):
+                    fresh_entry = None
+                else:
+                    fresh_entry = self._revalidate_admitted_pair(
+                        fresh_plan,
+                        task_id=task_id,
+                        work_type=work_type,
+                    )
             except Exception as exc:
                 self.events.emit(
                     "architect_batch_discarded",
@@ -2873,7 +4063,7 @@ class PollingOrchestrator:
                 self.events.emit(
                     "architect_batch_candidate_withdrawn",
                     task_id=task_id,
-                    work_type=advisory.work_type_recommendation,
+                    work_type=work_type,
                     reason="candidate pair was no longer admissible in fresh Stage 2",
                 )
                 temporary_exclusions.add(task_id)
@@ -2882,7 +4072,7 @@ class PollingOrchestrator:
             task = portfolio_entry["task"]
             effective_surface = effective_candidate_surface(
                 candidate_task_id=task_id,
-                predicted_surface=advisory.predicted_change_surface,
+                predicted_surface=surface,
                 reservations=fresh_reservations,
             )
             conflict = detect_deterministic_conflict(
@@ -2896,14 +4086,16 @@ class PollingOrchestrator:
                 candidate_exclusive_resources=task.get("exclusive_resources") or (),
                 reservations=fresh_reservations,
             )
-            unconfirmed = unconfirmed_unknown_surface_task_ids(advisory, unknown_surface)
+            unconfirmed = (unconfirmed_unknown_surface_task_ids(advisory, unknown_surface)
+                           if advisory else (*unknown_surface.blocking_task_ids,
+                                             *unknown_surface.architect_confirmable_task_ids))
             if conflict is not None or unknown_surface.blocks_without_architect or unconfirmed:
                 if conflict is not None:
                     self._emit_conflict(task_id, conflict)
                 self.events.emit(
                     "architect_batch_candidate_withdrawn",
                     task_id=task_id,
-                    work_type=advisory.work_type_recommendation,
+                    work_type=work_type,
                     reason="fresh integration reservations no longer permit launch",
                     blocking_task_ids=list(
                         unknown_surface.blocking_task_ids or unconfirmed
@@ -2912,19 +4104,47 @@ class PollingOrchestrator:
                 temporary_exclusions.add(task_id)
                 continue
 
-            self.events.emit(
-                "architect_completed",
-                task_id=task_id,
-                analysis_id=analysis.analysis_id,
-                advisory_artifact_path=str(analysis.artifact_path),
-                integration_risk=advisory.integration_risk,
-                parallel_recommendation=advisory.parallel_recommendation,
-                work_type_recommendation=advisory.work_type_recommendation,
-                confidence=advisory.confidence,
-                execution_recommendation=advisory.execution_recommendation.to_dict(),
-                design_advice=advisory.design_advice.to_dict(),
-            )
-            worker_id = f"polling-worker-{task_id.casefold()}-{uuid.uuid4().hex[:12]}"
+            if deterministic_resume is not None:
+                fresh_resume = prove_resume(gate_admission, (fresh_entry,),
+                    source_head=fresh_plan.source_commit, refresh=refresh, reservations=fresh_reservations)
+                if fresh_resume is None or fresh_resume.evidence != deterministic_resume.evidence:
+                    self.events.emit("integration_gate_resume_withdrawn", task_id=task_id,
+                                     reason="current durable admission proof changed before launch")
+                    continue
+            elif decomposition_apply_resume is not None:
+                fresh_decomposition_apply = self._prove_decomposition_apply_resume(
+                    (fresh_entry,),
+                    source_head=fresh_plan.source_commit,
+                    reservations=fresh_reservations,
+                )
+                if (
+                    fresh_decomposition_apply is None
+                    or fresh_decomposition_apply.evidence
+                    != decomposition_apply_resume.evidence
+                ):
+                    self.events.emit(
+                        "decomposition_apply_resume_withdrawn",
+                        task_id=task_id,
+                        reason=(
+                            "approved decomposition-apply authority or reservation "
+                            "proof changed before launch"
+                        ),
+                    )
+                    continue
+            else:
+                self.events.emit(
+                    "architect_completed",
+                    task_id=task_id,
+                    analysis_id=analysis.analysis_id,
+                    advisory_artifact_path=str(analysis.artifact_path) if analysis else None,
+                    integration_risk=advisory.integration_risk,
+                    parallel_recommendation=advisory.parallel_recommendation,
+                    work_type_recommendation=work_type,
+                    confidence=advisory.confidence,
+                    execution_recommendation=advisory.execution_recommendation.to_dict(),
+                    design_advice=advisory.design_advice.to_dict(),
+                )
+            worker_id = self._checkout_worker_slot()
             worker_run_id = f"scheduler-{task_id.casefold()}-{uuid.uuid4().hex[:16]}"
             worker_output_root = (
                 self.checkout_root / ".task-review-agent" / "outputs"
@@ -2961,7 +4181,7 @@ class PollingOrchestrator:
                 return PollCycleResult(
                     "worker_launch_failed", task_id=task_id, fatal=True
                 )
-            if advisory.work_type_recommendation == "decomposition":
+            if work_type == "decomposition":
                 command = build_decomposition_worker_command(
                     task_id=task_id,
                     worker_id=worker_id,
@@ -2972,55 +4192,105 @@ class PollingOrchestrator:
                     admission_source_head=plan.source_commit,
                     task_contract_sha256=task_contract_sha256,
                     admission_issue_number=expected_issue_number,
+                    # The polling scheduler alone enables pooling, exactly as it
+                    # does for the ExecutionCrew pool; direct launches stay ephemeral.
+                    enable_session_pool=True,
+                    provider_allowlist=self.provider_allowlist,
+                    all_codex=self.provider_topology is None and self.execution_provider == "codex",
+                    decomposition_strategy=(self.provider_topology.decomposition_strategy
+                                            if self.provider_topology is not None else None),
                 )
                 route_event = {
                     "work_type": "decomposition",
-                    "execution_provider": "round_robin_codex_claude",
+                    "execution_provider": (
+                        "independent_codex_roles" if self.execution_provider == "codex" else
+                        self.provider_allowlist[0]
+                        if self.provider_allowlist is not None and len(self.provider_allowlist) == 1
+                        else "round_robin_codex_claude"
+                    ),
+                    "decomposition_mode": (
+                        "d1b1" if self.execution_provider != "codex"
+                        and self.provider_allowlist is not None and len(self.provider_allowlist) == 1
+                        else "round_robin_d1b2"
+                    ),
                     "capability_tier": "deep",
-                    "route_reason": "architect_selected_eligible_decomposition",
+                    "route_reason": (
+                        "approved_decomposition_apply_resume"
+                        if decomposition_apply_resume is not None
+                        else "architect_selected_eligible_decomposition"
+                    ),
                 }
+                if self.provider_topology is not None:
+                    route_event.update(execution_provider=self.provider_topology.decomposition_strategy,
+                                       decomposition_mode="round_robin_d1b2")
+                    self.provider_budget.register_decomposition_worker(worker_run_id=worker_run_id,
+                        task_id=task_id,contract_sha256=task_contract_sha256)
+                    command = (*command,"--provider-budget-state",str(self.provider_budget.path))
             else:
-                try:
-                    policy = self.routing_policy_loader()
-                    if not isinstance(policy, ExecutionRoutingPolicy):
-                        raise ExecutionRoutingError(
-                            "routing policy loader returned an invalid policy"
+                if deterministic_resume is not None:
+                    route = fresh_resume.route
+                else:
+                    try:
+                        policy = self.routing_policy_loader()
+                        if not isinstance(policy, ExecutionRoutingPolicy):
+                            raise ExecutionRoutingError(
+                                "routing policy loader returned an invalid policy"
+                            )
+                        policy = restrict_execution_routing_policy(policy, self.provider_allowlist)
+                        rigor = resolve_task_rigor(
+                            advisory.execution_recommendation,
+                            task=task,
+                            predicted_change_surface=effective_surface,
+                            committed_path_probe=admission_path_probe,
                         )
-                    route = resolve_execution_route(
-                        advisory.execution_recommendation,
-                        policy,
-                    )
-                except (ExecutionRoutingError, TypeError, ValueError) as exc:
-                    self.events.emit(
-                        "execution_route_wait",
-                        task_id=task_id,
-                        reason=(
-                            "deterministic execution routing policy was unusable; "
-                            "no worker was launched"
-                        ),
-                        error=_bounded_error(exc),
-                        capability_tier=(
-                            advisory.execution_recommendation.capability_tier
-                        ),
-                        provider_preference=(
-                            advisory.execution_recommendation.provider_preference
-                        ),
-                    )
-                    temporary_exclusions.add(task_id)
-                    continue
+                        route = self.resolve_task_route(advisory.execution_recommendation, policy,
+                            rigor=rigor, task_id=task_id, contract_sha256=task_contract_sha256)
+                    except (ExecutionRoutingError, TypeError, ValueError) as exc:
+                        self.events.emit(
+                            "execution_route_wait",
+                            task_id=task_id,
+                            reason=(
+                                "deterministic execution routing policy was unusable; "
+                                "no worker was launched"
+                            ),
+                            error=_bounded_error(exc),
+                            capability_tier=(
+                                advisory.execution_recommendation.capability_tier
+                            ),
+                            provider_preference=(
+                                advisory.execution_recommendation.provider_preference
+                            ),
+                        )
+                        temporary_exclusions.add(task_id)
+                        continue
+                profile_path = None
+                if self.provider_topology is not None:
+                    from .provider_profiles import crew_role_routes
+                    profile_path = self.provider_budget.worker_profile(worker_run_id=worker_run_id,
+                        task_id=task_id, contract_sha256=task_contract_sha256, provider=route.execution_provider,
+                        role_routes=crew_role_routes(self.provider_topology, route.execution_provider,
+                            self.routing_policy_loader().for_tier(route.capability_tier)))
                 command = build_worker_command(
                     task_id=task_id,
                     worker_id=worker_id,
                     source=self.source,
                     checkout_root=self.checkout_root,
                     route=route,
+                    provider_allowlist=self.provider_allowlist,
+                    supervisor_provider=(self.provider_topology.supervisor_for(route.execution_provider)
+                                         if self.provider_topology is not None else self.supervisor_provider),
+                    provider_assignment_path=profile_path,
                     run_id=worker_run_id,
                     admission_source_head=plan.source_commit,
                     task_contract_sha256=task_contract_sha256,
                     admission_issue_number=expected_issue_number,
                 )
                 route_event = {"work_type": "implementation", **route.to_event_dict()}
+            if self.provider_topology is not None:
+                route_event["provider_topology"] = self.provider_topology.to_dict()
             launch_started_utc = utc_now()
+            if self.provider_allowlist is not None:
+                route_event["provider_allowlist"] = list(self.provider_allowlist)
             try:
                 process_kwargs: dict[str, Any] = {
                     "cwd": str(self.source),
@@ -3030,6 +4300,9 @@ class PollingOrchestrator:
                     process_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
                 else:
                     process_kwargs["start_new_session"] = True
+                if work_type == "implementation" and advisory is not None and gate_admission is not None:
+                    remember_route(self, task=task, source_head=plan.source_commit, candidate=candidate,
+                                   advisory=advisory, route=route, worker_id=worker_id, run_id=worker_run_id)
                 process = self.process_factory(command, **process_kwargs)
             except Exception as exc:
                 self.events.emit(
@@ -3050,9 +4323,9 @@ class PollingOrchestrator:
                 process=process,
                 checkout_path=self.checkout_root / task_id,
                 exclusive_resources=_text_tuple(resources),
-                architect_surface=advisory.predicted_change_surface,
-                architect_confidence=advisory.confidence,
-                advisory_artifact_path=analysis.artifact_path,
+                architect_surface=surface,
+                architect_confidence=confidence,
+                advisory_artifact_path=analysis.artifact_path if analysis else None,
                 start_time_utc=launch_started_utc,
                 run_id=worker_run_id,
                 result_artifact_path=(
@@ -3066,13 +4339,35 @@ class PollingOrchestrator:
                 issue_number=expected_issue_number,
             )
             self.active_assignments[task_id] = assignment
+            self.worker_launches_total += 1
+            if self._worker_launch_task_ids_this_poll is not None:
+                self._worker_launch_task_ids_this_poll.append(task_id)
+            self._watch_worker_return(assignment)
+            if deterministic_resume is not None:
+                self.events.emit("integration_gate_resume_admitted", task_id=task_id,
+                    resume_phase=resume_phase, architect_invocations=0, advisory_artifact_path=None,
+                    reason="current gate head has exact downstream authority and unchanged established route",
+                    evidence=fresh_resume.evidence, **route.to_event_dict())
+            elif decomposition_apply_resume is not None:
+                self.events.emit(
+                    "decomposition_apply_resume_admitted",
+                    task_id=task_id,
+                    resume_phase=resume_phase,
+                    architect_invocations=0,
+                    advisory_artifact_path=None,
+                    reason=(
+                        "the approved plan fixes the work type; the host worker will "
+                        "re-prove the plan, current main, workflow lease, and global D1C claim"
+                    ),
+                    evidence=fresh_decomposition_apply.evidence,
+                )
             self.events.emit(
                 "worker_launched",
                 task_id=task_id,
                 worker_id=worker_id,
                 pid=assignment.pid,
                 checkout_path=str(assignment.checkout_path),
-                advisory_artifact_path=str(analysis.artifact_path),
+                advisory_artifact_path=str(analysis.artifact_path) if analysis else None,
                 run_id=worker_run_id,
                 result_artifact_path=str(assignment.result_artifact_path),
                 argv=list(command),
@@ -3094,6 +4389,44 @@ class PollingOrchestrator:
         )
         return PollCycleResult("idle")
 
+    def _provider_snapshot(self) -> dict:
+        with self.provider_budget._lock():
+            state = self.provider_budget._load()
+        active = {p: [] for p in self.provider_topology.provider_allowlist}
+        for task_id, worker in self.active_assignments.items():
+            registered = state["workers"].get(worker.run_id)
+            if registered is not None:
+                active[registered["provider"]].append(task_id)
+        warm = None
+        origin = _run_git(self.source,"remote","get-url","origin")
+        if origin.returncode == 0:
+            from .provider_budget import compatible_crew_sessions
+            repository = origin.stdout.decode("utf-8").strip() if isinstance(origin.stdout,bytes) else origin.stdout.strip()
+            warm = compatible_crew_sessions(checkout_root=self.checkout_root,repository=repository,
+                topology=self.provider_topology,policy=self.routing_policy_loader(),compose_project="nosafecircle")
+        return self.provider_budget.snapshot(active=active,warm=warm)
+
+    def resolve_task_route(self, recommendation, policy, *, rigor, task_id, contract_sha256):
+        if self.provider_topology is None:
+            return resolve_execution_route(recommendation, policy, rigor=rigor)
+        from dataclasses import replace
+        from .provider_profiles import crew_role_routes
+        tier = policy.for_tier(rigor.effective_capability_tier)
+        # Every required review role must pass the host safety allowlist before assignment.
+        for provider in self.provider_topology.provider_allowlist:
+            crew_role_routes(self.provider_topology, provider, tier)
+        snapshot = self._provider_snapshot()
+        if self.provider_topology.mixed and any(row["available"] is False for row in snapshot["providers"].values()):
+            raise ExecutionRoutingError("mixed profile requires an available implementer and independent reviewer")
+        assignment = self.provider_budget.assign(task_id=task_id, contract_sha256=contract_sha256,
+            recommendation=recommendation, snapshot=snapshot)
+        provider = assignment["provider"]
+        route = resolve_execution_route(replace(recommendation,
+            provider_preference="openai" if provider == "codex" else "claude"), policy, rigor=rigor)
+        return replace(route, provider_preference=recommendation.provider_preference,
+            preference_honored=recommendation.provider_preference in ("no_preference", "openai" if provider == "codex" else "claude"),
+            route_reason=assignment["reason"], supervisor_model=route.execution_model)
+
     def poll_capacity_batch(self) -> PollCycleResult:
         """Fill available local capacity within one bounded scheduling poll.
 
@@ -3103,17 +4436,19 @@ class PollingOrchestrator:
         """
 
         self.architect_invocations_this_poll = 0
-        active_before = set(self.active_assignments)
-        reported_cycle = self.poll_once(reset_architect_budget=False)
-        launched_task_ids = [
-            task_id
-            for task_id in self.active_assignments
-            if task_id not in active_before
-        ]
+        launches_before = self.worker_launches_total
+        self.worker_launches_this_poll = 0
+        self._worker_launch_task_ids_this_poll = []
+        try:
+            reported_cycle = self.poll_once(reset_architect_budget=False)
+        finally:
+            launched_task_ids = list(self._worker_launch_task_ids_this_poll)
+            self._worker_launch_task_ids_this_poll = None
+            self.worker_launches_this_poll = self.worker_launches_total - launches_before
         self.events.emit(
             "poll_capacity_batch_completed",
             launched_task_ids=launched_task_ids,
-            launched_count=len(launched_task_ids),
+            launched_count=self.worker_launches_this_poll,
             active_worker_count=len(self.active_assignments),
             architect_invocations=self.architect_invocations_this_poll,
             result_status=reported_cycle.status,
@@ -3135,6 +4470,114 @@ class PollingOrchestrator:
             )
         ]
 
+    def start_activity_listener(self) -> bool:
+        """Start the Issue/worker wake listener once for an owning run loop.
+
+        ``poll_once`` and ``poll_capacity_batch`` intentionally do not manage this
+        lifecycle.  A caller that owns a multi-cycle loop starts it before the
+        first possible wait and closes it in a ``finally`` boundary.
+        """
+
+        if (
+            self._activity_listener_start_attempted
+            and not self._activity_listener_closed
+        ):
+            return (
+                self.architect_wake_listener is not None
+            )
+        if self._activity_listener_closed:
+            self._activity_listener_start_attempted = False
+            self._activity_listener_closed = False
+        self._activity_listener_start_attempted = True
+        try:
+            listener = LocalArchitectWakeListener(
+                self.source,
+                scheduler_id=self.scheduler_id,
+                wake_event=self.worker_completion_event,
+                event_recorder=self.events.emit,
+                event_journal_path=self.events.journal_path,
+                event_schema_version=SCHEDULER_SCHEMA_VERSION,
+            )
+            listener.start()
+            self.architect_wake_listener = listener
+            return True
+        except OSError as exc:
+            self.architect_wake_listener = None
+            self.events.emit(
+                "architect_wake_listener_unavailable",
+                reason=(
+                    "local Issue-state notifications are unavailable; the bounded "
+                    "fallback refresh remains active"
+                ),
+                error=_bounded_error(exc),
+            )
+            return False
+
+    def close_activity_listener(self) -> None:
+        """Close the owned activity listener at most once."""
+
+        if self._activity_listener_closed:
+            return
+        self._activity_listener_closed = True
+        listener = self.architect_wake_listener
+        self.architect_wake_listener = None
+        if listener is not None:
+            listener.close()
+        gate_admission = getattr(self, "integration_gate_admission", None)
+        if gate_admission is not None:
+            gate_admission.close()
+
+    def reconcile_interrupted_architect_session(self, *, lock: SchedulerLock) -> bool:
+        """Retire a prior process's uncertain architect call under scheduler lock.
+
+        Production uses ``ArchitectSessionOwner``.  Tests and bounded adapters
+        may inject a plain callable with no persistent lifecycle, in which case
+        there is nothing to reconcile.
+        """
+
+        if type(lock) is not SchedulerLock or not lock.is_held:
+            raise PollingOrchestratorError(
+                "architect reconciliation requires the exact acquired scheduler lock"
+            )
+        reconcile = getattr(
+            self.architect_runner,
+            "reconcile_interrupted_assignment",
+            None,
+        )
+        if reconcile is None:
+            return False
+        if not callable(reconcile):
+            raise PollingOrchestratorError(
+                "architect reconciliation boundary must be callable"
+            )
+        from Pipeline.TaskReviewAgent.architect_session_pool import CodexArchitectSessionOwner
+        transition = (
+            reconcile(lock=lock)
+            if isinstance(self.architect_runner, CodexArchitectSessionOwner)
+            else reconcile()
+        )
+        if transition is None:
+            return False
+        if isinstance(self.architect_runner, CodexArchitectSessionOwner):
+            self.events.emit(
+                "architect_session_reconciled", scheduler_id=self.scheduler_id,
+                provider_identifier=transition.provider_identifier,
+                role=transition.role, session_id=transition.session_id,
+                assignment_id=transition.assignment_id,
+                retirement_reason=transition.retirement_reason,
+            )
+            return True
+        self.events.emit(
+            "architect_session_reconciled",
+            scheduler_id=self.scheduler_id,
+            provider_identifier=transition.state.provider_identifier,
+            role=transition.state.role,
+            session_id=transition.state.session_id,
+            assignment_id=transition.telemetry.assignment_id,
+            retirement_reason=transition.state.retirement_reason,
+        )
+        return True
+
     def run(
         self,
         *,
@@ -3152,6 +4595,12 @@ class PollingOrchestrator:
                 lock_path=str(lock.path),
             )
             return 2
+        try:
+            self.reconcile_interrupted_architect_session(lock=lock)
+        except BaseException:
+            lock.release()
+            raise
+        self.start_activity_listener()
         self.events.emit(
             "scheduler_started",
             scheduler_id=self.scheduler_id,
@@ -3167,9 +4616,6 @@ class PollingOrchestrator:
             ),
             architect_max_invocations_per_poll=(
                 self.max_architect_invocations_per_poll
-            ),
-            architect_max_invocations_per_session=(
-                self.max_architect_invocations_per_session
             ),
             architect_min_reanalysis_seconds=(
                 self.architect_min_reanalysis_seconds
@@ -3191,14 +4637,14 @@ class PollingOrchestrator:
                     exit_code = 2
                     stop_reason = cycle.status
                     if self.active_assignments:
-                        drained = self._drain_active_workers(poll_seconds=poll_seconds)
+                        drained = self.drain_active_workers(poll_seconds=poll_seconds)
                         if not drained:
                             stop_reason = f"{cycle.status}_drain_timeout"
                     break
                 if once:
                     stop_reason = cycle.status
                     break
-                time.sleep(poll_seconds)
+                self._wait_for_architect_activity(poll_seconds)
         except KeyboardInterrupt:
             if exit_code:
                 stop_reason = f"{stop_reason}_drain_interrupted"
@@ -3206,6 +4652,7 @@ class PollingOrchestrator:
                 stop_reason = "keyboard_interrupt"
                 exit_code = 0
         finally:
+            self.close_activity_listener()
             children = self.active_child_summary()
             self.events.emit(
                 "scheduler_stopped",
@@ -3298,6 +4745,7 @@ def build_parser() -> argparse.ArgumentParser:
             "architect preferences are still honored when policy-allowed."
         ),
     )
+    parser.add_argument("--provider-allowlist", type=parse_provider_allowlist)
     parser.add_argument("--model")
     parser.add_argument(
         "--max-turns",
@@ -3325,15 +4773,6 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Bound the paid architect calls one poll may spend before the "
             "remaining candidates wait for the next poll."
-        ),
-    )
-    parser.add_argument(
-        "--architect-max-invocations-per-session",
-        type=_positive_int,
-        default=DEFAULT_MAX_ARCHITECT_INVOCATIONS_PER_SESSION,
-        help=(
-            "Hard cumulative paid architect-call cap for this scheduler session. "
-            "Exhaustion stops new admissions with a non-success result."
         ),
     )
     parser.add_argument(
@@ -3370,41 +4809,218 @@ def default_scheduler_id() -> str:
     return f"polling-orchestrator-{uuid.uuid4().hex[:16]}"
 
 
+@dataclass(frozen=True)
+class ProductionOrchestratorBinding:
+    """One production scheduler, its singleton lock, and durable event sink."""
+
+    source: Path
+    checkout_root: Path
+    operational_root: Path
+    scheduler_id: str
+    events: JsonEventEmitter
+    orchestrator: PollingOrchestrator
+    lock: SchedulerLock
+
+
+def build_production_orchestrator(
+    *,
+    source: Path | str,
+    checkout_root: Path | str | None = None,
+    scheduler_id: str | None = None,
+    execution_provider: str | None = None,
+    provider_allowlist: tuple[str, ...] | None = None,
+    supervisor_provider: str | None = None,
+    provider_topology: Any = None,
+    model: str | None = None,
+    max_turns: int | None = None,
+    max_workers: int = DEFAULT_MAX_WORKERS,
+    architect_provider: str = "claude",
+    architect_model: str | None = None,
+    architect_max_turns: int = DEFAULT_ARCHITECT_MAX_TURNS,
+    architect_min_confidence: float = DEFAULT_ARCHITECT_MIN_CONFIDENCE,
+    max_architect_invocations_per_poll: int = (
+        DEFAULT_MAX_ARCHITECT_INVOCATIONS_PER_POLL
+    ),
+    architect_min_reanalysis_seconds: float = (
+        DEFAULT_ARCHITECT_MIN_REANALYSIS_SECONDS
+    ),
+    max_consecutive_observation_failures: int = (
+        DEFAULT_MAX_CONSECUTIVE_OBSERVATION_FAILURES
+    ),
+    fatal_drain_seconds: float = DEFAULT_FATAL_DRAIN_SECONDS,
+    excluded_task_ids: Sequence[str] = (),
+    dry_run: bool = False,
+    event_emitter_observer: Callable[[JsonEventEmitter], None] | None = None,
+    event_journal_path: Path | str | None = None,
+) -> ProductionOrchestratorBinding:
+    """Build the canonical production scheduler composition without running it.
+
+    Callers own the returned lock/listener lifecycle.  Keeping construction
+    here ensures the polling CLI and autonomous graph runner use the same
+    architect transport, persistent session owner, journal, worker-safety
+    limits, and checkout-root singleton lock.
+
+    ``event_emitter_observer`` lets a CLI retain the durable journal before
+    later construction can fail, preserving initialization-failure reporting.
+    """
+
+    if provider_topology is not None:
+        from .provider_profiles import preflight_topology
+        preflight_topology(provider_topology)
+        if (architect_provider != provider_topology.architect or provider_allowlist != provider_topology.provider_allowlist
+                or supervisor_provider != provider_topology.architect
+                or execution_provider != (None if provider_topology.mixed else provider_topology.architect)):
+            raise PollingOrchestratorError("composition arguments differ from resolved topology")
+    provider_allowlist = validate_provider_allowlist(provider_allowlist)
+    selected_supervisor = resolve_supervisor_provider(supervisor_provider)
+    require_permitted_provider(architect_provider, provider_allowlist, role="architect")
+    require_permitted_provider(selected_supervisor, provider_allowlist, role="supervisor")
+    if execution_provider is not None:
+        require_permitted_provider(execution_provider, provider_allowlist, role="execution")
+    resolved_source = repo_root(Path(source).resolve())
+    resolved_checkout_root = Path(checkout_root or default_checkout_root())
+    resolved_scheduler_id = (
+        default_scheduler_id()
+        if scheduler_id is None
+        else str(scheduler_id).strip()
+    )
+    if not resolved_scheduler_id:
+        raise PollingOrchestratorError("scheduler_id must be non-empty")
+    operational_root = (
+        resolved_source
+        / "Pipeline"
+        / "ArchitectureReview"
+        / "outputs"
+        / "orchestrator"
+    )
+    artifact_root = operational_root / "architect"
+    journal_path = (
+        operational_root / "events" / f"{resolved_scheduler_id}.jsonl"
+        if event_journal_path is None
+        else Path(event_journal_path)
+    )
+    if not journal_path.is_absolute():
+        raise PollingOrchestratorError("event_journal_path must be absolute")
+    events = JsonEventEmitter(journal_path=journal_path)
+    if event_emitter_observer is not None:
+        if not callable(event_emitter_observer):
+            raise PollingOrchestratorError(
+                "event_emitter_observer must be callable"
+            )
+        event_emitter_observer(events)
+    from Pipeline.TaskReviewAgent.supervisor_session_pool import (
+        _repository_identity, codex_resume_activation_from_environment,
+    )
+    architect_resume_activation = (
+        codex_resume_activation_from_environment() if architect_provider == "codex" else None
+    )
+    architect_transport = DockerArchitectRunner(
+        source=resolved_source,
+        artifact_root=artifact_root,
+        provider=architect_provider,
+        model=architect_model,
+        max_turns=architect_max_turns,
+        resume_activation=architect_resume_activation,
+    )
+    architect_provider_identifier = (
+        "claude-code"
+        if architect_transport.provider == "claude"
+        else "openai-codex"
+    )
+    if architect_transport.provider == "codex":
+        from Pipeline.TaskReviewAgent.architect_session_pool import CodexArchitectSessionOwner
+        architect_runner = CodexArchitectSessionOwner(
+            architect_runner=architect_transport,
+            compatibility=architect_transport.session_compatibility,
+            source=resolved_source, checkout_root=resolved_checkout_root,
+            repository_identity=_repository_identity(resolved_source),
+            compose_project=architect_transport.compose_project,
+            resume_activation=architect_resume_activation,
+            scheduler_lock_type=SchedulerLock,
+            scheduler_lock_path=scheduler_lock_path(checkout_root=resolved_checkout_root),
+        )
+    else:
+        architect_runner = ArchitectSessionOwner(
+            architect_runner=architect_transport,
+            provider_identifier=architect_provider_identifier,
+            role=ARCHITECT_SESSION_ROLE,
+            store=JsonArchitectSessionStore(
+                operational_root
+                / "architect-sessions"
+                / architect_provider_identifier
+                / ARCHITECT_SESSION_ROLE
+            ),
+            compatibility=architect_transport.session_compatibility,
+        )
+    from .provider_budget import ProviderBudgetLedger
+    orchestrator = PollingOrchestrator(
+        source=resolved_source,
+        checkout_root=resolved_checkout_root,
+        scheduler_id=resolved_scheduler_id,
+        execution_provider=execution_provider,
+        provider_allowlist=provider_allowlist,
+        supervisor_provider=selected_supervisor,
+        provider_topology=provider_topology,
+        provider_budget=(ProviderBudgetLedger(
+            journal_path.parent / "provider-budget.json", topology=provider_topology,
+            repository=_repository_identity(resolved_source), run_id=resolved_scheduler_id)
+            if provider_topology is not None else None),
+        model=model,
+        max_turns=max_turns,
+        max_workers=max_workers,
+        architect_min_confidence=architect_min_confidence,
+        architect_runner=architect_runner,
+        max_architect_invocations_per_poll=max_architect_invocations_per_poll,
+        architect_min_reanalysis_seconds=architect_min_reanalysis_seconds,
+        max_consecutive_observation_failures=(
+            max_consecutive_observation_failures
+        ),
+        fatal_drain_seconds=fatal_drain_seconds,
+        event_emitter=events,
+        excluded_task_ids=excluded_task_ids,
+        dry_run=dry_run,
+    )
+    from Pipeline.TaskReviewAgent.integration_window import GateAdmission
+    orchestrator.integration_gate_admission = GateAdmission(orchestrator)
+    lock = SchedulerLock(
+        scheduler_lock_path(
+            checkout_root=resolved_checkout_root,
+            source=resolved_source,
+        )
+    )
+    return ProductionOrchestratorBinding(
+        source=resolved_source,
+        checkout_root=resolved_checkout_root,
+        operational_root=operational_root,
+        scheduler_id=resolved_scheduler_id,
+        events=events,
+        orchestrator=orchestrator,
+        lock=lock,
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     events = JsonEventEmitter()
+
+    def observe_events(value: JsonEventEmitter) -> None:
+        nonlocal events
+        events = value
+
     try:
-        source = repo_root(args.source.resolve())
-        checkout_root = Path(args.checkout_root or default_checkout_root())
-        operational_root = (
-            source / "Pipeline" / "ArchitectureReview" / "outputs" / "orchestrator"
-        )
-        artifact_root = operational_root / "architect"
-        scheduler_id = default_scheduler_id()
-        events = JsonEventEmitter(
-            journal_path=operational_root / "events" / f"{scheduler_id}.jsonl"
-        )
-        architect_runner = DockerArchitectRunner(
-            source=source,
-            artifact_root=artifact_root,
-            provider=args.architect_provider,
-            model=args.architect_model,
-            max_turns=args.architect_max_turns,
-        )
-        orchestrator = PollingOrchestrator(
-            source=source,
-            checkout_root=checkout_root,
-            scheduler_id=scheduler_id,
+        production = build_production_orchestrator(
+            source=args.source,
+            checkout_root=args.checkout_root,
             execution_provider=args.execution_provider,
+            provider_allowlist=args.provider_allowlist,
             model=args.model,
             max_turns=args.max_turns,
             max_workers=args.max_workers,
+            architect_provider=args.architect_provider,
+            architect_model=args.architect_model,
+            architect_max_turns=args.architect_max_turns,
             architect_min_confidence=args.architect_min_confidence,
-            architect_runner=architect_runner,
             max_architect_invocations_per_poll=args.architect_max_invocations_per_poll,
-            max_architect_invocations_per_session=(
-                args.architect_max_invocations_per_session
-            ),
             architect_min_reanalysis_seconds=(
                 args.architect_min_reanalysis_seconds
             ),
@@ -3412,24 +5028,20 @@ def main(argv: list[str] | None = None) -> int:
                 args.max_consecutive_observation_failures
             ),
             fatal_drain_seconds=args.fatal_drain_seconds,
-            event_emitter=events,
             excluded_task_ids=args.exclude_task_id,
             dry_run=args.dry_run,
+            event_emitter_observer=observe_events,
         )
-        lock = SchedulerLock(
-            scheduler_lock_path(
-                checkout_root=checkout_root,
-                source=source,
-            )
-        )
-        return orchestrator.run(
-            lock=lock,
+        events = production.events
+        return production.orchestrator.run(
+            lock=production.lock,
             poll_seconds=args.poll_seconds,
             once=args.once,
         )
     except (
         PollingOrchestratorError,
         ArchitectPreflightError,
+        ArchitectSessionOwnerError,
         IssueWorkflowStoreError,
         TaskReviewContractError,
         ExecutionRoutingError,
@@ -3452,6 +5064,7 @@ if __name__ == "__main__":
 __all__ = [
     "ActiveAssignment",
     "DockerArchitectRunner",
+    "DurableWorkflowObservation",
     "FRESH_POOL_UNAVAILABLE_REASON",
     "IntegrationObservationError",
     "IntegrationReservation",
@@ -3459,12 +5072,16 @@ __all__ = [
     "PollCycleResult",
     "PollingOrchestrator",
     "PollingOrchestratorError",
+    "ProductionOrchestratorBinding",
     "SchedulerAlreadyActive",
     "SchedulerLock",
+    "build_production_orchestrator",
+    "authorized_local_ahead_recovery_task",
     "build_worker_command",
     "build_poll_dispatch_plan",
     "is_git_checkout",
     "observe_durable_integration_reservations",
+    "observe_durable_workflows",
     "read_branch_changed_paths",
     "read_working_tree_changed_paths",
     "scheduler_lock_path",

@@ -76,6 +76,18 @@ The task ID itself is the required human-visible coordination label. `work_type:
 - Never fall back to running decomposition from the shared `NoSafeCircle` root because checkout creation failed.
 - Do not put authoritative decomposition output under the task checkout or elsewhere under the repository tree.
 
+When a prior review-only attempt stops before handoff, its proposal is rejected, or
+its approved plan is invalidated because `main` advanced before D1C, a new
+`decomposition` lease may fast-forward that same checkout to current `main` only
+when the external manifest, branch, remote, clean tree, task contract, and complete
+old-checkout-to-current-main ancestry are exact. Before the first handoff, the Issue
+state has no branch/checkout fields, so the canonical checkout manager and the
+hash-verified external manifest supply those bindings. After handoff, the Issue's
+recorded branch, checkout, and old proposal commit must also match. The remote task
+branch must remain absent (normal before handoff) or equal the old review-only
+handoff. Dirt, divergence, a non-ancestor main, or any moved remote task branch stops
+without reset, clean, rebase, deletion, or overwrite.
+
 ## PowerShell pattern
 
 The production host launcher performs the following policy atomically after the

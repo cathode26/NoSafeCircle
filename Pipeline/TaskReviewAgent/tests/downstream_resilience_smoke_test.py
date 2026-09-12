@@ -24,8 +24,10 @@ from Pipeline.TaskReviewAgent.downstream_resilience import (  # noqa: E402
     _build_contract_migration_receipt,
     _prepare_contract_migration_mainline_bridge,
     _wrap_run,
+    decomposition_validation_policy_for,
     validation_plan_for,
 )
+from Pipeline.TaskReviewAgent.contracts import semantic_sha256  # noqa: E402
 from Pipeline.TaskReviewAgent.downstream_runtime import (  # noqa: E402
     ResumableDownstreamTaskController,
 )
@@ -41,7 +43,9 @@ from Pipeline.TaskReviewAgent.issue_workflow import (  # noqa: E402
     WorkflowState,
 )
 from Pipeline.TaskReviewAgent.tests.goal_loop_guard_smoke_test import (  # noqa: E402
+    FakeController,
     fixture as guard_fixture,
+    task as guard_task,
 )
 
 
@@ -511,18 +515,51 @@ def test_task_owned_blob_change_is_rejected() -> None:
 
 
 def test_nsc020_validation_policy_is_playmode_only() -> None:
+    contract_hash = (
+        "f8c9e326646e16e2c4bcf5eba4a6505494a5044491bc70127d5b0a1603150a3b"
+    )
     task = {
         "task_id": "NSC-020",
-        "task_contract_sha256": "f8c9e326646e16e2c4bcf5eba4a6505494a5044491bc70127d5b0a1603150a3b",
+        "task_contract_sha256": contract_hash,
     }
-    plan = validation_plan_for(ROOT, task)
-    require(plan is not None, "NSC-020 validation policy is missing")
-    require(plan["required_test_platforms"] == ["PlayMode"], "NSC-020 platform is not explicit")
-    require(
-        plan["test_filters"]["PlayMode"]
-        == "NoSafeCircle.DoorPrototype.Tests.DoorInteractionPlayModeTests",
-        "NSC-020 PlayMode filter is wrong",
-    )
+    with tempfile.TemporaryDirectory(prefix="nsc-playmode-validation-policy-") as temporary:
+        root = Path(temporary)
+        policy_path = (
+            root
+            / "Pipeline"
+            / "TaskReviewAgent"
+            / "authoritative_validation_policy.json"
+        )
+        policy_path.parent.mkdir(parents=True)
+        policy_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": "1.0",
+                    "tasks": {
+                        "NSC-020": {
+                            "task_contract_sha256": contract_hash,
+                            "required_test_platforms": ["PlayMode"],
+                            "test_filters": {
+                                "PlayMode": "NoSafeCircle.DoorPrototype.Tests.DoorInteractionPlayModeTests"
+                            },
+                            "authority": "fixture_playmode_validation_policy",
+                        }
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        plan = validation_plan_for(root, task)
+        require(plan is not None, "NSC-020 validation policy is missing")
+        require(
+            plan["required_test_platforms"] == ["PlayMode"],
+            "NSC-020 platform is not explicit",
+        )
+        require(
+            plan["test_filters"]["PlayMode"]
+            == "NoSafeCircle.DoorPrototype.Tests.DoorInteractionPlayModeTests",
+            "NSC-020 PlayMode filter is wrong",
+        )
 
 
 def test_decomposition_child_inherits_only_exact_parent_validation_template() -> None:
@@ -640,9 +677,73 @@ def test_decomposition_child_selects_exact_resource_validation_variant() -> None
             raise AssertionError("child with a widened resource set inherited a variant")
 
 
-def test_second_identical_rejection_releases_lease() -> None:
+def test_decomposition_parent_policy_is_exact_normalized_and_hash_bound() -> None:
+    parent_hash = "a" * 64
+    with tempfile.TemporaryDirectory(prefix="nsc-parent-validation-policy-") as temporary:
+        root = Path(temporary)
+        policy_path = root / "Pipeline" / "TaskReviewAgent" / "authoritative_validation_policy.json"
+        policy_path.parent.mkdir(parents=True)
+        template = {
+            "parent_task_contract_sha256": parent_hash,
+            "validation_variants": [
+                {
+                    "required_exclusive_resources": ["repo-file:Beta.cs.meta", "repo-file:Beta.cs"],
+                    "required_test_platforms": ["PlayMode", "EditMode"],
+                    "test_filters": {"EditMode": "Fixture.Beta.Edit", "PlayMode": "Fixture.Beta.Play"},
+                },
+                {
+                    "required_exclusive_resources": ["repo-file:Alpha.cs.meta", "repo-file:Alpha.cs"],
+                    "required_test_platforms": ["EditMode"],
+                    "test_filters": {"EditMode": "Fixture.Alpha"},
+                },
+            ],
+            "authority": "committed_private_synthetic_gauntlet_decomposition_child_policy",
+        }
+        document = {
+            "schema_version": "1.0",
+            "tasks": {},
+            "decomposition_child_templates": {"NSC-911": template},
+        }
+        policy_path.write_text(json.dumps(document), encoding="utf-8")
+        resolved = decomposition_validation_policy_for(
+            root,
+            {"id": "NSC-911"},
+            parent_semantic_hash=parent_hash,
+        )
+        require(
+            [item["required_exclusive_resources"] for item in resolved["validation_variants"]]
+            == [
+                ["repo-file:Alpha.cs", "repo-file:Alpha.cs.meta"],
+                ["repo-file:Beta.cs", "repo-file:Beta.cs.meta"],
+            ],
+            str(resolved),
+        )
+        require(
+            resolved["validation_variants"][1]["required_test_platforms"]
+            == ["PlayMode", "EditMode"],
+            "platform order was not preserved",
+        )
+        payload = {key: value for key, value in resolved.items() if key != "policy_sha256"}
+        require(resolved["policy_sha256"] == semantic_sha256(payload), str(resolved))
+
+        document["decomposition_child_templates"]["NSC-911"]["unexpected"] = True
+        policy_path.write_text(json.dumps(document), encoding="utf-8")
+        try:
+            decomposition_validation_policy_for(
+                root,
+                {"id": "NSC-911"},
+                parent_semantic_hash=parent_hash,
+            )
+        except DownstreamPipelineError as exc:
+            require("invalid fields" in str(exc), str(exc))
+        else:
+            raise AssertionError("decomposition policy accepted an unknown template field")
+
+
+def test_second_identical_rejection_blocks_before_another_worker_launch() -> None:
     service, controller = guard_fixture("progress")
     error = DownstreamPipelineError("deterministic synthetic rejection")
+    worker_launch_cycles = 1
     require(
         controller.record_action_rejection(action="run_authoritative_unity_test", error=error)
         is False,
@@ -651,15 +752,47 @@ def test_second_identical_rejection_releases_lease() -> None:
     require(
         controller.record_action_rejection(action="run_authoritative_unity_test", error=error)
         is True,
-        "second rejection did not release the lease",
+        "second rejection did not stop the worker",
     )
     snapshot = service.find("NSC-020")
     assert snapshot is not None and snapshot.state is not None
-    require(snapshot.state.state is WorkflowState.AGENT_READY, "lease remains active")
+    require(snapshot.state.state is WorkflowState.BLOCKED, "task remained admissible")
     require(
         snapshot.events[-1].details.get("reason") == "repeated_action_rejection",
-        "release event has the wrong reason",
+        "blocked event has the wrong reason",
     )
+    require(
+        snapshot.events[-1].event_type is WorkflowEventType.BLOCKED,
+        "circuit breaker did not record a durable blocked event",
+    )
+
+    scheduler_cycles = 1
+    while scheduler_cycles < 5:
+        scheduler_cycles += 1
+        observed = service.find("NSC-020")
+        assert observed is not None and observed.state is not None
+        if observed.state.state is not WorkflowState.AGENT_READY:
+            break
+        acquired = service.acquire_agent_lease(
+            task=guard_task(),
+            source_head="1" * 40,
+            branch="nsc-020-guard-test",
+            checkout_path="C:/operator/NSC-020",
+            planned_approach="Repeat the same deterministic action.",
+            expected_validation="The same deterministic result is observed.",
+            now=f"2026-08-28T10:0{scheduler_cycles}:00Z",
+        )
+        require(acquired["status"] == "acquired", str(acquired))
+        worker_launch_cycles += 1
+        relaunched = GuardedTaskController(FakeController(service, behavior="progress"))
+        relaunched.record_action_rejection(
+            action="run_authoritative_unity_test", error=error
+        )
+        relaunched.record_action_rejection(
+            action="run_authoritative_unity_test", error=error
+        )
+    require(scheduler_cycles == 2, f"scheduler cycles: {scheduler_cycles}")
+    require(worker_launch_cycles == 1, f"worker launch cycles: {worker_launch_cycles}")
     observation = controller.observe()
     require(observation["environment"]["ready"] is False, "run did not become terminal")
     require(
@@ -699,7 +832,8 @@ def main() -> int:
         test_nsc020_validation_policy_is_playmode_only,
         test_decomposition_child_inherits_only_exact_parent_validation_template,
         test_decomposition_child_selects_exact_resource_validation_variant,
-        test_second_identical_rejection_releases_lease,
+        test_decomposition_parent_policy_is_exact_normalized_and_hash_bound,
+        test_second_identical_rejection_blocks_before_another_worker_launch,
         test_fatal_pipeline_error_releases_exact_active_lease,
     )
     for test in tests:
