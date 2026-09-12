@@ -1,0 +1,17 @@
+NSC-039 Human Runtime Revalidation
+
+Validated implementation commit:
+eac8a9fd633287d249dcfe5459626ea1fb741142
+
+Automated validation:
+- Unity 6000.1.8f1 EditMode validation ran on the exact clean commit.
+- DoorPrototypeSceneBuilderTests passed 50/50.
+- The passing suite includes world-sprite CustomAxis sorting, ground-contact pivots, sorting relative to real wall Tilemap geometry, and reusable world-sprite assets.
+
+Human runtime observations:
+- Vincent inspected the materialized Door Prototype at this exact commit.
+- Vincent explicitly validated NSC-039, World-Space SpriteRenderer Prefab and Sorting Foundation.
+- The wall and wizard positional presentation appeared correct in the reviewed build.
+
+Human validation result:
+PASS for NSC-039 at the exact validated commit.

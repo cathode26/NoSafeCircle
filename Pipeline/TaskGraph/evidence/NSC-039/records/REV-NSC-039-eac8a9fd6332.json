@@ -1,0 +1,85 @@
+{
+  "schema_version": "1.0",
+  "record_type": "revalidation",
+  "record_id": "REV-NSC-039-eac8a9fd6332",
+  "task_id": "NSC-039",
+  "task_contract": {
+    "path": "Tasks/NSC-039.yaml",
+    "revision": 1,
+    "sha256": "0f33e980213b6429784ebcc0a759526f0883dd776ca5090d79356df982f20ebb"
+  },
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "c26d5077ccdc2e8408129fef2d3571758777b29f99241d8aed1b39d73ea3e1a6"
+  },
+  "validated_state": {
+    "commit": "eac8a9fd633287d249dcfe5459626ea1fb741142",
+    "tree": "194dfb24844008ec813b9157f69d1fa4d03f5860"
+  },
+  "conformance_surfaces": [
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+      "blob_sha": "218fe1afcaf9caddae25b65aeb6a38d8dcead730",
+      "role": "Implements the reusable world-space SpriteRenderer convention, CustomAxis isometric sorting, representative object integration, and positional ordering relative to Tilemap geometry."
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/DoorSprite.asset",
+      "blob_sha": "de6a17b91dd631dcd31ed79ee7624a739bc62c30",
+      "role": "Representative interactive-door Sprite asset integrated under the shared world-space SpriteRenderer convention."
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/WallTile.asset",
+      "blob_sha": "7644dc6fd92131735f77d53ed18320952a7be1c7",
+      "role": "Representative independently sortable wall Tile used to validate positional SpriteRenderer ordering relative to Tilemap architecture."
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/WizardSprite.asset",
+      "blob_sha": "94d665f61b297bf8c62d522902a7b204a523a607",
+      "role": "Representative wizard world-space Sprite asset used to exercise the shared SpriteRenderer sorting convention."
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/WorldSprites/WorldSpriteVisual.prefab",
+      "blob_sha": "ce31e51a9a9077e719ab34a677378e9296878ea9",
+      "role": "Reusable world-space SpriteRenderer prefab carrying the shared NSC-039 sorting-layer, sorting-order, and ground-contact sorting convention."
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs",
+      "blob_sha": "c58f1675c0f78ea976d0ecfc593eebf094e0e24d",
+      "role": "Provides Unity regression coverage for reusable world-space SpriteRenderers and their positional sorting relative to Tilemap geometry and other world sprites."
+    },
+    {
+      "path": "Assets/Scenes/DoorPrototype.unity",
+      "blob_sha": "d7ea074c05a28891daa0ec6328c7e5886c998a7b",
+      "role": "Canonical runtime scene integrating representative world-space SpriteRenderers with the isometric Tilemap visual layer."
+    }
+  ],
+  "gate_results": [
+    {
+      "gate_id": "VAL-001",
+      "result": "pass",
+      "evidence": [
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-039/artifacts/Unity-EditMode-02-eac8a9fd6332.xml",
+          "blob_sha": "ad87d341dcb750583bc1c8c654837de4f0a95101"
+        },
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-039/artifacts/HumanValidation-02-eac8a9fd6332.txt",
+          "blob_sha": "118954dc5e777b5fbf215923115059a3d6b5f217"
+        }
+      ],
+      "notes": "On the exact clean validated commit, Unity 6000.1.8f1 passed all 50 DoorPrototypeSceneBuilderTests, including the NSC-039 CustomAxis, ground-pivot and representative wall/world-sprite ordering checks. Vincent then inspected that materialized build and explicitly validated NSC-039. All NSC-039 surfaces, its contract and GDD canon remain byte-identical at the recording HEAD."
+    }
+  ],
+  "human_approval": {
+    "required": true,
+    "decision": "approved",
+    "approved_by": "Vincent Liguori",
+    "notes": "Vincent explicitly reported NSC-039 validated after inspecting the exact materialized Door Prototype build."
+  },
+  "recorded_at": "2026-09-12T22:57:12.781805+00:00",
+  "revalidation": {
+    "basis_record_id": "DEL-NSC-039-d2add2488b92",
+    "reason_type": "code_change",
+    "summary": "Revalidated the NSC-039 sorting foundation after NSC-042 changed the shared Door Prototype builder, wall asset and scene."
+  }
+}
