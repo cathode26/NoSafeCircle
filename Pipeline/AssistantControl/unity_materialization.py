@@ -115,9 +115,67 @@ def _generated_paths(scope: Mapping[str, Any], crew_paths: list[str]) -> tuple[s
     return generated
 
 
+def _generated_resource_roots(
+    task: Mapping[str, Any], checkout: Path, commit: str, crew_paths: list[str],
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Return committed task-owned directories and required parent folder metas.
+
+    ExecutionCrew still receives exact-file write authority. This additional
+    authority belongs only to the deterministic Windows Unity builder, which
+    must import a task-owned art directory containing many source frames.
+    """
+    roots: set[str] = set()
+    companions: set[str] = set()
+    for resource in task.get("exclusive_resources") or []:
+        if not isinstance(resource, str):
+            continue
+        kind, separator, value = resource.partition(":")
+        path = value.replace("\\", "/").strip("/")
+        if not separator or kind != "repo-file" or not path:
+            continue
+        if not is_door_prototype_builder_output(path):
+            continue
+        try:
+            object_type = git(checkout, "cat-file", "-t", f"{commit}:{path}").decode().strip()
+        except RuntimeError:
+            continue
+        if object_type != "tree":
+            continue
+        roots.add(path)
+        current = Path(path)
+        while str(current).replace("\\", "/").startswith(
+            "Assets/NoSafeCircle/DoorPrototype/"
+        ):
+            meta = str(current).replace("\\", "/") + ".meta"
+            try:
+                git(checkout, "cat-file", "-e", f"{commit}:{meta}")
+            except RuntimeError:
+                companions.add(meta)
+            current = current.parent
+
+    overlaps = sorted(
+        (
+            path for path in crew_paths
+            if is_unity_serialized(path) and any(
+                path.casefold().startswith(root.casefold() + "/") for root in roots
+            )
+        ),
+        key=str.casefold,
+    )
+    if overlaps:
+        raise MaterializationError(
+            "crew candidate already edited Unity-generated payloads instead of leaving them "
+            f"for deterministic materialization: {overlaps}"
+        )
+    return (
+        tuple(sorted(roots, key=str.casefold)),
+        tuple(sorted(companions, key=str.casefold)),
+    )
+
+
 def _require_candidate(
     checkouts: Checkouts, record: Mapping[str, Any], expected_candidate: str,
-) -> tuple[Path, dict[str, Any], dict[str, Any], tuple[str, ...]]:
+) -> tuple[Path, dict[str, Any], dict[str, Any], tuple[str, ...], tuple[str, ...]]:
     if record.get("task_id") is None or record.get("source") != str(checkouts.source):
         raise MaterializationError("owned task record identity differs")
     if (record.get("status") not in {"awaiting_human", "needs_materialization"}
@@ -152,11 +210,15 @@ def _require_candidate(
         raise MaterializationError("candidate checkout is not the exact clean owned commit")
     if git(checkout, "rev-parse", "HEAD^{tree}").decode().strip() != candidate.get("tree"):
         raise MaterializationError("candidate checkout tree differs")
-    load_committed_task(
+    task = load_committed_task(
         checkout, str(record["task_id"]), commit=expected_candidate,
         expected_sha256=str(record["task_contract_sha256"]),
     )
-    return checkout, candidate, receipt, generated
+    roots, companions = _generated_resource_roots(
+        task, checkout, expected_candidate, receipt["changed_paths"],
+    )
+    generated = tuple(sorted(set(generated).union(companions), key=str.casefold))
+    return checkout, candidate, receipt, generated, roots
 
 
 def _finalize(
@@ -307,7 +369,7 @@ def materialize_candidate(
             registry_lock, timeout_seconds=10,
         ):
             _require_no_active_reservation(checkouts, task_id)
-            checkout, candidate, receipt, generated = _require_candidate(
+            checkout, candidate, receipt, generated, generated_roots = _require_candidate(
                 checkouts, record, expected_candidate,
             )
             task = load_committed_task(
@@ -327,6 +389,7 @@ def materialize_candidate(
                     "plan_id": candidate["plan_id"],
                     "lease_id": candidate["lease_id"],
                     "registered_generated_paths": list(generated),
+                    "registered_generated_roots": list(generated_roots),
                     "builder": "DoorPrototypeSceneBuilder.Build",
                     "materialization_error": str(exc),
                     "retryable": True,
@@ -348,6 +411,7 @@ def materialize_candidate(
                 "plan_id": candidate["plan_id"],
                 "lease_id": candidate["lease_id"],
                 "registered_generated_paths": list(generated),
+                "registered_generated_roots": list(generated_roots),
                 "builder": "DoorPrototypeSceneBuilder.Build",
                 "started_at": _now(),
             }
@@ -362,6 +426,7 @@ def materialize_candidate(
                     unity_command_runner=unity_command_runner,
                     timeout_seconds=timeout_seconds,
                     allowed_generated_paths=generated,
+                    allowed_generated_roots=generated_roots,
                 )
                 if not materialized.builder_paths:
                     raise MaterializationError(
