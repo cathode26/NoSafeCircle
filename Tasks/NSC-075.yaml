@@ -1,0 +1,116 @@
+{
+  "schema_version": "2.0",
+  "id": "NSC-075",
+  "contract_revision": 2,
+  "contract_disposition": "active",
+  "title": "Unity Eight-Direction Wizard Locomotion Integration",
+  "reconciliation_key": "wizard-eight-direction-locomotion-integration",
+  "kind": "implementation",
+  "type": "wizard-eight-direction-animation-integration",
+  "execution_scope": "single_agent",
+  "execution_reason": "Integrate approved cardinal source art into the existing wizard presentation while repairing all eight direction boundaries, generated Animator coverage, exact source/clip mapping, and game-entry preservation.",
+  "decomposition_state": "concrete",
+  "decomposition_reason": "The existing controller, builder, focused tests, lobby flow, four wizard choices, and approved cardinal art define one bounded Unity integration task.",
+  "parent": "NSC-002",
+  "depends_on": ["NSC-062", "NSC-068", "NSC-070", "NSC-073", "NSC-074"],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/WizardAnimationController.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/WizardAnimationController.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/WizardArtIntegrationTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/WizardArtIntegrationTests.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/WizardAnimationPlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/WizardAnimationPlayModeTests.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/WizardCardinalSourceAuditTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/WizardCardinalSourceAuditTests.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated",
+    "unity-scene:Assets/Scenes/DoorPrototype.unity"
+  ],
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "Fixed isometric camera basis and screen-relative movement",
+      "requirement": "Update the direction classifier to select stable matching directions for all eight screen directions: north, north-east, east, south-east, south, south-west, west, and north-west. Use explicit sector boundaries with deterministic tie behavior and hysteresis or equivalent boundary stability so small positive and negative orthogonal noise cannot flicker into an adjacent or opposite state. Idle retains the last meaningful facing."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "NSC-062 approved art and NSC-074 cardinal source handoff",
+      "requirement": "Extend builder-generated Animator content for all four existing wizard variants to eight idle states and eight walk states per variant. Every state resolves to the exact same-named clip, every idle uses the matching standing source, and every walk clip uses frame_000 through frame_005 from exactly one variant and direction in playback order, including the 96 approved cardinal PNGs and the preserved diagonal source art."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "Exact source, clip, and SpriteRenderer binding audit",
+      "requirement": "Focused tests prove exact variant/direction/motion mapping, six ordered frames, source-group identity, SpriteRenderer binding, transparent 180x180 import geometry, feet pivot, and absence of mixed-direction or mixed-variant references across all 64 states and clips."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "NSC-068 lobby and selected world placement",
+      "requirement": "Preserve Start Game, all four wizard choices, one-shot confirmation, selected wizard application, one existing Player root, canonical spawn, mouse movement, mouse interaction, input enable/suspend calls, gameplay components, movement tuning, collision, health, mana, spells, door interaction, and sorting ownership. Do not instantiate a second Player or introduce a fallback wizard."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "Deterministic Unity builder ownership",
+      "requirement": "DoorPrototypeSceneBuilder.Build remains the public materialization command and delegates wizard Animator construction to DoorPrototypeGlobalSceneBuilder. The global builder owns changed Animator controller and clip references and is idempotent across two runs. The worker edits source and focused tests only; generated Animator assets and scene serialization are produced by the repository's Unity builder and are never hand-edited."
+    }
+  ],
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "Focused Edit Mode mapping audit",
+      "requirement": "WizardArtIntegrationTests covers all four wizard variants, eight directions, idle/walk state pairs, exact clip names, ordered six-frame sprite membership, source identity, import geometry, pivot, and SpriteRenderer binding."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "Focused Play Mode classifier stability",
+      "requirement": "WizardAnimationPlayModeTests drives every wizard through all eight held screen directions over multiple frames with small alternating orthogonal noise, verifies stable expected states and walking progression, and verifies the last facing persists on idle."
+    },
+    {
+      "gate_id": "VAL-003",
+      "reference": "Focused lobby and input regression",
+      "requirement": "A focused Play Mode path starts the lobby, selects and confirms each wizard, verifies one Player at the canonical spawn, then proves eight-direction movement animation and existing mouse interaction/input behavior remain available."
+    },
+    {
+      "gate_id": "VAL-004",
+      "reference": "Builder materialization and exact candidate validation",
+      "requirement": "On the exact candidate, preserve and pass WizardCardinalSourceAuditTests before integration, run DoorPrototypeSceneBuilder.Build twice, require a clean compile, pass the focused WizardArtIntegrationTests Edit Mode fixture and WizardAnimationPlayModeTests Play Mode fixture, and commit only builder-materialized outputs registered by this task."
+    },
+    {
+      "gate_id": "VAL-005",
+      "reference": "Vincent all-four visual approval",
+      "requirement": "Vincent tests the exact candidate in Assets/Scenes/DoorPrototype.unity with all four wizard choices, holds movement through all eight screen directions long enough to see each walk loop, confirms stable facing and continuous identity, and approves the exact candidate before integration."
+    }
+  ],
+  "downstream_integration_obligations": [],
+  "gdd_evidence": [
+    {
+      "reference": "GDD isometric directional wizard presentation",
+      "requirement": "The selected wizard remains one world-space SpriteRenderer presentation driven by ordinary Unity Animator clips under the existing isometric sorting convention."
+    }
+  ],
+  "basis": "human_requested_eight_direction_followup",
+  "source_scope": "required",
+  "confidence": "high",
+  "notes": "This task owns eight-direction classifier and animation integration. DoorPrototypeGlobalSceneBuilder is the exact implementation owner for generated wizard states and clips; DoorPrototypeSceneBuilder remains an unchanged public facade and read-only context. The task preserves the lobby, four-wizard selection, world entry, existing Player, and input behavior. It does not own new source-art generation, combat, movement tuning, room composition, or a DoorPrototype-wide resource.",
+  "repository_state_at_bootstrap": "partial",
+  "repository_evidence_at_bootstrap": [
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/WizardAnimationController.cs",
+      "evidence_type": "code",
+      "observation": "The existing wizard presentation controller is the bounded owner of movement-facing classification and idle/walk animation selection."
+    },
+    {
+      "path": "Tasks/NSC-074.yaml",
+      "evidence_type": "contract",
+      "observation": "NSC-074 supplies the approved cardinal source art and shared provenance before Unity integration."
+    }
+  ],
+  "provenance": {
+    "origin": "human_requested_eight_direction_wizard_followup",
+    "source_art_task_id": "NSC-074",
+    "prior_integration_task_id": "NSC-062",
+    "game_entry_task_id": "NSC-068",
+    "direction_repair_task_id": "NSC-070",
+    "created_by_human_request": true,
+    "approved_at_utc_date": "2026-09-13"
+  }
+}

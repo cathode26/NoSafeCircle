@@ -106,7 +106,7 @@
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-070": {
-      "task_contract_sha256": "f1fb6e2f11b7717d0ea336d16a366beb2190ae95a1b3f101ad1fced1e2f6c457",
+      "task_contract_sha256": "3ad68b2a093fdcaa336ec26714f6df76bd988cd39bd3f227d9fcbe604fb155b2",
       "required_test_platforms": [
         "EditMode",
         "PlayMode"
@@ -138,7 +138,7 @@
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-073": {
-      "task_contract_sha256": "c65d825022d433a63011e05f4974c1558ff48340ba26a1b35485024658462228",
+      "task_contract_sha256": "0659b031cec8c440002cbe662d5b97a6b5bfaecf512b93ecd0d59416477c01d0",
       "required_test_platforms": [
         "EditMode"
       ],
@@ -234,6 +234,40 @@
       ],
       "test_filters": {
         "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.World.FiveRoomCompositionTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-074": {
+      "task_contract_sha256": "095ee419afadbdf6540acb28b7027fd3ad6d9131be32d00de8876703ea5eee52",
+      "required_test_platforms": [
+        "EditMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.WizardCardinalSourceAuditTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-075": {
+      "task_contract_sha256": "8ed388b24ac3cb64727f534014fa54a65d18886900d62c32630350e34d0c48bf",
+      "required_test_platforms": [
+        "EditMode",
+        "PlayMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.WizardArtIntegrationTests",
+        "PlayMode": "NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-077": {
+      "task_contract_sha256": "f55cafec7fb32f57e2385e443181fe11c18ed7b7fd7b5daf4ca7f87c9ad519e7",
+      "required_test_platforms": [
+        "EditMode",
+        "PlayMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.StationaryEnemyPresentationIntegrationTests",
+        "PlayMode": "NoSafeCircle.DoorPrototype.Tests.StationaryEnemyStationaryBehaviorPlayModeTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
     }

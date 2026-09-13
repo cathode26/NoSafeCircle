@@ -80,7 +80,10 @@
     "chapel-of-ash-visual-dressing": "NSC-081",
     "bone-archive-visual-dressing": "NSC-080",
     "lower-vault-visual-dressing": "NSC-082",
-    "composed-world-content-integration-preservation": "NSC-084"
+    "composed-world-content-integration-preservation": "NSC-084",
+    "stationary-enemy-sprite-integration": "NSC-077",
+    "pixellab-cardinal-wizard-walk-art": "NSC-074",
+    "wizard-eight-direction-locomotion-integration": "NSC-075"
   },
   "reconciliation_run_id": "20260821T193541Z-998ee7b5",
   "schema_version": "1.0",
