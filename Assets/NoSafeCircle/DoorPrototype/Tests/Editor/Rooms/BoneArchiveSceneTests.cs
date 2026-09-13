@@ -43,10 +43,10 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
 
                 Assert.That(west, Is.Not.Null);
                 Assert.That(east, Is.Not.Null);
-                Assert.That(west.transform.position.x, Is.EqualTo(-3f).Within(0.001f));
-                Assert.That(west.transform.localScale.x, Is.EqualTo(14f).Within(0.001f));
-                Assert.That(east.transform.position.x, Is.EqualTo(8.5f).Within(0.001f));
-                Assert.That(east.transform.localScale.x, Is.EqualTo(3f).Within(0.001f));
+                Assert.That(west.transform.position.x, Is.EqualTo(-2.75f).Within(0.001f));
+                Assert.That(west.transform.localScale.x, Is.EqualTo(14.5f).Within(0.001f));
+                Assert.That(east.transform.position.x, Is.EqualTo(8.75f).Within(0.001f));
+                Assert.That(east.transform.localScale.x, Is.EqualTo(2.5f).Within(0.001f));
             }
             finally
             {
