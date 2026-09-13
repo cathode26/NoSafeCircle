@@ -32,7 +32,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
             "Feminine_Black"
         };
 
-        private static readonly string[] WizardStandingDirections =
+        private static readonly string[] WizardDirections =
         {
             "north",
             "north-east",
@@ -44,13 +44,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
             "north-west"
         };
 
-        private static readonly string[] WizardDirections =
-        {
-            "north-east",
-            "north-west",
-            "south-east",
-            "south-west"
-        };
+        private static readonly string[] WizardStandingDirections = WizardDirections;
 
         private static readonly WizardSelectionDefinition[] WizardSelectionDefinitions =
         {
