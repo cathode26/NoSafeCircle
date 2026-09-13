@@ -3,6 +3,7 @@ using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
+using UnityEngine.UI;
 
 namespace NoSafeCircle.DoorPrototype.Tests
 {
@@ -13,6 +14,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
         private DoorInteractable door;
         private PlayerInteractionController controller;
         private PlayerHealth health;
+        private GameObject interactionUiObject;
 
         [SetUp]
         public void SetUp()
@@ -30,6 +32,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
         [TearDown]
         public void TearDown()
         {
+            if (interactionUiObject != null) Object.Destroy(interactionUiObject);
             Object.Destroy(playerObject);
             Object.Destroy(doorObject);
         }
@@ -185,6 +188,91 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 "Once the door completes and opens, the pending selection must be released.");
             Assert.IsFalse(controller.IsInteracting);
             Assert.IsNull(controller.PendingDoor);
+        }
+
+        [UnityTest]
+        public IEnumerator DoorInteractionUI_CancelledAttempt_ResetsAndHidesProgressFill()
+        {
+            var progressFill = CreateInteractionUi(out var ui, out var promptRoot);
+
+            controller.BeginInteraction();
+            AdvanceDoorTime(door, door.Duration * 0.4f);
+            RefreshInteractionUi(ui);
+
+            Assert.AreEqual(door.Progress, progressFill.fillAmount, 0.001f);
+            Assert.IsTrue(progressFill.enabled,
+                "An active opening attempt must show the selected door's progress.");
+            Assert.IsTrue(promptRoot.activeSelf,
+                "The existing sealed-door prompt must remain visible while the player is in range.");
+
+            controller.EndInteraction();
+            RefreshInteractionUi(ui);
+
+            Assert.AreEqual(0f, progressFill.fillAmount, 0.001f,
+                "Cancelling the selected door must reset the shared HUD fill.");
+            Assert.IsFalse(progressFill.enabled,
+                "A cancelled attempt must hide the empty fill instead of leaving stale progress visible.");
+
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator DoorInteractionUI_SuccessfulOpen_ResetsAndHidesProgressFill()
+        {
+            var progressFill = CreateInteractionUi(out var ui, out var promptRoot);
+
+            controller.BeginInteraction();
+            AdvanceDoorTime(door, door.Duration + 0.1f);
+            RefreshInteractionUi(ui);
+
+            Assert.IsTrue(door.IsOpen);
+            Assert.AreEqual(1f, door.Progress, 0.001f,
+                "The door may retain its completed progress as model history.");
+            Assert.IsNull(controller.PendingDoor,
+                "Opening releases the player-owned selection that drives the shared HUD.");
+            Assert.AreEqual(0f, progressFill.fillAmount, 0.001f,
+                "The shared HUD must reset after the selected door opens even though that door retains Progress=1.");
+            Assert.IsFalse(progressFill.enabled,
+                "The completed door's stale full fill must be hidden.");
+            Assert.IsFalse(promptRoot.activeSelf,
+                "The sealed-door prompt must be hidden after the in-range door opens.");
+
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator DoorInteractionUI_SelectingAnotherDoor_TracksNewSelection()
+        {
+            var secondDoorObject = new GameObject("SecondUiTestDoor");
+            secondDoorObject.transform.position = new Vector3(10f, 0f, 10f);
+            var secondDoor = secondDoorObject.AddComponent<DoorInteractable>();
+            var progressFill = CreateInteractionUi(out var ui, out _);
+
+            try
+            {
+                controller.BeginInteraction();
+                AdvanceDoorTime(door, door.Duration * 0.4f);
+                RefreshInteractionUi(ui);
+                Assert.AreEqual(door.Progress, progressFill.fillAmount, 0.001f);
+
+                Assert.IsTrue(controller.TryBeginDoorApproach(secondDoor.SelectionPoint));
+                controller.NotifyDoorInRange(secondDoor);
+                AdvanceDoorTime(secondDoor, secondDoor.Duration * 0.65f);
+                RefreshInteractionUi(ui);
+
+                Assert.AreEqual(0f, door.Progress, 0.001f,
+                    "Replacing the first selection must reset its model progress.");
+                Assert.AreSame(secondDoor, controller.PendingDoor);
+                Assert.AreEqual(secondDoor.Progress, progressFill.fillAmount, 0.001f,
+                    "The shared HUD must follow the player controller's new selected door, not its legacy static door reference.");
+                Assert.IsTrue(progressFill.enabled);
+            }
+            finally
+            {
+                Object.Destroy(secondDoorObject);
+            }
+
+            yield return null;
         }
 
         // AC-006: the owner-controlled suspend interface immediately cancels an in-progress
@@ -418,6 +506,41 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 target.Tick(dt);
                 elapsed += dt;
             }
+        }
+
+        private Image CreateInteractionUi(out DoorInteractionUI ui, out GameObject promptRoot)
+        {
+            interactionUiObject = new GameObject("DoorInteractionUiTestRoot");
+            // SetUp calls the controller notification directly; mirror the other half of the
+            // real trigger handshake so IsPlayerInRange and the prompt are also authentic.
+            SetPrivateField(door, "playerInRange", controller);
+
+            promptRoot = new GameObject("PromptRoot");
+            promptRoot.transform.SetParent(interactionUiObject.transform, false);
+
+            var progressObject = new GameObject("ProgressFill", typeof(RectTransform),
+                typeof(CanvasRenderer), typeof(Image));
+            progressObject.transform.SetParent(interactionUiObject.transform, false);
+            var progressFill = progressObject.GetComponent<Image>();
+            progressFill.type = Image.Type.Filled;
+            progressFill.fillAmount = 0f;
+
+            ui = interactionUiObject.AddComponent<DoorInteractionUI>();
+            SetPrivateField(ui, "interactionController", controller);
+            SetPrivateField(ui, "door", door);
+            SetPrivateField(ui, "promptRoot", promptRoot);
+            SetPrivateField(ui, "progressFillImage", progressFill);
+            RefreshInteractionUi(ui);
+
+            return progressFill;
+        }
+
+        private static void RefreshInteractionUi(DoorInteractionUI ui)
+        {
+            var method = typeof(DoorInteractionUI).GetMethod("Update",
+                BindingFlags.NonPublic | BindingFlags.Instance);
+            Assert.IsNotNull(method, "Expected DoorInteractionUI.Update for deterministic HUD refresh.");
+            method.Invoke(ui, null);
         }
 
         private static void SetPrivateField(object target, string fieldName, object value)

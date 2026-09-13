@@ -62,6 +62,54 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
         }
 
         [Test]
+        public void Build_DoorInteractionUI_IsBoundToPlayerOwnedDoorSelection()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
+
+            var ui = GameObject.Find("Canvas")?.GetComponent<DoorInteractionUI>();
+            var controller = GameObject.Find("Player")?.GetComponent<PlayerInteractionController>();
+            Assert.IsNotNull(ui);
+            Assert.IsNotNull(controller);
+
+            var serialized = new SerializedObject(ui);
+            Assert.AreSame(controller,
+                serialized.FindProperty("interactionController").objectReferenceValue,
+                "The shared door HUD must follow the player's selected door instead of remaining bound to D1.");
+        }
+
+        [Test]
+        public void CommittedScene_ContainsDoorUiSortingAndFinalRoomCollisionHotfix()
+        {
+            EditorSceneManager.OpenScene(CanonicalScenePath, OpenSceneMode.Single);
+
+            var player = GameObject.Find("Player");
+            var playerVisual = GameObject.Find("Player/Visual")?.GetComponent<SpriteRenderer>();
+            var characterController = player?.GetComponent<CharacterController>();
+            var interactionController = player?.GetComponent<PlayerInteractionController>();
+            var doorUi = GameObject.Find("Canvas")?.GetComponent<DoorInteractionUI>();
+            Assert.IsNotNull(playerVisual);
+            Assert.IsNotNull(characterController);
+            Assert.IsNotNull(interactionController);
+            Assert.IsNotNull(doorUi);
+            Assert.That(playerVisual.transform.position.y, Is.EqualTo(0f).Within(0.001f));
+            Assert.AreSame(interactionController,
+                new SerializedObject(doorUi).FindProperty("interactionController").objectReferenceValue);
+
+            Assert.IsNotNull(GameObject.Find(
+                "World/ComposedRooms/Room_FinalRoom/GameplayGeometry/WestBenchCollision")
+                ?.GetComponent<BoxCollider>());
+            Assert.IsNotNull(GameObject.Find(
+                "World/ComposedRooms/Room_FinalRoom/GameplayGeometry/EastBenchCollision")
+                ?.GetComponent<BoxCollider>());
+            Assert.IsNotNull(GameObject.Find(
+                "World/ComposedRooms/Room_FinalRoom/Visuals/FittingRoomDressing/Candle1/Wax")
+                ?.GetComponent<MeshRenderer>());
+            Assert.IsNotNull(GameObject.Find(
+                "World/ComposedRooms/Room_FinalRoom/Visuals/FittingRoomDressing/Candle1/Flame")
+                ?.GetComponent<MeshRenderer>());
+        }
+
+        [Test]
         public void Build_RunTwice_DoesNotDuplicateProgressFillHierarchy()
         {
             DoorPrototypeSceneBuilder.BuildInMemoryForTests();
@@ -1364,11 +1412,49 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             Assert.That(doorSprite.transform.position.y, Is.EqualTo(doorRoot.transform.position.y).Within(0.001f),
                 "DoorSprite's world position must sit at the door's ground-contact point, not the elevated " +
                 "DoorVisual center.");
-            Assert.That(playerSprite.transform.position.y, Is.EqualTo(player.transform.position.y).Within(0.001f),
-                "The wizard sprite's world position must sit at the player's own ground-contact point.");
+            var controller = player.GetComponent<CharacterController>();
+            Assert.IsNotNull(controller);
+            Assert.That(playerSprite.transform.position.y,
+                Is.EqualTo(player.transform.position.y - controller.skinWidth).Within(0.001f),
+                "The wizard sprite's sort origin must sit on the floor rather than inheriting the " +
+                "CharacterController's collision skin clearance, which biases doorway sorting.");
+            Assert.That(playerSprite.transform.position.y, Is.EqualTo(0f).Within(0.001f));
 
             AssertSpriteIsBottomAnchored(doorSprite.sprite);
             AssertSpriteIsBottomAnchored(playerSprite.sprite);
+        }
+
+        [Test]
+        public void Build_PlayerAndDoorDepthKeysCrossAtTheDoorGroundPlane()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
+
+            var camera = GameObject.Find("Main Camera")?.GetComponent<Camera>();
+            var door = GameObject.Find("DoorRoot");
+            var doorSprite = GameObject.Find("DoorRoot/DoorVisual/DoorSprite")?.GetComponent<SpriteRenderer>();
+            var player = GameObject.Find("Player");
+            var playerSprite = GameObject.Find("Player/Visual")?.GetComponent<SpriteRenderer>();
+            var controller = player?.GetComponent<CharacterController>();
+            Assert.IsNotNull(camera);
+            Assert.IsNotNull(door);
+            Assert.IsNotNull(doorSprite);
+            Assert.IsNotNull(player);
+            Assert.IsNotNull(playerSprite);
+            Assert.IsNotNull(controller);
+
+            Vector3 groundAxis = new Vector3(
+                camera.transparencySortAxis.x, 0f, camera.transparencySortAxis.z).normalized;
+            Assert.Greater(groundAxis.sqrMagnitude, 0.9f);
+            float doorKey = Vector3.Dot(doorSprite.transform.position, camera.transparencySortAxis);
+
+            player.transform.position = door.transform.position + groundAxis + Vector3.up * controller.skinWidth;
+            float firstSideKey = Vector3.Dot(playerSprite.transform.position, camera.transparencySortAxis);
+            player.transform.position = door.transform.position - groundAxis + Vector3.up * controller.skinWidth;
+            float oppositeSideKey = Vector3.Dot(playerSprite.transform.position, camera.transparencySortAxis);
+
+            Assert.Less((firstSideKey - doorKey) * (oppositeSideKey - doorKey), 0f,
+                "The wizard's sort key must move to opposite sides of the door key when crossing the doorway; " +
+                "CharacterController clearance must not pin the door in front on one side.");
         }
 
         private static void AssertSpriteIsBottomAnchored(Sprite sprite)

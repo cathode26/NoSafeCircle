@@ -47,7 +47,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             CreatePerimeter(geometry, true);
             CreateObstacle(visuals, false);
             CreateObstacle(geometry, true);
-            CreateFittingRoomDressing(dressing);
+            CreateFittingRoomDressing(dressing, geometry);
 
             CreateAnchor("D4Anchor", anchors, FinalRoomLayout.D4, Vector3.back, DoorId.D4, DoorAnchorRole.Entry);
             CreateAnchor("D5Anchor", anchors, FinalRoomLayout.D5, Vector3.forward, DoorId.D5, DoorAnchorRole.Exit);
@@ -93,20 +93,46 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
                 new Color(0.16f, 0.08f, 0.2f), collision);
         }
 
-        private static void CreateFittingRoomDressing(Transform parent)
+        private static void CreateFittingRoomDressing(Transform parent, Transform gameplay)
         {
             // Low, visual-only dressing keeps the single hard-cover obstacle and routes intact.
             CreateBox("NorthExitSigil", parent, new Vector3(0f, 0.025f, 83.5f), new Vector3(6f, 0.04f, 0.08f), new Color(0.65f, 0.22f, 0.55f), false);
             CreateBox("WestMirror", parent, new Vector3(-10.9f, 1.15f, 76f), new Vector3(0.08f, 1.4f, 2.8f), new Color(0.2f, 0.45f, 0.55f), false);
             CreateBox("EastMirror", parent, new Vector3(10.9f, 1.15f, 76f), new Vector3(0.08f, 1.4f, 2.8f), new Color(0.2f, 0.45f, 0.55f), false);
-            CreateBox("WestBench", parent, new Vector3(-8.5f, 0.35f, 68.5f), new Vector3(2.5f, 0.7f, 0.55f), new Color(0.23f, 0.12f, 0.16f), false);
-            CreateBox("EastBench", parent, new Vector3(8.5f, 0.35f, 68.5f), new Vector3(2.5f, 0.7f, 0.55f), new Color(0.23f, 0.12f, 0.16f), false);
+            CreateBox("WestBench", parent, FinalRoomLayout.WestBenchBounds.center, FinalRoomLayout.WestBenchBounds.size, new Color(0.23f, 0.12f, 0.16f), false);
+            CreateBox("EastBench", parent, FinalRoomLayout.EastBenchBounds.center, FinalRoomLayout.EastBenchBounds.size, new Color(0.23f, 0.12f, 0.16f), false);
+            CreateBox("WestBenchCollision", gameplay, FinalRoomLayout.WestBenchBounds.center, FinalRoomLayout.WestBenchBounds.size, Color.clear, true);
+            CreateBox("EastBenchCollision", gameplay, FinalRoomLayout.EastBenchBounds.center, FinalRoomLayout.EastBenchBounds.size, Color.clear, true);
             CreateBox("FR1Ribbon", parent, new Vector3(0f, 1.15f, 78.5f), new Vector3(4.5f, 0.08f, 0.08f), new Color(0.7f, 0.28f, 0.5f), false);
             for (int i = 0; i < 5; i++)
             {
                 float x = -8f + i * 4f;
-                CreateBox("Candle" + (i + 1), parent, new Vector3(x, 0.35f, 82f), new Vector3(0.22f, 0.7f, 0.22f), new Color(0.8f, 0.38f, 0.18f), false);
+                CreateCandle("Candle" + (i + 1), parent, new Vector3(x, 0f, 82f));
             }
+        }
+
+        private static void CreateCandle(string name, Transform parent, Vector3 groundPosition)
+        {
+            GameObject root = new GameObject(name);
+            root.transform.SetParent(parent, false);
+            root.transform.position = groundPosition;
+
+            GameObject wax = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            wax.name = "Wax";
+            wax.transform.SetParent(root.transform, false);
+            wax.transform.localPosition = new Vector3(0f, 0.16f, 0f);
+            wax.transform.localScale = new Vector3(0.12f, 0.16f, 0.12f);
+            wax.GetComponent<Renderer>().sharedMaterial = CreateMaterial(new Color(0.72f, 0.55f, 0.32f));
+            Object.DestroyImmediate(wax.GetComponent<Collider>());
+
+            GameObject flame = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            flame.name = "Flame";
+            flame.transform.SetParent(root.transform, false);
+            flame.transform.localPosition = new Vector3(0f, 0.38f, 0f);
+            flame.transform.localScale = new Vector3(0.09f, 0.15f, 0.09f);
+            flame.GetComponent<Renderer>().sharedMaterial = CreateMaterial(new Color(1f, 0.35f, 0.05f));
+            Object.DestroyImmediate(flame.GetComponent<Collider>());
+
         }
 
         private static GameObject CreateBox(string name, Transform parent, Vector3 position, Vector3 size, Color color, bool collision)

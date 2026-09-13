@@ -257,7 +257,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
             // child keeps the existing "Visual" name other code/tests depend on, while
             // "WizardSprite" is the persistent asset identity so a future enemy/prop that also
             // names its child "Visual" cannot silently reuse the wizard's sprite asset.
-            DoorPrototypeSceneBuilder.CreateWorldSpriteVisual(
+            SpriteRenderer playerVisual = DoorPrototypeSceneBuilder.CreateWorldSpriteVisual(
                 "Visual",
                 "WizardSprite",
                 player.transform,
@@ -270,6 +270,13 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
                     WizardSpriteFillColor,
                     WizardSpriteBorderColor),
                 architecturalTileAssetFolder);
+
+            // The CharacterController root intentionally rides one skinWidth above the floor,
+            // but transparent sorting must use the wizard's actual floor-contact point. If the
+            // renderer inherits that clearance, the Y component of the isometric custom axis
+            // biases it behind a doorway until the wizard has moved too far through the door.
+            // Keep the controller settled while anchoring the SpriteRenderer itself to y = 0.
+            playerVisual.transform.localPosition = Vector3.down * characterController.skinWidth;
 
             WizardAnimationAssets wizardAssets = string.IsNullOrEmpty(architecturalTileAssetFolder)
                 ? LoadWizardAnimationAssets()
@@ -495,6 +502,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
             progressFill.color = Color.green;
 
             var uiBinding = canvasObject.AddComponent<DoorInteractionUI>();
+            SetPrivateField(uiBinding, "interactionController", interactionController);
             SetPrivateField(uiBinding, "door", door);
             SetPrivateField(uiBinding, "promptRoot", promptRoot);
             SetPrivateField(uiBinding, "progressFillImage", progressFill);

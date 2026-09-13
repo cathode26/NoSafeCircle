@@ -29,6 +29,8 @@ namespace NoSafeCircle.DoorPrototype.World.Rooms
         public static Bounds FinalObstacleBounds => SolidBounds(
             FinalObstacleMinimumX, FinalObstacleMaximumX,
             FinalObstacleMinimumZ, FinalObstacleMaximumZ, FinalObstacleHeight);
+        public static Bounds WestBenchBounds => SolidBounds(-9.75f, -7.25f, 68.225f, 68.775f, 0.7f);
+        public static Bounds EastBenchBounds => SolidBounds(7.25f, 9.75f, 68.225f, 68.775f, 0.7f);
 
         public static Vector3 D4 => new Vector3(D4X, 0f, D4Z);
         public static Vector3 D5 => new Vector3(D5X, 0f, D5Z);

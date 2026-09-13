@@ -61,6 +61,24 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
         }
 
         [Test]
+        public void Build_BenchesHaveMatchingGameplayCollisionAndCandlesAreRecognizableDressing()
+        {
+            BoxCollider westBench = FindCollider("Room_FinalRoom/GameplayGeometry/WestBenchCollision");
+            BoxCollider eastBench = FindCollider("Room_FinalRoom/GameplayGeometry/EastBenchCollision");
+            Assert.That(westBench.bounds, Is.EqualTo(FinalRoomLayout.WestBenchBounds));
+            Assert.That(eastBench.bounds, Is.EqualTo(FinalRoomLayout.EastBenchBounds));
+
+            for (int index = 1; index <= 5; index++)
+            {
+                GameObject candle = GameObject.Find($"Room_FinalRoom/Visuals/FittingRoomDressing/Candle{index}");
+                Assert.IsNotNull(candle);
+                Assert.IsNotNull(candle.transform.Find("Wax")?.GetComponent<MeshRenderer>());
+                Assert.IsNotNull(candle.transform.Find("Flame")?.GetComponent<MeshRenderer>());
+                Assert.IsEmpty(candle.GetComponentsInChildren<Collider>());
+            }
+        }
+
+        [Test]
         public void CommittedScene_ValidatesForComposition()
         {
             Scene scene = EditorSceneManager.OpenScene(FinalRoomSceneBuilder.ScenePath, OpenSceneMode.Single);
