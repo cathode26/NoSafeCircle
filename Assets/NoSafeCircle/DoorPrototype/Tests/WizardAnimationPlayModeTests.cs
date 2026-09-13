@@ -245,6 +245,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
             yield return null;
             const string expectedWalkState = "Wizard_Masculine_White_walk_north-east";
             Assert.AreEqual(expectedWalkState, wizard.CurrentState);
+            animator.Update(0f);
             Assert.IsTrue(animator.GetCurrentAnimatorStateInfo(0).IsName(expectedWalkState));
             animator.Update(0.1f);
             float firstWalkTime = animator.GetCurrentAnimatorStateInfo(0).normalizedTime;
@@ -252,6 +253,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
             player.transform.position += new Vector3(1f, 0f, 1.0001f);
             yield return null;
             Assert.AreEqual(expectedWalkState, wizard.CurrentState);
+            animator.Update(0f);
             Assert.IsTrue(animator.GetCurrentAnimatorStateInfo(0).IsName(expectedWalkState));
             animator.Update(0.1f);
             float secondWalkTime = animator.GetCurrentAnimatorStateInfo(0).normalizedTime;
