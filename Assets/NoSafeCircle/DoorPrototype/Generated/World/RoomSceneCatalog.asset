@@ -1,0 +1,81 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 672f4c58b9b9a9f570efc8cf80a6b8fe, type: 3}
+  m_Name: RoomSceneCatalog
+  m_EditorClassIdentifier:
+  rooms:
+  - roomId: 0
+    sceneAssetPath: Assets/Scenes/Rooms/RuinedEntry.unity
+    bounds:
+      MinX: -10
+      MaxX: 10
+      MinZ: -18
+      MaxZ: 0
+  - roomId: 1
+    sceneAssetPath: Assets/Scenes/Rooms/BoneArchive.unity
+    bounds:
+      MinX: -10
+      MaxX: 10
+      MinZ: 0
+      MaxZ: 20
+  - roomId: 2
+    sceneAssetPath: Assets/Scenes/Rooms/ChapelOfAsh.unity
+    bounds:
+      MinX: -12
+      MaxX: 12
+      MinZ: 20
+      MaxZ: 42
+  - roomId: 3
+    sceneAssetPath: Assets/Scenes/Rooms/LowerVault.unity
+    bounds:
+      MinX: -11
+      MaxX: 11
+      MinZ: 42
+      MaxZ: 64
+  - roomId: 4
+    sceneAssetPath: Assets/Scenes/Rooms/FinalRoom.unity
+    bounds:
+      MinX: -12
+      MaxX: 12
+      MinZ: 64
+      MaxZ: 86
+  doors:
+  - doorId: 0
+    exitRoom: 0
+    isFinal: 0
+    entryRoom: 1
+    expectedGroundCenter: {x: 0, y: 0}
+    openingWidth: 3
+  - doorId: 1
+    exitRoom: 1
+    isFinal: 0
+    entryRoom: 2
+    expectedGroundCenter: {x: 6, y: 20}
+    openingWidth: 3
+  - doorId: 2
+    exitRoom: 2
+    isFinal: 0
+    entryRoom: 3
+    expectedGroundCenter: {x: -6, y: 42}
+    openingWidth: 3
+  - doorId: 3
+    exitRoom: 3
+    isFinal: 0
+    entryRoom: 4
+    expectedGroundCenter: {x: 4, y: 64}
+    openingWidth: 3
+  - doorId: 4
+    exitRoom: 4
+    isFinal: 1
+    entryRoom: 4
+    expectedGroundCenter: {x: 0, y: 86}
+    openingWidth: 3
