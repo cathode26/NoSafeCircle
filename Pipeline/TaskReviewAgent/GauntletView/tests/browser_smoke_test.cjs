@@ -253,6 +253,68 @@ test('task details preserve workflow labels and exact Issue and PR links', async
     'https://github.com/cathode26/NoSafeCircle-Homework-Rehearsal/issues/112');
   assert.equal(await page.locator('#detail a[href$="/pull/116"]').count(), 1);
 });
+test('review alarm identifies its origin and falls back after a numeric YouTube error', async () => {
+  const result = await page.evaluate(() => {
+    const loopCalls = [];
+    const speechCalls = [];
+    window.YT = {
+      PlayerState: {ENDED: 0, PLAYING: 1},
+      Player: function (_elementId, options) {
+        window.__reviewAlarmPlayerOptions = options;
+        return {
+          destroy() {},
+          seekTo() { loopCalls.push('seek'); },
+          playVideo() { loopCalls.push('play'); },
+        };
+      },
+    };
+    youtubeReviewApiReady = true;
+    reviewAlarmActive = true;
+    reviewAlarmGeneration += 1;
+    startReviewAlarmVideo(reviewAlarmGeneration);
+    const options = window.__reviewAlarmPlayerOptions;
+    speakHalWarning = (_generation, after) => {
+      speechCalls.push('speech');
+      after();
+    };
+
+    options.events.onStateChange({data: YT.PlayerState.ENDED});
+    const speechBeforePlaying = speechCalls.length;
+    options.events.onStateChange({data: YT.PlayerState.PLAYING});
+    options.events.onStateChange({data: YT.PlayerState.ENDED});
+    options.events.onError({data: 153});
+
+    const fallback = document.getElementById('review-alarm-video-fallback');
+    const link = fallback.querySelector('a');
+    return {
+      origin: options.playerVars.origin,
+      videoId: options.videoId,
+      speechBeforePlaying,
+      speechAfterPlaying: speechCalls.length,
+      loopCalls,
+      errorCode: fallback.dataset.youtubeError,
+      errorText: document.getElementById('review-alarm-video-error').textContent,
+      fallbackVisible: !fallback.hidden,
+      mediaHidden: document.getElementById('review-alarm-media').hidden,
+      fallbackHref: link.href,
+      fallbackTarget: link.target,
+      fallbackRel: link.rel,
+    };
+  });
+
+  assert.equal(result.origin, new URL(process.env.NSC_VIEW_TEST_URL).origin);
+  assert.equal(result.videoId, 'dQw4w9WgXcQ');
+  assert.equal(result.speechBeforePlaying, 0);
+  assert.equal(result.speechAfterPlaying, 1);
+  assert.deepEqual(result.loopCalls, ['seek', 'play']);
+  assert.equal(result.errorCode, '153');
+  assert.equal(result.errorText, 'YouTube player error 153.');
+  assert.equal(result.fallbackVisible, true);
+  assert.equal(result.mediaHidden, true);
+  assert.equal(result.fallbackHref, 'https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+  assert.equal(result.fallbackTarget, '_blank');
+  assert.equal(result.fallbackRel, 'noopener noreferrer');
+});
 test('out-of-range saved sizes are clamped and corrupt preferences recover', async () => {
   await page.evaluate(() => localStorage.setItem('nsc.gauntlet.panels.v1', JSON.stringify({
     pipelineHeight: 99999, detailWidth: -1000,

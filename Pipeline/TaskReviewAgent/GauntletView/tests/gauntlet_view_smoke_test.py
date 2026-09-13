@@ -2785,6 +2785,32 @@ class GauntletViewHtmlTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.html = INDEX_PATH.read_text(encoding="utf-8")
 
+    def test_review_alarm_player_identifies_origin_and_preserves_deliberate_media(self) -> None:
+        alarm_start = self.html.index("function showReviewAlarmVideoError")
+        alarm_end = self.html.index("function syncReviewAlarm", alarm_start)
+        alarm_source = self.html[alarm_start:alarm_end]
+        self.assertIn("origin: window.location.origin", alarm_source)
+        self.assertIn(
+            "onError: event => showReviewAlarmVideoError(event.data, generation)",
+            alarm_source,
+        )
+        self.assertIn("Number.isInteger(numericCode)", alarm_source)
+        self.assertIn("fallback.dataset.youtubeError = String(numericCode)", alarm_source)
+        self.assertIn("`YouTube player error ${numericCode}.`", alarm_source)
+        self.assertIn("event.data === YT.PlayerState.PLAYING", alarm_source)
+        self.assertIn("!reviewAlarmPlaybackSucceeded", alarm_source)
+        self.assertIn("videoId: 'dQw4w9WgXcQ'", alarm_source)
+        self.assertIn(
+            'href="https://www.youtube.com/watch?v=dQw4w9WgXcQ"',
+            self.html,
+        )
+        self.assertIn(">Watch on YouTube</a>", self.html)
+        self.assertIn("window.speechSynthesis.speak(warning)", self.html)
+        self.assertIn(
+            "I'm sorry, Vincent. I'm afraid I can't do that.",
+            self.html,
+        )
+
     def test_human_action_primary_destination_is_issue(self) -> None:
         self.assertIn("function githubIssueNavigation(task)", self.html)
         self.assertIn("task.state === 'human_action' ? ' primary' : ''", self.html)

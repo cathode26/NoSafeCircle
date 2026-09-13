@@ -102,6 +102,9 @@
   #review-alarm p { margin: 8px 0 18px; font-size: 17px; }
   #review-alarm-media { width: min(760px, 84vw); aspect-ratio: 16 / 9; margin: 0 auto; }
   #review-alarm-media iframe { width: 100%; height: 100%; border: 0; }
+  #review-alarm-video-fallback { margin: 20px auto 0; }
+  #review-alarm-video-fallback p { margin-bottom: 8px; }
+  #review-alarm-video-fallback a { color: var(--accent); font-size: 15px; }
 
   .stat { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; }
   .stat span:last-child { color: var(--muted); font-variant-numeric: tabular-nums; }
@@ -298,6 +301,10 @@
     <h2>I’m sorry, Vincent. I’m afraid I can’t do that.</h2>
     <p id="review-alarm-message">Approve or deny the exact candidate to stop the alarm.</p>
     <div id="review-alarm-media"><div id="review-alarm-player"></div></div>
+    <div id="review-alarm-video-fallback" hidden>
+      <p id="review-alarm-video-error"></p>
+      <a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ" target="_blank" rel="noopener noreferrer">Watch on YouTube</a>
+    </div>
   </div>
 </section>
 
@@ -851,6 +858,8 @@ let reviewAlarmTimer = null;
 let reviewAlarmPlayer = null;
 let reviewAlarmGeneration = 0;
 let youtubeReviewApiReady = false;
+let reviewAlarmPlaybackSucceeded = false;
+let reviewAlarmVideoFailed = false;
 
 window.onYouTubeIframeAPIReady = () => {
   youtubeReviewApiReady = true;
@@ -862,7 +871,16 @@ function resetReviewAlarmPlayer() {
     reviewAlarmPlayer.destroy();
   }
   reviewAlarmPlayer = null;
-  document.getElementById('review-alarm-media').innerHTML = '<div id="review-alarm-player"></div>';
+  reviewAlarmPlaybackSucceeded = false;
+  reviewAlarmVideoFailed = false;
+  const media = document.getElementById('review-alarm-media');
+  media.hidden = false;
+  media.removeAttribute('data-youtube-error');
+  media.innerHTML = '<div id="review-alarm-player"></div>';
+  const fallback = document.getElementById('review-alarm-video-fallback');
+  fallback.hidden = true;
+  fallback.removeAttribute('data-youtube-error');
+  document.getElementById('review-alarm-video-error').textContent = '';
 }
 
 function speakHalWarning(generation, after) {
@@ -871,7 +889,7 @@ function speakHalWarning(generation, after) {
   const continueOnce = () => {
     if (continued) return;
     continued = true;
-    if (reviewAlarmActive && generation === reviewAlarmGeneration) after();
+    if (reviewAlarmActive && generation === reviewAlarmGeneration && !reviewAlarmVideoFailed) after();
   };
   if (window.speechSynthesis) {
     const warning = new SpeechSynthesisUtterance("I'm sorry, Vincent. I'm afraid I can't do that.");
@@ -888,20 +906,49 @@ function speakHalWarning(generation, after) {
   reviewAlarmTimer = setTimeout(continueOnce, 4200);
 }
 
+function showReviewAlarmVideoError(errorCode, generation) {
+  if (!reviewAlarmActive || generation !== reviewAlarmGeneration) return;
+  const numericCode = Number(errorCode);
+  if (!Number.isInteger(numericCode)) return;
+  if (reviewAlarmTimer) clearTimeout(reviewAlarmTimer);
+  reviewAlarmTimer = null;
+  reviewAlarmPlaybackSucceeded = false;
+  reviewAlarmVideoFailed = true;
+  const media = document.getElementById('review-alarm-media');
+  media.dataset.youtubeError = String(numericCode);
+  media.hidden = true;
+  const fallback = document.getElementById('review-alarm-video-fallback');
+  fallback.dataset.youtubeError = String(numericCode);
+  fallback.hidden = false;
+  document.getElementById('review-alarm-video-error').textContent =
+    `YouTube player error ${numericCode}.`;
+}
+
 function startReviewAlarmVideo(generation) {
-  if (!reviewAlarmActive || generation !== reviewAlarmGeneration || reviewAlarmPlayer) return;
+  if (!reviewAlarmActive || generation !== reviewAlarmGeneration || reviewAlarmPlayer ||
+      reviewAlarmVideoFailed) return;
   if (!youtubeReviewApiReady || !window.YT || !window.YT.Player) {
     reviewAlarmTimer = setTimeout(() => startReviewAlarmVideo(generation), 500);
     return;
   }
+  reviewAlarmPlaybackSucceeded = false;
   reviewAlarmPlayer = new YT.Player('review-alarm-player', {
     videoId: 'dQw4w9WgXcQ',
-    playerVars: { autoplay: 1, controls: 0, disablekb: 1, rel: 0 },
+    playerVars: {
+      autoplay: 1, controls: 0, disablekb: 1, rel: 0,
+      origin: window.location.origin,
+    },
     events: {
       onReady: event => event.target.playVideo(),
       onStateChange: event => {
-        if (event.data !== YT.PlayerState.ENDED || !reviewAlarmActive ||
+        if (event.data === YT.PlayerState.PLAYING) {
+          reviewAlarmPlaybackSucceeded = true;
+          return;
+        }
+        if (event.data !== YT.PlayerState.ENDED || !reviewAlarmPlaybackSucceeded ||
+            reviewAlarmVideoFailed || !reviewAlarmActive ||
             generation !== reviewAlarmGeneration) return;
+        reviewAlarmPlaybackSucceeded = false;
         speakHalWarning(generation, () => {
           if (reviewAlarmPlayer) {
             reviewAlarmPlayer.seekTo(0, true);
@@ -909,6 +956,7 @@ function startReviewAlarmVideo(generation) {
           }
         });
       },
+      onError: event => showReviewAlarmVideoError(event.data, generation),
     },
   });
 }
