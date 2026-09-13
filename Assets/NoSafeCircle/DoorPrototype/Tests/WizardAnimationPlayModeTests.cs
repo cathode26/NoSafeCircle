@@ -38,7 +38,11 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.IsNotNull(player.GetComponent<Animator>());
             var visual = player.transform.Find("Visual");
             Assert.IsNotNull(visual);
-            Assert.That(visual.position.y, Is.EqualTo(player.transform.position.y).Within(0.001f));
+            var characterController = player.GetComponent<CharacterController>();
+            Assert.IsNotNull(characterController);
+            Assert.That(
+                visual.position.y,
+                Is.EqualTo(player.transform.position.y - characterController.skinWidth).Within(0.001f));
         }
 
         // NSC-062 AC-003/AC-004 and VAL-003: the presentation owner applies both serialized

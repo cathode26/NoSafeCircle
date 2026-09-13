@@ -372,7 +372,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
                 }
             }
             EditorUtility.SetDirty(controller);
-            AssetDatabase.SaveAssets();
+            AssetDatabase.SaveAssetIfDirty(controller);
             return new WizardAnimationAssets(controller, defaultIdle);
         }
 
@@ -428,6 +428,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
             settings.loopTime = true;
             AnimationUtility.SetAnimationClipSettings(clip, settings);
             EditorUtility.SetDirty(clip);
+            AssetDatabase.SaveAssetIfDirty(clip);
             return clip;
         }
 

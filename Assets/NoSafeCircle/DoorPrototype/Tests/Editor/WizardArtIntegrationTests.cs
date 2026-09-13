@@ -1,7 +1,6 @@
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
-using UnityEngine.Tilemaps;
 using NUnit.Framework;
 using System.Linq;
 using System.Reflection;
@@ -59,12 +58,17 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             var renderer = player.transform.Find("Visual")?.GetComponent<SpriteRenderer>();
             Assert.IsNotNull(renderer);
             Assert.IsNotNull(renderer.sprite);
-            var wallRenderer = GameObject.Find("WallTilemap")?.GetComponent<TilemapRenderer>();
-            Assert.IsNotNull(wallRenderer);
-            Assert.AreEqual(wallRenderer.sortingLayerName, renderer.sortingLayerName);
-            Assert.AreEqual(wallRenderer.sortingOrder, renderer.sortingOrder);
+            var doorRenderer = GameObject.Find("DoorRoot/DoorVisual/DoorSprite")?.GetComponent<SpriteRenderer>();
+            Assert.IsNotNull(doorRenderer);
+            Assert.AreEqual(doorRenderer.sortingLayerName, renderer.sortingLayerName);
+            Assert.AreEqual(doorRenderer.sortingOrder, renderer.sortingOrder);
+            Assert.AreEqual(SpriteSortPoint.Pivot, doorRenderer.spriteSortPoint);
             Assert.AreEqual(SpriteSortPoint.Pivot, renderer.spriteSortPoint);
-            Assert.That(renderer.transform.position.y, Is.EqualTo(player.transform.position.y).Within(0.001f));
+            var characterController = player.GetComponent<CharacterController>();
+            Assert.IsNotNull(characterController);
+            Assert.That(
+                renderer.transform.position.y,
+                Is.EqualTo(player.transform.position.y - characterController.skinWidth).Within(0.001f));
 
             var animator = player.GetComponent<Animator>();
             Assert.IsNotNull(animator);

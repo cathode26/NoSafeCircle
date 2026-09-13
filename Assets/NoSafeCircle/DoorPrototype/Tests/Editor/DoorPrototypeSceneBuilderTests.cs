@@ -1179,16 +1179,11 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             }
         }
 
-        // NSC-039 AC-001 (human-review rejection item 2): the prior review-ready candidate's
-        // wizard placeholder was a solid brown bordered square, which made visual
-        // sorting/occlusion validation unnecessarily difficult even though placeholder art is
-        // allowed. The corrected placeholder must be a readable silhouette with real transparent
-        // regions (outside a rounded head / tapered robe shape) rather than an undifferentiated
-        // rect that fills its whole texture. Compared directly against the door's own bordered
-        // rect (which is expected to stay fully opaque at its corners) so this is a genuine
-        // observed silhouette difference, not an assumption about texture sampling.
+        // The integrated wizard presentation uses the approved selected source art. Validate the
+        // import contract that makes that art suitable for crisp isometric depth sorting without
+        // requiring the production texture to be CPU-readable.
         [Test]
-        public void Build_WizardPlaceholderSprite_IsReadableSilhouetteNotSolidBorderedSquare()
+        public void Build_WizardSprite_UsesSelectedSourceWithGroundedPointImportSettings()
         {
             DoorPrototypeSceneBuilder.BuildInMemoryForTests();
 
@@ -1196,40 +1191,21 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             var doorSprite = GameObject.Find("DoorRoot/DoorVisual/DoorSprite")?.GetComponent<SpriteRenderer>()?.sprite;
             Assert.IsNotNull(wizardSprite, "Expected a sprite on the Player's Visual child.");
             Assert.IsNotNull(doorSprite, "Expected a sprite on DoorSprite.");
+            Assert.AreNotEqual(doorSprite, wizardSprite);
 
-            var wizardTexture = wizardSprite.texture;
-            var doorTexture = doorSprite.texture;
-            Assert.IsNotNull(wizardTexture);
-            Assert.IsNotNull(doorTexture);
-
-            var width = wizardTexture.width;
-            var height = wizardTexture.height;
-
-            var wizardCorners = new[]
-            {
-                wizardTexture.GetPixel(2, 2),
-                wizardTexture.GetPixel(width - 3, 2),
-                wizardTexture.GetPixel(2, height - 3),
-                wizardTexture.GetPixel(width - 3, height - 3)
-            };
-            foreach (var corner in wizardCorners)
-            {
-                Assert.AreEqual(0f, corner.a,
-                    "Human-review correction (item 2): the wizard placeholder must have real transparent " +
-                    "silhouette regions (e.g. outside a rounded head/tapered robe shape) rather than being an " +
-                    "undifferentiated solid/bordered square that fills its entire texture.");
-            }
-
-            var wizardBodyFill = wizardTexture.GetPixel(width / 2, height / 4);
-            Assert.Greater(wizardBodyFill.a, 0f,
-                "Expected the wizard silhouette to still have an actual opaque filled region (its robe/body), " +
-                "not be fully transparent.");
-
-            var doorCorner = doorTexture.GetPixel(2, 2);
-            Assert.Greater(doorCorner.a, 0f,
-                "Sanity check: the door's bordered-rect sprite is expected to remain fully opaque at its " +
-                "corners, confirming the wizard's transparent corners above reflect a real silhouette " +
-                "difference rather than a shared/broken texture-sampling assumption.");
+            var wizardAssetPath = AssetDatabase.GetAssetPath(wizardSprite);
+            StringAssert.EndsWith(
+                "/masculine-light/selected/standing/south-east.png",
+                wizardAssetPath.Replace('\\', '/'));
+            var importer = AssetImporter.GetAtPath(wizardAssetPath) as TextureImporter;
+            Assert.IsNotNull(importer);
+            Assert.AreEqual(TextureImporterType.Sprite, importer.textureType);
+            Assert.AreEqual(FilterMode.Point, importer.filterMode);
+            Assert.AreEqual(TextureImporterCompression.Uncompressed, importer.textureCompression);
+            var settings = new TextureImporterSettings();
+            importer.ReadTextureSettings(settings);
+            Assert.AreEqual((int)SpriteAlignment.Custom, settings.spriteAlignment);
+            Assert.That(settings.spritePivot.y, Is.EqualTo(0f).Within(0.001f));
         }
 
         // NSC-039 AC-001: the wizard's placeholder visual representation must use the same
@@ -1522,9 +1498,11 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                 "The wizard's persistent sprite asset must not be keyed off the generic hierarchy child name " +
                 "'Visual', or a future world object that also names its child 'Visual' would silently collide " +
                 "with or reuse the wizard's sprite artwork.");
-            StringAssert.EndsWith("/WizardSprite.asset", wizardAssetPath,
-                "The wizard's persistent sprite asset must use an explicit wizard-specific asset identity while " +
-                "its hierarchy object remains Player/Visual.");
+            StringAssert.EndsWith(
+                "/masculine-light/selected/standing/south-east.png",
+                wizardAssetPath.Replace('\\', '/'),
+                "The wizard must use the explicit selected variant and direction while its hierarchy object " +
+                "remains Player/Visual.");
         }
 
         // VAL-001: the shared sortingLayer/sortingOrder convention above only fixes world
@@ -1878,10 +1856,8 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                 "The sprite visual child must not carry gameplay collision; DoorVisual's own BoxCollider owns it.");
         }
 
-        // NSC-039 AC-001, mirrors Build_PersistentArchitecturalTiles_AreTemporaryReusableVisualOnlyAssets:
-        // world-space sprite/texture assets follow the same caller-owned-folder persistence
-        // split as architectural tiles so their sprite references survive the saved/reopened
-        // canonical scene, and rebuilding reuses rather than duplicates them.
+        // Generated door art follows the caller-owned-folder persistence contract. The integrated
+        // wizard art is an approved canonical source asset and remains reusable across rebuilds.
         [Test]
         public void Build_PersistentWorldSpriteAssets_AreReusableVisualOnlyAssetsInTemporaryFolder()
         {
@@ -1895,7 +1871,9 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             Assert.IsTrue(AssetDatabase.Contains(doorSprite));
             Assert.IsTrue(AssetDatabase.Contains(wizardSprite));
             StringAssert.StartsWith(temporaryArchitecturalTileAssetFolder + "/", AssetDatabase.GetAssetPath(doorSprite));
-            StringAssert.StartsWith(temporaryArchitecturalTileAssetFolder + "/", AssetDatabase.GetAssetPath(wizardSprite));
+            StringAssert.EndsWith(
+                "/masculine-light/selected/standing/south-east.png",
+                AssetDatabase.GetAssetPath(wizardSprite).Replace('\\', '/'));
             Assert.IsNotNull(doorSprite.texture);
             Assert.IsNotNull(wizardSprite.texture);
 
@@ -1907,14 +1885,11 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                 "Rebuilding with the same temporary folder must reuse the existing DoorSprite asset rather " +
                 "than duplicating it.");
             Assert.AreEqual(wizardSprite, wizardSpriteAfterRebuild,
-                "Rebuilding with the same temporary folder must reuse the existing Visual sprite asset rather " +
-                "than duplicating it.");
+                "Rebuilding must reuse the canonical selected wizard sprite.");
         }
 
-        // NSC-039 regression, mirrors BuildInMemory_TransientArchitecturalObjects_AreDestroyedOnRebuild:
-        // the parameterless in-memory test seam must destroy the previous build's transient
-        // world sprite Sprite/Texture pair before creating the replacement, the same as
-        // architectural tiles.
+        // Parameterless in-memory builds replace transient generated door art while retaining the
+        // canonical selected wizard source asset.
         [Test]
         public void BuildInMemory_TransientWorldSpriteObjects_AreDestroyedOnRebuild()
         {
@@ -1930,17 +1905,18 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                 "Previous transient DoorSprite Sprite must be destroyed before rebuilding.");
             Assert.IsTrue(oldDoorTexture == null,
                 "Previous transient DoorSprite Texture must be destroyed before rebuilding.");
-            Assert.IsTrue(oldWizardSprite == null,
-                "Previous transient wizard Sprite must be destroyed before rebuilding.");
-            Assert.IsTrue(oldWizardTexture == null,
-                "Previous transient wizard Texture must be destroyed before rebuilding.");
+            Assert.IsFalse(oldWizardSprite == null,
+                "The canonical wizard Sprite must survive an in-memory rebuild.");
+            Assert.IsFalse(oldWizardTexture == null,
+                "The canonical wizard Texture must survive an in-memory rebuild.");
 
             var newDoorSprite = GameObject.Find("DoorRoot/DoorVisual/DoorSprite").GetComponent<SpriteRenderer>().sprite;
             var newWizardSprite = GameObject.Find("Player/Visual").GetComponent<SpriteRenderer>().sprite;
             Assert.IsNotNull(newDoorSprite);
             Assert.IsFalse(AssetDatabase.Contains(newDoorSprite));
             Assert.IsNotNull(newWizardSprite);
-            Assert.IsFalse(AssetDatabase.Contains(newWizardSprite));
+            Assert.IsTrue(AssetDatabase.Contains(newWizardSprite));
+            Assert.AreEqual(oldWizardSprite, newWizardSprite);
         }
 
         // NSC-038 regression-only invariant: repairing generated Tiles must save only those

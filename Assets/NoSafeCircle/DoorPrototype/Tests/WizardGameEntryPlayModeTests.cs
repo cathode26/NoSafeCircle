@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Linq;
+using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -31,6 +32,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
         private Mouse mouseDevice;
         private RenderTexture testRenderTexture;
         private Camera renderCamera;
+        private InputActionAsset testMovementActions;
 
         public override void Setup()
         {
@@ -40,6 +42,12 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
         public override void TearDown()
         {
+            if (testMovementActions != null)
+            {
+                testMovementActions.Disable();
+                Object.DestroyImmediate(testMovementActions);
+            }
+
             DetachTestRenderTexture();
             if (testRenderTexture != null)
             {
@@ -49,6 +57,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
             testRenderTexture = null;
             renderCamera = null;
+            testMovementActions = null;
             mouseDevice = null;
             base.TearDown();
         }
@@ -204,6 +213,17 @@ namespace NoSafeCircle.DoorPrototype.Tests
             testRenderTexture.Create();
             camera.targetTexture = testRenderTexture;
             renderCamera = camera;
+            SetPrivateField(movement, "mainCamera", camera);
+            InputActionAsset sceneMovementActions = GetPrivateField<InputActionAsset>(movement, "inputActions");
+            testMovementActions = Object.Instantiate(sceneMovementActions);
+            InputActionMap playerMap = testMovementActions.FindActionMap("Player", true);
+            playerMap.devices = new InputDevice[] { mouseDevice };
+            InputAction pointerPosition = playerMap.FindAction("PointerPosition", true);
+            InputAction moveToCursor = playerMap.FindAction("MoveToCursor", true);
+            SetPrivateField(movement, "inputActions", testMovementActions);
+            SetPrivateField(movement, "pointerPositionAction", pointerPosition);
+            SetPrivateField(movement, "moveToCursorAction", moveToCursor);
+            playerMap.Enable();
 
             BeginSelection(canvas);
             selection.GetOption(3).Button.onClick.Invoke();
@@ -214,15 +234,29 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.IsTrue(interaction.IsGameplayEnabled);
 
             yield return null;
+            // InputTestFixture classes earlier in the full PlayMode run may leave a final queued
+            // mouse sample until the next InputSystem update. Establish a released baseline so
+            // this test observes its own fresh press through the scene's real input actions.
+            SetMouse(Vector2.zero, false);
+            interaction.ResetInteraction();
+            movement.ResetMovement();
+            movement.Tick(0.02f);
             Vector3 startPosition = player.transform.position;
             Vector3 target = playerSpawn.transform.position + new Vector3(-1.5f, 0f, -1.5f);
             SetMouse(camera.WorldToScreenPoint(target), true);
             movement.Tick(0.02f);
+            bool hadDestinationAfterPress = movement.HasActiveDestination;
+            bool hadPointerTargetAfterPress = movement.HasPointerWorldTarget;
+            Vector3 pointerTargetAfterPress = movement.PointerWorldTarget;
+            bool hadLockedDoorAfterPress = interaction.HasLockedDoorInteraction;
             SetMouse(camera.WorldToScreenPoint(target), false);
             movement.Tick(0.02f);
 
             Assert.IsTrue(movement.HasActiveDestination,
-                "The post-confirmation mouse press must reach the scene's PlayerMovement owner.");
+                "The post-confirmation mouse press must reach the scene's PlayerMovement owner. " +
+                $"AfterPress(destination={hadDestinationAfterPress}, pointer={hadPointerTargetAfterPress}, " +
+                $"pointerTarget={pointerTargetAfterPress}, lockedDoor={hadLockedDoorAfterPress}); " +
+                $"afterRelease(pointer={movement.HasPointerWorldTarget}, position={player.transform.position}).");
             AdvanceMovementTime(movement, 1f);
             yield return null;
 
@@ -314,5 +348,22 @@ namespace NoSafeCircle.DoorPrototype.Tests
             offset.y = 0f;
             return offset.magnitude;
         }
+
+        private static void SetPrivateField(object target, string fieldName, object value)
+        {
+            FieldInfo field = target.GetType().GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Instance);
+            Assert.IsNotNull(field, $"Expected a private field named '{fieldName}' on {target.GetType().Name}.");
+            field.SetValue(target, value);
+        }
+
+        private static T GetPrivateField<T>(object target, string fieldName) where T : class
+        {
+            FieldInfo field = target.GetType().GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Instance);
+            Assert.IsNotNull(field, $"Expected a private field named '{fieldName}' on {target.GetType().Name}.");
+            T value = field.GetValue(target) as T;
+            Assert.IsNotNull(value, $"Expected '{fieldName}' on {target.GetType().Name} to contain {typeof(T).Name}.");
+            return value;
+        }
+
     }
 }

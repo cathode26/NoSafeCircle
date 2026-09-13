@@ -37,5 +37,16 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.AreEqual(new Vector3(4f, 0f, 64f), doors[3].transform.position);
             Assert.AreEqual(new Vector3(0f, 0f, 86f), doors[4].transform.position);
         }
+
+        [UnityTearDown]
+        public IEnumerator UnloadCanonicalSceneWithoutSaving()
+        {
+            var scene = SceneManager.GetSceneByName("DoorPrototype");
+            if (!scene.IsValid() || !scene.isLoaded) yield break;
+
+            var cleanupScene = SceneManager.CreateScene("FiveRoomDoorSequenceTestCleanup");
+            SceneManager.SetActiveScene(cleanupScene);
+            yield return SceneManager.UnloadSceneAsync(scene);
+        }
     }
 }
