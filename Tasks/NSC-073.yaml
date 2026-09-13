@@ -1,0 +1,79 @@
+{
+  "schema_version": "2.0",
+  "id": "NSC-073",
+  "contract_revision": 1,
+  "contract_disposition": "active",
+  "title": "White Female Wizard Hat Frame Correction",
+  "reconciliation_key": "white-female-wizard-hat-frame-correction",
+  "kind": "implementation",
+  "type": "wizard-source-art-correction",
+  "execution_scope": "single_agent",
+  "execution_reason": "PixelLab source-frame replacement, source inventory and provenance updates, deterministic frame checks, and Vincent's exact-candidate visual review form one bounded art correction.",
+  "decomposition_state": "concrete",
+  "decomposition_reason": "The defect is isolated to two known White Female northeast walk source frames and their traceable PixelLab provenance.",
+  "parent": "NSC-002",
+  "depends_on": [
+    "NSC-061",
+    "NSC-070"
+  ],
+  "exclusive_resources": [
+    "logical:pixellab-wizard-character-art",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source",
+    "repo-file:Docs/Art/Wizard"
+  ],
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "Vincent White Female runtime report, 2026-09-12",
+      "requirement": "Replace feminine/light north-east walk frames 004 and 005 with traceable PixelLab frames for the same wizard, costume, skin, motion, direction, dimensions, camera, and frame positions. The hat, face, body proportions, lighting, ground contact, and motion remain continuous through frames 000 through 005."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "Approved PixelLab source-art boundary",
+      "requirement": "Use PixelLab for replacement candidates and record their generation identifiers, prompt/settings, and selected files in the existing source inventory and Docs/Art/Wizard/PIXELLAB_GENERATION.md. Do not hand-paint a substitute, duplicate a neighboring frame, or copy another wizard's artwork."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "Existing Unity sprite identity",
+      "requirement": "Preserve the two existing Unity asset paths and .meta GUIDs so the generated White Female northeast walk clip keeps its six ordered sprite references. Preserve every other wizard source frame and all movement, Animator, selection, and gameplay code."
+    }
+  ],
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "Deterministic source and clip audit",
+      "requirement": "WizardArtIntegrationTests confirms all six White Female northeast frames remain present in order with unchanged Unity identities, consistent dimensions/import geometry, and no mixed wizard or direction references; source inventory and provenance identify the replacement frames."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "Vincent exact-candidate visual approval",
+      "requirement": "Vincent selects the White Female wizard in Assets/Scenes/DoorPrototype.unity, walks northeast long enough to view the complete loop, confirms the hat and wizard identity remain continuous across all six frames, and explicitly approves the exact candidate before integration."
+    }
+  ],
+  "downstream_integration_obligations": [],
+  "gdd_evidence": [
+    {
+      "reference": "GDD development-time generative art and directional wizard sprites",
+      "requirement": "PixelLab may provide source art that Unity imports as ordinary directional sprite animation with no runtime AI dependency."
+    }
+  ],
+  "basis": "human_observed_source_art_regression",
+  "source_scope": "required",
+  "confidence": "high",
+  "notes": "This task owns only the known White Female source-art defect and its provenance. NSC-070 owns the shared direction classifier and Animator-state stability. Generated animation and scene serialization must be refreshed through the Windows Unity builder when needed, never hand-edited by a text-only worker.",
+  "repository_state_at_bootstrap": "partial",
+  "repository_evidence_at_bootstrap": [
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/north-east",
+      "evidence_type": "asset",
+      "observation": "Frames 004 and 005 visibly lose the hat and change profile in both the selected files and the retained PixelLab package; the other four frames establish the intended wizard and motion continuity."
+    }
+  ],
+  "provenance": {
+    "origin": "vincent_runtime_white_female_hat_report",
+    "created_by_human_request": true,
+    "wizard_art_source_task_id": "NSC-061",
+    "wizard_animation_repair_task_id": "NSC-070",
+    "approved_at_utc_date": "2026-09-12"
+  }
+}
