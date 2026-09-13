@@ -199,7 +199,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
         public void DirectionFor_RetainsPriorAxisAtEqualComponentBoundary()
         {
             MethodInfo directionMethod = typeof(WizardAnimationController).GetMethod(
-                "DirectionFor", BindingFlags.Static | BindingFlags.NonPublic,
+                "StableDirectionFor", BindingFlags.Static | BindingFlags.NonPublic,
                 null, new[] { typeof(Vector3), typeof(string) }, null);
             Assert.IsNotNull(directionMethod,
                 "The direction classifier needs a prior-facing seam for boundary hysteresis.");
@@ -239,7 +239,9 @@ namespace NoSafeCircle.DoorPrototype.Tests
             movement.enabled = false;
             yield return null;
 
-            player.transform.position += new Vector3(1f, 0f, 1f);
+            // Prime the intended X-axis facing before exercising ambiguous boundary noise.
+            // With no prior movement, retaining the canonical initial Z-axis facing is valid.
+            player.transform.position += new Vector3(1f, 0f, 0f);
             yield return null;
             const string expectedWalkState = "Wizard_Masculine_White_walk_north-east";
             Assert.AreEqual(expectedWalkState, wizard.CurrentState);

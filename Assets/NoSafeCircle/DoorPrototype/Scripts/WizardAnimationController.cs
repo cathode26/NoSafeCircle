@@ -60,7 +60,7 @@ namespace NoSafeCircle.DoorPrototype
             displacement.y = 0f;
 
             var isWalking = displacement.magnitude >= DirectionThreshold;
-            if (isWalking) lastDirection = DirectionFor(displacement, lastDirection);
+            if (isWalking) lastDirection = StableDirectionFor(displacement, lastDirection);
 
             var state = StateName(isWalking ? "walk" : "idle", lastDirection);
             if (state == currentState) return;
@@ -111,7 +111,7 @@ namespace NoSafeCircle.DoorPrototype
         // Keep the previously selected world axis until the other component exceeds it
         // by a small margin. This prevents equal-component collision/transform noise from
         // changing the held diagonal state every frame while preserving sign changes.
-        private static string DirectionFor(Vector3 movement, string previousDirection)
+        private static string StableDirectionFor(Vector3 movement, string previousDirection)
         {
             float absoluteX = Mathf.Abs(movement.x);
             float absoluteZ = Mathf.Abs(movement.z);
