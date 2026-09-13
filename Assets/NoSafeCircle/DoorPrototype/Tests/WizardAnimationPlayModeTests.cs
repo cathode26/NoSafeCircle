@@ -193,6 +193,34 @@ namespace NoSafeCircle.DoorPrototype.Tests
             }
         }
 
+        // NSC-070 regression-only invariant: deterministic collision/transform noise at the
+        // equal-component boundary must not oscillate a held facing between adjacent states.
+        [Test]
+        public void DirectionFor_RetainsPriorAxisAtEqualComponentBoundary()
+        {
+            MethodInfo directionMethod = typeof(WizardAnimationController).GetMethod(
+                "DirectionFor", BindingFlags.Static | BindingFlags.NonPublic,
+                null, new[] { typeof(Vector3), typeof(string) }, null);
+            Assert.IsNotNull(directionMethod,
+                "The direction classifier needs a prior-facing seam for boundary hysteresis.");
+
+            string direction = "north-east";
+            Vector3[] noisyHeldSamples =
+            {
+                new Vector3(1f, 0f, 1f),
+                new Vector3(1f, 0f, 1.0001f),
+                new Vector3(1f, 0f, 1f),
+                new Vector3(1f, 0f, 1.0001f)
+            };
+
+            foreach (Vector3 sample in noisyHeldSamples)
+            {
+                direction = (string)directionMethod.Invoke(null, new object[] { sample, direction });
+                Assert.AreEqual("north-east", direction,
+                    "Equal-component noise must retain the held world-axis facing.");
+            }
+        }
+
         private static string InvokeDirectionFor(Vector3 movement)
         {
             MethodInfo directionMethod = typeof(WizardAnimationController).GetMethod(
