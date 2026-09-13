@@ -1781,7 +1781,7 @@ function startStateStream() {
 
 async function loadInitialState(attempt = 1) {
   const controller = new AbortController();
-  const deadline = setTimeout(() => controller.abort(), 45000);
+  const deadline = setTimeout(() => controller.abort(), 120000);
   try {
     const response = await fetch('/api/state', {signal: controller.signal});
     if (!response.ok) throw new Error(`State request failed (HTTP ${response.status}).`);

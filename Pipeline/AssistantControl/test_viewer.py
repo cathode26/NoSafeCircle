@@ -57,7 +57,7 @@ class ViewerTests(unittest.TestCase):
                 )
                 self.assertIn(b'id="f-scope"> run scope only', document)
                 self.assertIn(b"const saved = assistantFullGraph ? null", document)
-                self.assertIn(b"controller.abort(), 45000", document)
+                self.assertIn(b"controller.abort(), 120000", document)
                 self.assertIn(b"label: 'Outside Current Run'", document)
                 self.assertIn(b"still part of the project graph", document)
                 self.assertIn(b"if (scopeOnly && !t.in_scope) continue", document)
