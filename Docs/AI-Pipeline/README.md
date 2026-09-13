@@ -20,6 +20,7 @@ The documentation is intentionally split so a fresh AI context only needs the ma
 - `05_CONTINUOUS_AUTONOMY_CONTEXT.md` — continuous operation, blockers, budgets and later parallelism.
 - `06_NEW_WINDOW_HANDOFF_TEMPLATE.md` — optional starter prompt for a fresh AI window.
 - `REAL_TASK_DELIVERY_RUNBOOK.md` — authoritative end-to-end procedure for delivering one real task.
+- `LOCAL_MAIN_MERGE_TRAIN_RUNBOOK.md` — host-operated procedure for combining completed local branches in a disposable integration checkout, validating the result, fast-forwarding local `main`, and restarting the full-graph viewer while workers continue on isolated branches.
 - `STANDALONE_CLONE_QUICKSTART.md` — copy/paste workflow for an isolated clone, feature branch, validation, and fixed Compose project name.
 - `REAL_TASK_DELIVERY_WINDOWS_CLONE_NOTE.md` — detailed Windows rationale, failure modes, and Docker authentication-volume rules for standalone clones.
 
