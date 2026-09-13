@@ -100,8 +100,7 @@
         "four-wizard-selection-screen",
         "selected-wizard-world-placement",
         "independent-room-scene-composition",
-        "wizard-animation-audit-repair",
-        "wizard-eight-direction-locomotion-integration"
+        "wizard-animation-audit-repair"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
       "work_ids": [
@@ -131,8 +130,7 @@
         "NSC-067",
         "NSC-068",
         "NSC-069",
-        "NSC-070",
-        "NSC-075"
+        "NSC-070"
       ]
     },
     {
@@ -471,6 +469,17 @@
       "work_ids": [
         "NSC-049",
         "NSC-069"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "independent-room-scene-composition",
+        "wizard-eight-direction-locomotion-integration"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs",
+      "work_ids": [
+        "NSC-069",
+        "NSC-075"
       ]
     },
     {

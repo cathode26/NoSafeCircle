@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-075",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "contract_disposition": "active",
   "title": "Unity Eight-Direction Wizard Locomotion Integration",
   "reconciliation_key": "wizard-eight-direction-locomotion-integration",
@@ -16,8 +16,7 @@
   "exclusive_resources": [
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/WizardAnimationController.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/WizardAnimationController.cs.meta",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/WizardArtIntegrationTests.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/WizardArtIntegrationTests.cs.meta",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/WizardAnimationPlayModeTests.cs",
@@ -51,7 +50,7 @@
     {
       "criterion_id": "AC-005",
       "reference": "Deterministic Unity builder ownership",
-      "requirement": "DoorPrototypeSceneBuilder.Build owns materialization of changed Animator controller and clip references and is idempotent across two runs. The worker edits source and focused tests only; generated Animator assets and scene serialization are produced by the repository's Unity builder and are never hand-edited."
+      "requirement": "DoorPrototypeSceneBuilder.Build remains the public materialization command and delegates wizard Animator construction to DoorPrototypeGlobalSceneBuilder. The global builder owns changed Animator controller and clip references and is idempotent across two runs. The worker edits source and focused tests only; generated Animator assets and scene serialization are produced by the repository's Unity builder and are never hand-edited."
     }
   ],
   "completion_gates": [
@@ -91,7 +90,7 @@
   "basis": "human_requested_eight_direction_followup",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "This task owns eight-direction classifier and animation integration. It preserves the lobby, four-wizard selection, world entry, existing Player, and input behavior. It does not own new source-art generation, combat, movement tuning, room composition, or a DoorPrototype-wide resource.",
+  "notes": "This task owns eight-direction classifier and animation integration. DoorPrototypeGlobalSceneBuilder is the exact implementation owner for generated wizard states and clips; DoorPrototypeSceneBuilder remains an unchanged public facade and read-only context. The task preserves the lobby, four-wizard selection, world entry, existing Player, and input behavior. It does not own new source-art generation, combat, movement tuning, room composition, or a DoorPrototype-wide resource.",
   "repository_state_at_bootstrap": "partial",
   "repository_evidence_at_bootstrap": [
     {
