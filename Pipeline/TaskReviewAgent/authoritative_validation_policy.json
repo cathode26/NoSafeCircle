@@ -22,7 +22,7 @@
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-044": {
-      "task_contract_sha256": "e31be6f76794e5dc61479482e3f5eeda23533104608771c742981ed013ff4c34",
+      "task_contract_sha256": "94ecef79e4b0eb3b4421628c1a9f15e7360f67d07374df9247dabba77edb1bbb",
       "required_test_platforms": [
         "EditMode"
       ],
@@ -32,31 +32,27 @@
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-045": {
-      "task_contract_sha256": "63458b4e1963ed02d7bd9593905b0e4100e689bad3530a11f3ae59141a54204d",
+      "task_contract_sha256": "7ad5a1ee6591896ca9e23a7ecdb89cd17a6d9d6faa536108af336f288d71b858",
       "required_test_platforms": [
-        "EditMode",
-        "PlayMode"
+        "EditMode"
       ],
       "test_filters": {
-        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.Rooms.BoneArchiveSceneTests",
-        "PlayMode": "NoSafeCircle.DoorPrototype.Tests.BoneArchiveNavigationPlayModeTests"
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.Rooms.BoneArchiveSceneTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-046": {
-      "task_contract_sha256": "e3260a55c4f2992a8d8749ba1c0bfaa174af52b8f34054ec4d7771833c177508",
+      "task_contract_sha256": "9d9df3eefd968ef2a3bc6d1e08642b24b075372b27a1e4152da1885382149418",
       "required_test_platforms": [
-        "EditMode",
-        "PlayMode"
+        "EditMode"
       ],
       "test_filters": {
-        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.Rooms.ChapelOfAshSceneTests",
-        "PlayMode": "NoSafeCircle.DoorPrototype.Tests.ChapelOfAshProjectileCoverPlayModeTests"
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.Rooms.ChapelOfAshSceneTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-047": {
-      "task_contract_sha256": "0cc64c7affd64a929b72f3b89e2ae3374a10c1c43d4d150ec188df2c4d0d8035",
+      "task_contract_sha256": "5a8f88a50b3952f1174c86517b6cf3a7ffb85b333892b83fcbad08bcc9892e9a",
       "required_test_platforms": [
         "EditMode"
       ],
@@ -66,7 +62,7 @@
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-048": {
-      "task_contract_sha256": "89e1a7f78d8733dd02514b0884f1d9c519311b9613da267c4e126f46759b70fd",
+      "task_contract_sha256": "c79c64db87c936e3120190878cf9fd851c036dfe849ddd0f403bc6dbd6e32cd1",
       "required_test_platforms": [
         "EditMode"
       ],
@@ -88,12 +84,32 @@
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-069": {
-      "task_contract_sha256": "f2d690bfae68e59efebfac05ce6cf76572c233d6506776b2ac48ff78d5d15cb9",
+      "task_contract_sha256": "379ec1a261c77d8d4f495aaa1fa4b6c6285bb6d5ac3a22e9464342662be9019c",
       "required_test_platforms": [
         "EditMode"
       ],
       "test_filters": {
         "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-071": {
+      "task_contract_sha256": "0ad4997fe4e35d9ab4e9b12b5794976b41be0dd4d7c83de4b548a8c72cec58fb",
+      "required_test_platforms": [
+        "PlayMode"
+      ],
+      "test_filters": {
+        "PlayMode": "NoSafeCircle.DoorPrototype.Tests.BoneArchiveNavigationPlayModeTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-072": {
+      "task_contract_sha256": "19e862e921cc394d97ee8f36a73ff80d08e2e1e52e204875c8652231b86445c3",
+      "required_test_platforms": [
+        "PlayMode"
+      ],
+      "test_filters": {
+        "PlayMode": "NoSafeCircle.DoorPrototype.Tests.ChapelOfAshProjectileCoverPlayModeTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
     }

@@ -1,0 +1,56 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "NSC-029 VAL-001; GDD — Approved Five-Room Spatial Layout Blockout §§6 and 12",
+      "requirement": "Using the configured enemy navigation agent, validation verifies traversal through the BA-1 2.5-unit pinch and every intended Bone Archive lane; an impassable approved lane fails this validation rather than being represented as passable."
+    }
+  ],
+  "basis": "human_approved_room_construction_priority",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "NSC-029 VAL-001; GDD — Approved Five-Room Spatial Layout Blockout §§6 and 12",
+      "requirement": "Using the configured enemy navigation agent, validation verifies traversal through the BA-1 2.5-unit pinch and every intended Bone Archive lane; an impassable approved lane fails this validation rather than being represented as passable."
+    }
+  ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "One focused Play Mode test owns one validation responsibility and one exact test file.",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-025",
+    "NSC-045"
+  ],
+  "downstream_integration_obligations": [],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/BoneArchiveNavigationPlayModeTests.cs"
+  ],
+  "execution_reason": "One agent can add the focused Play Mode validation after the authored room and required gameplay system are delivered.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "NSC-029 VAL-001; GDD — Approved Five-Room Spatial Layout Blockout §§6 and 12",
+      "requirement": "Using the configured enemy navigation agent, validation verifies traversal through the BA-1 2.5-unit pinch and every intended Bone Archive lane; an impassable approved lane fails this validation rather than being represented as passable."
+    }
+  ],
+  "id": "NSC-071",
+  "kind": "implementation",
+  "notes": "This follow-up validates committed room geometry; it does not edit the room scene, its builder, or its layout data.",
+  "parent": "NSC-029",
+  "provenance": {
+    "origin": "room_construction_validation_split",
+    "approved_by": "Vincent",
+    "approved_at_utc_date": "2026-09-12",
+    "source_task_id": "NSC-045",
+    "preserved_gate_id": "VAL-001"
+  },
+  "reconciliation_key": "bone-archive-navigation-validation",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "Bone Archive Navigation Lane Validation",
+  "type": "gameplay-validation"
+}

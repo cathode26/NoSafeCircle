@@ -31,7 +31,7 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 4,
+  "contract_revision": 5,
   "decomposition_children": [
     "NSC-044",
     "NSC-045",
@@ -39,7 +39,9 @@
     "NSC-047",
     "NSC-048",
     "NSC-049",
-    "NSC-069"
+    "NSC-069",
+    "NSC-071",
+    "NSC-072"
   ],
   "decomposition_reason": "Decomposed into reviewed child contracts: NSC-069 establishes deterministic Editor-time room-scene composition; NSC-044 through NSC-048 author the five isolated room inputs; NSC-049 performs final canonical composition and door-sequence validation. This aggregate state does not claim implementation completion.",
   "decomposition_requirement_sha256": "3edf31df65830dad1a6a15c042b3ce5e6959b359e4e108980a5bddadc4e804c5",

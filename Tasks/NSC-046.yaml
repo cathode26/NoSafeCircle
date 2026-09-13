@@ -15,18 +15,16 @@
   "completion_gates": [
     {
       "gate_id": "VAL-001",
-      "reference": "NSC-029 VAL-002; GDD — Approved Five-Room Spatial Layout Blockout §§7 and 12; NSC-016 projectile-cover clarification",
-      "requirement": "In Play Mode, fire or directly trigger a real Ranged Enemy projectile along a representative path from the opposite half of the chapel toward CA-W or CA-E. Verify that an authored pew or column gameplay collider stops or despawns the projectile and that PlayerHealth.TakeDamage is not called through or after that cover. The enemy does not need a clear pre-fire line of sight for this test."
+      "reference": "GDD — Approved Five-Room Spatial Layout Blockout §§7 and 11",
+      "requirement": "Committed-artifact conformance validation verifies the approved room bounds, D2/D3 openings, aisle, pew and column footprints, side-route clearances, CA-W/CA-E cover pockets, and reachable melee routes in visible blockout and separate gameplay geometry."
     }
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 4,
-  "decomposition_reason": "The room dimensions, prop footprints, routes, and one projectile-cover Play Mode test are explicit enough for one bounded room-blockout task.",
+  "contract_revision": 5,
+  "decomposition_reason": "The chapel shell, aisle, pew, column, route, and cover-pocket requirements form one bounded room-authoring responsibility. Runtime projectile-cover validation follows in NSC-072.",
   "decomposition_state": "concrete",
   "depends_on": [
-    "NSC-026",
-    "NSC-054",
     "NSC-069"
   ],
   "downstream_integration_obligations": [],
@@ -34,11 +32,10 @@
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/ChapelOfAshSceneBuilder.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/ChapelOfAshLayout.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/ChapelOfAshSceneTests.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/ChapelOfAshProjectileCoverPlayModeTests.cs",
     "unity-scene:Assets/Scenes/Rooms/ChapelOfAsh.unity",
     "logical:room-walkability:chapel-of-ash"
   ],
-  "execution_reason": "One agent can author the Chapel of Ash builder, layout data, focused tests, and Unity authoring scene and run its projectile-cover validation without writing the canonical scene or another room's files. This task does not implement enemy movement, targeting, or attacks.",
+  "execution_reason": "One agent can author the Chapel of Ash builder, layout data, focused geometry tests, and Unity authoring scene without writing the canonical scene or another room's files.",
   "execution_scope": "single_agent",
   "gdd_evidence": [
     {
@@ -48,7 +45,7 @@
   ],
   "id": "NSC-046",
   "kind": "implementation",
-  "notes": "Enemy placement and encounter composition are not included. The Ranged Enemy dependency exists only so this room can prove that a real fired projectile collides with the authored pew or column cover. Revision 2 replaces ambiguous line-of-sight/projectile-occlusion wording with a concrete projectile collision and no-damage-through-cover Play Mode test. Assets/Scenes/Rooms/ChapelOfAsh.unity is an Editor-time authoring input; NSC-049 composes it into the one canonical runtime scene.",
+  "notes": "This task authors the room and its cover geometry. NSC-072 validates that geometry against a real Ranged Enemy projectile after NSC-054 is delivered. Assets/Scenes/Rooms/ChapelOfAsh.unity is an Editor-time authoring input; NSC-049 composes it into the canonical runtime scene.",
   "parent": "NSC-029",
   "provenance": {
     "graph_delta_plan_id": "GDP-5f799a9d352217a315b42a5ec36178abecd2ff16235c9191797508850edfc9d2",
@@ -69,6 +66,6 @@
   "repository_state_at_bootstrap": "not_applicable",
   "schema_version": "2.0",
   "source_scope": "required",
-  "title": "Chapel of Ash Blockout and Projectile Cover Test",
+  "title": "Chapel of Ash Spatial Blockout",
   "type": "content-authoring"
 }

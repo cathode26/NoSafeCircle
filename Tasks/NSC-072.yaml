@@ -1,0 +1,56 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "NSC-029 VAL-002; GDD — Approved Five-Room Spatial Layout Blockout §§7 and 12; NSC-016 projectile-cover clarification",
+      "requirement": "In Play Mode, fire or directly trigger a real Ranged Enemy projectile along a representative path from the opposite half of the chapel toward CA-W or CA-E. Verify that an authored pew or column gameplay collider stops or despawns the projectile and that PlayerHealth.TakeDamage is not called through or after that cover. The enemy does not need a clear pre-fire line of sight for this test."
+    }
+  ],
+  "basis": "human_approved_room_construction_priority",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "NSC-029 VAL-002; GDD — Approved Five-Room Spatial Layout Blockout §§7 and 12; NSC-016 projectile-cover clarification",
+      "requirement": "In Play Mode, fire or directly trigger a real Ranged Enemy projectile along a representative path from the opposite half of the chapel toward CA-W or CA-E. Verify that an authored pew or column gameplay collider stops or despawns the projectile and that PlayerHealth.TakeDamage is not called through or after that cover. The enemy does not need a clear pre-fire line of sight for this test."
+    }
+  ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "One focused Play Mode test owns one validation responsibility and one exact test file.",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-054",
+    "NSC-046"
+  ],
+  "downstream_integration_obligations": [],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/ChapelOfAshProjectileCoverPlayModeTests.cs"
+  ],
+  "execution_reason": "One agent can add the focused Play Mode validation after the authored room and required gameplay system are delivered.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "NSC-029 VAL-002; GDD — Approved Five-Room Spatial Layout Blockout §§7 and 12; NSC-016 projectile-cover clarification",
+      "requirement": "In Play Mode, fire or directly trigger a real Ranged Enemy projectile along a representative path from the opposite half of the chapel toward CA-W or CA-E. Verify that an authored pew or column gameplay collider stops or despawns the projectile and that PlayerHealth.TakeDamage is not called through or after that cover. The enemy does not need a clear pre-fire line of sight for this test."
+    }
+  ],
+  "id": "NSC-072",
+  "kind": "implementation",
+  "notes": "This follow-up validates committed room geometry; it does not edit the room scene, its builder, or its layout data.",
+  "parent": "NSC-029",
+  "provenance": {
+    "origin": "room_construction_validation_split",
+    "approved_by": "Vincent",
+    "approved_at_utc_date": "2026-09-12",
+    "source_task_id": "NSC-046",
+    "preserved_gate_id": "VAL-001"
+  },
+  "reconciliation_key": "chapel-of-ash-projectile-cover-validation",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "Chapel of Ash Projectile Cover Validation",
+  "type": "gameplay-validation"
+}

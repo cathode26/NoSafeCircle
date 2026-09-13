@@ -1,20 +1,18 @@
 {
   "schema_version": "2.0",
   "id": "NSC-069",
-  "contract_revision": 2,
+  "contract_revision": 4,
   "contract_disposition": "active",
   "title": "Independent Room Scene Authoring and Deterministic World Composition Foundation",
   "reconciliation_key": "independent-room-scene-composition",
   "kind": "implementation",
   "type": "world-authoring-foundation",
   "execution_scope": "single_agent",
-  "execution_reason": "One agent can establish the shared room-authoring contracts, catalog, deterministic composition seam, global scene builder boundary, and focused foundation tests before independent room tasks create their own room assets.",
+  "execution_reason": "One agent can establish the self-contained shared room-authoring contracts, catalog, deterministic composition seam, global scene builder boundary, and focused foundation tests before independent room tasks create their room assets.",
   "decomposition_state": "concrete",
   "decomposition_reason": "The shared contracts, catalog, composer, global builder seam, canonical-scene compatibility, and foundation tests form one bounded task. NSC-044 through NSC-048 separately own and create their room-specific scenes, builders, layouts, and tests.",
   "parent": "NSC-029",
-  "depends_on": [
-    "NSC-026"
-  ],
+  "depends_on": [],
   "exclusive_resources": [
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneCatalog.cs",
@@ -68,12 +66,12 @@
     {
       "gate_id": "VAL-002",
       "reference": "Unity generated-asset identity validation",
-      "requirement": "Committed scaffolding assets and scenes carry exactly the deterministic .meta GUID identities recorded by the approved graph-application evidence. Repeated room-scene builds preserve those GUIDs and never replace a scene asset."
+      "requirement": "The shared catalog asset and every shared generated code/data asset carry deterministic Unity .meta identities. The catalog records the five stable room scene paths, while NSC-044 through NSC-048 own creation and identity of each room-specific asset."
     },
     {
       "gate_id": "VAL-003",
       "reference": "Builder idempotence and source-scene preservation",
-      "requirement": "Two consecutive foundation builds produce the same validated generated-root hierarchy, component values, anchor identities, object counts, and navigation inputs without duplicates. Hashes of all five source scene assets are identical before and after composition."
+      "requirement": "Two consecutive foundation builds produce the same global generated-root hierarchy, component values, catalog, and object counts without duplicates; composer tests using isolated fixtures prove deterministic input handling without creating or rewriting the five room assets."
     },
     {
       "gate_id": "VAL-004",

@@ -285,11 +285,11 @@
     },
     {
       "reconciliation_keys": [
-        "bone-archive-blockout"
+        "bone-archive-navigation-validation"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/BoneArchiveNavigationPlayModeTests.cs",
       "work_ids": [
-        "NSC-045"
+        "NSC-071"
       ]
     },
     {
@@ -339,11 +339,11 @@
     },
     {
       "reconciliation_keys": [
-        "chapel-of-ash-blockout"
+        "chapel-of-ash-projectile-cover-validation"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/ChapelOfAshProjectileCoverPlayModeTests.cs",
       "work_ids": [
-        "NSC-046"
+        "NSC-072"
       ]
     },
     {

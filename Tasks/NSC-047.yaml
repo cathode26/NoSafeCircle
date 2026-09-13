@@ -21,11 +21,10 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 2,
+  "contract_revision": 3,
   "decomposition_reason": "Lower Vault's shell, four obstacles, route constraints, and previous-door relevance are sufficiently explicit for one bounded room-authoring unit.",
   "decomposition_state": "concrete",
   "depends_on": [
-    "NSC-026",
     "NSC-069"
   ],
   "downstream_integration_obligations": [],

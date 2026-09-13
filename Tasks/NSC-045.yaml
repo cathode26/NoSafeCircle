@@ -15,18 +15,16 @@
   "completion_gates": [
     {
       "gate_id": "VAL-001",
-      "reference": "NSC-029 VAL-001; GDD — Approved Five-Room Spatial Layout Blockout §§6 and 12",
-      "requirement": "Using the configured enemy navigation agent, validation verifies traversal through the BA-1 2.5-unit pinch and every intended Bone Archive lane; an impassable approved lane fails this validation rather than being represented as passable."
+      "reference": "GDD — Approved Five-Room Spatial Layout Blockout §§6 and 11",
+      "requirement": "Committed-artifact conformance validation verifies the approved shelf and BA-1 footprints, the 2.5-unit pinch, 3.5-unit shelf lanes, both bypasses, two south-to-north routes, and the choice before D2 in visible blockout and separate gameplay geometry."
     }
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 2,
-  "decomposition_reason": "Bone Archive has complete shell, obstacle, lane, clearance, and navigation-validation requirements that form one bounded room-authoring responsibility.",
+  "contract_revision": 3,
+  "decomposition_reason": "Bone Archive has complete shell, obstacle, lane, and clearance requirements that form one bounded room-authoring responsibility. Runtime navigation validation follows in NSC-071.",
   "decomposition_state": "concrete",
   "depends_on": [
-    "NSC-026",
-    "NSC-025",
     "NSC-069"
   ],
   "downstream_integration_obligations": [],
@@ -34,11 +32,10 @@
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/BoneArchiveSceneBuilder.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/BoneArchiveLayout.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/BoneArchiveSceneTests.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/BoneArchiveNavigationPlayModeTests.cs",
     "unity-scene:Assets/Scenes/Rooms/BoneArchive.unity",
     "logical:room-walkability:bone-archive"
   ],
-  "execution_reason": "One agent can author the Bone Archive builder, layout data, focused tests, and Unity authoring scene and validate its lanes against the existing navigation layer without writing the canonical scene or another room's files.",
+  "execution_reason": "One agent can author the Bone Archive builder, layout data, focused geometry tests, and Unity authoring scene without writing the canonical scene or another room's files.",
   "execution_scope": "single_agent",
   "gdd_evidence": [
     {
@@ -48,7 +45,7 @@
   ],
   "id": "NSC-045",
   "kind": "implementation",
-  "notes": "This child consumes navigation configuration for validation but does not select navigation technology or alter enemy behavior. Assets/Scenes/Rooms/BoneArchive.unity is an Editor-time authoring input; NSC-049 composes it into the one canonical runtime scene.",
+  "notes": "This task authors the room and its gameplay geometry. NSC-071 validates those committed lanes against the configured navigation agent after NSC-025 is delivered. Assets/Scenes/Rooms/BoneArchive.unity is an Editor-time authoring input; NSC-049 composes it into the canonical runtime scene.",
   "parent": "NSC-029",
   "provenance": {
     "graph_delta_plan_id": "GDP-5f799a9d352217a315b42a5ec36178abecd2ff16235c9191797508850edfc9d2",
@@ -69,6 +66,6 @@
   "repository_state_at_bootstrap": "not_applicable",
   "schema_version": "2.0",
   "source_scope": "required",
-  "title": "Bone Archive Spatial Blockout and Lane Validation",
+  "title": "Bone Archive Spatial Blockout",
   "type": "content-authoring"
 }
