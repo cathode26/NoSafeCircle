@@ -55,6 +55,9 @@ class ViewerTests(unittest.TestCase):
                 self.assertIn(
                     b"const scopeOnly = document.getElementById('f-scope').checked", document,
                 )
+                self.assertIn(b'id="f-scope"> run scope only', document)
+                self.assertIn(b"const saved = assistantFullGraph ? null", document)
+                self.assertIn(b"controller.abort(), 45000", document)
                 self.assertIn(b"if (scopeOnly && !t.in_scope) continue", document)
                 self.assertIn(b"selectable: false", document)
             with urlopen(base + "/api/state") as response:
@@ -120,6 +123,16 @@ class ViewerTests(unittest.TestCase):
             second = reader.build(max_age_seconds=10)
         self.assertIs(first, second)
         self.assertEqual(first_call_count, calls.call_count)
+
+    def test_rebuild_reuses_committed_taskgraph_states_until_source_head_changes(self):
+        reader = AssistantSnapshot(self.root, self.viewer_root())
+        with unittest.mock.patch.object(
+                reader, "_taskgraph_states", return_value={}) as calls:
+            first = reader.build()
+            second = reader.build()
+        self.assertNotIn("inspection_error", first)
+        self.assertNotIn("inspection_error", second)
+        self.assertEqual(1, calls.call_count)
 
     def test_http_state_clients_share_the_bounded_snapshot_cache(self):
         root = self.viewer_root()

@@ -219,7 +219,7 @@
   <h2>Filter</h2>
   <div class="sub" id="display-scope"></div>
   <label class="check"><input type="checkbox" id="f-cancelled"> show cancelled</label>
-  <label class="check"><input type="checkbox" id="f-scope" checked> run scope only</label>
+  <label class="check"><input type="checkbox" id="f-scope"> run scope only</label>
 
   <h2>States</h2>
   <div id="legend"></div>
@@ -614,7 +614,10 @@ function configureDisplayScope(snap) {
   ]);
   if (nextKey !== scopePreferenceKey) {
     scopePreferenceKey = nextKey;
-    const saved = readPreference(scopePreferenceKey);
+    // Assistant Control is the project-wide view. Always open a new page on the
+    // complete graph, even if an older session persisted the focused run filter.
+    // The operator can still enable the checkbox for the rest of this page load.
+    const saved = assistantFullGraph ? null : readPreference(scopePreferenceKey);
     const defaultScopeOnly = assistantFullGraph ? false : !Array.isArray(ids);
     document.getElementById('f-scope').checked = typeof saved === 'boolean' ? saved : defaultScopeOnly;
   }
@@ -1778,7 +1781,7 @@ function startStateStream() {
 
 async function loadInitialState(attempt = 1) {
   const controller = new AbortController();
-  const deadline = setTimeout(() => controller.abort(), 15000);
+  const deadline = setTimeout(() => controller.abort(), 45000);
   try {
     const response = await fetch('/api/state', {signal: controller.signal});
     if (!response.ok) throw new Error(`State request failed (HTTP ${response.status}).`);

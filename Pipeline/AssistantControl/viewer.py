@@ -91,6 +91,7 @@ class AssistantSnapshot:
         self.source = self.manager.source
         self.contract_head = None
         self.contracts = []
+        self.taskgraph_states = {}
         self.lock = threading.Lock()
         self.cached_state = None
         self.cached_at = 0.0
@@ -119,10 +120,13 @@ class AssistantSnapshot:
                 head = git(self.source, "rev-parse", "HEAD").decode().strip()
                 if head != self.contract_head:
                     contracts = _load_contracts_at_head(self.source, head)
+                    taskgraph_states = self._taskgraph_states(head, contracts)
                     if git(self.source, "rev-parse", "HEAD").decode().strip() != head:
                         raise ValueError("Source advanced while committed task contracts were being read")
-                    self.contracts, self.contract_head = contracts, head
-                taskgraph_states = self._taskgraph_states(self.contract_head)
+                    self.contracts = contracts
+                    self.taskgraph_states = taskgraph_states
+                    self.contract_head = head
+                taskgraph_states = self.taskgraph_states
                 state["run"]["source_commit"] = self.contract_head
                 state["run"]["source_branch"] = git(self.source, "branch", "--show-current").decode().strip()
                 simulation = self._load_simulation()
@@ -169,7 +173,7 @@ class AssistantSnapshot:
             self.cached_at = time.monotonic()
             return state
 
-    def _taskgraph_states(self, head: str) -> dict[str, dict]:
+    def _taskgraph_states(self, head: str, contracts: list[dict] | None = None) -> dict[str, dict]:
         """Read committed delivery state once for the whole viewer snapshot."""
         # The inspected source may be a minimal fixture (or an older project
         # checkout).  Execute the viewer's own evaluator against that source,
@@ -185,7 +189,7 @@ class AssistantSnapshot:
             raise ValueError("TaskGraph delivery state differs from the committed contract snapshot")
         return {
             contract["id"]: context.evaluate(contract["id"]).to_dict()
-            for contract in self.contracts
+            for contract in (self.contracts if contracts is None else contracts)
         }
 
     def _human_review_attention(self, rows: list[dict], *, now_epoch: float) -> dict:
