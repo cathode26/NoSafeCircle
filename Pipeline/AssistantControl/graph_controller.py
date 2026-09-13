@@ -18,16 +18,21 @@ from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable, Iterator, Mapping, Sequence
 
+from Pipeline.AssistantControl import background_jobs
 from Pipeline.AssistantControl.automation_policy import (
     HUMAN_ONLY_TASKS,
     committed_json,
     is_synthetic_gauntlet,
 )
 from Pipeline.AssistantControl.checkouts import Checkouts, write_record
-from Pipeline.AssistantControl.dependencies import approved_integration, inspect_dependencies
+from Pipeline.AssistantControl.dependencies import (
+    approved_integration,
+    conformance_context,
+    inspect_dependencies,
+)
 from Pipeline.AssistantControl.inspect_project import changes, git
 from Pipeline.AssistantControl.process_identity import identify
-from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task
+from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task, load_committed_tasks
 from Pipeline.TaskReviewAgent.contracts import ExecutionScopePlan, validate_task_id
 from Pipeline.TaskReviewAgent.execution_session_pool import (
     _acquire_liveness_lock,
@@ -50,6 +55,25 @@ _FILTER_RE = re.compile(r"\bfilter\s+([A-Za-z_][A-Za-z0-9_.+`]*)")
 DELEGATE_SAFE_ACTIONS = frozenset({
     "prepare", "refresh_prepared", "scope",
 })
+# Expensive management work that never moves Source runs as an owned detached
+# background job so the loop keeps settling workers and admitting crews.
+BACKGROUND_ACTION_KINDS = frozenset({"decompose", "post_crew"})
+# Every action that moves Source or the target branch stays in the single
+# owner thread, one at a time, in planner order.
+SOURCE_LANE_ACTION_KINDS = frozenset({
+    "apply_decomposition", "sync_candidate", "auto_approve", "integrate",
+})
+_SETUP_KINDS = frozenset({"prepare", "refresh_prepared", "scope"})
+_ADMISSION_KINDS = frozenset({"reserve", "start_worker"})
+_WAIT_KINDS = frozenset({"wait_worker", "wait_job"})
+_WAIT_TIMEOUT_STATUSES = frozenset({"worker_still_running", "background_jobs_running"})
+_DECOMPOSITION_JOB_WAIT_SECONDS = 3600.0 + 180.0
+_POST_CREW_JOB_WAIT_SECONDS = 1800.0
+# An operator stop for a controller that has no console: `stop-graph` writes
+# this request bound to the running invocation, PID and process identity; the
+# controller honors it between actions and on every wait poll exactly like
+# Ctrl+C, then returns status "stopped". Unbound or stale requests are archived.
+STOP_REQUEST_SCHEMA = "assistant-graph-controller-stop/v1"
 
 
 class ControllerOwnerActiveError(RuntimeError):
@@ -205,6 +229,7 @@ class GraphPolicy:
     scope_dir: Path | None = None
     decomposition_providers: str = "claude,codex"
     compose_project: str = "nosafecircle"
+    background_job_limit: int = 4
 
     def __post_init__(self) -> None:
         if not self.targets:
@@ -213,6 +238,10 @@ class GraphPolicy:
             validate_task_id(task_id)
         if type(self.capacity) is not int or isinstance(self.capacity, bool) or self.capacity < 1:
             raise ValueError("Graph controller capacity must be positive")
+        if (type(self.background_job_limit) is not int
+                or isinstance(self.background_job_limit, bool)
+                or self.background_job_limit < 1):
+            raise ValueError("Graph controller background job limit must be positive")
         if "NSC-042" not in self.human_review_tasks:
             raise ValueError("NSC-042 is permanently reserved for human review")
 
@@ -223,6 +252,9 @@ class GraphController:
         worker_config: Mapping[str, Any], *,
         execution_authorized: bool = False,
         sleep: Callable[[float], None] = time.sleep,
+        clock: Callable[[], float] = time.monotonic,
+        job_host: background_jobs.JobHost | None = None,
+        stop_grace_seconds: float = background_jobs.STOP_GRACE_SECONDS,
     ):
         self.manager = manager
         self.policy = policy
@@ -230,11 +262,23 @@ class GraphController:
         self._worker_config_bytes = _json_bytes(self.worker_config)
         self.execution_authorized = execution_authorized is True
         self.sleep = sleep
+        self.clock = clock
+        self.job_host = job_host if job_host is not None else background_jobs.DetachedHost()
+        self.stop_grace_seconds = float(stop_grace_seconds)
         self.state_path = manager.records / "graph-controller.json"
         self.event_path = manager.records / "graph-controller-events.jsonl"
         self.owner_path = manager.records / "graph-controller-owner.json"
         self.lock_path = manager.records / "graph-controller.lock"
+        self.stop_path = manager.records / "graph-controller.stop.json"
+        self._process_identity: dict[str, Any] | None = None
         self._active_invocation_id: str | None = None
+        self._last_plan: dict[str, Any] | None = None
+        self._source_lane_busy = False
+        # Everything below is bound to one exact Source HEAD and discarded the
+        # moment HEAD differs: committed contracts, the conformance view, and
+        # proofs keyed by the bytes of the record they were derived from.
+        self._head_cache: dict[str, Any] = {"head": None}
+        self._snapshot_dirty = False
 
     def _policy_fields(self) -> dict[str, Any]:
         return {
@@ -309,6 +353,7 @@ class GraphController:
             process_identity = identify(os.getpid()) if os.name == "nt" else None
             if os.name == "nt" and process_identity is None:
                 raise RuntimeError("Graph controller could not identify its current process")
+            self._process_identity = process_identity
             owner.update({
                 "schema_version": OWNER_SCHEMA_VERSION,
                 "status": "controller_started",
@@ -381,9 +426,11 @@ class GraphController:
         target = self.policy.target_branch or branch
         if branch != target:
             raise ValueError(f"Source is on {branch!r}, expected target branch {target!r}")
+        local_edits = changes(self.manager.source)
+        self._snapshot_dirty = bool(local_edits)
         dirty_graph = sorted({
             str(item.get(key)).replace("\\", "/")
-            for item in changes(self.manager.source)
+            for item in local_edits
             for key in ("path", "original_path")
             if isinstance(item.get(key), str)
             and str(item[key]).replace("\\", "/").casefold().startswith(_GRAPH_PATH_PREFIXES)
@@ -392,15 +439,53 @@ class GraphController:
             raise ValueError("Committed task graph has local edits: " + ", ".join(dirty_graph))
         return head, target
 
+    def _cache_for(self, head: str) -> dict[str, Any]:
+        """Return the per-HEAD cache, emptied whenever Source HEAD has moved."""
+        if self._head_cache.get("head") != head:
+            self._head_cache = {
+                "head": head, "contracts": None, "context": None,
+                "context_dirty": None, "proofs": {},
+            }
+        return self._head_cache
+
+    @staticmethod
+    def _file_sha256(path: Path) -> str | None:
+        try:
+            return _sha256(path.read_bytes())
+        except OSError:
+            return None
+
+    def _proof(self, head: str, key: tuple[Any, ...], compute: Callable[[], Any]) -> Any:
+        """Memoize one proof derived only from immutable objects at ``head`` and ``key``."""
+        proofs = self._cache_for(head)["proofs"]
+        if key not in proofs:
+            proofs[key] = compute()
+        return proofs[key]
+
+    def _conformance_context(self, head: str):
+        """One committed-HEAD conformance view, reused while HEAD and dirtiness hold."""
+        cache = self._cache_for(head)
+        context = cache["context"]
+        if context is None or cache["context_dirty"] != self._snapshot_dirty:
+            context = conformance_context(self.manager.source)
+            if context.head != head:
+                raise ValueError("Source HEAD moved while the graph was being planned")
+            cache["context"] = context
+            cache["context_dirty"] = self._snapshot_dirty
+        return context
+
     def _contracts(self, head: str) -> dict[str, dict[str, Any]]:
-        raw = git(self.manager.source, "ls-tree", "-r", "--name-only", "-z", head, "--", "Tasks")
-        ids = sorted({
-            PurePosixPath(path).stem
-            for path in raw.decode("utf-8", "surrogateescape").split("\0")
-            if path.startswith("Tasks/NSC-") and path.endswith(".yaml")
-        }, key=_task_key)
-        result = {task_id: load_committed_task(self.manager.source, task_id, commit=head)
-                  for task_id in ids}
+        cache = self._cache_for(head)
+        if cache["contracts"] is None:
+            raw = git(self.manager.source, "ls-tree", "-r", "--name-only", "-z", head, "--", "Tasks")
+            ids = sorted({
+                PurePosixPath(path).stem
+                for path in raw.decode("utf-8", "surrogateescape").split("\0")
+                if path.startswith("Tasks/NSC-") and path.endswith(".yaml")
+            }, key=_task_key)
+            # One git process reads every contract's exact bytes at this commit.
+            cache["contracts"] = load_committed_tasks(self.manager.source, ids, commit=head)
+        result = dict(cache["contracts"])
         missing = sorted(set(self.policy.targets) - set(result), key=_task_key)
         if missing:
             raise ValueError("Target tasks do not exist at Source HEAD: " + ", ".join(missing))
@@ -488,28 +573,46 @@ class GraphController:
         complete = False
         if task.get("decomposition_state") == "decomposed":
             children = task.get("decomposition_children") or []
-            complete = self._applied_decomposition(task_id, task, head) and bool(children) and all(
+            # The proof depends only on this HEAD, the retained receipt bytes
+            # and immutable Git history, so it is computed once per receipt.
+            applied = self._proof(head, (
+                "applied_decomposition", task_id, task.get("task_contract_sha256"),
+                self._file_sha256(self.manager.records / f"{task_id}.decomposition.json"),
+            ), lambda: self._applied_decomposition(task_id, task, head))
+            complete = applied and bool(children) and all(
                 self._task_complete(child, tasks, head, memo, visiting)
                 for child in children if isinstance(child, str)
             ) and len(children) == len([child for child in children if isinstance(child, str)])
         if not complete:
-            complete = approved_integration(
+            complete = self._proof(head, (
+                "approved_integration", task_id,
+                self._file_sha256(self.manager.records / f"{task_id}.json"),
+            ), lambda: approved_integration(
                 self.manager.source, self.manager.records, task_id, head,
-            ) is not None
+            ) is not None)
         if not complete and self._record(task_id) is None and self._decomposition(task_id) is None:
-            try:
-                state = inspect_dependencies(
-                    self.manager.source, task_id, self.manager.root,
-                ).get("task_state", {}).get("state")
-                # Committed delivery evidence may satisfy work completed before
-                # this AssistantControl run. Merely finding output files in
-                # Source (needs_testing) cannot replace an integration receipt.
-                complete = state == "conformant"
-            except (OSError, RuntimeError, ValueError, TypeError):
-                complete = False
+            # The task's own committed conformance state is a pure function of
+            # this HEAD (and worktree dirtiness), so its outcome is kept per HEAD.
+            complete = self._proof(
+                head, ("committed_conformance", task_id, self._snapshot_dirty),
+                lambda: self._committed_conformant(task_id, head),
+            )
         visiting.remove(task_id)
         memo[task_id] = complete
         return complete
+
+    def _committed_conformant(self, task_id: str, head: str) -> bool:
+        try:
+            state = inspect_dependencies(
+                self.manager.source, task_id, self.manager.root,
+                context=self._conformance_context(head),
+            ).get("task_state", {}).get("state")
+            # Committed delivery evidence may satisfy work completed before
+            # this AssistantControl run. Merely finding output files in
+            # Source (needs_testing) cannot replace an integration receipt.
+            return state == "conformant"
+        except (OSError, RuntimeError, ValueError, TypeError):
+            return False
 
     def _dependencies_ready(
         self, task: Mapping[str, Any], tasks: Mapping[str, Mapping[str, Any]],
@@ -525,11 +628,55 @@ class GraphController:
         return {item["task_id"]: item for item in _read_registry(path, self.manager.source)["reservations"]
                 if isinstance(item, dict) and isinstance(item.get("task_id"), str)}
 
+    def _jobs(self) -> dict[str, dict[str, Any]]:
+        return background_jobs.list_indexes(self.manager)
+
+    def _job_gate(self, task_id: str, job: Mapping[str, Any] | None) -> dict[str, Any] | None:
+        """Read-only: return the wait action or blocked item that a job imposes on its task.
+
+        A live job owns its task until it ends. A job that ended without a
+        receipt, or whose child failed, blocks only its task until an operator
+        clears the exact index; it is never relaunched automatically. A
+        completed job imposes nothing: the records it wrote decide the next step.
+        """
+        if job is None:
+            return None
+        status = job.get("status")
+        if status in background_jobs.ACTIVE_STATUSES:
+            observed = background_jobs.observe(job, self.job_host)
+            status = observed.get("status")
+            if status == "running":
+                return {"kind": "wait_job", "task_id": task_id,
+                        "job_id": job.get("job_id"), "job_kind": job.get("kind")}
+            if status == "completed":
+                return None
+            error = (observed.get("receipt") or {}).get("error") or observed.get("detail")
+        elif status == "completed":
+            return None
+        else:
+            error = job.get("error")
+        blocked = {"task_id": task_id, "reason": f"background_job_{status}",
+                   "job_kind": job.get("kind"), "job_id": job.get("job_id"), "error": error}
+        if isinstance(job.get("reconciliation"), Mapping):
+            blocked["reconciliation"] = dict(job["reconciliation"])
+        return blocked
+
+    @staticmethod
+    def _crew_run_for_validation(record: Mapping[str, Any]) -> str | None:
+        worker = record.get("worker") or record.get("launch") or {}
+        crew_run = worker.get("crew_run_id") if isinstance(worker, Mapping) else None
+        if not isinstance(crew_run, str) or not crew_run:
+            candidate = record.get("candidate") or {}
+            original = candidate.get("original_candidate") or {}
+            crew_run = original.get("run_id") or candidate.get("run_id")
+        return crew_run if isinstance(crew_run, str) and crew_run else None
+
     def plan(self) -> dict[str, Any]:
         head, branch = self._source_snapshot()
         tasks = self._contracts(head)
         selected = self._in_scope(tasks)
         reservations = self._reservations()
+        jobs = self._jobs()
         memo: dict[str, bool] = {}
         actions: list[dict[str, Any]] = []
         complete: list[str] = []
@@ -549,12 +696,22 @@ class GraphController:
             if not dependencies_ready:
                 blocked.append({"task_id": task_id, "reason": "dependencies", "dependencies": blocked_dependencies})
                 continue
+            gate = self._job_gate(task_id, jobs.get(task_id))
+            if gate is not None:
+                (actions if gate.get("kind") == "wait_job" else blocked).append(gate)
+                continue
             execution_scope = task.get("execution_scope")
             if execution_scope == "needs_execution_decomposition":
                 receipt = self._decomposition(task_id)
                 status = (receipt or {}).get("status")
                 if receipt is None:
-                    actions.append({"kind": "decompose", "task_id": task_id})
+                    if jobs.get(task_id) is not None:
+                        # The ticket ran to completion without a proposal record;
+                        # its receipt is the authority and relaunch needs an operator.
+                        blocked.append({"task_id": task_id, "reason": "decomposition_receipt_missing",
+                                        "job_id": jobs[task_id].get("job_id")})
+                    else:
+                        actions.append({"kind": "decompose", "task_id": task_id})
                 elif status == "review_ready":
                     actions.append({"kind": "apply_decomposition", "task_id": task_id,
                                     "run_id": receipt.get("run_id"),
@@ -609,10 +766,18 @@ class GraphController:
                         waiting_human.append({"task_id": task_id, "candidate_commit": commit,
                                               "checkout": record.get("checkout")})
                     elif self.policy.auto_approve_gauntlet and is_synthetic_gauntlet(
-                            self.manager.source, task_id, head):
+                            self.manager.source, task_id, head, tasks=tasks):
+                        crew_run = self._crew_run_for_validation(record)
                         if record.get("source_commit") != head:
                             actions.append({"kind": "sync_candidate", "task_id": task_id,
                                             "candidate_commit": commit, "source_commit": head})
+                        elif not candidate.get("authoritative_validations") and crew_run:
+                            # Focused Unity validation of a synchronized candidate
+                            # is the expensive half of auto-approval; run it as a
+                            # background job and approve from its retained facts.
+                            actions.append({"kind": "post_crew", "task_id": task_id,
+                                            "crew_run_id": crew_run,
+                                            "candidate_commit": commit})
                         else:
                             actions.append({"kind": "auto_approve", "task_id": task_id,
                                             "candidate_commit": commit})
@@ -685,13 +850,16 @@ class GraphController:
             "complete": complete,
             "waiting_human": waiting_human,
             "blocked": blocked,
+            "background_jobs": [background_jobs.summary(jobs[task_id])
+                                for task_id in sorted(jobs, key=_task_key)],
             "provider_spend_authorized": self.execution_authorized,
             "mutations_performed": False,
         }
 
     def _save_state(self, status: str, *, action: Mapping[str, Any] | None = None,
                     result: Mapping[str, Any] | None = None,
-                    error: str | None = None) -> None:
+                    error: str | None = None,
+                    background_stops: Sequence[Mapping[str, Any]] | None = None) -> None:
         self.state_path.parent.mkdir(parents=True, exist_ok=True)
         previous = _read_json(self.state_path) or {}
         history = list(previous.get("history") or [])[-99:]
@@ -699,6 +867,10 @@ class GraphController:
             history.append({"at": _now(), "action": dict(action),
                             "invocation_id": self._active_invocation_id,
                             "result_status": (result or {}).get("status")})
+        try:
+            jobs = self._jobs()
+        except (OSError, ValueError):
+            jobs = {}
         state = {
             "schema_version": SCHEMA_VERSION,
             "status": status,
@@ -709,8 +881,12 @@ class GraphController:
             "current_action": dict(action) if action is not None else None,
             "last_error": error,
             "history": history,
+            "background_jobs": [background_jobs.summary(jobs[task_id])
+                                for task_id in sorted(jobs, key=_task_key)],
             "updated_at": _now(),
         }
+        if background_stops is not None:
+            state["background_stops"] = [dict(item) for item in background_stops]
         if status == "preflight":
             if result is None:
                 raise ValueError("Preflight state requires an exact graph plan")
@@ -798,6 +974,331 @@ class GraphController:
     def execute(self, action: Mapping[str, Any]) -> dict[str, Any]:
         if self._active_invocation_id is None:
             raise RuntimeError("Graph action requires an active controller invocation")
+        kind = str(action["kind"])
+        if kind in BACKGROUND_ACTION_KINDS:
+            return self._launch_job(action)
+        if kind in _WAIT_KINDS:
+            return self._wait_for_progress(action)
+        if kind in SOURCE_LANE_ACTION_KINDS:
+            if self._source_lane_busy:
+                raise RuntimeError("Source-moving graph actions must not overlap")
+            self._source_lane_busy = True
+            try:
+                return self._execute_foreground(action)
+            finally:
+                self._source_lane_busy = False
+        return self._execute_foreground(action)
+
+    def _job_identity(self, action: Mapping[str, Any]) -> tuple[dict[str, Any], dict[str, Any] | None, bool]:
+        """Bind one background ticket to the exact task, Source commit, contract and config."""
+        kind, task_id = str(action["kind"]), str(action["task_id"])
+        if kind == "decompose":
+            self._require_provider_authority()
+            head = git(self.manager.source, "rev-parse", "HEAD").decode().strip()
+            branch = git(self.manager.source, "branch", "--show-current").decode().strip()
+            task = load_committed_task(self.manager.source, task_id, commit=head)
+            providers = [item.strip() for item in self.policy.decomposition_providers.split(",")
+                         if item.strip()]
+            identity = {
+                "run_id": f"assistant-{task_id.casefold()}-decompose-{head[:12]}",
+                "source_commit": head, "source_branch": branch,
+                "task_contract_sha256": task.get("task_contract_sha256"),
+                "providers": providers, "compose_project": self.policy.compose_project,
+            }
+            return identity, None, True
+        if kind == "post_crew":
+            record = self._record(task_id) or {}
+            worker = record.get("worker") or record.get("launch") or {}
+            config = worker.get("config") if isinstance(worker.get("config"), Mapping) else self.worker_config
+            identity = {
+                "crew_run_id": str(action["crew_run_id"]),
+                "candidate_commit": action.get("candidate_commit"),
+                "source_commit": record.get("source_commit"),
+                "task_contract_sha256": record.get("task_contract_sha256"),
+            }
+            return identity, dict(config), False
+        raise ValueError(f"Unknown background graph action: {kind}")
+
+    def _launch_job(self, action: Mapping[str, Any]) -> dict[str, Any]:
+        kind, task_id = str(action["kind"]), str(action["task_id"])
+        identity, config, spend = self._job_identity(action)
+        try:
+            index = background_jobs.launch(
+                self.manager, kind=kind, task_id=task_id, identity=identity, config=config,
+                invocation_id=str(self._active_invocation_id),
+                provider_spend_authorized=spend, host=self.job_host,
+                binding={
+                    "policy_sha256": _sha256(_json_bytes(self._policy_fields())),
+                    "worker_config_sha256": _sha256(self._worker_config_bytes),
+                },
+            )
+        except background_jobs.BackgroundJobError as exc:
+            # A ticket whose child never started blocks only its own task; the
+            # planner reads the retained spawn_failed index on the next cycle.
+            failed = background_jobs.read_index(self.manager, task_id)
+            if (failed is None or failed.get("status") != "spawn_failed"
+                    or failed.get("invocation_id") != self._active_invocation_id):
+                raise
+            self._append_job_event("job_spawn_failed", failed)
+            return {"status": "spawn_failed", "task_id": task_id, "kind": kind,
+                    "job_id": failed.get("job_id"), "error": str(exc)}
+        self._append_job_event("job_launched", index)
+        return {"status": "launched", "task_id": task_id, "kind": kind,
+                "job_id": index.get("job_id"), "attempt": index.get("attempt"),
+                "identity": index.get("identity"), "pid": index.get("pid"),
+                "process_identity": index.get("process_identity"),
+                "run_root": index.get("run_root")}
+
+    def _append_job_event(self, event: str, index: Mapping[str, Any], **extra: Any) -> None:
+        payload = {
+            "at_utc": _now(), "event": event,
+            "invocation_id": self._active_invocation_id,
+            **{key: index.get(key) for key in (
+                "task_id", "kind", "job_id", "attempt", "identity", "status", "pid",
+                "process_identity", "launched_at_utc", "result_status", "error",
+                "completed_at_utc", "run_root", "provider_container",
+                "provider_container_cleanup",
+            )},
+            "launch_invocation_id": index.get("invocation_id"),
+            "provider": self.worker_config.get("provider"),
+            "model": self.worker_config.get("execution_model"),
+            **extra,
+        }
+        self._append_event(payload)
+
+    def _reconcile_startup(self) -> list[dict[str, Any]]:
+        """Settle every retained ticket under the controller lock before the first plan.
+
+        A live, authenticated job is adopted (its Job Object handle retained;
+        it is never relaunched); an ended job is harvested and its exact
+        provider container reconciled; a live job whose ticket no longer
+        authenticates is stopped and quarantined; anything ambiguous refuses
+        startup before a plan or a launch can happen.
+        """
+        try:
+            outcomes = background_jobs.reconcile_startup(
+                self.manager, self.job_host, invocation_id=str(self._active_invocation_id),
+                grace_seconds=self.stop_grace_seconds, clock=self.clock, sleep=self.sleep,
+            )
+        except background_jobs.StartupRefused as exc:
+            # Outcomes persisted before the refusal are durable; journal them
+            # before the refusal itself so the journal matches the indexes.
+            self._journal_reconciliation(exc.outcomes)
+            self._append_event({
+                "at_utc": _now(), "event": "startup_refused",
+                "invocation_id": self._active_invocation_id, "error": str(exc),
+                **{key: (exc.index or {}).get(key) for key in ("task_id", "kind", "job_id", "status")},
+                "provider_container": (exc.index or {}).get("provider_container"),
+                "provider_container_cleanup": (exc.index or {}).get("provider_container_cleanup"),
+            })
+            raise
+        return self._journal_reconciliation(outcomes)
+
+    def _journal_reconciliation(self, outcomes: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+        harvested: list[dict[str, Any]] = []
+        for outcome in outcomes:
+            index = {key: value for key, value in outcome.items() if key != "outcome"}
+            kind = outcome["outcome"]
+            if kind == "adopted":
+                event = "job_adopted"
+            elif kind == "quarantined":
+                event = "job_quarantined"
+            elif kind == "container_verified":
+                event = "job_container_verified"
+            elif kind == "cleanup_superseded":
+                event = "job_cleanup_superseded"
+            else:
+                event = {"completed": "job_completed", "failed": "job_failed"}.get(
+                    str(index.get("status")), "job_died")
+                harvested.append(index)
+            self._append_job_event(event, index, reconciliation=index.get("reconciliation"))
+        return harvested
+
+    def _harvest_jobs(self) -> list[dict[str, Any]]:
+        """Persist every ended job's exact receipt and reconcile its exact container.
+
+        A terminal job whose container cleanup is not final (refused earlier,
+        unverified, abandoned by a process that died, or verified with its
+        tombstone now passed) is retried here, exactly and without the lock,
+        so the final recheck happens a minute after the kill without an
+        operator; a retry that cannot finish is retained and retried later.
+
+        Concurrency is expected, never fatal: a ticket cleared or superseded
+        while its Docker work ran unlocked is journaled and skipped, and a
+        cleanup or harvest that raises is journaled against its own task while
+        every other task keeps moving. Nothing from this method reaches the
+        controller loop as an exception.
+        """
+        harvested: list[dict[str, Any]] = []
+        for task_id in sorted(self._jobs(), key=_task_key):
+            index = background_jobs.read_index(self.manager, task_id)
+            if index is None:
+                continue
+            if index.get("status") not in background_jobs.ACTIVE_STATUSES:
+                if background_jobs.cleanup_retry_due(index):
+                    try:
+                        settled = background_jobs.settle_cleanup(
+                            self.manager, index, self.job_host, clock=self.clock, sleep=self.sleep,
+                            wait_for_tombstone=False,
+                        )
+                    except background_jobs.BackgroundJobError as exc:
+                        self._append_job_event("job_cleanup_pending", index,
+                                               detail=f"{type(exc).__name__}: {exc}")
+                        continue
+                    if settled.get("cleanup_concurrency"):
+                        self._append_job_event("job_cleanup_superseded", settled,
+                                               detail=settled.get("detail"))
+                        continue
+                    self._append_job_event(
+                        "job_cleanup_pending" if background_jobs.cleanup_pending(settled)
+                        else "job_container_verified", settled,
+                    )
+                continue
+            observed = background_jobs.observe(index, self.job_host)
+            status = observed.get("status")
+            if status == "running":
+                continue
+            if status == "unverifiable":
+                self._append_job_event("job_unverifiable", index, detail=observed.get("detail"))
+                continue
+            try:
+                updated = background_jobs.harvest(
+                    self.manager, index, observed, invocation_id=str(self._active_invocation_id),
+                    host=self.job_host, clock=self.clock, sleep=self.sleep,
+                )
+            except background_jobs.BackgroundJobError as exc:
+                self._append_job_event("job_harvest_deferred", index,
+                                       detail=f"{type(exc).__name__}: {exc}")
+                continue
+            self._append_job_event(
+                {"completed": "job_completed", "failed": "job_failed"}.get(status, "job_died"),
+                updated,
+            )
+            harvested.append(background_jobs.summary(updated))
+        return harvested
+
+    def _watched_workers(self, action: Mapping[str, Any]) -> list[dict[str, Any]]:
+        watched = [dict(item) for item in (self._last_plan or {}).get("next_actions", [])
+                   if item.get("kind") == "wait_worker"]
+        if action.get("kind") == "wait_worker" and not any(
+                item.get("task_id") == action.get("task_id") for item in watched):
+            watched.append(dict(action))
+        return watched
+
+    def _wait_for_progress(self, action: Mapping[str, Any]) -> dict[str, Any]:
+        """Block only until any watched worker exits or any background job ends."""
+        from Pipeline.AssistantControl import worker_control
+        workers = self._watched_workers(action)
+        jobs = [index for index in self._jobs().values()
+                if index.get("status") in background_jobs.ACTIVE_STATUSES]
+        if action.get("kind") == "wait_job" and not any(
+                index.get("job_id") == action.get("job_id") for index in jobs):
+            raise ValueError("Background job identity changed while graph controller was waiting")
+        budget = 0.0
+        if workers:
+            budget = float(self.worker_config.get("timeout_seconds", 900)) + 180
+        for index in jobs:
+            budget = max(budget, _DECOMPOSITION_JOB_WAIT_SECONDS if index.get("kind") == "decompose"
+                         else _POST_CREW_JOB_WAIT_SECONDS)
+        deadline = self.clock() + budget
+        while True:
+            for watched in workers:
+                task_id = str(watched["task_id"])
+                observed = worker_control.status(self.manager, task_id)
+                worker = observed.get("worker") or {}
+                if worker.get("run_id") != watched.get("run_id"):
+                    raise ValueError("Worker identity changed while graph controller was waiting")
+                if observed.get("host_identity_alive") is False:
+                    return {**observed, "status": "progress", "progress": "worker_exited"}
+                if observed.get("host_identity_alive") is None:
+                    raise ValueError("Worker process identity cannot be verified")
+            for index in jobs:
+                observed = background_jobs.observe(index, self.job_host)
+                if observed.get("status") != "running":
+                    return {"status": "progress", "progress": "job_ended",
+                            "task_id": index.get("task_id"), "job_id": index.get("job_id"),
+                            "job_kind": index.get("kind"), "job_status": observed.get("status")}
+            if self._bound_stop_request() is not None:
+                return {"status": "stop_requested",
+                        "watched_workers": [item.get("task_id") for item in workers],
+                        "watched_jobs": [index.get("job_id") for index in jobs]}
+            if self.clock() >= deadline:
+                return {"status": "worker_still_running" if workers else "background_jobs_running",
+                        "watched_workers": [item.get("task_id") for item in workers],
+                        "watched_jobs": [index.get("job_id") for index in jobs]}
+            self.sleep(1.0)
+
+    # -- operator stop request -------------------------------------------
+
+    def _read_stop_request(self) -> dict[str, Any] | None:
+        try:
+            return _read_json(self.stop_path)
+        except ValueError:
+            return {"schema_version": None, "unreadable": True}
+
+    def _bound_stop_request(self) -> dict[str, Any] | None:
+        """Return the stop request only when it names this exact running invocation."""
+        request = self._read_stop_request()
+        if request is None or self._active_invocation_id is None:
+            return None
+        if (request.get("schema_version") == STOP_REQUEST_SCHEMA
+                and request.get("invocation_id") == self._active_invocation_id
+                and request.get("pid") == os.getpid()
+                and request.get("process_identity") == self._process_identity):
+            return request
+        return None
+
+    def _archive_stop_request(self, label: str) -> str | None:
+        if not self.stop_path.is_file():
+            return None
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+        target = self.stop_path.with_name(f"graph-controller.stop.{label}-{stamp}.json")
+        os.replace(self.stop_path, target)
+        return str(target)
+
+    def _archive_stale_stop_request(self) -> None:
+        request = self._read_stop_request()
+        if request is None or self._bound_stop_request() is not None:
+            return
+        archived = self._archive_stop_request("stale")
+        self._append_event({
+            "at_utc": _now(), "event": "stop_request_ignored",
+            "invocation_id": self._active_invocation_id,
+            "request_invocation_id": request.get("invocation_id"),
+            "request_pid": request.get("pid"), "archived": archived,
+        })
+
+    def _cancel_active_jobs(self, reason: str, grace_seconds: float) -> list[dict[str, Any]]:
+        """Stop every active background job; a second interrupt or a failure is retained, never hidden."""
+        stops: list[dict[str, Any]] = []
+        try:
+            stops = background_jobs.cancel_all(
+                self.manager, host=self.job_host, reason=reason,
+                grace_seconds=grace_seconds, invocation_id=str(self._active_invocation_id),
+                clock=self.clock, sleep=self.sleep,
+            )
+        except KeyboardInterrupt:
+            stops = [{"status": "stop_interrupted",
+                      "error": "second interrupt abandoned background job enforcement"}]
+        except Exception as exc:
+            stops = [{"status": "stop_failed", "error": f"{type(exc).__name__}: {exc}"}]
+        for item in stops:
+            try:
+                self._append_event({
+                    "at_utc": _now(), "event": "job_stopped",
+                    "invocation_id": self._active_invocation_id, **dict(item),
+                })
+            except BaseException:
+                pass
+        return stops
+
+    def _stop_grace(self, request: Mapping[str, Any]) -> float:
+        grace = request.get("grace_seconds")
+        if isinstance(grace, (int, float)) and not isinstance(grace, bool) and grace >= 0:
+            return float(grace)
+        return self.stop_grace_seconds
+
+    def _execute_foreground(self, action: Mapping[str, Any]) -> dict[str, Any]:
         kind, task_id = str(action["kind"]), str(action["task_id"])
         if kind == "prepare":
             return self.manager.prepare(task_id, expected_commit=str(action["source_commit"]))
@@ -821,33 +1322,9 @@ class GraphController:
             config = {**self.worker_config, "execution_authorized": True}
             return start(self.manager, task_id, str(action["run_id"]), str(action["lease_id"]),
                          config, execution_authorized=True)
-        if kind == "wait_worker":
-            from Pipeline.AssistantControl import worker_control
-            timeout = float(self.worker_config.get("timeout_seconds", 900)) + 180
-            deadline = time.monotonic() + timeout
-            while True:
-                observed = worker_control.status(self.manager, task_id)
-                worker = observed.get("worker") or {}
-                if worker.get("run_id") != action.get("run_id"):
-                    raise ValueError("Worker identity changed while graph controller was waiting")
-                if observed.get("host_identity_alive") is False:
-                    return observed
-                if observed.get("host_identity_alive") is None:
-                    raise ValueError("Worker process identity cannot be verified")
-                if time.monotonic() >= deadline:
-                    return {**observed, "status": "worker_still_running"}
-                self.sleep(1.0)
         if kind == "settle_worker":
             from Pipeline.AssistantControl.worker_settlement import settle_completed
             return settle_completed(self.manager, task_id, run_id=str(action["run_id"]))
-        if kind == "post_crew":
-            from Pipeline.AssistantControl.post_crew_workflow import run_post_crew_workflow
-            record = self._record(task_id) or {}
-            worker = record.get("worker") or record.get("launch") or {}
-            config = worker.get("config") if isinstance(worker.get("config"), Mapping) else self.worker_config
-            return run_post_crew_workflow(
-                self.manager, task_id, str(action["crew_run_id"]), config,
-            )
         if kind == "sync_candidate":
             from Pipeline.AssistantControl.source_update import synchronize_candidate
             return synchronize_candidate(
@@ -855,24 +1332,22 @@ class GraphController:
                 str(action["source_commit"]),
             )
         if kind == "auto_approve":
-            from Pipeline.AssistantControl.post_crew_workflow import run_post_crew_workflow
+            # Approval only. Focused Unity validation is background `post_crew`
+            # work; this foreground step never runs it and fails closed when
+            # the exact candidate carries no retained validation facts.
             from Pipeline.AssistantControl.review import ReviewGate
             record = self._record(task_id) or {}
-            worker = record.get("worker") or record.get("launch") or {}
-            crew_run = worker.get("crew_run_id")
-            if not isinstance(crew_run, str) or not crew_run:
-                candidate = record.get("candidate") or {}
-                original = candidate.get("original_candidate") or {}
-                crew_run = original.get("run_id") or candidate.get("run_id")
-            if not isinstance(crew_run, str) or not crew_run:
-                raise ValueError("Gauntlet candidate has no originating crew run")
-            config = worker.get("config") if isinstance(worker.get("config"), Mapping) else self.worker_config
-            post = run_post_crew_workflow(self.manager, task_id, crew_run, config)
-            if post.get("status") != "awaiting_human":
-                raise ValueError(f"Gauntlet candidate validation returned {post.get('status')}")
-            candidate_commit = post.get("materialized_candidate_commit") or post.get("crew_candidate_commit")
-            if candidate_commit != action.get("candidate_commit"):
-                raise ValueError("Gauntlet candidate changed during automated validation")
+            candidate = record.get("candidate") or {}
+            candidate_commit = candidate.get("commit")
+            if not isinstance(candidate_commit, str) or candidate_commit != action.get("candidate_commit"):
+                raise ValueError("Gauntlet candidate changed before automated approval")
+            if record.get("status") != "awaiting_human":
+                raise ValueError(f"Gauntlet candidate is {record.get('status')!r}, not awaiting approval")
+            if not candidate.get("authoritative_validations"):
+                raise ValueError(
+                    "Gauntlet candidate has no retained focused validation; "
+                    "a post_crew job must validate it first"
+                )
             return ReviewGate(self.manager).approve_validated_gauntlet(
                 task_id, tested_commit=candidate_commit,
             )
@@ -881,17 +1356,6 @@ class GraphController:
             return ReviewGate(self.manager).integrate(
                 task_id, expected_source_commit=str(action["source_commit"]),
                 target_branch=str(action["target_branch"]),
-            )
-        if kind == "decompose":
-            self._require_provider_authority()
-            from Pipeline.AssistantControl import decomposition
-            head = git(self.manager.source, "rev-parse", "HEAD").decode().strip()
-            run_id = f"assistant-{task_id.casefold()}-decompose-{head[:12]}"
-            return decomposition.run(
-                self.manager, task_id, run_id,
-                providers=self.policy.decomposition_providers,
-                compose_project=self.policy.compose_project,
-                execution_authorized=True,
             )
         if kind == "apply_decomposition":
             from Pipeline.AssistantControl import decomposition
@@ -904,31 +1368,60 @@ class GraphController:
             )
         raise ValueError(f"Unknown graph action: {kind}")
 
-    def _next_run_action(self, plan: Mapping[str, Any]) -> dict[str, Any] | None:
+    def _next_run_action(
+        self, plan: Mapping[str, Any], *, allowed_actions: frozenset[str] | None = None,
+    ) -> dict[str, Any] | None:
         """Choose one stable action without letting blocking work starve starts."""
         actions = [dict(item) for item in plan.get("next_actions", [])]
+        if allowed_actions is not None:
+            # A delegate drains every transition it may perform before handing
+            # authority back at the first one it may not.
+            permitted = [item for item in actions if item.get("kind") in allowed_actions]
+            choice = self._choose_run_action(permitted) if permitted else None
+            if choice is not None:
+                return choice
+        return self._choose_run_action(actions)
+
+    def _choose_run_action(self, actions: Sequence[Mapping[str, Any]]) -> dict[str, Any] | None:
+        actions = [dict(item) for item in actions]
         reservations = self._reservations()
         capacity_full = len(reservations) >= self.policy.capacity
         resource_owner_actions: list[dict[str, Any]] = []
-        admission_kinds = {
-            "prepare", "refresh_prepared", "scope", "reserve", "start_worker",
-        }
 
-        # Drain portable setup first. This lets a guarded low-cost helper prepare
-        # and scope every currently eligible task before handing authority back
-        # at the first reservation boundary.
-        setup_kinds = {"prepare", "refresh_prepared", "scope"}
+        # Observe and settle terminal workers on every cycle. Settlement takes
+        # seconds, releases the worker's reservation and never moves Source.
         for action in actions:
-            if action.get("kind") in setup_kinds:
+            if action.get("kind") == "settle_worker":
                 return action
 
-        # Fill every available worker slot before validating or integrating an
-        # earlier fast result. Otherwise a short first task can finish while a
-        # later independent task is still purple, and source advancement then
-        # forces that prepared checkout through an avoidable refresh.
+        # Start expensive non-Source work (decomposition proposals, post-crew
+        # validation) as owned background jobs before anything else so the
+        # minutes they take overlap with admission instead of preceding it.
+        running_jobs = sum(
+            1 for index in self._jobs().values()
+            if index.get("status") in background_jobs.ACTIVE_STATUSES
+        )
+        deferred_launch = False
+        for action in actions:
+            if action.get("kind") in BACKGROUND_ACTION_KINDS:
+                if running_jobs < self.policy.background_job_limit:
+                    return action
+                deferred_launch = True
+
+        # Drain portable setup next. This lets a guarded low-cost helper prepare
+        # and scope every currently eligible task before handing authority back
+        # at the first reservation boundary.
+        for action in actions:
+            if action.get("kind") in _SETUP_KINDS:
+                return action
+
+        # Fill every available worker slot before integrating an earlier fast
+        # result. Otherwise a short first task can finish while a later
+        # independent task is still purple, and source advancement then forces
+        # that prepared checkout through an avoidable refresh.
         for action in actions:
             kind = action.get("kind")
-            if kind not in {"reserve", "start_worker"}:
+            if kind not in _ADMISSION_KINDS:
                 continue
             if kind == "reserve":
                 owner_action = self._resource_overlap_action(
@@ -941,13 +1434,6 @@ class GraphController:
                     continue
             return action
 
-        # With no runnable admission transition, preserve planner/task order
-        # for candidate settlement, validation, approval and integration.
-        for action in actions:
-            if action.get("kind") in admission_kinds | {"decompose", "wait_worker"}:
-                continue
-            return action
-
         # A terminal owner must release its exact reservation before an
         # overlapping reserve can be retried. This remains local settlement;
         # it does not admit the blocked task or weaken resource checks.
@@ -955,16 +1441,15 @@ class GraphController:
             if owner_action["kind"] == "settle_worker":
                 return owner_action
 
-        # Decomposition is synchronous provider work. Run it only after all
-        # currently executable single-agent setup/admission/start work.
+        # Source-moving work runs here, one action at a time, in planner order.
         for action in actions:
-            if action.get("kind") == "decompose":
+            if action.get("kind") in SOURCE_LANE_ACTION_KINDS:
                 return action
 
         # Waiting blocks the controller, so it is always the last planned
         # action class. This also avoids attempting a reserve at full capacity.
         for action in actions:
-            if action.get("kind") == "wait_worker":
+            if action.get("kind") in _WAIT_KINDS:
                 return action
         for owner_action in resource_owner_actions:
             if owner_action["kind"] == "wait_worker":
@@ -977,6 +1462,14 @@ class GraphController:
                 owner_action = self._reservation_owner_action(reservations[task_id])
                 if owner_action is not None:
                     return owner_action
+
+        # A launch deferred by the background job limit waits on a running job.
+        if deferred_launch:
+            for task_id in sorted(self._jobs(), key=_task_key):
+                index = background_jobs.read_index(self.manager, task_id)
+                if index is not None and index.get("status") in background_jobs.ACTIVE_STATUSES:
+                    return {"kind": "wait_job", "task_id": task_id,
+                            "job_id": index.get("job_id"), "job_kind": index.get("kind")}
         return None
 
     def _reservation_owner_action(
@@ -1048,33 +1541,72 @@ class GraphController:
         allowed_actions: frozenset[str] | None = None,
     ) -> dict[str, Any]:
         completed_actions: list[dict[str, Any]] = []
+        harvested_jobs: list[dict[str, Any]] = []
+
+        def final_result(
+            plan: Mapping[str, Any], status: str, *,
+            background_stops: Sequence[Mapping[str, Any]] | None = None, **extra: Any,
+        ) -> dict[str, Any]:
+            final = {
+                **plan, "status": status,
+                "mutations_performed": bool(completed_actions) or bool(harvested_jobs),
+                "completed_actions": completed_actions,
+                "harvested_jobs": harvested_jobs,
+                **extra,
+            }
+            if background_stops is not None:
+                final["background_stops"] = [dict(item) for item in background_stops]
+            self._save_state(status, result=final, background_stops=background_stops)
+            return final
+
+        def stopped(request: Mapping[str, Any]) -> dict[str, Any]:
+            reason = str(request.get("reason") or "operator requested graph stop")
+            stops = self._cancel_active_jobs(reason, self._stop_grace(request))
+            # A job whose exact container could not be verified absent is
+            # stopped but not finished: `stop-background-jobs` retries it.
+            cleanup_pending = sorted(
+                {str(item.get("task_id")) for item in stops if item.get("cleanup_pending")},
+                key=_task_key,
+            )
+            self._append_event({
+                "at_utc": _now(), "event": "controller_stopped",
+                "invocation_id": self._active_invocation_id, "reason": reason,
+                "requested_at_utc": request.get("requested_at_utc"),
+                "stopped_jobs": len(stops), "cleanup_pending": cleanup_pending,
+            })
+            archived = self._archive_stop_request("handled")
+            return final_result(
+                self.plan(), "stopped", background_stops=stops,
+                stop_request={**dict(request), "archived": archived},
+                cleanup_pending=cleanup_pending,
+            )
+
+        self._archive_stale_stop_request()
         self._save_state("running")
         try:
+            # Every retained ticket is adopted, harvested or quarantined under
+            # this lock before the first plan: no launch can duplicate a live
+            # child and no dead child's container outlives its ticket.
+            harvested_jobs.extend(self._reconcile_startup())
             while len(completed_actions) < max_actions:
+                stop_request = self._bound_stop_request()
+                if stop_request is not None:
+                    return stopped(stop_request)
+                # Harvest exact receipts of ended jobs before planning so the
+                # planner sees their durable outcome, never a stale ticket.
+                harvested_jobs.extend(self._harvest_jobs())
                 plan = self.plan()
+                self._last_plan = plan
                 if not plan["next_actions"]:
-                    final = {**plan, "mutations_performed": bool(completed_actions),
-                             "completed_actions": completed_actions}
-                    self._save_state(str(plan["status"]), result=final)
-                    return final
-                action = self._next_run_action(plan)
+                    return final_result(plan, str(plan["status"]))
+                action = self._next_run_action(plan, allowed_actions=allowed_actions)
                 if action is None:
-                    final = {**plan, "status": "capacity_full",
-                             "mutations_performed": bool(completed_actions),
-                             "completed_actions": completed_actions}
-                    self._save_state("capacity_full", result=final)
-                    return final
+                    return final_result(plan, "capacity_full")
                 if allowed_actions is not None and action["kind"] not in allowed_actions:
-                    final = {
-                        **plan,
-                        "status": "handoff_required",
-                        "handoff_action": action,
-                        "allowed_actions": sorted(allowed_actions),
-                        "mutations_performed": bool(completed_actions),
-                        "completed_actions": completed_actions,
-                    }
-                    self._save_state("handoff_required", result=final)
-                    return final
+                    return final_result(
+                        plan, "handoff_required", handoff_action=action,
+                        allowed_actions=sorted(allowed_actions),
+                    )
                 self._save_state("running", action=action)
                 try:
                     result = self._execute_timed(action)
@@ -1090,20 +1622,26 @@ class GraphController:
                     result = self._execute_timed(action)
                 completed_actions.append({"action": dict(action), "result": result})
                 self._save_state("running", action=action, result=result)
-                if action["kind"] == "wait_worker" and result.get("status") == "worker_still_running":
-                    final = {**self.plan(), "status": "worker_still_running",
-                             "mutations_performed": bool(completed_actions),
-                             "completed_actions": completed_actions}
-                    self._save_state("worker_still_running", result=final)
-                    return final
-            final = {**self.plan(), "status": "action_limit_reached",
-                     "mutations_performed": bool(completed_actions),
-                     "completed_actions": completed_actions}
-            self._save_state("action_limit_reached", result=final)
-            return final
+                if action["kind"] in _WAIT_KINDS and result.get("status") == "stop_requested":
+                    stop_request = self._bound_stop_request()
+                    if stop_request is not None:
+                        return stopped(stop_request)
+                if action["kind"] in _WAIT_KINDS and result.get("status") in _WAIT_TIMEOUT_STATUSES:
+                    return final_result(self.plan(), str(result["status"]))
+            return final_result(self.plan(), "action_limit_reached")
         except KeyboardInterrupt:
+            # An operator stop must not leave provider or Unity work running in
+            # detached children: request, wait the bounded grace, then terminate
+            # each exact recorded Job Object tree. A second interrupt abandons
+            # the enforcement; `stop-background-jobs` finishes it afterwards.
+            stops = self._cancel_active_jobs(
+                "operator interrupted graph controller", self.stop_grace_seconds,
+            )
             try:
-                self._save_state("interrupted", error="operator interrupted graph controller")
+                self._save_state(
+                    "interrupted", error="operator interrupted graph controller",
+                    background_stops=stops,
+                )
             except BaseException:
                 pass
             raise
@@ -1132,7 +1670,157 @@ class GraphController:
             )
 
 
+def _release_note(pending: Sequence[str], unreadable: Sequence[Mapping[str, Any]]) -> str:
+    """What the operator must still do before this graph can be called finished."""
+    parts: list[str] = []
+    if unreadable:
+        parts.append(
+            "a background-job index cannot be read or authenticated ("
+            + "; ".join(f"{item.get('path')}: {item.get('error')}" for item in unreadable)
+            + "); nothing may be reported as finished until it is repaired or archived by hand"
+        )
+    if pending:
+        parts.append(
+            "a provider container of " + ", ".join(pending)
+            + " is not finally verified absent; run stop-background-jobs, which retries the "
+            "exact cleanup under the controller lock"
+        )
+    if not parts:
+        return ("no graph controller owns this graph; nothing left to stop "
+                "(stop-background-jobs stops jobs orphaned by a lost controller and "
+                "retries a pending container cleanup)")
+    return "the controller has released but " + "; also ".join(parts)
+
+
+def request_stop(
+    manager: Checkouts, *, reason: str = "operator requested graph stop",
+    grace_seconds: float = background_jobs.STOP_GRACE_SECONDS, wait_seconds: float = 120.0,
+) -> dict[str, Any]:
+    """Ask the controller that owns this graph to stop; wait a bounded time for its release.
+
+    Idempotent: a request already bound to the running invocation is reused,
+    never rewritten, and a released owner reports `already_released` with its
+    retained outcome. Refuses when no controller ever owned the graph, and when
+    a started owner's lock is free (a dead process, which
+    `stop-background-jobs` handles). Never terminates anything itself.
+    """
+    if not isinstance(grace_seconds, (int, float)) or grace_seconds < 0:
+        raise ValueError("stop grace must be a non-negative number of seconds")
+    if not isinstance(wait_seconds, (int, float)) or wait_seconds < 0:
+        raise ValueError("stop wait must be a non-negative number of seconds")
+    owner_path = manager.records / "graph-controller-owner.json"
+    state_path = manager.records / "graph-controller.json"
+    owner = _read_json(owner_path)
+    if owner is None:
+        raise ValueError(
+            "no graph controller has owned this graph; nothing to stop "
+            "(stop-background-jobs stops jobs orphaned by a lost controller)"
+        )
+    if owner.get("status") == "controller_released":
+        state = _read_json(state_path) or {}
+        pending, unreadable = _cleanup_pending_tasks(manager, state)
+        return {
+            "status": ("already_released_cleanup_pending" if pending or unreadable
+                       else "already_released"),
+            "invocation_id": owner.get("invocation_id"),
+            "controller_status": state.get("status"), "outcome": owner.get("outcome"),
+            "background_stops": state.get("background_stops"),
+            "cleanup_pending": pending,
+            "unreadable_indexes": unreadable,
+            "note": _release_note(pending, unreadable),
+        }
+    if owner.get("status") != "controller_started":
+        raise ValueError("the graph controller owner record is unreadable; nothing to stop")
+    try:
+        held = _acquire_liveness_lock(manager.records / "graph-controller.lock")
+    except (BlockingIOError, PermissionError):
+        held = None
+    if held is not None:
+        _release_liveness_lock(held)
+        raise ValueError(
+            "the graph controller owner record is stale: its lock is free, so the controller "
+            "process is gone; run stop-background-jobs to stop its orphaned jobs"
+        )
+    request = {
+        "schema_version": STOP_REQUEST_SCHEMA,
+        "invocation_id": owner.get("invocation_id"), "pid": owner.get("pid"),
+        "process_identity": owner.get("process_identity"),
+        "reason": str(reason), "grace_seconds": float(grace_seconds),
+        "requested_at_utc": _now(), "requested_by_pid": os.getpid(),
+    }
+    stop_path = manager.records / "graph-controller.stop.json"
+    try:
+        existing = _read_json(stop_path)
+    except ValueError:
+        existing = None
+    repeated = existing is not None and all(
+        existing.get(field) == request[field]
+        for field in ("schema_version", "invocation_id", "pid", "process_identity"))
+    if repeated:
+        request = dict(existing)
+    else:
+        write_record(stop_path, request)
+    deadline = time.monotonic() + float(wait_seconds)
+    while True:
+        current = _read_json(owner_path) or {}
+        if (current.get("invocation_id") == request["invocation_id"]
+                and current.get("status") == "controller_released"):
+            state = _read_json(state_path) or {}
+            pending, unreadable = _cleanup_pending_tasks(manager, state)
+            if state.get("status") != "stopped":
+                status = "released"
+            elif pending or unreadable:
+                status = "stopped_cleanup_pending"
+            else:
+                status = "stopped"
+            return {
+                "status": status, "controller_status": state.get("status"),
+                "outcome": current.get("outcome"),
+                "background_stops": state.get("background_stops"), "request": request,
+                "repeated": repeated, "cleanup_pending": pending,
+                "unreadable_indexes": unreadable,
+                **({"note": _release_note(pending, unreadable)} if pending or unreadable else {}),
+            }
+        if time.monotonic() >= deadline:
+            return {"status": "stop_requested", "request": request, "repeated": repeated,
+                    "note": "the controller has not released yet; its runner reports the final status"}
+        time.sleep(0.5)
+
+
+def _cleanup_pending_tasks(
+    manager: Checkouts, state: Mapping[str, Any],
+) -> tuple[list[str], list[dict[str, Any]]]:
+    """Unfinished background-job work left behind a released controller.
+
+    Returns the task ids whose stopped job still has a provider container
+    cleanup that is not final, and one diagnostic (task id, path, error) per
+    background-job index that cannot be read or authenticated at all. An index
+    that cannot be read is never "nothing remains": the caller must fail closed
+    on it. The durable job indexes are the authority; the stop result recorded
+    in the state is only consulted for a job whose index has since been
+    cleared. Nothing here deletes or repairs a record.
+    """
+    readable, unreadable = background_jobs.scan_indexes(manager)
+    pending: set[str] = set()
+    for item in state.get("background_stops") or []:
+        if not isinstance(item, Mapping) or not isinstance(item.get("task_id"), str):
+            continue
+        index = readable.get(item["task_id"])
+        if index is None:
+            continue  # cleared, or unreadable and already reported below
+        if index.get("job_id") == item.get("job_id") and background_jobs.cleanup_pending(index):
+            pending.add(item["task_id"])
+    for task_id, index in readable.items():
+        if index.get("status") in background_jobs.TERMINAL_STATUSES and background_jobs.cleanup_pending(index):
+            pending.add(task_id)
+    return (
+        sorted(pending, key=_task_key),
+        sorted(unreadable, key=lambda item: _task_key(str(item.get("task_id")))),
+    )
+
+
 __all__ = [
-    "ControllerOwnerActiveError", "DELEGATE_SAFE_ACTIONS", "GraphController", "GraphPolicy",
-    "automatic_scope_plan", "scope_plan",
+    "BACKGROUND_ACTION_KINDS", "ControllerOwnerActiveError", "DELEGATE_SAFE_ACTIONS",
+    "GraphController", "GraphPolicy", "SOURCE_LANE_ACTION_KINDS", "STOP_REQUEST_SCHEMA",
+    "automatic_scope_plan", "request_stop", "scope_plan",
 ]

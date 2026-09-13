@@ -277,6 +277,159 @@ integration. This lets a small agent perform portable setup without giving it
 authority over the graph or final results. Delegated mode does not require a
 worker config and rejects `--authorize-provider-spend`.
 
+Expensive management work that never moves Source runs as an owned background
+job instead of blocking the loop: `decompose` (the two-provider proposal) and
+`post_crew` (candidate registration and focused Unity validation, including the
+revalidation of a synchronized Gauntlet candidate). The controller launches a
+detached child bound to an exact ticket (task, Source commit, contract hash,
+provider configuration, process identity), keeps settling finished workers and
+admitting unrelated tasks while it runs, and harvests the child's retained
+receipt from `<checkout-root>/.assistant-control/background-jobs/<task>/<job>/`.
+Every Source-moving action (`apply_decomposition`, `sync_candidate`,
+`auto_approve`, `integrate`) still runs one at a time in the single controller
+thread. A restarted controller observes the same live child or harvests its
+receipt; it never launches the same ticket twice. A child that fails or dies
+without a receipt blocks only its task and is never relaunched automatically:
+inspect its `stderr.log`, then `clear-background-job <task> --job-id <id>` to
+archive the index before the planner may issue a fresh ticket.
+`--background-jobs N` (default 4) bounds concurrent jobs.
+
+Every child is assigned to a run-derived named Windows Job Object before it may
+work, with the worker launcher's handoff: the controller keeps its handle until
+the exact child has opened the named job and written `job.opened.json`, and the
+child's receipt must carry the PID and process identity the controller
+recorded. Ctrl+C in `run-graph` writes an authenticated `stop.request.json`
+(ticket, child identity, Job Object name) for every active job, waits a bounded
+grace period for the child to stop itself, then terminates only that recorded
+Job Object tree. A decomposition child's cooperative stop is destructive, so it
+is held to the same standard as a removal: it inspects its ticket's exact
+recorded name once, and stops the container **by its exact id** only when the
+name, compose project, `-decompose` service and both ownership labels are the
+ones its ticket records. A mismatch, a missing label, an absent container, a
+Docker failure or a ticket that does not authenticate stops nothing. The
+decision (what was inspected, what was decided, the id stopped, any error) is
+written to `cooperative-stop.json` in the run root and never raised, so a
+refused cooperative stop cannot turn the child's own `stopped` receipt into a
+failure. The job is retained as `cancelled`: never a provider failure, never
+relaunched automatically. A controller without a console (a detached runner)
+is stopped with `stop-graph [--reason ..] [--grace-seconds N] [--wait-seconds N]`:
+it writes `graph-controller.stop.json` bound to the running controller's
+invocation, PID and process identity; the controller honors it between actions
+and on every wait poll exactly like Ctrl+C and returns status `stopped`. A
+request that does not bind to the running invocation is archived and ignored.
+`stop-graph` is idempotent: a repeat reuses the bound request, and once the
+owner has released it reports `already_released`; it refuses only when no
+controller ever owned the graph or the owner record is stale. If the controller
+process itself was lost, `stop-background-jobs [--grace-seconds N]` performs
+the same job stop; it refuses while a graph controller owns the graph.
+
+A decomposition ticket records, before Docker can start, the exact provider
+container it may create (`provider_container`: `nsc-decompose-<job-id prefix>`,
+the compose project, and the `labels` that container must carry). The job id is
+derived from this checkout as well as the work — kind, task, identity, attempt,
+**Source path and checkout root** — so two checkouts, or two clones of the same
+Source commit, can never derive the same ticket id or the same container name.
+The child puts the same identity on the container itself: `docker compose run`
+is given `--label com.nosafecircle.assistant.job=<job id>` and
+`--label com.nosafecircle.assistant.checkout=<sha256 of Source + checkout
+root>`, and a container found under the ticket's name whose labels are missing
+or different belongs to another run and is refused, never removed, exactly as a
+compose-project or service mismatch is. After a child's tree has ended (receipt, death,
+cooperative stop or Job Object termination) the controller inspects only that
+name every 0.5 s for the whole 15 s window, removes only that exact container
+id on every sighting, and records `verified_absent` only when the final 3 s of
+the window were continuously absent (a late sighting extends the watch until
+they are; a name that keeps reappearing is retained as `unverified`). Because
+one Docker operation may take up to a minute, a kill-path cleanup also keeps a
+tombstone (`tombstone_until_utc`, 60 s) and the cleanup stays *pending* until
+that bound has passed and one more exact look has been recorded as
+`final_recheck_at_utc` (a sighting there removes the container, reruns the
+whole window and starts a fresh bound). Every stop and every controller start
+retries a pending cleanup: a stop takes one exact look while the bound is
+active and reports `retry_after_utc`; `stop-background-jobs` waits the bound
+out (about a minute) and records the final recheck, so its `stopped` (exit 0)
+means done, while `cleanup_pending` (exit 1) names what is left;
+`stop-graph` reports `stopped_cleanup_pending` or, after the owner released,
+`already_released_cleanup_pending` (both exit 1) and points at
+`stop-background-jobs`; a controller start waits the bound out and records
+the final recheck before its first plan, and the running loop retries
+pending cleanups after their bound (`job_container_verified` /
+`job_cleanup_pending` events). `clear-background-job` refuses until the
+cleanup is final, and a retry ticket for the task is refused until then.
+Every retry reauthenticates first and fails closed on any mismatch. The
+authenticated set is the immutable ticket (the request bytes against the
+recorded hash — a request file that is missing, empty, truncated or malformed
+fails that comparison, it never skips it — plus the ticket schema, task id,
+job id, kind, identity, Job Object name, Source and checkout root) and the
+recorded identity (the owned run directory, the Job Object name derived from
+it, the container name derived from the job id with its compose project, the
+recorded PID and the complete process identity dict, each checked against the
+`launcher.identity.json`, `child.identity.json` and `job.opened.json` its own
+run wrote). On any mismatch the cleanup is retained as `refused` with
+`authentication_failed` and the index records an `authentication` block
+listing every problem: nothing is inspected, removed, signalled or
+terminated, the task stays blocked, startup refuses to plan beside it, and it
+is never retried automatically. The job id itself is re-derived from this
+checkout and compared, and the ticket's recorded container labels must be the
+ones this checkout derives, so a ticket carrying another checkout's identity
+authenticates nowhere. A refusal never overwrites a cleanup generation that is
+in flight under a live owner: its status, generation, owner, removals,
+sightings, deadline and final-recheck state stand, the refusal is recorded
+beside them, and that owner's own result is still written — as `refused` with
+`authentication_failed`, never verified, with its renewed deadline intact. A
+refusal with nothing in flight keeps every progress field and can only ever
+keep or extend the recorded deadline. The same identity set is re-proven inside
+`request_stop` before a stop request is bound and again in the enforcement
+immediately before the only destructive call, so an index that names another
+job's child reaches no process and no container. The result is retained on
+the index as `provider_container_cleanup` (`verified_absent` with the
+removed ids and observations, or `refused` with the reason when Docker
+cannot answer or the container under that name carries another compose
+project or service, in which case nothing is removed). A Docker failure
+that happens *after* the exact container was seen or removed keeps that
+partial progress durable: the removal is recorded, the operation bound
+restarts from it, `final_recheck_at_utc` is owed again and the cleanup stays
+pending with `retry_after_utc`. The bound only ever moves forward, so no
+failure, and no interrupt between beginning and finishing a generation, can
+restore an older deadline or let a cleanup that saw its container read as
+complete. Docker work never runs while `checkouts.lock` is held: the cleanup
+is recorded as `in_progress` with a generation and its owning process under
+the lock, runs without it, and is recorded again only for that generation. A
+cleanup in progress under a live owner is waited for (bounded), never
+superseded; one whose owner is gone is taken over; a result that was
+superseded meanwhile is discarded and the durable record reread. A ticket
+cleared or replaced by a newer one while its Docker work ran unlocked is an
+expected concurrency outcome (`cleanup_concurrency`, journaled as
+`job_cleanup_superseded`), never an exception into the controller loop, and
+the loop journals and continues past any cleanup or harvest error rather
+than blocking unrelated tasks. After the final recheck a repeated stop makes
+no Docker call.
+
+A background-job index that cannot be read or authenticated (missing,
+empty, truncated, malformed, or naming another Source or checkout root) is
+never read as "nothing remains". `stop-background-jobs` reports it as an
+`unreadable_index` job with `cleanup_pending`, so the command reports
+`cleanup_pending` and exits 1 with the exact path and error in
+`unreadable_indexes`; `stop-graph` reports `stopped_cleanup_pending` or
+`already_released_cleanup_pending` (exit 1) with the same diagnostics in its
+`unreadable_indexes` and `note`; a controller start refuses (`startup_refused`)
+before it plans. Nothing deletes or repairs such a record automatically: an
+operator repairs or archives the file by hand, after which the same commands
+report finished again.
+
+A restarting controller reconciles every retained ticket under its lock before
+the first plan: an authenticated live child (ticket bytes, index, launcher and
+child identity handshake, Job Object acknowledgement and containment all
+agree) is adopted, its Job Object handle reopened, and harvested later without
+relaunch; an ended child is harvested and its container reconciled; a live
+child whose identity binds to its run root but whose ticket no longer
+authenticates is stopped exactly (bound request, grace, its own Job Object
+tree, its exact container) and quarantined, blocking only its task with the
+recorded reason; a live child whose identity cannot be bound to its ticket, an
+unverifiable child, or a container that is not verified absent refuses startup
+(`startup_refused` in the journal, state `blocked`) and nothing is killed or
+removed on a guess.
+
 `worker-haiku.example.json` is the checked-in, non-secret worker configuration
 used by the examples. It names the existing Docker credential volume but contains
 no credential bytes. The graph controller adds execution authority only at an

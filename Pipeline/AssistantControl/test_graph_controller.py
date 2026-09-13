@@ -562,7 +562,10 @@ class GraphControllerTests(unittest.TestCase):
         )
         self.assertEqual({}, controller._reservations())
 
-    def test_run_priority_starts_single_agent_work_before_decompose_and_wait(self):
+    def test_run_priority_launches_decompose_job_before_setup_and_waits_last(self):
+        # Decomposition is a detached background job now: launching it costs
+        # about a second and never moves Source, so it precedes portable setup
+        # and the provider minutes overlap with admission instead of preceding it.
         controller = self.controller("NSC-898", "NSC-899")
         plan = {"next_actions": [
             {"kind": "decompose", "task_id": "NSC-898"},
@@ -570,15 +573,29 @@ class GraphControllerTests(unittest.TestCase):
             {"kind": "prepare", "task_id": "NSC-899", "source_commit": self.head},
         ]}
         with patch.object(controller, "_reservations", return_value={}):
-            self.assertEqual("prepare", controller._next_run_action(plan)["kind"])
-        plan["next_actions"] = [plan["next_actions"][0], plan["next_actions"][1]]
-        with patch.object(controller, "_reservations", return_value={}):
             self.assertEqual("decompose", controller._next_run_action(plan)["kind"])
-        plan["next_actions"] = [plan["next_actions"][1]]
+        plan["next_actions"] = [plan["next_actions"][1], plan["next_actions"][2]]
+        with patch.object(controller, "_reservations", return_value={}):
+            self.assertEqual("prepare", controller._next_run_action(plan)["kind"])
+        plan["next_actions"] = [plan["next_actions"][0]]
         with patch.object(controller, "_reservations", return_value={}):
             self.assertEqual("wait_worker", controller._next_run_action(plan)["kind"])
 
-    def test_available_slot_admits_later_task_before_processing_fast_result(self):
+    def test_settlement_precedes_every_other_action_class(self):
+        controller = self.controller("NSC-899")
+        plan = {"next_actions": [
+            {"kind": "decompose", "task_id": "NSC-898"},
+            {"kind": "prepare", "task_id": "NSC-1105", "source_commit": self.head},
+            {"kind": "integrate", "task_id": "NSC-1101", "source_commit": self.head},
+            {"kind": "settle_worker", "task_id": "NSC-1104", "run_id": "done"},
+        ]}
+        with patch.object(controller, "_reservations", return_value={}):
+            self.assertEqual("settle_worker", controller._next_run_action(plan)["kind"])
+
+    def test_available_slot_launches_fast_result_validation_then_admits_later_task(self):
+        # Post-crew validation is a background launch, so it no longer delays
+        # the later reserve: the launch returns in about a second and the next
+        # cycle admits NSC-1105 while NSC-1101 validates.
         controller = self.controller("NSC-899")
         controller.policy = replace(controller.policy, capacity=4)
         plan = {"next_actions": [
@@ -590,6 +607,13 @@ class GraphControllerTests(unittest.TestCase):
             "NSC-1103": {"task_id": "NSC-1103"},
             "NSC-1104": {"task_id": "NSC-1104"},
         }
+        with patch.object(controller, "_reservations", return_value=reservations), \
+             patch.object(controller, "_resource_overlap_action", return_value=None):
+            self.assertEqual(
+                {"kind": "post_crew", "task_id": "NSC-1101", "crew_run_id": "done"},
+                controller._next_run_action(plan),
+            )
+        plan["next_actions"] = [plan["next_actions"][1]]
         with patch.object(controller, "_reservations", return_value=reservations), \
              patch.object(controller, "_resource_overlap_action", return_value=None):
             self.assertEqual(
@@ -804,6 +828,129 @@ class GraphControllerTests(unittest.TestCase):
         self.assertEqual(1, code)
         self.assertIn("cannot be combined", json.loads(output.getvalue())["error"])
         graph.assert_not_called()
+
+    def test_batch_contract_loader_matches_single_loader_and_fails_closed(self):
+        from Pipeline.TaskReviewAgent.committed_tasks import CommittedTaskError, load_committed_tasks
+        ids = ["NSC-042", "NSC-898", "NSC-899", "NSC-1010", "NSC-1011"]
+        batch = load_committed_tasks(self.source, ids, commit=self.head)
+        self.assertEqual(ids, list(batch))
+        self.assertEqual(
+            {task_id: load_committed_task(self.source, task_id, commit=self.head) for task_id in ids},
+            batch,
+        )
+        self.assertEqual({}, load_committed_tasks(self.source, [], commit=self.head))
+        with self.assertRaisesRegex(CommittedTaskError, "missing at"):
+            load_committed_tasks(self.source, ["NSC-899", "NSC-9999"], commit=self.head)
+        with self.assertRaisesRegex(CommittedTaskError, "exact lowercase"):
+            load_committed_tasks(self.source, ["NSC-899"], commit="HEAD")
+        (self.source / "Tasks/NSC-897.yaml").write_text(json.dumps({"id": "NSC-896"}), encoding="utf-8")
+        self.git("add", "Tasks/NSC-897.yaml")
+        self.git("commit", "-m", "identity mismatch fixture")
+        head = self.git("rev-parse", "HEAD").decode().strip()
+        with self.assertRaisesRegex(CommittedTaskError, "identity mismatch"):
+            load_committed_tasks(self.source, ["NSC-899", "NSC-897"], commit=head)
+        self.assertEqual(batch["NSC-899"], load_committed_tasks(self.source, ["NSC-899"], commit=head)["NSC-899"])
+
+    def test_plan_reads_contracts_conformance_and_proofs_once_per_head(self):
+        from collections import Counter
+        from Pipeline.AssistantControl import graph_controller as module
+        counts = Counter()
+
+        def counted(name):
+            real = getattr(module, name)
+
+            def wrapper(*args, **kwargs):
+                counts[name] += 1
+                return real(*args, **kwargs)
+            return wrapper
+
+        names = ("load_committed_tasks", "load_committed_task", "conformance_context",
+                 "approved_integration", "inspect_dependencies")
+        controller = self.controller("NSC-898", "NSC-1010")
+        with contextlib.ExitStack() as stack:
+            for name in names:
+                stack.enter_context(patch.object(module, name, side_effect=counted(name)))
+            first = controller.plan()
+            after_first = {name: counts[name] for name in names}
+            second = controller.plan()
+            after_second = {name: counts[name] for name in names}
+            self.write_task("NSC-1012", origin="progressive_decomposition", parent="NSC-898")
+            self.git("add", "Tasks/NSC-1012.yaml")
+            self.git("commit", "-m", "new committed child")
+            third = controller.plan()
+            after_third = {name: counts[name] for name in names}
+            (self.source / "scratch-note.txt").write_text("local edit outside the graph\n", encoding="utf-8")
+            fourth = controller.plan()
+
+        self.assertEqual(first["next_actions"], second["next_actions"])
+        self.assertEqual({
+            "load_committed_tasks": 1, "load_committed_task": 0, "conformance_context": 1,
+            "approved_integration": 3, "inspect_dependencies": 3,
+        }, after_first)
+        # Nothing is re-read while Source HEAD and the records are unchanged.
+        self.assertEqual(after_first, after_second)
+        self.assertIn("NSC-1012", third["in_scope"])
+        self.assertEqual((2, 2), (after_third["load_committed_tasks"], after_third["conformance_context"]))
+        self.assertEqual(7, after_third["inspect_dependencies"])
+        # A local edit outside the graph changes worktree dirtiness: the
+        # conformance view is rebuilt, the immutable contracts are not.
+        self.assertEqual(3, counts["conformance_context"])
+        self.assertEqual(2, counts["load_committed_tasks"])
+        self.assertEqual(third["next_actions"], fourth["next_actions"])
+
+    def test_integration_proof_is_recomputed_only_when_its_record_bytes_change(self):
+        from Pipeline.AssistantControl import graph_controller as module
+        controller = self.controller("NSC-899")
+        self.manager.prepare("NSC-899", expected_commit=self.head)
+        path = self.manager.records / "NSC-899.json"
+        real = module.approved_integration
+        calls = []
+        with patch.object(module, "approved_integration",
+                          side_effect=lambda *a, **k: calls.append(a[2]) or real(*a, **k)):
+            controller.plan()
+            controller.plan()
+            self.assertEqual(["NSC-899"], calls)
+            record = json.loads(path.read_text(encoding="utf-8"))
+            record["status"] = "awaiting_human"
+            write_record(path, record)
+            controller.plan()
+        self.assertEqual(["NSC-899", "NSC-899"], calls)
+
+    def test_auto_approve_is_approval_only_and_fails_closed_without_validation(self):
+        controller = self.controller("NSC-899")
+        self.manager.prepare("NSC-899", expected_commit=self.head)
+        path = self.manager.records / "NSC-899.json"
+        record = json.loads(path.read_text(encoding="utf-8"))
+        tree = self.git("rev-parse", "HEAD^{tree}").decode().strip()
+        record.update(status="awaiting_human",
+                      candidate={"commit": self.head, "tree": tree, "run_id": "crew-899"})
+        write_record(path, record)
+        # The planner sends an unvalidated candidate to a post_crew job first.
+        self.assertEqual(
+            {"kind": "post_crew", "task_id": "NSC-899", "crew_run_id": "crew-899",
+             "candidate_commit": self.head},
+            controller.plan()["next_actions"][0],
+        )
+        action = {"kind": "auto_approve", "task_id": "NSC-899", "candidate_commit": self.head}
+        with patch("Pipeline.AssistantControl.post_crew_workflow.run_post_crew_workflow") as workflow:
+            with self.assertRaisesRegex(ValueError, "post_crew job must validate it first"):
+                _execute_owned(controller, action)
+        workflow.assert_not_called()
+        record["candidate"]["authoritative_validations"] = [{"fixture": True}]
+        write_record(path, record)
+        self.assertEqual("auto_approve", controller.plan()["next_actions"][0]["kind"])
+        with self.assertRaisesRegex(ValueError, "changed before automated approval"):
+            _execute_owned(controller, {**action, "candidate_commit": "0" * 40})
+        with patch(
+            "Pipeline.AssistantControl.automation_policy.authenticate_passing_validations",
+            return_value=({"fixture": True},),
+        ), patch("Pipeline.AssistantControl.post_crew_workflow.run_post_crew_workflow") as workflow:
+            approved = _execute_owned(controller, action)
+        workflow.assert_not_called()
+        self.assertEqual(("approved", "assistant_gauntlet_automation"),
+                         (approved["status"], approved["approval"]["authority"]))
+        with self.assertRaisesRegex(ValueError, "not awaiting approval"):
+            _execute_owned(controller, action)
 
     def test_automated_gate_records_machine_authority_without_human_review(self):
         observed = self.manager.prepare("NSC-899", expected_commit=self.head)

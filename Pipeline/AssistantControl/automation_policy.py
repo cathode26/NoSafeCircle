@@ -18,15 +18,24 @@ GAUNTLET_IDS = frozenset({GAUNTLET_ID, REPLAY_GAUNTLET_ID})
 HUMAN_ONLY_TASKS = frozenset({"NSC-042"})
 
 
-def is_synthetic_gauntlet(source: Path, task_id: str, commit: str) -> bool:
-    """Return true only for the disposable gauntlet or one of its descendants."""
+def is_synthetic_gauntlet(
+    source: Path, task_id: str, commit: str, *,
+    tasks: Mapping[str, Mapping[str, Any]] | None = None,
+) -> bool:
+    """Return true only for the disposable gauntlet or one of its descendants.
+
+    ``tasks`` may supply contracts already loaded from the same exact ``commit``
+    so the ancestry walk needs no further git processes; any ancestor absent
+    from it is still read from Git.
+    """
     if task_id in HUMAN_ONLY_TASKS:
         return False
     seen: set[str] = set()
     current = task_id
     while current and current not in seen:
         seen.add(current)
-        task = load_committed_task(source, current, commit=commit)
+        task = (tasks[current] if tasks is not None and current in tasks
+                else load_committed_task(source, current, commit=commit))
         provenance = task.get("provenance") or {}
         if provenance.get("origin") == "human_approved_synthetic_gauntlet":
             return True

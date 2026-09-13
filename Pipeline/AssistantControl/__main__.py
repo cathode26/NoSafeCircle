@@ -217,6 +217,37 @@ def main(argv=None) -> int:
         "--delegate-safe", action="store_true",
         help="Permit only bounded non-provider, non-approval, non-integration transitions",
     )
+    for graph_parser in (graph_plan, run_graph):
+        graph_parser.add_argument(
+            "--background-jobs", type=int, default=4,
+            help="Maximum concurrent owned background jobs (decomposition, post-crew validation)",
+        )
+    clear_job = commands.add_parser(
+        "clear-background-job",
+        help="Archive one ended background job index so the graph may launch a fresh ticket",
+    )
+    clear_job.add_argument("task")
+    clear_job.add_argument("--job-id", required=True)
+    stop_jobs = commands.add_parser(
+        "stop-background-jobs",
+        help=(
+            "Recovery after the controller process was lost: stop every exact owned "
+            "decomposition or post-crew child (bound stop request, bounded grace, then "
+            "its recorded Job Object tree); refuses while a graph controller is running"
+        ),
+    )
+    stop_jobs.add_argument("--grace-seconds", type=float, default=15.0)
+    stop_graph = commands.add_parser(
+        "stop-graph",
+        help=(
+            "Ask the running graph controller to stop: it cancels its background jobs "
+            "(bound stop request, bounded grace, exact Job Object trees) and returns "
+            "status stopped; refuses when no controller owns the graph"
+        ),
+    )
+    stop_graph.add_argument("--reason", default="operator requested graph stop")
+    stop_graph.add_argument("--grace-seconds", type=float, default=15.0)
+    stop_graph.add_argument("--wait-seconds", type=float, default=120.0)
     args = parser.parse_args(argv)
     try:
         if args.command == "status":
@@ -263,6 +294,7 @@ def main(argv=None) -> int:
                     scope_dir=args.scope_dir,
                     decomposition_providers=getattr(args, "providers", "claude,codex"),
                     compose_project=getattr(args, "compose_project", "nosafecircle"),
+                    background_job_limit=args.background_jobs,
                 )
                 config = {}
                 if args.command == "run-graph":
@@ -293,7 +325,60 @@ def main(argv=None) -> int:
                           ))
                 print(json.dumps(result, indent=2))
                 return 0 if result.get("status") not in {"blocked", "command_failed"} else 1
-            if args.command == "readiness":
+            if args.command == "stop-graph":
+                from Pipeline.AssistantControl.graph_controller import request_stop
+                result = request_stop(
+                    manager, reason=args.reason, grace_seconds=args.grace_seconds,
+                    wait_seconds=args.wait_seconds,
+                )
+                print(json.dumps(result, indent=2))
+                return 0 if result.get("status") in {"stopped", "stop_requested", "already_released"} else 1
+            if args.command == "stop-background-jobs":
+                from Pipeline.AssistantControl import background_jobs
+                from Pipeline.TaskReviewAgent.execution_session_pool import (
+                    _acquire_liveness_lock,
+                    _release_liveness_lock,
+                )
+                manager.records.mkdir(parents=True, exist_ok=True)
+                try:
+                    held = _acquire_liveness_lock(manager.records / "graph-controller.lock")
+                except (BlockingIOError, PermissionError) as exc:
+                    raise ValueError(
+                        "a graph controller owns these jobs; interrupt it instead of "
+                        "stopping its jobs underneath it"
+                    ) from exc
+                try:
+                    # Finalize: wait each container's tombstone out (bounded, about a
+                    # minute) and record the final recheck, so `stopped` means done.
+                    stopped = background_jobs.cancel_all(
+                        manager, host=background_jobs.DetachedHost(),
+                        reason="operator requested background-job stop",
+                        grace_seconds=args.grace_seconds, finalize=True,
+                    )
+                finally:
+                    _release_liveness_lock(held)
+                failed = [item for item in stopped if item.get("status") in {"stop_failed", "running"}]
+                pending = [item for item in stopped if item.get("cleanup_pending")]
+                unreadable = [item for item in stopped if item.get("status") == "unreadable_index"]
+                # Stopped is claimed only once every exact provider container is
+                # verified absent and every index can be authenticated; a pending
+                # cleanup is retried by running again, an unreadable index is an
+                # operator repair (nothing here deletes or rewrites one).
+                status = "stop_failed" if failed else ("cleanup_pending" if pending else "stopped")
+                result = {"status": status, "jobs": stopped,
+                          "cleanup_pending": [item.get("task_id") for item in pending],
+                          "retry_after_utc": [item.get("retry_after_utc") for item in pending],
+                          "unreadable_indexes": [
+                              {"task_id": item.get("task_id"), "path": item.get("path"),
+                               "error": item.get("error")} for item in unreadable]}
+                print(json.dumps(result, indent=2))
+                return 0 if status == "stopped" else 1
+            if args.command == "clear-background-job":
+                from Pipeline.AssistantControl import background_jobs
+                result = background_jobs.clear(
+                    manager, args.task, job_id=args.job_id, host=background_jobs.DetachedHost(),
+                )
+            elif args.command == "readiness":
                 from Pipeline.AssistantControl.readiness import inspect_readiness
                 result = inspect_readiness(manager, args.task, capacity=args.capacity)
             elif args.command == "prepare":

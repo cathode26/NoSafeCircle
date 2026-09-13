@@ -16,7 +16,7 @@ import sys
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 from Pipeline.AssistantControl.checkouts import Checkouts, write_record
 from Pipeline.AssistantControl.decomposition_transport import build_compose_command
@@ -43,6 +43,9 @@ from persistent_work_graph import load_persistent_work_graph  # noqa: E402
 
 SCHEMA = "assistant-decomposition/v1"
 _RUN_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+_CONTAINER_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{1,127}$")
+_LABEL_KEY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+_LABEL_VALUE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,255}$")
 
 
 def _now() -> str:
@@ -284,14 +287,31 @@ def run(
     providers: str = "claude,codex",
     compose_project: str = "nosafecircle",
     execution_authorized: bool = False,
+    container_name: str | None = None,
+    container_labels: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
-    """Run one two-call, cross-provider decomposition proposal."""
+    """Run one two-call, cross-provider decomposition proposal.
+
+    ``container_name`` names the ``docker compose run`` container so an owner
+    can stop exactly this proposal's provider container by name, and
+    ``container_labels`` stamps the owning ticket and checkout onto it so that
+    owner can prove the container is its own before removing it. Neither
+    changes anything about the proposal itself.
+    """
 
     task_id = validate_task_id(task_id)
     if not execution_authorized:
         raise ValueError("Explicit provider-spend authorization is required; no decomposition started")
     if not _RUN_ID.fullmatch(run_id):
         raise ValueError("Decomposition run id contains unsupported characters")
+    if container_name is not None and not _CONTAINER_NAME.fullmatch(container_name):
+        raise ValueError("Decomposition container name contains unsupported characters")
+    labels = dict(container_labels or {})
+    for key, value in labels.items():
+        if not _LABEL_KEY.fullmatch(str(key)) or not _LABEL_VALUE.fullmatch(str(value)):
+            raise ValueError("Decomposition container label contains unsupported characters")
+    if labels and container_name is None:
+        raise ValueError("Decomposition container labels require the named container")
     provider_order = [item.strip() for item in providers.split(",") if item.strip()]
     if len(provider_order) != 2 or len(set(provider_order)) != 2:
         raise ValueError("Assistant decomposition requires two distinct providers")
@@ -334,6 +354,8 @@ def run(
             "artifact_root": str(artifact_root),
             "stdout_log": str(logs / "stdout.log"),
             "stderr_log": str(logs / "stderr.log"),
+            "container_name": container_name,
+            "container_labels": labels or None,
             "status": "running",
             "started_at_utc": _now(),
             "preflight_source_commit": preflight.get("source_commit"),
@@ -347,6 +369,12 @@ def run(
         max_calls=2,
         run_id=run_id,
     ))
+    if container_name is not None:
+        position = command.index("run") + 1
+        named: list[str] = ["--name", container_name]
+        for key, value in sorted(labels.items()):
+            named.extend(["--label", f"{key}={value}"])
+        command[position:position] = named
     command.extend(("--source", "/workspace", "--output-root", "/decomposition-output"))
     environment = os.environ.copy()
     environment["NSC_DECOMPOSITION_HOST_OUTPUT_ROOT"] = str(output_root)
@@ -395,9 +423,30 @@ def apply(
     expected_source_commit: str,
     target_branch: str,
 ) -> dict[str, Any]:
-    """Apply the exact independently reviewed plan to the local Source."""
+    """Apply the exact independently reviewed plan to the local Source.
+
+    Application shares the Source integration lock with candidate integration
+    and synchronization, so no two Source-moving operations can interleave.
+    """
+
+    from Pipeline.AssistantControl.review import _source_integration_lock
 
     task_id = validate_task_id(task_id)
+    with _source_integration_lock(manager.source):
+        return _apply_locked(
+            manager, task_id, run_id=run_id,
+            expected_source_commit=expected_source_commit, target_branch=target_branch,
+        )
+
+
+def _apply_locked(
+    manager: Checkouts,
+    task_id: str,
+    *,
+    run_id: str,
+    expected_source_commit: str,
+    target_branch: str,
+) -> dict[str, Any]:
     record = _read_record(manager, task_id)
     if record.get("run_id") != run_id or record.get("status") != "review_ready":
         raise ValueError("Exact decomposition run is not awaiting local application")

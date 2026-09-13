@@ -37,6 +37,85 @@ def _git(root: Path, *args: str) -> str:
     return completed.stdout.decode("utf-8", "replace").strip()
 
 
+class ProposalContainerNameTests(unittest.TestCase):
+    """A named proposal container lets an owner stop exactly one proposal; nothing else changes."""
+
+    def test_run_names_the_compose_container_after_the_run_subcommand(self):
+        from Pipeline.AssistantControl import decomposition as decomposition_module
+        temporary = tempfile.TemporaryDirectory(prefix="assistant-decompose-name-")
+        self.addCleanup(temporary.cleanup)
+        root = Path(temporary.name)
+        source = root / "source"
+        source.mkdir()
+        create_repository(source)
+        task_path = source / "Tasks" / "NSC-004.yaml"
+        selected = json.loads(task_path.read_text(encoding="utf-8"))
+        selected.update(execution_scope="needs_execution_decomposition",
+                        execution_reason="Synthetic container-name regression requires decomposition.")
+        _write_json(task_path, selected)
+        _git(source, "add", "--", "Tasks/NSC-004.yaml")
+        _git(source, "commit", "-m", "fixture: childless decomposition parent")
+        head = _git(source, "rev-parse", "HEAD")
+        manager = Checkouts(source, root / "checkouts")
+        commands: list[list[str]] = []
+        real_run = subprocess.run
+
+        def fake_run(command, *args, **kwargs):
+            if list(command)[:2] == ["docker", "compose"]:
+                commands.append(list(command))
+                return subprocess.CompletedProcess(command, 1)
+            return real_run(command, *args, **kwargs)
+
+        with patch.object(decomposition_module, "build_compose_command",
+                          return_value=("docker", "compose", "-p", "nosafecircle", "run", "--rm", "-T",
+                                        "round-robin-decompose", "python3",
+                                        "Pipeline/TaskDecomposition/run_round_robin_decomposition.py")), \
+                patch.object(decomposition_module, "decomposition_preflight",
+                             return_value={"source_commit": head}), \
+                patch.object(decomposition_module.subprocess, "run", side_effect=fake_run):
+            record = decomposition_module.run(
+                manager, "NSC-004", "fixture-run", providers="claude,codex",
+                compose_project="nosafecircle", execution_authorized=True,
+                container_name="nsc-decompose-fixture000000000000",
+                container_labels={"com.nosafecircle.assistant.job": "fixture000000000000",
+                                  "com.nosafecircle.assistant.checkout": "abc123"},
+            )
+        self.assertEqual("failed", record["status"])
+        self.assertEqual("nsc-decompose-fixture000000000000", record["container_name"])
+        # The container carries the owning ticket and checkout, so only that
+        # owner can prove the container is its own before removing it.
+        self.assertEqual({"com.nosafecircle.assistant.job": "fixture000000000000",
+                          "com.nosafecircle.assistant.checkout": "abc123"},
+                         record["container_labels"])
+        self.assertEqual(1, len(commands))
+        position = commands[0].index("run")
+        self.assertEqual(["run", "--name", "nsc-decompose-fixture000000000000",
+                          "--label", "com.nosafecircle.assistant.checkout=abc123",
+                          "--label", "com.nosafecircle.assistant.job=fixture000000000000",
+                          "--rm", "-T"],
+                         commands[0][position:position + 9])
+        with self.assertRaisesRegex(ValueError, "container name"):
+            decomposition_module.run(
+                manager, "NSC-004", "fixture-run-2", providers="claude,codex",
+                compose_project="nosafecircle", execution_authorized=True,
+                container_name="bad name!",
+            )
+        with self.assertRaisesRegex(ValueError, "container label"):
+            decomposition_module.run(
+                manager, "NSC-004", "fixture-run-3", providers="claude,codex",
+                compose_project="nosafecircle", execution_authorized=True,
+                container_name="nsc-decompose-fixture000000000001",
+                container_labels={"bad key": "value"},
+            )
+        with self.assertRaisesRegex(ValueError, "labels require the named container"):
+            decomposition_module.run(
+                manager, "NSC-004", "fixture-run-4", providers="claude,codex",
+                compose_project="nosafecircle", execution_authorized=True,
+                container_labels={"com.nosafecircle.assistant.job": "x"},
+            )
+        self.assertEqual(1, len(commands))
+
+
 class RetainedReviewConcurrencyTests(unittest.TestCase):
     def test_unrelated_integration_retains_review_and_applies_at_current_source(self):
         temporary = tempfile.TemporaryDirectory(prefix="assistant-d1c-concurrency-")

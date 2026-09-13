@@ -137,6 +137,172 @@ materialization into one bounded step for the orchestrator to call after a crew
 run ends, while preserving the existing explicit provider, review, integration
 and publication boundaries. See its entry in `README.md`.
 
+## Background job containment and operator stop — 2026-09-12
+
+Two blockers in the first background-job commit are repaired: detached
+children survived an operator stop, and a receipt was accepted on its ticket
+hash alone. Now every child is assigned to a run-derived named Job Object
+before it may work (worker-launcher handoff; the parent keeps its handle until
+the exact child acknowledges with `job.opened.json`), receipts must carry the
+recorded PID and process identity, Ctrl+C writes a bound `stop.request.json`
+per active job, waits a bounded cooperative grace period (a decomposition child
+stops its own uniquely named provider container), then terminates only the
+recorded Job Object tree; the ticket is retained as `cancelled`, never a
+provider failure, never relaunched. `stop-background-jobs` recovers after a
+lost controller process and refuses while a controller owns the graph.
+`stop-graph` gives a console-less controller (a detached runner) a sanctioned
+stop: a request bound to the running invocation, PID and process identity that
+the controller honors between actions and on every wait poll, returning status
+`stopped`; unbound or stale requests are archived and ignored.
+
+## Astra round-5 repair: the cooperative stop proves ownership first — 2026-09-12
+
+The remaining finding is closed. The decomposition child's cooperative stop no
+longer runs `docker stop <name>`: `cooperative_stop` inspects the ticket's exact
+recorded name with the reconciliation's own format, requires the exact name,
+compose project, `-decompose` service and both ownership labels to be the ones
+the ticket records, and only then stops the container by its exact id (still
+`docker stop --time 10`). A mismatch, a missing or unreadable label, an absent
+container, a Docker failure or a ticket that does not authenticate stops
+nothing; the decision is recorded durably as `cooperative-stop.json` in the run
+root and returned rather than raised, so a refusal cannot turn the child's own
+`stopped` receipt into a failure. The stop takes a Docker runner seam
+(defaulting to `_run_docker`) so the decision is unit-testable with the fixture
+Docker, and `_ticket_container_name`/`_ticket_container_labels` remain the only
+source of truth for what the child may touch.
+
+## Astra round-4 repairs: checkout-exact container identity, refusals that keep cleanup progress — 2026-09-12
+
+Two further findings are closed. (1) The background-job id is now derived from
+the owning Source path and checkout root as well as kind, task, identity and
+attempt, so two checkouts (or two clones of the same Source commit) can never
+derive the same ticket id or the same provider container name; the ticket also
+fixes the labels the container must carry
+(`com.nosafecircle.assistant.job`, `com.nosafecircle.assistant.checkout`),
+`decomposition.run` stamps them with `docker compose run --label`, the inspect
+format reads them back, and a container under the ticket's name without exactly
+those labels is refused and never removed. Authentication re-derives both the
+job id and the labels. (2) An authentication refusal no longer overwrites a
+cleanup generation that is in flight under a live owner: the owner still
+records its removals, sightings and renewed deadline, and that generation lands
+as `refused` with `authentication_failed` instead of being discarded, so no
+retry can begin against a shortened bound. A refusal with nothing in flight
+preserves every progress field and can only keep or extend the deadline.
+
+## Astra round-3 repairs: partial cleanup progress, full identity authentication, concurrency, unreadable indexes — 2026-09-12
+
+Four further findings are closed. (1) A Docker failure or an interrupt after
+the exact container was seen or removed no longer loses it: the removal and
+the sighting are recorded, the operation bound restarts from them, the final
+recheck is owed again and the record stays `cleanup_pending` with
+`retry_after_utc`. The bound only moves forward, so nothing can restore an
+older deadline or complete a cleanup that saw its container. (2) A request
+file that is missing, empty, truncated or malformed now fails the recorded
+hash comparison instead of skipping it, and every destructive path also
+authenticates the recorded PID, the complete process identity, the Job Object
+name, the derived container name and compose project and the owned run
+directory against the artifacts the run itself wrote; a mismatch records
+`authentication_failed` with every problem and inspects, removes, signals and
+terminates nothing. (3) A ticket cleared or superseded while its Docker work
+ran unlocked is returned as a concurrency outcome and journaled
+(`job_cleanup_superseded`); cleanup and harvest errors are journaled per task,
+so no concurrent `clear-background-job` aborts the controller or blocks
+unrelated tasks. (4) An index that cannot be read or authenticated is never
+"nothing remains": `stop-graph` reports `already_released_cleanup_pending` /
+`stopped_cleanup_pending` and `stop-background-jobs` reports `cleanup_pending`,
+both exit 1 with the exact path and error, and a controller start refuses;
+nothing is deleted or repaired automatically.
+
+## Astra round-2 repairs: unfinished tombstones, reauthentication, ownership, stop-graph — 2026-09-12
+
+Four findings on the previous repair are closed. A verified-inside-the-window
+cleanup whose tombstone is unfinished now stays pending: every stop takes one
+exact look while the bound is active, `stop-background-jobs` waits the bound
+out and records the final recheck before claiming `stopped`, a controller
+start does the same before its first plan, and the running loop retries
+pending cleanups after their bound. Every retry reauthenticates the immutable
+ticket (request bytes, task id, job id, container derivation, owned run
+directory) before anything destructive and fails closed as `refused` with
+`authentication_failed`, never retried automatically. Cleanup ownership is
+recorded with the generation: a live owner is waited for, a dead one taken
+over, and a superseded result is discarded in favour of the durable record
+instead of raising into the controller's failure path. `stop-graph` after the
+owner released reports `already_released_cleanup_pending` (exit 1) and points
+at `stop-background-jobs`. Tests: a create after the window but inside the
+bound is caught by the repeated stop and by startup; an index rewritten to
+another job's ticket, a non-derived container name and altered ticket bytes
+remove nothing; a superseded generation leaves the controller running and is
+taken over on the next start; a live owner is awaited; repeated `stop-graph`
+after release exits 1 until `stop-background-jobs` finishes.
+
+## Astra re-review repairs: window, stop retry, lock — 2026-09-12
+
+Three P1 findings on the cleanup above are repaired. The container name is
+now watched for the whole 15 s window (removing on every sighting) and
+verified only when its final 3 s were absent, with a bounded extension after
+a late sighting; a kill-path cleanup keeps a 60 s tombstone (one Docker
+operation bound) that `clear-background-job` waits out and follows with one
+recorded final recheck, and a retry ticket is refused until the prior attempt
+is finally verified. A terminal job whose container is not verified absent is
+still stop work: `cancel`, `cancel_all`, `stop-background-jobs` and a repeated
+`stop-graph` retry the exact bound cleanup and do not report fully stopped
+(`cleanup_pending` / `stopped_cleanup_pending`, exit 1) until it is verified;
+after verified success a repeat makes no Docker call. Docker calls and
+stabilization sleeps no longer run under `checkouts.lock`: the cleanup is
+recorded as in progress with a generation under the lock, runs without it,
+and is recorded only for that generation. Tests: a create at second 4 (after
+the old 3 s boundary) is removed and the window still ends absent, a
+late-window sighting extends the watch, churn stays `unverified`; Docker down
+on the first stop and back on the repeated stop (cancel, cancel_all and the
+CLI exit codes); unrelated checkout work acquires the lock during a slow
+reconciliation and a stale generation cannot record; clear and relaunch wait
+for the tombstone and recheck once.
+
+## Exact container cleanup and restart reconciliation — 2026-09-12
+
+Two remaining NO-GO findings are closed. A decomposition ticket now fixes its
+exact provider container name and compose project before Docker can start;
+after the child's tree has ended, only that name is inspected, only that exact
+container id is removed, and the name is watched for a settle window so a
+create landing after the first look is still caught; the verified outcome (or
+a refusal: Docker unavailable, or another project/service under that name,
+nothing removed) is retained as `provider_container_cleanup`, and
+`clear-background-job` refuses until it is verified absent. A restarting
+controller reconciles every retained ticket under its lock before the first
+plan: authenticated live children are adopted (Job Object handle reopened, no
+relaunch), ended ones harvested with their container reconciled, live children
+with a bound identity but a ticket that no longer authenticates are stopped
+exactly and quarantined (task blocked with the reason), and anything ambiguous
+refuses startup with nothing killed or removed. `stop-graph` is idempotent.
+Tests: stop during delayed container creation, abrupt controller death with a
+child, grandchild and simulated container (fixture, plus one real Windows
+process tree), forged process/container identity reaching nothing unrelated,
+repeated stops, restart harvest without relaunch, and startup refusal until the
+container is verified absent.
+
+## Background management jobs — 2026-09-12
+
+The fresh NSC-1130 gauntlet proved the controller loop was serialized on
+management work: one decomposition proposal blocked it for 203 s, each
+post-crew validation for 99–118 s, and a worker that finished during the
+proposal waited 6 m 37 s for its 3 s settlement while the loop prepared and
+started the generated children first. `decompose` and `post_crew` now run as
+owned detached background jobs (`background_jobs.py`) with exact tickets,
+process identity, retained receipts, restart recovery and duplicate-launch
+prevention; the planner settles terminal workers first on every cycle, launches
+jobs next, keeps preparing/reserving/starting unrelated tasks while they run,
+and keeps every Source-moving action in one serialized foreground lane.
+`decomposition.apply` now takes the Source integration lock. Sixteen focused
+tests (`test_background_jobs.py`) cover overlap, settlement, admission, Source
+lane exclusion, restart, failure isolation, limits and legacy state; one runs the
+real detached child on Windows with a test-only ticket. `auto_approve` is now approval-only: it approves from the retained
+focused-validation facts and fails closed without them, so no foreground path
+runs Unity. `plan()` keeps per-HEAD caches (batch-read contracts, one
+conformance view, record-keyed proofs); on the live 102-task graph a warm cycle
+dropped from about 15 s and 189 git processes to about 0.2 s and four, and the
+first cycle after a HEAD move to about 5 s. Not changed: the viewer does not
+yet project `wait_job`.
+
 ## Bounded graph controller — 2026-09-11
 
 `graph-plan` and `run-graph` now provide the missing outer loop while reusing the

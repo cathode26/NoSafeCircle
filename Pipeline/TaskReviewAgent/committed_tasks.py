@@ -65,8 +65,95 @@ def load_committed_task(
         raise CommittedTaskError(
             f"committed task contract is missing at {selected_commit}: {path}"
         )
+    return parse_committed_task_bytes(
+        task_id, result.stdout, expected_sha256=expected_sha256
+    )
+
+
+def load_committed_tasks(
+    root: Path | str,
+    task_ids: list[str] | tuple[str, ...],
+    *,
+    commit: str,
+) -> dict[str, dict[str, Any]]:
+    """Read many ``Tasks/<TASK-ID>.yaml`` contracts at one exact commit in one process.
+
+    ``git cat-file --batch`` prints each stored blob byte-for-byte as ``git
+    show`` does, so every returned ``task_contract_sha256`` equals the one
+    :func:`load_committed_task` computes for the same task and commit. Fails
+    closed, like the single-object loader, when any requested contract is
+    missing, is not a blob, or does not parse.
+    """
+
+    if type(commit) is not str or re.fullmatch(
+        r"(?:[0-9a-f]{40}|[0-9a-f]{64})", commit
+    ) is None:
+        raise CommittedTaskError(
+            "committed task revision must be an exact lowercase Git object ID"
+        )
+    ordered = list(dict.fromkeys(validate_task_id(task_id) for task_id in task_ids))
+    if not ordered:
+        return {}
+    request = "".join(
+        f"{commit}:Tasks/{task_id}.yaml\n" for task_id in ordered
+    ).encode("ascii")
+    result = subprocess.run(
+        ("git", "-C", str(Path(root)), "cat-file", "--batch"),
+        input=request,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+        timeout=120.0,
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+    )
+    if result.returncode != 0:
+        raise CommittedTaskError(
+            f"committed task contracts could not be read at {commit}: "
+            f"{result.stderr.decode('utf-8', 'replace').strip()}"
+        )
+    data = result.stdout
+    position = 0
+    contracts: dict[str, dict[str, Any]] = {}
+    for task_id in ordered:
+        path = f"Tasks/{task_id}.yaml"
+        newline = data.find(b"\n", position)
+        if newline < 0:
+            raise CommittedTaskError(
+                f"committed task contract is missing at {commit}: {path}"
+            )
+        header = data[position:newline].split(b" ")
+        position = newline + 1
+        if len(header) != 3 or header[1] != b"blob":
+            raise CommittedTaskError(
+                f"committed task contract is missing at {commit}: {path}"
+            )
+        size = int(header[2])
+        body = data[position:position + size]
+        if len(body) != size or data[position + size:position + size + 1] != b"\n":
+            raise CommittedTaskError(
+                f"committed task contract stream is truncated at {commit}: {path}"
+            )
+        position += size + 1
+        contracts[task_id] = parse_committed_task_bytes(task_id, body)
+    return contracts
+
+
+def parse_committed_task_bytes(
+    task_id: str,
+    raw_bytes: bytes,
+    *,
+    expected_sha256: str | None = None,
+) -> dict[str, Any]:
+    """Validate task bytes supplied by a committed-object reader.
+
+    This parser does not establish Git provenance. Callers must read the bytes
+    from their validated commit, as the single-object loader and local batch
+    reader do, before using the returned contract for coordination.
+    """
+    task_id = validate_task_id(task_id)
+    path = f"Tasks/{task_id}.yaml"
     try:
-        value = json.loads(result.stdout.decode("utf-8-sig"))
+        value = json.loads(raw_bytes.decode("utf-8-sig"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise CommittedTaskError(
             f"committed task contract is invalid JSON: {path}"
@@ -81,7 +168,7 @@ def load_committed_task(
         raise CommittedTaskError(
             f"committed task exclusive_resources must be a list of non-empty strings: {path}"
         )
-    contract_sha256 = hashlib.sha256(result.stdout).hexdigest()
+    contract_sha256 = hashlib.sha256(raw_bytes).hexdigest()
     if expected_sha256 is not None and contract_sha256 != expected_sha256:
         raise CommittedTaskError(
             f"committed task contract hash mismatch for {path}: "
@@ -89,5 +176,7 @@ def load_committed_task(
         )
     return {**value, "task_contract_sha256": contract_sha256}
 
-
-__all__ = ["CommittedTaskError", "load_committed_task"]
+__all__ = [
+    "CommittedTaskError", "load_committed_task", "load_committed_tasks",
+    "parse_committed_task_bytes",
+]

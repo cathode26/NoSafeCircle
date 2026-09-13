@@ -51,7 +51,14 @@ def approved_integration(source: Path, records: Path, task_id: str, head: str) -
         return None
 
 
-def inspect_dependencies(source: Path, task_id: str, checkout_root: Path | None = None) -> dict:
+def conformance_context(source: Path):
+    """Build one committed-HEAD conformance view of Source.
+
+    Construction validates the repository's history identity and costs several
+    git processes; the view memoizes every evaluation at that HEAD, so a caller
+    evaluating many tasks at one HEAD should build it once and pass it to
+    :func:`inspect_dependencies`.
+    """
     # TaskGraph currently uses sibling absolute imports. Reuse its evaluator,
     # rather than interpreting delivery-record filenames or Issue labels here.
     taskgraph = str(Path(__file__).resolve().parents[1] / "TaskGraph")
@@ -59,7 +66,16 @@ def inspect_dependencies(source: Path, task_id: str, checkout_root: Path | None 
         sys.path.insert(0, taskgraph)
     from current_conformance import ConformanceEvaluationContext
 
-    context = ConformanceEvaluationContext(source)
+    return ConformanceEvaluationContext(source)
+
+
+def inspect_dependencies(
+    source: Path, task_id: str, checkout_root: Path | None = None, *, context=None,
+) -> dict:
+    if context is None:
+        context = conformance_context(source)
+    elif Path(getattr(context, "root", "")) != Path(source).resolve():
+        raise ValueError("conformance context belongs to another Source")
     contract = load_committed_task(source, task_id, commit=context.head)
     dependencies = [context.evaluate(dependency).to_dict()
                     for dependency in contract.get("depends_on", [])]
