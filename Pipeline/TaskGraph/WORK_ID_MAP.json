@@ -66,6 +66,7 @@
                    "visual-simulation-continuity":  "NSC-040",
                    "windows-build-scene-registration":  "NSC-037",
                    "win-loss-conditions":  "NSC-034",
+                   "wizard-animation-audit-repair":  "NSC-070",
                    "world":  "NSC-022",
                    "world-sprite-prefab-sorting":  "NSC-039",
                    "world-visual-foundation":  "NSC-026"

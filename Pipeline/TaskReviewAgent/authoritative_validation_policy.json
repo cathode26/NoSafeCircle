@@ -96,6 +96,18 @@
         "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-070": {
+      "task_contract_sha256": "2700ae7534280336aebaad72b87f9e9405096b342bc545e18777308e63e610dc",
+      "required_test_platforms": [
+        "EditMode",
+        "PlayMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.WizardArtIntegrationTests",
+        "PlayMode": "NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
     }
   },
   "decomposition_child_templates": {}

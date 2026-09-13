@@ -99,7 +99,8 @@
         "title-screen-start-game-flow",
         "four-wizard-selection-screen",
         "selected-wizard-world-placement",
-        "independent-room-scene-composition"
+        "independent-room-scene-composition",
+        "wizard-animation-audit-repair"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
       "work_ids": [
@@ -128,7 +129,8 @@
         "NSC-066",
         "NSC-067",
         "NSC-068",
-        "NSC-069"
+        "NSC-069",
+        "NSC-070"
       ]
     },
     {
@@ -179,7 +181,8 @@
         "title-screen-start-game-flow",
         "four-wizard-selection-screen",
         "selected-wizard-world-placement",
-        "independent-room-scene-composition"
+        "independent-room-scene-composition",
+        "wizard-animation-audit-repair"
       ],
       "resource_key": "unity-scene:Assets/Scenes/DoorPrototype.unity",
       "work_ids": [
@@ -208,7 +211,8 @@
         "NSC-066",
         "NSC-067",
         "NSC-068",
-        "NSC-069"
+        "NSC-069",
+        "NSC-070"
       ]
     },
     {
@@ -517,6 +521,50 @@
       "work_ids": [
         "NSC-049",
         "NSC-069"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "animated-wizard-unity-integration",
+        "wizard-animation-audit-repair"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Wizard",
+      "work_ids": [
+        "NSC-062",
+        "NSC-070"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "animated-wizard-unity-integration",
+        "wizard-animation-audit-repair"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/WizardAnimationController.cs",
+      "work_ids": [
+        "NSC-062",
+        "NSC-070"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "animated-wizard-unity-integration",
+        "wizard-animation-audit-repair"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/WizardArtIntegrationTests.cs",
+      "work_ids": [
+        "NSC-062",
+        "NSC-070"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "animated-wizard-unity-integration",
+        "wizard-animation-audit-repair"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/WizardAnimationPlayModeTests.cs",
+      "work_ids": [
+        "NSC-062",
+        "NSC-070"
       ]
     },
     {
