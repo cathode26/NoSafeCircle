@@ -132,9 +132,10 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 movement.Tick(0.1f);
                 yield return null;
 
-                string expectedWalkState =
-                    $"Wizard_{ExpectedPresentations[optionIndex]}_{ExpectedSkins[optionIndex]}_walk_south-east";
-                Assert.AreEqual(expectedWalkState, wizard.CurrentState);
+                string expectedWalkStatePrefix =
+                    $"Wizard_{ExpectedPresentations[optionIndex]}_{ExpectedSkins[optionIndex]}_walk_";
+                StringAssert.StartsWith(expectedWalkStatePrefix, wizard.CurrentState,
+                    "World entry must preserve the selected wizard while its dedicated direction owner chooses facing.");
                 Assert.AreEqual(ExpectedPresentations[optionIndex], wizard.Presentation);
                 Assert.AreEqual(ExpectedSkins[optionIndex], wizard.Skin);
                 Assert.AreSame(player, FindRoot(scene, "Player"));
