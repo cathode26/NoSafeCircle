@@ -87,6 +87,9 @@ jobs:
       - name: D1B.2 round-robin fake-provider suite
         run: python Pipeline/TaskDecomposition/tests/round_robin_decomposition_smoke_test.py
 
+      - name: D1B.2 bounded author correction suite
+        run: python Pipeline/TaskDecomposition/tests/author_correction_smoke_test.py
+
       - name: Pooled decomposition role and artifact-authority suite
         run: python Pipeline/TaskDecomposition/tests/pooled_decomposition_smoke_test.py
 

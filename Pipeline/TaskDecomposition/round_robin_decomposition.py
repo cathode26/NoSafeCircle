@@ -56,6 +56,7 @@ from TaskDecomposition.context_builder import (
 from TaskDecomposition.contracts import (
     DecompositionContractError,
     DecompositionResult,
+    ENTRY_PATTERNS,
     TASK_ID_RE,
 )
 from TaskDecomposition.live_decomposition import (
@@ -72,7 +73,10 @@ from TaskDecomposition.policy import (
     DecompositionPolicyError,
     validate_decomposition_result,
 )
-from TaskDecomposition.prompts import build_decomposer_prompt
+from TaskDecomposition.prompts import (
+    build_decomposer_correction_prompt,
+    build_decomposer_prompt,
+)
 from TaskDecomposition.review_contracts import (
     DecompositionReviewContractError,
     ReviewFinding,
@@ -278,14 +282,27 @@ def _round_invocation_id(
     run_id: str,
     round_number: int,
     role: str,
+    *,
+    correction: bool = False,
 ) -> str:
     role_slug = role.replace("_", "-")
+    # A bounded author correction is a distinct invocation of the same round's
+    # role and provider, so it carries a distinct deterministic identity that
+    # can never collide with the round it corrects.
+    marker = "c" if correction else ""
+    scope = f"{round_number}-correction" if correction else f"{round_number}"
     suffix = hashlib.sha256(
-        f"{run_id}:{round_number}:{role}".encode("utf-8")
+        f"{run_id}:{scope}:{role}".encode("utf-8")
     ).hexdigest()[:12]
     return _validate_run_id(
-        f"{task_id.lower()}-d1b2-r{round_number:02d}-{role_slug}-{suffix}"
+        f"{task_id.lower()}-d1b2-r{round_number:02d}{marker}-{role_slug}-{suffix}"
     )
+
+
+def _round_directory_name(round_number: int, *, correction: bool = False) -> str:
+    """Return the exact `rounds/` subdirectory this invocation publishes into."""
+
+    return f"{round_number:02d}-correction" if correction else f"{round_number:02d}"
 
 
 def _round_request(
@@ -355,11 +372,14 @@ def _invoke_round(
     heartbeat_seconds: float,
     reporter: ProgressReporter,
     session_binding: ProviderSessionBinding | None = None,
+    correction: bool = False,
 ) -> tuple[AgentResult | None, Exception | None, float, str]:
     invocation_id = _round_invocation_id(
-        task_id, run_id, round_number, role
+        task_id, run_id, round_number, role, correction=correction
     )
-    round_dir = run_dir / "rounds" / f"{round_number:02d}"
+    round_dir = run_dir / "rounds" / _round_directory_name(
+        round_number, correction=correction
+    )
     round_dir.mkdir(parents=True)
     key, configuration, registry = provider_bundle
     invocation = AgentInvocationRequest(
@@ -382,14 +402,16 @@ def _invoke_round(
         invocation,
     )
 
+    label = f"round {round_number} correction" if correction else f"round {round_number}"
     reporter.emit(
         "round_provider_started",
-        f"D1B.2 round {round_number} {role} started with {provider}",
+        f"D1B.2 {label} {role} started with {provider}",
         round_number=round_number,
         round_role=role,
         round_provider=provider,
         invocation_id=invocation_id,
         session_mode=None if session_binding is None else session_binding.mode,
+        correction_of_round=round_number if correction else None,
     )
     stopped = threading.Event()
     invocation_started = time.monotonic()
@@ -399,18 +421,19 @@ def _invoke_round(
             elapsed = round(time.monotonic() - invocation_started, 1)
             reporter.emit(
                 "round_provider_heartbeat",
-                f"D1B.2 round {round_number} still running: {elapsed:g}s",
+                f"D1B.2 {label} still running: {elapsed:g}s",
                 round_number=round_number,
                 round_role=role,
                 round_provider=provider,
                 invocation_id=invocation_id,
                 duration_seconds=elapsed,
                 status="running",
+                correction_of_round=round_number if correction else None,
             )
 
     heartbeat_thread = threading.Thread(
         target=heartbeat,
-        name=f"d1b2-round-{round_number}-heartbeat",
+        name=f"d1b2-{label.replace(' ', '-')}-heartbeat",
         daemon=True,
     )
     heartbeat_thread.start()
@@ -429,15 +452,159 @@ def _invoke_round(
     duration = round(time.monotonic() - invocation_started, 3)
     reporter.emit(
         "round_provider_completed",
-        f"D1B.2 round {round_number} {role} completed",
+        f"D1B.2 {label} {role} completed",
         round_number=round_number,
         round_role=role,
         round_provider=provider,
         invocation_id=invocation_id,
         status=(result.status if result is not None else "failed"),
         duration_seconds=duration,
+        correction_of_round=round_number if correction else None,
     )
     return result, invocation_exception, duration, invocation_id
+
+
+def _round_summary(
+    *,
+    run_dir: Path,
+    round_directory: str,
+    round_number: int,
+    role: str,
+    provider: str,
+    invocation_id: str,
+    agent_result: AgentResult | None,
+    duration_seconds: float,
+    candidate_before: CandidateSnapshot | None,
+    unresolved_findings: Mapping[str, ReviewFinding],
+    correction_of_round: int | None = None,
+) -> dict[str, Any]:
+    """Return the opening `round_result.json` record for one provider call.
+
+    Every provider call in the circuit, including the one bounded author
+    correction, is recorded with exactly this shape. `correction_of_round` is
+    null for an ordinary round and names the round a correction replaces.
+    """
+    task_request_reference = (
+        f"rounds/{round_directory}/task_execution/{invocation_id}/task_request.json"
+    )
+    agent_result_reference = (
+        f"rounds/{round_directory}/agent_runtime/{invocation_id}/result.json"
+    )
+    return {
+        "schema_version": ROUND_RESULT_SCHEMA_VERSION,
+        "round_number": round_number,
+        "correction_of_round": correction_of_round,
+        "role": role,
+        "requested_provider": provider,
+        "actual_provider": (
+            agent_result.provider if agent_result is not None else None
+        ),
+        "actual_model": (
+            agent_result.model if agent_result is not None else None
+        ),
+        "agent_status": (
+            agent_result.status if agent_result is not None else "failed"
+        ),
+        "agent_failure_classification": (
+            agent_result.failure_classification
+            if agent_result is not None
+            else "internal_error"
+        ),
+        "duration_seconds": duration_seconds,
+        "candidate_before": (
+            candidate_before.summary() if candidate_before is not None else None
+        ),
+        "candidate_after": None,
+        "verdict": None,
+        "new_finding_ids": [],
+        "unresolved_finding_ids": sorted(unresolved_findings),
+        "task_execution_request_path": (
+            task_request_reference
+            if (run_dir / task_request_reference).is_file()
+            else None
+        ),
+        "agent_runtime_result_path": (
+            agent_result_reference
+            if (run_dir / agent_result_reference).is_file()
+            else None
+        ),
+        "status": "rejected",
+        "authority": "review_only_not_applied",
+        "pooled_session": None,
+    }
+
+
+def _observed_contract_differences(raw: Any, parent_task: Any) -> tuple[str, ...]:
+    """Describe how a rejected candidate differs from its parent contract.
+
+    This is descriptive enrichment for the bounded correction call, never a
+    rule. It reads an already-rejected provider payload of arbitrary shape, so
+    every field is inspected defensively and anything unreadable is simply not
+    described. It carries no opinion about which differences are permitted: it
+    reports parent exclusive resources no child named, parent obligations with
+    no coverage record, and children missing a structurally required entry
+    collection. When nothing readable differs it returns an empty tuple and the
+    correction prompt says so, which is the correct outcome for a rejection
+    about something these observations do not cover.
+    """
+    differences: list[str] = []
+    if not isinstance(raw, Mapping) or not isinstance(parent_task, Mapping):
+        return ()
+    children = raw.get("children")
+    children = children if isinstance(children, list) else []
+
+    parent_resources = parent_task.get("exclusive_resources")
+    if isinstance(parent_resources, list):
+        assigned: set[str] = set()
+        for child in children:
+            if not isinstance(child, Mapping):
+                continue
+            owned = child.get("exclusive_resources")
+            if not isinstance(owned, list):
+                continue
+            assigned.update(item for item in owned if isinstance(item, str))
+        for resource in sorted(
+            {item for item in parent_resources if isinstance(item, str)} - assigned
+        ):
+            differences.append(
+                f"parent exclusive_resources entry {resource!r} is named by no child in your result"
+            )
+
+    covered: set[tuple[str, str]] = set()
+    coverage = raw.get("parent_requirement_coverage")
+    if isinstance(coverage, list):
+        for record in coverage:
+            if not isinstance(record, Mapping):
+                continue
+            entry_type = record.get("parent_entry_type")
+            entry_id = record.get("parent_entry_id")
+            if isinstance(entry_type, str) and isinstance(entry_id, str):
+                covered.add((entry_type, entry_id))
+    for entry_type, (id_field, _pattern) in ENTRY_PATTERNS.items():
+        entries = parent_task.get(entry_type)
+        if not isinstance(entries, list):
+            continue
+        for entry in entries:
+            if not isinstance(entry, Mapping):
+                continue
+            entry_id = entry.get(id_field)
+            if isinstance(entry_id, str) and (entry_type, entry_id) not in covered:
+                differences.append(
+                    f"parent {entry_type}/{entry_id} has no parent_requirement_coverage record in your result"
+                )
+
+    for index, child in enumerate(children):
+        if not isinstance(child, Mapping):
+            continue
+        local_key = child.get("local_key")
+        name = local_key if isinstance(local_key, str) and local_key else f"children[{index}]"
+        for entry_type in ("acceptance_criteria", "completion_gates"):
+            entries = child.get(entry_type)
+            if not isinstance(entries, list) or not entries:
+                differences.append(
+                    f"child {name!r} returned no {entry_type} entry"
+                )
+    return tuple(differences)
 
 
 def _publish_candidate(round_dir: Path, candidate: CandidateSnapshot) -> None:
@@ -612,6 +779,13 @@ def run_round_robin_decomposition(
     run_status = "rejected"
     independent_approver: str | None = None
     calls_used = 0
+    # One bounded author correction may follow a deterministically invalid
+    # initial candidate. It is an extra author call outside `max_calls`, so it
+    # can never consume the independent reviewer's call, and `calls_used`
+    # continues to count only the rounds the call limit bounds.
+    author_corrections_used = 0
+    initial_validation_failure: str | None = None
+    deferred_round_rejections: list[str] = []
 
     for round_number in range(1, call_limit + 1):
         calls_used = round_number
@@ -744,53 +918,18 @@ def run_round_robin_decomposition(
             run_status = "rejected"
             break
 
-        task_request_reference = (
-            f"rounds/{round_number:02d}/task_execution/{invocation_id}/task_request.json"
+        round_summary: dict[str, Any] = _round_summary(
+            run_dir=run_dir,
+            round_directory=_round_directory_name(round_number),
+            round_number=round_number,
+            role=role,
+            provider=provider,
+            invocation_id=invocation_id,
+            agent_result=agent_result,
+            duration_seconds=round_duration,
+            candidate_before=candidate,
+            unresolved_findings=unresolved_findings,
         )
-        agent_result_reference = (
-            f"rounds/{round_number:02d}/agent_runtime/{invocation_id}/result.json"
-        )
-        round_summary: dict[str, Any] = {
-            "schema_version": ROUND_RESULT_SCHEMA_VERSION,
-            "round_number": round_number,
-            "role": role,
-            "requested_provider": provider,
-            "actual_provider": (
-                agent_result.provider if agent_result is not None else None
-            ),
-            "actual_model": (
-                agent_result.model if agent_result is not None else None
-            ),
-            "agent_status": (
-                agent_result.status if agent_result is not None else "failed"
-            ),
-            "agent_failure_classification": (
-                agent_result.failure_classification
-                if agent_result is not None
-                else "internal_error"
-            ),
-            "duration_seconds": round_duration,
-            "candidate_before": (
-                candidate.summary() if candidate is not None else None
-            ),
-            "candidate_after": None,
-            "verdict": None,
-            "new_finding_ids": [],
-            "unresolved_finding_ids": sorted(unresolved_findings),
-            "task_execution_request_path": (
-                task_request_reference
-                if (run_dir / task_request_reference).is_file()
-                else None
-            ),
-            "agent_runtime_result_path": (
-                agent_result_reference
-                if (run_dir / agent_result_reference).is_file()
-                else None
-            ),
-            "status": "rejected",
-            "authority": "review_only_not_applied",
-            "pooled_session": None,
-        }
 
         round_rejections: list[str] = []
         post_call_source_reasons = source_revalidation_reasons(source_identity)
@@ -873,9 +1012,13 @@ def run_round_robin_decomposition(
                     DecompositionPolicyError,
                     GraphDeltaPlanningError,
                 ) as exc:
-                    round_rejections.append(
+                    # Whatever the validator objected to, its exact text is the
+                    # feedback the one bounded correction call carries back to
+                    # the author below.
+                    initial_validation_failure = (
                         f"initial candidate deterministic validation failed: {exc}"
                     )
+                    round_rejections.append(initial_validation_failure)
                     run_status = "rejected"
             else:
                 assert candidate is not None
@@ -962,11 +1105,32 @@ def run_round_robin_decomposition(
                     )
                     run_status = "rejected"
 
+        # One bounded author correction is offered when the initial candidate
+        # failed deterministic validation and nothing else went wrong: the
+        # provider call itself succeeded, it wrote nothing, and the source did
+        # not move under it. A pooled run is excluded because the host session
+        # pool settles exactly the rounds `max_calls` bounds, by invocation
+        # identity, and an extra author turn on a leased conversation cannot be
+        # proven under that protocol.
+        correction_eligible = (
+            round_number == 1
+            and candidate is None
+            and initial_validation_failure is not None
+            and round_rejections == [initial_validation_failure]
+            and author_corrections_used == 0
+            and pooled_sessions is None
+        )
         if round_rejections:
             round_summary["rejection_reasons"] = round_rejections
-            rejection_reasons.extend(
-                f"round {round_number}: {reason}" for reason in round_rejections
-            )
+            if correction_eligible:
+                # Held until the run's outcome is known: a corrected run that
+                # reaches an independent review is not a rejected run, and a
+                # corrected run that still fails retains both failures.
+                deferred_round_rejections = list(round_rejections)
+            else:
+                rejection_reasons.extend(
+                    f"round {round_number}: {reason}" for reason in round_rejections
+                )
         else:
             round_summary["rejection_reasons"] = []
         round_summary["unresolved_finding_ids"] = sorted(unresolved_findings)
@@ -1002,6 +1166,176 @@ def run_round_robin_decomposition(
             round_dir / "round_result.json", round_summary
         )
         round_summaries.append(round_summary)
+
+        if correction_eligible:
+            assert agent_result is not None and initial_validation_failure is not None
+            author_corrections_used = 1
+            rejected_output = thaw_json(agent_result.structured_output)
+            observed_differences = _observed_contract_differences(
+                rejected_output, context_payload["selected_task"]["contract"]
+            )
+            reporter.emit(
+                "author_correction_started",
+                f"D1B.2 round {round_number} candidate failed deterministic validation; "
+                f"requesting one bounded {role} correction from {provider}",
+                round_number=round_number,
+                round_role=role,
+                round_provider=provider,
+                correction_of_round=round_number,
+                rejection_reason=initial_validation_failure,
+                observed_differences=list(observed_differences),
+            )
+            correction_directory = _round_directory_name(round_number, correction=True)
+            correction_invocation_id = _round_invocation_id(
+                task_id, selected_run_id, round_number, role, correction=True
+            )
+            publish_json_no_overwrite(
+                run_dir / "rounds" / f"{correction_directory}-request.json",
+                {
+                    **_round_request(
+                        round_number=round_number,
+                        role=role,
+                        provider=provider,
+                        invocation_id=correction_invocation_id,
+                        candidate=None,
+                        unresolved_findings=unresolved_findings,
+                    ),
+                    "correction_of_round": round_number,
+                    "corrected_rejection_reason": initial_validation_failure,
+                    "observed_contract_differences": list(observed_differences),
+                    "pooled_session_key": None,
+                    "session_mode": None,
+                    "requested_session_id": None,
+                },
+            )
+            correction_bundle = _validated_provider_bundle(
+                provider, source_identity.root, provider_factory, role=role,
+                codex_resume_sandbox_argument=codex_resume_sandbox_argument,
+            )
+            (
+                correction_result,
+                correction_exception,
+                correction_duration,
+                actual_correction_id,
+            ) = _invoke_round(
+                run_dir=run_dir,
+                round_number=round_number,
+                task_id=task_id,
+                run_id=selected_run_id,
+                role=role,
+                provider=provider,
+                provider_bundle=correction_bundle,
+                prompt=build_decomposer_correction_prompt(
+                    context,
+                    rejected_output=rejected_output,
+                    rejection_reason=initial_validation_failure,
+                    observed_differences=observed_differences,
+                ),
+                output_schema=DECOMPOSITION_RESULT_SCHEMA,
+                context_paths=context_paths,
+                task_contract_identity=task_contract_identity,
+                budgets=generator_budget,
+                heartbeat_seconds=heartbeat_seconds,
+                reporter=reporter,
+                correction=True,
+            )
+            correction_dir = run_dir / "rounds" / correction_directory
+            correction_summary = _round_summary(
+                run_dir=run_dir,
+                round_directory=correction_directory,
+                round_number=round_number,
+                role=role,
+                provider=provider,
+                invocation_id=correction_invocation_id,
+                agent_result=correction_result,
+                duration_seconds=correction_duration,
+                candidate_before=None,
+                unresolved_findings=unresolved_findings,
+                correction_of_round=round_number,
+            )
+            correction_rejections: list[str] = []
+            # The exact source revalidation an ordinary round performs, around
+            # this call too: a correction never runs against a moved source.
+            correction_source_reasons = source_revalidation_reasons(source_identity)
+            if actual_correction_id != correction_invocation_id:
+                correction_rejections.append("internal invocation identity mismatch")
+                run_status = "rejected"
+            elif correction_exception is not None:
+                correction_rejections.append(
+                    "task-associated invocation failed: "
+                    f"{type(correction_exception).__name__}: {correction_exception}"
+                )
+                run_status = "agent_failed"
+            elif correction_result is None:
+                correction_rejections.append(
+                    "task-associated invocation returned no AgentResult"
+                )
+                run_status = "agent_failed"
+            elif correction_result.status != "succeeded":
+                correction_rejections.append(
+                    f"AgentResult failed ({correction_result.failure_classification}): "
+                    f"{correction_result.failure_message}"
+                )
+                run_status = "agent_failed"
+            else:
+                correction_rejections.extend(
+                    _read_only_rejection_reasons(correction_result)
+                )
+            correction_rejections.extend(correction_source_reasons)
+            if not correction_rejections and correction_result is not None:
+                try:
+                    candidate = _validate_candidate(
+                        thaw_json(correction_result.structured_output),
+                        context_payload=context_payload,
+                        graph=graph,
+                        author_provider=provider,
+                        version=1,
+                    )
+                    _publish_candidate(correction_dir, candidate)
+                    correction_summary["candidate_after"] = candidate.summary()
+                    correction_summary["status"] = "correction_candidate_valid"
+                    if round_number == call_limit:
+                        run_status = "needs_human"
+                        rejection_reasons.append(
+                            "call limit ended before an independent provider reviewed the initial candidate"
+                        )
+                    else:
+                        run_status = "rejected"
+                except (
+                    DecompositionContractError,
+                    DecompositionPolicyError,
+                    GraphDeltaPlanningError,
+                ) as exc:
+                    correction_rejections.append(
+                        f"corrected candidate deterministic validation failed: {exc}"
+                    )
+                    run_status = "rejected"
+            correction_summary["rejection_reasons"] = correction_rejections
+            correction_summary["unresolved_finding_ids"] = sorted(unresolved_findings)
+            publish_json_no_overwrite(
+                correction_dir / "round_result.json", correction_summary
+            )
+            round_summaries.append(correction_summary)
+            reporter.emit(
+                "author_correction_completed",
+                f"D1B.2 round {round_number} bounded {role} correction completed: "
+                f"{correction_summary['status']}",
+                round_number=round_number,
+                round_role=role,
+                round_provider=provider,
+                correction_of_round=round_number,
+                status=correction_summary["status"],
+                duration_seconds=correction_duration,
+            )
+            if correction_rejections or candidate is None:
+                rejection_reasons.extend(
+                    f"round {round_number} correction: {reason}"
+                    for reason in correction_rejections
+                )
+                break
+            # Only a deterministically valid candidate reaches the independent
+            # reviewer round.
+            continue
 
         if round_rejections or run_status in {
             "review_ready",
@@ -1058,6 +1392,14 @@ def run_round_robin_decomposition(
                 )
                 graph_delta_path = "graph_delta.json"
 
+    if deferred_round_rejections and run_status != "review_ready":
+        # The bounded correction did not carry the run to an independent
+        # review, so the initial deterministic failure is part of why the run
+        # ended, alongside whatever ended it. It stays first, in order.
+        rejection_reasons[0:0] = [
+            f"round 1: {reason}" for reason in deferred_round_rejections
+        ]
+
     final = {
         "schema_version": ROUND_ROBIN_RUN_RESULT_SCHEMA_VERSION,
         "mode": "round_robin_d1b2",
@@ -1066,6 +1408,7 @@ def run_round_robin_decomposition(
         "provider_order": list(order),
         "max_calls": call_limit,
         "calls_used": calls_used,
+        "author_corrections_used": author_corrections_used,
         "source_identity": source_identity.to_context_dict(),
         "task_execution_contract_identity": task_contract_identity.to_dict(),
         "d1a_semantic_parent_identity": context_payload["selected_task"][
@@ -1096,6 +1439,7 @@ def run_round_robin_decomposition(
         f"D1B.2 round-robin decomposition completed: {run_status}",
         status=run_status,
         calls_used=calls_used,
+        author_corrections_used=author_corrections_used,
         duration_seconds=round(final["duration_seconds"], 3),
     )
     publish_json_no_overwrite(

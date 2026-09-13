@@ -63,6 +63,12 @@ BACKGROUND_ACTION_KINDS = frozenset({"decompose", "post_crew"})
 SOURCE_LANE_ACTION_KINDS = frozenset({
     "apply_decomposition", "sync_candidate", "auto_approve", "integrate",
 })
+# The Source lane actions that actually advance the Source commit. A
+# decomposition proposal reads Source for minutes and binds every round to the
+# exact head and tree it started from, so these two wait while one is in
+# flight. `sync_candidate` and `auto_approve` stay in the Source lane but move
+# neither Source nor the target branch, so a proposal never holds them.
+DECOMPOSITION_HELD_ACTION_KINDS = frozenset({"apply_decomposition", "integrate"})
 _SETUP_KINDS = frozenset({"prepare", "refresh_prepared", "scope"})
 _ADMISSION_KINDS = frozenset({"reserve", "start_worker"})
 _WAIT_KINDS = frozenset({"wait_worker", "wait_job"})
@@ -274,6 +280,9 @@ class GraphController:
         self._active_invocation_id: str | None = None
         self._last_plan: dict[str, Any] | None = None
         self._source_lane_busy = False
+        # Which held action has already been journaled, and with which exact
+        # blocking identity, so one hold is one event instead of one per cycle.
+        self._journaled_holds: dict[tuple[str, str], str] = {}
         # Everything below is bound to one exact Source HEAD and discarded the
         # moment HEAD differs: committed contracts, the conformance view, and
         # proofs keyed by the bytes of the record they were derived from.
@@ -671,6 +680,75 @@ class GraphController:
             crew_run = original.get("run_id") or candidate.get("run_id")
         return crew_run if isinstance(crew_run, str) and crew_run else None
 
+    def _source_lane_holds(
+        self, actions: list[dict[str, Any]], jobs: Mapping[str, Mapping[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Mark the planned actions that must wait for a decomposition proposal.
+
+        A decomposition proposal reads Source for minutes while its provider
+        runs, and every round of it is bound to the exact Source head and tree it
+        started from, so a Source move during the call throws the whole round
+        away: NSC-1145 returned a correct two-child proposal that was rejected
+        with `source HEAD changed during provider invocation` because an
+        unrelated integration landed 81 seconds into an 87-second call.
+
+        Three rules, all derived from this plan and the durable job indexes:
+
+        1. While any `decompose` job is active, `integrate` and
+           `apply_decomposition` wait. Nothing else waits: settlement, post-crew
+           launches, setup, admission, `sync_candidate` and `auto_approve` never
+           advance the Source commit, so the loop keeps working through them.
+        2. At most one decomposition proposal is in flight. A second
+           decompose-ready parent waits until the first job has ended and its
+           `apply_decomposition` has landed or been recorded as failed, because
+           an apply moves Source exactly like an integration.
+        3. A Source-moving action ready in the same cycle as a new `decompose`
+           launch goes first and the launch waits one cycle, so an integration
+           is never delayed by minutes for a proposal that could have started a
+           few seconds later.
+
+        The held action keeps its place in `next_actions` carrying a `held`
+        record, so the plan reports what is waiting and why, and it runs
+        unchanged on the first cycle that no longer holds it. Every input is
+        durable, so a restarted controller reconstructs the same holds.
+        """
+        holds: list[dict[str, Any]] = []
+
+        def hold(action: dict[str, Any], reason: str, blocker: Mapping[str, Any] | None) -> None:
+            record = {
+                "task_id": action.get("task_id"),
+                "kind": action.get("kind"),
+                "reason": reason,
+                "blocking_task_id": None if blocker is None else blocker.get("task_id"),
+                "blocking_job_id": None if blocker is None else blocker.get("job_id"),
+            }
+            action["held"] = dict(record)
+            holds.append(record)
+
+        active = [
+            jobs[task_id] for task_id in sorted(jobs, key=_task_key)
+            if jobs[task_id].get("kind") == "decompose"
+            and jobs[task_id].get("status") in background_jobs.ACTIVE_STATUSES
+        ]
+        in_flight = active[0] if active else None
+        source_moving = [item for item in actions
+                         if item.get("kind") in DECOMPOSITION_HELD_ACTION_KINDS]
+        if in_flight is not None:
+            for action in source_moving:
+                hold(action, "decomposition_proposal_in_flight", in_flight)
+        apply_pending = [item for item in actions
+                         if item.get("kind") == "apply_decomposition"]
+        for action in actions:
+            if action.get("kind") != "decompose":
+                continue
+            if in_flight is not None:
+                hold(action, "decomposition_proposal_in_flight", in_flight)
+            elif apply_pending:
+                hold(action, "decomposition_apply_pending", apply_pending[0])
+            elif source_moving:
+                hold(action, "source_lane_action_ready", source_moving[0])
+        return holds
+
     def plan(self) -> dict[str, Any]:
         head, branch = self._source_snapshot()
         tasks = self._contracts(head)
@@ -835,6 +913,7 @@ class GraphController:
                                 "run_id": reservation.get("run_id"),
                                 "lease_id": reservation.get("lease_id")})
 
+        held = self._source_lane_holds(actions, jobs)
         status = ("actionable" if actions else "awaiting_human" if waiting_human
                   else "complete" if len(complete) == len(selected)
                   else "blocked")
@@ -847,6 +926,7 @@ class GraphController:
             "targets": list(self.policy.targets),
             "in_scope": selected,
             "next_actions": actions,
+            "held": held,
             "complete": complete,
             "waiting_human": waiting_human,
             "blocked": blocked,
@@ -1065,6 +1145,37 @@ class GraphController:
             **extra,
         }
         self._append_event(payload)
+
+    def _journal_source_lane_holds(self, plan: Mapping[str, Any]) -> list[dict[str, Any]]:
+        """Record each new hold once, not once per cycle it stays held.
+
+        A hold is journaled when it first appears and again only if the exact
+        blocking job or the reason changes. Releasing it forgets it, so the same
+        action held again later is journaled again. A restarted controller
+        rebuilds the same holds from the durable job indexes and journals them
+        once more, under its own invocation id.
+        """
+        journaled: list[dict[str, Any]] = []
+        current: dict[tuple[str, str], str] = {}
+        for record in plan.get("held") or ():
+            if not isinstance(record, Mapping):
+                continue
+            key = (str(record.get("task_id")), str(record.get("kind")))
+            signature = f"{record.get('reason')}:{record.get('blocking_job_id')}"
+            current[key] = signature
+            if self._journaled_holds.get(key) == signature:
+                continue
+            payload = {
+                "at_utc": _now(), "event": "source_lane_held",
+                "invocation_id": self._active_invocation_id,
+                **{name: record.get(name) for name in (
+                    "task_id", "kind", "reason", "blocking_task_id", "blocking_job_id",
+                )},
+            }
+            self._append_event(payload)
+            journaled.append(payload)
+        self._journaled_holds = current
+        return journaled
 
     def _reconcile_startup(self) -> list[dict[str, Any]]:
         """Settle every retained ticket under the controller lock before the first plan.
@@ -1384,6 +1495,10 @@ class GraphController:
 
     def _choose_run_action(self, actions: Sequence[Mapping[str, Any]]) -> dict[str, Any] | None:
         actions = [dict(item) for item in actions]
+        # An action the planner held waits for a decomposition proposal; it is
+        # never chosen, and the loop falls through to everything else.
+        held_any = any(item.get("held") for item in actions)
+        actions = [item for item in actions if not item.get("held")]
         reservations = self._reservations()
         capacity_full = len(reservations) >= self.policy.capacity
         resource_owner_actions: list[dict[str, Any]] = []
@@ -1463,8 +1578,10 @@ class GraphController:
                 if owner_action is not None:
                     return owner_action
 
-        # A launch deferred by the background job limit waits on a running job.
-        if deferred_launch:
+        # A launch deferred by the background job limit, or an action held for a
+        # decomposition proposal, waits on a running job rather than ending the
+        # run: the hold is released by that job, not by an operator.
+        if deferred_launch or held_any:
             for task_id in sorted(self._jobs(), key=_task_key):
                 index = background_jobs.read_index(self.manager, task_id)
                 if index is not None and index.get("status") in background_jobs.ACTIVE_STATUSES:
@@ -1597,6 +1714,7 @@ class GraphController:
                 harvested_jobs.extend(self._harvest_jobs())
                 plan = self.plan()
                 self._last_plan = plan
+                self._journal_source_lane_holds(plan)
                 if not plan["next_actions"]:
                     return final_result(plan, str(plan["status"]))
                 action = self._next_run_action(plan, allowed_actions=allowed_actions)

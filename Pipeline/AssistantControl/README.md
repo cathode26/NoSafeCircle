@@ -294,6 +294,24 @@ inspect its `stderr.log`, then `clear-background-job <task> --job-id <id>` to
 archive the index before the planner may issue a fresh ticket.
 `--background-jobs N` (default 4) bounds concurrent jobs.
 
+A decomposition proposal reads Source for minutes and binds every round to the
+exact head and tree it started from, so the controller holds the Source lane
+around one. While any `decompose` job is active, `integrate` and
+`apply_decomposition` wait; settlement, post-crew launches, setup, admission,
+`sync_candidate` and `auto_approve` all continue, because none of them advances
+the Source commit. At most one proposal is in flight: a second decompose-ready
+parent waits until the first job has ended and its `apply_decomposition` has
+landed or been recorded as failed. When a Source-moving action and a new
+`decompose` launch are ready in the same cycle the Source move goes first and
+the proposal launches on the next cycle, so an integration is never delayed by
+minutes for a proposal that could have started a few seconds later. A held
+action keeps its place in the plan's `next_actions` carrying a `held` record
+(`reason`, `blocking_task_id`, `blocking_job_id`), is repeated in the plan's
+`held` list for `graph-plan` and the viewer, is journaled once per invocation as
+`source_lane_held`, and runs unchanged on the first cycle that no longer holds
+it. Every input is durable, so a restarted controller rebuilds the same holds
+from the job indexes alone.
+
 Every child is assigned to a run-derived named Windows Job Object before it may
 work, with the worker launcher's handoff: the controller keeps its handle until
 the exact child has opened the named job and written `job.opened.json`, and the

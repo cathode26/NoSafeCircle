@@ -80,6 +80,15 @@ python -m Pipeline.AssistantControl.__main__ `
    Source-moving lane (`apply_decomposition`, `sync_candidate`, `auto_approve`,
    `integrate`) in planner order; waiting last. A wait returns as soon as any
    watched worker exits or any background job ends.
+   A decomposition proposal binds every round to the Source head and tree it
+   started from, so while any `decompose` job is active the two Source-advancing
+   actions, `integrate` and `apply_decomposition`, are held and everything else
+   in the cycle continues; at most one proposal is in flight, a second waiting
+   until the first has ended and its apply has landed or been recorded as
+   failed; and a Source-moving action ready in the same cycle as a new
+   `decompose` launch goes first, the launch following on the next cycle. A held
+   action stays in `next_actions` carrying a `held` record, is repeated in the
+   plan's `held` list, and is journaled once as `source_lane_held`.
 5. It harvests ended background jobs' receipts before every plan, and updates
    durable controller state (`graph-controller.json`, `background_jobs` summary)
    for replay/resume. A restarted controller observes a live job by its recorded

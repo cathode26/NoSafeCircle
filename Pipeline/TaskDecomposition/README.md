@@ -349,6 +349,14 @@ Each no-overwrite D1B.2 run directory contains:
       round_result.json
       task_execution/<invocation-id>/...
       agent_runtime/<invocation-id>/...
+    01-correction-request.json           # only after a deterministically invalid round 1
+    01-correction/                       # the one bounded author correction call
+      candidate.json                     # only when the replacement validates
+      candidate_identity.json            # only when the replacement validates
+      candidate_graph_delta.json         # when the valid replacement is decomposed
+      round_result.json                  # carries correction_of_round: 1
+      task_execution/<invocation-id>/...
+      agent_runtime/<invocation-id>/...
     02-request.json
     02/
       review.json
@@ -362,6 +370,22 @@ Each no-overwrite D1B.2 run directory contains:
 ```
 
 `needs_human`, `rejected`, and `agent_failed` runs preserve their per-round diagnostic artifacts but do not publish root-level approved decomposition/graph-delta files.
+
+When round 1's candidate fails deterministic validation and nothing else went
+wrong, the circuit makes exactly one bounded correction call to the same
+provider in the same `task_decomposer` role. It carries the author's own
+rejected structured output, the validator's exact rejection text, a descriptive
+comparison of that output against the parent contract, and one instruction:
+return a complete replacement in the same schema. The replacement is validated
+deterministically exactly as round 1 was, and only a valid candidate reaches the
+independent reviewer round; a second deterministic failure ends the run
+`rejected` with both failures retained. The correction is an extra author call
+*outside* `max_calls`, so it can never consume the reviewer's call: it is
+counted by `author_corrections_used`, never by `calls_used`, and it publishes
+into `rounds/01-correction/` with its own `rounds` entry carrying
+`correction_of_round: 1`. It is not offered to pooled-session runs, whose host
+settlement protocol binds exactly the rounds `max_calls` bounds by invocation
+identity.
 
 On the Windows operator machine, the canonical task-associated form for either mode is:
 

@@ -3,8 +3,16 @@
 from __future__ import annotations
 
 import json
+from typing import Any, Iterable
 
 from .context_builder import ContextPackage
+
+
+def _bullets(values: Iterable[str], *, empty: str) -> str:
+    items = tuple(values)
+    if not items:
+        return f"  {empty}"
+    return "\n".join(f"  - {item}" for item in items)
 
 
 def build_decomposer_prompt(context: ContextPackage) -> str:
@@ -173,4 +181,66 @@ commentary or markdown.
 BEGIN DETERMINISTIC COMMITTED CONTEXT
 {context.canonical_json()}
 END DETERMINISTIC COMMITTED CONTEXT
+"""
+
+
+def build_decomposer_correction_prompt(
+    context: ContextPackage,
+    *,
+    rejected_output: Any,
+    rejection_reason: str,
+    observed_differences: Iterable[str] = (),
+) -> str:
+    """Return the single bounded correction prompt for the original author.
+
+    The author receives its own rejected structured output, the exact
+    deterministic rejection text the validator produced, a descriptive list of
+    differences observed between that output and the parent contract, and one
+    instruction: return a complete replacement in the same schema.
+
+    The rejection text is the authority here; this prompt never restates,
+    paraphrases, or hard-codes any particular validator rule, so it stays
+    correct for every deterministic rejection and for any later rewording of
+    the rules themselves. The observed differences are descriptive only and may
+    legitimately be empty. The entire original instruction and the same
+    committed context are repeated verbatim above the correction block so the
+    replacement is authored under the same authority, and the replacement is
+    validated deterministically exactly as the first candidate was.
+    """
+    try:
+        rejected_text = json.dumps(
+            rejected_output, ensure_ascii=False, indent=2, sort_keys=True, default=str
+        )
+    except (TypeError, ValueError):  # a provider result that will not serialize
+        rejected_text = repr(rejected_output)
+    return f"""{build_decomposer_prompt(context)}
+BEGIN BOUNDED AUTHOR CORRECTION REQUEST
+You already returned one structured result for exactly this task and this committed
+context. Deterministic validation rejected it before any independent reviewer saw it.
+This is the single correction call this run allows; there is no third attempt.
+
+Exact deterministic rejection. This text, not any summary of it, is what your
+replacement must satisfy:
+  {rejection_reason}
+
+Differences observed between your result and the supplied parent contract. These are
+observations to help you locate the problem, not a separate rule set, and they may not
+name the rejection above:
+{_bullets(observed_differences, empty="(no differences observed)")}
+
+Your rejected structured result, verbatim:
+{rejected_text}
+
+Correction instruction:
+- Return one complete replacement result in the same output schema. Do not return a
+  patch, a diff, a fragment, only the missing pieces, or prose describing the change.
+- Keep everything the rejected result got right and change only what the rejection
+  requires.
+- If your `reason` described children that your `children` array did not contain, the
+  replacement must contain every child the decomposition actually needs, and the
+  `reason` and the `children` array must agree.
+- Every rule in the Decomposer instruction above still binds the replacement.
+- The replacement is validated deterministically again before any independent reviewer
+  sees it. A second failure ends this run with no proposal.
+END BOUNDED AUTHOR CORRECTION REQUEST
 """

@@ -355,12 +355,26 @@ def observe_decomposition_result(run_dir: Path) -> None:
     run = json.loads((root/"decomposition_run_result.json").read_text(encoding="utf-8"))
     if run["run_id"] != worker_run_id:
         raise ProviderBudgetError("decomposition usage belongs to another worker run")
-    for number, round_result in enumerate(run["rounds"], 1):
+    number = 0
+    for round_result in run["rounds"]:
+        # Ordinary rounds are ordered 1..N and own `rounds/NN`. A bounded author
+        # correction is an extra call on the round it follows and owns
+        # `rounds/NN-correction`; it never renumbers the rounds after it.
+        correction_of = round_result.get("correction_of_round")
+        if correction_of is None:
+            number += 1
+            if round_result["round_number"] != number:
+                raise ProviderBudgetError("decomposition rounds are not in their exact order")
+            directory = f"{number:02d}"
+        else:
+            if number < 1 or correction_of != number or round_result["round_number"] != number:
+                raise ProviderBudgetError("decomposition correction does not follow its exact round")
+            directory = f"{number:02d}-correction"
         relative = round_result["agent_runtime_result_path"]
         if relative is None:
             continue  # No invocation artifact exists; no usage is invented.
         path = (root/relative).resolve()
-        expected_parent = root/"rounds"/f"{number:02d}"/"agent_runtime"
+        expected_parent = root/"rounds"/directory/"agent_runtime"
         if path.name != "result.json" or path.parent.parent != expected_parent or not path.is_relative_to(root):
             raise ProviderBudgetError("decomposition usage artifact escaped its exact round")
         value = json.loads(path.read_text(encoding="utf-8"))

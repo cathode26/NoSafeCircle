@@ -345,6 +345,26 @@ class BackgroundJobLoopTests(unittest.TestCase):
         write_record(path, record)
         return path
 
+    def approved_candidate(self, task_id: str) -> None:
+        """A record the planner turns into a ready, Source-moving `integrate`."""
+        self.task_record(task_id, worker_status=None, run_id=f"run-{task_id}")
+        tree = self.git("rev-parse", "HEAD^{tree}").decode().strip()
+        self.mutate(
+            task_id, status="approved", source_commit=self.head,
+            candidate={"commit": self.head, "tree": tree, "run_id": f"crew-{task_id}",
+                       "authoritative_validations": [{"fixture": True}]},
+            approval={"decision": "approve", "commit": self.head},
+        )
+
+    def held_events(self, controller: GraphController) -> list[dict]:
+        return [event for event in _events(controller.event_path)
+                if event["event"] == "source_lane_held"]
+
+    def held_facts(self, controller: GraphController) -> list[tuple]:
+        return [(event["task_id"], event["kind"], event["reason"],
+                 event["blocking_task_id"], event["blocking_job_id"])
+                for event in self.held_events(controller)]
+
     def mutate(self, task_id: str, **fields) -> None:
         path = self.records / f"{task_id}.json"
         record = _read(path)
@@ -385,7 +405,8 @@ class BackgroundJobLoopTests(unittest.TestCase):
 
     # -- foreground fake ---------------------------------------------------
 
-    def fake_foreground(self, controller: GraphController, *, real_kinds=()):
+    def fake_foreground(self, controller: GraphController, *, real_kinds=(),
+                        on_source_move=None):
         real = controller._execute_foreground
 
         def execute(action):
@@ -413,6 +434,9 @@ class BackgroundJobLoopTests(unittest.TestCase):
                 })
                 return {"status": "approved"}
             if kind in {"integrate", "apply_decomposition", "sync_candidate"}:
+                # A fixture Source move lands only what the test asks it to.
+                if on_source_move is not None:
+                    on_source_move(kind, task_id)
                 return {"status": f"{kind}_fixture"}
             raise AssertionError(f"unexpected foreground action {kind}")
 
@@ -574,6 +598,231 @@ class BackgroundJobLoopTests(unittest.TestCase):
             self.assertTrue(item["lane_busy"], item)
             self.assertEqual(["NSC-1101"], item["jobs_running"], item)
         self.assertFalse(controller._source_lane_busy)
+
+    # -- Source lane held around a decomposition proposal ------------------
+
+    def launched_proposal(self, *targets: str, duration: float = 50.0,
+                          status: str = "failed") -> str:
+        """Put exactly one decomposition proposal in flight and return its job id."""
+        launcher = self.controller(*targets)
+        self.host.schedule("decompose", "NSC-1200", duration,
+                           self.decomposition_result(status))
+        with self.fake_foreground(launcher):
+            launched = launcher.run(max_actions=1)
+        self.assertEqual(["decompose"], [item["action"]["kind"]
+                                         for item in launched["completed_actions"]])
+        return launched["completed_actions"][0]["result"]["job_id"]
+
+    def test_every_other_action_continues_while_the_source_lane_is_held(self):
+        for task_id in ("NSC-1101", "NSC-1102"):
+            self.commit_task(task_id)
+        targets = ("NSC-899", "NSC-1101", "NSC-1102", "NSC-1200")
+        self.launched_proposal(*targets)
+
+        self.approved_candidate("NSC-899")
+        self.task_record("NSC-1101", worker_status="succeeded", run_id="run-1101")
+        self.host.schedule("post_crew", "NSC-1101", 10.0, self.validated_candidate)
+        controller = self.controller(*targets)
+
+        with self.fake_foreground(controller, real_kinds=("prepare", "scope", "reserve")), \
+                self.worker_exits_at({}):
+            result = controller.run(max_actions=8)
+
+        kinds = [(item["action"]["kind"], item["action"]["task_id"])
+                 for item in result["completed_actions"]]
+        self.assertEqual([
+            ("settle_worker", "NSC-1101"), ("post_crew", "NSC-1101"),
+            ("prepare", "NSC-1102"), ("scope", "NSC-1102"), ("reserve", "NSC-1102"),
+            ("start_worker", "NSC-1102"), ("wait_job", "NSC-1101"),
+            ("auto_approve", "NSC-1101"),
+        ], kinds)
+        # Settlement, a post-crew launch, setup, admission and `auto_approve`
+        # all ran with the proposal in flight; only the Source move waited.
+        self.assertNotIn("integrate", [kind for kind, _ in kinds])
+        self.assertEqual(["NSC-1200"], self.host.running())
+        self.assertEqual([("NSC-899", "integrate", "decomposition_proposal_in_flight")],
+                         [facts[:3] for facts in self.held_facts(controller)])
+        # `auto_approve` left a second approved candidate, and the final plan
+        # holds that integration too while the proposal is still in flight.
+        self.assertEqual([("NSC-899", "integrate"), ("NSC-1101", "integrate")],
+                         [(item["task_id"], item["kind"]) for item in result["held"]])
+
+    def test_integrate_is_held_while_a_decomposition_proposal_is_in_flight(self):
+        # NSC-1145: a correct proposal was thrown away because an unrelated
+        # integration moved Source 81 seconds into an 87-second provider call.
+        job_id = self.launched_proposal("NSC-1200", "NSC-899")
+
+        # The candidate becomes ready while the proposal is still running.
+        self.approved_candidate("NSC-899")
+        controller = self.controller("NSC-1200", "NSC-899")
+        plan = controller.plan()
+        integrate = next(item for item in plan["next_actions"]
+                         if item["kind"] == "integrate")
+        self.assertEqual(
+            {"task_id": "NSC-899", "kind": "integrate",
+             "reason": "decomposition_proposal_in_flight",
+             "blocking_task_id": "NSC-1200", "blocking_job_id": job_id},
+            integrate["held"],
+        )
+        self.assertEqual([integrate["held"]], plan["held"])
+
+        with self.fake_foreground(controller), self.worker_exits_at({}):
+            result = controller.run(max_actions=2)
+
+        self.assertEqual(["wait_job", "integrate"],
+                         [item["action"]["kind"] for item in result["completed_actions"]])
+        # The integration ran the moment the proposal ended, not before it.
+        moved = next(item for item in self.foreground if item["kind"] == "integrate")
+        self.assertEqual((50.0, []), (moved["at"], moved["jobs_running"]))
+        self.assertEqual([], result["held"])
+        self.assertEqual(
+            [("NSC-899", "integrate", "decomposition_proposal_in_flight",
+              "NSC-1200", job_id)],
+            self.held_facts(controller),
+        )
+
+    def test_second_decomposition_waits_for_the_first_proposal_and_its_apply(self):
+        self.commit_task("NSC-1201", execution_scope="needs_execution_decomposition")
+        controller = self.controller("NSC-1200", "NSC-1201")
+        self.host.schedule("decompose", "NSC-1200", 20.0,
+                           self.decomposition_result("review_ready"))
+        self.host.schedule("decompose", "NSC-1201", 20.0,
+                           self.decomposition_result("failed"))
+
+        def applied(kind, task_id):
+            record = _read(self.records / f"{task_id}.decomposition.json")
+            write_record(self.records / f"{task_id}.decomposition.json",
+                         {**record, "status": "applied"})
+
+        with self.fake_foreground(controller, on_source_move=applied):
+            result = controller.run(max_actions=5)
+
+        self.assertEqual([
+            ("decompose", "NSC-1200"), ("wait_job", "NSC-1200"),
+            ("apply_decomposition", "NSC-1200"), ("decompose", "NSC-1201"),
+            ("wait_job", "NSC-1201"),
+        ], [(item["action"]["kind"], item["action"]["task_id"])
+            for item in result["completed_actions"]])
+        # Exactly one proposal was ever in flight, and the second started only
+        # after the first proposal's apply had landed.
+        self.assertEqual([("decompose", 0.0), ("decompose", 20.0)],
+                         [(item["kind"], item["at"]) for item in self.host.launches])
+        self.assertEqual(20.0, next(item["at"] for item in self.foreground
+                                    if item["kind"] == "apply_decomposition"))
+        self.assertEqual(
+            [("NSC-1201", "decompose", "decomposition_proposal_in_flight"),
+             ("NSC-1201", "decompose", "decomposition_apply_pending")],
+            [facts[:3] for facts in self.held_facts(controller)],
+        )
+
+    def test_held_actions_become_eligible_when_the_proposal_ends(self):
+        self.commit_task("NSC-1201", execution_scope="needs_execution_decomposition")
+        targets = ("NSC-899", "NSC-1200", "NSC-1201")
+        job_id = self.launched_proposal(*targets)
+        self.approved_candidate("NSC-899")
+        self.host.schedule("decompose", "NSC-1201", 20.0, self.decomposition_result("failed"))
+        controller = self.controller(*targets)
+
+        # Both the Source move and the second proposal are held by the one
+        # proposal in flight.
+        self.assertEqual(
+            [("NSC-899", "integrate", "decomposition_proposal_in_flight",
+              "NSC-1200", job_id),
+             ("NSC-1201", "decompose", "decomposition_proposal_in_flight",
+              "NSC-1200", job_id)],
+            [(item["task_id"], item["kind"], item["reason"],
+              item["blocking_task_id"], item["blocking_job_id"])
+             for item in controller.plan()["held"]],
+        )
+
+        def integrated(kind, task_id):
+            self.mutate(task_id, status="integrated")
+
+        with self.fake_foreground(controller, on_source_move=integrated), \
+                self.worker_exits_at({}):
+            result = controller.run(max_actions=4)
+
+        # The proposal ends, the Source move goes first, and the second
+        # proposal launches on the next cycle.
+        self.assertEqual([
+            ("wait_job", "NSC-1200"), ("integrate", "NSC-899"),
+            ("decompose", "NSC-1201"), ("wait_job", "NSC-1201"),
+        ], [(item["action"]["kind"], item["action"]["task_id"])
+            for item in result["completed_actions"]])
+        self.assertEqual(50.0, next(item["at"] for item in self.foreground
+                                    if item["kind"] == "integrate"))
+        self.assertEqual([("decompose", 0.0), ("decompose", 50.0)],
+                         [(item["kind"], item["at"]) for item in self.host.launches])
+        self.assertEqual([
+            ("NSC-899", "integrate", "decomposition_proposal_in_flight"),
+            ("NSC-1201", "decompose", "decomposition_proposal_in_flight"),
+            ("NSC-1201", "decompose", "source_lane_action_ready"),
+        ], [facts[:3] for facts in self.held_facts(controller)])
+
+    def test_ready_integrate_goes_first_and_the_decomposition_launches_next_cycle(self):
+        controller = self.controller("NSC-1200", "NSC-899")
+        self.approved_candidate("NSC-899")
+        self.host.schedule("decompose", "NSC-1200", 20.0, self.decomposition_result("failed"))
+
+        def integrated(kind, task_id):
+            self.mutate(task_id, status="integrated")
+
+        with self.fake_foreground(controller, on_source_move=integrated):
+            result = controller.run(max_actions=2)
+
+        self.assertEqual([("integrate", "NSC-899"), ("decompose", "NSC-1200")],
+                         [(item["action"]["kind"], item["action"]["task_id"])
+                          for item in result["completed_actions"]])
+        # The integration did not wait minutes for a proposal that had not
+        # started, and the proposal started on the very next cycle.
+        moved = next(item for item in self.foreground if item["kind"] == "integrate")
+        self.assertEqual((0.0, []), (moved["at"], moved["jobs_running"]))
+        self.assertEqual([0.0], [item["at"] for item in self.host.launches])
+        self.assertEqual(
+            [("NSC-1200", "decompose", "source_lane_action_ready", "NSC-899", None)],
+            self.held_facts(controller),
+        )
+
+    def test_restarted_controller_rebuilds_the_hold_from_the_durable_index(self):
+        self.commit_task("NSC-1102")
+        targets = ("NSC-899", "NSC-1102", "NSC-1200")
+        job_id = self.launched_proposal(*targets)
+        self.approved_candidate("NSC-899")
+        first = self.controller(*targets)
+        held = first.plan()["held"]
+
+        # A different controller instance, holding nothing in memory, derives
+        # the same hold from the job index and the records alone.
+        restarted = self.controller(*targets)
+        self.assertEqual(held, restarted.plan()["held"])
+        self.assertEqual(
+            [{"task_id": "NSC-899", "kind": "integrate",
+              "reason": "decomposition_proposal_in_flight",
+              "blocking_task_id": "NSC-1200", "blocking_job_id": job_id}],
+            held,
+        )
+
+        with self.fake_foreground(restarted, real_kinds=("prepare", "scope", "reserve")), \
+                self.worker_exits_at({}):
+            result = restarted.run(max_actions=4)
+
+        self.assertEqual(
+            [("prepare", "NSC-1102"), ("scope", "NSC-1102"),
+             ("reserve", "NSC-1102"), ("start_worker", "NSC-1102")],
+            [(item["action"]["kind"], item["action"]["task_id"])
+             for item in result["completed_actions"]],
+        )
+        # Four cycles planned the same unchanged hold; it is journaled once for
+        # this invocation, not once per cycle.
+        invocation = _read(restarted.owner_path)["invocation_id"]
+        events = self.held_events(restarted)
+        self.assertEqual([invocation], [event["invocation_id"] for event in events])
+        self.assertEqual(
+            [("NSC-899", "integrate", "decomposition_proposal_in_flight",
+              "NSC-1200", job_id)],
+            self.held_facts(restarted),
+        )
+        self.assertEqual(["NSC-899"], [item["task_id"] for item in result["held"]])
 
     def test_apply_decomposition_shares_the_source_integration_lock(self):
         write_record(self.records / "NSC-1200.decomposition.json", {

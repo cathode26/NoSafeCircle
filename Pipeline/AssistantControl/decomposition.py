@@ -203,9 +203,40 @@ def _verify_review(manager: Checkouts, record: dict[str, Any]) -> dict[str, Any]
     candidate = run_result.get("latest_candidate") or {}
     rounds = run_result.get("rounds")
     history = run_result.get("finding_history")
-    if not isinstance(rounds, list) or len(rounds) != 2:
+    corrections = run_result.get("author_corrections_used")
+    # Exactly two round shapes may be applied and nothing else. Without a
+    # correction the run is the author/reviewer pair it has always been. With
+    # the one bounded author correction the rejected first round is retained,
+    # the correction authored the candidate the reviewer then passed, and the
+    # run result counts exactly that one extra author call.
+    if not isinstance(rounds, list) or len(rounds) not in (2, 3):
         raise ValueError("Decomposition review must contain exactly one author and one reviewer round")
-    author, reviewer = rounds
+    # The count is an exact integer: a JSON boolean is an int to Python and is
+    # refused, not read as 0 or 1.
+    if len(rounds) == 3:
+        initial, author, reviewer = rounds
+        author_status, author_correction_of_round = "correction_candidate_valid", 1
+        initial_rejections = initial.get("rejection_reasons") if isinstance(initial, Mapping) else None
+        if not (
+            type(corrections) is int and corrections == 1
+            and isinstance(initial, Mapping)
+            and initial.get("role") == "task_decomposer"
+            and initial.get("requested_provider") == record["providers"][0]
+            and initial.get("agent_status") == "succeeded"
+            and initial.get("status") == "rejected"
+            and initial.get("candidate_after") is None
+            and initial.get("correction_of_round") is None
+            # The producer always retains the exact deterministic rejection the
+            # correction answered; a rejected round without it is not that round.
+            and isinstance(initial_rejections, list) and initial_rejections
+            and all(isinstance(reason, str) and reason for reason in initial_rejections)
+        ):
+            raise ValueError("Decomposition review does not prove exactly one bounded author correction")
+    else:
+        author, reviewer = rounds
+        author_status, author_correction_of_round = "candidate_valid", None
+        if corrections is not None and not (type(corrections) is int and corrections == 0):
+            raise ValueError("Decomposition review counts an author correction its rounds do not carry")
     author_candidate = author.get("candidate_after") or {}
     reviewed_candidate = reviewer.get("candidate_before") or {}
     if not (
@@ -215,7 +246,8 @@ def _verify_review(manager: Checkouts, record: dict[str, Any]) -> dict[str, Any]
         and author.get("role") == "task_decomposer"
         and author.get("requested_provider") == record["providers"][0]
         and author.get("agent_status") == "succeeded"
-        and author.get("status") == "candidate_valid"
+        and author.get("status") == author_status
+        and author.get("correction_of_round") == author_correction_of_round
         and author_candidate == candidate
         and reviewer.get("role") == "decomposition_reviewer"
         and reviewer.get("requested_provider") == record["providers"][1]
@@ -223,6 +255,7 @@ def _verify_review(manager: Checkouts, record: dict[str, Any]) -> dict[str, Any]
         and reviewer.get("status") == "independent_pass"
         and reviewer.get("verdict") == "pass"
         and reviewer.get("candidate_after") is None
+        and reviewer.get("correction_of_round") is None
         and reviewed_candidate == candidate
         and run_result.get("independent_approver_provider") == record["providers"][1]
     ):
