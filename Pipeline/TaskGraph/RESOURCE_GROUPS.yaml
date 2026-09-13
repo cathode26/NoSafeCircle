@@ -489,27 +489,23 @@
     {
       "reconciliation_keys": [
         "pixellab-wizard-art-selection",
-        "white-female-wizard-hat-frame-correction",
-        "pixellab-cardinal-wizard-walk-art"
+        "white-female-wizard-hat-frame-correction"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source",
       "work_ids": [
         "NSC-061",
-        "NSC-073",
-        "NSC-074"
+        "NSC-073"
       ]
     },
     {
       "reconciliation_keys": [
         "pixellab-wizard-art-selection",
-        "white-female-wizard-hat-frame-correction",
-        "pixellab-cardinal-wizard-walk-art"
+        "white-female-wizard-hat-frame-correction"
       ],
       "resource_key": "repo-file:Docs/Art/Wizard",
       "work_ids": [
         "NSC-061",
-        "NSC-073",
-        "NSC-074"
+        "NSC-073"
       ]
     },
     {
@@ -548,6 +544,28 @@
       "work_ids": [
         "NSC-062",
         "NSC-070",
+        "NSC-075"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "pixellab-cardinal-wizard-walk-art",
+        "wizard-eight-direction-locomotion-integration"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/WizardCardinalSourceAuditTests.cs",
+      "work_ids": [
+        "NSC-074",
+        "NSC-075"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "pixellab-cardinal-wizard-walk-art",
+        "wizard-eight-direction-locomotion-integration"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/WizardCardinalSourceAuditTests.cs.meta",
+      "work_ids": [
+        "NSC-074",
         "NSC-075"
       ]
     },
