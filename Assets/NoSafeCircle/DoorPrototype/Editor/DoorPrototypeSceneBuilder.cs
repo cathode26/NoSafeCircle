@@ -143,9 +143,17 @@ namespace NoSafeCircle.DoorPrototype.Editor
                 ownedTransientArchitecturalScene = scene;
             }
             BuildIsometricVisualLayer(doorRoot.transform.position, architecturalTileAssetFolder);
+            DoorSequenceBuilder.BuildCanonical(scene, doorRoot);
 
-            DoorPrototypeGlobalSceneBuilder.BuildPlayer(out var movement, out var interactionController,
-                out var health, out var debugControl, out var mana, out var debugManaControl,
+            DoorPrototypeGlobalSceneBuilder.BuildPlayer(
+                out var movement,
+                out var interactionController,
+                out var health,
+                out var debugControl,
+                out var mana,
+                out var debugManaControl,
+                out var wizardAnimationController,
+                out Transform playerSpawn,
                 architecturalTileAssetFolder);
 
             var doorFeedback = door.GetComponent<DoorInteractionFeedback>();
@@ -156,9 +164,18 @@ namespace NoSafeCircle.DoorPrototype.Editor
             // to place the camera at its initial isometric framing, so BuildPlayer must run
             // first. If this ordering is ever changed, BuildCamera's null-target warning below
             // will fire rather than silently producing an unframed camera at the world origin.
-            BuildCamera(movement.transform);
+            DoorPrototypeGlobalSceneBuilder.BuildCamera(movement.transform);
 
-            DoorPrototypeGlobalSceneBuilder.BuildUI(door, debugControl, health, mana, debugManaControl);
+            DoorPrototypeGlobalSceneBuilder.BuildUI(
+                door,
+                debugControl,
+                health,
+                mana,
+                debugManaControl,
+                movement,
+                interactionController,
+                wizardAnimationController,
+                playerSpawn);
         }
 
         private static void ValidateArchitecturalTileAssetFolder(string path)
@@ -235,10 +252,8 @@ namespace NoSafeCircle.DoorPrototype.Editor
             }
         }
 
-        // AC-005: thin forwarding wrapper. The real camera-construction logic is owned by
-        // DoorPrototypeGlobalSceneBuilder; this method stays on DoorPrototypeSceneBuilder so it
-        // remains the public menu/test facade and existing reflection-based tests that target
-        // "DoorPrototypeSceneBuilder.BuildCamera" keep working unchanged.
+        // Retained as the existing reflection-based test seam while the global facade owns
+        // the camera root and its complete construction behavior.
         private static void BuildCamera(Transform followTarget)
         {
             DoorPrototypeGlobalSceneBuilder.BuildCamera(followTarget);

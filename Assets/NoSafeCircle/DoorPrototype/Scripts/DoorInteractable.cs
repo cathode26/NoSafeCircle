@@ -7,6 +7,8 @@ namespace NoSafeCircle.DoorPrototype
     public class DoorInteractable : MonoBehaviour
     {
         [SerializeField] private float duration = 5f;
+        [SerializeField] private World.DoorId doorId = World.DoorId.D1;
+        [SerializeField] private bool isFinalDoor;
         [SerializeField] private GameObject doorVisual;
         [SerializeField] private Collider doorwayBlocker;
 
@@ -39,6 +41,8 @@ namespace NoSafeCircle.DoorPrototype
         private PlayerInteractionController playerInRange;
 
         public float Duration => duration;
+        public World.DoorId DoorId => doorId;
+        public bool IsFinalDoor => isFinalDoor;
         public float Progress { get; private set; }
         public bool IsOpen { get; private set; }
         public bool IsInteracting { get; private set; }

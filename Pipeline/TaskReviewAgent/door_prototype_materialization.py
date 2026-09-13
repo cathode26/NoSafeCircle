@@ -11,7 +11,7 @@ import re
 import subprocess
 import tempfile
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Callable, Sequence
 
 
@@ -176,6 +176,7 @@ def run_door_prototype_builder(
     unity_command_runner: UnityCommandRunner = default_unity_command_runner,
     timeout_seconds: float = 1800.0,
     allowed_generated_paths: Sequence[str] | None = None,
+    allowed_generated_roots: Sequence[str] | None = None,
 ) -> DoorPrototypeMaterialization:
     """Run the canonical builder and return its exact authenticated path set.
 
@@ -200,14 +201,38 @@ def run_door_prototype_builder(
     allowed = None
     if allowed_generated_paths is not None:
         allowed = tuple(sorted(set(allowed_generated_paths), key=str.casefold))
-        if tuple(allowed_generated_paths) != allowed or not allowed:
+        if tuple(allowed_generated_paths) != allowed:
             raise DoorPrototypeMaterializationError(
-                "allowed generated paths must be sorted, unique, and non-empty"
+                "allowed generated paths must be sorted and unique"
             )
         if any(not is_door_prototype_builder_output(path) for path in allowed):
             raise DoorPrototypeMaterializationError(
                 "allowed generated path is outside the DoorPrototype builder boundary"
             )
+    allowed_roots: tuple[str, ...] | None = None
+    if allowed_generated_roots is not None:
+        allowed_roots = tuple(sorted(set(allowed_generated_roots), key=str.casefold))
+        if tuple(allowed_generated_roots) != allowed_roots:
+            raise DoorPrototypeMaterializationError(
+                "allowed generated roots must be sorted and unique"
+            )
+        for root_path in allowed_roots:
+            parts = PurePosixPath(root_path).parts
+            if (
+                not root_path.startswith(DOOR_PROTOTYPE_ROOT)
+                or root_path == DOOR_PROTOTYPE_ROOT.rstrip("/")
+                or root_path.endswith("/")
+                or "\\" in root_path
+                or any(part in {"", ".", ".."} for part in parts)
+            ):
+                raise DoorPrototypeMaterializationError(
+                    "allowed generated root is outside the DoorPrototype builder boundary"
+                )
+    if ((allowed_generated_paths is not None or allowed_generated_roots is not None)
+            and not allowed and not allowed_roots):
+        raise DoorPrototypeMaterializationError(
+            "allowed generated authority must contain at least one path or root"
+        )
 
     executable = resolve_unity_executable(root, unity_executable)
     evidence_root.mkdir(parents=True, exist_ok=True)
@@ -249,7 +274,14 @@ def run_door_prototype_builder(
     initial_set = set(initial)
 
     def permitted(path: str) -> bool:
-        return path in allowed if allowed is not None else is_door_prototype_builder_output(path)
+        if allowed is None and allowed_roots is None:
+            return is_door_prototype_builder_output(path)
+        if allowed is not None and path in allowed:
+            return True
+        if allowed_roots is None or not is_unity_serialized(path):
+            return False
+        folded = path.casefold()
+        return any(folded.startswith(root.casefold() + "/") for root in allowed_roots)
 
     incidental_tracked = tuple(
         path for path in tracked if path not in initial_set and not permitted(path)

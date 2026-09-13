@@ -5,11 +5,25 @@ namespace NoSafeCircle.DoorPrototype
     // Keeps the fixed isometric camera framing the player by translating the camera to
     // track the target's position every frame. Rotation is never modified here, so the
     // camera keeps its fixed isometric orientation and never rotates.
+    [ExecuteAlways]
     [RequireComponent(typeof(Camera))]
     public class IsometricCameraFollow : MonoBehaviour
     {
+        private static readonly Vector3 IsometricTransparencySortAxis =
+            new Vector3(0f, 1f, -0.26f).normalized;
+
         [SerializeField] private Transform target;
         [SerializeField] private Vector3 offset;
+
+        private void OnEnable()
+        {
+            // Camera.transparencySortMode/Axis are not serialized into the scene by
+            // every supported Unity editor version. Reapply the established world
+            // sprite sorting convention whenever the committed scene is loaded.
+            var camera = GetComponent<Camera>();
+            camera.transparencySortMode = TransparencySortMode.CustomAxis;
+            camera.transparencySortAxis = IsometricTransparencySortAxis;
+        }
 
         // Wires the follow target and captures the current camera-to-target offset so later
         // frames preserve whatever framing the caller already set up (e.g. the scene
