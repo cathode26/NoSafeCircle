@@ -4,7 +4,12 @@ import json
 import unittest
 from pathlib import Path
 
-from Pipeline.AssistantControl.docker_workers import inventory, remove_unused_project_resources, stop_containers
+from Pipeline.AssistantControl.docker_workers import (
+    _canonical_host_path,
+    inventory,
+    remove_unused_project_resources,
+    stop_containers,
+)
 
 
 class DockerBindingTests(unittest.TestCase):
@@ -57,6 +62,26 @@ class DockerBindingTests(unittest.TestCase):
         self.assertFalse(any(c[0] == "stop" for c in self.calls))
         with self.assertRaisesRegex(ValueError, "does not match"):
             inventory(self.checkout, {**self.worker, "run_id": "other"}, runner=self.runner)
+
+    def test_docker_desktop_windows_mount_translation_matches_exact_checkout(self):
+        # Exercise the Docker Desktop forms without requiring a live daemon.
+        windows_checkout = r"C:\\NSC\\NoSafeCircle-Game-Checkouts-2\\NSC-069"
+        for source in (
+            r"C:\\NSC\\NoSafeCircle-Game-Checkouts-2\\NSC-069",
+            "/host_mnt/c/NSC/NoSafeCircle-Game-Checkouts-2/NSC-069",
+            "/run/desktop/mnt/host/c/NSC/NoSafeCircle-Game-Checkouts-2/NSC-069",
+            "/mnt/host/c/NSC/NoSafeCircle-Game-Checkouts-2/NSC-069",
+        ):
+            self.assertEqual(
+                _canonical_host_path(source),
+                _canonical_host_path(windows_checkout),
+            )
+
+    def test_unknown_mount_translation_does_not_match_windows_checkout(self):
+        self.assertNotEqual(
+            _canonical_host_path("/some-runtime/c/NSC-069"),
+            _canonical_host_path(r"C:\\NSC\\NoSafeCircle-Game-Checkouts-2\\NSC-069"),
+        )
 
     def test_unavailable_docker_is_not_empty_inventory(self):
         def unavailable(args):

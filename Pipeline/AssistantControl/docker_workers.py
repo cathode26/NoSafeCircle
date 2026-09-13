@@ -3,9 +3,55 @@ from __future__ import annotations
 
 import hashlib
 import json
+import ntpath
+import os
 import re
 import subprocess
 from pathlib import Path
+
+
+_DOCKER_WINDOWS_MOUNT = re.compile(
+    r"^/(?:host_mnt|run/desktop/mnt/host|mnt/host)/([a-z])(?:/(.*))?$",
+    re.IGNORECASE,
+)
+
+
+def _canonical_host_path(value: object) -> tuple[str, str] | None:
+    """Return a comparable identity for a Docker host bind source.
+
+    Docker Desktop may serialize a Windows host path as ``C:\\...`` or as a
+    Linux-looking translation such as ``/host_mnt/c/...``.  ``Path`` cannot
+    recognize the latter as the same Windows path, even though Docker means
+    exactly that.  Only the documented Windows translations are converted;
+    unknown forms remain unmatchable so a cleanup cannot become permissive.
+    """
+    if not isinstance(value, str) or not value.strip():
+        return None
+    raw = value.strip()
+    match = _DOCKER_WINDOWS_MOUNT.fullmatch(raw)
+    if match:
+        tail = (match.group(2) or "").replace("/", "\\")
+        raw = match.group(1).upper() + ":\\" + tail
+    else:
+        for prefix in ("\\\\?\\", "\\\\.\\", "//?/", "//./"):
+            if raw.startswith(prefix):
+                raw = raw[len(prefix):]
+                break
+        if not re.match(r"^[a-zA-Z]:[\\/]", raw):
+            try:
+                path = Path(raw)
+                if not path.is_absolute():
+                    return None
+                return "native", os.path.normcase(os.path.normpath(str(path.resolve(strict=False))))
+            except OSError:
+                return None
+    return "windows", ntpath.normcase(ntpath.normpath(raw))
+
+
+def _mount_matches_checkout(source: object, checkout: Path) -> bool:
+    observed = _canonical_host_path(source)
+    expected = _canonical_host_path(str(checkout.resolve(strict=False)))
+    return observed is not None and expected is not None and observed == expected
 
 
 def _run(args: list[str]) -> str:
@@ -35,7 +81,7 @@ def inventory(checkout: Path, worker: dict, *, runner=_run) -> list[dict]:
                 or (data.get("Labels") or {}).get("com.docker.compose.project") != project):
             raise ValueError("Container no longer belongs to this run")
         if not any(mount.get("Type") == "bind" and mount.get("Destination") == "/workspace"
-                   and Path(mount.get("Source", "")).resolve() == checkout.resolve()
+                   and _mount_matches_checkout(mount.get("Source"), checkout)
                    for mount in data.get("Mounts", [])):
             raise ValueError("Container does not mount the owned task checkout")
         state = data.get("State") or {}
