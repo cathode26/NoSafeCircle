@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-082",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "contract_disposition": "active",
   "title": "Lower Vault Visual Dressing",
   "reconciliation_key": "lower-vault-visual-dressing",
@@ -10,16 +10,17 @@
   "execution_scope": "single_agent",
   "execution_reason": "A room specialist can enrich only the Lower Vault surfaces after its blockout and prop pack are available.",
   "decomposition_state": "concrete",
-  "decomposition_reason": "One room, its exact builder, scene, focused test, and visual dressing seam are a bounded unit.",
+  "decomposition_reason": "One room's independent dressing prefab, catalog, builder, and focused test are a bounded unit that can be handed to a later canonical-scene integrator.",
   "parent": "NSC-029",
   "depends_on": [
     "NSC-047",
     "NSC-078"
   ],
   "exclusive_resources": [
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/LowerVaultVisualDressingBuilder.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/LowerVaultVisualDressingTests.cs",
-    "unity-scene:Assets/Scenes/Rooms/LowerVault.unity",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing/LowerVaultDressing.prefab",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing/LowerVaultDressingCatalog.json",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Environment/LowerVaultDressingPrefabBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Environment/LowerVaultDressingPrefabTests.cs",
     "logical:room-visual-dressing:lower-vault"
   ],
   "acceptance_criteria": [
@@ -36,31 +37,31 @@
     {
       "criterion_id": "AC-003",
       "reference": "Room ownership boundary",
-      "requirement": "Own only this room's dressing builder, scene, focused tests, and exact generated metadata; do not edit common builders, another room, doors, navigation, or the canonical scene."
+      "requirement": "Own only this room's dressing prefab, catalog, builder, and focused tests; do not edit the blockout scene, common builders, another room, doors, navigation, or the canonical scene."
     },
     {
       "criterion_id": "AC-005",
-      "reference": "C:\\NSC\\AssistantControlEvidence\\DUNGEON-ART-DIRECTION.md — Vincent-approved project direction, 2026-09-13",
-      "requirement": "Use curated original prop clusters along walls, corners, alcoves, and focal points with foreground/background depth layering and camera-scale readability. Props form small environmental stories rather than uniform scattering; preserve a clearly readable primary movement lane and door approach."
+      "reference": "Docs/Art/Environment/DUNGEON_ART_DIRECTION.md — Vincent-approved project direction, 2026-09-13",
+      "requirement": "Create an original vault landmark plus water, slime, corrupted-ground, cliff, or chasm dressing that visibly shapes the route into safe islands and a primary crossing. Include a raised route, bridge/platform/rail cluster, and a readable alternate route to D4; hazards must be bounded surfaces or non-walkable background, never copied/traced reference art or flat decoration."
     }
   ],
   "completion_gates": [
     {
       "gate_id": "VAL-001",
       "reference": "Lower Vault visual regression",
-      "requirement": "Focused Unity EditMode tests prove deterministic dressing, geometry preservation, D4 access, sorting, and idempotent rebuild."
+      "requirement": "Focused Unity EditMode tests prove deterministic prefab/catalog generation, stable sorting anchors, source-geometry compatibility, safe-route and alternate-route metadata, D4 approach clearance, and idempotent rebuild without opening or modifying LowerVault.unity."
     },
     {
       "gate_id": "VAL-002",
       "reference": "Developer visual review",
-      "requirement": "The room is visibly richer and readable in the exact candidate."
+      "requirement": "A gameplay-camera screenshot/contact sheet of the prefab staged against the approved blockout visibly shows the vault landmark, hazard-shaped crossing, safe islands, raised/alternate route, readable wizard and D4 approach, and original no-copy art direction."
     }
   ],
   "downstream_integration_obligations": [
     {
       "obligation_id": "INT-001",
       "reference": "NSC-084",
-      "requirement": "The dressed room remains composable into the canonical world."
+      "requirement": "Publish the prefab and catalog with stable room-anchor metadata so NSC-084 can assemble a non-scene integration package; a later dedicated canonical-scene integrator must consume that package under the existing scene/composer locks."
     }
   ],
   "gdd_evidence": [
@@ -72,7 +73,7 @@
   "basis": "human_approved_gameplay_presentation",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "Visual dressing may add presentation objects only; geometry and navigation remain authoritative. Governing visual direction: C:\\NSC\\AssistantControlEvidence\\DUNGEON-ART-DIRECTION.md, Vincent-approved project direction dated 2026-09-13. The supplied images are inspiration only; all art and layouts must be original.",
+  "notes": "Visual dressing may add presentation objects only; geometry and navigation remain authoritative. Governing visual direction: Docs/Art/Environment/DUNGEON_ART_DIRECTION.md, Vincent-approved project direction dated 2026-09-13. The supplied images are inspiration only; all art and layouts must be original.",
   "repository_state_at_bootstrap": "partial",
   "repository_evidence_at_bootstrap": [],
   "provenance": {

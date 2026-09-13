@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-085",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "contract_disposition": "active",
   "title": "Expanded Dungeon Route Graph and Side Chambers",
   "reconciliation_key": "expanded-dungeon-route-graph-side-chambers",
@@ -47,20 +47,20 @@
     },
     {
       "criterion_id": "AC-006",
-      "reference": "C:\\NSC\\AssistantControlEvidence\\DUNGEON-ART-DIRECTION.md — Dungeon layout rules, Vincent-approved project direction, 2026-09-13",
+      "reference": "Docs/Art/Environment/DUNGEON_ART_DIRECTION.md — Dungeon layout rules, Vincent-approved project direction, 2026-09-13",
       "requirement": "Use mixed room sizes in clusters, mostly short connectors, a few landmark long corridors or axes, loops and shortcuts, irregular footprints, incremental reveal, elevation-separated subareas, and optional reward alcoves. Progression must include a legible entrance wing, memorable central hub or set piece, branching or looping middle, distinct destination, gated access, and at least one later shortcut creating a meaningful return route. Keep the topology original and decomposable into exact disjoint room/corridor ownership."
     },
     {
       "criterion_id": "AC-007",
-      "reference": "Vincent-approved Dungeon layout rules, 2026-09-13",
-      "requirement": "Use asymmetrical winding routes, deliberate narrow-to-wide pacing, sudden chamber reveals, optional side branches, and multiple reconnection points around a legible central route. Avoid repetitive corridor widths and a single linear sequence; preserve original topology and exact disjoint room/corridor ownership."
+      "reference": "Docs/Art/Environment/DUNGEON_ART_DIRECTION.md — expansion and transition rules, 2026-09-13",
+      "requirement": "Use asymmetrical winding routes, deliberate narrow-to-wide pacing, sudden chamber reveals, optional side branches, multiple reconnection points, authored threshold/biome transition pockets, and landmark-to-landmark sightline continuity around a legible central route. Avoid repetitive corridor widths and a single linear sequence; preserve original topology and exact disjoint room/corridor ownership."
     }
   ],
   "completion_gates": [
     {
       "gate_id": "VAL-001",
       "reference": "Topology review",
-      "requirement": "A deterministic graph document identifies every proposed room, corridor, landmark, branch, loop, optional reward destination, locked route, return route, and future child task ownership without cycles in dependency metadata."
+      "requirement": "A deterministic graph document identifies every proposed room, corridor, transition pocket, landmark, branch, loop, optional reward destination, locked route, return route, density-state change, hazard-shaped traversal segment, and future child task ownership without cycles in dependency metadata."
     },
     {
       "gate_id": "VAL-002",
@@ -93,7 +93,7 @@
   "basis": "human_approved_world_expansion",
   "source_scope": "required",
   "confidence": "medium",
-  "notes": "Planning parent only. It does not create rooms, assets, scene files, runtime transitions, or new dependencies for the first wing. Governing visual direction: C:\\NSC\\AssistantControlEvidence\\DUNGEON-ART-DIRECTION.md, Vincent-approved project direction dated 2026-09-13. The supplied images are inspiration only; all art and layouts must be original. The topology must use asymmetrical winding routes, narrow-to-wide pacing, sudden reveals, optional side branches, and multiple reconnection points around a legible central route.",
+  "notes": "Planning parent only. It does not create rooms, assets, scene files, runtime transitions, or new dependencies for the first wing. Governing visual direction: Docs/Art/Environment/DUNGEON_ART_DIRECTION.md, Vincent-approved project direction dated 2026-09-13. The supplied images are inspiration only; all art and layouts must be original. The topology must use asymmetrical winding routes, narrow-to-wide pacing, sudden reveals, optional side branches, authored transition pockets, and multiple reconnection points around a legible central route.",
   "repository_state_at_bootstrap": "partial",
   "repository_evidence_at_bootstrap": [],
   "provenance": {

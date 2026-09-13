@@ -182,8 +182,7 @@
         "four-wizard-selection-screen",
         "selected-wizard-world-placement",
         "independent-room-scene-composition",
-        "wizard-animation-audit-repair",
-        "composed-world-content-integration-preservation"
+        "wizard-animation-audit-repair"
       ],
       "resource_key": "unity-scene:Assets/Scenes/DoorPrototype.unity",
       "work_ids": [
@@ -213,8 +212,7 @@
         "NSC-067",
         "NSC-068",
         "NSC-069",
-        "NSC-070",
-        "NSC-084"
+        "NSC-070"
       ]
     },
     {
@@ -242,17 +240,6 @@
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/RuinedEntrySceneTests.cs",
       "work_ids": [
         "NSC-044"
-      ]
-    },
-    {
-      "reconciliation_keys": [
-        "ruined-entry-blockout",
-        "ruined-entry-visual-dressing"
-      ],
-      "resource_key": "unity-scene:Assets/Scenes/Rooms/RuinedEntry.unity",
-      "work_ids": [
-        "NSC-044",
-        "NSC-079"
       ]
     },
     {
@@ -302,17 +289,6 @@
     },
     {
       "reconciliation_keys": [
-        "bone-archive-blockout",
-        "bone-archive-visual-dressing"
-      ],
-      "resource_key": "unity-scene:Assets/Scenes/Rooms/BoneArchive.unity",
-      "work_ids": [
-        "NSC-045",
-        "NSC-080"
-      ]
-    },
-    {
-      "reconciliation_keys": [
         "bone-archive-blockout"
       ],
       "resource_key": "logical:room-walkability:bone-archive",
@@ -358,17 +334,6 @@
     },
     {
       "reconciliation_keys": [
-        "chapel-of-ash-blockout",
-        "chapel-of-ash-visual-dressing"
-      ],
-      "resource_key": "unity-scene:Assets/Scenes/Rooms/ChapelOfAsh.unity",
-      "work_ids": [
-        "NSC-046",
-        "NSC-081"
-      ]
-    },
-    {
-      "reconciliation_keys": [
         "chapel-of-ash-blockout"
       ],
       "resource_key": "logical:room-walkability:chapel-of-ash",
@@ -405,17 +370,6 @@
     },
     {
       "reconciliation_keys": [
-        "lower-vault-blockout",
-        "lower-vault-visual-dressing"
-      ],
-      "resource_key": "unity-scene:Assets/Scenes/Rooms/LowerVault.unity",
-      "work_ids": [
-        "NSC-047",
-        "NSC-082"
-      ]
-    },
-    {
-      "reconciliation_keys": [
         "lower-vault-blockout"
       ],
       "resource_key": "logical:room-walkability:lower-vault",
@@ -448,17 +402,6 @@
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/FinalRoomSceneTests.cs",
       "work_ids": [
         "NSC-048"
-      ]
-    },
-    {
-      "reconciliation_keys": [
-        "final-room-blockout",
-        "final-room-visual-dressing"
-      ],
-      "resource_key": "unity-scene:Assets/Scenes/Rooms/FinalRoom.unity",
-      "work_ids": [
-        "NSC-048",
-        "NSC-083"
       ]
     },
     {
@@ -608,7 +551,7 @@
       ]
     },
     {
-      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/RuinedEntryVisualDressingBuilder.cs",
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing/RuinedEntryDressing.prefab",
       "reconciliation_keys": [
         "ruined-entry-visual-dressing"
       ],
@@ -617,7 +560,25 @@
       ]
     },
     {
-      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/RuinedEntryVisualDressingTests.cs",
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing/RuinedEntryDressingCatalog.json",
+      "reconciliation_keys": [
+        "ruined-entry-visual-dressing"
+      ],
+      "work_ids": [
+        "NSC-079"
+      ]
+    },
+    {
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Environment/RuinedEntryDressingPrefabBuilder.cs",
+      "reconciliation_keys": [
+        "ruined-entry-visual-dressing"
+      ],
+      "work_ids": [
+        "NSC-079"
+      ]
+    },
+    {
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Environment/RuinedEntryDressingPrefabTests.cs",
       "reconciliation_keys": [
         "ruined-entry-visual-dressing"
       ],
@@ -635,7 +596,7 @@
       ]
     },
     {
-      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/BoneArchiveVisualDressingBuilder.cs",
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing/BoneArchiveDressing.prefab",
       "reconciliation_keys": [
         "bone-archive-visual-dressing"
       ],
@@ -644,7 +605,25 @@
       ]
     },
     {
-      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/BoneArchiveVisualDressingTests.cs",
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing/BoneArchiveDressingCatalog.json",
+      "reconciliation_keys": [
+        "bone-archive-visual-dressing"
+      ],
+      "work_ids": [
+        "NSC-080"
+      ]
+    },
+    {
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Environment/BoneArchiveDressingPrefabBuilder.cs",
+      "reconciliation_keys": [
+        "bone-archive-visual-dressing"
+      ],
+      "work_ids": [
+        "NSC-080"
+      ]
+    },
+    {
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Environment/BoneArchiveDressingPrefabTests.cs",
       "reconciliation_keys": [
         "bone-archive-visual-dressing"
       ],
@@ -662,7 +641,7 @@
       ]
     },
     {
-      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/ChapelOfAshVisualDressingBuilder.cs",
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing/ChapelOfAshDressing.prefab",
       "reconciliation_keys": [
         "chapel-of-ash-visual-dressing"
       ],
@@ -671,7 +650,25 @@
       ]
     },
     {
-      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/ChapelOfAshVisualDressingTests.cs",
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing/ChapelOfAshDressingCatalog.json",
+      "reconciliation_keys": [
+        "chapel-of-ash-visual-dressing"
+      ],
+      "work_ids": [
+        "NSC-081"
+      ]
+    },
+    {
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Environment/ChapelOfAshDressingPrefabBuilder.cs",
+      "reconciliation_keys": [
+        "chapel-of-ash-visual-dressing"
+      ],
+      "work_ids": [
+        "NSC-081"
+      ]
+    },
+    {
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Environment/ChapelOfAshDressingPrefabTests.cs",
       "reconciliation_keys": [
         "chapel-of-ash-visual-dressing"
       ],
@@ -689,7 +686,7 @@
       ]
     },
     {
-      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/LowerVaultVisualDressingBuilder.cs",
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing/LowerVaultDressing.prefab",
       "reconciliation_keys": [
         "lower-vault-visual-dressing"
       ],
@@ -698,7 +695,25 @@
       ]
     },
     {
-      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/LowerVaultVisualDressingTests.cs",
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing/LowerVaultDressingCatalog.json",
+      "reconciliation_keys": [
+        "lower-vault-visual-dressing"
+      ],
+      "work_ids": [
+        "NSC-082"
+      ]
+    },
+    {
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Environment/LowerVaultDressingPrefabBuilder.cs",
+      "reconciliation_keys": [
+        "lower-vault-visual-dressing"
+      ],
+      "work_ids": [
+        "NSC-082"
+      ]
+    },
+    {
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Environment/LowerVaultDressingPrefabTests.cs",
       "reconciliation_keys": [
         "lower-vault-visual-dressing"
       ],
@@ -716,7 +731,7 @@
       ]
     },
     {
-      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/FinalRoomVisualDressingBuilder.cs",
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing/FinalRoomDressing.prefab",
       "reconciliation_keys": [
         "final-room-visual-dressing"
       ],
@@ -725,7 +740,25 @@
       ]
     },
     {
-      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/FinalRoomVisualDressingTests.cs",
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing/FinalRoomDressingCatalog.json",
+      "reconciliation_keys": [
+        "final-room-visual-dressing"
+      ],
+      "work_ids": [
+        "NSC-083"
+      ]
+    },
+    {
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Environment/FinalRoomDressingPrefabBuilder.cs",
+      "reconciliation_keys": [
+        "final-room-visual-dressing"
+      ],
+      "work_ids": [
+        "NSC-083"
+      ]
+    },
+    {
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Environment/FinalRoomDressingPrefabTests.cs",
       "reconciliation_keys": [
         "final-room-visual-dressing"
       ],
@@ -743,7 +776,7 @@
       ]
     },
     {
-      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/WorldContentIntegrationBuilder.cs",
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Integration/FirstWingTransitionDressing.prefab",
       "reconciliation_keys": [
         "composed-world-content-integration-preservation"
       ],
@@ -752,7 +785,25 @@
       ]
     },
     {
-      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/World/WorldContentIntegrationTests.cs",
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Integration/FirstWingContentIntegrationCatalog.json",
+      "reconciliation_keys": [
+        "composed-world-content-integration-preservation"
+      ],
+      "work_ids": [
+        "NSC-084"
+      ]
+    },
+    {
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Environment/FirstWingContentIntegrationPackageBuilder.cs",
+      "reconciliation_keys": [
+        "composed-world-content-integration-preservation"
+      ],
+      "work_ids": [
+        "NSC-084"
+      ]
+    },
+    {
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Environment/FirstWingContentIntegrationPackageTests.cs",
       "reconciliation_keys": [
         "composed-world-content-integration-preservation"
       ],

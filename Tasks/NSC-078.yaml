@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-078",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "contract_disposition": "active",
   "title": "Reusable Dark-Cute Dungeon Prop Art Pack",
   "reconciliation_key": "dark-cute-dungeon-prop-art-pack",
@@ -76,7 +76,7 @@
   "basis": "human_approved_gameplay_presentation",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "This task acquires original source art only. It does not create Unity prefabs or scenes. Governing visual direction: C:\\NSC\\AssistantControlEvidence\\DUNGEON-ART-DIRECTION.md, Vincent-approved project direction dated 2026-09-13. The supplied images are inspiration only; all art and layouts must be original.",
+  "notes": "This task acquires original source art only. It does not create Unity prefabs or scenes. Governing visual direction: Docs/Art/Environment/DUNGEON_ART_DIRECTION.md, Vincent-approved project direction dated 2026-09-13. The supplied images are inspiration only; all art and layouts must be original.",
   "repository_state_at_bootstrap": "missing",
   "repository_evidence_at_bootstrap": [],
   "provenance": {
