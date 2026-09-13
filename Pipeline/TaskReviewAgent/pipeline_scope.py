@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any, Iterable, Mapping, Sequence
 
+from .committed_tasks import CommittedTaskError, load_committed_task
 from .contracts import (
     ExecutionScopePlan,
     ScopeValidationResult,
@@ -126,17 +127,35 @@ def _git_text(root: Path, *args: str, check: bool = True) -> str:
     return _decode(_git(root, *args, check=check).stdout, label="git stdout").strip()
 
 
-def _repo_path(value: Any, *, field: str) -> str:
-    if type(value) is not str or not value.strip():
+def _repo_path(
+    value: Any,
+    *,
+    field: str,
+    allow_trailing_slash: bool = False,
+) -> str:
+    if type(value) is not str or not value:
         raise RepositoryScopeError(f"{field} must be a non-empty repository path")
-    text = value.strip()
+    if value != value.strip():
+        raise RepositoryScopeError(f"{field} must not contain surrounding whitespace")
+    text = value
     if "\\" in text:
         raise RepositoryScopeError(f"{field} must use POSIX separators")
-    path = PurePosixPath(text)
+    if ":" in text:
+        raise RepositoryScopeError(f"{field} must not contain a drive or URI prefix")
+    canonical_text = (
+        text[:-1]
+        if allow_trailing_slash and text.endswith("/")
+        else text
+    )
+    if not canonical_text:
+        raise RepositoryScopeError(f"{field} must be a non-empty repository path")
+    path = PurePosixPath(canonical_text)
     if path.is_absolute() or not path.parts:
         raise RepositoryScopeError(f"{field} must be repository-relative")
     if any(part in ("", ".", "..") for part in path.parts):
         raise RepositoryScopeError(f"{field} contains an invalid path component")
+    if path.as_posix() != canonical_text:
+        raise RepositoryScopeError(f"{field} must be a canonical repository path")
     if any(ord(character) < 32 or ord(character) == 127 for character in text):
         raise RepositoryScopeError(f"{field} contains a control character")
     return text
@@ -202,8 +221,11 @@ class RepositoryScopeAuthority:
         self.state_path = self.state_root / f"{self.task_id}.scope.json"
         self.source_head = ""
         self._tracked_paths: tuple[str, ...] | None = None
+        self._exact_resource_paths: tuple[str, ...] | None = None
+        self._directory_resource_paths: tuple[str, ...] | None = None
         self._accepted: AcceptedExecutionScope | None = None
         self._assert_checkout()
+        self._resource_authority()
         self._load_current()
 
     @property
@@ -230,14 +252,16 @@ class RepositoryScopeAuthority:
         if status:
             raise RepositoryScopeError("scope planning requires a clean task checkout")
         self.source_head = _git_text(self.checkout, "rev-parse", "--verify", "HEAD")
-        contract_path = str(self.task.get("contract_path") or f"Tasks/{self.task_id}.yaml")
-        contract = _git(self.checkout, "show", f"HEAD:{contract_path}", check=False)
-        if contract.returncode != 0:
-            raise RepositoryScopeError("task contract is absent from task checkout HEAD")
-        import hashlib
-
-        if hashlib.sha256(contract.stdout).hexdigest() != self.task_contract_sha256:
-            raise RepositoryScopeError("task checkout contract hash differs from workflow task")
+        try:
+            committed_task = load_committed_task(
+                self.checkout,
+                self.task_id,
+                commit=self.source_head,
+                expected_sha256=self.task_contract_sha256,
+            )
+        except CommittedTaskError as exc:
+            raise RepositoryScopeError(str(exc)) from exc
+        self.task = _safe_json_copy(committed_task)
 
     def _tracked(self) -> tuple[str, ...]:
         if self._tracked_paths is None:
@@ -245,36 +269,117 @@ class RepositoryScopeAuthority:
             self._tracked_paths = tuple(line for line in raw.splitlines() if line)
         return self._tracked_paths
 
-    def _resource_paths(self) -> tuple[str, ...]:
-        result: list[str] = []
-        for resource in self.task.get("exclusive_resources") or []:
-            if type(resource) is not str or ":" not in resource:
+    def _resource_authority(self) -> tuple[tuple[str, ...], tuple[str, ...]]:
+        if self._exact_resource_paths is not None:
+            assert self._directory_resource_paths is not None
+            return self._exact_resource_paths, self._directory_resource_paths
+
+        resources = self.task.get("exclusive_resources")
+        if not isinstance(resources, list):
+            raise RepositoryScopeError(
+                "committed task exclusive_resources must be an exact array"
+            )
+
+        tracked = self._tracked()
+        repository_paths: set[str] = set(tracked)
+        for tracked_path in tracked:
+            parent = PurePosixPath(tracked_path).parent
+            while str(parent) != ".":
+                repository_paths.add(parent.as_posix())
+                parent = parent.parent
+        canonical_by_casefold: dict[str, set[str]] = {}
+        for path in repository_paths:
+            canonical_by_casefold.setdefault(path.casefold(), set()).add(path)
+
+        exact: set[str] = set()
+        directories: set[str] = set()
+        seen: dict[str, str] = {}
+        for resource in resources:
+            if type(resource) is not str or not resource:
+                raise RepositoryScopeError(
+                    "committed task contains a malformed exclusive resource"
+                )
+            kind, separator, value = resource.partition(":")
+            if not separator or not kind or not value:
+                raise RepositoryScopeError(
+                    f"committed task contains a malformed exclusive resource: {resource!r}"
+                )
+            if kind == "logical":
                 continue
-            kind, value = resource.split(":", 1)
-            if kind in ("repo-file", "unity-scene") and value:
-                try:
-                    result.append(_repo_path(value, field="exclusive resource path"))
-                except RepositoryScopeError:
-                    continue
-        return tuple(sorted(set(result), key=str.casefold))
+            if kind not in ("repo-file", "unity-scene", "unity-prefab"):
+                raise RepositoryScopeError(
+                    f"committed task contains an unsupported exclusive resource kind: {kind!r}"
+                )
+            path = _repo_path(value, field=f"{kind} exclusive resource path")
+            if kind == "unity-scene" and (
+                not path.startswith("Assets/")
+                or PurePosixPath(path).suffix.casefold() != ".unity"
+            ):
+                raise RepositoryScopeError(
+                    f"unity-scene resource must name one canonical Assets .unity file: {path}"
+                )
+            if kind == "unity-prefab" and (
+                not path.startswith("Assets/")
+                or PurePosixPath(path).suffix.casefold() != ".prefab"
+            ):
+                raise RepositoryScopeError(
+                    f"unity-prefab resource must name one canonical Assets .prefab file: {path}"
+                )
+
+            aliases = canonical_by_casefold.get(path.casefold(), set())
+            if aliases and path not in aliases:
+                raise RepositoryScopeError(
+                    f"exclusive resource path case differs from committed repository path: {path}"
+                )
+            prior = seen.get(path.casefold())
+            if prior is not None and prior != path:
+                raise RepositoryScopeError(
+                    f"exclusive resource paths collide by case: {prior!r}, {path!r}"
+                )
+            seen[path.casefold()] = path
+
+            if kind == "repo-file" and self._tree_at_head(path):
+                directories.add(path)
+            else:
+                if kind != "repo-file" and self._tree_at_head(path):
+                    raise RepositoryScopeError(
+                        f"{kind} resource resolves to a directory instead of a file: {path}"
+                    )
+                exact.add(path)
+
+        self._exact_resource_paths = tuple(sorted(exact, key=str.casefold))
+        self._directory_resource_paths = tuple(
+            sorted(directories, key=str.casefold)
+        )
+        return self._exact_resource_paths, self._directory_resource_paths
+
+    def _resource_paths(self) -> tuple[str, ...]:
+        exact, directories = self._resource_authority()
+        return tuple(sorted((*exact, *directories), key=str.casefold))
 
     def _ownership_roots(self) -> tuple[str, ...]:
-        roots: set[str] = set()
-        for value in self._resource_paths():
-            parts = PurePosixPath(value).parts
-            if len(parts) >= 3 and parts[0].casefold() == "assets" and parts[1].casefold() == "nosafecircle":
-                roots.add("/".join(parts[:3]) + "/")
-            elif len(parts) >= 2 and parts[0].casefold() == "assets" and parts[1].casefold() != "scenes":
-                roots.add("/".join(parts[:2]) + "/")
-        return tuple(sorted(roots, key=str.casefold))
+        _, directories = self._resource_authority()
+        return tuple(f"{path}/" for path in directories)
+
+    def _owns_write_path(self, path: str) -> bool:
+        exact, directories = self._resource_authority()
+        if path in exact:
+            return True
+        return any(path.startswith(f"{directory}/") for directory in directories)
 
     def facts(self) -> dict[str, Any]:
         self._assert_checkout()
         tracked = self._tracked()
         resource_paths = self._resource_paths()
         roots = self._ownership_roots()
-        existing_resources = [path for path in resource_paths if path in tracked]
-        absent_resources = [path for path in resource_paths if path not in tracked]
+        existing_resources = [
+            path
+            for path in resource_paths
+            if self._blob_at_head(path) or self._tree_at_head(path)
+        ]
+        absent_resources = [
+            path for path in resource_paths if path not in existing_resources
+        ]
 
         validation_contract_text = json.dumps(
             {
@@ -294,6 +399,8 @@ class RepositoryScopeAuthority:
         for path in tracked:
             folded = path.casefold()
             if _is_test_path(path):
+                if not self._owns_write_path(path):
+                    continue
                 test_stem = PurePosixPath(path).stem.casefold()
                 if PurePosixPath(path).suffix.casefold() == ".cs" and (
                     test_stem in validation_contract_text
@@ -327,7 +434,9 @@ class RepositoryScopeAuthority:
         self._assert_checkout()
         if type(limit) is not int or not 1 <= limit <= 1000:
             raise RepositoryScopeError("file-list limit must be from 1 through 1000")
-        normalized = _repo_path(prefix, field="prefix")
+        normalized = _repo_path(
+            prefix, field="prefix", allow_trailing_slash=True
+        )
         if not _under(normalized if normalized.endswith("/") else normalized + "/", _READ_PREFIXES):
             raise RepositoryScopeError("file-list prefix is outside approved read roots")
         matches = [
@@ -358,7 +467,9 @@ class RepositoryScopeAuthority:
             raise RepositoryScopeError("search limit must be from 1 through 300")
         normalized_prefixes: list[str] = []
         for item in prefixes:
-            path = _repo_path(item, field="search prefix")
+            path = _repo_path(
+                item, field="search prefix", allow_trailing_slash=True
+            )
             check_path = path if path.endswith("/") else path + "/"
             if not _under(check_path, _READ_PREFIXES):
                 raise RepositoryScopeError(f"search prefix is outside approved roots: {path}")
@@ -453,8 +564,7 @@ class RepositoryScopeAuthority:
             reasons.append("combined scope exceeds 24 exact files")
 
         tracked_casefold = {path.casefold(): path for path in self._tracked()}
-        resource_paths = set(self._resource_paths())
-        roots = self._ownership_roots()
+        self._resource_authority()
 
         for path in plan.existing_implementation_paths:
             if not _under(path, _IMPLEMENTATION_PREFIXES):
@@ -466,10 +576,8 @@ class RepositoryScopeAuthority:
             absolute = self.checkout / PurePosixPath(path)
             if not absolute.is_file() or absolute.is_symlink():
                 reasons.append(f"existing implementation path is not a regular checkout file: {path}")
-            if resource_paths and path not in resource_paths and roots and not any(
-                path.casefold().startswith(root.casefold()) for root in roots
-            ):
-                reasons.append(f"implementation path is outside task-owned resource roots: {path}")
+            if not self._owns_write_path(path):
+                reasons.append(f"implementation path is outside exact task-owned resources: {path}")
 
         for path in plan.new_implementation_paths:
             if not _under(path, _NEW_IMPLEMENTATION_PREFIXES):
@@ -486,8 +594,8 @@ class RepositoryScopeAuthority:
                 reasons.append(f"new implementation parent is not a committed Git tree: {parent}")
             if self._is_ignored(path):
                 reasons.append(f"new implementation path is ignored: {path}")
-            if roots and not any(path.casefold().startswith(root.casefold()) for root in roots):
-                reasons.append(f"new implementation path is outside task-owned resource roots: {path}")
+            if not self._owns_write_path(path):
+                reasons.append(f"new implementation path is outside exact task-owned resources: {path}")
 
         for field, paths, expect_existing in (
             ("existing test", plan.existing_test_paths, True),
@@ -500,6 +608,8 @@ class RepositoryScopeAuthority:
                     reasons.append(f"{field} path is not under a Tests directory: {path}")
                 if PurePosixPath(path).suffix.casefold() not in (".cs", ".asmdef", ".asmref"):
                     reasons.append(f"{field} path is not a Unity test source/assembly file: {path}")
+                if not self._owns_write_path(path):
+                    reasons.append(f"{field} path is outside exact task-owned resources: {path}")
                 exists = self._blob_at_head(path)
                 absolute = self.checkout / PurePosixPath(path)
                 if expect_existing:

@@ -167,6 +167,8 @@ def create_fixture(
     exclusive_resources = [f"repo-file:{implementation}"]
     if implementation == DOOR_BUILDER:
         exclusive_resources.append(f"repo-file:{DOOR_TEST}")
+    else:
+        exclusive_resources.append(f"repo-file:{NEW_TEST}")
     contract = {
         "schema_version": "2.0",
         "id": TASK_ID,
@@ -180,7 +182,14 @@ def create_fixture(
         "depends_on": [],
         "exclusive_resources": exclusive_resources,
         "acceptance_criteria": [],
-        "completion_gates": [],
+        "completion_gates": (
+            [{
+                "gate_id": "VAL-001",
+                "requirement": f"The committed {DOOR_TEST} suite passes.",
+            }]
+            if authoritative_validation
+            else []
+        ),
         "downstream_integration_obligations": [],
     }
     contract_path = seed / f"Tasks/{TASK_ID}.yaml"
@@ -505,8 +514,8 @@ def test_scope_execution_commit_push() -> None:
         facts = scope.facts()
         require(IMPLEMENTATION in facts["existing_resource_paths"], "resource fact missing")
         require(
-            facts["suggested_test_paths"] == [DOOR_TEST],
-            f"scope facts did not expose exactly the contract-referenced C# test: {facts['suggested_test_paths']}",
+            facts["suggested_test_paths"] == [],
+            f"scope facts exposed a test outside committed ownership: {facts['suggested_test_paths']}",
         )
         scene_task = {
             **task,

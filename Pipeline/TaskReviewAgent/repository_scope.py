@@ -61,7 +61,9 @@ class RepositoryScopeAuthority(_RepositoryScopeAuthority):
             if isinstance(item, str) and item.strip() in (".", "./"):
                 normalized_prefixes.extend(_READ_PREFIXES)
                 continue
-            path = _repo_path(item, field="search prefix")
+            path = _repo_path(
+                item, field="search prefix", allow_trailing_slash=True
+            )
             check_path = path if path.endswith("/") else path + "/"
             if not _under(check_path, _READ_PREFIXES):
                 raise RepositoryScopeError(f"search prefix is outside approved roots: {path}")

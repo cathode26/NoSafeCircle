@@ -30,12 +30,12 @@ from Pipeline.TaskReviewAgent.contracts import ExecutionScopePlan
 from Pipeline.TaskReviewAgent.git_identity_guard import validated_agent_git_identity
 
 
-def _write_task(root, task_id, resource):
+def _write_task(root, task_id, resources):
     (root / f"Tasks/{task_id}.yaml").write_text(json.dumps({
         "id": task_id, "title": task_id, "contract_disposition": "active",
         "kind": "implementation", "execution_scope": "single_agent",
         "decomposition_state": "concrete",
-        "depends_on": [], "exclusive_resources": [resource],
+        "depends_on": [], "exclusive_resources": resources,
     }))
 
 
@@ -53,8 +53,13 @@ class AdmissionWorktreeTests(unittest.TestCase):
         (self.main / "Assets/Feature/Tests").mkdir(parents=True)
         (self.main / "Assets/Feature/Feature.cs").write_text("class Feature {}\n")
         (self.main / "Assets/Feature/Tests/FeatureTests.cs").write_text("class FeatureTests {}\n")
-        _write_task(self.main, "NSC-042", "repo-file:Assets/Feature")
-        _write_task(self.main, "NSC-043", "repo-file:Assets/Feature/Other.cs")
+        (self.main / "Assets/Feature/Other.cs").write_text("class Other {}\n")
+        (self.main / "Assets/Feature/Tests/OtherTests.cs").write_text("class OtherTests {}\n")
+        _write_task(self.main, "NSC-042", ["repo-file:Assets/Feature"])
+        _write_task(self.main, "NSC-043", [
+            "repo-file:Assets/Feature/Other.cs",
+            "repo-file:Assets/Feature/Tests/OtherTests.cs",
+        ])
         self.git(self.main, "add", ".")
         self.git(self.main, "commit", "-m", "admission worktree fixture")
         self.worktree = Path(self.temp.name) / "worktree"
@@ -68,11 +73,12 @@ class AdmissionWorktreeTests(unittest.TestCase):
 
     def plan(self, manager, task_id, lease_id):
         manager.prepare(task_id)
+        stem = "Feature" if task_id == "NSC-042" else "Other"
         return AssistantScopePlanner(manager).plan(
             task_id,
             ExecutionScopePlan(
-                ("Assets/Feature/Feature.cs",), (),
-                ("Assets/Feature/Tests/FeatureTests.cs",), (),
+                (f"Assets/Feature/{stem}.cs",), (),
+                (f"Assets/Feature/Tests/{stem}Tests.cs",), (),
             ),
             lease_id=lease_id,
         )
