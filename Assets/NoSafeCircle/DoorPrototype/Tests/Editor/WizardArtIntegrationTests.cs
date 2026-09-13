@@ -1,7 +1,6 @@
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
-using UnityEngine.Tilemaps;
 using NUnit.Framework;
 using System.Linq;
 using System.Reflection;
@@ -53,10 +52,17 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             var renderer = player.transform.Find("Visual")?.GetComponent<SpriteRenderer>();
             Assert.IsNotNull(renderer);
             Assert.IsNotNull(renderer.sprite);
-            var wallRenderer = GameObject.Find("WallTilemap")?.GetComponent<TilemapRenderer>();
-            Assert.IsNotNull(wallRenderer);
-            Assert.AreEqual(wallRenderer.sortingLayerName, renderer.sortingLayerName);
-            Assert.AreEqual(wallRenderer.sortingOrder, renderer.sortingOrder);
+            var peerWorldSprites = Object.FindObjectsByType<SpriteRenderer>(
+                    FindObjectsInactive.Include, FindObjectsSortMode.None)
+                .Where(candidate => candidate != renderer)
+                .ToArray();
+            Assert.That(peerWorldSprites, Is.Not.Empty,
+                "The composed world must retain another world-space SpriteRenderer, such as a door.");
+            foreach (var peer in peerWorldSprites)
+            {
+                Assert.AreEqual(peer.sortingLayerName, renderer.sortingLayerName, peer.name);
+                Assert.AreEqual(peer.sortingOrder, renderer.sortingOrder, peer.name);
+            }
             Assert.AreEqual(SpriteSortPoint.Pivot, renderer.spriteSortPoint);
             Assert.That(renderer.transform.position.y, Is.EqualTo(player.transform.position.y).Within(0.001f));
 
