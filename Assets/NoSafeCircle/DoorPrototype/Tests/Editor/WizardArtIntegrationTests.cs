@@ -74,4 +74,34 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             Assert.AreEqual(TransparencySortMode.CustomAxis, camera.transparencySortMode);
         }
     }
+
+    public sealed class WizardBuilderConfigurationTests
+    {
+        [Test]
+        public void BuilderUsesCanonicalEightDirectionSetForStandingIdleAndWalk()
+        {
+            var expectedDirections = new[]
+            {
+                "north",
+                "north-east",
+                "east",
+                "south-east",
+                "south",
+                "south-west",
+                "west",
+                "north-west"
+            };
+            var builderType = typeof(NoSafeCircle.DoorPrototype.Editor.DoorPrototypeSceneBuilder).Assembly.GetType(
+                "NoSafeCircle.DoorPrototype.Editor.World.DoorPrototypeGlobalSceneBuilder");
+            Assert.IsNotNull(builderType);
+            var directions = (string[])builderType.GetField(
+                "WizardDirections", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null);
+            var standingDirections = (string[])builderType.GetField(
+                "WizardStandingDirections", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null);
+
+            CollectionAssert.AreEqual(expectedDirections, directions);
+            CollectionAssert.AreEqual(expectedDirections, standingDirections);
+            Assert.AreSame(directions, standingDirections);
+        }
+    }
 }
