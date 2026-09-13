@@ -64,7 +64,13 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
 
         private static void RemoveLegacyEnvironmentRoots(Scene scene)
         {
-            var legacyNames = new HashSet<string> { "Floor", "Walls", "IsometricVisualGrid" };
+            // Rebuilding an already-materialized scene leaves the previously generated D2-D5
+            // roots behind because the legacy builder only owns DoorRoot (D1). Remove those
+            // exact generated roots before cloning the sequence again so Build() is idempotent.
+            var legacyNames = new HashSet<string>
+            {
+                "Floor", "Walls", "IsometricVisualGrid", "D2", "D3", "D4", "D5"
+            };
             foreach (var root in scene.GetRootGameObjects())
             {
                 if (legacyNames.Contains(root.name)) UnityEngine.Object.DestroyImmediate(root);
