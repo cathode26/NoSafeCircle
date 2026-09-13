@@ -21,6 +21,8 @@ from Pipeline.TaskReviewAgent.authoritative_candidate_validation import (
 )
 from Pipeline.TaskReviewAgent.contracts import ExecutionScopePlan
 from Pipeline.TaskReviewAgent.door_prototype_materialization import (
+    DOOR_PROTOTYPE_BUILD_METHOD,
+    ROOM_SCENE_BUILDERS,
     DoorPrototypeMaterializationError,
     run_door_prototype_builder,
 )
@@ -307,6 +309,209 @@ class MaterializationTests(unittest.TestCase):
         self.assertIn("pattern phase reset", revised["revision"]["rejected_review"]["message"])
         self.assertEqual(failed_commit, revised["source_commit"])
         self.assertNotIn("candidate", revised)
+
+
+CHAPEL_BUILDER = "Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/ChapelOfAshSceneBuilder.cs"
+CHAPEL_TEST = "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/ChapelOfAshSceneTests.cs"
+CHAPEL_SCENE = "Assets/Scenes/Rooms/ChapelOfAsh.unity"
+CHAPEL_BUILD_METHOD = "NoSafeCircle.DoorPrototype.Editor.Rooms.ChapelOfAshSceneBuilder.Build"
+LOWER_VAULT_SCENE = "Assets/Scenes/Rooms/LowerVault.unity"
+UNKNOWN_ROOM_SCENE = "Assets/Scenes/Rooms/UnknownRoom.unity"
+
+
+class RoomSceneMaterializationTests(unittest.TestCase):
+    """The exact room-scene registry drives which builder method runs.
+
+    Reproduces the proven NSC-046 failure: a crew candidate that only changes
+    a room's own SceneBuilder.cs (never the shared DoorPrototypeSceneBuilder.cs)
+    must still be recognized and materialized through its exact registered
+    scene, with no wildcard authority over ``Assets/Scenes/Rooms/``.
+    """
+
+    def setUp(self):
+        test_root = Path.cwd() / ".test-work"
+        test_root.mkdir(exist_ok=True)
+        self.root = test_root / f"assistant-room-materialization-{uuid.uuid4().hex}"
+        self.root.mkdir()
+        self.addCleanup(shutil.rmtree, self.root, True)
+        self.source = self.root / "source"
+        self.source.mkdir()
+        self.git(self.source, "init", "-q")
+        name, email = validated_agent_git_identity()
+        self.git(self.source, "config", "user.name", name)
+        self.git(self.source, "config", "user.email", email)
+        for relative, content in (
+            (CHAPEL_BUILDER, "class ChapelOfAshSceneBuilder {}\n"),
+            (CHAPEL_TEST, "class ChapelOfAshSceneTests {}\n"),
+            (CHAPEL_SCENE, "old chapel scene\n"),
+            ("ProjectSettings/ProjectVersion.txt", "m_EditorVersion: 6000.1.8f1\n"),
+            ("Pipeline/Testing/run_unity_tests_clean.ps1", "# fixture\n"),
+            ("Pipeline/TaskGraph/taskcontrol.py", "print('taskcontrol validate: PASS')\n"),
+        ):
+            target = self.source / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content, encoding="utf-8", newline="\n")
+        task = {
+            "schema_version": "2.0", "id": "NSC-046", "contract_revision": 1,
+            "contract_disposition": "active", "title": "Fixture Chapel of Ash room",
+            "reconciliation_key": "fixture-chapel", "kind": "implementation",
+            "type": "world-foundation", "execution_scope": "single_agent",
+            "execution_reason": "fixture", "decomposition_state": "concrete",
+            "decomposition_reason": "fixture", "parent": None, "depends_on": [],
+            "exclusive_resources": [
+                f"repo-file:{CHAPEL_BUILDER}", f"repo-file:{CHAPEL_TEST}",
+                f"unity-scene:{CHAPEL_SCENE}",
+            ],
+            "acceptance_criteria": [], "completion_gates": [],
+            "downstream_integration_obligations": [], "gdd_evidence": [],
+            "basis": "direct_gdd", "source_scope": "required", "confidence": "high",
+        }
+        task_path = self.source / "Tasks/NSC-046.yaml"
+        task_path.parent.mkdir()
+        task_path.write_text(json.dumps(task), encoding="utf-8", newline="\n")
+        self.git(self.source, "add", ".")
+        self.git(self.source, "commit", "-q", "-m", "fixture")
+        self.manager = Checkouts(self.source, self.root / "checkouts")
+        prepared = self.manager.prepare("NSC-046")
+        self.checkout = Path(prepared["checkout"])
+        self.unity = self.root / "Unity.exe"
+        self.unity.write_bytes(b"fixture")
+        self.scope = AssistantScopePlanner(self.manager).plan(
+            "NSC-046",
+            ExecutionScopePlan((CHAPEL_BUILDER, CHAPEL_SCENE), (), (CHAPEL_TEST,), ()),
+            lease_id="fixture-lease",
+        )
+
+    @staticmethod
+    def git(root: Path, *args: str) -> str:
+        result = subprocess.run(
+            ("git", "-C", str(root), *args), capture_output=True, check=False,
+        )
+        if result.returncode:
+            raise AssertionError(result.stderr.decode(errors="replace"))
+        return result.stdout.decode().strip()
+
+    def register_code_candidate(self) -> str:
+        (self.checkout / CHAPEL_BUILDER).write_text(
+            "class FixedChapelBuilder {}\n", newline="\n")
+        (self.checkout / CHAPEL_TEST).write_text("class FixedChapelTests {}\n", newline="\n")
+        paths = [CHAPEL_BUILDER, CHAPEL_TEST]
+        self.git(self.checkout, "add", "--", *paths)
+        self.git(self.checkout, "commit", "-q", "-m", "crew Chapel room candidate")
+        commit = self.git(self.checkout, "rev-parse", "HEAD")
+        tree = self.git(self.checkout, "rev-parse", "HEAD^{tree}")
+        record_path = self.manager.records / "NSC-046.json"
+        record = json.loads(record_path.read_text())
+        receipt = LocalCandidateCommitReceipt(
+            task_id="NSC-046", lease_id="fixture-lease", plan_id=self.scope["plan_id"],
+            run_id="fixture-crew", source_base=record["source_commit"],
+            candidate_commit=commit, candidate_tree=tree,
+            candidate_parent=record["source_commit"],
+            task_contract_sha256=record["task_contract_sha256"],
+            execution_result_sha256="a" * 64, candidate_patch_sha256="b" * 64,
+            changed_paths=tuple(sorted(paths, key=str.casefold)), validation_sha256="c" * 64,
+        )
+        record["candidate"] = {
+            "commit": commit, "tree": tree, "parent": record["source_commit"],
+            "run_id": "fixture-crew", "lease_id": "fixture-lease",
+            "plan_id": self.scope["plan_id"], "receipt": receipt.to_dict(),
+        }
+        record["status"] = "awaiting_human"
+        record["approval"] = None
+        write_record(record_path, record)
+        return commit
+
+    def chapel_builder_runner(self, args, cwd, timeout):
+        self.assertEqual(self.checkout.resolve(), cwd.resolve())
+        self.assertIn(CHAPEL_BUILD_METHOD, args)
+        self.assertNotIn(DOOR_PROTOTYPE_BUILD_METHOD, args)
+        (cwd / CHAPEL_SCENE).write_text("generated chapel scene  \n", newline="\n")
+        return subprocess.CompletedProcess(args, 0, b"builder complete\n", b"")
+
+    def passing_validation(self, **kwargs):
+        commit = self.git(kwargs["checkout"], "rev-parse", "HEAD")
+        self.assertEqual(kwargs["commit"], commit)
+        self.assertEqual("", self.git(kwargs["checkout"], "status", "--porcelain=v1"))
+        return ({
+            "test_platform": "EditMode",
+            "test_filter": "ChapelOfAshSceneTests",
+            "commit": commit,
+            "tree": self.git(kwargs["checkout"], "rev-parse", "HEAD^{tree}"),
+            "total": 2,
+            "passed": 2,
+        },)
+
+    def test_room_registry_matches_the_five_approved_scenes(self):
+        self.assertEqual(
+            {
+                "Assets/Scenes/Rooms/RuinedEntry.unity",
+                "Assets/Scenes/Rooms/BoneArchive.unity",
+                CHAPEL_SCENE,
+                LOWER_VAULT_SCENE,
+                "Assets/Scenes/Rooms/FinalRoom.unity",
+            },
+            set(ROOM_SCENE_BUILDERS),
+        )
+        self.assertEqual(CHAPEL_BUILD_METHOD, ROOM_SCENE_BUILDERS[CHAPEL_SCENE].build_method)
+        self.assertEqual(CHAPEL_BUILDER, ROOM_SCENE_BUILDERS[CHAPEL_SCENE].builder_source_path)
+
+    def test_run_door_prototype_builder_invokes_the_registered_room_build_method(self):
+        result = run_door_prototype_builder(
+            checkout=self.checkout, task_id="NSC-046",
+            state_root=self.manager.records, initial_changed_paths=(),
+            unity_executable=self.unity, unity_command_runner=self.chapel_builder_runner,
+            allowed_generated_paths=(CHAPEL_SCENE,),
+        )
+        self.assertEqual((CHAPEL_SCENE,), result.builder_paths)
+        self.assertNotIn("  \n", (self.checkout / CHAPEL_SCENE).read_text())
+
+    def test_unregistered_room_scene_is_refused_not_wildcard_matched(self):
+        def exploding_runner(*_args, **_kwargs):
+            raise AssertionError("Unity must not launch for an unregistered room scene")
+        with self.assertRaisesRegex(
+            DoorPrototypeMaterializationError, "outside the DoorPrototype builder boundary",
+        ):
+            run_door_prototype_builder(
+                checkout=self.checkout, task_id="NSC-046",
+                state_root=self.manager.records, initial_changed_paths=(),
+                unity_executable=self.unity, unity_command_runner=exploding_runner,
+                allowed_generated_paths=(UNKNOWN_ROOM_SCENE,),
+            )
+
+    def test_mixed_room_scenes_are_refused_as_ambiguous(self):
+        def exploding_runner(*_args, **_kwargs):
+            raise AssertionError("Unity must not launch for an ambiguous builder request")
+        with self.assertRaisesRegex(
+            DoorPrototypeMaterializationError,
+            "require more than one builder method",
+        ):
+            run_door_prototype_builder(
+                checkout=self.checkout, task_id="NSC-046",
+                state_root=self.manager.records, initial_changed_paths=(),
+                unity_executable=self.unity, unity_command_runner=exploding_runner,
+                allowed_generated_paths=tuple(sorted(
+                    (CHAPEL_SCENE, LOWER_VAULT_SCENE), key=str.casefold,
+                )),
+            )
+
+    def test_materializes_the_exact_registered_room_scene_for_human_review(self):
+        original = self.register_code_candidate()
+        result = materialize_candidate(
+            self.manager, "NSC-046", original, unity_executable=self.unity,
+            unity_command_runner=self.chapel_builder_runner,
+            validation_runner=self.passing_validation,
+        )
+        candidate = result["candidate"]
+        self.assertEqual("unity_materialized", candidate["kind"])
+        self.assertEqual([CHAPEL_SCENE], candidate["changed_paths"])
+        self.assertEqual(CHAPEL_BUILD_METHOD, candidate["materialization"]["builder"])
+        self.assertEqual("awaiting_human", result["status"])
+        self.assertEqual(candidate["commit"], self.git(self.checkout, "rev-parse", "HEAD"))
+        journal_path = (
+            self.manager.records / f"NSC-046.unity-materialization.{original}.json"
+        )
+        journal = json.loads(journal_path.read_text())
+        self.assertEqual(CHAPEL_BUILD_METHOD, journal["builder"])
 
 
 if __name__ == "__main__":

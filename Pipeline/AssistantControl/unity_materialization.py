@@ -30,12 +30,12 @@ from Pipeline.TaskReviewAgent.authoritative_candidate_validation import (
 from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task
 from Pipeline.TaskReviewAgent.contracts import ExecutionScopePlan, semantic_sha256, validate_task_id
 from Pipeline.TaskReviewAgent.door_prototype_materialization import (
-    DOOR_PROTOTYPE_BUILDER,
     DoorPrototypeMaterializationError,
     UnityCommandRunner,
     default_unity_command_runner,
     is_door_prototype_builder_output,
     is_unity_serialized,
+    resolve_generated_builder,
     resolve_unity_executable,
     run_door_prototype_builder,
 )
@@ -105,7 +105,7 @@ def _generated_paths(scope: Mapping[str, Any], crew_paths: list[str]) -> tuple[s
         key=str.casefold,
     ))
     if not generated:
-        raise MaterializationError("scope registers no Unity asset for the DoorPrototype builder")
+        raise MaterializationError("scope registers no Unity asset for a registered Unity builder")
     overlap = sorted(set(generated).intersection(crew_paths), key=str.casefold)
     if overlap:
         raise MaterializationError(
@@ -192,8 +192,6 @@ def _require_candidate(
             or candidate.get("crew_review", True) is not True):
         raise MaterializationError("only a crew-reviewed code candidate can be materialized")
     receipt = _candidate_receipt(record, candidate)
-    if DOOR_PROTOTYPE_BUILDER not in receipt["changed_paths"]:
-        raise MaterializationError("crew candidate did not change the DoorPrototype builder")
     scope = record.get("scope")
     if (not isinstance(scope, Mapping) or scope.get("task_id") != record.get("task_id")
             or scope.get("task_contract_sha256") != record.get("task_contract_sha256")
@@ -201,6 +199,14 @@ def _require_candidate(
             or scope.get("lease_id") != candidate.get("lease_id")):
         raise MaterializationError("candidate scope binding differs")
     generated = _generated_paths(scope, receipt["changed_paths"])
+    try:
+        _build_method, builder_source = resolve_generated_builder(generated)
+    except DoorPrototypeMaterializationError as exc:
+        raise MaterializationError(str(exc)) from exc
+    if builder_source not in receipt["changed_paths"]:
+        raise MaterializationError(
+            f"crew candidate did not change the {builder_source} builder"
+        )
     checkout = Path(str(record.get("checkout", ""))).resolve()
     observed = checkouts.observe(str(record["task_id"]))
     if (Path(observed["checkout"]).resolve() != checkout
@@ -372,6 +378,7 @@ def materialize_candidate(
             checkout, candidate, receipt, generated, generated_roots = _require_candidate(
                 checkouts, record, expected_candidate,
             )
+            build_method, _builder_source = resolve_generated_builder(generated)
             task = load_committed_task(
                 checkout, task_id, commit=expected_candidate,
                 expected_sha256=str(record["task_contract_sha256"]),
@@ -390,7 +397,7 @@ def materialize_candidate(
                     "lease_id": candidate["lease_id"],
                     "registered_generated_paths": list(generated),
                     "registered_generated_roots": list(generated_roots),
-                    "builder": "DoorPrototypeSceneBuilder.Build",
+                    "builder": build_method,
                     "materialization_error": str(exc),
                     "retryable": True,
                     "failed_at": _now(),
@@ -412,7 +419,7 @@ def materialize_candidate(
                 "lease_id": candidate["lease_id"],
                 "registered_generated_paths": list(generated),
                 "registered_generated_roots": list(generated_roots),
-                "builder": "DoorPrototypeSceneBuilder.Build",
+                "builder": build_method,
                 "started_at": _now(),
             }
             write_record(journal_path, journal)
