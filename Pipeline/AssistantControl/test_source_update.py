@@ -40,6 +40,10 @@ class SourceUpdateTests(unittest.TestCase):
             "id": "NSC-042", "title": "sync", "contract_disposition": "active",
             "kind": "implementation", "execution_scope": "single_agent",
             "decomposition_state": "concrete", "depends_on": [],
+            "exclusive_resources": [
+                "repo-file:Assets/Feature/Feature.cs",
+                "repo-file:Assets/Feature/Tests/FeatureTests.cs",
+            ],
         }))
         (self.source / "shared.txt").write_text("base\n")
         (self.source / "test.txt").write_text("test\n")

@@ -14,7 +14,10 @@ from Pipeline.AssistantControl.candidate_validation_retry import (
 from Pipeline.AssistantControl.checkouts import Checkouts, write_record
 from Pipeline.AssistantControl.scope import AssistantScopePlanner
 from Pipeline.AssistantControl.source_update import synchronize_candidate
-from Pipeline.AssistantControl.unity_materialization import _require_candidate
+from Pipeline.AssistantControl.unity_materialization import (
+    _require_candidate,
+    materialize_candidate,
+)
 from Pipeline.TaskReviewAgent.contracts import ExecutionScopePlan
 from Pipeline.TaskReviewAgent.local_candidate_commit import LocalCandidateCommitReceipt
 
@@ -85,6 +88,8 @@ class CandidateValidationRetryTests(unittest.TestCase):
         self.manager = Checkouts(self.source, root / "checkouts")
         prepared = self.manager.prepare("NSC-046")
         self.checkout = Path(prepared["checkout"])
+        self.unity = root / "Unity.exe"
+        self.unity.write_bytes(b"fixture")
         self.lease = "fixture-lease"
         scope = AssistantScopePlanner(self.manager).plan(
             "NSC-046",
@@ -185,11 +190,54 @@ class CandidateValidationRetryTests(unittest.TestCase):
         self.assertEqual(
             "source_synchronized", synchronized["candidate_validation_retry"]["phase"]
         )
-        _checkout, _candidate, receipt, generated = _require_candidate(
+        _checkout, _candidate, receipt, generated, generated_roots = _require_candidate(
             self.manager, synchronized, synced_candidate["commit"]
         )
         self.assertEqual([BUILDER], receipt["changed_paths"])
         self.assertEqual((SCENE,), generated)
+        self.assertEqual((), generated_roots)
+
+        def builder_runner(args, cwd, timeout):
+            self.assertEqual(self.checkout.resolve(), cwd.resolve())
+            self.assertGreater(timeout, 0)
+            target = cwd / SCENE
+            target.write_text("generated Chapel scene\n", encoding="utf-8", newline="\n")
+            return subprocess.CompletedProcess(args, 0, b"builder complete\n", b"")
+
+        def validation_runner(**kwargs):
+            commit = self.git(kwargs["checkout"], "rev-parse", "HEAD")
+            self.assertEqual(kwargs["commit"], commit)
+            self.assertEqual("", self.git(kwargs["checkout"], "status", "--porcelain=v1"))
+            return ({
+                "test_platform": "EditMode",
+                "test_filter": "ChapelOfAshSceneTests",
+                "commit": commit,
+                "tree": self.git(kwargs["checkout"], "rev-parse", "HEAD^{tree}"),
+                "total": 1,
+                "passed": 1,
+            },)
+
+        materialized = materialize_candidate(
+            self.manager,
+            "NSC-046",
+            synced_candidate["commit"],
+            unity_executable=self.unity,
+            unity_command_runner=builder_runner,
+            validation_runner=validation_runner,
+        )
+        final_candidate = materialized["candidate"]
+        self.assertEqual("unity_materialized", final_candidate["kind"])
+        self.assertEqual(receipt["plan_id"], final_candidate["plan_id"])
+        self.assertEqual(receipt["lease_id"], final_candidate["lease_id"])
+        self.assertEqual([SCENE], final_candidate["changed_paths"])
+        self.assertEqual("awaiting_human", materialized["status"])
+        self.assertIsNone(materialized["approval"])
+        self.assertIsNone(materialized["human_review"])
+        self.assertEqual(1, len(materialized["candidate_validation_retry_history"]))
+        self.assertEqual(
+            "source_synchronized",
+            materialized["candidate_validation_retry"]["phase"],
+        )
 
     def test_wrong_failure_hash_is_refused_without_changing_state(self):
         with self.assertRaisesRegex(
