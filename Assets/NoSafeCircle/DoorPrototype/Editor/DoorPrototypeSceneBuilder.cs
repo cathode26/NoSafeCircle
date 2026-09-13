@@ -137,6 +137,7 @@ namespace NoSafeCircle.DoorPrototype.Editor
             "Floor",
             "Walls",
             "DoorRoot",
+            "PlayerSpawn",
             "Player",
             "Canvas",
             "EventSystem"
@@ -201,8 +202,10 @@ namespace NoSafeCircle.DoorPrototype.Editor
             BuildIsometricVisualLayer(doorRoot.transform.position, architecturalTileAssetFolder);
 
             BuildPlayer(out var movement, out var interactionController, out var health, out var debugControl,
-                out var mana, out var debugManaControl, architecturalTileAssetFolder);
+                out var mana, out var debugManaControl, out var wizardAnimationController,
+                architecturalTileAssetFolder);
             SetPrivateField(movement, "interactionController", interactionController);
+            GameObject playerSpawn = BuildPlayerSpawn(movement.transform);
 
             var doorFeedback = door.GetComponent<DoorInteractionFeedback>();
             SetPrivateField(doorFeedback, "playerMovement", movement);
@@ -222,7 +225,8 @@ namespace NoSafeCircle.DoorPrototype.Editor
             // will fire rather than silently producing an unframed camera at the world origin.
             BuildCamera(movement.transform);
 
-            BuildUI(door, debugControl, health, mana, debugManaControl, movement, interactionController);
+            BuildUI(door, debugControl, health, mana, debugManaControl, movement, interactionController,
+                wizardAnimationController, playerSpawn.transform);
         }
 
         private static void ValidateArchitecturalTileAssetFolder(string path)
@@ -1232,6 +1236,7 @@ namespace NoSafeCircle.DoorPrototype.Editor
             out DebugDamageControl debugControl,
             out PlayerMana mana,
             out DebugManaSpendControl debugManaControl,
+            out WizardAnimationController wizardAnimationController,
             string architecturalTileAssetFolder)
         {
             var player = new GameObject("Player");
@@ -1266,15 +1271,17 @@ namespace NoSafeCircle.DoorPrototype.Editor
                     WorldSpriteTextureSize, WorldSpriteTextureSize, WizardSpriteFillColor, WizardSpriteBorderColor),
                 architecturalTileAssetFolder);
 
-            if (!string.IsNullOrEmpty(architecturalTileAssetFolder))
+            WizardAnimationAssets wizardAssets = string.IsNullOrEmpty(architecturalTileAssetFolder)
+                ? LoadWizardAnimationAssets()
+                : BuildWizardAnimationAssets();
+            var animator = player.AddComponent<Animator>();
+            animator.runtimeAnimatorController = wizardAssets.controller;
+            wizardAnimationController = player.AddComponent<WizardAnimationController>();
+            SetPrivateField(wizardAnimationController, "animator", animator);
+            SetPrivateFieldValue(wizardAnimationController, "presentation", WizardPresentation.Masculine);
+            SetPrivateFieldValue(wizardAnimationController, "skin", WizardSkin.White);
+            if (wizardAssets.defaultIdle != null)
             {
-                var wizardAssets = BuildWizardAnimationAssets();
-                var animator = player.AddComponent<Animator>();
-                animator.runtimeAnimatorController = wizardAssets.controller;
-                var wizard = player.AddComponent<WizardAnimationController>();
-                SetPrivateField(wizard, "animator", animator);
-                SetPrivateFieldValue(wizard, "presentation", WizardPresentation.Masculine);
-                SetPrivateFieldValue(wizard, "skin", WizardSkin.White);
                 player.transform.Find("Visual").GetComponent<SpriteRenderer>().sprite = wizardAssets.defaultIdle;
             }
 
@@ -1288,6 +1295,13 @@ namespace NoSafeCircle.DoorPrototype.Editor
             SetPrivateField(interactionController, "playerHealth", health);
             SetPrivateField(debugControl, "target", health);
             SetPrivateField(debugManaControl, "target", mana);
+        }
+
+        private static GameObject BuildPlayerSpawn(Transform player)
+        {
+            var playerSpawn = new GameObject("PlayerSpawn");
+            playerSpawn.transform.SetPositionAndRotation(player.position, player.rotation);
+            return playerSpawn;
         }
 
         private readonly struct WizardAnimationAssets
@@ -1342,6 +1356,15 @@ namespace NoSafeCircle.DoorPrototype.Editor
             }
             EditorUtility.SetDirty(controller);
             AssetDatabase.SaveAssets();
+            return new WizardAnimationAssets(controller, defaultIdle);
+        }
+
+        private static WizardAnimationAssets LoadWizardAnimationAssets()
+        {
+            var controller = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(
+                WizardGeneratedRoot + "/WizardAnimator.controller");
+            var defaultIdle = AssetDatabase.LoadAssetAtPath<Sprite>(
+                WizardSourceRoot + "/masculine-light/selected/standing/south-east.png");
             return new WizardAnimationAssets(controller, defaultIdle);
         }
 
@@ -1400,7 +1423,8 @@ namespace NoSafeCircle.DoorPrototype.Editor
 
         private static void BuildUI(DoorInteractable door, DebugDamageControl debugControl,
             PlayerHealth health, PlayerMana mana, DebugManaSpendControl debugManaControl,
-            PlayerMovement movement, PlayerInteractionController interactionController)
+            PlayerMovement movement, PlayerInteractionController interactionController,
+            WizardAnimationController wizardAnimationController, Transform playerSpawn)
         {
             var canvasObject = new GameObject("Canvas");
             var canvas = canvasObject.AddComponent<Canvas>();
@@ -1497,15 +1521,28 @@ namespace NoSafeCircle.DoorPrototype.Editor
                 movement,
                 interactionController,
                 debugControl,
-                debugManaControl);
-            BuildWizardSelectionScreen(canvasObject, titleScreenController);
+                debugManaControl,
+                out GameObject titlePanel);
+            WizardSelectionController wizardSelectionController = BuildWizardSelectionScreen(
+                canvasObject,
+                titleScreenController,
+                out GameObject selectionPanel);
+            BuildWizardGameEntry(
+                canvasObject,
+                wizardSelectionController,
+                wizardAnimationController,
+                movement,
+                interactionController,
+                playerSpawn,
+                titlePanel,
+                selectionPanel);
         }
 
         private static TitleScreenController BuildTitleScreen(GameObject canvasObject, PlayerMovement movement,
             PlayerInteractionController interactionController, DebugDamageControl debugControl,
-            DebugManaSpendControl debugManaControl)
+            DebugManaSpendControl debugManaControl, out GameObject titlePanel)
         {
-            var titlePanel = new GameObject(
+            titlePanel = new GameObject(
                 "TitleScreen",
                 typeof(RectTransform),
                 typeof(CanvasRenderer),
@@ -1652,11 +1689,12 @@ namespace NoSafeCircle.DoorPrototype.Editor
             return controller;
         }
 
-        private static void BuildWizardSelectionScreen(
+        private static WizardSelectionController BuildWizardSelectionScreen(
             GameObject canvasObject,
-            TitleScreenController titleScreenController)
+            TitleScreenController titleScreenController,
+            out GameObject selectionPanel)
         {
-            var selectionPanel = new GameObject(
+            selectionPanel = new GameObject(
                 "WizardSelectionScreen",
                 typeof(RectTransform),
                 typeof(CanvasRenderer),
@@ -1766,6 +1804,27 @@ namespace NoSafeCircle.DoorPrototype.Editor
 
             UnityEventTools.AddPersistentListener(confirmButton.onClick, controller.ConfirmSelection);
             selectionPanel.SetActive(false);
+            return controller;
+        }
+
+        private static void BuildWizardGameEntry(
+            GameObject canvasObject,
+            WizardSelectionController wizardSelectionController,
+            WizardAnimationController wizardAnimationController,
+            PlayerMovement movement,
+            PlayerInteractionController interactionController,
+            Transform playerSpawn,
+            GameObject titlePanel,
+            GameObject selectionPanel)
+        {
+            WizardGameEntryController controller = canvasObject.AddComponent<WizardGameEntryController>();
+            SetPrivateField(controller, "wizardSelectionController", wizardSelectionController);
+            SetPrivateField(controller, "wizardAnimationController", wizardAnimationController);
+            SetPrivateField(controller, "player", movement.transform);
+            SetPrivateField(controller, "worldSpawn", playerSpawn);
+            SetPrivateField(controller, "playerMovement", movement);
+            SetPrivateField(controller, "playerInteractionController", interactionController);
+            SetPrivateObjectArray(controller, "menuUiRoots", titlePanel, selectionPanel);
         }
 
         private static BuiltWizardSelectionOption BuildWizardSelectionOption(

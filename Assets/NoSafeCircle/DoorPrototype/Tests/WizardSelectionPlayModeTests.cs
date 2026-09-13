@@ -85,6 +85,8 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 TitleScreenController titleController = canvas.GetComponent<TitleScreenController>();
                 WizardSelectionController selectionController =
                     canvas.GetComponent<WizardSelectionController>();
+                WizardGameEntryController gameEntryController =
+                    canvas.GetComponent<WizardGameEntryController>();
                 Button startButton = canvas.transform
                     .Find("TitleScreen/TitleCard/StartGameButton")?.GetComponent<Button>();
                 Button confirmButton = canvas.transform
@@ -97,10 +99,15 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
                 Assert.IsNotNull(titleController);
                 Assert.IsNotNull(selectionController);
+                Assert.IsNotNull(gameEntryController);
                 Assert.IsNotNull(startButton);
                 Assert.IsNotNull(confirmButton);
                 Assert.IsNotNull(playerWizard);
                 Assert.IsNotNull(originalPlayerSprite);
+
+                // This NSC-067 test isolates the producer contract. NSC-068's focused tests
+                // cover the installed downstream consumer and its Player mutation separately.
+                gameEntryController.enabled = false;
 
                 var handoffCount = 0;
                 ConfirmedWizardSelection? observedHandoff = null;
