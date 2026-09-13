@@ -1,0 +1,85 @@
+{
+  "schema_version": "2.0",
+  "id": "NSC-079",
+  "contract_revision": 2,
+  "contract_disposition": "active",
+  "title": "Ruined Entry Visual Dressing",
+  "reconciliation_key": "ruined-entry-visual-dressing",
+  "kind": "implementation",
+  "type": "content-authoring",
+  "execution_scope": "single_agent",
+  "execution_reason": "A room specialist can enrich only the Ruined Entry surfaces after its blockout and prop pack are available.",
+  "decomposition_state": "concrete",
+  "decomposition_reason": "One room's independent dressing prefab, catalog, builder, and focused test are a bounded unit that can be handed to a later canonical-scene integrator.",
+  "parent": "NSC-029",
+  "depends_on": [
+    "NSC-044",
+    "NSC-078"
+  ],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing/RuinedEntryDressing.prefab",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing/RuinedEntryDressingCatalog.json",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Environment/RuinedEntryDressingPrefabBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Environment/RuinedEntryDressingPrefabTests.cs",
+    "logical:room-visual-dressing:ruined-entry"
+  ],
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "Approved Ruined Entry blockout",
+      "requirement": "Add varied floor and wall material accents, rubble, webs, vegetation, and small horror-comedy props while preserving the approved bounds, D1 opening, routes, staging area, collision, and walkability."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "NSC-078 prop catalog",
+      "requirement": "Use only catalogued original props, place them with readable isometric silhouettes, and keep every passage, alcove, door approach, and player route clear."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "Room ownership boundary",
+      "requirement": "Own only this room's dressing prefab, catalog, builder, and focused tests; do not edit the blockout scene, common builders, another room, doors, navigation, or the canonical scene."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "Docs/Art/Environment/DUNGEON_ART_DIRECTION.md — Vincent-approved project direction, 2026-09-13",
+      "requirement": "Create an original broken-masonry entry landmark plus at least two supporting clusters of rubble, webs, vegetation or slime, and small horror-comedy details. Use a dense perimeter and a protected, readable introductory lane to D1; props must never copy or trace a reference asset or layout."
+    }
+  ],
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "Ruined Entry visual regression",
+      "requirement": "Focused Unity EditMode tests prove deterministic prefab/catalog generation, stable sorting anchors, source-geometry compatibility, D1 approach clearance, and idempotent rebuild without opening or modifying RuinedEntry.unity."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "Developer visual review",
+      "requirement": "A gameplay-camera screenshot/contact sheet of the prefab staged against the approved blockout visibly shows the entry landmark, two supporting clusters, dense-edge/open-lane rhythm, readable wizard and D1 approach, and original no-copy art direction."
+    }
+  ],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "NSC-084",
+      "requirement": "Publish the prefab and catalog with stable room-anchor metadata so NSC-084 can assemble a non-scene integration package; a later dedicated canonical-scene integrator must consume that package under the existing scene/composer locks."
+    }
+  ],
+  "gdd_evidence": [
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md — dungeon floor structure",
+      "requirement": "Each room has a distinct visual and tactical identity without mixing visual content with gameplay geometry."
+    }
+  ],
+  "basis": "human_approved_gameplay_presentation",
+  "source_scope": "required",
+  "confidence": "high",
+  "notes": "Visual dressing may add presentation objects only; geometry and navigation remain authoritative. Governing visual direction: Docs/Art/Environment/DUNGEON_ART_DIRECTION.md, Vincent-approved project direction dated 2026-09-13. The supplied images are inspiration only; all art and layouts must be original.",
+  "repository_state_at_bootstrap": "partial",
+  "repository_evidence_at_bootstrap": [],
+  "provenance": {
+    "origin": "human_approved_environment_content_followup",
+    "approved_at_utc_date": "2026-09-13",
+    "approved_by": "Vincent"
+  },
+  "visual_direction_addendum": "Use curated original clusters along walls, corners, alcoves, and the landmark: furniture or containers, tools or books, hanging or wall decoration, plants or organic growth, and small lights. Prefer foreground/background depth layering and camera-scale readability over uniform scattering; preserve a clearly readable primary lane and door approach."
+}

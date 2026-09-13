@@ -1,0 +1,93 @@
+{
+  "schema_version": "2.0",
+  "id": "NSC-084",
+  "contract_revision": 2,
+  "contract_disposition": "active",
+  "title": "First-Wing Content Integration Package and Preservation Pass",
+  "reconciliation_key": "composed-world-content-integration-preservation",
+  "kind": "implementation",
+  "type": "content-authoring",
+  "execution_scope": "single_agent",
+  "execution_reason": "After the five room dressing tasks and existing composition, one integration task can assemble a conflict-free content package and prove it preserves the canonical composition's anchors without taking scene or gameplay ownership.",
+  "decomposition_state": "concrete",
+  "decomposition_reason": "A content-specific transition prefab, integration catalog, builder, and focused tests are one bounded downstream handoff to a separately locked canonical-scene integration task.",
+  "parent": "NSC-029",
+  "depends_on": [
+    "NSC-049",
+    "NSC-079",
+    "NSC-080",
+    "NSC-081",
+    "NSC-082",
+    "NSC-083"
+  ],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Integration/FirstWingTransitionDressing.prefab",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Integration/FirstWingContentIntegrationCatalog.json",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Environment/FirstWingContentIntegrationPackageBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Environment/FirstWingContentIntegrationPackageTests.cs",
+    "logical:composed-world-visual-content"
+  ],
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "NSC-049 canonical composition",
+      "requirement": "Assemble a content-only integration catalog for all five dressing prefabs and a transition-dressing prefab. Prove catalog entries preserve NSC-049 room/door anchors, stable isometric sorting, and deterministic composition inputs without opening or modifying Assets/Scenes/DoorPrototype.unity or RoomSceneComposer.cs."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "Gameplay preservation boundary",
+      "requirement": "Prove the integration package declares D1-D5 approach-clearance, room-opening, player-movement, collision, and no-runtime-scene-loading preservation constraints for the later canonical-scene integrator; it must not alter gameplay or scene state itself."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "Docs/Art/Environment/DUNGEON_ART_DIRECTION.md",
+      "requirement": "Define original transition pockets, thresholds, and connector dressing that create a deliberate density rhythm across the wing: crowded exploratory entry/archive, sparse ritual chapel, hazard-shaped vault crossing, then open final encounter. Do not copy or trace reference assets or layouts."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "Docs/Art/Environment/DUNGEON_ART_DIRECTION.md — Vincent-approved project direction, 2026-09-13",
+      "requirement": "Use original architectural rhythm across connectors: repeating arches, buttresses, iron gates, framed thresholds, stair and raised-platform landmarks, partial-height walls, compatible tile dimensions/pivots/sorting anchors, readable negative space, and material/light trails that make each room transition legible at gameplay camera scale."
+    }
+  ],
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "Content-package deterministic validation",
+      "requirement": "Focused Unity EditMode tests prove deterministic package/catalog generation, complete five-room and D1-D5 anchor coverage, transition rhythm metadata, stable sorting conventions, and idempotent rebuild without opening or modifying the canonical scene."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "Developer visual review",
+      "requirement": "A gameplay-camera contact sheet stages every dressing prefab plus the transition prefab against approved room blockouts and visibly shows room identities, landmark sequence, connector transitions, density rhythm, hazard-shaped vault traversal, ritual symmetry limited to the chapel, readable routes, and original no-copy art direction."
+    }
+  ],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "Existing NSC-049 canonical scene/composer ownership",
+      "requirement": "A later explicitly sequenced canonical-scene integration task must consume FirstWingContentIntegrationCatalog.json and acquire the exact existing locks for Assets/Scenes/DoorPrototype.unity and RoomSceneComposer.cs. NSC-084 is the handoff package only and must not claim or write those resources."
+    }
+  ],
+  "gdd_evidence": [
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md — Runtime Implementation",
+      "requirement": "All five spaces remain one continuous runtime world with persistent door and gameplay state."
+    },
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md — 2.5D Isometric Visual and World Representation",
+      "requirement": "Visual props remain separate from gameplay walkability and use the approved sorting convention."
+    }
+  ],
+  "basis": "human_approved_gameplay_presentation",
+  "source_scope": "required",
+  "confidence": "high",
+  "notes": "This task produces a content-only handoff package and must not write the canonical scene or room scenes. Governing visual direction: Docs/Art/Environment/DUNGEON_ART_DIRECTION.md, Vincent-approved project direction dated 2026-09-13. The supplied images are inspiration only; all art and layouts must be original.",
+  "repository_state_at_bootstrap": "partial",
+  "repository_evidence_at_bootstrap": [],
+  "provenance": {
+    "origin": "human_approved_environment_content_followup",
+    "approved_at_utc_date": "2026-09-13",
+    "approved_by": "Vincent"
+  },
+  "visual_direction_addendum": "Own connector corridors, intersections, thresholds, and transition pockets. Use curated original clusters and visual continuity: varied floor strips/insets, restrained blood/ash/slime trails, debris continuity, warm/cold accent-light pools, foreground/background depth layering, recognizable landmarks, readable route hierarchy, and at least one small narrative vignette. Preserve D1-D5 mechanics and navigable widths so the rooms read as one authored dungeon."
+}

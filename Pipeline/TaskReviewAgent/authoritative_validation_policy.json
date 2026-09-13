@@ -146,6 +146,96 @@
         "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.WizardArtIntegrationTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-085": {
+      "task_contract_sha256": "6bd47ed532fb1adbc0da1db3296180031a52e61c87188192dc309bae69895ba5",
+      "required_test_platforms": [
+        "EditMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.World.ExpandedDungeonRouteGraphTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-083": {
+      "task_contract_sha256": "aa794a37ba5984941f90c720c74d8290c6c2da2c81264e7430e0aebfc93f6b0f",
+      "required_test_platforms": [
+        "EditMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.Environment.FinalRoomDressingPrefabTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-079": {
+      "task_contract_sha256": "bef2db2aa30e098e1653aa42a8ff6a416eff418c509dc78021ea2262c2ce988a",
+      "required_test_platforms": [
+        "EditMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.Environment.RuinedEntryDressingPrefabTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-082": {
+      "task_contract_sha256": "223f6a4d65bc0a2f9423003286d8bf7c829c09669d66d372b36dfb925c01a95c",
+      "required_test_platforms": [
+        "EditMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.Environment.LowerVaultDressingPrefabTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-084": {
+      "task_contract_sha256": "95b078cc420b99fd425bb3f5e1009d910175838bd17f2d4d0e58d93cc7b32b7c",
+      "required_test_platforms": [
+        "EditMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.Environment.FirstWingContentIntegrationPackageTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-081": {
+      "task_contract_sha256": "053686bffed97ac73bc82737fd1277365d3c275fff60bfabbae4e7d1d1f61ce6",
+      "required_test_platforms": [
+        "EditMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.Environment.ChapelOfAshDressingPrefabTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-080": {
+      "task_contract_sha256": "df4d07ba312ac7768fe87dab0e38138779cfbea79c76b913f0babb421576b97e",
+      "required_test_platforms": [
+        "EditMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.Environment.BoneArchiveDressingPrefabTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-078": {
+      "task_contract_sha256": "a4653f1aa2b4ed05d4d300c81b2c02d2878f1704814741664d450f0c4d6f2120",
+      "required_test_platforms": [
+        "EditMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.Environment.DungeonPropArtPackTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-029": {
+      "task_contract_sha256": "74bfe7473d4050579d8a656192ab169e3b1a55e1890415d304d643fac04171db",
+      "required_test_platforms": [
+        "EditMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.World.FiveRoomCompositionTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
     }
   },
   "decomposition_child_templates": {}
