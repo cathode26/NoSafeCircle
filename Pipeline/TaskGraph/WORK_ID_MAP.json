@@ -69,6 +69,8 @@
                    "windows-build-scene-registration":  "NSC-037",
                    "win-loss-conditions":  "NSC-034",
                    "white-female-wizard-hat-frame-correction":  "NSC-073",
+                   "pixellab-cardinal-wizard-walk-art":  "NSC-074",
+                   "wizard-eight-direction-locomotion-integration":  "NSC-075",
                    "wizard-animation-audit-repair":  "NSC-070",
                    "world":  "NSC-022",
                    "world-sprite-prefab-sorting":  "NSC-039",

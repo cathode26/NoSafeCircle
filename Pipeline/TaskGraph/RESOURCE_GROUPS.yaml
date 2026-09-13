@@ -100,7 +100,8 @@
         "four-wizard-selection-screen",
         "selected-wizard-world-placement",
         "independent-room-scene-composition",
-        "wizard-animation-audit-repair"
+        "wizard-animation-audit-repair",
+        "wizard-eight-direction-locomotion-integration"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
       "work_ids": [
@@ -130,7 +131,8 @@
         "NSC-067",
         "NSC-068",
         "NSC-069",
-        "NSC-070"
+        "NSC-070",
+        "NSC-075"
       ]
     },
     {
@@ -182,7 +184,8 @@
         "four-wizard-selection-screen",
         "selected-wizard-world-placement",
         "independent-room-scene-composition",
-        "wizard-animation-audit-repair"
+        "wizard-animation-audit-repair",
+        "wizard-eight-direction-locomotion-integration"
       ],
       "resource_key": "unity-scene:Assets/Scenes/DoorPrototype.unity",
       "work_ids": [
@@ -212,7 +215,8 @@
         "NSC-067",
         "NSC-068",
         "NSC-069",
-        "NSC-070"
+        "NSC-070",
+        "NSC-075"
       ]
     },
     {
@@ -472,67 +476,79 @@
     {
       "reconciliation_keys": [
         "pixellab-wizard-art-selection",
-        "white-female-wizard-hat-frame-correction"
+        "white-female-wizard-hat-frame-correction",
+        "pixellab-cardinal-wizard-walk-art"
       ],
       "resource_key": "logical:pixellab-wizard-character-art",
       "work_ids": [
         "NSC-061",
-        "NSC-073"
+        "NSC-073",
+        "NSC-074"
       ]
     },
     {
       "reconciliation_keys": [
         "pixellab-wizard-art-selection",
-        "white-female-wizard-hat-frame-correction"
+        "white-female-wizard-hat-frame-correction",
+        "pixellab-cardinal-wizard-walk-art"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source",
       "work_ids": [
         "NSC-061",
-        "NSC-073"
+        "NSC-073",
+        "NSC-074"
       ]
     },
     {
       "reconciliation_keys": [
         "pixellab-wizard-art-selection",
-        "white-female-wizard-hat-frame-correction"
+        "white-female-wizard-hat-frame-correction",
+        "pixellab-cardinal-wizard-walk-art"
       ],
       "resource_key": "repo-file:Docs/Art/Wizard",
       "work_ids": [
         "NSC-061",
-        "NSC-073"
+        "NSC-073",
+        "NSC-074"
       ]
     },
     {
       "reconciliation_keys": [
         "animated-wizard-unity-integration",
-        "wizard-animation-audit-repair"
+        "wizard-animation-audit-repair",
+        "wizard-eight-direction-locomotion-integration"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/WizardAnimationController.cs",
       "work_ids": [
         "NSC-062",
-        "NSC-070"
+        "NSC-070",
+        "NSC-075"
       ]
     },
     {
       "reconciliation_keys": [
         "animated-wizard-unity-integration",
-        "wizard-animation-audit-repair"
+        "wizard-animation-audit-repair",
+        "wizard-eight-direction-locomotion-integration"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/WizardArtIntegrationTests.cs",
       "work_ids": [
         "NSC-062",
-        "NSC-070"
+        "NSC-070",
+        "NSC-075"
       ]
     },
     {
       "reconciliation_keys": [
         "animated-wizard-unity-integration",
-        "wizard-animation-audit-repair"
+        "wizard-animation-audit-repair",
+        "wizard-eight-direction-locomotion-integration"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/WizardAnimationPlayModeTests.cs",
       "work_ids": [
         "NSC-062",
-        "NSC-070"
+        "NSC-070",
+        "NSC-075"
       ]
     },
     {
