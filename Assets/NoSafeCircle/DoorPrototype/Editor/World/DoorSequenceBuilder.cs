@@ -64,7 +64,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
 
         private static void RemoveLegacyEnvironmentRoots(Scene scene)
         {
-            var legacyNames = new HashSet<string> { "Walls", "IsometricVisualGrid" };
+            var legacyNames = new HashSet<string> { "Floor", "Walls", "IsometricVisualGrid" };
             foreach (var root in scene.GetRootGameObjects())
             {
                 if (legacyNames.Contains(root.name)) UnityEngine.Object.DestroyImmediate(root);

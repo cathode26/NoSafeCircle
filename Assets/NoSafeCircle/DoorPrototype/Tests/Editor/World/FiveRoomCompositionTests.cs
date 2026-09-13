@@ -40,10 +40,15 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.World
                 }
 
                 Assert.AreEqual(5, roomsRoot.childCount, "The canonical composition must contain exactly five rooms.");
+                var rootNames = scene.GetRootGameObjects().Select(root => root.name).ToArray();
+                CollectionAssert.DoesNotContain(rootNames, "Floor", "Legacy prototype floor must be removed.");
+                CollectionAssert.DoesNotContain(rootNames, "Walls", "Legacy prototype walls must be removed.");
+                CollectionAssert.DoesNotContain(rootNames, "IsometricVisualGrid",
+                    "Legacy prototype visual grid must be removed.");
             }
             finally
             {
-                EditorSceneManager.CloseScene(scene, true);
+                EditorSceneManager.CloseScene(scene, false);
                 foreach (var pair in sourceBytes)
                 {
                     CollectionAssert.AreEqual(pair.Value, File.ReadAllBytes(pair.Key),
