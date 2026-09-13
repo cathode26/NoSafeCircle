@@ -1,0 +1,182 @@
+{
+  "schema_version": "1.0",
+  "migration_id": "world-multiscene-composition-20260912",
+  "status": "human_authorized_graph_delta",
+  "approved_by": "Vincent",
+  "approved_at_utc_date": "2026-09-12",
+  "source_commit": "eab9bad9325a3e28894a64b6bbde92ee58e75476",
+  "proposal": {
+    "path": "C:\\NSC\\AssistantControlEvidence\\ROOM_SCENE_COMPOSITION_TASK_PROPOSAL.md",
+    "sha256": "bfb012d3ef26ba2987df48364c303a18b8fa4b77a45c99fa06fd4c2a00cad190",
+    "title": "Independent Room Scenes and Deterministic World Composition Proposal"
+  },
+  "allocation": {
+    "new_task_id": "NSC-069",
+    "reconciliation_key": "independent-room-scene-composition",
+    "previous_maximum_task_id": "NSC-068"
+  },
+  "architecture": {
+    "authoring_mode": "independent_room_scenes",
+    "composition_mode": "deterministic_editor_time",
+    "runtime_scene": "Assets/Scenes/DoorPrototype.unity",
+    "runtime_room_scene_loading": false,
+    "final_composition_task": "NSC-049"
+  },
+  "task_contracts": [
+    {
+      "task_id": "NSC-029",
+      "path": "Tasks/NSC-029.yaml",
+      "old_contract_revision": 3,
+      "new_contract_revision": 4,
+      "old_sha256": "efb4becf0c75147486a07cb7fa2e9ac086f36589da67c9453486cd91f2857bf3",
+      "new_sha256": "174eb06406f78d13f5d001f72c5fda2ca07bade2403a889b806785514f6c6512"
+    },
+    {
+      "task_id": "NSC-044",
+      "path": "Tasks/NSC-044.yaml",
+      "old_contract_revision": 1,
+      "new_contract_revision": 2,
+      "old_sha256": "7d96fb1d413fbf9472dad57a6bededfd7fa8e543a542f33c367beccc7a28d0dc",
+      "new_sha256": "e31be6f76794e5dc61479482e3f5eeda23533104608771c742981ed013ff4c34"
+    },
+    {
+      "task_id": "NSC-045",
+      "path": "Tasks/NSC-045.yaml",
+      "old_contract_revision": 1,
+      "new_contract_revision": 2,
+      "old_sha256": "f5ec5001b17bb8b17e268865894357561c943a08d784e46ad380b34ce77f166d",
+      "new_sha256": "63458b4e1963ed02d7bd9593905b0e4100e689bad3530a11f3ae59141a54204d"
+    },
+    {
+      "task_id": "NSC-046",
+      "path": "Tasks/NSC-046.yaml",
+      "old_contract_revision": 3,
+      "new_contract_revision": 4,
+      "old_sha256": "621143ab106d2090da40359b8154f6fb80b0c728a01952bb57a2e0fd7d20d65b",
+      "new_sha256": "e3260a55c4f2992a8d8749ba1c0bfaa174af52b8f34054ec4d7771833c177508"
+    },
+    {
+      "task_id": "NSC-047",
+      "path": "Tasks/NSC-047.yaml",
+      "old_contract_revision": 1,
+      "new_contract_revision": 2,
+      "old_sha256": "c3e6301941a427ed60d32a5e43e9a495788ea0aa4c6cebed385287713de23a0b",
+      "new_sha256": "0cc64c7affd64a929b72f3b89e2ae3374a10c1c43d4d150ec188df2c4d0d8035"
+    },
+    {
+      "task_id": "NSC-048",
+      "path": "Tasks/NSC-048.yaml",
+      "old_contract_revision": 1,
+      "new_contract_revision": 2,
+      "old_sha256": "892d89cb919953b60e666585593a5aa2e495cd9b102fe9445e6eebc579e98b9e",
+      "new_sha256": "89e1a7f78d8733dd02514b0884f1d9c519311b9613da267c4e126f46759b70fd"
+    },
+    {
+      "task_id": "NSC-049",
+      "path": "Tasks/NSC-049.yaml",
+      "old_contract_revision": 2,
+      "new_contract_revision": 3,
+      "old_sha256": "6934078cd920c67daeac435863c02c62f3b993ac23c15822c8f32114de8f5d08",
+      "new_sha256": "51cb89b813ab1dbb72dcaa742029e9179f3fc2f3aea085e87bdeeeaeaa217500"
+    },
+    {
+      "task_id": "NSC-069",
+      "path": "Tasks/NSC-069.yaml",
+      "old_contract_revision": null,
+      "new_contract_revision": 1,
+      "old_sha256": null,
+      "new_sha256": "5cfa2eb3830df9b59fec01f2ee2cec388a1da20d6c8dc713e899fc0fc1fae612"
+    }
+  ],
+  "graph_metadata": {
+    "work_id_map": {
+      "path": "Pipeline/TaskGraph/WORK_ID_MAP.json",
+      "old_sha256": "d7ba4a98aa2c0c80838c5d395b250408acc3c3ddd34ff32d07a518c2d9a6855d",
+      "new_sha256": "27b9880ace49ef64386227f6ccfe34063cf699a7d1dc606f238a89c5128e91ab"
+    },
+    "resource_groups": {
+      "path": "Pipeline/TaskGraph/RESOURCE_GROUPS.yaml",
+      "old_sha256": "3322a02390c557350d4a7803de70fa5567b888ca048c16e7b54767aebddbd0f6",
+      "new_sha256": "5a121867683e9ddd849cc50054f311a65abf078661b514b6a6908d896e92f3ea"
+    },
+    "authoritative_validation_policy": {
+      "path": "Pipeline/TaskReviewAgent/authoritative_validation_policy.json",
+      "old_sha256": "80c528d88acabf881021d132cf50da0e24ddaf170656a56d42c80e0557443e0f",
+      "new_sha256": "bb9d9686e7ac606ea7c53e4c4b6c500285f3f2859d66bf96d80425492ce78445"
+    },
+    "bootstrap_persisted": {
+      "path": "Pipeline/TaskGraph/BOOTSTRAP_PERSISTED.json",
+      "disposition": "unchanged_immutable_historical_bootstrap"
+    },
+    "task_contract_v2_migration": {
+      "path": "Pipeline/TaskGraph/TASK_CONTRACT_V2_MIGRATION.json",
+      "disposition": "unchanged_immutable_historical_migration"
+    }
+  },
+  "planned_unity_meta_guids": {
+    "Assets/Scenes/Rooms/RuinedEntry.unity": "ad254be55b06c15e9d314d82aea23854",
+    "Assets/Scenes/Rooms/BoneArchive.unity": "2ba0c61d3b340a7882368709cffa0fae",
+    "Assets/Scenes/Rooms/ChapelOfAsh.unity": "2d47c2bc601c12d04fa1655bae0ca319",
+    "Assets/Scenes/Rooms/LowerVault.unity": "95e9873e1aee54bb75ceaeaf28cc7467",
+    "Assets/Scenes/Rooms/FinalRoom.unity": "ba812994de92091f039ab62032cd7c14",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/World/RoomAuthoringContract.cs": "e0736b0547dae0cbbf1e9fcd882cdafb",
+    "Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneCatalog.cs": "672f4c58b9b9a9f570efc8cf80a6b8fe",
+    "Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneComposer.cs": "c2f16dcf3104f1ec1ba261fdc35f5e5a",
+    "Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs": "cc1f16f938b84210d2263a2d891f8c1f",
+    "Assets/NoSafeCircle/DoorPrototype/Generated/World/RoomSceneCatalog.asset": "b91bf7225a1d8858902a6ca50ded7594",
+    "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/World/RoomSceneComposerTests.cs": "890618db5edce4a2ff740f85364ab61d",
+    "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/World/RoomSceneContractTests.cs": "be35c1abc2832941545ccc376b856360",
+    "Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/RuinedEntrySceneBuilder.cs": "c4a1becffbc95d210f5d58be85cceeb1",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/RuinedEntryLayout.cs": "6857b763c1a7ee05566aab34c1221405",
+    "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/RuinedEntrySceneTests.cs": "19b13c59274772671d30c529dd64ec49",
+    "Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/BoneArchiveSceneBuilder.cs": "9c2227f0692ed990b3eebc5b96e0c9dc",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/BoneArchiveLayout.cs": "4a3779de2f2fea05c97cf1bb413fa397",
+    "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/BoneArchiveSceneTests.cs": "391a5829886f04efa53e4a84d423ba93",
+    "Assets/NoSafeCircle/DoorPrototype/Tests/BoneArchiveNavigationPlayModeTests.cs": "966d7f0de58115d9627dc22efecda168",
+    "Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/ChapelOfAshSceneBuilder.cs": "51275c837f2b3e7406130e22694d52d6",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/ChapelOfAshLayout.cs": "cec75f7894ca415297ef61818f4e0443",
+    "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/ChapelOfAshSceneTests.cs": "965736a49f9671756ff30d2066f708d0",
+    "Assets/NoSafeCircle/DoorPrototype/Tests/ChapelOfAshProjectileCoverPlayModeTests.cs": "1fed4d46345110246f562fbbe7fa918e",
+    "Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/LowerVaultSceneBuilder.cs": "50288f1e2fc30da7a6b77dc77d6a222d",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/LowerVaultLayout.cs": "a3a8090722d648644c65cedf399bc807",
+    "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/LowerVaultSceneTests.cs": "10abffb555265e7e986b036db9eab435",
+    "Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/FinalRoomSceneBuilder.cs": "e5da6b11de4e5d939d86e4d740c00d30",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/FinalRoomLayout.cs": "084d57a394988fa252b62b3893b8a75e",
+    "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/FinalRoomSceneTests.cs": "ea6648aa2d6df0ae49b221a837e43e8e",
+    "Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorSequenceBuilder.cs": "bf76d2612ec1676471987904bfd01cbb",
+    "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/World/FiveRoomCompositionTests.cs": "e9811a65a0b1221e2c653ebe05fce673",
+    "Assets/NoSafeCircle/DoorPrototype/Tests/FiveRoomDoorSequencePlayModeTests.cs": "1dee0195cd9d350d2e20e42207b76504"
+  },
+  "unity_meta_identity_tool": {
+    "function": "Pipeline.ExecutionCrew.run_crew.unity_meta_bytes",
+    "scheme": "NoSafeCircle.ExecutionCrew.UnityMeta/v1",
+    "materialization_rule": "NSC-069 creates the scaffold assets and pipeline-generated companion .meta files; NSC-044 through NSC-048 preserve those identities. NSC-049 uses the same helper for its new builder and test files."
+  },
+  "validation_policy_resolution": {
+    "single_filter_per_platform": true,
+    "nsc_069_editmode_filter": "NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests",
+    "resolution": "RoomSceneComposerTests.cs and RoomSceneContractTests.cs contribute to one shared authoritative fixture so both proposed validation responsibilities run under the one committed EditMode filter."
+  },
+  "schema_gaps": [
+    {
+      "area": "read_only_context_paths",
+      "gap": "Task contract schema 2.0 and TaskGraph resource metadata do not encode a separate enumerated read-only context-path list.",
+      "fail_closed_resolution": "NSC-049 does not claim the five room scenes as write resources. Its contract names them as immutable inputs, exact AssistantControl write scope excludes them, and authoritative validation compares their hashes before and after composition."
+    }
+  ],
+  "changed_files": [
+    ".assistant-control/world-multiscene-graph-journal.md",
+    "Pipeline/TaskGraph/RESOURCE_GROUPS.yaml",
+    "Pipeline/TaskGraph/WORK_ID_MAP.json",
+    "Pipeline/TaskGraph/migrations/world-multiscene-composition-20260912.json",
+    "Pipeline/TaskReviewAgent/authoritative_validation_policy.json",
+    "Tasks/NSC-029.yaml",
+    "Tasks/NSC-044.yaml",
+    "Tasks/NSC-045.yaml",
+    "Tasks/NSC-046.yaml",
+    "Tasks/NSC-047.yaml",
+    "Tasks/NSC-048.yaml",
+    "Tasks/NSC-049.yaml",
+    "Tasks/NSC-069.yaml"
+  ]
+}

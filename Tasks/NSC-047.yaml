@@ -21,19 +21,22 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "decomposition_reason": "Lower Vault's shell, four obstacles, route constraints, and previous-door relevance are sufficiently explicit for one bounded room-authoring unit.",
   "decomposition_state": "concrete",
   "depends_on": [
-    "NSC-026"
+    "NSC-026",
+    "NSC-069"
   ],
   "downstream_integration_obligations": [],
   "exclusive_resources": [
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
-    "unity-scene:Assets/Scenes/DoorPrototype.unity",
-    "logical:gameplay-walkability-surface"
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/LowerVaultSceneBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/LowerVaultLayout.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/LowerVaultSceneTests.cs",
+    "unity-scene:Assets/Scenes/Rooms/LowerVault.unity",
+    "logical:room-walkability:lower-vault"
   ],
-  "execution_reason": "One agent can implement and validate the approved Lower Vault topology without authoring encounters or persistent-pursuer behavior.",
+  "execution_reason": "One agent can author and validate the Lower Vault builder, layout data, focused tests, and Unity authoring scene without writing the canonical scene or another room's files and without authoring encounters or persistent-pursuer behavior.",
   "execution_scope": "single_agent",
   "gdd_evidence": [
     {
@@ -43,14 +46,21 @@
   ],
   "id": "NSC-047",
   "kind": "implementation",
-  "notes": "The child preserves space for rear pressure but does not implement breaches, pursuit, or encounter activation.",
+  "notes": "The child preserves space for rear pressure but does not implement breaches, pursuit, or encounter activation. Assets/Scenes/Rooms/LowerVault.unity is an Editor-time authoring input; NSC-049 composes it into the one canonical runtime scene.",
   "parent": "NSC-029",
   "provenance": {
     "graph_delta_plan_id": "GDP-5f799a9d352217a315b42a5ec36178abecd2ff16235c9191797508850edfc9d2",
     "origin": "progressive_decomposition",
     "parent_contract_revision": 2,
     "parent_contract_sha256": "c1ad8b9cd094f35eab937db10b393b211b628c9ded50c8688cefe8a69f34d490",
-    "parent_task_id": "NSC-029"
+    "parent_task_id": "NSC-029",
+    "architecture_revision": {
+      "approved_at_utc_date": "2026-09-12",
+      "approved_by": "Vincent",
+      "decision": "deterministic_editor_time_room_scene_composition",
+      "proposal_sha256": "bfb012d3ef26ba2987df48364c303a18b8fa4b77a45c99fa06fd4c2a00cad190",
+      "source_commit": "eab9bad9325a3e28894a64b6bbde92ee58e75476"
+    }
   },
   "reconciliation_key": "lower-vault-blockout",
   "repository_evidence_at_bootstrap": [],

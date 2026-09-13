@@ -36,24 +36,16 @@
     {
       "reconciliation_keys": [
         "gameplay-navigation-locomotion",
-        "ruined-entry-blockout",
-        "bone-archive-blockout",
-        "chapel-of-ash-blockout",
-        "lower-vault-blockout",
-        "final-room-blockout",
         "five-room-continuity-door-sequence",
-        "door-passability-publication"
+        "door-passability-publication",
+        "independent-room-scene-composition"
       ],
       "resource_key": "logical:gameplay-walkability-surface",
       "work_ids": [
         "NSC-025",
-        "NSC-044",
-        "NSC-045",
-        "NSC-046",
-        "NSC-047",
-        "NSC-048",
         "NSC-049",
-        "NSC-051"
+        "NSC-051",
+        "NSC-069"
       ]
     },
     {
@@ -99,11 +91,6 @@
         "visual-simulation-continuity",
         "door-visual-affordance-feedback",
         "seamless-scalable-wall-tiling",
-        "ruined-entry-blockout",
-        "bone-archive-blockout",
-        "chapel-of-ash-blockout",
-        "lower-vault-blockout",
-        "final-room-blockout",
         "five-room-continuity-door-sequence",
         "door-lock-break-state",
         "door-passability-publication",
@@ -111,7 +98,8 @@
         "animated-wizard-unity-integration",
         "title-screen-start-game-flow",
         "four-wizard-selection-screen",
-        "selected-wizard-world-placement"
+        "selected-wizard-world-placement",
+        "independent-room-scene-composition"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
       "work_ids": [
@@ -132,11 +120,6 @@
         "NSC-040",
         "NSC-041",
         "NSC-042",
-        "NSC-044",
-        "NSC-045",
-        "NSC-046",
-        "NSC-047",
-        "NSC-048",
         "NSC-049",
         "NSC-050",
         "NSC-051",
@@ -144,7 +127,8 @@
         "NSC-062",
         "NSC-066",
         "NSC-067",
-        "NSC-068"
+        "NSC-068",
+        "NSC-069"
       ]
     },
     {
@@ -152,6 +136,7 @@
         "door-open-interaction",
         "doorway-crossing-state",
         "door-visual-affordance-feedback",
+        "five-room-continuity-door-sequence",
         "door-lock-break-state",
         "door-passability-publication",
         "door-breach-feedback"
@@ -161,6 +146,7 @@
         "NSC-019",
         "NSC-020",
         "NSC-041",
+        "NSC-049",
         "NSC-050",
         "NSC-051",
         "NSC-052"
@@ -185,11 +171,6 @@
         "visual-simulation-continuity",
         "door-visual-affordance-feedback",
         "seamless-scalable-wall-tiling",
-        "ruined-entry-blockout",
-        "bone-archive-blockout",
-        "chapel-of-ash-blockout",
-        "lower-vault-blockout",
-        "final-room-blockout",
         "five-room-continuity-door-sequence",
         "door-lock-break-state",
         "door-passability-publication",
@@ -197,7 +178,8 @@
         "animated-wizard-unity-integration",
         "title-screen-start-game-flow",
         "four-wizard-selection-screen",
-        "selected-wizard-world-placement"
+        "selected-wizard-world-placement",
+        "independent-room-scene-composition"
       ],
       "resource_key": "unity-scene:Assets/Scenes/DoorPrototype.unity",
       "work_ids": [
@@ -218,11 +200,6 @@
         "NSC-040",
         "NSC-041",
         "NSC-042",
-        "NSC-044",
-        "NSC-045",
-        "NSC-046",
-        "NSC-047",
-        "NSC-048",
         "NSC-049",
         "NSC-050",
         "NSC-051",
@@ -230,7 +207,316 @@
         "NSC-062",
         "NSC-066",
         "NSC-067",
-        "NSC-068"
+        "NSC-068",
+        "NSC-069"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "ruined-entry-blockout",
+        "independent-room-scene-composition"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/RuinedEntrySceneBuilder.cs",
+      "work_ids": [
+        "NSC-044",
+        "NSC-069"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "ruined-entry-blockout",
+        "independent-room-scene-composition"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/RuinedEntryLayout.cs",
+      "work_ids": [
+        "NSC-044",
+        "NSC-069"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "ruined-entry-blockout",
+        "independent-room-scene-composition"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/RuinedEntrySceneTests.cs",
+      "work_ids": [
+        "NSC-044",
+        "NSC-069"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "ruined-entry-blockout",
+        "independent-room-scene-composition"
+      ],
+      "resource_key": "unity-scene:Assets/Scenes/Rooms/RuinedEntry.unity",
+      "work_ids": [
+        "NSC-044",
+        "NSC-069"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "ruined-entry-blockout",
+        "independent-room-scene-composition"
+      ],
+      "resource_key": "logical:room-walkability:ruined-entry",
+      "work_ids": [
+        "NSC-044",
+        "NSC-069"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "bone-archive-blockout",
+        "independent-room-scene-composition"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/BoneArchiveSceneBuilder.cs",
+      "work_ids": [
+        "NSC-045",
+        "NSC-069"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "bone-archive-blockout",
+        "independent-room-scene-composition"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/BoneArchiveLayout.cs",
+      "work_ids": [
+        "NSC-045",
+        "NSC-069"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "bone-archive-blockout",
+        "independent-room-scene-composition"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/BoneArchiveSceneTests.cs",
+      "work_ids": [
+        "NSC-045",
+        "NSC-069"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "bone-archive-blockout",
+        "independent-room-scene-composition"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/BoneArchiveNavigationPlayModeTests.cs",
+      "work_ids": [
+        "NSC-045",
+        "NSC-069"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "bone-archive-blockout",
+        "independent-room-scene-composition"
+      ],
+      "resource_key": "unity-scene:Assets/Scenes/Rooms/BoneArchive.unity",
+      "work_ids": [
+        "NSC-045",
+        "NSC-069"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "bone-archive-blockout",
+        "independent-room-scene-composition"
+      ],
+      "resource_key": "logical:room-walkability:bone-archive",
+      "work_ids": [
+        "NSC-045",
+        "NSC-069"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "chapel-of-ash-blockout",
+        "independent-room-scene-composition"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/ChapelOfAshSceneBuilder.cs",
+      "work_ids": [
+        "NSC-046",
+        "NSC-069"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "chapel-of-ash-blockout",
+        "independent-room-scene-composition"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/ChapelOfAshLayout.cs",
+      "work_ids": [
+        "NSC-046",
+        "NSC-069"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "chapel-of-ash-blockout",
+        "independent-room-scene-composition"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/ChapelOfAshSceneTests.cs",
+      "work_ids": [
+        "NSC-046",
+        "NSC-069"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "chapel-of-ash-blockout",
+        "independent-room-scene-composition"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/ChapelOfAshProjectileCoverPlayModeTests.cs",
+      "work_ids": [
+        "NSC-046",
+        "NSC-069"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "chapel-of-ash-blockout",
+        "independent-room-scene-composition"
+      ],
+      "resource_key": "unity-scene:Assets/Scenes/Rooms/ChapelOfAsh.unity",
+      "work_ids": [
+        "NSC-046",
+        "NSC-069"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "chapel-of-ash-blockout",
+        "independent-room-scene-composition"
+      ],
+      "resource_key": "logical:room-walkability:chapel-of-ash",
+      "work_ids": [
+        "NSC-046",
+        "NSC-069"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "lower-vault-blockout",
+        "independent-room-scene-composition"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/LowerVaultSceneBuilder.cs",
+      "work_ids": [
+        "NSC-047",
+        "NSC-069"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "lower-vault-blockout",
+        "independent-room-scene-composition"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/LowerVaultLayout.cs",
+      "work_ids": [
+        "NSC-047",
+        "NSC-069"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "lower-vault-blockout",
+        "independent-room-scene-composition"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/LowerVaultSceneTests.cs",
+      "work_ids": [
+        "NSC-047",
+        "NSC-069"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "lower-vault-blockout",
+        "independent-room-scene-composition"
+      ],
+      "resource_key": "unity-scene:Assets/Scenes/Rooms/LowerVault.unity",
+      "work_ids": [
+        "NSC-047",
+        "NSC-069"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "lower-vault-blockout",
+        "independent-room-scene-composition"
+      ],
+      "resource_key": "logical:room-walkability:lower-vault",
+      "work_ids": [
+        "NSC-047",
+        "NSC-069"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "final-room-blockout",
+        "independent-room-scene-composition"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/FinalRoomSceneBuilder.cs",
+      "work_ids": [
+        "NSC-048",
+        "NSC-069"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "final-room-blockout",
+        "independent-room-scene-composition"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/FinalRoomLayout.cs",
+      "work_ids": [
+        "NSC-048",
+        "NSC-069"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "final-room-blockout",
+        "independent-room-scene-composition"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/FinalRoomSceneTests.cs",
+      "work_ids": [
+        "NSC-048",
+        "NSC-069"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "final-room-blockout",
+        "independent-room-scene-composition"
+      ],
+      "resource_key": "unity-scene:Assets/Scenes/Rooms/FinalRoom.unity",
+      "work_ids": [
+        "NSC-048",
+        "NSC-069"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "final-room-blockout",
+        "independent-room-scene-composition"
+      ],
+      "resource_key": "logical:room-walkability:final-room",
+      "work_ids": [
+        "NSC-048",
+        "NSC-069"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "five-room-continuity-door-sequence",
+        "independent-room-scene-composition"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneComposer.cs",
+      "work_ids": [
+        "NSC-049",
+        "NSC-069"
       ]
     },
     {
