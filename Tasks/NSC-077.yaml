@@ -1,0 +1,134 @@
+{
+  "schema_version": "2.0",
+  "id": "NSC-077",
+  "contract_revision": 1,
+  "contract_disposition": "active",
+  "title": "Stationary Enemy Sprite Integration and Room Placement",
+  "reconciliation_key": "stationary-enemy-sprite-integration",
+  "kind": "implementation",
+  "type": "stationary-enemy-presentation-integration",
+  "execution_scope": "single_agent",
+  "execution_reason": "One agent can import the approved Melee Enemy and Ranged Enemy presentation sets, materialize deterministic sprite metadata and reusable stationary prefabs, wire the existing world-sprite sorting convention, and place a bounded review sample in the composed five-room world.",
+  "decomposition_state": "concrete",
+  "decomposition_reason": "The source-art import contract, shared presentation component, prefab materialization, room review placement, and focused conformance checks form one intentionally presentation-only vertical slice. No child task is required or permitted.",
+  "parent": "NSC-010",
+  "depends_on": ["NSC-063", "NSC-039", "NSC-069"],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/Enemies",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/StationaryEnemyPresentation.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/StationaryEnemyDirection.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/StationaryEnemyReviewPlacement.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Enemies/StationaryEnemyPresentationBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/StationaryEnemyPresentationIntegrationTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/StationaryEnemyStationaryBehaviorPlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs",
+    "unity-scene:Assets/Scenes/DoorPrototype.unity"
+  ],
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "NSC-063 approved PixelLab source-art handoff",
+      "requirement": "Import exactly the 16 selected source images: Melee Enemy and Ranged Enemy, each with explicit n, ne, e, se, s, sw, w, and nw direction identities. The import contract rejects a missing, duplicated, ambiguously named, wrong-family, or wrong-direction source and does not substitute unapproved art."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "Approved Unity sprite presentation contract and NSC-039 world-sprite sorting foundation",
+      "requirement": "Materialize deterministic Unity sprite metadata for all 16 images with explicit direction and archetype mapping, transparent texture import, the approved feet or grounded pivot, the approved pixels-per-unit and filter mode, and stable scale calibrated against the wizard and closer isometric camera. Every reusable enemy presentation prefab uses a world-space SpriteRenderer and the established isometric sorting convention."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "NSC-069 composed five-room world",
+      "requirement": "Place at least one Melee Enemy and one Ranged Enemy presentation instance at authored review anchors in the deterministic five-room composition, with deterministic scattering or per-room placement data. Anchors keep both examples readable and leave wizard navigation lanes, door openings, and room transitions clear."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "Presentation-only vertical-slice boundary",
+      "requirement": "The integrated examples remain stationary and presentation-only. They contain no pursuit, navigation, attacks, projectiles, damage, health, registry bookkeeping, defeat, encounters, or final balance behavior; those responsibilities remain with NSC-015, NSC-055, and NSC-030."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "Deterministic Unity builder and generated-asset ownership",
+      "requirement": "A named Editor or batchmode materialization command owns the generated sprite metadata, prefab assets, and review placement serialization. Running it twice from the same inputs produces the same archetype/direction bindings, renderer settings, pivot, scale, sorting values, placement anchors, and object counts without duplicate assets or instances."
+    }
+  ],
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "Focused EditMode import and mapping conformance",
+      "requirement": "StationaryEnemyPresentationIntegrationTests deterministically inventories the exact 16 selected source images, proves both archetypes and all eight direction identities are present exactly once, and proves each generated sprite metadata record resolves to the expected source, transparent import settings, pivot, pixels-per-unit, filtering, and stable grounded scale."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "Focused EditMode prefab and sorting conformance",
+      "requirement": "StationaryEnemyPresentationIntegrationTests opens the generated Melee Enemy and Ranged Enemy prefabs and proves the renderer is world-space, the sprite binding is direction-explicit, the pivot and scale are grounded and stable, and the renderer sorting values match the NSC-039 isometric convention without gameplay components."
+    },
+    {
+      "gate_id": "VAL-003",
+      "reference": "Focused EditMode materialization and room-placement conformance",
+      "requirement": "The focused EditMode checks run materialization twice in an isolated temporary asset or scene context, prove idempotent output and no duplicate roots, and prove the composed five-room review anchors contain at least one instance of each archetype while preserving authored door openings and wizard navigation lanes."
+    },
+    {
+      "gate_id": "VAL-004",
+      "reference": "Focused PlayMode stationary behavior check",
+      "requirement": "StationaryEnemyStationaryBehaviorPlayModeTests observes one instance of each archetype for a bounded interval in the composed world and proves their transforms do not move, no attack or projectile state is created, and the examples remain available for visual review."
+    },
+    {
+      "gate_id": "VAL-005",
+      "reference": "Human Unity visual approval before integration",
+      "requirement": "Vincent opens the exact candidate's Assets/Scenes/DoorPrototype.unity, confirms both enemy archetypes are readable at the authored room anchors from the closer camera, checks all eight facing assets through the presentation review path, confirms sprites sort correctly against floors, walls, doors, and the wizard, verifies doors and wizard navigation remain unobstructed, and approves the exact candidate commit before integration."
+    }
+  ],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "NSC-015, NSC-055, and NSC-030 behavior and encounter work",
+      "requirement": "Later behavior and encounter tasks may consume these presentation prefabs and direction metadata, but must add pursuit, navigation, attack, projectile, health, defeat, registry, encounter admission, and balance behavior under their own contracts and resource ownership."
+    }
+  ],
+  "gdd_evidence": [
+    {
+      "reference": "GDD — Required Enemy Roster",
+      "requirement": "The required roster contains distinct Melee Enemy and Ranged Enemy archetypes."
+    },
+    {
+      "reference": "GDD — 2.5D Isometric Visual and World Representation",
+      "requirement": "Enemies are world-space SpriteRenderer presentation objects using the shared isometric sorting convention."
+    },
+    {
+      "reference": "GDD — Runtime Implementation and room composition canon",
+      "requirement": "The five encounter spaces are composed into one continuous world representation; presentation placement must preserve walkability and door access."
+    }
+  ],
+  "basis": "human_requested_stationary_enemy_presentation_followup",
+  "source_scope": "required",
+  "confidence": "high",
+  "notes": "TaskGraph-only candidate for an intentionally presentation-only vertical slice. NSC-063 is the sole source-art authority; this task consumes all 16 approved selected images and does not edit the source-art handoff. NSC-039 supplies sorting conventions and NSC-069 supplies the composed five-room foundation. The candidate must stop with a dependency blocker if any prerequisite is not approved or available. Generated Unity assets and scene serialization belong to the named builder and must not be hand-authored. Human visual approval is required before integration.",
+  "repository_state_at_bootstrap": "partial",
+  "repository_evidence_at_bootstrap": [
+    {
+      "path": "Tasks/NSC-063.yaml",
+      "evidence_type": "contract",
+      "observation": "NSC-063 explicitly hands off one selected Melee Enemy set and one selected Ranged Enemy set for later stationary Unity integration and excludes behavior, prefabs, and scene placement."
+    },
+    {
+      "path": "Tasks/NSC-039.yaml",
+      "evidence_type": "contract",
+      "observation": "NSC-039 establishes reusable world-space SpriteRenderer prefabs and the shared isometric sorting convention."
+    },
+    {
+      "path": "Tasks/NSC-069.yaml",
+      "evidence_type": "contract",
+      "observation": "NSC-069 establishes deterministic five-room composition and preserves navigation and door-anchor validation as composition invariants."
+    }
+  ],
+  "provenance": {
+    "origin": "human_requested_stationary_enemy_integration_graph_candidate",
+    "source_art_task_id": "NSC-063",
+    "sorting_foundation_task_id": "NSC-039",
+    "room_composition_task_id": "NSC-069",
+    "behavior_boundaries": ["NSC-015", "NSC-055", "NSC-030"],
+    "created_by_human_request": true,
+    "approved_at_utc_date": "2026-09-13"
+  }
+}

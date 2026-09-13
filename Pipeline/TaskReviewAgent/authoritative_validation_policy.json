@@ -156,6 +156,18 @@
         "PlayMode": "NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-077": {
+      "task_contract_sha256": "f55cafec7fb32f57e2385e443181fe11c18ed7b7fd7b5daf4ca7f87c9ad519e7",
+      "required_test_platforms": [
+        "EditMode",
+        "PlayMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.StationaryEnemyPresentationIntegrationTests",
+        "PlayMode": "NoSafeCircle.DoorPrototype.Tests.StationaryEnemyStationaryBehaviorPlayModeTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
     }
   },
   "decomposition_child_templates": {}
