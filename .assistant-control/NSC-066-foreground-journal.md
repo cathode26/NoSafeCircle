@@ -6,7 +6,7 @@
 - Branch: `assistant/foreground-nsc-066-title-screen`
 - Starting commit: `eab9bad9325a3e28894a64b6bbde92ee58e75476`
 - Task contract: `Tasks/NSC-066.yaml` revision 1
-- Status: implementation complete; preparing exact-path commit and clean validation
+- Status: implementation, focused validation, and committed-diff inspection complete; awaiting Vincent's visual review
 
 ## Reference evidence
 
@@ -18,9 +18,7 @@
 
 ## TODO
 
-- Commit the exact NSC-066 changed paths with the guarded automation identity.
-- Run clean committed Edit Mode and Play Mode validation.
-- Inspect the committed diff and final Git status.
+- Vincent: perform the visual review described below.
 
 ## Changed paths
 
@@ -42,12 +40,14 @@
 - Development Play Mode filter: `NoSafeCircle.DoorPrototype.Tests.TitleScreen`; latest result `Passed`, total `3`, passed `3`, failed `0`, skipped `0`; XML `C:\NSC\NSC-066-playmode-dev.xml`; log `C:\NSC\NSC-066-playmode-dev.log`.
 - `python Pipeline\TaskGraph\taskcontrol.py validate`: PASS, 68 active task contracts, connected/acyclic parent hierarchy, acyclic dependency graph.
 - `git diff --check`: PASS after normalizing Unity-authored YAML trailing spaces.
-- Clean committed validation: pending.
+- Authoritative committed Edit Mode wrapper, run against disposable exact-commit clone `C:\NSC\NSC-066-Validation-Edit-v2`: test XML result `Passed`, total `3`, passed `3`, failed `0`, skipped `0`; artifacts `C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-294ec95831014c11b2604cfac0611a76`. The wrapper returned `1` only at its post-run Git guard because Unity generated 177 untracked `.meta` files and changed two settings files; it preserved all 179 entries for inspection and did not emit a clean-validation manifest.
+- Authoritative committed Play Mode wrapper, run against disposable exact-commit clone `C:\NSC\NSC-066-Validation-Play-v2`: test XML result `Passed`, total `3`, passed `3`, failed `0`, skipped `0`; artifacts `C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-cf3fc3c6eb4a41338ac97099f08f8743`. The wrapper returned `1` only at the same post-run Git guard and preserved the same two settings changes plus 177 generated `.meta` files.
 - Unity repeatedly generated 177 `.meta` files for preexisting, out-of-scope wizard source art and settings-only churn. The pre-run status proved these were new Unity import side effects; their inventory was inspected and they were removed/restored without changing the source art.
 
 ## Commit
 
-- Pending.
+- Implementation commit: `d17d07aa22327a209ac9ef10dc12ecef65dc712e` (`Implement NSC-066 title screen flow`).
+- The final branch head adds only this validation journal to the implementation commit.
 
 ## Blockers
 
@@ -58,4 +58,5 @@
 
 - Unity project: `C:\NSC\NoSafeCircle-Foreground-NSC-066`
 - Scene: `Assets/Scenes/DoorPrototype.unity`
-- Enter Play Mode at the canonical 1920x1080 reference resolution, confirm the opaque title screen is readable, then click **Start Game** once and confirm the title hides while gameplay input remains suspended for the wizard-selection boundary.
+- Set Game view to the canonical 1920x1080 reference resolution and enter Play Mode. Confirm the opaque dark plum title screen is readable, has exactly one clear **Start Game** button, and blocks movement, interaction, and the K/L debug controls.
+- Click **Start Game** once. Confirm the title hides and gameplay remains suspended after the one-shot wizard-selection request. NSC-067 is intentionally outside this task, so no wizard-selection UI appears yet; this event boundary is the expected stopping point for NSC-066.
