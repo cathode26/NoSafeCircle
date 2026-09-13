@@ -1,4 +1,5 @@
 using System.IO;
+using NoSafeCircle.DoorPrototype.World;
 using NoSafeCircle.DoorPrototype.World.Rooms;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -25,10 +26,13 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
         {
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             var root = new GameObject("Room_FinalRoom");
-            var visuals = CreateChild("VisualBlockout", root.transform);
-            var geometry = CreateChild("GameplayGeometry", root.transform);
-            var anchors = CreateChild("DoorAnchors", root.transform);
-            var dressing = CreateChild("FittingRoomDressing", visuals.transform);
+            Transform visuals = CreateCategory(root.transform, "Visuals", RoomContentCategory.Visuals);
+            Transform geometry = CreateCategory(root.transform, "GameplayGeometry", RoomContentCategory.GameplayGeometry);
+            Transform anchors = CreateCategory(root.transform, "DoorAnchors", RoomContentCategory.DoorAnchors);
+            Transform authoring = CreateCategory(root.transform, "Authoring", RoomContentCategory.Authoring);
+            GameObject dressingObject = new GameObject("FittingRoomDressing");
+            dressingObject.transform.SetParent(visuals, false);
+            Transform dressing = dressingObject.transform;
 
             CreateBox("FloorVisual", visuals.transform,
                 FinalRoomLayout.RoomBounds.center + Vector3.down * 0.05f,
@@ -39,17 +43,17 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
                 new Vector3(FinalRoomLayout.RoomBounds.size.x, 0.1f, FinalRoomLayout.RoomBounds.size.z),
                 Color.clear, true);
 
-            CreatePerimeter(visuals.transform, false);
-            CreatePerimeter(geometry.transform, true);
-            CreateObstacle(visuals.transform, false);
-            CreateObstacle(geometry.transform, true);
-            CreateFittingRoomDressing(dressing.transform);
+            CreatePerimeter(visuals, false);
+            CreatePerimeter(geometry, true);
+            CreateObstacle(visuals, false);
+            CreateObstacle(geometry, true);
+            CreateFittingRoomDressing(dressing);
 
-            CreateAnchor("D4", anchors.transform, FinalRoomLayout.D4, Vector3.forward);
-            CreateAnchor("D5Final", anchors.transform, FinalRoomLayout.D5, Vector3.back);
-            CreateAnchor("D5Staging", anchors.transform, FinalRoomLayout.NorthStagingBounds.center, Vector3.back);
-            BuildLighting();
-            BuildCamera();
+            CreateAnchor("D4Anchor", anchors, FinalRoomLayout.D4, Vector3.back, DoorId.D4, DoorAnchorRole.Entry);
+            CreateAnchor("D5Anchor", anchors, FinalRoomLayout.D5, Vector3.forward, DoorId.D5, DoorAnchorRole.Exit);
+            GameObject staging = new GameObject("D5Staging");
+            staging.transform.SetParent(authoring, false);
+            staging.transform.position = FinalRoomLayout.NorthStagingBounds.center;
             SceneManager.SetActiveScene(scene);
         }
 
@@ -128,19 +132,32 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             return box;
         }
 
-        private static void CreateAnchor(string name, Transform parent, Vector3 position, Vector3 forward)
+        private static void CreateAnchor(
+            string name, Transform parent, Vector3 position, Vector3 forward, DoorId doorId, DoorAnchorRole role)
         {
-            var anchor = new GameObject(name + "Anchor");
+            GameObject anchor = new GameObject(name);
             anchor.transform.SetParent(parent, false);
             anchor.transform.position = position;
             anchor.transform.forward = forward;
+            DoorAnchorMarker marker = anchor.AddComponent<DoorAnchorMarker>();
+            SerializedObject serialized = new SerializedObject(marker);
+            serialized.FindProperty("roomId").enumValueIndex = (int)RoomId.FinalRoom;
+            serialized.FindProperty("doorId").enumValueIndex = (int)doorId;
+            serialized.FindProperty("role").enumValueIndex = (int)role;
+            serialized.FindProperty("openingWidth").floatValue = FinalRoomLayout.DoorOpeningWidth;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
-        private static GameObject CreateChild(string name, Transform parent)
+        private static Transform CreateCategory(Transform parent, string name, RoomContentCategory category)
         {
-            var child = new GameObject(name);
+            GameObject child = new GameObject(name);
             child.transform.SetParent(parent, false);
-            return child;
+            RoomContentMarker marker = child.AddComponent<RoomContentMarker>();
+            SerializedObject serialized = new SerializedObject(marker);
+            serialized.FindProperty("roomId").enumValueIndex = (int)RoomId.FinalRoom;
+            serialized.FindProperty("category").enumValueIndex = (int)category;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+            return child.transform;
         }
 
         private static string Suffix(bool collision) => collision ? "Collision" : "Visual";
@@ -153,27 +170,6 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             return material;
         }
 
-        private static void BuildLighting()
-        {
-            var lightObject = new GameObject("Moonlight");
-            var light = lightObject.AddComponent<Light>();
-            light.type = LightType.Directional;
-            light.color = new Color(0.38f, 0.48f, 0.8f);
-            light.intensity = 0.65f;
-            lightObject.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
-        }
-
-        private static void BuildCamera()
-        {
-            var cameraObject = new GameObject("Main Camera");
-            cameraObject.tag = "MainCamera";
-            cameraObject.AddComponent<AudioListener>();
-            var camera = cameraObject.AddComponent<Camera>();
-            camera.orthographic = true;
-            camera.orthographicSize = 15f;
-            cameraObject.transform.position = new Vector3(20f, 27f, 42f);
-            cameraObject.transform.LookAt(new Vector3(0f, 0f, 75f));
-        }
     }
 
 }

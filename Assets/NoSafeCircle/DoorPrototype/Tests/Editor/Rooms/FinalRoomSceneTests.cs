@@ -1,4 +1,6 @@
 using NoSafeCircle.DoorPrototype.Editor.Rooms;
+using NoSafeCircle.DoorPrototype.Editor.World;
+using NoSafeCircle.DoorPrototype.World;
 using NoSafeCircle.DoorPrototype.World.Rooms;
 using NUnit.Framework;
 using UnityEditor.SceneManagement;
@@ -28,7 +30,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
         [Test]
         public void Build_SeparatesVisualsAndGameplayGeometry()
         {
-            GameObject visuals = GameObject.Find("Room_FinalRoom/VisualBlockout");
+            GameObject visuals = GameObject.Find("Room_FinalRoom/Visuals");
             GameObject geometry = GameObject.Find("Room_FinalRoom/GameplayGeometry");
             Assert.IsNotNull(visuals);
             Assert.IsNotNull(geometry);
@@ -54,10 +56,25 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
         public void Build_ProvidesD4AndD5AnchorsAndBothSideRoutes()
         {
             Assert.IsNotNull(GameObject.Find("Room_FinalRoom/DoorAnchors/D4Anchor"));
-            Assert.IsNotNull(GameObject.Find("Room_FinalRoom/DoorAnchors/D5FinalAnchor"));
+            Assert.IsNotNull(GameObject.Find("Room_FinalRoom/DoorAnchors/D5Anchor"));
             Assert.That(FinalRoomLayout.FinalObstacleBounds.min.x, Is.GreaterThan(FinalRoomLayout.MinimumX));
             Assert.That(FinalRoomLayout.FinalObstacleBounds.max.x, Is.LessThan(FinalRoomLayout.MaximumX));
             Assert.That(FinalRoomLayout.FinalObstacleBounds.max.z, Is.LessThan(80f));
+        }
+
+        [Test]
+        public void CommittedScene_ValidatesForComposition()
+        {
+            Scene scene = EditorSceneManager.OpenScene(FinalRoomSceneBuilder.ScenePath, OpenSceneMode.Single);
+
+            RoomSceneComposer.RoomValidationResult result = RoomSceneComposer.ValidateOpenRoomScene(
+                RoomId.FinalRoom,
+                scene,
+                FindRoomEntry(RoomId.FinalRoom),
+                RoomSceneCatalog.CreateCanonicalDoors());
+
+            CollectionAssert.IsEmpty(result.Errors, string.Join("\n", result.Errors));
+            Assert.That(result.DoorAnchors, Has.Count.EqualTo(2));
         }
 
         private static BoxCollider FindCollider(string path)
@@ -67,6 +84,20 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
             var collider = found.GetComponent<BoxCollider>();
             Assert.IsNotNull(collider, $"Expected {path} to carry gameplay collision.");
             return collider;
+        }
+
+        private static RoomSceneCatalog.RoomCatalogEntry FindRoomEntry(RoomId roomId)
+        {
+            foreach (RoomSceneCatalog.RoomCatalogEntry entry in RoomSceneCatalog.CreateCanonicalRooms())
+            {
+                if (entry.RoomId == roomId)
+                {
+                    return entry;
+                }
+            }
+
+            Assert.Fail($"Missing canonical catalog entry for {roomId}.");
+            return null;
         }
     }
 }

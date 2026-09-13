@@ -1,7 +1,10 @@
 using NUnit.Framework;
+using NoSafeCircle.DoorPrototype.Editor.World;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using NoSafeCircle.DoorPrototype.Editor.Rooms;
+using NoSafeCircle.DoorPrototype.World;
 using NoSafeCircle.DoorPrototype.World.Rooms;
 
 namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
@@ -20,6 +23,13 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
             Assert.That(ChapelOfAshLayout.CentralAisleWidth, Is.EqualTo(4f));
             Assert.That(ChapelOfAshLayout.PewFootprints[0].size, Is.EqualTo(new Vector3(5.5f, 1.25f, 1.5f)));
             Assert.That(ChapelOfAshLayout.ColumnBounds(ChapelOfAshLayout.ColumnCenters[0]).size, Is.EqualTo(new Vector3(1.5f, 2.5f, 1.5f)));
+
+            float[] expectedZ = { 24f, 28f, 32f, 36f };
+            for (int index = 0; index < expectedZ.Length; index++)
+            {
+                AssertPewFootprint(ChapelOfAshLayout.PewFootprints[index], -8.5f, -3f, expectedZ[index], expectedZ[index] + 1.5f);
+                AssertPewFootprint(ChapelOfAshLayout.PewFootprints[index + 4], 3f, 8.5f, expectedZ[index], expectedZ[index] + 1.5f);
+            }
         }
 
         [Test] // AC-002: side routes and lateral openings remain available around repeated cover.
@@ -41,7 +51,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
 
             try
             {
-                GameObject visuals = GameObject.Find("VisibleBlockout");
+                GameObject visuals = GameObject.Find("Visuals");
                 GameObject gameplay = GameObject.Find("GameplayGeometry");
                 GameObject westCover = GameObject.Find("CA-W");
                 GameObject eastCover = GameObject.Find("CA-E");
@@ -82,6 +92,68 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
             {
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             }
+        }
+
+        [Test] // GDD §7: every pew stays outside the required X [-2,+2], Z [22,40] clear strip.
+        public void Layout_PreservesUnobstructedFourUnitCentralStrip()
+        {
+            foreach (Bounds pew in ChapelOfAshLayout.PewFootprints)
+            {
+                bool overlapsCentralStrip =
+                    pew.max.x > -2f && pew.min.x < 2f &&
+                    pew.max.z > 22f && pew.min.z < 40f;
+                Assert.That(overlapsCentralStrip, Is.False, $"Pew footprint {pew} obstructs the central strip.");
+            }
+
+            foreach (Vector3 center in ChapelOfAshLayout.ColumnCenters)
+            {
+                Bounds column = ChapelOfAshLayout.ColumnBounds(center);
+                Assert.That(column.max.x <= -2f || column.min.x >= 2f, Is.True);
+            }
+        }
+
+        [Test] // Downstream composition gate: the committed source scene satisfies RoomSceneComposer.
+        public void CommittedScene_ValidatesForComposition()
+        {
+            Scene scene = EditorSceneManager.OpenScene(ChapelOfAshSceneBuilder.ScenePath, OpenSceneMode.Single);
+
+            try
+            {
+                RoomSceneComposer.RoomValidationResult result = RoomSceneComposer.ValidateOpenRoomScene(
+                    RoomId.ChapelOfAsh,
+                    scene,
+                    FindRoomEntry(RoomId.ChapelOfAsh),
+                    RoomSceneCatalog.CreateCanonicalDoors());
+
+                CollectionAssert.IsEmpty(result.Errors, string.Join("\n", result.Errors));
+                Assert.That(result.DoorAnchors, Has.Count.EqualTo(2));
+            }
+            finally
+            {
+                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            }
+        }
+
+        private static void AssertPewFootprint(Bounds pew, float minX, float maxX, float minZ, float maxZ)
+        {
+            Assert.That(pew.min.x, Is.EqualTo(minX));
+            Assert.That(pew.max.x, Is.EqualTo(maxX));
+            Assert.That(pew.min.z, Is.EqualTo(minZ));
+            Assert.That(pew.max.z, Is.EqualTo(maxZ));
+        }
+
+        private static RoomSceneCatalog.RoomCatalogEntry FindRoomEntry(RoomId roomId)
+        {
+            foreach (RoomSceneCatalog.RoomCatalogEntry entry in RoomSceneCatalog.CreateCanonicalRooms())
+            {
+                if (entry.RoomId == roomId)
+                {
+                    return entry;
+                }
+            }
+
+            Assert.Fail($"Missing canonical catalog entry for {roomId}.");
+            return null;
         }
     }
 }

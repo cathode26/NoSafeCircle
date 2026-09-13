@@ -1,4 +1,5 @@
 using System.IO;
+using NoSafeCircle.DoorPrototype.World;
 using NoSafeCircle.DoorPrototype.World.Rooms;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -26,22 +27,20 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
         {
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             GameObject roomRoot = new GameObject("Room_ChapelOfAsh");
-            Transform visuals = CreateChild("VisibleBlockout", roomRoot.transform);
-            Transform gameplay = CreateChild("GameplayGeometry", roomRoot.transform);
-            Transform anchors = CreateChild("DoorAnchors", roomRoot.transform);
-            Transform authoring = CreateChild("Authoring", roomRoot.transform);
+            Transform visuals = CreateCategory(roomRoot.transform, "Visuals", RoomContentCategory.Visuals);
+            Transform gameplay = CreateCategory(roomRoot.transform, "GameplayGeometry", RoomContentCategory.GameplayGeometry);
+            Transform anchors = CreateCategory(roomRoot.transform, "DoorAnchors", RoomContentCategory.DoorAnchors);
+            Transform authoring = CreateCategory(roomRoot.transform, "Authoring", RoomContentCategory.Authoring);
 
             BuildFloor(visuals, gameplay);
             BuildShell(visuals, gameplay);
             BuildPews(visuals, gameplay);
             BuildColumns(visuals, gameplay);
-            CreateMarker(anchors, "D2Anchor", ChapelOfAshLayout.D2, Vector3.forward);
-            CreateMarker(anchors, "D3Anchor", ChapelOfAshLayout.D3, Vector3.back);
+            CreateAnchor(anchors, "D2Anchor", ChapelOfAshLayout.D2, Vector3.back, DoorId.D2, DoorAnchorRole.Entry);
+            CreateAnchor(anchors, "D3Anchor", ChapelOfAshLayout.D3, Vector3.forward, DoorId.D3, DoorAnchorRole.Exit);
             CreateMarker(authoring, "CA-W", ChapelOfAshLayout.CoverPocketWest, Vector3.right);
             CreateMarker(authoring, "CA-E", ChapelOfAshLayout.CoverPocketEast, Vector3.left);
 
-            BuildLighting();
-            BuildCamera();
             SceneManager.SetActiveScene(scene);
         }
 
@@ -128,11 +127,32 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             return box;
         }
 
-        private static Transform CreateChild(string name, Transform parent)
+        private static Transform CreateCategory(Transform parent, string name, RoomContentCategory category)
         {
             GameObject child = new GameObject(name);
             child.transform.SetParent(parent, false);
+            RoomContentMarker marker = child.AddComponent<RoomContentMarker>();
+            SerializedObject serialized = new SerializedObject(marker);
+            serialized.FindProperty("roomId").enumValueIndex = (int)RoomId.ChapelOfAsh;
+            serialized.FindProperty("category").enumValueIndex = (int)category;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
             return child.transform;
+        }
+
+        private static void CreateAnchor(
+            Transform parent, string name, Vector3 position, Vector3 forward, DoorId doorId, DoorAnchorRole role)
+        {
+            GameObject anchor = new GameObject(name);
+            anchor.transform.SetParent(parent, false);
+            anchor.transform.position = position;
+            anchor.transform.forward = forward;
+            DoorAnchorMarker marker = anchor.AddComponent<DoorAnchorMarker>();
+            SerializedObject serialized = new SerializedObject(marker);
+            serialized.FindProperty("roomId").enumValueIndex = (int)RoomId.ChapelOfAsh;
+            serialized.FindProperty("doorId").enumValueIndex = (int)doorId;
+            serialized.FindProperty("role").enumValueIndex = (int)role;
+            serialized.FindProperty("openingWidth").floatValue = ChapelOfAshLayout.DoorWidth;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
         private static void CreateMarker(Transform parent, string name, Vector3 position, Vector3 forward)
@@ -148,28 +168,6 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             Material material = new Material(Shader.Find("Standard"));
             material.color = color;
             return material;
-        }
-
-        private static void BuildLighting()
-        {
-            GameObject lightObject = new GameObject("Directional Light");
-            Light light = lightObject.AddComponent<Light>();
-            light.type = LightType.Directional;
-            light.intensity = 0.55f;
-            light.color = new Color(0.63f, 0.58f, 0.72f);
-            lightObject.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
-        }
-
-        private static void BuildCamera()
-        {
-            GameObject cameraObject = new GameObject("Main Camera");
-            cameraObject.tag = "MainCamera";
-            Camera camera = cameraObject.AddComponent<Camera>();
-            cameraObject.AddComponent<AudioListener>();
-            camera.orthographic = true;
-            camera.orthographicSize = 15f;
-            cameraObject.transform.position = new Vector3(19f, 25f, 8f);
-            cameraObject.transform.LookAt(new Vector3(0f, 0f, 31f));
         }
 
         private static void EnsureFolder(string folder)
