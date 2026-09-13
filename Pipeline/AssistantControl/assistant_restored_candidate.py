@@ -12,6 +12,7 @@ from typing import Any
 from Pipeline.AssistantControl.admission import _read_registry, _source_registry_paths
 from Pipeline.AssistantControl.checkouts import Checkouts, write_record
 from Pipeline.AssistantControl.inspect_project import git
+from Pipeline.ExecutionCrew.run_crew import unity_meta_bytes
 from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task
 from Pipeline.TaskReviewAgent.contracts import ExecutionScopePlan, validate_task_id
 from Pipeline.TaskReviewAgent.execution_session_pool import _exclusive_file_lock
@@ -282,8 +283,16 @@ def register_assistant_restored_candidate(
             plan = ExecutionScopePlan.from_dict(raw_scope["plan"])
             allowed = set(plan.existing_implementation_paths + plan.new_implementation_paths
                           + plan.existing_test_paths + plan.new_test_paths)
-            if not set(paths).issubset(allowed):
+            new_paths = set(plan.new_implementation_paths + plan.new_test_paths)
+            deterministic_meta = {path + ".meta" for path in new_paths}
+            if not set(paths).issubset(allowed | deterministic_meta):
                 raise AssistantRestoredCandidateError("candidate diff is outside the registered path scope")
+            for path in set(paths) & deterministic_meta:
+                committed = git(checkout, "show", f"{candidate_commit}:{path}")
+                if committed != unity_meta_bytes(path[:-len(".meta")]):
+                    raise AssistantRestoredCandidateError(
+                        "candidate Unity .meta companion is not deterministic: " + path
+                    )
             plan_id = raw_scope.get("plan_id")
             lease_id = raw_scope.get("lease_id")
             candidate_kind = "assistant_restored"

@@ -11,6 +11,7 @@ from Pipeline.AssistantControl.assistant_restored_candidate import (
     register_assistant_restored_candidate,
 )
 from Pipeline.AssistantControl.checkouts import Checkouts
+from Pipeline.ExecutionCrew.run_crew import unity_meta_bytes
 from Pipeline.TaskReviewAgent.contracts import ExecutionScopePlan
 from Pipeline.TaskReviewAgent.git_identity_guard import validated_agent_git_identity
 
@@ -31,7 +32,11 @@ class RestoredCandidateTests(unittest.TestCase):
         (self.source / "Assets/NoSafeCircle/Feature/Tests/FeatureTests.cs").write_text("class FeatureTests {}\n")
         (self.source / "Tasks/NSC-042.yaml").write_text(json.dumps({
             "id": "NSC-042", "title": "Fixture", "contract_disposition": "active",
-            "depends_on": [], "exclusive_resources": ["repo-file:Assets/NoSafeCircle/Feature/Feature.cs"],
+            "depends_on": [], "exclusive_resources": [
+                "repo-file:Assets/NoSafeCircle/Feature/Feature.cs",
+                "repo-file:Assets/NoSafeCircle/Feature/Generated.cs",
+                "repo-file:Assets/NoSafeCircle/Feature/Tests/FeatureTests.cs",
+            ],
         }))
         (self.source / "Tasks/NSC-061.yaml").write_text(json.dumps({
             "id": "NSC-061", "title": "Art fixture", "contract_disposition": "active",
@@ -49,10 +54,14 @@ class RestoredCandidateTests(unittest.TestCase):
         from Pipeline.AssistantControl.scope import AssistantScopePlanner
         self.scope = AssistantScopePlanner(self.checkouts).plan(
             "NSC-042", ExecutionScopePlan(
-                ("Assets/NoSafeCircle/Feature/Feature.cs",), (),
+                ("Assets/NoSafeCircle/Feature/Feature.cs",),
+                ("Assets/NoSafeCircle/Feature/Generated.cs",),
                 ("Assets/NoSafeCircle/Feature/Tests/FeatureTests.cs",), (),
             ), lease_id="assistant-lease-1")
         (self.checkout / "Assets/NoSafeCircle/Feature/Feature.cs").write_text("class Feature { }")
+        generated = "Assets/NoSafeCircle/Feature/Generated.cs"
+        (self.checkout / generated).write_text("class Generated {}\n")
+        (self.checkout / (generated + ".meta")).write_bytes(unity_meta_bytes(generated))
         self.git_checkout("add", ".")
         self.git_checkout("commit", "-q", "-m", "restored candidate")
 
@@ -69,7 +78,11 @@ class RestoredCandidateTests(unittest.TestCase):
         return register_assistant_restored_candidate(
             self.checkouts, "NSC-042", base_commit=base, candidate_commit=candidate,
             candidate_tree=tree, task_contract_sha256=self.record["task_contract_sha256"],
-            changed_paths=["Assets/NoSafeCircle/Feature/Feature.cs"],
+            changed_paths=[
+                "Assets/NoSafeCircle/Feature/Feature.cs",
+                "Assets/NoSafeCircle/Feature/Generated.cs",
+                "Assets/NoSafeCircle/Feature/Generated.cs.meta",
+            ],
             evidence={"source": "assistant-restored fixture", "unity_tests": 3},
             reference_provenance={"reference": "SuccessfullTasks/NSC-042", "restored": True},
         )
@@ -112,6 +125,14 @@ class RestoredCandidateTests(unittest.TestCase):
         self.assertIsNone(json.loads(
             (self.checkouts.records / "NSC-042.json").read_text()
         ).get("candidate"))
+
+    def test_rejects_nondeterministic_new_unity_meta_companion(self):
+        meta = self.checkout / "Assets/NoSafeCircle/Feature/Generated.cs.meta"
+        meta.write_text("fileFormatVersion: 2\nguid: 00000000000000000000000000000000\n")
+        self.git_checkout("add", str(meta))
+        self.git_checkout("commit", "-q", "--amend", "--no-edit")
+        with self.assertRaisesRegex(AssistantRestoredCandidateError, "not deterministic"):
+            self.register()
 
     def test_retains_settled_worker_receipt(self):
         path = self.checkouts.records / "NSC-042.json"
