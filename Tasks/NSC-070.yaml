@@ -1,23 +1,22 @@
 {
   "schema_version": "2.0",
   "id": "NSC-070",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "contract_disposition": "active",
-  "title": "Four-Wizard Directional Animation Audit and Repair",
+  "title": "Four-Wizard Directional Animation State Repair",
   "reconciliation_key": "wizard-animation-audit-repair",
   "kind": "implementation",
   "type": "wizard-directional-animation-repair",
   "execution_scope": "single_agent",
-  "execution_reason": "The facing classifier, wizard animation generator, four shared presentation sets, and their focused Editor and Play Mode regressions form one bounded repair whose runtime and generated-asset changes must remain synchronized.",
+  "execution_reason": "The shared WizardAnimationController direction classifier, generated Animator state bindings, and focused Editor and Play Mode regressions form one bounded code repair for all four existing wizard choices.",
   "decomposition_state": "concrete",
-  "decomposition_reason": "The reproduced screen directions, unstable world-axis boundary, affected clips and frames, four presentation identities, builder path, and required tests define a concrete implementation and visual-review target.",
+  "decomposition_reason": "The reproduced northeast/southwest facing flips, fixed isometric camera basis, existing 32-state animation inventory, builder path, and focused tests define one concrete code and Animator-state repair.",
   "parent": "NSC-002",
   "depends_on": [
     "NSC-062",
     "NSC-068"
   ],
   "exclusive_resources": [
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Wizard",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/WizardAnimationController.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/WizardArtIntegrationTests.cs",
@@ -28,67 +27,63 @@
     {
       "criterion_id": "AC-001",
       "reference": "Vincent runtime report and fixed isometric camera basis, 2026-09-12",
-      "requirement": "For each of the four NSC-062 presentation and skin combinations, continuously held pointer movement toward screen northeast, northwest, southeast, or southwest selects and keeps the visually matching directional walk state. Classify actual world displacement in the fixed isometric camera's screen basis, or an equivalent fixed basis: world vectors (1, 0, +/-epsilon), (-1, 0, +/-epsilon), (+/-epsilon, 0, -1), and (+/-epsilon, 0, 1) must remain screen northeast, southwest, northwest, and southeast respectively for small positive and negative epsilon noise."
+      "requirement": "For each of the four wizard choices, continuously held pointer movement toward screen northeast, northwest, southeast, or southwest selects and keeps the visually matching directional walk state. World vectors (1, 0, +/-epsilon), (-1, 0, +/-epsilon), (+/-epsilon, 0, -1), and (+/-epsilon, 0, 1) remain screen northeast, southwest, northwest, and southeast respectively for small positive and negative epsilon noise."
     },
     {
       "criterion_id": "AC-002",
       "reference": "Held-movement facing stability",
-      "requirement": "A nonzero held movement direction must not alternate into its opposite-facing or adjacent front/back state while the pointer target remains in the same screen-relative direction. Direction selection remains stable across successive animation frames and small boundary noise, and returning to idle retains the last meaningful facing without repeatedly restarting the same Animator state."
+      "requirement": "A nonzero held movement direction does not alternate into an opposite or adjacent front/back state while the pointer target remains in the same screen-relative direction. Direction selection stays stable across successive animation frames and small boundary noise, and idle retains the last meaningful facing without restarting the same Animator state every frame."
     },
     {
       "criterion_id": "AC-003",
       "reference": "NSC-062 generated wizard animation inventory",
-      "requirement": "Audit all 32 generated states and clips: four variants by four diagonal directions by idle and walk. Every Animator state resolves to the same-named clip for the correct presentation, skin, motion, and direction; every idle clip contains the intended standing sprite; every walk clip contains exactly frame_000 through frame_005 in playback order on the Visual SpriteRenderer sprite curve; and no clip interleaves another direction, presentation, skin, source group, or SpriteRenderer binding."
+      "requirement": "Audit all 32 existing states and clips: four wizard choices by four diagonal directions by idle and walk. Every Animator state resolves to the same-named clip for the correct choice, motion, and direction; every idle clip contains the intended standing sprite; every walk clip contains frame_000 through frame_005 in playback order on the Visual SpriteRenderer sprite curve; and no clip interleaves another direction, wizard choice, source group, or SpriteRenderer binding."
     },
     {
       "criterion_id": "AC-004",
-      "reference": "PixelLab source-art content audit",
-      "requirement": "Audit the selected sprites against their PixelLab raw package, metadata, and source inventory, including dimensions, import settings, pivot, transparency bounds, ordered membership, and visible presentation identity. Add a deterministic content guard that fails for mixed or inconsistent source artwork rather than accepting matching filenames alone. It must explicitly cover feminine/light north-east walk frames 004 and 005, whose current source images lose the hat and change to a side-facing profile, and protect White Female hat continuity throughout the runtime east-equivalent clip."
+      "reference": "NSC-067 and NSC-068 gameplay preservation",
+      "requirement": "Preserve Start Game, all four wizard choices, one-shot confirmation, world entry, the existing Player root and components, canonical spawn, mouse movement, mouse interaction, and the existing input-enable calls. Do not instantiate a second Player, create a fallback wizard, replace gameplay owners, or change movement speed, collision, health, mana, spells, interaction, or sorting ownership."
     },
     {
       "criterion_id": "AC-005",
-      "reference": "Source-art correction and approval boundary",
-      "requirement": "If the wrong image is only a selected-frame or generated-clip membership error, repair that reference from the matching approved source group. If the PixelLab source frame itself is inconsistent, use only a traceable replacement candidate for the same presentation, skin, motion, direction, and frame; update its source inventory and provenance; keep it pending Vincent's exact-candidate visual review; and never duplicate a neighboring frame, hand-edit a substitute, or record visual approval on Vincent's behalf."
-    },
-    {
-      "criterion_id": "AC-006",
-      "reference": "NSC-067 and NSC-068 integration preservation",
-      "requirement": "Preserve Start Game, all four wizard choices, one-shot confirmation, world entry, the existing Player root and component identities, canonical spawn placement, mouse-driven movement, mouse interaction, and the existing owner-controlled input-enable calls. The repair must not instantiate a second Player, create a fallback wizard, replace gameplay owners, or change movement, collision, health, mana, spell, interaction, or sorting ownership."
-    },
-    {
-      "criterion_id": "AC-007",
       "reference": "DoorPrototypeSceneBuilder deterministic materialization",
-      "requirement": "DoorPrototypeSceneBuilder.Build materializes the corrected wizard import settings, clips, Animator controllers, controller binding, and DoorPrototype scene references idempotently. Run the existing Unity builder rather than hand-editing generated Unity serialization; two builds must preserve one Player, one wizard visual and animation controller, and the same resolved clip membership without stale assets or runtime duplicates."
+      "requirement": "DoorPrototypeSceneBuilder.Build materializes any changed controller binding or generated Animator state reference idempotently. The code worker edits source and focused tests only and requests the Windows Unity builder for generated assets or the scene; it never hand-edits generated animation or scene serialization."
     }
   ],
   "completion_gates": [
     {
       "gate_id": "VAL-001",
-      "reference": "Focused Editor asset audit",
-      "requirement": "WizardArtIntegrationTests enumerates all four presentations and all 32 idle/walk states and proves exact state-to-clip identity, ordered sprite membership, source-group identity, SpriteRenderer binding, import geometry, pivot, and source provenance. Its content check explicitly rejects the current feminine/light north-east frames 004 and 005 and detects loss of White Female hat continuity or another mixed-costume frame."
+      "reference": "Focused Editor state and clip audit",
+      "requirement": "WizardArtIntegrationTests enumerates all four wizard choices and all 32 idle/walk states and proves exact state-to-clip identity, ordered sprite membership, correct source-group identity, SpriteRenderer binding, import geometry, and pivot without requiring new PixelLab artwork."
     },
     {
       "gate_id": "VAL-002",
       "reference": "Focused Play Mode direction-state stability",
-      "requirement": "WizardAnimationPlayModeTests drives every presentation through held screen northeast, northwest, southeast, and southwest movement for multiple animation frames while alternating small positive and negative orthogonal epsilon. At every sampled frame the Animator remains in the expected state, never enters the opposite-facing state, advances without state restart, and retains that facing on idle."
+      "requirement": "WizardAnimationPlayModeTests drives every wizard through held screen northeast, northwest, southeast, and southwest movement for multiple frames while alternating small positive and negative orthogonal epsilon. Every sample remains in the expected state, never enters the opposite-facing state, advances without state restart, and retains that facing on idle."
     },
     {
       "gate_id": "VAL-003",
-      "reference": "Focused Play Mode entry and gameplay regression",
-      "requirement": "A focused Play Mode path runs Start Game, selects and confirms each wizard in turn, verifies one existing Player and matching applied presentation at the canonical spawn, then proves held mouse movement moves that same Player with stable animation and mouse interaction remains available. No run creates a duplicate Player, fallback wizard, duplicate confirmation, or additional gameplay-input enable."
+      "reference": "Focused Play Mode entry and input regression",
+      "requirement": "A focused Play Mode path starts the game, selects and confirms each wizard, verifies one existing Player and the matching wizard at the canonical spawn, then proves held mouse movement drives stable animation and mouse interaction remains available."
     },
     {
       "gate_id": "VAL-004",
       "reference": "Unity builder and focused automated validation",
-      "requirement": "On the exact candidate commit, run DoorPrototypeSceneBuilder.Build twice, require a clean compile, then pass only the task's authoritative WizardArtIntegrationTests EditMode fixture and WizardAnimationPlayModeTests PlayMode fixture. Commit every builder-materialized asset and scene change needed by this task; do not substitute broad CI for these checks."
+      "requirement": "On the exact candidate, run DoorPrototypeSceneBuilder.Build twice, require a clean compile, then pass the task's WizardArtIntegrationTests Edit Mode fixture and WizardAnimationPlayModeTests Play Mode fixture. Commit only builder-materialized outputs registered by this task."
     },
     {
       "gate_id": "VAL-005",
-      "reference": "Vincent all-four visual review before integration",
-      "requirement": "Before integration, Vincent tests the exact candidate commit in Assets/Scenes/DoorPrototype.unity with all four wizard choices, holds movement toward all four screen diagonals long enough to see every walk frame, checks stable facing and costume continuity including the White Female hat, confirms selection and world entry still use one Player, and explicitly approves the candidate. Automated checks and source provenance do not replace this visual decision."
+      "reference": "Vincent all-four movement review before integration",
+      "requirement": "Before integration, Vincent tests the exact candidate in Assets/Scenes/DoorPrototype.unity with all four wizard choices, holds movement toward all four screen diagonals long enough to see every walk frame, confirms facing never flips for northeast or southwest movement, and confirms selection and world entry still use one Player."
     }
   ],
-  "downstream_integration_obligations": [],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "NSC-073 White Female Wizard Hat Frame Correction",
+      "requirement": "The later PixelLab frame correction preserves this task's stable direction classification and existing Animator state-to-clip bindings."
+    }
+  ],
   "gdd_evidence": [
     {
       "reference": "NSC-062 animated wizard presentation",
@@ -102,14 +97,9 @@
   "basis": "human_observed_runtime_regression",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "The shared cross-variant northeast/southwest symptom is consistent with direction classification near a world-axis sign boundary under the fixed isometric camera; it is not evidence that every affected clip contains bad art. The White Female hat defect is separate source-content evidence: feminine/light north-east walk frames 004 and 005 are inconsistent in the selected files and raw PixelLab package. Keep code/state stability and source-art repair as separately proven parts of this task. Abilities, movement tuning, collision, input ownership, selection design, save data, and additional wizard variants are outside scope.",
+  "notes": "This task fixes the shared direction/state-machine defect for all four wizards. The separate NSC-073 art task owns the known White Female northeast frames 004 and 005 that lose the hat. Abilities, movement tuning, collision, input ownership, selection design, save data, and additional wizard variants remain outside scope.",
   "repository_state_at_bootstrap": "partial",
   "repository_evidence_at_bootstrap": [
-    {
-      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab",
-      "evidence_type": "asset",
-      "observation": "All four selected PixelLab source groups and their raw packages are present. Read-only frame comparison found no shared bad frame index across all variants, while feminine/light north-east walk frames 004 and 005 visibly lose the hat and change profile in both selected files and the raw package."
-    },
     {
       "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs",
       "evidence_type": "code",
