@@ -56,20 +56,4 @@ namespace NoSafeCircle.DoorPrototype.World
         public RoomContentCategory Category => category;
     }
 
-    // Identifies one door opening authored inside a room's DoorAnchors container. D1-D4 shared
-    // boundaries carry one matching Exit marker from the room before the boundary and one
-    // matching Entry marker from the room after it; D5 carries only an Exit marker.
-    [DisallowMultipleComponent]
-    public sealed class DoorAnchorMarker : MonoBehaviour
-    {
-        [SerializeField] private RoomId roomId;
-        [SerializeField] private DoorId doorId;
-        [SerializeField] private DoorAnchorRole role;
-        [SerializeField] private float openingWidth = 3f;
-
-        public RoomId RoomId => roomId;
-        public DoorId DoorId => doorId;
-        public DoorAnchorRole Role => role;
-        public float OpeningWidth => openingWidth;
-    }
 }

@@ -614,21 +614,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 142245596}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
---- !u!115 &188852059
-MonoScript:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_Name:
-  serializedVersion: 7
-  m_DefaultReferences: {}
-  m_Icon: {fileID: 0}
-  m_Type: 0
-  m_ExecutionOrder: 0
-  m_ClassName: DoorAnchorMarker
-  m_Namespace: NoSafeCircle.DoorPrototype.World
-  m_AssemblyName: NoSafeCircle.DoorPrototype
 --- !u!21 &195342609
 Material:
   serializedVersion: 8
@@ -3334,7 +3319,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 1653713032}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 188852059}
+  m_Script: {fileID: 11500000, guid: f13bb8c926addb1e21a708764df6be84, type: 3}
   m_Name:
   m_EditorClassIdentifier:
   roomId: 4
@@ -3928,7 +3913,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 2051746927}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 188852059}
+  m_Script: {fileID: 11500000, guid: f13bb8c926addb1e21a708764df6be84, type: 3}
   m_Name:
   m_EditorClassIdentifier:
   roomId: 4
