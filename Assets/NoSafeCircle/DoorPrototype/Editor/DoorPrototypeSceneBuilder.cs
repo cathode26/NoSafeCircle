@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
+using UnityEditor.Animations;
 using UnityEditor.Events;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -72,6 +73,12 @@ namespace NoSafeCircle.DoorPrototype.Editor
         // test seam never writes to the exact same AssetDatabase path Build() uses.
         private const string WorldSpritePrefabAssetFolderName = "WorldSprites";
         private const string WorldSpritePrefabAssetName = "WorldSpriteVisual.prefab";
+
+        private const string WizardSourceRoot = "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab";
+        private const string WizardGeneratedRoot = "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated";
+        private static readonly string[] WizardVariants = { "Masculine_White", "Masculine_Black", "Feminine_White", "Feminine_Black" };
+        private static readonly string[] WizardStandingDirections = { "north", "north-east", "east", "south-east", "south", "south-west", "west", "north-west" };
+        private static readonly string[] WizardDirections = { "north-east", "north-west", "south-east", "south-west" };
 
         // Placeholder colors only (GDD: placeholder character/prop sprites are acceptable).
         private static readonly Color32 WizardSpriteFillColor = new Color32(88, 64, 145, 255);
@@ -1235,6 +1242,18 @@ namespace NoSafeCircle.DoorPrototype.Editor
                     WorldSpriteTextureSize, WorldSpriteTextureSize, WizardSpriteFillColor, WizardSpriteBorderColor),
                 architecturalTileAssetFolder);
 
+            if (!string.IsNullOrEmpty(architecturalTileAssetFolder))
+            {
+                var wizardAssets = BuildWizardAnimationAssets();
+                var animator = player.AddComponent<Animator>();
+                animator.runtimeAnimatorController = wizardAssets.controller;
+                var wizard = player.AddComponent<WizardAnimationController>();
+                SetPrivateField(wizard, "animator", animator);
+                SetPrivateFieldValue(wizard, "presentation", WizardPresentation.Masculine);
+                SetPrivateFieldValue(wizard, "skin", WizardSkin.White);
+                player.transform.Find("Visual").GetComponent<SpriteRenderer>().sprite = wizardAssets.defaultIdle;
+            }
+
             health = player.AddComponent<PlayerHealth>();
             interactionController = player.AddComponent<PlayerInteractionController>();
             movement = player.AddComponent<PlayerMovement>();
@@ -1245,6 +1264,111 @@ namespace NoSafeCircle.DoorPrototype.Editor
             SetPrivateField(interactionController, "playerHealth", health);
             SetPrivateField(debugControl, "target", health);
             SetPrivateField(debugManaControl, "target", mana);
+        }
+
+        private readonly struct WizardAnimationAssets
+        {
+            public readonly RuntimeAnimatorController controller;
+            public readonly Sprite defaultIdle;
+
+            public WizardAnimationAssets(RuntimeAnimatorController controller, Sprite defaultIdle)
+            {
+                this.controller = controller;
+                this.defaultIdle = defaultIdle;
+            }
+        }
+
+        private static WizardAnimationAssets BuildWizardAnimationAssets()
+        {
+            EnsureFolder("Assets/NoSafeCircle/DoorPrototype/Art");
+            EnsureFolder("Assets/NoSafeCircle/DoorPrototype/Art/Wizard");
+            EnsureFolder(WizardGeneratedRoot);
+            var controllerPath = WizardGeneratedRoot + "/WizardAnimator.controller";
+            var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(controllerPath);
+            if (controller == null) controller = AnimatorController.CreateAnimatorControllerAtPath(controllerPath);
+
+            var stateMachine = controller.layers[0].stateMachine;
+            Sprite defaultIdle = null;
+            foreach (var variant in WizardVariants)
+            {
+                var sourceVariant = variant.Replace("_White", "-light").Replace("_Black", "-dark")
+                    .Replace("Masculine", "masculine").Replace("Feminine", "feminine");
+                foreach (var standingDirection in WizardStandingDirections)
+                {
+                    ImportWizardSprite(WizardSourceRoot + "/" + sourceVariant + "/selected/standing/" + standingDirection + ".png");
+                }
+                foreach (var direction in WizardDirections)
+                {
+                    var standingPath = WizardSourceRoot + "/" + sourceVariant + "/selected/standing/" + direction + ".png";
+                    var idle = ImportWizardSprite(standingPath);
+                    var idleName = "Wizard_" + variant + "_idle_" + direction;
+                    EnsureWizardState(stateMachine, idleName, EnsureWizardClip(idleName, new[] { idle }, 1));
+                    if (variant == "Masculine_White" && direction == "south") defaultIdle = idle;
+
+                    var walk = new Sprite[6];
+                    for (var frame = 0; frame < walk.Length; frame++)
+                    {
+                        var walkPath = WizardSourceRoot + "/" + sourceVariant + "/selected/walk/" + direction + "/frame_00" + frame + ".png";
+                        walk[frame] = ImportWizardSprite(walkPath);
+                    }
+                    var walkName = "Wizard_" + variant + "_walk_" + direction;
+                    EnsureWizardState(stateMachine, walkName, EnsureWizardClip(walkName, walk, 12));
+                }
+            }
+            EditorUtility.SetDirty(controller);
+            AssetDatabase.SaveAssets();
+            return new WizardAnimationAssets(controller, defaultIdle);
+        }
+
+        private static Sprite ImportWizardSprite(string path)
+        {
+            AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
+            var importer = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (importer == null) throw new FileNotFoundException("Wizard source is not a texture", path);
+            importer.textureType = TextureImporterType.Sprite;
+            importer.spriteImportMode = SpriteImportMode.Single;
+            importer.filterMode = FilterMode.Point;
+            importer.textureCompression = TextureImporterCompression.Uncompressed;
+            importer.mipmapEnabled = false;
+            importer.spritePixelsPerUnit = 180f;
+            importer.spritePivot = new Vector2(0.5f, 0f);
+            importer.SaveAndReimport();
+            var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+            if (sprite == null) throw new InvalidDataException("Wizard source did not import as a Sprite: " + path);
+            return sprite;
+        }
+
+        private static AnimationClip EnsureWizardClip(string name, Sprite[] sprites, int frameRate)
+        {
+            var path = WizardGeneratedRoot + "/" + name + ".anim";
+            var clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(path);
+            if (clip == null)
+            {
+                clip = new AnimationClip { name = name };
+                AssetDatabase.CreateAsset(clip, path);
+            }
+            clip.frameRate = frameRate;
+            var keys = new ObjectReferenceKeyframe[sprites.Length];
+            for (var i = 0; i < sprites.Length; i++)
+                keys[i] = new ObjectReferenceKeyframe { time = i / (float)frameRate, value = sprites[i] };
+            AnimationUtility.SetObjectReferenceCurve(clip,
+                EditorCurveBinding.PPtrCurve("", typeof(SpriteRenderer), "m_Sprite"), keys);
+            var settings = AnimationUtility.GetAnimationClipSettings(clip);
+            settings.loopTime = true;
+            AnimationUtility.SetAnimationClipSettings(clip, settings);
+            EditorUtility.SetDirty(clip);
+            return clip;
+        }
+
+        private static void EnsureWizardState(AnimatorStateMachine stateMachine, string name, AnimationClip clip)
+        {
+            foreach (var child in stateMachine.states)
+            {
+                if (child.state.name != name) continue;
+                child.state.motion = clip;
+                return;
+            }
+            stateMachine.AddState(name).motion = clip;
         }
 
         private static void BuildUI(DoorInteractable door, DebugDamageControl debugControl,
