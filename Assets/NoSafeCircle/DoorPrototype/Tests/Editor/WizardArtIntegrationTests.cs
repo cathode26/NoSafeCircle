@@ -32,7 +32,13 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                 Assert.AreEqual(FilterMode.Point, importer.filterMode, path);
                 Assert.AreEqual(TextureImporterCompression.Uncompressed, importer.textureCompression, path);
                 Assert.AreEqual(180f, importer.spritePixelsPerUnit, path);
-                Assert.That(importer.spritePivot.y, Is.EqualTo(0f).Within(0.001f), path);
+                var textureSettings = new TextureImporterSettings();
+                importer.ReadTextureSettings(textureSettings);
+                Assert.AreEqual((int)SpriteAlignment.Custom, textureSettings.spriteAlignment, path);
+                Assert.That(textureSettings.spritePivot.y, Is.EqualTo(0f).Within(0.001f), path);
+                var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+                Assert.IsNotNull(sprite, path);
+                Assert.That(sprite.pivot.y, Is.EqualTo(0f).Within(0.001f), path);
             }
         }
 

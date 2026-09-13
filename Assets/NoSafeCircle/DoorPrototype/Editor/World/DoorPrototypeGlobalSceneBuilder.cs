@@ -389,7 +389,11 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
             importer.textureCompression = TextureImporterCompression.Uncompressed;
             importer.mipmapEnabled = false;
             importer.spritePixelsPerUnit = 180f;
-            importer.spritePivot = new Vector2(0.5f, 0f);
+            var textureSettings = new TextureImporterSettings();
+            importer.ReadTextureSettings(textureSettings);
+            textureSettings.spriteAlignment = (int)SpriteAlignment.Custom;
+            textureSettings.spritePivot = new Vector2(0.5f, 0f);
+            importer.SetTextureSettings(textureSettings);
             importer.SaveAndReimport();
             var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
             if (sprite == null) throw new InvalidDataException("Wizard source did not import as a Sprite: " + path);
