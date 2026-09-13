@@ -143,6 +143,7 @@ namespace NoSafeCircle.DoorPrototype.Editor
                 ownedTransientArchitecturalScene = scene;
             }
             BuildIsometricVisualLayer(doorRoot.transform.position, architecturalTileAssetFolder);
+            DoorSequenceBuilder.BuildCanonical(scene, doorRoot);
 
             DoorPrototypeGlobalSceneBuilder.BuildPlayer(
                 out var movement,
