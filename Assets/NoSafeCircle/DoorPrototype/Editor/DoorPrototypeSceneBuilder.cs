@@ -79,6 +79,7 @@ namespace NoSafeCircle.DoorPrototype.Editor
         private static readonly string[] WizardVariants = { "Masculine_White", "Masculine_Black", "Feminine_White", "Feminine_Black" };
         private static readonly string[] WizardStandingDirections = { "north", "north-east", "east", "south-east", "south", "south-west", "west", "north-west" };
         private static readonly string[] WizardDirections = { "north-east", "north-west", "south-east", "south-west" };
+        private const string WizardCanonicalInitialDirection = "south-east";
 
         // Placeholder colors only (GDD: placeholder character/prop sprites are acceptable).
         private static readonly Color32 WizardSpriteFillColor = new Color32(88, 64, 145, 255);
@@ -1303,7 +1304,8 @@ namespace NoSafeCircle.DoorPrototype.Editor
                     var idle = ImportWizardSprite(standingPath);
                     var idleName = "Wizard_" + variant + "_idle_" + direction;
                     EnsureWizardState(stateMachine, idleName, EnsureWizardClip(idleName, new[] { idle }, 1));
-                    if (variant == "Masculine_White" && direction == "south") defaultIdle = idle;
+                    if (variant == "Masculine_White" && direction == WizardCanonicalInitialDirection)
+                        defaultIdle = idle;
 
                     var walk = new Sprite[6];
                     for (var frame = 0; frame < walk.Length; frame++)

@@ -1,7 +1,10 @@
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.Tilemaps;
 using NUnit.Framework;
+using System.Linq;
+using System.Reflection;
 
 namespace NoSafeCircle.DoorPrototype.Tests.Editor
 {
@@ -45,12 +48,30 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
         {
             var player = GameObject.Find("Player");
             Assert.IsNotNull(player);
-            Assert.IsNotNull(player.GetComponent<WizardAnimationController>());
+            var wizard = player.GetComponent<WizardAnimationController>();
+            Assert.IsNotNull(wizard);
             var renderer = player.transform.Find("Visual")?.GetComponent<SpriteRenderer>();
             Assert.IsNotNull(renderer);
-            Assert.AreEqual("Default", renderer.sortingLayerName);
-            Assert.AreEqual(0, renderer.sortingOrder);
+            Assert.IsNotNull(renderer.sprite);
+            var wallRenderer = GameObject.Find("WallTilemap")?.GetComponent<TilemapRenderer>();
+            Assert.IsNotNull(wallRenderer);
+            Assert.AreEqual(wallRenderer.sortingLayerName, renderer.sortingLayerName);
+            Assert.AreEqual(wallRenderer.sortingOrder, renderer.sortingOrder);
+            Assert.AreEqual(SpriteSortPoint.Pivot, renderer.spriteSortPoint);
             Assert.That(renderer.transform.position.y, Is.EqualTo(player.transform.position.y).Within(0.001f));
+
+            var animator = player.GetComponent<Animator>();
+            Assert.IsNotNull(animator);
+            Assert.IsNotNull(animator.runtimeAnimatorController);
+            const string initialState = "Wizard_Masculine_White_idle_south-east";
+            Assert.IsTrue(animator.runtimeAnimatorController.animationClips.Any(clip => clip.name == initialState));
+            var lastDirection = typeof(WizardAnimationController).GetField(
+                "lastDirection", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.AreEqual("south-east", lastDirection.GetValue(wizard));
+
+            var camera = GameObject.Find("Main Camera")?.GetComponent<Camera>();
+            Assert.IsNotNull(camera);
+            Assert.AreEqual(TransparencySortMode.CustomAxis, camera.transparencySortMode);
         }
     }
 }

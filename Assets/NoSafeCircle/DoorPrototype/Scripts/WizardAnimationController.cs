@@ -20,6 +20,7 @@ namespace NoSafeCircle.DoorPrototype
     public sealed class WizardAnimationController : MonoBehaviour
     {
         private const float DirectionThreshold = 0.01f;
+        internal const string CanonicalInitialDirection = "south-east";
 
         [SerializeField] private WizardPresentation presentation = WizardPresentation.Masculine;
         [SerializeField] private WizardSkin skin = WizardSkin.White;
@@ -28,7 +29,7 @@ namespace NoSafeCircle.DoorPrototype
         private SpriteRenderer spriteRenderer;
         private Vector3 previousPosition;
         private string currentState;
-        private string lastDirection = "south";
+        private string lastDirection = CanonicalInitialDirection;
 
         public WizardPresentation Presentation => presentation;
         public WizardSkin Skin => skin;
