@@ -43,10 +43,8 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
         [Test]
         public void Build_PreservesDoorOpeningsAndFourUnitCirculation()
         {
-            BoxCollider west = FindCollider("Room_FinalRoom/GameplayGeometry/NorthWallWestCollision");
-            BoxCollider east = FindCollider("Room_FinalRoom/GameplayGeometry/NorthWallEastCollision");
-            Assert.That(west.bounds.max.x, Is.EqualTo(-1.5f).Within(0.001f));
-            Assert.That(east.bounds.min.x, Is.EqualTo(1.5f).Within(0.001f));
+            AssertOpening("SouthWall", FinalRoomLayout.D4X);
+            AssertOpening("NorthWall", FinalRoomLayout.D5X);
             Assert.That(FinalRoomLayout.WestCirculationWidth, Is.GreaterThanOrEqualTo(4f));
             Assert.That(FinalRoomLayout.EastCirculationWidth, Is.GreaterThanOrEqualTo(4f));
             Assert.IsFalse(FinalRoomLayout.NorthStagingBounds.Intersects(FinalRoomLayout.FinalObstacleBounds));
@@ -84,6 +82,29 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
             var collider = found.GetComponent<BoxCollider>();
             Assert.IsNotNull(collider, $"Expected {path} to carry gameplay collision.");
             return collider;
+        }
+
+        private static void AssertOpening(string wallName, float centerX)
+        {
+            float halfWidth = FinalRoomLayout.DoorOpeningWidth * 0.5f;
+            BoxCollider west = FindCollider($"Room_FinalRoom/GameplayGeometry/{wallName}WestCollision");
+            BoxCollider east = FindCollider($"Room_FinalRoom/GameplayGeometry/{wallName}EastCollision");
+            Assert.That(west.bounds.max.x, Is.EqualTo(centerX - halfWidth).Within(0.001f));
+            Assert.That(east.bounds.min.x, Is.EqualTo(centerX + halfWidth).Within(0.001f));
+
+            Renderer westVisual = FindRenderer($"Room_FinalRoom/Visuals/{wallName}WestVisual");
+            Renderer eastVisual = FindRenderer($"Room_FinalRoom/Visuals/{wallName}EastVisual");
+            Assert.That(westVisual.bounds.max.x, Is.EqualTo(centerX - halfWidth).Within(0.001f));
+            Assert.That(eastVisual.bounds.min.x, Is.EqualTo(centerX + halfWidth).Within(0.001f));
+        }
+
+        private static Renderer FindRenderer(string path)
+        {
+            var found = GameObject.Find(path);
+            Assert.IsNotNull(found, $"Expected {path}.");
+            var renderer = found.GetComponent<Renderer>();
+            Assert.IsNotNull(renderer, $"Expected {path} to carry visible geometry.");
+            return renderer;
         }
 
         private static RoomSceneCatalog.RoomCatalogEntry FindRoomEntry(RoomId roomId)

@@ -60,7 +60,6 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
         private static void CreatePerimeter(Transform parent, bool collision)
         {
             float y = FinalRoomLayout.WallHeight * 0.5f;
-            float width = FinalRoomLayout.MaximumX - FinalRoomLayout.MinimumX;
             float depth = FinalRoomLayout.MaximumZ - FinalRoomLayout.MinimumZ;
             CreateBox("WestWall" + Suffix(collision), parent,
                 new Vector3(FinalRoomLayout.MinimumX, y, FinalRoomLayout.RoomBounds.center.z),
@@ -68,9 +67,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             CreateBox("EastWall" + Suffix(collision), parent,
                 new Vector3(FinalRoomLayout.MaximumX, y, FinalRoomLayout.RoomBounds.center.z),
                 new Vector3(FinalRoomLayout.WallThickness, FinalRoomLayout.WallHeight, depth), WallColor, collision);
-            CreateBox("SouthWall" + Suffix(collision), parent,
-                new Vector3(FinalRoomLayout.RoomBounds.center.x, y, FinalRoomLayout.MinimumZ),
-                new Vector3(width, FinalRoomLayout.WallHeight, FinalRoomLayout.WallThickness), WallColor, collision);
+            CreateOpeningWall("SouthWall", parent, FinalRoomLayout.D4X, FinalRoomLayout.MinimumZ, collision);
             CreateOpeningWall("NorthWall", parent, FinalRoomLayout.D5X, FinalRoomLayout.MaximumZ, collision);
         }
 
