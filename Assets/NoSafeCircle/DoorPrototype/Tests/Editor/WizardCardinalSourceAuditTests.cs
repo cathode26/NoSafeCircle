@@ -1,12 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace NoSafeCircle.DoorPrototype.Tests.Editor
 {
@@ -189,8 +189,8 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             byte[] signature = { 137, 80, 78, 71, 13, 10, 26, 10 };
             Assert.IsTrue(bytes.Take(8).SequenceEqual(signature), "Invalid PNG signature: " + path);
             int offset = 8;
-            List<byte> compressed = new List<byte>();
             PngInfo info = new PngInfo();
+            bool foundHeader = false;
             while (offset + 12 <= bytes.Length)
             {
                 int length = ReadInt32(bytes, offset);
@@ -199,6 +199,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                 Assert.That(offset + 12 + length, Is.LessThanOrEqualTo(bytes.Length), "Truncated PNG chunk: " + path);
                 if (type == "IHDR")
                 {
+                    foundHeader = true;
                     info.Width = ReadInt32(bytes, offset + 8);
                     info.Height = ReadInt32(bytes, offset + 12);
                     info.BitDepth = bytes[offset + 16];
@@ -207,45 +208,27 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                     Assert.AreEqual(0, bytes[offset + 19], "Unsupported PNG filter method: " + path);
                     Assert.AreEqual(0, bytes[offset + 20], "Interlaced PNGs are not deterministic audit inputs: " + path);
                 }
-                else if (type == "IDAT")
-                    compressed.AddRange(bytes.Skip(offset + 8).Take(length));
                 offset += length + 12;
                 if (type == "IEND")
                     break;
             }
+            Assert.IsTrue(foundHeader, "PNG is missing its IHDR chunk: " + path);
             Assert.AreEqual(180, info.Width, "PNG must declare a 180 pixel width before decoding: " + path);
             Assert.AreEqual(180, info.Height, "PNG must declare a 180 pixel height before decoding: " + path);
             Assert.AreEqual(8, info.BitDepth, "PNG must declare 8-bit channels before decoding: " + path);
             Assert.AreEqual(6, info.ColorType, "PNG must declare RGBA before decoding: " + path);
-            byte[] raw;
-            using (MemoryStream input = new MemoryStream(compressed.ToArray()))
-            using (DeflateStream deflate = new DeflateStream(input, CompressionMode.Decompress))
-            using (MemoryStream output = new MemoryStream())
+            var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            try
             {
-                deflate.CopyTo(output);
-                raw = output.ToArray();
+                Assert.IsTrue(ImageConversion.LoadImage(texture, bytes, false),
+                    "Unity could not decode the PNG bytes: " + path);
+                Assert.AreEqual(info.Width, texture.width, "Decoded PNG width differs from IHDR: " + path);
+                Assert.AreEqual(info.Height, texture.height, "Decoded PNG height differs from IHDR: " + path);
+                info.HasTransparentPixel = texture.GetPixels32().Any(pixel => pixel.a < 255);
             }
-            int stride = info.Width * 4;
-            Assert.AreEqual(info.Height * (stride + 1), raw.Length, "RGBA scanline data is not 180x180: " + path);
-            byte[] previous = new byte[stride];
-            byte[] current = new byte[stride];
-            for (int y = 0; y < info.Height; y++)
+            finally
             {
-                int filter = raw[y * (stride + 1)];
-                Assert.That(filter, Is.InRange(0, 4), "Unsupported PNG filter byte " + filter + ": " + path);
-                for (int x = 0; x < stride; x++)
-                {
-                    int left = x >= 4 ? current[x - 4] : 0;
-                    int up = previous[x];
-                    int upperLeft = x >= 4 ? previous[x - 4] : 0;
-                    int value = raw[y * (stride + 1) + x + 1];
-                    current[x] = (byte)(value + (filter == 0 ? 0 : filter == 1 ? left : filter == 2 ? up : filter == 3 ? (left + up) / 2 : Paeth(left, up, upperLeft)));
-                }
-                for (int x = 3; x < stride; x += 4)
-                    info.HasTransparentPixel |= current[x] < 255;
-                byte[] swap = previous;
-                previous = current;
-                current = swap;
+                UnityEngine.Object.DestroyImmediate(texture);
             }
             return info;
         }
@@ -255,11 +238,5 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             return (bytes[offset] << 24) | (bytes[offset + 1] << 16) | (bytes[offset + 2] << 8) | bytes[offset + 3];
         }
 
-        private static int Paeth(int a, int b, int c)
-        {
-            int p = a + b - c;
-            int pa = Math.Abs(p - a), pb = Math.Abs(p - b), pc = Math.Abs(p - c);
-            return pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
-        }
     }
 }
