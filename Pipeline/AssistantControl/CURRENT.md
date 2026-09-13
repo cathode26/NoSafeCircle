@@ -137,6 +137,49 @@ materialization into one bounded step for the orchestrator to call after a crew
 run ends, while preserving the existing explicit provider, review, integration
 and publication boundaries. See its entry in `README.md`.
 
+## Checkout-lock contention is deferred, never fatal — 2026-09-13
+
+`checkouts.lock` serializes every record transaction in one checkout root, and
+its legitimate holders are slow: in the 20260913 Gauntlet run a post-crew child
+held it about 9 s registering its candidate and a foreground `sync_candidate`
+held it 13-16 s, while every waiter budgeted 10 s. Four transactions lost that
+wait in 22 minutes. Three were controller actions (`post_crew` launch,
+`sync_candidate`, `auto_approve`) and each ended its invocation: the task was
+marked `blocked`, `last_error` recorded the `TimeoutError`, and the CLI exited 1
+(`TimeoutError` is an `OSError`, so `python -m Pipeline.AssistantControl` reports
+`command_failed`). The fourth was a post-crew child, whose own lost wait is
+journaled `job_failed` from its receipt, blocks only its task with
+`background_job_failed` and needs an operator `clear-background-job` before the
+planner will issue another ticket; two children died that way, and 75 s and 126 s
+of finished Unity validation were thrown away with them.
+
+Both sides are repaired. A controller action that cannot take the lock *before
+it has written anything durable* is now deferred to the next planning cycle
+instead of failing the invocation: `action_deferred` is journaled with the task,
+kind, reason `lock_contention`, the lock path, the seconds waited and the
+deferral count; the task is not blocked, no `last_error` is written, the
+invocation stays `running`, the loop pauses a bounded three seconds and the
+planner re-emits the action naturally. Only kinds whose lock acquisition provably
+precedes every durable write are deferrable (`LOCK_DEFERRABLE_ACTION_KINDS` in
+`graph_controller.py` carries the proof per kind); `apply_decomposition`, which
+never takes that lock, and the wait kinds, which reach it only inside `harvest`
+and the container-cleanup recorders, keep today's failure path. After six
+consecutive deferrals of the same action the original error is raised exactly as
+before, so a wedged lock stays loud. The bound is per invocation: a restarted
+controller carries no deferral state.
+
+Inside a post-crew child, the two record transactions that used to fail its whole
+job now wait far longer than the controller does, since `_exclusive_file_lock`
+already retries the acquisition every 50 ms until its deadline: candidate
+registration (`candidate.REGISTRATION_LOCK_TIMEOUT_SECONDS`, which has mutated
+nothing when it waits) and the post-validation persist
+(`post_crew_workflow.VALIDATION_PERSIST_LOCK_TIMEOUT_SECONDS`, which must not
+discard evidence that already exists). Both stay bounded, and the persist still
+re-verifies the exact candidate on acquisition and refuses one that changed while
+validation ran. `unity_materialization.materialize_candidate` still holds
+`checkouts.lock` across the whole Unity builder and validation; that is a separate
+defect, recorded in `README.md` and not changed here.
+
 ## Background job containment and operator stop — 2026-09-12
 
 Two blockers in the first background-job commit are repaired: detached

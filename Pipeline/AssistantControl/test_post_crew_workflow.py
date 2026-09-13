@@ -9,10 +9,15 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+import threading
 import unittest
 import uuid
 from pathlib import Path
+from unittest.mock import patch
 
+from Pipeline.AssistantControl import background_jobs
+from Pipeline.AssistantControl import candidate
+from Pipeline.AssistantControl import post_crew_workflow
 from Pipeline.AssistantControl.checkouts import Checkouts
 from Pipeline.AssistantControl.post_crew_workflow import (
     PostCrewWorkflowError,
@@ -28,6 +33,7 @@ from Pipeline.TaskReviewAgent.authoritative_candidate_validation import (
 )
 from Pipeline.TaskReviewAgent.contracts import ExecutionScopePlan
 from Pipeline.TaskReviewAgent.execution_bridge import ExecutionCrewReceipt
+from Pipeline.TaskReviewAgent.execution_session_pool import _exclusive_file_lock
 from Pipeline.TaskReviewAgent.git_identity_guard import validated_agent_git_identity
 from Pipeline.TaskReviewAgent.local_candidate_commit import LocalCandidateCommitReceipt
 
@@ -450,6 +456,190 @@ class PostCrewWorkflowNoUnityBuilderTests(unittest.TestCase):
         self.assertEqual(preserved, record["integration"])
         self.assertEqual("approve", record["approval"]["decision"])
         self.assertEqual(1, record["candidate"]["authoritative_validations"][0]["passed"])
+
+    # -- the other side of the `checkouts.lock` race --------------------------
+
+    def hold_checkouts_lock(self) -> tuple[threading.Event, threading.Thread]:
+        """Hold this root's real `checkouts.lock` from another thread until released."""
+        lock_path = self.manager.records / "checkouts.lock"
+        holding, release = threading.Event(), threading.Event()
+
+        def hold() -> None:
+            with _exclusive_file_lock(lock_path, timeout_seconds=30.0):
+                holding.set()
+                release.wait(60.0)
+
+        holder = threading.Thread(target=hold, name="checkouts-lock-holder", daemon=True)
+        self.addCleanup(holder.join, 60.0)
+        self.addCleanup(release.set)
+        holder.start()
+        self.assertTrue(holding.wait(30.0), "the fixture never took checkouts.lock")
+        return release, holder
+
+    def passing_validation(self, **kwargs):
+        return ({
+            "test_platform": "EditMode", "test_filter": "FixedFeatureTests",
+            "commit": kwargs["commit"], "total": 1, "passed": 1,
+        },)
+
+    def recorded_lock_waits(self, module):
+        """Record the exact budget each `checkouts.lock` acquisition in `module` asks for."""
+        waits: list[tuple[str, float]] = []
+        real = module._exclusive_file_lock
+
+        def spy(path, *, timeout_seconds):
+            waits.append((str(path), timeout_seconds))
+            return real(path, timeout_seconds=timeout_seconds)
+
+        patcher = patch.object(module, "_exclusive_file_lock", spy)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        return waits
+
+    def test_a_child_whose_first_registration_lock_attempt_times_out_still_completes(self):
+        """A detached child must not become a failed job because the lock was busy.
+
+        A post-crew child takes `checkouts.lock` at candidate registration, and a
+        child that loses that wait is recorded `failed`, blocks its task with
+        `background_job_failed` and needs an operator `clear-background-job`
+        before the planner will issue another ticket. Registration has mutated
+        nothing at that point, so it waits far longer than the controller's 10 s
+        instead (20260913 run: children 8b97d834... and 4ac95f738c... died exactly
+        this way).
+        """
+        self.assertGreaterEqual(candidate.REGISTRATION_LOCK_TIMEOUT_SECONDS, 120.0)
+        self.assertGreater(
+            candidate.REGISTRATION_LOCK_TIMEOUT_SECONDS,
+            10 * background_jobs.LAUNCH_LOCK_TIMEOUT_SECONDS,
+        )
+        waits = self.recorded_lock_waits(candidate)
+        release, _holder = self.hold_checkouts_lock()
+        threading.Timer(1.0, release.set).start()
+
+        result = run_post_crew_workflow(
+            self.manager, "NSC-100", "fixture-crew", {},
+            bridge_factory=self.bridge, committer_factory=self.committer,
+            validation_runner=self.passing_validation,
+        )
+
+        # The registration transaction asked for the long budget, and survived a
+        # holder it would have lost to with the graph controller's 10 s.
+        self.assertEqual(
+            [(str(self.manager.records / "checkouts.lock"),
+              candidate.REGISTRATION_LOCK_TIMEOUT_SECONDS)],
+            waits,
+        )
+        self.assertEqual("awaiting_human", result["status"])
+        self.assertIsNotNone(result["crew_candidate_commit"])
+        record = json.loads((self.manager.records / "NSC-100.json").read_text())
+        self.assertEqual(1, record["candidate"]["authoritative_validations"][0]["passed"])
+
+    def test_a_registration_lock_held_past_the_bound_fails_with_the_original_error(self):
+        """The registration wait is bounded: a wedged lock is still loud."""
+        lock_path = self.manager.records / "checkouts.lock"
+        self.hold_checkouts_lock()
+
+        with patch.object(candidate, "REGISTRATION_LOCK_TIMEOUT_SECONDS", 0.2):
+            with self.assertRaises(TimeoutError) as raised:
+                run_post_crew_workflow(
+                    self.manager, "NSC-100", "fixture-crew", {},
+                    bridge_factory=self.bridge, committer_factory=self.committer,
+                    validation_runner=self.passing_validation,
+                )
+        self.assertEqual(str(lock_path), raised.exception.filename)
+        self.assertIn("timed out after 0.2s waiting for exclusive file lock",
+                      str(raised.exception))
+        record = json.loads((self.manager.records / "NSC-100.json").read_text())
+        self.assertIsNone(record.get("candidate"))
+
+    def test_validation_runs_with_the_checkout_lock_free_and_the_persist_outwaits_it(self):
+        """A finished validation is never discarded because the lock was busy.
+
+        `checkouts.lock` is free for the whole validation, so a graph run's other
+        record transactions never wait minutes behind one, and the transaction
+        that persists the finished facts waits far longer than a launch's budget:
+        in the 20260913 Gauntlet run a 10 s wait threw away a completed 75 s Unity
+        validation (post-crew job 8b97d834..., 02:56:21Z) while a foreground
+        `sync_candidate` held the lock for 16 s.
+        """
+        self.assertGreaterEqual(
+            post_crew_workflow.VALIDATION_PERSIST_LOCK_TIMEOUT_SECONDS, 120.0)
+        self.assertGreater(
+            post_crew_workflow.VALIDATION_PERSIST_LOCK_TIMEOUT_SECONDS,
+            10 * background_jobs.LAUNCH_LOCK_TIMEOUT_SECONDS,
+        )
+        lock_path = self.manager.records / "checkouts.lock"
+        free_during_validation: list[float] = []
+        waits = self.recorded_lock_waits(post_crew_workflow)
+
+        def validation_while_another_writer_holds_the_lock(**kwargs):
+            # Nothing holds the lock while the validation runs.
+            with _exclusive_file_lock(lock_path, timeout_seconds=0.1):
+                free_during_validation.append(1.0)
+            release, _holder = self.hold_checkouts_lock()
+            # The persist then waits out that holder instead of failing.
+            threading.Timer(1.0, release.set).start()
+            return self.passing_validation(**kwargs)
+
+        result = run_post_crew_workflow(
+            self.manager, "NSC-100", "fixture-crew", {},
+            bridge_factory=self.bridge, committer_factory=self.committer,
+            validation_runner=validation_while_another_writer_holds_the_lock,
+        )
+
+        # The persist transaction asked for the long budget, and survived a holder
+        # it would have lost to with the graph controller's 10 s.
+        self.assertEqual(
+            [(str(lock_path), post_crew_workflow.VALIDATION_PERSIST_LOCK_TIMEOUT_SECONDS)],
+            waits,
+        )
+        self.assertEqual([1.0], free_during_validation)
+        self.assertEqual("awaiting_human", result["status"])
+        record = json.loads((self.manager.records / "NSC-100.json").read_text())
+        self.assertEqual(1, record["candidate"]["authoritative_validations"][0]["passed"])
+
+    def test_a_lock_held_past_the_persist_budget_fails_loudly_and_retains_state(self):
+        """The persist is bounded: a wedged lock is still an error, never a silent loss."""
+        lock_path = self.manager.records / "checkouts.lock"
+
+        def validation_then_a_wedged_lock(**kwargs):
+            self.hold_checkouts_lock()
+            return self.passing_validation(**kwargs)
+
+        with patch.object(post_crew_workflow,
+                          "VALIDATION_PERSIST_LOCK_TIMEOUT_SECONDS", 0.2):
+            with self.assertRaises(TimeoutError) as raised:
+                run_post_crew_workflow(
+                    self.manager, "NSC-100", "fixture-crew", {},
+                    bridge_factory=self.bridge, committer_factory=self.committer,
+                    validation_runner=validation_then_a_wedged_lock,
+                )
+        self.assertEqual(str(lock_path), raised.exception.filename)
+        record = json.loads((self.manager.records / "NSC-100.json").read_text())
+        self.assertEqual([], list(record["candidate"].get("authoritative_validations") or ()))
+        self.assertNotIn("candidate_validation_failure", record)
+
+    def test_the_persist_refuses_when_the_candidate_changed_underneath(self):
+        """The lock is free during validation, so re-acquiring it reverifies the candidate."""
+        record_path = self.manager.records / "NSC-100.json"
+
+        def validation_while_the_candidate_is_replaced(**kwargs):
+            record = json.loads(record_path.read_text())
+            record["candidate"] = {**record["candidate"], "commit": "9" * 40}
+            record_path.write_text(json.dumps(record, indent=2) + "\n")
+            return self.passing_validation(**kwargs)
+
+        with self.assertRaises(PostCrewWorkflowError) as raised:
+            run_post_crew_workflow(
+                self.manager, "NSC-100", "fixture-crew", {},
+                bridge_factory=self.bridge, committer_factory=self.committer,
+                validation_runner=validation_while_the_candidate_is_replaced,
+            )
+        self.assertIn("candidate changed while authoritative validation was running",
+                      str(raised.exception))
+        record = json.loads(record_path.read_text())
+        self.assertEqual("9" * 40, record["candidate"]["commit"])
+        self.assertIsNone(record["candidate"].get("authoritative_validations"))
 
     def test_source_synchronized_candidate_is_revalidated_without_reregistering_crew(self):
         def passing_validation(**kwargs):

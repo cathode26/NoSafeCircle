@@ -10,10 +10,12 @@ tree termination end to end.
 from __future__ import annotations
 
 import contextlib
+import errno
 import hashlib
 import io
 import json
 import os
+import threading
 import time
 import unittest
 import uuid
@@ -29,6 +31,9 @@ from Pipeline.AssistantControl.background_jobs import BackgroundJobError
 from Pipeline.AssistantControl.checkouts import write_record
 from Pipeline.AssistantControl.graph_controller import (
     BACKGROUND_ACTION_KINDS,
+    LOCK_DEFERRABLE_ACTION_KINDS,
+    LOCK_DEFERRAL_LIMIT,
+    LOCK_DEFERRAL_WAIT_SECONDS,
     SOURCE_LANE_ACTION_KINDS,
     STOP_REQUEST_SCHEMA,
     GraphController,
@@ -406,7 +411,7 @@ class BackgroundJobLoopTests(unittest.TestCase):
     # -- foreground fake ---------------------------------------------------
 
     def fake_foreground(self, controller: GraphController, *, real_kinds=(),
-                        on_source_move=None):
+                        on_source_move=None, before=None):
         real = controller._execute_foreground
 
         def execute(action):
@@ -416,6 +421,10 @@ class BackgroundJobLoopTests(unittest.TestCase):
                 "jobs_running": sorted(self.host.running()),
                 "lane_busy": controller._source_lane_busy,
             })
+            # A seam for whatever the real foreground step would do first, such
+            # as taking `checkouts.lock`; it may raise like the real step does.
+            if before is not None:
+                before(action)
             if kind in real_kinds:
                 return real(action)
             if kind == "settle_worker":
@@ -970,6 +979,321 @@ class BackgroundJobLoopTests(unittest.TestCase):
         self.assertEqual([["container", "inspect", "--format", background_jobs._CONTAINER_INSPECT_FORMAT,
                            index["provider_container"]["name"]]],
                          [call for call in self.host.docker_cli.calls][:1])
+
+    # -- `checkouts.lock` contention defers an action, it never fails the run --
+
+    def hold_checkouts_lock(self):
+        """Hold this root's real `checkouts.lock` from another thread until released."""
+        lock_path = self.records / "checkouts.lock"
+        holding, release = threading.Event(), threading.Event()
+
+        def hold() -> None:
+            with _exclusive_file_lock(lock_path, timeout_seconds=30.0):
+                holding.set()
+                release.wait(60.0)
+
+        holder = threading.Thread(target=hold, name="checkouts-lock-holder", daemon=True)
+        self.addCleanup(holder.join, 60.0)
+        self.addCleanup(release.set)
+        holder.start()
+        self.assertTrue(holding.wait(30.0), "the fixture never took checkouts.lock")
+        return release, holder
+
+    def watch_deferrals(self, controller: GraphController, *, free_lock=None):
+        """Record the durable facts at every deferral; optionally free the lock at the first.
+
+        The loop's bounded pause after a deferral is the one call that passes
+        exactly ``LOCK_DEFERRAL_WAIT_SECONDS``, so it is where a test can see the
+        controller state and the (absent) durable residue of the deferred action.
+        """
+        observed: list[dict] = []
+        inner = controller.sleep
+        root = background_jobs.jobs_root(self.manager)
+
+        def sleep(seconds: float) -> None:
+            if seconds == LOCK_DEFERRAL_WAIT_SECONDS:
+                observed.append({
+                    "state": _read(controller.state_path),
+                    "indexes": sorted(background_jobs.list_indexes(self.manager)),
+                    "job_roots": sorted(str(path.relative_to(root))
+                                        for path in root.glob("*/*")) if root.exists() else [],
+                    "launches": len(self.host.launches),
+                })
+                if free_lock is not None and len(observed) == 1:
+                    release, holder = free_lock
+                    release.set()
+                    holder.join(60.0)
+            inner(seconds)
+
+        controller.sleep = sleep
+        return observed
+
+    def settled_worker_record(self, task_id: str) -> None:
+        """A record whose settled successful worker makes `post_crew` the next action."""
+        self.task_record(task_id, worker_status="succeeded", run_id=f"run-{task_id}")
+        self.mutate(task_id, worker={"capacity_released": True})
+
+    def validated_awaiting_human(self, task_id: str, *, source_commit: str | None = None) -> None:
+        """A validated synthetic candidate: `auto_approve`, or `sync_candidate` when stale."""
+        self.task_record(task_id, worker_status=None, run_id=f"run-{task_id}")
+        tree = self.git("rev-parse", "HEAD^{tree}").decode().strip()
+        self.mutate(
+            task_id, status="awaiting_human",
+            source_commit=source_commit if source_commit is not None else self.head,
+            candidate={"commit": self.head, "tree": tree, "run_id": f"crew-{task_id}",
+                       "authoritative_validations": [{"fixture": True}]},
+        )
+
+    def action_events(self, controller: GraphController) -> list[str]:
+        return [event["event"] for event in _events(controller.event_path)
+                if event["event"].startswith("action_")]
+
+    def test_a_lock_contended_launch_is_deferred_and_launches_on_the_next_cycle(self):
+        """A launch that cannot take `checkouts.lock` is re-planned, not fatal.
+
+        The 20260913 Gauntlet run lost invocation dce6aae6 exactly here: a
+        `post_crew` launch for NSC-1163 started 1.1 s after the NSC-1162 child
+        took the lock to register its candidate, waited its 10 s and raised
+        TimeoutError, which blocked the task and ended the invocation with exit 1.
+        """
+        self.commit_task("NSC-1101")
+        controller = self.controller("NSC-1101")
+        self.settled_worker_record("NSC-1101")
+        self.host.schedule("post_crew", "NSC-1101", 5.0, self.validated_candidate)
+        deferrals = self.watch_deferrals(controller, free_lock=self.hold_checkouts_lock())
+
+        with self.fake_foreground(controller), self.worker_exits_at({}), \
+                patch.object(background_jobs, "LAUNCH_LOCK_TIMEOUT_SECONDS", 0.25):
+            result = controller.run(max_actions=2)
+
+        self.assertEqual(["post_crew", "wait_job"],
+                         [item["action"]["kind"] for item in result["completed_actions"]])
+        self.assertNotIn("action_failed", self.action_events(controller))
+        self.assertEqual(["action_started", "action_deferred", "action_started",
+                          "action_completed", "action_started", "action_completed"],
+                         self.action_events(controller))
+        # The run result reports the deferral, and the journal repeats it exactly.
+        journaled = [event for event in _events(controller.event_path)
+                     if event["event"] == "action_deferred"]
+        self.assertEqual(1, len(journaled))
+        self.assertEqual(result["lock_deferrals"],
+                         [{key: event[key] for key in result["lock_deferrals"][0]}
+                          for event in journaled])
+        deferral = result["lock_deferrals"][0]
+        self.assertEqual(
+            ("NSC-1101", "post_crew", "lock_contention",
+             str(self.records / "checkouts.lock"), 1, LOCK_DEFERRAL_LIMIT),
+            (deferral["task_id"], deferral["kind"], deferral["reason"],
+             deferral["lock_path"], deferral["deferrals"], deferral["limit"]),
+        )
+        self.assertGreaterEqual(deferral["seconds_waited"], 0.2)
+        self.assertIn("timed out after 0.25s waiting for exclusive file lock",
+                      deferral["error"])
+        # Nothing was blocked, nothing durable was written, and the child that
+        # finally started is the only one: the deferral did not duplicate it.
+        self.assertEqual([], [item for item in result["blocked"]
+                              if item["task_id"] == "NSC-1101"])
+        self.assertEqual(1, len(self.host.launches))
+        self.assertEqual(1, len(deferrals))
+        self.assertEqual(
+            ("running", None, [], [], 0),
+            (deferrals[0]["state"]["status"], deferrals[0]["state"]["last_error"],
+             deferrals[0]["indexes"], deferrals[0]["job_roots"], deferrals[0]["launches"]),
+        )
+        self.assertIsNone(_read(controller.state_path)["last_error"])
+
+    def test_lock_contention_beyond_the_bound_fails_with_the_original_error(self):
+        """The bound keeps a wedged lock loud: exactly today's failure after N deferrals."""
+        self.commit_task("NSC-1101")
+        controller = self.controller("NSC-1101")
+        self.settled_worker_record("NSC-1101")
+        self.host.schedule("post_crew", "NSC-1101", 5.0, self.validated_candidate)
+        self.hold_checkouts_lock()
+        deferrals = self.watch_deferrals(controller)
+
+        with self.fake_foreground(controller), self.worker_exits_at({}), \
+                patch.object(background_jobs, "LAUNCH_LOCK_TIMEOUT_SECONDS", 0.1):
+            with self.assertRaises(TimeoutError) as raised:
+                controller.run(max_actions=4)
+
+        self.assertEqual(errno.ETIMEDOUT, raised.exception.errno)
+        self.assertEqual(str(self.records / "checkouts.lock"), raised.exception.filename)
+        self.assertEqual(LOCK_DEFERRAL_LIMIT, len(deferrals))
+        # Under the bound the invocation never blocks the task or records an error.
+        self.assertEqual([("running", None)] * LOCK_DEFERRAL_LIMIT,
+                         [(item["state"]["status"], item["state"]["last_error"])
+                          for item in deferrals])
+        self.assertEqual(["action_started", "action_deferred"] * LOCK_DEFERRAL_LIMIT
+                         + ["action_started", "action_failed"],
+                         self.action_events(controller))
+        state = _read(controller.state_path)
+        self.assertEqual("blocked", state["status"])
+        self.assertTrue(state["last_error"].startswith("TimeoutError: [Errno "),
+                        state["last_error"])
+        self.assertIn("timed out after 0.1s waiting for exclusive file lock",
+                      state["last_error"])
+        self.assertEqual([], self.host.launches)
+
+    def test_an_action_kind_outside_the_allowlist_still_fails_on_the_same_timeout(self):
+        """Only proven pre-mutation kinds are deferrable; everything else is unchanged.
+
+        `apply_decomposition` stands in for the whole excluded set here: it never
+        takes `checkouts.lock` in production (it takes the Source integration lock
+        and writes under it), and the wait kinds reach the lock only inside
+        `harvest` and the container-cleanup recorders, which persist work that has
+        already happened. The gate is the action kind, so one timeout proves it.
+        """
+        self.assertEqual(frozenset({
+            "decompose", "post_crew", "prepare", "refresh_prepared", "scope", "reserve",
+            "start_worker", "settle_worker", "sync_candidate", "auto_approve", "integrate",
+        }), LOCK_DEFERRABLE_ACTION_KINDS)
+        self.assertEqual(frozenset(), LOCK_DEFERRABLE_ACTION_KINDS & frozenset({
+            "apply_decomposition", "wait_job", "wait_worker",
+        }))
+        controller = self.controller("NSC-1200")
+        self.hold_checkouts_lock()
+        deferrals = self.watch_deferrals(controller)
+        plan = {"status": "actionable", "next_actions": [
+            {"kind": "apply_decomposition", "task_id": "NSC-1200", "run_id": "r",
+             "source_commit": self.head},
+        ]}
+
+        def lose_the_lock(action):
+            with _exclusive_file_lock(self.records / "checkouts.lock", timeout_seconds=0.1):
+                raise AssertionError("the fixture must never take the held lock")
+
+        with patch.object(controller, "plan", side_effect=[plan] * 4), \
+                patch.object(controller, "_reservations", return_value={}), \
+                self.fake_foreground(controller, before=lose_the_lock):
+            with self.assertRaises(TimeoutError):
+                controller.run(max_actions=4)
+
+        self.assertEqual([], deferrals)
+        self.assertEqual(["action_started", "action_failed"], self.action_events(controller))
+        state = _read(controller.state_path)
+        self.assertEqual("blocked", state["status"])
+        self.assertIn("timed out after 0.1s waiting for exclusive file lock",
+                      state["last_error"])
+
+    def test_a_deferred_launch_leaves_no_ticket_index_or_run_root(self):
+        """Every deferral, and the fatal attempt after the bound, wrote nothing."""
+        self.commit_task("NSC-1101")
+        controller = self.controller("NSC-1101")
+        self.settled_worker_record("NSC-1101")
+        self.host.schedule("post_crew", "NSC-1101", 5.0, self.validated_candidate)
+        record_path = self.records / "NSC-1101.json"
+        before = record_path.read_bytes()
+        self.hold_checkouts_lock()
+        deferrals = self.watch_deferrals(controller)
+
+        with self.fake_foreground(controller), self.worker_exits_at({}), \
+                patch.object(background_jobs, "LAUNCH_LOCK_TIMEOUT_SECONDS", 0.1):
+            with self.assertRaises(TimeoutError):
+                controller.run(max_actions=4)
+
+        self.assertEqual(LOCK_DEFERRAL_LIMIT, len(deferrals))
+        self.assertEqual([([], [], 0)] * LOCK_DEFERRAL_LIMIT,
+                         [(item["indexes"], item["job_roots"], item["launches"])
+                          for item in deferrals])
+        self.assertEqual({}, background_jobs.list_indexes(self.manager))
+        self.assertIsNone(background_jobs.read_index(self.manager, "NSC-1101"))
+        self.assertFalse((background_jobs.jobs_root(self.manager) / "NSC-1101").exists())
+        self.assertFalse((self.records / "candidate-receipts").exists())
+        self.assertEqual([], self.host.launches)
+        self.assertEqual(before, record_path.read_bytes())
+
+    def test_a_lock_contended_sync_candidate_is_deferred_not_fatal(self):
+        """A foreground Source-lane action is deferred too (20260913, 02:50:47Z)."""
+        self.commit_task("NSC-1101")
+        controller = self.controller("NSC-1101")
+        self.validated_awaiting_human("NSC-1101", source_commit="0" * 40)
+        self.assertEqual(["sync_candidate"],
+                         [item["kind"] for item in controller.plan()["next_actions"]])
+        self.deferred_foreground_action(controller, "sync_candidate")
+
+    def test_a_lock_contended_auto_approve_is_deferred_not_fatal(self):
+        """The other observed foreground casualty (20260913, 02:51:32Z)."""
+        self.commit_task("NSC-1101")
+        controller = self.controller("NSC-1101")
+        self.validated_awaiting_human("NSC-1101")
+        self.assertEqual(["auto_approve"],
+                         [item["kind"] for item in controller.plan()["next_actions"]])
+        self.deferred_foreground_action(controller, "auto_approve")
+
+    def deferred_foreground_action(self, controller: GraphController, kind: str) -> None:
+        """One foreground action loses a real `checkouts.lock` wait, then runs next cycle.
+
+        The production step for each of these kinds takes `checkouts.lock` as its
+        first effect (see LOCK_DEFERRABLE_ACTION_KINDS), so the fixture reproduces
+        that acquisition, with its exact exception, from the fixture foreground.
+        """
+        attempts: list[str] = []
+        deferrals = self.watch_deferrals(controller, free_lock=self.hold_checkouts_lock())
+
+        def lose_the_lock_once(action):
+            attempts.append(action["kind"])
+            if len(attempts) == 1:
+                with _exclusive_file_lock(self.records / "checkouts.lock", timeout_seconds=0.2):
+                    raise AssertionError("the fixture must never take the held lock")
+
+        with self.fake_foreground(controller, before=lose_the_lock_once), \
+                self.worker_exits_at({}):
+            result = controller.run(max_actions=1)
+
+        self.assertEqual([kind, kind], attempts)
+        self.assertEqual([kind], [item["action"]["kind"] for item in result["completed_actions"]])
+        self.assertNotIn("action_failed", self.action_events(controller))
+        self.assertEqual(1, len(deferrals))
+        self.assertEqual(("running", None),
+                         (deferrals[0]["state"]["status"], deferrals[0]["state"]["last_error"]))
+        self.assertEqual(
+            (kind, "lock_contention", 1),
+            (result["lock_deferrals"][0]["kind"], result["lock_deferrals"][0]["reason"],
+             result["lock_deferrals"][0]["deferrals"]),
+        )
+        self.assertEqual([], [item for item in result["blocked"]
+                              if item["task_id"] == "NSC-1101"])
+
+    def test_a_childs_own_lock_timeout_stays_a_harvested_job_failure(self):
+        """The child side keeps its own path: a failed job, not a deferral.
+
+        Three of the four 20260913 lock timeouts were controller actions and
+        ended their invocations with status `blocked` and exit 1; the fourth was a
+        post-crew *child* losing the same lock, which is journaled `job_failed`
+        from its receipt, blocks only its task and lets the invocation continue.
+        The deferral must not touch that path.
+        """
+        self.commit_task("NSC-1101")
+        controller = self.controller("NSC-1101")
+        self.settled_worker_record("NSC-1101")
+        error = (f"TimeoutError: [Errno {errno.ETIMEDOUT}] timed out after 10s waiting for "
+                 f"exclusive file lock: {str(self.records / 'checkouts.lock')!r}")
+
+        def child_lost_the_lock(run_root, request, identity):
+            write_receipt(run_root, request, identity, status="failed", error=error)
+
+        self.host.schedule("post_crew", "NSC-1101", 3.0, child_lost_the_lock)
+        deferrals = self.watch_deferrals(controller)
+
+        with self.fake_foreground(controller), self.worker_exits_at({}):
+            result = controller.run(max_actions=3)
+
+        self.assertEqual(["post_crew", "wait_job"],
+                         [item["action"]["kind"] for item in result["completed_actions"]])
+        self.assertEqual([], deferrals)
+        self.assertEqual([], result["lock_deferrals"])
+        self.assertNotIn("action_deferred", [event["event"] for event
+                                             in _events(controller.event_path)])
+        self.assertNotIn("action_failed", self.action_events(controller))
+        self.assertEqual(["job_launched", "job_failed"],
+                         [event["event"] for event in _events(controller.event_path)
+                          if event["event"].startswith("job_")])
+        blocked = {item["task_id"]: item for item in result["blocked"]}
+        self.assertEqual("background_job_failed", blocked["NSC-1101"]["reason"])
+        self.assertEqual(error, blocked["NSC-1101"]["error"])
+        self.assertEqual("failed", background_jobs.read_index(self.manager, "NSC-1101")["status"])
+        # The invocation returned instead of raising, and recorded no last_error.
+        self.assertIsNone(_read(controller.state_path)["last_error"])
 
     def test_keyboard_interrupt_cancels_all_active_jobs_and_they_are_never_relaunched(self):
         for task_id in ("NSC-1101", "NSC-1102"):

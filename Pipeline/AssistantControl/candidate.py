@@ -37,6 +37,17 @@ class CandidateRegistrationError(ValueError):
 
 BridgeFactory = Callable[..., Any]
 CommitterFactory = Callable[..., Any]
+# How long candidate registration waits for `checkouts.lock`. `_exclusive_file_lock`
+# already retries the acquisition every 50 ms until this deadline, so a longer
+# budget *is* the bounded retry. It has to be longer than the graph controller's
+# 10 s: registration runs inside a detached post-crew child, and a child that
+# loses this wait is recorded as a *failed job*, which blocks its task with
+# `background_job_failed` until an operator runs `clear-background-job` (needed
+# twice in the 20260913 Gauntlet run). Registration itself held this lock about
+# 9 s in that run and a foreground `sync_candidate` 13-16 s, so 10 s could not
+# cover one legitimate holder. Nothing is mutated before the lock is taken, so
+# waiting costs nothing; the bound keeps a genuinely wedged lock loud.
+REGISTRATION_LOCK_TIMEOUT_SECONDS = 300.0
 
 
 def _cleanup_recovery(root: Path, records: Path) -> None:
@@ -212,7 +223,10 @@ def register_candidate(
     if type(run_id) is not str or not run_id.strip():
         raise CandidateRegistrationError("candidate registration requires a run_id")
     options = dict(config or {})
-    with _exclusive_file_lock(checkouts.records / "checkouts.lock", timeout_seconds=10):
+    with _exclusive_file_lock(
+        checkouts.records / "checkouts.lock",
+        timeout_seconds=REGISTRATION_LOCK_TIMEOUT_SECONDS,
+    ):
         record_path, record = _read_record(checkouts, task_id)
         if (record.get("status") in {"integrating", "integrated", "approved", "changes_requested"}
                 and (record.get("candidate") or {}).get("run_id") != run_id.strip()):

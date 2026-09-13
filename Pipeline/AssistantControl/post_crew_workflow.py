@@ -44,6 +44,15 @@ from Pipeline.TaskReviewAgent.local_candidate_commit import LocalCandidateCommit
 
 
 SCHEMA_VERSION = "assistant-post-crew-workflow/v1"
+# How long the post-validation record transaction waits for `checkouts.lock`.
+# The validation it persists has already run: in the 20260913 Gauntlet run the
+# 10 s budget threw away a finished 75 s Unity validation (NSC-1164 post-crew
+# job 8b97d834..., 02:56:21Z) because a foreground `sync_candidate` held the
+# lock for 16 s. This transaction is only a record read, verify and write, it
+# holds nothing while it waits, and it re-verifies the exact candidate on
+# acquisition, so waiting far longer than a launch does is safe and cheap; a
+# launch has nothing to lose and is deferred by the graph controller instead.
+VALIDATION_PERSIST_LOCK_TIMEOUT_SECONDS = 300.0
 
 
 class PostCrewWorkflowError(ValueError):
@@ -84,11 +93,17 @@ def _persist_candidate_validation(
 
     Validation can outlive the command that registered the candidate. Re-read
     under the checkout lock so a later human decision or integration receipt is
-    never replaced by the stale pre-validation snapshot.
+    never replaced by the stale pre-validation snapshot. The validation itself
+    runs with the lock released, and this acquisition waits
+    ``VALIDATION_PERSIST_LOCK_TIMEOUT_SECONDS`` rather than a launch's budget so
+    a busy lock cannot discard evidence that has already been produced.
     """
     if (validations is None) == (failure is None):
         raise PostCrewWorkflowError("candidate validation outcome is ambiguous")
-    with _exclusive_file_lock(checkouts.records / "checkouts.lock", timeout_seconds=10):
+    with _exclusive_file_lock(
+        checkouts.records / "checkouts.lock",
+        timeout_seconds=VALIDATION_PERSIST_LOCK_TIMEOUT_SECONDS,
+    ):
         latest = _read_record(checkouts, task_id)
         candidate = dict((latest or {}).get("candidate") or {})
         if candidate.get("commit") != candidate_commit:

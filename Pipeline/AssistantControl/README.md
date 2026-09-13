@@ -294,6 +294,34 @@ inspect its `stderr.log`, then `clear-background-job <task> --job-id <id>` to
 archive the index before the planner may issue a fresh ticket.
 `--background-jobs N` (default 4) bounds concurrent jobs.
 
+One `checkouts.lock` serializes every record transaction in a checkout root, and
+with several jobs in flight two transactions regularly want it at once: a
+post-crew child holds it about 9 s to register its candidate and a foreground
+`sync_candidate` 13-16 s, against a 10 s wait. Losing that wait is contention,
+never proof that something is wrong, so a controller action that cannot take the
+lock *before it has written anything durable* is deferred to the next planning
+cycle instead of failing the invocation. The controller journals `action_deferred`
+(task, kind, reason `lock_contention`, lock path, seconds waited, deferral count),
+leaves the task unblocked with no `last_error`, keeps the invocation `running`,
+pauses three seconds and lets the planner re-emit the action. Only action kinds
+whose lock acquisition provably precedes every durable write are deferrable
+(`LOCK_DEFERRABLE_ACTION_KINDS` in `graph_controller.py` records the proof per
+kind: both launches plus `prepare`, `refresh_prepared`, `scope`, `reserve`,
+`start_worker`, `settle_worker`, `sync_candidate`, `auto_approve`, `integrate`);
+`apply_decomposition` and the wait kinds keep the old failure path because their
+acquisitions are not pre-mutation. After six consecutive deferrals of the same
+action the original `TimeoutError` is raised exactly as before, so a wedged lock
+still stops the run loudly; the count is per invocation and a restarted controller
+starts fresh. Inside a post-crew child the same race used to fail the whole job
+and force an operator `clear-background-job`, so candidate registration and the
+post-validation persist wait far longer than the controller does (still bounded,
+and the persist still refuses a candidate that changed while validation ran).
+`materialize_candidate` is the remaining known offender: it holds `checkouts.lock`
+across the whole Unity builder and its validation, minutes at a time, which no
+waiter's budget can cover; reducing that hold needs its own change, because the
+lock is taken before the Source integration and registry locks and releasing it in
+the middle would invert that order.
+
 A decomposition proposal reads Source for minutes and binds every round to the
 exact head and tree it started from, so the controller holds the Source lane
 around one. While any `decompose` job is active, `integrate` and

@@ -89,12 +89,34 @@ python -m Pipeline.AssistantControl.__main__ `
    `decompose` launch goes first, the launch following on the next cycle. A held
    action stays in `next_actions` carrying a `held` record, is repeated in the
    plan's `held` list, and is journaled once as `source_lane_held`.
+   An action that cannot take this checkout root's `checkouts.lock` within its
+   budget, and that provably had not written anything durable when it asked, is
+   deferred rather than failed: the controller journals `action_deferred` with the
+   task, kind, reason `lock_contention`, the lock path, the seconds waited and the
+   deferral count, leaves the task unblocked and `last_error` unset, keeps the
+   invocation `running`, pauses a bounded three seconds, and re-plans, which
+   re-emits the action. The deferrable kinds are the two launches plus `prepare`,
+   `refresh_prepared`, `scope`, `reserve`, `start_worker`, `settle_worker`,
+   `sync_candidate`, `auto_approve` and `integrate`
+   (`LOCK_DEFERRABLE_ACTION_KINDS`, which records the pre-mutation proof for
+   each); `apply_decomposition`, which never takes that lock, and the wait kinds,
+   which reach it only inside receipt harvesting and container-cleanup recording,
+   keep the ordinary failure path. The bound is six consecutive deferrals of the
+   same action, after which the original `TimeoutError` is raised exactly as it
+   would have been without the deferral, so a wedged lock still ends the run with
+   status `blocked`, `last_error` set and exit 1. Deferral counts live only in the
+   running invocation; a restarted controller carries none. The run result lists
+   every deferral in `lock_deferrals`.
 5. It harvests ended background jobs' receipts before every plan, and updates
    durable controller state (`graph-controller.json`, `background_jobs` summary)
    for replay/resume. A restarted controller observes a live job by its recorded
    process identity or harvests its retained receipt; it never launches the same
    ticket twice. A failed or receipt-less dead job blocks only its task until an
-   operator runs `clear-background-job <task> --job-id <id>`.
+   operator runs `clear-background-job <task> --job-id <id>`. A child's own lost
+   `checkouts.lock` wait used to reach that state, so the two record transactions
+   a post-crew child performs (candidate registration, and the persist of a
+   finished validation) wait far longer than the controller does before failing,
+   and the persist re-verifies the exact candidate when it acquires the lock.
 6. Each child is contained in a run-derived named Job Object before it may work
    (worker-launcher handoff: the parent holds its handle until the exact child
    acknowledges with `job.opened.json`), and its receipt must carry the PID and

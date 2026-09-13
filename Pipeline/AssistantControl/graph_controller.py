@@ -6,6 +6,7 @@ candidate validation, Unity materialization, review and local integration.
 """
 from __future__ import annotations
 
+import errno
 import hashlib
 import json
 import os
@@ -75,6 +76,64 @@ _WAIT_KINDS = frozenset({"wait_worker", "wait_job"})
 _WAIT_TIMEOUT_STATUSES = frozenset({"worker_still_running", "background_jobs_running"})
 _DECOMPOSITION_JOB_WAIT_SECONDS = 3600.0 + 180.0
 _POST_CREW_JOB_WAIT_SECONDS = 1800.0
+# `checkouts.lock` serializes every record transaction in one checkout root, and
+# its legitimate holders are slow: in the 20260913 Gauntlet run a post-crew
+# child's candidate registration held it about 9 s and a foreground
+# `sync_candidate` 13-16 s, while every waiter budgets 10 s. Losing that wait is
+# contention, never proof that anything is wrong, so an action that cannot take
+# the lock *before* it has written anything durable is deferred to the next
+# planning cycle, which re-emits it, instead of failing the invocation.
+#
+# Only kinds whose `checkouts.lock` acquisition provably precedes every durable
+# write of that action are listed. Proof per kind, read at 1dae47b:
+#   decompose, post_crew  `_job_identity` only reads (git rev-parse, the
+#       committed task, the task record), then `background_jobs.launch` takes the
+#       lock before it creates the run root, the launch request, the index or the
+#       child. `launch` stamps exactly that acquisition (its later
+#       `_mark_spawn_failed` acquisition, which follows a spawned child, is
+#       unstamped) and a launch is deferred only when the stamp is present.
+#   prepare               `Checkouts.prepare` (checkouts.py): `validate_task_id`
+#       and `records.mkdir(exist_ok=True)`, then the lock.
+#   refresh_prepared      `refresh_prepared` (prepared_refresh.py): argument
+#       checks and two path computations, then the lock; the Source registry lock
+#       is taken inside it and is a different path.
+#   scope                 `_execute_foreground` reads the committed task and
+#       computes the plan (`scope_plan` only reads), then
+#       `AssistantScopePlanner.validate_and_persist` takes the lock first.
+#   reserve               `admission.reserve`: argument checks and path
+#       computations, then the lock; the registry lock is inside it.
+#   start_worker          `worker_launcher.start`: `_json_config`,
+#       `require_reservation` (read-only, and its own `checkouts.lock`
+#       acquisition is also pre-mutation) and `_run_root`, which only computes a
+#       path, then the lock before the launch request exists.
+#   settle_worker         `worker_settlement.settle_completed`: `validate_task_id`
+#       and one path computation, then the lock.
+#   sync_candidate        `source_update.synchronize_candidate`: argument checks
+#       and three path computations, then the lock; `_source_integration_lock`
+#       and the registry lock are taken inside it.
+#   auto_approve          `ReviewGate.approve_validated_gauntlet`: one import and
+#       a message check, then the lock. `_execute_foreground` only reads the
+#       record before it.
+#   integrate             `ReviewGate.integrate`: the lock is its first statement.
+# Deliberately excluded, keeping today's failure path:
+#   apply_decomposition   never acquires `checkouts.lock` at all; it takes the
+#       Source integration lock first and `_apply_locked` writes under it.
+#   wait_worker, wait_job the acquisitions reachable from `_wait_for_progress`
+#       are inside `background_jobs.harvest` and the cleanup recorders, which
+#       persist an observation or a Docker removal that has already happened.
+#   anything else         unproven, so unchanged.
+LOCK_DEFERRABLE_ACTION_KINDS = frozenset({
+    "decompose", "post_crew", "prepare", "refresh_prepared", "scope", "reserve",
+    "start_worker", "settle_worker", "sync_candidate", "auto_approve", "integrate",
+})
+# The bound: after this many consecutive deferrals of the same action the
+# original error is raised exactly as it is today, so a wedged lock stays loud.
+# With a 10 s lock budget and the wait below that is roughly 80 s of contention.
+LOCK_DEFERRAL_LIMIT = 6
+# A bounded pause between a deferral and the next planning cycle so the loop
+# does not spin. Short enough that a lock which frees immediately delays the
+# action by seconds, not minutes.
+LOCK_DEFERRAL_WAIT_SECONDS = 3.0
 # An operator stop for a controller that has no console: `stop-graph` writes
 # this request bound to the running invocation, PID and process identity; the
 # controller honors it between actions and on every wait poll exactly like
@@ -84,6 +143,19 @@ STOP_REQUEST_SCHEMA = "assistant-graph-controller-stop/v1"
 
 class ControllerOwnerActiveError(RuntimeError):
     """Another process holds the graph controller lock."""
+
+
+class _ActionDeferred(Exception):
+    """One action lost a pre-mutation lock wait and is re-planned, not failed.
+
+    Private control flow inside :meth:`GraphController._run_owned`: it never
+    reaches a caller, is never journaled as a failure, and carries the exact
+    deferral facts that were journaled as `action_deferred`.
+    """
+
+    def __init__(self, record: Mapping[str, Any]) -> None:
+        super().__init__(str(record.get("reason")))
+        self.record = dict(record)
 
 
 def _now() -> str:
@@ -283,6 +355,11 @@ class GraphController:
         # Which held action has already been journaled, and with which exact
         # blocking identity, so one hold is one event instead of one per cycle.
         self._journaled_holds: dict[tuple[str, str], str] = {}
+        # Consecutive `checkouts.lock` deferrals per exact action, bounded by
+        # LOCK_DEFERRAL_LIMIT. Reset when this invocation starts and when the
+        # action finally runs, so a restarted controller carries no deferral
+        # state and the bound is per invocation.
+        self._lock_deferrals: dict[str, int] = {}
         # Everything below is bound to one exact Source HEAD and discarded the
         # moment HEAD differs: committed contracts, the conformance view, and
         # proofs keyed by the bytes of the record they were derived from.
@@ -329,6 +406,7 @@ class GraphController:
             "pid": os.getpid(),
         }
         self._active_invocation_id = invocation_id
+        self._lock_deferrals = {}
         started = False
         outcome = "startup_failed"
         error_type = None
@@ -1028,6 +1106,63 @@ class GraphController:
         }
         self._append_event(payload)
 
+    def _checkouts_lock_contention(self, action: Mapping[str, Any], exc: BaseException) -> bool:
+        """Is this exactly a lost pre-mutation wait for this root's `checkouts.lock`?
+
+        Typed, not text-matched: `_exclusive_file_lock` raises
+        ``TimeoutError(errno.ETIMEDOUT, ..., str(path))``, so the class, the
+        errno and the filename are all checked, and the producer's wording is
+        required on top of them. The lock path must be this checkout root's
+        `checkouts.lock`: a timeout on the Source integration lock, the Source
+        registry lock, `decomposition.lock` or another root's records is not this
+        contention and keeps its own failure path.
+        """
+        if not isinstance(exc, TimeoutError) or exc.errno != errno.ETIMEDOUT:
+            return False
+        wanted = str(self.manager.records / "checkouts.lock")
+        if exc.filename != wanted:
+            return False
+        message = str(exc.strerror or "")
+        if not (message.startswith("timed out after ")
+                and message.endswith(" waiting for exclusive file lock")):
+            return False
+        if str(action.get("kind")) not in BACKGROUND_ACTION_KINDS:
+            return True
+        # A launch is the one deferrable path with a second `checkouts.lock`
+        # acquisition after a durable write, so only the stamped pre-mutation
+        # acquisition counts (see `background_jobs.launch`).
+        return background_jobs.pre_mutation_lock_contention(exc) == wanted
+
+    def _lock_deferral(
+        self, action: Mapping[str, Any], exc: BaseException, action_id: str, *,
+        seconds_waited: float,
+    ) -> dict[str, Any] | None:
+        """Journal and count one deferral, or return None to keep the failure path."""
+        kind = str(action.get("kind"))
+        if kind not in LOCK_DEFERRABLE_ACTION_KINDS:
+            return None
+        if not self._checkouts_lock_contention(action, exc):
+            return None
+        key = _json_bytes(dict(action)).decode("utf-8")
+        count = self._lock_deferrals.get(key, 0) + 1
+        if count > LOCK_DEFERRAL_LIMIT:
+            # A lock held this long is wedged, not busy: fail exactly as before.
+            return None
+        self._lock_deferrals[key] = count
+        record = {
+            "at_utc": _now(), "task_id": action.get("task_id"), "kind": kind,
+            "reason": "lock_contention",
+            "lock_path": str(self.manager.records / "checkouts.lock"),
+            "seconds_waited": round(float(seconds_waited), 3),
+            "deferrals": count, "limit": LOCK_DEFERRAL_LIMIT,
+            "error": f"{type(exc).__name__}: {exc}",
+        }
+        self._append_event({
+            "event": "action_deferred", "invocation_id": self._active_invocation_id,
+            "action_id": action_id, "run_id": action.get("run_id"), **record,
+        })
+        return record
+
     def _execute_timed(self, action: Mapping[str, Any]) -> dict[str, Any]:
         action_id = uuid.uuid4().hex
         started = time.monotonic()
@@ -1035,6 +1170,11 @@ class GraphController:
         try:
             result = self.execute(action)
         except BaseException as exc:
+            deferral = self._lock_deferral(
+                action, exc, action_id, seconds_waited=time.monotonic() - started,
+            )
+            if deferral is not None:
+                raise _ActionDeferred(deferral) from exc
             self._append_action_event(
                 "action_failed", action, action_id,
                 duration_seconds=time.monotonic() - started,
@@ -1659,6 +1799,7 @@ class GraphController:
     ) -> dict[str, Any]:
         completed_actions: list[dict[str, Any]] = []
         harvested_jobs: list[dict[str, Any]] = []
+        lock_deferrals: list[dict[str, Any]] = []
 
         def final_result(
             plan: Mapping[str, Any], status: str, *,
@@ -1669,6 +1810,7 @@ class GraphController:
                 "mutations_performed": bool(completed_actions) or bool(harvested_jobs),
                 "completed_actions": completed_actions,
                 "harvested_jobs": harvested_jobs,
+                "lock_deferrals": lock_deferrals,
                 **extra,
             }
             if background_stops is not None:
@@ -1727,17 +1869,28 @@ class GraphController:
                     )
                 self._save_state("running", action=action)
                 try:
-                    result = self._execute_timed(action)
-                except ValueError as exc:
-                    if (action.get("kind") != "reserve"
-                            or str(exc) != "requested execution resources overlap an active admission"):
-                        raise
-                    owner_action = self._resource_overlap_action(action)
-                    if owner_action is None:
-                        raise
-                    action = owner_action
-                    self._save_state("running", action=action)
-                    result = self._execute_timed(action)
+                    try:
+                        result = self._execute_timed(action)
+                    except ValueError as exc:
+                        if (action.get("kind") != "reserve"
+                                or str(exc) != "requested execution resources overlap an active admission"):
+                            raise
+                        owner_action = self._resource_overlap_action(action)
+                        if owner_action is None:
+                            raise
+                        action = owner_action
+                        self._save_state("running", action=action)
+                        result = self._execute_timed(action)
+                except _ActionDeferred as deferred:
+                    # Nothing durable was written and nothing is blocked: the
+                    # invocation stays running with no `last_error`, and the next
+                    # plan re-emits this action. The bounded wait keeps the loop
+                    # from spinning on a lock that is merely busy.
+                    lock_deferrals.append(deferred.record)
+                    self._save_state("running")
+                    self.sleep(LOCK_DEFERRAL_WAIT_SECONDS)
+                    continue
+                self._lock_deferrals.pop(_json_bytes(dict(action)).decode("utf-8"), None)
                 completed_actions.append({"action": dict(action), "result": result})
                 self._save_state("running", action=action, result=result)
                 if action["kind"] in _WAIT_KINDS and result.get("status") == "stop_requested":

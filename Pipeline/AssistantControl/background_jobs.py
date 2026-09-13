@@ -45,6 +45,7 @@ spend authorization.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import hashlib
 import json
 import os
@@ -70,6 +71,17 @@ JOB_KINDS = frozenset({"decompose", "post_crew", "fixture"})
 ACTIVE_STATUSES = frozenset({"launched", "running"})
 TERMINAL_STATUSES = frozenset({"completed", "failed", "died", "cancelled", "spawn_failed"})
 STOP_GRACE_SECONDS = 15.0
+# How long one launch transaction waits for `checkouts.lock`. A launch that
+# loses this wait has written nothing durable (see :func:`launch`), so the graph
+# controller defers it to its next planning cycle instead of failing the whole
+# invocation. Tests shorten this to exercise contention without waiting.
+LAUNCH_LOCK_TIMEOUT_SECONDS = 10.0
+# Attribute stamped on a `checkouts.lock` timeout that was raised *before* its
+# transaction wrote anything durable. Only a raise site that can prove that
+# property may stamp it; the graph controller refuses to defer an action
+# without it. The value is the exact lock path, so a marked timeout from
+# another checkout root is still not deferred here.
+PRE_MUTATION_LOCK_ATTRIBUTE = "assistant_pre_mutation_lock_path"
 CONTAINER_SETTLE_SECONDS = 3.0
 CONTAINER_WINDOW_SECONDS = 15.0
 CONTAINER_TOMBSTONE_SECONDS = 60.0
@@ -521,6 +533,22 @@ def _provider_container(kind: str, job_id: str, identity: Mapping[str, Any], *,
             "labels": container_labels_for(job_id, source, checkout_root)}
 
 
+def mark_pre_mutation_lock_contention(exc: BaseException, lock_path: Path) -> None:
+    """Stamp a lock timeout raised before its transaction wrote anything durable.
+
+    The exception object, its type and its message are left exactly as
+    ``_exclusive_file_lock`` produced them: a caller that does not know about
+    the stamp still sees today's ``TimeoutError``.
+    """
+    setattr(exc, PRE_MUTATION_LOCK_ATTRIBUTE, str(lock_path))
+
+
+def pre_mutation_lock_contention(exc: BaseException) -> str | None:
+    """The lock path a stamped timeout names, or ``None`` when it is not stamped."""
+    marked = getattr(exc, PRE_MUTATION_LOCK_ATTRIBUTE, None)
+    return marked if type(marked) is str else None
+
+
 def launch(
     manager: Checkouts, *, kind: str, task_id: str, identity: Mapping[str, Any],
     config: Mapping[str, Any] | None, invocation_id: str,
@@ -539,7 +567,21 @@ def launch(
     if kind == "decompose" and not isinstance(identity.get("compose_project"), str):
         raise BackgroundJobError("decomposition background job requires a compose project")
     manager.records.mkdir(parents=True, exist_ok=True)
-    with _exclusive_file_lock(manager.records / "checkouts.lock", timeout_seconds=10):
+    lock_path = manager.records / "checkouts.lock"
+    with contextlib.ExitStack() as transaction:
+        try:
+            transaction.enter_context(
+                _exclusive_file_lock(lock_path, timeout_seconds=LAUNCH_LOCK_TIMEOUT_SECONDS)
+            )
+        except TimeoutError as exc:
+            # Everything above is validation of the caller's arguments plus one
+            # idempotent `records.mkdir(exist_ok=True)` that `_open_lock_region`
+            # performs anyway: no run root, no launch request, no index and no
+            # child exist yet, so this launch can be deferred and re-emitted.
+            # `_mark_spawn_failed` takes the same lock *after* a child was
+            # spawned and is deliberately left unstamped.
+            mark_pre_mutation_lock_contention(exc, lock_path)
+            raise
         existing = read_index(manager, task_id)
         if existing is not None and existing.get("status") in ACTIVE_STATUSES:
             raise BackgroundJobError(
