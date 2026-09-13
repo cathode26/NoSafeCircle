@@ -146,6 +146,28 @@
         "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.WizardArtIntegrationTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-074": {
+      "task_contract_sha256": "1bb2bdfbca1eb59feb4efbda3e8a01c0de12a6a997cac4711e6598181acdea75",
+      "required_test_platforms": [
+        "EditMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.WizardArtIntegrationTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-075": {
+      "task_contract_sha256": "59f4a943824568bdf274ba44acd183fa7c70a89863af659a9a1dbbfe4df9fb9c",
+      "required_test_platforms": [
+        "EditMode",
+        "PlayMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.WizardArtIntegrationTests",
+        "PlayMode": "NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
     }
   },
   "decomposition_child_templates": {}
