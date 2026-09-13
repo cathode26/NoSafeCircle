@@ -191,7 +191,7 @@ namespace NoSafeCircle.DoorPrototype.Editor
             // will fire rather than silently producing an unframed camera at the world origin.
             BuildCamera(movement.transform);
 
-            BuildUI(door, debugControl, health, mana, debugManaControl);
+            BuildUI(door, debugControl, health, mana, debugManaControl, movement, interactionController);
         }
 
         private static void ValidateArchitecturalTileAssetFolder(string path)
@@ -1248,12 +1248,17 @@ namespace NoSafeCircle.DoorPrototype.Editor
         }
 
         private static void BuildUI(DoorInteractable door, DebugDamageControl debugControl,
-            PlayerHealth health, PlayerMana mana, DebugManaSpendControl debugManaControl)
+            PlayerHealth health, PlayerMana mana, DebugManaSpendControl debugManaControl,
+            PlayerMovement movement, PlayerInteractionController interactionController)
         {
             var canvasObject = new GameObject("Canvas");
             var canvas = canvasObject.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvasObject.AddComponent<CanvasScaler>();
+            var canvasScaler = canvasObject.AddComponent<CanvasScaler>();
+            canvasScaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            canvasScaler.referenceResolution = new Vector2(1920f, 1080f);
+            canvasScaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+            canvasScaler.matchWidthOrHeight = 0.5f;
             canvasObject.AddComponent<GraphicRaycaster>();
 
             var eventSystemObject = new GameObject("EventSystem");
@@ -1336,6 +1341,184 @@ namespace NoSafeCircle.DoorPrototype.Editor
             BuildManaUI(canvasObject, mana, debugManaControl);
 
             BuildControlsHud(canvasObject.transform);
+            BuildTitleScreen(canvasObject, movement, interactionController, debugControl, debugManaControl);
+        }
+
+        private static void BuildTitleScreen(GameObject canvasObject, PlayerMovement movement,
+            PlayerInteractionController interactionController, DebugDamageControl debugControl,
+            DebugManaSpendControl debugManaControl)
+        {
+            var titlePanel = new GameObject(
+                "TitleScreen",
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Image));
+            titlePanel.transform.SetParent(canvasObject.transform, false);
+
+            var titlePanelRect = titlePanel.GetComponent<RectTransform>();
+            titlePanelRect.anchorMin = Vector2.zero;
+            titlePanelRect.anchorMax = Vector2.one;
+            titlePanelRect.offsetMin = Vector2.zero;
+            titlePanelRect.offsetMax = Vector2.zero;
+
+            var titlePanelImage = titlePanel.GetComponent<Image>();
+            titlePanelImage.color = new Color32(16, 10, 23, 255);
+            titlePanelImage.raycastTarget = true;
+
+            var card = new GameObject(
+                "TitleCard",
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Image),
+                typeof(Outline));
+            card.transform.SetParent(titlePanel.transform, false);
+
+            var cardRect = card.GetComponent<RectTransform>();
+            cardRect.anchorMin = new Vector2(0.5f, 0.5f);
+            cardRect.anchorMax = new Vector2(0.5f, 0.5f);
+            cardRect.sizeDelta = new Vector2(900f, 590f);
+
+            var cardImage = card.GetComponent<Image>();
+            cardImage.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Background.psd");
+            cardImage.type = Image.Type.Sliced;
+            cardImage.color = new Color32(43, 24, 50, 255);
+
+            var cardOutline = card.GetComponent<Outline>();
+            cardOutline.effectColor = new Color32(128, 70, 119, 255);
+            cardOutline.effectDistance = new Vector2(3f, -3f);
+
+            var accent = new GameObject("Accent", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            accent.transform.SetParent(card.transform, false);
+            var accentRect = accent.GetComponent<RectTransform>();
+            accentRect.anchorMin = new Vector2(0.5f, 1f);
+            accentRect.anchorMax = new Vector2(0.5f, 1f);
+            accentRect.pivot = new Vector2(0.5f, 1f);
+            accentRect.anchoredPosition = new Vector2(0f, -34f);
+            accentRect.sizeDelta = new Vector2(130f, 8f);
+            accent.GetComponent<Image>().color = new Color32(232, 132, 165, 255);
+
+            Text eyebrow = CreateTitleText(
+                "Eyebrow",
+                card.transform,
+                new Vector2(0.12f, 0.78f),
+                new Vector2(0.88f, 0.88f),
+                "WELCOME, TINY WIZARD",
+                24,
+                new Color32(232, 132, 165, 255));
+            eyebrow.fontStyle = FontStyle.Bold;
+
+            Text title = CreateTitleText(
+                "Title",
+                card.transform,
+                new Vector2(0.08f, 0.53f),
+                new Vector2(0.92f, 0.78f),
+                "NO SAFE CIRCLE",
+                78,
+                new Color32(255, 238, 224, 255));
+            title.fontStyle = FontStyle.Bold;
+            var titleShadow = title.gameObject.AddComponent<Shadow>();
+            titleShadow.effectColor = new Color32(8, 4, 12, 220);
+            titleShadow.effectDistance = new Vector2(5f, -5f);
+
+            Text tagline = CreateTitleText(
+                "Tagline",
+                card.transform,
+                new Vector2(0.15f, 0.39f),
+                new Vector2(0.85f, 0.53f),
+                "Cute wizards. Terrible odds.",
+                28,
+                new Color32(205, 185, 210, 255));
+            tagline.fontStyle = FontStyle.Italic;
+
+            var buttonObject = new GameObject(
+                "StartGameButton",
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Image),
+                typeof(Button),
+                typeof(Shadow));
+            buttonObject.transform.SetParent(card.transform, false);
+
+            var buttonRect = buttonObject.GetComponent<RectTransform>();
+            buttonRect.anchorMin = new Vector2(0.5f, 0.22f);
+            buttonRect.anchorMax = new Vector2(0.5f, 0.22f);
+            buttonRect.sizeDelta = new Vector2(380f, 82f);
+
+            var buttonImage = buttonObject.GetComponent<Image>();
+            buttonImage.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
+            buttonImage.type = Image.Type.Sliced;
+            buttonImage.color = new Color32(152, 65, 119, 255);
+
+            var startButton = buttonObject.GetComponent<Button>();
+            startButton.targetGraphic = buttonImage;
+            startButton.navigation = new Navigation { mode = Navigation.Mode.None };
+            ColorBlock buttonColors = startButton.colors;
+            buttonColors.normalColor = Color.white;
+            buttonColors.highlightedColor = new Color32(255, 211, 225, 255);
+            buttonColors.pressedColor = new Color32(205, 145, 178, 255);
+            buttonColors.selectedColor = buttonColors.highlightedColor;
+            buttonColors.disabledColor = new Color32(110, 85, 103, 160);
+            buttonColors.fadeDuration = 0.08f;
+            startButton.colors = buttonColors;
+
+            var buttonShadow = buttonObject.GetComponent<Shadow>();
+            buttonShadow.effectColor = new Color32(7, 3, 10, 210);
+            buttonShadow.effectDistance = new Vector2(5f, -5f);
+
+            Text buttonLabel = CreateTitleText(
+                "Text",
+                buttonObject.transform,
+                Vector2.zero,
+                Vector2.one,
+                "START GAME",
+                32,
+                new Color32(255, 245, 229, 255));
+            buttonLabel.fontStyle = FontStyle.Bold;
+
+            CreateTitleText(
+                "Footer",
+                card.transform,
+                new Vector2(0.14f, 0.05f),
+                new Vector2(0.86f, 0.13f),
+                "THE DARKNESS THINKS YOU LOOK SNACK-SIZED.",
+                18,
+                new Color32(159, 137, 164, 255));
+
+            var controller = canvasObject.AddComponent<TitleScreenController>();
+            SetPrivateField(controller, "titlePanel", titlePanel);
+            SetPrivateField(controller, "startGameButton", startButton);
+            SetPrivateField(controller, "playerMovement", movement);
+            SetPrivateField(controller, "playerInteractionController", interactionController);
+            SetPrivateObjectArray(controller, "gameplayInputBehaviours", debugControl, debugManaControl);
+
+            UnityEventTools.AddPersistentListener(startButton.onClick, controller.StartGame);
+        }
+
+        private static Text CreateTitleText(string name, Transform parent, Vector2 anchorMin,
+            Vector2 anchorMax, string value, int fontSize, Color color)
+        {
+            var textObject = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+            textObject.transform.SetParent(parent, false);
+
+            var rect = textObject.GetComponent<RectTransform>();
+            rect.anchorMin = anchorMin;
+            rect.anchorMax = anchorMax;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+
+            var text = textObject.GetComponent<Text>();
+            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            text.fontSize = fontSize;
+            text.resizeTextForBestFit = true;
+            text.resizeTextMinSize = Mathf.Max(12, fontSize / 2);
+            text.resizeTextMaxSize = fontSize;
+            text.alignment = TextAnchor.MiddleCenter;
+            text.horizontalOverflow = HorizontalWrapMode.Wrap;
+            text.verticalOverflow = VerticalWrapMode.Truncate;
+            text.color = color;
+            text.text = value;
+            text.raycastTarget = false;
+            return text;
         }
 
         /// Mirrors the door's ProgressFill pattern: a background bar with a Filled child
@@ -1492,6 +1675,24 @@ namespace NoSafeCircle.DoorPrototype.Editor
             }
 
             property.objectReferenceValue = value;
+            serializedObject.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static void SetPrivateObjectArray(Object target, string fieldName, params Object[] values)
+        {
+            var serializedObject = new SerializedObject(target);
+            var property = serializedObject.FindProperty(fieldName);
+            if (property == null || !property.isArray)
+            {
+                Debug.LogWarning($"Array field '{fieldName}' not found on {target.GetType().Name}.");
+                return;
+            }
+
+            property.arraySize = values.Length;
+            for (var i = 0; i < values.Length; i++)
+            {
+                property.GetArrayElementAtIndex(i).objectReferenceValue = values[i];
+            }
             serializedObject.ApplyModifiedPropertiesWithoutUndo();
         }
 
