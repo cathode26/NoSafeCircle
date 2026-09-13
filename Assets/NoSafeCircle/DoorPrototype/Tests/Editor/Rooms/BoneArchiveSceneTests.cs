@@ -1,6 +1,6 @@
 using NUnit.Framework;
+using UnityEditor.SceneManagement;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using NoSafeCircle.DoorPrototype.Editor.Rooms;
 using NoSafeCircle.DoorPrototype.World.Rooms;
 
@@ -50,7 +50,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
             }
             finally
             {
-                SceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             }
         }
     }

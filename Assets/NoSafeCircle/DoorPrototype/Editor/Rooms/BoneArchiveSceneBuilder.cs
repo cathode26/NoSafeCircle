@@ -41,13 +41,13 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
 
         private static void CreatePerimeter(Transform parent)
         {
-            CreateOpeningWall("SouthWall", parent, 0f, 0f, true);
-            CreateOpeningWall("NorthWall", parent, 6f, 20f, false);
+            CreateOpeningWall("SouthWall", parent, 0f, 0f);
+            CreateOpeningWall("NorthWall", parent, 6f, 20f);
             CreateBox("WestWall", parent, new Vector3(-10.25f, 1.25f, 10f), new Vector3(0.5f, 2.5f, 20f), Color.black);
             CreateBox("EastWall", parent, new Vector3(10.25f, 1.25f, 10f), new Vector3(0.5f, 2.5f, 20f), Color.black);
         }
 
-        private static void CreateOpeningWall(string name, Transform parent, float openingCenter, float z, bool south)
+        private static void CreateOpeningWall(string name, Transform parent, float openingCenter, float z)
         {
             var roomMinX = BoneArchiveLayout.RoomBounds.min.x;
             var roomMaxX = BoneArchiveLayout.RoomBounds.max.x;
@@ -82,8 +82,6 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             anchor.transform.SetParent(parent, false);
             anchor.transform.position = position;
             anchor.transform.forward = forward;
-            var marker = anchor.AddComponent<BoneArchiveDoorAnchor>();
-            marker.doorId = name;
         }
 
         private static GameObject CreateChild(string name, Transform parent)
@@ -101,8 +99,4 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
         }
     }
 
-    public sealed class BoneArchiveDoorAnchor : MonoBehaviour
-    {
-        public string doorId;
-    }
 }
