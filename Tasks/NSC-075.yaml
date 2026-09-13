@@ -15,9 +15,15 @@
   "depends_on": ["NSC-062", "NSC-068", "NSC-070", "NSC-073", "NSC-074"],
   "exclusive_resources": [
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/WizardAnimationController.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/WizardAnimationController.cs.meta",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs.meta",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/WizardArtIntegrationTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/WizardArtIntegrationTests.cs.meta",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/WizardAnimationPlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/WizardAnimationPlayModeTests.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/WizardCardinalSourceAuditTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/WizardCardinalSourceAuditTests.cs.meta",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated",
     "unity-scene:Assets/Scenes/DoorPrototype.unity"
   ],
@@ -67,7 +73,7 @@
     {
       "gate_id": "VAL-004",
       "reference": "Builder materialization and exact candidate validation",
-      "requirement": "On the exact candidate, run DoorPrototypeSceneBuilder.Build twice, require a clean compile, pass the focused WizardArtIntegrationTests Edit Mode fixture and WizardAnimationPlayModeTests Play Mode fixture, and commit only builder-materialized outputs registered by this task."
+      "requirement": "On the exact candidate, preserve and pass WizardCardinalSourceAuditTests before integration, run DoorPrototypeSceneBuilder.Build twice, require a clean compile, pass the focused WizardArtIntegrationTests Edit Mode fixture and WizardAnimationPlayModeTests Play Mode fixture, and commit only builder-materialized outputs registered by this task."
     },
     {
       "gate_id": "VAL-005",

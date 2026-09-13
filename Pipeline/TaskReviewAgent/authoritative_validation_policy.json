@@ -136,17 +136,17 @@
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-074": {
-      "task_contract_sha256": "1bb2bdfbca1eb59feb4efbda3e8a01c0de12a6a997cac4711e6598181acdea75",
+      "task_contract_sha256": "1c19df727a6d97eff17cc9dd24e3190b9487c5eb967bcd49e276ea16a748dec8",
       "required_test_platforms": [
         "EditMode"
       ],
       "test_filters": {
-        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.WizardArtIntegrationTests"
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.WizardCardinalSourceAuditTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-075": {
-      "task_contract_sha256": "59f4a943824568bdf274ba44acd183fa7c70a89863af659a9a1dbbfe4df9fb9c",
+      "task_contract_sha256": "780745e9721e7f2b9c07817d3a41dd9ccc34f6f71986239ccbe70a515ef8f859",
       "required_test_platforms": [
         "EditMode",
         "PlayMode"
