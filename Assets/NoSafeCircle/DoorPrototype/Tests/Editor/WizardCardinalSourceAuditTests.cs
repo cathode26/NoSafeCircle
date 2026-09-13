@@ -203,7 +203,9 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                     info.Height = ReadInt32(bytes, offset + 12);
                     info.BitDepth = bytes[offset + 16];
                     info.ColorType = bytes[offset + 17];
-                    Assert.AreEqual(0, bytes[offset + 24], "Interlaced PNGs are not deterministic audit inputs: " + path);
+                    Assert.AreEqual(0, bytes[offset + 18], "Unsupported PNG compression method: " + path);
+                    Assert.AreEqual(0, bytes[offset + 19], "Unsupported PNG filter method: " + path);
+                    Assert.AreEqual(0, bytes[offset + 20], "Interlaced PNGs are not deterministic audit inputs: " + path);
                 }
                 else if (type == "IDAT")
                     compressed.AddRange(bytes.Skip(offset + 8).Take(length));
