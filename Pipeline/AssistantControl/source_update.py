@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import uuid
 from datetime import datetime, timezone
@@ -106,6 +107,29 @@ def _synchronization_state(record: Mapping[str, Any], expected_candidate: str) -
         # candidate before its focused validation can be retried. This grants
         # no approval and retains the failed attempt in candidate lineage.
         return "stale_policy_validation_retry"
+    retry = record.get("candidate_validation_retry") or {}
+    retry_failure_sha256 = None
+    if record.get("status") == "validation_retry_authorized" and isinstance(failure, Mapping):
+        try:
+            retry_failure_sha256 = hashlib.sha256(json.dumps(
+                failure,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            ).encode("utf-8")).hexdigest()
+        except (TypeError, ValueError):
+            return None
+    if (record.get("status") == "validation_retry_authorized" and approval is None
+            and record.get("human_review") is None
+            and retry.get("schema_version") == "assistant-candidate-validation-retry/v1"
+            and retry.get("task_id") == record.get("task_id")
+            and retry.get("candidate_commit") == expected_candidate
+            and retry.get("failed_validation") == failure
+            and retry.get("failed_validation_sha256") == retry_failure_sha256
+            and retry.get("source_base") == record.get("source_commit")
+            and retry.get("host_fix_commit")):
+        return "host_validation_retry"
     return None
 
 
@@ -159,6 +183,15 @@ def _finalize(record_path: Path, record: dict[str, Any], journal: Mapping[str, A
     record["approval"] = None
     record["human_review"] = None
     record["status"] = "awaiting_human"
+    retry = record.get("candidate_validation_retry")
+    if isinstance(retry, Mapping) and journal.get("prior_review_state") == "host_validation_retry":
+        record["candidate_validation_retry"] = {
+            **copy.deepcopy(dict(retry)),
+            "phase": "source_synchronized",
+            "synchronized_candidate": journal["sync_commit"],
+            "synchronized_at": _now(),
+        }
+        record.pop("candidate_validation_failure", None)
     for field in ("scope", "worker", "launch", "integration"):
         record.pop(field, None)
     write_record(record_path, record)
@@ -308,6 +341,11 @@ def synchronize_candidate(
             source_head, source_tree, source_branch = _source_snapshot(checkouts.source)
             if source_head != expected_source_commit:
                 raise CandidateSynchronizationError("Source HEAD differs from the inspected expected_source_commit")
+            if (prior_review_state == "host_validation_retry"
+                    and (record.get("candidate_validation_retry") or {}).get("host_fix_commit") != source_head):
+                raise CandidateSynchronizationError(
+                    "Source HEAD differs from the authorized validation host-fix commit"
+                )
             if not isinstance(old_source, str):
                 raise CandidateSynchronizationError("record has no source base")
             if old_source == source_head:

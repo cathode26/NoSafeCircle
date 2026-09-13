@@ -130,15 +130,26 @@ def _require_candidate(
     if not isinstance(candidate, Mapping) or candidate.get("commit") != expected_candidate:
         raise MaterializationError("candidate commit differs from the exact request")
     candidate = dict(candidate)
-    if (candidate.get("kind", "crew_reviewed") != "crew_reviewed"
-            or candidate.get("crew_review", True) is not True):
-        raise MaterializationError("only a crew-reviewed code candidate can be materialized")
-    receipt = _candidate_receipt(record, candidate)
+    kind = candidate.get("kind", "crew_reviewed")
+    receipt_candidate: Mapping[str, Any] = candidate
     scope = record.get("scope")
+    if kind == "source_synchronized":
+        if candidate.get("source_candidate_crew_review") is not True:
+            raise MaterializationError("synchronized candidate lost its crew-review authority")
+        from Pipeline.AssistantControl.source_update import validate_synchronized_candidate
+        try:
+            validate_synchronized_candidate(checkouts, record, expected_candidate)
+        except Exception as exc:
+            raise MaterializationError("synchronized candidate proof is invalid") from exc
+        receipt_candidate = candidate.get("original_candidate") or {}
+        scope = candidate.get("original_scope")
+    elif kind != "crew_reviewed" or candidate.get("crew_review", True) is not True:
+        raise MaterializationError("only a crew-reviewed code candidate can be materialized")
+    receipt = _candidate_receipt(record, receipt_candidate)
     if (not isinstance(scope, Mapping) or scope.get("task_id") != record.get("task_id")
             or scope.get("task_contract_sha256") != record.get("task_contract_sha256")
-            or scope.get("plan_id") != candidate.get("plan_id")
-            or scope.get("lease_id") != candidate.get("lease_id")):
+            or scope.get("plan_id") != receipt_candidate.get("plan_id")
+            or scope.get("lease_id") != receipt_candidate.get("lease_id")):
         raise MaterializationError("candidate scope binding differs")
     generated = _generated_paths(scope, receipt["changed_paths"])
     try:

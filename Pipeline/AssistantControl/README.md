@@ -106,6 +106,18 @@ be tested and explicitly approved again. It has no new crew review. Conflicts
 retain staging and leave the original task checkout unchanged. An interrupted
 publication can be recovered by repeating the exact original command.
 
+When an exact crew candidate failed only because AssistantControl's committed
+validation or Unity-materialization host was defective, use
+`retry-candidate-validation TASK --candidate-commit SHA
+--failed-validation-sha256 SHA256 --host-fix-commit SHA`, followed by the exact
+`sync-candidate` command it authorizes. The recovery binds the retained failure,
+original crew receipt and scope, unchanged task contract, clean owned checkout,
+and one exact descendant Source commit containing the host fix. It grants no
+approval. The synchronized candidate must pass materialization and validation
+again, then still enters Vincent's visual review gate. A changed contract,
+different failure, later Source advance, active reservation, malformed marker,
+or non-crew candidate is refused without changing the retained failure.
+
 Rejecting a synchronized candidate now preserves that merged version as the next
 worker's base. A fresh scoped crew receives the exact rejection notes through
 `revision_feedback_file`; it does not replay the old candidate patch or inherit

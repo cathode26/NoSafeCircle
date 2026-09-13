@@ -76,6 +76,17 @@ def main(argv=None) -> int:
     materialize.add_argument("task")
     materialize.add_argument("--candidate-commit", required=True)
     materialize.add_argument("--unity-executable", type=Path)
+    retry_validation = commands.add_parser(
+        "retry-candidate-validation",
+        help=(
+            "Reopen one exact machine-validation failure after a bound "
+            "AssistantControl host fix; never approves or materializes"
+        ),
+    )
+    retry_validation.add_argument("task")
+    retry_validation.add_argument("--candidate-commit", required=True)
+    retry_validation.add_argument("--failed-validation-sha256", required=True)
+    retry_validation.add_argument("--host-fix-commit", required=True)
     post_crew = commands.add_parser(
         "post-crew",
         help=(
@@ -406,6 +417,17 @@ def main(argv=None) -> int:
                 result = materialize_candidate(
                     manager, args.task, args.candidate_commit,
                     unity_executable=args.unity_executable,
+                )
+            elif args.command == "retry-candidate-validation":
+                from Pipeline.AssistantControl.candidate_validation_retry import (
+                    reopen_candidate_validation,
+                )
+                result = reopen_candidate_validation(
+                    manager,
+                    args.task,
+                    expected_candidate=args.candidate_commit,
+                    expected_failure_sha256=args.failed_validation_sha256,
+                    host_fix_commit=args.host_fix_commit,
                 )
             elif args.command == "post-crew":
                 from Pipeline.AssistantControl.post_crew_workflow import run_post_crew_workflow
