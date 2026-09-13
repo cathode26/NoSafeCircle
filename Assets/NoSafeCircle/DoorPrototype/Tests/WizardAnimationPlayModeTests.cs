@@ -1,4 +1,5 @@
 using System;
+using System.Reflection;
 using System.Collections;
 using NUnit.Framework;
 using UnityEngine;
@@ -114,6 +115,90 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 wizard.ApplyPresentation(WizardPresentation.Feminine, (WizardSkin)999));
             Assert.AreEqual(originalPresentation, wizard.Presentation);
             Assert.AreEqual(originalSkin, wizard.Skin);
+        }
+
+        [TestCase(1f, 0.0001f, "north-east")]
+        [TestCase(1f, -0.0001f, "north-east")]
+        [TestCase(-1f, 0.0001f, "south-west")]
+        [TestCase(-1f, -0.0001f, "south-west")]
+        [TestCase(0.0001f, 1f, "south-east")]
+        [TestCase(-0.0001f, 1f, "south-east")]
+        [TestCase(0.0001f, -1f, "north-west")]
+        [TestCase(-0.0001f, -1f, "north-west")]
+        public void DirectionFor_UsesDominantCameraBasisWhenOrthogonalNoiseChanges(
+            float worldX, float worldZ, string expectedDirection)
+        {
+            Assert.AreEqual(expectedDirection,
+                InvokeDirectionFor(new Vector3(worldX, 0f, worldZ)));
+        }
+
+        [Test]
+        public void DirectionFor_RemainsStableAcrossHeldFramesForEveryWizardVariant()
+        {
+            WizardPresentation[] presentations =
+                { WizardPresentation.Masculine, WizardPresentation.Feminine };
+            WizardSkin[] skins = { WizardSkin.White, WizardSkin.Black };
+            Vector3[][] heldSamplesByDirection =
+            {
+                new[]
+                {
+                    new Vector3(1f, 0f, 0.0001f),
+                    new Vector3(1f, 0f, -0.0001f),
+                    new Vector3(1f, 0f, 0.0001f),
+                    new Vector3(1f, 0f, -0.0001f)
+                },
+                new[]
+                {
+                    new Vector3(-1f, 0f, 0.0001f),
+                    new Vector3(-1f, 0f, -0.0001f),
+                    new Vector3(-1f, 0f, 0.0001f),
+                    new Vector3(-1f, 0f, -0.0001f)
+                },
+                new[]
+                {
+                    new Vector3(0.0001f, 0f, 1f),
+                    new Vector3(-0.0001f, 0f, 1f),
+                    new Vector3(0.0001f, 0f, 1f),
+                    new Vector3(-0.0001f, 0f, 1f)
+                },
+                new[]
+                {
+                    new Vector3(0.0001f, 0f, -1f),
+                    new Vector3(-0.0001f, 0f, -1f),
+                    new Vector3(0.0001f, 0f, -1f),
+                    new Vector3(-0.0001f, 0f, -1f)
+                }
+            };
+            string[] expectedDirections = { "north-east", "south-west", "south-east", "north-west" };
+
+            foreach (WizardPresentation presentation in presentations)
+            {
+                foreach (WizardSkin skin in skins)
+                {
+                    for (int directionIndex = 0; directionIndex < heldSamplesByDirection.Length; directionIndex++)
+                    {
+                        string previousDirection = null;
+                        foreach (Vector3 sample in heldSamplesByDirection[directionIndex])
+                        {
+                            string direction = InvokeDirectionFor(sample);
+                            Assert.AreEqual(expectedDirections[directionIndex], direction,
+                                $"Unexpected direction for {presentation}/{skin}.");
+                            if (previousDirection != null)
+                                Assert.AreEqual(previousDirection, direction,
+                                    $"Facing changed during held movement for {presentation}/{skin}.");
+                            previousDirection = direction;
+                        }
+                    }
+                }
+            }
+        }
+
+        private static string InvokeDirectionFor(Vector3 movement)
+        {
+            MethodInfo directionMethod = typeof(WizardAnimationController).GetMethod(
+                "DirectionFor", BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.IsNotNull(directionMethod);
+            return (string)directionMethod.Invoke(null, new object[] { movement });
         }
     }
 }

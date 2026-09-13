@@ -96,11 +96,15 @@ namespace NoSafeCircle.DoorPrototype
             return $"Wizard_{presentation}_{skin}_{motion}_{direction}";
         }
 
+        // The fixed camera maps the dominant world axis to a screen diagonal. Using
+        // the dominant component keeps a small orthogonal movement component from
+        // changing the facing state while the pointer remains in one direction.
         private static string DirectionFor(Vector3 movement)
         {
-            if (movement.z >= 0f)
-                return movement.x >= 0f ? "north-east" : "north-west";
-            return movement.x >= 0f ? "south-east" : "south-west";
+            if (Mathf.Abs(movement.x) >= Mathf.Abs(movement.z))
+                return movement.x >= 0f ? "north-east" : "south-west";
+
+            return movement.z >= 0f ? "south-east" : "north-west";
         }
     }
 }
