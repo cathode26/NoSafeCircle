@@ -221,6 +221,42 @@ namespace NoSafeCircle.DoorPrototype.Tests
             }
         }
 
+        // NSC-070 VAL-002: held movement keeps its Animator state and time, then idle
+        // retains the last meaningful facing across real MonoBehaviour Update frames.
+        [UnityTest]
+        public IEnumerator HeldBoundaryMovementDoesNotRestartAndIdleRetainsFacing()
+        {
+            GameObject player = GameObject.Find("Player");
+            Assert.IsNotNull(player);
+
+            PlayerMovement movement = player.GetComponent<PlayerMovement>();
+            WizardAnimationController wizard = player.GetComponent<WizardAnimationController>();
+            Animator animator = player.GetComponent<Animator>();
+            Assert.IsNotNull(movement);
+            Assert.IsNotNull(wizard);
+            Assert.IsNotNull(animator);
+
+            movement.enabled = false;
+            yield return null;
+
+            player.transform.position += new Vector3(1f, 0f, 1f);
+            yield return null;
+            const string expectedWalkState = "Wizard_Masculine_White_walk_north-east";
+            Assert.AreEqual(expectedWalkState, wizard.CurrentState);
+            float firstWalkTime = animator.GetCurrentAnimatorStateInfo(0).normalizedTime;
+
+            player.transform.position += new Vector3(1f, 0f, 1.0001f);
+            yield return null;
+            Assert.AreEqual(expectedWalkState, wizard.CurrentState);
+            float secondWalkTime = animator.GetCurrentAnimatorStateInfo(0).normalizedTime;
+            Assert.Greater(secondWalkTime, firstWalkTime,
+                "A held walk state must advance Animator time instead of restarting.");
+
+            yield return null;
+            Assert.AreEqual("Wizard_Masculine_White_idle_north-east", wizard.CurrentState);
+            Assert.AreEqual("north-east", wizard.LastDirection);
+        }
+
         private static string InvokeDirectionFor(Vector3 movement)
         {
             MethodInfo directionMethod = typeof(WizardAnimationController).GetMethod(

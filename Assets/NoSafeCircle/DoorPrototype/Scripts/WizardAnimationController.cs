@@ -21,6 +21,7 @@ namespace NoSafeCircle.DoorPrototype
     public sealed class WizardAnimationController : MonoBehaviour
     {
         private const float DirectionThreshold = 0.01f;
+        private const float DirectionSwitchMargin = 0.001f;
         internal const string CanonicalInitialDirection = "south-east";
 
         [SerializeField] private WizardPresentation presentation = WizardPresentation.Masculine;
@@ -59,7 +60,7 @@ namespace NoSafeCircle.DoorPrototype
             displacement.y = 0f;
 
             var isWalking = displacement.magnitude >= DirectionThreshold;
-            if (isWalking) lastDirection = DirectionFor(displacement);
+            if (isWalking) lastDirection = DirectionFor(displacement, lastDirection);
 
             var state = StateName(isWalking ? "walk" : "idle", lastDirection);
             if (state == currentState) return;
@@ -102,6 +103,25 @@ namespace NoSafeCircle.DoorPrototype
         private static string DirectionFor(Vector3 movement)
         {
             if (Mathf.Abs(movement.x) >= Mathf.Abs(movement.z))
+                return movement.x >= 0f ? "north-east" : "south-west";
+
+            return movement.z >= 0f ? "south-east" : "north-west";
+        }
+
+        // Keep the previously selected world axis until the other component exceeds it
+        // by a small margin. This prevents equal-component collision/transform noise from
+        // changing the held diagonal state every frame while preserving sign changes.
+        private static string DirectionFor(Vector3 movement, string previousDirection)
+        {
+            float absoluteX = Mathf.Abs(movement.x);
+            float absoluteZ = Mathf.Abs(movement.z);
+            bool previousDirectionUsesX = previousDirection == "north-east" ||
+                                          previousDirection == "south-west";
+            bool useX = previousDirectionUsesX
+                ? absoluteX + DirectionSwitchMargin >= absoluteZ
+                : absoluteX > absoluteZ + DirectionSwitchMargin;
+
+            if (useX)
                 return movement.x >= 0f ? "north-east" : "south-west";
 
             return movement.z >= 0f ? "south-east" : "north-west";
