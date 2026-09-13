@@ -2810,6 +2810,11 @@ class GauntletViewHtmlTests(unittest.TestCase):
     def test_run_scope_is_the_default_proof_view(self) -> None:
         self.assertIn('id="f-scope" checked', self.html)
 
+    def test_assistant_mode_defaults_to_the_full_graph(self) -> None:
+        self.assertIn("const assistantFullGraph = snap.run?.mode === 'assistant'", self.html)
+        self.assertIn("const defaultScopeOnly = assistantFullGraph ? false", self.html)
+        self.assertIn("nsc.gauntlet.run-filter.v2", self.html)
+
     def test_dependency_and_hierarchy_layouts_are_top_to_bottom(self) -> None:
         self.assertIn("const MAX_COLUMNS = 4", self.html)
         self.assertIn("name: 'preset'", self.html)

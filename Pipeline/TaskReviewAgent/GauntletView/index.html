@@ -608,11 +608,15 @@ let stageExpansionPreferenceKey = null;
 const expandedStageNodes = new Set();
 function configureDisplayScope(snap) {
   const ids = snap.display?.task_ids;
-  const nextKey = 'nsc.gauntlet.run-filter.v1:' + JSON.stringify([snap.tasks_dir, snap.state_root, ids ?? null]);
+  const assistantFullGraph = snap.run?.mode === 'assistant';
+  const nextKey = 'nsc.gauntlet.run-filter.v2:' + JSON.stringify([
+    snap.tasks_dir, snap.state_root, ids ?? null, assistantFullGraph,
+  ]);
   if (nextKey !== scopePreferenceKey) {
     scopePreferenceKey = nextKey;
     const saved = readPreference(scopePreferenceKey);
-    document.getElementById('f-scope').checked = typeof saved === 'boolean' ? saved : !Array.isArray(ids);
+    const defaultScopeOnly = assistantFullGraph ? false : !Array.isArray(ids);
+    document.getElementById('f-scope').checked = typeof saved === 'boolean' ? saved : defaultScopeOnly;
   }
   const missing = snap.display?.missing_task_ids || [];
   document.getElementById('display-scope').textContent =
