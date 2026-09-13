@@ -110,7 +110,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             string root = RepositoryRoot();
             string inventory = File.ReadAllText(Path.Combine(root, InventoryPath.Replace('/', Path.DirectorySeparatorChar)));
             MatchCollection records = Regex.Matches(inventory,
-                @"\"path\"\s*:\s*\"(?<path>[^\"]+\.png)\"\s*,\s*\"size_bytes\"\s*:\s*\d+\s*,\s*\"sha256\"\s*:\s*\"(?<sha>[0-9a-f]{64})\"",
+                @"""path""\s*:\s*""(?<path>[^""]+\.png)""\s*,\s*""size_bytes""\s*:\s*\d+\s*,\s*""sha256""\s*:\s*""(?<sha>[0-9a-f]{64})""",
                 RegexOptions.IgnoreCase);
             Assert.AreEqual(ExpectedPreservedPngCount, records.Count,
                 "The pre-existing source inventory must retain all 128 approved PNG records.");
