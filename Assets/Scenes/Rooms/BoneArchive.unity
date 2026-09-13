@@ -71,6 +71,7 @@ GameObject:
   m_IsActive: 1
   m_Component:
   - component: {fileID: 302}
+  - component: {fileID: 321}
 --- !u!4 &302
 Transform:
   m_GameObject: {fileID: 301}
@@ -86,6 +87,7 @@ GameObject:
   m_IsActive: 1
   m_Component:
   - component: {fileID: 304}
+  - component: {fileID: 322}
 --- !u!4 &304
 Transform:
   m_GameObject: {fileID: 303}
@@ -113,7 +115,10 @@ Transform:
   - {fileID: 203}
   - {fileID: 204}
   - {fileID: 205}
-  - {fileID: 206}
+  - {fileID: 207}
+  - {fileID: 208}
+  - {fileID: 209}
+  - {fileID: 210}
   m_Father: {fileID: 101}
 --- !u!1 &130
 GameObject:
@@ -257,18 +262,117 @@ BoxCollider:
   m_IsTrigger: 0
   m_Size: {x: 1, y: 1, z: 1}
   m_Center: {x: 0, y: 0, z: 0}
---- !u!1 &206
+--- !u!1 &207
 GameObject:
   m_ObjectHideFlags: 0
-  m_Name: D1 and D2 Door Opening Anchors
+  m_Name: SouthWallWest
   m_IsActive: 1
   m_Component:
-  - component: {fileID: 261}
---- !u!4 &261
+  - component: {fileID: 271}
+  - component: {fileID: 272}
+--- !u!4 &271
 Transform:
-  m_GameObject: {fileID: 206}
+  m_GameObject: {fileID: 207}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalPosition: {x: -5.75, y: 1.25, z: 0}
+  m_LocalScale: {x: 8.5, y: 2.5, z: 0.5}
   m_Children: []
   m_Father: {fileID: 121}
+--- !u!65 &272
+BoxCollider:
+  m_GameObject: {fileID: 207}
+  m_IsTrigger: 0
+  m_Size: {x: 1, y: 1, z: 1}
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!1 &208
+GameObject:
+  m_ObjectHideFlags: 0
+  m_Name: SouthWallEast
+  m_IsActive: 1
+  m_Component:
+  - component: {fileID: 281}
+  - component: {fileID: 282}
+--- !u!4 &281
+Transform:
+  m_GameObject: {fileID: 208}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 5.75, y: 1.25, z: 0}
+  m_LocalScale: {x: 8.5, y: 2.5, z: 0.5}
+  m_Children: []
+  m_Father: {fileID: 121}
+--- !u!65 &282
+BoxCollider:
+  m_GameObject: {fileID: 208}
+  m_IsTrigger: 0
+  m_Size: {x: 1, y: 1, z: 1}
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!1 &209
+GameObject:
+  m_ObjectHideFlags: 0
+  m_Name: NorthWallWest
+  m_IsActive: 1
+  m_Component:
+  - component: {fileID: 291}
+  - component: {fileID: 292}
+--- !u!4 &291
+Transform:
+  m_GameObject: {fileID: 209}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -3, y: 1.25, z: 20}
+  m_LocalScale: {x: 14, y: 2.5, z: 0.5}
+  m_Children: []
+  m_Father: {fileID: 121}
+--- !u!65 &292
+BoxCollider:
+  m_GameObject: {fileID: 209}
+  m_IsTrigger: 0
+  m_Size: {x: 1, y: 1, z: 1}
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!1 &210
+GameObject:
+  m_ObjectHideFlags: 0
+  m_Name: NorthWallEast
+  m_IsActive: 1
+  m_Component:
+  - component: {fileID: 311}
+  - component: {fileID: 312}
+--- !u!4 &311
+Transform:
+  m_GameObject: {fileID: 210}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 8.5, y: 1.25, z: 20}
+  m_LocalScale: {x: 3, y: 2.5, z: 0.5}
+  m_Children: []
+  m_Father: {fileID: 121}
+--- !u!65 &312
+BoxCollider:
+  m_GameObject: {fileID: 210}
+  m_IsTrigger: 0
+  m_Size: {x: 1, y: 1, z: 1}
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &321
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 301}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b6b3d9bd49db2a48592604e3899281ec, type: 3}
+  m_Name: ''
+  m_EditorClassIdentifier: ''
+  doorId: D1
+--- !u!114 &322
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 303}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b6b3d9bd49db2a48592604e3899281ec, type: 3}
+  m_Name: ''
+  m_EditorClassIdentifier: ''
+  doorId: D2

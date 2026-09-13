@@ -49,10 +49,14 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
 
         private static void CreateOpeningWall(string name, Transform parent, float openingCenter, float z, bool south)
         {
-            var sideLength = (20f - BoneArchiveLayout.DoorWidth) * 0.5f;
+            var roomMinX = BoneArchiveLayout.RoomBounds.min.x;
+            var roomMaxX = BoneArchiveLayout.RoomBounds.max.x;
+            var openingHalfWidth = BoneArchiveLayout.DoorWidth * 0.5f;
+            var westLength = openingCenter - openingHalfWidth - roomMinX;
+            var eastLength = roomMaxX - openingCenter - openingHalfWidth;
             var y = 1.25f;
-            CreateBox(name + "West", parent, new Vector3(-10f + sideLength * 0.5f, y, z), new Vector3(sideLength, 2.5f, BoneArchiveLayout.WallThickness), Color.black);
-            CreateBox(name + "East", parent, new Vector3(10f - sideLength * 0.5f, y, z), new Vector3(sideLength, 2.5f, BoneArchiveLayout.WallThickness), Color.black);
+            CreateBox(name + "West", parent, new Vector3(roomMinX + westLength * 0.5f, y, z), new Vector3(westLength, BoneArchiveLayout.WallHeight, BoneArchiveLayout.WallThickness), Color.black);
+            CreateBox(name + "East", parent, new Vector3(roomMaxX - eastLength * 0.5f, y, z), new Vector3(eastLength, BoneArchiveLayout.WallHeight, BoneArchiveLayout.WallThickness), Color.black);
         }
 
         private static void CreateShelf(string name, Transform parent, Bounds bounds)
