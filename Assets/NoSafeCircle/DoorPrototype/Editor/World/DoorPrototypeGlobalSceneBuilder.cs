@@ -176,7 +176,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
             follow.Initialize(followTarget);
         }
 
-+        private static Color32[] CreateWizardSilhouettePixels(int width, int height, Color32 fill, Color32 border)
+        private static Color32[] CreateWizardSilhouettePixels(int width, int height, Color32 fill, Color32 border)
         {
             var pixels = new Color32[width * height];
             var transparent = new Color32(0, 0, 0, 0);
