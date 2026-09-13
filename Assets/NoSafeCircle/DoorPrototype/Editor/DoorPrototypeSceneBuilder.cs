@@ -1377,7 +1377,9 @@ namespace NoSafeCircle.DoorPrototype.Editor
             for (var i = 0; i < sprites.Length; i++)
                 keys[i] = new ObjectReferenceKeyframe { time = i / (float)frameRate, value = sprites[i] };
             AnimationUtility.SetObjectReferenceCurve(clip,
-                EditorCurveBinding.PPtrCurve("", typeof(SpriteRenderer), "m_Sprite"), keys);
+                EditorCurveBinding.PPtrCurve("", typeof(SpriteRenderer), "m_Sprite"), null);
+            AnimationUtility.SetObjectReferenceCurve(clip,
+                EditorCurveBinding.PPtrCurve("Visual", typeof(SpriteRenderer), "m_Sprite"), keys);
             var settings = AnimationUtility.GetAnimationClipSettings(clip);
             settings.loopTime = true;
             AnimationUtility.SetAnimationClipSettings(clip, settings);

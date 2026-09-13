@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 namespace NoSafeCircle.DoorPrototype
@@ -30,6 +31,7 @@ namespace NoSafeCircle.DoorPrototype
         private Vector3 previousPosition;
         private string currentState;
         private string lastDirection = CanonicalInitialDirection;
+        private bool ignoreNextDisplacement;
 
         public WizardPresentation Presentation => presentation;
         public WizardSkin Skin => skin;
@@ -45,6 +47,13 @@ namespace NoSafeCircle.DoorPrototype
 
         private void Update()
         {
+            if (ignoreNextDisplacement)
+            {
+                previousPosition = transform.position;
+                ignoreNextDisplacement = false;
+                return;
+            }
+
             var displacement = transform.position - previousPosition;
             previousPosition = transform.position;
             displacement.y = 0f;
@@ -58,6 +67,28 @@ namespace NoSafeCircle.DoorPrototype
             currentState = state;
             if (animator != null && animator.runtimeAnimatorController != null)
                 animator.Play(state, 0, 0f);
+        }
+
+        /// <summary>
+        /// Applies one validated NSC-062 presentation choice without changing Player gameplay state.
+        /// </summary>
+        public void ApplyPresentation(WizardPresentation selectedPresentation, WizardSkin selectedSkin)
+        {
+            if (!Enum.IsDefined(typeof(WizardPresentation), selectedPresentation))
+                throw new ArgumentOutOfRangeException(nameof(selectedPresentation));
+            if (!Enum.IsDefined(typeof(WizardSkin), selectedSkin))
+                throw new ArgumentOutOfRangeException(nameof(selectedSkin));
+
+            presentation = selectedPresentation;
+            skin = selectedSkin;
+            currentState = StateName("idle", lastDirection);
+            ignoreNextDisplacement = true;
+
+            if (animator == null) animator = GetComponent<Animator>();
+            if (animator == null || animator.runtimeAnimatorController == null) return;
+
+            animator.Play(currentState, 0, 0f);
+            animator.Update(0f);
         }
 
         private string StateName(string motion, string direction)
