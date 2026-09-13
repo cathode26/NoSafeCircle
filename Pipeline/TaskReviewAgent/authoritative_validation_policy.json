@@ -94,7 +94,7 @@
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-070": {
-      "task_contract_sha256": "f1fb6e2f11b7717d0ea336d16a366beb2190ae95a1b3f101ad1fced1e2f6c457",
+      "task_contract_sha256": "3ad68b2a093fdcaa336ec26714f6df76bd988cd39bd3f227d9fcbe604fb155b2",
       "required_test_platforms": [
         "EditMode",
         "PlayMode"
@@ -126,7 +126,7 @@
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-073": {
-      "task_contract_sha256": "c65d825022d433a63011e05f4974c1558ff48340ba26a1b35485024658462228",
+      "task_contract_sha256": "0659b031cec8c440002cbe662d5b97a6b5bfaecf512b93ecd0d59416477c01d0",
       "required_test_platforms": [
         "EditMode"
       ],
@@ -136,7 +136,7 @@
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-074": {
-      "task_contract_sha256": "1c19df727a6d97eff17cc9dd24e3190b9487c5eb967bcd49e276ea16a748dec8",
+      "task_contract_sha256": "b9c92f8bffaae66efd856edbff6a446fadb3d45f1c6004e5ed3633547f251386",
       "required_test_platforms": [
         "EditMode"
       ],
