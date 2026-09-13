@@ -31,15 +31,25 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 3,
-  "decomposition_reason": "Decomposed into reviewed child contracts: NSC-044 (ruined-entry-blockout), NSC-045 (bone-archive-blockout), NSC-046 (chapel-of-ash-blockout), NSC-047 (lower-vault-blockout), NSC-048 (final-room-blockout), NSC-049 (five-room-continuity-door-sequence). This aggregate state does not claim implementation completion.",
+  "contract_revision": 4,
+  "decomposition_children": [
+    "NSC-044",
+    "NSC-045",
+    "NSC-046",
+    "NSC-047",
+    "NSC-048",
+    "NSC-049",
+    "NSC-069"
+  ],
+  "decomposition_reason": "Decomposed into reviewed child contracts: NSC-069 establishes deterministic Editor-time room-scene composition; NSC-044 through NSC-048 author the five isolated room inputs; NSC-049 performs final canonical composition and door-sequence validation. This aggregate state does not claim implementation completion.",
+  "decomposition_requirement_sha256": "3edf31df65830dad1a6a15c042b3ce5e6959b359e4e108980a5bddadc4e804c5",
   "decomposition_state": "decomposed",
   "depends_on": [
     "NSC-026"
   ],
   "downstream_integration_obligations": [],
   "exclusive_resources": [],
-  "execution_reason": "Execution responsibilities are delegated to child contracts: NSC-044 (ruined-entry-blockout), NSC-045 (bone-archive-blockout), NSC-046 (chapel-of-ash-blockout), NSC-047 (lower-vault-blockout), NSC-048 (final-room-blockout), NSC-049 (five-room-continuity-door-sequence).",
+  "execution_reason": "Execution responsibilities are delegated to NSC-069 for the composition foundation, NSC-044 through NSC-048 for independently owned room authoring, and NSC-049 for final canonical composition and door continuity.",
   "execution_scope": "not_applicable",
   "gdd_evidence": [
     {
@@ -57,7 +67,7 @@
   ],
   "id": "NSC-029",
   "kind": "feature",
-  "notes": "No formal dependency exists on dungeon-encounter-content-authoring or vice versa; both are deferred organizational features per the GDD-hardening example prohibiting feature-to-feature dependencies. Their consumption relationship (encounter placement consumes authored room spaces) is preserved here in notes only.",
+  "notes": "Separate room scenes are Editor-time authoring inputs only. Deterministic build-time composition places all five rooms in Assets/Scenes/DoorPrototype.unity before runtime; the game still uses one continuous Unity scene with no room scene loads or cross-scene state transfer. No formal dependency exists on dungeon-encounter-content-authoring or vice versa; both are deferred organizational features per the GDD-hardening example prohibiting feature-to-feature dependencies. Their consumption relationship (encounter placement consumes authored room spaces) is preserved here in notes only.",
   "parent": "NSC-022",
   "provenance": {
     "bootstrap_status_observation": "open",
@@ -65,7 +75,15 @@
     "origin": "verified_reconciliation_bootstrap",
     "reconciliation_run_id": "20260821T193541Z-998ee7b5",
     "source_schema_version": "1.0",
-    "verification_run_id": "20260821T195959Z-43dba5de"
+    "verification_run_id": "20260821T195959Z-43dba5de",
+    "architecture_revision": {
+      "approved_at_utc_date": "2026-09-12",
+      "approved_by": "Vincent",
+      "decision": "deterministic_editor_time_room_scene_composition",
+      "proposal_sha256": "bfb012d3ef26ba2987df48364c303a18b8fa4b77a45c99fa06fd4c2a00cad190",
+      "proposal_title": "Independent Room Scenes and Deterministic World Composition Proposal",
+      "source_commit": "eab9bad9325a3e28894a64b6bbde92ee58e75476"
+    }
   },
   "reconciliation_key": "five-room-content-authoring",
   "repository_evidence_at_bootstrap": [],

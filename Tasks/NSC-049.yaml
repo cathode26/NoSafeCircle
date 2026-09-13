@@ -26,7 +26,7 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 2,
+  "contract_revision": 3,
   "decomposition_reason": "Cross-room continuity and the D1–D5 sequence are shared integration responsibilities that cannot be completed independently inside any single room child.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -39,7 +39,8 @@
     "NSC-045",
     "NSC-046",
     "NSC-047",
-    "NSC-048"
+    "NSC-048",
+    "NSC-069"
   ],
   "downstream_integration_obligations": [
     {
@@ -50,10 +51,15 @@
   ],
   "exclusive_resources": [
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneComposer.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorSequenceBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/World/FiveRoomCompositionTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/FiveRoomDoorSequencePlayModeTests.cs",
     "unity-scene:Assets/Scenes/DoorPrototype.unity",
     "logical:gameplay-walkability-surface"
   ],
-  "execution_reason": "After the five bounded room blockouts exist, one agent can reconcile their shared boundaries, instantiate the door sequence, and validate continuous-scene integration against the existing Door-owned interfaces.",
+  "execution_reason": "After the five bounded room authoring scenes exist, one agent can compose their roots into Assets/Scenes/DoorPrototype.unity, reconcile shared boundaries, instantiate D1 through D5, build continuous walkability, and validate the final single-scene result against the existing Door-owned interfaces.",
   "execution_scope": "single_agent",
   "gdd_evidence": [
     {
@@ -67,14 +73,21 @@
   ],
   "id": "NSC-049",
   "kind": "implementation",
-  "notes": "This child integrates authored room and door content only; it does not implement encounter placement, door lifecycle internals, or victory coordination internals.",
+  "notes": "This child integrates authored room and door content only; it does not implement encounter placement, door lifecycle internals, or victory coordination internals. The five Assets/Scenes/Rooms/*.unity files are immutable composition inputs: this task reads them, verifies their hashes are unchanged before and after composition, and never claims them as write resources. TaskGraph has no read-only context-path field, so this input boundary is enforced by exact write scope and validation evidence.",
   "parent": "NSC-029",
   "provenance": {
     "graph_delta_plan_id": "GDP-5f799a9d352217a315b42a5ec36178abecd2ff16235c9191797508850edfc9d2",
     "origin": "progressive_decomposition",
     "parent_contract_revision": 2,
     "parent_contract_sha256": "c1ad8b9cd094f35eab937db10b393b211b628c9ded50c8688cefe8a69f34d490",
-    "parent_task_id": "NSC-029"
+    "parent_task_id": "NSC-029",
+    "architecture_revision": {
+      "approved_at_utc_date": "2026-09-12",
+      "approved_by": "Vincent",
+      "decision": "deterministic_editor_time_room_scene_composition",
+      "proposal_sha256": "bfb012d3ef26ba2987df48364c303a18b8fa4b77a45c99fa06fd4c2a00cad190",
+      "source_commit": "eab9bad9325a3e28894a64b6bbde92ee58e75476"
+    }
   },
   "reconciliation_key": "five-room-continuity-door-sequence",
   "repository_evidence_at_bootstrap": [],

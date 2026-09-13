@@ -20,6 +20,82 @@
         "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-044": {
+      "task_contract_sha256": "e31be6f76794e5dc61479482e3f5eeda23533104608771c742981ed013ff4c34",
+      "required_test_platforms": [
+        "EditMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.Rooms.RuinedEntrySceneTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-045": {
+      "task_contract_sha256": "63458b4e1963ed02d7bd9593905b0e4100e689bad3530a11f3ae59141a54204d",
+      "required_test_platforms": [
+        "EditMode",
+        "PlayMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.Rooms.BoneArchiveSceneTests",
+        "PlayMode": "NoSafeCircle.DoorPrototype.Tests.BoneArchiveNavigationPlayModeTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-046": {
+      "task_contract_sha256": "e3260a55c4f2992a8d8749ba1c0bfaa174af52b8f34054ec4d7771833c177508",
+      "required_test_platforms": [
+        "EditMode",
+        "PlayMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.Rooms.ChapelOfAshSceneTests",
+        "PlayMode": "NoSafeCircle.DoorPrototype.Tests.ChapelOfAshProjectileCoverPlayModeTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-047": {
+      "task_contract_sha256": "0cc64c7affd64a929b72f3b89e2ae3374a10c1c43d4d150ec188df2c4d0d8035",
+      "required_test_platforms": [
+        "EditMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.Rooms.LowerVaultSceneTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-048": {
+      "task_contract_sha256": "89e1a7f78d8733dd02514b0884f1d9c519311b9613da267c4e126f46759b70fd",
+      "required_test_platforms": [
+        "EditMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.Rooms.FinalRoomSceneTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-049": {
+      "task_contract_sha256": "51cb89b813ab1dbb72dcaa742029e9179f3fc2f3aea085e87bdeeeaeaa217500",
+      "required_test_platforms": [
+        "EditMode",
+        "PlayMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.World.FiveRoomCompositionTests",
+        "PlayMode": "NoSafeCircle.DoorPrototype.Tests.FiveRoomDoorSequencePlayModeTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-069": {
+      "task_contract_sha256": "5cfa2eb3830df9b59fec01f2ee2cec388a1da20d6c8dc713e899fc0fc1fae612",
+      "required_test_platforms": [
+        "EditMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
     }
   },
   "decomposition_child_templates": {}

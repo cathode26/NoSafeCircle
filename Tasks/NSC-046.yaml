@@ -21,20 +21,24 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 3,
+  "contract_revision": 4,
   "decomposition_reason": "The room dimensions, prop footprints, routes, and one projectile-cover Play Mode test are explicit enough for one bounded room-blockout task.",
   "decomposition_state": "concrete",
   "depends_on": [
     "NSC-026",
-    "NSC-054"
+    "NSC-054",
+    "NSC-069"
   ],
   "downstream_integration_obligations": [],
   "exclusive_resources": [
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
-    "unity-scene:Assets/Scenes/DoorPrototype.unity",
-    "logical:gameplay-walkability-surface"
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/ChapelOfAshSceneBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/ChapelOfAshLayout.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/ChapelOfAshSceneTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/ChapelOfAshProjectileCoverPlayModeTests.cs",
+    "unity-scene:Assets/Scenes/Rooms/ChapelOfAsh.unity",
+    "logical:room-walkability:chapel-of-ash"
   ],
-  "execution_reason": "One agent can build the approved Chapel of Ash blockout and run the room-specific projectile-cover test using the Ranged Enemy projectile behavior supplied by its dependency. This task does not implement enemy movement, targeting, or attacks.",
+  "execution_reason": "One agent can author the Chapel of Ash builder, layout data, focused tests, and Unity authoring scene and run its projectile-cover validation without writing the canonical scene or another room's files. This task does not implement enemy movement, targeting, or attacks.",
   "execution_scope": "single_agent",
   "gdd_evidence": [
     {
@@ -44,14 +48,21 @@
   ],
   "id": "NSC-046",
   "kind": "implementation",
-  "notes": "Enemy placement and encounter composition are not included. The Ranged Enemy dependency exists only so this room can prove that a real fired projectile collides with the authored pew or column cover. Revision 2 replaces ambiguous line-of-sight/projectile-occlusion wording with a concrete projectile collision and no-damage-through-cover Play Mode test.",
+  "notes": "Enemy placement and encounter composition are not included. The Ranged Enemy dependency exists only so this room can prove that a real fired projectile collides with the authored pew or column cover. Revision 2 replaces ambiguous line-of-sight/projectile-occlusion wording with a concrete projectile collision and no-damage-through-cover Play Mode test. Assets/Scenes/Rooms/ChapelOfAsh.unity is an Editor-time authoring input; NSC-049 composes it into the one canonical runtime scene.",
   "parent": "NSC-029",
   "provenance": {
     "graph_delta_plan_id": "GDP-5f799a9d352217a315b42a5ec36178abecd2ff16235c9191797508850edfc9d2",
     "origin": "progressive_decomposition",
     "parent_contract_revision": 2,
     "parent_contract_sha256": "c1ad8b9cd094f35eab937db10b393b211b628c9ded50c8688cefe8a69f34d490",
-    "parent_task_id": "NSC-029"
+    "parent_task_id": "NSC-029",
+    "architecture_revision": {
+      "approved_at_utc_date": "2026-09-12",
+      "approved_by": "Vincent",
+      "decision": "deterministic_editor_time_room_scene_composition",
+      "proposal_sha256": "bfb012d3ef26ba2987df48364c303a18b8fa4b77a45c99fa06fd4c2a00cad190",
+      "source_commit": "eab9bad9325a3e28894a64b6bbde92ee58e75476"
+    }
   },
   "reconciliation_key": "chapel-of-ash-blockout",
   "repository_evidence_at_bootstrap": [],

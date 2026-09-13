@@ -21,20 +21,24 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "decomposition_reason": "Bone Archive has complete shell, obstacle, lane, clearance, and navigation-validation requirements that form one bounded room-authoring responsibility.",
   "decomposition_state": "concrete",
   "depends_on": [
     "NSC-026",
-    "NSC-025"
+    "NSC-025",
+    "NSC-069"
   ],
   "downstream_integration_obligations": [],
   "exclusive_resources": [
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
-    "unity-scene:Assets/Scenes/DoorPrototype.unity",
-    "logical:gameplay-walkability-surface"
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/BoneArchiveSceneBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/BoneArchiveLayout.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/BoneArchiveSceneTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/BoneArchiveNavigationPlayModeTests.cs",
+    "unity-scene:Assets/Scenes/Rooms/BoneArchive.unity",
+    "logical:room-walkability:bone-archive"
   ],
-  "execution_reason": "One agent can author the shelf-lane blockout and validate it against the existing navigation layer without owning enemy AI or encounter content.",
+  "execution_reason": "One agent can author the Bone Archive builder, layout data, focused tests, and Unity authoring scene and validate its lanes against the existing navigation layer without writing the canonical scene or another room's files.",
   "execution_scope": "single_agent",
   "gdd_evidence": [
     {
@@ -44,14 +48,21 @@
   ],
   "id": "NSC-045",
   "kind": "implementation",
-  "notes": "This child consumes navigation configuration for validation but does not select navigation technology or alter enemy behavior.",
+  "notes": "This child consumes navigation configuration for validation but does not select navigation technology or alter enemy behavior. Assets/Scenes/Rooms/BoneArchive.unity is an Editor-time authoring input; NSC-049 composes it into the one canonical runtime scene.",
   "parent": "NSC-029",
   "provenance": {
     "graph_delta_plan_id": "GDP-5f799a9d352217a315b42a5ec36178abecd2ff16235c9191797508850edfc9d2",
     "origin": "progressive_decomposition",
     "parent_contract_revision": 2,
     "parent_contract_sha256": "c1ad8b9cd094f35eab937db10b393b211b628c9ded50c8688cefe8a69f34d490",
-    "parent_task_id": "NSC-029"
+    "parent_task_id": "NSC-029",
+    "architecture_revision": {
+      "approved_at_utc_date": "2026-09-12",
+      "approved_by": "Vincent",
+      "decision": "deterministic_editor_time_room_scene_composition",
+      "proposal_sha256": "bfb012d3ef26ba2987df48364c303a18b8fa4b77a45c99fa06fd4c2a00cad190",
+      "source_commit": "eab9bad9325a3e28894a64b6bbde92ee58e75476"
+    }
   },
   "reconciliation_key": "bone-archive-blockout",
   "repository_evidence_at_bootstrap": [],
