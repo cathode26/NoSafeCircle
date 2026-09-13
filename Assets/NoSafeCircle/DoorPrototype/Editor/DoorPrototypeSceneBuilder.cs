@@ -80,6 +80,29 @@ namespace NoSafeCircle.DoorPrototype.Editor
         private static readonly string[] WizardStandingDirections = { "north", "north-east", "east", "south-east", "south", "south-west", "west", "north-west" };
         private static readonly string[] WizardDirections = { "north-east", "north-west", "south-east", "south-west" };
         private const string WizardCanonicalInitialDirection = "south-east";
+        private static readonly WizardSelectionDefinition[] WizardSelectionDefinitions =
+        {
+            new WizardSelectionDefinition(
+                WizardPresentation.Masculine,
+                WizardSkin.White,
+                "masculine-light",
+                "Masculine Wizard\nLight Skin"),
+            new WizardSelectionDefinition(
+                WizardPresentation.Masculine,
+                WizardSkin.Black,
+                "masculine-dark",
+                "Masculine Wizard\nDark Skin"),
+            new WizardSelectionDefinition(
+                WizardPresentation.Feminine,
+                WizardSkin.White,
+                "feminine-light",
+                "Feminine Wizard\nLight Skin"),
+            new WizardSelectionDefinition(
+                WizardPresentation.Feminine,
+                WizardSkin.Black,
+                "feminine-dark",
+                "Feminine Wizard\nDark Skin")
+        };
 
         // Placeholder colors only (GDD: placeholder character/prop sprites are acceptable).
         private static readonly Color32 WizardSpriteFillColor = new Color32(88, 64, 145, 255);
@@ -1467,10 +1490,16 @@ namespace NoSafeCircle.DoorPrototype.Editor
             BuildManaUI(canvasObject, mana, debugManaControl);
 
             BuildControlsHud(canvasObject.transform);
-            BuildTitleScreen(canvasObject, movement, interactionController, debugControl, debugManaControl);
+            TitleScreenController titleScreenController = BuildTitleScreen(
+                canvasObject,
+                movement,
+                interactionController,
+                debugControl,
+                debugManaControl);
+            BuildWizardSelectionScreen(canvasObject, titleScreenController);
         }
 
-        private static void BuildTitleScreen(GameObject canvasObject, PlayerMovement movement,
+        private static TitleScreenController BuildTitleScreen(GameObject canvasObject, PlayerMovement movement,
             PlayerInteractionController interactionController, DebugDamageControl debugControl,
             DebugManaSpendControl debugManaControl)
         {
@@ -1618,6 +1647,239 @@ namespace NoSafeCircle.DoorPrototype.Editor
             SetPrivateObjectArray(controller, "gameplayInputBehaviours", debugControl, debugManaControl);
 
             UnityEventTools.AddPersistentListener(startButton.onClick, controller.StartGame);
+            return controller;
+        }
+
+        private static void BuildWizardSelectionScreen(
+            GameObject canvasObject,
+            TitleScreenController titleScreenController)
+        {
+            var selectionPanel = new GameObject(
+                "WizardSelectionScreen",
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Image));
+            selectionPanel.transform.SetParent(canvasObject.transform, false);
+
+            RectTransform panelRect = selectionPanel.GetComponent<RectTransform>();
+            panelRect.anchorMin = Vector2.zero;
+            panelRect.anchorMax = Vector2.one;
+            panelRect.offsetMin = Vector2.zero;
+            panelRect.offsetMax = Vector2.zero;
+
+            Image panelImage = selectionPanel.GetComponent<Image>();
+            panelImage.color = new Color32(16, 10, 23, 255);
+            panelImage.raycastTarget = true;
+
+            Text heading = CreateTitleText(
+                "Heading",
+                selectionPanel.transform,
+                new Vector2(0.18f, 0.84f),
+                new Vector2(0.82f, 0.96f),
+                "CHOOSE YOUR WIZARD",
+                52,
+                new Color32(255, 238, 224, 255));
+            heading.fontStyle = FontStyle.Bold;
+
+            Text instruction = CreateTitleText(
+                "Instruction",
+                selectionPanel.transform,
+                new Vector2(0.2f, 0.78f),
+                new Vector2(0.8f, 0.85f),
+                "Select one wizard to enter the darkness.",
+                23,
+                new Color32(205, 185, 210, 255));
+            instruction.fontStyle = FontStyle.Italic;
+
+            var builtOptions = new BuiltWizardSelectionOption[WizardSelectionDefinitions.Length];
+            for (var index = 0; index < WizardSelectionDefinitions.Length; index++)
+            {
+                float x = index % 2 == 0 ? 0.32f : 0.68f;
+                float y = index < 2 ? 0.62f : 0.34f;
+                builtOptions[index] = BuildWizardSelectionOption(
+                    selectionPanel.transform,
+                    WizardSelectionDefinitions[index],
+                    index,
+                    new Vector2(x, y));
+            }
+
+            var confirmObject = new GameObject(
+                "ConfirmSelectionButton",
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Image),
+                typeof(Button),
+                typeof(Shadow));
+            confirmObject.transform.SetParent(selectionPanel.transform, false);
+
+            RectTransform confirmRect = confirmObject.GetComponent<RectTransform>();
+            confirmRect.anchorMin = new Vector2(0.5f, 0.105f);
+            confirmRect.anchorMax = new Vector2(0.5f, 0.105f);
+            confirmRect.sizeDelta = new Vector2(420f, 72f);
+
+            Image confirmImage = confirmObject.GetComponent<Image>();
+            confirmImage.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
+            confirmImage.type = Image.Type.Sliced;
+            confirmImage.color = new Color32(152, 65, 119, 255);
+
+            Button confirmButton = confirmObject.GetComponent<Button>();
+            confirmButton.targetGraphic = confirmImage;
+            confirmButton.interactable = false;
+            confirmButton.navigation = new Navigation { mode = Navigation.Mode.None };
+            ColorBlock confirmColors = confirmButton.colors;
+            confirmColors.normalColor = Color.white;
+            confirmColors.highlightedColor = new Color32(255, 211, 225, 255);
+            confirmColors.pressedColor = new Color32(205, 145, 178, 255);
+            confirmColors.selectedColor = confirmColors.highlightedColor;
+            confirmColors.disabledColor = new Color32(90, 72, 88, 180);
+            confirmButton.colors = confirmColors;
+
+            Shadow confirmShadow = confirmObject.GetComponent<Shadow>();
+            confirmShadow.effectColor = new Color32(7, 3, 10, 210);
+            confirmShadow.effectDistance = new Vector2(5f, -5f);
+
+            Text confirmLabel = CreateTitleText(
+                "Text",
+                confirmObject.transform,
+                Vector2.zero,
+                Vector2.one,
+                "CONFIRM WIZARD",
+                28,
+                new Color32(255, 245, 229, 255));
+            confirmLabel.fontStyle = FontStyle.Bold;
+
+            WizardSelectionController controller = canvasObject.AddComponent<WizardSelectionController>();
+            SetPrivateField(controller, "titleScreenController", titleScreenController);
+            SetPrivateField(controller, "selectionPanel", selectionPanel);
+            SetPrivateField(controller, "confirmButton", confirmButton);
+            SetWizardSelectionOptions(controller, builtOptions);
+
+            for (var index = 0; index < builtOptions.Length; index++)
+            {
+                UnityEventTools.AddIntPersistentListener(
+                    builtOptions[index].button.onClick,
+                    controller.SelectOption,
+                    index);
+            }
+
+            UnityEventTools.AddPersistentListener(confirmButton.onClick, controller.ConfirmSelection);
+            selectionPanel.SetActive(false);
+        }
+
+        private static BuiltWizardSelectionOption BuildWizardSelectionOption(
+            Transform parent,
+            WizardSelectionDefinition definition,
+            int index,
+            Vector2 anchor)
+        {
+            var optionObject = new GameObject(
+                $"WizardOption{index + 1}",
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Image),
+                typeof(Button),
+                typeof(Outline));
+            optionObject.transform.SetParent(parent, false);
+
+            RectTransform optionRect = optionObject.GetComponent<RectTransform>();
+            optionRect.anchorMin = anchor;
+            optionRect.anchorMax = anchor;
+            optionRect.sizeDelta = new Vector2(560f, 260f);
+
+            Image optionImage = optionObject.GetComponent<Image>();
+            optionImage.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Background.psd");
+            optionImage.type = Image.Type.Sliced;
+            optionImage.color = new Color32(43, 24, 50, 255);
+
+            Button optionButton = optionObject.GetComponent<Button>();
+            optionButton.targetGraphic = optionImage;
+            optionButton.navigation = new Navigation { mode = Navigation.Mode.None };
+            ColorBlock optionColors = optionButton.colors;
+            optionColors.normalColor = Color.white;
+            optionColors.highlightedColor = new Color32(255, 222, 235, 255);
+            optionColors.pressedColor = new Color32(205, 145, 178, 255);
+            optionColors.selectedColor = optionColors.highlightedColor;
+            optionButton.colors = optionColors;
+
+            Outline optionOutline = optionObject.GetComponent<Outline>();
+            optionOutline.effectColor = new Color32(128, 70, 119, 255);
+            optionOutline.effectDistance = new Vector2(3f, -3f);
+
+            var previewObject = new GameObject(
+                "Preview",
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Image));
+            previewObject.transform.SetParent(optionObject.transform, false);
+            RectTransform previewRect = previewObject.GetComponent<RectTransform>();
+            previewRect.anchorMin = new Vector2(0.06f, 0.08f);
+            previewRect.anchorMax = new Vector2(0.43f, 0.92f);
+            previewRect.offsetMin = Vector2.zero;
+            previewRect.offsetMax = Vector2.zero;
+
+            Image previewImage = previewObject.GetComponent<Image>();
+            previewImage.sprite = LoadWizardSelectionPreview(definition.sourceVariant);
+            previewImage.preserveAspect = true;
+            previewImage.raycastTarget = false;
+
+            Text optionLabel = CreateTitleText(
+                "Label",
+                optionObject.transform,
+                new Vector2(0.45f, 0.22f),
+                new Vector2(0.96f, 0.78f),
+                definition.label,
+                26,
+                new Color32(255, 238, 224, 255));
+            optionLabel.fontStyle = FontStyle.Bold;
+
+            var selectedIndicator = new GameObject(
+                "SelectedIndicator",
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Image));
+            selectedIndicator.transform.SetParent(optionObject.transform, false);
+            RectTransform indicatorRect = selectedIndicator.GetComponent<RectTransform>();
+            indicatorRect.anchorMin = new Vector2(0.59f, 0.72f);
+            indicatorRect.anchorMax = new Vector2(0.92f, 0.91f);
+            indicatorRect.offsetMin = Vector2.zero;
+            indicatorRect.offsetMax = Vector2.zero;
+
+            Image indicatorImage = selectedIndicator.GetComponent<Image>();
+            indicatorImage.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
+            indicatorImage.type = Image.Type.Sliced;
+            indicatorImage.color = new Color32(232, 132, 165, 255);
+            indicatorImage.raycastTarget = false;
+
+            Text indicatorLabel = CreateTitleText(
+                "Text",
+                selectedIndicator.transform,
+                Vector2.zero,
+                Vector2.one,
+                "SELECTED",
+                18,
+                new Color32(36, 18, 39, 255));
+            indicatorLabel.fontStyle = FontStyle.Bold;
+            selectedIndicator.SetActive(false);
+
+            return new BuiltWizardSelectionOption(
+                definition,
+                optionButton,
+                previewImage,
+                optionLabel,
+                selectedIndicator);
+        }
+
+        private static Sprite LoadWizardSelectionPreview(string sourceVariant)
+        {
+            string path = WizardSourceRoot + "/" + sourceVariant +
+                "/selected/standing/" + WizardCanonicalInitialDirection + ".png";
+            Sprite sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+            if (sprite == null)
+            {
+                throw new InvalidDataException("Wizard selection preview is missing: " + path);
+            }
+
+            return sprite;
         }
 
         private static Text CreateTitleText(string name, Transform parent, Vector2 anchorMin,
@@ -1820,6 +2082,74 @@ namespace NoSafeCircle.DoorPrototype.Editor
                 property.GetArrayElementAtIndex(i).objectReferenceValue = values[i];
             }
             serializedObject.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static void SetWizardSelectionOptions(
+            WizardSelectionController controller,
+            BuiltWizardSelectionOption[] options)
+        {
+            var serializedObject = new SerializedObject(controller);
+            SerializedProperty optionsProperty = serializedObject.FindProperty("options");
+            optionsProperty.arraySize = options.Length;
+
+            for (var index = 0; index < options.Length; index++)
+            {
+                SerializedProperty optionProperty = optionsProperty.GetArrayElementAtIndex(index);
+                BuiltWizardSelectionOption option = options[index];
+                optionProperty.FindPropertyRelative("presentation").enumValueIndex =
+                    (int)option.definition.presentation;
+                optionProperty.FindPropertyRelative("skin").enumValueIndex = (int)option.definition.skin;
+                optionProperty.FindPropertyRelative("button").objectReferenceValue = option.button;
+                optionProperty.FindPropertyRelative("previewImage").objectReferenceValue = option.previewImage;
+                optionProperty.FindPropertyRelative("label").objectReferenceValue = option.label;
+                optionProperty.FindPropertyRelative("selectedIndicator").objectReferenceValue =
+                    option.selectedIndicator;
+            }
+
+            serializedObject.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private readonly struct WizardSelectionDefinition
+        {
+            public readonly WizardPresentation presentation;
+            public readonly WizardSkin skin;
+            public readonly string sourceVariant;
+            public readonly string label;
+
+            public WizardSelectionDefinition(
+                WizardPresentation presentation,
+                WizardSkin skin,
+                string sourceVariant,
+                string label)
+            {
+                this.presentation = presentation;
+                this.skin = skin;
+                this.sourceVariant = sourceVariant;
+                this.label = label;
+            }
+        }
+
+        private readonly struct BuiltWizardSelectionOption
+        {
+            public readonly WizardSelectionDefinition definition;
+            public readonly Button button;
+            public readonly Image previewImage;
+            public readonly Text label;
+            public readonly GameObject selectedIndicator;
+
+            public BuiltWizardSelectionOption(
+                WizardSelectionDefinition definition,
+                Button button,
+                Image previewImage,
+                Text label,
+                GameObject selectedIndicator)
+            {
+                this.definition = definition;
+                this.button = button;
+                this.previewImage = previewImage;
+                this.label = label;
+                this.selectedIndicator = selectedIndicator;
+            }
         }
 
         // SerializedProperty has no generic value-type setter, so plain-data fields (Vector3,
