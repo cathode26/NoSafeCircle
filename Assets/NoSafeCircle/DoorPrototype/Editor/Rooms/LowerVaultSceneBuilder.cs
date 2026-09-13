@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using NoSafeCircle.DoorPrototype.World;
 using NoSafeCircle.DoorPrototype.World.Rooms;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -47,20 +48,26 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
                 Object.DestroyImmediate(root);
             }
 
-            GameObject roomRoot = new GameObject("LowerVault");
-            Transform visibleRoot = CreateChild(roomRoot.transform, "VisibleBlockout");
-            Transform gameplayRoot = CreateChild(roomRoot.transform, "GameplayGeometry");
-            Transform anchorsRoot = CreateChild(roomRoot.transform, "DoorAnchors");
-            CreateChild(roomRoot.transform, "Authoring");
+            GameObject roomRoot = new GameObject("Room_LowerVault");
+            Transform visibleRoot = CreateContentRoot(
+                roomRoot.transform, "Visuals", RoomContentCategory.Visuals);
+            Transform gameplayRoot = CreateContentRoot(
+                roomRoot.transform, "GameplayGeometry", RoomContentCategory.GameplayGeometry);
+            Transform anchorsRoot = CreateContentRoot(
+                roomRoot.transform, "DoorAnchors", RoomContentCategory.DoorAnchors);
+            Transform authoringRoot = CreateContentRoot(
+                roomRoot.transform, "Authoring", RoomContentCategory.Authoring);
 
             BuildVisibleBlockout(visibleRoot);
             BuildGameplayGeometry(gameplayRoot);
-            CreateMarker(anchorsRoot, "D3Opening", LowerVaultLayout.D3);
-            CreateMarker(anchorsRoot, "D4Opening", LowerVaultLayout.D4);
-            CreateMarker(roomRoot.transform, "D3StagingArea", new Vector3(-6f, 0f, 45f));
-            CreateMarker(roomRoot.transform, "D4StagingArea", new Vector3(4f, 0f, 61f));
-            BuildLighting();
-            BuildCamera();
+            CreateDoorAnchor(
+                anchorsRoot, "D3Opening", DoorId.D3, DoorAnchorRole.Entry,
+                LowerVaultLayout.D3, Quaternion.LookRotation(Vector3.back));
+            CreateDoorAnchor(
+                anchorsRoot, "D4Opening", DoorId.D4, DoorAnchorRole.Exit,
+                LowerVaultLayout.D4, Quaternion.LookRotation(Vector3.forward));
+            CreateMarker(authoringRoot, "D3StagingArea", new Vector3(-6f, 0f, 45f));
+            CreateMarker(authoringRoot, "D4StagingArea", new Vector3(4f, 0f, 61f));
             SceneManager.SetActiveScene(scene);
         }
 
@@ -136,14 +143,6 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
         private static void CreateLantern(Transform parent, Vector3 position)
         {
             CreateVisualBox(parent, "LanternGlow", position, new Vector3(0.22f, 0.22f, 0.22f), AccentColor);
-            GameObject lightObject = new GameObject("LanternLight");
-            lightObject.transform.SetParent(parent, false);
-            lightObject.transform.position = position;
-            Light light = lightObject.AddComponent<Light>();
-            light.type = LightType.Point;
-            light.color = new Color(0.85f, 0.18f, 0.28f);
-            light.intensity = 0.8f;
-            light.range = 4f;
         }
 
         private static void CreateVaultMark(Transform parent, Vector3 position)
@@ -184,6 +183,27 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             marker.transform.position = position;
         }
 
+        private static void CreateDoorAnchor(
+            Transform parent,
+            string name,
+            DoorId doorId,
+            DoorAnchorRole role,
+            Vector3 position,
+            Quaternion rotation)
+        {
+            GameObject anchor = new GameObject(name);
+            anchor.transform.SetParent(parent, false);
+            anchor.transform.SetPositionAndRotation(position, rotation);
+
+            DoorAnchorMarker marker = anchor.AddComponent<DoorAnchorMarker>();
+            SerializedObject serialized = new SerializedObject(marker);
+            serialized.FindProperty("roomId").enumValueIndex = (int)RoomId.LowerVault;
+            serialized.FindProperty("doorId").enumValueIndex = (int)doorId;
+            serialized.FindProperty("role").enumValueIndex = (int)role;
+            serialized.FindProperty("openingWidth").floatValue = 3f;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+        }
+
         private static Material CreateMaterial(Color color)
         {
             Material material = new Material(Shader.Find("Standard"));
@@ -191,33 +211,21 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             return material;
         }
 
-        private static Transform CreateChild(Transform parent, string name)
+        private static Transform CreateContentRoot(
+            Transform parent,
+            string name,
+            RoomContentCategory category)
         {
             GameObject child = new GameObject(name);
             child.transform.SetParent(parent, false);
+
+            RoomContentMarker marker = child.AddComponent<RoomContentMarker>();
+            SerializedObject serialized = new SerializedObject(marker);
+            serialized.FindProperty("roomId").enumValueIndex = (int)RoomId.LowerVault;
+            serialized.FindProperty("category").enumValueIndex = (int)category;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+
             return child.transform;
-        }
-
-        private static void BuildLighting()
-        {
-            GameObject lightObject = new GameObject("Vault Moonlight");
-            Light light = lightObject.AddComponent<Light>();
-            light.type = LightType.Directional;
-            light.color = new Color(0.32f, 0.25f, 0.5f);
-            light.intensity = 0.35f;
-            lightObject.transform.rotation = Quaternion.Euler(45f, -35f, 0f);
-        }
-
-        private static void BuildCamera()
-        {
-            GameObject cameraObject = new GameObject("Main Camera");
-            cameraObject.tag = "MainCamera";
-            Camera camera = cameraObject.AddComponent<Camera>();
-            cameraObject.AddComponent<AudioListener>();
-            camera.orthographic = true;
-            camera.orthographicSize = 15f;
-            cameraObject.transform.position = new Vector3(20f, 24f, 20f);
-            cameraObject.transform.LookAt(new Vector3(0f, 0f, 53f));
         }
 
         private static void EnsureFolder(string folder)

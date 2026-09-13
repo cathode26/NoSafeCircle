@@ -1,4 +1,7 @@
+using System;
 using NoSafeCircle.DoorPrototype.Editor.Rooms;
+using NoSafeCircle.DoorPrototype.Editor.World;
+using NoSafeCircle.DoorPrototype.World;
 using NoSafeCircle.DoorPrototype.World.Rooms;
 using NUnit.Framework;
 using UnityEditor.SceneManagement;
@@ -40,8 +43,8 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
         [Test]
         public void Build_SeparatesVisibleBlockoutFromGameplayCollision()
         {
-            GameObject visible = GameObject.Find("RuinedEntry/VisibleBlockout");
-            GameObject gameplay = GameObject.Find("RuinedEntry/GameplayGeometry");
+            GameObject visible = GameObject.Find("Room_RuinedEntry/Visuals");
+            GameObject gameplay = GameObject.Find("Room_RuinedEntry/GameplayGeometry");
 
             Assert.IsNotNull(visible);
             Assert.IsNotNull(gameplay);
@@ -56,8 +59,8 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
         [Test]
         public void Build_PreservesDoorOpeningAndApprovedRoutes()
         {
-            BoxCollider westDoorWall = FindCollider("RuinedEntry/GameplayGeometry/NorthWallWestCollision");
-            BoxCollider eastDoorWall = FindCollider("RuinedEntry/GameplayGeometry/NorthWallEastCollision");
+            BoxCollider westDoorWall = FindCollider("Room_RuinedEntry/GameplayGeometry/NorthWallWestCollision");
+            BoxCollider eastDoorWall = FindCollider("Room_RuinedEntry/GameplayGeometry/NorthWallEastCollision");
 
             float westOpeningEdge = westDoorWall.bounds.max.x;
             float eastOpeningEdge = eastDoorWall.bounds.min.x;
@@ -74,8 +77,8 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
         [Test]
         public void Build_LeavesD1ReachableFromBothSidesOfRubble()
         {
-            Transform door = GameObject.Find("RuinedEntry/D1Opening")?.transform;
-            Transform staging = GameObject.Find("RuinedEntry/D1StagingArea")?.transform;
+            Transform door = GameObject.Find("Room_RuinedEntry/DoorAnchors/D1Opening")?.transform;
+            Transform staging = GameObject.Find("Room_RuinedEntry/Authoring/D1StagingArea")?.transform;
 
             Assert.IsNotNull(door);
             Assert.IsNotNull(staging);
@@ -86,6 +89,78 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
                 "The west route must remain open from the staging area to D1.");
             Assert.Less(RuinedEntryLayout.RubbleBBounds.max.z, staging.position.z,
                 "The rubble must remain south of the final D1 approach.");
+        }
+
+        [Test]
+        public void Build_CreatesComposerReadyHierarchyAndD1ExitAnchor()
+        {
+            Scene scene = SceneManager.GetActiveScene();
+
+            AssertComposerReadyScene(scene);
+        }
+
+        [Test]
+        public void CommittedScene_ValidatesThroughRoomSceneComposer()
+        {
+            Scene scene = EditorSceneManager.OpenScene(RuinedEntrySceneBuilder.ScenePath, OpenSceneMode.Additive);
+            try
+            {
+                AssertComposerReadyScene(scene);
+            }
+            finally
+            {
+                EditorSceneManager.CloseScene(scene, true);
+            }
+        }
+
+        private static void AssertComposerReadyScene(Scene scene)
+        {
+            RoomSceneCatalog.RoomCatalogEntry roomEntry = Array.Find(
+                RoomSceneCatalog.CreateCanonicalRooms(), entry => entry.RoomId == RoomId.RuinedEntry);
+            RoomSceneComposer.RoomValidationResult validation = RoomSceneComposer.ValidateOpenRoomScene(
+                RoomId.RuinedEntry, scene, roomEntry, RoomSceneCatalog.CreateCanonicalDoors());
+
+            CollectionAssert.IsEmpty(validation.Errors, string.Join("\n", validation.Errors));
+            Assert.IsTrue(validation.IsValid);
+
+            GameObject[] roots = scene.GetRootGameObjects();
+            Assert.AreEqual(1, roots.Length);
+            GameObject roomRoot = roots[0];
+            Assert.AreEqual("Room_RuinedEntry", roomRoot.name);
+            Assert.AreEqual(Vector3.zero, roomRoot.transform.localPosition);
+            Assert.AreEqual(Quaternion.identity, roomRoot.transform.localRotation);
+            Assert.AreEqual(Vector3.one, roomRoot.transform.localScale);
+            Assert.AreEqual(4, roomRoot.transform.childCount);
+
+            AssertContentMarker(roomRoot.transform, "Visuals", RoomId.RuinedEntry, RoomContentCategory.Visuals);
+            AssertContentMarker(
+                roomRoot.transform, "GameplayGeometry", RoomId.RuinedEntry, RoomContentCategory.GameplayGeometry);
+            Transform anchors = AssertContentMarker(
+                roomRoot.transform, "DoorAnchors", RoomId.RuinedEntry, RoomContentCategory.DoorAnchors);
+            AssertContentMarker(roomRoot.transform, "Authoring", RoomId.RuinedEntry, RoomContentCategory.Authoring);
+
+            DoorAnchorMarker anchor = anchors.GetComponentInChildren<DoorAnchorMarker>(true);
+            Assert.IsNotNull(anchor);
+            Assert.AreEqual(DoorId.D1, anchor.DoorId);
+            Assert.AreEqual(DoorAnchorRole.Exit, anchor.Role);
+            Assert.AreEqual(3f, anchor.OpeningWidth);
+            Assert.AreEqual(new Vector3(0f, 0f, 0f), anchor.transform.position);
+            Assert.AreEqual(Vector3.forward, anchor.transform.forward);
+        }
+
+        private static Transform AssertContentMarker(
+            Transform roomRoot,
+            string name,
+            RoomId roomId,
+            RoomContentCategory category)
+        {
+            Transform child = roomRoot.Find(name);
+            Assert.IsNotNull(child, $"Expected direct child {name}.");
+            RoomContentMarker marker = child.GetComponent<RoomContentMarker>();
+            Assert.IsNotNull(marker, $"Expected {name} to carry RoomContentMarker.");
+            Assert.AreEqual(roomId, marker.RoomId);
+            Assert.AreEqual(category, marker.Category);
+            return child;
         }
 
         private static BoxCollider FindCollider(string path)

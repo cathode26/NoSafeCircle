@@ -1,4 +1,5 @@
 using System.IO;
+using NoSafeCircle.DoorPrototype.World;
 using NoSafeCircle.DoorPrototype.World.Rooms;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -12,8 +13,8 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
     {
         public const string ScenePath = "Assets/Scenes/Rooms/RuinedEntry.unity";
 
-        private const string RoomRootName = "RuinedEntry";
-        private const string VisualRootName = "VisibleBlockout";
+        private const string RoomRootName = "Room_RuinedEntry";
+        private const string VisualRootName = "Visuals";
         private const string GameplayRootName = "GameplayGeometry";
         private const string DoorMarkerName = "D1Opening";
 
@@ -49,17 +50,25 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             GameObject roomRoot = new GameObject(RoomRootName);
             roomRoot.AddComponent<RuinedEntryLayout>();
 
-            Transform visibleRoot = CreateChild(roomRoot.transform, VisualRootName);
-            Transform gameplayRoot = CreateChild(roomRoot.transform, GameplayRootName);
+            Transform visibleRoot = CreateContentRoot(
+                roomRoot.transform, VisualRootName, RoomContentCategory.Visuals);
+            Transform gameplayRoot = CreateContentRoot(
+                roomRoot.transform, GameplayRootName, RoomContentCategory.GameplayGeometry);
+            Transform anchorsRoot = CreateContentRoot(
+                roomRoot.transform, "DoorAnchors", RoomContentCategory.DoorAnchors);
+            Transform authoringRoot = CreateContentRoot(
+                roomRoot.transform, "Authoring", RoomContentCategory.Authoring);
 
             BuildVisibleBlockout(visibleRoot);
             BuildGameplayGeometry(gameplayRoot);
-            CreateMarker(roomRoot.transform, DoorMarkerName,
-                new Vector3(RuinedEntryLayout.DoorCenterX, 0f, RuinedEntryLayout.DoorCenterZ));
-            CreateMarker(roomRoot.transform, "D1StagingArea", RuinedEntryLayout.DoorStagingBounds.center);
-
-            BuildLighting();
-            BuildCamera();
+            CreateDoorAnchor(
+                anchorsRoot,
+                DoorMarkerName,
+                DoorId.D1,
+                DoorAnchorRole.Exit,
+                new Vector3(RuinedEntryLayout.DoorCenterX, 0f, RuinedEntryLayout.DoorCenterZ),
+                Quaternion.LookRotation(Vector3.forward));
+            CreateMarker(authoringRoot, "D1StagingArea", RuinedEntryLayout.DoorStagingBounds.center);
         }
 
         private static void BuildVisibleBlockout(Transform parent)
@@ -120,10 +129,20 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
                 new Vector3(northSegmentWidth, RuinedEntryLayout.WallHeight, RuinedEntryLayout.WallThickness));
         }
 
-        private static Transform CreateChild(Transform parent, string name)
+        private static Transform CreateContentRoot(
+            Transform parent,
+            string name,
+            RoomContentCategory category)
         {
             GameObject child = new GameObject(name);
             child.transform.SetParent(parent, false);
+
+            RoomContentMarker marker = child.AddComponent<RoomContentMarker>();
+            SerializedObject serialized = new SerializedObject(marker);
+            serialized.FindProperty("roomId").enumValueIndex = (int)RoomId.RuinedEntry;
+            serialized.FindProperty("category").enumValueIndex = (int)category;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+
             return child.transform;
         }
 
@@ -153,6 +172,27 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             marker.transform.position = position;
         }
 
+        private static void CreateDoorAnchor(
+            Transform parent,
+            string name,
+            DoorId doorId,
+            DoorAnchorRole role,
+            Vector3 position,
+            Quaternion rotation)
+        {
+            GameObject anchor = new GameObject(name);
+            anchor.transform.SetParent(parent, false);
+            anchor.transform.SetPositionAndRotation(position, rotation);
+
+            DoorAnchorMarker marker = anchor.AddComponent<DoorAnchorMarker>();
+            SerializedObject serialized = new SerializedObject(marker);
+            serialized.FindProperty("roomId").enumValueIndex = (int)RoomId.RuinedEntry;
+            serialized.FindProperty("doorId").enumValueIndex = (int)doorId;
+            serialized.FindProperty("role").enumValueIndex = (int)role;
+            serialized.FindProperty("openingWidth").floatValue = 3f;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+        }
+
         private static Vector3 RaisedCenter(Bounds bounds, float height)
         {
             return new Vector3(bounds.center.x, height * 0.5f, bounds.center.z);
@@ -161,27 +201,6 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
         private static Vector3 RaisedSize(Bounds bounds, float height)
         {
             return new Vector3(bounds.size.x, height, bounds.size.z);
-        }
-
-        private static void BuildLighting()
-        {
-            GameObject lightObject = new GameObject("Directional Light");
-            Light light = lightObject.AddComponent<Light>();
-            light.type = LightType.Directional;
-            light.intensity = 1f;
-            lightObject.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
-        }
-
-        private static void BuildCamera()
-        {
-            GameObject cameraObject = new GameObject("Main Camera");
-            cameraObject.tag = "MainCamera";
-            Camera camera = cameraObject.AddComponent<Camera>();
-            cameraObject.AddComponent<AudioListener>();
-            camera.orthographic = true;
-            camera.orthographicSize = 14f;
-            cameraObject.transform.position = new Vector3(18f, 22f, -27f);
-            cameraObject.transform.LookAt(new Vector3(0f, 0f, -9f));
         }
 
         private static void EnsureFolder(string folder)

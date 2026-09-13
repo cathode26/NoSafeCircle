@@ -1,4 +1,7 @@
+using System;
 using NoSafeCircle.DoorPrototype.Editor.Rooms;
+using NoSafeCircle.DoorPrototype.Editor.World;
+using NoSafeCircle.DoorPrototype.World;
 using NoSafeCircle.DoorPrototype.World.Rooms;
 using NUnit.Framework;
 using UnityEditor.SceneManagement;
@@ -56,8 +59,8 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
         [Test] // AC-002: visible dressing is separate from walkable gameplay collision.
         public void Build_SeparatesVaultVisualsFromGameplayGeometry()
         {
-            GameObject visible = GameObject.Find("LowerVault/VisibleBlockout");
-            GameObject gameplay = GameObject.Find("LowerVault/GameplayGeometry");
+            GameObject visible = GameObject.Find("Room_LowerVault/Visuals");
+            GameObject gameplay = GameObject.Find("Room_LowerVault/GameplayGeometry");
             Assert.IsNotNull(visible);
             Assert.IsNotNull(gameplay);
             Assert.Greater(visible.GetComponentsInChildren<Renderer>().Length, 10);
@@ -66,10 +69,95 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
             Assert.AreEqual(0, gameplay.GetComponentsInChildren<Renderer>().Length);
         }
 
+        [Test]
+        public void Build_CreatesComposerReadyHierarchyAndDoorAnchors()
+        {
+            Scene scene = SceneManager.GetActiveScene();
+
+            AssertComposerReadyScene(scene);
+        }
+
+        [Test]
+        public void CommittedScene_ValidatesThroughRoomSceneComposer()
+        {
+            Scene scene = EditorSceneManager.OpenScene(LowerVaultSceneBuilder.ScenePath, OpenSceneMode.Additive);
+            try
+            {
+                AssertComposerReadyScene(scene);
+            }
+            finally
+            {
+                EditorSceneManager.CloseScene(scene, true);
+            }
+        }
+
+        private static void AssertComposerReadyScene(Scene scene)
+        {
+            RoomSceneCatalog.RoomCatalogEntry roomEntry = Array.Find(
+                RoomSceneCatalog.CreateCanonicalRooms(), entry => entry.RoomId == RoomId.LowerVault);
+            RoomSceneComposer.RoomValidationResult validation = RoomSceneComposer.ValidateOpenRoomScene(
+                RoomId.LowerVault, scene, roomEntry, RoomSceneCatalog.CreateCanonicalDoors());
+
+            CollectionAssert.IsEmpty(validation.Errors, string.Join("\n", validation.Errors));
+            Assert.IsTrue(validation.IsValid);
+
+            GameObject[] roots = scene.GetRootGameObjects();
+            Assert.AreEqual(1, roots.Length);
+            GameObject roomRoot = roots[0];
+            Assert.AreEqual("Room_LowerVault", roomRoot.name);
+            Assert.AreEqual(Vector3.zero, roomRoot.transform.localPosition);
+            Assert.AreEqual(Quaternion.identity, roomRoot.transform.localRotation);
+            Assert.AreEqual(Vector3.one, roomRoot.transform.localScale);
+            Assert.AreEqual(4, roomRoot.transform.childCount);
+
+            AssertContentMarker(roomRoot.transform, "Visuals", RoomId.LowerVault, RoomContentCategory.Visuals);
+            AssertContentMarker(
+                roomRoot.transform, "GameplayGeometry", RoomId.LowerVault, RoomContentCategory.GameplayGeometry);
+            Transform anchors = AssertContentMarker(
+                roomRoot.transform, "DoorAnchors", RoomId.LowerVault, RoomContentCategory.DoorAnchors);
+            AssertContentMarker(roomRoot.transform, "Authoring", RoomId.LowerVault, RoomContentCategory.Authoring);
+
+            DoorAnchorMarker[] doorAnchors = anchors.GetComponentsInChildren<DoorAnchorMarker>(true);
+            Assert.AreEqual(2, doorAnchors.Length);
+            AssertDoorAnchor(doorAnchors, DoorId.D3, DoorAnchorRole.Entry, LowerVaultLayout.D3, Vector3.back);
+            AssertDoorAnchor(doorAnchors, DoorId.D4, DoorAnchorRole.Exit, LowerVaultLayout.D4, Vector3.forward);
+        }
+
+        private static Transform AssertContentMarker(
+            Transform roomRoot,
+            string name,
+            RoomId roomId,
+            RoomContentCategory category)
+        {
+            Transform child = roomRoot.Find(name);
+            Assert.IsNotNull(child, "Expected direct child " + name + ".");
+            RoomContentMarker marker = child.GetComponent<RoomContentMarker>();
+            Assert.IsNotNull(marker, "Expected " + name + " to carry RoomContentMarker.");
+            Assert.AreEqual(roomId, marker.RoomId);
+            Assert.AreEqual(category, marker.Category);
+            return child;
+        }
+
+        private static void AssertDoorAnchor(
+            DoorAnchorMarker[] anchors,
+            DoorId doorId,
+            DoorAnchorRole role,
+            Vector3 position,
+            Vector3 forward)
+        {
+            DoorAnchorMarker anchor = Array.Find(anchors, candidate => candidate.DoorId == doorId);
+            Assert.IsNotNull(anchor, "Expected " + doorId + " anchor.");
+            Assert.AreEqual(RoomId.LowerVault, anchor.RoomId);
+            Assert.AreEqual(role, anchor.Role);
+            Assert.AreEqual(3f, anchor.OpeningWidth);
+            Assert.AreEqual(position, anchor.transform.position);
+            Assert.Greater(Vector3.Dot(forward, anchor.transform.forward), 0.999f);
+        }
+
         private static void AssertOpening(string westName, string eastName, float centerX)
         {
-            BoxCollider west = FindCollider("LowerVault/GameplayGeometry/" + westName);
-            BoxCollider east = FindCollider("LowerVault/GameplayGeometry/" + eastName);
+            BoxCollider west = FindCollider("Room_LowerVault/GameplayGeometry/" + westName);
+            BoxCollider east = FindCollider("Room_LowerVault/GameplayGeometry/" + eastName);
             Assert.AreEqual(LowerVaultLayout.DoorWidth, east.bounds.min.x - west.bounds.max.x, 0.001f);
             Assert.AreEqual(centerX, (east.bounds.min.x + west.bounds.max.x) * 0.5f, 0.001f);
         }
