@@ -106,7 +106,7 @@
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-070": {
-      "task_contract_sha256": "2700ae7534280336aebaad72b87f9e9405096b342bc545e18777308e63e610dc",
+      "task_contract_sha256": "f1fb6e2f11b7717d0ea336d16a366beb2190ae95a1b3f101ad1fced1e2f6c457",
       "required_test_platforms": [
         "EditMode",
         "PlayMode"
@@ -134,6 +134,16 @@
       ],
       "test_filters": {
         "PlayMode": "NoSafeCircle.DoorPrototype.Tests.ChapelOfAshProjectileCoverPlayModeTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-073": {
+      "task_contract_sha256": "c65d825022d433a63011e05f4974c1558ff48340ba26a1b35485024658462228",
+      "required_test_platforms": [
+        "EditMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.WizardArtIntegrationTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
     }
