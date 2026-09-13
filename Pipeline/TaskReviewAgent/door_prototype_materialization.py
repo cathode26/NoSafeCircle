@@ -23,6 +23,57 @@ DOOR_PROTOTYPE_SCENE = "Assets/Scenes/DoorPrototype.unity"
 DOOR_PROTOTYPE_BUILD_METHOD = (
     "NoSafeCircle.DoorPrototype.Editor.DoorPrototypeSceneBuilder.Build"
 )
+
+
+@dataclass(frozen=True)
+class RoomSceneBuilder:
+    """One exact room scene's deterministic Unity builder entry point."""
+
+    scene_path: str
+    build_method: str
+    builder_source_path: str
+
+
+# Exact, reviewable registry of the five approved room scenes. Each room
+# defines its own static ``Build`` method; there is deliberately no wildcard
+# match for an arbitrary file under ``Assets/Scenes/Rooms/``.
+ROOM_SCENE_BUILDERS: dict[str, RoomSceneBuilder] = {
+    "Assets/Scenes/Rooms/RuinedEntry.unity": RoomSceneBuilder(
+        scene_path="Assets/Scenes/Rooms/RuinedEntry.unity",
+        build_method="NoSafeCircle.DoorPrototype.Editor.Rooms.RuinedEntrySceneBuilder.Build",
+        builder_source_path=(
+            "Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/RuinedEntrySceneBuilder.cs"
+        ),
+    ),
+    "Assets/Scenes/Rooms/BoneArchive.unity": RoomSceneBuilder(
+        scene_path="Assets/Scenes/Rooms/BoneArchive.unity",
+        build_method="NoSafeCircle.DoorPrototype.Editor.Rooms.BoneArchiveSceneBuilder.Build",
+        builder_source_path=(
+            "Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/BoneArchiveSceneBuilder.cs"
+        ),
+    ),
+    "Assets/Scenes/Rooms/ChapelOfAsh.unity": RoomSceneBuilder(
+        scene_path="Assets/Scenes/Rooms/ChapelOfAsh.unity",
+        build_method="NoSafeCircle.DoorPrototype.Editor.Rooms.ChapelOfAshSceneBuilder.Build",
+        builder_source_path=(
+            "Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/ChapelOfAshSceneBuilder.cs"
+        ),
+    ),
+    "Assets/Scenes/Rooms/LowerVault.unity": RoomSceneBuilder(
+        scene_path="Assets/Scenes/Rooms/LowerVault.unity",
+        build_method="NoSafeCircle.DoorPrototype.Editor.Rooms.LowerVaultSceneBuilder.Build",
+        builder_source_path=(
+            "Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/LowerVaultSceneBuilder.cs"
+        ),
+    ),
+    "Assets/Scenes/Rooms/FinalRoom.unity": RoomSceneBuilder(
+        scene_path="Assets/Scenes/Rooms/FinalRoom.unity",
+        build_method="NoSafeCircle.DoorPrototype.Editor.Rooms.FinalRoomSceneBuilder.Build",
+        builder_source_path=(
+            "Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/FinalRoomSceneBuilder.cs"
+        ),
+    ),
+}
 UNITY_SERIALIZED_SUFFIXES = (
     ".asset", ".unity", ".prefab", ".mat", ".meta", ".anim", ".controller",
     ".overrideController", ".physicsMaterial2D", ".spriteatlas", ".preset",
@@ -88,7 +139,41 @@ def changed_paths(root: Path) -> tuple[str, ...]:
 
 
 def is_door_prototype_builder_output(path: str) -> bool:
-    return path.startswith(DOOR_PROTOTYPE_ROOT) or path == DOOR_PROTOTYPE_SCENE
+    return (
+        path.startswith(DOOR_PROTOTYPE_ROOT)
+        or path == DOOR_PROTOTYPE_SCENE
+        or path in ROOM_SCENE_BUILDERS
+    )
+
+
+def resolve_generated_builder(paths: Sequence[str]) -> tuple[str, str]:
+    """Return the single ``(build_method, builder_source_path)`` that owns every path.
+
+    Raises when a path is not a registered Unity builder output, or when the
+    given paths span more than one builder; materialization must invoke
+    exactly one exact static ``Build`` method per request.
+    """
+    owners: set[tuple[str, str]] = set()
+    for path in paths:
+        room = ROOM_SCENE_BUILDERS.get(path)
+        if room is not None:
+            owners.add((room.build_method, room.builder_source_path))
+        elif path.startswith(DOOR_PROTOTYPE_ROOT) or path == DOOR_PROTOTYPE_SCENE:
+            owners.add((DOOR_PROTOTYPE_BUILD_METHOD, DOOR_PROTOTYPE_BUILDER))
+        else:
+            raise DoorPrototypeMaterializationError(
+                f"path is not a registered Unity builder output: {path}"
+            )
+    if not owners:
+        raise DoorPrototypeMaterializationError(
+            "no generated paths were given to resolve a Unity builder"
+        )
+    if len(owners) != 1:
+        methods = ", ".join(sorted(method for method, _source in owners))
+        raise DoorPrototypeMaterializationError(
+            f"generated paths require more than one builder method: {methods}"
+        )
+    return next(iter(owners))
 
 
 def is_unity_serialized(path: str) -> bool:
@@ -209,6 +294,10 @@ def run_door_prototype_builder(
                 "allowed generated path is outside the DoorPrototype builder boundary"
             )
 
+    build_method = DOOR_PROTOTYPE_BUILD_METHOD
+    if allowed is not None:
+        build_method, _builder_source = resolve_generated_builder(allowed)
+
     executable = resolve_unity_executable(root, unity_executable)
     evidence_root.mkdir(parents=True, exist_ok=True)
     log_directory = Path(tempfile.mkdtemp(
@@ -217,7 +306,7 @@ def run_door_prototype_builder(
     log_path = log_directory / "unity.log"
     command = (
         str(executable), "-batchmode", "-quit", "-projectPath", str(root),
-        "-executeMethod", DOOR_PROTOTYPE_BUILD_METHOD, "-logFile", str(log_path),
+        "-executeMethod", build_method, "-logFile", str(log_path),
     )
     ilpp_pid_path = root / "Library" / "ilpp.pid"
     try:
@@ -291,9 +380,10 @@ def run_door_prototype_builder(
 
 __all__ = [
     "DOOR_PROTOTYPE_BUILDER", "DOOR_PROTOTYPE_BUILD_METHOD",
+    "ROOM_SCENE_BUILDERS", "RoomSceneBuilder",
     "DoorPrototypeMaterialization", "DoorPrototypeMaterializationError",
     "UnityCommandRunner", "changed_paths", "default_unity_command_runner",
     "is_door_prototype_builder_output", "is_unity_serialized",
-    "normalize_unity_serialized_whitespace", "resolve_unity_executable",
-    "run_door_prototype_builder",
+    "normalize_unity_serialized_whitespace", "resolve_generated_builder",
+    "resolve_unity_executable", "run_door_prototype_builder",
 ]

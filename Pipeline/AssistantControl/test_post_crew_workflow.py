@@ -298,6 +298,137 @@ class PostCrewWorkflowDoorPrototypeTests(unittest.TestCase):
         self.assertEqual(first, second)
 
 
+CHAPEL_BUILDER = "Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/ChapelOfAshSceneBuilder.cs"
+CHAPEL_TEST = "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/ChapelOfAshSceneTests.cs"
+CHAPEL_SCENE = "Assets/Scenes/Rooms/ChapelOfAsh.unity"
+CHAPEL_BUILD_METHOD = "NoSafeCircle.DoorPrototype.Editor.Rooms.ChapelOfAshSceneBuilder.Build"
+
+
+class PostCrewWorkflowRoomSceneTests(unittest.TestCase):
+    """Reproduces the proven NSC-046 failure and proves the registry fix.
+
+    Before this fix, ``is_door_prototype_builder_output`` did not recognize
+    ``Assets/Scenes/Rooms/ChapelOfAsh.unity`` as a Unity-builder output, so
+    ``_registered_generated_paths`` returned an empty tuple. The workflow then
+    treated the task as having no Unity builder and ran focused validation
+    directly against the crew commit, which failed with
+    ``FileNotFoundException`` because the room scene did not exist yet. This
+    fixture proves the workflow now recognizes the exact registered room
+    scene and reaches deterministic materialization instead.
+    """
+
+    def setUp(self):
+        test_root = Path.cwd() / ".test-work"
+        test_root.mkdir(exist_ok=True)
+        self.root = test_root / f"post-crew-workflow-room-{uuid.uuid4().hex}"
+        self.root.mkdir()
+        self.addCleanup(shutil.rmtree, self.root, True)
+        self.source = self.root / "source"
+        self.source.mkdir()
+        _git(self.source, "init", "-q")
+        name, email = validated_agent_git_identity()
+        _git(self.source, "config", "user.name", name)
+        _git(self.source, "config", "user.email", email)
+        for relative, content in (
+            (CHAPEL_BUILDER, "class ChapelOfAshSceneBuilder {}\n"),
+            (CHAPEL_TEST, "class ChapelOfAshSceneTests {}\n"),
+            (CHAPEL_SCENE, "old chapel scene\n"),
+            ("ProjectSettings/ProjectVersion.txt", "m_EditorVersion: 6000.1.8f1\n"),
+            ("Pipeline/Testing/run_unity_tests_clean.ps1", "# fixture\n"),
+            ("Pipeline/TaskGraph/taskcontrol.py", "print('taskcontrol validate: PASS')\n"),
+        ):
+            target = self.source / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content, encoding="utf-8", newline="\n")
+        task = {
+            "schema_version": "2.0", "id": "NSC-046", "contract_revision": 1,
+            "contract_disposition": "active", "title": "Fixture Chapel of Ash room",
+            "reconciliation_key": "fixture-chapel", "kind": "implementation",
+            "type": "world-foundation", "execution_scope": "single_agent",
+            "execution_reason": "fixture", "decomposition_state": "concrete",
+            "decomposition_reason": "fixture", "parent": None, "depends_on": [],
+            "exclusive_resources": [
+                f"repo-file:{CHAPEL_BUILDER}", f"repo-file:{CHAPEL_TEST}",
+                f"unity-scene:{CHAPEL_SCENE}",
+            ],
+            "acceptance_criteria": [], "completion_gates": [],
+            "downstream_integration_obligations": [], "gdd_evidence": [],
+            "basis": "direct_gdd", "source_scope": "required", "confidence": "high",
+        }
+        task_path = self.source / "Tasks/NSC-046.yaml"
+        task_path.parent.mkdir()
+        task_path.write_text(json.dumps(task), encoding="utf-8", newline="\n")
+        _git(self.source, "add", ".")
+        _git(self.source, "commit", "-q", "-m", "fixture")
+        self.manager = Checkouts(self.source, self.root / "checkouts")
+        prepared = self.manager.prepare("NSC-046")
+        self.checkout = Path(prepared["checkout"])
+        self.unity = self.root / "Unity.exe"
+        self.unity.write_bytes(b"fixture")
+        self.scope = AssistantScopePlanner(self.manager).plan(
+            "NSC-046",
+            ExecutionScopePlan((CHAPEL_BUILDER, CHAPEL_SCENE), (), (CHAPEL_TEST,), ()),
+            lease_id="fixture-lease",
+        )
+        record = json.loads((self.manager.records / "NSC-046.json").read_text())
+        self.receipt_template = dict(
+            task_id="NSC-046", lease_id="fixture-lease", plan_id=self.scope["plan_id"],
+            source_base=record["source_commit"], candidate_parent=record["source_commit"],
+            task_contract_sha256=record["task_contract_sha256"],
+            execution_result_sha256="a" * 64, candidate_patch_sha256="b" * 64,
+            validation_sha256="c" * 64,
+        )
+
+    def bridge(self, **_kwargs):
+        receipt = ExecutionCrewReceipt(
+            run_id="fixture-crew", task_id="NSC-046", lease_id="fixture-lease",
+            plan_id=self.scope["plan_id"], provider="claude", execution_model=None,
+            execution_reasoning_effort=None, crew_profile="full", validation_profile="full_relevant",
+            source_head=self.receipt_template["source_base"],
+            task_contract_sha256=self.receipt_template["task_contract_sha256"],
+            crew_status="review_ready", result_path="fixture-result", result_sha256="a" * 64,
+            candidate_path="fixture-patch", candidate_sha256="b" * 64,
+            final_actual_changed_paths=(CHAPEL_BUILDER, CHAPEL_TEST),
+            returncode=0, rejection_reasons=(),
+        )
+        return _FixtureBridge(receipt)
+
+    def committer(self, **_kwargs):
+        (self.checkout / CHAPEL_BUILDER).write_text(
+            "class FixedChapelBuilder {}\n", newline="\n")
+        (self.checkout / CHAPEL_TEST).write_text("class FixedChapelTests {}\n", newline="\n")
+        return _RealCommitFixtureCommitter(
+            self.checkout, self.receipt_template, (CHAPEL_BUILDER, CHAPEL_TEST))
+
+    def chapel_builder_runner(self, args, cwd, timeout):
+        self.assertEqual(self.checkout.resolve(), cwd.resolve())
+        self.assertIn(CHAPEL_BUILD_METHOD, args)
+        (cwd / CHAPEL_SCENE).write_text("generated chapel scene\n", newline="\n")
+        return subprocess.CompletedProcess(args, 0, b"builder complete\n", b"")
+
+    def passing_validation(self, **kwargs):
+        commit = _git(kwargs["checkout"], "rev-parse", "HEAD")
+        return ({
+            "test_platform": "EditMode", "test_filter": "ChapelOfAshSceneTests",
+            "commit": commit, "tree": _git(kwargs["checkout"], "rev-parse", "HEAD^{tree}"),
+            "total": 2, "passed": 2,
+        },)
+
+    def test_registered_room_scene_reaches_materialization_not_absent_scene_validation(self):
+        result = run_post_crew_workflow(
+            self.manager, "NSC-046", "fixture-crew", {},
+            unity_executable=self.unity, bridge_factory=self.bridge,
+            committer_factory=self.committer, unity_command_runner=self.chapel_builder_runner,
+            validation_runner=self.passing_validation,
+        )
+        self.assertEqual([CHAPEL_SCENE], result["generated_paths"])
+        self.assertIsNotNone(result["materialized_candidate_commit"])
+        self.assertNotEqual(
+            result["crew_candidate_commit"], result["materialized_candidate_commit"])
+        self.assertEqual("awaiting_human", result["status"])
+        self.assertEqual(2, result["focused_test_results"][0]["passed"])
+
+
 class PostCrewWorkflowNoUnityBuilderTests(unittest.TestCase):
     """A task whose scope registers no Unity-serialized generated asset."""
 
