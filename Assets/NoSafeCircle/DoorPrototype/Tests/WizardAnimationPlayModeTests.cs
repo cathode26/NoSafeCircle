@@ -1,10 +1,33 @@
+using System;
+using System.Collections;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.SceneManagement;
+using UnityEngine.TestTools;
 
 namespace NoSafeCircle.DoorPrototype.Tests
 {
     public sealed class WizardAnimationPlayModeTests
     {
+        [UnitySetUp]
+        public IEnumerator LoadDoorPrototypeScene()
+        {
+            yield return SceneManager.LoadSceneAsync("DoorPrototype", LoadSceneMode.Single);
+            Scene scene = SceneManager.GetSceneByName("DoorPrototype");
+            Assert.IsTrue(scene.IsValid() && scene.isLoaded);
+        }
+
+        [UnityTearDown]
+        public IEnumerator UnloadDoorPrototypeSceneWithoutSaving()
+        {
+            Scene scene = SceneManager.GetSceneByName("DoorPrototype");
+            if (!scene.IsValid() || !scene.isLoaded) yield break;
+
+            Scene cleanupScene = SceneManager.CreateScene("WizardAnimationTestCleanup");
+            SceneManager.SetActiveScene(cleanupScene);
+            yield return SceneManager.UnloadSceneAsync(scene);
+        }
+
         [Test]
         public void PlayerVisualHasOneWizardAnimationDriverAndRetainsGroundContact()
         {
@@ -15,6 +38,82 @@ namespace NoSafeCircle.DoorPrototype.Tests
             var visual = player.transform.Find("Visual");
             Assert.IsNotNull(visual);
             Assert.That(visual.position.y, Is.EqualTo(player.transform.position.y).Within(0.001f));
+        }
+
+        // NSC-062 AC-003/AC-004 and VAL-003: the presentation owner applies both serialized
+        // choices atomically, refreshes the selected idle state immediately, and leaves every
+        // Player gameplay owner and collision property unchanged.
+        [Test]
+        public void ApplyPresentation_RefreshesSelectedIdleWithoutChangingPlayerGameplayState()
+        {
+            GameObject player = GameObject.Find("Player");
+            Assert.IsNotNull(player);
+
+            WizardAnimationController wizard = player.GetComponent<WizardAnimationController>();
+            Animator animator = player.GetComponent<Animator>();
+            SpriteRenderer renderer = player.transform.Find("Visual")?.GetComponent<SpriteRenderer>();
+            PlayerMovement movement = player.GetComponent<PlayerMovement>();
+            PlayerInteractionController interaction = player.GetComponent<PlayerInteractionController>();
+            CharacterController characterController = player.GetComponent<CharacterController>();
+
+            Assert.IsNotNull(wizard);
+            Assert.IsNotNull(animator);
+            Assert.IsNotNull(renderer);
+            Assert.IsNotNull(renderer.sprite);
+            Assert.IsNotNull(movement);
+            Assert.IsNotNull(interaction);
+            Assert.IsNotNull(characterController);
+
+            Vector3 originalPosition = player.transform.position;
+            Quaternion originalRotation = player.transform.rotation;
+            Vector3 originalScale = player.transform.localScale;
+            float originalHeight = characterController.height;
+            float originalRadius = characterController.radius;
+            bool originalMovementState = movement.IsGameplayEnabled;
+            bool originalInteractionState = interaction.IsGameplayEnabled;
+            Sprite originalSprite = renderer.sprite;
+
+            wizard.ApplyPresentation(WizardPresentation.Feminine, WizardSkin.Black);
+
+            const string expectedState = "Wizard_Feminine_Black_idle_south-east";
+            Assert.AreEqual(WizardPresentation.Feminine, wizard.Presentation);
+            Assert.AreEqual(WizardSkin.Black, wizard.Skin);
+            Assert.AreEqual(expectedState, wizard.CurrentState);
+            Assert.IsTrue(animator.GetCurrentAnimatorStateInfo(0).IsName(expectedState));
+            Assert.AreNotSame(originalSprite, renderer.sprite,
+                "The selected idle Sprite must refresh in the same ApplyPresentation call.");
+
+            Assert.AreEqual(originalPosition, player.transform.position);
+            Assert.AreEqual(originalRotation, player.transform.rotation);
+            Assert.AreEqual(originalScale, player.transform.localScale);
+            Assert.AreEqual(originalHeight, characterController.height);
+            Assert.AreEqual(originalRadius, characterController.radius);
+            Assert.AreEqual(originalMovementState, movement.IsGameplayEnabled);
+            Assert.AreEqual(originalInteractionState, interaction.IsGameplayEnabled);
+            Assert.AreSame(movement, player.GetComponent<PlayerMovement>());
+            Assert.AreSame(interaction, player.GetComponent<PlayerInteractionController>());
+        }
+
+        // NSC-062 AC-003 regression: invalid values fail before either presentation field changes.
+        [Test]
+        public void ApplyPresentation_InvalidChoiceIsRejectedAtomically()
+        {
+            WizardAnimationController wizard =
+                GameObject.Find("Player")?.GetComponent<WizardAnimationController>();
+            Assert.IsNotNull(wizard);
+
+            WizardPresentation originalPresentation = wizard.Presentation;
+            WizardSkin originalSkin = wizard.Skin;
+
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                wizard.ApplyPresentation((WizardPresentation)999, WizardSkin.White));
+            Assert.AreEqual(originalPresentation, wizard.Presentation);
+            Assert.AreEqual(originalSkin, wizard.Skin);
+
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                wizard.ApplyPresentation(WizardPresentation.Feminine, (WizardSkin)999));
+            Assert.AreEqual(originalPresentation, wizard.Presentation);
+            Assert.AreEqual(originalSkin, wizard.Skin);
         }
     }
 }
