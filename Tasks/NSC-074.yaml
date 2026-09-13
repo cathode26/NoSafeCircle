@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-074",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "contract_disposition": "active",
   "title": "PixelLab Cardinal Wizard Walk Source Art",
   "reconciliation_key": "pixellab-cardinal-wizard-walk-art",
@@ -231,14 +231,14 @@
     {
       "criterion_id": "AC-004",
       "reference": "Bounded source-only validation",
-      "requirement": "Supply the dedicated Assets/NoSafeCircle/DoorPrototype/Tests/Editor/WizardCardinalSourceAuditTests.cs source audit and its deterministic .meta companion. The audit validates the 96 cardinal PNG paths, their 96 deterministic .meta companions, naming, dimensions, transparency, and preservation of pre-existing art before NSC-075 integration, without running Unity or hand-editing generated Unity assets."
+      "requirement": "Supply the dedicated Assets/NoSafeCircle/DoorPrototype/Tests/Editor/WizardCardinalSourceAuditTests.cs Edit Mode source audit and its deterministic .meta companion. The audit validates the 96 cardinal PNG paths, their 96 deterministic .meta companions, naming, dimensions, transparency, and preservation of pre-existing art before NSC-075 integration. The source-art worker does not run Unity or hand-edit generated Unity assets; the Windows orchestrator runs this focused audit after the source candidate is committed."
     }
   ],
   "completion_gates": [
     {
       "gate_id": "VAL-001",
-      "reference": "Dedicated deterministic cardinal source audit",
-      "requirement": "WizardCardinalSourceAuditTests finds exactly 96 new cardinal walk PNG resource paths and exactly 96 matching deterministic .meta companions, six ordered frames for each variant/direction, transparent 180x180 geometry, stable naming, and no pre-existing cardinal files accidentally claimed; all pre-existing wizard art remains preserved. This source audit runs without Unity."
+      "reference": "Dedicated deterministic cardinal source Edit Mode audit",
+      "requirement": "On the exact committed source candidate, the Windows orchestrator runs WizardCardinalSourceAuditTests in Unity Edit Mode. It finds exactly 96 new cardinal walk PNG resource paths and exactly 96 matching deterministic .meta companions, six ordered frames for each variant/direction, transparent 180x180 geometry, stable naming, and no pre-existing cardinal files accidentally claimed; all pre-existing wizard art remains preserved."
     },
     {
       "gate_id": "VAL-002",
@@ -262,7 +262,7 @@
   "basis": "human_requested_directional_art_extension",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "This task owns only new cardinal PixelLab source art, inventory, provenance, and visual approval. It does not modify Unity scripts, Animator assets, generated clips, the scene, import settings, or gameplay.",
+  "notes": "This task owns only new cardinal PixelLab source art, inventory, provenance, its focused source audit, and visual approval. The source-art worker performs bounded path, byte, dimension, alpha, inventory, and provenance checks without running Unity. The Windows orchestrator then runs WizardCardinalSourceAuditTests in Unity Edit Mode on the exact committed source candidate. This task does not modify Animator assets, generated clips, the scene, import settings, or gameplay.",
   "repository_state_at_bootstrap": "partial",
   "repository_evidence_at_bootstrap": [
     {
