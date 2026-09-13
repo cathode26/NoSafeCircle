@@ -1,5 +1,22 @@
 # Conversation-operated task tools
 
+## Graph preparation gate
+
+Before `run-graph`, invoke `graph-preflight` with the **same** Source, checkout
+root, targets, capacity, worker config, provider settings, human-review settings,
+and spend authorization intended for that run. It persists a plan and a binding
+to the exact Source commit, policy and worker-config bytes. It starts no workers.
+`run-graph` refuses a missing or stale binding; after Source advances or any of
+those settings changes, preflight again. A bounded run preserves the binding
+across ordinary handoffs so a restart does not quietly discard the preparation.
+
+The viewer's display scope is independent of execution targets. Showing every
+contract does not authorize every task to run, and a code commit is not TaskGraph
+completion evidence. Keep real game visual candidates at Vincent's explicit
+review gate. `--capacity 3` is three worker slots, not a promise of three
+persistent agents or a mixed-provider scheduler; configure and verify actual
+provider assignments separately before starting workers.
+
 For the operating role, read
 [Assistant Software Architect operating guide](../../Docs/AI-Pipeline/ASSISTANT_SOFTWARE_ARCHITECT.md).
 For a short handoff, read [CURRENT.md](CURRENT.md). Historical test details are in

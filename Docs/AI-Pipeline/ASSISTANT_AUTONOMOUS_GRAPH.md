@@ -24,9 +24,17 @@ The loop:
 Use only:
 
 - `graph-plan` (read-only plan preview)
+- `graph-preflight` (persist the exact plan and policy/config binding; no workers)
 - `run-graph` (bounded execution)
 
-Both commands require `--checkout-root` and one or more explicit `--task` targets.
+All three commands require `--checkout-root` and one or more explicit `--task` targets.
+`run-graph` also requires a prior matching `graph-preflight` in that checkout
+root. Repeat preflight after Source or execution settings change. Use the same
+flags, including the worker config and spend authorization if the later run
+will launch a provider. `graph-plan` alone does not persist this binding.
+The display-only viewer may show the entire committed task graph regardless of
+the execution targets. `--capacity 3` reserves up to three task worker slots;
+provider-family rotation is a separate operator responsibility.
 
 ### Command syntax
 

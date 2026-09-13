@@ -197,6 +197,21 @@ def main(argv=None) -> int:
     graph_plan.add_argument("--capacity", type=int, default=1)
     graph_plan.add_argument("--target-branch")
     graph_plan.add_argument("--scope-dir", type=Path)
+    graph_preflight = commands.add_parser(
+        "graph-preflight",
+        help="Persist an exact read-only graph plan required before run-graph",
+    )
+    graph_preflight.add_argument("--task", action="append", required=True,
+                                 help="Execution target; repeat for a bounded graph")
+    graph_preflight.add_argument("--human-review-task", action="append", default=[])
+    graph_preflight.add_argument("--auto-approve-gauntlet", action="store_true")
+    graph_preflight.add_argument("--capacity", type=int, default=1)
+    graph_preflight.add_argument("--target-branch")
+    graph_preflight.add_argument("--scope-dir", type=Path)
+    graph_preflight.add_argument("--worker-config", type=Path)
+    graph_preflight.add_argument("--providers", default="claude,codex")
+    graph_preflight.add_argument("--compose-project", default="nosafecircle")
+    graph_preflight.add_argument("--authorize-provider-spend", action="store_true")
     run_graph = commands.add_parser(
         "run-graph", help="Resume the bounded local graph until complete, blocked, or awaiting human review",
     )
@@ -228,7 +243,7 @@ def main(argv=None) -> int:
         "--delegate-safe", action="store_true",
         help="Permit only bounded non-provider, non-approval, non-integration transitions",
     )
-    for graph_parser in (graph_plan, run_graph):
+    for graph_parser in (graph_plan, graph_preflight, run_graph):
         graph_parser.add_argument(
             "--background-jobs", type=int, default=4,
             help="Maximum concurrent owned background jobs (decomposition, post-crew validation)",
@@ -289,7 +304,7 @@ def main(argv=None) -> int:
                 finally:
                     server.server_close()
                 return 0
-            if args.command in {"graph-plan", "run-graph"}:
+            if args.command in {"graph-plan", "graph-preflight", "run-graph"}:
                 from Pipeline.AssistantControl.graph_controller import (
                     DELEGATE_SAFE_ACTIONS,
                     GraphController,
@@ -308,13 +323,13 @@ def main(argv=None) -> int:
                     background_job_limit=args.background_jobs,
                 )
                 config = {}
-                if args.command == "run-graph":
-                    if args.delegate_safe and args.authorize_provider_spend:
+                if args.command in {"graph-preflight", "run-graph"}:
+                    if getattr(args, "delegate_safe", False) and args.authorize_provider_spend:
                         raise ValueError(
                             "--delegate-safe cannot be combined with --authorize-provider-spend"
                         )
                     if args.worker_config is None:
-                        if not args.delegate_safe:
+                        if args.command == "run-graph" and not args.delegate_safe:
                             raise ValueError(
                                 "run-graph requires --worker-config unless --delegate-safe is used"
                             )
@@ -325,15 +340,21 @@ def main(argv=None) -> int:
                 controller = GraphController(
                     manager, policy, config,
                     execution_authorized=(
-                        args.command == "run-graph" and args.authorize_provider_spend
-                        and not args.delegate_safe
+                        args.command in {"graph-preflight", "run-graph"}
+                        and args.authorize_provider_spend
+                        and not getattr(args, "delegate_safe", False)
                     ),
+                    require_preflight=args.command == "run-graph",
                 )
-                result = (controller.plan() if args.command == "graph-plan"
-                          else controller.run(
-                              max_actions=1 if args.once else args.max_actions,
-                              allowed_actions=(DELEGATE_SAFE_ACTIONS if args.delegate_safe else None),
-                          ))
+                if args.command == "graph-plan":
+                    result = controller.plan()
+                elif args.command == "graph-preflight":
+                    result = controller.persist_preflight()
+                else:
+                    result = controller.run(
+                        max_actions=1 if args.once else args.max_actions,
+                        allowed_actions=(DELEGATE_SAFE_ACTIONS if args.delegate_safe else None),
+                    )
                 print(json.dumps(result, indent=2))
                 return 0 if result.get("status") not in {"blocked", "command_failed"} else 1
             if args.command == "stop-graph":

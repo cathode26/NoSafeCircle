@@ -294,6 +294,37 @@ class GraphControllerTests(unittest.TestCase):
             sorted(path.name for path in self.manager.records.iterdir()),
         )
 
+    def test_guarded_run_requires_exact_preflight_and_keeps_it_across_handoffs(self):
+        prepared = self.controller("NSC-899")
+        guarded = GraphController(
+            self.manager, prepared.policy, prepared.worker_config,
+            require_preflight=True,
+        )
+        with self.assertRaisesRegex(ValueError, "requires graph-preflight"):
+            guarded.run(max_actions=1, allowed_actions=frozenset())
+        self.assertFalse((self.manager.records / "NSC-899.json").exists())
+
+        prepared.persist_preflight()
+        first = guarded.run(max_actions=1, allowed_actions=frozenset())
+        self.assertEqual("handoff_required", first["status"])
+        self.assertEqual("prepare", first["handoff_action"]["kind"])
+        second = guarded.run(max_actions=1, allowed_actions=frozenset())
+        self.assertEqual("handoff_required", second["status"])
+        self.assertFalse((self.manager.records / "NSC-899.json").exists())
+
+        changed_config = GraphController(
+            self.manager, prepared.policy, {**prepared.worker_config, "execution_model": "other"},
+            require_preflight=True,
+        )
+        with self.assertRaisesRegex(ValueError, "no longer matches"):
+            changed_config.run(max_actions=1, allowed_actions=frozenset())
+
+        (self.source / "new-head.txt").write_text("new source\n", encoding="utf-8")
+        self.git("add", "new-head.txt")
+        self.git("commit", "-m", "advance Source after preflight")
+        with self.assertRaisesRegex(ValueError, "no longer matches"):
+            guarded.run(max_actions=1, allowed_actions=frozenset())
+
     def test_execute_refuses_without_owned_invocation(self):
         controller = self.controller("NSC-899")
         action = {"kind": "prepare", "task_id": "NSC-899", "source_commit": self.head}

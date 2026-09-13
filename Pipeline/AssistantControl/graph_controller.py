@@ -329,6 +329,7 @@ class GraphController:
         self, manager: Checkouts, policy: GraphPolicy,
         worker_config: Mapping[str, Any], *,
         execution_authorized: bool = False,
+        require_preflight: bool = False,
         sleep: Callable[[float], None] = time.sleep,
         clock: Callable[[], float] = time.monotonic,
         job_host: background_jobs.JobHost | None = None,
@@ -339,6 +340,7 @@ class GraphController:
         self.worker_config = json.loads(json.dumps(dict(worker_config)))
         self._worker_config_bytes = _json_bytes(self.worker_config)
         self.execution_authorized = execution_authorized is True
+        self.require_preflight = require_preflight is True
         self.sleep = sleep
         self.clock = clock
         self.job_host = job_host if job_host is not None else background_jobs.DetachedHost()
@@ -417,7 +419,15 @@ class GraphController:
             source_commit, source_branch = self._source_snapshot()
             preflight = None
             state = _read_json(self.state_path)
-            if state and state.get("status") == "preflight":
+            if self.require_preflight and not (
+                isinstance(state, Mapping)
+                and isinstance(state.get("preflight_binding"), Mapping)
+                and isinstance(state.get("preflight_plan"), Mapping)
+            ):
+                raise ValueError(
+                    "Graph execution requires graph-preflight for this exact Source, policy and worker config"
+                )
+            if state and (state.get("status") == "preflight" or self.require_preflight):
                 plan = state.get("preflight_plan")
                 preflight = {
                     "source_commit": source_commit,
@@ -1056,6 +1066,13 @@ class GraphController:
                 "policy_sha256": _sha256(_json_bytes(self._policy_fields())),
                 "worker_config_sha256": _sha256(self._worker_config_bytes),
             }
+        elif isinstance(previous.get("preflight_binding"), Mapping):
+            # The next bounded invocation must still prove its original
+            # preparation, even after this invocation wrote progress or stopped.
+            state["preflight_binding"] = previous["preflight_binding"]
+            state["preflight_plan"] = previous.get("preflight_plan")
+            if result is not None:
+                state["last_result"] = dict(result)
         elif result is not None:
             state["last_result"] = dict(result)
         write_record(self.state_path, state)
