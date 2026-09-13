@@ -432,13 +432,15 @@
       "reconciliation_keys": [
         "independent-room-scene-composition",
         "wizard-eight-direction-locomotion-integration",
-        "stationary-enemy-sprite-integration"
+        "stationary-enemy-sprite-integration",
+        "world-sprite-prefab-sorting"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs",
       "work_ids": [
         "NSC-069",
         "NSC-075",
-        "NSC-077"
+        "NSC-077",
+        "NSC-039"
       ]
     },
     {
@@ -883,6 +885,64 @@
       ],
       "work_ids": [
         "NSC-085"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "ruined-entry-blockout"
+      ],
+      "resource_key": "unity-scene:Assets/Scenes/Rooms/RuinedEntry.unity",
+      "work_ids": [
+        "NSC-044"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "bone-archive-blockout"
+      ],
+      "resource_key": "unity-scene:Assets/Scenes/Rooms/BoneArchive.unity",
+      "work_ids": [
+        "NSC-045"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "chapel-of-ash-blockout"
+      ],
+      "resource_key": "unity-scene:Assets/Scenes/Rooms/ChapelOfAsh.unity",
+      "work_ids": [
+        "NSC-046"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "lower-vault-blockout"
+      ],
+      "resource_key": "unity-scene:Assets/Scenes/Rooms/LowerVault.unity",
+      "work_ids": [
+        "NSC-047"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "final-room-blockout"
+      ],
+      "resource_key": "unity-scene:Assets/Scenes/Rooms/FinalRoom.unity",
+      "work_ids": [
+        "NSC-048"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "isometric-tilemap-visual-layer",
+        "world-sprite-prefab-sorting",
+        "seamless-scalable-wall-tiling"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs",
+      "work_ids": [
+        "NSC-038",
+        "NSC-039",
+        "NSC-042"
       ]
     }
   ],

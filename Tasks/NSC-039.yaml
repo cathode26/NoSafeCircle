@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-039",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "contract_disposition": "active",
   "title": "World-Space SpriteRenderer Prefab and Sorting Foundation",
   "reconciliation_key": "world-sprite-prefab-sorting",
@@ -17,6 +17,8 @@
   ],
   "exclusive_resources": [
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs",
     "unity-scene:Assets/Scenes/DoorPrototype.unity"
   ],
   "acceptance_criteria": [
