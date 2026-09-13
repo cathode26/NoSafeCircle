@@ -33,17 +33,23 @@
   "contract_disposition": "active",
   "contract_revision": 5,
   "decomposition_children": [
+    "NSC-069",
     "NSC-044",
     "NSC-045",
     "NSC-046",
     "NSC-047",
     "NSC-048",
     "NSC-049",
-    "NSC-069",
     "NSC-071",
-    "NSC-072"
+    "NSC-072",
+    "NSC-079",
+    "NSC-080",
+    "NSC-081",
+    "NSC-082",
+    "NSC-083",
+    "NSC-084"
   ],
-  "decomposition_reason": "Decomposed into reviewed child contracts: NSC-069 establishes deterministic Editor-time room-scene composition; NSC-044 through NSC-048 author the five isolated room inputs; NSC-049 performs final canonical composition and door-sequence validation. This aggregate state does not claim implementation completion.",
+  "decomposition_reason": "Decomposed into reviewed child contracts: NSC-069 establishes deterministic Editor-time room-scene composition; NSC-044 through NSC-048 author the five isolated room inputs; NSC-049 performs final canonical composition and door-sequence validation. This aggregate state does not claim implementation completion. Visual dressing tasks 079-083 and composed integration 084 extend the same first-wing decomposition after the existing room and composition tasks.",
   "decomposition_requirement_sha256": "3edf31df65830dad1a6a15c042b3ce5e6959b359e4e108980a5bddadc4e804c5",
   "decomposition_state": "decomposed",
   "depends_on": [

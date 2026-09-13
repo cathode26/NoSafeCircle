@@ -1,0 +1,86 @@
+{
+  "schema_version": "2.0",
+  "id": "NSC-084",
+  "contract_revision": 1,
+  "contract_disposition": "active",
+  "title": "Composed-World Content Integration and Preservation Pass",
+  "reconciliation_key": "composed-world-content-integration-preservation",
+  "kind": "implementation",
+  "type": "content-authoring",
+  "execution_scope": "single_agent",
+  "execution_reason": "After the five room dressing tasks and existing composition, one integration task can prove the enriched rooms survive canonical composition without changing gameplay ownership.",
+  "decomposition_state": "concrete",
+  "decomposition_reason": "Canonical composition verification and preservation checks are one bounded downstream integration responsibility.",
+  "parent": "NSC-029",
+  "depends_on": [
+    "NSC-049",
+    "NSC-079",
+    "NSC-080",
+    "NSC-081",
+    "NSC-082",
+    "NSC-083"
+  ],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/WorldContentIntegrationBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/World/WorldContentIntegrationTests.cs",
+    "unity-scene:Assets/Scenes/DoorPrototype.unity",
+    "logical:composed-world-visual-content"
+  ],
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "NSC-049 canonical composition",
+      "requirement": "Compose all five dressed rooms into the canonical continuous world and prove every room's selected visual content survives with stable isometric sorting."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "Gameplay preservation boundary",
+      "requirement": "Prove D1-D5 remain usable, room openings remain traversable, player movement and collision are unchanged, no runtime scene loading is introduced, and visual props do not block approved routes."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "Human-approved Ultima Online visual direction",
+      "requirement": "The world has readable material variation, narrower-looking passages, alcoves, webs, debris, bones, vegetation, water or slime accents, and horror-comedy silhouettes without copying reference assets."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "C:\\NSC\\AssistantControlEvidence\\DUNGEON-ART-DIRECTION.md — Vincent-approved project direction, 2026-09-13",
+      "requirement": "Use original architectural rhythm across connectors: repeating arches, buttresses, iron gates, framed thresholds, stair and raised-platform landmarks, partial-height walls, compatible tile dimensions/pivots/sorting anchors, and readable negative space."
+    }
+  ],
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "Composed-world deterministic validation",
+      "requirement": "Focused Unity EditMode and PlayMode tests prove all five rooms and D1-D5 survive composition, preserve door behavior, and remain idempotent."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "Developer visual review",
+      "requirement": "Vincent can inspect the exact canonical candidate and see a richer, readable five-room world."
+    }
+  ],
+  "downstream_integration_obligations": [],
+  "gdd_evidence": [
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md — Runtime Implementation",
+      "requirement": "All five spaces remain one continuous runtime world with persistent door and gameplay state."
+    },
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md — 2.5D Isometric Visual and World Representation",
+      "requirement": "Visual props remain separate from gameplay walkability and use the approved sorting convention."
+    }
+  ],
+  "basis": "human_approved_gameplay_presentation",
+  "source_scope": "required",
+  "confidence": "high",
+  "notes": "This task is the only new task allowed to write the canonical scene, and only after NSC-049. Governing visual direction: C:\\NSC\\AssistantControlEvidence\\DUNGEON-ART-DIRECTION.md, Vincent-approved project direction dated 2026-09-13. The supplied images are inspiration only; all art and layouts must be original.",
+  "repository_state_at_bootstrap": "partial",
+  "repository_evidence_at_bootstrap": [],
+  "provenance": {
+    "origin": "human_approved_environment_content_followup",
+    "approved_at_utc_date": "2026-09-13",
+    "approved_by": "Vincent"
+  },
+  "visual_direction_addendum": "Own connector corridors, intersections, thresholds, and transition pockets. Use curated original clusters and visual continuity: varied floor strips/insets, restrained blood/ash/slime trails, debris continuity, warm/cold accent-light pools, foreground/background depth layering, recognizable landmarks, readable route hierarchy, and at least one small narrative vignette. Preserve D1-D5 mechanics and navigable widths so the rooms read as one authored dungeon."
+}

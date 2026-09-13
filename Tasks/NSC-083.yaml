@@ -1,0 +1,84 @@
+{
+  "schema_version": "2.0",
+  "id": "NSC-083",
+  "contract_revision": 1,
+  "contract_disposition": "active",
+  "title": "Final Room Visual Dressing",
+  "reconciliation_key": "final-room-visual-dressing",
+  "kind": "implementation",
+  "type": "content-authoring",
+  "execution_scope": "single_agent",
+  "execution_reason": "A room specialist can enrich only the Final Room surfaces after its blockout and prop pack are available.",
+  "decomposition_state": "concrete",
+  "decomposition_reason": "One room, its exact builder, scene, focused test, and visual dressing seam are a bounded unit.",
+  "parent": "NSC-029",
+  "depends_on": [
+    "NSC-048",
+    "NSC-078"
+  ],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/FinalRoomVisualDressingBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/FinalRoomVisualDressingTests.cs",
+    "unity-scene:Assets/Scenes/Rooms/FinalRoom.unity",
+    "logical:room-visual-dressing:final-room"
+  ],
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "Approved Final Room blockout",
+      "requirement": "Add the strongest visual contrast with recognizable benches, candle or timer motifs, rubble, webs, vegetation, and dark material variation while preserving the D5 opening, door countdown and candle/timer behavior, collision, and walkability."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "NSC-078 prop catalog",
+      "requirement": "Use only catalogued original props and keep passages, alcoves, door approach, and player routes clear."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "Room ownership boundary",
+      "requirement": "Own only this room's dressing builder, scene, focused tests, and exact generated metadata; do not edit common builders, another room, doors, navigation, or the canonical scene."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "C:\\NSC\\AssistantControlEvidence\\DUNGEON-ART-DIRECTION.md — Vincent-approved project direction, 2026-09-13",
+      "requirement": "Use curated original prop clusters along walls, corners, alcoves, and focal points with foreground/background depth layering and camera-scale readability. Props form small environmental stories rather than uniform scattering; preserve a clearly readable primary movement lane and door approach."
+    }
+  ],
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "Final Room visual regression",
+      "requirement": "Focused Unity EditMode tests prove deterministic dressing, geometry preservation, D5 access, visible benches, countdown or candle preservation, sorting, and idempotent rebuild."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "Developer visual review",
+      "requirement": "The room is visibly richer and readable in the exact candidate."
+    }
+  ],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "NSC-084",
+      "requirement": "The dressed room remains composable into the canonical world."
+    }
+  ],
+  "gdd_evidence": [
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md — dungeon floor structure",
+      "requirement": "Each room has a distinct visual and tactical identity."
+    }
+  ],
+  "basis": "human_approved_gameplay_presentation",
+  "source_scope": "required",
+  "confidence": "high",
+  "notes": "Visual dressing may add presentation objects only; geometry, door, countdown, candle, and navigation behavior remain authoritative. Governing visual direction: C:\\NSC\\AssistantControlEvidence\\DUNGEON-ART-DIRECTION.md, Vincent-approved project direction dated 2026-09-13. The supplied images are inspiration only; all art and layouts must be original.",
+  "repository_state_at_bootstrap": "partial",
+  "repository_evidence_at_bootstrap": [],
+  "provenance": {
+    "origin": "human_approved_environment_content_followup",
+    "approved_at_utc_date": "2026-09-13",
+    "approved_by": "Vincent"
+  },
+  "visual_direction_addendum": "Use curated original clusters along walls, corners, alcoves, and the focal structure: recognizable benches/furniture, containers, books/tools, hanging or wall decoration, plants/organic growth, restrained ritual and bone motifs, candles, one unmistakable original focal landmark, and small lights. Use foreground/background depth layering and camera-scale readability while preserving the boss-scale lane and D5 approach. Hazard accents remain clearly bounded and non-blocking."
+}

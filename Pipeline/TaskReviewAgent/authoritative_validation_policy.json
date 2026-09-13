@@ -134,6 +134,98 @@
         "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.WizardArtIntegrationTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-085": {
+      "task_contract_sha256": "67636dd99c00ba37660051ae340009ffae431098a5a4ee967587828367febb4c",
+      "required_test_platforms": [
+        "EditMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.World.ExpandedDungeonRouteGraphTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-083": {
+      "task_contract_sha256": "f540e36c085df405fb9454f1e19ce3c1e223eaed0d0cdd4815b06e66e77be2f3",
+      "required_test_platforms": [
+        "EditMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.Rooms.FinalRoomVisualDressingTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-079": {
+      "task_contract_sha256": "e675dfd11e75bcc19a95e5d7059c1a33489760b03990eb5612066d09b1183528",
+      "required_test_platforms": [
+        "EditMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.Rooms.RuinedEntryVisualDressingTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-082": {
+      "task_contract_sha256": "d92b6291b49b47e46b5f2289b881ed6dcddd770ae23a6de5d4997d37b0443446",
+      "required_test_platforms": [
+        "EditMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.Rooms.LowerVaultVisualDressingTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-084": {
+      "task_contract_sha256": "bfa33dab7f841f6ba4076505dd9031d674d5259c254168d6a816f982d1bb76c3",
+      "required_test_platforms": [
+        "EditMode",
+        "PlayMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.World.WorldContentIntegrationTests",
+        "PlayMode": "NoSafeCircle.DoorPrototype.Tests.World.WorldContentIntegrationPlayModeTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-081": {
+      "task_contract_sha256": "aac57721af897b9eb3dbe43195721074bb362ee4d9f2716ff9f0db05582b941f",
+      "required_test_platforms": [
+        "EditMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.Rooms.ChapelOfAshVisualDressingTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-080": {
+      "task_contract_sha256": "af925046704751bf1a4fd837e96599d14492a60962505e3fb80c7b72cc4126af",
+      "required_test_platforms": [
+        "EditMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.Rooms.BoneArchiveVisualDressingTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-078": {
+      "task_contract_sha256": "2fbe6e7d784278fac7d92a591783f1d686f40658a34a325c1194b878f8f008d1",
+      "required_test_platforms": [
+        "EditMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.Environment.DungeonPropArtPackTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-029": {
+      "task_contract_sha256": "420977855b2c169f669b233471c5db1bf988f200603b17004c84d182aaf1e581",
+      "required_test_platforms": [
+        "EditMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.World.FiveRoomCompositionTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
     }
   },
   "decomposition_child_templates": {}

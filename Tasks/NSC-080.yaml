@@ -1,0 +1,84 @@
+{
+  "schema_version": "2.0",
+  "id": "NSC-080",
+  "contract_revision": 1,
+  "contract_disposition": "active",
+  "title": "Bone Archive Visual Dressing",
+  "reconciliation_key": "bone-archive-visual-dressing",
+  "kind": "implementation",
+  "type": "content-authoring",
+  "execution_scope": "single_agent",
+  "execution_reason": "A room specialist can enrich only the Bone Archive surfaces after its blockout and prop pack are available.",
+  "decomposition_state": "concrete",
+  "decomposition_reason": "One room, its exact builder, scene, focused test, and visual dressing seam are a bounded unit.",
+  "parent": "NSC-029",
+  "depends_on": [
+    "NSC-045",
+    "NSC-078"
+  ],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/BoneArchiveVisualDressingBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/BoneArchiveVisualDressingTests.cs",
+    "unity-scene:Assets/Scenes/Rooms/BoneArchive.unity",
+    "logical:room-visual-dressing:bone-archive"
+  ],
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "Approved Bone Archive blockout",
+      "requirement": "Add readable bone, shelf, crate, rubble, web, and material accents that make the archive distinct while preserving bounds, D2 opening, approved routes, cover, collision, and walkability."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "NSC-078 prop catalog",
+      "requirement": "Use only catalogued original props and keep passages, alcoves, door approach, and player routes clear."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "Room ownership boundary",
+      "requirement": "Own only this room's dressing builder, scene, focused tests, and exact generated metadata; do not edit common builders, another room, doors, navigation, or the canonical scene."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "C:\\NSC\\AssistantControlEvidence\\DUNGEON-ART-DIRECTION.md — Vincent-approved project direction, 2026-09-13",
+      "requirement": "Use curated original prop clusters along walls, corners, alcoves, and focal points with foreground/background depth layering and camera-scale readability. Props form small environmental stories rather than uniform scattering; preserve a clearly readable primary movement lane and door approach."
+    }
+  ],
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "Bone Archive visual regression",
+      "requirement": "Focused Unity EditMode tests prove deterministic dressing, geometry preservation, D2 access, sorting, and idempotent rebuild."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "Developer visual review",
+      "requirement": "The room is visibly richer and readable in the exact candidate."
+    }
+  ],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "NSC-084",
+      "requirement": "The dressed room remains composable into the canonical world."
+    }
+  ],
+  "gdd_evidence": [
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md — dungeon floor structure",
+      "requirement": "Each room has a distinct visual and tactical identity."
+    }
+  ],
+  "basis": "human_approved_gameplay_presentation",
+  "source_scope": "required",
+  "confidence": "high",
+  "notes": "Visual dressing may add presentation objects only; geometry and navigation remain authoritative. Governing visual direction: C:\\NSC\\AssistantControlEvidence\\DUNGEON-ART-DIRECTION.md, Vincent-approved project direction dated 2026-09-13. The supplied images are inspiration only; all art and layouts must be original.",
+  "repository_state_at_bootstrap": "partial",
+  "repository_evidence_at_bootstrap": [],
+  "provenance": {
+    "origin": "human_approved_environment_content_followup",
+    "approved_at_utc_date": "2026-09-13",
+    "approved_by": "Vincent"
+  },
+  "visual_direction_addendum": "Use curated original clusters along walls, corners, alcoves, and focal points: shelf banks, furniture, containers, books or tools, webs/bones, organic growth, and small lights. Use foreground/background depth layering and camera-scale readability while preserving readable primary lanes and door approaches."
+}

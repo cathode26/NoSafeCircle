@@ -1,0 +1,105 @@
+{
+  "schema_version": "2.0",
+  "id": "NSC-085",
+  "contract_revision": 1,
+  "contract_disposition": "active",
+  "title": "Expanded Dungeon Route Graph and Side Chambers",
+  "reconciliation_key": "expanded-dungeon-route-graph-side-chambers",
+  "kind": "implementation",
+  "type": "world-authoring-foundation",
+  "execution_scope": "single_agent",
+  "execution_reason": "This is a planning and decomposition parent for a later dungeon wing; it defines topology and exact ownership without changing the playable first wing.",
+  "decomposition_state": "proposed",
+  "decomposition_reason": "The broader wing decomposes into disjoint room and corridor implementation tasks, each owning an exact scene, builder, layout data, and focused tests. This parent remains an expansion contract and does not block NSC-078 through NSC-084.",
+  "parent": "NSC-022",
+  "depends_on": [
+    "NSC-084"
+  ],
+  "exclusive_resources": [
+    "repo-file:Docs/World/ExpandedDungeonRouteGraph.md",
+    "logical:expanded-dungeon-route-graph"
+  ],
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "Vincent-approved expansion direction, 2026-09-13",
+      "requirement": "Define an original broader topology beyond the first five-room wing with branching paths, at least one navigable loop, optional dead-end reward rooms, short connector corridors, recognizable orientation landmarks, and future locked or return routes."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "Vincent-provided natural-cavern visual direction, 2026-09-13",
+      "requirement": "Include an original natural-cavern branch with irregular chamber outlines, narrow passages opening into larger spaces, elevation changes or stairs, one hub-like junction, at least one loop, biome and color transitions, natural chokepoints, optional alcoves, and connections back into constructed masonry rooms. Preserve smooth traversal and do not copy the reference map."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "Expansion decomposition boundary",
+      "requirement": "Decompose the proposal into future disjoint room and corridor implementation tasks, including separately owned natural-cavern chambers, connectors, elevation transitions, and masonry return connections. Each child must own exactly one scene, builder, layout-data surface, and focused tests, with no shared write ownership and no edits to the first wing's room contracts unless explicitly sequenced through a later integration task."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "First-wing preservation",
+      "requirement": "Keep the current five-room wing playable, preserve D1-D5 and their navigation widths, and leave NSC-078 through NSC-084 runnable without waiting on this expansion."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "Reference images",
+      "requirement": "Use the supplied macro layouts only as connectivity inspiration. All topology, rooms, corridors, assets, and layouts must be original and must not copy or trace a reference layout."
+    },
+    {
+      "criterion_id": "AC-006",
+      "reference": "C:\\NSC\\AssistantControlEvidence\\DUNGEON-ART-DIRECTION.md — Dungeon layout rules, Vincent-approved project direction, 2026-09-13",
+      "requirement": "Use mixed room sizes in clusters, mostly short connectors, a few landmark long corridors or axes, loops and shortcuts, irregular footprints, incremental reveal, elevation-separated subareas, and optional reward alcoves. Progression must include a legible entrance wing, memorable central hub or set piece, branching or looping middle, distinct destination, gated access, and at least one later shortcut creating a meaningful return route. Keep the topology original and decomposable into exact disjoint room/corridor ownership."
+    },
+    {
+      "criterion_id": "AC-007",
+      "reference": "Vincent-approved Dungeon layout rules, 2026-09-13",
+      "requirement": "Use asymmetrical winding routes, deliberate narrow-to-wide pacing, sudden chamber reveals, optional side branches, and multiple reconnection points around a legible central route. Avoid repetitive corridor widths and a single linear sequence; preserve original topology and exact disjoint room/corridor ownership."
+    }
+  ],
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "Topology review",
+      "requirement": "A deterministic graph document identifies every proposed room, corridor, landmark, branch, loop, optional reward destination, locked route, return route, and future child task ownership without cycles in dependency metadata."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "First-wing non-blocking review",
+      "requirement": "Validation proves the expansion proposal changes no first-wing task contract, scene, door, geometry, or runtime build setting."
+    },
+    {
+      "gate_id": "VAL-003",
+      "reference": "Developer map review",
+      "requirement": "A readable original topology map or diagram shows route hierarchy and orientation landmarks at a useful camera or map scale."
+    }
+  ],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "Future decomposed room/corridor tasks",
+      "requirement": "Future children must use exact disjoint scene/builder/layout/test ownership and compose through a separately reviewed integration task."
+    }
+  ],
+  "gdd_evidence": [
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md — Runtime Implementation",
+      "requirement": "The existing playable wing remains a continuous authored world with persistent gameplay state."
+    },
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md — 2.5D Isometric Visual and World Representation",
+      "requirement": "Future spaces preserve readable isometric presentation and separation of visual content from walkability."
+    }
+  ],
+  "basis": "human_approved_world_expansion",
+  "source_scope": "required",
+  "confidence": "medium",
+  "notes": "Planning parent only. It does not create rooms, assets, scene files, runtime transitions, or new dependencies for the first wing. Governing visual direction: C:\\NSC\\AssistantControlEvidence\\DUNGEON-ART-DIRECTION.md, Vincent-approved project direction dated 2026-09-13. The supplied images are inspiration only; all art and layouts must be original. The topology must use asymmetrical winding routes, narrow-to-wide pacing, sudden reveals, optional side branches, and multiple reconnection points around a legible central route.",
+  "repository_state_at_bootstrap": "partial",
+  "repository_evidence_at_bootstrap": [],
+  "provenance": {
+    "origin": "human_approved_environment_expansion_followup",
+    "approved_at_utc_date": "2026-09-13",
+    "approved_by": "Vincent"
+  },
+  "visual_direction_addendum": "A future infernal or corrupted wing may use original bone/organic gothic trim, horn-like silhouettes, ritual marks, corrupted ground, hazardous voids or lava, and strong biome identity. Hazards must be clearly separated from smooth primary traversal and represented as bounded gameplay surfaces or non-walkable background. Do not copy Diablo assets, layouts, icons, textures, or the supplied reference map."
+}

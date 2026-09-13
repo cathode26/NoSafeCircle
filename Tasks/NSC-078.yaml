@@ -1,0 +1,95 @@
+{
+  "schema_version": "2.0",
+  "id": "NSC-078",
+  "contract_revision": 1,
+  "contract_disposition": "active",
+  "title": "Reusable Dark-Cute Dungeon Prop Art Pack",
+  "reconciliation_key": "dark-cute-dungeon-prop-art-pack",
+  "kind": "implementation",
+  "type": "art-acquisition",
+  "execution_scope": "single_agent",
+  "execution_reason": "One bounded PixelLab art task can select a coherent reusable prop kit without editing room scenes, gameplay geometry, or runtime code.",
+  "decomposition_state": "concrete",
+  "decomposition_reason": "The shared prop catalog and source-art provenance form one reviewable acquisition deliverable consumed by the five room dressing tasks.",
+  "parent": "NSC-022",
+  "depends_on": [
+    "NSC-064"
+  ],
+  "exclusive_resources": [
+    "logical:pixellab-dungeon-prop-art",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/PropCatalog.json",
+    "repo-file:Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+  ],
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "Vincent-approved Ultima Online visual direction, 2026-09-13",
+      "requirement": "Use PixelLab only for original/local source art and record prompts, settings, dimensions, perspective, palette, and generation identifiers; do not copy Ultima Online or other franchise assets."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "GDD — 2.5D Isometric Visual and World Representation",
+      "requirement": "Provide readable isometric candidates for benches, tables, shelves, crates, candles or candelabras, bones, rubble, webs, vegetation, puddles or slime, and small spooky comedy details, with transparent backgrounds and coherent scale."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "Human-approved dark-but-cute horror-comedy direction",
+      "requirement": "The selected pack is visually varied but coherent, supports narrow passages and alcoves as visual composition, and preserves clear player and door silhouettes."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "Art-selection boundary",
+      "requirement": "Deliver a deterministic catalog mapping every selected prop to intended room use and SpriteRenderer or Tilemap use. Do not edit any room scene, builder, collision, navigation, or canonical scene."
+    },
+    {
+      "criterion_id": "AC-007",
+      "reference": "Vincent-approved project direction, 2026-09-13",
+      "requirement": "Provide original architectural rhythm modules: repeating arches, buttress or pillar spacing, iron gate variants, framed door thresholds, curved and straight stair modules, raised platforms or courtyards, partial-height wall transitions, and readable negative space. Modules share compatible tile dimensions, pivots, sorting anchors, and door opening widths; stairs, gates, and platforms are navigation landmarks. Include modular bone/organic gothic trim, horn-like silhouettes, ritual floor marks, hazardous chasm/lava/slime edge pieces, skeletal landmarks, corrupted-ground variants, water/slime edges, rock/cliff transitions, wooden bridge spans, small platforms, rail/post elements, and elevation-transition pieces."
+    }
+  ],
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "Deterministic prop inventory",
+      "requirement": "All selected files, dimensions, transparency, intended sorting behavior, provenance, and room mappings are present in PropCatalog.json."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "Assistant art review",
+      "requirement": "The pack reads as dark, cute, spooky, and readable beside the approved wizard art without graphic gore or borrowed franchise imagery."
+    }
+  ],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "NSC-079 through NSC-084",
+      "requirement": "Room and composition tasks consume only the committed selected sources and catalog; they preserve gameplay geometry and door behavior."
+    }
+  ],
+  "gdd_evidence": [
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md — 2.5D Isometric Visual and World Representation",
+      "requirement": "Architecture and independently sorted props remain visually rich while separate from gameplay walkability and collision."
+    }
+  ],
+  "basis": "human_approved_gameplay_presentation",
+  "source_scope": "required",
+  "confidence": "high",
+  "notes": "This task acquires original source art only. It does not create Unity prefabs or scenes. Governing visual direction: C:\\NSC\\AssistantControlEvidence\\DUNGEON-ART-DIRECTION.md, Vincent-approved project direction dated 2026-09-13. The supplied images are inspiration only; all art and layouts must be original.",
+  "repository_state_at_bootstrap": "missing",
+  "repository_evidence_at_bootstrap": [],
+  "provenance": {
+    "origin": "human_approved_environment_content_followup",
+    "approved_at_utc_date": "2026-09-13",
+    "approved_by": "Vincent",
+    "approved_development_tool": "PixelLab MCP",
+    "gdd_rag_validated": true,
+    "gdd_rag_chunk_ids": [
+      "nsc-gdd-016",
+      "nsc-gdd-049",
+      "nsc-gdd-071"
+    ]
+  },
+  "visual_direction_addendum": "The original modular pack must also include masonry straight lengths, inside/outside corners, end caps, pillars or columns, broken/crumbling variants, height transitions, doorway/arch and explicit door-aperture pieces, stairs, parapets or roof edges, compatible floor variants, deterministic alignment, clean tiling, compatible pivots and sorting anchors, plus water/slime edges, rock/cliff transitions, wooden bridge spans, small platforms, rail/post elements, elevation-transition pieces, modular bone/organic gothic trim, horn-like silhouettes, ritual floor marks, hazardous chasm/lava/slime edge pieces, skeletal landmarks, and corrupted-ground variants. Hazards must be clearly non-walkable background or bounded gameplay surfaces. Reference images are inspiration only and must not be copied or traced."
+}
