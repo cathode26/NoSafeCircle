@@ -117,17 +117,30 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.AreEqual(originalSkin, wizard.Skin);
         }
 
-        [TestCase(1f, 0.0001f, "north-east")]
-        [TestCase(1f, -0.0001f, "north-east")]
-        [TestCase(-1f, 0.0001f, "south-west")]
-        [TestCase(-1f, -0.0001f, "south-west")]
-        [TestCase(0.0001f, 1f, "south-east")]
-        [TestCase(-0.0001f, 1f, "south-east")]
-        [TestCase(0.0001f, -1f, "north-west")]
-        [TestCase(-0.0001f, -1f, "north-west")]
-        public void DirectionFor_UsesDominantCameraBasisWhenOrthogonalNoiseChanges(
+        [TestCase(1f, 0f, "north-east")]
+        [TestCase(0f, 1f, "south-east")]
+        [TestCase(-1f, 0f, "south-west")]
+        [TestCase(0f, -1f, "north-west")]
+        [TestCase(1f, 1f, "east")]
+        [TestCase(1f, -1f, "north")]
+        [TestCase(-1f, 1f, "south")]
+        [TestCase(-1f, -1f, "west")]
+        public void DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections(
             float worldX, float worldZ, string expectedDirection)
         {
+            Assert.AreEqual(expectedDirection,
+                InvokeDirectionFor(new Vector3(worldX, 0f, worldZ)));
+        }
+
+        [TestCase(1f, 0.41421356f, "north-east")]
+        [TestCase(1f, -0.41421356f, "north-east")]
+        [TestCase(-1f, 0.41421356f, "south-west")]
+        [TestCase(-1f, -0.41421356f, "south-west")]
+        public void DirectionFor_ResolvesExactSectorTiesDeterministically(
+            float worldX, float worldZ, string expectedDirection)
+        {
+            Assert.AreEqual(expectedDirection,
+                InvokeDirectionFor(new Vector3(worldX, 0f, worldZ)));
             Assert.AreEqual(expectedDirection,
                 InvokeDirectionFor(new Vector3(worldX, 0f, worldZ)));
         }
@@ -196,7 +209,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
         // NSC-070 regression-only invariant: deterministic collision/transform noise at the
         // equal-component boundary must not oscillate a held facing between adjacent states.
         [Test]
-        public void DirectionFor_RetainsPriorAxisAtEqualComponentBoundary()
+        public void DirectionFor_RetainsPriorDirectionAtEverySectorBoundary()
         {
             MethodInfo directionMethod = typeof(WizardAnimationController).GetMethod(
                 "StableDirectionFor", BindingFlags.Static | BindingFlags.NonPublic,
@@ -204,21 +217,30 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.IsNotNull(directionMethod,
                 "The direction classifier needs a prior-facing seam for boundary hysteresis.");
 
-            string direction = "north-east";
-            Vector3[] noisyHeldSamples =
+            string[] priorDirections =
             {
-                new Vector3(1f, 0f, 1f),
-                new Vector3(1f, 0f, 1.0001f),
-                new Vector3(1f, 0f, 1f),
-                new Vector3(1f, 0f, 1.0001f)
+                "north-east", "east", "south-east", "south",
+                "south-west", "west", "north-west", "north"
             };
 
-            foreach (Vector3 sample in noisyHeldSamples)
+            foreach (string priorDirection in priorDirections)
             {
-                direction = (string)directionMethod.Invoke(null, new object[] { sample, direction });
-                Assert.AreEqual("north-east", direction,
-                    "Equal-component noise must retain the held world-axis facing.");
+                string direction = priorDirection;
+                for (int sampleIndex = 0; sampleIndex < 6; sampleIndex++)
+                {
+                    float offset = sampleIndex % 2 == 0 ? -0.05f : 0.05f;
+                    Vector3 sample = BoundaryMovementFor(priorDirection, offset);
+                    direction = (string)directionMethod.Invoke(
+                        null, new object[] { sample, direction });
+                    Assert.AreEqual(priorDirection, direction,
+                        $"Boundary noise changed held facing from {priorDirection}.");
+                }
             }
+
+            string switchedDirection = (string)directionMethod.Invoke(
+                null, new object[] { BoundaryMovementFor("north-east", -0.2f), "north-east" });
+            Assert.AreEqual("east", switchedDirection,
+                "Movement beyond the hysteresis band must switch to the adjacent sector.");
         }
 
         // NSC-070 VAL-002: held movement keeps its Animator state and time, then idle
@@ -250,7 +272,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
             animator.Update(0.1f);
             float firstWalkTime = animator.GetCurrentAnimatorStateInfo(0).normalizedTime;
 
-            player.transform.position += new Vector3(1f, 0f, 1.0001f);
+            player.transform.position += new Vector3(1f, 0f, 0.4143f);
             yield return null;
             Assert.AreEqual(expectedWalkState, wizard.CurrentState);
             animator.Update(0f);
@@ -271,6 +293,29 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 "DirectionFor", BindingFlags.Static | BindingFlags.NonPublic);
             Assert.IsNotNull(directionMethod);
             return (string)directionMethod.Invoke(null, new object[] { movement });
+        }
+
+        private static Vector3 BoundaryMovementFor(string direction, float offset)
+        {
+            float angle = 0f;
+            switch (direction)
+            {
+                case "north-east": angle = 22.5f; break;
+                case "east": angle = -22.5f; break;
+                case "south-east": angle = -67.5f; break;
+                case "south": angle = -112.5f; break;
+                case "south-west": angle = -157.5f; break;
+                case "west": angle = 157.5f; break;
+                case "north-west": angle = 112.5f; break;
+                case "north": angle = 67.5f; break;
+                default: throw new ArgumentOutOfRangeException(nameof(direction));
+            }
+
+            float radians = (angle + offset) * Mathf.Deg2Rad;
+            float screenX = Mathf.Cos(radians);
+            float screenY = Mathf.Sin(radians);
+            return new Vector3((screenX + screenY) * 0.5f, 0f,
+                (screenX - screenY) * 0.5f);
         }
     }
 }
