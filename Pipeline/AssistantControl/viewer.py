@@ -21,7 +21,10 @@ from Pipeline.AssistantControl.process_identity import matches
 from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task
 from Pipeline.TaskReviewAgent.GauntletView import server as gauntlet
 
-STATE_CACHE_SECONDS = 2.5
+# A full project snapshot authenticates TaskGraph and checkout evidence. Reuse
+# that shared result long enough that the live stream does not immediately
+# launch another expensive repository scan after the page's initial request.
+STATE_CACHE_SECONDS = 30.0
 HUMAN_REVIEW_ALARM_SECONDS = 30 * 60
 
 

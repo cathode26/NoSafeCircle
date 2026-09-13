@@ -341,8 +341,8 @@ const STATES = {
                     hint: 'candidate integrated into the run-owned local Source; no production delivery or human PASS is claimed' },
   cancelled:      { color: '#9a6a3a', label: 'Task Retired',   group: 'finished',
                     hint: 'contract cancelled/superseded in the task graph' },
-  excluded:       { color: '#aab4c0', label: 'Task Excluded',  group: 'finished',
-                    hint: 'named in the run manifest exclusion list' },
+  excluded:       { color: '#aab4c0', label: 'Outside Current Run', group: 'project scope',
+                    hint: 'still part of the project graph; outside this controller run' },
 };
 
 cytoscape.use(cytoscapeDagre);
