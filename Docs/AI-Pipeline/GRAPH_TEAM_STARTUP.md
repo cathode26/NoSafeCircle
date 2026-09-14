@@ -51,6 +51,15 @@ Paste this compact handoff into a fresh orchestrator session:
    The lead must replace these paths if the active Source or worker config has
    changed. A checked-out worktree may have a different branch and is never an
    implicit substitute for the real-game Source.
+
+   For a Claude-only run, use the Claude-specific wrapper with the same exact
+   arguments. It also verifies that the worker config selects only Claude and
+   that the local Claude Code CLI is present. It does not launch or authenticate
+   the three graph-management sessions:
+
+   ```powershell
+   & powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\NSC\NSC\NoSafeCircle\Pipeline\AssistantControl\Check-ClaudeGraphTeamStartup.ps1 -Source C:\NSC\NSC\NoSafeCircle -CheckoutRoot C:\NSC\NoSafeCircle-AssistantCheckouts -WorkerConfig C:\NSC\NoSafeCircle-AssistantCheckouts\.assistant-control\worker-claude-sonnet-high.json -ExpectedBranch main
+   ```
 2. Select current targets from TaskGraph and real readiness evidence. Respect
    task claims, dependencies, exclusive resources and the separate foreground
    agenda. Record exact task IDs, capacity, target branch, human-review tasks,
