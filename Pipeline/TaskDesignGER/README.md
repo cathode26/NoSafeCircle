@@ -95,3 +95,7 @@ ID and `--output-dir`; use a fresh
 question. Re-prepare after any source
 change; the packet records the exact task, GDD, index, art direction, and
 reference hashes. A second run refuses to overwrite an earlier review packet.
+
+For the manual mixed-provider review sequence, immutable evidence, verdict,
+hold, decomposition, and explicit release procedure, see
+[GER_AGENT_RUNBOOK.md](GER_AGENT_RUNBOOK.md).
