@@ -30,8 +30,20 @@ namespace NoSafeCircle.DoorPrototype.Tests
             var floor = GameObject.CreatePrimitive(PrimitiveType.Cube);
             floor.name = "WalkableFloor";
             floor.transform.SetParent(root.transform);
-            floor.transform.position = new Vector3(0f, -0.5f, 0f);
-            floor.transform.localScale = new Vector3(24f, 1f, 24f);
+            floor.transform.position = new Vector3(0f, -0.05f, 0f);
+            var testName = TestContext.CurrentContext.Test.Name;
+            floor.transform.localScale = testName.Contains("CorneredNoRoute")
+                ? new Vector3(3f, 0.1f, 3f)
+                : new Vector3(24f, 0.1f, 24f);
+            if (testName.Contains("BlockedDirectRetreat"))
+                CreateWall("DirectRetreatWall", new Vector3(-6f, 1.5f, 0f), new Vector3(0.5f, 3f, 1f));
+            if (testName.Contains("CorneredNoRoute"))
+            {
+                CreateWall("WestFence", new Vector3(-1.5f, 1.5f, 0f), new Vector3(0.2f, 3f, 3f));
+                CreateWall("EastFence", new Vector3(1.5f, 1.5f, 0f), new Vector3(0.2f, 3f, 3f));
+                CreateWall("NorthFence", new Vector3(0f, 1.5f, 1.5f), new Vector3(3f, 3f, 0.2f));
+                CreateWall("SouthFence", new Vector3(0f, 1.5f, -1.5f), new Vector3(3f, 3f, 0.2f));
+            }
             var navRoot = new GameObject("GameplayNavigation");
             navRoot.transform.SetParent(root.transform);
             surface = navRoot.AddComponent<GameplayNavigationSurface>();
@@ -42,7 +54,8 @@ namespace NoSafeCircle.DoorPrototype.Tests
             wizard.transform.position = Vector3.zero;
             enemy = new GameObject("RangedEnemy");
             enemy.transform.SetParent(root.transform);
-            Assert.IsTrue(NavMesh.SamplePosition(new Vector3(-5f, 0f, 0f), out var spawn, 2f, NavMesh.AllAreas));
+            var spawnPoint = testName.Contains("CorneredNoRoute") ? Vector3.zero : new Vector3(-5f, 0f, 0f);
+            Assert.IsTrue(NavMesh.SamplePosition(spawnPoint, out var spawn, 2f, NavMesh.AllAreas));
             enemy.transform.position = spawn.position;
             agent = enemy.AddComponent<NavMeshAgent>();
             var settings = NavMesh.GetSettingsByIndex(0);
@@ -57,6 +70,15 @@ namespace NoSafeCircle.DoorPrototype.Tests
             status = enemy.AddComponent<EnemyStatusEffectMovement>();
             keepDistance = enemy.AddComponent<RangedEnemyKeepDistanceMovement>();
             keepDistance.ConfigureDistances(2f, 3.5f);
+        }
+
+        private void CreateWall(string name, Vector3 position, Vector3 scale)
+        {
+            var wall = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            wall.name = name;
+            wall.transform.SetParent(root.transform);
+            wall.transform.position = position;
+            wall.transform.localScale = scale;
         }
 
         [TearDown]
@@ -207,6 +229,57 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.That(frostedRetreat, Is.LessThan(controlRetreat - 0.1f));
             Assert.AreSame(wizard.transform, knowledge.CurrentTarget);
             Assert.IsTrue(agent.isOnNavMesh);
+        }
+
+        // AC-003, VAL-003: all geometry is present before the initial bake and before
+        // the live NavMeshAgent exists. A blocked straight ray must choose a stable side.
+        [UnityTest]
+        public IEnumerator BlockedDirectRetreat_UsesStableCompleteSidePath()
+        {
+            wizard.transform.position = enemy.transform.position + Vector3.right * 0.6f;
+            Assert.IsTrue(agent.isOnNavMesh);
+            Assert.IsTrue(NavMesh.Raycast(enemy.transform.position,
+                enemy.transform.position + Vector3.left * 2f, out _, NavMesh.AllAreas),
+                "Fixture must block the direct retreat ray on its stable bake.");
+            for (var i = 0; i < 30 && (!agent.hasPath || Mathf.Abs(agent.destination.z) < 1f); i++)
+                yield return null;
+            Assert.That(knowledge.State, Is.EqualTo(EnemyTargetKnowledgeState.Pursuing));
+            Assert.IsTrue(agent.isOnNavMesh);
+            Assert.That(Mathf.Abs(agent.destination.z), Is.GreaterThan(1f),
+                $"Expected a side destination, got {agent.destination} from {enemy.transform.position}.");
+            var sideDestination = agent.destination;
+            var path = new NavMeshPath();
+            Assert.IsTrue(NavMesh.CalculatePath(enemy.transform.position, sideDestination, NavMesh.AllAreas, path));
+            Assert.That(path.status, Is.EqualTo(NavMeshPathStatus.PathComplete));
+            Assert.That(Vector3.Distance(sideDestination, wizard.transform.position),
+                Is.GreaterThan(Vector3.Distance(enemy.transform.position, wizard.transform.position)));
+            for (var i = 0; i < 5; i++)
+            {
+                yield return null;
+                Assert.That(Vector3.Distance(agent.destination, sideDestination), Is.LessThan(0.2f));
+            }
+        }
+
+        // AC-003, VAL-003: a small enclosed walkable pocket has no complete candidate
+        // at the component's retreat stride; never chase into the stationary wizard.
+        [UnityTest]
+        public IEnumerator CorneredNoRoute_HoldsWithoutTargetwardPath()
+        {
+            Assert.IsTrue(agent.isOnNavMesh);
+            wizard.transform.position = enemy.transform.position + Vector3.right * 0.4f;
+            var start = enemy.transform.position;
+            var initialSeparation = Vector3.Distance(start, wizard.transform.position);
+            var deadline = Time.time + 1.1f;
+            while (Time.time < deadline)
+            {
+                yield return null;
+                Assert.That(knowledge.State, Is.EqualTo(EnemyTargetKnowledgeState.Pursuing));
+                Assert.IsTrue(agent.isOnNavMesh);
+                Assert.IsFalse(agent.hasPath, "A cornered enemy must clear pursuit's targetward request.");
+                Assert.That(Vector3.Distance(enemy.transform.position, wizard.transform.position),
+                    Is.GreaterThanOrEqualTo(initialSeparation - 0.1f));
+                Assert.That(Vector3.Distance(enemy.transform.position, start), Is.LessThan(0.1f));
+            }
         }
 
 
