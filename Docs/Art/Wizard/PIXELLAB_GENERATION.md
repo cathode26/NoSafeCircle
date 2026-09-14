@@ -154,11 +154,9 @@ Generated frame indices 0 (start-pose reference), 2, 3, 4, and 6 were
 reviewed and not used; they remain retrievable under the same animation
 group ID for future reference.
 
-No `.meta` files exist under
-`Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source` for these PNGs in this
-checkout, so there were no existing GUIDs to preserve; only the two PNG
-files were overwritten at their existing paths. Full generation and
-selection provenance, including previous/new size and SHA-256 for both
+The current canonical base tracks `.meta` files for both selected PNGs. Their
+paths and GUIDs were preserved while only the two PNG bytes were replaced.
+Full generation and selection provenance, including previous/new size and SHA-256 for both
 files, is recorded under `corrections` in `source-inventory.json`.
 
 This candidate still requires the Windows orchestrator to run the committed
