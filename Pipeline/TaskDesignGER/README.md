@@ -65,6 +65,17 @@ round-robin decomposition flow remains the structural review for actual child
 task proposals. Assignment 6 and Assignment 7 GER loops remain implementation
 and player-copy loops, respectively.
 
+When approved design expands a dispatchable task beyond a safe crew-sized unit,
+Vincent and Primary Sol identify and pause that exact task. Graph Sol stops work
+on it, marks it unavailable, and continues other eligible work. Preserve any
+checkout, candidate, and evidence; if no worker started, block new starts.
+Approve the GDD or subordinate design and revised task scope first; then run
+D1B.2 to review needed child contracts and their ownership, resources,
+dependencies, and integration handoffs. An organizational parent such as
+NSC-006 may need a reviewed new child rather than a forced split. GER may
+recommend these boundaries but never edits the graph or makes children
+available.
+
 Typical agent instruction:
 
 > Run Task Design GER for NSC-080, include my gameplay screenshot feedback,

@@ -355,6 +355,20 @@ The final brief must include: source identity, verified constraints, proposed
 evaluator findings and refinements, unresolved decisions, and exact task IDs.
 Do not silently add new mechanics, lore, room geometry, collision, door behavior,
 scene ownership, child tasks, or graph edits.
+
+## Rescope and decomposition handoff
+
+If approved design would make an existing dispatchable task too broad, name the
+exact affected task and proposed responsibility splits without inventing child
+IDs. Vincent and Primary Sol decide whether to pause it. Graph Sol stops work
+on that task, marks it unavailable, and continues unrelated eligible tasks;
+preserve any checkout, candidate, and evidence. If no worker has started, block
+new starts while design is resolved. An organizational parent such as NSC-006
+may instead need a reviewed new child, not a forced split of the parent. After
+design authority and task scope are approved, use existing D1B.2 review for
+needed child contracts, resources, dependencies, and integration obligations.
+The proposal still needs the normal human-approved graph apply before children
+are available. This packet neither pauses a task nor runs/applies decomposition.
     """
     output_dir.mkdir(parents=True)
     metadata["ger_execution"] = "explicit_agent_handoff_required"
