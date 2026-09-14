@@ -145,7 +145,8 @@ def scenario_progression(root: Path) -> None:
     expect(root, "conformant")
     write(root, SURFACE, "version two\n")
     changed = commit(root, "surface change")
-    expect(root, "needs_testing")
+    expect(root, "conformant")
+    assert any(f.code == "delivery_recheck_suggested" for f in evaluate_current_conformance(root, TASK_ID).findings)
     changed_tree = run(root, "git", "rev-parse", "HEAD^{tree}")
     add_record(root, record(root, f"REV-{TASK_ID}-001", changed, changed_tree, record_type="revalidation", basis=delivery_id))
     expect(root, "conformant")
@@ -162,7 +163,7 @@ def scenario_baseline_progression(root: Path) -> None:
     expect(root, "conformant")
     write(root, SURFACE, "version two\n")
     changed = commit(root, "surface change after baseline")
-    expect(root, "needs_testing")
+    expect(root, "conformant")
     changed_tree = run(root, "git", "rev-parse", "HEAD^{tree}")
     add_record(root, record(root, f"REV-{TASK_ID}-001", changed, changed_tree,
                             record_type="revalidation", basis=baseline_id))
@@ -205,9 +206,19 @@ def scenario_stale_and_replan(root: Path, change: str) -> None:
         changed_task = task(revision=2)
         changed_task["title"] = "Changed contract"
         write_json(root, TASK_PATH, changed_task)
-        expected = "needs_replan"
+        expected = "conformant"
     commit(root, f"{change} change")
     expect(root, expected)
+
+
+def scenario_changed_delivery_requirements(root: Path) -> None:
+    validated, tree = initialize(root)
+    add_record(root, record(root, f"DEL-{TASK_ID}-001", validated, tree))
+    changed_task = task(revision=2)
+    changed_task["completion_gates"][0]["requirement"] = "new proof required"
+    write_json(root, TASK_PATH, changed_task)
+    commit(root, "change completion requirement")
+    expect(root, "needs_replan")
 
 
 def scenario_human(root: Path) -> None:
@@ -343,6 +354,7 @@ def main() -> int:
         fresh(scenario_invalid_baseline, corruption)
     fresh(scenario_stale_and_replan, "gdd")
     fresh(scenario_stale_and_replan, "contract")
+    fresh(scenario_changed_delivery_requirements)
     fresh(scenario_human)
     for corruption in ("missing_gate", "wrong_tree", "wrong_blob", "wrong_canon_hash", "altered_artifact", "modified_record"):
         fresh(scenario_invalid, corruption)

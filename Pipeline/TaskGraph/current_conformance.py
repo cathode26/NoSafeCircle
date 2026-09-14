@@ -198,6 +198,19 @@ def _current_gate_ids(task: dict[str, Any]) -> list[str]:
     return result  # type: ignore[return-value]
 
 
+def _delivered_scope_unchanged(previous: dict[str, Any], current: dict[str, Any]) -> bool:
+    """A revision or provenance edit does not undo an approved delivery.
+
+    A changed acceptance criterion or completion gate still needs a new decision.
+    Downstream integration obligations are follow-up work, not a retroactive
+    change to the delivered task.
+    """
+    return all(
+        previous.get(field) == current.get(field)
+        for field in ("kind", "type", "execution_scope", "acceptance_criteria", "completion_gates")
+    )
+
+
 def _maximal(repo: GitRepository, records: list[CommittedRecord]) -> list[CommittedRecord]:
     maximal: list[CommittedRecord] = []
     for candidate in records:
@@ -340,6 +353,7 @@ def _evaluate_resolved_conformance(
     current_revision = task.get("contract_revision")
     current_gate_ids = _current_gate_ids(task)
     conformant: list[CommittedRecord] = []
+    delivery_rechecks: dict[str, list[str]] = {}
     replan: list[CommittedRecord] = []
     human: list[CommittedRecord] = []
     stale: list[CommittedRecord] = []
@@ -397,7 +411,7 @@ def _evaluate_resolved_conformance(
             invalid.append(_finding("completion_gate_set_mismatch", "Record does not contain exactly the current completion-gate set.", record))
             continue
         contract_changed = contract["path"] != task_path or contract["revision"] != current_revision or contract["sha256"] != current_contract_hash
-        if contract_changed:
+        if contract_changed and not _delivered_scope_unchanged(historical_task, task):
             replan.append(record)
             continue
         approval = data["human_approval"]
@@ -407,9 +421,15 @@ def _evaluate_resolved_conformance(
         if (not approval["required"] and approval["decision"] != "not_required"):
             invalid.append(_finding("human_approval_contradictory", "Non-required approval must use not_required.", record))
             continue
-        if changed_surface or canon["path"] != CANON_PATH:
+        if canon["path"] != CANON_PATH:
             stale.append(record)
             continue
+        rechecks = []
+        if contract_changed:
+            rechecks.append("Contract revision or metadata changed without changing acceptance criteria or completion gates.")
+        if changed_surface:
+            rechecks.append("Implementation surfaces changed after the approved delivery; a focused recheck may be useful.")
+        delivery_rechecks[record.record_id] = rechecks
         conformant.append(record)
 
     if invalid:
@@ -421,8 +441,10 @@ def _evaluate_resolved_conformance(
             return ConformanceState(task_id, title, "ambiguous_evidence", head, head_tree, None,
                 (_finding("multiple_maximal_current_records", f"Multiple maximal current-valid records: {ids}."),), dirty)
         selected = maximal[0]
+        rechecks = delivery_rechecks.get(selected.record_id, [])
         return ConformanceState(task_id, title, "conformant", head, head_tree, selected.record_id,
-            (_finding("current_record_selected", "Record is valid for the current task contract, conformance surfaces, gates, artifacts, and its recorded canon provenance.", selected),), dirty)
+            (_finding("approved_delivery_selected", "Approved delivery remains complete for the current acceptance criteria and completion gates.", selected),
+             *(_finding("delivery_recheck_suggested", message, selected) for message in rechecks)), dirty)
     for state_name, candidates, code, message in (
         ("needs_replan", replan, "contract_changed", "Current contract revision or semantic hash differs from prior evidence."),
         ("needs_human", human, "human_approval_missing", "Required human approval is missing."),
