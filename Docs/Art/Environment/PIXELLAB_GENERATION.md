@@ -400,3 +400,33 @@ follow-up.
 remaining this cycle. After this follow-up: $30.00 credit unchanged,
 4777/5000 remaining — **0 generations consumed**. Only read-only
 `get_tiles_pro` calls were made; no `create_*` tool was called.
+
+## Four-wall perimeter follow-up: unresolved source joins
+
+The connection montage above is a **partial** role inventory, not proof that
+the kit can make a complete five-room perimeter. A further local-only
+check reused the already-downloaded 23 candidate tile PNGs. It made no
+PixelLab or Unity call and did not alter selected art. The exact trials are
+`PIXELLAB_CORNER_ANCHOR_TRIALS.png`, `PIXELLAB_WEST_END_TRIALS.png`, and
+`PIXELLAB_DOOR_ORDER_TRIALS.png` beside this document. They are nearest-
+neighbor previews of authentic pieces, with no painted repair pixels.
+
+| Needed join | Local check | Result |
+| --- | --- | --- |
+| Opposite outer corners | Indices 9 and 11 between EW index 55 at 26px horizontal stride and diagonal NS index 54; corner anchors shifted by (0,0), (±13,0), (0,±13), and (13,13) pixels | Each trial leaves a visible opening, cap discontinuity, or overlap. Indices 10 and 12 still cover only two corner orientations. No four-corner perimeter proof. |
+| West wall terminus | Indices 1 and 2 before an EW run at 26px stride; index 2 shifted ±13px vertically | Index 1 can look like an exterior corner, but it does not provide a clean flat west end; index 2 either leaves a gap or changes the cap height. No confirmed west terminus. |
+| Doorway seam | All four existing door direction pairs at one 26px wall slot, varying back/front draw order against wall index 55 | Each pair has a cap-height seam or an opening that does not align cleanly to both neighboring wall caps. Index 36/37 remains the best readable doorway source, but the join is not fully seamless. |
+| NSC-042 exact wall repeat | Compared index 55's rightmost 26 columns with its leftmost 26 columns over all 58 rows, as required for a true 26px repeat period on a 52px source | **759/1508 pixels differ** in RGBA: 748 alpha differences and 11 RGB differences where both sides are visible. The earlier flat compositing proof hides these differences under later pieces; it does not demonstrate pixel-periodic source art. |
+
+The first 193-line follow-up describes *visual* joins in a flat layered
+composite. Its phrase “satisfied only for the specific pieces and offsets”
+must be read under that explicit Pillow-preview scope. It does **not**
+establish NSC-042's stricter periodic-texture standard or a four-sided
+Unity Tilemap perimeter. Accordingly NSC-064 AC-003 is still open for
+full-room wall use, and VAL-001 records an incomplete connection source
+inventory. The missing source roles are a pixel-periodic straight EW wall,
+two opposite outer corners that meet the same placement grid, a west
+terminus, and a doorway frame with seamless adjoining caps. A source
+selection or approved processing step must fill those roles before actual
+room art integration claims a tiling pass. No new provider generation was
+spent to force a superficial proof.
