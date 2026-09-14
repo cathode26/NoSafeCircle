@@ -1,11 +1,7 @@
 {
-    "name": "NoSafeCircle.DoorPrototype",
-    "rootNamespace": "NoSafeCircle.DoorPrototype",
-    "references": [
-        "deVoid.Signals",
-        "Unity.InputSystem",
-        "UnityEngine.UI"
-    ],
+    "name": "deVoid.Signals",
+    "rootNamespace": "deVoid.Utils",
+    "references": [],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

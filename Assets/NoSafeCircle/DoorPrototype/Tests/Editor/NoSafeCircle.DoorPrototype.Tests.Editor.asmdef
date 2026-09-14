@@ -3,6 +3,7 @@
     "rootNamespace": "NoSafeCircle.DoorPrototype.Tests.Editor",
     "references": [
         "NoSafeCircle.DoorPrototype",
+        "deVoid.Signals",
         "NoSafeCircle.DoorPrototype.Editor",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
@@ -17,7 +18,8 @@
     "allowUnsafeCode": false,
     "overrideReferences": true,
     "precompiledReferences": [
-        "nunit.framework.dll"
+        "nunit.framework.dll",
+        "DOTween.dll"
     ],
     "autoReferenced": true,
     "defineConstraints": [

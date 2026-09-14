@@ -1,2 +1,9 @@
 # Raw Unity logs are machine evidence; new logs are normalized upstream.
 Pipeline/TaskGraph/evidence/**/artifacts/*.log -whitespace
+
+# Preserve vendored distribution bytes, including their original line endings.
+# The upstream files contain intentional whitespace that we do not edit.
+Assets/Plugins/Demigiant/DOTween/** -text -whitespace
+Assets/Plugins/Demigiant/DOTween.meta -text -whitespace
+Assets/Plugins/deVoid/Signals/Signals.cs -text -whitespace
+Assets/Plugins/deVoid/Signals/LICENSE.txt -text -whitespace
