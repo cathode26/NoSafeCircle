@@ -85,6 +85,13 @@ def main(argv=None) -> int:
     recover_materialization.add_argument("task")
     recover_materialization.add_argument("--candidate-commit", required=True)
     recover_materialization.add_argument("--failure-sha256", required=True)
+    refresh_recovered_index = commands.add_parser(
+        "refresh-nsc032-recovered-index",
+        help="Verify and refresh stale Git stat entries after exact NSC-032 recovery",
+    )
+    refresh_recovered_index.add_argument("task")
+    refresh_recovered_index.add_argument("--candidate-commit", required=True)
+    refresh_recovered_index.add_argument("--failure-sha256", required=True)
     retry_validation = commands.add_parser(
         "retry-candidate-validation",
         help=(
@@ -458,6 +465,14 @@ def main(argv=None) -> int:
                     reopen_failed_nsc032_materialization,
                 )
                 result = reopen_failed_nsc032_materialization(
+                    manager, args.task, expected_candidate=args.candidate_commit,
+                    expected_failure_sha256=args.failure_sha256,
+                )
+            elif args.command == "refresh-nsc032-recovered-index":
+                from Pipeline.AssistantControl.materialization_recovery import (
+                    refresh_recovered_nsc032_index,
+                )
+                result = refresh_recovered_nsc032_index(
                     manager, args.task, expected_candidate=args.candidate_commit,
                     expected_failure_sha256=args.failure_sha256,
                 )

@@ -229,6 +229,13 @@ Enemies folder, preserves an evidence copy, and includes it in the materialized
 candidate commit. Keeping the folder meta committed prevents the following
 Unity test run from regenerating an untracked file. Other untracked paths still
 stop materialization; the materialized candidate needs its own review.
+If a completed recovery reports `checkout_clean: true` but Windows Git still
+shows modified tracked Unity files, use `refresh-nsc032-recovered-index` with
+that same candidate and failed-journal SHA-256 before materialization. It
+binds to the exact recovery archive, checks each remaining Unity file's
+normalized Git blob against candidate HEAD, then refreshes index stat
+entries without staging content. It refuses any real edit or any remaining
+porcelain status. New recoveries perform this check before returning clean.
 
 For a code-only candidate with no committed authoritative validation policy,
 or a policy whose exact task-contract hash is stale, `post-crew` keeps the

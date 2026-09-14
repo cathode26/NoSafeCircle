@@ -7,11 +7,13 @@ import subprocess
 import unittest
 import uuid
 from pathlib import Path
+from unittest.mock import patch
 
+from Pipeline.AssistantControl import materialization_recovery
 from Pipeline.AssistantControl.checkouts import Checkouts, write_record
 from Pipeline.AssistantControl.materialization_recovery import (
     MaterializationRecoveryError, failure_sha256,
-    reopen_failed_nsc032_materialization,
+    reopen_failed_nsc032_materialization, refresh_recovered_nsc032_index,
 )
 from Pipeline.AssistantControl.scope import AssistantScopePlanner
 from Pipeline.AssistantControl.unity_materialization import _require_candidate
@@ -24,6 +26,7 @@ from Pipeline.TaskReviewAgent.local_candidate_commit import LocalCandidateCommit
 
 BUILDER = "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs"
 SCENE = "Assets/Scenes/DoorPrototype.unity"
+ANIM = "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Idle.anim"
 TEST = "Assets/NoSafeCircle/DoorPrototype/Tests/FloorRunRestartPlayModeTests.cs"
 ENEMIES_META = "Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies.meta"
 ERROR = (
@@ -55,6 +58,7 @@ class NSC032MaterializationRecoveryTests(unittest.TestCase):
         for path, content in (
             (BUILDER, "class DoorPrototypeSceneBuilder {}\n"),
             (SCENE, "old scene\n"),
+            (ANIM, "old animation\n"),
             (TEST, "class FloorRunRestartPlayModeTests {}\n"),
             ("Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/.gitkeep", "\n"),
         ):
@@ -195,6 +199,45 @@ class NSC032MaterializationRecoveryTests(unittest.TestCase):
             )
         self.assertTrue(self.journal_path.is_file())
         self.assertTrue((self.checkout / ENEMIES_META).is_file())
+
+    def test_bound_index_refresh_accepts_unarchived_equal_unity_blob(self):
+        self.recover()
+        original_git = materialization_recovery.git
+        seen = {"refreshed": False}
+        def stale_stat_git(root, *args):
+            if root == self.checkout and args[:2] == ("status", "--porcelain=v1"):
+                return b"" if seen["refreshed"] else f" M {ANIM}\0".encode()
+            if root == self.checkout and args[:2] == ("update-index", "--refresh"):
+                seen["refreshed"] = True
+                original_git(root, *args)
+                raise RuntimeError("Git reported needs update after refreshing stale stat entries")
+            return original_git(root, *args)
+        with patch.object(materialization_recovery, "git", side_effect=stale_stat_git):
+            result = refresh_recovered_nsc032_index(
+                self.manager, "NSC-032", expected_candidate=self.candidate,
+                expected_failure_sha256=self.failure_hash,
+            )
+        self.assertTrue(seen["refreshed"])
+        self.assertEqual([ANIM], result["index_refreshed_paths"])
+        self.assertNotIn(ANIM, json.loads((Path(result["archive"]) / "manifest.json")
+                         .read_text())["archived_paths_sha256"])
+        self.assertEqual("", self.git(self.checkout, "status", "--porcelain=v1"))
+        self.assertEqual(self.candidate, self.git(self.checkout, "rev-parse", "HEAD"))
+
+    def test_bound_index_refresh_refuses_real_content_or_identity_change(self):
+        self.recover()
+        (self.checkout / ANIM).write_text("post-recovery edit\n", newline="\n")
+        with self.assertRaisesRegex(MaterializationRecoveryError, "content differs"):
+            refresh_recovered_nsc032_index(
+                self.manager, "NSC-032", expected_candidate=self.candidate,
+                expected_failure_sha256=self.failure_hash,
+            )
+        self.assertEqual("post-recovery edit\n", (self.checkout / ANIM).read_text())
+        with self.assertRaisesRegex(MaterializationRecoveryError, "reopened candidate"):
+            refresh_recovered_nsc032_index(
+                self.manager, "NSC-032", expected_candidate=self.candidate,
+                expected_failure_sha256="b" * 64,
+            )
 
     def test_unrelated_untracked_path_and_unrelated_source_refuse(self):
         (self.checkout / "unexpected.asset").write_text("preserve me\n")

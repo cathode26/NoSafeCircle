@@ -55,6 +55,52 @@ def _read(path: Path) -> dict:
     return value
 
 
+def _refresh_exact_index(checkout: Path, candidate: str) -> list[str]:
+    """Clear stale stat entries only when their normalized blobs equal HEAD."""
+    if git(checkout, "diff", "--cached", "--name-only", "-z", "--"):
+        raise MaterializationRecoveryError("recovered candidate has staged changes")
+    raw_status = git(checkout, "status", "--porcelain=v1", "-z",
+                     "--untracked-files=all").decode("utf-8", errors="strict")
+    entries = [item for item in raw_status.split("\0") if item]
+    stale_paths: list[str] = []
+    for entry in entries:
+        if not entry.startswith(" M "):
+            raise MaterializationRecoveryError("recovered checkout has non-stat changes")
+        path = entry[3:]
+        if path in stale_paths:
+            raise MaterializationRecoveryError("duplicate dirty path in Git status")
+        if not (
+            ((path.startswith("Assets/") or path.startswith("ProjectSettings/"))
+             and is_unity_serialized(path))
+            or path == _COVERAGE_SETTINGS
+        ):
+            raise MaterializationRecoveryError("non-Unity status path requires separate review")
+        if not (checkout / path).is_file() or (checkout / path).is_symlink():
+            raise MaterializationRecoveryError("stale path is not a regular archived file")
+        expected = git(checkout, "rev-parse", f"{candidate}:{path}").decode().strip()
+        normalized = git(checkout, "hash-object", f"--path={path}", "--", path).decode().strip()
+        if normalized != expected:
+            raise MaterializationRecoveryError("recovered file content differs from candidate HEAD")
+        stale_paths.append(path)
+    refresh_error: RuntimeError | None = None
+    if stale_paths:
+        try:
+            git(checkout, "update-index", "--refresh", "--", *stale_paths)
+        except RuntimeError as exc:
+            # Git for Windows can return 1 for stale stat entries even after
+            # refreshing them. The exact postcondition, not that exit code,
+            # decides whether the checkout is usable.
+            refresh_error = exc
+    if git(checkout, "rev-parse", "HEAD").decode().strip() != candidate:
+        raise MaterializationRecoveryError("candidate HEAD changed during index refresh")
+    if (git(checkout, "status", "--porcelain=v1", "-z", "--untracked-files=all")
+            or git(checkout, "diff", "--cached", "--name-only", "-z", "--")):
+        raise MaterializationRecoveryError(
+            "checkout remains dirty after verified index refresh"
+        ) from refresh_error
+    return stale_paths
+
+
 def reopen_failed_nsc032_materialization(
     checkouts: Checkouts, task_id: str, *, expected_candidate: str,
     expected_failure_sha256: str,
@@ -175,12 +221,17 @@ def reopen_failed_nsc032_materialization(
                 if hashlib.sha256(meta.read_bytes()).hexdigest() != copied[NSC032_INCIDENTAL_FOLDER_META]:
                     raise MaterializationRecoveryError("folder meta changed after preservation")
                 meta.unlink()
+                refreshed_paths = _refresh_exact_index(checkout, expected_candidate)
                 if changed_paths(checkout):
                     raise MaterializationRecoveryError("checkout is not clean after archived recovery")
                 if git(checkouts.source, "rev-parse", "HEAD").decode().strip() != source_head:
                     raise MaterializationRecoveryError("Source moved during recovery")
                 record["status"] = "needs_materialization"
-                record["materialization_recovery"] = {**manifest, "archive": str(archive)}
+                record["materialization_recovery"] = {
+                    **manifest, "archive": str(archive),
+                    "index_refreshed_paths": refreshed_paths,
+                    "index_refreshed_at": datetime.now(timezone.utc).isoformat(),
+                }
                 record.pop("materialization_failure", None)
                 write_record(record_path, record)
                 journal_path.unlink()
@@ -189,4 +240,73 @@ def reopen_failed_nsc032_materialization(
                         "checkout_clean": True}
 
 
-__all__ = ["MaterializationRecoveryError", "failure_sha256", "reopen_failed_nsc032_materialization"]
+def refresh_recovered_nsc032_index(
+    checkouts: Checkouts, task_id: str, *, expected_candidate: str,
+    expected_failure_sha256: str,
+) -> dict:
+    """Finish a prior exact recovery whose Git stat entries still look dirty."""
+    if task_id != "NSC-032" or not _SHA40.fullmatch(expected_candidate):
+        raise MaterializationRecoveryError("index refresh requires exact NSC-032 candidate")
+    if not _SHA256.fullmatch(expected_failure_sha256):
+        raise MaterializationRecoveryError("index refresh requires exact failure SHA-256")
+    record_path = checkouts.records / f"{task_id}.json"
+    source_lock, registry_path = _source_registry_paths(checkouts.source)
+    with _exclusive_file_lock(checkouts.records / "checkouts.lock", timeout_seconds=10):
+        with _source_integration_lock(checkouts.source):
+            with _exclusive_file_lock(source_lock, timeout_seconds=10):
+                record = _read(record_path)
+                candidate = record.get("candidate") or {}
+                recovery = record.get("materialization_recovery") or {}
+                archive = (checkouts.records / "materialization-recovery"
+                           / f"{task_id}-{expected_candidate}-{expected_failure_sha256[:12]}")
+                if (
+                    record.get("task_id") != task_id
+                    or record.get("source") != str(checkouts.source)
+                    or record.get("checkout") != str(checkouts.root / task_id)
+                    or record.get("status") != "needs_materialization"
+                    or record.get("approval") is not None
+                    or record.get("human_review") is not None
+                    or candidate.get("kind", "crew_reviewed") != "crew_reviewed"
+                    or candidate.get("commit") != expected_candidate
+                    or candidate.get("parent") != record.get("source_commit")
+                    or recovery.get("archive") != str(archive)
+                    or recovery.get("failure_sha256") != expected_failure_sha256
+                ):
+                    raise MaterializationRecoveryError("reopened candidate or recovery differs")
+                if not archive.resolve().is_relative_to(checkouts.records.resolve()):
+                    raise MaterializationRecoveryError("recovery archive escaped checkout records")
+                manifest = _read(archive / "manifest.json")
+                if any(recovery.get(key) != value for key, value in manifest.items()):
+                    raise MaterializationRecoveryError("recovery record differs from archived manifest")
+                if (manifest.get("candidate_commit") != expected_candidate
+                        or manifest.get("failure_sha256") != expected_failure_sha256
+                        or not isinstance(manifest.get("archived_paths_sha256"), dict)):
+                    raise MaterializationRecoveryError("archived recovery identity differs")
+                _candidate_receipt(record, candidate)
+                _require_settled_worker(record)
+                registry = _read_registry(registry_path, checkouts.source)
+                if any(item.get("task_id") == task_id for item in registry["reservations"]):
+                    raise MaterializationRecoveryError("task still has an active admission")
+                checkout = checkouts.root / task_id
+                if checkout.is_symlink() or checkout.resolve() != checkout:
+                    raise MaterializationRecoveryError("task checkout was redirected")
+                if (
+                    Path(git(checkout, "rev-parse", "--show-toplevel").decode().strip()).resolve() != checkout
+                    or git(checkout, "branch", "--show-current").decode().strip() != record.get("branch")
+                    or git(checkout, "rev-parse", "HEAD").decode().strip() != expected_candidate
+                    or git(checkout, "rev-parse", "HEAD^{tree}").decode().strip() != candidate.get("tree")
+                ):
+                    raise MaterializationRecoveryError("task checkout is not the recovered candidate")
+                refreshed_paths = _refresh_exact_index(checkout, expected_candidate)
+                recovery["index_refreshed_paths"] = refreshed_paths
+                recovery["index_refreshed_at"] = datetime.now(timezone.utc).isoformat()
+                record["materialization_recovery"] = recovery
+                write_record(record_path, record)
+                return {"task_id": task_id, "candidate_commit": expected_candidate,
+                        "status": "needs_materialization", "archive": str(archive),
+                        "index_refreshed_paths": refreshed_paths,
+                        "checkout_clean": True}
+
+
+__all__ = ["MaterializationRecoveryError", "failure_sha256",
+           "reopen_failed_nsc032_materialization", "refresh_recovered_nsc032_index"]
