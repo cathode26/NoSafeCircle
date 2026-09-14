@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -15,6 +16,7 @@ namespace NoSafeCircle.DoorPrototype.Enemies
     public sealed class EnemyPursuitMovement : MonoBehaviour
     {
         private const int MaxWanderSampleAttempts = 8;
+        private const float DoorSideSampleDistance = 0.75f;
 
         [SerializeField] private NavMeshAgent agent;
         [SerializeField] private EnemyTargetKnowledge targetKnowledge;
@@ -33,6 +35,19 @@ namespace NoSafeCircle.DoorPrototype.Enemies
         private Quaternion spawnRotation;
         private bool hasWanderDestination;
         private Vector3 wanderDestination;
+        private readonly NavMeshPath routePath = new NavMeshPath();
+
+        /// The first locked door on a reachable route to the pursued wizard. A nearby door
+        /// outside that route never becomes an attack target.
+        public DoorInteractable BlockingLockedDoor { get; private set; }
+        public Vector3 BlockingDoorApproachPoint { get; private set; }
+
+        private struct DoorRoute
+        {
+            public DoorInteractable Door;
+            public int FirstSide;
+            public int SecondSide;
+        }
 
         private void Awake()
         {
@@ -59,14 +74,25 @@ namespace NoSafeCircle.DoorPrototype.Enemies
         /// DoorInteractable.Tick/PlayerMana.Tick.
         public void Tick(float deltaTime)
         {
-            if (targetKnowledge == null) return;
+            if (targetKnowledge == null)
+            {
+                ClearBlockingDoor();
+                return;
+            }
 
             // AC-001/AC-002/AC-003/AC-004: EnemyPursuitMovement is the sole production driver
             // of EnemyTargetKnowledge's per-tick evaluation, since it is the only consumer that
             // needs target/search state to decide navigation.
             targetKnowledge.UpdateTargetKnowledge(deltaTime);
 
-            if (agent == null || !agent.isOnNavMesh) return;
+            if (agent == null || !agent.isOnNavMesh)
+            {
+                ClearBlockingDoor();
+                return;
+            }
+
+            if (targetKnowledge.State != EnemyTargetKnowledgeState.Pursuing)
+                ClearBlockingDoor();
 
             switch (targetKnowledge.State)
             {
@@ -96,9 +122,161 @@ namespace NoSafeCircle.DoorPrototype.Enemies
             hasWanderDestination = false;
 
             var target = targetKnowledge.CurrentTarget;
-            if (target == null) return;
+            if (target == null)
+            {
+                ClearBlockingDoor();
+                return;
+            }
 
+            if (TryFindBlockingDoor(target.position, out var door, out var approachPoint))
+            {
+                BlockingLockedDoor = door;
+                BlockingDoorApproachPoint = approachPoint;
+                agent.SetDestination(approachPoint);
+                return;
+            }
+
+            ClearBlockingDoor();
             agent.SetDestination(target.position);
+        }
+
+        // Treat complete NavMesh connections as walkable regions, and locked doors as the only
+        // possible bridges between them. This distinguishes a door on the route from a nearby
+        // dead-end door and selects the first reachable door when several are locked in series.
+        private bool TryFindBlockingDoor(Vector3 targetPosition, out DoorInteractable blockingDoor,
+            out Vector3 approachPoint)
+        {
+            blockingDoor = null;
+            approachPoint = Vector3.zero;
+            if (agent.CalculatePath(targetPosition, routePath) &&
+                routePath.status == NavMeshPathStatus.PathComplete)
+                return false;
+
+            var filter = new NavMeshQueryFilter
+            {
+                agentTypeID = agent.agentTypeID,
+                areaMask = agent.areaMask
+            };
+            if (!NavMesh.SamplePosition(targetPosition, out var targetHit, DoorSideSampleDistance, filter))
+                return false;
+
+            var points = new List<Vector3> { agent.nextPosition, targetHit.position };
+            var doors = new List<DoorRoute>();
+            foreach (var door in DoorInteractable.ActiveDoors)
+            {
+                if (door == null || !door.isActiveAndEnabled || !door.IsLocked || door.IsBroken)
+                    continue;
+
+                var sideOffset = door.InteractionPosition - door.transform.position;
+                sideOffset.y = 0f;
+                if (sideOffset.sqrMagnitude < 0.01f ||
+                    !TrySampleDoorSide(door.transform.position + sideOffset, door.transform.position,
+                        sideOffset, filter, out var firstSide) ||
+                    !TrySampleDoorSide(door.transform.position - sideOffset, door.transform.position,
+                        -sideOffset, filter, out var secondSide))
+                    continue;
+
+                doors.Add(new DoorRoute { Door = door, FirstSide = points.Count,
+                    SecondSide = points.Count + 1 });
+                points.Add(firstSide);
+                points.Add(secondSide);
+            }
+            if (doors.Count == 0) return false;
+
+            var regions = new int[points.Count];
+            var representatives = new List<int>();
+            for (var index = 0; index < points.Count; index++)
+            {
+                regions[index] = -1;
+                for (var region = 0; region < representatives.Count; region++)
+                {
+                    if (!HasCompletePath(points[index], points[representatives[region]], filter))
+                        continue;
+                    regions[index] = region;
+                    break;
+                }
+                if (regions[index] >= 0) continue;
+                regions[index] = representatives.Count;
+                representatives.Add(index);
+            }
+            if (regions[0] == regions[1]) return false;
+
+            var doorHopsToTarget = new int[representatives.Count];
+            for (var index = 0; index < doorHopsToTarget.Length; index++)
+                doorHopsToTarget[index] = -1;
+            var queue = new Queue<int>();
+            doorHopsToTarget[regions[1]] = 0;
+            queue.Enqueue(regions[1]);
+            while (queue.Count > 0)
+            {
+                var region = queue.Dequeue();
+                foreach (var door in doors)
+                {
+                    var first = regions[door.FirstSide];
+                    var second = regions[door.SecondSide];
+                    var neighbor = first == region ? second : second == region ? first : -1;
+                    if (neighbor < 0 || neighbor == region || doorHopsToTarget[neighbor] >= 0)
+                        continue;
+                    doorHopsToTarget[neighbor] = doorHopsToTarget[region] + 1;
+                    queue.Enqueue(neighbor);
+                }
+            }
+
+            var bestDoorHops = int.MaxValue;
+            var bestApproachDistance = float.PositiveInfinity;
+            foreach (var door in doors)
+            {
+                var first = regions[door.FirstSide];
+                var second = regions[door.SecondSide];
+                var approachIndex = first == regions[0] ? door.FirstSide :
+                    second == regions[0] ? door.SecondSide : -1;
+                if (approachIndex < 0) continue;
+                var farRegion = regions[approachIndex == door.FirstSide ? door.SecondSide : door.FirstSide];
+                if (farRegion == regions[0] || doorHopsToTarget[farRegion] < 0) continue;
+                var doorHops = doorHopsToTarget[farRegion] + 1;
+                var distance = CompletePathLength(points[0], points[approachIndex], filter);
+                if (float.IsPositiveInfinity(distance) || doorHops > bestDoorHops ||
+                    (doorHops == bestDoorHops && distance >= bestApproachDistance))
+                    continue;
+                bestDoorHops = doorHops;
+                bestApproachDistance = distance;
+                blockingDoor = door.Door;
+                approachPoint = points[approachIndex];
+            }
+            return blockingDoor != null;
+        }
+
+        private static bool TrySampleDoorSide(Vector3 requested, Vector3 doorPosition,
+            Vector3 expectedSide, NavMeshQueryFilter filter, out Vector3 sampled)
+        {
+            sampled = Vector3.zero;
+            if (!NavMesh.SamplePosition(requested, out var hit, DoorSideSampleDistance, filter) ||
+                Vector3.Dot(hit.position - doorPosition, expectedSide) <= 0f)
+                return false;
+            sampled = hit.position;
+            return true;
+        }
+
+        private bool HasCompletePath(Vector3 start, Vector3 end, NavMeshQueryFilter filter)
+        {
+            return NavMesh.CalculatePath(start, end, filter, routePath) &&
+                   routePath.status == NavMeshPathStatus.PathComplete;
+        }
+
+        private float CompletePathLength(Vector3 start, Vector3 end, NavMeshQueryFilter filter)
+        {
+            if (!HasCompletePath(start, end, filter)) return float.PositiveInfinity;
+            var corners = routePath.corners;
+            var distance = 0f;
+            for (var index = 1; index < corners.Length; index++)
+                distance += Vector3.Distance(corners[index - 1], corners[index]);
+            return distance;
+        }
+
+        private void ClearBlockingDoor()
+        {
+            BlockingLockedDoor = null;
+            BlockingDoorApproachPoint = Vector3.zero;
         }
 
         // AC-002: heads toward the recorded last known position and reports arrival back to
@@ -189,6 +367,7 @@ namespace NoSafeCircle.DoorPrototype.Enemies
         /// component.
         public void ResetPursuit()
         {
+            ClearBlockingDoor();
             hasWanderDestination = false;
             targetKnowledge?.ResetTargetKnowledge();
 
