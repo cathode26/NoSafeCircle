@@ -1020,6 +1020,56 @@ class DuplicateViewerPortTests(unittest.TestCase):
         self.assertEqual("complete", rows[1]["state"])
         self.assertEqual("conformant", rows[1]["taskgraph"]["state"])
 
+    def test_external_work_overlay_shows_only_live_noncrew_work(self):
+        reader = AssistantSnapshot(self.root, self.checkout_root())
+        reader.manager.records.mkdir(parents=True)
+        path = reader.manager.records / "external-work-ids.json"
+        rows = [
+            {"id": "NSC-003", "state": "ready", "in_scope": False},
+            {"id": "NSC-012", "state": "complete", "in_scope": False},
+        ]
+        path.write_text(json.dumps({
+            "schema_version": "assistant-viewer-external-work/v1",
+            "tasks": [
+                {"task_id": "NSC-003", "description": "PixelLab revision",
+                 "expires_at": "2999-01-01T00:00:00+00:00"},
+                {"task_id": "NSC-012", "description": "Stale marker",
+                 "expires_at": "2999-01-01T00:00:00+00:00"},
+            ],
+        }), encoding="utf-8")
+        reader._apply_external_work_overlay(rows)
+        self.assertEqual("active", rows[0]["state"])
+        self.assertTrue(rows[0]["in_scope"])
+        self.assertEqual("external_work", rows[0]["progress"]["phase"])
+        self.assertEqual("complete", rows[1]["state"])
+        path.write_text(json.dumps({
+            "schema_version": "assistant-viewer-external-work/v1",
+            "tasks": [{"task_id": "NSC-003", "description": "Expired",
+                       "expires_at": "2000-01-01T00:00:00+00:00"}],
+        }), encoding="utf-8")
+        fresh = [{"id": "NSC-003", "state": "ready", "in_scope": False}]
+        reader._apply_external_work_overlay(fresh)
+        self.assertEqual("ready", fresh[0]["state"])
+
+    def test_committed_decomposition_supersedes_old_failed_attempt(self):
+        reader = AssistantSnapshot(self.root, self.checkout_root())
+        reader.manager.records.mkdir(parents=True)
+        (reader.manager.records / "NSC-025.decomposition.json").write_text(
+            json.dumps({"schema_version": "assistant-decomposition/v1",
+                        "task_id": "NSC-025", "source": str(reader.source),
+                        "status": "failed", "error": "old proposal rejected"}),
+            encoding="utf-8",
+        )
+        row = reader.task_row({
+            "id": "NSC-025", "title": "Navigation", "parent": None,
+            "depends_on": [], "contract_disposition": "active",
+            "decomposition_state": "decomposed",
+            "decomposition_children": ["NSC-089", "NSC-090"],
+            "execution_scope": "not_applicable", "kind": "feature",
+        })
+        self.assertEqual("aggregate", row["state"])
+        self.assertEqual("decomposition_applied", row["progress"]["phase"])
+
     def test_ger_overlay_config_is_exact_authoritative_set(self):
         config_path = Path(__file__).with_name("held-task-ids.ger-20260914.json")
         value = json.loads(config_path.read_text(encoding="utf-8"))

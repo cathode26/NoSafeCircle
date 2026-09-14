@@ -27,6 +27,7 @@ from Pipeline.TaskReviewAgent.GauntletView import server as gauntlet
 # launch another expensive repository scan after the page's initial request.
 STATE_CACHE_SECONDS = 30.0
 HELD_TASKS_FILENAME = "held-task-ids.json"
+EXTERNAL_WORK_FILENAME = "external-work-ids.json"
 
 
 def _epoch_seconds(value: Any) -> float | None:
@@ -35,6 +36,13 @@ def _epoch_seconds(value: Any) -> float | None:
     try:
         return datetime.fromisoformat(value).timestamp()
     except ValueError:
+        return None
+
+
+def _mtime_or_none(path: Path) -> int | None:
+    try:
+        return path.stat().st_mtime_ns
+    except OSError:
         return None
 
 
@@ -104,11 +112,10 @@ class AssistantSnapshot:
 
     def build(self, *, max_age_seconds: float = 0.0) -> dict:
         with self.lock:
-            overlay_path = self.manager.records / HELD_TASKS_FILENAME
-            try:
-                overlay_revision = overlay_path.stat().st_mtime_ns
-            except FileNotFoundError:
-                overlay_revision = None
+            overlay_revision = tuple(
+                _mtime_or_none(self.manager.records / name)
+                for name in (HELD_TASKS_FILENAME, EXTERNAL_WORK_FILENAME)
+            )
             if (max_age_seconds > 0 and self.cached_state is not None
                     and time.monotonic() - self.cached_at < max_age_seconds
                     and overlay_revision == self.cached_overlay_revision):
@@ -158,6 +165,7 @@ class AssistantSnapshot:
                 else:
                     self._apply_simulation(state, activity, simulation)
                 self._apply_held_task_overlay(state["tasks"])
+                self._apply_external_work_overlay(state["tasks"])
                 waiting = [row["id"] for row in state["tasks"] if row.get("state") == "human_action"]
                 if waiting:
                     activity["headline"] = "🐴 Vincent needed"
@@ -231,6 +239,49 @@ class AssistantSnapshot:
                     "active", "aggregate", "checks_pending", "integration_queued",
                     "delivery_ready", "human_action", "local_review_ready"}:
                 row["ger_overlay"] = {"phase": "released", "label": "GER released"}
+
+    def _apply_external_work_overlay(self, rows: list[dict]) -> None:
+        """Show bounded non-AssistantControl work without claiming crew authority."""
+        path = self.manager.records / EXTERNAL_WORK_FILENAME
+        if not path.is_file():
+            return
+        try:
+            value = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+            raise ValueError(f"External work overlay is unreadable: {exc}") from exc
+        if not isinstance(value, dict) or value.get("schema_version") != "assistant-viewer-external-work/v1":
+            raise ValueError("External work overlay has an unsupported schema")
+        entries = value.get("tasks")
+        if not isinstance(entries, list):
+            raise ValueError("External work overlay tasks must be a list")
+        by_id = {row.get("id"): row for row in rows}
+        seen: set[str] = set()
+        now = time.time()
+        for entry in entries:
+            if not isinstance(entry, dict):
+                raise ValueError("External work overlay entry must be an object")
+            task_id = validate_task_id(entry.get("task_id"))
+            if task_id in seen or task_id not in by_id:
+                raise ValueError("External work overlay has a duplicate or unknown task ID")
+            seen.add(task_id)
+            expiry = _epoch_seconds(entry.get("expires_at"))
+            description = entry.get("description")
+            if expiry is None or not isinstance(description, str) or not description.strip():
+                raise ValueError("External work overlay requires expiry and description")
+            if expiry <= now:
+                continue
+            row = by_id[task_id]
+            if row.get("state") in {"active", "complete", "local_accepted", "human_action"}:
+                continue
+            row["external_work_overlay"] = {
+                "description": description.strip(), "expires_at": entry["expires_at"],
+            }
+            row["state"] = "active"
+            row["in_scope"] = True
+            row["progress"] = {
+                "phase": "external_work",
+                "transition_context": description.strip() + " (external work; not an AssistantControl crew run)",
+            }
 
     def _taskgraph_states(self, head: str, contracts: list[dict] | None = None) -> dict[str, dict]:
         """Read committed delivery state once for the whole viewer snapshot."""
@@ -971,6 +1022,14 @@ class AssistantSnapshot:
             except (OSError, RuntimeError, ValueError) as exc:
                 row["state"] = "blocked"
                 row["progress"] = {"phase": "checkout_needs_attention", "blocked_reason": str(exc)}
+        if visible_parent:
+            # The committed graph supersedes an older failed proposal receipt.
+            # Children are now the executable work; the parent is an aggregate.
+            row["state"] = "aggregate"
+            row["progress"] = {
+                "phase": "decomposition_applied",
+                "transition_context": "Decomposition children are committed; their work determines parent completion.",
+            }
         return row
 
     def _bound_execution_crew(self, task_id: str, checkout: Path, worker: Mapping[str, Any]) -> dict[str, Any] | None:
