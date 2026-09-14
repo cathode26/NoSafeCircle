@@ -20,6 +20,7 @@ namespace NoSafeCircle.DoorPrototype.Editor
             "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles";
 
         private const string GameplayNavigationRootName = "GameplayNavigation";
+        private const string FloorRunRestartControllerName = "FloorRunRestartController";
 
         private const string IsometricVisualGridName = "IsometricVisualGrid";
         private const string FloorTilemapName = "FloorTilemap";
@@ -86,7 +87,8 @@ namespace NoSafeCircle.DoorPrototype.Editor
             IsometricVisualGridName,
             "Floor",
             "Walls",
-            "DoorRoot"
+            "DoorRoot",
+            FloorRunRestartControllerName
         };
 
         static DoorPrototypeSceneBuilder()
@@ -175,6 +177,8 @@ namespace NoSafeCircle.DoorPrototype.Editor
             SetPrivateField(doorFeedback, "playerMovement", movement);
             SetPrivateField(doorFeedback, "interactionController", interactionController);
 
+            BuildFloorRunRestartController(health, mana, movement, interactionController);
+
             // BuildCamera reads followTarget.position immediately (not as a live reference)
             // to place the camera at its initial isometric framing, so BuildPlayer must run
             // first. If this ordering is ever changed, BuildCamera's null-target warning below
@@ -191,6 +195,22 @@ namespace NoSafeCircle.DoorPrototype.Editor
                 interactionController,
                 wizardAnimationController,
                 playerSpawn);
+        }
+
+        private static void BuildFloorRunRestartController(
+            PlayerHealth health,
+            PlayerMana mana,
+            PlayerMovement movement,
+            PlayerInteractionController interactionController)
+        {
+            var restartObject = new GameObject(FloorRunRestartControllerName);
+            restartObject.SetActive(false);
+            var restartController = restartObject.AddComponent<FloorRunRestartController>();
+            SetPrivateField(restartController, "playerHealth", health);
+            SetPrivateField(restartController, "playerMana", mana);
+            SetPrivateField(restartController, "playerMovement", movement);
+            SetPrivateField(restartController, "playerInteractionController", interactionController);
+            restartObject.SetActive(true);
         }
 
         private static void ValidateArchitecturalTileAssetFolder(string path)

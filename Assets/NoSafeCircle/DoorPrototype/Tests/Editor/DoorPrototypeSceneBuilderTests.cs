@@ -78,6 +78,32 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
         }
 
         [Test]
+        public void Build_FloorRestartController_IsActiveAndWiredToCurrentPlayerOwners()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
+
+            var restartControllers = Object.FindObjectsByType<FloorRunRestartController>(FindObjectsSortMode.None);
+            Assert.AreEqual(1, restartControllers.Length,
+                "Rebuilding the scene must leave one restart controller subscribed to the current player.");
+
+            var restartController = restartControllers[0];
+            var player = GameObject.Find("Player");
+            Assert.IsTrue(restartController.gameObject.activeInHierarchy);
+            Assert.IsNotNull(player);
+
+            var serialized = new SerializedObject(restartController);
+            Assert.AreSame(player.GetComponent<PlayerHealth>(),
+                serialized.FindProperty("playerHealth").objectReferenceValue);
+            Assert.AreSame(player.GetComponent<PlayerMana>(),
+                serialized.FindProperty("playerMana").objectReferenceValue);
+            Assert.AreSame(player.GetComponent<PlayerMovement>(),
+                serialized.FindProperty("playerMovement").objectReferenceValue);
+            Assert.AreSame(player.GetComponent<PlayerInteractionController>(),
+                serialized.FindProperty("playerInteractionController").objectReferenceValue);
+        }
+
+        [Test]
         public void CommittedScene_ContainsDoorUiSortingAndFinalRoomCollisionHotfix()
         {
             EditorSceneManager.OpenScene(CanonicalScenePath, OpenSceneMode.Single);
