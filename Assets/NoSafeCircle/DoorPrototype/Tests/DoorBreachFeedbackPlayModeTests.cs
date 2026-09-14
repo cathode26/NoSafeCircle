@@ -251,16 +251,24 @@ namespace NoSafeCircle.DoorPrototype.Tests
         {
             Transform crossing = target.transform.Find("ForwardCrossingTrigger");
             Assert.IsNotNull(crossing);
+            BoxCollider trigger = crossing.GetComponent<BoxCollider>();
+            Assert.IsNotNull(trigger);
             CharacterController controller = player.GetComponent<CharacterController>();
             Assert.IsNotNull(controller);
+            // Start just outside the actual trigger, in the already-open
+            // doorway. A long Move from the room's interaction marker can be
+            // stopped by unrelated room geometry before the trigger is reached.
+            float approachDistance = trigger.size.z * 0.5f + controller.radius + 0.2f;
             controller.enabled = false;
-            player.transform.position = target.InteractionPosition;
+            player.transform.position = crossing.position - crossing.forward * approachDistance;
             controller.enabled = true;
             Physics.SyncTransforms();
             yield return new WaitForFixedUpdate();
             controller.Move(crossing.position - player.transform.position);
             Physics.SyncTransforms();
             yield return new WaitForFixedUpdate();
+            Assert.IsTrue(trigger.bounds.Intersects(controller.bounds),
+                "The scene Player collider must physically overlap the runtime crossing trigger.");
         }
 
         private static int CountCracks(Transform shakeTarget)
