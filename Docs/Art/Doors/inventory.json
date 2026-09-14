@@ -1,0 +1,109 @@
+{
+  "schema": "nsc-pixellab-door-selection/v1",
+  "task_id": "NSC-065",
+  "provider": "PixelLab MCP",
+  "selected_family": "family_b_bone_and_stone",
+  "human_visual_approval": false,
+  "assistant_selection_authority": "operator-authorized unattended continuation",
+  "selection_reason": "Family B has the stronger fixed isometric read, clearer open passage, more coherent stone threshold, and the requested dark-but-cute horror-comedy character.",
+  "files": [
+    {
+      "filename": "Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source/door_bonestone_sealed_S_000.png",
+      "state": "sealed",
+      "direction": "S",
+      "frame": 0,
+      "pixel_dimensions": [
+        128,
+        128
+      ],
+      "pixel_format": "RGBA",
+      "pixellab_job_id": "99f204e7-c2e6-4b79-96bf-91f1aab741b9",
+      "seed": 20001,
+      "sha256": "d3e59d3e8546fe98c8959d0750e367699cc5199c1ab666146b24ed0fb592a215"
+    },
+    {
+      "filename": "Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source/door_bonestone_opening_S_000.png",
+      "state": "opening",
+      "direction": "S",
+      "frame": 0,
+      "pixel_dimensions": [
+        128,
+        128
+      ],
+      "pixel_format": "RGBA",
+      "pixellab_job_id": "fc4d13cf-85e4-4bd3-a52f-1e98cc1d8ac9",
+      "seed": 20002,
+      "sha256": "fd97714b621d6191110fffa2cf1f7d34400a9e5828f227b864eabd211793a227"
+    },
+    {
+      "filename": "Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source/door_bonestone_open_S_000.png",
+      "state": "open",
+      "direction": "S",
+      "frame": 0,
+      "pixel_dimensions": [
+        128,
+        128
+      ],
+      "pixel_format": "RGBA",
+      "pixellab_job_id": "fd2b98a0-8f82-49ad-8117-c85bc9d1e7ba",
+      "seed": 20006,
+      "sha256": "c8629333ec866a62f37a9f4ef2d45b9a608a1219a2e02e25bccf46e42e378a4e"
+    },
+    {
+      "filename": "Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source/door_bonestone_locked_S_000.png",
+      "state": "locked",
+      "direction": "S",
+      "frame": 0,
+      "pixel_dimensions": [
+        128,
+        128
+      ],
+      "pixel_format": "RGBA",
+      "pixellab_job_id": "f1f290b0-28c0-4b90-8bf6-eddbb6a6f09b",
+      "seed": 20003,
+      "sha256": "6f33e99f8d67b50265142be0beb9c465dd40498f76b9ca0e51086444518c4e02"
+    },
+    {
+      "filename": "Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source/door_bonestone_damaged_S_000.png",
+      "state": "damaged",
+      "direction": "S",
+      "frame": 0,
+      "pixel_dimensions": [
+        128,
+        128
+      ],
+      "pixel_format": "RGBA",
+      "pixellab_job_id": "2fc55322-5674-4e3e-9196-4c206bdb91d1",
+      "seed": 20004,
+      "sha256": "64d3d56a191b2a910f98e6987920ab2019b06f163277400948e828db90a43a0e"
+    },
+    {
+      "filename": "Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source/door_bonestone_broken_S_000.png",
+      "state": "broken",
+      "direction": "S",
+      "frame": 0,
+      "pixel_dimensions": [
+        128,
+        128
+      ],
+      "pixel_format": "RGBA",
+      "pixellab_job_id": "8002b0e8-6d4a-491c-afdf-53febab10109",
+      "seed": 20007,
+      "sha256": "8644c0bd2f8ae87c9530d11809edccdd64ea31d81e9e48a0be7a6d6653bc935f"
+    },
+    {
+      "filename": "Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source/door_bonestone_final_S_000.png",
+      "state": "final",
+      "direction": "S",
+      "frame": 0,
+      "pixel_dimensions": [
+        128,
+        128
+      ],
+      "pixel_format": "RGBA",
+      "pixellab_job_id": "8fc65029-99cb-4113-979c-9944c3e897e0",
+      "seed": 20005,
+      "sha256": "46061355941a506b53a2a25c19c59297206d9864f7d3ef31bc83f252197ec11f"
+    }
+  ]
+}
