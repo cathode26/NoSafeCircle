@@ -32,11 +32,12 @@ distance-based with last-known-position search. The preparer does not run these
 agent/model passes or invent a final status.
 
 When a GER agent is run, v1 requires one evaluator conversation independent of
-the generator, followed by one bounded refinement and a fresh re-audit by that
-evaluator. The evaluator's material findings are a union of findings, not a
+the generator, followed by one bounded refinement and a fresh re-audit in a new evaluator
+conversation. The evaluator's material findings are a union of findings, not a
 vote; the latest author may not approve its own revision. This is a scaled-down
 design loop derived from the project's multi-auditor reconciliation and D1B.2
-review rules. It remains review-only and produces no graph delta or apply mode.
+review rules. The packet itself produces no graph delta or apply mode; the runbook's GER
+owner turns the audited result into contract edits and any needed decomposition.
 
 For comparison only, a GER agent may consult
 [Diablo II Decoy](https://classic.battle.net/diablo2exp/skills/amazon-passive.shtml),
@@ -58,9 +59,11 @@ reviews the brief. For tasks other than rooms, it asks for equivalent concrete
 deliverables rather than forcing room composition onto unrelated work.
 
 This is **review-only design preparation**. The script does not call a model,
-run Unity, alter `Tasks/`, change the graph, or approve proposed details. An
-agent performs the creative GER passes using the packet; a separate graph edit
-can follow only after Vincent accepts the proposed content. The existing D1B.2
+run Unity, alter `Tasks/`, change the graph, or approve proposed details. The
+GER owner performs the creative GER passes using the packet, then commits the
+audited task-contract edit and applies any needed decomposition as described in
+the runbook; only genuine game-design decisions and exact-plan authorizations go
+to Vincent. The existing D1B.2
 round-robin decomposition flow remains the structural review for actual child
 task proposals. Assignment 6 and Assignment 7 GER loops remain implementation
 and player-copy loops, respectively.
