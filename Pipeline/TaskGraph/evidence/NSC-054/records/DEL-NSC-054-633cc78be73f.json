@@ -1,0 +1,201 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "5d9aa63a0e5397848577e059ae17fa71a535447b66075e32ef21fbad0a2d4aa2"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "657411f9b8464cb945c517d24b3bede297400cf8",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/RangedEnemyAttack.cs",
+      "role": "ranged_attack_timing_and_projectile_owner"
+    },
+    {
+      "blob_sha": "2c3a8643e24b034eb042b0db98a601a0f7b9bf49",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/RangedEnemyAttack.cs.meta",
+      "role": "ranged_attack_unity_identity"
+    },
+    {
+      "blob_sha": "70aa617a9eb5d2105bd6bb7c81f6cc8562186a61",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/RangedEnemyProjectile.cs",
+      "role": "projectile_flight_collision_and_damage"
+    },
+    {
+      "blob_sha": "b320b424335b132608b20d0cd40da03a924ad269",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/RangedEnemyProjectile.cs.meta",
+      "role": "projectile_unity_identity"
+    },
+    {
+      "blob_sha": "ed556932490842909420783f9a51e3f1fc073493",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/RangedEnemyAttackPlayModeTests.cs",
+      "role": "temporary_object_behavior_fixture"
+    },
+    {
+      "blob_sha": "69c332b49f5a076f96fd479d1279ab6748d7a7c2",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/RangedEnemyAttackPlayModeTests.cs.meta",
+      "role": "behavior_fixture_unity_identity"
+    }
+  ],
+  "delivery": {
+    "base_commit": "7bd75a9be912f7b0ef6d8a9e35a13610cf41e071",
+    "candidate_commit": "633cc78be73fba6d17949665c6c30b00702dd8bd",
+    "integrated_commit": "633cc78be73fba6d17949665c6c30b00702dd8bd",
+    "integrated_tree": "88a16caba9651b9269975bfa0806d1a095cf12f3"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "47e3a6acd89decef62f5fe33e06b1b7cbd3d1b5c",
+          "path": "Pipeline/TaskGraph/evidence/NSC-054/artifacts/RangedEnemyAttackPlayModeTests-633cc78be73f.xml"
+        },
+        {
+          "blob_sha": "0e7f2ff5446511261290b2d36c6b41332939ba3f",
+          "path": "Pipeline/TaskGraph/evidence/NSC-054/artifacts/RangedEnemyAttackPlayModeTests-633cc78be73f.log"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "AcquiredWizard_WindsUpThenProjectileMovesAndDamagesOnce passed: pursuit acquisition, active Renderer feedback during nonzero wind-up, enabled projectile Renderer, two distinct movement ticks, no instant damage at launch, and exactly one PlayerHealth.Damaged callback on direct collider contact. Renderer is checked enabled before travel; runtime code never changes its enabled state during flight.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "47e3a6acd89decef62f5fe33e06b1b7cbd3d1b5c",
+          "path": "Pipeline/TaskGraph/evidence/NSC-054/artifacts/RangedEnemyAttackPlayModeTests-633cc78be73f.xml"
+        },
+        {
+          "blob_sha": "0e7f2ff5446511261290b2d36c6b41332939ba3f",
+          "path": "Pipeline/TaskGraph/evidence/NSC-054/artifacts/RangedEnemyAttackPlayModeTests-633cc78be73f.log"
+        }
+      ],
+      "gate_id": "VAL-002",
+      "notes": "PewCover_BlocksProjectileButNotPursuit_ThenNextShotCanHit and TriggerCover_DoesNotStopProjectile passed. The 1.25-unit-tall non-trigger BoxCollider stops a large projectile tick before health contact; the same-size trigger is ignored and a later contact damages PlayerHealth.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "47e3a6acd89decef62f5fe33e06b1b7cbd3d1b5c",
+          "path": "Pipeline/TaskGraph/evidence/NSC-054/artifacts/RangedEnemyAttackPlayModeTests-633cc78be73f.xml"
+        },
+        {
+          "blob_sha": "0e7f2ff5446511261290b2d36c6b41332939ba3f",
+          "path": "Pipeline/TaskGraph/evidence/NSC-054/artifacts/RangedEnemyAttackPlayModeTests-633cc78be73f.log"
+        }
+      ],
+      "gate_id": "VAL-003",
+      "notes": "FrostSlowdown_LeavesWindUpCooldownSpeedAndLifetimeUnchanged passed with real NavMeshAgent and EnemyStatusEffectMovement. Frost halves agent.speed while identical manual attack and projectile Tick sequences complete wind-up, cooldown, travel, and expiry with equal results. No authored NavMesh surface is needed for the agent.speed property check.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "47e3a6acd89decef62f5fe33e06b1b7cbd3d1b5c",
+          "path": "Pipeline/TaskGraph/evidence/NSC-054/artifacts/RangedEnemyAttackPlayModeTests-633cc78be73f.xml"
+        },
+        {
+          "blob_sha": "0e7f2ff5446511261290b2d36c6b41332939ba3f",
+          "path": "Pipeline/TaskGraph/evidence/NSC-054/artifacts/RangedEnemyAttackPlayModeTests-633cc78be73f.log"
+        }
+      ],
+      "gate_id": "VAL-004",
+      "notes": "ResetDuringWindUpAndFlight_CancelsAndRestartsAtInitialTiming and DirectLaunch_IsRegisteredWithOwnerAndResetRemovesIt passed: reset removes feedback and both attack-created/directly launched owned shots, prevents later damage, and allows the fresh initial wind-up timing.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "47e3a6acd89decef62f5fe33e06b1b7cbd3d1b5c",
+          "path": "Pipeline/TaskGraph/evidence/NSC-054/artifacts/RangedEnemyAttackPlayModeTests-633cc78be73f.xml"
+        },
+        {
+          "blob_sha": "0e7f2ff5446511261290b2d36c6b41332939ba3f",
+          "path": "Pipeline/TaskGraph/evidence/NSC-054/artifacts/RangedEnemyAttackPlayModeTests-633cc78be73f.log"
+        }
+      ],
+      "gate_id": "VAL-005",
+      "notes": "The temporary fixture contains no Melee Enemy GameObject or component. AcquiredWizard_WindsUpThenProjectileMovesAndDamagesOnce passed by acquiring through EnemyTargetKnowledge public APIs and completing an attack.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "47e3a6acd89decef62f5fe33e06b1b7cbd3d1b5c",
+          "path": "Pipeline/TaskGraph/evidence/NSC-054/artifacts/RangedEnemyAttackPlayModeTests-633cc78be73f.xml"
+        },
+        {
+          "blob_sha": "0e7f2ff5446511261290b2d36c6b41332939ba3f",
+          "path": "Pipeline/TaskGraph/evidence/NSC-054/artifacts/RangedEnemyAttackPlayModeTests-633cc78be73f.log"
+        }
+      ],
+      "gate_id": "VAL-006",
+      "notes": "PewCover_BlocksProjectileButNotPursuit_ThenNextShotCanHit passed: EnemyTargetKnowledge stays Pursuing with the same CurrentTarget through a blocked shot; after removing the pew a subsequent shot reaches PlayerHealth without manually changing target state.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "47e3a6acd89decef62f5fe33e06b1b7cbd3d1b5c",
+          "path": "Pipeline/TaskGraph/evidence/NSC-054/artifacts/RangedEnemyAttackPlayModeTests-633cc78be73f.xml"
+        },
+        {
+          "blob_sha": "0e7f2ff5446511261290b2d36c6b41332939ba3f",
+          "path": "Pipeline/TaskGraph/evidence/NSC-054/artifacts/RangedEnemyAttackPlayModeTests-633cc78be73f.log"
+        }
+      ],
+      "gate_id": "VAL-007",
+      "notes": "PlayerSidestepsAfterLaunch_ProjectileDoesNotHome passed: wizard moves 2 units laterally, beyond combined horizontal collider footprints; projectile retains z=0 trajectory and misses without damage.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "47e3a6acd89decef62f5fe33e06b1b7cbd3d1b5c",
+          "path": "Pipeline/TaskGraph/evidence/NSC-054/artifacts/RangedEnemyAttackPlayModeTests-633cc78be73f.xml"
+        },
+        {
+          "blob_sha": "0e7f2ff5446511261290b2d36c6b41332939ba3f",
+          "path": "Pipeline/TaskGraph/evidence/NSC-054/artifacts/RangedEnemyAttackPlayModeTests-633cc78be73f.log"
+        }
+      ],
+      "gate_id": "VAL-008",
+      "notes": "TargetLostDuringWindUp_CancelsWithoutChangingSearchState passed: EnemyTargetKnowledge transitions to SearchingLastKnownPosition after the wizard leaves LoseTargetDistance; the wind-up and feedback cancel without a projectile, and reacquisition occurs only after the knowledge update sees the wizard return.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "47e3a6acd89decef62f5fe33e06b1b7cbd3d1b5c",
+          "path": "Pipeline/TaskGraph/evidence/NSC-054/artifacts/RangedEnemyAttackPlayModeTests-633cc78be73f.xml"
+        },
+        {
+          "blob_sha": "0e7f2ff5446511261290b2d36c6b41332939ba3f",
+          "path": "Pipeline/TaskGraph/evidence/NSC-054/artifacts/RangedEnemyAttackPlayModeTests-633cc78be73f.log"
+        }
+      ],
+      "gate_id": "VAL-009",
+      "notes": "DisableAndDestroyOwner_RemoveFeedbackAndOwnedProjectiles passed: disabling during wind-up and in-flight and destroying the owner in-flight remove feedback/projectiles and prevent subsequent Tick damage. A disabled attack Tick starts no new shot.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "",
+    "decision": "not_required",
+    "notes": "NSC-054 has automated Play Mode completion gates only. Production prefab, visual readability, committed Chapel cover, and restart wiring remain downstream NSC-055/072/033 decisions and are not claimed here.",
+    "required": false
+  },
+  "record_id": "DEL-NSC-054-633cc78be73f",
+  "record_type": "delivery",
+  "recorded_at": "2026-09-14T14:17:07Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-054.yaml",
+    "revision": 3,
+    "sha256": "c32263d8fcddc8b093e08efaca4b094770f5696be65029544d8b6e86bb1d9dc2"
+  },
+  "task_id": "NSC-054",
+  "validated_state": {
+    "commit": "633cc78be73fba6d17949665c6c30b00702dd8bd",
+    "tree": "88a16caba9651b9269975bfa0806d1a095cf12f3"
+  }
+}
