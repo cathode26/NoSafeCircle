@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Reflection;
 using NUnit.Framework;
 using NoSafeCircle.DoorPrototype.Enemies;
 using NoSafeCircle.DoorPrototype.World;
@@ -265,8 +266,22 @@ namespace NoSafeCircle.DoorPrototype.Tests
             {
                 yield return null;
                 Assert.IsTrue(agent.isOnNavMesh);
-                Assert.That(Vector3.Distance(agent.destination, sideDestination), Is.LessThan(0.2f),
-                    "Side destination must stay fixed while the agent begins moving.");
+                if (Vector3.Distance(agent.destination, sideDestination) >= 0.2f)
+                {
+                    var before = agent.destination;
+                    var pending = agent.pathPending;
+                    var statusBefore = agent.pathStatus;
+                    var retained = (bool)typeof(RangedEnemyKeepDistanceMovement)
+                        .GetField("hasRepositionDestination", BindingFlags.NonPublic | BindingFlags.Instance)
+                        .GetValue(keepDistance);
+                    typeof(RangedEnemyKeepDistanceMovement)
+                        .GetMethod("Update", BindingFlags.NonPublic | BindingFlags.Instance)
+                        .Invoke(keepDistance, null);
+                    Assert.Fail($"Side path replaced: before={before}, afterManualUpdate={agent.destination}, " +
+                        $"side={sideDestination}, separation={Vector3.Distance(enemy.transform.position, wizard.transform.position):F3}, " +
+                        $"state={knowledge.State}, onMesh={agent.isOnNavMesh}, pending={pending}, " +
+                        $"pathStatus={statusBefore}, retained={retained}.");
+                }
             }
             Assert.That(Vector3.Distance(enemy.transform.position, wizard.transform.position),
                 Is.GreaterThan(initialSeparation + 0.3f), "The enemy must actually increase separation.");
