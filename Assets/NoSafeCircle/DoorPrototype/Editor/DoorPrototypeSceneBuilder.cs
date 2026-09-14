@@ -5,6 +5,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.Tilemaps;
+using UnityEngine.UI;
 using NoSafeCircle.DoorPrototype.Editor.World;
 using NoSafeCircle.DoorPrototype.World;
 using Object = UnityEngine.Object;
@@ -1082,7 +1083,69 @@ namespace NoSafeCircle.DoorPrototype.Editor
             SetPrivateField(feedback, "door", door);
             SetPrivateField(feedback, "doorRenderer", visual.GetComponentInChildren<Renderer>());
 
+            BuildBreachFeedback(doorRoot, door, visual);
+
             return doorRoot;
+        }
+
+        private static void BuildBreachFeedback(GameObject doorRoot, DoorInteractable door, GameObject visual)
+        {
+            var root = new GameObject("DoorBreachFeedback");
+            root.transform.SetParent(doorRoot.transform, false);
+            var component = root.AddComponent<DoorBreachFeedback>();
+
+            var canvasObject = new GameObject("DurabilityIndicator", typeof(RectTransform), typeof(Canvas),
+                typeof(CanvasScaler), typeof(GraphicRaycaster));
+            canvasObject.transform.SetParent(root.transform, false);
+            var canvas = canvasObject.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.WorldSpace;
+            canvas.sortingOrder = 10;
+            canvasObject.transform.localPosition = new Vector3(0f, 2.8f, -0.2f);
+            canvasObject.transform.localScale = Vector3.one * 0.01f;
+            var canvasRect = canvasObject.GetComponent<RectTransform>();
+            canvasRect.sizeDelta = new Vector2(220f, 24f);
+
+            var backgroundObject = new GameObject("Background", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            backgroundObject.transform.SetParent(canvasObject.transform, false);
+            var backgroundRect = backgroundObject.GetComponent<RectTransform>();
+            backgroundRect.sizeDelta = canvasRect.sizeDelta;
+            var background = backgroundObject.GetComponent<Image>();
+            background.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Background.psd");
+            background.type = Image.Type.Sliced;
+            background.color = new Color(0.08f, 0.03f, 0.03f, 0.9f);
+
+            var fillObject = new GameObject("Fill", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            fillObject.transform.SetParent(backgroundObject.transform, false);
+            var fillRect = fillObject.GetComponent<RectTransform>();
+            fillRect.anchorMin = Vector2.zero;
+            fillRect.anchorMax = Vector2.one;
+            fillRect.offsetMin = new Vector2(3f, 3f);
+            fillRect.offsetMax = new Vector2(-3f, -3f);
+            var fill = fillObject.GetComponent<Image>();
+            fill.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
+            fill.type = Image.Type.Filled;
+            fill.fillMethod = Image.FillMethod.Horizontal;
+            fill.fillOrigin = (int)Image.OriginHorizontal.Left;
+            fill.color = new Color(0.85f, 0.16f, 0.08f, 1f);
+
+            var cracks = new GameObject[3];
+            for (var i = 0; i < cracks.Length; i++)
+            {
+                var crack = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                crack.name = "CrackStage" + (i + 1);
+                crack.transform.SetParent(visual.transform, false);
+                crack.transform.localPosition = new Vector3(-0.45f + i * 0.45f, 0.15f + i * 0.2f, -0.18f);
+                crack.transform.localRotation = Quaternion.Euler(0f, 0f, i % 2 == 0 ? 35f : -35f);
+                crack.transform.localScale = new Vector3(0.06f, 0.55f, 0.03f);
+                var renderer = crack.GetComponent<Renderer>();
+                renderer.sharedMaterial = new Material(Shader.Find("Standard")) { color = new Color(0.1f, 0.01f, 0.01f) };
+                Object.DestroyImmediate(crack.GetComponent<Collider>());
+                crack.SetActive(false);
+            }
+
+            // AddComponent invokes OnEnable before generated references are assigned, so use the
+            // public binding seam to install event subscriptions and initialize the indicator.
+            component.Bind(door, visual.transform, fill, cracks);
         }
 
         // The visible door's silhouette is centered above the ground (at visualLocalHeight), not

@@ -96,6 +96,14 @@ namespace NoSafeCircle.DoorPrototype
         /// door-passability child owns publishing the resulting forward-passable navigation state.
         public event System.Action Broken;
 
+        /// AC-001/AC-002: fires after an accepted hit reduces durability and before a possible
+        /// break transition. DoorBreachFeedback consumes this event so rejected hits never
+        /// produce player-facing breach feedback.
+        public event System.Action<float> DamageTaken;
+
+        /// AC-003: fires after owner-controlled reset restores the sealed floor state.
+        public event System.Action ResetCompleted;
+
         public static IReadOnlyList<DoorInteractable> ActiveDoors => activeDoors;
 
         public Vector3 SelectionPoint => transform.position + new Vector3(groundSelectionOffset.x, 0f, groundSelectionOffset.z);
@@ -192,6 +200,7 @@ namespace NoSafeCircle.DoorPrototype
 
             if (doorVisual != null) doorVisual.SetActive(true);
             if (doorwayBlocker != null) doorwayBlocker.enabled = true;
+            ResetCompleted?.Invoke();
         }
 
         private void Complete()
@@ -266,6 +275,7 @@ namespace NoSafeCircle.DoorPrototype
             if (!IsLocked || amount <= 0f) return;
 
             CurrentDurability = Mathf.Max(0f, CurrentDurability - amount);
+            DamageTaken?.Invoke(amount);
 
             if (CurrentDurability <= 0f)
             {
