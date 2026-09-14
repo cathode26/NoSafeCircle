@@ -61,11 +61,11 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "decomposition_reason": "Attack wind-up, projectile movement, cover collision, Player Health damage, Frost timing independence, and attack reset form one bounded ranged-attack behavior with focused Play Mode tests.",
   "decomposition_state": "concrete",
   "depends_on": [
-    "NSC-014",
+    "NSC-091",
     "NSC-004",
     "NSC-013"
   ],

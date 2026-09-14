@@ -61,11 +61,12 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 2,
+  "contract_revision": 3,
   "decomposition_reason": "The qualifying condition (still tracking/pursuing + blocked by locked door), the damage-interface boundary, and the post-break pursuit continuation are already fully specified by the GDD Door and Pursuit Rules section; nothing further needs to be invented.",
   "decomposition_state": "concrete",
   "depends_on": [
-    "NSC-014",
+    "NSC-091",
+    "NSC-092",
     "NSC-050",
     "NSC-051"
   ],

@@ -76,7 +76,7 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 3,
+  "contract_revision": 4,
   "decomposition_children": [
     "NSC-053",
     "NSC-054",
@@ -86,7 +86,7 @@
   "decomposition_requirement_sha256": "ef5db0ff5d56806161258fea32acfa05f29dc8af199012f1f6139459da32cbca",
   "decomposition_state": "decomposed",
   "depends_on": [
-    "NSC-014",
+    "NSC-091",
     "NSC-012",
     "NSC-011",
     "NSC-004",

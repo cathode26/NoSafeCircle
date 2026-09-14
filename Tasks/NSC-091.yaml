@@ -1,0 +1,80 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "NSC-014 AC-001; GDD - Enemy Detection, Pursuit, and Target Loss",
+      "requirement": "Create Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyTargetKnowledge.cs. Store Detection Distance and Lose Target Distance in private serialized fields, validate that Detection Distance is strictly smaller than Lose Target Distance, and expose only the read-only target and search state needed by enemy movement and tests."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "NSC-014 AC-002; GDD - Enemy Detection, Pursuit, and Target Loss",
+      "requirement": "EnemyTargetKnowledge acquires the wizard as its current target when the wizard enters Detection Distance. It does not inspect doorway-crossing events or clear an acquired target because the wizard crossed an open doorway."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "NSC-014 AC-003; GDD - Enemy Detection, Pursuit, and Target Loss",
+      "requirement": "When the tracked wizard exceeds Lose Target Distance, EnemyTargetKnowledge records the player's last known position and changes from active pursuit to the last-known-position search state solely because of the distance comparison, never because of a random roll."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "NSC-014 AC-004; GDD - Enemy Detection, Pursuit, and Target Loss",
+      "requirement": "After the movement component reports arrival at the last known position, EnemyTargetKnowledge enters a time-bounded wander/search state and periodically checks Detection Distance. Re-entering Detection Distance during that state reacquires the wizard and restores active pursuit."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "NSC-014 AC-005; GDD - Enemy Detection, Pursuit, and Target Loss",
+      "requirement": "If the bounded wander/search interval completes without reacquisition, EnemyTargetKnowledge clears the current target and returns to its idle state without destroying, disabling, replacing, or reinitializing the enemy GameObject."
+    },
+    {
+      "criterion_id": "AC-006",
+      "reference": "NSC-014 AC-008; GDD - Floor-run restart ownership (Win and Loss Conditions)",
+      "requirement": "EnemyTargetKnowledge exposes a public ResetTargetKnowledge() method that clears its current target, last-known position, search timer, and pursuit/search state. Assets/NoSafeCircle/DoorPrototype/Tests/EnemyTargetKnowledgePlayModeTests.cs must cover the target-state behavior owned by this component."
+    }
+  ],
+  "basis": "direct_gdd",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "NSC-014 VAL-001; GDD - Development Agent Roles (Unity Validation Agent)",
+      "requirement": "Assets/NoSafeCircle/DoorPrototype/Tests/EnemyTargetKnowledgePlayModeTests.cs uses temporary GameObjects in Play Mode to verify the strict threshold relationship, acquisition inside Detection Distance, distance-only transition to the recorded last-known position, bounded search timing, reacquisition during search, target clearing after search expires, persistence of the same enemy GameObject, and ResetTargetKnowledge()."
+    }
+  ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "Target identity, hysteresis, last-known-position data, search timing, reacquisition, and target clearing form one state owner that does not need to edit the shared NavMesh locomotion surface.",
+  "decomposition_state": "concrete",
+  "depends_on": [],
+  "downstream_integration_obligations": [],
+  "exclusive_resources": [],
+  "execution_reason": "One agent can implement and test the target-knowledge state component independently of NavMesh destination selection. The movement child uses its read-only state and public transition/reset methods through a one-way dependency.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "Enemy Detection, Pursuit, and Target Loss",
+      "requirement": "Detection Distance is smaller than Lose Target Distance; distance controls acquisition and target loss, search uses the last known position, and bounded search may reacquire or clear the target without replacing the persistent enemy."
+    },
+    {
+      "reference": "Floor-run restart ownership (Win and Loss Conditions)",
+      "requirement": "Enemy-owned reset behavior clears all retained target, last-known-position, and search state for a new floor attempt."
+    }
+  ],
+  "id": "NSC-091",
+  "kind": "implementation",
+  "notes": "This child owns target knowledge and pursuit/search state only. It does not set NavMeshAgent destinations, choose navigable wander points, move the enemy Transform, or edit logical:enemy-locomotion-behavior-surface.",
+  "parent": "NSC-014",
+  "provenance": {
+    "graph_delta_plan_id": "GDP-0041040e06fc4f69ff37c9ec03c9422b0e861f465f79260faa3e2be39516ee19",
+    "origin": "progressive_decomposition",
+    "parent_contract_revision": 4,
+    "parent_contract_sha256": "a0eaa15d76bd815a62db0838f3d35e9d0d4f128d2689ea91c4467f1bad46965f",
+    "parent_task_id": "NSC-014"
+  },
+  "reconciliation_key": "enemy-target-knowledge-state",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "Enemy Target Detection, Last-Known Position, and Search State",
+  "type": "enemy_ai_state"
+}

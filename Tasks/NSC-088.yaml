@@ -30,12 +30,13 @@
   "completion_gates": [],
   "confidence": "medium",
   "contract_disposition": "active",
-  "contract_revision": 2,
+  "contract_revision": 3,
   "decomposition_reason": "The spell crosses Wizard Combat, enemy pursuit, navigation, ranged attacks, and restart ownership. Decide the gameplay contract first, then determine whether one agent can build it or it needs reviewed child tasks.",
   "decomposition_state": "coarse",
   "depends_on": [
     "NSC-003",
-    "NSC-014",
+    "NSC-091",
+    "NSC-092",
     "NSC-089"
   ],
   "downstream_integration_obligations": [],

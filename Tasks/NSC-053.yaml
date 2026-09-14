@@ -31,11 +31,11 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "decomposition_reason": "Keep-distance movement is a bounded Unity behavior with its own shared-target and Frost-speed inputs, separate from projectile spawning and prefab wiring.",
   "decomposition_state": "concrete",
   "depends_on": [
-    "NSC-014",
+    "NSC-091",
     "NSC-013"
   ],
   "downstream_integration_obligations": [],

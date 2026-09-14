@@ -31,7 +31,7 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 6,
+  "contract_revision": 7,
   "decomposition_reason": "The GDD names the complete required participant list and the exact reset contract for full closure; no missing design remains, though most listed owners do not yet exist.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -43,7 +43,7 @@
     "NSC-020",
     "NSC-050",
     "NSC-012",
-    "NSC-014",
+    "NSC-092",
     "NSC-013",
     "NSC-011",
     "NSC-028",
@@ -83,22 +83,22 @@
   "parent": "NSC-031",
   "provenance": {
     "bootstrap_status_observation": "open",
+    "contract_transfers": [
+      {
+        "from_entry_id": "INT-001",
+        "from_entry_type": "downstream_integration_obligations",
+        "from_task_id": "NSC-015",
+        "reason": "The actual zero-health invocation and combined restart proof belong to the shared restart integration owner; NSC-015 retains local attack reset gates.",
+        "to_entry_id": "VAL-001",
+        "to_entry_type": "completion_gates",
+        "to_task_id": "NSC-033"
+      }
+    ],
     "migration_id": "task-contract-schema-v2-20260822-r2",
     "origin": "verified_reconciliation_bootstrap",
     "reconciliation_run_id": "20260821T193541Z-998ee7b5",
     "source_schema_version": "1.0",
-    "verification_run_id": "20260821T195959Z-43dba5de",
-    "contract_transfers": [
-      {
-        "from_task_id": "NSC-015",
-        "from_entry_type": "downstream_integration_obligations",
-        "from_entry_id": "INT-001",
-        "to_task_id": "NSC-033",
-        "to_entry_type": "completion_gates",
-        "to_entry_id": "VAL-001",
-        "reason": "The actual zero-health invocation and combined restart proof belong to the shared restart integration owner; NSC-015 retains local attack reset gates."
-      }
-    ]
+    "verification_run_id": "20260821T195959Z-43dba5de"
   },
   "reconciliation_key": "floor-run-restart-persistent-closure",
   "repository_evidence_at_bootstrap": [],

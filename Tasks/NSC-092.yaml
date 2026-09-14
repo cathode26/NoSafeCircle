@@ -1,0 +1,104 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "NSC-014 AC-002; GDD - Enemy Detection, Pursuit, and Target Loss",
+      "requirement": "Create Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyPursuitMovement.cs. When EnemyTargetKnowledge reports an acquired wizard target, EnemyPursuitMovement begins following that target by setting destinations on the configured NavMeshAgent. Create Assets/NoSafeCircle/DoorPrototype/Tests/EnemyPursuitPlayModeTests.cs for the integrated target-state and movement checks."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "NSC-014 AC-003; GDD - Enemy Detection, Pursuit, and Target Loss",
+      "requirement": "While EnemyTargetKnowledge reports the last-known-position search state, EnemyPursuitMovement sets the NavMeshAgent destination to that recorded position and reports arrival back to EnemyTargetKnowledge so the bounded wander/search state can begin."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "NSC-014 AC-004; GDD - Enemy Detection, Pursuit, and Target Loss",
+      "requirement": "During the bounded wander/search state, EnemyPursuitMovement uses controlled randomness to choose nearby points that are valid on the configured NavMesh and moves between them until EnemyTargetKnowledge reports reacquisition or search completion."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "NSC-014 AC-005; GDD - Enemy Detection, Pursuit, and Target Loss",
+      "requirement": "When EnemyTargetKnowledge clears the target after search completes, EnemyPursuitMovement stops the pursuit/search destination and returns to local idle/wander movement without destroying, disabling, replacing, or reinitializing the enemy GameObject."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "NSC-014 AC-006; GDD - Door and Pursuit Rules",
+      "requirement": "EnemyPursuitMovement continues following the current player target or last-known position through a doorway when NSC-090 reports the opening traversable for the open or broken semantic door state. It does not clear target knowledge because of doorway crossing. Create Assets/NoSafeCircle/DoorPrototype/Tests/EnemyPursuitDoorCrossingPlayModeTests.cs for this production behavior."
+    },
+    {
+      "criterion_id": "AC-006",
+      "reference": "NSC-014 AC-007; GDD - Runtime Implementation",
+      "requirement": "EnemyPursuitMovement uses the NavMeshAgent and walkable NavMesh supplied by NSC-089 and does not select, instantiate, or configure a different pathfinding technology."
+    },
+    {
+      "criterion_id": "AC-007",
+      "reference": "NSC-014 AC-008; GDD - Floor-run restart ownership (Win and Loss Conditions)",
+      "requirement": "EnemyPursuitMovement exposes a public ResetPursuit() method for the Floor Run/Restart Orchestrator. The method calls EnemyTargetKnowledge.ResetTargetKnowledge(), stops the NavMeshAgent, clears its current path, and returns the enemy Transform to a valid point in its authored encounter/spawn region without directly mutating state owned by another component."
+    }
+  ],
+  "basis": "direct_gdd",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "NSC-014 VAL-001; GDD - Development Agent Roles (Unity Validation Agent)",
+      "requirement": "Assets/NoSafeCircle/DoorPrototype/Tests/EnemyPursuitPlayModeTests.cs uses a temporary NavMesh-baked scene and the production EnemyTargetKnowledge and EnemyPursuitMovement components to verify pursuit after acquisition, last-known-position movement after distance-based target loss, bounded randomized movement on navigable points, reacquisition, return to idle after search expires, and complete reset through ResetPursuit()."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "NSC-014 VAL-003; GDD - Door and Pursuit Rules",
+      "requirement": "Assets/NoSafeCircle/DoorPrototype/Tests/EnemyPursuitDoorCrossingPlayModeTests.cs uses temporary scene objects with NSC-089's GameplayNavigationSurface and NSC-090's DoorEnemyPassability. It verifies that a pursuing or searching enemy follows the player or last-known position through an open or broken doorway without clearing its target solely because of the crossing. The test does not save or modify Assets/Scenes/DoorPrototype.unity."
+    }
+  ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "This child is the sole owner of NavMesh destination selection, last-known-position homing, controlled randomized search movement, doorway traversal, idle movement handoff, and Transform reset. Target knowledge and search timing are supplied by the separately owned state component.",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-089",
+    "NSC-090",
+    "NSC-091"
+  ],
+  "downstream_integration_obligations": [],
+  "exclusive_resources": [
+    "logical:enemy-locomotion-behavior-surface"
+  ],
+  "execution_reason": "One agent can implement the NavMesh movement adapter against the completed target-state component and prove the resulting production path with two focused Play Mode test files. No other proposed child edits the shared locomotion surface.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "Enemy Detection, Pursuit, and Target Loss",
+      "requirement": "An acquired enemy pursues the wizard, moves to the last known position after target loss, performs bounded randomized search movement on navigable points, and returns to idle if search completes."
+    },
+    {
+      "reference": "Door and Pursuit Rules",
+      "requirement": "A pursuing or searching enemy may traverse an open or broken doorway without losing its target solely because of the crossing."
+    },
+    {
+      "reference": "Runtime Implementation",
+      "requirement": "Enemy locomotion uses the shared Unity AI Navigation NavMesh implementation instead of choosing another navigation technology."
+    },
+    {
+      "reference": "Floor-run restart ownership (Win and Loss Conditions)",
+      "requirement": "Enemy reset returns the persistent enemy to its authored encounter/spawn region and clears pursuit and search behavior through enemy-owned reset methods."
+    }
+  ],
+  "id": "NSC-092",
+  "kind": "implementation",
+  "notes": "This child alone owns logical:enemy-locomotion-behavior-surface. EnemyTargetKnowledge supplies target and search state through a one-way dependency; it does not edit this movement component. NSC-013 may request movement resumption through this component's public behavior, while NSC-015 and the Ranged Enemy tasks add their enemy-type-specific movement and attack behavior under their existing contracts.",
+  "parent": "NSC-014",
+  "provenance": {
+    "graph_delta_plan_id": "GDP-0041040e06fc4f69ff37c9ec03c9422b0e861f465f79260faa3e2be39516ee19",
+    "origin": "progressive_decomposition",
+    "parent_contract_revision": 4,
+    "parent_contract_sha256": "a0eaa15d76bd815a62db0838f3d35e9d0d4f128d2689ea91c4467f1bad46965f",
+    "parent_task_id": "NSC-014"
+  },
+  "reconciliation_key": "enemy-pursuit-navmesh-movement",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "Enemy NavMesh Pursuit, Search Movement, Door Traversal, and Reset",
+  "type": "enemy_ai_movement"
+}

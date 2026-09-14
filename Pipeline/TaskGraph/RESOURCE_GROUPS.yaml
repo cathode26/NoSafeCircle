@@ -4,22 +4,22 @@
     {
       "reconciliation_keys": [
         "enemy-status-effect-displacement",
-        "enemy-pursuit-search-foundation",
         "melee-enemy",
         "locked-door-enemy-attack",
         "ranged-enemy-keep-distance-movement",
         "ranged-enemy-projectile-attack",
-        "ranged-enemy-prefab-wiring"
+        "ranged-enemy-prefab-wiring",
+        "enemy-pursuit-navmesh-movement"
       ],
       "resource_key": "logical:enemy-locomotion-behavior-surface",
       "work_ids": [
         "NSC-013",
-        "NSC-014",
         "NSC-015",
         "NSC-017",
         "NSC-053",
         "NSC-054",
-        "NSC-055"
+        "NSC-055",
+        "NSC-092"
       ]
     },
     {

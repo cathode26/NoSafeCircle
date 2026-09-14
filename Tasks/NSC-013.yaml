@@ -51,11 +51,11 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 2,
+  "contract_revision": 3,
   "decomposition_reason": "The GDD fully specifies this component's two effect types (Frost slowdown apply/restore; forced displacement apply/restore), the explicit Ranged-Enemy-attack-is-unaffected constraint, the pursuit/search hand-back requirement, and reset participation. No missing design blocks a bounded implementation item; the two effect types are explicitly bundled into one reusable component by GDD Section 5.",
   "decomposition_state": "concrete",
   "depends_on": [
-    "NSC-014",
+    "NSC-092",
     "NSC-089"
   ],
   "downstream_integration_obligations": [],
