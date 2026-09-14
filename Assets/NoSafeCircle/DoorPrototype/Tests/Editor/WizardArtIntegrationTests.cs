@@ -1,5 +1,6 @@
 using UnityEditor;
 using UnityEditor.SceneManagement;
+using UnityEditor.Animations;
 using UnityEngine;
 using NUnit.Framework;
 using System.Linq;
@@ -46,6 +47,55 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
         {
             Assert.IsNotNull(AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(GeneratedRoot + "/WizardAnimator.controller"));
             Assert.AreEqual(32, AssetDatabase.FindAssets("t:AnimationClip", new[] { GeneratedRoot }).Length);
+        }
+
+        [Test]
+        public void EveryWizardStateUsesItsOwnOrderedSourceSpritesOnVisualRenderer()
+        {
+            var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(GeneratedRoot + "/WizardAnimator.controller");
+            Assert.IsNotNull(controller);
+            Assert.AreEqual(1, controller.layers.Length);
+            var states = controller.layers[0].stateMachine.states;
+            Assert.AreEqual(32, states.Length, "The controller should contain exactly four variants × four directions × idle/walk.");
+
+            string[] variants = { "Masculine_White", "Masculine_Black", "Feminine_White", "Feminine_Black" };
+            string[] directions = { "north-east", "north-west", "south-east", "south-west" };
+            foreach (string variant in variants)
+            {
+                string sourceVariant = variant.Replace("Masculine", "masculine")
+                    .Replace("Feminine", "feminine").Replace("_White", "-light")
+                    .Replace("_Black", "-dark");
+                foreach (string direction in directions)
+                {
+                    foreach (string motion in new[] { "idle", "walk" })
+                    {
+                        string name = $"Wizard_{variant}_{motion}_{direction}";
+                        var matchingStates = states.Where(child => child.state.name == name).ToArray();
+                        Assert.AreEqual(1, matchingStates.Length, name);
+                        var clip = AssetDatabase.LoadAssetAtPath<AnimationClip>($"{GeneratedRoot}/{name}.anim");
+                        Assert.IsNotNull(clip, name);
+                        Assert.AreSame(clip, matchingStates[0].state.motion, name);
+                        var bindings = AnimationUtility.GetObjectReferenceCurveBindings(clip);
+                        Assert.AreEqual(1, bindings.Length, name);
+                        Assert.AreEqual("Visual", bindings[0].path, name);
+                        Assert.AreEqual(typeof(SpriteRenderer), bindings[0].type, name);
+                        Assert.AreEqual("m_Sprite", bindings[0].propertyName, name);
+                        var keys = AnimationUtility.GetObjectReferenceCurve(clip, bindings[0]);
+                        int frameCount = motion == "walk" ? 6 : 1;
+                        Assert.AreEqual(frameCount, keys.Length, name);
+                        for (int frame = 0; frame < frameCount; frame++)
+                        {
+                            string sourcePath = motion == "walk"
+                                ? $"{SourceRoot}/{sourceVariant}/selected/walk/{direction}/frame_{frame:000}.png"
+                                : $"{SourceRoot}/{sourceVariant}/selected/standing/{direction}.png";
+                            var sourceSprite = AssetDatabase.LoadAssetAtPath<Sprite>(sourcePath);
+                            Assert.IsNotNull(sourceSprite, sourcePath);
+                            Assert.AreSame(sourceSprite, keys[frame].value, $"{name} frame {frame}");
+                            Assert.That(keys[frame].time, Is.EqualTo(frame / (motion == "walk" ? 12f : 1f)).Within(0.0001f), name);
+                        }
+                    }
+                }
+            }
         }
 
         [Test]
