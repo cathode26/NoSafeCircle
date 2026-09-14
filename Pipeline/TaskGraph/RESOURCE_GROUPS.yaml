@@ -433,14 +433,16 @@
         "independent-room-scene-composition",
         "wizard-eight-direction-locomotion-integration",
         "stationary-enemy-sprite-integration",
-        "world-sprite-prefab-sorting"
+        "world-sprite-prefab-sorting",
+        "five-room-continuity-door-sequence"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs",
       "work_ids": [
         "NSC-069",
         "NSC-075",
         "NSC-077",
-        "NSC-039"
+        "NSC-039",
+        "NSC-049"
       ]
     },
     {

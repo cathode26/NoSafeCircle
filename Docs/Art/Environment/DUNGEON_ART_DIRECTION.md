@@ -41,6 +41,14 @@ playful, or endearing detail.
 - Preserve isometric pivots, sorting anchors, door apertures, camera-scale
   readability, and deterministic tile alignment. Decorative props may omit
   collision; major furniture and route-shaping objects need intentional collision.
+- The fixed isometric camera follows the wizard, so a room may be larger than one
+  screen. Review rooms with several gameplay-camera shots rather than one framing.
+- Near (south and east, camera-facing) walls use a low cutaway stub, initially about
+  0.5 world units high and tuned during gameplay-camera review, so they never hide
+  the wizard, floor routes, or cursor targets. Far (north and west) walls keep full
+  visual height, door frames stay readable, and gameplay colliders keep full height.
+- Each room uses an Isometric Tilemap for its walls. Wall tiles may differ per room,
+  and each room's blockout task owns its wall Tilemap.
 - Use only original assets, palettes, shapes, and layouts. Reference material is
   mood and design language, never a source to copy or trace.
 

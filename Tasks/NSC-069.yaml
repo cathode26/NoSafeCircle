@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-069",
-  "contract_revision": 4,
+  "contract_revision": 5,
   "contract_disposition": "active",
   "title": "Independent Room Scene Authoring and Deterministic World Composition Foundation",
   "reconciliation_key": "independent-room-scene-composition",
@@ -54,7 +54,7 @@
     {
       "criterion_id": "AC-006",
       "reference": "Approved proposal — Exact code, data, and test ownership",
-      "requirement": "Establish and validate the exact disjoint ownership seams consumed by NSC-044 through NSC-048. Each room task may create and save only its own scene, builder, layout data, tests, and generated .meta companions; it may not edit an asmdef, common contract, catalog, common composer, DoorPrototypeSceneBuilder, DoorPrototype.unity, or another room's files."
+      "requirement": "Establish and validate the exact disjoint ownership seams consumed by NSC-044 through NSC-048. Each room task may create and save only its own scene, builder, layout data, tests, and generated .meta companions; it may not edit an asmdef, common contract, common composer, DoorPrototypeSceneBuilder, DoorPrototype.unity, or another room's files. As the one catalog exception (Vincent, 2026-09-14), a room task may edit its own room's RoomBounds entry and the center of its own exit door in RoomSceneCatalog.cs and regenerate RoomSceneCatalog.asset, within the GDD room size authority; room tasks take turns on those shared catalog files, and NSC-049 reconciles shared boundaries and door alignment during composition."
     }
   ],
   "completion_gates": [
@@ -109,7 +109,7 @@
   "basis": "human_approved_engineering_architecture",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "This task establishes shared authoring and composition infrastructure only. NSC-044 through NSC-048 create the five room source scenes and their room-specific builders, layouts, tests, and Unity .meta files. It does not author tactical room layouts, encounters, D1-D5 live door instances, final global NavMesh, or victory behavior. Room source scenes are Editor-only inputs and must not be added to enabled build settings. NSC-049 owns the final canonical content switch.",
+  "notes": "This task establishes shared authoring and composition infrastructure only. NSC-044 through NSC-048 create the five room source scenes and their room-specific builders, layouts, tests, and Unity .meta files. It does not author tactical room layouts, encounters, D1-D5 live door instances, final global NavMesh, or victory behavior. Room source scenes are Editor-only inputs and must not be added to enabled build settings. NSC-049 owns the final canonical content switch. Vincent approved the room-task catalog exception in AC-006 on 2026-09-14 so Task Design GER room revisions can resize rooms within the GDD room size authority.",
   "repository_state_at_bootstrap": "partial",
   "repository_evidence_at_bootstrap": [
     {
@@ -136,6 +136,14 @@
     "proposal_title": "Independent Room Scenes and Deterministic World Composition Proposal",
     "source_commit": "eab9bad9325a3e28894a64b6bbde92ee58e75476",
     "composition_mode": "deterministic_editor_time",
-    "runtime_scene": "Assets/Scenes/DoorPrototype.unity"
+    "runtime_scene": "Assets/Scenes/DoorPrototype.unity",
+    "design_decisions": [
+      {
+        "date": "2026-09-14",
+        "decided_by": "Vincent",
+        "record": "graph-lead-journal GER queue status; GDD blockout section 13 Room size authority",
+        "decision": "Room tasks NSC-044 to NSC-048 may edit their own RoomSceneCatalog bounds entry and exit-door center; NSC-049 reconciles shared boundaries and door alignment."
+      }
+    ]
   }
 }
