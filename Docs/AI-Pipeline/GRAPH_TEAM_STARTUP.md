@@ -14,20 +14,19 @@ execution slots and does not create this team.
 | Luna (setup) | Check the exact selection and perform one bounded setup pass, then hand off. | `graph-plan` and one identically scoped `run-graph --delegate-safe` after Sol has bound its preflight. No provider spend, approval, integration or retry. |
 | Spark (observer) | Watch durable controller, task and worker records; report changes, stalls and identity drift to Sol. | Read-only inspection. No graph mutation or repair. |
 
-The agent platform may be Codex or Claude. Use its native agent launch and tool
-permissions; a shell script cannot prove that three independent agent sessions
-exist. The proven Codex Gauntlet mapping was Sol `gpt-5.6-sol` ultra, Luna
-`gpt-5.6-luna` medium, and Spark `gpt-5.3-codex-spark` high. The Claude mapping
-was Opus 5 xhigh / Sonnet 5 medium / Haiku 4.5 medium. Record the actual model
-and effort chosen for each new run; do not silently substitute one. Model names
-are not the authority boundary: the role, tool access, and sole-controller
-rule are. Do not repurpose an Implementer, Test Author or Validator in a task
+The agent platform may be Codex or Claude. Read the matching
+`CODEX_GRAPH_TEAM_STARTUP.md` or `CLAUDE_GRAPH_TEAM_STARTUP.md` beside this
+file for the exact model/effort mapping and check command. Use the platform's
+native agent launch and tool permissions; a shell script cannot prove that
+three independent agent sessions exist. Record each run's actual model and
+effort. Do not repurpose an Implementer, Test Author or Validator in a task
 execution crew as one of these graph roles.
 
 Paste this compact handoff into a fresh orchestrator session:
 
-> Read `AGENTS.md` and `Docs/AI-Pipeline/GRAPH_TEAM_STARTUP.md` before graph
-> work. You are Sol, the sole graph lead. Run the startup identity check, select
+> Read `AGENTS.md`, `Docs/AI-Pipeline/GRAPH_TEAM_STARTUP.md`, and the matching
+> Claude or Codex startup page before graph work. You are Sol, the sole graph
+> lead. Run the startup identity check, select
 > current eligible targets, and follow the numbered sequence exactly. Start one
 > bounded Luna setup agent and one read-only Spark observer through the agent
 > platform. Keep task execution crews separate. Stop on controller identity
@@ -35,31 +34,12 @@ Paste this compact handoff into a fresh orchestrator session:
 
 ## Startup sequence (Sol owns it)
 
-1. Read `AGENTS.md`, `Pipeline/AssistantControl/README.md`, this file, and the
-   current task/owner journal. Inspect current Source, checkout root, branch,
+1. Read `AGENTS.md`, `Pipeline/AssistantControl/README.md`, this file, the
+   matching provider page, and the current task/owner journal. Inspect current Source, checkout root, branch,
    HEAD, worker configuration, controller records, and active processes. Run
-   `Pipeline/AssistantControl/Check-GraphTeamStartup.ps1` with the exact Source,
-   checkout root and worker config. Its output is an identity check, **not**
-   permission to start a second controller.
-
-   For the current real-game paths, the read-only check is:
-
-   ```powershell
-   & powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\NSC\NSC\NoSafeCircle\Pipeline\AssistantControl\Check-GraphTeamStartup.ps1 -Source C:\NSC\NSC\NoSafeCircle -CheckoutRoot C:\NSC\NoSafeCircle-AssistantCheckouts -WorkerConfig C:\NSC\NoSafeCircle-AssistantCheckouts\.assistant-control\worker-claude-sonnet-high.json -ExpectedBranch main
-   ```
-
-   The lead must replace these paths if the active Source or worker config has
-   changed. A checked-out worktree may have a different branch and is never an
-   implicit substitute for the real-game Source.
-
-   For a Claude-only run, use the Claude-specific wrapper with the same exact
-   arguments. It also verifies that the worker config selects only Claude and
-   that the local Claude Code CLI is present. It does not launch or authenticate
-   the three graph-management sessions:
-
-   ```powershell
-   & powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\NSC\NSC\NoSafeCircle\Pipeline\AssistantControl\Check-ClaudeGraphTeamStartup.ps1 -Source C:\NSC\NSC\NoSafeCircle -CheckoutRoot C:\NSC\NoSafeCircle-AssistantCheckouts -WorkerConfig C:\NSC\NoSafeCircle-AssistantCheckouts\.assistant-control\worker-claude-sonnet-high.json -ExpectedBranch main
-   ```
+   the matching provider startup script with the exact Source, checkout root,
+   branch and worker config, as shown in its provider page. The shared identity
+   check is **not** permission to start a second controller.
 2. Select current targets from TaskGraph and real readiness evidence. Respect
    task claims, dependencies, exclusive resources and the separate foreground
    agenda. Record exact task IDs, capacity, target branch, human-review tasks,

@@ -6,7 +6,9 @@ This file is operating guidance, not GDD canon.
 
 For Vincent's assistant-operated workflow, use `Pipeline/AssistantControl/README.md`.
 Before starting or resuming the three-agent graph-management team, read
-`Docs/AI-Pipeline/GRAPH_TEAM_STARTUP.md` and run its read-only startup check.
+`Docs/AI-Pipeline/GRAPH_TEAM_STARTUP.md` and the matching
+`CODEX_GRAPH_TEAM_STARTUP.md` or `CLAUDE_GRAPH_TEAM_STARTUP.md` beside it, then
+run that provider's read-only startup check.
 The Sol/Luna/Spark graph roles are separate from per-task execution crews;
 `--capacity 3` means worker slots, not three graph-management agents.
 The assistant selects and controls work through conversation; its viewer is

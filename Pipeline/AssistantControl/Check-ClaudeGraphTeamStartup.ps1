@@ -14,7 +14,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$sharedCheck = Join-Path $PSScriptRoot 'Check-GraphTeamStartup.ps1'
+$sharedCheck = Join-Path $PSScriptRoot 'Check-GraphTeamIdentity.ps1'
 if (-not (Test-Path -LiteralPath $sharedCheck -PathType Leaf)) {
     throw "Shared startup check is missing: $sharedCheck"
 }
