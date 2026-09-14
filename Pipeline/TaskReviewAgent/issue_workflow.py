@@ -1619,9 +1619,9 @@ def _validate_transition(
         if old_hash != state.task_contract_sha256 or new_hash == old_hash:
             raise WorkflowContractError("task contract migration hash identities are invalid")
         for key in ("branch", "checkout_path"):
-            _string(details.get(key), field=key)
+            _string(details.get(key), field=key, optional=True)
         for key in ("head_commit", "human_handoff_commit"):
-            _sha(details.get(key), field=key)
+            _sha(details.get(key), field=key, optional=True)
         if details.get("human_result") not in (None, "pass", "fail"):
             raise WorkflowContractError("task contract migration human_result is invalid")
         return
