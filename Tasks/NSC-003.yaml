@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-003",
-  "contract_revision": 3,
+  "contract_revision": 4,
   "contract_disposition": "active",
   "title": "Mouse-Directed Player Movement, Shared Pointer Projection, and Movement Restriction",
   "reconciliation_key": "player-movement",
@@ -59,8 +59,8 @@
   ],
   "downstream_integration_obligations": [
     {
-      "reference": "GDD §2 Player Movement ownership",
-      "requirement": "Validate that the exposed world-space pointer target is correctly consumable by a cursor-aimed spell or Door/Interaction integration once those systems exist.",
+      "reference": "GDD §2 Player Movement ownership; NSC-007, NSC-008, NSC-019, NSC-033, and NSC-041",
+      "requirement": "Preserve the implemented Door/Interaction pointer path: DoorInteractionFeedback reads PlayerMovement.HasPointerWorldTarget and PlayerMovement.PointerWorldTarget, and PlayerMovement passes PointerWorldTarget to PlayerInteractionController.TryBeginDoorApproach on a fresh MoveToCursor press; neither projects screen coordinates itself. Consumers treat PointerWorldTarget as current only while HasPointerWorldTarget is true; both are updated together once per PlayerMovement.Tick, and a component that reads them in its own Update may see the previous Tick's result. When NSC-007 implements Charged Fireball, Fireball holds at most one outstanding Player Movement restriction request: it calls RequestMovementRestriction once when a charge begins, calls ReleaseMovementRestriction exactly once, on whichever of fire, cancel, suspend or reset ends that charge first, and clears its own held-request state in its reset method before another charge can begin. NSC-008 reads the same shared pointer result when Frost Field is implemented. NSC-007, NSC-008 and NSC-009 own their spell-local behavior and physical input bindings. NSC-033 calls PlayerMovement.ResetMovement and each spell's own reset method once that spell is delivered, without changing either component's internal state.",
       "obligation_id": "INT-001"
     }
   ],
@@ -110,6 +110,24 @@
     "reconciliation_run_id": "20260821T193541Z-998ee7b5",
     "verification_run_id": "20260821T195959Z-43dba5de",
     "bootstrap_status_observation": "open",
-    "migration_id": "task-contract-schema-v2-20260822-r2"
+    "migration_id": "task-contract-schema-v2-20260822-r2",
+    "task_design_ger": [
+      {
+        "ger_run_id": "20260914-083223-NSC-003",
+        "packet_source_head": "0aefdc4909e4e1d21dadac3eee79acc2b9e7ffa9",
+        "previous_contract_revision": 3,
+        "round_output_sha256": {
+          "01-codex-generate": "f27fe08a2981b18c5beab0f0eb9d959486f3f82e9071404b16829545b391189d",
+          "02-claude-evaluate": "afba05b6c91f612c4f5818be654dc565d01e1b09babe1e2a064d3c1572b9746e",
+          "03-codex-refine": "0b381a89fa38d01375246f78821440ebea2d3ed48efcc2284fa667a87414586c",
+          "04-claude-reaudit": "bf47a13bac4ade6e1c40da9292c823649a405d9dd3a7a2688eab80ffdd2e3b24",
+          "05-owner-patch": "f391dfd501c3e604e950201af6399c0ca94e4b3ecaabbdba9789f0568029135f",
+          "06-claude-recheck": "30dd48bbc96e1ae5a0ecbe6728a4631672d59be20aa3def2fb356515f2bcb367"
+        },
+        "reaudit_recommendation": "commit_contract",
+        "owner_patch_contract_sha256": "529caca2918a55519e47ee43b3b9a519559494a5882efefaf8b06b7d66d01ead",
+        "recheck_recommendation": "commit_contract"
+      }
+    ]
   }
 }
