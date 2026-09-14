@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="1" result="Passed" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-09-14 13:59:31Z" end-time="2026-09-14 13:59:32Z" duration="0.5774291">
+  <test-suite type="TestSuite" id="1244" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="204" result="Passed" start-time="2026-09-14 13:59:31Z" end-time="2026-09-14 13:59:32Z" duration="0.577429" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="PlayMode" />
+    </properties>
+    <test-suite type="Assembly" id="1230" name="NoSafeCircle.DoorPrototype.Tests.dll" fullname="C:/NSC/_worktrees/nsc042-unity-exact-20260914/Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Tests.dll" runstate="Runnable" testcasecount="200" result="Passed" start-time="2026-09-14 13:59:31Z" end-time="2026-09-14 13:59:32Z" duration="0.563396" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="44288" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="PlayMode" />
+        <property name="EditorOnly" value="False" />
+      </properties>
+      <test-suite type="TestSuite" id="1231" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="200" result="Passed" start-time="2026-09-14 13:59:31Z" end-time="2026-09-14 13:59:32Z" duration="0.557929" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1232" name="DoorPrototype" fullname="NoSafeCircle.DoorPrototype" runstate="Runnable" testcasecount="200" result="Passed" start-time="2026-09-14 13:59:31Z" end-time="2026-09-14 13:59:32Z" duration="0.551909" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1233" name="Tests" fullname="NoSafeCircle.DoorPrototype.Tests" runstate="Runnable" testcasecount="200" result="Passed" start-time="2026-09-14 13:59:31Z" end-time="2026-09-14 13:59:32Z" duration="0.546616" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestFixture" id="1158" name="LongWallTraversalPlayModeTests" fullname="NoSafeCircle.DoorPrototype.Tests.LongWallTraversalPlayModeTests" classname="NoSafeCircle.DoorPrototype.Tests.LongWallTraversalPlayModeTests" runstate="Runnable" testcasecount="1" result="Passed" start-time="2026-09-14 13:59:31Z" end-time="2026-09-14 13:59:32Z" duration="0.537556" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1159" name="SavedScene_WizardTraversesBothSidesAndCrossesLongWallAtD1WithCorrectSorting" fullname="NoSafeCircle.DoorPrototype.Tests.LongWallTraversalPlayModeTests.SavedScene_WizardTraversesBothSidesAndCrossesLongWallAtD1WithCorrectSorting" methodname="SavedScene_WizardTraversesBothSidesAndCrossesLongWallAtD1WithCorrectSorting" classname="NoSafeCircle.DoorPrototype.Tests.LongWallTraversalPlayModeTests" runstate="Runnable" seed="27877747" result="Passed" start-time="2026-09-14 13:59:31Z" end-time="2026-09-14 13:59:32Z" duration="0.520148" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[Saving results to: C:/Users/VincentLiguori/AppData/LocalLow/DefaultCompany/NoSafeCircle\TestResults.xml
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>
