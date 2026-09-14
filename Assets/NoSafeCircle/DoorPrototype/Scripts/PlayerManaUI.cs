@@ -25,14 +25,7 @@ namespace NoSafeCircle.DoorPrototype
         private void OnDisable()
         {
             Unsubscribe();
-            deniedFlashTween?.Kill();
-            deniedFlashTween = null;
-
-            if (feedbackImage != null && normalColorCaptured)
-            {
-                feedbackImage.color = normalColor;
-            }
-
+            StopDeniedFlash();
         }
 
         private void Update()
@@ -45,6 +38,7 @@ namespace NoSafeCircle.DoorPrototype
 
         public void Bind(PlayerMana source, Image target)
         {
+            StopDeniedFlash();
             Unsubscribe();
             mana = source;
             fillImage = target;
@@ -105,6 +99,18 @@ namespace NoSafeCircle.DoorPrototype
             }
         }
 
+        private void StopDeniedFlash()
+        {
+            var wasFlashing = deniedFlashTween != null;
+            deniedFlashTween?.Kill();
+            deniedFlashTween = null;
+
+            if (wasFlashing && feedbackImage != null && normalColorCaptured)
+            {
+                feedbackImage.color = normalColor;
+            }
+        }
+
         /// Presents readable low-mana feedback on the mana indicator
         /// when a cast is denied due to insufficient mana.
         private void HandleCastDenied(float requestedAmount)
@@ -112,10 +118,15 @@ namespace NoSafeCircle.DoorPrototype
             if (feedbackImage != null)
             {
                 deniedFlashTween?.Kill();
-                feedbackImage.color = deniedColor;
+                var target = feedbackImage;
+                var restoreColor = normalColor;
+                target.color = deniedColor;
                 deniedFlashTween = DOTween.Sequence()
                     .AppendInterval(deniedFlashDuration)
-                    .AppendCallback(() => feedbackImage.color = normalColor)
+                    .AppendCallback(() =>
+                    {
+                        if (target != null) target.color = restoreColor;
+                    })
                     .OnComplete(() => deniedFlashTween = null);
             }
         }

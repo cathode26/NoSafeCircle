@@ -445,6 +445,83 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 Object.Destroy(barObject);
             }
         }
+
+        [UnityTest]
+        public IEnumerator PlayerManaUI_RepeatedDeniedCast_RestartsFlashAndDisableRestoresColor()
+        {
+            var uiObject = new GameObject("TestManaUI");
+            try
+            {
+                var image = uiObject.AddComponent<Image>();
+                var authoredColor = new Color(0.1f, 0.2f, 0.7f, 1f);
+                image.color = authoredColor;
+                var ui = uiObject.AddComponent<PlayerManaUI>();
+                SetPrivateField(ui, "deniedFlashDuration", 0.2f);
+                ui.Bind(mana, image);
+
+                mana.Spend(mana.CurrentMana + 10f);
+                yield return new WaitForSeconds(0.12f);
+                mana.Spend(mana.CurrentMana + 10f);
+                yield return new WaitForSeconds(0.12f);
+
+                Assert.AreEqual((Color)GetPrivateField(ui, "deniedColor"), image.color,
+                    "A second denied cast must restart the flash instead of allowing the first tween to restore early.");
+
+                ui.enabled = false;
+                Assert.AreEqual(authoredColor, image.color,
+                    "Disabling the UI during a flash must restore the scene-authored color immediately.");
+                Assert.IsNull(GetPrivateField(ui, "deniedFlashTween"),
+                    "Disabling the UI must release its owned feedback tween.");
+
+                yield return new WaitForSeconds(0.12f);
+                Assert.AreEqual(authoredColor, image.color,
+                    "A killed tween must not change the image after the UI is disabled.");
+            }
+            finally
+            {
+                Object.Destroy(uiObject);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator PlayerManaUI_RebindDuringFlash_RestoresPreviousImage()
+        {
+            var uiObject = new GameObject("TestManaUI");
+            var nextImageObject = new GameObject("NextManaImage");
+            try
+            {
+                var firstImage = uiObject.AddComponent<Image>();
+                var firstColor = new Color(0.1f, 0.2f, 0.7f, 1f);
+                firstImage.color = firstColor;
+                var nextImage = nextImageObject.AddComponent<Image>();
+                var nextColor = new Color(0.2f, 0.6f, 0.8f, 1f);
+                nextImage.color = nextColor;
+                var ui = uiObject.AddComponent<PlayerManaUI>();
+                SetPrivateField(ui, "deniedFlashDuration", 0.2f);
+                ui.Bind(mana, firstImage);
+
+                mana.Spend(mana.CurrentMana + 10f);
+                Assert.AreEqual((Color)GetPrivateField(ui, "deniedColor"), firstImage.color);
+
+                ui.Bind(mana, nextImage);
+                Assert.AreEqual(firstColor, firstImage.color,
+                    "Rebinding must restore the previous feedback image before moving the tween owner.");
+                Assert.AreEqual(nextColor, nextImage.color,
+                    "Rebinding must capture and preserve the replacement image's authored color.");
+
+                mana.Spend(mana.CurrentMana + 10f);
+                Assert.AreEqual((Color)GetPrivateField(ui, "deniedColor"), nextImage.color);
+                yield return new WaitForSeconds(0.25f);
+                Assert.AreEqual(nextColor, nextImage.color);
+                Assert.AreEqual(firstColor, firstImage.color);
+            }
+            finally
+            {
+                Object.Destroy(uiObject);
+                Object.Destroy(nextImageObject);
+            }
+        }
+
         // AC-003 (regression-only ownership-boundary invariant): PlayerMana continues to
         // own only current mana and post-cast regen-delay state and must not absorb
         // spell-local cooldown/charge/cast/placement/active-field state. This locks the
