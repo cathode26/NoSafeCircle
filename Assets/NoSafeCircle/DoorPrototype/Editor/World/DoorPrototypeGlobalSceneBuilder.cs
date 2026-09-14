@@ -8,6 +8,7 @@ using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.UI;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using NoSafeCircle.DoorPrototype.Editor.Enemies;
 using Object = UnityEngine.Object;
 
 namespace NoSafeCircle.DoorPrototype.Editor.World
@@ -105,6 +106,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
             "Main Camera",
             "Player",
             "PlayerSpawn",
+            StationaryEnemyPresentationBuilder.ReviewRootName,
             "Canvas",
             "EventSystem"
         };
@@ -312,6 +314,16 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
             }
             SetPrivateField(movement, "inputActions", inputActions);
             playerSpawn = BuildPlayerSpawn(movement.transform).transform;
+
+            // Keep the presentation-only examples after a later whole-scene rebuild. The
+            // named enemy builder creates the prefabs first; ordinary in-memory scene tests
+            // and projects without those prefabs do not gain persistent review objects.
+            Scene scene = SceneManager.GetActiveScene();
+            if (scene.path == StationaryEnemyPresentationBuilder.ScenePath &&
+                StationaryEnemyPresentationBuilder.HasGeneratedPrefabs())
+            {
+                StationaryEnemyPresentationBuilder.PlaceReviewInstances(scene);
+            }
         }
 
         private static GameObject BuildPlayerSpawn(Transform player)
