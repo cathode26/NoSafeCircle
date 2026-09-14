@@ -73,4 +73,9 @@ Any work involving Unity build targets, platform-dependent APIs or plugins, WebG
 
 Task meaning comes from the selected task contract and current approved canon. Deterministic tools, not agent claims, establish test results and clean-tree state.
 
+For every task that authors or changes a repeatable wall, read and apply
+`Docs/Engineering/WALL_TILING_IMPLEMENTATION_GUIDE.md` before proposing or changing the
+wall asset, builder, or tests. The standard records the NSC-042 convention; the
+selected task contract still owns scope and delivery proof.
+
 Do not duplicate the complete testing, handoff, orchestration, or approved-artifact policies here; use the canonical documents above.

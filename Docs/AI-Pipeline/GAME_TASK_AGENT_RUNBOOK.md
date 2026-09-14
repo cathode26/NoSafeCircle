@@ -4,6 +4,10 @@
 
 The Game Task Agent connects the durable GitHub Issue workflow to the existing real implementation pipeline:
 
+### Repeatable wall-tile work
+
+Before the implementation crew starts any task that authors or changes repeatable wall Tilemap art, it must read and apply [the wall tiling implementation guide](../Engineering/WALL_TILING_IMPLEMENTATION_GUIDE.md). The selected task contract still defines scope and its required delivery proof.
+
 For explicit whole-run provider selection, use the canonical launcher's
 `-ProviderProfile` option. The [provider profiles and budget-routing guide](PROVIDER_PROFILES_AND_BUDGET_ROUTING.md)
 defines `all-claude`, `all-codex`, `claude-architect-balanced`, and
