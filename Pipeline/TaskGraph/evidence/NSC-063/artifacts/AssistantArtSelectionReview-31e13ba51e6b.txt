@@ -1,0 +1,5 @@
+NSC-063 assistant art-selection review
+Validated commit: 31e13ba51e6bf6b654157f8ba2d690cf80cdfa49
+Reviewed Docs/Art/Enemies/contact_sheet.png and Candidates/_inspection/old_vs_new_gameplay_48.png. The revised melee enemy has a separate bright cleaver silhouette in all eight facings; the original low cleaver was mostly occluded. The revised ranged enemy has a brighter teal lantern and visible pale hood/eyes, and stays readable against the dark sheet at approximate 48-pixel size; the original was nearly black. Both sets retain compact hooded silhouettes, distinct rust/ember vs teal/violet palettes, transparent backgrounds, grounded feet, and dark-cute spooky tone. I saw no gore, text, or obvious borrowed franchise imagery.
+This is assistant selection under VAL-002, not Vincent approval. The 48-pixel sheet is a desk check, not in-engine scale. The revised native canvas is 128x128 versus the superseded 180x180 set. NSC-077 must bind the exact sprites, check actual Unity scaling and silhouettes, and obtain Vincent's visual decision there.
+Result: PASS for task completion gate VAL-002.

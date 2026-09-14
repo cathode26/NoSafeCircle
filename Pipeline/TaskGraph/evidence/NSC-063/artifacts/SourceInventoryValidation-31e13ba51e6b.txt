@@ -1,0 +1,7 @@
+NSC-063 source inventory check
+Validated commit: 31e13ba51e6bf6b654157f8ba2d690cf80cdfa49
+Contract revision: 2; graph: 93 tasks load.
+Selected source: 16 PNGs, one idle frame per melee/ranged archetype in each of n, ne, e, se, s, sw, w, nw.
+Every selected PNG matches the current inventory SHA-256 and the corresponding PixelLab melee_c/ranged_c raw-export bytes. Every PNG is transparent RGBA 128x128 with opaque character pixels.
+Unity metadata: 16 PNG .meta files plus Enemies and Source folder .meta files; 18 unique GUIDs. No scene, prefab, Animator, behavior, or Unity appearance validation is claimed.
+Result: PASS for task completion gate VAL-001.
