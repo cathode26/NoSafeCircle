@@ -4,22 +4,32 @@ This file is operating guidance, not GDD canon.
 
 ## Conversation-operated work
 
-For Vincent's assistant-operated workflow, use `Pipeline/AssistantControl/README.md`.
+For individual-task inspection, readiness, reservation, worker and candidate
+records in Vincent's assistant-operated workflow, use
+`Pipeline/AssistantControl/README.md`. Its opening graph-preparation/controller
+section documents the retired autonomous mode and is historical for the
+current three-agent graph team; follow `Docs/AI-Pipeline/GRAPH_TEAM_STARTUP.md`
+for graph work.
 Before starting or resuming the three-agent graph-management team, read
 `Docs/AI-Pipeline/GRAPH_TEAM_STARTUP.md` and the matching
-`CODEX_GRAPH_TEAM_STARTUP.md` or `CLAUDE_GRAPH_TEAM_STARTUP.md` beside it, then
-run that provider's read-only startup check.
+`CODEX_GRAPH_TEAM_STARTUP.md` or `CLAUDE_GRAPH_TEAM_STARTUP.md` beside it. The
+provider page's legacy identity diagnostic is optional investigative tooling,
+not clearance to start a controller.
 The Sol/Luna/Spark graph roles are separate from per-task execution crews;
-`--capacity 3` means worker slots, not three graph-management agents.
-Primary Sol owns cross-project priorities and repair lanes; Graph Sol alone
-owns the live AssistantControl graph controller and escalates blockers to Primary Sol.
-The assistant selects and controls work through conversation; its viewer is
-read-only. The legacy Issue/scheduler procedures below describe the older mode
-and do not require starting that scheduler, creating a managed Issue, or posting
-approval when using AssistantControl. Keep each task in its owned independent
-checkout. Only Vincent's explicit test decision may approve its exact candidate
-commit. Provider spending and GitHub publication require authorization for that
-action. Existing legacy mode remains available when explicitly requested.
+they are three conversational agents with bounded roles, not an autonomous
+controller. Graph Sol runs eligible graph tasks within Vincent's current
+priorities and limits. Luna performs bounded setup work and Spark observes
+read-only. Orchestrator Sol receives Graph Sol's task-problem reports, tells
+Vincent, coordinates repair with him, and tells Graph Sol when a task may be
+reconsidered. A fresh Graph Sol session reads the durable graph, status,
+priorities and limits; it does not need an exact task list from Orchestrator
+Sol. Keep each task in its owned independent checkout. Only Vincent's explicit
+test decision may approve its exact candidate commit. Provider spending and
+GitHub publication require authorization for that action. Existing legacy mode
+remains available when explicitly requested. The legacy Issue and scheduler
+procedures below are likewise outside the conversational three-agent mode and
+do not require starting that scheduler or creating a managed Issue unless that
+legacy mode is explicitly requested.
 
 ## Shared project guidance
 
@@ -35,9 +45,9 @@ Any agent creating, modifying, reviewing, or running tests must first read `Docs
 
 Any agent producing task titles, task contracts, decomposition proposals, review findings, implementation summaries, test summaries, validation summaries, issue comments, closeouts, handoffs, or other human-facing output must first read `Docs/AI-Pipeline/UNITY_PROGRAMMER_LANGUAGE.md`. The primary human reader is a Unity game programmer. Use concrete Unity terms in human-facing text and keep abstract taxonomy only where a machine-facing schema requires it.
 
-Any ChatGPT instance that selects, claims, starts, orchestrates, releases, or closes a real task while multiple task-orchestrator windows may be active must first read `Docs/AI-Pipeline/PARALLEL_CHATGPT_TASK_ORCHESTRATOR_RULES.md`, `Docs/AI-Pipeline/TASK_SELECTION_AND_CHECKOUT.md`, and `Docs/AI-Pipeline/GITHUB_TICKET_ORCHESTRATION_MVP.md`. Start candidate discovery with `python Pipeline/TaskGraph/taskcontrol.py states --state not_delivered`, then inspect plausible candidates with `taskcontrol.py show <TASK-ID>`. `not_delivered` is an evidence-derived candidate signal only; it does not establish dependency readiness or execution authorization. Before selecting work, search GitHub Issues for each candidate NSC ID, skip assigned or closed tickets, inspect exclusive-resource conflicts, claim the chosen Issue before creating the task checkout, and publish the required planned-approach and closeout reports. GitHub Issue state is operational coordination only; TaskGraph and committed evidence remain authoritative.
+In the legacy Issue/scheduler mode, any ChatGPT instance that selects, claims, starts, orchestrates, releases, or closes a real task while multiple task-orchestrator windows may be active must first read `Docs/AI-Pipeline/PARALLEL_CHATGPT_TASK_ORCHESTRATOR_RULES.md`, `Docs/AI-Pipeline/TASK_SELECTION_AND_CHECKOUT.md`, and `Docs/AI-Pipeline/GITHUB_TICKET_ORCHESTRATION_MVP.md`. Start candidate discovery with `python Pipeline/TaskGraph/taskcontrol.py states --state not_delivered`, then inspect plausible candidates with `taskcontrol.py show <TASK-ID>`. `not_delivered` is an evidence-derived candidate signal only; it does not establish dependency readiness or execution authorization. Before selecting work, search GitHub Issues for each candidate NSC ID, skip assigned or closed tickets, inspect exclusive-resource conflicts, claim the chosen Issue before creating the task checkout, and publish the required planned-approach and closeout reports. GitHub Issue state is operational coordination only; TaskGraph and committed evidence remain authoritative.
 
-Before selecting a new TaskGraph task, every generic task agent must run `python Pipeline/TaskReviewAgent/issue_queue.py --source .` and inspect validated `agent_ready` Issues. A valid managed Issue must be resumed before fresh work is selected. The managed Issue body records the current owner, phase, branch, commit, checkout, and next action; its append-only hashed event comments prove the transition history. `human_action_required` means Vincent owns the current Unity/runtime checklist and agents must stop. `agent_working` means only the recorded worker owns the current lease. An invalid, forked, edited, stale, or label-mismatched Issue workflow must fail closed instead of being guessed around. Read `Docs/AI-Pipeline/ISSUE_WORKFLOW_STATE_MACHINE.md`, `Docs/AI-Pipeline/GAME_TASK_AGENT_RUNBOOK.md`, and `Pipeline/TaskReviewAgent/README.md` before changing a managed Issue. The normal connected implementation entry point is `Pipeline/TaskReviewAgent/Start-GameTaskAgent.ps1`: use an explicit task ID for fresh work and omit the task ID to resume validated agent-ready work.
+In that legacy mode, before selecting a new TaskGraph task, every generic task agent must run `python Pipeline/TaskReviewAgent/issue_queue.py --source .` and inspect validated `agent_ready` Issues. A valid managed Issue must be resumed before fresh work is selected. The managed Issue body records the current owner, phase, branch, commit, checkout, and next action; its append-only hashed event comments prove the transition history. `human_action_required` means Vincent owns the current Unity/runtime checklist and agents must stop. `agent_working` means only the recorded worker owns the current lease. An invalid, forked, edited, stale, or label-mismatched Issue workflow must fail closed instead of being guessed around. Read `Docs/AI-Pipeline/ISSUE_WORKFLOW_STATE_MACHINE.md`, `Docs/AI-Pipeline/GAME_TASK_AGENT_RUNBOOK.md`, and `Pipeline/TaskReviewAgent/README.md` before changing a managed Issue. The normal connected implementation entry point is `Pipeline/TaskReviewAgent/Start-GameTaskAgent.ps1`: use an explicit task ID for fresh work and omit the task ID to resume validated agent-ready work.
 
 After Vincent completes the exact managed-Issue checklist and explicitly reports PASS, the standard combined handoff is `python Pipeline/TaskReviewAgent/pass_and_resume_task.py <TASK-ID> --source . --checkout-root C:\NSC\NSC --execution-provider claude --tested-commit <exact-40-character-SHA> --apply`. The helper verifies the clean exact handoff commit locally and remotely, posts PASS, applies `nsc-state:agent-ready`, waits for GitHub's state/event transition to become internally consistent, and only then invokes the canonical launcher. It must never be used to infer or fabricate a human test result.
 
