@@ -273,10 +273,16 @@ class AssistantSnapshot:
             if expiry <= now:
                 continue
             row = by_id[task_id]
-            if row.get("state") in {"active", "complete", "local_accepted", "human_action"}:
+            # An external worker may continue a task after AssistantControl
+            # handed it to Vincent for a prior review.  Keep complete and
+            # locally accepted decisions authoritative, but let a live,
+            # expiring external marker make that work visible as active.
+            if row.get("state") in {"active", "complete", "local_accepted"}:
                 continue
+            underlying_state = row.get("state")
             row["external_work_overlay"] = {
                 "description": description.strip(), "expires_at": entry["expires_at"],
+                "underlying_state": underlying_state,
             }
             row["state"] = "active"
             row["in_scope"] = True

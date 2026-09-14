@@ -1027,6 +1027,7 @@ class DuplicateViewerPortTests(unittest.TestCase):
         rows = [
             {"id": "NSC-003", "state": "ready", "in_scope": False},
             {"id": "NSC-012", "state": "complete", "in_scope": False},
+            {"id": "NSC-013", "state": "human_action", "in_scope": False},
         ]
         path.write_text(json.dumps({
             "schema_version": "assistant-viewer-external-work/v1",
@@ -1035,6 +1036,8 @@ class DuplicateViewerPortTests(unittest.TestCase):
                  "expires_at": "2999-01-01T00:00:00+00:00"},
                 {"task_id": "NSC-012", "description": "Stale marker",
                  "expires_at": "2999-01-01T00:00:00+00:00"},
+                {"task_id": "NSC-013", "description": "Manual recovery",
+                 "expires_at": "2999-01-01T00:00:00+00:00"},
             ],
         }), encoding="utf-8")
         reader._apply_external_work_overlay(rows)
@@ -1042,6 +1045,9 @@ class DuplicateViewerPortTests(unittest.TestCase):
         self.assertTrue(rows[0]["in_scope"])
         self.assertEqual("external_work", rows[0]["progress"]["phase"])
         self.assertEqual("complete", rows[1]["state"])
+        self.assertEqual("active", rows[2]["state"])
+        self.assertEqual("human_action", rows[2]["external_work_overlay"]["underlying_state"])
+        self.assertEqual("Manual recovery", rows[2]["external_work_overlay"]["description"])
         path.write_text(json.dumps({
             "schema_version": "assistant-viewer-external-work/v1",
             "tasks": [{"task_id": "NSC-003", "description": "Expired",
@@ -1050,6 +1056,16 @@ class DuplicateViewerPortTests(unittest.TestCase):
         fresh = [{"id": "NSC-003", "state": "ready", "in_scope": False}]
         reader._apply_external_work_overlay(fresh)
         self.assertEqual("ready", fresh[0]["state"])
+
+        expired_review = [{"id": "NSC-013", "state": "human_action", "in_scope": False}]
+        path.write_text(json.dumps({
+            "schema_version": "assistant-viewer-external-work/v1",
+            "tasks": [{"task_id": "NSC-013", "description": "Expired review",
+                       "expires_at": "2000-01-01T00:00:00+00:00"}],
+        }), encoding="utf-8")
+        reader._apply_external_work_overlay(expired_review)
+        self.assertEqual("human_action", expired_review[0]["state"])
+        self.assertNotIn("external_work_overlay", expired_review[0])
 
     def test_committed_decomposition_supersedes_old_failed_attempt(self):
         reader = AssistantSnapshot(self.root, self.checkout_root())
