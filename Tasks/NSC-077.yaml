@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-077",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "contract_disposition": "active",
   "title": "Stationary Enemy Sprite Integration and Room Placement",
   "reconciliation_key": "stationary-enemy-sprite-integration",
@@ -12,7 +12,7 @@
   "decomposition_state": "concrete",
   "decomposition_reason": "The source-art import contract, shared presentation component, prefab materialization, room review placement, and focused conformance checks form one intentionally presentation-only vertical slice. No child task is required or permitted.",
   "parent": "NSC-010",
-  "depends_on": ["NSC-063", "NSC-039", "NSC-069"],
+  "depends_on": ["NSC-063", "NSC-039"],
   "exclusive_resources": [
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/Enemies",
@@ -103,7 +103,7 @@
   "basis": "human_requested_stationary_enemy_presentation_followup",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "TaskGraph-only candidate for an intentionally presentation-only vertical slice. NSC-063 is the sole source-art authority; this task consumes all 16 approved selected images and does not edit the source-art handoff. NSC-039 supplies sorting conventions and NSC-069 supplies the composed five-room foundation. The candidate must stop with a dependency blocker if any prerequisite is not approved or available. Generated Unity assets and scene serialization belong to the named builder and must not be hand-authored. Human visual approval is required before integration.",
+  "notes": "TaskGraph-only candidate for an intentionally presentation-only vertical slice. NSC-063 is the sole source-art authority; this task consumes all 16 approved selected images and does not edit the source-art handoff. NSC-039 supplies sorting conventions. NSC-069's composed five-room implementation is already committed; its missing delivery record does not block this task. The worker must still use and validate the actual composed scene required by AC-003 and VAL-003. The candidate must stop if approved source art or sorting code is unavailable. Generated Unity assets and scene serialization belong to the named builder and must not be hand-authored. Human visual approval is required before integration.",
   "repository_state_at_bootstrap": "partial",
   "repository_evidence_at_bootstrap": [
     {
