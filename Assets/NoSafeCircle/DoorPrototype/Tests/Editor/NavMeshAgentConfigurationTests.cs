@@ -72,8 +72,16 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             agent.height = expectedSettings.agentHeight;
             agent.Warp(startHit.position);
 
+            Assert.AreEqual(expectedSettings.agentTypeID, agent.agentTypeID,
+                "The test-owned NavMeshAgent must use the same project agent type as the baked surface.");
+
+            // Edit Mode does not run the NavMeshAgent activation/update loop. CalculatePath on an
+            // unactivated component therefore reports that the agent is not placed on a NavMesh,
+            // even though the baked NavMesh is valid. Static CalculatePath exercises the same
+            // baked polygons here; the agent type binding is asserted above and true agent
+            // activation remains a Play Mode concern.
             var path = new NavMeshPath();
-            var foundPath = agent.CalculatePath(endHit.position, path);
+            var foundPath = NavMesh.CalculatePath(startHit.position, endHit.position, NavMesh.AllAreas, path);
 
             Assert.IsTrue(foundPath,
                 "Expected the test-owned NavMeshAgent to compute a path across the open test floor.");
@@ -139,8 +147,14 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                 agent.height = expectedSettings.agentHeight;
                 agent.Warp(startHit.position);
 
+                Assert.AreEqual(expectedSettings.agentTypeID, agent.agentTypeID,
+                    "The test-owned NavMeshAgent must use the same project agent type as the composed surface.");
+
+                // See the isolated-floor proof above: in Edit Mode the component has not gone
+                // through Unity's runtime agent activation, so use the static path query to prove
+                // the composed collision NavMesh while retaining the explicit agent-type check.
                 var path = new NavMeshPath();
-                var foundPath = agent.CalculatePath(endHit.position, path);
+                var foundPath = NavMesh.CalculatePath(startHit.position, endHit.position, NavMesh.AllAreas, path);
 
                 Assert.IsTrue(foundPath,
                     "Expected the test-owned NavMeshAgent to compute a path across the composed gameplay floor.");
