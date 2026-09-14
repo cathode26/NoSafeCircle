@@ -1,0 +1,176 @@
+{
+  "schema": "nsc-pixellab-door-provenance-recovery/v1",
+  "task_id": "NSC-065",
+  "basis": "Recorded PixelLab MCP tool-use inputs and success responses in retained local Docker logs; selected PNG hashes match retained raw Family B exports. requested_at_utc is tool-call time, not job completion time.",
+  "negative_prompt": "No separate negative-prompt parameter was sent. Exclusions appear in the base description or generation plan; no undocumented negative prompt is inferred.",
+  "model_detail": "The exact PixelLab internal model version was not present in the recorded MCP inputs. Tool names and style parameters are preserved per call.",
+  "selected": [
+    {
+      "state": "sealed",
+      "selected_file": "Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source/door_bonestone_sealed_S_000.png",
+      "sha256": "d3e59d3e8546fe98c8959d0750e367699cc5199c1ab666146b24ed0fb592a215",
+      "guid": "5a184cf226ba75e4883e951007bbf23a",
+      "alpha_bbox": [
+        6,
+        4,
+        122,
+        121
+      ],
+      "raw_candidate_matches": true,
+      "pixellab_job_id": "99f204e7-c2e6-4b79-96bf-91f1aab741b9",
+      "tool": "mcp__pixellab__create_image_pixflux",
+      "source_job_id": null,
+      "input": {
+        "description": "2.5D isometric game sprite, front-facing dungeon doorway viewed from a fixed three-quarter isometric camera, compact weathered stone frame with a painted wooden slab and a simple stylized bone-shaped latch, charming eerie pixel-art fantasy, dark violet slate and moss palette with one warm amber light, chunky shapes and clear silhouette at gameplay scale, centered full door and threshold, no text",
+        "width": 128,
+        "height": 128,
+        "view": "low top-down",
+        "outline": "single color black outline",
+        "shading": "basic shading",
+        "detail": "medium detail",
+        "no_background": true,
+        "seed": 20001
+      },
+      "requested_at_utc": "2026-09-12T18:54:33.550763130Z",
+      "container_log": "nsc-pixellab-065-r3"
+    },
+    {
+      "state": "opening",
+      "selected_file": "Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source/door_bonestone_opening_S_000.png",
+      "sha256": "fd97714b621d6191110fffa2cf1f7d34400a9e5828f227b864eabd211793a227",
+      "guid": "8b50ae1ca04f8eb42b33b858c06434ff",
+      "alpha_bbox": [
+        6,
+        4,
+        122,
+        121
+      ],
+      "raw_candidate_matches": true,
+      "pixellab_job_id": "fc4d13cf-85e4-4bd3-a52f-1e98cc1d8ac9",
+      "tool": "mcp__pixellab__edit_image_pixen",
+      "source_job_id": "99f204e7-c2e6-4b79-96bf-91f1aab741b9",
+      "input": {
+        "image_url": "https://api.pixellab.ai/mcp/images/99f204e7-c2e6-4b79-96bf-91f1aab741b9/download",
+        "description": "door slightly ajar, opening outward with a narrow gap revealing a dark passage behind, same door design frame and threshold",
+        "seed": 20002
+      },
+      "requested_at_utc": "2026-09-12T18:56:39.475040233Z",
+      "container_log": "nsc-pixellab-065-r3"
+    },
+    {
+      "state": "open",
+      "selected_file": "Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source/door_bonestone_open_S_000.png",
+      "sha256": "c8629333ec866a62f37a9f4ef2d45b9a608a1219a2e02e25bccf46e42e378a4e",
+      "guid": "84df69766e0cb924cbe4635e25cffd14",
+      "alpha_bbox": [
+        6,
+        4,
+        122,
+        121
+      ],
+      "raw_candidate_matches": true,
+      "pixellab_job_id": "fd2b98a0-8f82-49ad-8117-c85bc9d1e7ba",
+      "tool": "mcp__pixellab__edit_image_pixen",
+      "source_job_id": "fc4d13cf-85e4-4bd3-a52f-1e98cc1d8ac9",
+      "input": {
+        "image_url": "https://api.pixellab.ai/mcp/images/fc4d13cf-85e4-4bd3-a52f-1e98cc1d8ac9/download",
+        "description": "door fully swung open, wide open passage clearly visible and dark inside, same frame and threshold",
+        "seed": 20006
+      },
+      "requested_at_utc": "2026-09-12T19:00:23.300412273Z",
+      "container_log": "nsc-pixellab-065-r4"
+    },
+    {
+      "state": "locked",
+      "selected_file": "Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source/door_bonestone_locked_S_000.png",
+      "sha256": "6f33e99f8d67b50265142be0beb9c465dd40498f76b9ca0e51086444518c4e02",
+      "guid": "d704fd93c23e99247977df08693fccc6",
+      "alpha_bbox": [
+        6,
+        4,
+        122,
+        121
+      ],
+      "raw_candidate_matches": true,
+      "pixellab_job_id": "f1f290b0-28c0-4b90-8bf6-eddbb6a6f09b",
+      "tool": "mcp__pixellab__edit_image_pixen",
+      "source_job_id": "99f204e7-c2e6-4b79-96bf-91f1aab741b9",
+      "input": {
+        "image_url": "https://api.pixellab.ai/mcp/images/99f204e7-c2e6-4b79-96bf-91f1aab741b9/download",
+        "description": "add a stylized bone crossbar latch bound tightly across the closed wooden slab, otherwise identical closed door and frame",
+        "seed": 20003
+      },
+      "requested_at_utc": "2026-09-12T18:56:40.751315576Z",
+      "container_log": "nsc-pixellab-065-r3"
+    },
+    {
+      "state": "damaged",
+      "selected_file": "Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source/door_bonestone_damaged_S_000.png",
+      "sha256": "64d3d56a191b2a910f98e6987920ab2019b06f163277400948e828db90a43a0e",
+      "guid": "46924dd78ef82ac4da917df16bfdf9cd",
+      "alpha_bbox": [
+        6,
+        4,
+        122,
+        121
+      ],
+      "raw_candidate_matches": true,
+      "pixellab_job_id": "2fc55322-5674-4e3e-9196-4c206bdb91d1",
+      "tool": "mcp__pixellab__edit_image_pixen",
+      "source_job_id": "99f204e7-c2e6-4b79-96bf-91f1aab741b9",
+      "input": {
+        "image_url": "https://api.pixellab.ai/mcp/images/99f204e7-c2e6-4b79-96bf-91f1aab741b9/download",
+        "description": "add cracks splinters and dents across the wooden slab surface, still mostly closed, same frame and threshold",
+        "seed": 20004
+      },
+      "requested_at_utc": "2026-09-12T19:00:20.576673393Z",
+      "container_log": "nsc-pixellab-065-r4"
+    },
+    {
+      "state": "broken",
+      "selected_file": "Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source/door_bonestone_broken_S_000.png",
+      "sha256": "8644c0bd2f8ae87c9530d11809edccdd64ea31d81e9e48a0be7a6d6653bc935f",
+      "guid": "7feb95b365dfa244e94bec807a63f154",
+      "alpha_bbox": [
+        6,
+        4,
+        122,
+        121
+      ],
+      "raw_candidate_matches": true,
+      "pixellab_job_id": "8002b0e8-6d4a-491c-afdf-53febab10109",
+      "tool": "mcp__pixellab__edit_image_pixen",
+      "source_job_id": "2fc55322-5674-4e3e-9196-4c206bdb91d1",
+      "input": {
+        "image_url": "https://api.pixellab.ai/mcp/images/2fc55322-5674-4e3e-9196-4c206bdb91d1/download",
+        "description": "door breached and broken open, splintered hole with the passage open and visible, hanging loosely on one hinge, wood shards on the ground, same frame and threshold",
+        "seed": 20007
+      },
+      "requested_at_utc": "2026-09-12T19:02:09.856861252Z",
+      "container_log": "nsc-pixellab-065-r4"
+    },
+    {
+      "state": "final",
+      "selected_file": "Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source/door_bonestone_final_S_000.png",
+      "sha256": "46061355941a506b53a2a25c19c59297206d9864f7d3ef31bc83f252197ec11f",
+      "guid": "3f360e9152266e04c9d764cf8d915754",
+      "alpha_bbox": [
+        6,
+        4,
+        122,
+        121
+      ],
+      "raw_candidate_matches": true,
+      "pixellab_job_id": "8fc65029-99cb-4113-979c-9944c3e897e0",
+      "tool": "mcp__pixellab__edit_image_pixen",
+      "source_job_id": "99f204e7-c2e6-4b79-96bf-91f1aab741b9",
+      "input": {
+        "image_url": "https://api.pixellab.ai/mcp/images/99f204e7-c2e6-4b79-96bf-91f1aab741b9/download",
+        "description": "add a warm golden rim light glowing around the door edges and a small carved bone crest emblem on the door, otherwise identical closed door design",
+        "seed": 20005
+      },
+      "requested_at_utc": "2026-09-12T19:00:21.919169543Z",
+      "container_log": "nsc-pixellab-065-r4"
+    }
+  ]
+}

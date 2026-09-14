@@ -1,7 +1,9 @@
 # PixelLab door generation record
 
-NSC-065 generated two bounded seven-state families through the authenticated PixelLab MCP. The comparison is retained in `contact_sheet.png`; raw exports remain under `Candidates/`.
+NSC-065 generated two bounded seven-state families through the authenticated PixelLab MCP. The comparison is retained in `contact_sheet.png`. The seven selected Family B source PNGs and their stable Unity `.meta` identities are committed under `Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source/`. The rejected Family A and original Family B exports remain in the retained NSC-065 assistant checkout outside this repository; they were not copied into the selected source folder.
 
 Family B was selected because its stone frame, threshold, perspective, and opening remain visually coherent across states. The open and broken images expose an unmistakable passage, the lock is readable at gameplay scale, and the palette fits the dark-but-cute horror-comedy direction. Family A remains a useful rejected comparison but has a flatter front-facing read.
 
-No animation, Unity import, scene change, runtime behavior, commit, push, or human visual approval is claimed here.
+`inventory.json` records the selected filenames, state, seed, PixelLab job ID, dimensions, format, and SHA-256. `generation-provenance.json` reconstructs the seven **successful** generation calls from the retained local PixelLab MCP logs: exact tool inputs and prompt descriptions, parent image IDs for edits, call times, and source hashes. The base call requested a 128×128 transparent sprite with `view: low top-down`, `outline: single color black outline`, `shading: basic shading`, and `detail: medium detail`; later PixeN edit calls inherited their source images. No separate negative-prompt argument or internal model version was recorded, so neither is inferred.
+
+This is a source-art selection. Unity has imported the PNGs to establish stable `.meta` identities, but no animation, scene change, prefab binding, runtime behavior, or in-game visual approval is claimed. Vincent's in-game readability decision remains open for the later door-art integration task.
