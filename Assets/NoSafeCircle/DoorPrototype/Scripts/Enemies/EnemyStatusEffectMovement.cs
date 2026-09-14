@@ -29,7 +29,7 @@ namespace NoSafeCircle.DoorPrototype.Enemies
 
         // Reused across RequestDisplacement calls (an infrequent ability-triggered operation,
         // not a per-frame one) to avoid allocating a new NavMeshPath on every request.
-        private readonly NavMeshPath displacementPath = new NavMeshPath();
+        private NavMeshPath displacementPath;
 
         /// AC-001/AC-002: true while an active Frost Field slowdown is currently reducing this
         /// enemy's NavMeshAgent speed below its authored baseline.
@@ -46,6 +46,7 @@ namespace NoSafeCircle.DoorPrototype.Enemies
         {
             if (agent == null) agent = GetComponent<NavMeshAgent>();
             baselineSpeed = agent.speed;
+            displacementPath = new NavMeshPath();
         }
 
         private void Update()
