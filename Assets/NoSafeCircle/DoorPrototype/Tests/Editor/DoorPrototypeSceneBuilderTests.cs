@@ -332,25 +332,70 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
         }
 
         [Test]
-        public void Build_DoorBreachFeedback_HasDoorAudioAndVisibleDurabilityFill()
+        public void Build_DoorBreachFeedback_HasSafeShakeAudioAndHiddenSealedIndicator()
         {
             DoorPrototypeSceneBuilder.BuildInMemoryForTests();
 
             var door = GameObject.Find("DoorRoot")?.GetComponent<DoorInteractable>();
-            var feedback = GameObject.Find("DoorRoot/DoorBreachFeedback")?.GetComponent<DoorBreachFeedback>();
-            var fill = GameObject.Find("DoorRoot/DoorBreachFeedback/DurabilityIndicator/Background/Fill")?.GetComponent<Image>();
+            var feedbackRoot = door?.transform.Find("DoorBreachFeedback");
+            var feedback = feedbackRoot?.GetComponent<DoorBreachFeedback>();
+            var indicator = feedbackRoot?.Find("DurabilityIndicator");
+            var fill = indicator?.Find("Background/Fill")?.GetComponent<Image>();
             var audio = feedback?.GetComponent<AudioSource>();
+            var shakeTarget = door?.transform.Find("DoorVisual/DoorSprite");
 
             Assert.IsNotNull(door);
             Assert.IsNotNull(feedback);
-            Assert.IsNotNull(fill, "The generated durability indicator needs a visible Fill image.");
+            Assert.IsNotNull(indicator);
+            Assert.IsFalse(indicator.gameObject.activeSelf, "A sealed door hides its durability indicator.");
+            Assert.IsNotNull(fill, "The generated durability indicator needs a Fill image.");
             Assert.IsNotNull(fill.sprite, "A Filled image without a sprite cannot show durability changes.");
             Assert.IsNotNull(audio, "The generated breach feedback needs a bang AudioSource.");
             Assert.IsFalse(audio.playOnAwake);
+            Assert.IsNotNull(shakeTarget);
+            Assert.AreEqual(0, shakeTarget.GetComponentsInChildren<Collider>(true).Length,
+                "Shaking DoorSprite and its crack children must never move collision.");
+            for (int stage = 1; stage <= 3; stage++)
+                Assert.IsNotNull(shakeTarget.Find("CrackStage" + stage));
 
             var serializedFeedback = new SerializedObject(feedback);
             Assert.AreSame(door, serializedFeedback.FindProperty("door").objectReferenceValue);
             Assert.AreSame(audio, serializedFeedback.FindProperty("bangAudio").objectReferenceValue);
+            Assert.AreSame(indicator.gameObject,
+                serializedFeedback.FindProperty("durabilityIndicator").objectReferenceValue);
+            Assert.AreSame(shakeTarget,
+                serializedFeedback.FindProperty("shakeTarget").objectReferenceValue);
+        }
+
+        [Test]
+        public void CommittedScene_D1AndD2HaveSafeBreachFeedbackWiring()
+        {
+            var scene = EditorSceneManager.OpenScene(CanonicalScenePath, OpenSceneMode.Single);
+            int checkedDoors = 0;
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                foreach (var door in root.GetComponentsInChildren<DoorInteractable>(true))
+                {
+                    if (door.DoorId != DoorId.D1 && door.DoorId != DoorId.D2) continue;
+                    var feedbackRoot = door.transform.Find("DoorBreachFeedback");
+                    var indicator = feedbackRoot?.Find("DurabilityIndicator");
+                    var shakeTarget = door.transform.Find("DoorVisual/DoorSprite");
+                    Assert.IsNotNull(feedbackRoot, door.DoorId.ToString());
+                    Assert.IsNotNull(indicator, door.DoorId.ToString());
+                    Assert.IsFalse(indicator.gameObject.activeSelf, door.DoorId.ToString());
+                    Assert.IsNotNull(shakeTarget, door.DoorId.ToString());
+                    Assert.AreEqual(0, shakeTarget.GetComponentsInChildren<Collider>(true).Length);
+                    var feedback = feedbackRoot.GetComponent<DoorBreachFeedback>();
+                    Assert.IsNotNull(feedback);
+                    var serialized = new SerializedObject(feedback);
+                    Assert.AreSame(door, serialized.FindProperty("door").objectReferenceValue);
+                    Assert.AreSame(shakeTarget, serialized.FindProperty("shakeTarget").objectReferenceValue);
+                    Assert.AreSame(indicator.gameObject,
+                        serialized.FindProperty("durabilityIndicator").objectReferenceValue);
+                    checkedDoors++;
+                }
+            }
+            Assert.AreEqual(2, checkedDoors, "The committed scene must include D1 and a D2 clone.");
         }
 
         [Test]
