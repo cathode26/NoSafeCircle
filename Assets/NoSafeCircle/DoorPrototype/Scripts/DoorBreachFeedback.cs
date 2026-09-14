@@ -12,6 +12,7 @@ namespace NoSafeCircle.DoorPrototype
     {
         [SerializeField] private DoorInteractable door;
         [SerializeField] private Transform shakeTarget;
+        [SerializeField] private GameObject durabilityIndicator;
         [SerializeField] private Image durabilityFill;
         [SerializeField] private GameObject[] crackStages;
         [SerializeField] private AudioSource bangAudio;
@@ -60,13 +61,14 @@ namespace NoSafeCircle.DoorPrototype
         }
 
         public void Bind(DoorInteractable target, Transform targetToShake, Image fill, GameObject[] cracks,
-            AudioSource bangSource = null)
+            AudioSource bangSource = null, GameObject indicatorObject = null)
         {
             if (door != null) door.DamageTaken -= HandleDamageTaken;
             if (door != null) door.Broken -= HandleBroken;
             if (door != null) door.ResetCompleted -= ResetFeedback;
             door = target;
             shakeTarget = targetToShake == null ? transform : targetToShake;
+            durabilityIndicator = indicatorObject;
             durabilityFill = fill;
             crackStages = cracks;
             bangAudio = bangSource;
@@ -86,6 +88,7 @@ namespace NoSafeCircle.DoorPrototype
             CancelShake();
             StopBang();
             if (durabilityFill != null) durabilityFill.fillAmount = 1f;
+            if (durabilityIndicator != null) durabilityIndicator.SetActive(false);
             SetCrackStage(-1);
         }
 
@@ -108,6 +111,8 @@ namespace NoSafeCircle.DoorPrototype
             if (door == null) return;
             var ratio = door.MaxDurability > 0f ? Mathf.Clamp01(door.CurrentDurability / door.MaxDurability) : 0f;
             if (durabilityFill != null) durabilityFill.fillAmount = ratio;
+            if (durabilityIndicator != null)
+                durabilityIndicator.SetActive(door.IsLocked && ratio > 0f && ratio < 1f);
             var stage = crackStages == null || crackStages.Length == 0
                 ? -1
                 : Mathf.Clamp(Mathf.CeilToInt((1f - ratio) * crackStages.Length) - 1, -1, crackStages.Length - 1);
