@@ -1171,6 +1171,7 @@ namespace NoSafeCircle.DoorPrototype.Editor
                 renderer.sharedMaterial = new Material(Shader.Find("Standard")) { color = new Color(0.1f, 0.01f, 0.01f) };
                 Object.DestroyImmediate(crack.GetComponent<Collider>());
                 crack.SetActive(false);
+                cracks[i] = crack;
             }
 
             // AddComponent invokes OnEnable before generated references are assigned, so use the
