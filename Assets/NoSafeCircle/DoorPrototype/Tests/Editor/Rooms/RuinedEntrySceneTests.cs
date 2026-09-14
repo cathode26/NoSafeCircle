@@ -219,7 +219,10 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
         public void CaptureGameplayCameraReview()
         {
             string output = Environment.GetEnvironmentVariable("NSC044_CAMERA_REVIEW_OUTPUT");
-            Assert.IsFalse(string.IsNullOrWhiteSpace(output));
+            if (string.IsNullOrWhiteSpace(output))
+            {
+                Assert.Ignore("Set NSC044_CAMERA_REVIEW_OUTPUT to run the explicit visual capture.");
+            }
             Assert.IsTrue(Path.IsPathRooted(output));
             string outputFull = Path.GetFullPath(output);
             string repository = Path.GetFullPath(Directory.GetCurrentDirectory())
