@@ -34,7 +34,7 @@ namespace NoSafeCircle.DoorPrototype.World.Rooms
                     new Vector3(-8f, 0f, -15f)),
                 new StationaryEnemyReviewAnchor(RoomId.RuinedEntry,
                     StationaryEnemyArchetype.Ranged, StationaryEnemyDirection.SouthWest,
-                    new Vector3(10f, 0f, -20f)),
+                    new Vector3(-4f, 0f, -10f)),
                 new StationaryEnemyReviewAnchor(RoomId.BoneArchive,
                     StationaryEnemyArchetype.Melee, StationaryEnemyDirection.North,
                     new Vector3(2f, 0f, 5f)),
