@@ -10,8 +10,15 @@ from pathlib import Path, PurePosixPath
 from typing import Any, Iterable
 
 CANONICAL_SCENE_ROOT = "Assets/Scenes/"
+# Bare paths cannot contain spaces: otherwise a requirement that mentions two
+# paths can be mistaken for one path spanning the prose between them. Quoted or
+# backticked paths may still contain spaces in Unity asset names.
 _SCENE_RE = re.compile(
-    r"Assets/(?:[A-Za-z0-9_.()@+ -]+/)+[A-Za-z0-9_.()@+ -]+\.unity(?:\.meta)?"
+    r"Assets/(?:[A-Za-z0-9_.()@+-]+/)+[A-Za-z0-9_.()@+-]+\.unity(?:\.meta)?"
+)
+_QUOTED_SCENE_RE = re.compile(
+    r"(?P<quote>[\"'`])(?P<path>Assets/(?:[A-Za-z0-9_.()@+ -]+/)+"
+    r"[A-Za-z0-9_.()@+ -]+\.unity(?:\.meta)?)(?P=quote)"
 )
 _TEXT_SUFFIXES = frozenset(
     {
@@ -92,10 +99,20 @@ def _tracked_paths(repository: Path, *patterns: str) -> list[str]:
     return sorted(item.decode("utf-8") for item in data.split(b"\0") if item)
 
 
+def _scene_references(text: str) -> Iterable[str]:
+    matches = {(match.start(), match.group(0)) for match in _SCENE_RE.finditer(text)}
+    for match in _QUOTED_SCENE_RE.finditer(text):
+        path = match.group("path")
+        if " " in path:
+            matches.add((match.start("path"), path))
+    for _, path in sorted(matches):
+        yield path
+
+
 def _references(value: Any, location: str) -> Iterable[tuple[str, str]]:
     if isinstance(value, str):
-        for match in _SCENE_RE.finditer(value):
-            yield location, match.group(0)
+        for reference in _scene_references(value):
+            yield location, reference
     elif isinstance(value, list):
         for index, item in enumerate(value):
             yield from _references(item, f"{location}[{index}]")
@@ -158,8 +175,7 @@ def inspect_scene_path_policy(root: Path | str | None = None) -> dict[str, Any]:
             findings.append(f"could not inspect live text file {relative}: {exc}")
             continue
         for line_number, line in enumerate(text.splitlines(), start=1):
-            for match in _SCENE_RE.finditer(line):
-                reference = match.group(0)
+            for reference in _scene_references(line):
                 if _historical_reference_allowed(relative, reference):
                     historical_reference_count += 1
                     continue

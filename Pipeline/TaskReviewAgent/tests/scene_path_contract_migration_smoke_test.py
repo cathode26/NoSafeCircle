@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 import tempfile
@@ -130,6 +131,34 @@ def test_historical_raw_context_is_not_live_scene_authority() -> None:
         )
 
 
+def test_scene_reference_matching_does_not_cross_prose() -> None:
+    with tempfile.TemporaryDirectory(prefix="nsc-scene-prose-") as temporary:
+        repo = Path(temporary)
+        subprocess.run(
+            ["git", "init", "-b", "main"],
+            cwd=repo,
+            check=True,
+            stdout=subprocess.PIPE,
+        )
+        tasks = repo / "Tasks"
+        tasks.mkdir()
+        contract = tasks / "NSC-089.yaml"
+        requirement = (
+            "The Edit Mode test Assets/NoSafeCircle/DoorPrototype/Tests/Editor/"
+            "NavMeshAgentConfigurationTests.cs uses a fresh in-memory scene. "
+            "After the No Safe Circle/Build Door Prototype Scene command materializes "
+            "Assets/Scenes/DoorPrototype.unity, inspect the composed floor and also "
+            "inspect `Assets/Scenes/Room One.unity`."
+        )
+        contract.write_text(
+            json.dumps({"completion_gates": [{"requirement": requirement}]}),
+            encoding="utf-8",
+        )
+        result = inspect_scene_path_policy(repo)
+        require(result["status"] == "pass", f"prose became a scene path: {result['findings']}")
+        require(result["task_scene_reference_count"] == 2, "expected both real scene paths")
+
+
 def test_missing_scene_resource_is_not_a_changed_blob() -> None:
     with tempfile.TemporaryDirectory(prefix="nsc-scene-object-") as temporary:
         repo = Path(temporary)
@@ -202,6 +231,7 @@ def main() -> int:
     tests = (
         test_repository_scene_policy,
         test_historical_raw_context_is_not_live_scene_authority,
+        test_scene_reference_matching_does_not_cross_prose,
         test_missing_scene_resource_is_not_a_changed_blob,
         test_contract_hash_rollover_is_append_only,
     )
