@@ -1,10 +1,12 @@
 """Focused guards for the one-time NSC-089 managed Issue recovery."""
 
 import unittest
+from dataclasses import replace
 from types import SimpleNamespace
 
 from Pipeline.TaskReviewAgent.issue_workflow import (
-    WorkflowActor, WorkflowEventType, WorkflowState, initial_state, transition,
+    WorkflowActor, WorkflowContractError, WorkflowEventType, WorkflowState,
+    initial_state, transition,
 )
 from Pipeline.TaskReviewAgent.recover_nsc089 import ADDED_RESOURCES, recover, verify_contract_repair
 
@@ -84,6 +86,24 @@ class RecoveryTests(unittest.TestCase):
                 recover(service, sha, NEW_SHA)
             self.assertEqual(service.backend.comments, [])
             self.assertEqual(service.backend.updates, [])
+
+    def test_null_migration_identity_is_only_valid_for_blocked_no_candidate(self):
+        blocked = Service().snapshot.state
+        details = {
+            "old_task_contract_sha256": OLD_SHA,
+            "new_task_contract_sha256": NEW_SHA,
+            "branch": None, "checkout_path": None,
+            "head_commit": None, "human_handoff_commit": None,
+            "human_result": None,
+        }
+        for state in (replace(blocked, branch="nsc-089-candidate"),
+                      replace(blocked, state=WorkflowState.AGENT_READY)):
+            with self.assertRaises(WorkflowContractError):
+                transition(
+                    state, event_type=WorkflowEventType.TASK_CONTRACT_MIGRATED,
+                    actor_type=WorkflowActor.AGENT, actor_id="nsc089-recovery",
+                    to_state=WorkflowState.AGENT_READY, details=details,
+                )
 
 
 if __name__ == "__main__":

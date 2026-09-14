@@ -1618,10 +1618,20 @@ def _validate_transition(
         )
         if old_hash != state.task_contract_sha256 or new_hash == old_hash:
             raise WorkflowContractError("task contract migration hash identities are invalid")
+        # Only a blocked preimplementation claim may migrate without a
+        # candidate checkout. Existing migrations still require the full
+        # branch, checkout, and commit identity.
+        no_candidate = (
+            state.state is WorkflowState.BLOCKED
+            and state.worker_id is None and state.lease_id is None
+            and state.branch is None and state.checkout_path is None
+            and state.head_commit is None and state.human_handoff_commit is None
+            and state.human_result is None
+        )
         for key in ("branch", "checkout_path"):
-            _string(details.get(key), field=key, optional=True)
+            _string(details.get(key), field=key, optional=no_candidate)
         for key in ("head_commit", "human_handoff_commit"):
-            _sha(details.get(key), field=key, optional=True)
+            _sha(details.get(key), field=key, optional=no_candidate)
         if details.get("human_result") not in (None, "pass", "fail"):
             raise WorkflowContractError("task contract migration human_result is invalid")
         return
