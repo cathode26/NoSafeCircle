@@ -1,0 +1,76 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "Victory/input-shutdown ownership",
+      "requirement": "Expose a public suspend-all method that calls the existing owner-controlled suspend method on Player Movement from NSC-003, Door Interaction from NSC-019, Fireball from NSC-007, Frost Field from NSC-008, and Force Wave from NSC-009. Each owner remains responsible for stopping its active input-driven behavior and rejecting new commands."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "Development Agent Ownership Invariants (Final escape/victory coordination)",
+      "requirement": "The coordinator calls only the five gameplay owners' public suspend and re-enable methods. It never reads or writes their movement destinations, door-opening progress, spell charge or cast state, cooldown state, or other private runtime data."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "Victory/input-shutdown ownership",
+      "requirement": "Expose a re-enable-all method for an authorized reset or test caller. That method calls each gameplay owner's public re-enable method, and normal victory-triggered gameplay code cannot invoke it."
+    }
+  ],
+  "basis": "direct_gdd",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "Win and Loss Conditions",
+      "requirement": "Play Mode check: invoke the coordinator while each supported owner has active input-driven behavior in an applicable test case, and verify that Player Movement, Door Interaction, Fireball, Frost Field, and Force Wave each stop that behavior immediately."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "Victory/input-shutdown ownership",
+      "requirement": "Play Mode check: after invoking suspend-all, verify that movement, door-interaction, and spell input has no gameplay effect until an authorized test or reset caller invokes re-enable-all."
+    }
+  ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "The GDD names the five gameplay owners and the suspend/re-enable behavior they expose. This child only coordinates calls to those existing public owner methods and does not implement their internal suspension behavior.",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-003",
+    "NSC-007",
+    "NSC-008",
+    "NSC-009",
+    "NSC-019"
+  ],
+  "downstream_integration_obligations": [],
+  "exclusive_resources": [],
+  "execution_reason": "One coordinator MonoBehaviour and focused Play Mode tests can connect the five existing suspend/re-enable APIs without changing the gameplay state owned by those components.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "Victory/input-shutdown ownership",
+      "requirement": "Player Movement, Door/Interaction, Fireball, Frost Field, and Force Wave expose owner-controlled suspend/re-enable interfaces that stop current input-driven activity, reject new gameplay commands while suspended, and can be re-enabled by an authorized reset or test flow."
+    },
+    {
+      "reference": "Development Agent Ownership Invariants (Final escape/victory coordination)",
+      "requirement": "The five gameplay systems remain owners of their active behavior. Victory coordination calls their interfaces instead of changing their internal state."
+    }
+  ],
+  "id": "NSC-087",
+  "kind": "implementation",
+  "notes": "This child implements only the coordinator API and its behavior tests. The sibling victory-trigger-overlay-integration child owns attaching and configuring the coordinator in Assets/Scenes/DoorPrototype.unity and proving the final-door-to-suspension scene path.",
+  "parent": "NSC-035",
+  "provenance": {
+    "graph_delta_plan_id": "GDP-02475ad0d3f79c27586c7c7f8096c58e77356bd09ca1e38cdc9bad391a0329f6",
+    "origin": "progressive_decomposition",
+    "parent_contract_revision": 2,
+    "parent_contract_sha256": "66c1260f95dfa61738626b81b84d3c6a8067d5245ceff471aa81756c4e0c0a7f",
+    "parent_task_id": "NSC-035"
+  },
+  "reconciliation_key": "victory-gameplay-suspension-coordination",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "Victory Gameplay Suspension Coordinator for Movement, Door Interaction, and Spells",
+  "type": "run_lifecycle"
+}

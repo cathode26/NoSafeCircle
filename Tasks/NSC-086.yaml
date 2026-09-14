@@ -1,0 +1,90 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "Win and Loss Conditions",
+      "requirement": "The victory trigger component subscribes to the final door's shared CrossedForward event supplied by Door and Interaction through NSC-020. It enters the won state only after that event reports the wizard crossing the final door's forward side and does not add another crossing detector."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "Win and Loss Conditions",
+      "requirement": "When the won state begins, the component displays a simple player-facing 'You Escaped' UI overlay. It adds no post-victory progression, menu flow, or meta-progression UI."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "Victory/input-shutdown ownership",
+      "requirement": "When the won state begins, the component calls the sibling Victory Gameplay Suspension Coordinator's public suspend-all method. It does not call the individual Player Movement, Door Interaction, Fireball, Frost Field, or Force Wave suspend methods itself."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "Development Agent Ownership Invariants (Final escape/victory coordination)",
+      "requirement": "The victory trigger component never reads or writes movement, door-interaction, or spell runtime fields. Gameplay can be re-enabled after victory only through the coordinator method reserved for an authorized reset or test flow."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "Victory/input-shutdown ownership",
+      "requirement": "DoorPrototypeSceneBuilder adds and configures the victory trigger, Victory Gameplay Suspension Coordinator, and You Escaped overlay in Assets/Scenes/DoorPrototype.unity. The builder assigns the final DoorInteractable crossing source, overlay GameObject, coordinator reference, Player Movement, Door Interaction, Fireball, Frost Field, and Force Wave components so the complete victory call path is usable in Play Mode."
+    }
+  ],
+  "basis": "direct_gdd",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "Win and Loss Conditions",
+      "requirement": "Play Mode check in the configured gameplay scene: crossing the final door's forward side displays the You Escaped overlay and immediately stops active movement, an active door approach or opening timer, and active input-driven behavior on Fireball, Frost Field, and Force Wave."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "Victory/input-shutdown ownership",
+      "requirement": "Play Mode check in the configured gameplay scene: after final-door victory, movement, door-interaction, and spell input has no gameplay effect until the coordinator is invoked by an authorized re-enable or reset flow."
+    }
+  ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "The GDD specifies the final-door crossing trigger, overlay, and ownership boundary. This child owns the final Unity scene assembly so the separately implemented trigger and suspension coordinator form one usable Game Flow/Victory behavior.",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-020",
+    "NSC-087"
+  ],
+  "downstream_integration_obligations": [],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "unity-scene:Assets/Scenes/DoorPrototype.unity"
+  ],
+  "execution_reason": "This is a bounded final assembly task: add the victory trigger and overlay, configure the sibling coordinator and its five gameplay-owner references through DoorPrototypeSceneBuilder, and verify the complete final-door victory path in Play Mode.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "Win and Loss Conditions",
+      "requirement": "Victory occurs when the shared doorway-crossing state confirms that the wizard crossed to the forward side of the final door. Normal gameplay input then stops and a simple You Escaped overlay is displayed."
+    },
+    {
+      "reference": "Victory/input-shutdown ownership",
+      "requirement": "A reusable Game Flow/Victory capability owns the won-state transition, You Escaped overlay, and gameplay-shutdown coordination."
+    },
+    {
+      "reference": "Development Agent Ownership Invariants (Final escape/victory coordination)",
+      "requirement": "Final escape/victory coordination owns the won-state transition, gameplay suspension, and victory UI without changing movement, door, or spell internals directly."
+    }
+  ],
+  "id": "NSC-086",
+  "kind": "implementation",
+  "notes": "This child is the final Unity assembly owner. It uses the final door crossing event from NSC-020, installs the You Escaped overlay, adds and configures both proposed components through DoorPrototypeSceneBuilder, and calls one coordinator method instead of duplicating five gameplay-owner calls.",
+  "parent": "NSC-035",
+  "provenance": {
+    "graph_delta_plan_id": "GDP-02475ad0d3f79c27586c7c7f8096c58e77356bd09ca1e38cdc9bad391a0329f6",
+    "origin": "progressive_decomposition",
+    "parent_contract_revision": 2,
+    "parent_contract_sha256": "66c1260f95dfa61738626b81b84d3c6a8067d5245ceff471aa81756c4e0c0a7f",
+    "parent_task_id": "NSC-035"
+  },
+  "reconciliation_key": "victory-trigger-overlay-integration",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "Final-Door Victory Trigger, Suspension Wiring, and You Escaped Overlay",
+  "type": "run_lifecycle"
+}
