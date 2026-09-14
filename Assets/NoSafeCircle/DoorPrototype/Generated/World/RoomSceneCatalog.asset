@@ -11,14 +11,14 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 672f4c58b9b9a9f570efc8cf80a6b8fe, type: 3}
   m_Name: RoomSceneCatalog
-  m_EditorClassIdentifier:
+  m_EditorClassIdentifier: 
   rooms:
   - roomId: 0
     sceneAssetPath: Assets/Scenes/Rooms/RuinedEntry.unity
     bounds:
-      MinX: -10
-      MaxX: 10
-      MinZ: -18
+      MinX: -14
+      MaxX: 14
+      MinZ: -26
       MaxZ: 0
   - roomId: 1
     sceneAssetPath: Assets/Scenes/Rooms/BoneArchive.unity
