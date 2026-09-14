@@ -41,6 +41,13 @@ dependencies, exclusive resources, the foreground agenda and provider-spend
 limits. Record the selected task IDs, capacity, target branch, review needs,
 provider settings and any other scope that matters to the current work. Do not
 reuse an old example task list or infer readiness from viewer colors.
+Prefer retained unfinished candidates before fresh work. In general, establish
+an object's visual identity before scheduling detailed work on its speed,
+health, or behavior. Prefer its visual task first when both are available; this
+is a sequencing preference, not an added dependency or hard gate.
+An outdated clean contract record or an undeclared new script/test path is not
+by itself a reason to stop implementation. Refresh clean metadata, let the
+worker add needed files in its task checkout, and preserve any dirty candidate.
 
 Start one bounded Luna setup agent and one read-only Spark observer through the
 agent platform, with the exact scope and role limits Graph Sol assigned. Graph

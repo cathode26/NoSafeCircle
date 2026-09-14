@@ -801,7 +801,7 @@ def write_builder_owned_outputs(checkout: Path) -> tuple[str, ...]:
     )
 
 
-def test_scope_new_paths_require_exact_resource_claims() -> None:
+def test_scope_new_paths_can_extend_task_resources() -> None:
     with tempfile.TemporaryDirectory(prefix="nsc-new-path-scope-") as temporary:
         root = Path(temporary)
         checkout, _remote, task, _source_head = create_fixture(root)
@@ -824,16 +824,22 @@ def test_scope_new_paths_require_exact_resource_claims() -> None:
             f"exact task-owned new implementation/test paths were rejected: {accepted.reasons}",
         )
 
-        rejected = scope.validate(
+        unclaimed = scope.validate(
             ExecutionScopePlan((), (UNCLAIMED_IMPLEMENTATION,), (), (NEW_TEST,))
         )
-        require(not rejected.accepted, "unclaimed sibling implementation path was accepted")
         require(
-            any(
-                "outside exact task-owned resources" in reason
-                for reason in rejected.reasons
-            ),
-            f"unclaimed sibling was rejected for the wrong reason: {rejected.reasons}",
+            unclaimed.accepted,
+            f"new sibling file should be allowed in the owned checkout: {unclaimed.reasons}",
+        )
+        new_directory = scope.validate(
+            ExecutionScopePlan(
+                (), ("Assets/NoSafeCircle/Synthetic/NewArea/Feature.cs",),
+                (), ("Assets/NoSafeCircle/Synthetic/NewArea/Tests/FeatureTests.cs",),
+            )
+        )
+        require(
+            new_directory.accepted,
+            f"new script/test directories should not block implementation: {new_directory.reasons}",
         )
 
 

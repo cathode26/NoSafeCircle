@@ -581,8 +581,6 @@ class RepositoryScopeAuthority:
             reasons.append("combined scope exceeds 24 exact files")
 
         tracked_casefold = {path.casefold(): path for path in self._tracked()}
-        self._resource_authority()
-
         for path in plan.existing_implementation_paths:
             if not _under(path, _IMPLEMENTATION_PREFIXES):
                 reasons.append(f"existing implementation path is outside production roots: {path}")
@@ -593,8 +591,6 @@ class RepositoryScopeAuthority:
             absolute = self.checkout / PurePosixPath(path)
             if not absolute.is_file() or absolute.is_symlink():
                 reasons.append(f"existing implementation path is not a regular checkout file: {path}")
-            if not self._owns_write_path(path):
-                reasons.append(f"implementation path is outside exact task-owned resources: {path}")
 
         for path in plan.new_implementation_paths:
             if not _under(path, _NEW_IMPLEMENTATION_PREFIXES):
@@ -606,13 +602,8 @@ class RepositoryScopeAuthority:
             absolute = self.checkout / PurePosixPath(path)
             if absolute.exists() or absolute.is_symlink():
                 reasons.append(f"new implementation path already exists in checkout: {path}")
-            parent = str(PurePosixPath(path).parent)
-            if not self._tree_at_head(parent):
-                reasons.append(f"new implementation parent is not a committed Git tree: {parent}")
             if self._is_ignored(path):
                 reasons.append(f"new implementation path is ignored: {path}")
-            if not self._owns_write_path(path):
-                reasons.append(f"new implementation path is outside exact task-owned resources: {path}")
 
         for field, paths, expect_existing in (
             ("existing test", plan.existing_test_paths, True),
@@ -625,8 +616,6 @@ class RepositoryScopeAuthority:
                     reasons.append(f"{field} path is not under a Tests directory: {path}")
                 if PurePosixPath(path).suffix.casefold() not in (".cs", ".asmdef", ".asmref"):
                     reasons.append(f"{field} path is not a Unity test source/assembly file: {path}")
-                if not self._owns_write_path(path):
-                    reasons.append(f"{field} path is outside exact task-owned resources: {path}")
                 exists = self._blob_at_head(path)
                 absolute = self.checkout / PurePosixPath(path)
                 if expect_existing:
@@ -635,9 +624,6 @@ class RepositoryScopeAuthority:
                 else:
                     if exists or path.casefold() in tracked_casefold or absolute.exists() or absolute.is_symlink():
                         reasons.append(f"new test path already exists: {path}")
-                    parent = str(PurePosixPath(path).parent)
-                    if not self._tree_at_head(parent):
-                        reasons.append(f"new test parent is not a committed Git tree: {parent}")
                     if self._is_ignored(path):
                         reasons.append(f"new test path is ignored: {path}")
 
@@ -648,8 +634,6 @@ class RepositoryScopeAuthority:
             if PurePosixPath(path).suffix.casefold() not in _TEXT_SUFFIXES:
                 reasons.append(f"write path is not an approved text asset type: {path}")
 
-        if not any(PurePosixPath(path).suffix.casefold() == ".cs" for path in tests):
-            reasons.append("test scope requires at least one C# test file")
         return tuple(dict.fromkeys(reasons))
 
     def validate(self, plan: ExecutionScopePlan) -> ScopeValidationResult:

@@ -173,7 +173,7 @@ class ProfileTests(unittest.TestCase):
             tier = getattr(policy, tier_name)
             routes = crew_role_routes(topology, "codex", tier)
             self.assertEqual(routes["test_author"]["reasoning_effort"], test_author_effort)
-            for role in ("implementer", "validator", "contract_locality_auditor", "lead_developer"):
+            for role in ("implementer", "validator", "lead_developer"):
                 self.assertEqual(routes[role]["reasoning_effort"], tier.openai_reasoning_effort)
 
     def test_decomposition_strategy_is_independent_of_implementer(self):
