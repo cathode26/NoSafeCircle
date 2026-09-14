@@ -187,7 +187,7 @@ def crew_role_routes(topology: ProviderTopology, implementer: str, tier) -> dict
     """Host policy selects every role; model output can never supply this map."""
     topology.require_provider(implementer)
     result = {}
-    for role in ("implementer", "test_author", "validator", "contract_locality_auditor", "lead_developer"):
+    for role in ("implementer", "test_author", "validator", "lead_developer"):
         provider = implementer if role in ("implementer", "test_author") else topology.reviewer_for(implementer)
         if provider not in tier.allowed_execution_providers:
             raise ProviderPolicyError("required independent role provider is unavailable under tier safety policy")
@@ -202,9 +202,9 @@ def crew_role_routes(topology: ProviderTopology, implementer: str, tier) -> dict
 
 
 def validate_crew_routes(topology: ProviderTopology, implementer: str, routes: dict) -> None:
-    roles = {"implementer", "test_author", "validator", "contract_locality_auditor", "lead_developer"}
+    roles = {"implementer", "test_author", "validator", "lead_developer"}
     if type(routes) is not dict or set(routes) != roles:
-        raise ProviderPolicyError("profile crew routes must name exactly the five policy roles")
+        raise ProviderPolicyError("profile crew routes must name exactly the four policy roles")
     for role, route in routes.items():
         expected = implementer if role in ("implementer", "test_author") else topology.reviewer_for(implementer)
         if type(route) is not dict or set(route) != {"provider", "model", "reasoning_effort"}:

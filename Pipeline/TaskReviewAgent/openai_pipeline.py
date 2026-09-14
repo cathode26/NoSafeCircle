@@ -521,6 +521,36 @@ def _host_forced_action(
         arguments = _synthetic_gauntlet_scope_arguments(observation)
         if arguments is not None:
             return ("validate_execution_scope", arguments)
+        # Scope approval is a deterministic host operation. Do not spend a
+        # supervisor turn repeatedly auditing a clean task's path manifest;
+        # RepositoryScopeAuthority remains responsible for the actual
+        # checkout-boundary and file-type checks.
+        facts = observation.get("repository_scope_facts")
+        if isinstance(facts, Mapping):
+            existing = facts.get("existing_resource_paths")
+            absent = facts.get("absent_resource_paths")
+            tests = facts.get("suggested_test_paths")
+            if all(isinstance(value, list) for value in (existing, absent, tests)):
+                implementation = [
+                    path for path in (*existing, *absent)
+                    if isinstance(path, str) and not path.casefold().endswith(".meta")
+                ]
+                if implementation and tests:
+                    return (
+                        "validate_execution_scope",
+                        {
+                            "existing_implementation_paths": [
+                                path for path in existing
+                                if isinstance(path, str) and not path.casefold().endswith(".meta")
+                            ],
+                            "new_implementation_paths": [
+                                path for path in absent
+                                if isinstance(path, str) and not path.casefold().endswith(".meta")
+                            ],
+                            "existing_test_paths": list(tests),
+                            "new_test_paths": [],
+                        },
+                    )
     if next_action == "run_execution_crew":
         plan_id = observation.get("accepted_plan_id")
         if not isinstance(plan_id, str) or not plan_id.strip():

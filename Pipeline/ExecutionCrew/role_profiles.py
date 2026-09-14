@@ -9,7 +9,6 @@ from __future__ import annotations
 
 
 ROLE_CAPABILITY_CLASSES = {
-    "contract_locality_auditor": "high_reasoning",
     "implementer": "standard",
     "test_author": "low_cost",
     "validator": "high_reasoning",

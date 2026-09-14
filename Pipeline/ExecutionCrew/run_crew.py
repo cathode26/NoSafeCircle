@@ -45,7 +45,7 @@ from Pipeline.ExecutionCrew.contract_locality import (
     direct_dependent_contracts,
     validate_locality_audit_output,
 )
-from Pipeline.ExecutionCrew.prompts import COMMITTED_GDD_PATH, contract_locality_auditor_prompt, implementer_prompt, test_author_prompt, validator_prompt
+from Pipeline.ExecutionCrew.prompts import COMMITTED_GDD_PATH, implementer_prompt, test_author_prompt, validator_prompt
 from Pipeline.ExecutionCrew.role_profiles import (
     PROFILE_ROLE_CAPABILITY_CLASSES,
     ROLE_CAPABILITY_CLASSES,
@@ -89,7 +89,6 @@ CREW_PROFILE_ROLES = {
     "lean": ("implementer", "validator"),
     "standard": ("implementer", "test_author", "validator"),
     "full": (
-        "contract_locality_auditor",
         "implementer",
         "test_author",
         "validator",

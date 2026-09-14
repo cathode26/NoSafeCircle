@@ -220,6 +220,7 @@ class RepositoryScopeAuthority:
         self.state_root = Path(state_root or (self.checkout.parent / ".task-review-agent"))
         self.state_path = self.state_root / f"{self.task_id}.scope.json"
         self.source_head = ""
+        self.contract_refresh_note: str | None = None
         self._tracked_paths: tuple[str, ...] | None = None
         self._exact_resource_paths: tuple[str, ...] | None = None
         self._directory_resource_paths: tuple[str, ...] | None = None
@@ -259,8 +260,23 @@ class RepositoryScopeAuthority:
                 commit=self.source_head,
                 expected_sha256=self.task_contract_sha256,
             )
-        except CommittedTaskError as exc:
-            raise RepositoryScopeError(str(exc)) from exc
+        except CommittedTaskError:
+            # A clean checkout may have advanced while the coordination record
+            # still carries the previous contract/version. Refresh the local
+            # identity from the committed file and keep the discrepancy visible
+            # to callers; never do this over dirty work.
+            try:
+                committed_task = load_committed_task(
+                    self.checkout, self.task_id, commit=self.source_head
+                )
+            except CommittedTaskError as exc:
+                raise RepositoryScopeError(str(exc)) from exc
+            previous = self.task_contract_sha256
+            self.task_contract_sha256 = str(committed_task["task_contract_sha256"])
+            self.contract_refresh_note = (
+                f"task contract refreshed from coordination SHA {previous} "
+                f"to committed SHA {self.task_contract_sha256}"
+            )
         self.task = _safe_json_copy(committed_task)
 
     def _tracked(self) -> tuple[str, ...]:
@@ -428,6 +444,7 @@ class RepositoryScopeAuthority:
             "suggested_implementation_paths": relevant[:200],
             "suggested_test_paths": tests[:200],
             "accepted_plan_id": self._accepted.plan_id if self._accepted else None,
+            "contract_refresh_note": self.contract_refresh_note,
         }
 
     def list_files(self, *, prefix: str = "Assets/", limit: int = 200) -> dict[str, Any]:

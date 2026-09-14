@@ -132,7 +132,6 @@ ROLE_EVIDENCE_FIELDS = (
 )
 
 CREW_SESSION_ROLES = (
-    "contract_locality_auditor",
     "implementer",
     "test_author",
     "validator",
