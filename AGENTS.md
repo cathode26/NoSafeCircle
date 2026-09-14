@@ -5,6 +5,10 @@ This file is operating guidance, not GDD canon.
 ## Conversation-operated work
 
 For Vincent's assistant-operated workflow, use `Pipeline/AssistantControl/README.md`.
+Before starting or resuming the three-agent graph-management team, read
+`Docs/AI-Pipeline/GRAPH_TEAM_STARTUP.md` and run its read-only startup check.
+The Sol/Luna/Spark graph roles are separate from per-task execution crews;
+`--capacity 3` means worker slots, not three graph-management agents.
 The assistant selects and controls work through conversation; its viewer is
 read-only. The legacy Issue/scheduler procedures below describe the older mode
 and do not require starting that scheduler, creating a managed Issue, or posting
