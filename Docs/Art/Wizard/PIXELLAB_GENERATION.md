@@ -145,21 +145,21 @@ applied to PixelLab's output.
 - `frame_005.png` <- generated frame index 5 of the same animation asset,
   cropped as above.
 
-The two frames were chosen because their non-transparent bounding boxes
-(`x = 57-58`, top `y = 10-11`) match the ground-contact and horizontal
-alignment of the existing `frame_000.png`-`frame_003.png`, so the six frames
-read as one continuous walking loop while preserving the hat, feminine-light
-skin/hair, blue-black wizard costume, and north-east back-facing camera.
+The two replacement frames were initially selected because their
+non-transparent bounds (x=57-58, top y=10-11) match the horizontal alignment
+and ground contact of frames 000-003. They retain the hat and costume.
+A later six-frame motion review found that frames 004/005 turn too far toward
+a rear view. Keep this as a tested fallback pending a better tail and
+Vincent's exact-candidate approval.
 Generated frame indices 0 (start-pose reference), 2, 3, 4, and 6 were
 reviewed and not used; they remain retrievable under the same animation
 group ID for future reference.
 
-No `.meta` files exist under
-`Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source` for these PNGs in this
-checkout, so there were no existing GUIDs to preserve; only the two PNG
-files were overwritten at their existing paths. Full generation and
-selection provenance, including previous/new size and SHA-256 for both
-files, is recorded under `corrections` in `source-inventory.json`.
+The original NSC-073 source checkout had no `.meta` files for these PNGs.
+Current main tracks `.meta` files at both selected paths. This reconciliation
+changes only the two PNGs at those paths and preserves their Unity GUIDs.
+Full generation and selection provenance, including previous/new size and
+SHA-256 for both files, is recorded under `corrections` in `source-inventory.json`.
 
 This candidate still requires the Windows orchestrator to run the committed
 `WizardArtIntegrationTests` Unity Edit Mode test on this exact commit, and
