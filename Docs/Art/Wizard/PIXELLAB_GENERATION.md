@@ -100,3 +100,149 @@ The raw masculine-light export also contains an optional four-frame PixelLab
 idle animation, and the raw feminine-light export contains the accidental
 224 x 224 V3 south walk. Neither is in the selected tree and neither is
 authorized for Unity integration.
+
+## NSC-074 cardinal walk extension: north, east, south, west
+
+NSC-074 adds six-frame walk cycles for the four missing cardinal facings to
+the same four PixelLab characters. It adds exactly 96 new 180 x 180
+transparent PNGs:
+
+```text
+<source key>/selected/walk/<north|east|south|west>/frame_000.png ... frame_005.png
+```
+
+No existing standing, diagonal walk, raw export, or NSC-061/NSC-073 file is
+changed. The per-file path, direction, frame, dimensions, byte count,
+SHA-256, `.meta` GUID, and source PixelLab animation asset are recorded under
+`cardinal_walk_extension` in `source-inventory.json`.
+
+The retained source branch contained the NSC-073 correction as parent commit
+`48cc3e653f0bea87d7fbda52d3e5d7ed29a4a637`. This fresh-main branch
+ports only NSC-074's `cardinal_walk_extension` inventory section; it leaves
+NSC-073's pending correction and provenance on their separate review branch.
+Neither task is visually approved yet.
+
+For exact source review, `PIXELLAB_CARDINAL_CONTACT_SHEET.png` beside this
+document shows all four variants (rows) and all four cardinal directions
+(columns), with frames 000–005 in playback order. It is a nearest-neighbor
+source-frame preview, not a running Unity Animator capture.
+
+### Generation settings
+
+- Tool: PixelLab MCP `animate_character`, mode `v3`, `frame_count: 6`,
+  `keep_first_frame: false`, generated 2026-09-14
+- Start pose: each character's existing PixelLab rotation image for the same
+  direction (the v3 default)
+- Characters: the four IDs in the "Selected family" table above; 180 x 180,
+  low top-down, "basic shading, single color black outline, medium detail"
+- Service model: not exposed by PixelLab MCP
+- Canvas: PixelLab v3 returned square canvases of 200 x 200 to 224 x 224.
+  Every frame is a pixel-exact centered crop to 180 x 180 at offset
+  `((W - 180) / 2, (W - 180) / 2)`. Before cropping, each frame was checked to
+  have no opaque pixel outside the crop window. The crop introduces no
+  partial-alpha pixels and applies no resampling, recoloring, or hand editing.
+  The canvas and offset per direction are recorded in the inventory.
+
+`action_description` for the first take of every direction (animation name
+`NSC-074 cardinal walk v3`):
+
+> walking, classic even-paced six-frame walk loop, feet stepping on one steady
+> ground line, arms swinging gently, hat, hair, long robe and belt book kept
+> exactly as in the standard pose
+
+`action_description` for the south re-rolls (animation name
+`NSC-074 cardinal walk v3 south in-place`):
+
+> walking in place, classic even-paced six-frame walk loop, body stays at the
+> same spot in the frame with feet stepping on one steady ground line, arms
+> swinging gently, hat, hair, long robe and belt book kept exactly as in the
+> standard pose
+
+The masculine-dark south re-roll additionally asked for "arms swinging gently
+close to the body, same toothy overconfident grin" and "long robe and belt".
+
+### Selected PixelLab animations
+
+`frame_00N.png` is generated frame index `N` of the listed animation asset.
+
+| Source key | Direction | Animation group ID | Animation asset ID |
+| --- | --- | --- | --- |
+| `feminine-light` | north | `dbcfdbce-587a-4f96-bb07-3365ec69fc8d` | `c32a0e59-e552-4310-9313-851bc22b240f` |
+| `feminine-light` | east | `dbcfdbce-587a-4f96-bb07-3365ec69fc8d` | `8eca9c0f-67db-4577-908a-c933ffa71b2c` |
+| `feminine-light` | south | `dbcfdbce-587a-4f96-bb07-3365ec69fc8d` | `a04d5a11-6e65-44d5-8f84-ce65175ce1ab` |
+| `feminine-light` | west | `dbcfdbce-587a-4f96-bb07-3365ec69fc8d` | `b0c46e57-5783-4006-8417-b3b6dc925d4c` |
+| `feminine-dark` | north | `5f67d9fc-946b-4740-9035-d2c082cb4da4` | `cbbb7854-6684-40ac-b73e-12021018a76e` |
+| `feminine-dark` | east | `5f67d9fc-946b-4740-9035-d2c082cb4da4` | `cdb1f481-8ea0-453d-87bd-0964d57be209` |
+| `feminine-dark` | south | `0970b1d6-30cc-44af-ac7e-3fb4ced6ad0a` (in-place re-roll) | `2d55c7cc-36dd-4360-8c33-1cda63214775` |
+| `feminine-dark` | west | `5f67d9fc-946b-4740-9035-d2c082cb4da4` | `09af4196-7036-40ce-970b-8b6861170c9b` |
+| `masculine-light` | north | `496c414c-d31e-4bf8-8aab-64124eee9525` | `13075798-f45c-4d98-bd6b-e2fd5f47c8a4` |
+| `masculine-light` | east | `496c414c-d31e-4bf8-8aab-64124eee9525` | `ac5c6013-1a0c-4049-9609-28f6fcc62351` |
+| `masculine-light` | south | `496c414c-d31e-4bf8-8aab-64124eee9525` | `e4ba6fc4-2380-4fb5-b691-edc39002abe1` |
+| `masculine-light` | west | `496c414c-d31e-4bf8-8aab-64124eee9525` | `fd268c65-ce67-47c8-a43a-b8d6dfdd3954` |
+| `masculine-dark` | north | `f04e08e0-361e-4668-a39f-a5434d200cf7` | `420f5619-9e96-439d-ac8b-42770b0b304a` |
+| `masculine-dark` | east | `f04e08e0-361e-4668-a39f-a5434d200cf7` | `b2a19034-4081-4e8b-8891-9f3c1dd597a5` |
+| `masculine-dark` | south | `f04e08e0-361e-4668-a39f-a5434d200cf7` | `bfd18b5e-73f5-409c-ab95-6b080fbd1589` |
+| `masculine-dark` | west | `f04e08e0-361e-4668-a39f-a5434d200cf7` | `04d03c87-e4b6-45a0-a97e-09fce498ca5c` |
+
+### Continuity review
+
+Every selected cycle keeps the character's hat, hair, face, robe, belt
+accessories, skin, and palette from the matching standing image, and its
+horizontal placement matches that standing image. North, east, and west
+cycles loop within 0-3 px on the feet line.
+
+PixelLab's south-facing v3 walks move the figure toward the camera during the
+cycle, so the feet line jumps when the loop restarts:
+
+- `feminine-light` south: 11 px jump. This take was kept over its in-place
+  re-roll, which jumped 13 px.
+- `feminine-dark` south: 5 px jump. The in-place re-roll replaced the first
+  take, which jumped 8 px.
+- `masculine-dark` south: 8 px jump. The first take was kept because its
+  in-place re-roll turns to a three-quarter side view from `frame_003`. The
+  kept take also swings the arms wide in frames 002-004 and softens the
+  toothy grin.
+- `masculine-light` south: 3 px jump.
+
+Vincent should check these south loops specifically during visual approval.
+
+### Rejected candidates
+
+- Template walk cardinals already stored in each character's diagonal walk
+  group, created 2026-09-13 with no recorded provenance: `d7be76f3-...`
+  (`feminine-light`, `walking-6-frames`), `a78931c2-...` (`feminine-dark`),
+  `0bfd96ab-...` (`masculine-light`), and `4f3cd1fd-...` (`masculine-dark`).
+  NSC-074's template requests for those directions were deduplicated by
+  PixelLab and generated nothing. The stored frames break continuity:
+  `feminine-dark` north frames 003-005 lose the long hair, several east/west
+  frames 004-005 switch to a trouser-leg walk, and `masculine-dark` south
+  frame 002 changes the tunic and face.
+- `feminine-light` south in-place re-roll `1b6e8b17-e421-4237-807d-8c3092994591`.
+- `feminine-dark` south first take `03efc218-7794-494f-b657-87aeb78d5be3`.
+- `masculine-dark` south in-place re-roll `2124a6f9-470f-4edd-8410-3f026b5f45c2`.
+
+Complete group IDs and descriptions are recorded in the inventory.
+
+### Unity `.meta` companions
+
+Each new PNG, each of the 16 new direction folders, and
+`Assets/NoSafeCircle/DoorPrototype/Tests/Editor/WizardCardinalSourceAuditTests.cs`
+has a deterministic `.meta` file in the repository's ExecutionCrew format
+(`Pipeline/ExecutionCrew/run_crew.py` `unity_meta_bytes`): LF text with
+`fileFormatVersion: 2` and a GUID derived from
+`sha256("NoSafeCircle.ExecutionCrew.UnityMeta/v1\0" + casefolded path)[:32]`.
+Folder `.meta` files also contain `folderAsset: yes`. The source-art task
+writes no sprite import settings; NSC-075 owns import and Animator
+integration.
+
+Once Unity imports these PNGs, `WizardArtIntegrationTests.ApprovedSourceFramesHavePointUncompressedImportAndGroundPivot`
+may count more than its expected 128 sprites under `Source/PixelLab`.
+Reconciling that count belongs to NSC-075 integration.
+
+### Validation still required
+
+The source-art worker did not run Unity. The Windows orchestrator runs the
+Edit Mode audit `WizardCardinalSourceAuditTests` on the exact committed
+candidate (NSC-074 `VAL-001`). Vincent's exact-candidate approval of all four
+variants walking north, east, south, and west (`VAL-002`) is also required
+before NSC-075 integration.
