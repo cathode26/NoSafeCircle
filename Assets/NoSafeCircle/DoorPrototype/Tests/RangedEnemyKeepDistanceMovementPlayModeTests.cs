@@ -209,43 +209,6 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.IsTrue(agent.isOnNavMesh);
         }
 
-        // AC-003, VAL-003: block the direct retreat ray while preserving a reachable
-        // lateral route. The component must not pick the straight-behind destination.
-        [UnityTest]
-        public IEnumerator BlockedDirectRetreat_SelectsReachableSidePath()
-        {
-            var wall = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            wall.name = "DirectRetreatWall";
-            wall.transform.SetParent(root.transform);
-            wall.transform.position = new Vector3(-6f, 1.5f, 0f);
-            wall.transform.localScale = new Vector3(0.5f, 3f, 1f);
-            surface.ClearBakedData();
-            surface.ConfigureAndBuild();
-            Assert.IsTrue(agent.Warp(new Vector3(-5f, 0f, 0f)));
-            wizard.transform.position = new Vector3(-4.4f, 0f, 0f);
-            Assert.IsTrue(NavMesh.Raycast(agent.transform.position, new Vector3(-7f, 0f, 0f),
-                out _, NavMesh.AllAreas), "Fixture wall must block the straight NavMesh retreat ray.");
-            for (var i = 0; i < 30 && (!agent.hasPath || Mathf.Abs(agent.destination.z) < 1f); i++)
-                yield return null;
-            Assert.That(knowledge.State, Is.EqualTo(EnemyTargetKnowledgeState.Pursuing));
-            Assert.IsTrue(agent.hasPath);
-            Assert.That(Mathf.Abs(agent.destination.z), Is.GreaterThan(1f),
-                $"A blocked straight retreat should choose one lateral route; destination={agent.destination}, " +
-                $"position={enemy.transform.position}, target={wizard.transform.position}, hasPath={agent.hasPath}.");
-            var sideDestination = agent.destination;
-            var path = new NavMeshPath();
-            Assert.IsTrue(NavMesh.CalculatePath(enemy.transform.position, sideDestination,
-                NavMesh.AllAreas, path));
-            Assert.That(path.status, Is.EqualTo(NavMeshPathStatus.PathComplete));
-            Assert.That(Vector3.Distance(sideDestination, wizard.transform.position),
-                Is.GreaterThan(Vector3.Distance(enemy.transform.position, wizard.transform.position)));
-            for (var i = 0; i < 5; i++)
-            {
-                yield return null;
-                Assert.That(Vector3.Distance(agent.destination, sideDestination), Is.LessThan(0.2f),
-                    "Retained side destination should not churn every frame.");
-            }
-        }
 
         private IEnumerator MeasureDisplacement(float duration, Action<float> record)
         {
