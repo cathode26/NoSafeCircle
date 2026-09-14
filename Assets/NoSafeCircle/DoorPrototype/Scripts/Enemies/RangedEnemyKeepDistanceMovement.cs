@@ -87,19 +87,28 @@ namespace NoSafeCircle.DoorPrototype.Enemies
             }
 
             if (hasRepositionDestination &&
-                Vector3.Distance(transform.position, repositionDestination) > ArrivalTolerance &&
-                IsCompletePath(repositionDestination))
+                Vector3.Distance(transform.position, repositionDestination) > ArrivalTolerance)
             {
-                agent.SetDestination(repositionDestination);
-                return;
+                // The complete path was proved when this point was selected. Re-solving
+                // it from every intermediate agent position can briefly report a partial
+                // path beside a wall and reverse the selected side each frame. Keep the
+                // commitment while NavMeshAgent accepts the destination; a rejected
+                // destination falls through to a fresh complete-path search.
+                if (agent.SetDestination(repositionDestination)) return;
             }
 
             hasRepositionDestination = false;
             if (TrySelectReposition(targetPosition, separation, out var destination))
             {
-                repositionDestination = destination;
-                hasRepositionDestination = true;
-                agent.SetDestination(destination);
+                if (agent.SetDestination(destination))
+                {
+                    repositionDestination = destination;
+                    hasRepositionDestination = true;
+                }
+                else
+                {
+                    Hold();
+                }
             }
             else
             {
