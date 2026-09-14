@@ -72,9 +72,11 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                     CollectionAssert.AreEqual(File.ReadAllBytes(source), File.ReadAllBytes(generated), generated);
                     TextureImporter importer = AssetImporter.GetAtPath(generated) as TextureImporter;
                     Assert.IsNotNull(importer, generated);
+                    var settings = new TextureImporterSettings();
+                    importer.ReadTextureSettings(settings);
                     Assert.AreEqual(TextureImporterType.Sprite, importer.textureType);
                     Assert.AreEqual(SpriteImportMode.Single, importer.spriteImportMode);
-                    Assert.AreEqual((int)SpriteAlignment.Custom, importer.spriteAlignment);
+                    Assert.AreEqual((int)SpriteAlignment.Custom, settings.spriteAlignment);
                     Assert.AreEqual(StationaryEnemyPresentationBuilder.PixelsPerUnit, importer.spritePixelsPerUnit);
                     Assert.AreEqual(FilterMode.Point, importer.filterMode);
                     Assert.AreEqual(TextureImporterCompression.Uncompressed, importer.textureCompression);
@@ -82,8 +84,8 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                     Assert.IsTrue(importer.alphaIsTransparency);
                     Assert.IsFalse(importer.mipmapEnabled);
                     Assert.IsTrue(importer.isReadable);
-                    Assert.That(importer.spritePivot.x, Is.EqualTo(0.5f).Within(0.0001f));
-                    Assert.That(importer.spritePivot.y,
+                    Assert.That(settings.spritePivot.x, Is.EqualTo(0.5f).Within(0.0001f));
+                    Assert.That(settings.spritePivot.y,
                         Is.EqualTo(archetype == StationaryEnemyArchetype.Melee ? 18f / 128f : 14f / 128f)
                             .Within(0.0001f));
 
