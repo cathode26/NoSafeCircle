@@ -102,6 +102,39 @@ def _reservation_resources(task: Mapping[str, Any], scope: Mapping[str, Any]) ->
     return sorted(set(values))
 
 
+def _overlapping_resources(requested: list[str], owner: Mapping[str, Any]) -> tuple[list[str], list[str]]:
+    owned = owner.get("resources")
+    if not isinstance(owned, list) or any(not isinstance(value, str) for value in owned):
+        raise ValueError("active admission has invalid resources")
+    return (
+        sorted({left for left in requested for right in owned if _overlap(left, right)}),
+        sorted({right for left in requested for right in owned if _overlap(left, right)}),
+    )
+
+
+def _parallel_checkout_overlap_allowed(
+    checkouts: Checkouts, task_id: str, owner: Mapping[str, Any],
+    requested_resources: list[str], owner_resources: list[str],
+) -> bool:
+    """Share only repository paths between distinct owned task checkouts.
+
+    Typed logical locks retain their exclusive meaning. A reservation made
+    through another checkout root cannot be opted into this local workflow.
+    """
+    owner_id = owner.get("task_id")
+    try:
+        validate_task_id(owner_id)
+    except (TypeError, ValueError):
+        return False
+    return bool(
+        owner_id != task_id
+        and owner.get("source") == str(checkouts.source)
+        and owner.get("checkout_root") == str(checkouts.root)
+        and owner.get("checkout") == str(checkouts.root / owner_id)
+        and all(":" not in path for path in requested_resources + owner_resources)
+    )
+
+
 def _clean_checkout(checkouts: Checkouts, record: Mapping[str, Any], source_head: str) -> Path:
     checkout = Path(record.get("checkout", ""))
     if (record.get("source") != str(checkouts.source) or record.get("checkout") != str(checkout)
@@ -258,6 +291,7 @@ def reserve(
     capacity: int = 1,
     *,
     dependency_reader: DependencyReader | None = None,
+    allow_resource_overlap: bool = False,
 ) -> dict[str, Any]:
     """Reserve one executable plan for ``run_id`` without launching anything.
 
@@ -271,6 +305,8 @@ def reserve(
         raise ValueError("admission requires a run_id")
     if type(capacity) is not int or isinstance(capacity, bool) or capacity < 1:
         raise ValueError("admission capacity must be a positive integer")
+    if type(allow_resource_overlap) is not bool:
+        raise ValueError("allow_resource_overlap must be a boolean")
     reader = dependency_reader or inspect_dependencies
     source = checkouts.source
     lock_path, registry_path = _source_registry_paths(source)
@@ -316,6 +352,8 @@ def reserve(
                     if (item.get("checkout_root") != checkout_root
                             or item.get("checkout") != checkout_path):
                         raise ValueError("reservation identity differs by checkout root or checkout")
+                    if item.get("resource_overlap_authorized", False) != allow_resource_overlap:
+                        raise ValueError("reservation overlap authorization differs")
                     return {**item, "admitted": True, "execution_authorized": False}
                 if item.get("task_id") == task_id:
                     raise ValueError("task already has a different active admission")
@@ -323,9 +361,20 @@ def reserve(
                     raise ValueError("run or lease identity is already reserved")
             if len(existing) >= capacity:
                 raise ValueError("assistant worker capacity is exhausted")
+            overlap_with = []
             for item in existing:
-                if any(_overlap(left, right) for left in resources for right in item.get("resources", [])):
+                requested_overlap, owner_overlap = _overlapping_resources(resources, item)
+                if not requested_overlap:
+                    continue
+                if not (allow_resource_overlap and _parallel_checkout_overlap_allowed(
+                    checkouts, task_id, item, requested_overlap, owner_overlap,
+                )):
                     raise ValueError("requested execution resources overlap an active admission")
+                overlap_with.append({
+                    "task_id": item["task_id"], "run_id": item["run_id"],
+                    "requested_resources": requested_overlap,
+                    "owner_resources": owner_overlap,
+                })
             reservation = {
                 "schema_version": REGISTRY_SCHEMA, "status": _ACTIVE,
                 "source": str(source), "task_id": task_id, "run_id": run_id,
@@ -334,6 +383,8 @@ def reserve(
                 "task_contract_sha256": record["task_contract_sha256"],
                 "plan_id": scope["plan_id"], "plan": scope["plan"],
                 "resources": resources, "dependency_inspection": dependency,
+                "resource_overlap_authorized": allow_resource_overlap,
+                "overlap_with": overlap_with,
             }
             # This is the final source checkpoint before the durable admission.
             if git(source, "rev-parse", "HEAD").decode().strip() != source_head:

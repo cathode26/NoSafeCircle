@@ -46,6 +46,8 @@ def main(argv=None) -> int:
     )
     readiness.add_argument("task")
     readiness.add_argument("--capacity", type=int, default=1)
+    readiness.add_argument("--allow-resource-overlap", action="store_true",
+                           help="Preview manually authorized parallel file/scene work in separate task checkouts")
     viewer = commands.add_parser("viewer", help="Serve the existing graph as a read-only dashboard")
     viewer.add_argument("--port", type=int, default=8813)
     prepare = commands.add_parser("prepare", help="Create an isolated task project; does not start a worker")
@@ -140,6 +142,8 @@ def main(argv=None) -> int:
     admission.add_argument("task")
     admission.add_argument("--run-id", required=True)
     admission.add_argument("--capacity", type=int, default=1)
+    admission.add_argument("--allow-resource-overlap", action="store_true",
+                           help="Authorize overlapping repository paths only in separate task checkouts of this checkout root")
     run = commands.add_parser("run-worker", aliases=["start-worker"], help="Run an authorized crew; start-worker launches it detached")
     run.add_argument("task")
     run.add_argument("--run-id", required=True)
@@ -412,7 +416,10 @@ def main(argv=None) -> int:
                 )
             elif args.command == "readiness":
                 from Pipeline.AssistantControl.readiness import inspect_readiness
-                result = inspect_readiness(manager, args.task, capacity=args.capacity)
+                result = inspect_readiness(
+                    manager, args.task, capacity=args.capacity,
+                    allow_resource_overlap=args.allow_resource_overlap,
+                )
             elif args.command == "prepare":
                 result = manager.prepare(args.task, expected_commit=args.source_commit)
             elif args.command == "checkout":
@@ -486,7 +493,10 @@ def main(argv=None) -> int:
                                 else worker_control.request_stop(manager, args.task, run_id=args.run_id)))
             elif args.command == "reserve":
                 from Pipeline.AssistantControl.admission import reserve
-                result = reserve(manager, args.task, args.run_id, capacity=args.capacity)
+                result = reserve(
+                    manager, args.task, args.run_id, capacity=args.capacity,
+                    allow_resource_overlap=args.allow_resource_overlap,
+                )
             elif args.command == "settle-worker":
                 from Pipeline.AssistantControl.worker_settlement import settle_completed
                 result = settle_completed(manager, args.task, run_id=args.run_id)

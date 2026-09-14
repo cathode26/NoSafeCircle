@@ -41,6 +41,21 @@ dependencies, exclusive resources, the foreground agenda and provider-spend
 limits. Record the selected task IDs, capacity, target branch, review needs,
 provider settings and any other scope that matters to the current work. Do not
 reuse an old example task list or infer readiness from viewer colors.
+For separately owned scene tasks that Vincent authorizes to run together,
+prepare and scope each task in its own `assistant/<TASK-ID>` checkout beneath
+the same live checkout root. Use the direct `readiness` and `reserve` commands
+with `--capacity 3 --allow-resource-overlap` for a later task whose scene or
+repository-file path overlaps an active reservation. The option is manual and
+recorded in that task's reservation; it does not share a working tree, bypass
+dependencies or capacity, or make a logical lock shareable. Keep ordinary
+reservations exclusive unless this concurrent scene workflow is intended.
+Workers may edit their own copy of the same Unity scene and builder file at
+the same time. Preserve each candidate separately. Review and integrate
+candidates one at a time. After the first candidate advances main, synchronize
+the later candidate with the new main; if scene or builder changes conflict,
+reconcile them in that task's checkout. Validate and review the reconciled
+candidate again before integration. `sync-candidate` does not resolve scene
+conflicts automatically, and admission never approves or integrates a candidate.
 For a live port 8828 graph view, use the Source and checkout root shared with
 the active workers. Follow the viewer command and held-task overlay notes in
 [AssistantControl's viewer guide](../../Pipeline/AssistantControl/README.md);

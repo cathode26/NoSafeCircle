@@ -273,6 +273,25 @@ project. Codex effort can be set
 with `execution_reasoning_effort`; this existing bridge does not support a
 Claude effort argument. No provider work has been launched in verification.
 
+For Vincent-authorized concurrent scene work, prepare and scope each task in
+its own task checkout under the same live checkout root. Run `readiness TASK
+--capacity 3 --allow-resource-overlap` to preview admission, then `reserve TASK
+--run-id ID --capacity 3 --allow-resource-overlap` for a later task that overlaps
+an active scene or file reservation. The default still blocks overlap. The
+opt-in records the overlapping owner task, run and paths in the new durable
+reservation. It shares repository paths only between distinct owned task
+checkouts under that one root; logical locks, dependency checks, Source and
+scope identity, and the capacity of three still apply. This option is for the
+direct task workflow, not the retired `run-graph` controller.
+
+Each worker changes its own scene copy. Candidate integration remains serial
+and fast-forward-only. Review and integrate one candidate, then synchronize a
+later candidate with the updated main. If its scene or builder conflicts,
+`sync-candidate` retains the conflict for a worker to reconcile in that task
+checkout; it does not resolve it automatically. Validate and review the
+reconciled candidate again before its integration. A reservation never
+authorizes provider spend, approves a candidate or merges either branch.
+
 `worker-status TASK` checks the retained worker and Windows process identity.
 
 ## Small maintenance tickets

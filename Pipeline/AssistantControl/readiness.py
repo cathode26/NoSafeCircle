@@ -56,12 +56,14 @@ def _registry_snapshot(checkouts: Checkouts) -> tuple[dict[str, Any], bool]:
 
 def inspect_readiness(
     checkouts: Checkouts, task_id: str, *, capacity: int = 1,
-    dependency_reader=None,
+    dependency_reader=None, allow_resource_overlap: bool = False,
 ) -> dict[str, Any]:
     """Explain whether a task can be reserved now, without reserving it."""
     task_id = validate_task_id(task_id)
     if type(capacity) is not int or isinstance(capacity, bool) or capacity < 1:
         raise ValueError("readiness capacity must be a positive integer")
+    if type(allow_resource_overlap) is not bool:
+        raise ValueError("allow_resource_overlap must be a boolean")
     source = checkouts.source
     source_head = git(source, "rev-parse", "HEAD").decode().strip()
     task = load_committed_task(source, task_id, commit=source_head)
@@ -149,13 +151,23 @@ def inspect_readiness(
         problems.append("worker_capacity_exhausted")
     if any(item.get("task_id") == task_id for item in reservations):
         problems.append("task_already_reserved")
-    resource_owners = sorted({
-        str(item.get("task_id")) for item in reservations
-        if item.get("task_id") != task_id
-        and any(admission._overlap(left, right)
-                for left in resources for right in item.get("resources", []))
-    })
-    if resource_owners:
+    resource_owners = []
+    blocking_resource_owners = []
+    for item in reservations:
+        if item.get("task_id") == task_id:
+            continue
+        requested_overlap, owner_overlap = admission._overlapping_resources(resources, item)
+        if not requested_overlap:
+            continue
+        owner_id = str(item.get("task_id"))
+        resource_owners.append(owner_id)
+        if not (allow_resource_overlap and admission._parallel_checkout_overlap_allowed(
+            checkouts, task_id, item, requested_overlap, owner_overlap,
+        )):
+            blocking_resource_owners.append(owner_id)
+    resource_owners = sorted(set(resource_owners))
+    blocking_resource_owners = sorted(set(blocking_resource_owners))
+    if blocking_resource_owners:
         problems.append("resources_reserved_by_other_tasks")
     source_stable = git(source, "rev-parse", "HEAD").decode().strip() == source_head
     if not source_stable:
@@ -179,6 +191,8 @@ def inspect_readiness(
         "available_capacity": max(0, capacity - len(reservations)),
         "resources": resources,
         "resource_owners": resource_owners,
+        "blocking_resource_owners": blocking_resource_owners,
+        "resource_overlap_authorized": allow_resource_overlap,
         "source_edit_conflicts": source_conflicts,
         "ready_to_reserve": not problems,
         "problems": problems,

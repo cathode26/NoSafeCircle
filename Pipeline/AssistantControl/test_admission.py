@@ -29,12 +29,17 @@ class AdmissionTests(unittest.TestCase):
         (self.source / "Assets/Feature/Tests/FeatureTests.cs").write_text("class FeatureTests {}\n")
         (self.source / "Assets/Feature/Other.cs").write_text("class Other {}\n")
         (self.source / "Assets/Feature/Tests/OtherTests.cs").write_text("class OtherTests {}\n")
+        for stem in ("Third", "Fourth"):
+            (self.source / f"Assets/Feature/{stem}.cs").write_text(f"class {stem} {{}}\n")
+            (self.source / f"Assets/Feature/Tests/{stem}Tests.cs").write_text(f"class {stem}Tests {{}}\n")
         for task_id, resources in (
             ("NSC-042", ["repo-file:Assets/Feature"]),
             ("NSC-043", [
                 "repo-file:Assets/Feature/Other.cs",
                 "repo-file:Assets/Feature/Tests/OtherTests.cs",
             ]),
+            ("NSC-044", ["repo-file:Assets/Feature/Third.cs", "logical:scene-lock"]),
+            ("NSC-045", ["repo-file:Assets/Feature/Fourth.cs", "logical:scene-lock"]),
         ):
             (self.source / f"Tasks/{task_id}.yaml").write_text(json.dumps({
                 "id": task_id, "title": task_id, "contract_disposition": "active",
@@ -55,7 +60,8 @@ class AdmissionTests(unittest.TestCase):
 
     def plan(self, manager, task_id, lease_id):
         manager.prepare(task_id)
-        stem = "Feature" if task_id == "NSC-042" else "Other"
+        stem = {"NSC-042": "Feature", "NSC-043": "Other",
+                "NSC-044": "Third", "NSC-045": "Fourth"}[task_id]
         return AssistantScopePlanner(manager).plan(
             task_id,
             ExecutionScopePlan(
@@ -147,6 +153,56 @@ class AdmissionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "overlap"):
             reserve(self.manager_two, "NSC-043", "run-043", capacity=2,
                     dependency_reader=self.dependencies)
+
+    def test_parallel_file_work_requires_opt_in_and_same_live_checkout_root(self):
+        self.plan(self.manager_one, "NSC-042", "lease-042")
+        self.plan(self.manager_one, "NSC-043", "lease-043")
+        self.plan(self.manager_two, "NSC-044", "lease-044")
+        reserve(self.manager_one, "NSC-042", "run-042", capacity=3,
+                dependency_reader=self.dependencies)
+        default = inspect_readiness(self.manager_one, "NSC-043", capacity=3,
+                                    dependency_reader=self.dependencies)
+        self.assertIn("resources_reserved_by_other_tasks", default["problems"])
+        opted = inspect_readiness(self.manager_one, "NSC-043", capacity=3,
+                                  allow_resource_overlap=True,
+                                  dependency_reader=self.dependencies)
+        self.assertTrue(opted["ready_to_reserve"])
+        self.assertEqual(["NSC-042"], opted["resource_owners"])
+        self.assertEqual([], opted["blocking_resource_owners"])
+        with self.assertRaisesRegex(ValueError, "overlap"):
+            reserve(self.manager_one, "NSC-043", "run-043", capacity=3,
+                    dependency_reader=self.dependencies)
+        with self.assertRaisesRegex(ValueError, "overlap"):
+            reserve(self.manager_two, "NSC-044", "run-044", capacity=3,
+                    allow_resource_overlap=True, dependency_reader=self.dependencies)
+        admitted = reserve(self.manager_one, "NSC-043", "run-043", capacity=3,
+                           allow_resource_overlap=True, dependency_reader=self.dependencies)
+        self.assertEqual(str(self.manager_one.root / "NSC-043"), admitted["checkout"])
+        self.assertTrue(admitted["resource_overlap_authorized"])
+        self.assertEqual(["NSC-042"], [item["task_id"] for item in admitted["overlap_with"]])
+        self.assertEqual(["assets/feature/other.cs", "assets/feature/tests/othertests.cs"],
+                         admitted["overlap_with"][0]["requested_resources"])
+        self.assertEqual(admitted, require_reservation(
+            self.manager_one, "NSC-043", "run-043", "lease-043"))
+
+    def test_opt_in_retains_capacity_three_and_exclusive_logical_locks(self):
+        for task_id in ("NSC-042", "NSC-043", "NSC-044", "NSC-045"):
+            self.plan(self.manager_one, task_id, f"lease-{task_id}")
+        for task_id in ("NSC-042", "NSC-043", "NSC-044"):
+            reserve(self.manager_one, task_id, f"run-{task_id}", capacity=3,
+                    allow_resource_overlap=True, dependency_reader=self.dependencies)
+        with self.assertRaisesRegex(ValueError, "capacity"):
+            reserve(self.manager_one, "NSC-045", "run-NSC-045", capacity=3,
+                    allow_resource_overlap=True, dependency_reader=self.dependencies)
+        release(self.manager_one, "NSC-042", "run-NSC-042", "lease-NSC-042")
+        blocked = inspect_readiness(self.manager_one, "NSC-045", capacity=3,
+                                    allow_resource_overlap=True,
+                                    dependency_reader=self.dependencies)
+        self.assertIn("resources_reserved_by_other_tasks", blocked["problems"])
+        self.assertEqual(["NSC-044"], blocked["blocking_resource_owners"])
+        with self.assertRaisesRegex(ValueError, "overlap"):
+            reserve(self.manager_one, "NSC-045", "run-NSC-045", capacity=3,
+                    allow_resource_overlap=True, dependency_reader=self.dependencies)
 
     def test_same_task_different_run_and_same_lease_are_rejected(self):
         self.plan(self.manager_one, "NSC-042", "lease-042")
