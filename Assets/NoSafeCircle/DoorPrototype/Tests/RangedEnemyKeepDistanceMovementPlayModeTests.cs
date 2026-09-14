@@ -150,8 +150,19 @@ namespace NoSafeCircle.DoorPrototype.Tests
             yield return null;
             Assert.That(knowledge.State, Is.EqualTo(EnemyTargetKnowledgeState.SearchingLastKnownPosition));
             Assert.That(Vector3.Distance(agent.destination, knowledge.LastKnownPosition), Is.LessThan(0.8f));
+            wizard.transform.position = new Vector3(30f, 0f, 0f);
+            var searchDeadline = Time.time + 8f;
+            while (Time.time < searchDeadline && knowledge.State != EnemyTargetKnowledgeState.Wandering)
+                yield return null;
+            Assert.That(knowledge.State, Is.EqualTo(EnemyTargetKnowledgeState.Wandering),
+                "Pursuit must reach the recorded last-known position and begin bounded search.");
             wizard.transform.position = enemy.transform.position + Vector3.right * 0.5f;
-            yield return null;
+            // Reacquisition and a newly calculated retreat path can span separate
+            // NavMeshAgent simulation frames after the last-known destination is cleared.
+            for (var i = 0; i < 15 &&
+                 (knowledge.State != EnemyTargetKnowledgeState.Pursuing ||
+                  Vector3.Distance(agent.destination, wizard.transform.position) < 0.8f); i++)
+                yield return null;
             Assert.That(knowledge.State, Is.EqualTo(EnemyTargetKnowledgeState.Pursuing));
             Assert.AreSame(wizard.transform, knowledge.CurrentTarget);
             Assert.That(Vector3.Distance(agent.destination, wizard.transform.position), Is.GreaterThan(0.8f),
@@ -196,6 +207,41 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.That(frostedRetreat, Is.LessThan(controlRetreat - 0.1f));
             Assert.AreSame(wizard.transform, knowledge.CurrentTarget);
             Assert.IsTrue(agent.isOnNavMesh);
+        }
+
+        // AC-003, VAL-003: block the direct retreat ray while preserving a reachable
+        // lateral route. The component must not pick the straight-behind destination.
+        [UnityTest]
+        public IEnumerator BlockedDirectRetreat_SelectsReachableSidePath()
+        {
+            var wall = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            wall.name = "DirectRetreatWall";
+            wall.transform.SetParent(root.transform);
+            wall.transform.position = new Vector3(-6.1f, 0.5f, 0f);
+            wall.transform.localScale = new Vector3(0.4f, 2f, 1.5f);
+            surface.ClearBakedData();
+            surface.ConfigureAndBuild();
+            Assert.IsTrue(agent.Warp(new Vector3(-5f, 0f, 0f)));
+            wizard.transform.position = new Vector3(-4.4f, 0f, 0f);
+            for (var i = 0; i < 30 && (!agent.hasPath || Mathf.Abs(agent.destination.z) < 1f); i++)
+                yield return null;
+            Assert.That(knowledge.State, Is.EqualTo(EnemyTargetKnowledgeState.Pursuing));
+            Assert.IsTrue(agent.hasPath);
+            Assert.That(Mathf.Abs(agent.destination.z), Is.GreaterThan(1f),
+                "A blocked straight retreat should choose one deterministic lateral route.");
+            var sideDestination = agent.destination;
+            var path = new NavMeshPath();
+            Assert.IsTrue(NavMesh.CalculatePath(enemy.transform.position, sideDestination,
+                NavMesh.AllAreas, path));
+            Assert.That(path.status, Is.EqualTo(NavMeshPathStatus.PathComplete));
+            Assert.That(Vector3.Distance(sideDestination, wizard.transform.position),
+                Is.GreaterThan(Vector3.Distance(enemy.transform.position, wizard.transform.position)));
+            for (var i = 0; i < 5; i++)
+            {
+                yield return null;
+                Assert.That(Vector3.Distance(agent.destination, sideDestination), Is.LessThan(0.2f),
+                    "Retained side destination should not churn every frame.");
+            }
         }
 
         private IEnumerator MeasureDisplacement(float duration, Action<float> record)
