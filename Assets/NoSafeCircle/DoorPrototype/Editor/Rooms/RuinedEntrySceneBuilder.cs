@@ -27,6 +27,9 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
         private const string FloorTilePath = ArchitecturalTileFolder + "/FloorTile.asset";
         private const string FullWallTilePath = ArchitecturalTileFolder + "/WallTile.asset";
         private const float WallVisualOffset = 0.151f;
+        private static readonly Color FloorBlockoutTint = new Color(0.68f, 0.65f, 0.62f);
+        private static readonly Color RubbleAPlaceholderColor = new Color(0.30f, 0.27f, 0.25f);
+        private static readonly Color RubbleBPlaceholderColor = new Color(0.35f, 0.30f, 0.27f);
         private static readonly List<Object> TransientTileObjects = new List<Object>();
 
         [MenuItem("No Safe Circle/Rooms/Build Ruined Entry")]
@@ -109,6 +112,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
 
             Tilemap floor = CreateVisualTilemap(gridObject.transform, "FloorTilemap",
                 new Vector3(0f, 0.01f, 0f), Quaternion.Euler(-90f, 0f, 0f), -100);
+            floor.color = FloorBlockoutTint;
             PaintFloor(floor, floorTile);
 
             Tilemap north = CreateVisualTilemap(gridObject.transform, "NorthFullWallTilemap",
@@ -134,10 +138,12 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
 
             CreateVisualBox(parent, "RubbleAVisual", RaisedCenter(RuinedEntryLayout.RubbleABounds,
                     RuinedEntryLayout.RubbleHeight),
-                RaisedSize(RuinedEntryLayout.RubbleABounds, RuinedEntryLayout.RubbleHeight));
+                RaisedSize(RuinedEntryLayout.RubbleABounds, RuinedEntryLayout.RubbleHeight),
+                RubbleAPlaceholderColor);
             CreateVisualBox(parent, "RubbleBVisual", RaisedCenter(RuinedEntryLayout.RubbleBBounds,
                     RuinedEntryLayout.RubbleHeight),
-                RaisedSize(RuinedEntryLayout.RubbleBBounds, RuinedEntryLayout.RubbleHeight));
+                RaisedSize(RuinedEntryLayout.RubbleBBounds, RuinedEntryLayout.RubbleHeight),
+                RubbleBPlaceholderColor);
         }
 
         private static Tilemap CreateVisualTilemap(
@@ -400,13 +406,16 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             return child.transform;
         }
 
-        private static void CreateVisualBox(Transform parent, string name, Vector3 position, Vector3 size)
+        private static void CreateVisualBox(Transform parent, string name, Vector3 position, Vector3 size,
+            Color color)
         {
             GameObject box = GameObject.CreatePrimitive(PrimitiveType.Cube);
             box.name = name;
             box.transform.SetParent(parent, false);
             box.transform.position = position;
             box.transform.localScale = size;
+            var material = new Material(Shader.Find("Standard")) { color = color };
+            box.GetComponent<MeshRenderer>().sharedMaterial = material;
             Object.DestroyImmediate(box.GetComponent<Collider>());
         }
 
