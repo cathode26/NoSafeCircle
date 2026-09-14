@@ -35,17 +35,17 @@
     },
     {
       "reconciliation_keys": [
-        "gameplay-navigation-locomotion",
         "five-room-continuity-door-sequence",
         "door-passability-publication",
-        "independent-room-scene-composition"
+        "independent-room-scene-composition",
+        "door-enemy-passability-interface"
       ],
       "resource_key": "logical:gameplay-walkability-surface",
       "work_ids": [
-        "NSC-025",
         "NSC-049",
         "NSC-051",
-        "NSC-069"
+        "NSC-069",
+        "NSC-090"
       ]
     },
     {
@@ -81,7 +81,6 @@
         "force-wave",
         "door-open-interaction",
         "doorway-crossing-state",
-        "gameplay-navigation-locomotion",
         "world-visual-foundation",
         "floor-run-restart-bootstrap",
         "floor-run-restart-persistent-closure",
@@ -100,7 +99,8 @@
         "selected-wizard-world-placement",
         "independent-room-scene-composition",
         "wizard-animation-audit-repair",
-        "victory-trigger-overlay-integration"
+        "victory-trigger-overlay-integration",
+        "navmesh-agent-configuration-foundation"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
       "work_ids": [
@@ -111,7 +111,6 @@
         "NSC-009",
         "NSC-019",
         "NSC-020",
-        "NSC-025",
         "NSC-026",
         "NSC-032",
         "NSC-033",
@@ -130,7 +129,8 @@
         "NSC-068",
         "NSC-069",
         "NSC-070",
-        "NSC-086"
+        "NSC-086",
+        "NSC-089"
       ]
     },
     {
@@ -163,7 +163,6 @@
         "force-wave",
         "door-open-interaction",
         "doorway-crossing-state",
-        "gameplay-navigation-locomotion",
         "world-visual-foundation",
         "floor-run-restart-bootstrap",
         "floor-run-restart-persistent-closure",
@@ -184,7 +183,8 @@
         "wizard-animation-audit-repair",
         "wizard-eight-direction-locomotion-integration",
         "stationary-enemy-sprite-integration",
-        "victory-trigger-overlay-integration"
+        "victory-trigger-overlay-integration",
+        "navmesh-agent-configuration-foundation"
       ],
       "resource_key": "unity-scene:Assets/Scenes/DoorPrototype.unity",
       "work_ids": [
@@ -195,7 +195,6 @@
         "NSC-009",
         "NSC-019",
         "NSC-020",
-        "NSC-025",
         "NSC-026",
         "NSC-032",
         "NSC-033",
@@ -216,7 +215,8 @@
         "NSC-070",
         "NSC-075",
         "NSC-077",
-        "NSC-086"
+        "NSC-086",
+        "NSC-089"
       ]
     },
     {

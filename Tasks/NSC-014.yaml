@@ -1,76 +1,67 @@
 {
-  "schema_version": "2.0",
-  "id": "NSC-014",
-  "contract_revision": 2,
-  "contract_disposition": "active",
-  "title": "Enemy Detection, Pursuit, and Search/Reacquisition Foundation",
-  "reconciliation_key": "enemy-pursuit-search-foundation",
-  "kind": "implementation",
-  "type": "enemy_ai_foundation",
-  "execution_scope": "needs_execution_decomposition",
-  "execution_reason": "Bundles several independently verifiable responsibilities — detection acquisition, distance-based target loss, last-known-position homing, bounded randomized search/wander, reacquisition, doorway-passability-aware traversal, and restart-reset participation — reused as the shared base for two archetypes; too broad for one implementation agent to safely execute and validate as a single unit even though the design itself is concrete.",
-  "decomposition_state": "concrete",
-  "decomposition_reason": "The detection/pursuit/lose-target/search/wander/reacquisition contract, threshold relationship, doorway-traversal rule, and reset participation are already fully specified by the GDD; only exact distance/duration tuning numbers are explicitly deferred to playtesting and do not block building the mechanism.",
-  "parent": "NSC-010",
-  "depends_on": [
-    "NSC-025"
-  ],
-  "exclusive_resources": [
-    "logical:enemy-locomotion-behavior-surface"
-  ],
   "acceptance_criteria": [
     {
+      "criterion_id": "AC-001",
       "reference": "Enemy Detection, Pursuit, and Target Loss",
-      "requirement": "Detection Distance is strictly smaller than Lose Target Distance so acquisition/loss does not oscillate at one boundary.",
-      "criterion_id": "AC-001"
+      "requirement": "Detection Distance is strictly smaller than Lose Target Distance so acquisition/loss does not oscillate at one boundary."
     },
     {
+      "criterion_id": "AC-002",
       "reference": "Enemy Detection, Pursuit, and Target Loss",
-      "requirement": "Entering Detection Distance acquires the wizard and begins pursuit; crossing an open doorway does not by itself clear an acquired target.",
-      "criterion_id": "AC-002"
+      "requirement": "Entering Detection Distance acquires the wizard and begins pursuit; crossing an open doorway does not by itself clear an acquired target."
     },
     {
+      "criterion_id": "AC-003",
       "reference": "Enemy Detection, Pursuit, and Target Loss",
-      "requirement": "Exceeding Lose Target Distance transitions to a search state directed at the player's last known position using the distance threshold, not randomness, to decide the transition.",
-      "criterion_id": "AC-003"
+      "requirement": "Exceeding Lose Target Distance transitions to a search state directed at the player's last known position using the distance threshold, not randomness, to decide the transition."
     },
     {
+      "criterion_id": "AC-004",
       "reference": "Enemy Detection, Pursuit, and Target Loss",
-      "requirement": "On reaching the last-known position without reacquisition, perform a short, bounded search/wander using controlled randomness over navigable points, periodically re-checking for the player; re-entering Detection Distance during this state reacquires the player.",
-      "criterion_id": "AC-004"
+      "requirement": "On reaching the last-known position without reacquisition, perform a short, bounded search/wander using controlled randomness over navigable points, periodically re-checking for the player; re-entering Detection Distance during this state reacquires the player."
     },
     {
+      "criterion_id": "AC-005",
       "reference": "Enemy Detection, Pursuit, and Target Loss",
-      "requirement": "If bounded search completes without reacquisition, clear the target and return to local idle/wander; the enemy remains the same persistent object and is not despawned, replaced, or reset.",
-      "criterion_id": "AC-005"
+      "requirement": "If bounded search completes without reacquisition, clear the target and return to local idle/wander; the enemy remains the same persistent object and is not despawned, replaced, or reset."
     },
     {
+      "criterion_id": "AC-006",
       "reference": "Door and Pursuit Rules",
-      "requirement": "A pursuing/searching enemy can continue forward traversal through an open or broken doorway when the shared navigation/locomotion passability result permits it, without losing its target solely because of the crossing.",
-      "criterion_id": "AC-006"
+      "requirement": "A pursuing/searching enemy can continue forward traversal through an open or broken doorway when the shared navigation/locomotion passability result permits it, without losing its target solely because of the crossing."
     },
     {
+      "criterion_id": "AC-007",
       "reference": "Runtime Implementation",
-      "requirement": "Enemy locomotion consumes the shared gameplay navigation/locomotion layer's walkable movement representation rather than selecting or configuring navigation technology independently.",
-      "criterion_id": "AC-007"
+      "requirement": "Enemy locomotion consumes the shared gameplay navigation/locomotion layer's walkable movement representation rather than selecting or configuring navigation technology independently."
     },
     {
+      "criterion_id": "AC-008",
       "reference": "Floor-run restart ownership (Win and Loss Conditions)",
-      "requirement": "Exposes an owner-controlled restart/reset entry point that returns the enemy to its authored encounter/spawn region and clears all target/last-known-position/search state, for consumption by the Floor Run/Restart Orchestrator (owned by a different domain).",
-      "criterion_id": "AC-008"
+      "requirement": "Exposes an owner-controlled restart/reset entry point that returns the enemy to its authored encounter/spawn region and clears all target/last-known-position/search state, for consumption by the Floor Run/Restart Orchestrator (owned by a different domain)."
     }
   ],
+  "basis": "direct_gdd",
   "completion_gates": [
     {
+      "gate_id": "VAL-001",
       "reference": "Development Agent Roles (Unity Validation Agent)",
-      "requirement": "Target-loss hysteresis/search and reacquisition Play Mode validation.",
-      "gate_id": "VAL-001"
+      "requirement": "Target-loss hysteresis/search and reacquisition Play Mode validation."
     },
     {
+      "gate_id": "VAL-003",
       "reference": "Door and Pursuit Rules",
-      "requirement": "Verify a tracking/pursuing or searching enemy follows the player or last-known position through an open/broken doorway without spuriously clearing its target solely due to the crossing.",
-      "gate_id": "VAL-003"
+      "requirement": "Verify a tracking/pursuing or searching enemy follows the player or last-known position through an open/broken doorway without spuriously clearing its target solely due to the crossing."
     }
+  ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 3,
+  "decomposition_reason": "The detection/pursuit/lose-target/search/wander/reacquisition contract, threshold relationship, doorway-traversal rule, and reset participation are already fully specified by the GDD; only exact distance/duration tuning numbers are explicitly deferred to playtesting and do not block building the mechanism.",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-089",
+    "NSC-090"
   ],
   "downstream_integration_obligations": [
     {
@@ -79,6 +70,11 @@
       "requirement": "After NSC-014's enemy pursuit/search movement and NSC-025's shared navigation configuration are delivered, NSC-071 validates that an enemy using those systems can path through the committed Bone Archive lanes, including the BA-1 2.5-unit pinch. A synthetic corridor does not prove this room-specific behavior."
     }
   ],
+  "exclusive_resources": [
+    "logical:enemy-locomotion-behavior-surface"
+  ],
+  "execution_reason": "Bundles several independently verifiable responsibilities — detection acquisition, distance-based target loss, last-known-position homing, bounded randomized search/wander, reacquisition, doorway-passability-aware traversal, and restart-reset participation — reused as the shared base for two archetypes; too broad for one implementation agent to safely execute and validate as a single unit even though the design itself is concrete.",
+  "execution_scope": "needs_execution_decomposition",
   "gdd_evidence": [
     {
       "reference": "Enemy Detection, Pursuit, and Target Loss",
@@ -97,26 +93,31 @@
       "requirement": "Every system owning persistable state exposes a reset entry point, invoked by the Floor Run/Restart Orchestrator, returning each enemy to its authored spawn region and initial AI state with no retained target/search knowledge."
     }
   ],
-  "basis": "direct_gdd",
-  "source_scope": "required",
-  "confidence": "high",
+  "id": "NSC-014",
+  "kind": "implementation",
   "notes": "This item is the shared base that melee-enemy and ranged-enemy consume for their core movement/targeting loop; it does not itself include archetype-specific attack behavior, which stays on the archetype items. It does not own Frost Field slowdown application/restoration or forced-displacement handling (owned by enemy-status-effect-displacement in the enemy_state domain), but per GDD text that consumer depends on this item's pursuit/search state contract, not the reverse — no dependency edge is added here in that direction. Former VAL-002 is an NSC-071 real-room integration proof; VAL-001 and VAL-003 remain local completion gates.",
-  "repository_state_at_bootstrap": "missing",
-  "repository_evidence_at_bootstrap": [],
+  "parent": "NSC-010",
   "provenance": {
-    "origin": "verified_reconciliation_bootstrap",
-    "source_schema_version": "1.0",
-    "reconciliation_run_id": "20260821T193541Z-998ee7b5",
-    "verification_run_id": "20260821T195959Z-43dba5de",
     "bootstrap_status_observation": "open",
-    "migration_id": "task-contract-schema-v2-20260822-r2",
     "contract_transfers": [
       {
         "from_gate_id": "VAL-002",
-        "to_task_id": "NSC-071",
+        "reason": "Bone Archive enemy lane-pathing proof requires committed room geometry and delivered navigation configuration.",
         "to_gate_id": "VAL-001",
-        "reason": "Bone Archive enemy lane-pathing proof requires committed room geometry and delivered navigation configuration."
+        "to_task_id": "NSC-071"
       }
-    ]
-  }
+    ],
+    "migration_id": "task-contract-schema-v2-20260822-r2",
+    "origin": "verified_reconciliation_bootstrap",
+    "reconciliation_run_id": "20260821T193541Z-998ee7b5",
+    "source_schema_version": "1.0",
+    "verification_run_id": "20260821T195959Z-43dba5de"
+  },
+  "reconciliation_key": "enemy-pursuit-search-foundation",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "missing",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "Enemy Detection, Pursuit, and Search/Reacquisition Foundation",
+  "type": "enemy_ai_foundation"
 }

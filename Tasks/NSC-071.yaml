@@ -16,11 +16,11 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 2,
+  "contract_revision": 3,
   "decomposition_reason": "One focused Play Mode test file owns the combined real-room navigation and enemy-movement proof transferred from NSC-025 and NSC-014.",
   "decomposition_state": "concrete",
   "depends_on": [
-    "NSC-025",
+    "NSC-089",
     "NSC-045",
     "NSC-014"
   ],
@@ -41,15 +41,23 @@
   "notes": "This follow-up validates committed room geometry with the delivered navigation agent and enemy movement; it does not edit the room scene, its builder, or its layout data. The one focused test closes NSC-025 INT-001 and NSC-014 INT-001 without treating synthetic geometry as equivalent proof.",
   "parent": "NSC-029",
   "provenance": {
-    "origin": "room_construction_validation_split",
-    "approved_by": "Vincent",
-    "approved_at_utc_date": "2026-09-12",
-    "source_task_id": "NSC-045",
-    "preserved_gate_id": "VAL-001",
     "accepted_contract_transfers": [
-      {"from_task_id": "NSC-025", "from_gate_id": "VAL-001", "from_obligation_id": "INT-001"},
-      {"from_task_id": "NSC-014", "from_gate_id": "VAL-002", "from_obligation_id": "INT-001"}
-    ]
+      {
+        "from_gate_id": "VAL-001",
+        "from_obligation_id": "INT-001",
+        "from_task_id": "NSC-025"
+      },
+      {
+        "from_gate_id": "VAL-002",
+        "from_obligation_id": "INT-001",
+        "from_task_id": "NSC-014"
+      }
+    ],
+    "approved_at_utc_date": "2026-09-12",
+    "approved_by": "Vincent",
+    "origin": "room_construction_validation_split",
+    "preserved_gate_id": "VAL-001",
+    "source_task_id": "NSC-045"
   },
   "reconciliation_key": "bone-archive-navigation-validation",
   "repository_evidence_at_bootstrap": [],

@@ -1,0 +1,68 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "NSC-025 AC-003; GDD - Door and Pursuit Rules (door passability contract)",
+      "requirement": "Create Assets/NoSafeCircle/DoorPrototype/Scripts/World/DoorEnemyPassability.cs with a public method that accepts the sealed, open, locked, or broken semantic state supplied by Door and Interaction. The component must make its doorway block enemy NavMesh traversal while sealed or locked and allow enemy traversal through the opening while open or broken. It does not own or change DoorInteractable's current door state."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "NSC-025 AC-004; GDD - Runtime Implementation",
+      "requirement": "DoorEnemyPassability.cs must implement one Unity navigation mechanism behind its public method, such as NavMesh obstacle carving, a navigation link, or a runtime NavMesh-data update. DoorInteractable, enemy pursuit code, and other callers must not manipulate that NavMesh mechanism directly. Create Assets/NoSafeCircle/DoorPrototype/Tests/DoorEnemyPassabilityPlayModeTests.cs for the required runtime path checks."
+    }
+  ],
+  "basis": "direct_gdd",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "NSC-025 VAL-002; GDD - Door and Pursuit Rules (door passability contract)",
+      "requirement": "In Assets/NoSafeCircle/DoorPrototype/Tests/DoorEnemyPassabilityPlayModeTests.cs, build a test-owned NavMesh floor and doorway with GameplayNavigationSurface, place a test-owned NavMeshAgent on the approach side, and request a path to the forward side after publishing each semantic door state. Verify that sealed and locked prevent a complete path through the opening, while open and broken allow a complete path. The test must use temporary scene objects and must not save Assets/Scenes/DoorPrototype.unity."
+    }
+  ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "The GDD fixes the four door-state results while leaving the Unity NavMesh mechanism to the implementation agent. This child can implement and test that navigation-owned component after the sibling NavMeshSurface component exists; connecting real DoorInteractable state changes remains assigned to NSC-051.",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-089"
+  ],
+  "downstream_integration_obligations": [],
+  "exclusive_resources": [
+    "logical:gameplay-walkability-surface"
+  ],
+  "execution_reason": "One agent can implement the named navigation-owned door-passability component and prove the four pathing results with a temporary Play Mode fixture. It does not edit DoorInteractable, the canonical scene, or the scene builder.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "GDD - 2.5D Isometric Visual and World Representation",
+      "requirement": "The navigation layer owns the navigation-side implementation of the shared door-passability interface and translates Door and Interaction's semantic state into enemy walkability."
+    },
+    {
+      "reference": "GDD - Door and Pursuit Rules (door passability contract)",
+      "requirement": "Sealed and locked doors block enemy traversal; open and broken doors permit forward enemy traversal through the shared navigation interface."
+    },
+    {
+      "reference": "GDD - Runtime Implementation",
+      "requirement": "The exact Unity mechanism used beneath the door-passability interface is an implementation choice."
+    }
+  ],
+  "id": "NSC-090",
+  "kind": "implementation",
+  "notes": "NSC-051 remains responsible for calling this component when the real DoorInteractable changes state. This child tests the navigation result directly and does not duplicate DoorInteractable's state transitions or NSC-051's wiring.",
+  "parent": "NSC-025",
+  "provenance": {
+    "graph_delta_plan_id": "GDP-07fb2284b1c4d47e036b49bed0d824f525b4e9c3626ae5afe1d30a3e3ef77824",
+    "origin": "progressive_decomposition",
+    "parent_contract_revision": 5,
+    "parent_contract_sha256": "ff1a7c8e3317edd1fe24053ca6d4b0755b6796c8a4a1bc741f25bf40a9f35020",
+    "parent_task_id": "NSC-025"
+  },
+  "reconciliation_key": "door-enemy-passability-interface",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "Door State to Enemy NavMesh Passability Component",
+  "type": "gameplay_system"
+}

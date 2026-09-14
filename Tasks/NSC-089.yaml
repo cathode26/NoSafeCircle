@@ -1,0 +1,76 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "NSC-025 AC-001; GDD - 2.5D Isometric Visual and World Representation",
+      "requirement": "Update Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs so, after DoorSequenceBuilder.BuildCanonical has composed the room scenes, it creates a persistent builder-owned GameplayNavigation GameObject. The navigation component on that GameObject must bake one walkable NavMesh from the composed gameplay collision geometry, including the room FloorCollision and obstacle colliders, while excluding the visual Tilemaps as gameplay truth. Rebuilding the scene must remove and recreate this owned GameObject deterministically."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "NSC-025 AC-002; GDD - Runtime Implementation",
+      "requirement": "Create Assets/NoSafeCircle/DoorPrototype/Scripts/World/GameplayNavigationSurface.cs as the runtime component that owns and configures Unity AI Navigation's NavMeshSurface, and add the Unity.AI.Navigation reference to Assets/NoSafeCircle/DoorPrototype/NoSafeCircle.DoorPrototype.asmdef. The component and test-owned NavMeshAgent must use the same project-configured agent type and its radius, height, and slope settings. Do not edit ProjectSettings or the Editor asmdef. Create Assets/NoSafeCircle/DoorPrototype/Tests/Editor/NavMeshAgentConfigurationTests.cs for the configuration and navigation validation in VAL-001."
+    }
+  ],
+  "basis": "direct_gdd",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "NSC-025 VAL-002 (walkable NavMesh prerequisite); GDD - Runtime Implementation",
+      "requirement": "The Edit Mode test Assets/NoSafeCircle/DoorPrototype/Tests/Editor/NavMeshAgentConfigurationTests.cs uses a fresh in-memory scene to verify GameplayNavigationSurface configuration and that a test-owned NavMeshAgent using the selected agent type finds a complete path across a test-owned open gameplay floor. That check does not prove canonical room composition. After the authorized No Safe Circle/Build Door Prototype Scene command materializes Assets/Scenes/DoorPrototype.unity in the isolated task checkout, validate the built canonical scene without saving or changing it: the five-room composition has removed the legacy Floor, exactly one builder-owned GameplayNavigation and GameplayNavigationSurface survive, navigation uses the composed FloorCollision and obstacle colliders rather than visual Tilemaps, and a configured test-owned NavMeshAgent finds a complete path across open composed gameplay floor after scene load or the specified runtime rebuild. Repeat the authorized builder materialization and recheck that exactly one navigation owner remains and the composed-floor path still works. Validation-only tests must not save or modify the committed canonical scene."
+    }
+  ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "This child owns the approved Unity AI Navigation package connection, the persistent scene-level NavMeshSurface, deterministic baking from gameplay collision, and the agent configuration used by enemy movement. A runtime wrapper keeps package-dependent code inside the authorized runtime assembly while the existing Editor builder creates and invokes that component.",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-024"
+  ],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "NSC-025 INT-001; NSC-071 Bone Archive Navigation Lane Validation",
+      "requirement": "After this task's NavMesh agent configuration and NSC-045's authored Bone Archive geometry are available, NSC-071 validates that an enemy using the configured agent can traverse the committed BA-1 2.5-unit pinch and every intended Bone Archive lane. A synthetic corridor does not satisfy that room-specific proof."
+    }
+  ],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/NoSafeCircle.DoorPrototype.asmdef",
+    "unity-scene:Assets/Scenes/DoorPrototype.unity"
+  ],
+  "execution_reason": "One agent can add the named runtime NavMeshSurface component, connect it to the existing scene builder after room composition, configure one agent type, and add the focused non-saving Edit Mode test. The controller can then run No Safe Circle/Build Door Prototype Scene to materialize the authorized canonical scene output.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "GDD - 2.5D Isometric Visual and World Representation",
+      "requirement": "A shared gameplay navigation/locomotion layer owns the walkable movement representation and navigation-facing configuration used by runtime movers, and owns the navigation-side implementation of the shared door-passability interface."
+    },
+    {
+      "reference": "GDD - Runtime Implementation",
+      "requirement": "The approved implementation uses Unity AI Navigation (com.unity.ai.navigation) and NavMesh-based runtime movement, while gameplay collision and walkability remain separate from the visual layer."
+    },
+    {
+      "reference": "GDD - 2.5D Isometric Visual and World Representation",
+      "requirement": "A minimal working navigation/locomotion layer and the approved package configuration must exist before locomotion-dependent enemy implementation is dispatched."
+    }
+  ],
+  "id": "NSC-089",
+  "kind": "implementation",
+  "notes": "This child does not author room layouts. DoorPrototypeSceneBuilder remains the source of truth for the generated GameplayNavigation GameObject and Assets/Scenes/DoorPrototype.unity; the implementation worker must not hand-edit the serialized scene as a substitute for running the Unity builder.",
+  "parent": "NSC-025",
+  "provenance": {
+    "graph_delta_plan_id": "GDP-07fb2284b1c4d47e036b49bed0d824f525b4e9c3626ae5afe1d30a3e3ef77824",
+    "origin": "progressive_decomposition",
+    "parent_contract_revision": 5,
+    "parent_contract_sha256": "ff1a7c8e3317edd1fe24053ca6d4b0755b6796c8a4a1bc741f25bf40a9f35020",
+    "parent_task_id": "NSC-025"
+  },
+  "reconciliation_key": "navmesh-agent-configuration-foundation",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "DoorPrototype NavMesh Surface and Enemy Agent Configuration",
+  "type": "world-foundation"
+}

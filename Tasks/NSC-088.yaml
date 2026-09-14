@@ -1,23 +1,4 @@
 {
-  "schema_version": "2.0",
-  "id": "NSC-088",
-  "contract_revision": 1,
-  "contract_disposition": "active",
-  "title": "Spectral Decoy Spell and Enemy Redirection",
-  "reconciliation_key": "spectral-decoy-spell",
-  "kind": "implementation",
-  "type": "spell",
-  "execution_scope": "unknown",
-  "execution_reason": "Vincent has chosen a travelling phantom that can draw enemies down another corridor, but cast/path control, enemy switching and reversion, lifetime and destruction, cost, and door behavior are not yet approved. Do not dispatch implementation until those decisions and exact ownership are recorded in a revised contract.",
-  "decomposition_state": "coarse",
-  "decomposition_reason": "The spell crosses Wizard Combat, enemy pursuit, navigation, ranged attacks, and restart ownership. Decide the gameplay contract first, then determine whether one agent can build it or it needs reviewed child tasks.",
-  "parent": "NSC-006",
-  "depends_on": [
-    "NSC-003",
-    "NSC-014",
-    "NSC-025"
-  ],
-  "exclusive_resources": [],
   "acceptance_criteria": [
     {
       "criterion_id": "AC-001",
@@ -45,8 +26,22 @@
       "requirement": "Define whether the phantom can traverse open or broken doors, what happens at sealed or locked doors, and whether it persists across rooms without changing the established door-passability and persistent-enemy rules."
     }
   ],
+  "basis": "human_requested_stretch_goal_task",
   "completion_gates": [],
+  "confidence": "medium",
+  "contract_disposition": "active",
+  "contract_revision": 2,
+  "decomposition_reason": "The spell crosses Wizard Combat, enemy pursuit, navigation, ranged attacks, and restart ownership. Decide the gameplay contract first, then determine whether one agent can build it or it needs reviewed child tasks.",
+  "decomposition_state": "coarse",
+  "depends_on": [
+    "NSC-003",
+    "NSC-014",
+    "NSC-089"
+  ],
   "downstream_integration_obligations": [],
+  "exclusive_resources": [],
+  "execution_reason": "Vincent has chosen a travelling phantom that can draw enemies down another corridor, but cast/path control, enemy switching and reversion, lifetime and destruction, cost, and door behavior are not yet approved. Do not dispatch implementation until those decisions and exact ownership are recorded in a revised contract.",
+  "execution_scope": "unknown",
   "gdd_evidence": [
     {
       "reference": "Docs/GDD/No_Safe_Circle_GDD.md — Required Scope, Exclusions, and Stretch Goals",
@@ -61,16 +56,21 @@
       "requirement": "Authored cover can occlude ranged projectiles, and doorway crossing does not itself clear active pursuit."
     }
   ],
-  "basis": "human_requested_stretch_goal_task",
-  "source_scope": "stretch",
-  "confidence": "medium",
+  "id": "NSC-088",
+  "kind": "implementation",
   "notes": "This task records Vincent's travelling-corridor-phantom direction, not approval of unresolved spell mechanics or a runnable crew contract. Before dispatch, revise the GDD and this task with explicit decisions for cast/path control, eligible enemies and target priority, attackability/lifetime, mana/cooldown, door/room behavior, and any new visibility rule; add locally provable completion gates and exact file/resource ownership. Then review whether to decompose it. Existing NSC-014 pursuit, NSC-025 navigation, and NSC-054 ranged-attack ownership must be respected; do not silently broaden those tasks or change their contracts as part of this entry.",
-  "repository_state_at_bootstrap": "missing",
-  "repository_evidence_at_bootstrap": [],
+  "parent": "NSC-006",
   "provenance": {
-    "origin": "human_requested_stretch_goal_task",
     "created_by_human_request": true,
+    "design_approval": "mechanics_pending",
     "design_direction": "travelling phantom can draw enemies down another corridor",
-    "design_approval": "mechanics_pending"
-  }
+    "origin": "human_requested_stretch_goal_task"
+  },
+  "reconciliation_key": "spectral-decoy-spell",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "missing",
+  "schema_version": "2.0",
+  "source_scope": "stretch",
+  "title": "Spectral Decoy Spell and Enemy Redirection",
+  "type": "spell"
 }
