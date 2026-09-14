@@ -90,8 +90,7 @@ namespace NoSafeCircle.DoorPrototype.Enemies
                 Vector3.Distance(transform.position, repositionDestination) > ArrivalTolerance &&
                 IsCompletePath(repositionDestination))
             {
-                agent.SetDestination(repositionDestination);
-                return;
+                if (TrySetRepositionDestination(repositionDestination)) return;
             }
 
             hasRepositionDestination = false;
@@ -99,7 +98,7 @@ namespace NoSafeCircle.DoorPrototype.Enemies
             {
                 repositionDestination = destination;
                 hasRepositionDestination = true;
-                agent.SetDestination(destination);
+                if (!TrySetRepositionDestination(destination)) Hold();
             }
             else
             {
@@ -140,6 +139,16 @@ namespace NoSafeCircle.DoorPrototype.Enemies
             if (candidatePath == null) candidatePath = new NavMeshPath();
             return NavMesh.CalculatePath(transform.position, destination, NavMesh.AllAreas, candidatePath) &&
                    candidatePath.status == NavMeshPathStatus.PathComplete;
+        }
+
+        private bool TrySetRepositionDestination(Vector3 destination)
+        {
+            // EnemyPursuitMovement has just requested a fresh targetward path in its
+            // Update. Unity can leave that request pending and reject a second
+            // SetDestination, keeping the wizard as the agent destination. Cancel the
+            // pending request before handing this frame's authority to keep-distance.
+            if (agent.pathPending) agent.ResetPath();
+            return agent.SetDestination(destination);
         }
 
         private void Hold()
