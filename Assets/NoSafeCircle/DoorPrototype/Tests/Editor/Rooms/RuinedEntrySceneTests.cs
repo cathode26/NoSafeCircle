@@ -257,10 +257,13 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
             RenderTexture previousActive = RenderTexture.active;
             try
             {
-                // SetUp authors an in-memory room. Remove it before rendering the committed room
-                // so the two identical geometries cannot z-fight in the review captures.
-                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                // SetUp authors an unsaved room. Load the committed source additively, then
+                // close the fixture scene before creating the separate unsaved review scene.
+                // Unity rejects NewScene(Additive) while another untitled scene remains open.
+                Scene fixtureScene = SceneManager.GetActiveScene();
                 source = EditorSceneManager.OpenScene(RuinedEntrySceneBuilder.ScenePath, OpenSceneMode.Additive);
+                SceneManager.SetActiveScene(source);
+                EditorSceneManager.CloseScene(fixtureScene, true);
                 temporary = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
                 SceneManager.SetActiveScene(temporary);
 
