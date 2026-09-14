@@ -422,6 +422,21 @@ for (const [state, meta] of Object.entries(STATES)) {
     'background-color': shade(meta.color),
   }).update();
 }
+// A GER hold is a run-scope annotation, not a replacement for task completion.
+cy.style().selector('node[held = 1]').style({
+  'border-color': '#aab4c0',
+  'border-width': 5,
+  'border-style': 'dashed',
+  'background-color': '#596572',
+}).update();
+cy.style().selector('node[held = 1][state = "complete"]').style({
+  'background-color': shade(STATES.complete.color),
+}).update();
+cy.style().selector('node:selected').style({
+  'border-color': '#58a6ff',
+  'border-width': 5,
+  'border-style': 'solid',
+}).update();
 function shade(hex) {
   const n = parseInt(hex.slice(1), 16);
   const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
@@ -645,6 +660,7 @@ function zoomGraph(factor) {
 
 function visible(task) {
   if (hidden.has(task.state)) return false;
+  if (task.held_overlay && hidden.has('excluded')) return false;
   if (document.getElementById('f-scope').checked && !task.in_scope) return false;
   if (!document.getElementById('f-cancelled').checked && task.state === 'cancelled') return false;
   return true;
@@ -680,7 +696,7 @@ function buildElements(tasks) {
   const shown = tasks.filter(visible);
   const ids = new Set(shown.map(t => t.id));
   const nodes = shown.map(t => ({
-    data: { id: t.id, label: labelFor(t), state: t.state },
+    data: { id: t.id, label: labelFor(t), state: t.state, held: t.held_overlay ? 1 : 0 },
   }));
   const edges = [];
   for (const t of shown) {
@@ -1033,6 +1049,7 @@ function updateLegend(snap) {
   for (const t of snap.tasks) {
     if (scopeOnly && !t.in_scope) continue;
     counts[legendState(t)] = (counts[legendState(t)] || 0) + 1;
+    if (t.held_overlay && t.state !== 'excluded') counts.excluded = (counts.excluded || 0) + 1;
   }
   const el = document.getElementById('legend');
   el.innerHTML = '';
@@ -1052,7 +1069,9 @@ function updateLegend(snap) {
     row.className = 'legend' + (hidden.has(state) ? ' off' : '');
     const hint = snap.run.mode === 'assistant' && state === 'local_accepted'
       ? 'exact human-approved candidate integrated locally; no production delivery claim' : meta.hint;
-    row.title = `${hint} · state key "${state}"`;
+    row.title = state === 'excluded'
+      ? 'Tasks held outside this run, including GER work. This overlaps with their completion or readiness status.'
+      : `${hint} · state key "${state}"`;
     row.innerHTML =
       `<span class="swatch" style="background:${meta.color}"></span>` +
       `<span>${meta.label}</span><span class="count">${counts[state] || 0}</span>`;
