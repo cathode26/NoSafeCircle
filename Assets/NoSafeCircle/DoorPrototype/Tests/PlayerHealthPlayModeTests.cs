@@ -118,15 +118,11 @@ namespace NoSafeCircle.DoorPrototype.Tests
             var fillImage = fillObject.GetComponent<Image>();
 
             var uiObject = new GameObject("HealthUI");
-            var uiType = typeof(PlayerHealthUI);
-            var ui = uiObject.AddComponent(uiType);
+            var ui = uiObject.AddComponent<PlayerHealthUI>();
 
             try
             {
-                SetRequiredField(ui, "health", health);
-                SetRequiredField(ui, "fillImage", fillImage);
-
-                InvokeRequiredInstanceMethod(ui, "Update");
+                ui.Bind(health, fillImage);
 
                 Assert.That(
                     fillImage.fillAmount,

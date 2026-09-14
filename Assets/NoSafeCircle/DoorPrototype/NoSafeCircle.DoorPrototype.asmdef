@@ -4,7 +4,8 @@
     "references": [
         "deVoid.Signals",
         "Unity.InputSystem",
-        "UnityEngine.UI"
+        "UnityEngine.UI",
+        "DOTween"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

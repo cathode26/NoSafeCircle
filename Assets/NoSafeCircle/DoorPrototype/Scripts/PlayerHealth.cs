@@ -10,6 +10,7 @@ namespace NoSafeCircle.DoorPrototype
         public float MaxHealth => maxHealth;
         public float CurrentHealth { get; private set; }
         public event Action<float> Damaged;
+        public event Action<float> HealthChanged;
         public event Action Died;
 
         private void Awake()
@@ -24,6 +25,7 @@ namespace NoSafeCircle.DoorPrototype
             var previousHealth = CurrentHealth;
             CurrentHealth = Mathf.Max(0f, CurrentHealth - amount);
             Damaged?.Invoke(amount);
+            HealthChanged?.Invoke(CurrentHealth);
 
             if (CurrentHealth <= 0f && previousHealth > 0f)
             {
@@ -38,6 +40,7 @@ namespace NoSafeCircle.DoorPrototype
             if (amount <= 0f) return;
 
             CurrentHealth = Mathf.Min(maxHealth, CurrentHealth + amount);
+            HealthChanged?.Invoke(CurrentHealth);
         }
 
         /// Restores the floor-initial health state, for use by owner-controlled
@@ -45,6 +48,7 @@ namespace NoSafeCircle.DoorPrototype
         public void ResetHealth()
         {
             CurrentHealth = maxHealth;
+            HealthChanged?.Invoke(CurrentHealth);
         }
     }
 }

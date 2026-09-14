@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using DG.Tweening;
 
 namespace NoSafeCircle.DoorPrototype
 {
@@ -13,41 +14,41 @@ namespace NoSafeCircle.DoorPrototype
 
         private PlayerMana subscribedMana;
         private Image feedbackImage;
-        private float deniedFlashTimeRemaining;
         private bool normalColorCaptured;
+        private Tween deniedFlashTween;
 
         private void OnEnable()
         {
-            RefreshBindings();
+            Bind(mana, fillImage);
         }
 
         private void OnDisable()
         {
             Unsubscribe();
+            deniedFlashTween?.Kill();
+            deniedFlashTween = null;
 
             if (feedbackImage != null && normalColorCaptured)
             {
                 feedbackImage.color = normalColor;
             }
 
-            deniedFlashTimeRemaining = 0f;
         }
 
         private void Update()
         {
-            // The scene builder adds this component before assigning its serialized
-            // references. Refreshing here makes that late wiring safe without requiring
-            // an artificial disable/re-enable cycle.
-            RefreshBindings();
-
             if (mana == null || fillImage == null) return;
 
             fillImage.fillAmount = mana.MaxMana > 0f ? mana.CurrentMana / mana.MaxMana : 0f;
 
-            if (feedbackImage == null || deniedFlashTimeRemaining <= 0f) return;
+        }
 
-            deniedFlashTimeRemaining -= Time.deltaTime;
-            feedbackImage.color = deniedFlashTimeRemaining > 0f ? deniedColor : normalColor;
+        public void Bind(PlayerMana source, Image target)
+        {
+            Unsubscribe();
+            mana = source;
+            fillImage = target;
+            RefreshBindings();
         }
 
         private void RefreshBindings()
@@ -108,12 +109,14 @@ namespace NoSafeCircle.DoorPrototype
         /// when a cast is denied due to insufficient mana.
         private void HandleCastDenied(float requestedAmount)
         {
-            RefreshBindings();
-            deniedFlashTimeRemaining = deniedFlashDuration;
-
             if (feedbackImage != null)
             {
+                deniedFlashTween?.Kill();
                 feedbackImage.color = deniedColor;
+                deniedFlashTween = DOTween.Sequence()
+                    .AppendInterval(deniedFlashDuration)
+                    .AppendCallback(() => feedbackImage.color = normalColor)
+                    .OnComplete(() => deniedFlashTween = null);
             }
         }
     }

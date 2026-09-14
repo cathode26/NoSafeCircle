@@ -8,7 +8,47 @@ namespace NoSafeCircle.DoorPrototype
         [SerializeField] private PlayerHealth health;
         [SerializeField] private Image fillImage;
 
-        private void Update()
+        private PlayerHealth subscribedHealth;
+
+        private void OnEnable()
+        {
+            Bind(health, fillImage);
+        }
+
+        private void OnDisable()
+        {
+            Unsubscribe();
+        }
+
+        public void Bind(PlayerHealth source, Image target)
+        {
+            Unsubscribe();
+            health = source;
+            fillImage = target;
+            subscribedHealth = health;
+            if (subscribedHealth != null)
+            {
+                subscribedHealth.HealthChanged += HandleHealthChanged;
+            }
+
+            RefreshFill();
+        }
+
+        private void Unsubscribe()
+        {
+            if (subscribedHealth != null)
+            {
+                subscribedHealth.HealthChanged -= HandleHealthChanged;
+                subscribedHealth = null;
+            }
+        }
+
+        private void HandleHealthChanged(float currentHealth)
+        {
+            RefreshFill();
+        }
+
+        private void RefreshFill()
         {
             if (health == null || fillImage == null) return;
 

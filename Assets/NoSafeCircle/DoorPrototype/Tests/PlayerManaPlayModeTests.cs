@@ -237,6 +237,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 SetPrivateField(ui, "mana", mana);
                 SetPrivateField(ui, "fillImage", image);
                 SetPrivateField(ui, "deniedFlashDuration", 0.05f);
+                ui.Bind(mana, image);
                 ui.enabled = false;
                 ui.enabled = true;
 
@@ -249,8 +250,6 @@ namespace NoSafeCircle.DoorPrototype.Tests
                     "Expected the mana indicator to start in its normal color.");
 
                 mana.Spend(mana.CurrentMana + 10f);
-
-                yield return null;
 
                 Assert.AreEqual(deniedColor, image.color,
                     "Failure caused by low mana must be readable through the mana indicator flashing a " +
@@ -280,6 +279,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
                 SetPrivateField(ui, "mana", mana);
                 SetPrivateField(ui, "fillImage", image);
+                ui.Bind(mana, image);
                 ui.enabled = false;
                 ui.enabled = true;
 
@@ -319,6 +319,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 SetPrivateField(ui, "mana", mana);
                 SetPrivateField(ui, "fillImage", image);
                 SetPrivateField(ui, "deniedFlashDuration", 0.05f);
+                ui.Bind(mana, image);
                 ui.enabled = false;
                 ui.enabled = true;
 
@@ -328,8 +329,6 @@ namespace NoSafeCircle.DoorPrototype.Tests
                     "Expected the mana indicator to retain its scene-authored color before any denied flash.");
 
                 mana.Spend(mana.CurrentMana + 10f);
-
-                yield return null;
 
                 Assert.AreEqual((Color)GetPrivateField(ui, "deniedColor"), image.color,
                     "Expected the denied-cast flash color to apply.");
@@ -348,8 +347,8 @@ namespace NoSafeCircle.DoorPrototype.Tests
         }
 
         // VAL-002/VAL-003 regression: the scene builder adds PlayerManaUI before assigning
-        // its serialized mana/fill references. The runtime component must recover from that
-        // late wiring itself; tests must not hide the bug with a disable/re-enable cycle.
+        // its serialized mana/fill references. The explicit Bind boundary must recover from
+        // that late wiring without a per-frame binding poll.
         [UnityTest]
         public IEnumerator PlayerManaUI_LateWiring_SubscribesWithoutDisableReenable()
         {
@@ -368,10 +367,9 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
                 // AddComponent triggers OnEnable now, before mana/fillImage are assigned.
                 var ui = uiObject.AddComponent<PlayerManaUI>();
-                SetPrivateField(ui, "mana", mana);
-                SetPrivateField(ui, "fillImage", fillImage);
+                ui.Bind(mana, fillImage);
 
-                // No disable/re-enable workaround. Update must notice the late wiring.
+                // No disable/re-enable workaround; the builder's explicit binding boundary is enough.
                 yield return null;
 
                 mana.Spend(mana.CurrentMana + 10f);
@@ -415,6 +413,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 SetPrivateField(ui, "mana", mana);
                 SetPrivateField(ui, "fillImage", fillImage);
                 SetPrivateField(ui, "deniedFlashDuration", 0.05f);
+                ui.Bind(mana, fillImage);
 
                 yield return null;
 
@@ -425,7 +424,6 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 Assert.AreEqual(0f, fillImage.fillAmount, 0.001f);
 
                 Assert.IsFalse(mana.Spend(1f));
-                yield return null;
 
                 Assert.AreEqual(
                     (Color)GetPrivateField(ui, "deniedColor"),

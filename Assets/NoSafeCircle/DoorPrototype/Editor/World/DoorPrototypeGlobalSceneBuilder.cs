@@ -1029,6 +1029,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
             var healthUiBinding = canvasObject.AddComponent<PlayerHealthUI>();
             SetPrivateField(healthUiBinding, "health", health);
             SetPrivateField(healthUiBinding, "fillImage", healthFill);
+            healthUiBinding.Bind(health, healthFill);
         }
 
         /// Mirrors the door's ProgressFill pattern: a background bar with a Filled child
@@ -1065,6 +1066,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
             var manaUiBinding = canvasObject.AddComponent<PlayerManaUI>();
             SetPrivateField(manaUiBinding, "mana", mana);
             SetPrivateField(manaUiBinding, "fillImage", manaFill);
+            manaUiBinding.Bind(mana, manaFill);
 
             var manaButtonObject = new GameObject("DebugManaSpendButton");
             manaButtonObject.transform.SetParent(canvasObject.transform, false);
