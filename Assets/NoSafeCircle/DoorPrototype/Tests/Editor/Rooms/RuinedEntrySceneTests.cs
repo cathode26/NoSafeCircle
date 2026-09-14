@@ -254,6 +254,9 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
             RenderTexture previousActive = RenderTexture.active;
             try
             {
+                // SetUp authors an in-memory room. Remove it before rendering the committed room
+                // so the two identical geometries cannot z-fight in the review captures.
+                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 source = EditorSceneManager.OpenScene(RuinedEntrySceneBuilder.ScenePath, OpenSceneMode.Additive);
                 temporary = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
                 SceneManager.SetActiveScene(temporary);
