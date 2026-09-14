@@ -249,10 +249,12 @@ namespace NoSafeCircle.DoorPrototype.Editor.Enemies
 
             float pivotY = archetype == StationaryEnemyArchetype.Melee ? 18f / 128f : 14f / 128f;
             Vector2 pivot = new Vector2(0.5f, pivotY);
+            var textureSettings = new TextureImporterSettings();
+            importer.ReadTextureSettings(textureSettings);
             bool changed = importer.textureType != TextureImporterType.Sprite ||
                 importer.spriteImportMode != SpriteImportMode.Single ||
-                importer.spriteAlignment != (int)SpriteAlignment.Custom ||
-                Vector2.Distance(importer.spritePivot, pivot) > 0.0001f ||
+                textureSettings.spriteAlignment != (int)SpriteAlignment.Custom ||
+                Vector2.Distance(textureSettings.spritePivot, pivot) > 0.0001f ||
                 !Mathf.Approximately(importer.spritePixelsPerUnit, PixelsPerUnit) ||
                 importer.filterMode != FilterMode.Point || !importer.alphaIsTransparency ||
                 !importer.isReadable || importer.mipmapEnabled ||
@@ -260,10 +262,11 @@ namespace NoSafeCircle.DoorPrototype.Editor.Enemies
                 importer.wrapMode != TextureWrapMode.Clamp;
             if (changed)
             {
+                textureSettings.spriteAlignment = (int)SpriteAlignment.Custom;
+                textureSettings.spritePivot = pivot;
+                importer.SetTextureSettings(textureSettings);
                 importer.textureType = TextureImporterType.Sprite;
                 importer.spriteImportMode = SpriteImportMode.Single;
-                importer.spriteAlignment = (int)SpriteAlignment.Custom;
-                importer.spritePivot = pivot;
                 importer.spritePixelsPerUnit = PixelsPerUnit;
                 importer.filterMode = FilterMode.Point;
                 importer.alphaIsTransparency = true;
@@ -280,7 +283,10 @@ namespace NoSafeCircle.DoorPrototype.Editor.Enemies
                 !texture.GetPixels32().Any(pixel => pixel.a == 0) ||
                 !texture.GetPixels32().Any(pixel => pixel.a > 0))
             {
-                throw new InvalidOperationException($"Selected enemy image lacks a 128x128 transparent Sprite: {source}");
+                throw new InvalidOperationException(
+                    $"Selected enemy image lacks a 128x128 transparent Sprite: {source}; " +
+                    $"texture={texture?.width}x{texture?.height}, sprite={(sprite != null)}, " +
+                    $"importType={importer.textureType}, mode={importer.spriteImportMode}");
             }
         }
 
