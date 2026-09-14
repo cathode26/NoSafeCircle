@@ -36,6 +36,15 @@ namespace NoSafeCircle.DoorPrototype
         [SerializeField] private Vector3 forwardCrossingOffset = new Vector3(0f, 0f, 1f);
         [SerializeField] private Vector3 forwardCrossingTriggerSize = new Vector3(3f, 3f, 2f);
 
+        // AC-002: fixed health amount requested from Player Health when the automatic
+        // close-and-lock completes. Exact value is a tuning value (GDD: "Exact recovery values
+        // will be set during playtesting"); level authoring configures it per door instance.
+        [SerializeField] private float healthRestoreAmount = 20f;
+
+        // AC-007: serialized per-door maximum durability. DoorInteractable itself retains
+        // ownership of CurrentDurability and all damage/break handling below.
+        [SerializeField] private float maxDurability = 100f;
+
         private static readonly List<DoorInteractable> activeDoors = new List<DoorInteractable>();
 
         private PlayerInteractionController playerInRange;
@@ -55,6 +64,20 @@ namespace NoSafeCircle.DoorPrototype
         /// implementing their own forward-side detection.
         public bool HasCrossedForward { get; private set; }
 
+        /// AC-001/AC-003/AC-004: true once forward-side crossing has automatically closed and
+        /// locked this door. Never becomes true again for a door that has since broken.
+        public bool IsLocked { get; private set; }
+
+        /// AC-004/AC-005: true once accepted damage has reduced CurrentDurability to zero.
+        /// A broken door never becomes locked, sealed, or unbroken again during this run.
+        public bool IsBroken { get; private set; }
+
+        /// AC-004/AC-007: current durability against the serialized maxDurability. Only
+        /// TakeDamage below is allowed to reduce this; callers cannot write it directly.
+        public float CurrentDurability { get; private set; }
+
+        public float MaxDurability => maxDurability;
+
         /// AC-008: fires when this door completes its five-second opening timer and transitions
         /// from sealed to open. PlayerInteractionController consumes this to release its pending
         /// selection instead of independently polling IsOpen every frame.
@@ -63,6 +86,15 @@ namespace NoSafeCircle.DoorPrototype
         /// AC-002: fires exactly once, the moment HasCrossedForward becomes true. Owner-side
         /// consumers (door close/lock, final-escape victory) subscribe here instead of polling.
         public event System.Action CrossedForward;
+
+        /// AC-001: fires exactly once, the moment forward-side crossing completes the automatic
+        /// close-and-lock. Future consumers (e.g. the door-passability child) can subscribe here
+        /// instead of polling IsLocked.
+        public event System.Action Locked;
+
+        /// AC-004/AC-005: fires exactly once, the moment accepted damage breaks this door. The
+        /// door-passability child owns publishing the resulting forward-passable navigation state.
+        public event System.Action Broken;
 
         public static IReadOnlyList<DoorInteractable> ActiveDoors => activeDoors;
 
@@ -86,6 +118,8 @@ namespace NoSafeCircle.DoorPrototype
 
             var relay = crossingObject.AddComponent<ForwardCrossingRelay>();
             relay.Owner = this;
+
+            CurrentDurability = maxDurability;
         }
 
         private void OnEnable()
@@ -140,15 +174,20 @@ namespace NoSafeCircle.DoorPrototype
             Progress = 0f;
         }
 
-        /// AC-003/AC-007: owner-controlled reset entry point consumed by the Floor Run/Restart
-        /// Orchestrator. Returns progress, interacting state, open state, doorway-crossing state,
-        /// and doorway-blocker enablement to their floor-initial values.
+        /// AC-003/AC-006/AC-007: owner-controlled reset entry point consumed by the Floor
+        /// Run/Restart Orchestrator. Returns progress, interacting state, open state,
+        /// doorway-crossing state, locked/broken state, current durability, sealed geometry, and
+        /// the doorway-blocker to their floor-initial values. NSC-020's doorway-crossing state
+        /// (HasCrossedForward) remains the single such field; this reset does not add a second one.
         public void ResetDoor()
         {
             IsInteracting = false;
             IsOpen = false;
             Progress = 0f;
             HasCrossedForward = false;
+            IsLocked = false;
+            IsBroken = false;
+            CurrentDurability = maxDurability;
             playerInRange = null;
 
             if (doorVisual != null) doorVisual.SetActive(true);
@@ -197,6 +236,52 @@ namespace NoSafeCircle.DoorPrototype
 
             HasCrossedForward = true;
             CrossedForward?.Invoke();
+
+            CloseAndLock(other.GetComponentInParent<PlayerHealth>());
+        }
+
+        /// AC-001/AC-002/AC-003: automatically closes and locks this door the moment forward-side
+        /// crossing is confirmed, re-enabling the doorway blocker (now behind the player, so it
+        /// only prevents backward travel) and requesting the configured fixed health restoration
+        /// through Player Health's own owner-controlled Restore method.
+        private void CloseAndLock(PlayerHealth crossedPlayerHealth)
+        {
+            if (IsLocked || IsBroken) return;
+
+            IsLocked = true;
+
+            if (doorVisual != null) doorVisual.SetActive(true);
+            if (doorwayBlocker != null) doorwayBlocker.enabled = true;
+
+            crossedPlayerHealth?.Restore(healthRestoreAmount);
+
+            Locked?.Invoke();
+        }
+
+        /// AC-004: owner-controlled damage-intake entry point for enemy attacks against a locked
+        /// door. Rejects damage while sealed, open-but-not-yet-locked, or already broken; accepted
+        /// damage reduces CurrentDurability and breaks the door once it reaches zero.
+        public void TakeDamage(float amount)
+        {
+            if (!IsLocked || amount <= 0f) return;
+
+            CurrentDurability = Mathf.Max(0f, CurrentDurability - amount);
+
+            if (CurrentDurability <= 0f)
+            {
+                Break();
+            }
+        }
+
+        /// AC-004/AC-005: the one-way locked-to-broken transition. A broken door stays open/broken
+        /// and its player blocker keeps preventing backward player travel for the rest of the run;
+        /// publishing forward passability to enemy navigation belongs to the door-passability child.
+        private void Break()
+        {
+            IsLocked = false;
+            IsBroken = true;
+
+            Broken?.Invoke();
         }
 
         // AC-001: relays trigger events from the child forward-crossing GameObject back to the
