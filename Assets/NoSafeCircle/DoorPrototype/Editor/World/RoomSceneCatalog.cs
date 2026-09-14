@@ -105,7 +105,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
                 new RoomCatalogEntry(
                     RoomId.RuinedEntry,
                     "Assets/Scenes/Rooms/RuinedEntry.unity",
-                    new RoomBounds(-10f, 10f, -18f, 0f)),
+                    new RoomBounds(-14f, 14f, -26f, 0f)),
                 new RoomCatalogEntry(
                     RoomId.BoneArchive,
                     "Assets/Scenes/Rooms/BoneArchive.unity",
