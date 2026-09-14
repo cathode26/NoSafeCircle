@@ -92,6 +92,14 @@ def main(argv=None) -> int:
     refresh_recovered_index.add_argument("task")
     refresh_recovered_index.add_argument("--candidate-commit", required=True)
     refresh_recovered_index.add_argument("--failure-sha256", required=True)
+    recover_policy = commands.add_parser(
+        "recover-nsc032-missing-validation-policy",
+        help="Reclassify an exact retained NSC-032 missing-policy materialization without Unity",
+    )
+    recover_policy.add_argument("task")
+    recover_policy.add_argument("--original-candidate", required=True)
+    recover_policy.add_argument("--materialized-candidate", required=True)
+    recover_policy.add_argument("--failed-journal-sha256", required=True)
     retry_validation = commands.add_parser(
         "retry-candidate-validation",
         help=(
@@ -475,6 +483,16 @@ def main(argv=None) -> int:
                 result = refresh_recovered_nsc032_index(
                     manager, args.task, expected_candidate=args.candidate_commit,
                     expected_failure_sha256=args.failure_sha256,
+                )
+            elif args.command == "recover-nsc032-missing-validation-policy":
+                from Pipeline.AssistantControl.materialization_policy_recovery import (
+                    recover_nsc032_missing_validation_policy,
+                )
+                result = recover_nsc032_missing_validation_policy(
+                    manager, args.task,
+                    original_candidate=args.original_candidate,
+                    materialized_candidate=args.materialized_candidate,
+                    failed_journal_sha256=args.failed_journal_sha256,
                 )
             elif args.command == "retry-candidate-validation":
                 from Pipeline.AssistantControl.candidate_validation_retry import (

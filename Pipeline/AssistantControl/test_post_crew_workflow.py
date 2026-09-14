@@ -31,6 +31,7 @@ from Pipeline.AssistantControl.unity_materialization import MaterializationError
 from Pipeline.AssistantControl.viewer import AssistantSnapshot
 from Pipeline.TaskReviewAgent.authoritative_candidate_validation import (
     AuthoritativeCandidateValidationError,
+    AuthoritativeValidationPolicyUnavailable,
 )
 from Pipeline.TaskReviewAgent.contracts import ExecutionScopePlan
 from Pipeline.TaskReviewAgent.contracts import TaskReviewContractError
@@ -252,6 +253,23 @@ class PostCrewWorkflowDoorPrototypeTests(unittest.TestCase):
         second = self.run_workflow(unity_command_runner=counting_builder)
         self.assertEqual(first, second)
         self.assertEqual(0, calls["builder"])
+
+    def test_materialized_missing_policy_reports_not_run_without_test_pass(self):
+        def unavailable(**_kwargs):
+            raise AuthoritativeValidationPolicyUnavailable(
+                "NSC-042 has no committed authoritative validation policy"
+            )
+        first = self.run_workflow(validation_runner=unavailable)
+        self.assertEqual("awaiting_human", first["status"])
+        self.assertEqual("not_run", first["automated_unity_validation"])
+        self.assertEqual([], first["focused_test_results"])
+        self.assertIn("no test pass is recorded", first["validation_note"])
+        def forbidden(*_args, **_kwargs):
+            raise AssertionError("replay must not rerun Unity or validation")
+        second = self.run_workflow(
+            unity_command_runner=forbidden, validation_runner=forbidden,
+        )
+        self.assertEqual(first, second)
 
     def test_unity_unavailable_reports_needs_materialization(self):
         missing = self.root / "does-not-exist" / "Unity.exe"

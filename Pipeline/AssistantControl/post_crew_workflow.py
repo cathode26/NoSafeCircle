@@ -525,7 +525,7 @@ def run_post_crew_workflow(
             + ", ".join(candidate.get("changed_paths") or generated)
             + "."
         )
-    return {
+    result = {
         **_base_result(
             checkouts, task_id, checkout, crew_candidate_commit,
             status="awaiting_human",
@@ -536,6 +536,15 @@ def run_post_crew_workflow(
         ),
         "visual_reproduction_instructions": visual_instructions,
     }
+    unavailable = materialized.get("candidate_validation_unavailable") or {}
+    if (unavailable.get("candidate_commit") == candidate.get("commit")
+            and unavailable.get("automated_unity_validation") == "not_run"):
+        result["automated_unity_validation"] = "not_run"
+        result["validation_note"] = (
+            f"Automated Unity validation did not run: {unavailable['reason']}. "
+            "Vincent must review this exact materialized candidate; no test pass is recorded."
+        )
+    return result
 
 
 __all__ = ["PostCrewWorkflowError", "run_post_crew_workflow"]

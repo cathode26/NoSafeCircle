@@ -229,6 +229,15 @@ Enemies folder, preserves an evidence copy, and includes it in the materialized
 candidate commit. Keeping the folder meta committed prevents the following
 Unity test run from regenerating an untracked file. Other untracked paths still
 stop materialization; the materialized candidate needs its own review.
+If materialization commits an exact clean candidate but the committed
+authoritative validation policy is missing or stale, the candidate remains
+`awaiting_human` with `automated_unity_validation: not_run`. No focused test
+pass is claimed. A real focused test failure still produces `validation_failed`.
+For the already retained NSC-032 missing-policy misclassification, use
+`recover-nsc032-missing-validation-policy` with the exact original and
+materialized commits and the failed journal's SHA-256. The recovery preserves
+the failed journal bytes, verifies the clean commit and receipt, and changes
+only the task's journal and review record; it runs no Unity or provider.
 If a completed recovery reports `checkout_clean: true` but Windows Git still
 shows modified tracked Unity files, use `refresh-nsc032-recovered-index` with
 that same candidate and failed-journal SHA-256 before materialization. It

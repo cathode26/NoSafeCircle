@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import shutil
 import subprocess
 import unittest
@@ -15,10 +16,16 @@ from Pipeline.AssistantControl.materialization_recovery import (
     MaterializationRecoveryError, failure_sha256,
     reopen_failed_nsc032_materialization, refresh_recovered_nsc032_index,
 )
+from Pipeline.AssistantControl.materialization_policy_recovery import (
+    MaterializationPolicyRecoveryError, recover_nsc032_missing_validation_policy,
+)
 from Pipeline.AssistantControl.scope import AssistantScopePlanner
 from Pipeline.AssistantControl.unity_materialization import _require_candidate
 from Pipeline.AssistantControl.unity_materialization import materialize_candidate
 from Pipeline.TaskReviewAgent.contracts import ExecutionScopePlan
+from Pipeline.TaskReviewAgent.authoritative_candidate_validation import (
+    AuthoritativeCandidateValidationError, AuthoritativeValidationPolicyUnavailable,
+)
 from Pipeline.TaskReviewAgent.door_prototype_materialization import changed_paths
 from Pipeline.TaskReviewAgent.git_identity_guard import validated_agent_git_identity
 from Pipeline.TaskReviewAgent.local_candidate_commit import LocalCandidateCommitReceipt
@@ -145,6 +152,112 @@ class NSC032MaterializationRecoveryTests(unittest.TestCase):
             self.manager, "NSC-032", expected_candidate=self.candidate,
             expected_failure_sha256=self.failure_hash,
         )
+
+    def materialize_with_validation(self, validation_runner):
+        self.recover()
+        unity = self.root / "Unity.exe"
+        unity.write_bytes(b"fixture")
+        def builder_runner(args, cwd, timeout):
+            (cwd / SCENE).write_text("generated restart scene\n", newline="\n")
+            (cwd / ENEMIES_META).write_text(self.meta_content, newline="\n")
+            return subprocess.CompletedProcess(args, 0, b"", b"")
+        return materialize_candidate(
+            self.manager, "NSC-032", self.candidate,
+            unity_executable=unity, unity_command_runner=builder_runner,
+            validation_runner=validation_runner,
+        )
+
+    def test_missing_policy_keeps_clean_materialized_commit_without_pass_claim(self):
+        calls = {"validation": 0}
+        def missing_policy(**_kwargs):
+            calls["validation"] += 1
+            raise AuthoritativeValidationPolicyUnavailable(
+                "NSC-032 has no committed authoritative validation policy"
+            )
+        result = self.materialize_with_validation(missing_policy)
+        commit = result["candidate"]["commit"]
+        self.assertEqual("awaiting_human", result["status"])
+        self.assertEqual("unity_materialized", result["candidate"]["kind"])
+        self.assertNotIn("authoritative_validations", result["candidate"])
+        self.assertEqual("not_run", result["candidate_validation_unavailable"]
+                         ["automated_unity_validation"])
+        self.assertEqual("", self.git(self.checkout, "status", "--porcelain=v1"))
+        self.assertEqual(commit, self.git(self.checkout, "rev-parse", "HEAD"))
+        self.assertEqual(1, calls["validation"])
+        def forbidden_builder(*_args, **_kwargs):
+            raise AssertionError("idempotent replay must not run Unity")
+        replay = materialize_candidate(
+            self.manager, "NSC-032", self.candidate,
+            unity_command_runner=forbidden_builder,
+            validation_runner=forbidden_builder,
+        )
+        self.assertEqual(result["candidate"], replay["candidate"])
+        self.assertEqual(1, calls["validation"])
+
+    def test_bound_old_missing_policy_recovery_is_idempotent_and_refuses_tamper(self):
+        # An old host classified the exact missing-policy text as a test failure.
+        def old_failure(**_kwargs):
+            raise AuthoritativeCandidateValidationError(
+                "NSC-032 has no committed authoritative validation policy"
+            )
+        with self.assertRaisesRegex(ValueError, "focused tests failed"):
+            self.materialize_with_validation(old_failure)
+        materialized = self.git(self.checkout, "rev-parse", "HEAD")
+        failure_hash = hashlib.sha256(self.journal_path.read_bytes()).hexdigest()
+        with self.assertRaisesRegex(MaterializationPolicyRecoveryError, "missing-policy"):
+            recover_nsc032_missing_validation_policy(
+                self.manager, "NSC-032", original_candidate=self.candidate,
+                materialized_candidate=materialized, failed_journal_sha256="b" * 64,
+            )
+        unexpected = self.checkout / "unexpected.asset"
+        unexpected.write_text("not in candidate\n")
+        with self.assertRaisesRegex(MaterializationPolicyRecoveryError, "cleanliness"):
+            recover_nsc032_missing_validation_policy(
+                self.manager, "NSC-032", original_candidate=self.candidate,
+                materialized_candidate=materialized, failed_journal_sha256=failure_hash,
+            )
+        unexpected.unlink()
+        result = recover_nsc032_missing_validation_policy(
+            self.manager, "NSC-032", original_candidate=self.candidate,
+            materialized_candidate=materialized, failed_journal_sha256=failure_hash,
+        )
+        self.assertEqual("awaiting_human", result["status"])
+        self.assertEqual("unity_materialized", result["candidate"]["kind"])
+        self.assertNotIn("authoritative_validations", result["candidate"])
+        self.assertNotIn("validation_failure", result["candidate"])
+        self.assertEqual("not_run", result["candidate_validation_unavailable"]
+                         ["automated_unity_validation"])
+        self.assertEqual(materialized, self.git(self.checkout, "rev-parse", "HEAD"))
+        self.assertEqual("", self.git(self.checkout, "status", "--porcelain=v1"))
+        again = recover_nsc032_missing_validation_policy(
+            self.manager, "NSC-032", original_candidate=self.candidate,
+            materialized_candidate=materialized, failed_journal_sha256=failure_hash,
+        )
+        self.assertEqual(result, again)
+        tampered = json.loads(self.journal_path.read_text())
+        tampered["validation_unavailable_reason"] = "test failed"
+        write_record(self.journal_path, tampered)
+        with self.assertRaisesRegex(MaterializationPolicyRecoveryError, "evidence differs"):
+            recover_nsc032_missing_validation_policy(
+                self.manager, "NSC-032", original_candidate=self.candidate,
+                materialized_candidate=materialized, failed_journal_sha256=failure_hash,
+            )
+
+    def test_real_test_failure_cannot_be_reclassified_as_missing_policy(self):
+        def real_failure(**_kwargs):
+            raise AuthoritativeCandidateValidationError("NSC-032 focused test failed")
+        with self.assertRaisesRegex(ValueError, "focused tests failed"):
+            self.materialize_with_validation(real_failure)
+        materialized = self.git(self.checkout, "rev-parse", "HEAD")
+        failure_hash = hashlib.sha256(self.journal_path.read_bytes()).hexdigest()
+        with self.assertRaisesRegex(MaterializationPolicyRecoveryError, "missing-policy"):
+            recover_nsc032_missing_validation_policy(
+                self.manager, "NSC-032", original_candidate=self.candidate,
+                materialized_candidate=materialized, failed_journal_sha256=failure_hash,
+            )
+        record = json.loads(self.record_path.read_text())
+        self.assertEqual("validation_failed", record["status"])
+        self.assertEqual("unity_materialization_failed", record["candidate"]["kind"])
 
     def test_archives_dirty_unity_bytes_and_reopens_same_clean_candidate(self):
         result = self.recover()

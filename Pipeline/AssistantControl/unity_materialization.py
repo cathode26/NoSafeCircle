@@ -25,6 +25,7 @@ from Pipeline.AssistantControl.source_update import (
 )
 from Pipeline.TaskReviewAgent.authoritative_candidate_validation import (
     AuthoritativeCandidateValidationError,
+    AuthoritativeValidationPolicyUnavailable,
     run_authoritative_candidate_validations,
 )
 from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task
@@ -282,6 +283,61 @@ def _finalize(
     record["human_review"] = None
     record["status"] = "awaiting_human"
     record.pop("materialization_failure", None)
+    record.pop("candidate_validation_unavailable", None)
+    write_record(record_path, record)
+    return record
+
+
+def _finalize_policy_unavailable(
+    record_path: Path, record: dict[str, Any], journal: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Publish the exact materialized commit without asserting a test result."""
+    previous = copy.deepcopy(record.get("candidate"))
+    lineage = record.get("candidate_lineage")
+    if not isinstance(lineage, list):
+        lineage = []
+    lineage.append({
+        "kind": (previous or {}).get("kind", "crew_reviewed"),
+        "candidate": previous,
+        "approval": copy.deepcopy(record.get("approval")),
+        "human_review": copy.deepcopy(record.get("human_review")),
+        "source_commit": record.get("source_commit"),
+    })
+    record["candidate_lineage"] = lineage
+    candidate = {
+        "kind": "unity_materialized", "crew_review": False,
+        "source_candidate_crew_review": True,
+        "commit": journal["materialized_commit"],
+        "tree": journal["materialized_tree"],
+        "parent": journal["original_candidate_commit"],
+        "task_contract_sha256": journal["task_contract_sha256"],
+        "plan_id": journal["plan_id"], "lease_id": journal["lease_id"],
+        "changed_paths": list(journal["materialized_paths"]),
+        "original_candidate": previous,
+        "materialization": {
+            "builder": journal["builder"],
+            "unity_executable": journal["unity_executable"],
+            "unity_log": journal["unity_log"],
+            "restored_tracked_paths": list(journal["restored_tracked_paths"]),
+            "normalized_paths": list(journal["normalized_paths"]),
+            "authenticated_incidental_meta_paths": list(
+                journal.get("authenticated_incidental_meta_paths", [])
+            ),
+            "incidental_evidence_path": journal.get("incidental_evidence_path"),
+        },
+    }
+    record["candidate"] = candidate
+    record["candidate_validation_unavailable"] = {
+        "candidate_commit": journal["materialized_commit"],
+        "automated_unity_validation": "not_run",
+        "reason": journal["validation_unavailable_reason"],
+        "observed_at": journal["validation_unavailable_at"],
+    }
+    record["approval"] = None
+    record["human_review"] = None
+    record["status"] = "awaiting_human"
+    record.pop("materialization_failure", None)
+    record.pop("candidate_validation_failure", None)
     write_record(record_path, record)
     return record
 
@@ -378,6 +434,25 @@ def materialize_candidate(
             journal = _read(journal_path, "Unity materialization journal")
             current = git(Path(record["checkout"]), "rev-parse", "HEAD").decode().strip()
             candidate = record.get("candidate") or {}
+            if (journal.get("phase") == "validation_unavailable"
+                    and journal.get("original_candidate_commit") == expected_candidate
+                    and current == journal.get("materialized_commit")
+                    and git(Path(record["checkout"]), "rev-parse", "HEAD^{tree}").decode().strip()
+                    == journal.get("materialized_tree")
+                    and not git(Path(record["checkout"]), "status", "--porcelain=v1", "-z", "--untracked-files=all")):
+                if (candidate.get("kind") == "unity_materialized"
+                        and candidate.get("commit") == current
+                        and record.get("status") == "awaiting_human"
+                        and "authoritative_validations" not in candidate
+                        and record.get("approval") is None
+                        and record.get("human_review") is None
+                        and (record.get("candidate_validation_unavailable") or {}).get("candidate_commit") == current
+                        and (record.get("candidate_validation_unavailable") or {}).get("automated_unity_validation") == "not_run"
+                        and (record.get("candidate_validation_unavailable") or {}).get("reason")
+                        == journal.get("validation_unavailable_reason")):
+                    return record
+                if candidate.get("commit") == expected_candidate:
+                    return _finalize_policy_unavailable(record_path, record, journal)
             if (journal.get("phase") == "validated"
                     and journal.get("original_candidate_commit") == expected_candidate
                     and current == journal.get("materialized_commit")):
@@ -523,6 +598,15 @@ def materialize_candidate(
                         require_plan=True,
                         evidence_phase="post-materialization-validation",
                     )
+                except AuthoritativeValidationPolicyUnavailable as exc:
+                    journal.update({
+                        "phase": "validation_unavailable",
+                        "validation_unavailable_reason": str(exc),
+                        "validation_unavailable_at": _now(),
+                        "automated_unity_validation": "not_run",
+                    })
+                    write_record(journal_path, journal)
+                    return _finalize_policy_unavailable(record_path, record, journal)
                 except AuthoritativeCandidateValidationError as exc:
                     journal.update({
                         "phase": "validation_failed",
