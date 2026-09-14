@@ -1,0 +1,8 @@
+NSC-065 assistant art-selection review
+Validated commit: 03affab6b8229440fba20a80455c4c49454f3671
+Review material: Docs/Art/Doors/contact_sheet.png and C:\Users\VincentLiguori\Downloads\NoSafeCircleOutput\NSC-065\20260914-132000\door-family-comparison-48px.png
+
+Family B's seven states use a consistent stone/wood frame, bottom contact, camera angle and dark-violet palette. At 48-pixel nearest-neighbor display, sealed is a closed slab, opening has a narrow aperture, open is a clear dark passage, locked adds a bright latch, damaged adds surface cracks, broken has a larger breached passage, and final carries a distinct gold crest and trim. The Family A comparison has a flatter front-facing silhouette; Family B fits the dungeon palette and wizard fantasy tone more closely. No gore, text, or obvious borrowed franchise imagery appears in the selected sheet.
+
+Result: PASS for contract VAL-002 assistant source-art selection review.
+Limit: this is a static desk check at approximate gameplay size. The exact in-game scale, wall overlap, animation, door state binding, collision, and sorting have not been tested here. Vincent's in-game visual decision remains open for downstream door-art Unity integration.

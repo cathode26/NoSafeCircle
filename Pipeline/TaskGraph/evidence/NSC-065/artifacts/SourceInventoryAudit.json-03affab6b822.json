@@ -1,0 +1,104 @@
+{
+  "task_id": "NSC-065",
+  "source_commit": "03affab6b8229440fba20a80455c4c49454f3671",
+  "states": [
+    "sealed",
+    "opening",
+    "open",
+    "locked",
+    "damaged",
+    "broken",
+    "final"
+  ],
+  "all_seven_sha_and_raw_match": true,
+  "rgba_128": true,
+  "transparent_background": true,
+  "unique_guid_count": 7,
+  "recorded_successful_call_count": 7,
+  "rows": [
+    {
+      "state": "sealed",
+      "sha256": "d3e59d3e8546fe98c8959d0750e367699cc5199c1ab666146b24ed0fb592a215",
+      "guid": "5a184cf226ba75e4883e951007bbf23a",
+      "alpha_bbox": [
+        6,
+        4,
+        122,
+        121
+      ],
+      "pixellab_job_id": "99f204e7-c2e6-4b79-96bf-91f1aab741b9"
+    },
+    {
+      "state": "opening",
+      "sha256": "fd97714b621d6191110fffa2cf1f7d34400a9e5828f227b864eabd211793a227",
+      "guid": "8b50ae1ca04f8eb42b33b858c06434ff",
+      "alpha_bbox": [
+        6,
+        4,
+        122,
+        121
+      ],
+      "pixellab_job_id": "fc4d13cf-85e4-4bd3-a52f-1e98cc1d8ac9"
+    },
+    {
+      "state": "open",
+      "sha256": "c8629333ec866a62f37a9f4ef2d45b9a608a1219a2e02e25bccf46e42e378a4e",
+      "guid": "84df69766e0cb924cbe4635e25cffd14",
+      "alpha_bbox": [
+        6,
+        4,
+        122,
+        121
+      ],
+      "pixellab_job_id": "fd2b98a0-8f82-49ad-8117-c85bc9d1e7ba"
+    },
+    {
+      "state": "locked",
+      "sha256": "6f33e99f8d67b50265142be0beb9c465dd40498f76b9ca0e51086444518c4e02",
+      "guid": "d704fd93c23e99247977df08693fccc6",
+      "alpha_bbox": [
+        6,
+        4,
+        122,
+        121
+      ],
+      "pixellab_job_id": "f1f290b0-28c0-4b90-8bf6-eddbb6a6f09b"
+    },
+    {
+      "state": "damaged",
+      "sha256": "64d3d56a191b2a910f98e6987920ab2019b06f163277400948e828db90a43a0e",
+      "guid": "46924dd78ef82ac4da917df16bfdf9cd",
+      "alpha_bbox": [
+        6,
+        4,
+        122,
+        121
+      ],
+      "pixellab_job_id": "2fc55322-5674-4e3e-9196-4c206bdb91d1"
+    },
+    {
+      "state": "broken",
+      "sha256": "8644c0bd2f8ae87c9530d11809edccdd64ea31d81e9e48a0be7a6d6653bc935f",
+      "guid": "7feb95b365dfa244e94bec807a63f154",
+      "alpha_bbox": [
+        6,
+        4,
+        122,
+        121
+      ],
+      "pixellab_job_id": "8002b0e8-6d4a-491c-afdf-53febab10109"
+    },
+    {
+      "state": "final",
+      "sha256": "46061355941a506b53a2a25c19c59297206d9864f7d3ef31bc83f252197ec11f",
+      "guid": "3f360e9152266e04c9d764cf8d915754",
+      "alpha_bbox": [
+        6,
+        4,
+        122,
+        121
+      ],
+      "pixellab_job_id": "8fc65029-99cb-4113-979c-9944c3e897e0"
+    }
+  ]
+}
