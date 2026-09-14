@@ -142,18 +142,23 @@ applied to PixelLab's output.
 
 - `frame_004.png` <- generated frame index 1 of animation asset
   `1a6e4335-a4e3-462d-8e2d-f6b297772d1b`, cropped as above.
-- `frame_005.png` <- generated frame index 5 of the same animation asset,
+- `frame_005.png` <- generated frame index 6 of the same animation asset,
   cropped as above.
 
-The two replacement frames were initially selected because their
-non-transparent bounds (x=57-58, top y=10-11) match the horizontal alignment
-and ground contact of frames 000-003. They retain the hat and costume.
-A later six-frame motion review found that frames 004/005 turn too far toward
-a rear view. Keep this as a tested fallback pending a better tail and
-Vincent's exact-candidate approval.
-Generated frame indices 0 (start-pose reference), 2, 3, 4, and 6 were
+The existing 004/005 fallback used generated indices 1/5. In this alternate,
+frame 005 uses generated index 6 of the same PixelLab animation asset,
+cropped at the same (22,22)-(202,202) region. Index 6 returns closer to the
+north-east three-quarter view before the loop restarts. Frame 004 still
+turns somewhat rearward, so this is a visual review candidate, not an
+approved continuity fix.
+Generated frame indices 0 (start-pose reference), 2, 3, 4, and 5 were
 reviewed and not used; they remain retrievable under the same animation
-group ID for future reference.
+group ID for future reference. The former selected index-5 frame 005 is
+preserved by fallback commit 7fe174fc5 with SHA-256
+5e98c6d76a0cebbd4213e45245bf1fee90b5e652b46b9bd4dd51f06f6f8786d3.
+This alternate uses cached PixelLab index 6 with SHA-256
+a201861900e1c801545b25f181f3bf116f3be079a2c9f872ca6fd92d809ffe5a;
+it required no new generator call.
 
 The original NSC-073 source checkout had no `.meta` files for these PNGs.
 Current main tracks `.meta` files at both selected paths. This reconciliation
