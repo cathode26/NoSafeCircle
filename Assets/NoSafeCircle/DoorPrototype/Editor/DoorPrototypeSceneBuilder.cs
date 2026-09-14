@@ -6,6 +6,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.Tilemaps;
 using UnityEngine.UI;
+using NoSafeCircle.DoorPrototype.World;
 using NoSafeCircle.DoorPrototype.Editor.World;
 using NoSafeCircle.DoorPrototype.World;
 using Object = UnityEngine.Object;
@@ -1074,6 +1075,7 @@ namespace NoSafeCircle.DoorPrototype.Editor
             SetPrivateField(door, "doorVisual", visual);
             SetPrivateField(door, "doorwayBlocker", doorwayBlocker);
             SetPrivateFieldValue(door, "groundSelectionOffset", ComputeGroundSelectionOffset(visualLocalHeight));
+            door.BindEnemyPassability(doorRoot.AddComponent<DoorEnemyPassability>());
 
             // AC-001/AC-002/AC-003: gives the sealed door a base appearance distinguishable
             // from the plain-primitive walls plus hover/selected/opening feedback. The

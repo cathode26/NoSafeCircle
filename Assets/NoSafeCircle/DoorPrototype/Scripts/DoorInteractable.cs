@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using NoSafeCircle.DoorPrototype.World;
 using UnityEngine;
 
 namespace NoSafeCircle.DoorPrototype
@@ -11,6 +12,7 @@ namespace NoSafeCircle.DoorPrototype
         [SerializeField] private bool isFinalDoor;
         [SerializeField] private GameObject doorVisual;
         [SerializeField] private Collider doorwayBlocker;
+        [SerializeField] private DoorEnemyPassability enemyPassability;
 
         // Ground-plane offset from transform.position to the point PlayerInteractionController
         // compares the shared PlayerMovement.PointerWorldTarget against when testing whether the
@@ -128,6 +130,18 @@ namespace NoSafeCircle.DoorPrototype
             relay.Owner = this;
 
             CurrentDurability = maxDurability;
+            PublishEnemyPassability();
+        }
+
+        /// <summary>
+        /// Connects this door to its navigation-owned passability component. The scene builder
+        /// calls this after adding both components; prefab clones retain the serialized link.
+        /// </summary>
+        public void BindEnemyPassability(DoorEnemyPassability passability)
+        {
+            if (passability == null) throw new System.ArgumentNullException(nameof(passability));
+            enemyPassability = passability;
+            PublishEnemyPassability();
         }
 
         private void OnEnable()
@@ -200,6 +214,7 @@ namespace NoSafeCircle.DoorPrototype
 
             if (doorVisual != null) doorVisual.SetActive(true);
             if (doorwayBlocker != null) doorwayBlocker.enabled = true;
+            PublishEnemyPassability();
             ResetCompleted?.Invoke();
         }
 
@@ -212,6 +227,7 @@ namespace NoSafeCircle.DoorPrototype
             if (doorVisual != null) doorVisual.SetActive(false);
             if (doorwayBlocker != null) doorwayBlocker.enabled = false;
 
+            PublishEnemyPassability();
             Opened?.Invoke();
         }
 
@@ -264,6 +280,7 @@ namespace NoSafeCircle.DoorPrototype
 
             crossedPlayerHealth?.Restore(healthRestoreAmount);
 
+            PublishEnemyPassability();
             Locked?.Invoke();
         }
 
@@ -291,7 +308,19 @@ namespace NoSafeCircle.DoorPrototype
             IsLocked = false;
             IsBroken = true;
 
+            PublishEnemyPassability();
             Broken?.Invoke();
+        }
+
+        private void PublishEnemyPassability()
+        {
+            if (enemyPassability == null) return;
+
+            var state = IsBroken ? DoorPassabilityState.Broken
+                : IsLocked ? DoorPassabilityState.Locked
+                : IsOpen ? DoorPassabilityState.Open
+                : DoorPassabilityState.Sealed;
+            enemyPassability.SetDoorState(state);
         }
 
         // AC-001: relays trigger events from the child forward-crossing GameObject back to the
