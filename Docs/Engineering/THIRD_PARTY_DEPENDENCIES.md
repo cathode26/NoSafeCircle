@@ -12,9 +12,14 @@ confirmation required by NSC-057 VAL-001 remains pending.
 The DOTween package files and deVoid source/license are unchanged. The Signals
 assembly definition and its reference from `NoSafeCircle.DoorPrototype.asmdef`
 are No Safe Circle configuration. DOTween's standard plugin DLL is automatically
-referenced by Unity; no Pro package, Addressables package, or other dependency
-was added. The DOTween Utility Panel's setup step and Unity 6000.1.8f1 compile
-and regression results must be checked before NSC-057 is accepted.
+referenced by Unity. On its first Unity import, DOTween added the `DOTWEEN`
+scripting define to the project build targets in
+`ProjectSettings/ProjectSettings.asset`. Unity also generated the previously
+missing `Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies.meta` for an
+existing folder; that stable folder GUID is retained so later imports do not
+create it again. No Pro package, Addressables package, or other dependency
+was added. The DOTween Utility Panel's module setup and the Unity 6000.1.8f1
+regression results must be checked before NSC-057 is accepted.
 
 Adding these libraries makes their APIs available; it does not require gameplay
 systems to use them. New code should follow the selection rules in
