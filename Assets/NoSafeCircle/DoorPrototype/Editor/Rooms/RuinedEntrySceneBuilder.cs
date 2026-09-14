@@ -34,12 +34,13 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
         {
             EnsureFolder(Path.GetDirectoryName(ScenePath)?.Replace('\\', '/'));
             EnsureFolder(ArchitecturalTileFolder);
-            Tile lowWallTile = LoadOrCreateRuinedEntryLowWallTile(ArchitecturalTileFolder);
-
             Scene scene = File.Exists(ScenePath)
                 ? EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single)
                 : EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
+            // Opening the old scene can unload a newly created Tile sub-asset. Resolve it only
+            // after the destination scene is active so the reference survives materialization.
+            Tile lowWallTile = LoadOrCreateRuinedEntryLowWallTile(ArchitecturalTileFolder);
             RebuildSceneContents(scene, lowWallTile);
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene, ScenePath);
