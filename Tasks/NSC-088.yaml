@@ -1,0 +1,76 @@
+{
+  "schema_version": "2.0",
+  "id": "NSC-088",
+  "contract_revision": 1,
+  "contract_disposition": "active",
+  "title": "Spectral Decoy Spell and Enemy Redirection",
+  "reconciliation_key": "spectral-decoy-spell",
+  "kind": "implementation",
+  "type": "spell",
+  "execution_scope": "unknown",
+  "execution_reason": "Vincent has chosen a travelling phantom that can draw enemies down another corridor, but cast/path control, enemy switching and reversion, lifetime and destruction, cost, and door behavior are not yet approved. Do not dispatch implementation until those decisions and exact ownership are recorded in a revised contract.",
+  "decomposition_state": "coarse",
+  "decomposition_reason": "The spell crosses Wizard Combat, enemy pursuit, navigation, ranged attacks, and restart ownership. Decide the gameplay contract first, then determine whether one agent can build it or it needs reviewed child tasks.",
+  "parent": "NSC-006",
+  "depends_on": [
+    "NSC-003",
+    "NSC-014",
+    "NSC-025"
+  ],
+  "exclusive_resources": [],
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "Vincent's Spectral Decoy direction",
+      "requirement": "The wizard can create a travelling phantom that moves down a different available corridor while the wizard takes another route, giving pursuing enemies a possible target to follow. The cast input and route-control rule require Vincent's design decision before implementation."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "Enemy Detection, Pursuit, and Target Loss",
+      "requirement": "Define which Melee and Ranged Enemies can switch from the wizard to the phantom, when they switch back, and how the choice interacts with existing distance-based target loss, last-known-position search, reacquisition, and door traversal. The phantom does not silently erase an enemy's knowledge of the wizard."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "Chapel of Ash cover and Ranged Enemy attack ownership",
+      "requirement": "Keep projectile collision with an authored wall, shelf, table, pew, or column separate from enemy target selection. Cover blocks a shot only when its gameplay collider and projectile-occlusion rule do so; hiding behind cover alone does not add an unapproved visibility-based target-loss rule."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "Spell resources, failure, and floor restart",
+      "requirement": "Define the phantom's lifetime, attackability or destruction, failure and expiry behavior, mana cost and any cooldown so repeated casts do not guarantee escape. Spell-owned active state must reset on a floor restart and stop accepting casts when gameplay is suspended."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "Door and Pursuit Rules",
+      "requirement": "Define whether the phantom can traverse open or broken doors, what happens at sealed or locked doors, and whether it persists across rooms without changing the established door-passability and persistent-enemy rules."
+    }
+  ],
+  "completion_gates": [],
+  "downstream_integration_obligations": [],
+  "gdd_evidence": [
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md — Required Scope, Exclusions, and Stretch Goals",
+      "requirement": "Spectral Decoy is listed as a stretch goal, beyond the three required spells."
+    },
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md — Enemy Detection, Pursuit, and Target Loss",
+      "requirement": "Current enemies use Detection Distance, a larger Lose Target Distance, last-known-position search, and bounded reacquisition; cover does not itself clear the target."
+    },
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md — Chapel of Ash and Door and Pursuit Rules",
+      "requirement": "Authored cover can occlude ranged projectiles, and doorway crossing does not itself clear active pursuit."
+    }
+  ],
+  "basis": "human_requested_stretch_goal_task",
+  "source_scope": "stretch",
+  "confidence": "medium",
+  "notes": "This task records Vincent's travelling-corridor-phantom direction, not approval of unresolved spell mechanics or a runnable crew contract. Before dispatch, revise the GDD and this task with explicit decisions for cast/path control, eligible enemies and target priority, attackability/lifetime, mana/cooldown, door/room behavior, and any new visibility rule; add locally provable completion gates and exact file/resource ownership. Then review whether to decompose it. Existing NSC-014 pursuit, NSC-025 navigation, and NSC-054 ranged-attack ownership must be respected; do not silently broaden those tasks or change their contracts as part of this entry.",
+  "repository_state_at_bootstrap": "missing",
+  "repository_evidence_at_bootstrap": [],
+  "provenance": {
+    "origin": "human_requested_stretch_goal_task",
+    "created_by_human_request": true,
+    "design_direction": "travelling phantom can draw enemies down another corridor",
+    "design_approval": "mechanics_pending"
+  }
+}

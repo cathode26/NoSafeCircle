@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-006",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "contract_disposition": "active",
   "title": "Wizard Combat and Spells",
   "reconciliation_key": "combat",
@@ -10,7 +10,7 @@
   "execution_scope": "not_applicable",
   "execution_reason": "Feature/organizational node; not directly dispatchable.",
   "decomposition_state": "coarse",
-  "decomposition_reason": "The three required spells are each independently concrete; this node is a pure organizational grouping and needs no further decomposition of its own beyond its three children.",
+  "decomposition_reason": "The three required spells remain independently concrete. This organizational node also groups the design-pending Spectral Decoy stretch task; the grouping itself is not executable and does not need decomposition.",
   "parent": "NSC-001",
   "depends_on": [],
   "exclusive_resources": [],
@@ -30,7 +30,7 @@
   "basis": "direct_gdd",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "Aggregate repository_state is 'missing' because all three represented children (fireball, frost-field, force-wave) are currently unimplemented.",
+  "notes": "The three required spell children are Fireball, Frost Field, and Force Wave. NSC-088 records a separate design-pending Spectral Decoy stretch goal; it is not a fourth required spell or authorized implementation work.",
   "repository_state_at_bootstrap": "missing",
   "repository_evidence_at_bootstrap": [],
   "provenance": {
