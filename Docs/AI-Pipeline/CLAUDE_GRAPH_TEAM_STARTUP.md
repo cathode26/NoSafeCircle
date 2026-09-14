@@ -1,17 +1,18 @@
 # Claude graph team startup
 
 Read [the shared startup sequence](GRAPH_TEAM_STARTUP.md) first. This page pins
-the Claude graph-management roles and the Claude-only check command. These
+the Claude graph-management roles and the Claude-only check command. Primary
+Sol is a separate overall orchestrator; the Opus lead below is Graph Sol. These
 agents manage AssistantControl; the implementation crews inside game tasks
 are separate.
 
 | Role | Claude model | Effort | Assignment |
 | --- | --- | --- | --- |
-| Sol equivalent | Opus 5 | xhigh | Persistent lead and sole normal graph-controller authority. |
+| Graph Sol (Sol equivalent) | Opus 5 | xhigh | Persistent graph lead and sole normal graph-controller authority. |
 | Luna equivalent | Sonnet 5 | medium | One fresh bounded `--delegate-safe` setup pass. |
 | Spark equivalent | Haiku 4.5 | medium | Read-only observer and evidence-based escalation. |
 
-Start the lead as the parent Claude Code session. It starts the setup and
+Start Graph Sol as the parent Claude Code session for its graph team. It starts the setup and
 observer agents with explicit model, effort, prompt and tool permissions. The
 observer must have read-only tools. Verify the actual sessions before normal
 `run-graph`; the script cannot create them or test model availability.

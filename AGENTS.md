@@ -11,6 +11,8 @@ Before starting or resuming the three-agent graph-management team, read
 run that provider's read-only startup check.
 The Sol/Luna/Spark graph roles are separate from per-task execution crews;
 `--capacity 3` means worker slots, not three graph-management agents.
+Primary Sol owns cross-project priorities and repair lanes; Graph Sol alone
+owns the live AssistantControl graph controller and escalates blockers to Primary Sol.
 The assistant selects and controls work through conversation; its viewer is
 read-only. The legacy Issue/scheduler procedures below describe the older mode
 and do not require starting that scheduler, creating a managed Issue, or posting

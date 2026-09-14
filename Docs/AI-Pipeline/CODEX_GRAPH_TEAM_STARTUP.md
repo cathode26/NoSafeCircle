@@ -1,19 +1,20 @@
 # Codex graph team startup
 
 Read [the shared startup sequence](GRAPH_TEAM_STARTUP.md) first. This page pins
-the Codex graph-management roles and the Codex check command. These agents
+the Codex graph-management roles and the Codex check command. Primary Sol is a
+separate overall orchestrator; the Sol below is Graph Sol. These agents
 manage AssistantControl; task implementation crews are separate and may use
 Claude or another explicitly configured provider.
 
 | Role | Codex model | Effort | Assignment |
 | --- | --- | --- | --- |
-| Sol | `gpt-5.6-sol` | ultra | Persistent lead and sole normal graph-controller authority. |
+| Graph Sol | `gpt-5.6-sol` | ultra | Persistent graph lead and sole normal graph-controller authority. |
 | Luna | `gpt-5.6-luna` | medium | One fresh bounded `--delegate-safe` setup pass. |
 | Spark | `gpt-5.3-codex-spark` | high | Read-only observer and evidence-based escalation. |
 
 This is the proven September 11 Codex Gauntlet mapping. Use the Codex agent
 platform to start Luna and Spark with these explicit models, efforts and role
-limits; verify the actual sessions before Sol starts normal `run-graph`. The
+limits; verify the actual sessions before Graph Sol starts normal `run-graph`. The
 script prints the expected roster but cannot create or verify the sessions.
 
 For the currently recorded real-game Source and Claude implementation-crew
