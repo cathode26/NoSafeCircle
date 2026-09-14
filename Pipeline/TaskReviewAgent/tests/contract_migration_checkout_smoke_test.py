@@ -227,10 +227,44 @@ def test_contract_migration_fast_forwards_and_rekeys_manifest() -> None:
         require(manifest["task_contract_revision"] == new_contract["contract_revision"], "manifest revision is stale")
 
 
+def test_clean_stale_checkout_is_archived_before_fresh_lease_reprepare() -> None:
+    with tempfile.TemporaryDirectory(prefix="nsc-stale-unleased-recovery-") as temporary:
+        root = Path(temporary)
+        controller, remote, old_main = create_fixture(root)
+        old_contract, old_hash, old_tree = contract_facts(controller)
+        checkout_root = root / "operator"
+        checkout = checkout_root / TASK_ID
+        old_state = initial_state(task_id=TASK_ID, task_contract_sha256=old_hash)
+        old_state = lease(old_state, worker=WORKER_A, source_head=old_main, checkout=checkout, now="2026-08-28T13:01:00Z")
+        old_observation = observation(controller=controller, remote=remote, contract=old_contract, contract_hash=old_hash, source_head=old_main, source_tree=old_tree, state=old_state, worker=WORKER_A)
+        manager = ResumableTaskCheckoutManager(source_root=controller, task_id=TASK_ID, checkout_root=checkout_root, worker_id=WORKER_A, allow_local_remote_for_tests=True)
+        require(manager.prepare(old_observation)["status"] == "created", "initial checkout failed")
+        new_contract, new_hash, new_main, new_tree = rewrite_contract_on_main(controller)
+        available = observation(controller=controller, remote=remote, contract=new_contract, contract_hash=new_hash, source_head=new_main, source_tree=new_tree, state=initial_state(task_id=TASK_ID, task_contract_sha256=new_hash), worker=WORKER_B)
+        available["coordination"]["status"] = "available_unassigned"
+        available["coordination"]["workflow_status"] = "agent_ready_uninitialized"
+        before = manager.inspect(available)
+        require(before["status"] == "conflict", "stale checkout was not detected")
+        recovery_manager = ResumableTaskCheckoutManager(source_root=controller, task_id=TASK_ID, checkout_root=checkout_root, worker_id=WORKER_B, allow_local_remote_for_tests=True)
+        archived = recovery_manager.prepare(available)
+        require(archived["status"] == "archived_stale", f"stale archive failed: {archived}")
+        require(archived["recovery_authority"] == "archived_stale_unleased_checkout", "wrong recovery authority")
+        fresh_state = lease(initial_state(task_id=TASK_ID, task_contract_sha256=new_hash), worker=WORKER_B, source_head=new_main, checkout=checkout, now="2026-08-28T13:02:00Z")
+        migrated = observation(controller=controller, remote=remote, contract=new_contract, contract_hash=new_hash, source_head=new_main, source_tree=new_tree, state=fresh_state, worker=WORKER_B)
+        recovered = recovery_manager.prepare(migrated)
+        require(recovered["status"] == "created", f"fresh reprepare failed: {recovered}")
+        archive = Path(archived["stale_checkout_archived"])
+        require(archive.is_dir() and (archive / ".git").exists(), "stale checkout was not preserved")
+        require(git(checkout, "rev-parse", "HEAD") == new_main, "reprepared checkout is not current main")
+        require(git(checkout, "status", "--porcelain=v1") == "", "reprepared checkout is dirty")
+
+
 def main() -> int:
     test_contract_migration_fast_forwards_and_rekeys_manifest()
+    test_clean_stale_checkout_is_archived_before_fresh_lease_reprepare()
     print("PASS test_contract_migration_fast_forwards_and_rekeys_manifest")
-    print("TaskReviewAgent contract-migration checkout smoke tests: PASS (1 test)")
+    print("PASS test_clean_stale_checkout_is_archived_before_fresh_lease_reprepare")
+    print("TaskReviewAgent contract-migration checkout smoke tests: PASS (2 tests)")
     return 0
 
 
