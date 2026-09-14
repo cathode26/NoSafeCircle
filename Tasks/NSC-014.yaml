@@ -56,7 +56,7 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 3,
+  "contract_revision": 4,
   "decomposition_reason": "The detection/pursuit/lose-target/search/wander/reacquisition contract, threshold relationship, doorway-traversal rule, and reset participation are already fully specified by the GDD; only exact distance/duration tuning numbers are explicitly deferred to playtesting and do not block building the mechanism.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -95,7 +95,7 @@
   ],
   "id": "NSC-014",
   "kind": "implementation",
-  "notes": "This item is the shared base that melee-enemy and ranged-enemy consume for their core movement/targeting loop; it does not itself include archetype-specific attack behavior, which stays on the archetype items. It does not own Frost Field slowdown application/restoration or forced-displacement handling (owned by enemy-status-effect-displacement in the enemy_state domain), but per GDD text that consumer depends on this item's pursuit/search state contract, not the reverse — no dependency edge is added here in that direction. Former VAL-002 is an NSC-071 real-room integration proof; VAL-001 and VAL-003 remain local completion gates.",
+  "notes": "This item is the shared base that melee-enemy and ranged-enemy consume for their core movement/targeting loop; it does not include archetype-specific attack behavior. Under exact-partition decomposition, assign logical:enemy-locomotion-behavior-surface to exactly one child, and keep every edit to that shared locomotion surface with that child. This ownership guardrail is necessary but does not by itself prove that a proposed decomposition is valid; inspect the actual proposal's child scopes, dependencies, and gates before accepting it. A detection producer may publish or consume separately owned detection data and consume the movement owner's public APIs, but must not edit the shared surface; the movement owner must not depend on the detection producer in a cycle, and any reverse edge must reflect a real one-way API contract. If multiple children must mutate the shared surface, stop at needs_human pending the shared-edit rule instead of copying the NSC-053/054/055 lock pattern. Frost Field slowdown application/restoration and forced displacement remain owned by enemy-status-effect-displacement, which consumes this pursuit/search contract. Former VAL-002 is an NSC-071 real-room integration proof; VAL-001 and VAL-003 remain local completion gates.",
   "parent": "NSC-010",
   "provenance": {
     "bootstrap_status_observation": "open",

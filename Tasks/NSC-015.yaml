@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-015",
-  "contract_revision": 1,
+  "contract_revision": 3,
   "contract_disposition": "active",
   "title": "Melee Enemy Archetype",
   "reconciliation_key": "melee-enemy",
@@ -16,7 +16,9 @@
     "NSC-014",
     "NSC-012",
     "NSC-011",
-    "NSC-026"
+    "NSC-026",
+    "NSC-004",
+    "NSC-077"
   ],
   "exclusive_resources": [
     "logical:enemy-locomotion-behavior-surface"
@@ -44,7 +46,7 @@
     },
     {
       "reference": "Environment Presentation and Authoring Direction",
-      "requirement": "Delivers a usable assembled world-space SpriteRenderer archetype prefab integrating the shared pursuit/locomotion foundation, Enemy Health/Defeat participation, Active Enemy Registry participation, and Melee attack behavior.",
+      "requirement": "Delivers a usable assembled world-space SpriteRenderer Melee Enemy gameplay prefab integrating the shared pursuit/locomotion foundation, Enemy Health/Defeat participation, Active Enemy Registry participation, and Melee attack behavior. Reuse NSC-077's approved sprite, direction, and sorting outputs without editing its builder-owned stationary review prefab or presentation assets.",
       "criterion_id": "AC-005"
     },
     {
@@ -71,16 +73,22 @@
     },
     {
       "reference": "Section 2 — Floor-run restart ownership",
-      "requirement": "Verify a mid-windup/mid-swing Melee Enemy attack is cancelled and cooldown/windup state is cleared by floor restart, with no attack state surviving into the next run.",
+      "requirement": "In Play Mode, invoke the Melee Enemy attack owner's public reset method during wind-up and during a swing; verify cancellation, cleared cooldown and wind-up state, and no delayed damage. NSC-033 separately verifies that an actual floor restart calls this method.",
       "gate_id": "VAL-003"
     },
     {
       "reference": "Section 2 — Floor-run restart ownership",
-      "requirement": "Verify floor restart clears melee attack execution/wind-up state through the owner-controlled reset entry point.",
+      "requirement": "In a Play Mode restart harness, call the Melee Enemy attack owner's reset entry point and verify its attack execution, wind-up, and cooldown state returns to the floor-initial values. Connection to the Floor Run/Restart Orchestrator and integrated restart proof belong to NSC-033.",
       "gate_id": "VAL-004"
     }
   ],
-  "downstream_integration_obligations": [],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "Section 2 — Floor-run restart ownership; integrated proof transfer",
+      "requirement": "Assign NSC-033 the actual zero-health invocation through the Floor Run/Restart Orchestrator and the integrated proof that this Melee Enemy attack reset participates in a real floor restart. NSC-015 retains the local attack-owner reset and cancellation gates VAL-003 and VAL-004."
+    }
+  ],
   "gdd_evidence": [
     {
       "reference": "Required Enemy Roster",
@@ -106,7 +114,7 @@
   "basis": "direct_gdd",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "Frost Field's slowdown application/restoration is owned by enemy-status-effect-displacement (a different domain); this item only needs to expose a locomotion speed that can be externally modified, and no formal dependency in that direction is added since the GDD makes status-effect the consumer of this behavior, not the reverse.",
+  "notes": "For exact-partition decomposition, only the movement child may edit logical:enemy-locomotion-behavior-surface. The attack child implements its separate attack/reset component and calls the movement component's public behavior without editing locomotion; the prefab child depends on both the movement and attack children, then assembles the completed components into the gameplay prefab and its separately owned materializer paths outside NSC-077's generated output directories. Prefab child locomotion configuration or wiring edits count as mutation of the locomotion surface and therefore remain with the movement owner; the prefab child must not edit NSC-077's builder-owned stationary review prefab or presentation assets. If an actual implementation needs either child to mutate locomotion, this one-owner boundary is invalid and decomposition must stop for a shared-resource decision. Frost Field's slowdown application/restoration remains owned by enemy-status-effect-displacement; this task only exposes a speed that system can modify.",
   "repository_state_at_bootstrap": "missing",
   "repository_evidence_at_bootstrap": [],
   "provenance": {
@@ -115,6 +123,16 @@
     "reconciliation_run_id": "20260821T193541Z-998ee7b5",
     "verification_run_id": "20260821T195959Z-43dba5de",
     "bootstrap_status_observation": "open",
-    "migration_id": "task-contract-schema-v2-20260822-r2"
+    "migration_id": "task-contract-schema-v2-20260822-r2",
+    "contract_transfers": [
+      {
+        "from_entry_type": "downstream_integration_obligations",
+        "from_entry_id": "INT-001",
+        "to_task_id": "NSC-033",
+        "to_entry_type": "completion_gates",
+        "to_entry_id": "VAL-001",
+        "reason": "Transfer only the actual zero-health invocation and integrated floor-restart proof; local attack reset behavior remains in NSC-015 VAL-003/VAL-004."
+      }
+    ]
   }
 }

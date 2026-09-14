@@ -3,7 +3,7 @@
     {
       "criterion_id": "AC-001",
       "reference": "Floor-run restart ownership",
-      "requirement": "Extends the same orchestrator used by the bootstrap stage to additionally invoke reset entry points for every implemented persistent owner beyond the bootstrap set, without redesigning the orchestration contract."
+      "requirement": "Extends the same orchestrator used by the bootstrap stage to additionally invoke reset entry points for every implemented persistent owner beyond the bootstrap set, including DoorInteractionFeedback.ResetFeedback alongside DoorInteractable.ResetDoor and PlayerInteractionController.ResetInteraction, without redesigning the orchestration contract. One integration child owns every edit to the shared Floor Run/Restart Orchestrator, DoorPrototypeSceneBuilder.cs, and DoorPrototype.unity. Existing domain owners remain responsible for their owner-local reset operations; NSC-033 children may validate or adapt those existing operations within their assigned scope and consume them without editing the owner domains or shared integration surfaces."
     },
     {
       "criterion_id": "AC-002",
@@ -21,7 +21,7 @@
     {
       "gate_id": "VAL-001",
       "reference": "Floor-run restart ownership",
-      "requirement": "Play Mode check, expanded as each owner is implemented, confirming every implemented persistent-state owner is reset to its floor-initial state after a zero-health restart."
+      "requirement": "Play Mode check, expanded as each owner is implemented, confirming every implemented persistent-state owner is reset to its floor-initial state after a zero-health restart. Exercise the NSC-015 INT-001 zero-health invocation through the shared Floor Run/Restart Orchestrator and verify the combined door, player-interaction, and DoorInteractionFeedback reset: hover, selection, approach, and opening feedback clear or return to their correct floor-initial or open state alongside the door and player-interaction resets."
     },
     {
       "gate_id": "VAL-002",
@@ -31,7 +31,7 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 4,
+  "contract_revision": 6,
   "decomposition_reason": "The GDD names the complete required participant list and the exact reset contract for full closure; no missing design remains, though most listed owners do not yet exist.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -52,7 +52,8 @@
     "NSC-009",
     "NSC-015",
     "NSC-054",
-    "NSC-017"
+    "NSC-017",
+    "NSC-041"
   ],
   "downstream_integration_obligations": [],
   "exclusive_resources": [
@@ -78,7 +79,7 @@
   ],
   "id": "NSC-033",
   "kind": "implementation",
-  "notes": "Most of this item's dependencies are currently missing entirely (not merely unfinished), so this item cannot be dispatched meaningfully until the underlying owners exist.",
+  "notes": "The shared orchestrator, DoorPrototypeSceneBuilder.cs, and DoorPrototype.unity are one exact-partition resource group for decomposition: only the integration child edits them. Existing domain owners own their reset APIs and any missing owner operation blocks closure until fixed upstream; NSC-033 children may validate or adapt those APIs within scope and consume them without claiming ownership of another domain's reset implementation. NSC-041 owns DoorInteractionFeedback.ResetFeedback and its door-feedback behavior; NSC-033 invokes and validates it after NSC-041 is delivered. This item cannot be dispatched until its underlying owners exist and are delivered.",
   "parent": "NSC-031",
   "provenance": {
     "bootstrap_status_observation": "open",
@@ -86,7 +87,18 @@
     "origin": "verified_reconciliation_bootstrap",
     "reconciliation_run_id": "20260821T193541Z-998ee7b5",
     "source_schema_version": "1.0",
-    "verification_run_id": "20260821T195959Z-43dba5de"
+    "verification_run_id": "20260821T195959Z-43dba5de",
+    "contract_transfers": [
+      {
+        "from_task_id": "NSC-015",
+        "from_entry_type": "downstream_integration_obligations",
+        "from_entry_id": "INT-001",
+        "to_task_id": "NSC-033",
+        "to_entry_type": "completion_gates",
+        "to_entry_id": "VAL-001",
+        "reason": "The actual zero-health invocation and combined restart proof belong to the shared restart integration owner; NSC-015 retains local attack reset gates."
+      }
+    ]
   },
   "reconciliation_key": "floor-run-restart-persistent-closure",
   "repository_evidence_at_bootstrap": [],
