@@ -546,6 +546,32 @@ class ViewerTests(unittest.TestCase):
         self.assertEqual("blocked", state["tasks"][0]["state"])
         self.assertEqual("checkout_needs_attention", state["tasks"][0]["progress"]["phase"])
 
+    def test_stopped_controller_scope_does_not_hide_direct_worker_or_delivery(self):
+        root = self.viewer_root()
+        records = root / ".assistant-control"
+        records.mkdir(parents=True)
+        (records / "graph-controller.json").write_text(json.dumps({
+            "schema_version": "assistant-graph-controller/v1",
+            "status": "blocked", "targets": ["NSC-1104"],
+            "current_action": None,
+        }), encoding="utf-8")
+        reader = AssistantSnapshot(self.root, root)
+        state = {
+            "run": {"targets": []},
+            "tasks": [
+                {"id": "NSC-1104", "in_scope": False, "state": "ready"},
+                {"id": "NSC-1105", "in_scope": True, "state": "active",
+                 "worker": {"status": "running"}},
+                {"id": "NSC-1106", "in_scope": False, "state": "complete"},
+            ],
+        }
+
+        reader._apply_graph_controller(state, {})
+
+        self.assertEqual(["ready", "active", "complete"],
+                         [row["state"] for row in state["tasks"]])
+        self.assertTrue(state["tasks"][1]["in_scope"])
+
     def test_decomposed_parent_is_accepted_only_when_every_exact_child_is_accepted(self):
         reader = AssistantSnapshot(self.root, self.viewer_root())
         rows = [

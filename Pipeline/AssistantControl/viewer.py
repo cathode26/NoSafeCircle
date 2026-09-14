@@ -322,7 +322,11 @@ class AssistantSnapshot:
             "status": status,
             "targets": controller.get("targets") or state["run"].get("targets") or [],
         })
-        self._apply_controller_scope(state, controller.get("targets"))
+        # A stopped controller's targets are historical. They must not hide a
+        # worker started directly in this checkout root, or erase completed
+        # TaskGraph delivery state from the live view.
+        if status in {"running", "preflight"}:
+            self._apply_controller_scope(state, controller.get("targets"))
         if status == "running":
             self._apply_running_controller_projection(state, controller, action)
             activity.update({
