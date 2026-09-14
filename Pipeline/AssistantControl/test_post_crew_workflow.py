@@ -18,6 +18,7 @@ from unittest.mock import patch
 from Pipeline.AssistantControl import background_jobs
 from Pipeline.AssistantControl import candidate
 from Pipeline.AssistantControl import post_crew_workflow
+from Pipeline.AssistantControl.automation_policy import authenticate_passing_validations
 from Pipeline.AssistantControl.checkouts import Checkouts
 from Pipeline.AssistantControl.post_crew_workflow import (
     PostCrewWorkflowError,
@@ -32,6 +33,7 @@ from Pipeline.TaskReviewAgent.authoritative_candidate_validation import (
     AuthoritativeCandidateValidationError,
 )
 from Pipeline.TaskReviewAgent.contracts import ExecutionScopePlan
+from Pipeline.TaskReviewAgent.contracts import TaskReviewContractError
 from Pipeline.TaskReviewAgent.execution_bridge import ExecutionCrewReceipt
 from Pipeline.TaskReviewAgent.execution_session_pool import _exclusive_file_lock
 from Pipeline.TaskReviewAgent.git_identity_guard import validated_agent_git_identity
@@ -527,6 +529,100 @@ class PostCrewWorkflowNoUnityBuilderTests(unittest.TestCase):
         )
         self.assertEqual(result, repeated)
         self.assertEqual(1, calls["validation"])
+
+    def test_missing_policy_reaches_human_with_no_unity_pass_claim(self):
+        result = run_post_crew_workflow(
+            self.manager, "NSC-100", "fixture-crew", {},
+            bridge_factory=self.bridge, committer_factory=self.committer,
+            unity_command_runner=lambda *_: self.fail("Unity must not run without a policy"),
+        )
+        self.assertEqual("awaiting_human", result["status"])
+        self.assertEqual("not_run", result["automated_unity_validation"])
+        self.assertEqual([], result["focused_test_results"])
+        self.assertIn("no committed authoritative validation policy", result["validation_note"])
+        record = json.loads((self.manager.records / "NSC-100.json").read_text())
+        self.assertIsNone(record["approval"])
+        self.assertIsNone(record["human_review"])
+        self.assertNotIn("authoritative_validations", record["candidate"])
+        self.assertEqual("not_run", record["candidate_validation_unavailable"]["automated_unity_validation"])
+        with self.assertRaisesRegex(ValueError, "requires authoritative validation"):
+            authenticate_passing_validations(
+                self.manager.records, record, result["crew_candidate_commit"]
+            )
+        repeated = run_post_crew_workflow(
+            self.manager, "NSC-100", "fixture-crew", {},
+            bridge_factory=self.bridge, committer_factory=self.committer,
+            unity_command_runner=lambda *_: self.fail("Unity must not run on replay"),
+        )
+        self.assertEqual(result, repeated)
+        self.assertEqual(record, json.loads((self.manager.records / "NSC-100.json").read_text()))
+
+    def test_exact_hash_stale_policy_reaches_human_without_running_unity(self):
+        with patch(
+            "Pipeline.TaskReviewAgent.downstream_resilience.validation_plan_for",
+            side_effect=TaskReviewContractError(
+                "authoritative validation policy for NSC-100 is stale"
+            ),
+        ):
+            result = run_post_crew_workflow(
+                self.manager, "NSC-100", "fixture-crew", {},
+                bridge_factory=self.bridge, committer_factory=self.committer,
+                unity_command_runner=lambda *_: self.fail("Unity must not run on stale policy"),
+            )
+        self.assertEqual("awaiting_human", result["status"])
+        self.assertEqual("not_run", result["automated_unity_validation"])
+        self.assertEqual([], result["focused_test_results"])
+        self.assertIn("is stale", result["validation_note"])
+
+    def test_retained_missing_policy_failure_replays_exact_clean_candidate(self):
+        error = "NSC-100 has no committed authoritative validation policy"
+
+        def former_validation(**_kwargs):
+            raise AuthoritativeCandidateValidationError(error)
+
+        failed = run_post_crew_workflow(
+            self.manager, "NSC-100", "fixture-crew", {},
+            bridge_factory=self.bridge, committer_factory=self.committer,
+            validation_runner=former_validation,
+        )
+        self.assertEqual("validation_failed", failed["status"])
+        candidate_commit = failed["crew_candidate_commit"]
+        recovered = run_post_crew_workflow(
+            self.manager, "NSC-100", "fixture-crew", {},
+            bridge_factory=self.bridge, committer_factory=self.committer,
+        )
+        self.assertEqual("awaiting_human", recovered["status"])
+        self.assertEqual(candidate_commit, recovered["crew_candidate_commit"])
+        self.assertEqual("not_run", recovered["automated_unity_validation"])
+        record = json.loads((self.manager.records / "NSC-100.json").read_text())
+        self.assertEqual(candidate_commit, record["candidate"]["commit"])
+        self.assertEqual(error, record["candidate_validation_failure_history"][0]["validation_error"])
+        self.assertNotIn("candidate_validation_failure", record)
+        self.assertNotIn("authoritative_validations", record["candidate"])
+        self.assertEqual(recovered, run_post_crew_workflow(
+            self.manager, "NSC-100", "fixture-crew", {},
+            bridge_factory=self.bridge, committer_factory=self.committer,
+        ))
+
+    def test_retained_policy_failure_rejects_dirty_candidate_replay(self):
+        def former_validation(**_kwargs):
+            raise AuthoritativeCandidateValidationError(
+                "authoritative validation policy for NSC-100 is stale"
+            )
+
+        run_post_crew_workflow(
+            self.manager, "NSC-100", "fixture-crew", {},
+            bridge_factory=self.bridge, committer_factory=self.committer,
+            validation_runner=former_validation,
+        )
+        (self.checkout / "untracked.txt").write_text("changed\n")
+        with self.assertRaisesRegex(ValueError, "uncommitted changes"):
+            run_post_crew_workflow(
+                self.manager, "NSC-100", "fixture-crew", {},
+                bridge_factory=self.bridge, committer_factory=self.committer,
+            )
+        record = json.loads((self.manager.records / "NSC-100.json").read_text())
+        self.assertEqual("validation_failed", record["status"])
 
     def test_no_builder_validation_failure_is_retained_and_not_human_ready(self):
         def exploding_builder(*_args, **_kwargs):

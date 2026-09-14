@@ -214,6 +214,17 @@ candidate or materialization outcome instead of creating a duplicate commit or
 relaunching Unity on an already-retained failure. It never approves,
 integrates, pushes, publishes, or starts another crew.
 
+For a code-only candidate with no committed authoritative validation policy,
+or a policy whose exact task-contract hash is stale, `post-crew` keeps the
+authenticated clean candidate at `awaiting_human`. Its result says
+`automated_unity_validation: not_run`, lists no focused test results, and names
+the policy gap for Vincent's review. It does not claim a test pass or grant
+automated approval. A `validation_failed` record caused solely by one of these
+exact policy errors can be recovered by rerunning `post-crew` with the same
+task, run ID, and config after the host fix; the command rechecks the retained
+candidate identity and does not create another candidate commit. Real test
+failures remain `validation_failed` and still require a revised candidate.
+
 `python -m Pipeline.AssistantControl --source SOURCE --checkout-root ROOT
 register-restored-candidate TASK --base-commit SHA --candidate-commit SHA --candidate-tree SHA
 --task-contract-sha256 SHA --changed-paths FILE --evidence FILE

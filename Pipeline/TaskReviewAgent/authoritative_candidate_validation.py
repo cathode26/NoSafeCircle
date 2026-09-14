@@ -32,6 +32,19 @@ class AuthoritativeCandidateValidationError(RuntimeError):
     """The exact candidate did not produce authenticated passing validation."""
 
 
+class AuthoritativeValidationPolicyUnavailable(AuthoritativeCandidateValidationError):
+    """No applicable committed policy can select tests for this candidate."""
+
+
+def policy_unavailable_reason(task_id: str, error: str) -> bool:
+    """Recognize only missing or exact-hash-stale policy metadata, never test failures."""
+    return error in {
+        f"{task_id} has no committed authoritative validation policy",
+        f"authoritative validation policy for {task_id} is stale",
+        f"authoritative validation template for {task_id} is stale",
+    }
+
+
 def _decode(value: bytes, label: str) -> str:
     try:
         return value.decode("utf-8")
@@ -142,11 +155,13 @@ def run_authoritative_candidate_validations(
     try:
         plan = validation_plan_for(root, task)
     except TaskReviewContractError as exc:
+        if policy_unavailable_reason(task_id, str(exc)):
+            raise AuthoritativeValidationPolicyUnavailable(str(exc)) from exc
         raise AuthoritativeCandidateValidationError(str(exc)) from exc
     if plan is None:
         if not require_plan:
             return ()
-        raise AuthoritativeCandidateValidationError(
+        raise AuthoritativeValidationPolicyUnavailable(
             f"{task_id} has no committed authoritative validation policy"
         )
     if _git(root, "rev-parse", "HEAD") != commit:
@@ -245,6 +260,7 @@ def run_authoritative_candidate_validations(
 
 
 __all__ = [
-    "AuthoritativeCandidateValidationError", "authoritative_validation_fact",
+    "AuthoritativeCandidateValidationError", "AuthoritativeValidationPolicyUnavailable",
+    "policy_unavailable_reason", "authoritative_validation_fact",
     "run_authoritative_candidate_validations",
 ]

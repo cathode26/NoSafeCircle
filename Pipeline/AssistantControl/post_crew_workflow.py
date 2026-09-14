@@ -10,6 +10,7 @@ source defect), and return one compact JSON object.
 """
 from __future__ import annotations
 
+import copy
 import json
 from datetime import datetime, timezone
 from pathlib import Path
@@ -21,6 +22,7 @@ from Pipeline.AssistantControl.candidate import (
     register_candidate,
 )
 from Pipeline.AssistantControl.checkouts import Checkouts, write_record
+from Pipeline.AssistantControl.review import ReviewGate
 from Pipeline.AssistantControl.unity_materialization import (
     MaterializationError,
     ValidationRunner,
@@ -38,6 +40,8 @@ from Pipeline.TaskReviewAgent.execution_bridge import ExecutionCrewBridge
 from Pipeline.TaskReviewAgent.execution_session_pool import _exclusive_file_lock
 from Pipeline.TaskReviewAgent.authoritative_candidate_validation import (
     AuthoritativeCandidateValidationError,
+    AuthoritativeValidationPolicyUnavailable,
+    policy_unavailable_reason,
     run_authoritative_candidate_validations,
 )
 from Pipeline.TaskReviewAgent.local_candidate_commit import LocalCandidateCommitter
@@ -88,6 +92,7 @@ def _persist_candidate_validation(
     *,
     validations: tuple[Mapping[str, Any], ...] | None = None,
     failure: Mapping[str, Any] | None = None,
+    unavailable: str | None = None,
 ) -> dict[str, Any]:
     """Merge a completed validation into the latest exact candidate record.
 
@@ -98,7 +103,7 @@ def _persist_candidate_validation(
     ``VALIDATION_PERSIST_LOCK_TIMEOUT_SECONDS`` rather than a launch's budget so
     a busy lock cannot discard evidence that has already been produced.
     """
-    if (validations is None) == (failure is None):
+    if sum(item is not None for item in (validations, failure, unavailable)) != 1:
         raise PostCrewWorkflowError("candidate validation outcome is ambiguous")
     with _exclusive_file_lock(
         checkouts.records / "checkouts.lock",
@@ -120,12 +125,39 @@ def _persist_candidate_validation(
             latest["approval"] = None
             latest["human_review"] = None
             latest["candidate_validation_failure"] = dict(failure)
+            latest.pop("candidate_validation_unavailable", None)
+        elif unavailable is not None:
+            if status in _REVIEW_ADVANCED_STATUSES:
+                raise PostCrewWorkflowError(
+                    "validation policy became unavailable after review state advanced; latest state was retained"
+                )
+            candidate_view = copy.deepcopy(latest)
+            candidate_view["status"] = "awaiting_human"
+            ReviewGate(checkouts)._require_candidate(candidate_view, candidate_commit)
+            previous_failure = latest.pop("candidate_validation_failure", None)
+            if previous_failure is not None:
+                history = latest.setdefault("candidate_validation_failure_history", [])
+                if not isinstance(history, list):
+                    raise PostCrewWorkflowError("candidate validation failure history is malformed")
+                history.append(previous_failure)
+            candidate.pop("authoritative_validations", None)
+            latest["candidate"] = candidate
+            latest["status"] = "awaiting_human"
+            latest["approval"] = None
+            latest["human_review"] = None
+            latest["candidate_validation_unavailable"] = {
+                "candidate_commit": candidate_commit,
+                "automated_unity_validation": "not_run",
+                "reason": unavailable,
+                "observed_at": _now(),
+            }
         else:
             candidate["authoritative_validations"] = [dict(item) for item in validations or ()]
             latest["candidate"] = candidate
             if status not in _REVIEW_ADVANCED_STATUSES:
                 latest["status"] = "awaiting_human"
             latest.pop("candidate_validation_failure", None)
+            latest.pop("candidate_validation_unavailable", None)
         write_record(checkouts.records / f"{task_id}.json", latest)
         return latest
 
@@ -254,17 +286,29 @@ def run_post_crew_workflow(
             and (existing or {}).get("status") == "validation_failed"
             and retained_validation_failure.get("candidate_commit")
             == existing_candidate.get("commit")):
-        return {
-            **_base_result(
-                checkouts, task_id, str(existing["checkout"]),
-                existing_candidate.get("commit"), status="validation_failed",
-            ),
-            "validation_error": retained_validation_failure.get("validation_error"),
-            "next_action_command": _exact_command(
-                checkouts, "revise", task_id,
-                "--candidate-commit", str(existing_candidate.get("commit")),
-            ),
-        }
+        error = retained_validation_failure.get("validation_error")
+        if (not isinstance(error, str)
+                or not policy_unavailable_reason(task_id, error)
+                or existing.get("approval") is not None
+                or existing.get("human_review") is not None):
+            return {
+                **_base_result(
+                    checkouts, task_id, str(existing["checkout"]),
+                    existing_candidate.get("commit"), status="validation_failed",
+                ),
+                "validation_error": error,
+                "next_action_command": _exact_command(
+                    checkouts, "revise", task_id,
+                    "--candidate-commit", str(existing_candidate.get("commit")),
+                ),
+            }
+        # A policy omission is not a failed test. Recheck the retained exact,
+        # clean candidate before allowing this same-run replay to proceed.
+        candidate_view = copy.deepcopy(existing)
+        candidate_view["status"] = "awaiting_human"
+        ReviewGate(checkouts)._require_candidate(
+            candidate_view, str(existing_candidate["commit"])
+        )
 
     if already_this_run and kind in {"crew_reviewed", "unity_materialized", "source_synchronized"}:
         crew_candidate_commit = (
@@ -292,7 +336,12 @@ def run_post_crew_workflow(
     if not generated:
         candidate = (existing.get("candidate") or {})
         validations = tuple(candidate.get("authoritative_validations") or ())
-        if not validations:
+        unavailable = (existing.get("candidate_validation_unavailable") or {})
+        if (unavailable.get("candidate_commit") != crew_candidate_commit
+                or unavailable.get("automated_unity_validation") != "not_run"
+                or existing.get("status") != "awaiting_human"):
+            unavailable = {}
+        if not validations and not unavailable:
             task = load_committed_task(
                 Path(checkout), task_id, commit=crew_candidate_commit,
                 expected_sha256=str(existing["task_contract_sha256"]),
@@ -310,6 +359,11 @@ def run_post_crew_workflow(
                     require_plan=True,
                     evidence_phase="post-candidate-validation",
                 )
+            except AuthoritativeValidationPolicyUnavailable as exc:
+                existing = _persist_candidate_validation(
+                    checkouts, task_id, crew_candidate_commit, unavailable=str(exc),
+                )
+                unavailable = existing["candidate_validation_unavailable"]
             except AuthoritativeCandidateValidationError as exc:
                 failure = {
                     "candidate_commit": crew_candidate_commit,
@@ -330,11 +384,12 @@ def run_post_crew_workflow(
                         "--candidate-commit", crew_candidate_commit,
                     ),
                 }
-            existing = _persist_candidate_validation(
-                checkouts, task_id, crew_candidate_commit, validations=validations,
-            )
+            else:
+                existing = _persist_candidate_validation(
+                    checkouts, task_id, crew_candidate_commit, validations=validations,
+                )
         result_status = str(existing.get("status") or "awaiting_human")
-        return {
+        result = {
             **_base_result(
                 checkouts, task_id, checkout, crew_candidate_commit,
                 status=result_status,
@@ -346,6 +401,13 @@ def run_post_crew_workflow(
                 f"code candidate at commit {crew_candidate_commit} in {checkout}."
             ),
         }
+        if unavailable:
+            result["automated_unity_validation"] = "not_run"
+            result["validation_note"] = (
+                f"Automated Unity validation did not run: {unavailable['reason']}. "
+                "Vincent must review this exact candidate; no test pass is recorded."
+            )
+        return result
 
     try:
         materialized = materialize_candidate(
