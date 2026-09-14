@@ -120,7 +120,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
             for (var index = 0; index < 8; index++)
             {
                 Drive(Step);
-                yield return null;
+                yield return new WaitForFixedUpdate();
             }
             Assert.AreEqual(initialDurability, door.CurrentDurability, 0.001f,
                 "An enemy still outside attack reach must not damage the door.");
@@ -145,7 +145,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
                     crossed = true;
                     break;
                 }
-                yield return null;
+                yield return new WaitForFixedUpdate();
             }
             Assert.IsTrue(crossed, "The same enemy must move through the broken doorway. " + Diagnostics());
             Assert.AreEqual(EnemyTargetKnowledgeState.Pursuing, knowledge.State);
@@ -254,7 +254,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
             for (var index = 0; index < maxFrames && door.CurrentDurability >= initial; index++)
             {
                 Drive(Step);
-                yield return null;
+                yield return new WaitForFixedUpdate();
             }
             Assert.Less(door.CurrentDurability, initial, "Enemy never reached and attacked the door. " + Diagnostics());
         }
@@ -264,7 +264,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
             for (var index = 0; index < maxFrames && !door.IsBroken; index++)
             {
                 Drive(Step);
-                yield return null;
+                yield return new WaitForFixedUpdate();
             }
             Assert.IsTrue(door.IsBroken, "Enemy never completed the breach. " + Diagnostics());
         }
