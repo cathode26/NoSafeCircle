@@ -452,8 +452,11 @@ class PostCrewWorkflowNoUnityBuilderTests(unittest.TestCase):
         (self.source / FEATURE).write_text("class Feature {}\n")
         (self.source / FEATURE_TEST).write_text("class FeatureTests {}\n")
         (self.source / "Tasks/NSC-100.yaml").write_text(json.dumps({
-            "id": "NSC-100", "title": "Fixture feature", "contract_disposition": "active",
-            "depends_on": [], "exclusive_resources": [f"repo-file:{FEATURE}"],
+            "schema_version": "2.0", "id": "NSC-100", "title": "Fixture feature",
+            "contract_disposition": "active",
+            "depends_on": [], "exclusive_resources": [
+                f"repo-file:{FEATURE}", f"repo-file:{FEATURE_TEST}",
+            ],
         }))
         _git(self.source, "add", ".")
         _git(self.source, "commit", "-q", "-m", "fixture")
@@ -546,8 +549,10 @@ class PostCrewWorkflowNoUnityBuilderTests(unittest.TestCase):
                 "NSC-100", tested_commit=result["crew_candidate_commit"],
                 decision="approve", message="approve despite failure",
             )
+        snapshot = AssistantSnapshot(self.source, self.manager.root).build()
+        self.assertNotIn("inspection_error", snapshot, snapshot.get("inspection_error"))
         row = next(
-            item for item in AssistantSnapshot(self.source, self.manager.root).build()["tasks"]
+            item for item in snapshot["tasks"]
             if item["id"] == "NSC-100"
         )
         self.assertEqual("blocked", row["state"])
