@@ -225,3 +225,76 @@ files, because a running round treats them as drift.
 - **Stopping a run.** When Vincent changes design authority mid-run, stop the affected
   rounds, preserve them with `ABORTED_BY_OWNER.json`, record the decision, and restart on
   fresh packets.
+
+## 9. Additions after the first room wave (2026-09-14)
+
+### Task-category prompt context
+
+- **`--context <preset>`:** `ger_round.py` includes only the Vincent-decision and reference
+  blocks that fit the task category.
+- **`--addendum-file`:** adds short guidance for that category.
+- **One context per cycle:** `ger_node.py` copies the addendum into the packet as
+  `GER_ADDENDUM.md` and records both choices in `GER_CONTEXT.json`. A cycle keeps the same
+  context from its first round to its last.
+
+| Preset | Prompt blocks | Reference images | Used for |
+|---|---|---|---|
+| `room` | room size authority, room decisions, reference art, wizard questions | all 17 | room blockouts |
+| `composition` | same as `room` | all 17 | NSC-049 |
+| `room_validation` | room size authority, room decisions, wizard questions | none | NSC-071, NSC-072, NSC-030 |
+| `art` | room decisions, reference art | all 17 | NSC-078 to NSC-083 |
+| `gameplay` | wizard questions | none | spells and enemy behavior |
+| `planning` | reference art | all 17 | NSC-085 |
+| `general` | none | none | NSC-066 |
+
+The `room` preset reproduces the room-wave prompts byte for byte. A regression test rebuilds
+every recorded room prompt and compares them.
+
+### Blocked contracts with quoted fixes: owner patch and re-check
+
+This path applies when the round-04 re-audit returns `blocked_not_design` and quotes the exact
+replacement text for every finding:
+
+1. **Owner patch.** The GER owner writes a replacements file that copies that text.
+   `ger_patch.py` applies it to the round-03 contract and writes an immutable `05-owner-patch`
+   round.
+   - Every replacement must be quoted in the re-audit.
+   - Every anchor must match exactly once.
+   - The GER owner authors no contract wording.
+2. **Re-check.** A fresh Claude conversation runs `ger_round.py --round 06-claude-recheck`. It
+   checks three things:
+   - each required change was applied verbatim;
+   - nothing else changed;
+   - no blocking or major issue remains.
+3. **Commit.** `apply_contract.py` commits the patched contract only when:
+   - the re-check recommends `commit_contract`;
+   - the re-check's recorded inputs match that exact patch.
+
+   `--override-json` is refused on this path.
+
+A `needs_design` re-audit is never patched; it waits for Vincent's decision.
+
+### Recommendation parsing
+
+A re-audit can say `needs_design` and then add that a later re-audit could recommend
+`commit_contract`. The parsers in `ger_node.py` and `apply_contract.py` therefore return the
+earliest option named after the final-recommendation heading, never the first option in a fixed
+list. The GER owner still reads every re-audit before acting on it.
+
+### Coordination with Codex (GitHub issue #127)
+
+- **Handoff thread:** issue #127 covers every GER task.
+- **Handoff message:** after a contract is committed and its hold released, the GER owner posts
+  **Ready for Codex — NSC-0xx** with the commit, the base commit and any remaining blocker.
+- **Pickup:** Codex replies **Received** when it picks the task up.
+- **Blockers:** posted immediately.
+- **Before each commit:** the GER owner rechecks that local main is clean, because game candidates
+  also land there.
+
+### Cross-room coordinates
+
+- **Why shifts cascade:** room contracts use absolute coordinates, and the composer cannot move a
+  room. A room that grows in depth shifts every room north of it, so each of those rooms needs a
+  rebased, re-checked revision once the southern room settles.
+- **Landing rule (Codex's integration choice, 2026-09-14; Vincent may revise it):** rooms whose
+  shared boundary moves land together, with a narrow NSC-049 composition and test refresh.
