@@ -207,3 +207,196 @@ Vincent's visual approval has not been requested or claimed by this task.
 in this task: $30.00 credit unchanged, 4777/5000 remaining (223 used) —
 50 generations consumed by this task (1 building kit + 6 single-direction
 object generations; the 4 failed-validation retry attempts were not billed).
+
+## Follow-up — corner, end, and doorway connection pieces (2026-09-14)
+
+### Scope and boundary
+
+This follow-up selection retrieves additional pieces from the **same,
+already-generated** PixelLab building kit (`get_tiles_pro` /
+`list_tiles_pro`, read-only; **no new paid generation**). Kit ID
+`025d0b90-f546-466f-a7a7-bff2ef855e32`, unchanged from the section above.
+The existing selection — `architecture-kit-floor-flagstone.png` (floor,
+index 0) and `architecture-kit-wall-brick.png` (outer_multi EW, index 55)
+— is preserved byte-for-byte; both files' SHA-256 were re-verified against
+a fresh `get_tiles_pro` download before this follow-up started and are
+unchanged. This remains source-art selection only: no Unity Tile/Sprite
+asset, Tilemap, scene, builder, collision, or navigation change was made.
+
+Full `placement_rules` for this kit (58 pieces, `composed (arity 8)`,
+`connectivity: same`, `terrains: wall, empty`):
+
+```text
+doors: Ea=34 Eb=35 Na=32 Nb=33 Sa=36 Sb=37 Wa=38 Wb=39
+floor: 0
+sides: E=2 N=1 S=3 W=4
+pillar: 31
+stairs: 40, 41
+corners: NE=5 NW=8 SE=6 SW=7
+partition: E=15 N=14 S=16 W=17 hub=13
+floor_roof: 44
+outer_multi: EW=55 NS=54 ESW=52 NES=49 NEW=50 NSW=51 NESW=53
+stairs_east: 42, 43
+outer_corners: NE=9 NW=12 SE=10 SW=11
+partition_wall: E=19 N=18 S=20 W=21
+partition_doors: Ha=47 Hb=48 Va=45 Vb=46
+partition_multi: ES=24 NE=22 NW=23 SW=25 ESW=29 NES=26 NEW=28 NSW=27 NESW=30
+```
+
+### Method: flat Pillow compositing trials, not a Unity proof
+
+Same limitation as the section above, stated again plainly: every claim in
+this section comes from a **Python/Pillow nearest-neighbor flat-compositing
+sanity check** performed outside Unity. All 58 pieces share one 52×58px
+canvas at native resolution. Candidate offsets were found empirically by
+compositing several pieces at trial `(dx, dy)` pixel offsets and visually
+inspecting brick-coursing/merlon-cap continuity — the same method the
+original wall-piece selection above used for index 55 vs. index 1. This is
+**not** a verified Unity Isometric Tilemap placement proof; it does not
+confirm the offsets match an authored Unity Grid cell size or Tile pivot.
+`INT-001` must re-verify placement inside an actual Tilemap.
+
+Before selecting, all 58 pieces were downloaded from the job's
+`storage_urls` (`tile_0.png` … `tile_57.png`) and inspected: each is
+52×58px RGBA. `tile_6.png` (plain `corners SE`, index 6) has an
+alpha bounding box of only 12×5px — a near-empty/degenerate render — and
+was excluded from consideration for that reason alone, independent of the
+connectivity trials below.
+
+### Selected connection pieces
+
+| File | Kit piece | Role | Dimensions | Alpha | SHA-256 |
+| --- | --- | --- | --- | --- | --- |
+| `architecture-kit-wall-brick-ns.png` | `outer_multi NS` (index 54) | Straight wall run, perpendicular axis to the existing EW run | 52×58px | RGBA, 0–255, bbox (10,5)-(42,53) | `dd6a055f50539aae202c41b0a6d74c7e223e660af65856d7ed462b8b44a531db` |
+| `architecture-kit-corner-se.png` | `outer_corners SE` (index 10) | Outer corner, EW run turning into NS run | 52×58px | RGBA, 0–255, bbox (10,10)-(42,53) | `b3e296b76d374e06a5fab786a176ac65f41af6ac4c5a9784a47008dbc540d1bc` |
+| `architecture-kit-corner-nw.png` | `outer_corners NW` (index 12) | Outer corner, EW run turning into NS run (alternate orientation) | 52×58px | RGBA, 0–255, bbox (10,5)-(42,48) | `b2659b55fd5b5e52a5661d73d22fe2326310bc8d4092b3c06e8b1557a9325360` |
+| `architecture-kit-wall-end-cap.png` | `sides N` (index 1) | Wall-run terminus / dead-end cap, EW run east end only (see limitation below) | 52×58px | RGBA, 0–255, bbox (20,5)-(42,48) | `c9cc075edbc8c0471bb652d23ea8646091cdb8d35346d8aa93c8121919aec395` |
+| `architecture-kit-doorway-a.png` | `partition_doors`-style `doors Sa` (index 36) | Doorway/threshold opening, back layer | 52×58px | RGBA, 0–255, bbox (10,10)-(32,47) | `95a5072a5024f5cde3b3f1d7e6298501de09644e5e099dce801c9750d7418777` |
+| `architecture-kit-doorway-b.png` | `doors Sb` (index 37) | Doorway/threshold opening, front layer | 52×58px | RGBA, 0–255, bbox (10,10)-(32,53) | `8a3ac58fc9865cff0201da8e870d1b58ca55f711cb64fb34e59a456c92dab980` |
+
+All six were `get_tiles_pro`-retrieved from the same job/seed as the
+existing floor and wall selection, so palette and material match without
+further inspection. None required a `create_*` (paid) call; all reuse
+already-generated kit pieces.
+
+### Verified connections (see `PIXELLAB_WALL_CONNECTION_CHECK.png`)
+
+Offsets below are in native 52×58px pixels, composited with plain alpha
+paste (later piece drawn on top of earlier), matching the method already
+established for the index-55 EW run (`PIXELLAB_WALL_REPEAT_CHECK.png`,
+`dx=+26px dy=0`).
+
+- **Straight EW run** (unchanged baseline): index 55 repeated at
+  `dx=+26 dy=0`.
+- **Straight NS run** (new): index 54 repeated at `dx=+26 dy=+13` (or the
+  mirror `dx=-26 dy=+13`). This is the same 2:1 isometric diagonal slope as
+  the kit's own floor-diamond aspect ratio (`dy = dx/2`). Both diagonal
+  signs were tried at `dx=0 dy=13/26/29` (pure vertical stacking — rejected,
+  reads as a stacked tower, not a receding wall) before landing on the
+  `(±26, 13)` diagonal, which produced continuous brick coursing across 4
+  repeated copies with no gaps.
+- **Corner turn** (new): an EW run (index 55 ×2 at `dx=+26 dy=0`) into
+  either `outer_corners SE` (index 10) or `outer_corners NW` (index 12),
+  continuing into an NS run (index 54 ×2 at `dx=+26 dy=+13` from the
+  corner). Both corners produced a flush chevron-cap join with no visible
+  gap or overlap at 6× zoom, tested against 3 alternative traversal orders.
+- **Wall terminus** (new): an EW run (index 55 ×2) capped by `sides N`
+  (index 1) appended at the run's next `dx=+26 dy=0` slot. Closed
+  diamond-shaped cap, no dangling brick geometry, reads as a clean dead
+  end.
+- **Doorway/threshold** (new): an EW run (index 55 ×2), then `doors Sa`
+  (index 36) and `doors Sb` (index 37) composited at the **same** `(x, y)`
+  slot (`dx=+26 dy=0` from the run, both door pieces sharing that one
+  position rather than each taking a separate slot — they read as a
+  layered frame+jamb pair, not two sequential wall cells), then the EW run
+  resumes at `dx=+26 dy=0` from the door slot. This produced the cleanest
+  doorway silhouette of the 4 door-direction pairs tried (see below) and
+  shows a visibly readable opening with a mostly flush cap join; a small
+  cap-height seam remains where the run resumes on the right side (visible
+  in the check image) — stated plainly as a minor, not fully seamless,
+  join.
+
+### Tested and rejected — stated as a precise limitation, not silently dropped
+
+Per this task's instruction to state failures precisely rather than claim
+a pass that wasn't earned, the following were tested and **did not**
+connect cleanly at any tried offset, and were **not** copied into the
+repository:
+
+- **`outer_corners NE` (index 9) and `outer_corners SW` (index 11)** — the
+  other two of the kit's four `outer_corners` pieces. Tested in the same
+  EW→corner→NS configuration that worked for SE/NW (`dx=+26 dy=0` then
+  `dx=+26 dy=+13`): both show a visible dark gap between the corner's cap
+  and the neighboring wall piece. Also tested in 4 additional traversal
+  orders (NS-then-corner-then-EW in both diagonal signs, EW-then-corner-then-NS
+  reversed direction, corner approached from the opposite horizontal
+  direction) — every combination showed either a visible gap or pieces
+  overlapping/piling on each other, never a clean join. **This kit's
+  4-corner `outer_corners` set is only half-confirmed** (SE, NW); a full
+  rectangular room perimeter using all four outer-corner orientations is
+  **not proven** by this check. `INT-001` should either find the correct
+  offset for NE/SW (possibly a different anchor point than the straight
+  pieces use, since these corner pieces' alpha bounding boxes are narrower
+  than the straight-run pieces') or reserve NE/SW turns for a room layout
+  that only needs the two confirmed corner orientations.
+- **`sides S` (index 3) and `sides W` (index 4)** as a west-end (left-side)
+  wall terminus — tested prepended before an EW run at `dx=-26 dy=0`
+  (mirroring the working east-end append). Both show a visible gap between
+  the end piece and the first EW wall piece; neither caps cleanly on that
+  side. Only the east-end terminus (`sides N`, index 1, appended after a
+  run) was confirmed clean. **A confirmed west-end/left-side wall
+  terminus was not found** in this check; `INT-001` must find one (trying
+  `sides E`, index 2, prepended — not yet tried — or a different offset)
+  before a wall run can be capped on both ends.
+- **`doors Na/Nb`, `Ea/Eb`, `Wa/Wb`** (indices 32/33, 34/35, 38/39) — all
+  three alternate door-direction pairs were composited at the same
+  same-slot offset as the selected `Sa/Sb` pair and produced a recognizable
+  doorway silhouette with a similarly minor seam, so they are plausible
+  alternates for other wall-facing directions, but `Sa/Sb` was the cleanest
+  of the four and is the only pair copied into the repository (keeping the
+  selection minimal, since one confirmed doorway pair satisfies this
+  task's connectivity check).
+- `tile_6.png` (plain `corners SE`, index 6): excluded outright, near-empty
+  alpha bounding box (12×5px), independent of any connectivity trial.
+
+### AC-003 / VAL-001 disposition
+
+AC-003 (Tilemap edge connections coherent) and VAL-001 (deterministic
+inventory of every selected connection piece) are satisfied **only for the
+specific pieces and offsets listed under "Verified connections" above**:
+one straight EW run, one straight NS run, two of four outer corners
+(SE, NW), one wall terminus (east end only), and one doorway pair. They are
+**not** claimed for the untested/failed combinations listed under "Tested
+and rejected." A complete four-corner, both-ends-capped room perimeter is
+not proven by this task; `INT-001` carries the remaining work forward with
+the exact indices and offsets that failed already documented above, so it
+does not have to repeat this exploration from zero.
+
+### Unity `.meta` files
+
+No Unity `.meta` sidecar files were added for these six new PNGs. This
+matches the existing local convention already established in this exact
+folder (`Assets/.../DoorPrototype/Art/Environment/Source/`) by the prior
+NSC-064 commit, whose 8 selected source files likewise carry no `.meta`
+files (unlike `Assets/.../DoorPrototype/Art/Doors/Source/`, which does).
+Unity will generate `.meta` files with fresh GUIDs for all of these sources
+the next time the project is opened in the Editor; since no Tile/Sprite
+asset or prefab references any of these files yet, no existing GUID
+binding is at risk. `INT-001` should open the project in Unity before
+building Tile/Sprite assets so this generation happens deterministically
+inside the Editor rather than being hand-authored.
+
+### Human review
+
+- Updated connection check: `Docs/Art/Environment/PIXELLAB_WALL_CONNECTION_CHECK.png`
+- Selected sources: `Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/`
+
+Vincent's visual approval has not been requested or claimed by this
+follow-up.
+
+### PixelLab account usage (follow-up)
+
+`get_balance` before this follow-up: $30.00 credit, 4777/5000 generations
+remaining this cycle. After this follow-up: $30.00 credit unchanged,
+4777/5000 remaining — **0 generations consumed**. Only read-only
+`get_tiles_pro` calls were made; no `create_*` tool was called.
