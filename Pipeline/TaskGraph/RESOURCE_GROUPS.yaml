@@ -938,13 +938,15 @@
       "reconciliation_keys": [
         "isometric-tilemap-visual-layer",
         "world-sprite-prefab-sorting",
-        "seamless-scalable-wall-tiling"
+        "seamless-scalable-wall-tiling",
+        "door-breach-feedback"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs",
       "work_ids": [
         "NSC-038",
         "NSC-039",
-        "NSC-042"
+        "NSC-042",
+        "NSC-052"
       ]
     },
     {

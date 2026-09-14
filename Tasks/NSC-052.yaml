@@ -2,69 +2,129 @@
   "acceptance_criteria": [
     {
       "criterion_id": "AC-001",
-      "reference": "NSC-021 AC-007; GDD §2 Door feedback",
-      "requirement": "Each accepted call to the DoorInteractable damage method while the door is locked produces player-facing banging and shaking feedback and updates visible cracks and a durability indicator before the door breaks. Rejected calls while the door is sealed, open, or already broken do not produce breach feedback."
+      "reference": "NSC-021 AC-007; GDD §2 Resources, Feedback, and Failure, Door feedback (Docs/GDD/No_Safe_Circle_GDD.md:93); GDD §5 Runtime Implementation visual/gameplay separation (Docs/GDD/No_Safe_Circle_GDD.md:681-682)",
+      "requirement": "In Assets/NoSafeCircle/DoorPrototype/Scripts/DoorBreachFeedback.cs, DoorBreachFeedback uses DoorInteractable.DamageTaken emitted by the public DoorInteractable.TakeDamage(float) method in Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs. Every accepted positive hit while the door is locked plays the wired door-local AudioSource and updates the crack GameObjects and the world-space Image durability indicator; every accepted hit that leaves CurrentDurability above zero also shakes the presentation-only shake target, while the break result on DoorInteractable.Broken may cancel shake. The indicator GameObject is inactive while the door is sealed or open and becomes visible no later than the first accepted hit while locked; showing it immediately on DoorInteractable.Locked or on the first accepted hit remains implementation tuning. Calls rejected while sealed, open, already broken, or given non-positive damage produce no bang, shake, crack, indicator, or durability change. The shake target is the existing DoorRoot/DoorVisual/DoorSprite GameObject, which keeps that hierarchy path and its SpriteRenderer; the crack GameObjects are descendants of that shake target; and neither the shake target nor any descendant has a Collider."
     },
     {
       "criterion_id": "AC-002",
-      "reference": "NSC-021 AC-007; GDD §2 Door feedback",
-      "requirement": "Cracks and the durability indicator progress with remaining durability so repeated accepted damage to a locked door makes an approaching breach increasingly readable during normal play."
+      "reference": "NSC-021 AC-007; GDD §2 Door feedback (Docs/GDD/No_Safe_Circle_GDD.md:93); GDD §3 Door and Pursuit Rules and Player Experience Success Criteria (Docs/GDD/No_Safe_Circle_GDD.md:540-543,574)",
+      "requirement": "DoorBreachFeedback reads DoorInteractable.CurrentDurability and DoorInteractable.MaxDurability without writing either value. Across repeated accepted damage, the Image fill never increases as the remaining-durability ratio decreases, and active crack stages never regress. When DoorInteractable.Broken fires at zero durability, all crack GameObjects are active, the exhausted durability-indicator GameObject is inactive, and the final accepted hit's bang is allowed to play, producing an assertable door-local result distinct from a still-locked damaged door. Breach feedback never deactivates DoorVisual, disables the doorwayBlocker Collider, changes passability, or changes the DoorInteractable locked-to-broken transition. Exact crack thresholds, colors, shake values, and audio treatment remain implementation tuning."
     },
     {
       "criterion_id": "AC-003",
-      "reference": "NSC-021 AC-008; GDD §2 Floor-run restart ownership",
-      "requirement": "The DoorInteractable lifecycle reset restores the feedback GameObjects and durability indicator to their undamaged values, cancels any active shake or bang response, and leaves feedback consistent with the restored DoorInteractable state."
+      "reference": "NSC-021 AC-008; GDD §2 Win and Loss Conditions and Floor-run restart ownership (Docs/GDD/No_Safe_Circle_GDD.md:102-104); GDD §5 Runtime Implementation (Docs/GDD/No_Safe_Circle_GDD.md:689-691)",
+      "requirement": "The public DoorInteractable.ResetDoor() method causes DoorBreachFeedback.ResetFeedback() to restore the hidden sealed-door indicator with full Image fill, deactivate every crack GameObject, restore every shaken Transform to its authored localPosition, stop active bang audio, cancel active shake and break responses, and leave feedback consistent with the restored sealed DoorInteractable state."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "Generated-scene ownership; Docs/AI-Pipeline/GAME_TASK_LESSONS_LEARNED.md, Code completion and Unity asset generation are separate steps",
+      "requirement": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs creates and binds DoorBreachFeedback, DoorRoot/DoorVisual/DoorSprite as the presentation-only shake target with the crack GameObjects as its descendants and no Collider on it or any descendant, without renaming or reparenting DoorSprite, the world-space durability Image hierarchy, and the non-play-on-awake AudioSource. Assets/NoSafeCircle/DoorPrototype/Tests/DoorBreachFeedbackPlayModeTests.cs owns the focused production-scene runtime and human-review scenarios, and Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs owns separately named in-memory builder and committed-scene conformance tests. After the implementation crew changes source-of-truth code and tests, the Windows controller or Vincent runs No Safe Circle/Build Door Prototype Scene to materialize Assets/Scenes/DoorPrototype.unity. The binary scene must not be hand-edited, reconstructed, or emitted by the implementation crew."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "GDD §3 Enemy Detection, Pursuit, and Target Loss and Door and Pursuit Rules (Docs/GDD/No_Safe_Circle_GDD.md:526-543); GDD §4 Development Agent Ownership Invariants (Docs/GDD/No_Safe_Circle_GDD.md:603-604)",
+      "requirement": "Door breach feedback is observational only. It does not decide enemy attack timing, alter pursuit or distance-based target loss and last-known-position search, apply door damage, write door durability or semantic state, change collision or navigation passability, add player input, spend mana, or change room routes, cover, enemy placement, or encounter tuning."
     }
   ],
   "basis": "direct_gdd",
   "completion_gates": [
     {
       "gate_id": "VAL-001",
-      "reference": "NSC-021 VAL-003; GDD §2 Door feedback",
-      "requirement": "In Play Mode, lock a test-owned door, apply accepted damage below the break threshold, and verify that banging, shaking, visible cracks, and the durability indicator are perceivable before current durability reaches zero."
+      "reference": "AC-001; NSC-021 VAL-003; Unity Testing Policy - Play Mode behavior test",
+      "requirement": "In Play Mode, DoorBreachFeedbackPlayModeTests loads Assets/Scenes/DoorPrototype.unity without saving it and executes this sequence for D1 and at least one committed D2-D5 clone. With the door sealed, assert that the durability-indicator GameObject is inactive and that rejected TakeDamage calls produce no feedback or durability change. Call public StartInteraction(), then Tick(Duration) to open the door; assert the indicator remains inactive and an open-door TakeDamage call is rejected. Move the scene Player collider carrying PlayerInteractionController into that door's runtime ForwardCrossingTrigger, synchronize transforms, and yield a physics step; do not invoke private methods or set private state. After IsLocked becomes true, call public TakeDamage(float) with positive damage that leaves CurrentDurability above zero. Across bounded rendered frames, assert that the wired AudioSource plays, the shake target localPosition differs from its authored position on at least one frame, at least one crack GameObject is active, the indicator is active, and Image fill decreases. Assert that the DoorInteractable changes only by durability and that the bounds and enabled state of every door Collider remain unchanged during shake. A non-positive locked-door call is also rejected without starting a new response."
     },
     {
       "gate_id": "VAL-002",
-      "reference": "NSC-021 VAL-005; GDD §3 Player Experience Success Criteria",
-      "requirement": "In Play Mode, lock a test-owned door, apply repeated accepted damage, and verify that the feedback progression clearly communicates an approaching breach. Then reset the door and verify all feedback returns to its undamaged state."
+      "reference": "AC-001 through AC-003; NSC-021 VAL-005; GDD §3 Player Experience Success Criteria (Docs/GDD/No_Safe_Circle_GDD.md:574); Unity Testing Policy - Play Mode behavior test",
+      "requirement": "In Play Mode, execute the non-reflective production lock sequence from VAL-001 for D1 and at least one committed D2-D5 clone. Call DoorInteractable.TakeDamage(float) repeatedly and record at least three distinct nonzero remaining-durability ratios. Assert that Image fill never increases, active crack stages never regress, feedback remains bound to the damaged door, and neither the shake target nor any descendant contains a Collider. Apply the final accepted damage through TakeDamage(float); assert DoorInteractable.IsBroken, all crack GameObjects active, the durability-indicator GameObject inactive, the final bang playing, DoorVisual still active, and doorwayBlocker still enabled with unchanged bounds. After the final bang finishes, verify that a further rejected damage call does not restart audio, shake, cracks, or indicator changes. Call DoorInteractable.ResetDoor() and assert sealed state, full Image fill while the indicator remains hidden, no active cracks, stopped audio, no active shake, restored authored localPosition, and no retained broken response."
+    },
+    {
+      "gate_id": "VAL-003",
+      "reference": "AC-004; Unity Testing Policy - in-memory scene-builder test and committed-scene conformance test",
+      "requirement": "In Edit Mode, the separately named test Build_DoorBreachFeedback_HasCollisionFreeShakeHierarchyAndStateVisibility uses DoorPrototypeSceneBuilder.BuildInMemoryForTests() and verifies the D1 feedback references, a presentation-only shake target that is DoorRoot/DoorVisual/DoorSprite, carries the door SpriteRenderer, and has every crack GameObject as a descendant, no Collider on that target or any descendant, a non-play-on-awake AudioSource, an inactive sealed-door indicator, and an indicator that remains inactive after public StartInteraction() and Tick(Duration) open the in-memory door. The separately named test CommittedScene_AllDoorsHaveConformingBreachFeedback records the bytes of Assets/Scenes/DoorPrototype.unity, opens that exact scene, scopes lookup to its roots, verifies all five existing DoorInteractable instances including D2-D5 clones each have one correctly wired DoorBreachFeedback, Image hierarchy, crack set, collision-free shake hierarchy, and non-play-on-awake AudioSource with an inactive initial indicator, closes the scene without saving, and confirms the scene bytes are unchanged. The validation runner, not either test, verifies that the Git working tree remains clean."
+    },
+    {
+      "gate_id": "VAL-004",
+      "reference": "AC-004; Docs/AI-Pipeline/GAME_TASK_LESSONS_LEARNED.md, Prompt hard tasks as short evidence loops; Unity Testing Policy evidence-producing validation run",
+      "requirement": "Starting from the exact clean code candidate commit, the Windows controller or Vincent runs No Safe Circle/Build Door Prototype Scene, verifies that Assets/Scenes/DoorPrototype.unity is the generated output, and records that scene in the exact candidate commit. From a clean working tree at that commit, the runner executes the Edit Mode tests DoorPrototypeSceneBuilderTests and WizardArtIntegrationTests and the Play Mode tests DoorBreachFeedbackPlayModeTests and FiveRoomDoorSequencePlayModeTests, excluding [Explicit] human-review scenarios. It then runs the builder a second time and verifies that the regenerated D1-D5 door and breach-feedback hierarchy, references, and component values are equivalent; raw scene bytes are not the equivalence oracle. The runner records Unity version, exact commit and tree, exit code, result XML totals, external log paths, and clean working-tree state before and after the non-mutating test run. If Windows Unity is unavailable, validation stops at NEEDS_MATERIALIZATION with the exact builder name and expected scene path; no agent hand-edits or reconstructs the scene."
+    },
+    {
+      "gate_id": "VAL-005",
+      "reference": "AC-001 and AC-002; NSC-021 VAL-003 and VAL-005; GDD §2 Door feedback (Docs/GDD/No_Safe_Circle_GDD.md:93); GDD §3 Player Experience Success Criteria (Docs/GDD/No_Safe_Circle_GDD.md:574)",
+      "requirement": "Vincent reviews the exact candidate commit at the normal gameplay camera using the named DoorBreachFeedbackPlayModeTests.HumanReview_RearLockedDoorFeedbackAtNextDoor scenario. The scenario is marked [Explicit] so automated VAL-004 runs exclude it, and it contains no runtime debug component: it uses the public production opening and crossing path to lock D1 and calls public D1.TakeDamage(float) at visible intervals. First, with D1 framed near the wizard, Vincent records PASS only if he can identify the damaged door, judge its approach to breaking across repeated hits, and recognize the break moment; the bang, shake, cracks, and indicator remain readable without collision or camera regression. Second, the scenario positions the wizard at D2.InteractionPosition while the camera follows the wizard and applies the same controlled hits to rear locked D1. Vincent records whether any D1 visual feedback remains in frame and confirms that the bang is audible and localized enough to identify the rear door. This gate proves controlled door-local feedback only; it does not claim enemy-attack or combat-pressure validation."
     }
   ],
-  "confidence": "high",
+  "confidence": "medium",
   "contract_disposition": "active",
-  "contract_revision": 1,
-  "decomposition_reason": "This child contains the player-facing GameObjects and durability UI that respond to DoorInteractable damage without owning semantic state or durability.",
+  "contract_revision": 2,
+  "decomposition_reason": "This remains one bounded feedback responsibility: one DoorBreachFeedback component, existing DoorInteractable events and public methods, deterministic builder wiring, focused runtime and conformance tests, controller-owned scene materialization, and one controlled human readability/audio gate. Real enemy-pressure readability is preserved as one downstream integration obligation rather than being implemented here.",
   "decomposition_state": "concrete",
   "depends_on": [
     "NSC-050"
   ],
-  "downstream_integration_obligations": [],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "NSC-017 AC-003 and VAL-003; NSC-021 VAL-001 and VAL-005; GDD §3 Door and Pursuit Rules and Player Experience Success Criteria (Docs/GDD/No_Safe_Circle_GDD.md:537-543,574)",
+      "requirement": "After NSC-017 is delivered, the enemy locked-door validation that proves NSC-017 VAL-003 and NSC-021 VAL-001 must use a qualifying still-pursuing enemy that calls DoorInteractable.TakeDamage(float) while the wizard is handling current-room pressure or attempting the next sealed door. At the normal gameplay camera, Vincent verifies the same three NSC-052 outcomes under real attacks: which door is being attacked, how close that door is to breaking, and when it breaks. This obligation does not authorize NSC-052 to implement enemy attacks, change pursuit/search, or add an off-screen or HUD cue."
+    }
+  ],
   "exclusive_resources": [
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DoorBreachFeedback.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/DoorBreachFeedbackPlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs",
     "unity-scene:Assets/Scenes/DoorPrototype.unity"
   ],
-  "execution_reason": "One agent can add the accepted-damage-driven feedback component and scene-builder wiring and validate it with repeated test-owned calls to the public DoorInteractable damage method after locking the door.",
+  "execution_reason": "One implementation crew can correct DoorBreachFeedback and its builder/test source, including collision-free shake, state-gated indicator visibility, and an assertable break result. The Windows controller or Vincent then runs the existing scene builder, executes focused tests on the materialized exact candidate, and prepares the human review scenario. The crew does not hand-edit the binary scene or implement enemy attacks.",
   "execution_scope": "single_agent",
   "gdd_evidence": [
     {
-      "reference": "GDD §2 Door feedback",
+      "reference": "GDD §2 Resources, Feedback, and Failure, Door feedback (Docs/GDD/No_Safe_Circle_GDD.md:93)",
       "requirement": "Banging, shaking, cracks, and a durability indicator show when a breach is near."
     },
     {
-      "reference": "GDD §3 Player Experience Success Criteria",
-      "requirement": "The player must understand that waiting behind a locked door allows surviving enemies to break through."
+      "reference": "GDD §3 Player Experience Success Criteria (Docs/GDD/No_Safe_Circle_GDD.md:570-576)",
+      "requirement": "The player understands that enemies left alive remain a threat: they attack the locked door and may later enter if it breaks."
+    },
+    {
+      "reference": "GDD §3 Enemy Detection, Pursuit, and Target Loss and Door and Pursuit Rules (Docs/GDD/No_Safe_Circle_GDD.md:526-543)",
+      "requirement": "Doorway crossing and cover do not clear pursuit. Qualifying enemy behavior calls the Door-owned damage interface, Door and Interaction owns durability and the locked-to-broken transition, and a broken door remains forward-passable to enemies while blocking backward player travel."
+    },
+    {
+      "reference": "GDD §5 Runtime Implementation (Docs/GDD/No_Safe_Circle_GDD.md:681-689)",
+      "requirement": "Visible art remains separate from collision and navigation, and the reusable door component owns durability, damage intake, and breaking."
     }
   ],
   "id": "NSC-052",
   "kind": "implementation",
-  "notes": "The exact visual and audio assets are implementation choices. This child responds only to damage accepted while DoorInteractable is locked; it does not decide when enemies attack, change current durability directly, or own the locked-to-broken transition.",
+  "notes": "Exact durability totals, enemy door-hit timing and damage, crack thresholds, shake duration and magnitude, indicator styling, and audio mix are not fixed by the GDD. Tests use normalized remaining durability rather than canonizing the snapshot's 100-durability or 25-damage examples. The selected within-current-GDD visibility rule hides the indicator while sealed or open and shows it no later than the first accepted locked-door hit; an always-visible bar would require Vincent to reverse that choice. The assertable NSC-052 broken state uses the existing door-local cracks, indicator, and AudioSource and deliberately does not change the door SpriteRenderer; whether the door sprite itself should look open or broken and which task owns that appearance remains a Vincent decision. No off-screen marker or HUD cue is authorized. NSC-017 owns qualifying enemy locked-door attacks; NSC-049 owns D1-D5 composition; NSC-044 through NSC-048 and NSC-079 through NSC-084 own room geometry and dressing. DoorBreachFeedback.generatedBangClip is an intentional session-lifetime HideFlags.DontSave runtime object; tests must not depend on whether the shared clip already exists and must not create or expect a saved AudioClip asset. Vincent's controlled visual/audio review and the later real-enemy integration review remain required after automated tests pass.",
   "parent": "NSC-021",
   "provenance": {
     "graph_delta_plan_id": "GDP-f09937afe7f3a88895af12c9cb8dd1b76ae60aca0a902d7e960499bc8478d4fc",
     "origin": "progressive_decomposition",
     "parent_contract_revision": 2,
     "parent_contract_sha256": "2973f7d2e90f747f8eacf48f1509fa2d5d732300af71936137683d54cf8062f5",
-    "parent_task_id": "NSC-021"
+    "parent_task_id": "NSC-021",
+    "task_design_ger": [
+      {
+        "ger_run_id": "20260914-073309-NSC-052",
+        "packet_source_head": "22c93fbc93cfab5ef3aa6fca54822274782d10b6",
+        "previous_contract_revision": 1,
+        "round_output_sha256": {
+          "01-codex-generate": "92446d3316bad8b884861e149fadfc3229b42d54c30e362b76e81d07ae3412da",
+          "02-claude-evaluate": "e9785265a8d5017bc8424a85aa67c1674dfbdf8a6ac08a0df0471dc0290a9669",
+          "03-codex-refine": "c987cd4be3c8d1c83b91befad44b63d3493454b2cd102ce5ebef83b1a391cb25",
+          "04-claude-reaudit": "1be070d6ec89b92de1629f87fe8700d75989418b3447222b4b4b2b8ff05ac5bc",
+          "05-owner-patch": "ef0eaa51657dd89f89a4e72e4b165bd8cbbe9bc5129225bd06d6396a4a3670d2",
+          "06-claude-recheck": "3588baf4f845f5eb152772161c160de5110008183a2e25091ce77a1566903192"
+        },
+        "reaudit_recommendation": "commit_contract",
+        "owner_patch_contract_sha256": "ab2819e95127cd4de941ad22ec83a3eb5987458a502b01c687dbf76a64d58837",
+        "recheck_recommendation": "commit_contract"
+      }
+    ]
   },
   "reconciliation_key": "door-breach-feedback",
   "repository_evidence_at_bootstrap": [],
