@@ -1,8 +1,9 @@
 # PixelLab door generation plan
 
-Status: blocked until the approved PixelLab MCP capability is available. Do not
-substitute another provider or hand-author image payloads. This plan prepares a
-small review family; it does not import art or wire art to Unity behavior.
+Current status: two families were generated; Family B's seven selected states
+are retained for visual review. See `PIXELLAB_GENERATION.md` and
+`contact_sheet.png`. The following pre-generation plan is preserved as the
+design record; it does not import art or wire art to Unity behavior.
 
 ## Target family
 
