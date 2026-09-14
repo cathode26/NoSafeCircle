@@ -2,68 +2,165 @@
   "acceptance_criteria": [
     {
       "criterion_id": "AC-001",
-      "reference": "NSC-016 AC-001 — Required Enemy Roster",
-      "requirement": "Uses the current player target supplied by the shared enemy pursuit component, moves closer when outside the moderate-distance range, and backs away or repositions when too close."
+      "reference": "NSC-016 AC-001; GDD - Required Enemy Roster; Enemy Detection, Pursuit, and Target Loss",
+      "requirement": "Create Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/RangedEnemyKeepDistanceMovement.cs and Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/RangedEnemyKeepDistanceMovement.cs.meta. RangedEnemyKeepDistanceMovement declares NavMeshAgent, EnemyTargetKnowledge, and EnemyPursuitMovement as required companion components and resolves its own references to them before its first keep-distance decision, so AddComponent order cannot leave its own references null. EnemyPursuitMovement remains enabled and remains the sole production driver that advances EnemyTargetKnowledge.UpdateTargetKnowledge once per frame, whether RangedEnemyKeepDistanceMovement is enabled or disabled. RangedEnemyKeepDistanceMovement does not call EnemyTargetKnowledge.UpdateTargetKnowledge or EnemyPursuitMovement.Tick(float), does not enable or disable EnemyPursuitMovement, does not copy target-acquisition or search state, and does not require an edit to a file owned by NSC-089, NSC-091, NSC-092, or NSC-013."
     },
     {
       "criterion_id": "AC-002",
-      "reference": "NSC-016 AC-005 — Required Enemy Roster",
-      "requirement": "Approach, retreat, and repositioning continue when no Melee Enemy is alive; the movement behavior does not query for or require a Melee Enemy component, GameObject, or count."
+      "reference": "NSC-016 AC-001; GDD - Required Enemy Roster; Enemy Detection, Pursuit, and Target Loss",
+      "requirement": "RangedEnemyKeepDistanceMovement exposes public ConfigureDistances(float closeDistance, float farDistance). The method uses the same Vector3.Distance metric as EnemyTargetKnowledge and throws ArgumentException unless closeDistance is greater than zero, closeDistance is strictly less than farDistance, and farDistance is strictly less than the current EnemyTargetKnowledge.LoseTargetDistance. The component rechecks that relationship before making each keep-distance decision. If a later EnemyTargetKnowledge.ConfigureDistances call makes the configured band invalid, the component clears its own active path and holds without issuing another destination until valid configuration is restored."
     },
     {
       "criterion_id": "AC-003",
-      "reference": "NSC-016 AC-006 — Spell and Enemy Interactions",
-      "requirement": "Reads the movement speed affected by the shared Frost slowdown for approach, retreat, and repositioning without using that value to control attack wind-up, cooldown, projectile speed, or projectile lifetime."
+      "reference": "NSC-016 AC-001; GDD - Required Enemy Roster",
+      "requirement": "While EnemyTargetKnowledge.State is Pursuing and CurrentTarget is non-null, RangedEnemyKeepDistanceMovement leaves approach movement toward CurrentTarget in effect when the target is farther than the far limit, clears the targetward path and holds while the target remains inside the inclusive distance band, and selects a complete reachable NavMesh path that increases distance from the target when nearer than the close limit. It retains a selected retreat or side-reposition destination until that destination is reached, becomes invalid, or the target crosses a distance boundary, preventing per-frame destination and direction churn. If the direct retreat path is blocked, it deterministically selects a complete reachable side path that increases separation. If no reachable candidate increases separation, it clears the path and holds without moving toward the wizard, warping, or repeatedly changing destination. Because EnemyPursuitMovement sets the NavMeshAgent destination to CurrentTarget every frame while Pursuing, each hold, retreat, or side-reposition decision takes effect after that update and before the NavMeshAgent moves in the same frame, regardless of component order on the GameObject."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "NSC-016 AC-005; GDD - Required Enemy Roster",
+      "requirement": "Approach, hold, retreat, and side repositioning continue when no Melee Enemy component or GameObject exists. RangedEnemyKeepDistanceMovement does not query for a Melee Enemy, an active Melee Enemy count, or encounter composition."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "NSC-016 AC-006; GDD - Spell and Enemy Interactions; Runtime Implementation",
+      "requirement": "RangedEnemyKeepDistanceMovement moves the enemy only by setting a destination on the existing NavMeshAgent or clearing that agent's path. It never assigns, caches, or restores NavMeshAgent.speed, acceleration, velocity, or updatePosition; never calls NavMeshAgent.Move or NavMeshAgent.Warp; and never writes Transform.position. EnemyStatusEffectMovement.ApplyFrostSlowdown(float, float) therefore slows actual approach, retreat, and side repositioning through the shared NavMeshAgent speed. Attack wind-up, cooldown, projectile speed, and projectile lifetime remain outside this task."
+    },
+    {
+      "criterion_id": "AC-006",
+      "reference": "GDD - Enemy Detection, Pursuit, and Target Loss; Door and Pursuit Rules",
+      "requirement": "RangedEnemyKeepDistanceMovement changes destination behavior only while EnemyTargetKnowledge.State is Pursuing. It does not override last-known-position movement, bounded wander/search, reacquisition, idle handoff, target reset, or shared door-passability state owned by EnemyTargetKnowledge and EnemyPursuitMovement. A cover collider or doorway crossing does not cause this component to clear, suspend, or replace CurrentTarget; target loss remains controlled by EnemyTargetKnowledge's distance-based transition."
+    },
+    {
+      "criterion_id": "AC-007",
+      "reference": "GDD - Floor-run restart ownership; NSC-055 AC-002",
+      "requirement": "RangedEnemyKeepDistanceMovement exposes public ResetKeepDistanceMovement(), which clears its retained retreat or side-reposition destination and clears its current NavMeshAgent path without resetting EnemyTargetKnowledge or warping the enemy. Disabling or destroying RangedEnemyKeepDistanceMovement performs the same cleanup while the NavMeshAgent is still present. While disabled, RangedEnemyKeepDistanceMovement issues no destination, so EnemyPursuitMovement's existing destination behavior applies unchanged; this enabled state is the handoff point used by INT-002. RangedEnemyKeepDistanceMovement never enables, disables, or stops EnemyPursuitMovement and never assigns NavMeshAgent.isStopped. Stopping all movement on defeat belongs to INT-001, and floor-restart invocation belongs to INT-003."
+    },
+    {
+      "criterion_id": "AC-008",
+      "reference": "Unity Testing Policy; NSC-016 VAL-001 and VAL-004",
+      "requirement": "Create Assets/NoSafeCircle/DoorPrototype/Tests/RangedEnemyKeepDistanceMovementPlayModeTests.cs and Assets/NoSafeCircle/DoorPrototype/Tests/RangedEnemyKeepDistanceMovementPlayModeTests.cs.meta. Classify the fixture as Play Mode behavior testing and map each test to its acceptance criterion, completion gate, or explicit regression-only invariant. The fixture uses temporary GameObjects, GameplayNavigationSurface, the production NavMeshAgent, EnemyTargetKnowledge, EnemyPursuitMovement, RangedEnemyKeepDistanceMovement, and EnemyStatusEffectMovement components. It does not open, save, or modify a committed scene, prefab, ProjectSettings asset, or generated repository asset."
     }
   ],
   "basis": "direct_gdd",
   "completion_gates": [
     {
       "gate_id": "VAL-001",
-      "reference": "NSC-016 VAL-001 — Required Enemy Roster",
-      "requirement": "In a Play Mode test with no Melee Enemy present, verify the Ranged Enemy uses the shared player target, approaches when too far away, and retreats or repositions when too close."
+      "reference": "NSC-016 VAL-001; GDD - Required Enemy Roster",
+      "requirement": "Assets/NoSafeCircle/DoorPrototype/Tests/RangedEnemyKeepDistanceMovementPlayModeTests.cs configures target and keep-distance limits only through their public methods and drives the enabled production components on a temporary baked NavMesh with no Melee Enemy present. Configure the far limit below LoseTargetDistance by more than the fixture agent's measured stopping overshoot so approach is observable. Verify the same acquired CurrentTarget is retained while the enemy moves closer from beyond the far limit, settles inside the band, remains in hold with a stationary wizard for at least twice the measured stopping time, with NavMeshAgent.hasPath false and separation inside the configured band at the end of each sampled frame and no approach-then-retreat reversal, and increases separation after the wizard moves inside the close limit."
     },
     {
       "gate_id": "VAL-002",
-      "reference": "NSC-016 VAL-004 — Spell and Enemy Interactions",
-      "requirement": "In a Play Mode test, apply the shared Frost slowdown and verify that approach, retreat, and repositioning become slower."
+      "reference": "NSC-016 VAL-004; GDD - Spell and Enemy Interactions",
+      "requirement": "Run equivalent control and Frost cases sequentially in separate temporary setups, or spatially separate simultaneous fixtures beyond their NavMeshAgent avoidance and target-detection influence. Call EnemyStatusEffectMovement.ApplyFrostSlowdown(float, float), use a Frost duration longer than the measurement window, and advance real Play Mode frames. Begin displacement measurement after the agent reaches steady speed and end before the control reaches a close or far band boundary. Verify the slowed enemy covers less distance over the same interval during approach and during close-range retreat or side repositioning while each case keeps its own acquired wizard as CurrentTarget in the Pursuing state and its NavMeshAgent stays on the NavMesh. The test does not assign NavMeshAgent.speed directly."
+    },
+    {
+      "gate_id": "VAL-003",
+      "reference": "NSC-016 AC-001; GDD - Required Enemy Roster; Runtime Implementation",
+      "requirement": "Use two temporary baked-geometry cases with the wizard inside the configured close limit. First, block direct retreat while leaving one reachable side route; verify the production component selects a complete path, NavMeshAgent.destination sampled at the end of each frame stays on that side route until it is reached or invalidated, the enemy moves on the NavMesh, and separation increases. Second, enclose the enemy so no reachable candidate increases separation; over at least one second of real Play Mode frames verify it remains on the NavMesh, does not move toward or through the wizard or obstacle, has NavMeshAgent.hasPath false at the end of each sampled frame, and does not reduce its separation from the wizard by more than the agent's stopping tolerance."
+    },
+    {
+      "gate_id": "VAL-004",
+      "reference": "GDD - Enemy Detection, Pursuit, and Target Loss; Door and Pursuit Rules",
+      "requirement": "For completion proof, acquire the wizard, move it beyond LoseTargetDistance, and verify EnemyTargetKnowledge records the last known position while EnemyPursuitMovement controls last-known-position and bounded search movement without a keep-distance override. Bring the wizard back inside DetectionDistance during search or wander and verify the same enemy reacquires it and keep-distance destination behavior resumes. The same test file may place a temporary cover collider between the pursuing enemy and wizard and verify that CurrentTarget remains unchanged, but that cover-only case must be labeled and reported solely as a regression guard that NSC-053 introduced no line-of-sight or cover-based forgetting rule, not as proof of this completion gate."
+    },
+    {
+      "gate_id": "VAL-005",
+      "reference": "AC-002 configuration contract",
+      "requirement": "Using only RangedEnemyKeepDistanceMovement.ConfigureDistances(float, float), verify that a non-positive close limit, close greater than or equal to far, or far greater than or equal to the current LoseTargetDistance throws ArgumentException. Then configure a valid band, use EnemyTargetKnowledge.ConfigureDistances(float, float) to make the band incompatible while the target remains in Pursuing state, and verify the keep-distance component clears its path and holds until a valid band is restored."
+    },
+    {
+      "gate_id": "VAL-006",
+      "reference": "GDD - Floor-run restart ownership; NSC-055 defeat integration prerequisite",
+      "requirement": "Verify that adding only RangedEnemyKeepDistanceMovement to a temporary GameObject produces NavMeshAgent, EnemyTargetKnowledge, and EnemyPursuitMovement and that RangedEnemyKeepDistanceMovement resolves its own references to them. In fixtures that add EnemyTargetKnowledge before EnemyPursuitMovement, as EnemyPursuitPlayModeTests does: during an active retreat or side reposition, call ResetKeepDistanceMovement() together with EnemyPursuitMovement.ResetPursuit() and verify over real Play Mode frames that the enemy does not keep moving toward the previously retained destination. In separate cases, disable and destroy RangedEnemyKeepDistanceMovement during an active retreat, advance real Play Mode frames, and verify NavMeshAgent.destination follows EnemyPursuitMovement's normal Pursuing destination instead of the retained retreat point, EnemyPursuitMovement and the NavMeshAgent remain enabled, and moving the wizard beyond LoseTargetDistance still changes EnemyTargetKnowledge.State to SearchingLastKnownPosition."
     }
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 2,
-  "decomposition_reason": "Keep-distance movement is a bounded Unity behavior with its own shared-target and Frost-speed inputs, separate from projectile spawning and prefab wiring.",
+  "contract_revision": 3,
+  "decomposition_reason": "One Ranged Enemy movement component, its public distance configuration and reset methods, and one focused Play Mode behavior fixture form a bounded Unity task. Target acquisition and search, shared NavMesh pursuit, Frost speed changes, attacks, prefab assembly, encounters, rooms, and presentation remain with their existing owners.",
   "decomposition_state": "concrete",
   "depends_on": [
+    "NSC-089",
     "NSC-091",
+    "NSC-092",
     "NSC-013"
   ],
-  "downstream_integration_obligations": [],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "NSC-055 AC-001, AC-002, VAL-001, and VAL-002",
+      "requirement": "When NSC-055 assembles the reusable gameplay Ranged Enemy prefab, add and configure RangedEnemyKeepDistanceMovement on the same live GameObject as NavMeshAgent, EnemyTargetKnowledge, EnemyPursuitMovement, EnemyStatusEffectMovement, Enemy Health/Defeat, and the ranged-attack component. Its prefab Play Mode tests verify movement and attack operate together, and that lethal defeat stops RangedEnemyKeepDistanceMovement and EnemyPursuitMovement, clears movement paths and active projectiles, and cannot reactivate direct pursuit."
+    },
+    {
+      "obligation_id": "INT-002",
+      "reference": "NSC-017 AC-001 and AC-004; GDD - Door and Pursuit Rules",
+      "requirement": "When NSC-017's qualifying locked-door attack behavior applies to a Ranged Enemy that is still tracking the wizard, NSC-017 disables RangedEnemyKeepDistanceMovement for the complete locked-door attack interval, so EnemyPursuitMovement's normal Pursuing destination applies and the enemy does not retreat from the door, while EnemyPursuitMovement and EnemyTargetKnowledge stay enabled so distance-based target loss still applies. After the door breaks, NSC-017 re-enables RangedEnemyKeepDistanceMovement and the same enemy resumes pursuit and keep-distance behavior through the passable doorway. NSC-017's Play Mode check verifies the Ranged Enemy does not retreat from the locked door during the attack interval and resumes keep-distance movement after the breach. This obligation does not decide which Ranged Enemy attack damages the door."
+    },
+    {
+      "obligation_id": "INT-003",
+      "reference": "NSC-033 AC-003 and VAL-002; GDD - Floor-run restart ownership",
+      "requirement": "When NSC-033 connects floor restart, invoke RangedEnemyKeepDistanceMovement.ResetKeepDistanceMovement() alongside EnemyPursuitMovement.ResetPursuit(), EnemyStatusEffectMovement.ResetStatusEffects(), ranged-attack reset, and enemy health/defeat reset. Its Play Mode restart validation verifies the persistent Ranged Enemy returns to its authored spawn region with no retained keep-distance destination, target, search, attack, Frost, or displacement state."
+    }
+  ],
   "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/RangedEnemyKeepDistanceMovement.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/RangedEnemyKeepDistanceMovement.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/RangedEnemyKeepDistanceMovementPlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/RangedEnemyKeepDistanceMovementPlayModeTests.cs.meta",
     "logical:enemy-locomotion-behavior-surface"
   ],
-  "execution_reason": "One agent can implement and validate the Ranged Enemy's approach, retreat, and repositioning behavior against the existing pursuit and Frost interfaces.",
+  "execution_reason": "One agent can add the Ranged Enemy keep-distance component, public configuration and reset methods, and temporary-NavMesh Play Mode tests using the existing NavMeshAgent, GameplayNavigationSurface, EnemyTargetKnowledge, EnemyPursuitMovement, and EnemyStatusEffectMovement behavior. No upstream owner file, Unity builder, committed scene, prefab, projectile, encounter, or visual asset is required for local completion.",
   "execution_scope": "single_agent",
   "gdd_evidence": [
     {
       "reference": "Required Enemy Roster",
-      "requirement": "The Ranged Enemy keeps moderate distance from the wizard."
+      "requirement": "The Ranged Enemy keeps moderate distance, remains functional after its Melee support is defeated, and forces lateral movement."
     },
     {
       "reference": "Spell and Enemy Interactions",
-      "requirement": "Frost Field slows a Ranged Enemy's repositioning without stopping its attacks."
+      "requirement": "Frost Field slows a Ranged Enemy's repositioning without stopping its attacks; the wizard must still move laterally or use room geometry."
+    },
+    {
+      "reference": "Enemy Detection, Pursuit, and Target Loss; Door and Pursuit Rules",
+      "requirement": "Cover and doorway crossing do not clear an acquired target. Target loss is distance-based and transfers movement to the last known position, bounded search, and possible reacquisition."
+    },
+    {
+      "reference": "Door and Pursuit Rules",
+      "requirement": "A surviving enemy that is still tracking the wizard and is blocked by a newly locked door enters the locked-door attack behavior, then resumes pursuit after the door breaks."
+    },
+    {
+      "reference": "Runtime Implementation; Floor-run restart ownership",
+      "requirement": "Enemy movement uses the shared Unity AI Navigation NavMesh implementation, and every owner of persistent enemy movement state exposes an owner-controlled reset entry point."
     }
   ],
   "id": "NSC-053",
   "kind": "implementation",
-  "notes": "Exact distance thresholds and movement speeds remain playtesting values. This child does not decide when to fire or implement projectile behavior.",
+  "notes": "Selected within-current-GDD behavior: a two-limit keep-distance band with approach, sustained hold, direct retreat, deterministic reachable side fallback, and hold when fully cornered. Exact distance limits, retreat distance, sampling tolerance, side-selection order, and reevaluation conditions remain implementation/playtesting values. The configured band width and the gap from far distance to LoseTargetDistance must each exceed the configured NavMeshAgent's measured stopping overshoot so the enemy can settle without visible approach/retreat oscillation and still has an observable approach interval. Tuning hypothesis only: once NSC-009 establishes Force Wave's radius, keep the close limit greater than that radius so reaching a Ranged Enemy remains risky. RangedEnemyKeepDistanceMovement does not rely on EnemyPursuitMovement.Tick(float) as a production entry point. If Vincent requires NSC-054 to perform a pre-fire line-of-sight check, this hold behavior must be reviewed again for cover stalemate before LOS-seeking movement is authorized. This task does not decide firing, line-of-sight policy, attack timing, projectiles, Player Health damage, locked-door attack form, prefab assembly, retreat-facing presentation, encounters, rooms, doors, or spell tuning.",
   "parent": "NSC-016",
   "provenance": {
     "graph_delta_plan_id": "GDP-2e86f4a379ab3f36dfd476d6afefcbe502dd04d338ea28b6d5e9b26b190b30f3",
     "origin": "progressive_decomposition",
     "parent_contract_revision": 2,
     "parent_contract_sha256": "6169c9087abcd9e65e55a1b7edd777185d68c86577bb8032be2bafdc263dbcf5",
-    "parent_task_id": "NSC-016"
+    "parent_task_id": "NSC-016",
+    "task_design_ger": [
+      {
+        "ger_run_id": "20260914-073917-NSC-053",
+        "packet_source_head": "9727d2a304cf7ce830b39e9fdb7bdfdd28568161",
+        "previous_contract_revision": 2,
+        "round_output_sha256": {
+          "01-codex-generate": "0e69278ac1c65a4a461c6c76f75c817dbcaeee27bc1be8eefc50f76fca9132a5",
+          "02-claude-evaluate": "b4a6c2cd3500783e7d5ffe09f7ff161bb1378378364880a11040be3e164e4001",
+          "03-codex-refine": "b9788dda78d9bae310b65a29f06a2569224d89e13ec79e77e606606d17c89dd7",
+          "04-claude-reaudit": "58e966d268f7cc8be42e521273ab7cd6c14951826ad878dfec10530069ed2f55",
+          "05-owner-patch": "215379db1cc598a2c66d111ac78a75704e4cc5a199387f18211a2debc89c429f",
+          "06-claude-recheck": "5979af1cd5ec7451718037363df0e7a778ee3ca360e30e43075d1ee820e718db"
+        },
+        "reaudit_recommendation": "blocked_not_design",
+        "owner_patch_contract_sha256": "9ba27806d1f17b86291d25aef7adce302b729d7d738dfde509bb2be5ec5372a0",
+        "recheck_recommendation": "commit_contract"
+      }
+    ]
   },
   "reconciliation_key": "ranged-enemy-keep-distance-movement",
   "repository_evidence_at_bootstrap": [],
