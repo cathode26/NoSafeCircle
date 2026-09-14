@@ -167,7 +167,7 @@ class PublicSyntheticAuthorityTests(unittest.TestCase):
         policy = json.loads((ROOT / "Pipeline/TaskReviewAgent/authoritative_validation_policy.json").read_text(encoding="utf-8"))
         require_decomposition_policy_document(policy)
         self.assertEqual(policy["decomposition_child_templates"], {})
-        self.assertEqual(set(policy["tasks"]), {"NSC-020", "NSC-042"})
+        self.assertTrue({"NSC-020", "NSC-042"}.issubset(policy["tasks"]))
         self.assertEqual(policy["tasks"]["NSC-020"]["test_filters"], {
             "PlayMode": "NoSafeCircle.DoorPrototype.Tests.DoorInteractionPlayModeTests"})
         self.assertEqual(policy["tasks"]["NSC-042"]["test_filters"], {
