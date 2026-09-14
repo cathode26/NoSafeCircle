@@ -1083,6 +1083,16 @@ class AssistantSnapshot:
                 "phase": "decomposition_applied",
                 "transition_context": "Decomposition children are committed; their work determines parent completion.",
             }
+        elif (active and taskgraph_state is not None
+              and taskgraph_state.get("state") == "conformant"
+              and row["state"] in {"assistant_idle", "local_accepted", "complete"}):
+            # A retained checkout can be older than a delivery committed on main.
+            # Its idle state must not hide authoritative TaskGraph completion.
+            row["state"] = "complete"
+            row["progress"] = {
+                "phase": "taskgraph_conformant",
+                "transition_context": "Committed TaskGraph evidence proves this task is complete.",
+            }
         return row
 
     def _bound_execution_crew(self, task_id: str, checkout: Path, worker: Mapping[str, Any]) -> dict[str, Any] | None:

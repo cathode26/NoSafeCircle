@@ -695,6 +695,28 @@ class WorkerViewTests(unittest.TestCase):
         self.assertEqual("assistant_idle", row["state"])
         self.assertEqual("worker_succeeded", row["progress"]["phase"])
 
+    def test_committed_delivery_outweighs_stale_idle_checkout_but_not_live_work(self):
+        manager, record, _ = self.worker()
+        record["status"] = "prepared"
+        record["worker"]["status"] = "succeeded"
+        write_record(manager.records / "NSC-042.json", record)
+        reader = AssistantSnapshot(self.root, manager.root)
+        with unittest.mock.patch.object(
+                reader, "_taskgraph_states", return_value={"NSC-042": {"state": "conformant"}}):
+            row = next(item for item in reader.build()["tasks"] if item["id"] == "NSC-042")
+        self.assertEqual("complete", row["state"])
+        self.assertEqual("taskgraph_conformant", row["progress"]["phase"])
+
+        record["worker"]["status"] = "running"
+        write_record(manager.records / "NSC-042.json", record)
+        observation = {"task_id": "NSC-042", "worker": record["worker"],
+                       "host_identity_alive": True, "stop_requested": False,
+                       "capacity_released": False}
+        with unittest.mock.patch(
+                "Pipeline.AssistantControl.worker_control.status", return_value=observation):
+            row = next(item for item in reader.build()["tasks"] if item["id"] == "NSC-042")
+        self.assertEqual("active", row["state"])
+
     @staticmethod
     def _write_crew_progress(checkout, *, rows, run_id="fixture-crew-run", task_id="NSC-042"):
         """Write a durable ExecutionCrew progress.jsonl exactly where compose.yaml
