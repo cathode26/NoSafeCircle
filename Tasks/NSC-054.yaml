@@ -2,67 +2,97 @@
   "acceptance_criteria": [
     {
       "criterion_id": "AC-001",
-      "reference": "NSC-016 AC-002 — Required Enemy Roster",
-      "requirement": "Shows a readable attack wind-up and then spawns a slow moving projectile; beginning or completing the wind-up does not apply instant damage."
+      "reference": "NSC-016 AC-002 and AC-003; GDD — Required Enemy Roster; Enemy Detection, Pursuit, and Target Loss",
+      "requirement": "Create Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/RangedEnemyAttack.cs and Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/RangedEnemyAttack.cs.meta. RangedEnemyAttack has serialized RangedEnemyProjectile projectileTemplate, Transform projectileOrigin, and GameObject windUpFeedback references; exposes read-only bool IsWindingUp and public Tick(float deltaTime); and delegates its normal Update timing to Tick. It reads EnemyTargetKnowledge.State and EnemyTargetKnowledge.CurrentTarget from a serialized EnemyTargetKnowledge targetKnowledge reference that falls back to GetComponent<EnemyTargetKnowledge>() in Awake, starts no attack while that reference is missing, starts attacks only while the wizard is the actively pursued target, activates windUpFeedback containing an enabled Renderer for a configured nonzero wind-up, and then launches a slow projectile. Beginning or completing the wind-up does not apply instant PlayerHealth damage. RangedEnemyAttack never calls EnemyTargetKnowledge.UpdateTargetKnowledge, ReportArrivedAtLastKnownPosition, or ResetTargetKnowledge. If target knowledge leaves Pursuing during wind-up, it cancels the wind-up without launching a projectile."
     },
     {
       "criterion_id": "AC-002",
-      "reference": "NSC-016 AC-003 — Runtime Implementation; Chapel of Ash cover requirement",
-      "requirement": "After spawning, the projectile collides with gameplay cover such as wall, pew, or column colliders, stops or despawns on that collision, and cannot damage the player through or after the cover."
+      "reference": "NSC-016 AC-002 and AC-003; NSC-072 AC-001; GDD — Required Enemy Roster; Chapel of Ash cover requirement",
+      "requirement": "Create Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/RangedEnemyProjectile.cs and Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/RangedEnemyProjectile.cs.meta. RangedEnemyProjectile exposes public Launch(Vector3 origin, Vector3 direction, RangedEnemyAttack owner) and public Tick(float deltaTime), with normal Update movement delegated to Tick. Launch places the projectile at origin, records its launching owner, throws ArgumentNullException when owner is null, and uses a normalized horizontal direction. The projectile remains in the horizontal plane at the height of the Launch origin (RangedEnemyAttack passes its serialized projectileOrigin position), keeps the release direction without homing or re-aiming, moves visibly over multiple Play Mode frames through an enabled Renderer, and stops or despawns when its finite lifetime ends or its owner resets, disables, or is destroyed. Each RangedEnemyProjectile.Tick(float deltaTime) evaluates cover and player contact along the whole horizontal segment travelled during that step, so consecutive Tick calls made within one Play Mode frame detect contact without waiting for a physics step, and one large step cannot carry the projectile through a collider."
     },
     {
       "criterion_id": "AC-003",
-      "reference": "NSC-016 AC-004 — Required Enemy Roster",
-      "requirement": "Calls PlayerHealth.TakeDamage only when the projectile reaches the player and does not store a second copy of player-health state."
+      "reference": "NSC-016 AC-003 and AC-004; GDD — Required Enemy Roster; Player Health ownership; Door and Pursuit Rules",
+      "requirement": "On contact with a non-trigger Collider that is not part of the projectile, its launching enemy hierarchy, another RangedEnemyProjectile, or an enemy hierarchy containing EnemyTargetKnowledge, RangedEnemyProjectile stops or despawns. Trigger colliders are never cover and do not stop or despawn the projectile. If the contacted non-trigger Collider is on the same GameObject as PlayerHealth, the projectile calls PlayerHealth.TakeDamage(float) exactly once before stopping or despawning. A Collider on a parent or child of a GameObject that has PlayerHealth, but not on that GameObject itself, is ignored rather than treated as cover or a damage target. Neither ranged component stores or mutates a second copy of player-health state, and the projectile cannot damage the player through or after a blocking wall, pew, column, or other qualifying cover collider."
     },
     {
       "criterion_id": "AC-004",
-      "reference": "NSC-016 AC-005 — Required Enemy Roster",
-      "requirement": "Attack wind-up and projectile spawning continue when no Melee Enemy is alive; the attack behavior does not query for or require a Melee Enemy component, GameObject, or count."
+      "reference": "NSC-016 AC-005; GDD — Required Enemy Roster",
+      "requirement": "RangedEnemyAttack continues to wind up and launch projectiles when no Melee Enemy is alive. Neither new component queries for or requires a Melee Enemy component, GameObject, or count."
     },
     {
       "criterion_id": "AC-005",
-      "reference": "NSC-016 AC-006 — Spell and Enemy Interactions",
-      "requirement": "Shared Frost slowdown does not pause, cancel, or lengthen attack wind-up or cooldown and does not change projectile speed or lifetime."
+      "reference": "NSC-013 AC-001; NSC-016 AC-006; GDD — Spell and Enemy Interactions",
+      "requirement": "RangedEnemyAttack owns wind-up and cooldown timing independently from NavMeshAgent movement speed. Calling EnemyStatusEffectMovement.ApplyFrostSlowdown(float, float) does not pause, cancel, or lengthen the wind-up or cooldown and does not change RangedEnemyProjectile speed or lifetime."
     },
     {
       "criterion_id": "AC-006",
-      "reference": "NSC-016 AC-008 — Floor-run restart ownership",
-      "requirement": "Exposes a public reset method that cancels an active wind-up, restores the initial attack timer or cooldown state, and destroys or despawns every projectile still owned by that enemy."
+      "reference": "NSC-016 AC-008; GDD — Floor-run restart ownership",
+      "requirement": "RangedEnemyAttack exposes public ResetAttack(). ResetAttack cancels an active wind-up, deactivates windUpFeedback, restores the attack timer and cooldown values the component had when the floor started, stops or despawns every projectile still owned by that enemy, and prevents delayed PlayerHealth damage from the cancelled attack state."
+    },
+    {
+      "criterion_id": "AC-007",
+      "reference": "NSC-055 AC-002; NSC-016 AC-007 and VAL-005; GDD — Enemy health and defeat ownership",
+      "requirement": "Disabling RangedEnemyAttack cancels its active wind-up, deactivates windUpFeedback, starts no new attack while disabled, and stops or despawns every projectile it owns without rearming a defeated enemy. Destroying the launching enemy or RangedEnemyAttack leaves no owned projectile able to apply delayed PlayerHealth damage."
+    },
+    {
+      "criterion_id": "AC-008",
+      "reference": "Unity Testing Policy; NSC-054 VAL-001 through VAL-009",
+      "requirement": "Create Assets/NoSafeCircle/DoorPrototype/Tests/RangedEnemyAttackPlayModeTests.cs and Assets/NoSafeCircle/DoorPrototype/Tests/RangedEnemyAttackPlayModeTests.cs.meta as a Play Mode behavior-test fixture. It uses temporary GameObjects and the real EnemyTargetKnowledge, EnemyStatusEffectMovement, NavMeshAgent, RangedEnemyAttack, RangedEnemyProjectile, Collider, Renderer, and PlayerHealth components without opening or saving a canonical scene. Where NavMeshAgent speed is tested, it may build and clean up a temporary GameplayNavigationSurface through the existing ConfigureAndBuild pattern. The fixture may configure serialized references and tuning values, but it does not set attack phase, cooldown progress, projectile position, ownership collections, target state, or damage state directly. On each deterministic attack step, the fixture calls EnemyTargetKnowledge.UpdateTargetKnowledge(float) once before RangedEnemyAttack.Tick(float); RangedEnemyAttack never advances target knowledge itself. Where a gate compares Tick counts, the fixture makes those Tick calls without yielding frames between them so MonoBehaviour Update adds no unscripted time; the fixture does not disable RangedEnemyAttack to suppress Update, because disabling triggers AC-007 cleanup."
     }
   ],
   "basis": "direct_gdd",
   "completion_gates": [
     {
       "gate_id": "VAL-001",
-      "reference": "NSC-016 VAL-002 — Required Enemy Roster; Player Health ownership",
-      "requirement": "In a Play Mode test with an unobstructed path, verify the attack wind-up is visible, a slow projectile spawns, and PlayerHealth.TakeDamage is called only when the projectile reaches the player."
+      "reference": "NSC-016 VAL-002; GDD — Required Enemy Roster; Player Health ownership",
+      "requirement": "RangedEnemyAttackPlayModeTests acquires the wizard through EnemyTargetKnowledge.Initialize(Transform) and EnemyTargetKnowledge.UpdateTargetKnowledge(float), advances target knowledge and the enabled attack through fixed Tick steps with an unobstructed path, and verifies that IsWindingUp is true while windUpFeedback is active with an enabled Renderer. Verify that this wind-up precedes Launch, the projectile Renderer remains enabled while the projectile moves over multiple steps, no PlayerHealth damage occurs at wind-up completion, and damage occurs exactly once only when the projectile contacts the non-trigger collider on the stationary player's PlayerHealth GameObject."
     },
     {
       "gate_id": "VAL-002",
-      "reference": "NSC-016 VAL-003 — Runtime Implementation; Chapel of Ash cover requirement",
-      "requirement": "In a Play Mode test, place a representative cover collider in the projectile path and verify the projectile stops or despawns at the cover without calling PlayerHealth.TakeDamage through or after it."
+      "reference": "NSC-016 VAL-003; NSC-072 AC-001; GDD — Chapel of Ash cover requirement",
+      "requirement": "In Play Mode, launch a real RangedEnemyProjectile horizontally at a flight height inside a pew-like BoxCollider whose top is 1.25 units and below the top of the player's two-unit collision volume. Verify that the projectile reaches the non-trigger cover collider, stops or despawns, and cannot reduce PlayerHealth through or after it. In a separate case, place an isTrigger BoxCollider on the same path and verify that the projectile passes through the trigger, remains alive, and subsequently damages the unobstructed player on contact."
     },
     {
       "gate_id": "VAL-003",
-      "reference": "NSC-016 VAL-004 — Spell and Enemy Interactions",
-      "requirement": "In a Play Mode test, apply the shared Frost slowdown and verify attack wind-up duration, attack timing, projectile speed, and projectile lifetime remain unchanged."
+      "reference": "NSC-013 AC-001 and VAL-003; NSC-016 AC-006 and VAL-004; GDD — Spell and Enemy Interactions",
+      "requirement": "Run equivalent unfrosted and frosted attack cycles with identical serialized timing values and identical fixed Tick increments. Apply Frost only through EnemyStatusEffectMovement.ApplyFrostSlowdown(float, float). Verify that the NavMeshAgent speed is reduced while both cycles take exactly the same Tick counts to complete wind-up, launch, reach the next allowed attack, and expire a projectile; verify that corresponding projectile Tick steps produce the same travel distance."
     },
     {
       "gate_id": "VAL-004",
-      "reference": "NSC-016 VAL-006 — Floor-run restart ownership",
-      "requirement": "In Play Mode, call the public reset method during wind-up and while a projectile is in flight; verify the wind-up is cancelled, all owned projectiles are removed, attack timing returns to its initial state, and no delayed player damage occurs."
+      "reference": "NSC-016 VAL-006; GDD — Floor-run restart ownership",
+      "requirement": "In Play Mode, call RangedEnemyAttack.ResetAttack() once during a real wind-up and once while a launched projectile is in flight. Verify that IsWindingUp becomes false, windUpFeedback becomes inactive, every projectile owned by that enemy is removed, no delayed PlayerHealth damage occurs, and the next enabled attack begins from the same attack timer and cooldown values as a freshly configured component."
     },
     {
       "gate_id": "VAL-005",
-      "reference": "NSC-016 VAL-001 — Required Enemy Roster",
-      "requirement": "In a Play Mode test with no Melee Enemy present, verify the Ranged Enemy remains able to complete its wind-up and spawn a projectile."
+      "reference": "NSC-016 VAL-001; GDD — Required Enemy Roster",
+      "requirement": "In a Play Mode fixture containing no Melee Enemy component or GameObject, acquire the wizard through EnemyTargetKnowledge, advance target knowledge and attack timing through their public methods, and verify that RangedEnemyAttack completes its visible wind-up and launches a projectile."
+    },
+    {
+      "gate_id": "VAL-006",
+      "reference": "NSC-016 AC-003; GDD — Enemy Detection, Pursuit, and Target Loss; Chapel of Ash cover requirement",
+      "requirement": "Keep the wizard inside EnemyTargetKnowledge.LoseTargetDistance, acquire it normally, and place qualifying non-trigger cover in the projectile path. On every fixed step, call EnemyTargetKnowledge.UpdateTargetKnowledge(float) once before RangedEnemyAttack.Tick(float). Verify that the enemy completes its wind-up and launches, the projectile stops at cover, EnemyTargetKnowledge remains Pursuing with the same CurrentTarget, and removing the cover allows a later projectile to reach the player without manually reacquiring or rewriting target state."
+    },
+    {
+      "gate_id": "VAL-007",
+      "reference": "GDD — Required Enemy Roster; lateral-movement player effect",
+      "requirement": "After a real projectile is launched on an initially unobstructed path, move the player sideways by more than the sum of the projectile collider's horizontal radius or half-extent and the player collider's horizontal radius or half-extent. Verify that the fixed-direction projectile passes the player's original position without homing or re-aiming and does not reduce PlayerHealth."
+    },
+    {
+      "gate_id": "VAL-008",
+      "reference": "GDD — Enemy Detection, Pursuit, and Target Loss",
+      "requirement": "During a real wind-up, move the wizard beyond EnemyTargetKnowledge.LoseTargetDistance and advance EnemyTargetKnowledge through UpdateTargetKnowledge(float) before ticking the attack. Verify that the wind-up and feedback cancel without a projectile or instant damage, RangedEnemyAttack does not alter the resulting last-known-position/search state, and another attack starts only after EnemyTargetKnowledge performs normal distance-based reacquisition."
+    },
+    {
+      "gate_id": "VAL-009",
+      "reference": "NSC-055 AC-002; NSC-016 AC-007 and VAL-005; GDD — Enemy health and defeat ownership",
+      "requirement": "In Play Mode, disable RangedEnemyAttack once during wind-up and once with an owned projectile in flight, and separately destroy the launching owner while a projectile is in flight. Verify that wind-up feedback is removed, no new attack starts while disabled, every owned projectile is stopped or despawned, and no later PlayerHealth damage occurs."
     }
   ],
-  "confidence": "high",
+  "confidence": "medium",
   "contract_disposition": "active",
-  "contract_revision": 2,
-  "decomposition_reason": "Attack wind-up, projectile movement, cover collision, Player Health damage, Frost timing independence, and attack reset form one bounded ranged-attack behavior with focused Play Mode tests.",
+  "contract_revision": 3,
+  "decomposition_reason": "One bounded ranged-attack owner can implement pursuit-gated wind-up, fixed-direction projectile launch, trigger filtering, cover collision, PlayerHealth damage, Frost-independent timing, projectile ownership, reset, and disable cleanup. Final prefab and production-visual assembly, committed Chapel validation, encounter placement, and restart-orchestrator wiring remain separate downstream responsibilities.",
   "decomposition_state": "concrete",
   "depends_on": [
     "NSC-091",
@@ -72,48 +102,89 @@
   "downstream_integration_obligations": [
     {
       "obligation_id": "INT-001",
-      "reference": "NSC-016 INT-001 — Chapel of Ash blockout",
-      "requirement": "When the Chapel of Ash blockout exists, fire a real Ranged Enemy projectile toward CA-W or CA-E and verify an authored pew or column collider stops it without player damage."
+      "reference": "NSC-072; NSC-016 INT-001; GDD — Chapel of Ash cover requirement",
+      "requirement": "After NSC-046 and NSC-054 are delivered, NSC-072 directly launches a real RangedEnemyProjectile through Launch(Vector3 origin, Vector3 direction, RangedEnemyAttack owner), supplying a RangedEnemyAttack on a temporary or real enemy GameObject as the non-null owner, on a representative opposite-half path toward CA-W or CA-E. Verify that an authored pew or column non-trigger gameplay collider stops it before PlayerHealth damage. This committed-room test proves projectile collision against authored cover; it does not add a pre-release line-of-sight gate."
     },
     {
       "obligation_id": "INT-002",
-      "reference": "NSC-016 INT-002 — Floor-run restart ownership",
-      "requirement": "When the Floor Run/Restart Orchestrator is connected, verify it calls the ranged-attack public reset method and leaves no wind-up, cooldown, projectile, or delayed-damage state from the failed run."
+      "reference": "NSC-033; NSC-016 INT-002; GDD — Floor-run restart ownership",
+      "requirement": "NSC-033 connects the Floor Run/Restart Orchestrator to RangedEnemyAttack.ResetAttack() and verifies that restart leaves no wind-up feedback, cooldown progress, owned projectile, or delayed PlayerHealth damage from the failed run."
+    },
+    {
+      "obligation_id": "INT-003",
+      "reference": "NSC-055 AC-001, AC-002, VAL-001, and VAL-002",
+      "requirement": "NSC-055 remains responsible for assembling the delivered RangedEnemyAttack with keep-distance movement, Enemy Health/Defeat, Active Enemy Registry behavior, and the approved enemy presentation, and defeat may disable RangedEnemyAttack to consume its cleanup behavior. Before NSC-055 begins, its contract or another approved task must name ownership of the production projectile template, projectile origin, wind-up feedback asset, and exact prefab resource. NSC-054 supplies component APIs and temporary test visuals but does not create or assign those production assets."
     }
   ],
   "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/RangedEnemyAttack.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/RangedEnemyAttack.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/RangedEnemyProjectile.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/RangedEnemyProjectile.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/RangedEnemyAttackPlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/RangedEnemyAttackPlayModeTests.cs.meta",
     "logical:enemy-locomotion-behavior-surface"
   ],
-  "execution_reason": "One agent can implement the complete projectile attack and prove its collision, damage, Frost-independence, and reset behavior without also assembling the final enemy prefab.",
+  "execution_reason": "One Unity programmer can implement the two focused runtime components and their isolated Play Mode behavior fixture without editing the final enemy prefab, room assets, canonical scene, encounter content, or shared restart orchestrator.",
   "execution_scope": "single_agent",
   "gdd_evidence": [
     {
-      "reference": "Required Enemy Roster",
-      "requirement": "The Ranged Enemy fires a slow telegraphed shot and remains functional after its Melee support is defeated."
+      "reference": "GDD — Required Enemy Roster",
+      "requirement": "The Ranged Enemy fires a slow telegraphed projectile that forces lateral movement and remains functional after its Melee support is defeated."
     },
     {
-      "reference": "Runtime Implementation; Chapel of Ash",
-      "requirement": "Ranged projectiles are stopped by authored gameplay cover."
+      "reference": "GDD — Runtime Implementation; Development Agent Roles (Enemy Pursuit Agent); NSC-016 AC-003",
+      "requirement": "Ranged Enemy attacks include a line-of-sight/projectile-occlusion check so Chapel of Ash cover actually blocks shots. Under NSC-016 AC-003 and its notes this is satisfied by spawned-projectile collision with non-trigger gameplay cover; a clear pre-fire line of sight is not required."
     },
     {
-      "reference": "Player Health ownership",
-      "requirement": "Enemy attacks request player damage through Player Health rather than storing separate health state."
+      "reference": "GDD — Chapel of Ash; Validation expectations after implementation",
+      "requirement": "At least one designated Chapel side-cover pocket is occluded from a representative ranged projectile path by a real pew or column gameplay collider."
     },
     {
-      "reference": "Floor-run restart ownership",
-      "requirement": "The ranged attack owner exposes a reset entry point for active attack and projectile state."
+      "reference": "GDD — Player Health ownership",
+      "requirement": "A successful ranged projectile calls the Player Health damage interface and does not maintain separate player-health state."
+    },
+    {
+      "reference": "GDD — Spell and Enemy Interactions; NSC-013 AC-001",
+      "requirement": "Frost slows Ranged Enemy repositioning but does not stop attacks; NSC-013 and NSC-016 require the slowdown not to change attack execution or timing."
+    },
+    {
+      "reference": "GDD — Enemy Detection, Pursuit, and Target Loss",
+      "requirement": "Target loss is decided by Lose Target Distance, followed by last-known-position search and possible reacquisition; doorway crossing does not clear pursuit."
+    },
+    {
+      "reference": "GDD — Floor-run restart ownership",
+      "requirement": "The ranged-attack state owner exposes a reset entry point for wind-up, cooldown, projectile, and delayed-damage state."
     }
   ],
   "id": "NSC-054",
   "kind": "implementation",
-  "notes": "A clear line-of-sight check before firing is not required. This child implements projectile collision with cover after the shot is spawned.",
+  "notes": "This revision preserves the current approved fire-into-cover behavior: a pursuing Ranged Enemy does not require a clear pre-fire line of sight, and a spawned projectile is stopped by qualifying non-trigger cover. Cover collision never changes EnemyTargetKnowledge; target loss remains distance-based. Enemy-body collision, friendly fire, firing during search, predictive aim, homing, stored shots, and a pre-release hold-fire gate are not added. Enemy colliders are ignored pending any later design decision. Exact wind-up, cooldown, damage, projectile speed, lifetime, collider footprint, and visual/audio treatment remain implementation and playtesting values. Production projectile-origin height is a tuning hypothesis bounded by committed geometry: above the floor and below the current Chapel pew top of 1.25 units, with NSC-072 providing committed-room proof. The automated Renderer checks prove enabled feedback, not gameplay-camera readability; human Play Mode review remains required after production presentation exists. Test fixtures supply temporary primitive visuals. NSC-054 creates no prefab, room asset, encounter placement, physics layer, tag, package, scene, catalog, builder, pool, or production art asset. NSC-072 owns committed Chapel collision validation, NSC-030 owns encounter placement, and NSC-033 owns restart-orchestrator integration. Production projectile-template, origin, feedback, and prefab-resource ownership must be assigned through an approved NSC-055 revision or another approved task before assembled-prefab work begins.",
   "parent": "NSC-016",
   "provenance": {
     "graph_delta_plan_id": "GDP-2e86f4a379ab3f36dfd476d6afefcbe502dd04d338ea28b6d5e9b26b190b30f3",
     "origin": "progressive_decomposition",
     "parent_contract_revision": 2,
     "parent_contract_sha256": "6169c9087abcd9e65e55a1b7edd777185d68c86577bb8032be2bafdc263dbcf5",
-    "parent_task_id": "NSC-016"
+    "parent_task_id": "NSC-016",
+    "task_design_ger": [
+      {
+        "ger_run_id": "20260914-075919-NSC-054",
+        "packet_source_head": "b5c45c2d225a59f88c6d6620622a6d05e08ff430",
+        "previous_contract_revision": 2,
+        "round_output_sha256": {
+          "01-codex-generate": "3e198a033b1f625ecea8d121aad8a61284eff7876d76ee6ddc2b19a130dd97fa",
+          "02-claude-evaluate": "4a188f1545facbfc10669291a8d04f1c89d4337429ef7f95a021b02b896222f1",
+          "03-codex-refine": "d4ee3afd46023ce7455ff6f4968c1192240fbcff46566009a3f4f87f57e43576",
+          "04-claude-reaudit": "e3e06001271be968e55fe46d4fb58839f7549fbf67c993fa61cb764c45877613",
+          "05-owner-patch": "cda5604897670ce4730a6ca933813ecc5125c70496c250836959a2904a5cd005",
+          "06-claude-recheck": "0abefcefe949a3ecd109f3d814c3bde7da2da1685fb578e001757c5b7110143e"
+        },
+        "reaudit_recommendation": "commit_contract",
+        "owner_patch_contract_sha256": "69b4080300e81cd7eefe68a9757d2c95c262f25f350d6109bf4c669ca603490d",
+        "recheck_recommendation": "commit_contract"
+      }
+    ]
   },
   "reconciliation_key": "ranged-enemy-projectile-attack",
   "repository_evidence_at_bootstrap": [],
