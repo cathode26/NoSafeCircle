@@ -33,6 +33,46 @@ The journal hold, not the JSON marker, controls dispatch exclusion. From Git Bas
 write the checkout root with forward slashes (`C:/NSC/NoSafeCircle-AssistantCheckouts`);
 unquoted backslashes are consumed by the shell.
 
+For the current NSC-044 run in **PowerShell**, these are the exact commands. Run
+the first one as soon as GER work begins; it sets the display to brown **Task
+Retired**. Running `start` again for an already active held task is safe.
+
+```powershell
+Set-Location -LiteralPath 'C:\NSC\NSC\NoSafeCircle'
+& 'C:\Python313\python.exe' -m Pipeline.TaskDesignGER.ger_viewer_marker start NSC-044 --checkout-root 'C:\NSC\NoSafeCircle-AssistantCheckouts'
+```
+
+When the improved NSC-044 contract is committed and any required decomposition
+is applied, remove NSC-044 from the unavailable list in
+`C:\NSC\NoSafeCircle-AssistantCheckouts\.assistant-control\graph-lead-journal.md`,
+then run this command. It releases the viewer hold and displays a crew-sized
+NSC-044 as purple **Task Unstarted**:
+
+```powershell
+& 'C:\Python313\python.exe' -m Pipeline.TaskDesignGER.ger_viewer_marker finish NSC-044 --checkout-root 'C:\NSC\NoSafeCircle-AssistantCheckouts'
+```
+
+If NSC-044 was decomposed, use `finish NSC-044 --ready-child NSC-###` for each
+executable, unheld child instead. The parent stays **Decomposed Parent**; the
+ready children become purple. If work pauses before completion, use `pause`
+instead of `finish`: the task remains held and returns to gray **Outside Current
+Run**.
+
+To check the live marker without changing it:
+
+```powershell
+$marker = Get-Content -LiteralPath 'C:\NSC\NoSafeCircle-AssistantCheckouts\.assistant-control\held-task-ids.json' -Raw | ConvertFrom-Json
+$marker.active_ger_task_ids
+$marker.released_ger_task_ids
+```
+
+`active_ger_task_ids` containing NSC-044 means the brown marker was written;
+`released_ger_task_ids` containing it means the release marker was written.
+Reload `http://localhost:8828/` and inspect NSC-044. The viewer must show
+**Project Checkout** `C:\NSC\NoSafeCircle-AssistantCheckouts`; another viewer
+root will not show this marker or the live workers. Marker colors are display
+annotations and never change the task's authoritative delivery state.
+
 At the start of GER work on a node, after confirming the ID is held in both
 the journal and JSON file:
 
