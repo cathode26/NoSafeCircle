@@ -173,6 +173,135 @@ namespace NoSafeCircle.DoorPrototype.Tests
         }
 
         [UnityTest]
+        public IEnumerator UnreachableDoorApproach_DoesNotSelectNearbyLockedDoor()
+        {
+            // The door remains a possible bridge to the wizard, but a second full-width
+            // carve isolates its approach side from this enemy's walkable region.
+            var blocker = new GameObject("UnreachableApproachBlocker");
+            blocker.transform.SetParent(root.transform, false);
+            blocker.transform.position = new Vector3(0f, 1f, -3f);
+            var obstacle = blocker.AddComponent<NavMeshObstacle>();
+            obstacle.shape = NavMeshObstacleShape.Box;
+            obstacle.size = new Vector3(22f, 2f, 0.8f);
+            obstacle.carving = true;
+            yield return SettleCarving();
+
+            pursuit.Tick(0f);
+            attack.Tick(2f);
+            var path = new NavMeshPath();
+            Assert.IsFalse(agent.CalculatePath(door.InteractionPosition, path) &&
+                path.status == NavMeshPathStatus.PathComplete,
+                "The second carve must make the door approach unreachable in this fixture.");
+            Assert.IsNull(pursuit.BlockingLockedDoor);
+            Assert.AreEqual(door.MaxDurability, door.CurrentDurability, 0.001f);
+        }
+
+        [UnityTest]
+        public IEnumerator ForcedDisplacement_CancelsHitAndPursuitReturnsForFullNewInterval()
+        {
+            yield return SettleCarving();
+            yield return WalkToAttackReach(400);
+            var initial = door.CurrentDurability;
+            attack.Tick(0.4f);
+            Assert.AreSame(door, attack.PendingDoor);
+            Assert.AreEqual(initial, door.CurrentDurability, 0.001f);
+
+            var status = enemy.AddComponent<EnemyStatusEffectMovement>();
+            status.RequestDisplacement(Vector3.back, 3f);
+            Assert.Greater(HorizontalDistance(enemy.transform.position, pursuit.BlockingDoorApproachPoint), 1f,
+                "EnemyStatusEffectMovement must actually displace the enemy out of attack reach.");
+            pursuit.Tick(0f);
+            attack.Tick(2f);
+            Assert.IsNull(attack.PendingDoor);
+            Assert.AreEqual(initial, door.CurrentDurability, 0.001f);
+
+            yield return WalkToAttackReach(400);
+            attack.Tick(0.79f);
+            Assert.AreEqual(initial, door.CurrentDurability, 0.001f);
+            attack.Tick(0.01f);
+            Assert.AreEqual(initial - 10f, door.CurrentDurability, 0.001f);
+        }
+
+        [UnityTest]
+        public IEnumerator TwoInReachEnemies_ContributeIndependentHitsAndBothCrossAfterBreak()
+        {
+            yield return SettleCarving();
+            Assert.IsTrue(agent.Warp(new Vector3(-0.3f, 0f, -1.8f)));
+            var other = CreateOtherEnemy(new Vector3(0.3f, 0f, -1.8f));
+            pursuit.Tick(0f);
+            other.Pursuit.Tick(0f);
+            Assert.AreSame(door, pursuit.BlockingLockedDoor);
+            Assert.AreSame(door, other.Pursuit.BlockingLockedDoor);
+            Assert.Less(HorizontalDistance(enemy.transform.position, pursuit.BlockingDoorApproachPoint), 1f);
+            Assert.Less(HorizontalDistance(other.Root.transform.position,
+                other.Pursuit.BlockingDoorApproachPoint), 1f);
+
+            var initial = door.CurrentDurability;
+            attack.Tick(0.8f);
+            other.Attack.Tick(0.8f);
+            Assert.AreEqual(initial - 20f, door.CurrentDurability, 0.001f,
+                "Each pursuing enemy must contribute exactly one accepted damage request.");
+            for (var index = 0; index < 4; index++)
+            {
+                attack.Tick(0.8f);
+                other.Attack.Tick(0.8f);
+            }
+            Assert.IsTrue(door.IsBroken);
+            Assert.IsNull(attack.PendingDoor);
+            Assert.IsNull(other.Attack.PendingDoor);
+            yield return SettleCarving();
+
+            var bothCrossed = false;
+            for (var index = 0; index < 400; index++)
+            {
+                pursuit.Tick(0f);
+                other.Pursuit.Tick(0f);
+                bothCrossed = enemy.transform.position.z > 0.5f &&
+                    other.Root.transform.position.z > 0.5f;
+                if (bothCrossed) break;
+                yield return new WaitForFixedUpdate();
+            }
+            Assert.IsTrue(bothCrossed, "Both enemies should continue through the broken door. " + Diagnostics());
+            Assert.AreEqual(EnemyTargetKnowledgeState.Pursuing, knowledge.State);
+            Assert.AreEqual(EnemyTargetKnowledgeState.Pursuing, other.Knowledge.State);
+        }
+
+        [UnityTest]
+        public IEnumerator DistantSecondEnemy_DoesNotContributeUntilItsOwnFullInReachInterval()
+        {
+            yield return SettleCarving();
+            Assert.IsTrue(agent.Warp(new Vector3(0f, 0f, -1.8f)));
+            var distant = CreateOtherEnemy(EnemyStart + Vector3.left);
+            pursuit.Tick(0f);
+            distant.Pursuit.Tick(0f);
+            Assert.AreSame(door, distant.Pursuit.BlockingLockedDoor);
+            Assert.Greater(HorizontalDistance(distant.Root.transform.position,
+                distant.Pursuit.BlockingDoorApproachPoint), 1f);
+
+            var initial = door.CurrentDurability;
+            attack.Tick(0.8f);
+            distant.Attack.Tick(0.8f);
+            Assert.AreEqual(initial - 10f, door.CurrentDurability, 0.001f,
+                "The in-reach enemy alone must supply the first hit.");
+
+            for (var index = 0; index < 400; index++)
+            {
+                distant.Pursuit.Tick(0f);
+                distant.Attack.Tick(0f);
+                if (HorizontalDistance(distant.Root.transform.position,
+                    distant.Pursuit.BlockingDoorApproachPoint) <= 1f) break;
+                yield return new WaitForFixedUpdate();
+            }
+            Assert.LessOrEqual(HorizontalDistance(distant.Root.transform.position,
+                distant.Pursuit.BlockingDoorApproachPoint), 1f);
+            Assert.AreEqual(initial - 10f, door.CurrentDurability, 0.001f);
+            distant.Attack.Tick(0.79f);
+            Assert.AreEqual(initial - 10f, door.CurrentDurability, 0.001f);
+            distant.Attack.Tick(0.01f);
+            Assert.AreEqual(initial - 20f, door.CurrentDurability, 0.001f);
+        }
+
+        [UnityTest]
         public IEnumerator LosingTargetAndResettingEnemy_CancelPendingDoorHit()
         {
             yield return SettleCarving();
@@ -198,6 +327,44 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.Less(Vector3.Distance(enemy.transform.position, EnemyStart), 0.5f);
             attack.Tick(2f);
             Assert.AreEqual(before, door.CurrentDurability, 0.001f);
+
+            wizard.transform.position = WizardForward;
+            yield return WalkToAttackReach(400);
+            attack.Tick(0.79f);
+            Assert.AreEqual(before, door.CurrentDurability, 0.001f,
+                "Reacquisition after restart must not inherit the old partial interval.");
+            attack.Tick(0.01f);
+            Assert.AreEqual(before - 10f, door.CurrentDurability, 0.001f);
+        }
+
+        [UnityTest]
+        public IEnumerator SearchArrivalAndExpiry_NearLockedDoorNeverCauseDamage()
+        {
+            door.TakeDamage(door.MaxDurability);
+            yield return SettleCarving();
+            knowledge.ConfigureDistances(2f, 4f);
+            wizard.transform.position = new Vector3(0f, 0f, -4.2f);
+            pursuit.Tick(0f);
+            Assert.AreEqual(EnemyTargetKnowledgeState.Pursuing, knowledge.State);
+            wizard.transform.position = new Vector3(0f, 0f, 2f);
+            pursuit.Tick(0f);
+            Assert.AreEqual(EnemyTargetKnowledgeState.SearchingLastKnownPosition, knowledge.State);
+            wizard.transform.position = new Vector3(0f, 0f, 19f);
+
+            var reachedWander = false;
+            for (var index = 0; index < 400; index++)
+            {
+                Drive(0f);
+                reachedWander = knowledge.State == EnemyTargetKnowledgeState.Wandering;
+                if (reachedWander) break;
+                yield return new WaitForFixedUpdate();
+            }
+            Assert.IsTrue(reachedWander, "Search must reach the unobstructed last-known point.");
+            attack.Tick(knowledge.SearchDuration + 0.1f);
+            pursuit.Tick(knowledge.SearchDuration + 0.1f);
+            Assert.AreEqual(EnemyTargetKnowledgeState.Idle, knowledge.State);
+            Assert.IsNull(pursuit.BlockingLockedDoor);
+            Assert.AreEqual(0f, door.CurrentDurability, 0.001f);
         }
 
         [UnityTest]
@@ -240,6 +407,60 @@ namespace NoSafeCircle.DoorPrototype.Tests
         {
             pursuit.Tick(deltaTime);
             attack.Tick(deltaTime);
+        }
+
+        private IEnumerator WalkToAttackReach(int maxFrames)
+        {
+            for (var index = 0; index < maxFrames; index++)
+            {
+                pursuit.Tick(0f);
+                if (pursuit.BlockingLockedDoor == door &&
+                    HorizontalDistance(enemy.transform.position, pursuit.BlockingDoorApproachPoint) <= 1f)
+                    break;
+                yield return new WaitForFixedUpdate();
+            }
+            Assert.AreSame(door, pursuit.BlockingLockedDoor);
+            Assert.LessOrEqual(HorizontalDistance(enemy.transform.position,
+                pursuit.BlockingDoorApproachPoint), 1f, "Enemy did not reach the locked door. " + Diagnostics());
+        }
+
+        private static float HorizontalDistance(Vector3 first, Vector3 second)
+        {
+            var offset = first - second;
+            offset.y = 0f;
+            return offset.magnitude;
+        }
+
+        private struct OtherEnemy
+        {
+            public GameObject Root;
+            public EnemyTargetKnowledge Knowledge;
+            public EnemyPursuitMovement Pursuit;
+            public EnemyLockedDoorAttack Attack;
+        }
+
+        private OtherEnemy CreateOtherEnemy(Vector3 position)
+        {
+            Assert.IsTrue(NavMesh.SamplePosition(position, out var hit, 1f, NavMesh.AllAreas));
+            var other = new OtherEnemy();
+            other.Root = new GameObject("SecondPursuingEnemy");
+            other.Root.transform.SetParent(root.transform, false);
+            other.Root.transform.position = hit.position;
+            var otherAgent = other.Root.AddComponent<NavMeshAgent>();
+            var settings = NavMesh.GetSettingsByIndex(0);
+            otherAgent.agentTypeID = settings.agentTypeID;
+            otherAgent.radius = settings.agentRadius;
+            otherAgent.height = settings.agentHeight;
+            otherAgent.speed = 5f;
+            Assert.IsTrue(otherAgent.Warp(hit.position));
+            other.Knowledge = other.Root.AddComponent<EnemyTargetKnowledge>();
+            other.Knowledge.Initialize(wizard.transform);
+            other.Knowledge.ConfigureDistances(15f, 20f);
+            other.Pursuit = other.Root.AddComponent<EnemyPursuitMovement>();
+            other.Attack = other.Root.AddComponent<EnemyLockedDoorAttack>();
+            other.Pursuit.enabled = false;
+            other.Attack.enabled = false;
+            return other;
         }
 
         private IEnumerator SettleCarving()
