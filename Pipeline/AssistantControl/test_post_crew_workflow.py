@@ -152,6 +152,7 @@ class PostCrewWorkflowDoorPrototypeTests(unittest.TestCase):
             execution_result_sha256="a" * 64, candidate_patch_sha256="b" * 64,
             validation_sha256="c" * 64,
         )
+        self.crew_paths = (BUILDER, TEST)
 
     def bridge(self, **_kwargs):
         receipt = ExecutionCrewReceipt(
@@ -162,15 +163,17 @@ class PostCrewWorkflowDoorPrototypeTests(unittest.TestCase):
             task_contract_sha256=self.receipt_template["task_contract_sha256"],
             crew_status="review_ready", result_path="fixture-result", result_sha256="a" * 64,
             candidate_path="fixture-patch", candidate_sha256="b" * 64,
-            final_actual_changed_paths=(BUILDER, TEST), returncode=0, rejection_reasons=(),
+            final_actual_changed_paths=self.crew_paths, returncode=0, rejection_reasons=(),
         )
         return _FixtureBridge(receipt)
 
     def committer(self, **_kwargs):
-        (self.checkout / BUILDER).write_text("class FixedBuilder {}\n", newline="\n")
-        (self.checkout / TEST).write_text("class FixedTests {}\n", newline="\n")
+        if BUILDER in self.crew_paths:
+            (self.checkout / BUILDER).write_text("class FixedBuilder {}\n", newline="\n")
+        if TEST in self.crew_paths:
+            (self.checkout / TEST).write_text("class FixedTests {}\n", newline="\n")
         return _RealCommitFixtureCommitter(
-            self.checkout, self.receipt_template, (BUILDER, TEST))
+            self.checkout, self.receipt_template, self.crew_paths)
 
     def builder_runner(self, args, cwd, timeout):
         self.assertEqual(self.checkout.resolve(), cwd.resolve())
@@ -208,6 +211,35 @@ class PostCrewWorkflowDoorPrototypeTests(unittest.TestCase):
         self.assertIn("Unity Editor", result["visual_reproduction_instructions"])
         self.assertEqual(
             result["materialized_candidate_commit"], _git(self.checkout, "rev-parse", "HEAD"))
+
+    def test_code_only_candidate_with_scene_reserved_skips_builder(self):
+        self.crew_paths = (TEST,)
+        missing_unity = self.root / "does-not-exist" / "Unity.exe"
+
+        def forbidden_builder(*_args, **_kwargs):
+            raise AssertionError("a code-only candidate must not rebuild the scene")
+
+        result = self.run_workflow(
+            unity_executable=missing_unity, unity_command_runner=forbidden_builder)
+        self.assertEqual("awaiting_human", result["status"])
+        self.assertEqual("not_applicable", result["unity_materialization"])
+        self.assertIsNone(result["materialized_candidate_commit"])
+        self.assertEqual(3, result["focused_test_results"][0]["passed"])
+        self.assertEqual([], result["generated_paths"])
+        self.assertEqual(
+            [TEST], json.loads((self.manager.records / "NSC-042.json").read_text())
+            ["candidate"]["receipt"]["changed_paths"])
+
+    def test_code_only_replay_rejects_tampered_receipt(self):
+        self.crew_paths = (TEST,)
+        self.run_workflow()
+        record_path = self.manager.records / "NSC-042.json"
+        record = json.loads(record_path.read_text())
+        record["candidate"]["receipt"]["changed_paths"] = [BUILDER, TEST]
+        record_path.write_text(json.dumps(record, indent=2) + "\n")
+
+        with self.assertRaisesRegex(PostCrewWorkflowError, "candidate receipt is invalid"):
+            self.run_workflow()
 
     def test_rerun_after_success_is_idempotent_and_does_not_recommit(self):
         first = self.run_workflow()

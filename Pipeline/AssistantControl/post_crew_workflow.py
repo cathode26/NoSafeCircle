@@ -26,6 +26,7 @@ from Pipeline.AssistantControl.review import ReviewGate
 from Pipeline.AssistantControl.unity_materialization import (
     MaterializationError,
     ValidationRunner,
+    _candidate_receipt,
     materialize_candidate,
 )
 from Pipeline.TaskReviewAgent.contracts import ExecutionScopePlan, validate_task_id
@@ -35,6 +36,7 @@ from Pipeline.TaskReviewAgent.door_prototype_materialization import (
     default_unity_command_runner,
     is_door_prototype_builder_output,
     is_unity_serialized,
+    resolve_generated_builder,
 )
 from Pipeline.TaskReviewAgent.execution_bridge import ExecutionCrewBridge
 from Pipeline.TaskReviewAgent.execution_session_pool import _exclusive_file_lock
@@ -176,6 +178,31 @@ def _registered_generated_paths(scope: Any) -> tuple[str, ...]:
          if is_door_prototype_builder_output(path) and is_unity_serialized(path)),
         key=str.casefold,
     ))
+
+
+def _candidate_generated_paths(
+    scope: Any, record: Mapping[str, Any], candidate: Mapping[str, Any],
+) -> tuple[str, ...]:
+    """Materialize only when this candidate actually changed the registered builder.
+
+    A scope may reserve the scene for a possible builder edit. That reservation
+    alone does not make a code-only candidate a scene-builder candidate.
+    """
+    generated = _registered_generated_paths(scope)
+    if not generated:
+        return ()
+    try:
+        changed = _candidate_receipt(record, candidate)["changed_paths"]
+    except MaterializationError as exc:
+        raise PostCrewWorkflowError("registered candidate receipt is invalid") from exc
+    if any(path in changed for path in generated):
+        raise PostCrewWorkflowError(
+            "candidate edited a registered Unity-generated output; leave that output for the builder"
+        )
+    builder_sources = {
+        resolve_generated_builder((path,))[1] for path in generated
+    }
+    return generated if builder_sources.intersection(changed) else ()
 
 
 def _materialization_journal_path(checkouts: Checkouts, task_id: str, crew_candidate: str) -> Path:
@@ -331,7 +358,14 @@ def run_post_crew_workflow(
         existing_candidate.get("original_scope")
         if kind == "source_synchronized" else existing.get("scope")
     )
-    generated = _registered_generated_paths(registered_scope)
+    original_candidate = (
+        existing_candidate.get("original_candidate")
+        if kind in {"unity_materialized", "source_synchronized"}
+        else existing.get("candidate")
+    )
+    if not isinstance(original_candidate, Mapping):
+        raise PostCrewWorkflowError("registered crew candidate is missing")
+    generated = _candidate_generated_paths(registered_scope, existing, original_candidate)
 
     if not generated:
         candidate = (existing.get("candidate") or {})
@@ -397,7 +431,7 @@ def run_post_crew_workflow(
             ),
             "unity_materialization": "not_applicable",
             "visual_reproduction_instructions": (
-                f"No Unity builder is registered in this task's scope. Review the "
+                f"This candidate did not change a registered Unity builder. Review the "
                 f"code candidate at commit {crew_candidate_commit} in {checkout}."
             ),
         }

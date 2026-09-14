@@ -194,9 +194,10 @@ still needs Vincent's visual inspection.
 `post-crew TASK --run-id CREW_RUN --config FILE [--unity-executable PATH]` is the
 one bounded command for the Windows orchestrator to use right after a crew run
 ends. It calls the existing `candidate` step. When the task's scope registers a
-Unity-serialized DoorPrototype output, it calls the existing
-`materialize-candidate` step; otherwise it runs the committed task validation
-directly against the exact clean code candidate. It adds no new Git, scope,
+Unity-serialized DoorPrototype output **and the candidate actually edits that
+output's builder**, it calls the existing `materialize-candidate` step. A task
+may reserve a scene without changing its builder; that code-only candidate goes
+directly to committed task validation without rebuilding the scene. It adds no new Git, scope,
 receipt or Unity-builder logic of its own. It returns one compact
 JSON result: task ID, checkout path, the crew's original candidate commit, the
 materialized candidate commit (`null` when no Unity builder applies), the
