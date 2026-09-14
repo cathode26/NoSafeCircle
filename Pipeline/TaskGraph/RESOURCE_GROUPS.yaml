@@ -1003,11 +1003,13 @@
     },
     {
       "reconciliation_keys": [
-        "enemy-pursuit-navmesh-movement"
+        "enemy-pursuit-navmesh-movement",
+        "locked-door-enemy-attack"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyPursuitMovement.cs",
       "work_ids": [
-        "NSC-092"
+        "NSC-092",
+        "NSC-017"
       ]
     },
     {

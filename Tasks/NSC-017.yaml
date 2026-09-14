@@ -2,97 +2,136 @@
   "acceptance_criteria": [
     {
       "criterion_id": "AC-001",
-      "reference": "Door and Pursuit Rules",
-      "requirement": "A surviving enemy still actively tracking/pursuing the player and whose route is blocked by a newly locked door begins attacking that door; no separate 'witnessed escape' or line-of-sight-to-crossing flag is tracked."
+      "reference": "Door and Pursuit Rules; Runtime Implementation",
+      "requirement": "Modify Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyPursuitMovement.cs so the NavMesh locomotion owner exposes a read-only BlockingLockedDoor property. While EnemyTargetKnowledge.State is Pursuing, identify the locked DoorInteractable that blocks the route to EnemyTargetKnowledge.CurrentTarget and whose approach-side point is reachable by a complete NavMesh path. While that result is non-null, set the NavMeshAgent destination to a reachable approach-side point associated with that door instead of continuing toward CurrentTarget.position; DoorInteractable.InteractionPosition is an existing candidate, while the exact sampled point remains an implementation detail. Expose the selected point through a read-only BlockingDoorApproachPoint property whose value is meaningful only while BlockingLockedDoor is non-null. The observable result must be the locked door between the enemy and wizard whose approach side the enemy can reach by a complete NavMesh path (when more than one locked door lies between them, only the one nearest the enemy along its route qualifies), and null when the wizard is reachable, the relevant door is open or broken, a nearby locked door is not between the enemy and wizard, or the path to that door's approach side is incomplete. Clear the result when qualification ends. Do not add witnessed-crossing or line-of-sight-to-crossing state."
     },
     {
       "criterion_id": "AC-002",
       "reference": "Door and Pursuit Rules",
-      "requirement": "An enemy that has already lost the player (cleared target) does not attack a locked door merely because it is nearby."
+      "requirement": "Create Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyLockedDoorAttack.cs. The component reads EnemyTargetKnowledge.State, EnemyPursuitMovement.BlockingLockedDoor, and EnemyPursuitMovement.BlockingDoorApproachPoint through public read-only surfaces. Give it private serialized positive attack-reach, attack-interval, and damage values, and make its production Update path delegate to public Tick(float deltaTime). It advances the attack interval only while the enemy is Pursuing, the blocking door remains locked, and the enemy is within attack reach of EnemyPursuitMovement.BlockingDoorApproachPoint. Each hit requires one full uninterrupted qualifying interval. Leaving reach, entering search or idle, clearing the current target, or losing the blocking-door result cancels the pending interval without delayed damage."
     },
     {
       "criterion_id": "AC-003",
       "reference": "Locked-door attack and durability ownership",
-      "requirement": "The attack requests door damage exclusively through the Door-owned damage-receive interface and never writes door durability or semantic door state directly."
+      "requirement": "EnemyLockedDoorAttack applies each completed hit exclusively through DoorInteractable.TakeDamage(float). It does not write DoorInteractable durability or semantic state, call DoorEnemyPassability.SetDoorState, manipulate NavMeshObstacle state, use reflection to change production state, or create a second door-durability or passability model."
     },
     {
       "criterion_id": "AC-004",
-      "reference": "Door and Pursuit Rules",
-      "requirement": "When the door breaks (transitions to broken), the still-tracking/pursuing enemy continues pursuit forward through the now-passable doorway using the shared navigation/locomotion passability result, without independently manipulating door or navigation state."
+      "reference": "Door and Pursuit Rules; Door passability contract",
+      "requirement": "When DoorInteractable.TakeDamage breaks the attacked door, EnemyLockedDoorAttack clears its pending door and interval. EnemyPursuitMovement clears BlockingLockedDoor and, while EnemyTargetKnowledge remains Pursuing, resumes its ordinary destination updates so the same enemy moves forward through the doorway made passable by DoorInteractable and DoorEnemyPassability. EnemyLockedDoorAttack does not warp the enemy, set NavMeshAgent destinations, change passability, or clear target knowledge."
     },
     {
       "criterion_id": "AC-005",
-      "reference": "Section 2 — Floor-run restart ownership",
-      "requirement": "Exposes an owner-controlled attack-state reset entry point that cancels any in-progress locked-door attack attempt when the Floor Run/Restart Orchestrator invokes floor restart, so no partially-executed door-attack state carries over from the failed run."
+      "reference": "Floor-run restart ownership",
+      "requirement": "EnemyLockedDoorAttack exposes public ResetAttack(), which clears its pending door and interval without changing another component's state. Modify EnemyPursuitMovement.ResetPursuit() to clear BlockingLockedDoor in addition to its existing target, path, and Transform reset. Calling both methods during a pending attack prevents delayed door damage and leaves no retained blocking-door reference."
     },
     {
       "criterion_id": "AC-006",
-      "reference": "Section 2 — Floor-run restart ownership",
-      "requirement": "Exposes an owner-controlled restart/reset entry point that clears locked-door attack initiation/in-progress state for floor restart, invoked by the Floor Run/Restart Orchestrator rather than mutated directly."
+      "reference": "Unity Testing Policy; production-path testability",
+      "requirement": "Create Assets/NoSafeCircle/DoorPrototype/Tests/EnemyLockedDoorAttackPlayModeTests.cs for VAL-001 through VAL-006. The fixture uses temporary GameObjects and a temporary GameplayNavigationSurface and never saves or modifies Assets/Scenes/DoorPrototype.unity. Bake the temporary NavMesh before creating the test door so the fixture measures runtime DoorEnemyPassability carving rather than baking the door collider into the walkable surface. Open through PlayerInteractionController.BeginInteraction() and DoorInteractable.Tick; locking may invoke the existing private forward-crossing callback through reflection only as fixture setup and must not be claimed as NSC-017 proof. Wait for carving to settle before path assertions. For interval-sensitive checks, advance EnemyPursuitMovement and EnemyLockedDoorAttack through one path only, such as disabling their MonoBehaviour Update callbacks and calling public Tick methods explicitly; do not combine explicit Tick time with enabled Update time, and allow a frame for route-result propagation where required."
     }
   ],
   "basis": "direct_gdd",
   "completion_gates": [
     {
       "gate_id": "VAL-001",
-      "reference": "Dungeon Floor Structure (Lower Vault) / Door and Pursuit Rules",
-      "requirement": "Verify that after a rear breach, locked-door-attacking pursuers correctly resume forward pursuit through the broken doorway rather than stalling."
+      "reference": "Door and Pursuit Rules; NSC-021 VAL-001; NSC-051 INT-001",
+      "requirement": "In EnemyLockedDoorAttackPlayModeTests.cs, acquire a sideways-offset wizard on the far side of a locked door through EnemyPursuitMovement.Tick while remaining inside Lose Target Distance. Verify a partial route to the wizard and a complete route to the door approach produce BlockingLockedDoor equal to that door, the enemy walks to the door instead of stopping at an unrelated wall point, durability remains unchanged while the enemy is outside attack reach, and one full in-reach interval reduces DoorInteractable.CurrentDurability. Continue through the same production attack path until DoorInteractable.IsBroken and DoorEnemyPassability.CurrentState is Broken, then verify the same enemy remains Pursuing and moves forward through the doorway. NSC-021 VAL-001 and NSC-051 INT-001 remain in their owning contracts and may reuse this evidence; this revision does not transfer or remove those entries."
     },
     {
       "gate_id": "VAL-002",
-      "reference": "Door and Pursuit Rules",
-      "requirement": "Verify an enemy that has already lost the player (post bounded-search target clear) does not initiate a locked-door attack solely from proximity."
+      "reference": "Enemy Detection, Pursuit, and Target Loss; Door and Pursuit Rules",
+      "requirement": "Verify BlockingLockedDoor is null and no damage occurs when the wizard has a complete same-room route, when the relevant door is open or broken, when a locked door is nearby but not between enemy and wizard, and when the path to the door's approach side is incomplete. During a qualifying attack, move the wizard beyond Lose Target Distance and verify the SearchingLastKnownPosition transition cancels the pending hit. In a separate unobstructed setup, drive arrival, bounded wander, and target clearing while the wizard remains beyond Detection Distance; afterward, proximity to a locked door must not change durability."
     },
     {
       "gate_id": "VAL-003",
-      "reference": "Section 3 - Player Experience Success Criteria",
-      "requirement": "The player understands that enemies left alive remain a threat: leaving them alive means locking a door while they attack it, and later encountering them if that door breaks through."
+      "reference": "Enemy forced displacement (NSC-013 EnemyStatusEffectMovement.RequestDisplacement); Enemy movement ownership",
+      "requirement": "During a qualifying in-reach attack, call EnemyStatusEffectMovement.RequestDisplacement with a displacement that moves the enemy outside attack reach. Verify no hit occurs while out of reach, ordinary EnemyPursuitMovement returns the still-pursuing enemy to the door, and damage resumes only after a new full uninterrupted in-reach interval. The test does not warp the enemy directly or change attack internals. This proves the enemy-side displacement response only; it does not establish whether a Force Wave cast by the wizard reaches an enemy on the other side of a locked door, which NSC-009 and the GDD do not define."
     },
     {
       "gate_id": "VAL-004",
-      "reference": "Section 2 — Floor-run restart ownership",
-      "requirement": "Verify an in-progress locked-door attack attempt is cancelled and cleared by floor restart, with no door-attack state surviving into the next run."
+      "reference": "Door and Pursuit Rules; melee clustering",
+      "requirement": "Using multiple pursuing enemies with independent EnemyLockedDoorAttack components, verify two enemies simultaneously within attack reach each contribute one configured damage request and both continue forward after the door breaks. In a separate arrangement, start one still-Pursuing enemy far enough from the door that it remains outside attack reach when an in-reach enemy's first full interval completes; verify that DoorInteractable.CurrentDurability dropped by exactly one configured damage amount at that moment, and that the distant enemy contributes damage only after its own full in-reach interval. Do not rely on emergent NavMeshAgent avoidance to create the out-of-reach case."
     },
     {
       "gate_id": "VAL-005",
-      "reference": "Section 2 — Floor-run restart ownership",
-      "requirement": "Verify floor restart clears locked-door attack initiation/in-progress state through the owner-controlled reset entry point."
+      "reference": "Floor-run restart ownership",
+      "requirement": "Begin a qualifying attack, then call EnemyLockedDoorAttack.ResetAttack() and EnemyPursuitMovement.ResetPursuit() before the next interval completes. Verify the pending attack reference and BlockingLockedDoor are null, no delayed DoorInteractable damage occurs, and the enemy has the existing reset target/path/Transform state. Re-establish acquisition afterward and verify a fresh attack requires a full new interval. Actual zero-health orchestration belongs to INT-002."
+    },
+    {
+      "gate_id": "VAL-006",
+      "reference": "Door feedback; Player Experience Success Criteria",
+      "requirement": "Bind the production DoorBreachFeedback component to test-owned durability-fill and crack-stage GameObjects. Verify one accepted hit delivered through EnemyLockedDoorAttack sets DoorBreachFeedback.IsShaking, lowers DoorBreachFeedback.DurabilityRatio, and activates the expected crack stage. An out-of-reach attempted interval must leave those observables unchanged. This automated gate does not claim gameplay-camera readability or authorize edits to DoorBreachFeedback."
     }
   ],
-  "confidence": "high",
+  "confidence": "medium",
   "contract_disposition": "active",
-  "contract_revision": 3,
-  "decomposition_reason": "The qualifying condition (still tracking/pursuing + blocked by locked door), the damage-interface boundary, and the post-break pursuit continuation are already fully specified by the GDD Door and Pursuit Rules section; nothing further needs to be invented.",
+  "contract_revision": 4,
+  "decomposition_reason": "The locally executable scope is one cohesive production path: extend EnemyPursuitMovement with a read-only locked-door blocker and approach destination, add one reusable in-reach door-attack/reset component, and prove blocker selection, approach, damage, displacement, multiple pursuers, breach continuation, feedback consumption, and reset in one Play Mode test file. Enemy prefab assembly, actual restart-orchestrator wiring, canonical-scene path validation, and gameplay-camera review remain explicit downstream responsibilities.",
   "decomposition_state": "concrete",
   "depends_on": [
     "NSC-091",
     "NSC-092",
+    "NSC-013",
     "NSC-050",
-    "NSC-051"
+    "NSC-051",
+    "NSC-052"
   ],
-  "downstream_integration_obligations": [],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "NSC-015 Melee Enemy Archetype; NSC-055 Ranged Enemy SpriteRenderer Prefab Setup and Defeat Wiring",
+      "requirement": "When NSC-015 receives its required D1B.2 execution decomposition, its prefab-assembly split must depend on NSC-017, attach EnemyLockedDoorAttack to the assembled Melee Enemy prefab, and supply EnemyTargetKnowledge and EnemyPursuitMovement without taking ownership of those components. The NSC-015 splits must separately preserve one locomotion/shared-surface owner, one Melee attack/reset owner, and one prefab-assembly owner. NSC-055 must not assume the same wiring until Vincent decides how Ranged Enemy keep-distance movement yields to a locked-door approach and what attack form it uses; after that decision, NSC-055 or a reviewed replacement owner requires an explicit dependency on NSC-017 or on the resulting approved shared behavior."
+    },
+    {
+      "obligation_id": "INT-002",
+      "reference": "NSC-033 Floor Run/Restart Persistent-Systems Closure",
+      "requirement": "NSC-033 must make the Floor Run/Restart Orchestrator call EnemyPursuitMovement.ResetPursuit() and EnemyLockedDoorAttack.ResetAttack() for every persistent enemy during an actual zero-health restart. Verify no target, path, BlockingLockedDoor reference, pending interval, or delayed door hit survives into the next floor attempt. NSC-017 does not edit the orchestrator, its builder wiring, or the canonical scene."
+    },
+    {
+      "obligation_id": "INT-003",
+      "reference": "NSC-049 Five-Room Continuity and Door Sequence Integration; NSC-051; NSC-089",
+      "requirement": "NSC-049, which owns Assets/Scenes/DoorPrototype.unity, DoorPrototypeSceneBuilder.cs, and logical:gameplay-walkability-surface, must record and perform this check. In the built canonical scene, without saving it, lock a composed door through its production crossing path or an explicitly labeled setup seam, call DoorInteractable.TakeDamage(float) until DoorInteractable.IsBroken, wait for DoorEnemyPassability carving to settle, and verify a test-owned NavMeshAgent using the project agent type finds a complete path from the door's approach side to its forward side. The check targets the builder's door-before-bake order and the doorway-blocker collider that remains enabled after Break; it does not require an enemy prefab or EnemyLockedDoorAttack. A passing temporary NSC-017 fixture does not discharge it. Any failure must be assigned after diagnosis to the existing door-passability, navigation, or composition owner; NSC-017 does not edit the builder or scene."
+    },
+    {
+      "obligation_id": "INT-004",
+      "reference": "NSC-029; NSC-049; NSC-084; NSC-015; NSC-055; Player Experience Success Criteria",
+      "requirement": "No existing task receives this obligation; NSC-029's current children cover composition, dressing, and Bone Archive or Chapel geometry validation, and none places enemies. A receiving validation contract must be approved through D1B.2 review and the normal human-approved graph apply. That receiver, after NSC-049, NSC-084, the applicable assembled enemy prefabs, and approved encounter placements exist, must perform gameplay-camera review of: the five-second door approach with a visible pursuer behind the wizard; first-hit and approaching-breach shake, cracks, bang, and durability feedback; and the same enemies entering through the broken doorway. For every lock-to-next-door traversal in the composed five-room floor, record whether walking beyond Lose Target Distance can halt the breach and compare that timing with the five-second opening window and observed mana recovery. Treat dominant-safe-strategy risk as a playtest result, not an NSC-017 rule, and do not invent encounter placements or tuning values."
+    }
+  ],
   "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyPursuitMovement.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyLockedDoorAttack.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/EnemyLockedDoorAttackPlayModeTests.cs",
     "logical:enemy-locomotion-behavior-surface"
   ],
-  "execution_reason": "A narrowly scoped behavior branch — checking existing tracking state, requesting door damage through one interface, and resuming pursuit after breach — with a small, well-defined validation target once its two prerequisites exist; bounded enough for one implementation agent.",
+  "execution_reason": "One Unity programmer can extend the existing NavMesh pursuit owner with blocker detection and door-approach movement, implement the separate reach-gated attack/reset component, and add one focused temporary-scene Play Mode fixture. The task stops before enemy-prefab assembly, canonical-scene or builder edits, restart-orchestrator wiring, Ranged Enemy design, and human gameplay-camera validation.",
   "execution_scope": "single_agent",
   "gdd_evidence": [
     {
+      "reference": "Enemy Detection, Pursuit, and Target Loss",
+      "requirement": "Detection Distance is smaller than Lose Target Distance. Exceeding Lose Target Distance ends exact pursuit and begins last-known-position search; cover or doorway crossing alone does not clear the target."
+    },
+    {
       "reference": "Door and Pursuit Rules",
-      "requirement": "Any surviving enemy still actively tracking/pursuing the player and whose route is blocked by the newly locked door begins attacking that door; no separate 'witnessed escape' or line-of-sight-to-crossing state is tracked, and an enemy that has already lost the player does not attack a locked door solely because it is nearby. When the door breaks, tracking/pursuing enemies continue pursuit through the now-passable doorway."
+      "requirement": "A surviving enemy still actively tracking/pursuing the wizard and blocked by a locked door attacks that door. A cleared-target enemy does not attack from proximity, and a still-pursuing enemy continues forward after the door breaks."
     },
     {
-      "reference": "Locked-door attack and durability ownership",
-      "requirement": "Enemy Pursuit/attack behavior owns deciding when a qualifying blocked pursuer attacks and executing the attack attempt; Door and Interaction owns durability, the damage-receive interface, and the locked-to-broken transition. Enemy attack code requests door damage through that interface and does not directly write door durability or semantic door state."
+      "reference": "Locked-door attack and durability ownership; Development Agent Ownership Invariants",
+      "requirement": "Enemy behavior decides and executes the attack, but applies damage only through DoorInteractable.TakeDamage. Door and Interaction owns durability and breaking, while the navigation layer owns passability."
     },
     {
-      "reference": "Development Agent Ownership Invariants",
-      "requirement": "Enemy Pursuit owns initiating the locked-door attack when a surviving enemy is still actively tracking/pursuing the player and blocked; the attack requests damage through the Door-owned interface rather than mutating door state, and pursuit continues through the doorway after it breaks."
+      "reference": "Resources, Feedback, and Failure; Player Experience Success Criteria",
+      "requirement": "Waiting may restore mana while a locked door loses durability, and banging, shaking, cracks, and the durability indicator must make the continuing threat readable. Gameplay-camera readability remains a human downstream validation obligation."
+    },
+    {
+      "reference": "Floor-run restart ownership",
+      "requirement": "Enemy pursuit and attack owners expose reset methods, and the shared Floor Run/Restart Orchestrator invokes those methods without writing their internal state."
     }
   ],
   "id": "NSC-017",
   "kind": "implementation",
-  "notes": "Does not consume or write the shared gameplay-walkability-surface directly; it only reads the navigation layer's passability result once the door breaks, per GDD's explicit statement that 'pursuit and attack behavior consume doorway walkability... rather than directly changing NavMesh or door passability,' so no logical:gameplay-walkability-surface lock is applied here.",
+  "notes": "Exact attack reach, interval, absolute damage, and resulting breach time are implementation/playtest tuning not fixed by the GDD. Initial hypotheses are 0.5-1.5 world units of reach, 0.6-1.2 seconds per full attack interval, and 5-15 absolute durability points per hit against the snapshot default maximum durability of 100; none is a completion requirement. Breach time scales with the number of attackers that actually reach the door. Frost Field does not change door-attack timing in required scope; that remains a stretch goal requiring Vincent's approval. Only Pursuing qualifies under this revision. A SearchingLastKnownPosition enemy whose last known position is unreachable beyond a locked door may stall indefinitely under the current NSC-092 implementation; NSC-017 neither treats HasTarget as active tracking nor repairs that separate search-arrival gap. Local proof is limited to enemies whose NavMeshAgent is driven by EnemyPursuitMovement. Ranged Enemy door approach, attack form, and interaction with keep-distance movement remain unresolved design. The temporary fixture bakes before creating the door and therefore cannot prove that the canonical builder's bake order leaves a broken doorway walkable; INT-003 owns that built-scene proof. NSC-021 VAL-001 and NSC-051 INT-001 remain in their current contracts and may consume NSC-017 evidence without being transferred. Existing EnemyPursuitPlayModeTests and EnemyPursuitDoorCrossingPlayModeTests are regression-only checks that must remain green but are not exclusive resources or NSC-017 completion evidence. The snapshot contains prerequisite source files but no TaskGraph delivery records for NSC-013, NSC-050, NSC-051, NSC-052, NSC-091, or NSC-092.",
   "parent": "NSC-010",
   "provenance": {
     "bootstrap_status_observation": "open",
@@ -100,13 +139,31 @@
     "origin": "verified_reconciliation_bootstrap",
     "reconciliation_run_id": "20260821T193541Z-998ee7b5",
     "source_schema_version": "1.0",
-    "verification_run_id": "20260821T195959Z-43dba5de"
+    "verification_run_id": "20260821T195959Z-43dba5de",
+    "task_design_ger": [
+      {
+        "ger_run_id": "20260914-073054-NSC-017",
+        "packet_source_head": "22c93fbc93cfab5ef3aa6fca54822274782d10b6",
+        "previous_contract_revision": 3,
+        "round_output_sha256": {
+          "01-codex-generate": "290d817e437fd9fb31275f319371a00f43181a0b7793cecc60e9a9c8c1993cbf",
+          "02-claude-evaluate": "63ada2e907a682e3670a06502d25c1ad9a614263981b58fedeb9e7dbdf69d8f8",
+          "03-codex-refine": "af561249588b1f899651bff62a6010b92d07aa4fa55a8c07e3818f3b7a3f0bc8",
+          "04-claude-reaudit": "545e5b0121c0a93c44904d3ceae9e1e222ab87db761a7186c4a85819facbe938",
+          "05-owner-patch": "131acd55515ee9301f98b3e3749a1c6fc12595094dc46910bb8137668bbcb773",
+          "06-claude-recheck": "a0910d09c1564a9eaef776eae9679d193e6d3fbbd76808e388dfd021019e71ce"
+        },
+        "reaudit_recommendation": "commit_contract",
+        "owner_patch_contract_sha256": "f2af7885acbdadab519a06eead5382f95246db968436ac2dabd389034dcb7a99",
+        "recheck_recommendation": "commit_contract"
+      }
+    ]
   },
   "reconciliation_key": "locked-door-enemy-attack",
   "repository_evidence_at_bootstrap": [],
   "repository_state_at_bootstrap": "missing",
   "schema_version": "2.0",
   "source_scope": "required",
-  "title": "Locked-Door Enemy Attack Initiation",
+  "title": "Enemy Locked-Door Attack, Breach, and Pursuit Resume",
   "type": "enemy_behavior"
 }
