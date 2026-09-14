@@ -3,6 +3,7 @@ using System.IO;
 using System.Reflection;
 using NUnit.Framework;
 using NoSafeCircle.DoorPrototype.Editor;
+using NoSafeCircle.DoorPrototype.World;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -324,6 +325,41 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             var serializedFeedback = new SerializedObject(feedback);
             Assert.AreSame(door, serializedFeedback.FindProperty("door").objectReferenceValue);
             Assert.AreSame(audio, serializedFeedback.FindProperty("bangAudio").objectReferenceValue);
+        }
+
+        [Test]
+        public void Build_DoorPassability_IsWiredAndStartsSealed()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
+
+            var door = GameObject.Find("DoorRoot")?.GetComponent<DoorInteractable>();
+            var passability = door?.GetComponent<DoorEnemyPassability>();
+            Assert.IsNotNull(door);
+            Assert.IsNotNull(passability, "The scene builder must give the door a navigation owner.");
+            Assert.AreSame(passability,
+                new SerializedObject(door).FindProperty("enemyPassability").objectReferenceValue);
+            Assert.AreEqual(DoorPassabilityState.Sealed, passability.CurrentState);
+            Assert.IsTrue(passability.GetComponent<UnityEngine.AI.NavMeshObstacle>().carving);
+        }
+
+        [Test]
+        public void CommittedScene_AllFiveDoorsOwnAndReferencePassability()
+        {
+            var scene = EditorSceneManager.OpenScene(CanonicalScenePath, OpenSceneMode.Single);
+            var doors = new List<DoorInteractable>();
+            foreach (var root in scene.GetRootGameObjects())
+                doors.AddRange(root.GetComponentsInChildren<DoorInteractable>(true));
+
+            Assert.AreEqual(5, doors.Count, "The saved five-room scene needs five wired doors.");
+            foreach (var door in doors)
+            {
+                var passability = door.GetComponent<DoorEnemyPassability>();
+                Assert.IsNotNull(passability, $"{door.name} needs a navigation-owned passability component.");
+                Assert.AreSame(passability,
+                    new SerializedObject(door).FindProperty("enemyPassability").objectReferenceValue,
+                    $"{door.name} must publish through its own passability component.");
+                Assert.AreEqual(DoorPassabilityState.Sealed, passability.CurrentState);
+            }
         }
 
         // NSC-041 regression-only invariant: rebuilding the scene must not duplicate the
