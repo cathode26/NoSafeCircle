@@ -130,7 +130,7 @@ This blockout specification is now part of the GDD. If a later GDD revision chan
 This approved blockout specifies:
 
 - the continuous-floor spatial topology;
-- room boundaries and blockout dimensions;
+- room boundaries and blockout dimensions, as baseline sizes within the maximum room envelope in section 13;
 - the forward route through all five named spaces;
 - Ruined Entry rubble placement and its broad circling route;
 - Bone Archive shelf/furniture placement and lane clearances;
@@ -237,6 +237,8 @@ Each `D#` is a sealed-door location in the shared boundary between spaces. Once 
 Door coordinates are the center of the clear opening in the shared north/south room boundary.
 
 The changing room widths create short wall jogs at shared boundaries. Those jogs are part of the continuous floor and do not create corridors or separate rooms.
+
+These bounds, sizes, and door centers are the current baseline layout. Section 13 allows an approved room revision to change them within each room's maximum envelope; the five-room composition then reconciles the shared boundaries and door centers.
 
 ## 5. Room 1 â€” Ruined Entry
 
@@ -503,6 +505,8 @@ This blockout section defines door placement and final-door identity. Door lifec
 These dimensions are **human-approved initial blockout targets**. They are not final balance values or final art.
 
 Playtesting may justify later room-layout revisions, but changes to room bounds, major obstacle topology, lane widths, cover topology, or door positions should create a reviewed GDD/design revision rather than being silently changed during implementation.
+
+**Room size authority (Vincent, September 14, 2026).** The room sizes and coordinates in this blockout are baselines, not fixed sizes. Each room may grow up to three times its listed width and three times its listed depth; for example, Ruined Entry's 20 x 18 baseline may grow to at most 60 x 54 world units. Within that maximum, room proportions, obstacle and furniture footprints, and their placement are design proposals that Task Design GER may change, guided by the approved dungeon art direction and the supplied reference images. The stated clearances remain minimums: sealed-door clear openings, route and lane widths (including the Bone Archive pinch as its minimum traversable width), aisle widths, circulation clearances, and staging areas. A revised room must still serve its tactical purpose, keep the five spaces in one continuous floor with doors D1 through D5 in order, and keep D5 as the final door. An accepted GER room revision is the reviewed design revision required above: it is recorded in the owning room task contract, and the continuous-floor coordinates and door centers are reconciled through the five-room composition task (NSC-049).
 
 ### Required Enemy Roster
 
