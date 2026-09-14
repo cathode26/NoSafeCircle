@@ -1027,6 +1027,16 @@
       "work_ids": [
         "NSC-092"
       ]
+    },
+    {
+      "reconciliation_keys": ["pixellab-enemy-eight-direction-walk-art"],
+      "resource_key": "logical:pixellab-enemy-walk-art",
+      "work_ids": ["NSC-093"]
+    },
+    {
+      "reconciliation_keys": ["enemy-eight-direction-walk-integration"],
+      "resource_key": "logical:enemy-walk-animation-presentation",
+      "work_ids": ["NSC-094"]
     }
   ],
   "schema_version": "1.0",

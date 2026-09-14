@@ -1,0 +1,74 @@
+{
+  "schema_version": "2.0",
+  "id": "NSC-094",
+  "contract_revision": 1,
+  "contract_disposition": "active",
+  "title": "Enemy Eight-Direction Walk Animation Integration",
+  "reconciliation_key": "enemy-eight-direction-walk-integration",
+  "kind": "implementation",
+  "type": "enemy-walk-animation-integration",
+  "execution_scope": "single_agent",
+  "execution_reason": "After approved walk source art exists, one Unity integration task can materialize reusable directional walk clips and a presentation component before enemy behavior assembly.",
+  "decomposition_state": "concrete",
+  "decomposition_reason": "The two enemy prefabs, 96 approved source frames, directional state binding, and focused visual/runtime checks form one integration boundary.",
+  "parent": "NSC-010",
+  "depends_on": ["NSC-093", "NSC-077"],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/Walk",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/Enemies/Walk",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyWalkAnimation.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/EnemyWalkAnimationIntegrationTests.cs",
+    "logical:enemy-walk-animation-presentation"
+  ],
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "NSC-093 approved enemy walk source handoff",
+      "requirement": "Import exactly the approved six-frame walk cycles for both enemy identities across all eight facings, with deterministic archetype/direction/frame binding and the established transparent, grounded world-sprite import settings."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "NSC-077 presentation prefabs",
+      "requirement": "Provide a reusable direction-driven walk presentation component and bind it to presentation fixtures for both enemy identities. Reuse NSC-077 renderer/sorting conventions without editing pursuit, target knowledge, attacks, health, registry, encounter, or gameplay-prefab assembly logic."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "Human visual review",
+      "requirement": "Provide a deterministic presentation fixture or preview that drives both enemy archetypes through all eight directions while preserving grounded sorting and readable silhouettes."
+    }
+  ],
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "Focused Unity integration test",
+      "requirement": "EnemyWalkAnimationIntegrationTests proves all 96 source frames resolve to the expected clips, each archetype exposes all eight directions in order, and a presentation fixture's eight-direction vector drive selects the matching clip without duplicate or fallback bindings."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "Focused PlayMode presentation check",
+      "requirement": "A PlayMode presentation fixture drives representative cardinal, diagonal, and direction-change vectors and proves the SpriteRenderer selects the matching walk direction without requiring pursuit, NavMesh, or attack components."
+    },
+    {
+      "gate_id": "VAL-003",
+      "reference": "Human Unity visual approval",
+      "requirement": "Vincent reviews both enemy archetypes walking in all eight directions from the gameplay camera and approves the exact candidate before behavior assembly or publication."
+    }
+  ],
+  "downstream_integration_obligations": [],
+  "gdd_evidence": [
+    {"reference": "GDD Required Enemy Roster", "requirement": "Melee and Ranged enemies are moving gameplay characters."},
+    {"reference": "GDD 2.5D Isometric Visual and World Representation", "requirement": "Directional world-space sprites must remain grounded and readable."}
+  ],
+  "basis": "human_requested_all_moving_characters_eight_direction_walk",
+  "source_scope": "required",
+  "confidence": "high",
+  "notes": "This task owns only reusable walk animation presentation integration. NSC-015 and NSC-055 consume its outputs during later enemy-prefab assembly; they do not edit this task's generated walk assets. Wizard eight-direction work remains NSC-074/NSC-075.",
+  "repository_state_at_bootstrap": "not_applicable",
+  "repository_evidence_at_bootstrap": [],
+  "provenance": {
+    "origin": "human_requested_enemy_eight_direction_walk_followup",
+    "source_art_task_id": "NSC-093",
+    "presentation_task_id": "NSC-077",
+    "created_by_human_request": true
+  }
+}

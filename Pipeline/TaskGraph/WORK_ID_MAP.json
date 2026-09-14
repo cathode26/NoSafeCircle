@@ -30,6 +30,8 @@
     "enemy-health-damage-defeat": "NSC-012",
     "enemy-pursuit-navmesh-movement": "NSC-092",
     "enemy-pursuit-search-foundation": "NSC-014",
+    "pixellab-enemy-eight-direction-walk-art": "NSC-093",
+    "enemy-eight-direction-walk-integration": "NSC-094",
     "enemy-status-effect-displacement": "NSC-013",
     "enemy-target-knowledge-state": "NSC-091",
     "engineering-reuse-tooling-modernization": "NSC-056",

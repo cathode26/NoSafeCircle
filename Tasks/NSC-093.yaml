@@ -1,0 +1,73 @@
+{
+  "schema_version": "2.0",
+  "id": "NSC-093",
+  "contract_revision": 1,
+  "contract_disposition": "active",
+  "title": "PixelLab Enemy Eight-Direction Walk Source Art",
+  "reconciliation_key": "pixellab-enemy-eight-direction-walk-art",
+  "kind": "implementation",
+  "type": "enemy-walk-source-art",
+  "execution_scope": "single_agent",
+  "execution_reason": "The approved enemy identities already have stationary eight-facing source art; this bounded PixelLab follow-up adds matching six-frame walk cycles before runtime animation integration.",
+  "decomposition_state": "concrete",
+  "decomposition_reason": "Two existing enemy identities, eight gameplay facings, six frames per facing, and a source-only handoff define one complete art deliverable.",
+  "parent": "NSC-010",
+  "depends_on": ["NSC-063"],
+  "exclusive_resources": [
+    "logical:pixellab-enemy-walk-art",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk",
+    "repo-file:Docs/Art/Enemies/PIXELLAB_WALK_GENERATION.md"
+  ],
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "NSC-063 selected enemy identities and GDD directional sprite convention",
+      "requirement": "Use PixelLab to create six-frame walking cycles for both the selected Melee Enemy and selected Ranged Enemy in north, north-east, east, south-east, south, south-west, west, and north-west facings: exactly 2 identities x 8 directions x 6 frames = 96 transparent PNGs. Preserve each NSC-063 identity, costume, palette, scale, lighting, and ground contact."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "Approved PixelLab source-art boundary",
+      "requirement": "Record exact PixelLab generation identifiers, prompts/settings, dimensions, frame order, and selected paths in Docs/Art/Enemies/PIXELLAB_WALK_GENERATION.md and an inventory adjacent to the selected source. If PixelLab is unavailable, stop as blocked instead of substituting another generator or duplicating stills."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "NSC-063 selected source handoff",
+      "requirement": "Keep NSC-063 source files unchanged and place walk cycles in a separate walk source subtree with stable archetype and direction naming. Do not modify Unity animation clips, prefabs, scenes, or enemy behavior."
+    }
+  ],
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "Deterministic source inventory",
+      "requirement": "A source audit finds exactly 96 walk PNGs, six ordered frames for each archetype/direction, transparent consistent dimensions, and complete PixelLab provenance."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "Human visual approval",
+      "requirement": "Vincent reviews contact sheets for both enemies across all eight facings and approves the exact source candidate before Unity integration."
+    }
+  ],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "NSC-094 runtime animation integration",
+      "requirement": "NSC-094 imports only the approved 96 walk frames and preserves NSC-063 stationary source art and NSC-077 presentation outputs."
+    }
+  ],
+  "gdd_evidence": [
+    {"reference": "GDD Required Enemy Roster", "requirement": "Melee and Ranged Enemy identities must remain readable as distinct threats."},
+    {"reference": "GDD 2.5D Isometric Visual and World Representation", "requirement": "Moving world-space characters use directional sprites with grounded presentation."}
+  ],
+  "basis": "human_requested_all_moving_characters_eight_direction_walk",
+  "source_scope": "required",
+  "confidence": "high",
+  "notes": "This task closes the missing enemy walk-source gap only. It does not claim enemy behavior, NavMesh movement, attacks, or the wizard walk-loop gap owned by NSC-074/NSC-075.",
+  "repository_state_at_bootstrap": "missing",
+  "repository_evidence_at_bootstrap": [],
+  "provenance": {
+    "origin": "human_requested_enemy_eight_direction_walk_followup",
+    "source_art_task_id": "NSC-063",
+    "approved_development_tool": "PixelLab MCP",
+    "created_by_human_request": true
+  }
+}
