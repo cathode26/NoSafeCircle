@@ -133,7 +133,12 @@ namespace NoSafeCircle.DoorPrototype.Enemies
             {
                 BlockingLockedDoor = door;
                 BlockingDoorApproachPoint = approachPoint;
-                agent.SetDestination(approachPoint);
+                // Door-side sampling is stable while the obstacle is closed. Reissuing the
+                // same request every frame can leave the live agent perpetually pending
+                // instead of letting it finish the route and reach attack range.
+                if ((!agent.hasPath && !agent.pathPending) ||
+                    (agent.destination - approachPoint).sqrMagnitude > 0.01f)
+                    agent.SetDestination(approachPoint);
                 return;
             }
 

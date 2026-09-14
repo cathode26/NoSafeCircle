@@ -92,11 +92,14 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.IsTrue(door.IsLocked, "Reflection is fixture lock setup, not NSC-017 proof.");
         }
 
-        [TearDown]
-        public void TearDown()
+        [UnityTearDown]
+        public IEnumerator TearDown()
         {
             if (navigation != null) navigation.ClearBakedData();
             if (root != null) Object.Destroy(root);
+            // Destroy is deferred in Play Mode; let the old obstacle/agent leave the
+            // NavMesh before the next fixture bakes its temporary surface.
+            yield return null;
         }
 
         [UnityTest]
@@ -269,7 +272,10 @@ namespace NoSafeCircle.DoorPrototype.Tests
         private string Diagnostics()
         {
             return "enemy=" + enemy.transform.position + ", destination=" + agent.destination +
-                ", path=" + agent.pathStatus + ", knowledge=" + knowledge.State +
+                ", velocity=" + agent.velocity + ", remaining=" + agent.remainingDistance +
+                ", pending=" + agent.pathPending + ", stopped=" + agent.isStopped +
+                ", onMesh=" + agent.isOnNavMesh + ", path=" + agent.pathStatus +
+                ", knowledge=" + knowledge.State +
                 ", blockingDoor=" + (pursuit.BlockingLockedDoor == null ? "null" : pursuit.BlockingLockedDoor.name);
         }
 
