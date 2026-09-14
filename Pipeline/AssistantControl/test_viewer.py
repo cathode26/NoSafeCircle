@@ -26,6 +26,7 @@ from Pipeline.AssistantControl.viewer import (
     ExclusiveListenerError,
     make_server,
 )
+from Pipeline.TaskDesignGER.ger_viewer_marker import change_marker
 
 
 class ViewerTests(unittest.TestCase):
@@ -1046,6 +1047,63 @@ class DuplicateViewerPortTests(unittest.TestCase):
         }), encoding="utf-8")
         with self.assertRaises(ValueError):
             reader._apply_held_task_overlay([{"id": "NSC-003", "state": "ready"}])
+
+    def test_ger_active_then_pause_then_release_is_display_only(self):
+        root = self.checkout_root()
+        reader = AssistantSnapshot(self.root, root)
+        reader.manager.records.mkdir(parents=True)
+        path = reader.manager.records / "held-task-ids.json"
+        path.write_text(json.dumps({
+            "schema_version": "assistant-viewer-held-tasks/v1",
+            "task_ids": ["NSC-003"],
+        }), encoding="utf-8")
+
+        def rows():
+            result = [{"id": "NSC-003", "state": "complete", "taskgraph": {"state": "conformant"}},
+                      {"id": "NSC-012", "state": "ready"}]
+            reader._apply_held_task_overlay(result)
+            return result
+
+        self.assertEqual("Outside Current Run", rows()[0]["held_overlay"]["label"])
+        change_marker(root, "start", "NSC-003")
+        active = rows()[0]
+        self.assertEqual("active", active["ger_overlay"]["phase"])
+        self.assertEqual("complete", active["state"])
+        self.assertEqual("conformant", active["taskgraph"]["state"])
+        change_marker(root, "pause", "NSC-003")
+        self.assertNotIn("ger_overlay", rows()[0])
+        change_marker(root, "start", "NSC-003")
+        change_marker(root, "finish", "NSC-003", ("NSC-012",))
+        finished = rows()
+        self.assertNotIn("held_overlay", finished[0])
+        self.assertEqual("released", finished[0]["ger_overlay"]["phase"])
+        self.assertEqual("released", finished[1]["ger_overlay"]["phase"])
+        self.assertEqual("complete", finished[0]["state"])
+        saved = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual([], saved["task_ids"])
+        self.assertEqual(["NSC-003", "NSC-012"], saved["released_ger_task_ids"])
+        parent = [{"id": "NSC-003", "state": "aggregate"},
+                  {"id": "NSC-012", "state": "active"}]
+        reader._apply_held_task_overlay(parent)
+        self.assertNotIn("ger_overlay", parent[0])
+        self.assertNotIn("ger_overlay", parent[1])
+
+    def test_ger_start_requires_hold_and_finish_rejects_held_child(self):
+        root = self.checkout_root()
+        reader = AssistantSnapshot(self.root, root)
+        reader.manager.records.mkdir(parents=True)
+        path = reader.manager.records / "held-task-ids.json"
+        path.write_text(json.dumps({
+            "schema_version": "assistant-viewer-held-tasks/v1",
+            "task_ids": ["NSC-003", "NSC-012"],
+        }), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "must be held"):
+            change_marker(root, "start", "NSC-020")
+        change_marker(root, "start", "NSC-003")
+        with self.assertRaisesRegex(ValueError, "still held"):
+            change_marker(root, "finish", "NSC-003", ("NSC-012",))
+        self.assertEqual(["NSC-003", "NSC-012"],
+                         json.loads(path.read_text(encoding="utf-8"))["task_ids"])
 
 
 class RunningControllerProjectionTests(unittest.TestCase):

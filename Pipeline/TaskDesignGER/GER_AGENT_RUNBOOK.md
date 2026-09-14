@@ -1,10 +1,68 @@
 # GER agent runbook
 
-This is the manual, review-only runbook for a held Task Design GER node. It
-does not create a graph controller, invoke a provider automatically, reserve a
-task, edit a task contract, apply a graph delta, or release a hold. Graph Sol
-must exclude the held task manually before every task start; the journal is an
-operating record, not CLI enforcement.
+This is the manual, review-only runbook for a held Task Design GER node. The
+GER review rounds do not create a graph controller, invoke a provider
+automatically, reserve a task, edit a task contract, or apply a graph delta.
+Only the explicit finish step below releases a hold after approval and any
+required decomposition. Graph Sol must exclude the held task manually before
+every task start; the journal is an operating record, not CLI enforcement.
+
+The live graph viewer on port 8828 reads display markers from
+`C:\NSC\NoSafeCircle-AssistantCheckouts\.assistant-control\held-task-ids.json`.
+The GER agent marks a held node active when work starts. This displays the node
+in the brown **Task Retired color** while keeping the real task contract and
+delivery state unchanged. The marker is a viewer annotation, not retirement.
+After accepted GER and any required decomposition finish, Primary Sol releases
+the hold and the executable task appears purple **Task Unstarted**. A decomposed
+parent remains **Decomposed Parent**; its executable children appear purple.
+
+**If the refined task is too large for one worker, the GER agent must route it
+through task decomposition before releasing executable work.** Keep the GER
+task held while the reviewed decomposition plan is prepared and applied.
+
+## Viewer marker procedure
+
+Run these commands from the source checkout that serves the live viewer,
+`C:\NSC\viewer-held-live`, against the **live** checkout root below. Do not
+write a separate viewer-only control root; it will show zero live workers.
+The agent updates the journal hold as described in this runbook; the JSON marker
+does not enforce dispatch exclusion.
+
+At the start of an actual GER round, after confirming the ID is held in both
+the journal and JSON file:
+
+```powershell
+python -m Pipeline.TaskDesignGER.ger_viewer_marker start NSC-080 --checkout-root C:\NSC\NoSafeCircle-AssistantCheckouts
+```
+
+If work pauses, fails, or needs a design decision, clear only the temporary
+brown activity marker. Keep the task held and gray **Outside Current Run**:
+
+```powershell
+python -m Pipeline.TaskDesignGER.ger_viewer_marker pause NSC-080 --checkout-root C:\NSC\NoSafeCircle-AssistantCheckouts
+```
+
+After Vincent's decision and all required contract edits/decomposition are
+approved and applied, Primary Sol removes that exact ID from the journal hold
+and releases its viewer hold. For a crew-sized task:
+
+```powershell
+python -m Pipeline.TaskDesignGER.ger_viewer_marker finish NSC-080 --checkout-root C:\NSC\NoSafeCircle-AssistantCheckouts
+```
+
+For an applied decomposition, name only executable, unheld children; a child
+that still needs decomposition stays held until its own reviewed split applies:
+
+```powershell
+python -m Pipeline.TaskDesignGER.ger_viewer_marker finish NSC-080 --checkout-root C:\NSC\NoSafeCircle-AssistantCheckouts --ready-child NSC-101 --ready-child NSC-102
+```
+
+The command edits only the live viewer JSON atomically. `start` requires an
+existing hold, `pause` leaves the hold intact, and `finish` removes that hold.
+The finished marker changes presentation to purple; the detail panel still
+shows the authoritative task state. Never use `finish` for `needs_design`, an
+unapproved brief, or a decomposition that has not been applied. Reload the
+viewer after each change and confirm the specific node's color and detail.
 
 Primary Sol and the GER agent own the per-node hold check: before beginning and
 after recording every GER result, they must confirm that exact ID is present in
@@ -142,5 +200,11 @@ needs_design with evidence. Do not edit tasks/GDD/graph, apply graph deltas,
 start a controller, fabricate Vincent approval, or release the hold. If
 accepted and crew_sized, Primary Sol must record the release and remove the
 exact journal hold before Graph Sol performs fresh readiness checks. If scope
-is too large, keep the same task held for D1B.2 after approved contract design.
+is too large for one worker, route it through D1B.2 task decomposition before
+releasing executable work. Keep the parent held until the exact reviewed plan
+is applied; recursively decompose any child still too large. At actual GER
+start set the live viewer marker to brown Task Retired color; on pause or
+needs_design clear the active marker but keep the hold, and only after GER and
+necessary decomposition finish remove the hold so executable work is purple
+Task Unstarted. A decomposed parent remains Decomposed Parent.
 ```

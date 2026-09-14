@@ -100,12 +100,19 @@ class AssistantSnapshot:
         self.lock = threading.Lock()
         self.cached_state = None
         self.cached_at = 0.0
+        self.cached_overlay_revision = None
         self.template = EmptySnapshot(self.source / "Tasks", checkout_root)
 
     def build(self, *, max_age_seconds: float = 0.0) -> dict:
         with self.lock:
+            overlay_path = self.manager.records / HELD_TASKS_FILENAME
+            try:
+                overlay_revision = overlay_path.stat().st_mtime_ns
+            except FileNotFoundError:
+                overlay_revision = None
             if (max_age_seconds > 0 and self.cached_state is not None
-                    and time.monotonic() - self.cached_at < max_age_seconds):
+                    and time.monotonic() - self.cached_at < max_age_seconds
+                    and overlay_revision == self.cached_overlay_revision):
                 return self.cached_state
             state = self.template.idle_local_state()
             state["run"].update({
@@ -177,6 +184,7 @@ class AssistantSnapshot:
                 # No stale green state on read errors. Keep the server serving.
             self.cached_state = state
             self.cached_at = time.monotonic()
+            self.cached_overlay_revision = overlay_revision
             return state
 
     def _apply_held_task_overlay(self, rows: list[dict]) -> None:
@@ -191,16 +199,25 @@ class AssistantSnapshot:
         if not isinstance(value, dict) or value.get("schema_version") != "assistant-viewer-held-tasks/v1":
             raise ValueError("Held task overlay has an unsupported schema")
         task_ids = value.get("task_ids")
-        if (not isinstance(task_ids, list) or not task_ids
+        if (not isinstance(task_ids, list)
                 or any(not isinstance(task_id, str) for task_id in task_ids)
                 or len(set(task_ids)) != len(task_ids)):
-            raise ValueError("Held task overlay task_ids must be a non-empty unique list")
+            raise ValueError("Held task overlay task_ids must be a unique list")
+        active_ids = value.get("active_ger_task_ids", [])
+        released_ids = value.get("released_ger_task_ids", [])
+        if any(not isinstance(ids, list) or any(not isinstance(item, str) for item in ids)
+               or len(set(ids)) != len(ids) for ids in (active_ids, released_ids)):
+            raise ValueError("GER overlay task IDs must be unique lists")
         try:
             held = {validate_task_id(task_id) for task_id in task_ids}
+            active = {validate_task_id(task_id) for task_id in active_ids}
+            released = {validate_task_id(task_id) for task_id in released_ids}
         except (TypeError, ValueError) as exc:
-            raise ValueError("Held task overlay contains an invalid task ID") from exc
+            raise ValueError("GER overlay contains an invalid task ID") from exc
+        if not active <= held or released & held:
+            raise ValueError("Active GER tasks must be held; released GER tasks cannot be held")
         known = {row.get("id") for row in rows}
-        unknown = held - known
+        unknown = (held | released) - known
         if unknown:
             raise ValueError("Held task overlay names unknown task IDs: " + ", ".join(sorted(unknown)))
         for row in rows:
@@ -209,6 +226,12 @@ class AssistantSnapshot:
                     "label": "Outside Current Run",
                     "reason": "Explicitly held for GER/design review; authoritative task state is unchanged.",
                 }
+            if row.get("id") in active:
+                row["ger_overlay"] = {"phase": "active", "label": "GER in progress"}
+            elif row.get("id") in released and row.get("state") not in {
+                    "active", "aggregate", "checks_pending", "integration_queued",
+                    "delivery_ready", "human_action", "local_review_ready"}:
+                row["ger_overlay"] = {"phase": "released", "label": "GER released"}
 
     def _taskgraph_states(self, head: str, contracts: list[dict] | None = None) -> dict[str, dict]:
         """Read committed delivery state once for the whole viewer snapshot."""

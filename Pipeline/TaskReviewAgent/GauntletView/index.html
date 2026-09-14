@@ -432,6 +432,19 @@ cy.style().selector('node[held = 1]').style({
 cy.style().selector('node[held = 1][state = "complete"]').style({
   'background-color': shade(STATES.complete.color),
 }).update();
+// GER activity uses the Task Retired palette while preserving canonical state.
+cy.style().selector('node[ger = "active"]').style({
+  'border-color': STATES.cancelled.color,
+  'border-width': 5,
+  'border-style': 'solid',
+  'background-color': shade(STATES.cancelled.color),
+}).update();
+cy.style().selector('node[ger = "released"]').style({
+  'border-color': STATES.ready.color,
+  'border-width': 2,
+  'border-style': 'solid',
+  'background-color': shade(STATES.ready.color),
+}).update();
 cy.style().selector('node:selected').style({
   'border-color': '#58a6ff',
   'border-width': 5,
@@ -659,8 +672,9 @@ function zoomGraph(factor) {
 }
 
 function visible(task) {
-  if (hidden.has(task.state)) return false;
-  if (task.held_overlay && hidden.has('excluded')) return false;
+  const ger = task.ger_overlay?.phase;
+  if (hidden.has(task.state) && ger !== 'active' && ger !== 'released') return false;
+  if (task.held_overlay && ger !== 'active' && hidden.has('excluded')) return false;
   if (document.getElementById('f-scope').checked && !task.in_scope) return false;
   if (!document.getElementById('f-cancelled').checked && task.state === 'cancelled') return false;
   return true;
@@ -677,7 +691,9 @@ function labelFor(task) {
     : Array.isArray(lines) && lines.length
     ? `${heading}\n${title}\n${lines.join('\n')}`
     : `${task.id}\n${title}`;
-  if (task.held_overlay) label += `\n${task.held_overlay.label || 'Outside Current Run'}`;
+  if (task.ger_overlay?.phase === 'active') label += '\nGER in progress';
+  else if (task.ger_overlay?.phase === 'released' && task.state !== 'aggregate') label += '\nTask Unstarted';
+  else if (task.held_overlay) label += `\n${task.held_overlay.label || 'Outside Current Run'}`;
   return label;
 }
 
@@ -696,7 +712,10 @@ function buildElements(tasks) {
   const shown = tasks.filter(visible);
   const ids = new Set(shown.map(t => t.id));
   const nodes = shown.map(t => ({
-    data: { id: t.id, label: labelFor(t), state: t.state, held: t.held_overlay ? 1 : 0 },
+    data: { id: t.id, label: labelFor(t), state: t.state,
+            held: t.held_overlay ? 1 : 0,
+            ger: t.ger_overlay?.phase === 'released' && t.state === 'aggregate'
+              ? '' : (t.ger_overlay?.phase || '') },
   }));
   const edges = [];
   for (const t of shown) {
@@ -857,6 +876,8 @@ function render(snap, { relayout }) {
         pulse(existing);
       }
       if (existing.data('label') !== n.data.label) existing.data('label', n.data.label);
+      if (existing.data('held') !== n.data.held) existing.data('held', n.data.held);
+      if (existing.data('ger') !== n.data.ger) existing.data('ger', n.data.ger);
     }
   }
   for (const e of edges) {
@@ -1040,6 +1061,8 @@ function renderRunDetails(run = {}) {
 }
 
 function legendState(task) {
+  if (task.ger_overlay?.phase === 'active') return 'cancelled';
+  if (task.ger_overlay?.phase === 'released' && task.state !== 'aggregate') return 'ready';
   return task.state === 'complete' && task.local_acceptance ? 'local_accepted' : task.state;
 }
 
@@ -1049,7 +1072,8 @@ function updateLegend(snap) {
   for (const t of snap.tasks) {
     if (scopeOnly && !t.in_scope) continue;
     counts[legendState(t)] = (counts[legendState(t)] || 0) + 1;
-    if (t.held_overlay && t.state !== 'excluded') counts.excluded = (counts.excluded || 0) + 1;
+    if (t.held_overlay && t.ger_overlay?.phase !== 'active' && t.state !== 'excluded')
+      counts.excluded = (counts.excluded || 0) + 1;
   }
   const el = document.getElementById('legend');
   el.innerHTML = '';
@@ -1549,8 +1573,14 @@ function showDetail(id) {
   const field = (k, v) => out.push(`<div class="field"><div class="k">${k}</div><div class="v">${v}</div></div>`);
 
   out.push(`<div class="field"><span class="pill" style="background:${meta.color}">${esc(meta.label)}</span>` +
-    (task.held_overlay ? ` <span class="pill" style="background:#aab4c0">${esc(task.held_overlay.label || 'Outside Current Run')}</span>` : '') +
+    (task.ger_overlay?.phase === 'active'
+      ? ' <span class="pill" style="background:#9a6a3a">GER in progress (display only)</span>'
+      : task.ger_overlay?.phase === 'released'
+      ? ' <span class="pill" style="background:#a855f7">GER released (display only)</span>'
+      : task.held_overlay
+      ? ` <span class="pill" style="background:#aab4c0">${esc(task.held_overlay.label || 'Outside Current Run')}</span>` : '') +
     `</div>`);
+  if (task.ger_overlay) field('Authoritative state', esc(task.state));
   field('task', `<strong>${esc(task.id)}</strong><br>${esc(task.title)}`);
   out.push(operatorTaskControls(task));
   out.push(githubIssueNavigation(task));
