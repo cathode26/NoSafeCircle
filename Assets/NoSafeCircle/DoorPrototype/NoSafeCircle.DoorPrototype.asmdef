@@ -3,6 +3,7 @@
     "rootNamespace": "NoSafeCircle.DoorPrototype",
     "references": [
         "deVoid.Signals",
+        "Unity.AI.Navigation",
         "Unity.InputSystem",
         "UnityEngine.UI",
         "DOTween"

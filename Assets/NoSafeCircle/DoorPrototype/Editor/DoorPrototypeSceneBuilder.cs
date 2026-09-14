@@ -6,6 +6,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.Tilemaps;
 using NoSafeCircle.DoorPrototype.Editor.World;
+using NoSafeCircle.DoorPrototype.World;
 using Object = UnityEngine.Object;
 
 namespace NoSafeCircle.DoorPrototype.Editor
@@ -16,6 +17,8 @@ namespace NoSafeCircle.DoorPrototype.Editor
         private const string ScenePath = SceneFolder + "/DoorPrototype.unity";
         private const string ArchitecturalTileAssetFolder =
             "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles";
+
+        private const string GameplayNavigationRootName = "GameplayNavigation";
 
         private const string IsometricVisualGridName = "IsometricVisualGrid";
         private const string FloorTilemapName = "FloorTilemap";
@@ -145,6 +148,17 @@ namespace NoSafeCircle.DoorPrototype.Editor
             BuildIsometricVisualLayer(doorRoot.transform.position, architecturalTileAssetFolder);
             DoorSequenceBuilder.BuildCanonical(scene, doorRoot);
 
+            // AC-001: the walkable NavMesh must bake from the composed gameplay collision
+            // geometry (room FloorCollision/obstacle colliders), so this only runs once
+            // DoorSequenceBuilder.BuildCanonical has actually materialized that composed
+            // geometry into the canonical scene - the same path guard BuildCanonical itself
+            // uses - rather than on every lightweight in-memory test scene this builder also
+            // supports.
+            if (scene.path == DoorSequenceBuilder.CanonicalScenePath)
+            {
+                BuildGameplayNavigation(scene);
+            }
+
             DoorPrototypeGlobalSceneBuilder.BuildPlayer(
                 out var movement,
                 out var interactionController,
@@ -268,6 +282,36 @@ namespace NoSafeCircle.DoorPrototype.Editor
             // Gameplay collision remains on this Plane, but the Tilemap owns floor visuals.
             // Leaving both renderers visible causes coplanar depth flicker / z-fighting.
             floor.GetComponent<MeshRenderer>().enabled = false;
+        }
+
+        // AC-001: creates the persistent builder-owned GameplayNavigation GameObject and bakes
+        // its walkable NavMesh from the just-composed gameplay collision geometry. Rebuilding the
+        // scene removes and recreates this exact GameObject deterministically rather than baking
+        // onto a stale surviving instance from a prior Build().
+        private static void BuildGameplayNavigation(Scene scene)
+        {
+            RemoveExistingGameplayNavigation(scene);
+
+            var navigationRoot = new GameObject(GameplayNavigationRootName);
+            SceneManager.MoveGameObjectToScene(navigationRoot, scene);
+
+            navigationRoot.AddComponent<GameplayNavigationSurface>().ConfigureAndBuild();
+        }
+
+        private static void RemoveExistingGameplayNavigation(Scene scene)
+        {
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                if (root.name != GameplayNavigationRootName) continue;
+
+                var existingSurface = root.GetComponent<GameplayNavigationSurface>();
+                if (existingSurface != null)
+                {
+                    existingSurface.ClearBakedData();
+                }
+
+                Object.DestroyImmediate(root);
+            }
         }
 
         private static void BuildIsometricVisualLayer(Vector3 doorPosition, string architecturalTileAssetFolder)
