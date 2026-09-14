@@ -35,7 +35,7 @@ namespace NoSafeCircle.DoorPrototype.Enemies
         private Quaternion spawnRotation;
         private bool hasWanderDestination;
         private Vector3 wanderDestination;
-        private readonly NavMeshPath routePath = new NavMeshPath();
+        private NavMeshPath routePath;
 
         /// The first locked door on a reachable route to the pursued wizard. A nearby door
         /// outside that route never becomes an attack target.
@@ -53,6 +53,7 @@ namespace NoSafeCircle.DoorPrototype.Enemies
         {
             if (agent == null) agent = GetComponent<NavMeshAgent>();
             if (targetKnowledge == null) targetKnowledge = GetComponent<EnemyTargetKnowledge>();
+            routePath = new NavMeshPath();
 
             // AC-007: this enemy's own authored scene placement is a valid point in its
             // authored encounter/spawn region (the GDD only requires restart to land somewhere
