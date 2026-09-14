@@ -189,9 +189,21 @@ class ResumableTaskCheckoutManager(DurableTaskCheckoutManager):
                 or workflow.get("state") != "agent_ready"
             ):
                 return {}
+        elif coordination.get("status") == "claimed_by_worker":
+            if not isinstance(workflow, dict):
+                return {}
+            if (
+                workflow.get("state") != "agent_working"
+                or workflow.get("phase") != "implementation"
+                or workflow.get("worker_id") != self.worker_id
+                or not workflow.get("lease_id")
+                or workflow.get("human_handoff_commit") is not None
+                or workflow.get("human_result") is not None
+            ):
+                return {}
         else:
             return {}
-        if workflow is not None:
+        if workflow is not None and coordination.get("status") == "available_unassigned":
             if not isinstance(workflow, dict):
                 return {}
             if workflow.get("state") != "agent_ready":
@@ -221,6 +233,17 @@ class ResumableTaskCheckoutManager(DurableTaskCheckoutManager):
             return {}
         if current.get("clean") is not True or current.get("branch") != current.get("expected_branch"):
             return {}
+        if coordination.get("status") == "claimed_by_worker":
+            manifest = self._read_manifest()
+            if not manifest:
+                return {}
+            if (
+                current.get("head_commit") != manifest.get("initial_source_head")
+                or current.get("head_tree") != manifest.get("initial_source_tree")
+                or manifest.get("branch") != current.get("expected_branch")
+                or manifest.get("task_id") != self.task_id
+            ):
+                return {}
         remote_url = str(current.get("remote_url") or "")
         expected_remote = str((observation.get("environment") or {}).get("remote_url") or "")
         if not remote_url or not expected_remote or _normalized_remote(remote_url) != _normalized_remote(expected_remote):
