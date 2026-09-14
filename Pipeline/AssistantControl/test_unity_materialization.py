@@ -24,6 +24,7 @@ from Pipeline.TaskReviewAgent.door_prototype_materialization import (
     DOOR_PROTOTYPE_BUILD_METHOD,
     ROOM_SCENE_BUILDERS,
     DoorPrototypeMaterializationError,
+    changed_paths,
     run_door_prototype_builder,
 )
 from Pipeline.TaskReviewAgent.git_identity_guard import validated_agent_git_identity
@@ -193,6 +194,62 @@ class MaterializationTests(unittest.TestCase):
                 state_root=self.manager.records, initial_changed_paths=(),
                 unity_executable=self.unity, unity_command_runner=bad_runner,
                 allowed_generated_paths=(WALL,),
+            )
+        self.assertTrue((self.checkout / "unexpected.asset").is_file())
+
+    def test_nsc032_incidental_enemy_folder_meta_is_authenticated_and_materialized(self):
+        folder = "Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies"
+        keep = self.checkout / folder / ".gitkeep"
+        keep.parent.mkdir(parents=True)
+        keep.write_text("\n", encoding="utf-8")
+        self.git(self.checkout, "add", "--", f"{folder}/.gitkeep")
+        self.git(self.checkout, "commit", "-q", "-m", "tracked enemy folder")
+        meta_path = f"{folder}.meta"
+        def unity_runner(args, cwd, timeout):
+            (cwd / SCENE).write_text("generated scene\n", newline="\n")
+            (cwd / meta_path).write_text(
+                "fileFormatVersion: 2\nguid: 81075e5cba4420b499b12a31d486b2e6\n"
+                "folderAsset: yes\nDefaultImporter:\n  externalObjects: {}\n",
+                newline="\n",
+            )
+            return subprocess.CompletedProcess(args, 0, b"", b"")
+        result = run_door_prototype_builder(
+            checkout=self.checkout, task_id="NSC-032",
+            state_root=self.manager.records, initial_changed_paths=(),
+            unity_executable=self.unity, unity_command_runner=unity_runner,
+            allowed_generated_paths=(SCENE,),
+            incidental_folder_meta_path=meta_path,
+        )
+        self.assertEqual((meta_path, SCENE), result.builder_paths)
+        self.assertEqual((meta_path,), result.authenticated_incidental_meta_paths)
+        self.assertTrue((self.checkout / meta_path).exists())
+        self.assertTrue(Path(result.incidental_evidence_path).is_file())
+        self.assertEqual((meta_path, SCENE), changed_paths(self.checkout))
+
+    def test_nsc032_folder_meta_exception_does_not_hide_other_untracked_paths(self):
+        folder = "Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies"
+        keep = self.checkout / folder / ".gitkeep"
+        keep.parent.mkdir(parents=True)
+        keep.write_text("\n", encoding="utf-8")
+        self.git(self.checkout, "add", "--", f"{folder}/.gitkeep")
+        self.git(self.checkout, "commit", "-q", "-m", "tracked enemy folder")
+        meta_path = f"{folder}.meta"
+        def unity_runner(args, cwd, timeout):
+            (cwd / SCENE).write_text("generated scene\n", newline="\n")
+            (cwd / meta_path).write_text(
+                "fileFormatVersion: 2\nguid: 81075e5cba4420b499b12a31d486b2e6\n"
+                "folderAsset: yes\nDefaultImporter:\n",
+                newline="\n",
+            )
+            (cwd / "unexpected.asset").write_text("not task owned\n")
+            return subprocess.CompletedProcess(args, 0, b"", b"")
+        with self.assertRaisesRegex(DoorPrototypeMaterializationError, "untracked paths outside"):
+            run_door_prototype_builder(
+                checkout=self.checkout, task_id="NSC-032",
+                state_root=self.manager.records, initial_changed_paths=(),
+                unity_executable=self.unity, unity_command_runner=unity_runner,
+                allowed_generated_paths=(SCENE,),
+                incidental_folder_meta_path=meta_path,
             )
         self.assertTrue((self.checkout / "unexpected.asset").is_file())
 

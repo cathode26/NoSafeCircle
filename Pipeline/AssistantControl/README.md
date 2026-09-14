@@ -214,6 +214,21 @@ candidate or materialization outcome instead of creating a duplicate commit or
 relaunching Unity on an already-retained failure. It never approves,
 integrates, pushes, publishes, or starts another crew.
 
+For the specific NSC-032 failure where Unity imported the already committed
+`Scripts/Enemies` folder and created its missing `Enemies.meta`, use the explicit
+`recover-nsc032-materialization` command with the exact original candidate and
+SHA-256 of the retained failure journal. It requires that journal, settled
+worker capacity, the original candidate at checkout HEAD, and no unrelated
+untracked or non-Unity edits. It copies every dirty Unity file and the failed
+record/journal into a no-overwrite archive under `.assistant-control`, restores
+the original clean candidate, and marks it `needs_materialization`. Inspect
+the returned archive, then rerun `materialize-candidate` for that same commit.
+The builder now verifies that exact Unity folder meta against the committed
+Enemies folder, preserves an evidence copy, and includes it in the materialized
+candidate commit. Keeping the folder meta committed prevents the following
+Unity test run from regenerating an untracked file. Other untracked paths still
+stop materialization; the materialized candidate needs its own review.
+
 For a code-only candidate with no committed authoritative validation policy,
 or a policy whose exact task-contract hash is stale, `post-crew` keeps the
 authenticated clean candidate at `awaiting_human`. Its result says

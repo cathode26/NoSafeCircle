@@ -10,6 +10,7 @@ import os
 import re
 import subprocess
 import tempfile
+import hashlib
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Callable, Sequence
@@ -22,6 +23,9 @@ DOOR_PROTOTYPE_ROOT = "Assets/NoSafeCircle/DoorPrototype/"
 DOOR_PROTOTYPE_SCENE = "Assets/Scenes/DoorPrototype.unity"
 DOOR_PROTOTYPE_BUILD_METHOD = (
     "NoSafeCircle.DoorPrototype.Editor.DoorPrototypeSceneBuilder.Build"
+)
+NSC032_INCIDENTAL_FOLDER_META = (
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies.meta"
 )
 
 
@@ -96,6 +100,8 @@ class DoorPrototypeMaterialization:
     builder_paths: tuple[str, ...]
     restored_tracked_paths: tuple[str, ...]
     normalized_paths: tuple[str, ...]
+    authenticated_incidental_meta_paths: tuple[str, ...]
+    incidental_evidence_path: str | None
     unity_executable: str
     unity_log: str
 
@@ -136,6 +142,23 @@ def changed_paths(root: Path) -> tuple[str, ...]:
     tracked = _git_lines(root, "diff", "--name-only", "HEAD", "--")
     untracked = _git_lines(root, "ls-files", "--others", "--exclude-standard")
     return tuple(sorted(set(tracked).union(untracked), key=str.casefold))
+
+
+def is_expected_nsc032_folder_meta(root: Path, path: str, content: bytes) -> bool:
+    """Recognize only Unity's meta for the committed Enemies folder."""
+    if path != NSC032_INCIDENTAL_FOLDER_META or len(content) > 4096:
+        return False
+    folder = path[:-len(".meta")]
+    lines = content.decode("utf-8-sig", errors="replace").splitlines()
+    return bool(
+        len(lines) >= 4
+        and lines[0] == "fileFormatVersion: 2"
+        and re.fullmatch(r"guid: [0-9a-f]{32}", lines[1])
+        and lines[2] == "folderAsset: yes"
+        and lines[3] == "DefaultImporter:"
+        and not _git(root, "cat-file", "-e", f"HEAD:{folder}/.gitkeep", check=False).returncode
+        and _git(root, "cat-file", "-e", f"HEAD:{path}", check=False).returncode
+    )
 
 
 def is_door_prototype_builder_output(path: str) -> bool:
@@ -262,6 +285,7 @@ def run_door_prototype_builder(
     timeout_seconds: float = 1800.0,
     allowed_generated_paths: Sequence[str] | None = None,
     allowed_generated_roots: Sequence[str] | None = None,
+    incidental_folder_meta_path: str | None = None,
 ) -> DoorPrototypeMaterialization:
     """Run the canonical builder and return its exact authenticated path set.
 
@@ -279,6 +303,11 @@ def run_door_prototype_builder(
         )
     if timeout_seconds <= 0:
         raise DoorPrototypeMaterializationError("Unity builder timeout must be positive")
+    if incidental_folder_meta_path is not None and (
+        task_id != "NSC-032"
+        or incidental_folder_meta_path != NSC032_INCIDENTAL_FOLDER_META
+    ):
+        raise DoorPrototypeMaterializationError("incidental folder meta exception is not authorized")
     if changed_paths(root) != initial:
         raise DoorPrototypeMaterializationError(
             "checkout changed after candidate verification and before the DoorPrototype builder"
@@ -381,6 +410,34 @@ def run_door_prototype_builder(
     incidental_untracked = tuple(
         path for path in untracked if path not in initial_set and not permitted(path)
     )
+    authenticated_incidental: tuple[str, ...] = ()
+    incidental_evidence_path: str | None = None
+    if incidental_folder_meta_path in incidental_untracked:
+        path = incidental_folder_meta_path
+        meta = root / path
+        try:
+            content = meta.read_bytes()
+        except OSError as exc:
+            raise DoorPrototypeMaterializationError("incidental folder meta is unreadable") from exc
+        if not is_expected_nsc032_folder_meta(root, path, content):
+            raise DoorPrototypeMaterializationError(
+                "incidental Enemies.meta is not a generated meta for the committed folder"
+            )
+        evidence = log_directory / "incidental-Enemies.meta"
+        try:
+            with evidence.open("xb") as stream:
+                stream.write(content)
+            if hashlib.sha256(evidence.read_bytes()).digest() != hashlib.sha256(content).digest():
+                raise OSError("archived folder meta differs")
+            if meta.read_bytes() != content:
+                raise OSError("folder meta changed before authentication")
+        except OSError as exc:
+            raise DoorPrototypeMaterializationError(
+                "incidental folder meta could not be preserved and authenticated"
+            ) from exc
+        authenticated_incidental = (path,)
+        incidental_evidence_path = str(evidence)
+        incidental_untracked = tuple(item for item in incidental_untracked if item != path)
     if incidental_untracked:
         raise DoorPrototypeMaterializationError(
             "Unity created untracked paths outside the DoorPrototype builder-owned "
@@ -388,7 +445,8 @@ def run_door_prototype_builder(
         )
     post_unity = set(tracked).union(untracked)
     builder_paths = tuple(sorted(
-        (path for path in post_unity.difference(initial_set) if permitted(path)),
+        (path for path in post_unity.difference(initial_set)
+         if permitted(path) or path in authenticated_incidental),
         key=str.casefold,
     ))
     expected = tuple(sorted(initial_set.union(builder_paths), key=str.casefold))
@@ -406,6 +464,8 @@ def run_door_prototype_builder(
     return DoorPrototypeMaterialization(
         changed_paths=expected, builder_paths=builder_paths,
         restored_tracked_paths=incidental_tracked, normalized_paths=normalized,
+        authenticated_incidental_meta_paths=authenticated_incidental,
+        incidental_evidence_path=incidental_evidence_path,
         unity_executable=str(executable), unity_log=str(log_path),
     )
 
@@ -418,4 +478,5 @@ __all__ = [
     "is_door_prototype_builder_output", "is_unity_serialized",
     "normalize_unity_serialized_whitespace", "resolve_generated_builder",
     "resolve_unity_executable", "run_door_prototype_builder",
+    "NSC032_INCIDENTAL_FOLDER_META", "is_expected_nsc032_folder_meta",
 ]

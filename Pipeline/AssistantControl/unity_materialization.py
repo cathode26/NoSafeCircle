@@ -271,6 +271,10 @@ def _finalize(
             "unity_log": journal["unity_log"],
             "restored_tracked_paths": list(journal["restored_tracked_paths"]),
             "normalized_paths": list(journal["normalized_paths"]),
+            "authenticated_incidental_meta_paths": list(
+                journal.get("authenticated_incidental_meta_paths", [])
+            ),
+            "incidental_evidence_path": journal.get("incidental_evidence_path"),
         },
         "authoritative_validations": list(journal["authoritative_validations"]),
     }
@@ -316,6 +320,10 @@ def _finalize_validation_failure(
             "unity_log": journal["unity_log"],
             "restored_tracked_paths": list(journal["restored_tracked_paths"]),
             "normalized_paths": list(journal["normalized_paths"]),
+            "authenticated_incidental_meta_paths": list(
+                journal.get("authenticated_incidental_meta_paths", [])
+            ),
+            "incidental_evidence_path": journal.get("incidental_evidence_path"),
         },
         "validation_failure": {
             "error": journal["validation_error"],
@@ -445,6 +453,10 @@ def materialize_candidate(
                     timeout_seconds=timeout_seconds,
                     allowed_generated_paths=generated,
                     allowed_generated_roots=generated_roots,
+                    incidental_folder_meta_path=(
+                        "Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies.meta"
+                        if task_id == "NSC-032" else None
+                    ),
                 )
                 if not materialized.builder_paths:
                     raise MaterializationError(
@@ -491,6 +503,10 @@ def materialize_candidate(
                     "unity_log": materialized.unity_log,
                     "restored_tracked_paths": list(materialized.restored_tracked_paths),
                     "normalized_paths": list(materialized.normalized_paths),
+                    "authenticated_incidental_meta_paths": list(
+                        materialized.authenticated_incidental_meta_paths
+                    ),
+                    "incidental_evidence_path": materialized.incidental_evidence_path,
                     "committed_at": _now(),
                 })
                 write_record(journal_path, journal)

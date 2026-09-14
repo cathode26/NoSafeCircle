@@ -78,6 +78,13 @@ def main(argv=None) -> int:
     materialize.add_argument("task")
     materialize.add_argument("--candidate-commit", required=True)
     materialize.add_argument("--unity-executable", type=Path)
+    recover_materialization = commands.add_parser(
+        "recover-nsc032-materialization",
+        help="Archive the exact failed NSC-032 Unity output and reopen its original candidate",
+    )
+    recover_materialization.add_argument("task")
+    recover_materialization.add_argument("--candidate-commit", required=True)
+    recover_materialization.add_argument("--failure-sha256", required=True)
     retry_validation = commands.add_parser(
         "retry-candidate-validation",
         help=(
@@ -445,6 +452,14 @@ def main(argv=None) -> int:
                 result = materialize_candidate(
                     manager, args.task, args.candidate_commit,
                     unity_executable=args.unity_executable,
+                )
+            elif args.command == "recover-nsc032-materialization":
+                from Pipeline.AssistantControl.materialization_recovery import (
+                    reopen_failed_nsc032_materialization,
+                )
+                result = reopen_failed_nsc032_materialization(
+                    manager, args.task, expected_candidate=args.candidate_commit,
+                    expected_failure_sha256=args.failure_sha256,
                 )
             elif args.command == "retry-candidate-validation":
                 from Pipeline.AssistantControl.candidate_validation_retry import (
