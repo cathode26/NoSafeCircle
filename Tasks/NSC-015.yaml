@@ -2,115 +2,164 @@
   "acceptance_criteria": [
     {
       "criterion_id": "AC-001",
-      "reference": "Required Enemy Roster",
-      "requirement": "Runs at the wizard and attacks at close range once the shared pursuit foundation acquires the player as target."
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:511-520, 524-532; PROPOSAL within_current_GDD: revalidated close-range strike",
+      "requirement": "Create Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/MeleeEnemyAttack.cs and Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/MeleeEnemyAttack.cs.meta, with focused Play Mode coverage in Assets/NoSafeCircle/DoorPrototype/Tests/MeleeEnemyAttackPlayModeTests.cs and Assets/NoSafeCircle/DoorPrototype/Tests/MeleeEnemyAttackPlayModeTests.cs.meta. MeleeEnemyAttack begins one serialized wind-up, impact, and cooldown cycle only when EnemyTargetKnowledge.State is Pursuing, EnemyTargetKnowledge.CurrentTarget is within the serialized close attack range, and EnemyHealth.IsDefeated is false. At impact it rechecks the same target, Pursuing state, range, and defeat state. An invalid impact completes without damage. MeleeEnemyAttack does not pause, slow, reposition, or otherwise configure enemy locomotion; on the current production path EnemyPursuitMovement therefore continues updating movement during wind-up unless Vincent approves a later locomotion-owner revision."
     },
     {
       "criterion_id": "AC-002",
-      "reference": "Required Enemy Roster",
-      "requirement": "Deals damage to the player exclusively through the shared Player Health damage interface (existing PlayerHealth.TakeDamage), never writing separate player-health state."
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:515, 520; Player Health ownership",
+      "requirement": "For one valid impact, MeleeEnemyAttack uses the PlayerHealth component on EnemyTargetKnowledge.CurrentTarget.gameObject and calls PlayerHealth.TakeDamage(float) exactly once with a serialized positive damage value. It does not write PlayerHealth.CurrentHealth, create duplicate player-health state, or apply per-frame contact damage. Straight-line movement is not claimed to evade a started wind-up; range revalidation supports separation created by obstacle cornering, Frost-assisted movement, Force Wave displacement, or defeat."
     },
     {
       "criterion_id": "AC-003",
-      "reference": "Resources, Feedback, and Failure",
-      "requirement": "A retreating player cannot maintain indefinite safety through ordinary movement alone; Melee Enemy pursuit gradually closes distance over time, with exact speed/tuning left to playtesting."
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:690-691; floor restart ownership",
+      "requirement": "MeleeEnemyAttack exposes public ResetAttack(), which cancels a current wind-up or pending impact, clears cooldown, returns the component to its initial idle state, and prevents delayed damage from the cancelled cycle. The focused Play Mode tests invoke ResetAttack() during early wind-up, during late wind-up immediately before the scheduled impact, and during cooldown and verify that a later valid attack can begin normally."
     },
     {
       "criterion_id": "AC-004",
-      "reference": "Spell and Enemy Interactions",
-      "requirement": "Multiple simultaneously pursuing Melee Enemies exhibit natural clustering while chasing (not rigid uniform spacing), preserving the relevance of Charged Fireball area damage and Frost Field formation-stretching."
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:562-568, 670-674; NSC-039, NSC-077, NSC-089, and NSC-094 handoffs",
+      "requirement": "Create Assets/NoSafeCircle/DoorPrototype/Editor/MeleeEnemyGameplayPrefabBuilder.cs and Assets/NoSafeCircle/DoorPrototype/Editor/MeleeEnemyGameplayPrefabBuilder.cs.meta. Its public static MeleeEnemyGameplayPrefabBuilder.BuildMeleeEnemyGameplayPrefab() production entry point, exposed at the Editor menu path No Safe Circle/Build Melee Enemy Gameplay Prefab, exclusively materializes Assets/NoSafeCircle/DoorPrototype/Generated/MeleeEnemyGameplay.prefab and Assets/NoSafeCircle/DoorPrototype/Generated/MeleeEnemyGameplay.prefab.meta. The prefab and its meta file are builder output and must not be hand-written or reconstructed. Create Assets/NoSafeCircle/DoorPrototype/Tests/Editor/MeleeEnemyGameplayPrefabTests.cs and Assets/NoSafeCircle/DoorPrototype/Tests/Editor/MeleeEnemyGameplayPrefabTests.cs.meta for a non-saving temporary builder seam and deliberate read-only conformance checks against the exact generated prefab."
     },
     {
       "criterion_id": "AC-005",
-      "reference": "Environment Presentation and Authoring Direction",
-      "requirement": "Delivers a usable assembled world-space SpriteRenderer Melee Enemy gameplay prefab integrating the shared pursuit/locomotion foundation, Enemy Health/Defeat participation, Active Enemy Registry participation, and Melee attack behavior. Reuse NSC-077's approved sprite, direction, and sorting outputs without editing its builder-owned stationary review prefab or presentation assets."
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:75-79, 88, 526-532, 673-685; Resources, Feedback, and Failure",
+      "requirement": "Create Assets/NoSafeCircle/DoorPrototype/Tests/MeleeEnemyPursuitPlayModeTests.cs and Assets/NoSafeCircle/DoorPrototype/Tests/MeleeEnemyPursuitPlayModeTests.cs.meta. The generated prefab uses the project-configured NavMesh agent type, radius, and height established by NSC-089 and does not edit ProjectSettings. The builder serializes only Melee-specific movement tuning such as speed, acceleration, angular speed, stoppingDistance, autoBraking, obstacleAvoidanceType, and avoidancePriority. Its serialized stoppingDistance is below MeleeEnemyAttack's close attack range, and its serialized speed is present before EnemyStatusEffectMovement.Awake records BaselineSpeed. In later-encounter tuning, production PlayerMovement cannot preserve indefinite distance during an unobstructed retreat that starts and remains within LoseTargetDistance. NSC-015 code supplies no per-enemy slot or offset destination."
     },
     {
       "criterion_id": "AC-006",
-      "reference": "Section 2 — Floor-run restart ownership",
-      "requirement": "Exposes an owner-controlled attack-state reset entry point that clears any in-progress attack cooldown/windup and cancels an in-flight melee attack when the Floor Run/Restart Orchestrator invokes floor restart, so no mid-execution attack state carries over from a failed run."
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:522, 576, 686; Enemy Health/Defeat ownership",
+      "requirement": "Create Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/MeleeEnemyDefeatResponse.cs and Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/MeleeEnemyDefeatResponse.cs.meta, with focused coverage in Assets/NoSafeCircle/DoorPrototype/Tests/MeleeEnemyDefeatResponsePlayModeTests.cs and Assets/NoSafeCircle/DoorPrototype/Tests/MeleeEnemyDefeatResponsePlayModeTests.cs.meta. On EnemyHealth.Defeated, MeleeEnemyDefeatResponse calls MeleeEnemyAttack.ResetAttack(), stops EnemyPursuitMovement participation, and removes this defeated enemy's NavMeshAgent avoidance obstruction without destroying or replacing the persistent GameObject. It exposes public ResetDefeatResponse(), which restores only the movement-disable state it owns. After ResetDefeatResponse(), EnemyHealth.ResetHealth(), and EnemyPursuitMovement.ResetPursuit() have all run in any order, the same GameObject is alive, its agent is on the NavMesh at its reset placement, and it can later acquire and pursue again. SpriteRenderer treatment and physical body collision remain pending Vincent's decisions."
     },
     {
       "criterion_id": "AC-007",
-      "reference": "Section 2 — Floor-run restart ownership",
-      "requirement": "Exposes an owner-controlled restart/reset entry point that clears melee attack execution/wind-up state for floor restart, invoked by the Floor Run/Restart Orchestrator rather than mutated directly."
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:593, 687-693; reusable enemy prefab activation",
+      "requirement": "Assets/NoSafeCircle/DoorPrototype/Generated/MeleeEnemyGameplay.prefab contains and wires one NavMeshAgent, EnemyTargetKnowledge, EnemyPursuitMovement, EnemyStatusEffectMovement, EnemyHealth, MeleeEnemyAttack, MeleeEnemyDefeatResponse, the read-only NSC-077 Melee presentation output, and the read-only NSC-094 walk component/output. It exposes EnemyTargetKnowledge.Initialize(Transform) for the wizard target and EnemyHealth.Initialize(ActiveEnemyRegistry) for activation. It contains no scene registry reference, wizard scene reference, spawn placement, encounter count, room identity, door target, input action, or spell behavior. Do not edit NSC-077 or NSC-094 source, generated assets, stationary review prefab, builder, component, or review placement. If the delivered NSC-094 EnemyWalkAnimation does not itself follow this enemy's movement, create Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/MeleeEnemyWalkDirection.cs and Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/MeleeEnemyWalkDirection.cs.meta; MeleeEnemyWalkDirection passes this enemy's NavMeshAgent.velocity each frame to the public direction input that NSC-094 delivers and edits no NSC-094 file. If NSC-094 delivers no public direction input, stop for a resource decision instead of editing EnemyWalkAnimation.cs."
     }
   ],
   "basis": "direct_gdd",
   "completion_gates": [
     {
       "gate_id": "VAL-001",
-      "reference": "Spell and Enemy Interactions",
-      "requirement": "Exercise multiple simultaneously pursuing Melee Enemies (not only one) to validate that clustering behavior remains meaningful for area-damage/formation-stretch interactions."
+      "reference": "Unity Testing Policy; AC-001 and AC-002 component behavior",
+      "requirement": "In Play Mode, MeleeEnemyAttackPlayModeTests constructs a test GameObject from the real project NavMeshAgent, EnemyTargetKnowledge, EnemyPursuitMovement, EnemyHealth, and MeleeEnemyAttack components and a target GameObject containing PlayerHealth. Initialize the target through EnemyTargetKnowledge.Initialize(Transform), let normal target-knowledge, pursuit, and attack updates run, and verify no damage outside close range, exactly one PlayerHealth.Damaged notification and one configured health reduction for a valid impact, no per-frame contact damage, no impact after the target/range/state becomes invalid, and no attack start or impact while EnemyHealth.IsDefeated is true. The test must not set attack, target, or health internal state directly. This gate proves the attack component, not the assembled prefab."
     },
     {
       "gate_id": "VAL-002",
-      "reference": "Required Enemy Roster",
-      "requirement": "Verify melee damage is applied only through PlayerHealth.TakeDamage and not through any duplicated health-writing path."
+      "reference": "Unity Testing Policy; AC-003 attack reset",
+      "requirement": "In the same real-component Play Mode fixture, invoke MeleeEnemyAttack.ResetAttack() during early wind-up, during late wind-up immediately before the scheduled impact, and during cooldown. Verify idle initial attack state, cleared cooldown and pending impact, no delayed PlayerHealth damage, and a subsequent valid attack cycle. NSC-033 separately proves invocation during a real zero-health restart."
     },
     {
       "gate_id": "VAL-003",
-      "reference": "Section 2 — Floor-run restart ownership",
-      "requirement": "In Play Mode, invoke the Melee Enemy attack owner's public reset method during wind-up and during a swing; verify cancellation, cleared cooldown and wind-up state, and no delayed damage. NSC-033 separately verifies that an actual floor restart calls this method."
+      "reference": "Unity Testing Policy; committed-prefab conformance",
+      "requirement": "MeleeEnemyGameplayPrefabTests exercises the builder's non-saving seam only in an isolated temporary asset location. Separately, after controller materialization, it deliberately opens the exact Assets/NoSafeCircle/DoorPrototype/Generated/MeleeEnemyGameplay.prefab read-only and closes it without saving. Verify exactly one of each required component, valid same-prefab references, both public activation seams, world-space SpriteRenderer pivot/scale/sorting inherited from NSC-077, NSC-094 walk binding, project-configured NavMesh agent type/radius/height, serialized Melee speed before Awake, stoppingDistance below close attack range, no scene/encounter references, no enemy-body Collider added without Vincent's approval, and no gameplay component added to NSC-077's stationary review prefab."
     },
     {
       "gate_id": "VAL-004",
-      "reference": "Section 2 — Floor-run restart ownership",
-      "requirement": "In a Play Mode restart harness, call the Melee Enemy attack owner's reset entry point and verify its attack execution, wind-up, and cooldown state returns to the floor-initial values. Connection to the Floor Run/Restart Orchestrator and integrated restart proof belong to NSC-033."
+      "reference": "Game Task Lessons Learned; generated Unity content",
+      "requirement": "The Windows Unity controller runs No Safe Circle/Build Melee Enemy Gameplay Prefab, checks that the expected prefab and meta file were materialized, runs the focused conformance tests, runs the production builder a second time, and compares serialized component/reference/configuration meaning rather than raw YAML or whole-file hashes. The second run must not create duplicate assets or components. If Unity materialization is unavailable, stop at NEEDS_MATERIALIZATION with the exact menu or batchmode method and expected output paths; an implementation agent must not hand-edit the serialized prefab or meta file."
+    },
+    {
+      "gate_id": "VAL-005",
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:75-79, 88, 114-118, 526-532; production pursuit and clustering",
+      "requirement": "In Play Mode on a temporary NavMesh, MeleeEnemyPursuitPlayModeTests drives production PlayerMovement through the Unity Input System while at least three instances of the exact generated prefab, loaded read-only through UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject> on Assets/NoSafeCircle/DoorPrototype/Generated/MeleeEnemyGameplay.prefab inside an #if UNITY_EDITOR block, instantiated with Object.Instantiate, and never saved, start from distinct positions, acquire the wizard normally, and remain inside LoseTargetDistance throughout the measured pursuit interval. Verify the unobstructed retreat gap decreases over a bounded interval. At one declared sample all three enemies must be within a test-local declared multiple of close attack range from the wizard; across declared samples their pairwise-distance values must change and must not all be equal within a documented test-local tolerance. Those proximity and tolerance values are test hypotheses, not GDD tuning. Verify no per-enemy slot or offset destination is used. Also verify EnemyStatusEffectMovement.BaselineSpeed equals the prefab's serialized NavMeshAgent.speed and Frost reset restores that same speed."
+    },
+    {
+      "gate_id": "VAL-006",
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:522, 686, 690-693; defeat and reset",
+      "requirement": "In Play Mode, load the exact generated prefab read-only the same way as VAL-005 and instantiate it into a registry test harness. The harness calls ActiveEnemyRegistry.Register only to establish the test state and does not claim production encounter activation. Defeat the enemy through EnemyHealth.TakeDamage and verify one unregister, no later player damage, no pursuit movement, no NavMeshAgent avoidance obstruction, and preservation of the same GameObject. Exercise every call order among MeleeEnemyDefeatResponse.ResetDefeatResponse(), EnemyHealth.ResetHealth(), and EnemyPursuitMovement.ResetPursuit(); after all three calls verify the agent is on the NavMesh at its reset placement. Re-register through the harness, initialize the target normally, and verify the same GameObject can acquire and pursue again."
+    },
+    {
+      "gate_id": "VAL-007",
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:21-25, 75-79, 114-118, 572-576; human gameplay-camera validation",
+      "requirement": "Vincent reviews the exact materialized candidate in Play Mode from the gameplay camera. Confirm grounded eight-direction movement and sorting, gradual closing pressure rather than endless straight-retreat safety, a readable multi-enemy cluster rather than a fixed formation, and temporary separation gained by circling a representative obstacle without causing target loss. Confirm the selected attack timing and defeated-enemy treatment are understandable at gameplay scale. If attack or defeat feedback has not been approved or cannot be read, record the open presentation decision instead of approving this gate."
     }
   ],
-  "confidence": "high",
+  "confidence": "medium",
   "contract_disposition": "active",
-  "contract_revision": 5,
-  "decomposition_reason": "Melee Enemy's behavior (rush-and-melee-attack, gradual distance closing, natural clustering) and its role as an assembled archetype integrating existing-to-be-built shared capabilities are already concretely specified by the GDD; no additional design invention is required.",
+  "contract_revision": 6,
+  "decomposition_reason": "Execution has two ordered Unity ownership bundles. The first owns close-range attack, PlayerHealth damage, defeat gating, and ResetAttack with real-component Play Mode tests and no art dependency. The second is the sole owner of logical:enemy-locomotion-behavior-surface for Melee movement tuning, defeat-time movement shutdown/restoration, deterministic gameplay-prefab materialization, assembled-prefab tests, group pursuit validation, and gameplay-camera review. This removes the prior attack/prefab test cycle and prevents two children from mutating locomotion.",
   "decomposition_state": "concrete",
   "depends_on": [
+    "NSC-003",
+    "NSC-004",
+    "NSC-011",
+    "NSC-012",
+    "NSC-013",
+    "NSC-039",
+    "NSC-077",
+    "NSC-089",
     "NSC-091",
     "NSC-092",
-    "NSC-012",
-    "NSC-011",
-    "NSC-026",
-    "NSC-004",
-    "NSC-077",
     "NSC-094"
   ],
   "downstream_integration_obligations": [
     {
       "obligation_id": "INT-001",
-      "reference": "Section 2 — Floor-run restart ownership; integrated proof transfer",
-      "requirement": "Assign NSC-033 the actual zero-health invocation through the Floor Run/Restart Orchestrator and the integrated proof that this Melee Enemy attack reset participates in a real floor restart. NSC-015 retains the local attack-owner reset and cancellation gates VAL-003 and VAL-004."
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:690-693; existing NSC-033 transfer",
+      "requirement": "NSC-033 owns the actual PlayerHealth zero-health invocation through the Floor Run/Restart Orchestrator and the integrated proof that the NSC-015-owned reset methods MeleeEnemyAttack.ResetAttack() and MeleeEnemyDefeatResponse.ResetDefeatResponse() participate in a real floor restart alongside the enemy-owner resets that NSC-033 AC-003 already requires. NSC-015 retains the owner-local reset behavior in VAL-002 and VAL-006."
+    },
+    {
+      "obligation_id": "INT-002",
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:546-552, 594; existing NSC-030 dependency on NSC-015",
+      "requirement": "When NSC-030 activates an authored MeleeEnemyGameplay instance, it supplies the wizard Transform through EnemyTargetKnowledge.Initialize(Transform), supplies the shared registry through EnemyHealth.Initialize(ActiveEnemyRegistry), and calls ActiveEnemyRegistry.Register for that instance. NSC-030 retains spawn placement, room identity, encounter counts, mixed-enemy composition, and admission policy; NSC-015 retains prefab behavior and contains no scene-bound target or registry reference."
     }
   ],
   "exclusive_resources": [
-    "logical:enemy-locomotion-behavior-surface"
+    "logical:enemy-locomotion-behavior-surface",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/MeleeEnemyAttack.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/MeleeEnemyAttack.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/MeleeEnemyDefeatResponse.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/MeleeEnemyDefeatResponse.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/MeleeEnemyWalkDirection.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/MeleeEnemyWalkDirection.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/MeleeEnemyGameplayPrefabBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/MeleeEnemyGameplayPrefabBuilder.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/MeleeEnemyGameplay.prefab",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/MeleeEnemyGameplay.prefab.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/MeleeEnemyAttackPlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/MeleeEnemyAttackPlayModeTests.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/MeleeEnemyPursuitPlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/MeleeEnemyPursuitPlayModeTests.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/MeleeEnemyDefeatResponsePlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/MeleeEnemyDefeatResponsePlayModeTests.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/MeleeEnemyGameplayPrefabTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/MeleeEnemyGameplayPrefabTests.cs.meta"
   ],
-  "execution_reason": "Integrates several distinct subsystem contracts (shared pursuit/locomotion consumption, Enemy Health/Defeat participation, Active Enemy Registry participation, melee attack execution, and SpriteRenderer prefab presentation/sorting) into one assembled archetype; each integration point has its own validation concern, exceeding a single bounded agent handoff.",
+  "execution_reason": "The task combines a close-range attack state owner with a separately ordered locomotion/prefab owner that configures the project NavMeshAgent, stops/restores movement on defeat, assembles read-only presentation outputs, materializes a Unity prefab, and proves multiple-enemy production pursuit. These are two bounded dependent handoffs, not one conflict-free implementation assignment.",
   "execution_scope": "needs_execution_decomposition",
   "gdd_evidence": [
     {
-      "reference": "Required Enemy Roster",
-      "requirement": "Melee Enemy runs at the wizard and attacks at close range; prevents long stationary casts and becomes dangerous in groups."
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:511-520; Required Enemy Roster",
+      "requirement": "The Melee Enemy runs at the wizard, attacks at close range, prevents long stationary casts, becomes dangerous in groups, and applies successful damage only through Player Health."
     },
     {
-      "reference": "Resources, Feedback, and Failure",
-      "requirement": "Melee Enemies gradually close the distance over time; movement alone cannot preserve a completely safe distance indefinitely in later encounters."
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:75-79; Spell and Enemy Interactions",
+      "requirement": "Pursuing Melee Enemies cluster for Charged Fireball, Frost Field slows and stretches pursuit, and Force Wave creates emergency space when they surround the wizard or block a door approach."
     },
     {
-      "reference": "Spell and Enemy Interactions",
-      "requirement": "Melee enemies naturally cluster while pursuing the wizard, making them strong area-damage targets for Charged Fireball; Frost Field stretches that formation."
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:81-94; Resources, Feedback, and Failure",
+      "requirement": "In later encounters, ordinary movement alone cannot maintain indefinite safety; obstacles, turning routes, Frost Field, Force Wave, or damage create separation."
     },
     {
-      "reference": "Required Enemy Roster",
-      "requirement": "Both enemy archetypes deal damage through the shared Player Health system rather than maintaining separate copies of player-health state."
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:524-544; Enemy Detection, Pursuit, Target Loss, and Door Rules",
+      "requirement": "Melee behavior uses the shared target, retains pursuit across line-of-sight and doorway changes, loses exact tracking by distance, searches the last known position, and may reacquire or clear the target."
     },
     {
-      "reference": "Environment Presentation and Authoring Direction / Runtime Implementation",
-      "requirement": "The wizard and enemies use world-space SpriteRenderers and prefabs with the same isometric sorting conventions as other world-space objects."
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:522, 686-693; defeat, persistence, and restart",
+      "requirement": "Enemy Health owns defeat and reset, defeat unregisters the persistent enemy, and floor restart invokes each component's public reset method without replacing the enemy object."
+    },
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:566-568, 670-684; visual and navigation ownership",
+      "requirement": "Enemies use world-space SpriteRenderer prefabs, while the shared gameplay navigation layer owns the NavMesh representation and project navigation-facing configuration."
+    },
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:114-118, 298-305, 371-385; room tactics",
+      "requirement": "Loops, lanes, obstacles, side routes, and door approaches shape separation; projectile cover does not become a melee-safe route or replace distance-based target loss."
     }
   ],
   "id": "NSC-015",
   "kind": "implementation",
-  "notes": "For exact-partition decomposition, only the movement child may edit logical:enemy-locomotion-behavior-surface. The attack child implements its separate attack/reset component and calls the movement component's public behavior without editing locomotion; the prefab child depends on both the movement and attack children, then assembles the completed components into the gameplay prefab and its separately owned materializer paths outside NSC-077's generated output directories. Prefab child locomotion configuration or wiring edits count as mutation of the locomotion surface and therefore remain with the movement owner; the prefab child must not edit NSC-077's builder-owned stationary review prefab or presentation assets. If an actual implementation needs either child to mutate locomotion, this one-owner boundary is invalid and decomposition must stop for a shared-resource decision. Frost Field's slowdown application/restoration remains owned by enemy-status-effect-displacement; this task only exposes a speed that system can modify.",
+  "notes": "D1B.2 should produce two ordered responsibility splits without allocating child IDs here. Split 1 owns MeleeEnemyAttack, ResetAttack, and MeleeEnemyAttackPlayModeTests; it depends on NSC-004, NSC-012, NSC-089, NSC-091, and NSC-092 and has no art dependency. Its tests construct real production components and do not require the assembled prefab. Split 2 depends on split 1 and is the sole owner of logical:enemy-locomotion-behavior-surface; it owns MeleeEnemyDefeatResponse, the conditional MeleeEnemyWalkDirection, Melee-specific movement serialization, MeleeEnemyGameplayPrefabBuilder, the generated prefab, prefab conformance, production-input retreat/group tests, Frost baseline-speed proof, and human review. It additionally depends on NSC-003, NSC-011, NSC-013, NSC-039, NSC-077, and NSC-094. A third split is justified only if Vincent approves separate attack or defeat art that does not edit locomotion. No split edits EnemyTargetKnowledge.cs, EnemyPursuitMovement.cs, EnemyStatusEffectMovement.cs, PlayerMovement.cs, PlayerHealth.cs, EnemyHealth.cs, ActiveEnemyRegistry.cs, ProjectSettings, NSC-077 outputs, NSC-094 outputs, room/scene assets, Input Actions, encounters, doors, or spells. NSC-017's locked-door attack remains separate. NSC-007 already owns Charged Fireball's multiple-Melee damage gate, but its target-discovery mechanism and any new dependency edge require separate approval; no Collider, layer, tag, or query API is invented here. Gate mapping from revision 5 is old VAL-001 to new VAL-005, old VAL-002 to new VAL-001, and old VAL-003/VAL-004 to new VAL-002. Split 2 must not be dispatched until Vincent answers the body-blocking, wind-up locomotion, and defeated-enemy visual and collision decisions, because each can change split 2's components or files. The attack-feedback decision gates only VAL-007 approval. Split 1 does not wait for any of these decisions.",
   "parent": "NSC-010",
   "provenance": {
     "bootstrap_status_observation": "open",
@@ -118,7 +167,7 @@
       {
         "from_entry_id": "INT-001",
         "from_entry_type": "downstream_integration_obligations",
-        "reason": "Transfer only the actual zero-health invocation and integrated floor-restart proof; local attack reset behavior remains in NSC-015 VAL-003/VAL-004.",
+        "reason": "Transfer only the actual zero-health invocation and integrated floor-restart proof; NSC-015 retains local attack reset and defeated-movement reset gates VAL-002 and VAL-006.",
         "to_entry_id": "VAL-001",
         "to_entry_type": "completion_gates",
         "to_task_id": "NSC-033"
@@ -128,13 +177,31 @@
     "origin": "verified_reconciliation_bootstrap",
     "reconciliation_run_id": "20260821T193541Z-998ee7b5",
     "source_schema_version": "1.0",
-    "verification_run_id": "20260821T195959Z-43dba5de"
+    "verification_run_id": "20260821T195959Z-43dba5de",
+    "task_design_ger": [
+      {
+        "ger_run_id": "20260914-072839-NSC-015",
+        "packet_source_head": "22c93fbc93cfab5ef3aa6fca54822274782d10b6",
+        "previous_contract_revision": 5,
+        "round_output_sha256": {
+          "01-codex-generate": "99981b7b6d0e3a0ac9eef6023c18dd04e666c515c36b4289d883c3091dcc6bdc",
+          "02-claude-evaluate": "e8ccdd1a57624d57e41ffcf83390c8e0f6d4d58a6339df8d3597e07ee628e885",
+          "03-codex-refine": "36c96a98b0b50fb4ce341869423d5baad7cbf3f0ddd7ff341a4ac1a9a8fc0b0a",
+          "04-claude-reaudit": "32bef8b84f2d17c11d48accdf890851ea8c680a1c3d38fdc1f4ac4c34b778e9b",
+          "05-owner-patch": "7c1107260b4b20f42f48dd7f29da72e81b23f1dd57be24064128cf54af126328",
+          "06-claude-recheck": "ed3d2b5176799877ab70ea60c4e4b53415c392b0feaa052c9a73e3077b6c8312"
+        },
+        "reaudit_recommendation": "commit_contract_then_decompose",
+        "owner_patch_contract_sha256": "3cede2c5debfd67c2de997d0bb62517f33e39d24e1bfbdd5b04ab93495a86302",
+        "recheck_recommendation": "commit_contract_then_decompose"
+      }
+    ]
   },
   "reconciliation_key": "melee-enemy",
   "repository_evidence_at_bootstrap": [],
   "repository_state_at_bootstrap": "missing",
   "schema_version": "2.0",
   "source_scope": "required",
-  "title": "Melee Enemy Archetype",
+  "title": "Melee Enemy Pursuit, Close-Range Attack, and Gameplay Prefab",
   "type": "enemy_archetype"
 }
