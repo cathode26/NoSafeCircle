@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="1" result="Passed" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-09-14 14:09:21Z" end-time="2026-09-14 14:09:21Z" duration="0.5714942">
+  <test-suite type="TestSuite" id="1247" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="207" result="Passed" start-time="2026-09-14 14:09:21Z" end-time="2026-09-14 14:09:21Z" duration="0.571494" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="PlayMode" />
+    </properties>
+    <test-suite type="Assembly" id="1233" name="NoSafeCircle.DoorPrototype.Tests.dll" fullname="C:/NSC/_worktrees/nsc042-unity-exact-20260914/Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Tests.dll" runstate="Runnable" testcasecount="203" result="Passed" start-time="2026-09-14 14:09:21Z" end-time="2026-09-14 14:09:21Z" duration="0.556150" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="38556" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="PlayMode" />
+        <property name="EditorOnly" value="False" />
+      </properties>
+      <test-suite type="TestSuite" id="1234" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="203" result="Passed" start-time="2026-09-14 14:09:21Z" end-time="2026-09-14 14:09:21Z" duration="0.549565" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1235" name="DoorPrototype" fullname="NoSafeCircle.DoorPrototype" runstate="Runnable" testcasecount="203" result="Passed" start-time="2026-09-14 14:09:21Z" end-time="2026-09-14 14:09:21Z" duration="0.543975" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1236" name="Tests" fullname="NoSafeCircle.DoorPrototype.Tests" runstate="Runnable" testcasecount="203" result="Passed" start-time="2026-09-14 14:09:21Z" end-time="2026-09-14 14:09:21Z" duration="0.538300" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestFixture" id="1161" name="LongWallTraversalPlayModeTests" fullname="NoSafeCircle.DoorPrototype.Tests.LongWallTraversalPlayModeTests" classname="NoSafeCircle.DoorPrototype.Tests.LongWallTraversalPlayModeTests" runstate="Runnable" testcasecount="1" result="Passed" start-time="2026-09-14 14:09:21Z" end-time="2026-09-14 14:09:21Z" duration="0.528697" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1162" name="SavedScene_WizardTraversesBothSidesAndCrossesLongWallAtD1WithCorrectSorting" fullname="NoSafeCircle.DoorPrototype.Tests.LongWallTraversalPlayModeTests.SavedScene_WizardTraversesBothSidesAndCrossesLongWallAtD1WithCorrectSorting" methodname="SavedScene_WizardTraversesBothSidesAndCrossesLongWallAtD1WithCorrectSorting" classname="NoSafeCircle.DoorPrototype.Tests.LongWallTraversalPlayModeTests" runstate="Runnable" seed="1150663295" result="Passed" start-time="2026-09-14 14:09:21Z" end-time="2026-09-14 14:09:21Z" duration="0.511885" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[Saving results to: C:/Users/VincentLiguori/AppData/LocalLow/DefaultCompany/NoSafeCircle\TestResults.xml
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

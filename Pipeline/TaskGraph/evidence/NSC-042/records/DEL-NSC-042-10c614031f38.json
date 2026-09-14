@@ -1,0 +1,98 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "5d9aa63a0e5397848577e059ae17fa71a535447b66075e32ef21fbad0a2d4aa2"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "8b2912ba5505df4da8c5ef17367b90d1af3a1740",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/WallTile.asset",
+      "role": "shared_wall_tile"
+    },
+    {
+      "blob_sha": "af91d899b308013b283ab66268ace70231ff399e",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+      "role": "composed_scene_builder"
+    },
+    {
+      "blob_sha": "9e444b874e90f8f3938b7e8533fdd66a183103f7",
+      "path": "Assets/Scenes/Rooms/RuinedEntry.unity",
+      "role": "authored_tiled_room_source"
+    },
+    {
+      "blob_sha": "cd790358ab865b6f6d1e5e8d5284c0fe8fbe0e5f",
+      "path": "Assets/Scenes/DoorPrototype.unity",
+      "role": "saved_gameplay_scene"
+    },
+    {
+      "blob_sha": "66bbfb2ed63baa2173831836d43957d8d17d89ac",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/LongWallTraversalPlayModeTests.cs",
+      "role": "saved_scene_traversal_proof"
+    }
+  ],
+  "delivery": {
+    "base_commit": "bd041fc3f3b2aa85b7d27329ef0032090e20eb70",
+    "candidate_commit": "10c614031f38e14a192a54e4c6dffd185c845344",
+    "integrated_commit": "10c614031f38e14a192a54e4c6dffd185c845344",
+    "integrated_tree": "12a749cd2d94185cd7c866d310e8add6aeb586bb"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "ad87d341dcb750583bc1c8c654837de4f0a95101",
+          "path": "Pipeline/TaskGraph/evidence/NSC-042/artifacts/WallScaleEditMode-10c614031f38.xml"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "Historical 50/50 Unity EditMode result on NSC-042 implementation commit eac8a9fd; includes shared-tile runs of 3, 10, and 100 cells.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "be3c205feddaf22680e1f76a2689d37531a4e612",
+          "path": "Pipeline/TaskGraph/evidence/NSC-042/artifacts/CombinedSceneWallTraversal-10c614031f38.xml"
+        },
+        {
+          "blob_sha": "15d5652b0cbb303e88b8989662793a9ac7722762",
+          "path": "Pipeline/TaskGraph/evidence/NSC-042/artifacts/CombinedSceneWallTraversal-10c614031f38.log"
+        }
+      ],
+      "gate_id": "VAL-002",
+      "notes": "Exact clean combined main 10c614031 Unity PlayMode 1/1; saved gameplay scene includes the twelve-cell room WallTile, wizard walks both sides and crosses D1, depth sorting holds.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "59638ed450c7b7b5f3109d3100dd6abe0eac1074",
+          "path": "Pipeline/TaskGraph/evidence/NSC-042/artifacts/VincentWallAcceptance-10c614031f38.txt"
+        }
+      ],
+      "gate_id": "VAL-003",
+      "notes": "Vincent explicitly said NSC-042 is complete and established its wall tiling as the standard; no separate fresh visual inspection of rebuilt commit is claimed.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "Vincent Liguori",
+    "decision": "approved",
+    "notes": "User explicitly declared NSC-042 complete and its tiling the required project standard; acceptance predates the combined-scene rebuild, which retains the same authored tile source.",
+    "required": true
+  },
+  "record_id": "DEL-NSC-042-10c614031f38",
+  "record_type": "delivery",
+  "recorded_at": "2026-09-14T14:11:52Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-042.yaml",
+    "revision": 1,
+    "sha256": "c3bf34ab8de54676a43335f47fbcb8cddf4abaea039ba784c210442e6add241f"
+  },
+  "task_id": "NSC-042",
+  "validated_state": {
+    "commit": "10c614031f38e14a192a54e4c6dffd185c845344",
+    "tree": "12a749cd2d94185cd7c866d310e8add6aeb586bb"
+  }
+}
