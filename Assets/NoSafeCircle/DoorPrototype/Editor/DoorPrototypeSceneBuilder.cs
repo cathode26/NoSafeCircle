@@ -1079,7 +1079,7 @@ namespace NoSafeCircle.DoorPrototype.Editor
             // prefab pivot then rebuilds the identical [0, 2.5] visual footprint from there.
             // Human-validated correction: the authored DoorSprite orientation is identity
             // (inspector 0,0,0), not a camera-facing billboard/tilt.
-            CreateWorldSpriteVisual(
+            var doorSprite = CreateWorldSpriteVisual(
                 "DoorSprite",
                 "DoorSprite",
                 visual.transform,
@@ -1105,12 +1105,13 @@ namespace NoSafeCircle.DoorPrototype.Editor
             SetPrivateField(feedback, "door", door);
             SetPrivateField(feedback, "doorRenderer", visual.GetComponentInChildren<Renderer>());
 
-            BuildBreachFeedback(doorRoot, door, visual);
+            BuildBreachFeedback(doorRoot, door, visual, doorSprite.transform);
 
             return doorRoot;
         }
 
-        private static void BuildBreachFeedback(GameObject doorRoot, DoorInteractable door, GameObject visual)
+        private static void BuildBreachFeedback(GameObject doorRoot, DoorInteractable door, GameObject visual,
+            Transform shakeTarget)
         {
             var root = new GameObject("DoorBreachFeedback");
             root.transform.SetParent(doorRoot.transform, false);
@@ -1163,15 +1164,19 @@ namespace NoSafeCircle.DoorPrototype.Editor
                 crack.transform.localPosition = new Vector3(-0.45f + i * 0.45f, 0.15f + i * 0.2f, -0.18f);
                 crack.transform.localRotation = Quaternion.Euler(0f, 0f, i % 2 == 0 ? 35f : -35f);
                 crack.transform.localScale = new Vector3(0.06f, 0.55f, 0.03f);
+                // Keep the authored world placement, then attach each crack to the
+                // collider-free sprite so shaking never moves DoorVisual's blocker.
+                crack.transform.SetParent(shakeTarget, true);
                 var renderer = crack.GetComponent<Renderer>();
                 renderer.sharedMaterial = new Material(Shader.Find("Standard")) { color = new Color(0.1f, 0.01f, 0.01f) };
                 Object.DestroyImmediate(crack.GetComponent<Collider>());
                 crack.SetActive(false);
+                cracks[i] = crack;
             }
 
             // AddComponent invokes OnEnable before generated references are assigned, so use the
             // public binding seam to install event subscriptions and initialize the indicator.
-            component.Bind(door, visual.transform, fill, cracks, bangAudio);
+            component.Bind(door, shakeTarget, fill, cracks, bangAudio, canvasObject);
         }
 
         // The visible door's silhouette is centered above the ground (at visualLocalHeight), not
