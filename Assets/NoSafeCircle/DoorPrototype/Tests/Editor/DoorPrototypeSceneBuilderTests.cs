@@ -304,6 +304,28 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                 "so selected/opening feedback tracks the real accepted-selection state (AC-003).");
         }
 
+        [Test]
+        public void Build_DoorBreachFeedback_HasDoorAudioAndVisibleDurabilityFill()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
+
+            var door = GameObject.Find("DoorRoot")?.GetComponent<DoorInteractable>();
+            var feedback = GameObject.Find("DoorRoot/DoorBreachFeedback")?.GetComponent<DoorBreachFeedback>();
+            var fill = GameObject.Find("DoorRoot/DoorBreachFeedback/DurabilityIndicator/Background/Fill")?.GetComponent<Image>();
+            var audio = feedback?.GetComponent<AudioSource>();
+
+            Assert.IsNotNull(door);
+            Assert.IsNotNull(feedback);
+            Assert.IsNotNull(fill, "The generated durability indicator needs a visible Fill image.");
+            Assert.IsNotNull(fill.sprite, "A Filled image without a sprite cannot show durability changes.");
+            Assert.IsNotNull(audio, "The generated breach feedback needs a bang AudioSource.");
+            Assert.IsFalse(audio.playOnAwake);
+
+            var serializedFeedback = new SerializedObject(feedback);
+            Assert.AreSame(door, serializedFeedback.FindProperty("door").objectReferenceValue);
+            Assert.AreSame(audio, serializedFeedback.FindProperty("bangAudio").objectReferenceValue);
+        }
+
         // NSC-041 regression-only invariant: rebuilding the scene must not duplicate the
         // DoorInteractionFeedback component on DoorRoot.
         [Test]
