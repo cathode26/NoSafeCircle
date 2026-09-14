@@ -1070,6 +1070,38 @@ class DuplicateViewerPortTests(unittest.TestCase):
         self.assertEqual("aggregate", row["state"])
         self.assertEqual("decomposition_applied", row["progress"]["phase"])
 
+    def test_human_completion_overlay_keeps_formal_state_visible(self):
+        reader = AssistantSnapshot(self.root, self.checkout_root())
+        reader.manager.records.mkdir(parents=True)
+        (reader.manager.records / "human-complete-ids.json").write_text(json.dumps({
+            "schema_version": "assistant-viewer-human-complete/v1",
+            "tasks": [
+                {"task_id": "NSC-003", "note": "Vincent confirmed it exists."},
+                {"task_id": "NSC-012", "note": "Vincent confirmed it exists."},
+            ],
+        }), encoding="utf-8")
+        rows = [
+            {"id": "NSC-003", "state": "blocked", "taskgraph": {"state": "not_delivered"},
+             "held_overlay": {"label": "Outside Current Run"}},
+            {"id": "NSC-012", "state": "active", "taskgraph": {"state": "not_delivered"}},
+        ]
+        reader._apply_human_complete_overlay(rows)
+        self.assertEqual("complete", rows[0]["state"])
+        self.assertEqual("not_delivered", rows[0]["human_completion_overlay"]["taskgraph_state"])
+        self.assertEqual("blocked", rows[0]["human_completion_overlay"]["underlying_state"])
+        self.assertEqual("active", rows[1]["state"])
+
+    def test_human_completion_overlay_does_not_override_active_ger(self):
+        reader = AssistantSnapshot(self.root, self.checkout_root())
+        reader.manager.records.mkdir(parents=True)
+        (reader.manager.records / "human-complete-ids.json").write_text(json.dumps({
+            "schema_version": "assistant-viewer-human-complete/v1",
+            "tasks": [{"task_id": "NSC-003", "note": "Vincent confirmed it exists."}],
+        }), encoding="utf-8")
+        rows = [{"id": "NSC-003", "state": "blocked", "ger_overlay": {"phase": "active"}}]
+        reader._apply_human_complete_overlay(rows)
+        self.assertEqual("blocked", rows[0]["state"])
+
     def test_ger_overlay_config_is_exact_authoritative_set(self):
         config_path = Path(__file__).with_name("held-task-ids.ger-20260914.json")
         value = json.loads(config_path.read_text(encoding="utf-8"))

@@ -28,6 +28,7 @@ from Pipeline.TaskReviewAgent.GauntletView import server as gauntlet
 STATE_CACHE_SECONDS = 30.0
 HELD_TASKS_FILENAME = "held-task-ids.json"
 EXTERNAL_WORK_FILENAME = "external-work-ids.json"
+HUMAN_COMPLETE_FILENAME = "human-complete-ids.json"
 
 
 def _epoch_seconds(value: Any) -> float | None:
@@ -114,7 +115,7 @@ class AssistantSnapshot:
         with self.lock:
             overlay_revision = tuple(
                 _mtime_or_none(self.manager.records / name)
-                for name in (HELD_TASKS_FILENAME, EXTERNAL_WORK_FILENAME)
+                for name in (HELD_TASKS_FILENAME, EXTERNAL_WORK_FILENAME, HUMAN_COMPLETE_FILENAME)
             )
             if (max_age_seconds > 0 and self.cached_state is not None
                     and time.monotonic() - self.cached_at < max_age_seconds
@@ -166,6 +167,7 @@ class AssistantSnapshot:
                     self._apply_simulation(state, activity, simulation)
                 self._apply_held_task_overlay(state["tasks"])
                 self._apply_external_work_overlay(state["tasks"])
+                self._apply_human_complete_overlay(state["tasks"])
                 waiting = [row["id"] for row in state["tasks"] if row.get("state") == "human_action"]
                 if waiting:
                     activity["headline"] = "🐴 Vincent needed"
@@ -281,6 +283,51 @@ class AssistantSnapshot:
             row["progress"] = {
                 "phase": "external_work",
                 "transition_context": description.strip() + " (external work; not an AssistantControl crew run)",
+            }
+
+    def _apply_human_complete_overlay(self, rows: list[dict]) -> None:
+        """Display Vincent's completion decisions without forging test evidence."""
+        path = self.manager.records / HUMAN_COMPLETE_FILENAME
+        if not path.is_file():
+            return
+        try:
+            value = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+            raise ValueError(f"Human completion overlay is unreadable: {exc}") from exc
+        if not isinstance(value, dict) or value.get("schema_version") != "assistant-viewer-human-complete/v1":
+            raise ValueError("Human completion overlay has an unsupported schema")
+        entries = value.get("tasks")
+        if not isinstance(entries, list):
+            raise ValueError("Human completion overlay tasks must be a list")
+        by_id = {row.get("id"): row for row in rows}
+        seen: set[str] = set()
+        for entry in entries:
+            if not isinstance(entry, dict):
+                raise ValueError("Human completion overlay entry must be an object")
+            task_id = validate_task_id(entry.get("task_id"))
+            if task_id in seen or task_id not in by_id:
+                raise ValueError("Human completion overlay has a duplicate or unknown task ID")
+            seen.add(task_id)
+            note = entry.get("note")
+            if not isinstance(note, str) or not note.strip():
+                raise ValueError("Human completion overlay requires a note")
+            row = by_id[task_id]
+            if (row.get("state") in {"active", "human_action", "local_review_ready"}
+                    or (row.get("ger_overlay") or {}).get("phase") == "active"):
+                continue
+            if row.get("state") == "complete":
+                continue
+            row["human_completion_overlay"] = {
+                "note": note.strip(), "underlying_state": row.get("state"),
+                "taskgraph_state": (row.get("taskgraph") or {}).get("state"),
+            }
+            row["state"] = "complete"
+            row["progress"] = {
+                "phase": "human_confirmed_complete",
+                "transition_context": (
+                    "Vincent confirmed the existing implementation is complete. "
+                    "Formal TaskGraph gate evidence has not been inferred. " + note.strip()
+                ),
             }
 
     def _taskgraph_states(self, head: str, contracts: list[dict] | None = None) -> dict[str, dict]:
