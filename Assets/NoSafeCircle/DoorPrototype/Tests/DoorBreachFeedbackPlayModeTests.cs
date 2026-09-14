@@ -249,10 +249,23 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
         private static IEnumerator CrossOpenDoor(DoorInteractable target, PlayerInteractionController player)
         {
-            Transform crossing = target.transform.Find("ForwardCrossingTrigger");
-            Assert.IsNotNull(crossing);
+            Transform crossing = null;
+            int triggerCount = 0;
+            foreach (Transform child in target.transform)
+            {
+                if (child.name != "ForwardCrossingTrigger") continue;
+                crossing = child;
+                triggerCount++;
+            }
+            Assert.AreEqual(1, triggerCount,
+                "The loaded door must have exactly one live forward-crossing trigger.");
             BoxCollider trigger = crossing.GetComponent<BoxCollider>();
             Assert.IsNotNull(trigger);
+            Assert.IsTrue(trigger.isTrigger);
+            bool hasRelay = false;
+            foreach (MonoBehaviour component in crossing.GetComponents<MonoBehaviour>())
+                hasRelay |= component != null && component.GetType().Name == "ForwardCrossingRelay";
+            Assert.IsTrue(hasRelay, "The runtime trigger needs its door-owned relay component.");
             CharacterController controller = player.GetComponent<CharacterController>();
             Assert.IsNotNull(controller);
             // Start just outside the actual trigger, in the already-open
@@ -266,9 +279,17 @@ namespace NoSafeCircle.DoorPrototype.Tests
             yield return new WaitForFixedUpdate();
             controller.Move(crossing.position - player.transform.position);
             Physics.SyncTransforms();
-            yield return new WaitForFixedUpdate();
+            // OnTriggerEnter is dispatched during physics simulation, after
+            // FixedUpdate callbacks; wait through a bounded complete frame.
+            for (int frame = 0; frame < 3 && !target.HasCrossedForward; frame++)
+            {
+                yield return new WaitForFixedUpdate();
+                yield return null;
+            }
             Assert.IsTrue(trigger.bounds.Intersects(controller.bounds),
                 "The scene Player collider must physically overlap the runtime crossing trigger.");
+            Assert.IsTrue(target.HasCrossedForward,
+                "Player overlaps the trigger but its relay did not report forward crossing.");
         }
 
         private static int CountCracks(Transform shakeTarget)
