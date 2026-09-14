@@ -22,8 +22,8 @@ task held while the reviewed decomposition plan is prepared and applied.
 
 ## Viewer marker procedure
 
-Run these commands from the source checkout that serves the live viewer,
-`C:\NSC\viewer-held-live`, against the **live** checkout root below. Do not
+Run these commands from the canonical source checkout that serves the live viewer,
+`C:\NSC\NSC\NoSafeCircle`, against the **live** checkout root below. Do not
 write a separate viewer-only control root; it will show zero live workers.
 The agent updates the journal hold as described in this runbook; the JSON marker
 does not enforce dispatch exclusion.
