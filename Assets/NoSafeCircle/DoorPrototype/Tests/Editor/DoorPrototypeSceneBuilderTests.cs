@@ -365,6 +365,11 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                 serializedFeedback.FindProperty("durabilityIndicator").objectReferenceValue);
             Assert.AreSame(shakeTarget,
                 serializedFeedback.FindProperty("shakeTarget").objectReferenceValue);
+            var wiredCracks = serializedFeedback.FindProperty("crackStages");
+            Assert.AreEqual(3, wiredCracks.arraySize);
+            for (int stage = 1; stage <= 3; stage++)
+                Assert.AreSame(shakeTarget.Find("CrackStage" + stage).gameObject,
+                    wiredCracks.GetArrayElementAtIndex(stage - 1).objectReferenceValue);
         }
 
         [Test]
@@ -392,6 +397,12 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                     Assert.AreSame(shakeTarget, serialized.FindProperty("shakeTarget").objectReferenceValue);
                     Assert.AreSame(indicator.gameObject,
                         serialized.FindProperty("durabilityIndicator").objectReferenceValue);
+                    var wiredCracks = serialized.FindProperty("crackStages");
+                    Assert.AreEqual(3, wiredCracks.arraySize, door.DoorId.ToString());
+                    for (int stage = 1; stage <= 3; stage++)
+                        Assert.AreSame(shakeTarget.Find("CrackStage" + stage).gameObject,
+                            wiredCracks.GetArrayElementAtIndex(stage - 1).objectReferenceValue,
+                            door.DoorId.ToString());
                     checkedDoors++;
                 }
             }
