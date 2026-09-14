@@ -253,6 +253,18 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.That(path.status, Is.EqualTo(NavMeshPathStatus.PathComplete));
             Assert.That(Vector3.Distance(sideDestination, wizard.transform.position),
                 Is.GreaterThan(Vector3.Distance(enemy.transform.position, wizard.transform.position)));
+            var initialSeparation = Vector3.Distance(enemy.transform.position, wizard.transform.position);
+            var sideDeadline = Time.time + 3f;
+            while (Time.time < sideDeadline &&
+                   Vector3.Distance(enemy.transform.position, wizard.transform.position) < initialSeparation + 0.3f)
+            {
+                yield return null;
+                Assert.IsTrue(agent.isOnNavMesh);
+                Assert.That(Vector3.Distance(agent.destination, sideDestination), Is.LessThan(0.2f),
+                    "Side destination must stay fixed while the agent begins moving.");
+            }
+            Assert.That(Vector3.Distance(enemy.transform.position, wizard.transform.position),
+                Is.GreaterThan(initialSeparation + 0.3f), "The enemy must actually increase separation.");
             for (var i = 0; i < 5; i++)
             {
                 yield return null;
