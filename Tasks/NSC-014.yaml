@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-014",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "contract_disposition": "active",
   "title": "Enemy Detection, Pursuit, and Search/Reacquisition Foundation",
   "reconciliation_key": "enemy-pursuit-search-foundation",
@@ -67,17 +67,18 @@
       "gate_id": "VAL-001"
     },
     {
-      "reference": "Dungeon Floor Structure (Bone Archive)",
-      "requirement": "Bone Archive lane-pathing validation confirming enemy movement/navigation fits the room's described narrow-lane geometry.",
-      "gate_id": "VAL-002"
-    },
-    {
       "reference": "Door and Pursuit Rules",
       "requirement": "Verify a tracking/pursuing or searching enemy follows the player or last-known position through an open/broken doorway without spuriously clearing its target solely due to the crossing.",
       "gate_id": "VAL-003"
     }
   ],
-  "downstream_integration_obligations": [],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "NSC-071 Bone Archive Navigation Lane Validation; former NSC-014 VAL-002",
+      "requirement": "After NSC-014's enemy pursuit/search movement and NSC-025's shared navigation configuration are delivered, NSC-071 validates that an enemy using those systems can path through the committed Bone Archive lanes, including the BA-1 2.5-unit pinch. A synthetic corridor does not prove this room-specific behavior."
+    }
+  ],
   "gdd_evidence": [
     {
       "reference": "Enemy Detection, Pursuit, and Target Loss",
@@ -99,7 +100,7 @@
   "basis": "direct_gdd",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "This item is the shared base that melee-enemy and ranged-enemy consume for their core movement/targeting loop; it does not itself include archetype-specific attack behavior, which stays on the archetype items. It does not own Frost Field slowdown application/restoration or forced-displacement handling (owned by enemy-status-effect-displacement in the enemy_state domain), but per GDD text that consumer depends on this item's pursuit/search state contract, not the reverse — no dependency edge is added here in that direction.",
+  "notes": "This item is the shared base that melee-enemy and ranged-enemy consume for their core movement/targeting loop; it does not itself include archetype-specific attack behavior, which stays on the archetype items. It does not own Frost Field slowdown application/restoration or forced-displacement handling (owned by enemy-status-effect-displacement in the enemy_state domain), but per GDD text that consumer depends on this item's pursuit/search state contract, not the reverse — no dependency edge is added here in that direction. Former VAL-002 is an NSC-071 real-room integration proof; VAL-001 and VAL-003 remain local completion gates.",
   "repository_state_at_bootstrap": "missing",
   "repository_evidence_at_bootstrap": [],
   "provenance": {
@@ -108,6 +109,14 @@
     "reconciliation_run_id": "20260821T193541Z-998ee7b5",
     "verification_run_id": "20260821T195959Z-43dba5de",
     "bootstrap_status_observation": "open",
-    "migration_id": "task-contract-schema-v2-20260822-r2"
+    "migration_id": "task-contract-schema-v2-20260822-r2",
+    "contract_transfers": [
+      {
+        "from_gate_id": "VAL-002",
+        "to_task_id": "NSC-071",
+        "to_gate_id": "VAL-001",
+        "reason": "Bone Archive enemy lane-pathing proof requires committed room geometry and delivered navigation configuration."
+      }
+    ]
   }
 }
