@@ -41,6 +41,12 @@ dependencies, exclusive resources, the foreground agenda and provider-spend
 limits. Record the selected task IDs, capacity, target branch, review needs,
 provider settings and any other scope that matters to the current work. Do not
 reuse an old example task list or infer readiness from viewer colors.
+For a live port 8828 graph view, use the Source and checkout root shared with
+the active workers. Follow the viewer command and held-task overlay notes in
+[AssistantControl's viewer guide](../../Pipeline/AssistantControl/README.md);
+an isolated viewer copy can display the
+contracts and GER holds while showing zero live workers. Check the worker
+record in the live checkout root before treating that count as a task stall.
 Prefer retained unfinished candidates before fresh work. In general, establish
 an object's visual identity before scheduling detailed work on its speed,
 health, or behavior. Prefer its visual task first when both are available; this

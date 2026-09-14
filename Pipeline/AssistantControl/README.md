@@ -88,6 +88,32 @@ The viewer has been HTTP-tested and its conversation-control idle state checked
 in a browser. It does not replace or stop an
 already running viewer.
 
+For the current graph team, serve port 8828 from the canonical Source and the
+**same checkout root used by the live workers**:
+
+```powershell
+python -m Pipeline.AssistantControl --source C:\NSC\NSC\NoSafeCircle --checkout-root C:\NSC\NoSafeCircle-AssistantCheckouts viewer --port 8828
+```
+
+The viewer reads worker, checkout and candidate records from that root's
+`.assistant-control` directory. A copied or isolated read-only viewer root can
+show every task contract while reporting zero workers; refreshing the browser
+does not make that copy follow live work. Confirm the page's Project Checkout
+path and compare a suspect task with `worker-status` against the live root
+before concluding that Graph Sol has stopped.
+
+Viewer builds with the held-task overlay read
+`<checkout-root>/.assistant-control/held-task-ids.json`, for example:
+
+```json
+{"schema_version":"assistant-viewer-held-tasks/v1","task_ids":["NSC-044"]}
+```
+
+Those IDs display as **Outside Current Run** without changing task contracts
+or worker records. The file is a display annotation, not an execution hold;
+Graph Sol must still exclude held tasks during selection as described in the
+[graph team startup guide](../../Docs/AI-Pipeline/GRAPH_TEAM_STARTUP.md).
+
 `review` records Vincent's explicit approve/reject message and exact tested
 commit; a changed or dirty candidate cannot reuse that approval. `integrate`
 requires an approved registered candidate, the expected Source commit, and the
