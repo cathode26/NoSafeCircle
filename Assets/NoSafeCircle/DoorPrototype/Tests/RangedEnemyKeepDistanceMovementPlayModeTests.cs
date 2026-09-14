@@ -236,6 +236,9 @@ namespace NoSafeCircle.DoorPrototype.Tests
         [UnityTest]
         public IEnumerator BlockedDirectRetreat_UsesStableCompleteSidePath()
         {
+            // Keep the full 2 m lateral route inside the close boundary, so a
+            // legitimate close-to-band Hold cannot masquerade as destination churn.
+            keepDistance.ConfigureDistances(3f, 4f);
             wizard.transform.position = enemy.transform.position + Vector3.right * 0.6f;
             Assert.IsTrue(agent.isOnNavMesh);
             Assert.IsTrue(NavMesh.Raycast(enemy.transform.position,
@@ -254,6 +257,8 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.That(Vector3.Distance(sideDestination, wizard.transform.position),
                 Is.GreaterThan(Vector3.Distance(enemy.transform.position, wizard.transform.position)));
             var initialSeparation = Vector3.Distance(enemy.transform.position, wizard.transform.position);
+            Assert.That(initialSeparation, Is.LessThan(2.5f),
+                "The path-stability window must start safely inside the close boundary.");
             var sideDeadline = Time.time + 3f;
             while (Time.time < sideDeadline &&
                    Vector3.Distance(enemy.transform.position, wizard.transform.position) < initialSeparation + 0.3f)
