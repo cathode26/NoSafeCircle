@@ -188,7 +188,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
             Assert.IsTrue(crossed,
                 "Expected the searching enemy to actually cross to the forward side of the open doorway " +
-                "while heading toward its recorded last known position.");
+                "while heading toward its recorded last known position. " + AgentDiagnostics());
             Assert.That(targetKnowledge.HasTarget, Is.True,
                 "Expected the enemy's target/search state to survive the doorway crossing.");
         }
@@ -206,6 +206,11 @@ namespace NoSafeCircle.DoorPrototype.Tests
             {
                 yield return new WaitForFixedUpdate();
             }
+
+            var path = new NavMeshPath();
+            Assert.IsTrue(agent.CalculatePath(forwardTarget, path) &&
+                          path.status == NavMeshPathStatus.PathComplete,
+                "Expected a complete doorway path after publishing " + state + ". " + AgentDiagnostics());
         }
 
         private IEnumerator WaitUntilCrossedOrTimeout()
@@ -219,12 +224,25 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 if (elapsed >= 10f)
                 {
                     Assert.Fail("Expected the pursuing enemy to actually cross to the forward side of the " +
-                        "doorway.");
+                        "doorway. " + AgentDiagnostics());
                 }
 
                 yield return null;
                 elapsed += Time.deltaTime;
             }
+        }
+
+        private string AgentDiagnostics()
+        {
+            return "position=" + enemyObject.transform.position +
+                   ", destination=" + agent.destination +
+                   ", velocity=" + agent.velocity +
+                   ", pathStatus=" + agent.pathStatus +
+                   ", remainingDistance=" + agent.remainingDistance +
+                   ", pathPending=" + agent.pathPending +
+                   ", isOnNavMesh=" + agent.isOnNavMesh +
+                   ", isStopped=" + agent.isStopped +
+                   ", targetState=" + targetKnowledge.State;
         }
 
         private void BuildFloor()

@@ -121,6 +121,10 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.That(Vector3.Distance(agent.destination, lastKnownPosition), Is.LessThan(0.6f),
                 "Expected the NavMeshAgent destination to be set to the recorded last known position.");
 
+            // Keep the recorded position fixed while the wizard leaves the search area.
+            // Otherwise the enemy correctly reacquires the wizard before reaching it.
+            wizardTransform.position = new Vector3(100f, 0f, 0f);
+
             yield return WaitUntilOrTimeout(
                 () => targetKnowledge.State == EnemyTargetKnowledgeState.Wandering,
                 8f,
@@ -267,6 +271,10 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
             wizardTransform.position = WizardFarPoint;
             pursuitMovement.Tick(0f);
+
+            // The wizard must leave the last-known location so search can reach arrival
+            // without the target-knowledge owner correctly reacquiring it first.
+            wizardTransform.position = new Vector3(100f, 0f, 0f);
 
             yield return WaitUntilOrTimeout(
                 () => targetKnowledge.State == EnemyTargetKnowledgeState.Wandering,
