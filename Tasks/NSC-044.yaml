@@ -2,50 +2,99 @@
   "acceptance_criteria": [
     {
       "criterion_id": "AC-001",
-      "reference": "GDD — Approved Five-Room Spatial Layout Blockout §5",
-      "requirement": "Author the Ruined Entry shell at X [-10,+10], Z [-18,0], its 3.0-unit D1 opening centered at (0,0), and the approved touching Rubble A and Rubble B gameplay footprints."
+      "reference": "GDD — Approved Five-Room Spatial Layout Blockout §§3, 5, and 13; NSC-069 AC-006; Vincent room-size and player-start decisions, 2026-09-14",
+      "requirement": "Implement the reviewed Ruined Entry geometry PROPOSAL in Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/RuinedEntryLayout.cs: rectangular bounds X [-14,+14], Z [-26,0] (28 by 26 world units, within the 60 by 54 maximum); a 3.0-unit D1 opening centered at (0,0); public static Vector3 PlayerStart => new Vector3(-4f, 0f, -22f) as a gameplay-ground point; Rubble A at X [+2,+8], Z [-17,-10]; touching Rubble B at X [+6,+10], Z [-10,-6]; and a D1 staging rectangle at X [-2.5,+2.5], Z [-5.25,-0.25]. Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/RuinedEntrySceneBuilder.cs must materialize matching geometry, D1, D1StagingArea, and a plain PlayerStart GameObject under Authoring in Assets/Scenes/Rooms/RuinedEntry.unity; the PlayerStart marker must have no Player-named MonoBehaviour. In Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneCatalog.cs, edit only Ruined Entry's RoomBounds literal in CreateCanonicalRooms and leave CreateCanonicalDoors unchanged. Running No Safe Circle/World/Build Room Scene Catalog regenerates the complete Assets/NoSafeCircle/DoorPrototype/Generated/World/RoomSceneCatalog.asset, so the other four room entries and all five door entries must retain their pre-edit values and order."
     },
     {
       "criterion_id": "AC-002",
-      "reference": "GDD — Approved Five-Room Spatial Layout Blockout §5",
-      "requirement": "Preserve the approved Ruined Entry tactical topology: a broad west circling route, traversable east route, no rubble-created dead end, access to D1 from both sides, and the mostly open 5-by-5 staging area south of D1."
+      "reference": "GDD — Dungeon Floor Structure and Approved Five-Room Spatial Layout Blockout §§2, 5, and 13",
+      "requirement": "Preserve the Ruined Entry melee-teaching topology on gameplay-collider-face measurements. The 0.5-unit perimeter wall colliders produce inner faces X [-13.75,+13.75], Z [-25.75,-0.25]. Keep at least 15.75 units between the west inner face and Rubble A through the broad teaching field; at least 3.75 units between Rubble B and the east inner face and 5.75 units beside Rubble A; and at least 2.5 units at every intended hard-geometry passage. Keep the four unobstructed loop segments (0,-20) to (11.75,-20) to (11.75,-4) to (0,-4) to (0,-20), the unobstructed west-field segment (-8,-20) to (-8,-4), and the unobstructed south-to-D1 segment (0,-20) to (0,-2.75). D1 must remain reachable from both the west field and the GER-proposed alternate east return, with no rubble-created dead-end pocket. PlayerStart is an arrival point rather than a declared safe zone. Do not add enemy placement, ranged-projectile cover claims, encounter tuning, spell tuning or behavior, door behavior, or target-loss behavior; the authored Ruined Entry encounter remains melee-only."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "GDD — Environment Presentation and Authoring Direction; Docs/Art/Environment/DUNGEON_ART_DIRECTION.md; Docs/Engineering/WALL_TILING_IMPLEMENTATION_GUIDE.md",
+      "requirement": "Update Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/RuinedEntrySceneBuilder.cs so Visuals contains one identity-transform IsometricZAsY Grid with FloorTilemap plus four visual-only wall Tilemaps. FloorTilemap uses rotation Euler(-90,0,0), the existing FloorTile.asset, sorting layer Default, sorting order -100, and paints exactly those cells whose world-space centers lie inside the perimeter-wall inner faces. NorthFullWallTilemap and SouthLowWallTilemap run along X with identity rotation; WestFullWallTilemap and EastLowWallTilemap run along Z with rotation Euler(0,90,0). Their bottom-pivot wall sprites are placed on the corresponding wall centerlines with an inward 0.151-unit visual offset: north toward negative Z, south toward positive Z, west toward positive X, and east toward negative X. North and west use the existing 2.5-unit-high WallTile.asset; south and east use the new room-owned Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/RuinedEntryLowWallTile.asset and Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/RuinedEntryLowWallTile.asset.meta. Implement public static Tile LoadOrCreateRuinedEntryLowWallTile(string assetFolder) to create or refresh a 64 by 32 pixel, 64-PPU, bottom-center-pivoted 0.5-unit-high Tile whose 32-pixel masonry repeat period divides its width and whose persisted pixel content is compared before reuse. Implement public static void PaintStraightWallRun(Tilemap wallTilemap, TileBase wallTile, int centerCell, int cellCount) as the only repeated-cell loop used by all four walls. Every wall renderer uses TilemapRenderer.Mode.Individual, sorting layer Default, sorting order 0, and no TilemapCollider. No north-wall cell sprite may overlap the D1 clear interval X [-1.5,+1.5] at Z=0. Remove the primitive-cube wall visuals and remove or disable FloorVisual's MeshRenderer once FloorTilemap exists. Keep separate 0.5-unit-thick, 2.5-unit-high gameplay BoxColliders under GameplayGeometry. Each wall run's painted sprite extent along the run matches its gameplay BoxCollider extent within 0.5 world units (half of the GDD's 1.0-unit isometric cell width); the north runs stop within that tolerance of X = -1.5 and X = +1.5 without overlapping the D1 clear interval; full-height north and west runs end at the north-east and south-west corners where the low east and south runs begin; no corner, end-cap or frame tile is added, and the corner read is judged in VAL-004."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "Docs/Art/Environment/DUNGEON_ART_DIRECTION.md; supplied R01-R17 mood/composition references; NSC-079",
+      "requirement": "Deliver a camera-readable blockout for the PROPOSED 'Broken Threshold Teaching Loop' composition without claiming finished dressing. Keep RubbleAVisual and RubbleBVisual as visibly separate, collider-free primitive MeshRenderer placeholder cubes matching the two gameplay footprints; they are temporary blockout silhouettes, and their wizard ordering must be judged in VAL-004. Add the following named ground-plane dressing envelopes to Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/RuinedEntryLayout.cs: D1LandmarkWestDressingBounds X [-4.5,-1.5], Z [-0.25,+0.25]; D1LandmarkEastDressingBounds X [+1.5,+4.5], Z [-0.25,+0.25]; NorthWestClusterDressingBounds X [-13.5,-9.5], Z [-3,-0.5]; and WestWallClusterDressingBounds X [-13.5,-11], Z [-17,-12]. These Bounds are downstream placement envelopes, not permission to obstruct D1, PlayerStart, the staging area, sight-line segments, loop segments, or minimum route widths. This task must not create the finished broken-masonry landmark, decorated supporting clusters, NSC-078 prop catalog, NSC-079 dressing prefab/catalog, production prop art, decorative lights, live doors, Player, camera, enemies, or encounter content."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "NSC-069 room-scene ownership; Docs/Engineering/UNITY_TESTING_POLICY.md; Docs/AI-Pipeline/GAME_TASK_LESSONS_LEARNED.md",
+      "requirement": "Keep Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/RuinedEntrySceneBuilder.cs as the deterministic source for Assets/Scenes/Rooms/RuinedEntry.unity and the new RuinedEntryLowWallTile.asset, and retain BuildInMemoryForTests as the non-saving focused-test seam. The materialization commands are No Safe Circle/Rooms/Build Ruined Entry and No Safe Circle/World/Build Room Scene Catalog. Preserve deterministic Unity .meta identities, including Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/RuinedEntryLowWallTile.asset.meta, and never hand-edit, reconstruct, or emit the generated scene, Tile payload, texture payload, or catalog YAML. BuildInMemoryForTests loads the persisted RuinedEntryLowWallTile.asset read-only when it exists, uses a HideAndDontSave in-memory Tile with the same generated pixels when it does not, and never creates, refreshes, marks dirty or saves that asset or any other persistent asset."
     }
   ],
   "basis": "direct_gdd",
   "completion_gates": [
     {
       "gate_id": "VAL-001",
-      "reference": "GDD — Approved Five-Room Spatial Layout Blockout §§5 and 11",
-      "requirement": "Committed-artifact conformance validation verifies the room bounds, rubble footprints, minimum route clearances, two-sided D1 access, and pre-door staging area in both the visible blockout and separate gameplay geometry."
+      "reference": "AC-001 and AC-002; GDD — Approved Five-Room Spatial Layout Blockout §§5, 11, and 12",
+      "requirement": "Tests in Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/RuinedEntrySceneTests.cs run the same geometry assertions against both BuildInMemoryForTests and the deliberately opened, unsaved Assets/Scenes/Rooms/RuinedEntry.unity. They inspect actual GameplayGeometry BoxCollider bounds, excluding FloorCollision, and verify room bounds, D1 center/opening, PlayerStart marker and RuinedEntryLayout.PlayerStart, touching rubble footprints, 0.5-unit wall thickness, 2.5-unit wall height, D1 staging, both unobstructed sight-line segments, and the stated collider-face clearances. A deterministic topology helper in the same file samples the XZ plane on a 0.25-unit grid, limits player-center cells to the wall inner faces inset by 1.25 units, treats rubble footprints dilated by 1.25 units as occupied, and uses 4-connected flood fill. It proves the four named loop segments are free; proves the D1 staging region is reachable from PlayerStart with EastRouteBlocker X [8,13.75], Z [-12,-11.5] occupied and again with WestRouteBlocker X [-13.75,2], Z [-12,-11.5] occupied; and proves the rubble creates no dead-end pocket: every reachable free cell inside the combined rubble rectangle X [+2,+10], Z [-17,-6] dilated by 1.25 units (X [+0.75,+11.25], Z [-18.25,-4.75]) must have at least two of its four axis-aligned rays (+X, -X, +Z, -Z) leave that dilated rectangle without entering an occupied cell; a free cell with fewer than two such exits is a rubble-created pocket and fails the test. The committed-scene test also loads RoomSceneCatalog.asset and verifies that it contains exactly five rooms in the fixed RuinedEntry, BoneArchive, ChapelOfAsh, LowerVault, FinalRoom order and exactly five doors D1-D5 with D5 as the only final door, that its Ruined Entry entry has bounds X [-14,+14], Z [-26,0], and that D1 is centered at (0,0) with a 3.0-unit opening. This permanent test must not hard-code the bounds of the other four rooms or the centers of D2-D5, because NSC-045 through NSC-048 may revise those entries under NSC-069 AC-006. The focused validation filter also runs the existing read-only NoSafeCircle.DoorPrototype.Tests.Editor.World.CommittedRoomSourceSceneConformanceTests fixture. Constant-only or synthetic-scene assertions do not satisfy the committed-artifact part of this gate."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "AC-003; Docs/Engineering/WALL_TILING_IMPLEMENTATION_GUIDE.md",
+      "requirement": "Focused Edit Mode tests call RuinedEntrySceneBuilder.PaintStraightWallRun directly for representative 3-, 10-, and 100-cell runs and verify no missing cells and the same TileBase reference in every occupied cell. Tests create the room-owned low-wall asset in a temporary asset folder and prove its 32-pixel repeat period divides its 64-pixel width, its sprite is 0.5 world units high with a bottom-center pivot, same-size changed pixels replace stale persisted content, and same-size identical pixels may reuse the correct content. A separate committed-scene test opens RuinedEntry.unity without saving and verifies the actual FloorTilemap, NorthFullWallTilemap, WestFullWallTilemap, SouthLowWallTilemap and EastLowWallTilemap rotations, inward offsets, cell coverage, tile references, TilemapRenderer.Mode.Individual, sorting layer Default, floor order -100, wall order 0, full-height versus low-wall sprite heights, D1 cell gap, absence of TilemapColliders, removal or disabling of FloorVisual's MeshRenderer, removal of primitive wall MeshRenderers, and alignment within 0.5 world units with separate gameplay BoxColliders. The existing NSC-042 stale WallTile regression may run in the same controller session only as an explicitly reported regression-only invariant; it is not evidence for this NSC-044 gate."
+    },
+    {
+      "gate_id": "VAL-003",
+      "reference": "AC-005; Unity generated-output and non-mutation validation",
+      "requirement": "The Windows Unity controller first runs both named production builders, verifies that RuinedEntry.unity, RuinedEntryLowWallTile.asset and RoomSceneCatalog.asset were materialized from the changed source, and commits that materialized candidate through the authorized task workflow. Before that first build, the controller records every room and door entry of RoomSceneCatalog.asset at the candidate's parent commit; after materialization it reports that only the Ruined Entry RoomBounds entry changed and that the other four room entries and all five door entries, including order and the final-door flag, are unchanged. On the exact clean candidate commit, it records HEAD/tree, Unity version, test filter, external XML/log paths and clean tracked/untracked state; runs the focused Edit Mode tests including RuinedEntrySceneTests and CommittedRoomSourceSceneConformanceTests; parses and reports total, passed, failed and skipped counts; and requires the same clean HEAD/tree and tracked/untracked state afterward. Separately, in a disposable validation copy of that exact candidate, it runs both builders again and compares semantic inventories before and after: hierarchy, component values, FloorTilemap and wall-Tilemap cells and Tile references, collider bounds, marker values, catalog values, object counts and deterministic .meta identities. The second build must create no duplicate roots, Tilemaps, markers, colliders, sub-assets or catalog entries. Raw Unity YAML hashes or local object IDs are not the equivalence oracle."
+    },
+    {
+      "gate_id": "VAL-004",
+      "reference": "Developer gameplay-camera visual review; Docs/Art/Environment/DUNGEON_ART_DIRECTION.md",
+      "requirement": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/RuinedEntrySceneTests.cs provides an [Explicit] Edit Mode capture named CaptureGameplayCameraReview. It opens the committed RuinedEntry.unity additively without saving, creates the temporary camera and wizard stand-in in a separate unsaved Scene opened with EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive), not a preview scene, loads the existing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/standing/south-east.png Sprite without reimporting it, on a SpriteRenderer (sorting layer Default, order 0) whose GameObject uses the same localScale (1, 2, 1) that DoorPrototypeGlobalSceneBuilder.BuildPlayer gives the Player Visual, with the sprite's bottom pivot at Y=0. The temporary orthographic camera uses rotation Euler(30,-45,0), position set to the stand-in position plus (10,10,-10) before each shot is rendered with Camera.Render, because IsometricCameraFollow.LateUpdate does not run inside a synchronous Edit Mode test, orthographic size 8, TransparencySortMode.CustomAxis, normalized axis (0,1,-0.26), and IsometricCameraFollow initialized to the stand-in. It writes four PNGs and one contact sheet only to the absolute external directory supplied by NSC044_CAMERA_REVIEW_OUTPUT, refuses a path inside the repository, and destroys the temporary objects and closes the source scene without saving. Shots follow PlayerStart (-4,-22), west loop (-7,-13), east-lane center (10.875,-11.75), and D1 staging center (0,-2.75). Vincent reviews the exact candidate outputs and confirms readable floor/wall and rubble silhouettes, complete circling and escape routes, open separation reads, unobscured wizard and cursor-target area at south/east cutaways, correct wizard-versus-placeholder-rubble ordering, and a readable D1 aperture/frame in the staging shot; D1 need not be visible from PlayerStart. Automated geometry and capture generation do not substitute for Vincent's visual decision."
     }
   ],
-  "confidence": "high",
+  "confidence": "medium",
   "contract_disposition": "active",
-  "contract_revision": 3,
-  "decomposition_reason": "Ruined Entry has explicit bounds, obstacle footprints, route clearances, and an exit opening, making it a bounded room-authoring unit.",
+  "contract_revision": 4,
+  "decomposition_reason": "The revised work remains one bounded room-authoring unit: one layout file, one room builder, one focused test fixture, one source scene, one room-owned generated low-wall Tile, and the authorized room-specific catalog edit. Deterministic Windows Unity materialization and exact-candidate human camera review are delivery stages rather than separate implementation responsibilities.",
   "decomposition_state": "concrete",
   "depends_on": [
     "NSC-069"
   ],
-  "downstream_integration_obligations": [],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "NSC-049 AC-001 and AC-003; existing Assets/Scenes/DoorPrototype.unity composition",
+      "requirement": "NSC-049 must rerun deterministic composition using the revised RuinedEntry.unity and RoomSceneCatalog bounds X [-14,+14], Z [-26,0], replace the stale baseline Room_RuinedEntry clone already present under World/ComposedRooms in Assets/Scenes/DoorPrototype.unity, and move the existing single Player and PlayerSpawn to RuinedEntryLayout.PlayerStart while applying the CharacterController grounded height owned by the global builder. Until that recomposition lands, the canonical scene intentionally diverges from the revised source room. NSC-049 must absorb the four-unit wall jogs between Ruined Entry X [-14,+14] and Bone Archive X [-10,+10], preserve D1 at (0,0), preserve the continuous floor and D1-D5 order, and retain exactly one visual wall treatment with no duplicate Tilemap cells at the D1 shared boundary. Ruined Entry's standalone source scene keeps its full-height north wall for isolated review, but the composed boundary is simultaneously Ruined Entry's far wall and Bone Archive's near wall; NSC-049 must apply Vincent's unresolved choice of the single winning treatment without editing either immutable room source scene."
+    },
+    {
+      "obligation_id": "INT-002",
+      "reference": "NSC-079 and NSC-078",
+      "requirement": "NSC-079 may use 'Broken Threshold Teaching Loop' as a PROPOSED dressing direction and must consume the D1LandmarkWestDressingBounds, D1LandmarkEastDressingBounds, NorthWestClusterDressingBounds and WestWallClusterDressingBounds recorded by NSC-044. Using only committed NSC-078 catalog assets, it owns the finished broken-masonry D1 landmark, a north-west corner supporting cluster, a west-wall supporting cluster, final SpriteRenderer rubble/web/vegetation/slime/comedy details, floor and material accents, and restrained light rhythm. It must accommodate the revised 28-unit width while preserving PlayerStart, the D1 aperture and staging area, both sight-line segments, all four loop segments, west and east route clearances, rubble gameplay footprints, collision and walkability. NSC-044 does not author or modify NSC-079's prefab, catalog, builder or tests. D1LandmarkWestDressingBounds and D1LandmarkEastDressingBounds lie on the shared D1 wall line and extend 0.25 units into Bone Archive; NSC-079 places landmark props there only after Vincent's shared-boundary wall decision recorded in INT-001 is applied."
+    }
+  ],
   "exclusive_resources": [
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/RuinedEntrySceneBuilder.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/RuinedEntryLayout.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/RuinedEntrySceneTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneCatalog.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/World/RoomSceneCatalog.asset",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/RuinedEntryLowWallTile.asset",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/RuinedEntryLowWallTile.asset.meta",
     "unity-scene:Assets/Scenes/Rooms/RuinedEntry.unity",
     "logical:room-walkability:ruined-entry"
   ],
-  "execution_reason": "One agent can author and validate this room's builder, layout data, focused tests, and Unity authoring scene without writing the canonical scene or another room's files.",
+  "execution_reason": "One room-authoring crew can revise RuinedEntryLayout, RuinedEntrySceneBuilder, RuinedEntrySceneTests, the source scene, the room-owned low-wall Tile and the authorized Ruined Entry catalog literal in one sequenced checkout. The Windows controller materializes and validates the generated scene, Tile and complete catalog, runs the explicit external camera capture, and Vincent reviews the exact candidate. No common composer, global builder, canonical runtime scene, other room, live door, gameplay system or dressing asset is edited.",
   "execution_scope": "single_agent",
   "gdd_evidence": [
     {
-      "reference": "GDD — Approved Five-Room Spatial Layout Blockout §5",
-      "requirement": "Ruined Entry is a mostly open teaching space with explicit shell bounds, an east-of-center L-shaped rubble cluster, a broad west circling route, a traversable east route, and an open staging area before D1."
+      "reference": "GDD — Dungeon Floor Structure; Approved Five-Room Spatial Layout Blockout §§5 and 13",
+      "requirement": "Ruined Entry is a mostly open melee-teaching space with a broad route around an east-side rubble mass, a visible escape route, and enough spatial separation for the player to recognize a Fireball-charging opportunity. Its baseline may grow within 60 by 54 when the reviewed proposal preserves minimum clearances, tactical purpose, continuous-floor order and D1."
+    },
+    {
+      "reference": "GDD — Environment Presentation and Authoring Direction; Docs/Art/Environment/DUNGEON_ART_DIRECTION.md",
+      "requirement": "Room architecture uses isometric Tilemaps while gameplay collision stays separate. The fixed camera follows the wizard; the standalone room uses full north/west walls and low south/east cutaways and is reviewed from several gameplay-camera positions."
     }
   ],
   "id": "NSC-044",
   "kind": "implementation",
-  "notes": "Enemy placement, encounter composition, and tuning are outside this proposed child. Assets/Scenes/Rooms/RuinedEntry.unity is an Editor-time authoring input; NSC-049 composes it into the one canonical runtime scene.",
+  "notes": "The 28 by 26 bounds, PlayerStart, revised rubble footprints, loop and sight-line coordinates, dressing Bounds, 0.5-unit low-wall Tile and 'Broken Threshold Teaching Loop' label are GER PROPOSALS, not earlier canon, until this revision is accepted and committed. The 20 by 18 baseline was not selected because it compresses arrival, circling, separation and D1 preparation into nearly one camera beat. A 24 by 26 alternative retaining the proposed rubble was rejected because its east clearance would be only 1.75 units at Rubble B; the 28 by 26 layout provides 3.75 units there, a 15.75-unit west field and two long unobstructed separation reads. The 60 by 54 maximum was rejected because it would over-dilute the introductory melee lesson before encounter tuning exists. Existing FloorTile.asset, WallTile.asset and the wall guide are repository inputs; the snapshot contains no NSC-042 delivery record, so no NSC-042 dependency edge is added. Ruined Entry remains melee-only and this task claims no Ranged Enemy projectile cover or target-loss behavior. Assets/Scenes/Rooms/RuinedEntry.unity remains an Editor-only authoring input; NSC-049 owns canonical composition, grounded Player/PlayerSpawn placement, live doors, shared boundaries and continuous walkability. The D1 shared-boundary near-wall versus far-wall visual rule remains open for Vincent. NSC-079 owns production visual dressing. Enemy placement, encounter composition, navigation configuration, spell and door behavior, production prop art, lighting, audio, VFX and decorative polish remain out of scope. The room-owned RuinedEntryLowWallTile.asset relies on the Vincent-approved 2026-09-14 art-direction decision that wall tiles may differ per room and each room's blockout task owns its wall Tilemap; NSC-069 AC-006 does not list generated Tile assets, so this contract records that decision as the ownership basis.",
   "parent": "NSC-029",
   "provenance": {
     "graph_delta_plan_id": "GDP-5f799a9d352217a315b42a5ec36178abecd2ff16235c9191797508850edfc9d2",
@@ -59,7 +108,25 @@
       "decision": "deterministic_editor_time_room_scene_composition",
       "proposal_sha256": "bfb012d3ef26ba2987df48364c303a18b8fa4b77a45c99fa06fd4c2a00cad190",
       "source_commit": "eab9bad9325a3e28894a64b6bbde92ee58e75476"
-    }
+    },
+    "task_design_ger": [
+      {
+        "ger_run_id": "20260914-055357-NSC-044",
+        "packet_source_head": "82c96a9d9694de25236f60e577b08a35dc679590",
+        "previous_contract_revision": 3,
+        "round_output_sha256": {
+          "01-codex-generate": "5489577bade277fdeb129df4c3828ace54608bce9353b62f6c2045b765339d6b",
+          "02-claude-evaluate": "eba4921327a747413e53274bf3e3bdbbf3c6c5fbc5550de8e95fdafa690ae1f4",
+          "03-codex-refine": "eb331f817bac98bad5c3b6085ef4b4bbf1eea6bc1dc1474154fe6114580622e5",
+          "04-claude-reaudit": "efee0827d74b329a8615ffdd77b2ae1e679ca427876c69ae646c1a3265bcfeac",
+          "05-owner-patch": "0edf6c74107f779d1b2e37c3522c797a85b749cd636bb0855f1a8bf0e299895e",
+          "06-claude-recheck": "4baeaf8dfe5183b3b03558277a8b54c39219103579e66903de317b9d8015f3ea"
+        },
+        "reaudit_recommendation": "blocked_not_design",
+        "owner_patch_contract_sha256": "075ed778e6e3aac24c3076ab5e27384820577eba9f0130921051bcfc4bb35ad3",
+        "recheck_recommendation": "commit_contract"
+      }
+    ]
   },
   "reconciliation_key": "ruined-entry-blockout",
   "repository_evidence_at_bootstrap": [],

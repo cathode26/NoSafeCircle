@@ -1037,6 +1037,28 @@
       "reconciliation_keys": ["enemy-eight-direction-walk-integration"],
       "resource_key": "logical:enemy-walk-animation-presentation",
       "work_ids": ["NSC-094"]
+    },
+    {
+      "reconciliation_keys": [
+        "ruined-entry-blockout",
+        "independent-room-scene-composition"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneCatalog.cs",
+      "work_ids": [
+        "NSC-044",
+        "NSC-069"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "ruined-entry-blockout",
+        "independent-room-scene-composition"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/World/RoomSceneCatalog.asset",
+      "work_ids": [
+        "NSC-044",
+        "NSC-069"
+      ]
     }
   ],
   "schema_version": "1.0",
