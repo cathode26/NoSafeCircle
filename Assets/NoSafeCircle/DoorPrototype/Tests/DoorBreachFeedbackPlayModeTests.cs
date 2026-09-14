@@ -11,6 +11,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
         private GameObject playerObject;
         private DoorInteractable door;
         private DoorBreachFeedback feedback;
+        private AudioSource bangAudio;
         private Image fill;
         private GameObject[] cracks;
 
@@ -26,9 +27,11 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
             var feedbackObject = new GameObject("Feedback");
             feedback = feedbackObject.AddComponent<DoorBreachFeedback>();
+            bangAudio = feedbackObject.AddComponent<AudioSource>();
+            bangAudio.playOnAwake = false;
             fill = new GameObject("DurabilityFill", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image)).GetComponent<Image>();
             cracks = new[] { new GameObject("Crack1"), new GameObject("Crack2") };
-            feedback.Bind(door, feedbackObject.transform, fill, cracks);
+            feedback.Bind(door, feedbackObject.transform, fill, cracks, bangAudio);
 
             playerObject = new GameObject("Player");
             var controller = playerObject.AddComponent<PlayerInteractionController>();
@@ -44,6 +47,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
         {
             Object.DestroyImmediate(playerObject);
             Object.DestroyImmediate(fill.transform.parent != null ? fill.transform.parent.gameObject : fill.gameObject);
+            foreach (var crack in cracks) Object.DestroyImmediate(crack);
             Object.DestroyImmediate(feedback.gameObject);
             Object.DestroyImmediate(doorObject);
         }
@@ -57,30 +61,34 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.IsTrue(cracks[0].activeSelf);
             Assert.IsFalse(cracks[1].activeSelf);
             Assert.IsTrue(feedback.IsShaking);
+            Assert.IsNotNull(bangAudio.clip, "Accepted damage needs an audible bang clip.");
+            Assert.IsTrue(bangAudio.isPlaying, "Accepted damage must play the bang.");
         }
 
         [Test]
         public void RejectedDamage_LeavesFeedbackUnchanged()
         {
             door.ResetDoor();
-            feedback.ResetFeedback();
             door.TakeDamage(25f);
 
             Assert.AreEqual(1f, fill.fillAmount, 0.001f);
             Assert.IsFalse(cracks[0].activeSelf);
             Assert.IsFalse(feedback.IsShaking);
+            Assert.IsFalse(bangAudio.isPlaying, "Rejected damage must not play a bang.");
         }
 
         [Test]
         public void ResetDoor_ResetFeedbackRestoresIndicatorAndCracks()
         {
             door.TakeDamage(25f);
+            Assert.IsTrue(bangAudio.isPlaying, "Test setup must start the bang before reset.");
             door.ResetDoor();
 
             Assert.AreEqual(1f, fill.fillAmount, 0.001f);
             Assert.IsFalse(cracks[0].activeSelf);
             Assert.IsFalse(cracks[1].activeSelf);
             Assert.IsFalse(feedback.IsShaking);
+            Assert.IsFalse(bangAudio.isPlaying, "Reset must cancel an active bang.");
         }
 
         private static void InvokePrivate(object target, string method, Collider argument)

@@ -1093,6 +1093,10 @@ namespace NoSafeCircle.DoorPrototype.Editor
             var root = new GameObject("DoorBreachFeedback");
             root.transform.SetParent(doorRoot.transform, false);
             var component = root.AddComponent<DoorBreachFeedback>();
+            var bangAudio = root.AddComponent<AudioSource>();
+            bangAudio.playOnAwake = false;
+            bangAudio.spatialBlend = 0.8f;
+            bangAudio.volume = 0.85f;
 
             var canvasObject = new GameObject("DurabilityIndicator", typeof(RectTransform), typeof(Canvas),
                 typeof(CanvasScaler), typeof(GraphicRaycaster));
@@ -1145,7 +1149,7 @@ namespace NoSafeCircle.DoorPrototype.Editor
 
             // AddComponent invokes OnEnable before generated references are assigned, so use the
             // public binding seam to install event subscriptions and initialize the indicator.
-            component.Bind(door, visual.transform, fill, cracks);
+            component.Bind(door, visual.transform, fill, cracks, bangAudio);
         }
 
         // The visible door's silhouette is centered above the ground (at visualLocalHeight), not

@@ -20,6 +20,7 @@ namespace NoSafeCircle.DoorPrototype
 
         private Vector3 originalLocalPosition;
         private float shakeTimeRemaining;
+        private static AudioClip generatedBangClip;
 
         public float DurabilityRatio => durabilityFill == null ? 0f : durabilityFill.fillAmount;
         public bool IsShaking => shakeTimeRemaining > 0f;
@@ -37,6 +38,7 @@ namespace NoSafeCircle.DoorPrototype
             if (door != null) door.Broken += HandleBroken;
             if (door != null) door.ResetCompleted += ResetFeedback;
             RefreshFromDoor();
+            EnsureBangClip();
         }
 
         private void OnDisable()
@@ -45,6 +47,7 @@ namespace NoSafeCircle.DoorPrototype
             if (door != null) door.Broken -= HandleBroken;
             if (door != null) door.ResetCompleted -= ResetFeedback;
             CancelShake();
+            StopBang();
         }
 
         private void Update()
@@ -75,11 +78,13 @@ namespace NoSafeCircle.DoorPrototype
                 door.ResetCompleted += ResetFeedback;
             }
             RefreshFromDoor();
+            EnsureBangClip();
         }
 
         public void ResetFeedback()
         {
             CancelShake();
+            StopBang();
             if (durabilityFill != null) durabilityFill.fillAmount = 1f;
             SetCrackStage(-1);
         }
@@ -88,6 +93,7 @@ namespace NoSafeCircle.DoorPrototype
         {
             RefreshFromDoor();
             shakeTimeRemaining = shakeDuration;
+            EnsureBangClip();
             bangAudio?.Play();
         }
 
@@ -119,6 +125,39 @@ namespace NoSafeCircle.DoorPrototype
         {
             shakeTimeRemaining = 0f;
             if (shakeTarget != null) shakeTarget.localPosition = originalLocalPosition;
+        }
+
+        private void StopBang()
+        {
+            if (bangAudio != null) bangAudio.Stop();
+        }
+
+        // The scene builder saves the AudioSource, while this short synthesized impact exists
+        // only during play. No generated AudioClip asset or third-party sound is needed.
+        private void EnsureBangClip()
+        {
+            if (!Application.isPlaying || bangAudio == null || bangAudio.clip != null) return;
+            if (generatedBangClip == null)
+            {
+                const int sampleRate = 22050;
+                const int sampleCount = sampleRate / 4;
+                var samples = new float[sampleCount];
+                uint noiseState = 0x52c052u;
+                for (var i = 0; i < samples.Length; i++)
+                {
+                    var time = i / (float)sampleRate;
+                    noiseState = unchecked(noiseState * 1664525u + 1013904223u);
+                    var grit = ((noiseState >> 16) & 0x7fffu) / 16384f - 1f;
+                    var thud = Mathf.Sin(2f * Mathf.PI * (90f * time - 35f * time * time));
+                    samples[i] = 0.72f * Mathf.Exp(-22f * time) * (0.8f * thud + 0.2f * grit);
+                }
+
+                generatedBangClip = AudioClip.Create("Door breach bang", sampleCount, 1, sampleRate, false);
+                generatedBangClip.hideFlags = HideFlags.DontSave;
+                generatedBangClip.SetData(samples, 0);
+            }
+
+            bangAudio.clip = generatedBangClip;
         }
     }
 }
