@@ -26,7 +26,6 @@ from Pipeline.TaskReviewAgent.GauntletView import server as gauntlet
 # that shared result long enough that the live stream does not immediately
 # launch another expensive repository scan after the page's initial request.
 STATE_CACHE_SECONDS = 30.0
-HUMAN_REVIEW_ALARM_SECONDS = 30 * 60
 HELD_TASKS_FILENAME = "held-task-ids.json"
 
 
@@ -279,13 +278,6 @@ class AssistantSnapshot:
             "kind": "human_review",
             "task_ids": [item["task_id"] for item in candidates],
             "candidates": candidates,
-            "review_alarm": {
-                "active": any(
-                    item["waiting_seconds"] >= HUMAN_REVIEW_ALARM_SECONDS
-                    for item in candidates
-                ),
-                "after_seconds": HUMAN_REVIEW_ALARM_SECONDS,
-            },
         }
 
     def _controller_owner_active(self, controller: dict) -> bool:

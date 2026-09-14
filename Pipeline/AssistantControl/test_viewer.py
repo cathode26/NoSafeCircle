@@ -418,7 +418,7 @@ class ViewerTests(unittest.TestCase):
         self.assertEqual("automatic_validation", rows["NSC-1104"]["progress"]["phase"])
         self.assertEqual("human_action", rows["NSC-042"]["state"])
 
-    def test_review_alarm_activates_after_thirty_minutes_for_exact_candidate(self):
+    def test_review_queue_preserves_exact_candidate_without_alarm(self):
         root = self.viewer_root()
         records = root / ".assistant-control"
         records.mkdir(parents=True)
@@ -435,10 +435,10 @@ class ViewerTests(unittest.TestCase):
             rows, now_epoch=now_epoch,
         )
 
-        self.assertTrue(attention["review_alarm"]["active"])
+        self.assertNotIn("review_alarm", attention)
         self.assertEqual("a" * 40, attention["candidates"][0]["candidate_commit"])
 
-    def test_review_alarm_disappears_after_approve_or_deny_state(self):
+    def test_review_queue_clears_after_approve_or_deny_state(self):
         root = self.viewer_root()
         records = root / ".assistant-control"
         records.mkdir(parents=True)
@@ -453,7 +453,7 @@ class ViewerTests(unittest.TestCase):
             now_epoch=now_epoch,
         )
 
-        self.assertFalse(attention["review_alarm"]["active"])
+        self.assertNotIn("review_alarm", attention)
         self.assertEqual([], attention["task_ids"])
 
     def test_running_checkout_write_does_not_flash_blocked(self):

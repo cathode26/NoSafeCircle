@@ -3,7 +3,6 @@
 <script src="/vendor/cytoscape.min.js"></script>
 <script src="/vendor/dagre.min.js"></script>
 <script src="/vendor/cytoscape-dagre.min.js"></script>
-<script src="https://www.youtube.com/iframe_api"></script>
 <style>
   :root {
     --bg: #0e1117;
@@ -89,22 +88,6 @@
   .pipeline-timeline li { border-top: 1px solid var(--line); padding: 3px 0; font-size: 11px; }
   .pipeline-timeline time { color: var(--muted); margin-right: 8px; }
   .sub { color: var(--muted); font-size: 11px; margin-bottom: 4px; word-break: break-all; }
-  #review-alarm {
-    position: fixed; inset: 0; z-index: 10000; background: rgba(3, 7, 12, .96);
-    display: grid; place-items: center; padding: 28px;
-  }
-  #review-alarm-card {
-    width: min(920px, 92vw); padding: 28px; text-align: center;
-    border: 2px solid #ff4fb3; border-radius: 16px; background: #0e1117;
-    box-shadow: 0 0 52px rgba(255, 79, 179, .35);
-  }
-  #review-alarm h2 { margin: 0 0 8px; color: #ff4fb3; font-size: 24px; }
-  #review-alarm p { margin: 8px 0 18px; font-size: 17px; }
-  #review-alarm-media { width: min(760px, 84vw); aspect-ratio: 16 / 9; margin: 0 auto; }
-  #review-alarm-media iframe { width: 100%; height: 100%; border: 0; }
-  #review-alarm-video-fallback { margin: 20px auto 0; }
-  #review-alarm-video-fallback p { margin-bottom: 8px; }
-  #review-alarm-video-fallback a { color: var(--accent); font-size: 15px; }
 
   .stat { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; }
   .stat span:last-child { color: var(--muted); font-variant-numeric: tabular-nums; }
@@ -295,18 +278,6 @@
   </div>
   <div id="detail"><div class="empty">Click a node.</div></div>
 </aside>
-
-<section id="review-alarm" hidden aria-live="assertive" aria-label="Overdue human review alarm">
-  <div id="review-alarm-card">
-    <h2>I’m sorry, Vincent. I’m afraid I can’t do that.</h2>
-    <p id="review-alarm-message">Approve or deny the exact candidate to stop the alarm.</p>
-    <div id="review-alarm-media"><div id="review-alarm-player"></div></div>
-    <div id="review-alarm-video-fallback" hidden>
-      <p id="review-alarm-video-error"></p>
-      <a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ" target="_blank" rel="noopener noreferrer">Watch on YouTube</a>
-    </div>
-  </div>
-</section>
 
 <script>
 // Keys are server state values and must not change; labels and order are
@@ -851,7 +822,6 @@ function saveStageExpansion() {
 
 function render(snap, { relayout }) {
   renderRunDetails(snap.run);
-  syncReviewAlarm(snap);
   configureDisplayScope(snap);
   configureStageExpansion(snap);
   renderPipelineActivity(snap.pipeline_activity);
@@ -889,140 +859,6 @@ function render(snap, { relayout }) {
     if (relayout) fitGraph();
   }
   updateLegend(snap);
-}
-
-let reviewAlarmActive = false;
-let reviewAlarmTimer = null;
-let reviewAlarmPlayer = null;
-let reviewAlarmGeneration = 0;
-let youtubeReviewApiReady = false;
-let reviewAlarmPlaybackSucceeded = false;
-let reviewAlarmVideoFailed = false;
-
-window.onYouTubeIframeAPIReady = () => {
-  youtubeReviewApiReady = true;
-  if (reviewAlarmActive && !reviewAlarmPlayer) startReviewAlarmVideo(reviewAlarmGeneration);
-};
-
-function resetReviewAlarmPlayer() {
-  if (reviewAlarmPlayer && typeof reviewAlarmPlayer.destroy === 'function') {
-    reviewAlarmPlayer.destroy();
-  }
-  reviewAlarmPlayer = null;
-  reviewAlarmPlaybackSucceeded = false;
-  reviewAlarmVideoFailed = false;
-  const media = document.getElementById('review-alarm-media');
-  media.hidden = false;
-  media.removeAttribute('data-youtube-error');
-  media.innerHTML = '<div id="review-alarm-player"></div>';
-  const fallback = document.getElementById('review-alarm-video-fallback');
-  fallback.hidden = true;
-  fallback.removeAttribute('data-youtube-error');
-  document.getElementById('review-alarm-video-error').textContent = '';
-}
-
-function speakHalWarning(generation, after) {
-  if (!reviewAlarmActive || generation !== reviewAlarmGeneration) return;
-  let continued = false;
-  const continueOnce = () => {
-    if (continued) return;
-    continued = true;
-    if (reviewAlarmActive && generation === reviewAlarmGeneration && !reviewAlarmVideoFailed) after();
-  };
-  if (window.speechSynthesis) {
-    const warning = new SpeechSynthesisUtterance("I'm sorry, Vincent. I'm afraid I can't do that.");
-    warning.rate = 0.72;
-    warning.pitch = 0.55;
-    warning.volume = 1;
-    const voices = window.speechSynthesis.getVoices();
-    warning.voice = voices.find(voice => /david|mark|male/i.test(voice.name)) || voices[0] || null;
-    warning.onend = continueOnce;
-    warning.onerror = continueOnce;
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(warning);
-  }
-  reviewAlarmTimer = setTimeout(continueOnce, 4200);
-}
-
-function showReviewAlarmVideoError(errorCode, generation) {
-  if (!reviewAlarmActive || generation !== reviewAlarmGeneration) return;
-  const numericCode = Number(errorCode);
-  if (!Number.isInteger(numericCode)) return;
-  if (reviewAlarmTimer) clearTimeout(reviewAlarmTimer);
-  reviewAlarmTimer = null;
-  reviewAlarmPlaybackSucceeded = false;
-  reviewAlarmVideoFailed = true;
-  const media = document.getElementById('review-alarm-media');
-  media.dataset.youtubeError = String(numericCode);
-  media.hidden = true;
-  const fallback = document.getElementById('review-alarm-video-fallback');
-  fallback.dataset.youtubeError = String(numericCode);
-  fallback.hidden = false;
-  document.getElementById('review-alarm-video-error').textContent =
-    `YouTube player error ${numericCode}.`;
-}
-
-function startReviewAlarmVideo(generation) {
-  if (!reviewAlarmActive || generation !== reviewAlarmGeneration || reviewAlarmPlayer ||
-      reviewAlarmVideoFailed) return;
-  if (!youtubeReviewApiReady || !window.YT || !window.YT.Player) {
-    reviewAlarmTimer = setTimeout(() => startReviewAlarmVideo(generation), 500);
-    return;
-  }
-  reviewAlarmPlaybackSucceeded = false;
-  reviewAlarmPlayer = new YT.Player('review-alarm-player', {
-    videoId: 'dQw4w9WgXcQ',
-    playerVars: {
-      autoplay: 1, controls: 0, disablekb: 1, rel: 0,
-      origin: window.location.origin,
-    },
-    events: {
-      onReady: event => event.target.playVideo(),
-      onStateChange: event => {
-        if (event.data === YT.PlayerState.PLAYING) {
-          reviewAlarmPlaybackSucceeded = true;
-          return;
-        }
-        if (event.data !== YT.PlayerState.ENDED || !reviewAlarmPlaybackSucceeded ||
-            reviewAlarmVideoFailed || !reviewAlarmActive ||
-            generation !== reviewAlarmGeneration) return;
-        reviewAlarmPlaybackSucceeded = false;
-        speakHalWarning(generation, () => {
-          if (reviewAlarmPlayer) {
-            reviewAlarmPlayer.seekTo(0, true);
-            reviewAlarmPlayer.playVideo();
-          }
-        });
-      },
-      onError: event => showReviewAlarmVideoError(event.data, generation),
-    },
-  });
-}
-
-function syncReviewAlarm(snap) {
-  const attention = snap && snap.assistant_attention;
-  const alarm = attention && attention.review_alarm;
-  const active = !!(alarm && alarm.active);
-  const panel = document.getElementById('review-alarm');
-  if (!active) {
-    if (reviewAlarmTimer) clearTimeout(reviewAlarmTimer);
-    reviewAlarmTimer = null;
-    if (reviewAlarmActive && window.speechSynthesis) window.speechSynthesis.cancel();
-    reviewAlarmActive = false;
-    reviewAlarmGeneration += 1;
-    panel.hidden = true;
-    resetReviewAlarmPlayer();
-    return;
-  }
-  panel.hidden = false;
-  const tasks = Array.isArray(attention.task_ids) ? attention.task_ids.join(', ') : 'this task';
-  document.getElementById('review-alarm-message').textContent =
-    `${tasks} has waited more than 30 minutes. Approve or deny its exact candidate to stop the alarm.`;
-  if (reviewAlarmActive) return;
-  reviewAlarmActive = true;
-  reviewAlarmGeneration += 1;
-  const generation = reviewAlarmGeneration;
-  speakHalWarning(generation, () => startReviewAlarmVideo(generation));
 }
 
 function pulse(node) {
