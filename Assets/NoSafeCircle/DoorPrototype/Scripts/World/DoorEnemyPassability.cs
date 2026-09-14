@@ -18,8 +18,8 @@ namespace NoSafeCircle.DoorPrototype.World
     // NSC-090 AC-002: the navigation-owned door-passability component. Owns a single NavMesh
     // obstacle sized to the doorway opening and carves a hole across it in the walkable NavMesh
     // that GameplayNavigationSurface (NSC-089) already baked. Sealed/locked enable carving so no
-    // enemy path can cross the doorway; open/broken disable carving so the doorway remains part
-    // of the already-baked walkable floor. SetDoorState is the only entry point that may change
+    // enemy path can cross the doorway; open/broken disable the obstacle entirely so both pathing
+    // and local avoidance permit travel on the already-baked floor. SetDoorState alone changes
     // the owned NavMeshObstacle - DoorInteractable, enemy pursuit code, and every other caller
     // must go through it instead of touching the obstacle directly.
     [DisallowMultipleComponent]
@@ -51,7 +51,12 @@ namespace NoSafeCircle.DoorPrototype.World
         {
             EnsureObstacle();
             CurrentState = state;
-            obstacle.carving = IsBlocking(state);
+            var blocking = IsBlocking(state);
+            obstacle.carving = blocking;
+            // A non-carving NavMeshObstacle still participates in local avoidance.
+            // Disable it for open/broken doors so agents can physically traverse the
+            // narrow opening, then re-enable it when the door seals or locks.
+            obstacle.enabled = blocking;
         }
 
         private static bool IsBlocking(DoorPassabilityState state)
