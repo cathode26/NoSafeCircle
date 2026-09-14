@@ -944,6 +944,87 @@
         "NSC-039",
         "NSC-042"
       ]
+    },
+    {
+      "reconciliation_keys": [
+        "navmesh-agent-configuration-foundation"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/World/GameplayNavigationSurface.cs",
+      "work_ids": [
+        "NSC-089"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "navmesh-agent-configuration-foundation"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/NavMeshAgentConfigurationTests.cs",
+      "work_ids": [
+        "NSC-089"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "door-enemy-passability-interface"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/World/DoorEnemyPassability.cs",
+      "work_ids": [
+        "NSC-090"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "door-enemy-passability-interface"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/DoorEnemyPassabilityPlayModeTests.cs",
+      "work_ids": [
+        "NSC-090"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "enemy-target-knowledge-state"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyTargetKnowledge.cs",
+      "work_ids": [
+        "NSC-091"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "enemy-target-knowledge-state"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/EnemyTargetKnowledgePlayModeTests.cs",
+      "work_ids": [
+        "NSC-091"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "enemy-pursuit-navmesh-movement"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyPursuitMovement.cs",
+      "work_ids": [
+        "NSC-092"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "enemy-pursuit-navmesh-movement"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/EnemyPursuitPlayModeTests.cs",
+      "work_ids": [
+        "NSC-092"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "enemy-pursuit-navmesh-movement"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/EnemyPursuitDoorCrossingPlayModeTests.cs",
+      "work_ids": [
+        "NSC-092"
+      ]
     }
   ],
   "schema_version": "1.0",

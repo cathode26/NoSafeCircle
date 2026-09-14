@@ -21,7 +21,7 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "decomposition_reason": "This child owns the approved Unity AI Navigation package connection, the persistent scene-level NavMeshSurface, deterministic baking from gameplay collision, and the agent configuration used by enemy movement. A runtime wrapper keeps package-dependent code inside the authorized runtime assembly while the existing Editor builder creates and invokes that component.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -37,6 +37,8 @@
   "exclusive_resources": [
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/NoSafeCircle.DoorPrototype.asmdef",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/World/GameplayNavigationSurface.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/NavMeshAgentConfigurationTests.cs",
     "unity-scene:Assets/Scenes/DoorPrototype.unity"
   ],
   "execution_reason": "One agent can add the named runtime NavMeshSurface component, connect it to the existing scene builder after room composition, configure one agent type, and add the focused non-saving Edit Mode test. The controller can then run No Safe Circle/Build Door Prototype Scene to materialize the authorized canonical scene output.",

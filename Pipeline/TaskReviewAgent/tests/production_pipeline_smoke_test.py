@@ -29,6 +29,8 @@ TASK_ID = "NSC-777"
 BRANCH = "nsc-777-synthetic-pipeline-task"
 LEASE_ID = "7" * 64
 IMPLEMENTATION = "Assets/NoSafeCircle/Synthetic/Scripts/Feature.cs"
+NEW_IMPLEMENTATION = "Assets/NoSafeCircle/Synthetic/Scripts/NewFeature.cs"
+UNCLAIMED_IMPLEMENTATION = "Assets/NoSafeCircle/Synthetic/Scripts/UnclaimedFeature.cs"
 NEW_TEST = "Assets/NoSafeCircle/Synthetic/Tests/FeaturePlayModeTests.cs"
 NEW_META = NEW_TEST + ".meta"
 DOOR_BUILDER = "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs"
@@ -797,6 +799,42 @@ def write_builder_owned_outputs(checkout: Path) -> tuple[str, ...]:
             key=str.casefold,
         )
     )
+
+
+def test_scope_new_paths_require_exact_resource_claims() -> None:
+    with tempfile.TemporaryDirectory(prefix="nsc-new-path-scope-") as temporary:
+        root = Path(temporary)
+        checkout, _remote, task, _source_head = create_fixture(root)
+        task["exclusive_resources"] = [
+            f"repo-file:{NEW_IMPLEMENTATION}",
+            f"repo-file:{NEW_TEST}",
+        ]
+        scope = RepositoryScopeAuthority(
+            checkout=checkout,
+            task=task,
+            lease_id=LEASE_ID,
+            expected_branch=BRANCH,
+        )
+
+        accepted = scope.validate(
+            ExecutionScopePlan((), (NEW_IMPLEMENTATION,), (), (NEW_TEST,))
+        )
+        require(
+            accepted.accepted,
+            f"exact task-owned new implementation/test paths were rejected: {accepted.reasons}",
+        )
+
+        rejected = scope.validate(
+            ExecutionScopePlan((), (UNCLAIMED_IMPLEMENTATION,), (), (NEW_TEST,))
+        )
+        require(not rejected.accepted, "unclaimed sibling implementation path was accepted")
+        require(
+            any(
+                "outside exact task-owned resources" in reason
+                for reason in rejected.reasons
+            ),
+            f"unclaimed sibling was rejected for the wrong reason: {rejected.reasons}",
+        )
 
 
 def test_door_builder_outputs_and_incidental_cleanup() -> None:

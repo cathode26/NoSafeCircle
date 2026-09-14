@@ -41,12 +41,15 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "decomposition_reason": "Target identity, hysteresis, last-known-position data, search timing, reacquisition, and target clearing form one state owner that does not need to edit the shared NavMesh locomotion surface.",
   "decomposition_state": "concrete",
   "depends_on": [],
   "downstream_integration_obligations": [],
-  "exclusive_resources": [],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyTargetKnowledge.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/EnemyTargetKnowledgePlayModeTests.cs"
+  ],
   "execution_reason": "One agent can implement and test the target-knowledge state component independently of NavMesh destination selection. The movement child uses its read-only state and public transition/reset methods through a one-way dependency.",
   "execution_scope": "single_agent",
   "gdd_evidence": [

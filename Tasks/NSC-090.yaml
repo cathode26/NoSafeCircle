@@ -21,7 +21,7 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "decomposition_reason": "The GDD fixes the four door-state results while leaving the Unity NavMesh mechanism to the implementation agent. This child can implement and test that navigation-owned component after the sibling NavMeshSurface component exists; connecting real DoorInteractable state changes remains assigned to NSC-051.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -29,6 +29,8 @@
   ],
   "downstream_integration_obligations": [],
   "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/World/DoorEnemyPassability.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/DoorEnemyPassabilityPlayModeTests.cs",
     "logical:gameplay-walkability-surface"
   ],
   "execution_reason": "One agent can implement the named navigation-owned door-passability component and prove the four pathing results with a temporary Play Mode fixture. It does not edit DoorInteractable, the canonical scene, or the scene builder.",

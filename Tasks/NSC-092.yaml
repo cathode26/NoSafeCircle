@@ -51,7 +51,7 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "decomposition_reason": "This child is the sole owner of NavMesh destination selection, last-known-position homing, controlled randomized search movement, doorway traversal, idle movement handoff, and Transform reset. Target knowledge and search timing are supplied by the separately owned state component.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -61,6 +61,9 @@
   ],
   "downstream_integration_obligations": [],
   "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyPursuitMovement.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/EnemyPursuitPlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/EnemyPursuitDoorCrossingPlayModeTests.cs",
     "logical:enemy-locomotion-behavior-surface"
   ],
   "execution_reason": "One agent can implement the NavMesh movement adapter against the completed target-state component and prove the resulting production path with two focused Play Mode test files. No other proposed child edits the shared locomotion surface.",
