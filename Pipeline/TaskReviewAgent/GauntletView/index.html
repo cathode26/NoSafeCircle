@@ -656,12 +656,13 @@ function labelFor(task) {
   const expanded = active && expandedStageNodes.has(task.id);
   const heading = active ? `${task.node_heading || task.id} ${expanded ? '[-]' : '[+]'}` : task.id;
   const lines = active && !expanded ? task.node_summary_lines : task.node_lines;
-  if (task.state === 'aggregate' && Array.isArray(lines) && lines.length) {
-    return `${heading}\n${title}\n${lines.join('\n')}`;
-  }
-  return Array.isArray(lines) && lines.length
+  let label = task.state === 'aggregate' && Array.isArray(lines) && lines.length
+    ? `${heading}\n${title}\n${lines.join('\n')}`
+    : Array.isArray(lines) && lines.length
     ? `${heading}\n${title}\n${lines.join('\n')}`
     : `${task.id}\n${title}`;
+  if (task.held_overlay) label += `\n${task.held_overlay.label || 'Outside Current Run'}`;
+  return label;
 }
 
 function toggleStageExpansion(taskId) {
@@ -1528,7 +1529,9 @@ function showDetail(id) {
   const out = [];
   const field = (k, v) => out.push(`<div class="field"><div class="k">${k}</div><div class="v">${v}</div></div>`);
 
-  out.push(`<div class="field"><span class="pill" style="background:${meta.color}">${esc(meta.label)}</span></div>`);
+  out.push(`<div class="field"><span class="pill" style="background:${meta.color}">${esc(meta.label)}</span>` +
+    (task.held_overlay ? ` <span class="pill" style="background:#aab4c0">${esc(task.held_overlay.label || 'Outside Current Run')}</span>` : '') +
+    `</div>`);
   field('task', `<strong>${esc(task.id)}</strong><br>${esc(task.title)}`);
   out.push(operatorTaskControls(task));
   out.push(githubIssueNavigation(task));

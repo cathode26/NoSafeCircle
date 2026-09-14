@@ -59,6 +59,7 @@ class ViewerTests(unittest.TestCase):
                 self.assertIn(b"const saved = assistantFullGraph ? null", document)
                 self.assertIn(b"controller.abort(), 120000", document)
                 self.assertIn(b"label: 'Outside Current Run'", document)
+                self.assertIn(b"task.held_overlay", document)
                 self.assertIn(b"still part of the project graph", document)
                 self.assertIn(b"if (scopeOnly && !t.in_scope) continue", document)
                 self.assertIn(b"selectable: false", document)
@@ -968,6 +969,57 @@ class DuplicateViewerPortTests(unittest.TestCase):
         port = holder.getsockname()[1]
         with self.assertRaises(ExclusiveListenerError):
             make_server(self.root, self.checkout_root(), port)
+
+    def test_explicit_held_overlay_is_additive_and_default_is_unchanged(self):
+        root = self.checkout_root()
+        reader = AssistantSnapshot(self.root, root)
+        rows = [
+            {"id": "NSC-003", "state": "ready", "taskgraph": {"state": "needs_replan"}},
+            {"id": "NSC-012", "state": "complete", "taskgraph": {"state": "conformant"}},
+        ]
+        reader._apply_held_task_overlay(rows)
+        self.assertNotIn("held_overlay", rows[0])
+        self.assertNotIn("held_overlay", rows[1])
+
+        reader.manager.records.mkdir(parents=True)
+        (reader.manager.records / "held-task-ids.json").write_text(json.dumps({
+            "schema_version": "assistant-viewer-held-tasks/v1",
+            "task_ids": ["NSC-003", "NSC-012"],
+        }), encoding="utf-8")
+        reader._apply_held_task_overlay(rows)
+        self.assertEqual("Outside Current Run", rows[0]["held_overlay"]["label"])
+        self.assertEqual("Outside Current Run", rows[1]["held_overlay"]["label"])
+        self.assertEqual("ready", rows[0]["state"])
+        self.assertEqual("complete", rows[1]["state"])
+        self.assertEqual("conformant", rows[1]["taskgraph"]["state"])
+
+    def test_ger_overlay_config_is_exact_authoritative_set(self):
+        config_path = Path(__file__).with_name("held-task-ids.ger-20260914.json")
+        value = json.loads(config_path.read_text(encoding="utf-8"))
+        expected = {
+            "NSC-003", "NSC-004", "NSC-005", "NSC-007", "NSC-008", "NSC-009",
+            "NSC-012", "NSC-015", "NSC-017", "NSC-020", "NSC-030", "NSC-041",
+            "NSC-044", "NSC-045", "NSC-046", "NSC-047", "NSC-048", "NSC-049",
+            "NSC-052", "NSC-053", "NSC-054", "NSC-066", "NSC-071", "NSC-072",
+            "NSC-078", "NSC-079", "NSC-080", "NSC-081", "NSC-082", "NSC-083",
+            "NSC-085", "NSC-088",
+        }
+        self.assertEqual("assistant-viewer-held-tasks/v1", value["schema_version"])
+        self.assertEqual(expected, set(value["task_ids"]))
+        self.assertIn("NSC-088", value["task_ids"])
+        self.assertNotIn("NSC-033", value["task_ids"])
+        self.assertNotIn("NSC-089", value["task_ids"])
+
+    def test_held_overlay_rejects_unknown_task_ids(self):
+        root = self.checkout_root()
+        reader = AssistantSnapshot(self.root, root)
+        reader.manager.records.mkdir(parents=True)
+        (reader.manager.records / "held-task-ids.json").write_text(json.dumps({
+            "schema_version": "assistant-viewer-held-tasks/v1",
+            "task_ids": ["NSC-999"],
+        }), encoding="utf-8")
+        with self.assertRaises(ValueError):
+            reader._apply_held_task_overlay([{"id": "NSC-003", "state": "ready"}])
 
 
 class RunningControllerProjectionTests(unittest.TestCase):

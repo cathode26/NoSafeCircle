@@ -19,6 +19,7 @@ from Pipeline.AssistantControl.automation_policy import is_synthetic_gauntlet
 from Pipeline.AssistantControl.inspect_project import git
 from Pipeline.AssistantControl.process_identity import matches
 from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task
+from Pipeline.TaskReviewAgent.contracts import validate_task_id
 from Pipeline.TaskReviewAgent.GauntletView import server as gauntlet
 
 # A full project snapshot authenticates TaskGraph and checkout evidence. Reuse
@@ -26,6 +27,7 @@ from Pipeline.TaskReviewAgent.GauntletView import server as gauntlet
 # launch another expensive repository scan after the page's initial request.
 STATE_CACHE_SECONDS = 30.0
 HUMAN_REVIEW_ALARM_SECONDS = 30 * 60
+HELD_TASKS_FILENAME = "held-task-ids.json"
 
 
 def _epoch_seconds(value: Any) -> float | None:
@@ -149,6 +151,7 @@ class AssistantSnapshot:
                     )
                 else:
                     self._apply_simulation(state, activity, simulation)
+                self._apply_held_task_overlay(state["tasks"])
                 waiting = [row["id"] for row in state["tasks"] if row.get("state") == "human_action"]
                 if waiting:
                     activity["headline"] = "🐴 Vincent needed"
@@ -175,6 +178,37 @@ class AssistantSnapshot:
             self.cached_state = state
             self.cached_at = time.monotonic()
             return state
+
+    def _apply_held_task_overlay(self, rows: list[dict]) -> None:
+        """Annotate explicitly held tasks without changing authoritative state."""
+        path = self.manager.records / HELD_TASKS_FILENAME
+        if not path.is_file():
+            return
+        try:
+            value = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+            raise ValueError(f"Held task overlay is unreadable: {exc}") from exc
+        if not isinstance(value, dict) or value.get("schema_version") != "assistant-viewer-held-tasks/v1":
+            raise ValueError("Held task overlay has an unsupported schema")
+        task_ids = value.get("task_ids")
+        if (not isinstance(task_ids, list) or not task_ids
+                or any(not isinstance(task_id, str) for task_id in task_ids)
+                or len(set(task_ids)) != len(task_ids)):
+            raise ValueError("Held task overlay task_ids must be a non-empty unique list")
+        try:
+            held = {validate_task_id(task_id) for task_id in task_ids}
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Held task overlay contains an invalid task ID") from exc
+        known = {row.get("id") for row in rows}
+        unknown = held - known
+        if unknown:
+            raise ValueError("Held task overlay names unknown task IDs: " + ", ".join(sorted(unknown)))
+        for row in rows:
+            if row.get("id") in held:
+                row["held_overlay"] = {
+                    "label": "Outside Current Run",
+                    "reason": "Explicitly held for GER/design review; authoritative task state is unchanged.",
+                }
 
     def _taskgraph_states(self, head: str, contracts: list[dict] | None = None) -> dict[str, dict]:
         """Read committed delivery state once for the whole viewer snapshot."""

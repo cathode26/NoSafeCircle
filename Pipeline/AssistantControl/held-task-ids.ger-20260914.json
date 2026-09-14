@@ -1,0 +1,11 @@
+{
+  "schema_version": "assistant-viewer-held-tasks/v1",
+  "task_ids": [
+    "NSC-003", "NSC-004", "NSC-005", "NSC-007", "NSC-008", "NSC-009",
+    "NSC-012", "NSC-015", "NSC-017", "NSC-020", "NSC-030",
+    "NSC-041", "NSC-044", "NSC-045", "NSC-046", "NSC-047", "NSC-048",
+    "NSC-049", "NSC-052", "NSC-053", "NSC-054", "NSC-066", "NSC-071",
+    "NSC-072", "NSC-078", "NSC-079", "NSC-080", "NSC-081", "NSC-082",
+    "NSC-083", "NSC-085", "NSC-088"
+  ]
+}
