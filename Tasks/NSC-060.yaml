@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-060",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "contract_disposition": "active",
   "title": "Player Resource Feedback Modernization",
   "reconciliation_key": "player-resource-feedback-modernization",
@@ -15,8 +15,7 @@
   "depends_on": [
     "NSC-004",
     "NSC-005",
-    "NSC-057",
-    "NSC-059"
+    "NSC-057"
   ],
   "exclusive_resources": [
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerHealth.cs",
@@ -81,7 +80,7 @@
   "basis": "human_approved_engineering_guidance",
   "source_scope": "engineering",
   "confidence": "high",
-  "notes": "Targeted follow-up to completed player-resource tasks. The old task evidence remains valid; this contract modernizes implementation structure without retroactively changing what NSC-004/NSC-005 delivered.",
+  "notes": "Targeted follow-up to completed player-resource tasks. The old task evidence remains valid; this contract modernizes implementation structure without retroactively changing what NSC-004/NSC-005 delivered. NSC-059 is a non-blocking reuse report; this task's concrete UI changes do not depend on its completion.",
   "provenance": {
     "origin": "human_approved_engineering_followup",
     "engineering_source_commit": "014f3c55fca988ed4f253806aa71316196fd57d0",
