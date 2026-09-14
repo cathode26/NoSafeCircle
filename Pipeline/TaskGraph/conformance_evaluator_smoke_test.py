@@ -265,7 +265,44 @@ def scenario_non_ancestral(root: Path) -> None:
     value = record(root, f"DEL-{TASK_ID}-001", other, other_tree)
     run(root, "git", "checkout", "main")
     add_record(root, value)
+    # The separate branch changed only unrelated files. The exact committed
+    # source, contract, canon and gate artifact agree with current main.
+    expect(root, "conformant")
+    write(root, SURFACE, "version two\n")
+    commit(root, "change tracked source")
     expect(root, "needs_testing")
+
+
+def scenario_cherry_picked_delivery(root: Path) -> None:
+    base, _ = initialize(root)
+    run(root, "git", "checkout", "-b", "art")
+    write(root, SURFACE, "selected art\n")
+    validated = commit(root, "selected source")
+    tree = run(root, "git", "rev-parse", "HEAD^{tree}")
+    evidence_commit = add_record(root, record(root, f"DEL-{TASK_ID}-ART", validated, tree))
+
+    run(root, "git", "checkout", "main")
+    write(root, "unrelated-ger-contract.txt", "unrelated\n")
+    commit(root, "unrelated graph revision")
+    run(root, "git", "cherry-pick", validated)
+    run(root, "git", "cherry-pick", evidence_commit)
+    assert run(root, "git", "merge-base", validated, "HEAD") == base
+    expect(root, "conformant")
+
+    # A fresh main-only clone does not contain the original art-branch commit.
+    with tempfile.TemporaryDirectory(prefix="phase3a-carried-delivery-") as temp:
+        clone = Path(temp) / "main-only"
+        run(root, "git", "clone", "--no-local", "--single-branch", "--branch", "main", str(root), str(clone))
+        assert subprocess.run(
+            ["git", "cat-file", "-e", f"{validated}^{{commit}}"], cwd=clone,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False,
+        ).returncode != 0
+        expect(clone, "conformant")
+        run(clone, "git", "config", "user.email", "phase3a@example.invalid")
+        run(clone, "git", "config", "user.name", "Phase 3A Test")
+        write(clone, SURFACE, "changed art\n")
+        commit(clone, "change tracked art")
+        expect(clone, "needs_testing")
 
 
 def scenario_ambiguous(root: Path) -> None:
@@ -359,6 +396,7 @@ def main() -> int:
     for corruption in ("missing_gate", "wrong_tree", "wrong_blob", "wrong_canon_hash", "altered_artifact", "modified_record"):
         fresh(scenario_invalid, corruption)
     fresh(scenario_non_ancestral)
+    fresh(scenario_cherry_picked_delivery)
     fresh(scenario_ambiguous)
     fresh(scenario_context_public_api_and_aggregate_memo)
     fresh(scenario_recursive_aggregate_cycle)

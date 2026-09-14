@@ -211,6 +211,43 @@ def _delivered_scope_unchanged(previous: dict[str, Any], current: dict[str, Any]
     )
 
 
+def _carried_delivery_anchor(
+    repo: GitRepository, head: str, record: CommittedRecord, task_id: str,
+) -> dict[str, Any] | None:
+    """Recover a cherry-picked delivery when its original commit was not fetched.
+
+    The commit which introduced the immutable record into current history must
+    contain every exact contract, canon, source, and gate-artifact binding. This
+    gives a portable committed anchor without trusting an unavailable branch.
+    """
+    data = record.data
+    if data["record_type"] != "delivery":
+        return None
+    history = repo.path_history(head, record.path)
+    if len(history) != 1:
+        return None
+    anchor = history[0]
+    contract = data["task_contract"]
+    task = _json(repo, anchor, contract["path"], "carried task contract")
+    if (
+        task.get("id") != task_id
+        or task.get("contract_revision") != contract["revision"]
+        or semantic_json_sha256(task) != contract["sha256"]
+    ):
+        return None
+    canon = data["canon"]
+    if canonical_text_sha256(repo.read(anchor, canon["path"])) != canon["sha256"]:
+        return None
+    for surface in data["conformance_surfaces"]:
+        if repo.blob(anchor, surface["path"]) != surface["blob_sha"]:
+            return None
+    for gate in data["gate_results"]:
+        for evidence in gate["evidence"]:
+            if repo.blob(anchor, evidence["path"]) != evidence["blob_sha"]:
+                return None
+    return task
+
+
 def _maximal(repo: GitRepository, records: list[CommittedRecord]) -> list[CommittedRecord]:
     maximal: list[CommittedRecord] = []
     for candidate in records:
@@ -362,23 +399,35 @@ def _evaluate_resolved_conformance(
         data = record.data
         state = data["validated_state"]
         try:
-            if repo.tree(state["commit"]) != state["tree"]:
+            try:
+                historical_tree = repo.tree(state["commit"])
+            except ConformanceRecordError:
+                historical_tree = None
+            if historical_tree is not None and historical_tree != state["tree"]:
                 invalid.append(_finding("validated_tree_mismatch", "Recorded tree does not match validated commit.", record))
                 continue
             contract = data["task_contract"]
-            historical_task_raw = repo.read(state["commit"], contract["path"])
-            historical_task = json.loads(historical_task_raw.decode("utf-8-sig"))
+            if historical_tree is None:
+                historical_task = _carried_delivery_anchor(repo, head, record, task_id)
+                if historical_task is None:
+                    invalid.append(_finding("record_object_unavailable", "Original validated commit is unavailable and no exact carried-delivery anchor exists.", record))
+                    continue
+                source_commit = repo.path_history(head, record.path)[0]
+            else:
+                source_commit = state["commit"]
+                historical_task_raw = repo.read(source_commit, contract["path"])
+                historical_task = json.loads(historical_task_raw.decode("utf-8-sig"))
             if semantic_json_sha256(historical_task) != contract["sha256"] or historical_task.get("contract_revision") != contract["revision"] or historical_task.get("id") != task_id:
                 invalid.append(_finding("recorded_contract_mismatch", "Recorded contract identity/hash is false at validated commit.", record))
                 continue
             canon = data["canon"]
-            if canonical_text_sha256(repo.read(state["commit"], canon["path"])) != canon["sha256"]:
+            if canonical_text_sha256(repo.read(source_commit, canon["path"])) != canon["sha256"]:
                 invalid.append(_finding("recorded_canon_mismatch", "Recorded canon hash is false at validated commit.", record))
                 continue
             bad_surface = False
             changed_surface = False
             for surface in data["conformance_surfaces"]:
-                if repo.blob(state["commit"], surface["path"]) != surface["blob_sha"]:
+                if repo.blob(source_commit, surface["path"]) != surface["blob_sha"]:
                     invalid.append(_finding("surface_validated_blob_mismatch", f"Surface {surface['path']} blob is false at validated commit.", record))
                     bad_surface = True
                     break
@@ -402,7 +451,14 @@ def _evaluate_resolved_conformance(
             invalid.append(_finding("record_object_unavailable", str(exc), record))
             continue
 
-        if not repo.is_ancestor(state["commit"], head):
+        if not repo.is_ancestor(state["commit"], head) and (
+            data["record_type"] != "delivery"
+            or changed_surface
+            or contract["path"] != task_path
+            or contract["revision"] != current_revision
+            or contract["sha256"] != current_contract_hash
+            or canonical_text_sha256(repo.read(head, CANON_PATH)) != canon["sha256"]
+        ):
             stale.append(record)
             continue
 
