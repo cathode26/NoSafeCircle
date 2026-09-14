@@ -1,48 +1,80 @@
 {
   "schema_version": "2.0",
   "id": "NSC-020",
-  "contract_revision": 2,
+  "contract_revision": 3,
   "contract_disposition": "active",
-  "title": "Shared Doorway-Crossing State (Forward-Side Crossing Detection)",
+  "title": "DoorInteractable Forward-Crossing Geometry, State, and Reset",
   "reconciliation_key": "doorway-crossing-state",
   "kind": "implementation",
   "type": "gameplay_system",
   "execution_scope": "single_agent",
-  "execution_reason": "Bounded to adding one detection/state capability to the existing door object and exposing it through a small interface; touches a known, small set of files.",
+  "execution_reason": "Bounded to correcting the existing DoorInteractable forward-crossing trigger geometry, adding one focused production-physics regression in DoorInteractionPlayModeTests.cs, and handing the candidate to the Windows controller to regenerate and check DoorPrototype.unity through the existing scene builder. No room geometry, encounter behavior, spell behavior, victory logic, navigation logic, or new runtime system is added.",
   "decomposition_state": "concrete",
-  "decomposition_reason": "The GDD specifies the exact required behavior (detect actual forward-side crossing after open, expose to consumers, participate in reset); the underlying Unity mechanism is an explicit implementation choice, not missing design.",
+  "decomposition_reason": "The GDD specifies open-before-cross ordering, Door ownership, state/event exposure, and reset participation. The existing trigger-and-relay mechanism is retained; its placement or size is corrected as required so the wizard is actually clear of the blocker before crossing is reported. The exact additional margin beyond that minimum remains a playtest tuning choice.",
   "parent": "NSC-018",
   "depends_on": [],
   "exclusive_resources": [
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
-    "unity-scene:Assets/Scenes/DoorPrototype.unity"
+    "unity-scene:Assets/Scenes/DoorPrototype.unity",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/DoorInteractionPlayModeTests.cs"
   ],
   "acceptance_criteria": [
     {
       "reference": "Section 3 — Door and Pursuit Rules",
-      "requirement": "Detects, for an open door, when the wizard has actually crossed to that door's forward side; opening the door alone does not set crossing state.",
+      "requirement": "DoorInteractable records forward-side crossing only while the door is open and after the wizard has moved through the doorway far enough that its CharacterController capsule is geometrically clear of the doorwayBlocker and its center is on the door's local +Z side. Completing the opening timer, entering the doorway plane and retreating, contact while sealed, or contact from a collider without the wizard's PlayerInteractionController does not set crossing state.",
       "criterion_id": "AC-001"
     },
     {
       "reference": "Section 4 — Door and Interaction Agent row",
-      "requirement": "Exposes the crossing state/event through a stable owner-side interface consumed by door close/lock and final-escape victory, so those consumers do not implement their own crossing detector.",
+      "requirement": "DoorInteractable exposes the Door-owned result through its read-only HasCrossedForward property and CrossedForward event. CrossedForward fires once for an accepted crossing during a floor run, and callers cannot write the crossing state directly.",
       "criterion_id": "AC-002"
     },
     {
       "reference": "Section 2 — Floor-run restart ownership",
-      "requirement": "Exposes an owner-controlled reset entry point for its crossing state, consumed by the Floor Run/Restart Orchestrator.",
+      "requirement": "DoorInteractable.ResetDoor clears HasCrossedForward together with the door's other owner-local run state. After the wizard is returned to the approach side and the door is reopened, a later production-physics crossing can set HasCrossedForward and fire CrossedForward once for the new floor run.",
       "criterion_id": "AC-003"
+    },
+    {
+      "reference": "AC-001 through AC-003; Unity Testing Policy — production-path and non-mutation requirements",
+      "requirement": "Assets/NoSafeCircle/DoorPrototype/Tests/DoorInteractionPlayModeTests.cs contains a focused Play Mode fixture using temporary GameObjects that matches DoorPrototypeSceneBuilder's doorwayBlocker geometry and DoorPrototypeGlobalSceneBuilder's CharacterController capsule. It opens DoorInteractable through public interaction/timer behavior, moves the wizard through PlayerMovement and CharacterController, and observes the runtime-created ForwardCrossingTrigger through real Unity physics. Its production-path assertions do not invoke HandleForwardCrossingTriggerEnter by reflection or call the relay directly.",
+      "criterion_id": "AC-004"
+    },
+    {
+      "reference": "Section 4 — Current prototype scene-builder lock; Unity Testing Policy — committed-artifact conformance",
+      "requirement": "After correcting the serialized crossing geometry, the Windows controller runs No Safe Circle → Build Door Prototype Scene so Assets/Scenes/DoorPrototype.unity is materialized through DoorPrototypeSceneBuilder rather than hand-edited, and the materialized scene is included in the exact candidate commit. A separate read-only committed-scene Play Mode check in Assets/NoSafeCircle/DoorPrototype/Tests/DoorInteractionPlayModeTests.cs loads the committed DoorPrototype scene without saving, confirms D1 through D5 create the corrected forward trigger geometry, and leaves the scene and repository unchanged.",
+      "criterion_id": "AC-005"
     }
   ],
   "completion_gates": [
     {
-      "reference": "Section 4 — Example Game-Specific Agent Task",
-      "requirement": "Validate that crossing is detected only after the door is open and the wizard has reached the forward side, not merely on interaction completion.",
+      "reference": "Section 3 — Door and Pursuit Rules; Section 2 — Floor-run restart ownership; AC-001 through AC-005",
+      "requirement": "Before these checks run, the Windows controller runs No Safe Circle → Build Door Prototype Scene and includes the materialized Assets/Scenes/DoorPrototype.unity in the exact candidate commit; that saving builder run is materialization, not a clean-tree test step. Run focused Play Mode behavior and committed-scene conformance checks in Assets/NoSafeCircle/DoorPrototype/Tests/DoorInteractionPlayModeTests.cs against the exact clean candidate. In a temporary fixture matching the production doorwayBlocker and wizard CharacterController geometry, open DoorInteractable through its public interaction/timer behavior and verify opening alone leaves HasCrossedForward false. Drive PlayerMovement with a fixed simulation step and bounded WaitForFixedUpdate waits. Move the wizard forward until the leading edge of its CharacterController capsule reaches the doorwayBlocker's forward face while the capsule center is still at door-local Z below zero, then move it back to the approach side; verify no crossing or lock occurs. Then move through the runtime-created ForwardCrossingTrigger and capture the wizard and blocker geometry when CrossedForward fires, computing the blocker extent from the doorwayBlocker BoxCollider's center, size, and Transform rather than Collider.bounds, because the blocker's GameObject is inactive while the door is open; verify the capsule is clear of that extent, its center is on the local +Z side, HasCrossedForward becomes true, CrossedForward fires exactly once, the blocker locks behind the wizard, and forward movement remains possible. For the sealed isolated guard, use a documented controller-disabled placement plus Physics.SyncTransforms to place the wizard inside the trigger, verify no crossing, move it out, open the door, and prove a later real-physics wizard crossing succeeds. For the non-player guard, move a collider with a kinematic Rigidbody through the open trigger, verify no crossing, and then prove a wizard crossing succeeds in the same fixture. Call DoorInteractable.ResetDoor, return the wizard to its approach-side initial position through PlayerMovement.ResetMovement, reopen, cross through real physics again, and verify exactly one event per run. On the clean candidate, load the committed DoorPrototype scene without saving and, for each of D1 through D5, verify that the runtime-created ForwardCrossingTrigger's near face in door-local Z is at or beyond that door's doorwayBlocker forward face plus twice the scene Player's CharacterController radius, and that each door's local +Z axis points toward the next room or, for D5, the escape side. Verify the focused tests and the committed-scene check leave HEAD, tracked files, and untracked files unchanged. Finally, in human Play Mode at gameplay-camera scale, open D1 and step to the threshold then retreat without locking; walk fully through and verify the door locks behind the freely moving wizard; repeat after a zero-health restart. D5 victory presentation is not claimed by this gate.",
       "gate_id": "VAL-001"
     }
   ],
-  "downstream_integration_obligations": [],
+  "downstream_integration_obligations": [
+    {
+      "reference": "Section 3 — Door and Pursuit Rules",
+      "requirement": "NSC-050 uses the Door-owned crossing result for automatic close/lock without adding another detector, and its real-physics integration check verifies the wizard is clear of the doorwayBlocker, remains on the forward side, and can continue moving after the blocker is re-enabled.",
+      "obligation_id": "INT-001"
+    },
+    {
+      "reference": "Section 2 — Win and Loss Conditions",
+      "requirement": "NSC-086 subscribes final-victory behavior to the final DoorInteractable's CrossedForward event and does not implement another crossing detector.",
+      "obligation_id": "INT-002"
+    },
+    {
+      "reference": "Section 2 — Floor-run restart ownership",
+      "requirement": "NSC-033 invokes DoorInteractable.ResetDoor from the Floor Run/Restart Orchestrator rather than writing crossing or other Door-owned state directly.",
+      "obligation_id": "INT-003"
+    },
+    {
+      "reference": "Approved Five-Room Spatial Layout; Section 3 — Door and Pursuit Rules",
+      "requirement": "NSC-049 verifies that each D1 through D5 local +Z axis points toward the next room or, for D5, the escape side. Current shared-rotation cloning satisfies this handoff without per-door crossing overrides; recheck it if NSC-049 later rotates any door.",
+      "obligation_id": "INT-004"
+    }
+  ],
   "gdd_evidence": [
     {
       "reference": "Section 3 — Door and Pursuit Rules",
@@ -64,7 +96,7 @@
   "basis": "direct_gdd",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "No dependency on door-open-interaction was added because the existing DoorInteractable.IsOpen property this work consumes already exists and is usable independent of that item's still-open click-to-approach/Input-System rework.",
+  "notes": "Revision 3 retains the delivered ForwardCrossingTrigger mechanism but corrects its geometry when necessary so crossing cannot be reported before the wizard is clear of the blocker. The focused test must use real trigger delivery and production-equivalent blocker/capsule geometry. The Windows controller, not a text-only worker, materializes DoorPrototype.unity with No Safe Circle → Build Door Prototype Scene and performs the read-only committed-scene check. Final victory, automatic lock integration, floor-restart coordination, and five-room orientation remain owned by NSC-086, NSC-050, NSC-033, and NSC-049. Reflection-based crossing calls in DoorLockDurabilityPlayModeTests.cs, DoorPassabilityConnectionPlayModeTests.cs, and DoorBreachFeedbackPlayModeTests.cs prove only isolated downstream behavior and are not NSC-020 production-path evidence; Vincent decides whether NSC-050, NSC-051, and NSC-052 need separate holds or revised validation. Crossing does not clear enemy pursuit or alter cover, spells, mana, encounter placement, or room geometry. No dependency on NSC-019 is added because the existing public door interaction/timer behavior and player components are sufficient for the focused fixture. Human Play Mode validation checks D1 threshold retreat, full crossing with free forward movement, and repetition after zero-health restart; D5 victory presentation remains NSC-086.",
   "repository_state_at_bootstrap": "missing",
   "repository_evidence_at_bootstrap": [
     {
@@ -79,6 +111,24 @@
     "reconciliation_run_id": "20260821T193541Z-998ee7b5",
     "verification_run_id": "20260821T195959Z-43dba5de",
     "bootstrap_status_observation": "open",
-    "migration_id": "task-contract-schema-v2-20260822-r2"
+    "migration_id": "task-contract-schema-v2-20260822-r2",
+    "task_design_ger": [
+      {
+        "ger_run_id": "20260914-081837-NSC-020",
+        "packet_source_head": "6fb702b579875afcc0d7955b94c790fe7b0bd821",
+        "previous_contract_revision": 2,
+        "round_output_sha256": {
+          "01-codex-generate": "9f8641061c2fd9c3b52cd97b5749de6b4d38d51b9e5124738aa01efa39de44a8",
+          "02-claude-evaluate": "b71050585aba3a34cac9c3a24c1babe522a5c3b8da4dbe3bbc35a0056426661a",
+          "03-codex-refine": "851ae4256c0d9b1cca2bdbf17ae124e519eea3c6dd506f870f9a5c21e32e1a2a",
+          "04-claude-reaudit": "f663688b4bb50395ade41366be0340232e986fb1fea92bdf5ea8ab950c706b16",
+          "05-owner-patch": "f30fa25129b42337c651bdfb5c934263792b14f8d6a7393fd431a68c468ebac6",
+          "06-claude-recheck": "87bd9c57a8d976913b39b1828cb4b7d40f6b6ca199814713d883fa04c5ea6524"
+        },
+        "reaudit_recommendation": "commit_contract",
+        "owner_patch_contract_sha256": "bb3731038eabc7da974a8b9be7760fef108726a28753e6bb5855a9d17cea2bf0",
+        "recheck_recommendation": "commit_contract"
+      }
+    ]
   }
 }
