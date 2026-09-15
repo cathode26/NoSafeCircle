@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-082",
-  "contract_revision": 2,
+  "contract_revision": 3,
   "contract_disposition": "active",
   "title": "Lower Vault Visual Dressing",
   "reconciliation_key": "lower-vault-visual-dressing",
@@ -41,20 +41,20 @@
     },
     {
       "criterion_id": "AC-005",
-      "reference": "Docs/Art/Environment/DUNGEON_ART_DIRECTION.md — Vincent-approved project direction, 2026-09-13",
-      "requirement": "Create an original vault landmark plus water, slime, corrupted-ground, cliff, or chasm dressing that visibly shapes the route into safe islands and a primary crossing. Include a raised route, bridge/platform/rail cluster, and a readable alternate route to D4; hazards must be bounded surfaces or non-walkable background, never copied/traced reference art or flat decoration."
+      "reference": "Docs/Art/Environment/DUNGEON_ART_DIRECTION.md — Vincent-approved project direction, 2026-09-13; Tasks/NSC-047.yaml revision 4 INT-002 and R-08 room review finding (2026-09-15)",
+      "requirement": "Create an original vault landmark plus water, slime, corrupted-ground, cliff, or chasm dressing that visibly shapes the route into safe islands and a primary crossing. Include a raised route, bridge/platform/rail cluster, and a readable alternate approach around LV-C1; hazards must be bounded surfaces or non-walkable background, never copied/traced reference art or flat decoration."
     }
   ],
   "completion_gates": [
     {
       "gate_id": "VAL-001",
       "reference": "Lower Vault visual regression",
-      "requirement": "Focused Unity EditMode tests prove deterministic prefab/catalog generation, stable sorting anchors, source-geometry compatibility, safe-route and alternate-route metadata, D4 approach clearance, and idempotent rebuild without opening or modifying LowerVault.unity."
+      "requirement": "Focused Unity EditMode tests prove deterministic prefab/catalog generation, stable sorting anchors, source-geometry compatibility, safe-route and alternate-approach metadata, D4 approach clearance, and idempotent rebuild without opening or modifying LowerVault.unity."
     },
     {
       "gate_id": "VAL-002",
       "reference": "Developer visual review",
-      "requirement": "A gameplay-camera screenshot/contact sheet of the prefab staged against the approved blockout visibly shows the vault landmark, hazard-shaped crossing, safe islands, raised/alternate route, readable wizard and D4 approach, and original no-copy art direction."
+      "requirement": "A gameplay-camera screenshot/contact sheet of the prefab staged against the approved blockout visibly shows the vault landmark, hazard-shaped crossing, safe islands, raised route and alternate approach around LV-C1, readable wizard and D4 approach, and original no-copy art direction."
     }
   ],
   "downstream_integration_obligations": [
@@ -73,13 +73,26 @@
   "basis": "human_approved_gameplay_presentation",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "Visual dressing may add presentation objects only; geometry and navigation remain authoritative. Governing visual direction: Docs/Art/Environment/DUNGEON_ART_DIRECTION.md, Vincent-approved project direction dated 2026-09-13. The supplied images are inspiration only; all art and layouts must be original.",
+  "notes": "Visual dressing may add presentation objects only; geometry and navigation remain authoritative. Governing visual direction: Docs/Art/Environment/DUNGEON_ART_DIRECTION.md, Vincent-approved project direction dated 2026-09-13. The supplied images are inspiration only; all art and layouts must be original. Revision 3 replaces AC-005's stale 'readable alternate route to D4' with 'readable alternate approach around LV-C1', and carries the same fix into VAL-001, VAL-002, and visual_direction_addendum, because the committed Lower Vault (Tasks/NSC-047.yaml revision 4, 2026-09-15) offers exactly one primary crossing to D4 at X [+7,+12] (NSC-047 AC-002) reached by two convergent lanes around LV-C1, per R-08 (NSC-047 GER re-audit) and NSC-047 INT-002, which already uses this wording for NSC-082.",
   "repository_state_at_bootstrap": "partial",
   "repository_evidence_at_bootstrap": [],
   "provenance": {
     "origin": "human_approved_environment_content_followup",
     "approved_at_utc_date": "2026-09-13",
-    "approved_by": "Vincent"
+    "approved_by": "Vincent",
+    "contract_followups": [
+      {
+        "date": "2026-09-15",
+        "reason": "Aligns NSC-082 with the Lower Vault committed in NSC-047 revision 4: one primary crossing to D4 with two convergent lanes around LV-C1, replacing the stale alternate route to D4 in AC-005, VAL-001, VAL-002 and the visual direction addendum.",
+        "source_head": "c326a0f59adeb322839b8e0b578e98cdd48d2fa9",
+        "previous_contract_revision": 2,
+        "base_contract_sha256": "fb91bc932e4599c38e783f2790a8a3961f1148aa12afd0b09de7dc8569b30647",
+        "revised_contract_sha256": "0edc09dbd510ee96682fcaa98f2574ee0cb40adbdee5589145db7219c8dc9dac",
+        "review": "independent Claude Sonnet re-check",
+        "review_report_sha256": "ca0244b85c0bdfc31da92b215a66874d9e8e0fb5f80e9b6efca87ec5bd312f46",
+        "recheck_recommendation": "commit_contract"
+      }
+    ]
   },
-  "visual_direction_addendum": "Use curated original clusters around walls, corners, alcoves, platforms, and water edges: barrels/crates, tools, rails/posts, hanging decoration, vegetation, slime/water lights, and debris. Use foreground/background depth layering and camera-scale readability while preserving safe ground, the primary lane, alternate route, and D4 approach."
+  "visual_direction_addendum": "Use curated original clusters around walls, corners, alcoves, platforms, and water edges: barrels/crates, tools, rails/posts, hanging decoration, vegetation, slime/water lights, and debris. Use foreground/background depth layering and camera-scale readability while preserving safe ground, the primary lane, alternate approach around LV-C1, and D4 approach."
 }
