@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-069",
-  "contract_revision": 5,
+  "contract_revision": 6,
   "contract_disposition": "active",
   "title": "Independent Room Scene Authoring and Deterministic World Composition Foundation",
   "reconciliation_key": "independent-room-scene-composition",
@@ -44,7 +44,7 @@
     {
       "criterion_id": "AC-004",
       "reference": "GDD — Runtime Implementation; approved proposal — Architecture decision",
-      "requirement": "Implement deterministic Editor-time composition that clones only validated room-owned Visuals, GameplayGeometry, and DoorAnchors under World/ComposedRooms in Assets/Scenes/DoorPrototype.unity, closes every source scene without saving it, and leaves only the canonical DoorPrototype scene enabled for runtime builds. Production runtime code must not load or unload room scenes."
+      "requirement": "Implement deterministic Editor-time composition that clones only validated room-owned Visuals, GameplayGeometry, and DoorAnchors under World/ComposedRooms in Assets/Scenes/DoorPrototype.unity, closes every source scene without saving it, and leaves only the canonical DoorPrototype scene enabled for runtime builds. Production runtime code must not load or unload room scenes. At each shared north/south room boundary, the composed gameplay scene keeps the northern room's low (0.5-unit) wall visual cells and removes the southern room's full-height wall visual cells only over the span the northern room's low wall covers; the southern room's full-height wall cells outside that span stay. Exactly one 2.5-unit gameplay wall collider remains along each part of the boundary: where one room's boundary wall collider pieces lie entirely inside the span of the other room's boundary wall colliders, composition removes the contained pieces. Door openings stay open. Everything else in each room's categories is still cloned unchanged. NSC-049 implements this in RoomSceneComposer."
     },
     {
       "criterion_id": "AC-005",
@@ -143,6 +143,25 @@
         "decided_by": "Vincent",
         "record": "graph-lead-journal GER queue status; GDD blockout section 13 Room size authority",
         "decision": "Room tasks NSC-044 to NSC-048 may edit their own RoomSceneCatalog bounds entry and exit-door center; NSC-049 reconciles shared boundaries and door alignment."
+      },
+      {
+        "date": "2026-09-15",
+        "decided_by": "Claude (GER owner) at Vincent's direction",
+        "record": "GER room decisions 1-5 (2026-09-15)",
+        "decision": "At shared room boundaries the northern room's low wall visuals win over the covered span and exactly one wall collider remains; NSC-049 implements this in RoomSceneComposer."
+      }
+    ],
+    "contract_followups": [
+      {
+        "date": "2026-09-15",
+        "reason": "Follow-up to the 2026-09-15 room contract revisions: AC-004's clone rule now applies the shared-boundary wall rule (GER room decision 1) that NSC-045 to NSC-048 hand to NSC-049.",
+        "source_head": "0ae9337fb92a87fd8ee011c91ce4a1bf5c92421c",
+        "previous_contract_revision": 5,
+        "base_contract_sha256": "798b134a0c500ae73fc4e4e01214bafad2854f4a6ee40c7f0dd3ae0b8db1cb5c",
+        "revised_contract_sha256": "47183360b574749c278cb427b94345534d09f3351f1623181571943cd7bdd7cb",
+        "review": "independent Claude Sonnet re-check",
+        "review_report_sha256": "e990949776b100b9f8f85174a3c73ee30bbe5254459703b4b20942e2b54f259f",
+        "recheck_recommendation": "commit_contract"
       }
     ]
   }
