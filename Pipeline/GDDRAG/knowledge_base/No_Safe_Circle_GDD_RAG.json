@@ -6,7 +6,7 @@
   },
   "source": {
     "file": "Docs/GDD/No_Safe_Circle_GDD.md",
-    "sha256": "5d9aa63a0e5397848577e059ae17fa71a535447b66075e32ef21fbad0a2d4aa2"
+    "sha256": "d55b3b1fae7e171459149d34da46963c77efb7261d17313b9f6d3a914031422e"
   },
   "document": {
     "document_id": "no-safe-circle-gdd-c614fc48f07a",
@@ -708,9 +708,9 @@
         "end_line": 294
       },
       "chunk_part": null,
-      "text": "Three tall, hard-geometry shelf banks run predominantly north-south:\n\n- **Shelf A:** X **[-6.5, -5.0]**, Z **[4, 16]**;\n- **Shelf B:** X **[-1.5, 0.0]**, Z **[3, 14]**;\n- **Shelf C:** X **[+3.5, +5.0]**, Z **[6, 17]**.\n\nShelf blockout height should be at least **2.5 units** so they read as substantial lane-forming architecture and can support later visual replacement.",
-      "char_count": 370,
-      "sha256": "3d984d888d969904d1040d1156e7c8c894257a3ef864d2e8521c9f7a7da3e075"
+      "text": "Three tall, hard-geometry shelf banks run predominantly north-south:\n\n- **Shelf A:** X **[-6.5, -5.0]**, Z **[4, 16]**;\n- **Shelf B:** X **[-1.5, 0.0]**, Z **[3, 14]**;\n- **Shelf C:** X **[+3.5, +5.0]**, Z **[6, 17]**.\n\nShelf gameplay collider height should be at least **2.5 units** so the shelves act as substantial lane-forming architecture and can support later visual replacement. Shelf visuals may be shorter than their colliders so the camera does not hide the wizard: the Bone Archive's shelf visuals are **1.0 unit** high.",
+      "char_count": 531,
+      "sha256": "2167166bf3f0b5522292a8e0e52c6e51e12a335a9d083b7373841e95821a380d"
     },
     {
       "chunk_id": "nsc-gdd-030",

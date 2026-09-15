@@ -291,7 +291,7 @@ Three tall, hard-geometry shelf banks run predominantly north-south:
 - **Shelf B:** X **[-1.5, 0.0]**, Z **[3, 14]**;
 - **Shelf C:** X **[+3.5, +5.0]**, Z **[6, 17]**.
 
-Shelf blockout height should be at least **2.5 units** so they read as substantial lane-forming architecture and can support later visual replacement.
+Shelf gameplay collider height should be at least **2.5 units** so the shelves act as substantial lane-forming architecture and can support later visual replacement. Shelf visuals may be shorter than their colliders so the camera does not hide the wizard: the Bone Archive's shelf visuals are **1.0 unit** high.
 
 ### Intentional chokepoint
 
