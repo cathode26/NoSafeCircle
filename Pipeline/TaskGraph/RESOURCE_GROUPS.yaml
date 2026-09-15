@@ -1047,14 +1047,16 @@
         "ruined-entry-blockout",
         "independent-room-scene-composition",
         "bone-archive-blockout",
-        "chapel-of-ash-blockout"
+        "chapel-of-ash-blockout",
+        "lower-vault-blockout"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneCatalog.cs",
       "work_ids": [
         "NSC-044",
         "NSC-069",
         "NSC-045",
-        "NSC-046"
+        "NSC-046",
+        "NSC-047"
       ]
     },
     {
@@ -1062,14 +1064,16 @@
         "ruined-entry-blockout",
         "independent-room-scene-composition",
         "bone-archive-blockout",
-        "chapel-of-ash-blockout"
+        "chapel-of-ash-blockout",
+        "lower-vault-blockout"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/World/RoomSceneCatalog.asset",
       "work_ids": [
         "NSC-044",
         "NSC-069",
         "NSC-045",
-        "NSC-046"
+        "NSC-046",
+        "NSC-047"
       ]
     }
   ],
