@@ -2,18 +2,23 @@
   "acceptance_criteria": [
     {
       "criterion_id": "AC-001",
-      "reference": "NSC-029 AC-002; GDD — Approved Five-Room Spatial Layout Blockout §§3, 4, and 12",
-      "requirement": "Integrate the five authored room blockouts into the canonical continuous gameplay scene/floor at the room bounds and door centers recorded in RoomSceneCatalog, which NSC-044 through NSC-048 may revise within the GDD room size authority; reconcile shared boundaries, wall jogs, and door alignment here, without room scene loads or cross-scene state transfer."
+      "reference": "NSC-029 AC-002; GDD — Approved Five-Room Spatial Layout Blockout §§3, 4, and 12; GER room decision 4 (2026-09-15)",
+      "requirement": "Integrate the five authored room blockouts into the canonical continuous gameplay scene/floor at the room bounds and door centers recorded in RoomSceneCatalog, which NSC-044 through NSC-048 may revise within the GDD room size authority; reconcile shared boundaries, wall jogs, and door alignment here, without room scene loads or cross-scene state transfer. Recompose Assets/Scenes/DoorPrototype.unity only through DoorSequenceBuilder and RoomSceneComposer's existing builder/composer path, never by hand-editing the serialized scene. When NSC-046, NSC-047, and NSC-048 land their batched RoomSceneCatalog.cs and RoomSceneCatalog.asset changes together, recompose against that combined catalog so the canonical scene reflects Ruined Entry X [-14,+14] Z [-26,0], Bone Archive X [-12,+12] Z [0,20], Chapel of Ash X [-18,+18] Z [20,54], Lower Vault X [-20,+20] Z [54,76], and Final Room X [-15,+15] Z [76,104], with D1 (0,0), D2 (6,20), D3 (-8,54), D4 (4,76), and D5 (0,104)."
     },
     {
       "criterion_id": "AC-002",
-      "reference": "NSC-029 AC-003; GDD — Approved Five-Room Spatial Layout Blockout §§4 and 10",
-      "requirement": "Author sealed-door instances D1 through D5 at the approved centers and 3.0-unit openings, connect the spaces in the approved forward sequence, and designate D5 as the final door while retaining Door and Interaction ownership of semantic state and crossing."
+      "reference": "NSC-029 AC-003; GDD — Approved Five-Room Spatial Layout Blockout §§4 and 10; NSC-065 AC-002/AC-003",
+      "requirement": "Author sealed-door instances D1 through D5 at the approved centers and 3.0-unit openings, using NSC-065's delivered sealed-door art in Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source so each door instance shows a textured door face rather than a placeholder Renderer; connect the spaces in the approved forward sequence, and designate D5 as the final door while retaining Door and Interaction ownership of semantic state and crossing."
     },
     {
       "criterion_id": "AC-003",
       "reference": "Vincent decision 2026-09-14 (player start ownership); GDD — Approved Five-Room Spatial Layout Blockout §3 START",
       "requirement": "When composing Assets/Scenes/DoorPrototype.unity, move the existing Player root and PlayerSpawn to the Ruined Entry start point that NSC-044 records in Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/RuinedEntryLayout.cs, through DoorPrototypeGlobalSceneBuilder, without creating a second Player or PlayerSpawn."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "NSC-069 AC-004 (revised 2026-09-15, in parallel with this revision); GER room decision 1 and revised decision 2 (2026-09-15); NSC-045 INT-001, NSC-046 INT-001/INT-006, NSC-047 INT-001, NSC-048 INT-001",
+      "requirement": "In RoomSceneComposer, at each shared north/south room boundary (Z 0 between Ruined Entry and Bone Archive, Z 20 between Bone Archive and Chapel of Ash, Z 54 between Chapel of Ash and Lower Vault, and Z 76 between Lower Vault and Final Room), keep the northern room's SouthLowWallTilemap (0.5-unit) wall visual cells under its composed Room_<RoomId>/Visuals Grid and remove the southern room's NorthFullWallTilemap wall visual cells only over the span the northern room's SouthLowWallTilemap covers; the southern room's NorthFullWallTilemap cells outside that span stay. Exactly one 2.5-unit gameplay wall BoxCollider remains along each part of the boundary: where one room's NorthWallWestCollision/NorthWallEastCollision or SouthWallWestCollision/SouthWallEastCollision pieces under its composed Room_<RoomId>/GameplayGeometry lie entirely inside the span of the other room's corresponding pieces on that boundary, composition removes the contained pieces by name, without resizing any collider. Door openings D1 through D4 stay clear of both wall visuals and colliders. West and east perimeter walls, including corner cells, are not shared-boundary walls and are never removed. Everything else in each room's Visuals, GameplayGeometry, and DoorAnchors categories is still cloned unchanged."
     }
   ],
   "basis": "direct_gdd",
@@ -25,18 +30,38 @@
     },
     {
       "gate_id": "VAL-002",
-      "reference": "NSC-029 AC-003; GDD — Approved Five-Room Spatial Layout Blockout §10",
-      "requirement": "Integrated validation verifies D1 through D4 connect the successive room pairs, D5 occupies the escape boundary and is designated final, and opening alone is not represented as a final crossing."
+      "reference": "NSC-029 AC-003; GDD — Approved Five-Room Spatial Layout Blockout §10; GER room decision 4 (2026-09-15)",
+      "requirement": "Integrated validation verifies D1 through D4 connect the successive room pairs, D5 occupies the escape boundary and is designated final, and opening alone is not represented as a final crossing. Once NSC-046, NSC-047, and NSC-048 land their batched RoomSceneCatalog.cs and RoomSceneCatalog.asset changes together, Assets/NoSafeCircle/DoorPrototype/Tests/FiveRoomDoorSequencePlayModeTests.cs must expect D1 at (0,0,0), D2 at (6,0,20), D3 at (-8,0,54), D4 at (4,0,76), and D5 at (0,0,104)."
     },
     {
       "gate_id": "VAL-003",
       "reference": "AC-003",
       "requirement": "An Edit Mode test in Assets/NoSafeCircle/DoorPrototype/Tests/Editor/World/FiveRoomCompositionTests.cs composes the canonical scene and verifies exactly one Player and one PlayerSpawn, both at the start point read from RuinedEntryLayout.cs."
+    },
+    {
+      "gate_id": "VAL-004",
+      "reference": "AC-004; NSC-069 AC-004 (revised 2026-09-15); GER room decision 1 and revised decision 2 (2026-09-15)",
+      "requirement": "Edit Mode tests in Assets/NoSafeCircle/DoorPrototype/Tests/Editor/World/FiveRoomCompositionTests.cs open the composed Assets/Scenes/DoorPrototype.unity and prove the shared-boundary wall rule at each of the four shared boundaries. At Z 0: Bone Archive's SouthLowWallTilemap cells over X [-12,+12] outside the D1 visual gap X [-2,+2] are kept; Ruined Entry's NorthFullWallTilemap cells over that same X [-12,+12] span are removed; Ruined Entry's NorthFullWallTilemap cells over X [-14,-12] and [+12,+14] stay; Ruined Entry's NorthWallWestCollision and NorthWallEastCollision remain while Bone Archive's SouthWallWestCollision and SouthWallEastCollision are removed; and no wall visual or collider occupies D1's collider clear interval X [-1.5,+1.5]. At Z 20: Chapel of Ash's SouthLowWallTilemap cells over X [-18,+18] outside the D2 visual gap X [+4,+8] are kept; Bone Archive's NorthFullWallTilemap cells are removed in full because Chapel of Ash's span contains all of Bone Archive's; Chapel of Ash's SouthWallWestCollision and SouthWallEastCollision remain while Bone Archive's NorthWallWestCollision and NorthWallEastCollision are removed; and no wall visual or collider occupies D2's collider clear interval X [+4.5,+7.5]. At Z 54: Lower Vault's SouthLowWallTilemap cells over X [-20,+20] outside the D3 visual gap X [-10,-6] are kept; Chapel of Ash's NorthFullWallTilemap cells are removed in full; Lower Vault's SouthWallWestCollision and SouthWallEastCollision remain while Chapel of Ash's NorthWallWestCollision and NorthWallEastCollision are removed; and no wall visual or collider occupies D3's collider clear interval X [-9.5,-6.5]. At Z 76: Final Room's SouthLowWallTilemap cells over X [-15,+15] outside the D4 visual gap X [+2,+6] are kept; Lower Vault's NorthFullWallTilemap cells over that same X [-15,+15] span are removed; Lower Vault's NorthFullWallTilemap cells over X [-20,-15] and [+15,+20] stay; Lower Vault's NorthWallWestCollision and NorthWallEastCollision remain while Final Room's SouthWallWestCollision and SouthWallEastCollision are removed; and no wall visual or collider occupies D4's collider clear interval X [+2.5,+5.5]. At every boundary, exactly one 2.5-unit gameplay wall BoxCollider remains along each part outside its door opening, and every other cloned Visuals, GameplayGeometry, and DoorAnchors content — including west and east perimeter walls, floor Tilemaps, Bone Archive's shelves and archive bays, Chapel of Ash's pews and columns, Lower Vault's LV-C1/LV-W1/LV-E1/LV-N1/LV-H1 colliders, Final Room's FR-1, and all five door anchors — is unchanged from its source room scene."
+    },
+    {
+      "gate_id": "VAL-005",
+      "reference": "Docs/Art/Environment/DUNGEON_ART_DIRECTION.md — gameplay-camera review; NSC-045 INT-001, NSC-046 INT-001/INT-006, NSC-047 INT-001, NSC-048 INT-001; GER room decision 1 (2026-09-15)",
+      "requirement": "Using the fixed isometric camera DoorPrototypeGlobalSceneBuilder.BuildCamera and IsometricCameraFollow already built for the canonical scene, Vincent reviews the exact composed Assets/Scenes/DoorPrototype.unity candidate at, at minimum, the Bone Archive D2 and Archive Reliquary view and the Chapel of Ash north wall and ritual landmark view. Because AC-004 composition replaces Bone Archive's own north wall with Chapel of Ash's SouthLowWallTilemap stub at Z 20, and replaces Chapel of Ash's own north wall with Lower Vault's SouthLowWallTilemap stub at Z 54, Vincent confirms the Archive Reliquary and D2 doorway still read correctly against the new visible wall behind them, and that the RitualFocusReserve placeholder still reads as a vertical landmark against Lower Vault's stub rather than Chapel of Ash's own full-height wall. Close without saving and confirm the composed scene and all five room source scenes remain unchanged. Automated tests do not substitute for this visual decision."
+    },
+    {
+      "gate_id": "VAL-006",
+      "reference": "NSC-041 AC-002/AC-003 (hover and selected/approach feedback); NSC-065 AC-002 (state-distinct textured door art)",
+      "requirement": "A Play Mode test in Assets/NoSafeCircle/DoorPrototype/Tests/FiveRoomDoorSequencePlayModeTests.cs loads the composed canonical scene and, for each of D1 through D5, drives that door's existing DoorInteractionFeedback component against its NSC-065 textured door Renderer and verifies: DoorInteractionFeedback.IsHovered becomes true (with the hover tint applied) while the shared pointer target falls within that door's own DoorInteractable.TryGetSelectionDistance area and no stronger state is active; DoorInteractionFeedback.IsSelected becomes true (with the selected tint applied) once that door becomes the PlayerInteractionController's pending door; and DoorInteractionFeedback.IsOpening becomes true (with the opening tint applied) once DoorInteractable.IsInteracting is actually running. The test consumes DoorInteractionFeedback and DoorInteractable's existing public surfaces without adding a second selection or feedback path, and does not claim final art readability, which remains a human visual decision."
+    },
+    {
+      "gate_id": "VAL-007",
+      "reference": "NSC-017 INT-003",
+      "requirement": "NSC-049, which owns Assets/Scenes/DoorPrototype.unity, DoorPrototypeSceneBuilder.cs, and logical:gameplay-walkability-surface, must record and perform this check. In the built canonical scene, without saving it, lock a composed door through its production crossing path or an explicitly labeled setup seam, call DoorInteractable.TakeDamage(float) until DoorInteractable.IsBroken, wait for DoorEnemyPassability carving to settle, and verify a test-owned NavMeshAgent using the project agent type finds a complete path from the door's approach side to its forward side. The check targets the builder's door-before-bake order and the doorway-blocker collider that remains enabled after Break; it does not require an enemy prefab or EnemyLockedDoorAttack. A passing temporary NSC-017 fixture does not discharge it. Any failure must be assigned after diagnosis to the existing door-passability, navigation, or composition owner; NSC-017 does not edit the builder or scene."
     }
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 4,
+  "contract_revision": 5,
   "decomposition_reason": "Cross-room continuity and the D1–D5 sequence are shared integration responsibilities that cannot be completed independently inside any single room child.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -50,7 +75,9 @@
     "NSC-046",
     "NSC-047",
     "NSC-048",
-    "NSC-069"
+    "NSC-069",
+    "NSC-041",
+    "NSC-065"
   ],
   "downstream_integration_obligations": [
     {
@@ -66,6 +93,8 @@
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorSequenceBuilder.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/World/FiveRoomCompositionTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/World/CommittedRoomSourceSceneConformanceTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/World/CommittedRoomSourceSceneConformanceTests.cs.meta",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/FiveRoomDoorSequencePlayModeTests.cs",
     "unity-scene:Assets/Scenes/DoorPrototype.unity",
     "logical:gameplay-walkability-surface"
@@ -84,7 +113,7 @@
   ],
   "id": "NSC-049",
   "kind": "implementation",
-  "notes": "This child integrates authored room and door content only; it does not implement encounter placement, door lifecycle internals, or victory coordination internals. The five Assets/Scenes/Rooms/*.unity files are immutable composition inputs: this task reads them, verifies their hashes are unchanged before and after composition, and never claims them as write resources. TaskGraph has no read-only context-path field, so this input boundary is enforced by exact write scope and validation evidence.",
+  "notes": "This child integrates authored room and door content only; it does not implement encounter placement, door lifecycle internals, or victory coordination internals. The five Assets/Scenes/Rooms/*.unity files are immutable composition inputs: this task reads them, verifies their hashes are unchanged before and after composition, and never claims them as write resources. TaskGraph has no read-only context-path field, so this input boundary is enforced by exact write scope and validation evidence. Revision 5 carries the settled 2026-09-15 room table into this contract: Ruined Entry X [-14,+14] Z [-26,0], Bone Archive X [-12,+12] Z [0,20], Chapel of Ash X [-18,+18] Z [20,54], Lower Vault X [-20,+20] Z [54,76], and Final Room X [-15,+15] Z [76,104], with D1 (0,0), D2 (6,20), D3 (-8,54), D4 (4,76), and D5 (0,104). NSC-049 now owns Assets/NoSafeCircle/DoorPrototype/Tests/Editor/World/CommittedRoomSourceSceneConformanceTests.cs, which the four room contracts cite only as regression-only evidence for their own gates. The shared-boundary wall exclusion (AC-004) is composition-only: it never edits a room source scene, and it never removes a west or east perimeter wall. The batched refresh (AC-001, VAL-002) is triggered once NSC-046, NSC-047, and NSC-048 land their combined RoomSceneCatalog.cs and RoomSceneCatalog.asset changes together (GER room decision 4, 2026-09-15); it gates that landing rather than being gated by it, and NSC-044 through NSC-048's own completion gates do not wait for it. The door feedback proof (VAL-006) and the NSC-017 INT-003 check (VAL-007) are automated proofs only; they do not substitute for Vincent's gameplay-camera review (VAL-005) and do not authorize a different door-art or wall-tiling choice than NSC-065 and the room contracts already deliver.",
   "parent": "NSC-029",
   "provenance": {
     "graph_delta_plan_id": "GDP-5f799a9d352217a315b42a5ec36178abecd2ff16235c9191797508850edfc9d2",
@@ -105,6 +134,25 @@
         "decided_by": "Vincent",
         "record": "graph-lead-journal GER queue status; GDD blockout section 13 Room size authority",
         "decision": "Compose at RoomSceneCatalog bounds revised by room tasks; NSC-049 places the Player and PlayerSpawn at the start point NSC-044 records in RuinedEntryLayout.cs."
+      },
+      {
+        "date": "2026-09-15",
+        "decided_by": "Claude (GER owner) at Vincent's direction",
+        "record": "GER room decisions 1-5 (2026-09-15)",
+        "decision": "NSC-049 implements the shared-boundary wall rule, owns CommittedRoomSourceSceneConformanceTests, and carries the batched NSC-046/047/048 refresh with doors at (-8,0,54), (4,0,76), (0,0,104)."
+      }
+    ],
+    "contract_followups": [
+      {
+        "date": "2026-09-15",
+        "reason": "Carries the 2026-09-15 room decisions into NSC-049: the shared-boundary wall rule at Z 0, 20, 54 and 76; the batched refresh for NSC-046, NSC-047 and NSC-048; ownership of CommittedRoomSourceSceneConformanceTests.cs; composed-scene camera reviews; and the D1-D5 door feedback proof.",
+        "source_head": "576d6733ed8f77f84e2ff8804abd643d028d7880",
+        "previous_contract_revision": 4,
+        "base_contract_sha256": "4ab3007a483767c85f9085a213a0e946574376208db0a6347c2f3c684957f06c",
+        "revised_contract_sha256": "7249e7dd54d8e33da2f130062f7cbc5d3d9979d464340cec88d777793e505abd",
+        "review": "independent Claude Sonnet re-check",
+        "review_report_sha256": "910852cebe5d19c3b699a9eeebe86845ef284ea4da00bfb29da3557da13adca7",
+        "recheck_recommendation": "commit_contract"
       }
     ]
   },
