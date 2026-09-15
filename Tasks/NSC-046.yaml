@@ -2,50 +2,140 @@
   "acceptance_criteria": [
     {
       "criterion_id": "AC-001",
-      "reference": "GDD — Approved Five-Room Spatial Layout Blockout §7",
-      "requirement": "Build the Chapel of Ash room shell at X [-12,+12], Z [20,42], including the D2 and D3 openings, 4.0-unit central aisle, eight approved pew footprints, and four approved column footprints at their specified heights."
+      "reference": "Accepted Task Design GER NSC-046 revision 6; GDD Approved Five-Room Spatial Layout Blockout §§7 and 13",
+      "requirement": "Revise Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/ChapelOfAshLayout.cs to define the 36-by-34-world-unit Chapel at X [-18,+18], Z [20,54], retain the 3.0-unit D2 opening at (+6,20), and place the room-owned D3 exit at (-8,54). Define public layout Bounds for the unobstructed central aisle X [-2.5,+2.5], Z [25,49], the clear D2 landing X [3.5,8.5], Z [20.25,25.25], the clear 5-by-5 D3 staging area X [-10.5,-5.5], Z [48.75,53.75] (the landing and staging area end at the interior faces of the 0.5-unit wall colliders), the RitualFocusReserve X [-2.5,+2.5], Z [50,53], the WestRemembranceClusterReserve X [-16.5,-13], Z [50,53.5], and the EastVestryClusterReserve X [8,14], Z [50,53.5]. Also expose CA-W, CA-E, and the four gameplay-camera review stations (6,0,24), (-15.5,0,37), (12,0,42), and (-8,0,51) as public layout data so builders and downstream dressing tests do not need to read Authoring-only scene objects."
     },
     {
       "criterion_id": "AC-002",
-      "reference": "GDD — Approved Five-Room Spatial Layout Blockout §7",
-      "requirement": "Keep the approved central-aisle versus side-route tradeoff, lateral openings between pew rows, minimum 2.5-unit side-route clearances, CA-W and CA-E cover pockets, and routes that Melee Enemies can still reach rather than turning either side into a fully safe tunnel."
+      "reference": "Accepted Task Design GER NSC-046 revision 6; GDD Approved Five-Room Spatial Layout Blockout §7",
+      "requirement": "In Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/ChapelOfAshLayout.cs define eight 1.25-unit-high pew footprints: west X [-12.5,-3.5] and east X [3.5,12.5], each at Z [27,29], [33,35], [39,41], and [45,47]. Define four 1.5-by-1.5-by-2.5-unit columns centered at (-13.25,28), (+13.25,28), (-13.25,40), and (+13.25,40), with columns touching the outer ends of pew rows 1 and 3 rather than leaving accidental narrow slots. Define CA-W at (-15.5,34) and column-backed CA-E at (+15.5,40). Center each 0.5-unit-thick wall collider on its RoomBounds boundary and measure route clearance from the collider's interior face; the resulting column-constrained side-route clearance is 3.75 units and must not fall below 3.5 units. Preserve each 4.0-unit opening between successive pew rows and prohibit any unintended hard-geometry passage narrower than 2.5 units."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "Vincent wall and camera decisions 2026-09-14; GER room decision 5 (2026-09-15); Docs/Art/Environment/DUNGEON_ART_DIRECTION.md; Docs/Engineering/WALL_TILING_IMPLEMENTATION_GUIDE.md; committed RuinedEntrySceneBuilder.cs Tilemap and collider naming convention",
+      "requirement": "Revise Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/ChapelOfAshSceneBuilder.cs and materialize Assets/Scenes/Rooms/ChapelOfAsh.unity through No Safe Circle/Rooms/Build Chapel of Ash Authoring Scene. Under Visuals build one room-owned Grid configured as RuinedEntrySceneBuilder configures its committed Grid: a GameObject named IsometricZAsY with identity local transform, cellSize (1,0.5,1), cellSwizzle XYZ, and Grid.cellLayout left at its default Rectangle value (RuinedEntry.unity saves m_CellLayout 0). Under that Grid create exactly five Tilemaps, each with tileAnchor (0,0,0), Tilemap.Orientation.XY, a TilemapRenderer using TilemapRenderer.Mode.Individual and SortOrder TopRight on sorting layer Default, and no TilemapCollider2D. FloorTilemap uses local position (0,0.01,0), rotation Euler(-90,0,0), and sorting order -100, and is painted with the read-only Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/FloorTile.asset in exactly the cells whose Tilemap.GetCellCenterWorld positions lie inside the wall-collider interior faces X [-17.75,+17.75], Z [20.25,53.75] (2,345 cells: x -17 through 17, rows -107 through -41). NorthFullWallTilemap, SouthLowWallTilemap, WestFullWallTilemap, and EastLowWallTilemap are separate straight-run wall Tilemaps at sorting order 0, placed and painted as AC-004 specifies; these five Tilemap names match RuinedEntrySceneBuilder exactly so NSC-049 can find each room's floor and boundary walls by name. Generate and reconcile Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/ChapelOfAshFarWallTile.asset, Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/ChapelOfAshFarWallTile.asset.meta, Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/ChapelOfAshCutawayWallTile.asset, and Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/ChapelOfAshCutawayWallTile.asset.meta without hand-editing their serialized payloads. The far-wall Tile is 64 by 160 pixels and the cutaway Tile is 64 by 32 pixels; both use 64 pixels per unit, a bottom-center pivot, a horizontally periodic 32-pixel block pattern, and Tile.ColliderType.None. Remove the existing FloorVisual and wall cube visuals so that no MeshRenderer remains under Visuals. Keep FloorCollision and separate 0.5-unit-thick, 2.5-unit-high wall BoxColliders centered on every RoomBounds boundary under GameplayGeometry, with exact 3.0-unit collider openings at D2 and D3. Floor and wall BoxCollider GameObjects follow the committed RuinedEntrySceneBuilder naming (FloorCollision, WestWallCollision-style names for an unsplit wall, and NorthWallWestCollision-style names for the two pieces of a wall split around a door opening) so NSC-049 can find and remove wall pieces by name: FloorCollision; WestWallCollision and EastWallCollision over Z [20,54]; SouthWallWestCollision X [-18,+4.5] and SouthWallEastCollision X [+7.5,+18] split around D2; and NorthWallWestCollision X [-18,-9.5] and NorthWallEastCollision X [-6.5,+18] split around D3."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "Accepted Task Design GER NSC-046 revision 6; revised GER room decision 2 and decision 5 (2026-09-15); re-check C-03 (2026-09-15); committed RuinedEntrySceneBuilder.PaintStraightWallRun cell mapping",
+      "requirement": "In Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/ChapelOfAshSceneBuilder.cs paint every wall cell with the committed Ruined Entry cell mapping. NorthFullWallTilemap and SouthLowWallTilemap keep identity rotation and WestFullWallTilemap and EastLowWallTilemap use rotation Euler(0,90,0), and each wall Tilemap is inset from its RoomBounds line toward the room interior by RuinedEntrySceneBuilder's WallVisualOffset of 0.151 units: NorthFullWallTilemap at local position (0.5, 0, 53.849), SouthLowWallTilemap at (0.5, 0, 20.151), WestFullWallTilemap at (-17.849, 0, -0.5), and EastLowWallTilemap at (17.849, 0, -0.5). With this committed mapping each bottom-pivot wall sprite stands on its cell origin, Tilemap.CellToWorld(cell): a north or south cell (k,0,0) has its pivot at world X k+0.5 and its sprite spans X [k,k+1], and a west or east cell (k,0,0) has its pivot at world Z -(k+0.5) and its sprite spans Z [-k-1,-k]. A room-local public static void PaintStraightWallRun(Tilemap wallTilemap, TileBase wallTile, int centerCell, int cellCount) behaves exactly like RuinedEntrySceneBuilder.PaintStraightWallRun and is the only repeated-cell loop the walls use: it paints cellCount contiguous cells (firstCell + index, 0, 0) with firstCell = centerCell - cellCount / 2, using one Tile for the whole run. Each wall is painted as straight runs along its whole side, so both meeting walls paint each corner cell, as NSC-044 does. By first cell and count the runs are NorthFullWallTilemap k -18 through -11 (8 cells, X [-18,-10]) and k -6 through 17 (24 cells, X [-6,+18]) with the far-wall Tile; SouthLowWallTilemap k -18 through 3 (22 cells, X [-18,+4]) and k 8 through 17 (10 cells, X [+8,+18]) with the cutaway Tile; WestFullWallTilemap k -54 through -21 (34 cells, Z [20,54]) with the far-wall Tile; and EastLowWallTilemap k -54 through -21 (34 cells) with the cutaway Tile. No corner, end-cap, or separate frame Tile asset is added, and no wall sprite overlaps a door's 3.0-unit clear interval (X [+4.5,+7.5] for D2, X [-9.5,-6.5] for D3). Under the committed whole-cell mapping, each 3.0-unit collider opening shows as the smallest whole-cell visual gap that contains it, which is 4.0 units wide: X [+4,+8] for D2 on Z 20 (south cells k 4 through 7 stay empty) and X [-10,-6] for D3 on Z 54 (north cells k -10 through -7 stay empty). The door instance NSC-049 places at each anchor visually bridges that gap. Under revised GER room decision 2, cutaway walls stop at the door opening: no full-height jamb cell stands beside D2, and the readable D2 frame comes from the door instance NSC-049 places at the D2 anchor, using NSC-065's delivered sealed-door art in Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source. Every SouthLowWallTilemap cell therefore holds the cutaway Tile. D3 lies in the full-height north wall and keeps its full-height treatment: the far-wall cells stop at the D3 visual gap. Each wall run's painted sprite extent along the run matches its gameplay wall BoxCollider extent within 0.5 world units: the north and south runs cover X [-18,+18] and the west and east runs cover Z [20,54], with no missing cell other than cells whose sprite would overlap the D2 or D3 clear interval. Visual wall cells never extend past a gameplay wall BoxCollider face into walkable floor: every wall sprite stands 0.151 units inside its RoomBounds line, within its 0.5-unit-thick wall collider."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "Accepted Ash Processional blockout; Docs/Art/Environment/DUNGEON_ART_DIRECTION.md",
+      "requirement": "In Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/ChapelOfAshSceneBuilder.cs and Assets/Scenes/Rooms/ChapelOfAsh.unity replace the existing Standard-shader cube visuals for pews and columns with bottom-pivot SpriteRenderer blockout objects under Visuals. Reuse the generated wall-Tile Sprite sub-assets: tint and scale the cutaway sprite for 1.25-unit-high pew blockout silhouettes whose readability Vincent judges in VAL-003 and the far-wall sprite for 2.5-unit-high column silhouettes. Use the shared world-sprite sorting layer at sorting order zero, with SpriteRenderer.spriteSortPoint set to SpriteSortPoint.Pivot, and keep all Visuals collider-free. Create a vertical, non-colliding RitualFocusReserve placeholder at the public layout reserve and non-colliding Authoring markers for the two supporting cluster reserves. The builder must read every placement from ChapelOfAshLayout.cs. These blockout objects reserve later NSC-081 dressing and do not add production props, lights, collision, enemies, encounter behavior, lore, audio, or VFX."
+    },
+    {
+      "criterion_id": "AC-006",
+      "reference": "NSC-069 AC-006; Vincent catalog decision 2026-09-14; GER room decision 4 (2026-09-15); re-check C-04 (2026-09-15)",
+      "requirement": "Edit only ChapelOfAsh's RoomBounds literal in RoomSceneCatalog.CreateCanonicalRooms and the D3 ExpectedGroundCenter literal in RoomSceneCatalog.CreateCanonicalDoors in Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneCatalog.cs, then regenerate Assets/NoSafeCircle/DoorPrototype/Generated/World/RoomSceneCatalog.asset with No Safe Circle/World/Build Room Scene Catalog. Both catalog representations must record Chapel at X [-18,+18], Z [20,54] and D3 at (-8,54), retain D2 at (+6,20), preserve D1-D5 order with D5 as the only final door, and leave every other room and door entry at its pre-edit value. Under GER room decision 4 (2026-09-15), NSC-046, NSC-047, and NSC-048 move shared boundaries, so their source changes are applied in that order to one combined candidate, where Assets/NoSafeCircle/DoorPrototype/Generated/World/RoomSceneCatalog.asset is regenerated with No Safe Circle/World/Build Room Scene Catalog from the combined RoomSceneCatalog.cs and is never merged or edited by hand, and the three catalog edits reach main only together, in one batched landing with NSC-049's narrow refresh, never alone. This task's own gates never wait for that refresh: NSC-049 depends on NSC-046, NSC-047, and NSC-048, so the refresh gates only the landing, which the NSC-049 integration obligation records."
+    },
+    {
+      "criterion_id": "AC-007",
+      "reference": "GDD Chapel tactical purpose; Game Mechanics; Spell and Enemy Interactions; Door and Pursuit Rules",
+      "requirement": "Keep the central aisle as the shortest exposed D2-to-D3 route and both side routes as longer paths with repeated pew and column cover. Each side route must connect to the D2 landing, the D3 staging area, CA-W, CA-E, and all three collision-free lateral openings between successive pew rows into the center aisle, so neither side becomes a fully safe tunnel that Melee Enemies cannot enter."
+    },
+    {
+      "criterion_id": "AC-008",
+      "reference": "Docs/Art/Environment/DUNGEON_ART_DIRECTION.md gameplay-camera review; DoorPrototypeGlobalSceneBuilder.BuildCamera camera values",
+      "requirement": "Add No Safe Circle/Rooms/Preview Chapel of Ash Gameplay Camera as a non-saving Editor preview entry point in Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/ChapelOfAshSceneBuilder.cs. It opens the exact committed Chapel scene without saving it, creates temporary preview-only objects in a separate unsaved Scene, loads Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/standing/south-east.png as the temporary wizard Sprite, creates an orthographic camera at the wizard position plus (10,10,-10) with Euler angles (30,-45,0) and orthographic size 8, adds IsometricCameraFollow (whose OnEnable applies the production custom transparency axis), and calls IsometricCameraFollow.Initialize with the temporary wizard Transform, and starts at the first public review station. Closing the preview must close without saving and leave ChapelOfAsh.unity byte-identical."
     }
   ],
-  "basis": "direct_gdd",
+  "basis": "human_approved_gameplay_presentation",
   "completion_gates": [
     {
       "gate_id": "VAL-001",
-      "reference": "GDD — Approved Five-Room Spatial Layout Blockout §§7 and 11",
-      "requirement": "Committed-artifact conformance validation verifies the approved room bounds, D2/D3 openings, aisle, pew and column footprints, side-route clearances, CA-W/CA-E cover pockets, and reachable melee routes in visible blockout and separate gameplay geometry."
+      "reference": "Committed scene conformance test; Docs/Engineering/UNITY_TESTING_POLICY.md",
+      "requirement": "Committed-scene Edit Mode tests in Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/ChapelOfAshSceneTests.cs deliberately open the exact Assets/Scenes/Rooms/ChapelOfAsh.unity additively, scope every lookup to that Scene, and close it without saving. Verify that RoomSceneComposer.ValidateOpenRoomScene reports no errors for the committed scene against RoomSceneCatalog.CreateCanonicalRooms and CreateCanonicalDoors. Verify revision-6 bounds, D2/D3 anchors and 3.0-unit collider apertures, aisle, landing, staging area, eight pew colliders, four column colliders, 3.75-unit column pinches, four-unit row gaps, touching column-to-pew joins, CA-W/CA-E, and the absence of every unintended hard-geometry gap narrower than 2.5 units, and verify that no wall, pew, or column BoxCollider XZ footprint overlaps the interior of the aisle, D2 landing, or D3 staging rectangle. Rasterize the saved wall, pew, and column BoxCollider XZ footprints (excluding FloorCollision and any collider whose bounds.max.y is at or below 0) on a 0.25-unit grid, limit probe-center cells to the wall-collider interior faces inset by 1.25 units, expand blocked space by 1.25 units for a 2.5-unit-diameter probe, flood-fill four-connected cells from the D2 landing center (6,22.75), and assert reachability of the D3 staging center (-8,51.25), CA-W (-15.5,34), CA-E (15.5,40), both side routes at their column pinches (±16,28) and (±16,40), and all three lateral openings per side at (±8,31), (±8,37), and (±8,43); label this geometry-only proof, not NavMesh validation. At Y=0.75, a ray from (3,0.75,34) to CA-W must hit a committed pew. At Y=2.0, a ray from (-3,2,40) to CA-E must pass above the 1.25-unit pew and hit C4's 2.5-unit column collider. Record that the low ray from (3,0.75,41) to CA-W intentionally reaches the pocket without hitting any committed collider, crossing X -3.5 at Z≈38.54 and X -12.5 at Z≈35.14 inside the Z [35,39] row gap. Verify all four review stations (6,0,24), (-15.5,0,37), (12,0,42), and (-8,0,51) are outside the saved wall, pew, and column BoxCollider XZ footprints (excluding FloorCollision and any collider whose bounds.max.y is at or below 0), and verify the scene bytes are unchanged."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "In-memory builder, temporary-asset generator, and materialization evidence classifications; Docs/Engineering/UNITY_TESTING_POLICY.md; Docs/Engineering/WALL_TILING_IMPLEMENTATION_GUIDE.md; re-check C-03 (2026-09-15); committed RuinedEntrySceneTests wall checks",
+      "requirement": "Classify and report three separate checks. First, in-memory scene-builder tests in Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/ChapelOfAshSceneTests.cs call the Chapel builder with no Tile asset folder and verify it creates only HideAndDontSave transient Tiles; the IsometricZAsY Grid with its identity transform, cellSize (1,0.5,1), and default Rectangle cellLayout, and the five Tilemaps with the rotations, local positions, tileAnchor, orientation, and renderer settings in AC-003 and AC-004; no TilemapCollider2D and no MeshRenderer under Visuals; FloorTilemap paints FloorTile.asset in exactly the 2,345 AC-003 cells whose centers lie inside the wall-collider inner faces; the exact AC-004 wall cell sets (NorthFullWallTilemap 32 far-wall cells, SouthLowWallTilemap 32 cutaway cells with no far-wall cell beside D2, WestFullWallTilemap 34 far-wall cells, and EastLowWallTilemap 34 cutaway cells), with no extra cell and the expected Tile asset in every painted cell; four empty cells over each aperture (south k 4 through 7, north k -10 through -7) and no wall sprite inside either 3.0-unit clear interval; both meeting walls' cells at each corner; that each production wall run's painted sprite extent matches its gameplay wall BoxCollider extent within 0.5 world units with no missing cell other than cells whose sprite would overlap the D2 or D3 clear interval; that each wall Tilemap's local position lies 0.151 units inside its RoomBounds line within 0.001, as RuinedEntrySceneTests checks it, and every gameplay wall BoxCollider is centered on its RoomBounds line within 0.01 units, a centerline tolerance that applies only to BoxColliders, never to Tilemap visual cells; bottom-pivot SpriteRenderer pew, column, and focal placeholders using SpriteSortPoint.Pivot; and separate 2.5-unit gameplay colliders under their AC-003 names, all without writing AssetDatabase content. Second, temporary-asset generator tests pass a temporary Tile asset folder to the same room-local load/create/replace path and prove the 32-pixel repeat period divides both 64-pixel texture widths, ChapelOfAshSceneBuilder.PaintStraightWallRun paints representative 3-, 10-, and 100-cell runs with no missing cells and one Tile per run, GetPixels32 detects and replaces same-size stale pixels, already-correct pixels remain equivalent, and both Tiles remain collider-free. Third, the Windows controller runs the production room builder and catalog builder, verifies the expected scene, two Tile assets, and catalog asset were materialized and that the catalog differs from the candidate's parent commit only in the ChapelOfAsh RoomBounds and D3 entries, runs the focused fixture on the exact candidate, runs both builders a second time in a disposable copy, and verifies semantic equivalence and stable Unity identities without using whole-file YAML hashes as the visual oracle. The non-saving camera-preview setup path in AC-008 is also exercised and must leave ChapelOfAsh.unity byte-identical."
+    },
+    {
+      "gate_id": "VAL-003",
+      "reference": "Developer gameplay-camera visual review; Docs/Art/Environment/DUNGEON_ART_DIRECTION.md",
+      "requirement": "Vincent reviews the exact candidate commit using No Safe Circle/Rooms/Preview Chapel of Ash Gameplay Camera and the four public stations (6,0,24), (-15.5,0,37), (12,0,42), and (-8,0,51). Vincent confirms that the D2 doorway reads at gameplay scale as a clear opening through its 4.0-unit visual gap in the south cutaway wall, with the 0.5-unit stubs stopping at the gap and hiding neither the wizard nor the floor at the D2 landing, and confirms an exposed center aisle, two distinct cover rhythms, visible lateral exits, recognizable CA-W/CA-E pockets, readable pew and column blockout silhouettes, a vertical north ritual reservation, an unobstructed D3 five-second staging area, low south/east cutaways, full north/west silhouettes, and no hidden wizard or cursor target. Because INT-006 replaces Chapel's full-height north wall visual with Lower Vault's cutaway stub in the composed scene, Vincent also judges the north ritual reservation with NorthFullWallTilemap disabled in the unsaved preview. Vincent also moves the temporary wizard onto clear floor on the camera-near and camera-far sides of one pew, C4, and the north wall and confirms correct SpriteRenderer/Tilemap sorting in both directions. Automated tests do not substitute for this recorded exact-commit visual decision."
+    },
+    {
+      "gate_id": "VAL-004",
+      "reference": "Standalone-candidate regression report; GER room decision 4 (2026-09-15); re-check C-04 (2026-09-15); UNITY_TESTING_POLICY literal evidence requirement",
+      "requirement": "On the exact NSC-046 candidate, run the Edit Mode and Play Mode suites beyond the focused ChapelOfAshSceneTests fixture as regression-only evidence and report them literally under Docs/Engineering/UNITY_TESTING_POLICY.md. Because Lower Vault still authors D3 at (-6,42) until the NSC-047 source changes are applied after NSC-046's in the combined candidate described in AC-006, exactly three regression-only failures are expected on the standalone candidate: LowerVaultSceneTests.Build_CreatesComposerReadyHierarchyAndDoorAnchors and LowerVaultSceneTests.CommittedScene_ValidatesThroughRoomSceneComposer in Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/LowerVaultSceneTests.cs, and CommittedRoomSourceSceneConformanceTests.FiveCommittedRoomScenes_AreComposableWithPairedDoorAnchors in Assets/NoSafeCircle/DoorPrototype/Tests/Editor/World/CommittedRoomSourceSceneConformanceTests.cs. The gate passes only when those three are the sole failures, their failure messages report only the D3 expected-ground-center mismatch, and every other test passes. NSC-046 edits neither file, does not report the broader suite as passed, and does not treat these failures as repaired; they clear once the NSC-047 and NSC-048 source changes are applied in that combined candidate, and NSC-046's gates do not wait for NSC-049's refresh or the batched landing recorded in INT-003."
     }
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 5,
-  "decomposition_reason": "The chapel shell, aisle, pew, column, route, and cover-pocket requirements form one bounded room-authoring responsibility. Runtime projectile-cover validation follows in NSC-072.",
+  "contract_revision": 6,
+  "decomposition_reason": "The Chapel revision is one bounded Unity room-authoring responsibility: one layout source, one deterministic room builder and preview seam, two generated wall Tile assets, one room scene, one focused test fixture, and the Chapel-only catalog update. Sibling room relocation, canonical composition, shared-boundary wall exclusion, real projectile validation, and final dressing remain separate existing tasks.",
   "decomposition_state": "concrete",
   "depends_on": [
     "NSC-069"
   ],
-  "downstream_integration_obligations": [],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "NSC-047; NSC-069 AC-002/AC-006; settled 2026-09-15 room table; GER room decisions 1 and 4 and revised decision 2",
+      "requirement": "NSC-047's reviewed revision re-authors LowerVaultLayout.cs, LowerVaultSceneBuilder.cs, LowerVaultSceneTests.cs, and LowerVault.unity at the settled canonical coordinates X [-20,+20], Z [54,76], a +12 Z shift from its baseline, with its D3 Entry anchor at (-8,54) paired to Chapel's D3 Exit anchor and its D4 Exit at (4,76). Lower Vault is two units wider than Chapel on each side at Z 54; its south wall there is a 0.5-unit cutaway stub spanning X [-20,+20] that stops at the D3 opening with no full-height jamb cell (revised GER room decision 2), and it is the visible wall at Z 54 because INT-006 removes Chapel's north wall visual in the composed scene. NSC-047 edits only its own catalog entries, which are applied after NSC-046's in the combined candidate and land in the batched landing recorded in INT-003."
+    },
+    {
+      "obligation_id": "INT-002",
+      "reference": "NSC-048; NSC-069 AC-002/AC-006; settled 2026-09-15 room table; GER room decision 4",
+      "requirement": "NSC-048's reviewed revision re-authors FinalRoomLayout.cs, FinalRoomSceneBuilder.cs, FinalRoomSceneTests.cs, and FinalRoom.unity at X [-15,+15], Z [76,104], a +12 shift of its south boundary, with its D4 Entry anchor at (4,76) and D5 kept as the final door at (0,104). NSC-048 edits only its own catalog entries, its catalog entries are applied after NSC-047's in the combined candidate and land in the batched landing recorded in INT-003, and NSC-046 and NSC-049 do not translate or rewrite FinalRoom.unity."
+    },
+    {
+      "obligation_id": "INT-003",
+      "reference": "NSC-049 AC-001/AC-002 and VAL-001/VAL-002; GER room decision 4 (2026-09-15); re-check C-04 (2026-09-15)",
+      "requirement": "Batched landing (GER room decision 4, 2026-09-15): the NSC-046, NSC-047, and NSC-048 catalog edits land on main together in one batch with NSC-049's narrow refresh, and no part of that batch lands alone. The refresh gates that landing, not the room tasks' own gates, because NSC-049 depends on all three. It recomposes Assets/Scenes/DoorPrototype.unity from the immutable room scenes against the combined catalog and updates Assets/NoSafeCircle/DoorPrototype/Tests/FiveRoomDoorSequencePlayModeTests.cs to expect D3 at (-8,0,54), D4 at (4,0,76), and D5 at (0,0,104), with D1 at (0,0,0) and D2 at (6,0,20) unchanged. Assets/NoSafeCircle/DoorPrototype/Tests/Editor/World/CommittedRoomSourceSceneConformanceTests.cs belongs to NSC-049; this task cites it only as regression-only evidence and does not edit or claim it. Before the batch lands, that fixture, FiveRoomDoorSequencePlayModeTests, and the broader Edit Mode and Play Mode suites must pass on the combined candidate with the refresh and be reported literally. NSC-049 does not move room roots or rewrite room source scenes."
+    },
+    {
+      "obligation_id": "INT-004",
+      "reference": "NSC-072; NSC-054 projectile-cover behavior",
+      "requirement": "NSC-072 must load the revised committed Chapel geometry and fire the delivered Ranged Enemy projectile along a representative path from the opposite half toward CA-W or CA-E. If the delivered projectile travels above 1.25 units, use the CA-E path over east pew row 3 that intersects C4's 2.5-unit column collider; otherwise a path stopped by a committed pew collider satisfies this obligation. Verify that the projectile stops or despawns before PlayerHealth.TakeDamage is called. Synthetic geometry and the NSC-046 geometric rays do not satisfy this Play Mode validation."
+    },
+    {
+      "obligation_id": "INT-005",
+      "reference": "NSC-081",
+      "requirement": "NSC-081 must read the revision-6 public ChapelOfAshLayout bounds and reserve rectangles while generating ChapelOfAshDressing.prefab and ChapelOfAshDressingCatalog.json without opening or editing ChapelOfAsh.unity. It owns the final original ritual landmark, props, ash and material accents, candles, selective symmetry, and dark-cute detail while preserving every NSC-046 collider, route, cover ray, door approach, and staging area. Because INT-006 leaves Lower Vault's cutaway stub rather than Chapel's full-height north wall visible at Z 54 in the composed scene, the ritual landmark must read as vertical without relying on the north wall visual. It must not add collision to the ritual landmark; a hard-cover focal footprint requires a new reviewed NSC-046 geometry revision."
+    },
+    {
+      "obligation_id": "INT-006",
+      "reference": "NSC-049 AC-001 and VAL-001; GER room decision 1 (2026-09-15); re-check C-06 (2026-09-15); separate NSC-069 AC-004 revision",
+      "requirement": "Shared-boundary walls (GER room decision 1, 2026-09-15): each room scene authors its own four walls, with full-height north and west walls and 0.5-unit south and east cutaway stubs, and never removes or shortens a wall for a neighbour. In the composed Assets/Scenes/DoorPrototype.unity, NSC-049 keeps the northern room's SouthLowWallTilemap stub at each shared north/south boundary and removes the southern room's NorthFullWallTilemap cells only over the span that stub covers; every wall cell spans whole units, so removed and kept cells split exactly at the span edges. NSC-049 finds these Tilemaps by their committed names under each Room_<RoomId>/Visuals Grid and the wall BoxColliders by their committed names under GameplayGeometry. Exactly one 2.5-unit gameplay wall collider remains along every part of each shared boundary outside its 3.0-unit door opening, which stays clear: on each shared line NSC-049 removes, by name and without resizing any collider, the wall BoxCollider pieces that lie wholly inside the other room's pieces on that line. West and east walls, including their corner cells, are perimeter walls rather than shared-boundary walls and stay. At Z 20, Chapel of Ash's stub over X [-18,+18] covers all of Bone Archive's north wall; Bone Archive's NorthFullWallTilemap cells are removed, and its NorthWallWestCollision X [-12,+4.5] and NorthWallEastCollision X [+7.5,+12] lie inside Chapel of Ash's SouthWallWestCollision X [-18,+4.5] and SouthWallEastCollision X [+7.5,+18] and are removed. At Z 54, Lower Vault's stub over X [-20,+20] covers all of Chapel of Ash's north wall; Chapel of Ash's NorthFullWallTilemap cells are removed, and its NorthWallWestCollision X [-18,-9.5] and NorthWallEastCollision X [-6.5,+18] lie inside Lower Vault's SouthWallWestCollision X [-20,-9.5] and SouthWallEastCollision X [-6.5,+20] and are removed. NSC-049's composed-scene gameplay-camera review includes the Bone Archive D2 and Archive Reliquary view and the Chapel of Ash north wall and ritual landmark view, because composition replaces those standalone walls. This exclusion is NSC-049 composition work under a separate NSC-069 AC-004 revision; the room task does not edit the composer and does not remove its own walls from its room scene."
+    }
+  ],
   "exclusive_resources": [
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/ChapelOfAshSceneBuilder.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/ChapelOfAshLayout.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/ChapelOfAshSceneTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneCatalog.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/World/RoomSceneCatalog.asset",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/ChapelOfAshFarWallTile.asset",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/ChapelOfAshFarWallTile.asset.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/ChapelOfAshCutawayWallTile.asset",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/ChapelOfAshCutawayWallTile.asset.meta",
     "unity-scene:Assets/Scenes/Rooms/ChapelOfAsh.unity",
     "logical:room-walkability:chapel-of-ash"
   ],
-  "execution_reason": "One agent can author the Chapel of Ash builder, layout data, focused geometry tests, and Unity authoring scene without writing the canonical scene or another room's files.",
+  "execution_reason": "One Unity content-authoring crew can revise ChapelOfAshLayout, its deterministic builder and non-saving preview, the two room wall Tiles, the committed room scene, the Chapel catalog entries, and focused tests in one checkout. Its source changes are applied first in the combined NSC-046, NSC-047, and NSC-048 candidate, and its catalog edit lands only in the batched landing with NSC-049's narrow refresh, which gates that landing but not this task's gates. Sibling room authoring, canonical composition, shared-boundary wall exclusion, real projectile validation, and final dressing stay with their existing tasks.",
   "execution_scope": "single_agent",
   "gdd_evidence": [
     {
-      "reference": "GDD — Approved Five-Room Spatial Layout Blockout §7",
-      "requirement": "Chapel of Ash has an exposed central aisle, longer side routes, explicit pews and columns, designated cover pockets, and real gameplay geometry that blocks a representative ranged projectile path."
+      "reference": "GDD — Approved Five-Room Spatial Layout Blockout §§2, 7, 11, 12, and 13",
+      "requirement": "Chapel of Ash keeps an exposed central aisle, longer side routes, real pew and column cover, designated cover pockets, melee-accessible lateral routes, and separate visual and gameplay geometry. An accepted design review may revise room bounds, obstacle footprints, and the exit-door center within the three-times envelope while preserving minimum clearances, and implementations may snap visual Tilemap cells to the grid while gameplay geometry keeps the intended footprint."
+    },
+    {
+      "reference": "GDD — Game Mechanics; Spell and Enemy Interactions; Enemy Detection, Pursuit, and Target Loss; Door and Pursuit Rules",
+      "requirement": "The room supports pursuit stretching, possible Fireball preparation, Frost Field lane control, Force Wave recovery space, projectile-blocking cover, and a five-second door attempt without treating cover as target loss or introducing enemy placement and combat tuning."
+    },
+    {
+      "reference": "Docs/Art/Environment/DUNGEON_ART_DIRECTION.md; Docs/Engineering/WALL_TILING_IMPLEMENTATION_GUIDE.md",
+      "requirement": "Chapel uses an original isometric composition with one room-owned Grid holding separate straight-run wall Tilemaps, individually sorted repeatable cells, full-height far walls, low camera-facing cutaways, readable door frames, separate gameplay collision, a focal reservation, two supporting clusters, and several gameplay-camera review stations."
     }
   ],
   "id": "NSC-046",
   "kind": "implementation",
-  "notes": "This task authors the room and its cover geometry. NSC-072 validates that geometry against a real Ranged Enemy projectile after NSC-054 is delivered. Assets/Scenes/Rooms/ChapelOfAsh.unity is an Editor-time authoring input; NSC-049 composes it into the canonical runtime scene.",
+  "notes": "Visible outcome: Ash Processional. This revision authors blockout geometry and placeholder visual architecture only. It adds no enemy placement, encounter content, runtime spell, pursuit or door behavior, production prop art, final lighting, audio, VFX, or ChapelOfAshDressing.prefab. Assets/Scenes/Rooms/ChapelOfAsh.unity remains an Editor-time input with no Player, camera, light, Canvas, EventSystem, encounter population, or live DoorInteractable. The room builder is the production materialization path for the scene and two generated wall Tiles; the catalog builder is the production path for RoomSceneCatalog.asset. Generated serialized payloads must never be reconstructed by hand. Cover examples: the low ray from (3,0.75,34) to CA-W is stopped by a pew; the higher ray from (-3,2,40) to CA-E passes above the pew and is stopped by C4; the low angled ray from (3,0.75,41) to CA-W intentionally reaches the pocket through the Z [35,39] row gap, preserving angle-dependent cover and melee access. Wall visuals follow the committed Ruined Entry cell mapping, so each 3.0-unit collider opening shows a four-cell (4.0-unit) visual gap whose edge cells sit 0.5 units outside the collider opening edges, within the 0.5-unit visual tolerance NSC-044 uses and the GDD allowance to snap visual Tilemap cells to the grid, and the door instance NSC-049 places at each anchor bridges that gap. The room decisions recorded on 2026-09-15 apply here: Chapel authors its own four perimeter walls and NSC-049 applies the shared-boundary exclusion (INT-006); D2 on the south cutaway wall has no full-height jamb cells, and its readable frame comes from NSC-049's door instance with NSC-065's sealed-door art (revised decision 2); the Chapel source changes are applied first in the combined NSC-046, NSC-047, and NSC-048 candidate and its catalog edit lands only in the batched landing with NSC-049's narrow refresh (AC-006, INT-003), while NSC-046's own gates never wait for that refresh; Assets/NoSafeCircle/DoorPrototype/Tests/Editor/World/CommittedRoomSourceSceneConformanceTests.cs belongs to NSC-049 and is regression-only evidence here; and one Grid holds separate north, south, west, and east wall Tilemaps. The ritual landmark stays non-colliding (INT-005). Revision-6 coordinates assume RoomSceneCatalog Ruined Entry D1 (0,0), Bone Archive MaxZ 20, and D2 (+6,20), as recorded at main 96a6293c and in the settled 2026-09-15 room table, where NSC-045 revises Bone Archive to X [-12,+12] without moving MaxZ or D2. If an accepted NSC-044 or NSC-045 revision changes them before NSC-046 dispatch, NSC-046 requires a re-audited revision that translates every Chapel Z coordinate by the D2 Z delta and realigns D2 X.",
   "parent": "NSC-029",
   "provenance": {
     "graph_delta_plan_id": "GDP-5f799a9d352217a315b42a5ec36178abecd2ff16235c9191797508850edfc9d2",
@@ -59,13 +149,82 @@
       "decision": "deterministic_editor_time_room_scene_composition",
       "proposal_sha256": "bfb012d3ef26ba2987df48364c303a18b8fa4b77a45c99fa06fd4c2a00cad190",
       "source_commit": "eab9bad9325a3e28894a64b6bbde92ee58e75476"
-    }
+    },
+    "design_decisions": [
+      {
+        "date": "2026-09-14",
+        "decided_by": "Vincent",
+        "record": "GDD Approved Five-Room Spatial Layout Blockout §13; NSC-069 AC-006; NSC-049 AC-001",
+        "decision": "Room dimensions are baselines within a three-times width and depth envelope. A room task may revise its RoomBounds and exit-door center through an accepted GER, with sibling room tasks retaining their own geometry and NSC-049 responsible for final composition."
+      },
+      {
+        "date": "2026-09-14",
+        "decided_by": "Vincent",
+        "record": "Docs/Art/Environment/DUNGEON_ART_DIRECTION.md",
+        "decision": "Each room owns an Isometric wall Tilemap; south and east walls begin as low camera-facing cutaways, north and west walls remain full height, gameplay wall colliders remain 2.5 units high, and several gameplay-camera shots replace a whole-room framing requirement."
+      },
+      {
+        "date": "2026-09-15",
+        "decided_by": "Claude (GER owner) at Vincent's direction",
+        "record": "GER room decisions 1-5 (2026-09-15; decisions 2 and 3 revised the same day)",
+        "decision": "Chapel of Ash authors its own full-height north and west walls and 0.5-unit south and east cutaways as four wall Tilemaps under one Grid, placed with the committed RuinedEntrySceneBuilder Grid, cell mapping and 0.151-unit inward offset; under revised decision 2 the south cutaway stops at the D2 opening with no full-height jamb cell and NSC-049's door instance frames D2; revised decision 3 changes nothing in Chapel; its source changes are applied first in the combined NSC-046, NSC-047 and NSC-048 candidate and its catalog edit lands only in the batched landing with NSC-049's narrow refresh, which gates that landing but not NSC-046's own gates; and NSC-049 owns the shared-boundary wall exclusion at Z 20 and Z 54 and CommittedRoomSourceSceneConformanceTests.cs."
+      }
+    ],
+    "task_design_ger": [
+      {
+        "ger_run_id": "20260914-055414-NSC-046",
+        "packet_source_head": "82c96a9d9694de25236f60e577b08a35dc679590",
+        "previous_contract_revision": 5,
+        "round_output_sha256": {
+          "01-codex-generate": "4b85bfcd29cfad3b808869a765b1b069df3419f68a258305dd55742444910f2f",
+          "02-claude-evaluate": "4e1a23080d502598b5d64947cddc0bcaaca00d27f7ac3f94db5d2422e6519949",
+          "03-codex-refine": "29dec86764092bebff2316905d9255f9bd4eb78b2d5dae14a781cdf1877b064a",
+          "04-claude-reaudit": "9305d5b87c76ed04e220e74a9a60eb7ebb393cb26aeda38975f85a781243d3d7",
+          "07-owner-decision-revision": "75708955c62274b833790f0baa579ec079ad6e307641aa74f25afd4557735e53",
+          "08-claude-recheck": "c527a944153a17a2f921b1af8c6cf67fb5862f84a7cb2be2294328745a79e1ab"
+        },
+        "reaudit_recommendation": "needs_design",
+        "owner_decision_revision_contract_sha256": "5740f95600a0cf1aa71b02af0fde56cf1ebac604fbee7df132263fb96c123000",
+        "recheck_recommendation": "commit_contract"
+      }
+    ]
   },
   "reconciliation_key": "chapel-of-ash-blockout",
-  "repository_evidence_at_bootstrap": [],
-  "repository_state_at_bootstrap": "not_applicable",
+  "repository_evidence_at_bootstrap": [
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/ChapelOfAshLayout.cs",
+      "evidence_type": "code",
+      "observation": "Contains the complete revision-5 baseline coordinates, pews, columns, doors, and cover-pocket data but none of the revision-6 bounds, reserve rectangles, or camera-review stations."
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/ChapelOfAshSceneBuilder.cs",
+      "evidence_type": "code",
+      "observation": "Builds the baseline hierarchy and colliders but uses Standard-shader cube visuals and contains no Tilemap generation, generated-wall reconciliation, or gameplay-camera preview path."
+    },
+    {
+      "path": "Assets/Scenes/Rooms/ChapelOfAsh.unity",
+      "evidence_type": "scene",
+      "observation": "The committed baseline room is materialized with pew, column, wall, anchor, and cover-marker objects but contains no Grid, Tilemap, or TilemapRenderer."
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/ChapelOfAshSceneTests.cs",
+      "evidence_type": "test",
+      "observation": "Existing tests cover baseline layout and an in-memory builder, while the committed-scene test validates composer admission and anchor count rather than detailed saved Chapel geometry."
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneCatalog.cs",
+      "evidence_type": "code",
+      "observation": "At main 96a6293c the catalog still records ChapelOfAsh at X [-12,12], Z [20,42] and D3 at (-6,42), with Ruined Entry already revised to X [-14,14], Z [-26,0] and D1, D2, D4, and D5 at their baseline centers."
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/RuinedEntrySceneBuilder.cs",
+      "evidence_type": "code",
+      "observation": "The committed wall convention this revision mirrors: one IsometricZAsY-named Grid saved with the default Rectangle cell layout, a FloorTilemap rotated Euler(-90,0,0), four per-wall Tilemaps painted at cells (k,0,0) by PaintStraightWallRun with local X offset 0.5 for north and south, Euler(0,90,0) and local Z offset -0.5 for west and east, and a 0.151-unit inward visual offset."
+    }
+  ],
+  "repository_state_at_bootstrap": "partial",
   "schema_version": "2.0",
   "source_scope": "required",
-  "title": "Chapel of Ash Spatial Blockout",
+  "title": "Chapel of Ash Tilemap Blockout and Cover Routes",
   "type": "content-authoring"
 }
