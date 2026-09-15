@@ -141,14 +141,20 @@ namespace NoSafeCircle.DoorPrototype.Enemies
                    candidatePath.status == NavMeshPathStatus.PathComplete;
         }
 
+        // Callers validate the same destination with IsCompletePath immediately before
+        // this call, so candidatePath is the complete path to that destination.
         private bool TrySetRepositionDestination(Vector3 destination)
         {
-            // EnemyPursuitMovement has just requested a fresh targetward path in its
-            // Update. Unity can leave that request pending and reject a second
-            // SetDestination, keeping the wizard as the agent destination. Cancel the
-            // pending request before handing this frame's authority to keep-distance.
+            // EnemyPursuitMovement requests a targetward path every Update while
+            // Pursuing. A second SetDestination only queues another request, so the
+            // agent still reports the pursuit destination when the frame ends and
+            // NSC-053 VAL-003 samples it. Cancel that request and assign the path this
+            // component already calculated for the same destination, which applies
+            // immediately without waiting for Unity's path queue.
+            if (candidatePath == null || candidatePath.status != NavMeshPathStatus.PathComplete)
+                return false;
             if (agent.pathPending) agent.ResetPath();
-            return agent.SetDestination(destination);
+            return agent.SetPath(candidatePath);
         }
 
         private void Hold()
