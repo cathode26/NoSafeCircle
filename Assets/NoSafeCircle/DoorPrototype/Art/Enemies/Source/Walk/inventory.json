@@ -1,0 +1,2509 @@
+{
+  "schema": "nsc-enemy-pixellab-walk-source/v1",
+  "status": "provisional_pending_vincent_visual_approval",
+  "source": "PixelLab animate_character v3",
+  "canvas_size": [
+    176,
+    176
+  ],
+  "alpha_bottom_y_from_top": 132,
+  "normalization": "Lossless transparent padding: each complete raw RGBA image is pasted without scaling or pixel changes; alpha bottoms align at one y coordinate.",
+  "entries": [
+    {
+      "file": "enemy_melee_n_walk_00.png",
+      "archetype": "melee",
+      "direction": "north",
+      "selected_frame_index": 0,
+      "pixel_lab_frame_index": 1,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "eac8eec0-5c0c-48e1-8ba0-7f1c978285c0",
+      "animation_id": "35cbfd43-5826-489d-b101-ea9ed5e6f26e",
+      "raw_size": [
+        140,
+        140
+      ],
+      "raw_alpha_bbox": [
+        21,
+        28,
+        101,
+        114
+      ],
+      "padding_offset": [
+        18,
+        18
+      ],
+      "raw_sha256": "7f4c634e6f4d5af45c5f7d89d8cc739170a0675902aea6a8a518f28e2b0aa162",
+      "selected_sha256": "14c969697fdfccd3b43f638d977d3a4b97636ae0a3f23bcc3a5cdf3a66a1a74d"
+    },
+    {
+      "file": "enemy_melee_n_walk_01.png",
+      "archetype": "melee",
+      "direction": "north",
+      "selected_frame_index": 1,
+      "pixel_lab_frame_index": 2,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "eac8eec0-5c0c-48e1-8ba0-7f1c978285c0",
+      "animation_id": "35cbfd43-5826-489d-b101-ea9ed5e6f26e",
+      "raw_size": [
+        140,
+        140
+      ],
+      "raw_alpha_bbox": [
+        22,
+        29,
+        99,
+        114
+      ],
+      "padding_offset": [
+        18,
+        18
+      ],
+      "raw_sha256": "3d9e3a2e3d0e6649ab16c877c302ae2c75f5d91c8225f3d810b63f39813a1bdf",
+      "selected_sha256": "7297b256e518c602269bbf2a451745eb84970b800ec13100a9f4cdb1d0246883"
+    },
+    {
+      "file": "enemy_melee_n_walk_02.png",
+      "archetype": "melee",
+      "direction": "north",
+      "selected_frame_index": 2,
+      "pixel_lab_frame_index": 3,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "eac8eec0-5c0c-48e1-8ba0-7f1c978285c0",
+      "animation_id": "35cbfd43-5826-489d-b101-ea9ed5e6f26e",
+      "raw_size": [
+        140,
+        140
+      ],
+      "raw_alpha_bbox": [
+        23,
+        28,
+        99,
+        114
+      ],
+      "padding_offset": [
+        18,
+        18
+      ],
+      "raw_sha256": "75a1e76f1b215d63e85ed47303c430b387c73e522907a819b199063f45353ce4",
+      "selected_sha256": "3b5c3294494592d71e648388d20eaa157d3f1daa2bb47d1c01e7e14f0cd1c096"
+    },
+    {
+      "file": "enemy_melee_n_walk_03.png",
+      "archetype": "melee",
+      "direction": "north",
+      "selected_frame_index": 3,
+      "pixel_lab_frame_index": 4,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "eac8eec0-5c0c-48e1-8ba0-7f1c978285c0",
+      "animation_id": "35cbfd43-5826-489d-b101-ea9ed5e6f26e",
+      "raw_size": [
+        140,
+        140
+      ],
+      "raw_alpha_bbox": [
+        23,
+        26,
+        99,
+        112
+      ],
+      "padding_offset": [
+        18,
+        20
+      ],
+      "raw_sha256": "6143ee8d55af3f23acf591a1d2eaee8eef7b0397978e8b9e64b63c16bc3b1f13",
+      "selected_sha256": "eccb4097dcefe1400f145e56b589abbe6da3a30a823824483ec8c411cac77049"
+    },
+    {
+      "file": "enemy_melee_n_walk_04.png",
+      "archetype": "melee",
+      "direction": "north",
+      "selected_frame_index": 4,
+      "pixel_lab_frame_index": 5,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "eac8eec0-5c0c-48e1-8ba0-7f1c978285c0",
+      "animation_id": "35cbfd43-5826-489d-b101-ea9ed5e6f26e",
+      "raw_size": [
+        140,
+        140
+      ],
+      "raw_alpha_bbox": [
+        23,
+        27,
+        101,
+        114
+      ],
+      "padding_offset": [
+        18,
+        18
+      ],
+      "raw_sha256": "beab01e92245c229780680bd358030e7da93644f869f4c3a84e8fd5987b75a02",
+      "selected_sha256": "ce58051ec1ce998b93cfb2274eaf2a033044e00ebc9af66925e96d0757e34d59"
+    },
+    {
+      "file": "enemy_melee_n_walk_05.png",
+      "archetype": "melee",
+      "direction": "north",
+      "selected_frame_index": 5,
+      "pixel_lab_frame_index": 6,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "eac8eec0-5c0c-48e1-8ba0-7f1c978285c0",
+      "animation_id": "35cbfd43-5826-489d-b101-ea9ed5e6f26e",
+      "raw_size": [
+        140,
+        140
+      ],
+      "raw_alpha_bbox": [
+        22,
+        30,
+        100,
+        114
+      ],
+      "padding_offset": [
+        18,
+        18
+      ],
+      "raw_sha256": "eb677fd5ad523ad76a06d7900f1cdf1fd8ca1eb2e20ab37b47f3a9c6f8fce289",
+      "selected_sha256": "b9b35380ab155c277fd759b5f8065e45599895cac1d28b64640d64ccf4e3e3d0"
+    },
+    {
+      "file": "enemy_melee_ne_walk_00.png",
+      "archetype": "melee",
+      "direction": "north-east",
+      "selected_frame_index": 0,
+      "pixel_lab_frame_index": 1,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
+      "animation_id": "9c9d4789-2c3e-433b-8db1-45fe2b38714e",
+      "raw_size": [
+        152,
+        152
+      ],
+      "raw_alpha_bbox": [
+        28,
+        27,
+        129,
+        123
+      ],
+      "padding_offset": [
+        12,
+        9
+      ],
+      "raw_sha256": "dd6199b5064988c290040a81865420cf08ceed41e53bc7eec3e9da676ac917c1",
+      "selected_sha256": "b3754550fa73287769421135a765a44f0dc51f7bae576a7c606498cf3415c014"
+    },
+    {
+      "file": "enemy_melee_ne_walk_01.png",
+      "archetype": "melee",
+      "direction": "north-east",
+      "selected_frame_index": 1,
+      "pixel_lab_frame_index": 2,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
+      "animation_id": "9c9d4789-2c3e-433b-8db1-45fe2b38714e",
+      "raw_size": [
+        152,
+        152
+      ],
+      "raw_alpha_bbox": [
+        26,
+        30,
+        126,
+        124
+      ],
+      "padding_offset": [
+        12,
+        8
+      ],
+      "raw_sha256": "17b3be4b0da8dce9801247c2782f8d841569a101f09efc38044544249b8e22c2",
+      "selected_sha256": "b3caf40c5aa54b29767caeafe8b6fbdab37429871446fd4a0fcb028934bfb695"
+    },
+    {
+      "file": "enemy_melee_ne_walk_02.png",
+      "archetype": "melee",
+      "direction": "north-east",
+      "selected_frame_index": 2,
+      "pixel_lab_frame_index": 3,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
+      "animation_id": "9c9d4789-2c3e-433b-8db1-45fe2b38714e",
+      "raw_size": [
+        152,
+        152
+      ],
+      "raw_alpha_bbox": [
+        27,
+        31,
+        125,
+        123
+      ],
+      "padding_offset": [
+        12,
+        9
+      ],
+      "raw_sha256": "3ec162cbcddb57f35907ed288d325dbf170cdf93d3d8be4b40a81fc7511f1366",
+      "selected_sha256": "34bc3fa86298de3df656e8fceca874620789a1e0da5bd6f404cb6a21fd873ee4"
+    },
+    {
+      "file": "enemy_melee_ne_walk_03.png",
+      "archetype": "melee",
+      "direction": "north-east",
+      "selected_frame_index": 3,
+      "pixel_lab_frame_index": 4,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
+      "animation_id": "9c9d4789-2c3e-433b-8db1-45fe2b38714e",
+      "raw_size": [
+        152,
+        152
+      ],
+      "raw_alpha_bbox": [
+        30,
+        29,
+        126,
+        122
+      ],
+      "padding_offset": [
+        12,
+        10
+      ],
+      "raw_sha256": "e163bb2ce5c94154ef7d7a4279027b099ea361e8f6fda635d2430a85773e1919",
+      "selected_sha256": "d618d2da0451dcf52a065de813ea7b59ea22631cbf48b6d86ef770ed7709de85"
+    },
+    {
+      "file": "enemy_melee_ne_walk_04.png",
+      "archetype": "melee",
+      "direction": "north-east",
+      "selected_frame_index": 4,
+      "pixel_lab_frame_index": 5,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
+      "animation_id": "9c9d4789-2c3e-433b-8db1-45fe2b38714e",
+      "raw_size": [
+        152,
+        152
+      ],
+      "raw_alpha_bbox": [
+        33,
+        27,
+        127,
+        118
+      ],
+      "padding_offset": [
+        12,
+        14
+      ],
+      "raw_sha256": "144dc5afd66dd47811e01de20aacb8d5d62eea6138968c68f8206c53610ae8ba",
+      "selected_sha256": "82e282c478a145c854fae49a6e59af552d2eb62ccb3db441c3cf405bb7227e61"
+    },
+    {
+      "file": "enemy_melee_ne_walk_05.png",
+      "archetype": "melee",
+      "direction": "north-east",
+      "selected_frame_index": 5,
+      "pixel_lab_frame_index": 6,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
+      "animation_id": "9c9d4789-2c3e-433b-8db1-45fe2b38714e",
+      "raw_size": [
+        152,
+        152
+      ],
+      "raw_alpha_bbox": [
+        35,
+        28,
+        128,
+        120
+      ],
+      "padding_offset": [
+        12,
+        12
+      ],
+      "raw_sha256": "5d36edc4efcdd979d2c1c5f172ca51d1d2b293757e36d7ae93b32c5296c705a9",
+      "selected_sha256": "3cfac1dff75d2e2c8d72bffd90f590e5c8f99053bc7c88a0043e21dfe063f24c"
+    },
+    {
+      "file": "enemy_melee_e_walk_00.png",
+      "archetype": "melee",
+      "direction": "east",
+      "selected_frame_index": 0,
+      "pixel_lab_frame_index": 1,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
+      "animation_id": "01c8083e-0b5b-482b-bf11-31b25d50503f",
+      "raw_size": [
+        148,
+        148
+      ],
+      "raw_alpha_bbox": [
+        43,
+        31,
+        122,
+        120
+      ],
+      "padding_offset": [
+        14,
+        12
+      ],
+      "raw_sha256": "e04a0385110b482ca2c42e494df257ddcc16612a7a51e1beb1c2245b5180a0d1",
+      "selected_sha256": "b166e8fe96a6d3dad359c6a077fa02a3287650b7bde7b8a2c3e7a66c2f25c6d7"
+    },
+    {
+      "file": "enemy_melee_e_walk_01.png",
+      "archetype": "melee",
+      "direction": "east",
+      "selected_frame_index": 1,
+      "pixel_lab_frame_index": 2,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
+      "animation_id": "01c8083e-0b5b-482b-bf11-31b25d50503f",
+      "raw_size": [
+        148,
+        148
+      ],
+      "raw_alpha_bbox": [
+        40,
+        34,
+        119,
+        118
+      ],
+      "padding_offset": [
+        14,
+        14
+      ],
+      "raw_sha256": "3ce0eaefc4f2c5f70fccef60c228ea4164d1003d9ca4cc23762868fdfaeab8e1",
+      "selected_sha256": "4046aaf74d471b3002af5c32ed085a07e7e30b1c16218cff118695b682ff10b9"
+    },
+    {
+      "file": "enemy_melee_e_walk_02.png",
+      "archetype": "melee",
+      "direction": "east",
+      "selected_frame_index": 2,
+      "pixel_lab_frame_index": 3,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
+      "animation_id": "01c8083e-0b5b-482b-bf11-31b25d50503f",
+      "raw_size": [
+        148,
+        148
+      ],
+      "raw_alpha_bbox": [
+        41,
+        33,
+        122,
+        119
+      ],
+      "padding_offset": [
+        14,
+        13
+      ],
+      "raw_sha256": "2827c67c5e925a8571cc9b606747beb9e84743f1f123b0acc1784ad1d3faa3da",
+      "selected_sha256": "8aa80addfc069ee1762683e0be681a4a0ee717d1a04848fadca4a8541cd7a35e"
+    },
+    {
+      "file": "enemy_melee_e_walk_03.png",
+      "archetype": "melee",
+      "direction": "east",
+      "selected_frame_index": 3,
+      "pixel_lab_frame_index": 4,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
+      "animation_id": "01c8083e-0b5b-482b-bf11-31b25d50503f",
+      "raw_size": [
+        148,
+        148
+      ],
+      "raw_alpha_bbox": [
+        36,
+        31,
+        126,
+        119
+      ],
+      "padding_offset": [
+        14,
+        13
+      ],
+      "raw_sha256": "6e63592d8996e948319ef601b1b3388053751d366e3fd8a54c30c0c36173c2c4",
+      "selected_sha256": "ae1f4e21b521f82f462e742fe75d9b0332d1bd44e05dd418ae2049cbb0efe8aa"
+    },
+    {
+      "file": "enemy_melee_e_walk_04.png",
+      "archetype": "melee",
+      "direction": "east",
+      "selected_frame_index": 4,
+      "pixel_lab_frame_index": 5,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
+      "animation_id": "01c8083e-0b5b-482b-bf11-31b25d50503f",
+      "raw_size": [
+        148,
+        148
+      ],
+      "raw_alpha_bbox": [
+        28,
+        31,
+        129,
+        119
+      ],
+      "padding_offset": [
+        14,
+        13
+      ],
+      "raw_sha256": "cf320243f6330b8a0e4e4eb74ee21ecef92b21d29fce0c5c3bd031ae5e073ff7",
+      "selected_sha256": "f9def5c350015d0d5b5c1dba6d833aecee77c0065ebe278de5fcb8fffa43e383"
+    },
+    {
+      "file": "enemy_melee_e_walk_05.png",
+      "archetype": "melee",
+      "direction": "east",
+      "selected_frame_index": 5,
+      "pixel_lab_frame_index": 6,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
+      "animation_id": "01c8083e-0b5b-482b-bf11-31b25d50503f",
+      "raw_size": [
+        148,
+        148
+      ],
+      "raw_alpha_bbox": [
+        25,
+        33,
+        130,
+        121
+      ],
+      "padding_offset": [
+        14,
+        11
+      ],
+      "raw_sha256": "f1f309124957cd814c762e811a3a5f40bfb5e0ee66574325662d09b3d46fdb59",
+      "selected_sha256": "f34ed57af74fc1a2ccf14dcad9bf2f8d338d17bab5cc7edf318108744f0d6c76"
+    },
+    {
+      "file": "enemy_melee_se_walk_00.png",
+      "archetype": "melee",
+      "direction": "south-east",
+      "selected_frame_index": 0,
+      "pixel_lab_frame_index": 1,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
+      "animation_id": "8c454c38-a39e-4417-bfe0-1c1aee15a3a1",
+      "raw_size": [
+        152,
+        152
+      ],
+      "raw_alpha_bbox": [
+        43,
+        37,
+        127,
+        121
+      ],
+      "padding_offset": [
+        12,
+        11
+      ],
+      "raw_sha256": "2581ed28edb817bec1d8c4d0103463e6f0900ce0dcb9133acc19eb7fb5e97cb0",
+      "selected_sha256": "be65bbb93a3a5d65094d2542552c41ecf363169e86a36656af0f1a15366ae50c"
+    },
+    {
+      "file": "enemy_melee_se_walk_01.png",
+      "archetype": "melee",
+      "direction": "south-east",
+      "selected_frame_index": 1,
+      "pixel_lab_frame_index": 2,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
+      "animation_id": "8c454c38-a39e-4417-bfe0-1c1aee15a3a1",
+      "raw_size": [
+        152,
+        152
+      ],
+      "raw_alpha_bbox": [
+        38,
+        39,
+        126,
+        121
+      ],
+      "padding_offset": [
+        12,
+        11
+      ],
+      "raw_sha256": "796304b2a6f9da9124eb485dd4db53011640991bc4a90b5868ea709268b2c3ec",
+      "selected_sha256": "f52f91f4c98732197f7d9e065640206ace38ce7f60995a01f0f9aba6a4093b12"
+    },
+    {
+      "file": "enemy_melee_se_walk_02.png",
+      "archetype": "melee",
+      "direction": "south-east",
+      "selected_frame_index": 2,
+      "pixel_lab_frame_index": 3,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
+      "animation_id": "8c454c38-a39e-4417-bfe0-1c1aee15a3a1",
+      "raw_size": [
+        152,
+        152
+      ],
+      "raw_alpha_bbox": [
+        38,
+        36,
+        128,
+        120
+      ],
+      "padding_offset": [
+        12,
+        12
+      ],
+      "raw_sha256": "35cdb0aeb093a418931fd3ab52059b3ad57287100e1aacfab1521d3d89969b9b",
+      "selected_sha256": "78b5470cf46a76ec11ec305f733a0327cbd21203fae516d52845909fdaa99aad"
+    },
+    {
+      "file": "enemy_melee_se_walk_03.png",
+      "archetype": "melee",
+      "direction": "south-east",
+      "selected_frame_index": 3,
+      "pixel_lab_frame_index": 4,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
+      "animation_id": "8c454c38-a39e-4417-bfe0-1c1aee15a3a1",
+      "raw_size": [
+        152,
+        152
+      ],
+      "raw_alpha_bbox": [
+        40,
+        34,
+        131,
+        122
+      ],
+      "padding_offset": [
+        12,
+        10
+      ],
+      "raw_sha256": "5b38da033f89d7662730f474634d6550bf71c5138e01c884caec6b53afa99907",
+      "selected_sha256": "f0453d3d099e0f38b94534b0cdfe4371e983065545ffec9faa431bf878608480"
+    },
+    {
+      "file": "enemy_melee_se_walk_04.png",
+      "archetype": "melee",
+      "direction": "south-east",
+      "selected_frame_index": 4,
+      "pixel_lab_frame_index": 5,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
+      "animation_id": "8c454c38-a39e-4417-bfe0-1c1aee15a3a1",
+      "raw_size": [
+        152,
+        152
+      ],
+      "raw_alpha_bbox": [
+        40,
+        36,
+        131,
+        124
+      ],
+      "padding_offset": [
+        12,
+        8
+      ],
+      "raw_sha256": "bc4efd1afde57be957e6ce9757679b8133adac506780602e4923654ec7732028",
+      "selected_sha256": "df5774630bc25e268da274761270048d041f28f196e5a6abaf84236f117b912f"
+    },
+    {
+      "file": "enemy_melee_se_walk_05.png",
+      "archetype": "melee",
+      "direction": "south-east",
+      "selected_frame_index": 5,
+      "pixel_lab_frame_index": 6,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
+      "animation_id": "8c454c38-a39e-4417-bfe0-1c1aee15a3a1",
+      "raw_size": [
+        152,
+        152
+      ],
+      "raw_alpha_bbox": [
+        38,
+        38,
+        130,
+        127
+      ],
+      "padding_offset": [
+        12,
+        5
+      ],
+      "raw_sha256": "7315aae5c78b24340d7e2288f9321f7c0ed835d6a7400efa9445e6b3b26454f7",
+      "selected_sha256": "861b44538448d9da89915cefeeba4dbbd1e203ad92479b9e86eb1d07eb525d36"
+    },
+    {
+      "file": "enemy_melee_s_walk_00.png",
+      "archetype": "melee",
+      "direction": "south",
+      "selected_frame_index": 0,
+      "pixel_lab_frame_index": 1,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
+      "animation_id": "d8558735-cbc0-4ce1-883d-3fc1870b7d88",
+      "raw_size": [
+        144,
+        144
+      ],
+      "raw_alpha_bbox": [
+        45,
+        29,
+        125,
+        117
+      ],
+      "padding_offset": [
+        16,
+        15
+      ],
+      "raw_sha256": "42f9ef3fbe007a3969fac11fcd613c16953ef2db97a7b7244ff2ef44f17dd034",
+      "selected_sha256": "7f599ba169465be4b0450b19480100740ed37c92522b6bcc23d89abb233c6bd6"
+    },
+    {
+      "file": "enemy_melee_s_walk_01.png",
+      "archetype": "melee",
+      "direction": "south",
+      "selected_frame_index": 1,
+      "pixel_lab_frame_index": 2,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
+      "animation_id": "d8558735-cbc0-4ce1-883d-3fc1870b7d88",
+      "raw_size": [
+        144,
+        144
+      ],
+      "raw_alpha_bbox": [
+        43,
+        29,
+        126,
+        119
+      ],
+      "padding_offset": [
+        16,
+        13
+      ],
+      "raw_sha256": "f8576ec4cc2fde8dc636cd395b41a2fcb4ef7a13f371f55d4f7f4fc6c93db675",
+      "selected_sha256": "010d395c308427d266a5f44b1a92ce2289be904ba3afef352cee6335b5fd60d2"
+    },
+    {
+      "file": "enemy_melee_s_walk_02.png",
+      "archetype": "melee",
+      "direction": "south",
+      "selected_frame_index": 2,
+      "pixel_lab_frame_index": 3,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
+      "animation_id": "d8558735-cbc0-4ce1-883d-3fc1870b7d88",
+      "raw_size": [
+        144,
+        144
+      ],
+      "raw_alpha_bbox": [
+        42,
+        31,
+        125,
+        118
+      ],
+      "padding_offset": [
+        16,
+        14
+      ],
+      "raw_sha256": "2b34e606b5216f819fe55e5ef1ec457521daf769fbddfe2829733a4180015772",
+      "selected_sha256": "032f57ba578ca8f6edd4a2bcfc05bda35544cd5b59d0ec9cfb434c102be7fbb0"
+    },
+    {
+      "file": "enemy_melee_s_walk_03.png",
+      "archetype": "melee",
+      "direction": "south",
+      "selected_frame_index": 3,
+      "pixel_lab_frame_index": 4,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
+      "animation_id": "d8558735-cbc0-4ce1-883d-3fc1870b7d88",
+      "raw_size": [
+        144,
+        144
+      ],
+      "raw_alpha_bbox": [
+        42,
+        29,
+        124,
+        117
+      ],
+      "padding_offset": [
+        16,
+        15
+      ],
+      "raw_sha256": "d25426d6b508cb1245d06f715658a8ce72017028a3c7e508f9950bc9bc95e51b",
+      "selected_sha256": "626a25d30ea4381de7f705a2ddae6d8c0e633ea43b6c80a39d7859becd2336a0"
+    },
+    {
+      "file": "enemy_melee_s_walk_04.png",
+      "archetype": "melee",
+      "direction": "south",
+      "selected_frame_index": 4,
+      "pixel_lab_frame_index": 5,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
+      "animation_id": "d8558735-cbc0-4ce1-883d-3fc1870b7d88",
+      "raw_size": [
+        144,
+        144
+      ],
+      "raw_alpha_bbox": [
+        43,
+        27,
+        124,
+        118
+      ],
+      "padding_offset": [
+        16,
+        14
+      ],
+      "raw_sha256": "79165bfdacfc0336a3a6acaf0da7de18a2aaf6ce136b36e8111a7f724b49d31d",
+      "selected_sha256": "b4f99d6293bbf7d3adaf58fedfb9ab023b3bcd52f25b54f59269bedcb66db7e6"
+    },
+    {
+      "file": "enemy_melee_s_walk_05.png",
+      "archetype": "melee",
+      "direction": "south",
+      "selected_frame_index": 5,
+      "pixel_lab_frame_index": 6,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
+      "animation_id": "d8558735-cbc0-4ce1-883d-3fc1870b7d88",
+      "raw_size": [
+        144,
+        144
+      ],
+      "raw_alpha_bbox": [
+        43,
+        29,
+        123,
+        119
+      ],
+      "padding_offset": [
+        16,
+        13
+      ],
+      "raw_sha256": "494c21a7b0e74343097cba14f3fc50e564ae149e10a9b256781fa4a978cdc8a1",
+      "selected_sha256": "61d5eb0d68abdd2820dd2df37eb74fabaf6896b853c712dece42481691a22304"
+    },
+    {
+      "file": "enemy_melee_sw_walk_00.png",
+      "archetype": "melee",
+      "direction": "south-west",
+      "selected_frame_index": 0,
+      "pixel_lab_frame_index": 1,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
+      "animation_id": "04e4829d-66d1-4b0d-b4d2-c3a9b7167b39",
+      "raw_size": [
+        152,
+        152
+      ],
+      "raw_alpha_bbox": [
+        51,
+        36,
+        129,
+        123
+      ],
+      "padding_offset": [
+        12,
+        9
+      ],
+      "raw_sha256": "75d05cec5f96d3cc573f333dfec38e84d4bb98128c5ddd5ee6755ad23e89de4b",
+      "selected_sha256": "1e34b764548686540dfbc350cb27b8551d43906759904524a96532cf2159266c"
+    },
+    {
+      "file": "enemy_melee_sw_walk_01.png",
+      "archetype": "melee",
+      "direction": "south-west",
+      "selected_frame_index": 1,
+      "pixel_lab_frame_index": 2,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
+      "animation_id": "04e4829d-66d1-4b0d-b4d2-c3a9b7167b39",
+      "raw_size": [
+        152,
+        152
+      ],
+      "raw_alpha_bbox": [
+        51,
+        38,
+        127,
+        121
+      ],
+      "padding_offset": [
+        12,
+        11
+      ],
+      "raw_sha256": "5846cc5ba1478d1a56054c9cd8760275107d32f4c40ed64830ee9b3c08aedcc5",
+      "selected_sha256": "d5f1882e2c68200ea98050c8101b959a8659ff7c9dc04ae8dede13df0a753500"
+    },
+    {
+      "file": "enemy_melee_sw_walk_02.png",
+      "archetype": "melee",
+      "direction": "south-west",
+      "selected_frame_index": 2,
+      "pixel_lab_frame_index": 3,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
+      "animation_id": "04e4829d-66d1-4b0d-b4d2-c3a9b7167b39",
+      "raw_size": [
+        152,
+        152
+      ],
+      "raw_alpha_bbox": [
+        52,
+        36,
+        128,
+        121
+      ],
+      "padding_offset": [
+        12,
+        11
+      ],
+      "raw_sha256": "063ea57fb366010013e6d9c0434292fac263d59bd7185969d0df8e2954d0bbb2",
+      "selected_sha256": "e9242185275c10a41cce29c4bbaf029f9e2e0202da4f6538aed6106ac69fc38e"
+    },
+    {
+      "file": "enemy_melee_sw_walk_03.png",
+      "archetype": "melee",
+      "direction": "south-west",
+      "selected_frame_index": 3,
+      "pixel_lab_frame_index": 4,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
+      "animation_id": "04e4829d-66d1-4b0d-b4d2-c3a9b7167b39",
+      "raw_size": [
+        152,
+        152
+      ],
+      "raw_alpha_bbox": [
+        47,
+        34,
+        128,
+        121
+      ],
+      "padding_offset": [
+        12,
+        11
+      ],
+      "raw_sha256": "f6f5a6174fd8d2e18fe60c4ad2f2e2f371436fd9a231e8782b986a16104697ef",
+      "selected_sha256": "214e2cda2b26520b0cfd1c26b1cd83935680994f0205b7c9cbbb1cde23f82e26"
+    },
+    {
+      "file": "enemy_melee_sw_walk_04.png",
+      "archetype": "melee",
+      "direction": "south-west",
+      "selected_frame_index": 4,
+      "pixel_lab_frame_index": 5,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
+      "animation_id": "04e4829d-66d1-4b0d-b4d2-c3a9b7167b39",
+      "raw_size": [
+        152,
+        152
+      ],
+      "raw_alpha_bbox": [
+        41,
+        36,
+        128,
+        123
+      ],
+      "padding_offset": [
+        12,
+        9
+      ],
+      "raw_sha256": "b0b225cc7258fa4a0c72607c2f73031dfabd1257c0934bf5f95639137e44b0f4",
+      "selected_sha256": "27229d85452ca74413cc0a4649ce986b4df44841565e6afc986b861aa06ec80a"
+    },
+    {
+      "file": "enemy_melee_sw_walk_05.png",
+      "archetype": "melee",
+      "direction": "south-west",
+      "selected_frame_index": 5,
+      "pixel_lab_frame_index": 6,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
+      "animation_id": "04e4829d-66d1-4b0d-b4d2-c3a9b7167b39",
+      "raw_size": [
+        152,
+        152
+      ],
+      "raw_alpha_bbox": [
+        40,
+        38,
+        128,
+        127
+      ],
+      "padding_offset": [
+        12,
+        5
+      ],
+      "raw_sha256": "aced2899d1ed0fa40acfeb9a9d0c538779fd3a4e5dcda5b5e7eaaf76536773d7",
+      "selected_sha256": "7ace7c16153f30cd4c713fa70877ced00c12fa17713eb96726635cd027583232"
+    },
+    {
+      "file": "enemy_melee_w_walk_00.png",
+      "archetype": "melee",
+      "direction": "west",
+      "selected_frame_index": 0,
+      "pixel_lab_frame_index": 1,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
+      "animation_id": "1464fe2a-310a-43e2-89eb-26fa9d80e286",
+      "raw_size": [
+        132,
+        132
+      ],
+      "raw_alpha_bbox": [
+        19,
+        25,
+        95,
+        112
+      ],
+      "padding_offset": [
+        22,
+        20
+      ],
+      "raw_sha256": "7a78716e8c87a6751b1a51c3f66fa00490a6cf8825ab6ef5de53bffc72ffb1ea",
+      "selected_sha256": "848ea819e27f5294fdd3b85d08bc7b8b9b6eebb027400b157259666017cd20d0"
+    },
+    {
+      "file": "enemy_melee_w_walk_01.png",
+      "archetype": "melee",
+      "direction": "west",
+      "selected_frame_index": 1,
+      "pixel_lab_frame_index": 2,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
+      "animation_id": "1464fe2a-310a-43e2-89eb-26fa9d80e286",
+      "raw_size": [
+        132,
+        132
+      ],
+      "raw_alpha_bbox": [
+        21,
+        27,
+        100,
+        111
+      ],
+      "padding_offset": [
+        22,
+        21
+      ],
+      "raw_sha256": "5df0a9000c7e8787e9f95094a2eb29510f4a87935ea8de5a0c0dc83f135b44b4",
+      "selected_sha256": "6504f87cd741154cc6cfe8c9faaf63aa52d0fd61e247f8230e9cff33d3a7d143"
+    },
+    {
+      "file": "enemy_melee_w_walk_02.png",
+      "archetype": "melee",
+      "direction": "west",
+      "selected_frame_index": 2,
+      "pixel_lab_frame_index": 3,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
+      "animation_id": "1464fe2a-310a-43e2-89eb-26fa9d80e286",
+      "raw_size": [
+        132,
+        132
+      ],
+      "raw_alpha_bbox": [
+        24,
+        25,
+        97,
+        110
+      ],
+      "padding_offset": [
+        22,
+        22
+      ],
+      "raw_sha256": "50971ecc66aed2fbab762bc7dbecd73abf7378b4f747f7a154298ee5be8d8b2e",
+      "selected_sha256": "a8a30b170a111daa070c6f3ae75ac1558305512c3ec2b1dc4cc9640aae82878f"
+    },
+    {
+      "file": "enemy_melee_w_walk_03.png",
+      "archetype": "melee",
+      "direction": "west",
+      "selected_frame_index": 3,
+      "pixel_lab_frame_index": 4,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
+      "animation_id": "1464fe2a-310a-43e2-89eb-26fa9d80e286",
+      "raw_size": [
+        132,
+        132
+      ],
+      "raw_alpha_bbox": [
+        23,
+        23,
+        93,
+        111
+      ],
+      "padding_offset": [
+        22,
+        21
+      ],
+      "raw_sha256": "c90b00126db2ad51c4d084b2eea3ff5671e0d847e26c1964e9a8ce1653182e94",
+      "selected_sha256": "33aa01306376529c5e8b3d1e246684a41b0c5080bc49ed39309c99fbd08b63b9"
+    },
+    {
+      "file": "enemy_melee_w_walk_04.png",
+      "archetype": "melee",
+      "direction": "west",
+      "selected_frame_index": 4,
+      "pixel_lab_frame_index": 5,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
+      "animation_id": "1464fe2a-310a-43e2-89eb-26fa9d80e286",
+      "raw_size": [
+        132,
+        132
+      ],
+      "raw_alpha_bbox": [
+        22,
+        24,
+        92,
+        111
+      ],
+      "padding_offset": [
+        22,
+        21
+      ],
+      "raw_sha256": "c45a44d9cf54697ce9a6de53d7a23d1740b080b73851ab3fef79e874709e312d",
+      "selected_sha256": "a79f92c7fa0f6850c9fb58ea7d4d845b5a1dba5216f322b430ad9e75bd0967cb"
+    },
+    {
+      "file": "enemy_melee_w_walk_05.png",
+      "archetype": "melee",
+      "direction": "west",
+      "selected_frame_index": 5,
+      "pixel_lab_frame_index": 6,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
+      "animation_id": "1464fe2a-310a-43e2-89eb-26fa9d80e286",
+      "raw_size": [
+        132,
+        132
+      ],
+      "raw_alpha_bbox": [
+        21,
+        27,
+        94,
+        113
+      ],
+      "padding_offset": [
+        22,
+        19
+      ],
+      "raw_sha256": "e6dff060be6590457e773fa7e0b4b9bdd6d24167322f84b9f5190cb82804a0f3",
+      "selected_sha256": "4536c80be9e7b66bd37cd295a91f4b3bc7abd57e8da68dae8c560a8f5cc75a0c"
+    },
+    {
+      "file": "enemy_melee_nw_walk_00.png",
+      "archetype": "melee",
+      "direction": "north-west",
+      "selected_frame_index": 0,
+      "pixel_lab_frame_index": 1,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
+      "animation_id": "809fbffa-f235-4ba7-814d-642f8e7e8cbe",
+      "raw_size": [
+        152,
+        152
+      ],
+      "raw_alpha_bbox": [
+        25,
+        34,
+        107,
+        123
+      ],
+      "padding_offset": [
+        12,
+        9
+      ],
+      "raw_sha256": "cc0abd9393cf649a3cc3729a7004a86be523c17ef054dfc9d62d7dc3a4cccd3a",
+      "selected_sha256": "ef3a362d37121c371b4ed4d49800368ebb283067479c6504c5990f2eaeaf5d9e"
+    },
+    {
+      "file": "enemy_melee_nw_walk_01.png",
+      "archetype": "melee",
+      "direction": "north-west",
+      "selected_frame_index": 1,
+      "pixel_lab_frame_index": 2,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
+      "animation_id": "809fbffa-f235-4ba7-814d-642f8e7e8cbe",
+      "raw_size": [
+        152,
+        152
+      ],
+      "raw_alpha_bbox": [
+        27,
+        32,
+        108,
+        122
+      ],
+      "padding_offset": [
+        12,
+        10
+      ],
+      "raw_sha256": "86281f81e2234884c0c92a2dede1559ab7f084fc11d65e2513ae155f1d409932",
+      "selected_sha256": "01765a005358999406e153c182a90afe721e7a158fd07c9dc72ac0ed8895373b"
+    },
+    {
+      "file": "enemy_melee_nw_walk_02.png",
+      "archetype": "melee",
+      "direction": "north-west",
+      "selected_frame_index": 2,
+      "pixel_lab_frame_index": 3,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
+      "animation_id": "809fbffa-f235-4ba7-814d-642f8e7e8cbe",
+      "raw_size": [
+        152,
+        152
+      ],
+      "raw_alpha_bbox": [
+        29,
+        32,
+        109,
+        122
+      ],
+      "padding_offset": [
+        12,
+        10
+      ],
+      "raw_sha256": "8c51034d5dffe00e1fc703fde33fe611e693a668726737bd2e036e1abb380b11",
+      "selected_sha256": "a3db50b6d514b05148838ebb4f0b6700aa01ce91e064321114a311c99d1101b5"
+    },
+    {
+      "file": "enemy_melee_nw_walk_03.png",
+      "archetype": "melee",
+      "direction": "north-west",
+      "selected_frame_index": 3,
+      "pixel_lab_frame_index": 4,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
+      "animation_id": "809fbffa-f235-4ba7-814d-642f8e7e8cbe",
+      "raw_size": [
+        152,
+        152
+      ],
+      "raw_alpha_bbox": [
+        28,
+        33,
+        111,
+        121
+      ],
+      "padding_offset": [
+        12,
+        11
+      ],
+      "raw_sha256": "66b0c3637371f9c5559ea8a870c38e1cd82870e60f8d046fd8f48ae78c13b865",
+      "selected_sha256": "8513ae3fa6a293ae1921ae278144417761178a1acc7ba000c792436c88906e6a"
+    },
+    {
+      "file": "enemy_melee_nw_walk_04.png",
+      "archetype": "melee",
+      "direction": "north-west",
+      "selected_frame_index": 4,
+      "pixel_lab_frame_index": 5,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
+      "animation_id": "809fbffa-f235-4ba7-814d-642f8e7e8cbe",
+      "raw_size": [
+        152,
+        152
+      ],
+      "raw_alpha_bbox": [
+        26,
+        34,
+        110,
+        119
+      ],
+      "padding_offset": [
+        12,
+        13
+      ],
+      "raw_sha256": "77f99f8f85efd058b29ee30994ff627ff6dfcb6cf854511f4b973b708cf52c75",
+      "selected_sha256": "5c13b7770706a29ef721468e861fc9d3ed436cae0646fa72477603afb6a284f3"
+    },
+    {
+      "file": "enemy_melee_nw_walk_05.png",
+      "archetype": "melee",
+      "direction": "north-west",
+      "selected_frame_index": 5,
+      "pixel_lab_frame_index": 6,
+      "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
+      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
+      "animation_id": "809fbffa-f235-4ba7-814d-642f8e7e8cbe",
+      "raw_size": [
+        152,
+        152
+      ],
+      "raw_alpha_bbox": [
+        24,
+        35,
+        108,
+        121
+      ],
+      "padding_offset": [
+        12,
+        11
+      ],
+      "raw_sha256": "9384a470f1f1c139d61c5fed3e5869f0d8c80e7bb3b5a3bf646ab49c77bf9dff",
+      "selected_sha256": "0afb3c903e2cc70c3cbfc0732f03b4b3ecacdc991769c385c84ce37c366a4c2a"
+    },
+    {
+      "file": "enemy_ranged_n_walk_00.png",
+      "archetype": "ranged",
+      "direction": "north",
+      "selected_frame_index": 0,
+      "pixel_lab_frame_index": 1,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "b5bd3ab8-fadb-4f84-bda7-963320c4f015",
+      "raw_size": [
+        152,
+        152
+      ],
+      "raw_alpha_bbox": [
+        39,
+        22,
+        115,
+        125
+      ],
+      "padding_offset": [
+        12,
+        7
+      ],
+      "raw_sha256": "44a4416b12442390d83b7bb7a9381c57e99b5c91ffe0d4c326eecd5e48625d1f",
+      "selected_sha256": "95991291207cd5e00e57c97c610049b9264da2ba7fbbf576b887fc240185b22e"
+    },
+    {
+      "file": "enemy_ranged_n_walk_01.png",
+      "archetype": "ranged",
+      "direction": "north",
+      "selected_frame_index": 1,
+      "pixel_lab_frame_index": 2,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "b5bd3ab8-fadb-4f84-bda7-963320c4f015",
+      "raw_size": [
+        152,
+        152
+      ],
+      "raw_alpha_bbox": [
+        38,
+        25,
+        116,
+        126
+      ],
+      "padding_offset": [
+        12,
+        6
+      ],
+      "raw_sha256": "ca9c0820e77a236424bcce30a1ea4d260c3657e531db63b2f9b76d7dc5ae2be0",
+      "selected_sha256": "2d9046e4c5a229f375d8fad14e20876ed05fd75cc9d965309747656d27e942d5"
+    },
+    {
+      "file": "enemy_ranged_n_walk_02.png",
+      "archetype": "ranged",
+      "direction": "north",
+      "selected_frame_index": 2,
+      "pixel_lab_frame_index": 3,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "b5bd3ab8-fadb-4f84-bda7-963320c4f015",
+      "raw_size": [
+        152,
+        152
+      ],
+      "raw_alpha_bbox": [
+        36,
+        26,
+        107,
+        124
+      ],
+      "padding_offset": [
+        12,
+        8
+      ],
+      "raw_sha256": "6e2c86affbf2e6f7d5130dacb66aeaaa8f95014812d093cb7b0f1ada6e4b674d",
+      "selected_sha256": "7d82314f45fdc561ad819e2e12382705b39c6b0b644253d09b5d4bc859ad41b8"
+    },
+    {
+      "file": "enemy_ranged_n_walk_03.png",
+      "archetype": "ranged",
+      "direction": "north",
+      "selected_frame_index": 3,
+      "pixel_lab_frame_index": 4,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "b5bd3ab8-fadb-4f84-bda7-963320c4f015",
+      "raw_size": [
+        152,
+        152
+      ],
+      "raw_alpha_bbox": [
+        36,
+        27,
+        105,
+        122
+      ],
+      "padding_offset": [
+        12,
+        10
+      ],
+      "raw_sha256": "1c5a6242fc29c523011d628aaf64e9341eef1f46404aa5e46f2f37d1be9ec85c",
+      "selected_sha256": "579b2dbf5c0366ed15b90ca372af6f51d63e5beac3eb42aec9e708e69c5de3ef"
+    },
+    {
+      "file": "enemy_ranged_n_walk_04.png",
+      "archetype": "ranged",
+      "direction": "north",
+      "selected_frame_index": 4,
+      "pixel_lab_frame_index": 5,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "b5bd3ab8-fadb-4f84-bda7-963320c4f015",
+      "raw_size": [
+        152,
+        152
+      ],
+      "raw_alpha_bbox": [
+        36,
+        30,
+        105,
+        126
+      ],
+      "padding_offset": [
+        12,
+        6
+      ],
+      "raw_sha256": "c4970c06b819cee56d96b1b90b60939284536ae2ee48e7d764e9c29e521b3d1f",
+      "selected_sha256": "ca046583ce403e1db56b9a4d9d64d90d2b601132e7e1f54d16739c7460545272"
+    },
+    {
+      "file": "enemy_ranged_n_walk_05.png",
+      "archetype": "ranged",
+      "direction": "north",
+      "selected_frame_index": 5,
+      "pixel_lab_frame_index": 6,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "b5bd3ab8-fadb-4f84-bda7-963320c4f015",
+      "raw_size": [
+        152,
+        152
+      ],
+      "raw_alpha_bbox": [
+        34,
+        29,
+        104,
+        128
+      ],
+      "padding_offset": [
+        12,
+        4
+      ],
+      "raw_sha256": "c77c9e3eb0845c1d753dd4be96b57d2deaf18989a3d4678f36e31cd2c8ad55f2",
+      "selected_sha256": "96ec26f5c9346090aff7407f3d2e42f723990eb92aa9f722df6f84e37f925850"
+    },
+    {
+      "file": "enemy_ranged_ne_walk_00.png",
+      "archetype": "ranged",
+      "direction": "north-east",
+      "selected_frame_index": 0,
+      "pixel_lab_frame_index": 1,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "20a418a0-d62c-4460-a1c1-86519f084141",
+      "raw_size": [
+        132,
+        132
+      ],
+      "raw_alpha_bbox": [
+        25,
+        17,
+        111,
+        113
+      ],
+      "padding_offset": [
+        22,
+        19
+      ],
+      "raw_sha256": "8f8d42e782c729ce2c8123ea76223fda89f85019a874253d6f4e359d7ff6ff0d",
+      "selected_sha256": "9d601eb124f044c1596ca7933fb0fac77bfabe5436908170d248050736e9663d"
+    },
+    {
+      "file": "enemy_ranged_ne_walk_01.png",
+      "archetype": "ranged",
+      "direction": "north-east",
+      "selected_frame_index": 1,
+      "pixel_lab_frame_index": 2,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "20a418a0-d62c-4460-a1c1-86519f084141",
+      "raw_size": [
+        132,
+        132
+      ],
+      "raw_alpha_bbox": [
+        19,
+        17,
+        111,
+        113
+      ],
+      "padding_offset": [
+        22,
+        19
+      ],
+      "raw_sha256": "91bfe83e1f1571f230f46fd8d916cb7bd9e0d133ae6550146e6405b502670268",
+      "selected_sha256": "0f67a1881c96893cb4eacb8cadbd7072e9979dbaf4058af06903fa709e3152bb"
+    },
+    {
+      "file": "enemy_ranged_ne_walk_02.png",
+      "archetype": "ranged",
+      "direction": "north-east",
+      "selected_frame_index": 2,
+      "pixel_lab_frame_index": 3,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "20a418a0-d62c-4460-a1c1-86519f084141",
+      "raw_size": [
+        132,
+        132
+      ],
+      "raw_alpha_bbox": [
+        23,
+        18,
+        115,
+        113
+      ],
+      "padding_offset": [
+        22,
+        19
+      ],
+      "raw_sha256": "6da74cab650c7d725315d6561c610fda5d72872cc592b14cb2aabb6b3c8b0a87",
+      "selected_sha256": "b2a075aeab441164daf5dfcba99ca505b6894a3835d3ff834fa69c7377b1d5c5"
+    },
+    {
+      "file": "enemy_ranged_ne_walk_03.png",
+      "archetype": "ranged",
+      "direction": "north-east",
+      "selected_frame_index": 3,
+      "pixel_lab_frame_index": 4,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "20a418a0-d62c-4460-a1c1-86519f084141",
+      "raw_size": [
+        132,
+        132
+      ],
+      "raw_alpha_bbox": [
+        28,
+        19,
+        112,
+        111
+      ],
+      "padding_offset": [
+        22,
+        21
+      ],
+      "raw_sha256": "c8b53a72e08bff0ebb58162b9816ebadabb18b16b35c0421b88a5ce1b09bd773",
+      "selected_sha256": "6c0034db83fd03ef3653e6f4f08261a6bc0bb6b7a471e802e79b2030005c1e8b"
+    },
+    {
+      "file": "enemy_ranged_ne_walk_04.png",
+      "archetype": "ranged",
+      "direction": "north-east",
+      "selected_frame_index": 4,
+      "pixel_lab_frame_index": 5,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "20a418a0-d62c-4460-a1c1-86519f084141",
+      "raw_size": [
+        132,
+        132
+      ],
+      "raw_alpha_bbox": [
+        24,
+        19,
+        111,
+        113
+      ],
+      "padding_offset": [
+        22,
+        19
+      ],
+      "raw_sha256": "5da1e876b67588e7b53f6eae6cf79c4f62395b79ebe1be31f10aefdba94b2e13",
+      "selected_sha256": "2897d2c530954e7129a3d29413aaf624e49e4050df3b9cd3aba5db4dee03cc8c"
+    },
+    {
+      "file": "enemy_ranged_ne_walk_05.png",
+      "archetype": "ranged",
+      "direction": "north-east",
+      "selected_frame_index": 5,
+      "pixel_lab_frame_index": 6,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "20a418a0-d62c-4460-a1c1-86519f084141",
+      "raw_size": [
+        132,
+        132
+      ],
+      "raw_alpha_bbox": [
+        24,
+        20,
+        110,
+        116
+      ],
+      "padding_offset": [
+        22,
+        16
+      ],
+      "raw_sha256": "b98b16c63d6044e36bf3e696ccfb6c5c47d3edf7ac69699d51789a6ef52b6bea",
+      "selected_sha256": "ad38b7fbef8faea2efcb633af24bae487d1a0c81a84bf9456f4e8b3713b20c81"
+    },
+    {
+      "file": "enemy_ranged_e_walk_00.png",
+      "archetype": "ranged",
+      "direction": "east",
+      "selected_frame_index": 0,
+      "pixel_lab_frame_index": 1,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "a41e358a-3ea3-45cd-b5b3-176a113f9917",
+      "raw_size": [
+        172,
+        172
+      ],
+      "raw_alpha_bbox": [
+        50,
+        25,
+        110,
+        132
+      ],
+      "padding_offset": [
+        2,
+        0
+      ],
+      "raw_sha256": "167c47b70868303ae80f870ba7857addda503b09d45305afb47ba23859eb2f80",
+      "selected_sha256": "51a9fcb19ae3af5d1ba201430aa9f7c7670dfe4d6b92bbbbeb8e261e71d53482"
+    },
+    {
+      "file": "enemy_ranged_e_walk_01.png",
+      "archetype": "ranged",
+      "direction": "east",
+      "selected_frame_index": 1,
+      "pixel_lab_frame_index": 2,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "a41e358a-3ea3-45cd-b5b3-176a113f9917",
+      "raw_size": [
+        172,
+        172
+      ],
+      "raw_alpha_bbox": [
+        42,
+        28,
+        112,
+        132
+      ],
+      "padding_offset": [
+        2,
+        0
+      ],
+      "raw_sha256": "7299d378a09296da9030f378977438b0712def2788169cd1507a03e978e7f813",
+      "selected_sha256": "41d57125f8de29846ed7aa211cea816cbc2fb666a0a4eb8c9d035718cf728ba6"
+    },
+    {
+      "file": "enemy_ranged_e_walk_02.png",
+      "archetype": "ranged",
+      "direction": "east",
+      "selected_frame_index": 2,
+      "pixel_lab_frame_index": 3,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "a41e358a-3ea3-45cd-b5b3-176a113f9917",
+      "raw_size": [
+        172,
+        172
+      ],
+      "raw_alpha_bbox": [
+        43,
+        29,
+        106,
+        128
+      ],
+      "padding_offset": [
+        2,
+        4
+      ],
+      "raw_sha256": "0b1a6de316306a5b885ebdcc3f4b5fa781cc9865094aa41c1254879c23932b1b",
+      "selected_sha256": "9634f0317343927e0aeb825493d7af8b25192a5a200a82eb4de2ecc36841e868"
+    },
+    {
+      "file": "enemy_ranged_e_walk_03.png",
+      "archetype": "ranged",
+      "direction": "east",
+      "selected_frame_index": 3,
+      "pixel_lab_frame_index": 4,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "a41e358a-3ea3-45cd-b5b3-176a113f9917",
+      "raw_size": [
+        172,
+        172
+      ],
+      "raw_alpha_bbox": [
+        40,
+        30,
+        116,
+        128
+      ],
+      "padding_offset": [
+        2,
+        4
+      ],
+      "raw_sha256": "502347f8f41afa638147cba620b9cf7de1d8786f565f8fb0747cf96366de9640",
+      "selected_sha256": "a0ed5fe1970d6105a26ed5ad5df9fe68745b2dea2b2f50749b4319e918eded3a"
+    },
+    {
+      "file": "enemy_ranged_e_walk_04.png",
+      "archetype": "ranged",
+      "direction": "east",
+      "selected_frame_index": 4,
+      "pixel_lab_frame_index": 5,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "a41e358a-3ea3-45cd-b5b3-176a113f9917",
+      "raw_size": [
+        172,
+        172
+      ],
+      "raw_alpha_bbox": [
+        41,
+        28,
+        118,
+        129
+      ],
+      "padding_offset": [
+        2,
+        3
+      ],
+      "raw_sha256": "e9854f8a5e4f620915439037d0f6c415ef7fd3c22bef0fc8e358188c822e4f39",
+      "selected_sha256": "76f2384917484ad7c3b32666a697f047a65858f2d772a3b4347e0854782769af"
+    },
+    {
+      "file": "enemy_ranged_e_walk_05.png",
+      "archetype": "ranged",
+      "direction": "east",
+      "selected_frame_index": 5,
+      "pixel_lab_frame_index": 6,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "a41e358a-3ea3-45cd-b5b3-176a113f9917",
+      "raw_size": [
+        172,
+        172
+      ],
+      "raw_alpha_bbox": [
+        36,
+        28,
+        119,
+        129
+      ],
+      "padding_offset": [
+        2,
+        3
+      ],
+      "raw_sha256": "3750099765b3c211e6839f722eb4d4a1d269720d5c99ae5b070806c7738c2ffa",
+      "selected_sha256": "bff37d251994eab1a4e66ba5fdcb713ac0b07cb2fb502bcd99d6fd56f395f66b"
+    },
+    {
+      "file": "enemy_ranged_se_walk_00.png",
+      "archetype": "ranged",
+      "direction": "south-east",
+      "selected_frame_index": 0,
+      "pixel_lab_frame_index": 1,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "1a3e8e7a-bbe8-4d22-9913-8af92c35edf6",
+      "raw_size": [
+        152,
+        152
+      ],
+      "raw_alpha_bbox": [
+        36,
+        25,
+        121,
+        125
+      ],
+      "padding_offset": [
+        12,
+        7
+      ],
+      "raw_sha256": "00275576e87af9502ecca56ffc515449909b5e020703e26d7c247842f1b63031",
+      "selected_sha256": "f00ff106c4981788c4616f460da93e9e8265d9bb3debd057ca9cd53bb7757c5e"
+    },
+    {
+      "file": "enemy_ranged_se_walk_01.png",
+      "archetype": "ranged",
+      "direction": "south-east",
+      "selected_frame_index": 1,
+      "pixel_lab_frame_index": 2,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "1a3e8e7a-bbe8-4d22-9913-8af92c35edf6",
+      "raw_size": [
+        152,
+        152
+      ],
+      "raw_alpha_bbox": [
+        32,
+        26,
+        120,
+        123
+      ],
+      "padding_offset": [
+        12,
+        9
+      ],
+      "raw_sha256": "fd798f7a2e905eb5de078e923c180c98249cd473aaf1ba9c6ace9d266f336ae1",
+      "selected_sha256": "4cb42c8b1725ef3a947c0c30183816d0ebc55c04725f3fd33ee6c13e86d4fb3a"
+    },
+    {
+      "file": "enemy_ranged_se_walk_02.png",
+      "archetype": "ranged",
+      "direction": "south-east",
+      "selected_frame_index": 2,
+      "pixel_lab_frame_index": 3,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "1a3e8e7a-bbe8-4d22-9913-8af92c35edf6",
+      "raw_size": [
+        152,
+        152
+      ],
+      "raw_alpha_bbox": [
+        28,
+        25,
+        123,
+        123
+      ],
+      "padding_offset": [
+        12,
+        9
+      ],
+      "raw_sha256": "9a23cb06b061db27200c092fbf3ca698ed11a798e52b38441f0e0275ba8e00dc",
+      "selected_sha256": "46a0e8475a16161b35feb43bf37f4a4d925eca015be056d3c46010df3f4e85f4"
+    },
+    {
+      "file": "enemy_ranged_se_walk_03.png",
+      "archetype": "ranged",
+      "direction": "south-east",
+      "selected_frame_index": 3,
+      "pixel_lab_frame_index": 4,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "1a3e8e7a-bbe8-4d22-9913-8af92c35edf6",
+      "raw_size": [
+        152,
+        152
+      ],
+      "raw_alpha_bbox": [
+        24,
+        23,
+        124,
+        122
+      ],
+      "padding_offset": [
+        12,
+        10
+      ],
+      "raw_sha256": "09a078410874ebd5ddf7932e19814fe51c7b3ac11c8376433c5b33b4980450a1",
+      "selected_sha256": "3d1d25ce98dba39c9577f96e214e77dd28530889a150bfec61e8d2085e14cdda"
+    },
+    {
+      "file": "enemy_ranged_se_walk_04.png",
+      "archetype": "ranged",
+      "direction": "south-east",
+      "selected_frame_index": 4,
+      "pixel_lab_frame_index": 5,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "1a3e8e7a-bbe8-4d22-9913-8af92c35edf6",
+      "raw_size": [
+        152,
+        152
+      ],
+      "raw_alpha_bbox": [
+        23,
+        23,
+        126,
+        124
+      ],
+      "padding_offset": [
+        12,
+        8
+      ],
+      "raw_sha256": "9a6176a00695eda9a910426bb42f64a00a9451615cc89b356a49725862db3ed5",
+      "selected_sha256": "ef547d1482d893420f007cb802005b29ce5ec6782ef85e939710f924cc4cf882"
+    },
+    {
+      "file": "enemy_ranged_se_walk_05.png",
+      "archetype": "ranged",
+      "direction": "south-east",
+      "selected_frame_index": 5,
+      "pixel_lab_frame_index": 6,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "1a3e8e7a-bbe8-4d22-9913-8af92c35edf6",
+      "raw_size": [
+        152,
+        152
+      ],
+      "raw_alpha_bbox": [
+        25,
+        26,
+        125,
+        128
+      ],
+      "padding_offset": [
+        12,
+        4
+      ],
+      "raw_sha256": "fbf319913084a81e97f1888d448d2c424bcdcc00fb17a5351def5cf05daed0c4",
+      "selected_sha256": "9325ff72caec689566408869a8d0c2fae1575bee889178a37a18fce68c9b867e"
+    },
+    {
+      "file": "enemy_ranged_s_walk_00.png",
+      "archetype": "ranged",
+      "direction": "south",
+      "selected_frame_index": 0,
+      "pixel_lab_frame_index": 1,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "41b87dde-dd1e-483a-be87-ef3a4c13e454",
+      "raw_size": [
+        140,
+        140
+      ],
+      "raw_alpha_bbox": [
+        25,
+        24,
+        115,
+        119
+      ],
+      "padding_offset": [
+        18,
+        13
+      ],
+      "raw_sha256": "60628684b85531dc36364c9dd4e5664507ffffec95d131d12bce92a009245d6b",
+      "selected_sha256": "f79fa43e7b84eb71494cc5ef4afc16116ea03c571ff0f89f96946fd18dd4e209"
+    },
+    {
+      "file": "enemy_ranged_s_walk_01.png",
+      "archetype": "ranged",
+      "direction": "south",
+      "selected_frame_index": 1,
+      "pixel_lab_frame_index": 2,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "41b87dde-dd1e-483a-be87-ef3a4c13e454",
+      "raw_size": [
+        140,
+        140
+      ],
+      "raw_alpha_bbox": [
+        22,
+        23,
+        116,
+        118
+      ],
+      "padding_offset": [
+        18,
+        14
+      ],
+      "raw_sha256": "c66db48c2ea9ec9f109c547d4e05e115d0f9defba44e213e6bd4877cfa464dab",
+      "selected_sha256": "cdb363485c8a26f03568bb75022d87f6e0e79f74f5e89c6087289d52ef245a2e"
+    },
+    {
+      "file": "enemy_ranged_s_walk_02.png",
+      "archetype": "ranged",
+      "direction": "south",
+      "selected_frame_index": 2,
+      "pixel_lab_frame_index": 3,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "41b87dde-dd1e-483a-be87-ef3a4c13e454",
+      "raw_size": [
+        140,
+        140
+      ],
+      "raw_alpha_bbox": [
+        22,
+        21,
+        116,
+        116
+      ],
+      "padding_offset": [
+        18,
+        16
+      ],
+      "raw_sha256": "cfa62c4047724f8b82b658f0b455693e9e0603567f31bc768778156a7e9cec1d",
+      "selected_sha256": "cbf47a4dee3f050b179fc860805fc4890108f5e4e08b6f152d2b05711dd0be01"
+    },
+    {
+      "file": "enemy_ranged_s_walk_03.png",
+      "archetype": "ranged",
+      "direction": "south",
+      "selected_frame_index": 3,
+      "pixel_lab_frame_index": 4,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "41b87dde-dd1e-483a-be87-ef3a4c13e454",
+      "raw_size": [
+        140,
+        140
+      ],
+      "raw_alpha_bbox": [
+        25,
+        19,
+        116,
+        115
+      ],
+      "padding_offset": [
+        18,
+        17
+      ],
+      "raw_sha256": "ee2523828f27a05ca7a7b0c5fe00860fca9d3c104d7382394cda2ef6923cac95",
+      "selected_sha256": "d310c267501987a47915f212ea5dc43f83c70819ea3e02a362d99361cfaea06d"
+    },
+    {
+      "file": "enemy_ranged_s_walk_04.png",
+      "archetype": "ranged",
+      "direction": "south",
+      "selected_frame_index": 4,
+      "pixel_lab_frame_index": 5,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "41b87dde-dd1e-483a-be87-ef3a4c13e454",
+      "raw_size": [
+        140,
+        140
+      ],
+      "raw_alpha_bbox": [
+        23,
+        21,
+        116,
+        118
+      ],
+      "padding_offset": [
+        18,
+        14
+      ],
+      "raw_sha256": "abaaccab61bd2c0fdfff74c6f3a0b3e7117ea6266d970afdbfe7eebf26566d72",
+      "selected_sha256": "6131d214969fe0508e3717e3216878c94f3150ff0c5c0737c60a6e169cdc4ff5"
+    },
+    {
+      "file": "enemy_ranged_s_walk_05.png",
+      "archetype": "ranged",
+      "direction": "south",
+      "selected_frame_index": 5,
+      "pixel_lab_frame_index": 6,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "41b87dde-dd1e-483a-be87-ef3a4c13e454",
+      "raw_size": [
+        140,
+        140
+      ],
+      "raw_alpha_bbox": [
+        22,
+        23,
+        116,
+        120
+      ],
+      "padding_offset": [
+        18,
+        12
+      ],
+      "raw_sha256": "0af90469b4e6a9a4ac5ba6acee4630e7bb75ef929b3de461c83f41582ae0622c",
+      "selected_sha256": "cc95891bd7e6d27dac5436af258745cf6fb966350ff91ec3db97ee499cf7f0c3"
+    },
+    {
+      "file": "enemy_ranged_sw_walk_00.png",
+      "archetype": "ranged",
+      "direction": "south-west",
+      "selected_frame_index": 0,
+      "pixel_lab_frame_index": 1,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "e600a7d6-d794-47b4-9278-fcb041daa25a",
+      "raw_size": [
+        152,
+        152
+      ],
+      "raw_alpha_bbox": [
+        31,
+        23,
+        115,
+        125
+      ],
+      "padding_offset": [
+        12,
+        7
+      ],
+      "raw_sha256": "95e3335d834c0787fc767106a09f708ffe8b80b2c4b88b72d63b308cf62548e3",
+      "selected_sha256": "a63f252f2daff49693f29da99a5788d0186e20ef170422c83dc0b775ed277180"
+    },
+    {
+      "file": "enemy_ranged_sw_walk_01.png",
+      "archetype": "ranged",
+      "direction": "south-west",
+      "selected_frame_index": 1,
+      "pixel_lab_frame_index": 2,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "e600a7d6-d794-47b4-9278-fcb041daa25a",
+      "raw_size": [
+        152,
+        152
+      ],
+      "raw_alpha_bbox": [
+        31,
+        26,
+        119,
+        122
+      ],
+      "padding_offset": [
+        12,
+        10
+      ],
+      "raw_sha256": "3bac3ed29e3b4d57e4ee1fa862b17866c1c8c5e4af56bd0afbb197b2865f2c48",
+      "selected_sha256": "a33650804ba9b96c84bf130599430cce9a44a6fbcb40fe27f1fea2526fd3ff78"
+    },
+    {
+      "file": "enemy_ranged_sw_walk_02.png",
+      "archetype": "ranged",
+      "direction": "south-west",
+      "selected_frame_index": 2,
+      "pixel_lab_frame_index": 3,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "e600a7d6-d794-47b4-9278-fcb041daa25a",
+      "raw_size": [
+        152,
+        152
+      ],
+      "raw_alpha_bbox": [
+        33,
+        26,
+        120,
+        121
+      ],
+      "padding_offset": [
+        12,
+        11
+      ],
+      "raw_sha256": "71f7adc02ddbbe2e558fd46137294e11d3775b2c36602e1f84cd91cf2f649fbd",
+      "selected_sha256": "ca1a949433cc53e7d8a5175658e123d180e1c4036d92cd8afbeb1a7b88cc1576"
+    },
+    {
+      "file": "enemy_ranged_sw_walk_03.png",
+      "archetype": "ranged",
+      "direction": "south-west",
+      "selected_frame_index": 3,
+      "pixel_lab_frame_index": 4,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "e600a7d6-d794-47b4-9278-fcb041daa25a",
+      "raw_size": [
+        152,
+        152
+      ],
+      "raw_alpha_bbox": [
+        33,
+        23,
+        115,
+        120
+      ],
+      "padding_offset": [
+        12,
+        12
+      ],
+      "raw_sha256": "50f8365a0cc87fa33c4146f96d683fd485f9a1633608a87c1d71dc23818d7740",
+      "selected_sha256": "f1122b06be2fe46b9203f8849a1f9738bd508cc72f3c144e5a7e85d7beaac5a8"
+    },
+    {
+      "file": "enemy_ranged_sw_walk_04.png",
+      "archetype": "ranged",
+      "direction": "south-west",
+      "selected_frame_index": 4,
+      "pixel_lab_frame_index": 5,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "e600a7d6-d794-47b4-9278-fcb041daa25a",
+      "raw_size": [
+        152,
+        152
+      ],
+      "raw_alpha_bbox": [
+        32,
+        26,
+        113,
+        122
+      ],
+      "padding_offset": [
+        12,
+        10
+      ],
+      "raw_sha256": "8ab12c19954f5124303bb70a386eb052fb51615469280faae661432dccae31de",
+      "selected_sha256": "c33d855cf6bc028795b9f71947da39628881eeff96a81d9832eb86cf59a2f055"
+    },
+    {
+      "file": "enemy_ranged_sw_walk_05.png",
+      "archetype": "ranged",
+      "direction": "south-west",
+      "selected_frame_index": 5,
+      "pixel_lab_frame_index": 6,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "e600a7d6-d794-47b4-9278-fcb041daa25a",
+      "raw_size": [
+        152,
+        152
+      ],
+      "raw_alpha_bbox": [
+        30,
+        29,
+        110,
+        126
+      ],
+      "padding_offset": [
+        12,
+        6
+      ],
+      "raw_sha256": "3d3ac993252110618caaa4259c68388ce454ef0304b7a2c15c5af44a8a91e182",
+      "selected_sha256": "51672cfe1385bd8d27888bec1232c492756d2066f35503219317dbba13205645"
+    },
+    {
+      "file": "enemy_ranged_w_walk_00.png",
+      "archetype": "ranged",
+      "direction": "west",
+      "selected_frame_index": 0,
+      "pixel_lab_frame_index": 1,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "af07b908-11da-4476-bd11-5d7caa1b0949",
+      "raw_size": [
+        140,
+        140
+      ],
+      "raw_alpha_bbox": [
+        54,
+        22,
+        107,
+        119
+      ],
+      "padding_offset": [
+        18,
+        13
+      ],
+      "raw_sha256": "68bae2400dd433692a54e0ffc1a18ce7b84663ae4a14232e7edc77549a0f36f5",
+      "selected_sha256": "1bf2145538b9a7773d01d4a2f7a08f2fe62843e6a112da74870e3b3b2d0e6791"
+    },
+    {
+      "file": "enemy_ranged_w_walk_01.png",
+      "archetype": "ranged",
+      "direction": "west",
+      "selected_frame_index": 1,
+      "pixel_lab_frame_index": 2,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "af07b908-11da-4476-bd11-5d7caa1b0949",
+      "raw_size": [
+        140,
+        140
+      ],
+      "raw_alpha_bbox": [
+        49,
+        24,
+        112,
+        120
+      ],
+      "padding_offset": [
+        18,
+        12
+      ],
+      "raw_sha256": "5c1d69e9192ab0dee215188a78a1af78be65cb0491670504f8a2499e5ae79c7c",
+      "selected_sha256": "8393d0915ab9df4f5025dc64d9a596e19d443507e39b650ab5798462e5984aed"
+    },
+    {
+      "file": "enemy_ranged_w_walk_02.png",
+      "archetype": "ranged",
+      "direction": "west",
+      "selected_frame_index": 2,
+      "pixel_lab_frame_index": 3,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "af07b908-11da-4476-bd11-5d7caa1b0949",
+      "raw_size": [
+        140,
+        140
+      ],
+      "raw_alpha_bbox": [
+        54,
+        26,
+        110,
+        121
+      ],
+      "padding_offset": [
+        18,
+        11
+      ],
+      "raw_sha256": "446ba71761af4eb50ac2ef5d508fad4ed87c6e8fea5faae01817c32531c248af",
+      "selected_sha256": "2e3b5bb2b3120bb2216124583391f4b7d905d98c81b4b39c5d1bc67a89cd19fe"
+    },
+    {
+      "file": "enemy_ranged_w_walk_03.png",
+      "archetype": "ranged",
+      "direction": "west",
+      "selected_frame_index": 3,
+      "pixel_lab_frame_index": 4,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "af07b908-11da-4476-bd11-5d7caa1b0949",
+      "raw_size": [
+        140,
+        140
+      ],
+      "raw_alpha_bbox": [
+        54,
+        26,
+        112,
+        120
+      ],
+      "padding_offset": [
+        18,
+        12
+      ],
+      "raw_sha256": "7f17900f73725f662f227db5328d8b6eccdf183c70bcdc573da6042e9f186535",
+      "selected_sha256": "857c2907278f7c5164a654ec8539ac9e324c45698f7d18b2e4246a0d8508e44b"
+    },
+    {
+      "file": "enemy_ranged_w_walk_04.png",
+      "archetype": "ranged",
+      "direction": "west",
+      "selected_frame_index": 4,
+      "pixel_lab_frame_index": 5,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "af07b908-11da-4476-bd11-5d7caa1b0949",
+      "raw_size": [
+        140,
+        140
+      ],
+      "raw_alpha_bbox": [
+        51,
+        24,
+        107,
+        118
+      ],
+      "padding_offset": [
+        18,
+        14
+      ],
+      "raw_sha256": "fc05f99adf308f568effbacf5c9c57eac77c3bbeba5d3ae6d04d359f29e3c2cc",
+      "selected_sha256": "5f211d4f05c018793b389f4f0fd174ba9ab4a6065c0f626dd3a983c6a056ed3e"
+    },
+    {
+      "file": "enemy_ranged_w_walk_05.png",
+      "archetype": "ranged",
+      "direction": "west",
+      "selected_frame_index": 5,
+      "pixel_lab_frame_index": 6,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "af07b908-11da-4476-bd11-5d7caa1b0949",
+      "raw_size": [
+        140,
+        140
+      ],
+      "raw_alpha_bbox": [
+        49,
+        27,
+        104,
+        121
+      ],
+      "padding_offset": [
+        18,
+        11
+      ],
+      "raw_sha256": "6659b5c207c1991836256425fcb5b921c10001e485b1584eea157c7e7efbebd9",
+      "selected_sha256": "c2ba2d451d8f87b079b484645fc2d3cea6fa1e2154a90bf2d58cc0cd1b72a82a"
+    },
+    {
+      "file": "enemy_ranged_nw_walk_00.png",
+      "archetype": "ranged",
+      "direction": "north-west",
+      "selected_frame_index": 0,
+      "pixel_lab_frame_index": 1,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "dee59c57-58c2-4a32-9677-4aa8facd6379",
+      "raw_size": [
+        132,
+        132
+      ],
+      "raw_alpha_bbox": [
+        22,
+        19,
+        106,
+        113
+      ],
+      "padding_offset": [
+        22,
+        19
+      ],
+      "raw_sha256": "0214cd82bc13f0848514c1d5691d1d573e06d993d73b233ab2d0abee7a7007dc",
+      "selected_sha256": "04b0cc567675dbb55ff428b4c0740625c4eded609ca61d1aa8201426554ec327"
+    },
+    {
+      "file": "enemy_ranged_nw_walk_01.png",
+      "archetype": "ranged",
+      "direction": "north-west",
+      "selected_frame_index": 1,
+      "pixel_lab_frame_index": 2,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "dee59c57-58c2-4a32-9677-4aa8facd6379",
+      "raw_size": [
+        132,
+        132
+      ],
+      "raw_alpha_bbox": [
+        23,
+        19,
+        104,
+        114
+      ],
+      "padding_offset": [
+        22,
+        18
+      ],
+      "raw_sha256": "7457636c3e656d7b37f2aca3ff64be02a05d8c0a05945ecb7f45d00a305e4ab4",
+      "selected_sha256": "1e3eba750f96e74f26cafb918e2b2b8ab9d8af765dcb360ca17f40ca5f7b433f"
+    },
+    {
+      "file": "enemy_ranged_nw_walk_02.png",
+      "archetype": "ranged",
+      "direction": "north-west",
+      "selected_frame_index": 2,
+      "pixel_lab_frame_index": 3,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "dee59c57-58c2-4a32-9677-4aa8facd6379",
+      "raw_size": [
+        132,
+        132
+      ],
+      "raw_alpha_bbox": [
+        25,
+        18,
+        99,
+        113
+      ],
+      "padding_offset": [
+        22,
+        19
+      ],
+      "raw_sha256": "ff3c3b52a94e56614e1b688a6740d6d05c4321ba29c39160c90cb6fd65364696",
+      "selected_sha256": "83020d9e81029fe18b6c12d9596441869f01676f0e0fabfb0dfafcadf2d18733"
+    },
+    {
+      "file": "enemy_ranged_nw_walk_03.png",
+      "archetype": "ranged",
+      "direction": "north-west",
+      "selected_frame_index": 3,
+      "pixel_lab_frame_index": 4,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "dee59c57-58c2-4a32-9677-4aa8facd6379",
+      "raw_size": [
+        132,
+        132
+      ],
+      "raw_alpha_bbox": [
+        26,
+        18,
+        93,
+        112
+      ],
+      "padding_offset": [
+        22,
+        20
+      ],
+      "raw_sha256": "5f661c38894d7299abac211bc59821ca250132521c1b9f6f7e52c92a22adb604",
+      "selected_sha256": "cbc7ca97a0512156ec06f0d5233defe47d4211a11298edd8c6d47f6e9967a126"
+    },
+    {
+      "file": "enemy_ranged_nw_walk_04.png",
+      "archetype": "ranged",
+      "direction": "north-west",
+      "selected_frame_index": 4,
+      "pixel_lab_frame_index": 5,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "dee59c57-58c2-4a32-9677-4aa8facd6379",
+      "raw_size": [
+        132,
+        132
+      ],
+      "raw_alpha_bbox": [
+        27,
+        19,
+        90,
+        113
+      ],
+      "padding_offset": [
+        22,
+        19
+      ],
+      "raw_sha256": "e68713df60c229806e5edc95e077dd1406b8422a215614273e07bf03de7eb833",
+      "selected_sha256": "c8be0f7d1b9c7eac206ce5c9cb50fc33cba1be95081ac2a0c8a74520125fb44f"
+    },
+    {
+      "file": "enemy_ranged_nw_walk_05.png",
+      "archetype": "ranged",
+      "direction": "north-west",
+      "selected_frame_index": 5,
+      "pixel_lab_frame_index": 6,
+      "character_id": "adf018b5-b4c9-4533-8ea2-9d9d28537dcb",
+      "animation_group_id": "03b945cb-b2ed-431e-86de-0f5a58b73440",
+      "animation_id": "dee59c57-58c2-4a32-9677-4aa8facd6379",
+      "raw_size": [
+        132,
+        132
+      ],
+      "raw_alpha_bbox": [
+        26,
+        19,
+        96,
+        113
+      ],
+      "padding_offset": [
+        22,
+        19
+      ],
+      "raw_sha256": "13c2043f3f1a59711e6d4aafbb041527246e6944cf1c176db5ea48c81d004b8f",
+      "selected_sha256": "1c699cfc96d2c1f471b90c41078f5527d1ebc7c984940f19870ed49c47534d02"
+    }
+  ]
+}
