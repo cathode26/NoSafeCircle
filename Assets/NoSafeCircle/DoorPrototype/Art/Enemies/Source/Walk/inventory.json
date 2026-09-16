@@ -1,6 +1,6 @@
 {
   "schema": "nsc-enemy-pixellab-walk-source/v1",
-  "status": "provisional_pending_vincent_visual_approval",
+  "status": "approved_by_vincent_visual_review",
   "source": "PixelLab animate_character v3",
   "canvas_size": [
     176,
