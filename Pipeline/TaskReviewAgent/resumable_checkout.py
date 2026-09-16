@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import hashlib
+import shutil
+import tempfile
+from pathlib import Path
 from typing import Any
 
 from .durable_checkout import DurableTaskCheckoutManager
@@ -145,6 +148,16 @@ class ResumableTaskCheckoutManager(DurableTaskCheckoutManager):
         }
 
     def prepare(self, observation: dict[str, Any]) -> dict[str, Any]:
+        recovery = self._recover_stale_unleased_checkout(observation)
+        if recovery:
+            if (observation.get("coordination") or {}).get("status") == "available_unassigned":
+                return {"status": "archived_stale", "path": str(self.checkout_path), **recovery, "recovery_authority": "archived_stale_unleased_checkout"}
+            prepared = super().prepare(observation)
+            return {
+                **prepared,
+                **recovery,
+                "recovery_authority": "archived_stale_unleased_checkout",
+            }
         recovery = self._recover_safe_resume_state(observation)
         result = super().prepare(observation)
         if recovery:
@@ -154,6 +167,109 @@ class ResumableTaskCheckoutManager(DurableTaskCheckoutManager):
                 "recovery_authority": "exact_durable_resume_identity",
             }
         return result
+
+    def _recover_stale_unleased_checkout(
+        self, observation: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Archive a clean stale checkout before preparing the current one.
+
+        A checkout left by an interrupted preparation can be clean and still
+        carry an older contract/mainline identity.  With no Issue lease or
+        handoff head there is no work identity to resume, so preserving it as
+        an exact archive is the safe recovery boundary.  Dirty or active
+        checkouts deliberately remain conflicts.
+        """
+        if not self.checkout_path.is_dir():
+            return {}
+        coordination = observation.get("coordination") or {}
+        workflow = coordination.get("workflow_state")
+        if coordination.get("status") == "available_unassigned":
+            if workflow is not None and (
+                not isinstance(workflow, dict)
+                or workflow.get("state") != "agent_ready"
+            ):
+                return {}
+        elif coordination.get("status") == "claimed_by_worker":
+            if not isinstance(workflow, dict):
+                return {}
+            if (
+                workflow.get("state") != "agent_working"
+                or workflow.get("phase") != "implementation"
+                or workflow.get("worker_id") != self.worker_id
+                or not workflow.get("lease_id")
+                or workflow.get("human_handoff_commit") is not None
+                or workflow.get("human_result") is not None
+            ):
+                return {}
+        else:
+            return {}
+        if workflow is not None and coordination.get("status") == "available_unassigned":
+            if not isinstance(workflow, dict):
+                return {}
+            if workflow.get("state") != "agent_ready":
+                return {}
+            if any(workflow.get(key) is not None for key in (
+                "worker_id", "lease_id", "branch", "head_commit", "checkout_path",
+            )):
+                return {}
+        if observation.get("accepted_plan_id") is not None or observation.get("execution_run") is not None:
+            return {}
+
+        current = super().inspect(observation)
+        reasons = set(current.get("reasons") or [])
+        permitted = {
+            "checkout origin/main does not match current controller main",
+            "fresh checkout tree does not match observed source tree",
+            "checkout task contract hash does not match current task authority",
+            "external durable checkout manifest conflicts with task identity",
+            "recorded handoff commit is not the pushed remote task branch",
+        }
+        permitted.update(
+            reason for reason in reasons
+            if reason.startswith("checkout HEAD ")
+            and " does not match workflow head " in reason
+        )
+        if current.get("status") != "conflict" or not reasons or not reasons.issubset(permitted):
+            return {}
+        if current.get("clean") is not True or current.get("branch") != current.get("expected_branch"):
+            return {}
+        if coordination.get("status") == "claimed_by_worker":
+            manifest = self._read_manifest()
+            if not manifest:
+                return {}
+            if (
+                current.get("head_commit") != manifest.get("initial_source_head")
+                or current.get("head_tree") != manifest.get("initial_source_tree")
+                or manifest.get("branch") != current.get("expected_branch")
+                or manifest.get("task_id") != self.task_id
+            ):
+                return {}
+        remote_url = str(current.get("remote_url") or "")
+        expected_remote = str((observation.get("environment") or {}).get("remote_url") or "")
+        if not remote_url or not expected_remote or _normalized_remote(remote_url) != _normalized_remote(expected_remote):
+            return {}
+
+        archive_root = self.checkout_root / ".stale-checkouts" / self.task_id
+        archive_root.mkdir(parents=True, exist_ok=True)
+        descriptor = Path(tempfile.mkdtemp(prefix="archive-", dir=str(archive_root)))
+        archive_path = descriptor.with_name(descriptor.name + "-checkout")
+        descriptor.rmdir()
+        # The resolved target is explicitly below this manager's checkout root.
+        if self.checkout_path.resolve() == self.checkout_root.resolve() or self.checkout_root.resolve() not in self.checkout_path.resolve().parents:
+            return {}
+        shutil.move(str(self.checkout_path), str(archive_path))
+        archived_manifest = None
+        if self.manifest_path.is_file():
+            manifest_dir = archive_path / ".task-review-agent"
+            manifest_dir.mkdir(parents=True, exist_ok=True)
+            archived_manifest = manifest_dir / self.manifest_path.name
+            shutil.move(str(self.manifest_path), str(archived_manifest))
+        return {
+            "stale_checkout_archived": str(archive_path),
+            "stale_manifest_archived": str(archived_manifest) if archived_manifest else None,
+            "stale_checkout_head": current.get("head_commit"),
+            "stale_checkout_tree": current.get("head_tree"),
+        }
 
     def _recover_safe_resume_state(
         self,
