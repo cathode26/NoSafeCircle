@@ -35,8 +35,8 @@ namespace NoSafeCircle.DoorPrototype
         // on the opposite (far) side of the doorway. DoorPrototypeSceneBuilder may override this
         // per door instance to match authored room geometry; this default assumes the door faces
         // +Z, matching interactionPositionOffset's -Z approach-side default.
-        [SerializeField] private Vector3 forwardCrossingOffset = new Vector3(0f, 0f, 1f);
-        [SerializeField] private Vector3 forwardCrossingTriggerSize = new Vector3(3f, 3f, 2f);
+        [SerializeField] private Vector3 forwardCrossingOffset = new Vector3(0f, 0f, 1.5f);
+        [SerializeField] private Vector3 forwardCrossingTriggerSize = new Vector3(3f, 3f, 1f);
 
         // AC-002: fixed health amount requested from Player Health when the automatic
         // close-and-lock completes. Exact value is a tuning value (GDD: "Exact recovery values

@@ -1095,6 +1095,11 @@ namespace NoSafeCircle.DoorPrototype.Editor
             SetPrivateField(door, "doorVisual", visual);
             SetPrivateField(door, "doorwayBlocker", doorwayBlocker);
             SetPrivateFieldValue(door, "groundSelectionOffset", ComputeGroundSelectionOffset(visualLocalHeight));
+            // The crossing volume starts one unit beyond the doorway rather than on it, so entering
+            // it means the wizard is already through. A volume that began at the doorway plane
+            // locked the door while the wizard still stood in the opening.
+            SetPrivateFieldValue(door, "forwardCrossingOffset", new Vector3(0f, 0f, 1.5f));
+            SetPrivateFieldValue(door, "forwardCrossingTriggerSize", new Vector3(3f, 3f, 1f));
             door.BindEnemyPassability(doorRoot.AddComponent<DoorEnemyPassability>());
 
             // AC-001/AC-002/AC-003: gives the sealed door a base appearance distinguishable
