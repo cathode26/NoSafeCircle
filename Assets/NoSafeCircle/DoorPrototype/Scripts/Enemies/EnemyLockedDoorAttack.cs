@@ -31,6 +31,11 @@ namespace NoSafeCircle.DoorPrototype.Enemies
             ResetAttack();
         }
 
+        private void OnDestroy()
+        {
+            ResetAttack();
+        }
+
         private void OnValidate()
         {
             attackReach = Mathf.Max(0.01f, attackReach);
@@ -58,11 +63,7 @@ namespace NoSafeCircle.DoorPrototype.Enemies
                 return;
             }
 
-            if (pendingDoor != door)
-            {
-                pendingDoor = door;
-                elapsedQualifyingTime = 0f;
-            }
+            if (pendingDoor != door) AdoptPendingDoor(door);
 
             elapsedQualifyingTime += Mathf.Max(0f, deltaTime);
             while (elapsedQualifyingTime >= attackInterval && pendingDoor == door)
@@ -81,8 +82,30 @@ namespace NoSafeCircle.DoorPrototype.Enemies
         /// the door. Floor-run restart calls this alongside EnemyPursuitMovement.ResetPursuit.
         public void ResetAttack()
         {
-            pendingDoor = null;
+            ReleasePendingDoor();
             elapsedQualifyingTime = 0f;
+        }
+
+        /// Adopts the door this enemy is winding up against and listens for its break. Another
+        /// enemy can land the breaking hit, so DoorInteractable.Broken clears this enemy's
+        /// pending hit in the same frame instead of on its next Tick (NSC-017 AC-004).
+        private void AdoptPendingDoor(DoorInteractable door)
+        {
+            ReleasePendingDoor();
+            pendingDoor = door;
+            elapsedQualifyingTime = 0f;
+            if (pendingDoor != null) pendingDoor.Broken += OnPendingDoorBroken;
+        }
+
+        private void ReleasePendingDoor()
+        {
+            if (pendingDoor != null) pendingDoor.Broken -= OnPendingDoorBroken;
+            pendingDoor = null;
+        }
+
+        private void OnPendingDoorBroken()
+        {
+            ResetAttack();
         }
 
         private static float HorizontalDistance(Vector3 first, Vector3 second)
