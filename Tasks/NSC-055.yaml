@@ -26,7 +26,7 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 2,
+  "contract_revision": 3,
   "decomposition_reason": "The reusable SpriteRenderer prefab requires an explicit assembly child because the separately implemented movement and projectile components must be connected to shared pursuit, health, defeat, registry, and sorting behavior before the parent feature is usable.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -35,7 +35,7 @@
     "NSC-039",
     "NSC-053",
     "NSC-054",
-    "NSC-094"
+    "NSC-077"
   ],
   "downstream_integration_obligations": [],
   "exclusive_resources": [
@@ -55,14 +55,25 @@
   ],
   "id": "NSC-055",
   "kind": "implementation",
-  "notes": "This child connects the named components into the reusable prefab. Encounter placement and the rule requiring Melee support remain outside this proposal. Human-approved audit correction: the assembled-prefab Play Mode coverage must also prove that keep-distance movement and projectile attack operate together on the same live GameObject; the focused component tests remain owned by NSC-053 and NSC-054.",
+  "notes": "This child connects the named components into the reusable prefab. Encounter placement and the rule requiring Melee support remain outside this proposal. Human-approved audit correction: the assembled-prefab Play Mode coverage must also prove that keep-distance movement and projectile attack operate together on the same live GameObject; the focused component tests remain owned by NSC-053 and NSC-054. Revision 3 (2026-09-16): NSC-094 is superseded by NSC-077 revision 3, which supplies the Ranged Enemy idle and walk animation as LanternWraithAnimator.controller driven by EnemyAnimationController; this prefab reuses them read-only. Vincent decided on 2026-09-16 that the Ranged Enemy is the Lantern Wraith and that its projectile is a teal lantern wisp with unchanged gameplay, so this prefab presents the Lantern Wraith.",
   "parent": "NSC-016",
   "provenance": {
     "graph_delta_plan_id": "GDP-2e86f4a379ab3f36dfd476d6afefcbe502dd04d338ea28b6d5e9b26b190b30f3",
     "origin": "progressive_decomposition",
     "parent_contract_revision": 2,
     "parent_contract_sha256": "6169c9087abcd9e65e55a1b7edd777185d68c86577bb8032be2bafdc263dbcf5",
-    "parent_task_id": "NSC-016"
+    "parent_task_id": "NSC-016",
+    "contract_followups": [
+      {
+        "date": "2026-09-17",
+        "reason": "Follow-up revision 3: NSC-094 is superseded by NSC-077 revision 3, so NSC-055 depends on NSC-077 and reuses its Lantern Wraith animation; the Ranged Enemy is the Lantern Wraith (Vincent, 2026-09-16).",
+        "source_head": "d9af025a571befe696b05769496351a828c06010",
+        "previous_contract_revision": 2,
+        "base_contract_sha256": "7abd0288aab2ab57b7077e52e23a2df104240b115842d92f23db35cc1a3e99a3",
+        "revised_contract_sha256": "3feb1b65b402d35decc9351b05e9c4f1a10c9e9e8665f4f43d783293eee12c51",
+        "review": "none; taskcontrol validate only (Vincent, 2026-09-16)"
+      }
+    ]
   },
   "reconciliation_key": "ranged-enemy-prefab-wiring",
   "repository_evidence_at_bootstrap": [],
