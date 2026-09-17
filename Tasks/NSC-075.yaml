@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-075",
-  "contract_revision": 2,
+  "contract_revision": 3,
   "contract_disposition": "active",
   "title": "Unity Eight-Direction Wizard Locomotion Integration",
   "reconciliation_key": "wizard-eight-direction-locomotion-integration",
@@ -12,7 +12,13 @@
   "decomposition_state": "concrete",
   "decomposition_reason": "The existing controller, builder, focused tests, lobby flow, four wizard choices, and approved cardinal art define one bounded Unity integration task.",
   "parent": "NSC-002",
-  "depends_on": ["NSC-062", "NSC-068", "NSC-070", "NSC-073", "NSC-074"],
+  "depends_on": [
+    "NSC-062",
+    "NSC-068",
+    "NSC-070",
+    "NSC-073",
+    "NSC-074"
+  ],
   "exclusive_resources": [
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/WizardAnimationController.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/WizardAnimationController.cs.meta",
@@ -23,6 +29,7 @@
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/WizardAnimationPlayModeTests.cs.meta",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/WizardCardinalSourceAuditTests.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/WizardCardinalSourceAuditTests.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated",
     "unity-scene:Assets/Scenes/DoorPrototype.unity"
   ],
@@ -40,7 +47,7 @@
     {
       "criterion_id": "AC-003",
       "reference": "Exact source, clip, and SpriteRenderer binding audit",
-      "requirement": "Focused tests prove exact variant/direction/motion mapping, six ordered frames, source-group identity, SpriteRenderer binding, transparent 180x180 import geometry, feet pivot, and absence of mixed-direction or mixed-variant references across all 64 states and clips."
+      "requirement": "Focused tests prove exact variant/direction/motion mapping, six ordered frames, source-group identity, SpriteRenderer binding, transparent 180x180 import geometry at 90 pixels per unit, feet pivot, and absence of mixed-direction or mixed-variant references across all 64 states and clips."
     },
     {
       "criterion_id": "AC-004",
@@ -50,14 +57,24 @@
     {
       "criterion_id": "AC-005",
       "reference": "Deterministic Unity builder ownership",
-      "requirement": "DoorPrototypeSceneBuilder.Build remains the public materialization command and delegates wizard Animator construction to DoorPrototypeGlobalSceneBuilder. The global builder owns changed Animator controller and clip references and is idempotent across two runs. The worker edits source and focused tests only; generated Animator assets and scene serialization are produced by the repository's Unity builder and are never hand-edited."
+      "requirement": "DoorPrototypeSceneBuilder.Build remains the public materialization command and delegates wizard Animator construction to DoorPrototypeGlobalSceneBuilder. The global builder owns changed Animator controller and clip references and is idempotent across two runs: the second run changes no generated controller, clip, placeholder asset or .meta import setting. Assets/Scenes/DoorPrototype.unity is excluded from byte comparison because Unity regenerates its local fileIDs on every save; the scene content this task owns is proven by the saved-scene assertions of VAL-001 and VAL-006. The worker edits source and focused tests only; generated Animator assets and scene serialization are produced by the repository's Unity builder and are never hand-edited."
+    },
+    {
+      "criterion_id": "AC-006",
+      "reference": "GER Agent design decision W1, 2026-09-17: the NSC-077 AC-003 camera-facing Visual treatment applied to the wizard; Vincent, 2026-09-17: \"the wizards dont look nearly as good sadly\" and \"Whatever you have done to make the enemy look great and in perspective, the wizards need that treatment.\"",
+      "requirement": "Give the Player's Visual child the same camera-facing treatment NSC-077 AC-003 gives the enemy Visual. DoorPrototypeGlobalSceneBuilder.BuildPlayer creates the wizard's Visual through DoorPrototypeSceneBuilder.CreateWorldSpriteVisual with Quaternion.Euler(IsometricCameraEulerAngles) and world size Vector2.one, as BuildChaseEnemy and BuildLanternWraith already do, instead of today's Quaternion.identity and (1, 2). The Visual's local scale is therefore a uniform (1, 1, 1), and a 180x180 frame imported at 90 pixels per unit (AC-003) spans the 2x2-world-unit character box. WizardAnimationController sets the Visual's world rotation to Quaternion.Euler(30, -45, 0) every frame, including after the Player root is rotated, so the sprite never leans, thins or turns edge-on. The rotation is WizardAnimationController's own runtime constant, not a reference to the Editor-only DoorPrototypeGlobalSceneBuilder field; an Edit Mode test in WizardArtIntegrationTests asserts that the constant equals DoorPrototypeGlobalSceneBuilder.IsometricCameraEulerAngles, the pattern NSC-077 AC-003 uses for EnemyAnimationController. The Visual's pivot stays at the wizard's floor-contact point: its world Y stays within 0.01 of the floor height under the wizard while idle and walking. AC-007 may change how that point is derived. Do not edit EnemyAnimationController.cs, which is NSC-077's resource."
+    },
+    {
+      "criterion_id": "AC-007",
+      "reference": "GER Agent design decision W3, 2026-09-17 (Vincent, 2026-09-17: \"The door wizard sorting order is wrong\"; his screenshot shows the D1 door sprite drawn over the wizard's upper body); DoorPrototypeSceneBuilder's NSC-039 sorting-convention comment and DoorPrototypeGlobalSceneBuilder.BuildCamera. The existing DoorPrototypeSceneBuilderTests.Build_PlayerAndDoorDepthKeysCrossAtTheDoorGroundPlane passes while the defect is visible, so sort keys alone do not prove the draw order.",
+      "requirement": "In the production-built Assets/Scenes/DoorPrototype.unity under its gameplay camera, the wizard's Visual draws over D1's DoorRoot/DoorVisual/DoorSprite whenever the wizard's floor-contact point is on the camera side of that sprite's pivot (the Ruined Entry side, smaller world Z), with D1 closed or open, and DoorSprite draws over the wizard when the wizard is on the far side with D1 open. Vincent's 2026-09-17 report (the D1 door sprite drawn over the wizard's upper body) is reproduced by the VAL-007 test failing before the fix. Keep the NSC-039 sorting band unchanged: the shared sortingLayerName \"Default\" and sortingOrder 0 (DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName and WorldSpriteSortingOrder), SpriteRenderer.spriteSortPoint Pivot, and BuildCamera's TransparencySortMode.CustomAxis with axis (0, 1, 0.26). Fix the defect only in WizardAnimationController.cs and the wizard-owned code in DoorPrototypeGlobalSceneBuilder.cs, for example how the Visual's floor-contact position is derived at runtime. If no VAL-007 placement fails before the fix, or the fix needs DoorPrototypeSceneBuilder.cs, the door's visuals, the camera's sort mode or axis, or another file this task does not claim, stop and escalate to the GER Agent with the test and its measurements instead of editing them. Wall sorting is outside this task."
     }
   ],
   "completion_gates": [
     {
       "gate_id": "VAL-001",
       "reference": "Focused Edit Mode mapping audit",
-      "requirement": "WizardArtIntegrationTests covers all four wizard variants, eight directions, idle/walk state pairs, exact clip names, ordered six-frame sprite membership, source identity, import geometry, pivot, and SpriteRenderer binding."
+      "requirement": "WizardArtIntegrationTests covers all four wizard variants, eight directions, idle/walk state pairs, exact clip names, ordered six-frame sprite membership, source identity, import geometry at 90 pixels per unit, pivot, and SpriteRenderer binding."
     },
     {
       "gate_id": "VAL-002",
@@ -72,15 +89,31 @@
     {
       "gate_id": "VAL-004",
       "reference": "Builder materialization and exact candidate validation",
-      "requirement": "On the exact candidate, preserve and pass WizardCardinalSourceAuditTests before integration, run DoorPrototypeSceneBuilder.Build twice, require a clean compile, pass the focused WizardArtIntegrationTests Edit Mode fixture and WizardAnimationPlayModeTests Play Mode fixture, and commit only builder-materialized outputs registered by this task."
+      "requirement": "On the exact candidate, preserve and pass WizardCardinalSourceAuditTests before integration, run DoorPrototypeSceneBuilder.Build twice and require that the second run changes no file's bytes except Assets/Scenes/DoorPrototype.unity (excluded because Unity re-saves it with regenerated local fileIDs), require a clean compile, pass the focused WizardArtIntegrationTests and WizardCardinalSourceAuditTests Edit Mode fixtures and the WizardAnimationPlayModeTests Play Mode fixture, and commit only builder-materialized outputs registered by this task."
     },
     {
       "gate_id": "VAL-005",
       "reference": "Vincent all-four visual approval",
-      "requirement": "Vincent tests the exact candidate in Assets/Scenes/DoorPrototype.unity with all four wizard choices, holds movement through all eight screen directions long enough to see each walk loop, confirms stable facing and continuous identity, and approves the exact candidate before integration."
+      "requirement": "Vincent tests the exact candidate in Assets/Scenes/DoorPrototype.unity with all four wizard choices, holds movement through all eight screen directions long enough to see each walk loop, confirms stable facing and continuous identity, confirms the wizard reads in perspective like the Dungeon Brute and Lantern Wraith - crisp and upright, without leaning or thinning while turning - fits the 2x2-unit character box beside them, and sorts correctly in front of and behind the D1 door frame, and approves the exact candidate before integration. A wall sorting defect seen in this review is recorded for the wall-owning task instead of blocking this approval."
+    },
+    {
+      "gate_id": "VAL-006",
+      "reference": "Focused Edit/Play Mode camera-facing Visual and ground-contact audit (W1)",
+      "requirement": "WizardArtIntegrationTests proves that the saved scene's Player Visual has local scale (1, 1, 1) and world rotation Quaternion.Euler(IsometricCameraEulerAngles), and that WizardAnimationController's rotation constant equals DoorPrototypeGlobalSceneBuilder.IsometricCameraEulerAngles. WizardAnimationPlayModeTests proves that the Visual's world rotation equals Quaternion.Euler(30, -45, 0) after the Player root is rotated and while walking in each of the eight held screen directions, and that the Visual's world Y stays within 0.01 of the floor height while idle, while walking, and across an idle/walk transition."
+    },
+    {
+      "gate_id": "VAL-007",
+      "reference": "Reproduced door sorting regression (W3), including a rendered draw-order check",
+      "requirement": "WizardAnimationPlayModeTests loads the built Assets/Scenes/DoorPrototype.unity and moves the wizard with its CharacterController, not by writing transform.position, to: (a) the closest reachable point to closed D1 on the camera side; (b) the doorway center line 0.5 world units on the camera side of DoorSprite's pivot with D1 open; and (c) 0.5 and 1.0 world units past DoorSprite's pivot on the far side with D1 open. At each point it asserts that the wizard Visual and DoorSprite share sortingLayerID and sortingOrder and use spriteSortPoint Pivot, and that the wizard Visual pivot's dot product with Camera.main.transparencySortAxis is smaller than DoorSprite's at (a) and (b) and larger at (c). At (a) and at 1.0 units past the pivot it also renders the gameplay camera into a RenderTexture three times with every other renderer disabled (DoorSprite only, the wizard Visual only, both) and asserts that pixels opaque in both single renders match the wizard-only render at (a) and the door-only render past the pivot. The test fails on the pre-fix code at the placement that reproduces Vincent's report and passes after the fix; the delivery evidence records both runs."
     }
   ],
-  "downstream_integration_obligations": [],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "GER Agent design decision W2, 2026-09-17: Vincent's pixel-density decision B; the Art Director's future 128x128 wizard remake",
+      "requirement": "The later switch task for the Art Director's 128x128 wizard remake (reconciliation key wizard-128-source-integration-switch) moves DoorPrototypeGlobalSceneBuilder.ImportWizardSprite from 90 to 64 pixels per unit for the sources under Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128 and updates WizardArtIntegrationTests to match, keeping this task's uniform-scale camera-facing Visual and sorting behavior."
+    }
+  ],
   "gdd_evidence": [
     {
       "reference": "GDD isometric directional wizard presentation",
@@ -90,7 +123,7 @@
   "basis": "human_requested_eight_direction_followup",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "This task owns eight-direction classifier and animation integration. DoorPrototypeGlobalSceneBuilder is the exact implementation owner for generated wizard states and clips; DoorPrototypeSceneBuilder remains an unchanged public facade and read-only context. The task preserves the lobby, four-wizard selection, world entry, existing Player, and input behavior. It does not own new source-art generation, combat, movement tuning, room composition, or a DoorPrototype-wide resource.",
+  "notes": "This task owns eight-direction classifier and animation integration. DoorPrototypeGlobalSceneBuilder is the exact implementation owner for generated wizard states and clips; DoorPrototypeSceneBuilder remains an unchanged public facade and read-only context. The task preserves the lobby, four-wizard selection, world entry, existing Player, and input behavior. It does not own new source-art generation, combat, movement tuning, room composition, or a DoorPrototype-wide resource. Revision 3, 2026-09-17: Vincent played the merged NSC-077 enemy art: \"the wizards dont look nearly as good sadly\", \"Whatever you have done to make the enemy look great and in perspective, the wizards need that treatment.\" and \"The door wizard sorting order is wrong.\" (his screenshot shows the D1 door sprite over the wizard's upper body). GER Agent decisions W1-W5: the camera-facing uniform Visual (AC-006, VAL-006); the interim 90 pixels per unit import for the 180x180 frames (AC-003, VAL-001), which rewrites the source metas under Art/Wizard/Source/PixelLab, so this task claims that directory; the door sorting fix, reproduced by a failing test first and made inside wizard-owned code (AC-007, VAL-007); and Vincent's added review points (VAL-005). The 64 pixels per unit switch belongs to the 128x128 remake's switch task (INT-001). The classifier, Animator states, clips, variants, lobby flow, movement tuning, collision and gameplay stay unchanged.",
   "repository_state_at_bootstrap": "partial",
   "repository_evidence_at_bootstrap": [
     {
@@ -111,6 +144,17 @@
     "game_entry_task_id": "NSC-068",
     "direction_repair_task_id": "NSC-070",
     "created_by_human_request": true,
-    "approved_at_utc_date": "2026-09-13"
+    "approved_at_utc_date": "2026-09-13",
+    "contract_followups": [
+      {
+        "date": "2026-09-17",
+        "reason": "Vincent's NSC-077 playtest: the wizard gets the enemies' camera-facing 2x2 treatment at an interim 90 PPU, and the D1 door-over-wizard sorting defect is fixed after a failing reproduction; GER Agent decisions W1-W5.",
+        "source_head": "0a6e8e1bf2356402344d02c4e8772dfb2eeb0a8a",
+        "previous_contract_revision": 2,
+        "base_contract_sha256": "218f1e12a05054e30338529d9bc0d2893c2c8576cbb9ee81e058ff2d8727d5cf",
+        "revised_contract_sha256": "ee534513b4b36303ec319a85947f45151c8ea4f1ab7b0dd4e40ec69ee663307a",
+        "review": "post-commit contract closure review (tiered rule, 2026-09-17)"
+      }
+    ]
   }
 }
