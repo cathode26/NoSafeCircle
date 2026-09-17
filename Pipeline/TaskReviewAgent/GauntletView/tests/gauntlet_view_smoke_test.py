@@ -2815,7 +2815,18 @@ class GauntletViewHtmlTests(unittest.TestCase):
         self.assertIn("approvalOutcomes", self.html)
 
     def test_run_scope_is_the_default_proof_view(self) -> None:
-        self.assertIn('id="f-scope" checked', self.html)
+        # V18: the checkbox's checked state is no longer a static HTML
+        # attribute; commits 1d0f84d145 ("Default AssistantControl viewer to
+        # full graph") and 7d17efde08 moved it to runtime JS so assistant
+        # mode can default to the full graph (see
+        # test_assistant_mode_defaults_to_the_full_graph). Outside assistant
+        # mode -- the legacy/gauntlet "proof view" this test named -- the
+        # default is still "run scope only" whenever the snapshot carries no
+        # explicit display task-id scope.
+        self.assertIn('<input type="checkbox" id="f-scope">', self.html)
+        self.assertIn(
+            "const defaultScopeOnly = assistantFullGraph ? false : !Array.isArray(ids)",
+            self.html)
 
     def test_assistant_mode_defaults_to_the_full_graph(self) -> None:
         self.assertIn("const assistantFullGraph = snap.run?.mode === 'assistant'", self.html)
