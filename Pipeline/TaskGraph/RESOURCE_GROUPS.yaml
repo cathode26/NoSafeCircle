@@ -1142,6 +1142,17 @@
         "NSC-033",
         "NSC-086"
       ]
+    },
+    {
+      "reconciliation_keys": [
+        "ranged-enemy-prefab-wiring",
+        "stationary-enemy-sprite-integration"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyAnimationController.cs",
+      "work_ids": [
+        "NSC-055",
+        "NSC-077"
+      ]
     }
   ],
   "schema_version": "1.0",
