@@ -553,26 +553,25 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
         {
             // Camera.forward pointing exactly at the player is not itself a meaningful framing
             // check - a camera can satisfy that and still be positioned on the wrong side, or
-            // frame the gameplay space badly. What actually matters is that the player and the
-            // starting door both land comfortably inside the camera's viewport.
+            // frame the gameplay space badly. What actually matters is that the player lands
+            // near the center of the camera's viewport at scene start.
+            //
+            // The run deliberately starts in the Ruined Entry's south-west corner, far from D1,
+            // so the starting door is no longer expected in view; D1 wayfinding is judged in the
+            // Ruined Entry room review. The test keeps its name for continuity with recorded
+            // evidence.
             DoorPrototypeSceneBuilder.BuildInMemoryForTests();
 
             var camera = GameObject.Find("Main Camera")?.GetComponent<Camera>();
             var player = GameObject.Find("Player");
-            var door = GameObject.Find("DoorRoot");
             Assert.IsNotNull(camera);
             Assert.IsNotNull(player);
-            Assert.IsNotNull(door);
 
             var playerViewport = camera.WorldToViewportPoint(player.transform.position);
-            var doorViewport = camera.WorldToViewportPoint(door.transform.position);
 
-            Assert.IsTrue(playerViewport.x > 0.1f && playerViewport.x < 0.9f
-                          && playerViewport.y > 0.1f && playerViewport.y < 0.9f && playerViewport.z > 0f,
-                $"Player must be comfortably inside the camera view at scene start, was viewport {playerViewport}.");
-            Assert.IsTrue(doorViewport.x > 0.1f && doorViewport.x < 0.9f
-                          && doorViewport.y > 0.1f && doorViewport.y < 0.9f && doorViewport.z > 0f,
-                $"Starting door must be comfortably inside the camera view at scene start, was viewport {doorViewport}.");
+            Assert.IsTrue(Mathf.Abs(playerViewport.x - 0.5f) < 0.15f
+                          && Mathf.Abs(playerViewport.y - 0.5f) < 0.15f && playerViewport.z > 0f,
+                $"Player must start near the center of the camera view, was viewport {playerViewport}.");
         }
 
         [Test]
@@ -614,13 +613,30 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                 Is.EqualTo(controller.skinWidth).Within(0.0001f),
                 "The Player must begin at the CharacterController's settled ground-contact height instead of visibly falling onto the floor when Play Mode starts.");
 
+            // NSC-044 and NSC-049 own the final spawn placement, so compare against the builder's
+            // own spawn instead of repeating its coordinates here.
+            Vector3 spawnPosition = BuilderPlayerSpawnPosition();
+
             Assert.That(
                 player.transform.position.x,
-                Is.EqualTo(0f).Within(0.0001f));
+                Is.EqualTo(spawnPosition.x).Within(0.0001f),
+                "The Player must start at the scene builder's PlayerSpawnPosition.");
 
             Assert.That(
                 player.transform.position.z,
-                Is.EqualTo(-4f).Within(0.0001f));
+                Is.EqualTo(spawnPosition.z).Within(0.0001f),
+                "The Player must start at the scene builder's PlayerSpawnPosition.");
+        }
+
+        private static Vector3 BuilderPlayerSpawnPosition()
+        {
+            System.Type builderType = typeof(DoorPrototypeSceneBuilder)
+                .Assembly.GetType("NoSafeCircle.DoorPrototype.Editor.World.DoorPrototypeGlobalSceneBuilder");
+            Assert.IsNotNull(builderType);
+            FieldInfo spawnField = builderType.GetField(
+                "PlayerSpawnPosition", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.IsNotNull(spawnField, "DoorPrototypeGlobalSceneBuilder.PlayerSpawnPosition was renamed or removed.");
+            return (Vector3)spawnField.GetValue(null);
         }
         [Test]
         public void Build_MainCamera_TranslatesWithPlayerButRotationStaysFixed()
