@@ -592,6 +592,9 @@ def run(
     owner: DecompositionSessionPoolOwner | None = None
     pool_assignment: dict[str, Any] | None = None
     pool_lifecycle: dict[str, Any] | None = None
+    # Whether settlement was attempted, which is not the same fact as whether
+    # it produced a lifecycle: a settle that raised must never be retried here.
+    settle_attempted = False
     try:
         if pooled:
             owner = _pool_owner(
@@ -657,6 +660,7 @@ def run(
             )
         # Settle from the run's durable artifacts whatever the exit code says:
         # the artifacts, not the process, decide what each conversation proved.
+        settle_attempted = True
         pool_lifecycle = _settle_pool(owner, run_id=run_id, run_dir=artifact_root)
         if pool_lifecycle is not None:
             record["pool_lifecycle"] = pool_lifecycle
@@ -671,18 +675,31 @@ def run(
         write_record(path, record)
         return record
     except BaseException as exc:
-        if owner is not None and pool_lifecycle is None:
-            if _run_directory_started(artifact_root):
-                # The run left its own directory behind, so the provider really
-                # started: a timeout, an interrupt, or an OSError raised after
-                # the spawn settles from those artifacts, and both conversations
-                # are retired as interrupted rather than resumed later.
-                pool_lifecycle = _settle_pool(owner, run_id=run_id, run_dir=artifact_root)
-            else:
-                # Nothing this run owns exists, so no provider ever started and
-                # the leases are returned uncharged. Only that absence may reach
-                # here; the exception type never decides it.
-                pool_lifecycle = _cancel_unstarted_pool(owner, run_id=run_id)
+        try:
+            if owner is not None and pool_lifecycle is None and not settle_attempted:
+                if _run_directory_started(artifact_root):
+                    # The run left its own directory behind, so the provider
+                    # really started: a timeout, an interrupt, or an OSError
+                    # raised after the spawn settles from those artifacts, and
+                    # both conversations are retired rather than resumed later.
+                    settle_attempted = True
+                    pool_lifecycle = _settle_pool(owner, run_id=run_id, run_dir=artifact_root)
+                else:
+                    # Nothing this run owns exists, so no provider ever started
+                    # and the leases are returned uncharged. Only that absence
+                    # may reach here; the exception type never decides it.
+                    pool_lifecycle = _cancel_unstarted_pool(owner, run_id=run_id)
+        except Exception as pool_exc:
+            # The pool is not the run. A settlement failure is recorded here, it
+            # never replaces the run's own error, and it never skips the record
+            # write below that takes this task out of `running`.
+            pool_lifecycle = {
+                "action": "settle" if settle_attempted else "cancel_unstarted",
+                "status": "pool_degraded",
+                "run_id": run_id,
+                "error_type": type(pool_exc).__name__,
+                "error": " ".join(str(pool_exc).split())[:900],
+            }
         if pool_lifecycle is not None:
             record["pool_lifecycle"] = pool_lifecycle
         record.update(status="failed", completed_at_utc=_now(), error=f"{type(exc).__name__}: {exc}")

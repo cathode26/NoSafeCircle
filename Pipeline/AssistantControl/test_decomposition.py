@@ -924,6 +924,38 @@ class PooledLifecycleTests(unittest.TestCase):
         self.assertEqual("pool_degraded", record["pool_lifecycle"]["status"])
         self.assertIn("fixture settlement failure", record["pool_lifecycle"]["error"])
 
+    def test_a_settle_that_raises_still_leaves_a_failed_record_and_one_settle(self):
+        # A settlement failure the pool helper does not classify escapes into
+        # the run's own failure path. It must be settled exactly once, it must
+        # not hide the error it raised, and it must not leave the record
+        # `running` with no process behind it.
+        module, manager, owner, run_id, _root = self.launch(
+            "assistant-pool-settle-raises-",
+            settle_error=KeyError("fixture settlement failure"),
+        )
+        with self.assertRaises(KeyError) as raised:
+            module.run(
+                manager, "NSC-004", run_id, providers="claude,claude",
+                compose_project="assistant-pool", execution_authorized=True,
+            )
+        self.assertIn("fixture settlement failure", str(raised.exception))
+        self.assertEqual(["prepare", "settle", "close"], owner.actions())
+        record_path = manager.records / "NSC-004.decomposition.json"
+        record = json.loads(record_path.read_text(encoding="utf-8"))
+        self.assertEqual("failed", record["status"])
+        self.assertIn("KeyError", record["error"])
+        # The task is no longer held mid-flight: a later run meets the settled
+        # `failed` record an operator can clear, never a `running` one that no
+        # process owns.
+        with self.assertRaises(ValueError) as refused:
+            module.run(
+                manager, "NSC-004", "nsc-004-lifecycle-rerun", providers="claude,claude",
+                compose_project="assistant-pool", execution_authorized=True,
+            )
+        self.assertIn("status failed", str(refused.exception))
+        self.assertNotIn("status running", str(refused.exception))
+        self.assertEqual(["prepare", "settle", "close"], owner.actions())
+
 
 class SameProviderReviewIndependenceTests(unittest.TestCase):
     """`same_provider_separate_sessions` is admitted only for a pooled same-provider run."""
