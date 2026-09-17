@@ -1,0 +1,218 @@
+using UnityEngine;
+
+namespace NoSafeCircle.DoorPrototype.Enemies
+{
+    public enum EnemyAnimationKind
+    {
+        MeleeEnemy,
+        LanternWraith
+    }
+
+    /// Selects the directional idle or walk state for an enemy without owning movement.
+    [DisallowMultipleComponent]
+    [RequireComponent(typeof(Animator))]
+    public sealed class EnemyAnimationController : MonoBehaviour
+    {
+        private const float DirectionThreshold = 0.01f;
+        private const float DirectionSwitchMargin = 0.001f;
+        private const float DirectionTieEpsilon = 0.0001f;
+        private const float StartWalkingSpeed = 0.1f;
+        private const float StopWalkingSpeed = 0.05f;
+        private const string InitialDirection = "south";
+
+        private static readonly string[] ScreenDirections =
+        {
+            "north-east", "east", "south-east", "south",
+            "south-west", "west", "north-west", "north"
+        };
+
+        private static readonly Vector2[] ScreenDirectionVectors =
+        {
+            new Vector2(0.70710677f, 0.70710677f),
+            new Vector2(1f, 0f),
+            new Vector2(0.70710677f, -0.70710677f),
+            new Vector2(0f, -1f),
+            new Vector2(-0.70710677f, -0.70710677f),
+            new Vector2(-1f, 0f),
+            new Vector2(-0.70710677f, 0.70710677f),
+            new Vector2(0f, 1f)
+        };
+
+        [SerializeField] private EnemyAnimationKind animationKind;
+        [SerializeField] private Animator animator;
+
+        private EnemyTargetKnowledge targetKnowledge;
+        private EnemyLanternWispCaster lanternWispCaster;
+        private Vector3 previousPosition;
+        private string currentState;
+        private string lastDirection = InitialDirection;
+        private bool isWalking;
+
+        public string CurrentState => currentState;
+        public string LastDirection => lastDirection;
+
+        private void Awake()
+        {
+            CacheComponents();
+            previousPosition = transform.position;
+            ApplyState(false);
+        }
+
+        private void LateUpdate()
+        {
+            Tick(Time.deltaTime);
+        }
+
+        /// Configures the generated controller family while keeping movement ownership on the
+        /// existing NavMeshAgent/pursuit components (or on no component for the stationary wraith).
+        public void Initialize(Animator enemyAnimator, EnemyAnimationKind kind)
+        {
+            animator = enemyAnimator != null ? enemyAnimator : GetComponent<Animator>();
+            animationKind = kind;
+            CacheComponents();
+            previousPosition = transform.position;
+            isWalking = false;
+            lastDirection = InitialDirection;
+            currentState = null;
+            ApplyState(false);
+        }
+
+        /// Advances only animation-state selection. Tests can move the Transform, then call this
+        /// method with an explicit frame time to exercise speed and facing deterministically.
+        public void Tick(float deltaTime)
+        {
+            Vector3 displacement = transform.position - previousPosition;
+            previousPosition = transform.position;
+            displacement.y = 0f;
+
+            float speed = deltaTime > 0f ? displacement.magnitude / deltaTime : 0f;
+            isWalking = isWalking ? speed > StopWalkingSpeed : speed >= StartWalkingSpeed;
+
+            if (isWalking)
+            {
+                Vector3 planarVelocity = deltaTime > 0f ? displacement / deltaTime : Vector3.zero;
+                lastDirection = StableDirectionFor(planarVelocity, lastDirection);
+            }
+            else
+            {
+                Transform facingTarget = ResolveFacingTarget();
+                if (facingTarget != null)
+                {
+                    Vector3 toTarget = facingTarget.position - transform.position;
+                    toTarget.y = 0f;
+                    lastDirection = StableDirectionFor(toTarget, lastDirection);
+                }
+            }
+
+            ApplyState(isWalking);
+        }
+
+        private void CacheComponents()
+        {
+            if (animator == null) animator = GetComponent<Animator>();
+            targetKnowledge = GetComponent<EnemyTargetKnowledge>();
+            lanternWispCaster = GetComponent<EnemyLanternWispCaster>();
+        }
+
+        private Transform ResolveFacingTarget()
+        {
+            if (animationKind == EnemyAnimationKind.MeleeEnemy)
+            {
+                return targetKnowledge != null && targetKnowledge.HasTarget
+                    ? targetKnowledge.CurrentTarget
+                    : null;
+            }
+
+            return lanternWispCaster != null ? lanternWispCaster.FacingTarget : null;
+        }
+
+        private void ApplyState(bool walking)
+        {
+            string motion = walking ? "walk" : "idle";
+            string state = animationKind + "_" + motion + "_" + lastDirection;
+            if (state == currentState) return;
+
+            currentState = state;
+            if (animator != null && animator.runtimeAnimatorController != null)
+            {
+                animator.Play(state, 0, 0f);
+            }
+        }
+
+        // The fixed isometric camera maps screen right to world X+Z and screen up to Z-X.
+        private static string DirectionFor(Vector3 movement)
+        {
+            Vector2 screenMovement = new Vector2(
+                movement.x + movement.z, movement.z - movement.x);
+            if (screenMovement.sqrMagnitude < DirectionThreshold * DirectionThreshold)
+            {
+                return InitialDirection;
+            }
+
+            int bestIndex = 0;
+            float bestScore = Vector2.Dot(screenMovement, ScreenDirectionVectors[0]);
+            for (int index = 1; index < ScreenDirections.Length; index++)
+            {
+                float score = Vector2.Dot(screenMovement, ScreenDirectionVectors[index]);
+                float tieEpsilon = DirectionTieEpsilon * screenMovement.magnitude;
+                bool isTie = Mathf.Abs(score - bestScore) <= tieEpsilon;
+                bool prefersWorldAxis = IsWorldAxisDirection(index) &&
+                                        !IsWorldAxisDirection(bestIndex);
+                if (score > bestScore + tieEpsilon || (isTie && prefersWorldAxis))
+                {
+                    bestIndex = index;
+                    bestScore = score;
+                }
+            }
+
+            return ScreenDirections[bestIndex];
+        }
+
+        private static bool IsWorldAxisDirection(int directionIndex)
+        {
+            return directionIndex % 2 == 0;
+        }
+
+        // Match WizardAnimationController's angular switch margin and deterministic ties.
+        private static string StableDirectionFor(Vector3 movement, string previousDirection)
+        {
+            Vector2 screenMovement = new Vector2(
+                movement.x + movement.z, movement.z - movement.x);
+            float movementLength = screenMovement.magnitude;
+            if (movementLength < DirectionThreshold * Mathf.Sqrt(2f))
+            {
+                return previousDirection;
+            }
+
+            string candidateDirection = DirectionFor(movement);
+            if (string.IsNullOrEmpty(previousDirection))
+            {
+                return candidateDirection;
+            }
+
+            float candidateScore = Vector2.Dot(
+                screenMovement, ScreenDirectionVectors[IndexOf(candidateDirection)]);
+            float previousScore = Vector2.Dot(
+                screenMovement, ScreenDirectionVectors[IndexOf(previousDirection)]);
+            if (previousScore + DirectionSwitchMargin * movementLength >= candidateScore)
+            {
+                return previousDirection;
+            }
+
+            return candidateDirection;
+        }
+
+        private static int IndexOf(string direction)
+        {
+            for (int index = 0; index < ScreenDirections.Length; index++)
+            {
+                if (ScreenDirections[index] == direction)
+                {
+                    return index;
+                }
+            }
+
+            return 0;
+        }
+    }
+}

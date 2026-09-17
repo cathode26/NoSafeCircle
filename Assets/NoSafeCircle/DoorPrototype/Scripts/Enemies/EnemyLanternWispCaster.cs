@@ -3,12 +3,14 @@ using UnityEngine;
 
 namespace NoSafeCircle.DoorPrototype.Enemies
 {
-    /// A stationary caster enemy that answers the wizard's fireball with its own. It spends
+    /// A stationary Lantern Wraith that answers the wizard with a teal lantern wisp. It spends
     /// mana per cast exactly like the player does, so it goes quiet once drained instead of
     /// firing forever. Self-contained and IMGUI-free: it owns its projectiles, its range test,
     /// and its sight test, so it needs no NavMesh and no pursuit components.
-    public sealed class EnemyFireballCaster : MonoBehaviour
+    public sealed class EnemyLanternWispCaster : MonoBehaviour
     {
+        private static readonly Color LanternWispColor = new Color32(0x30, 0xe0, 0xcb, 0xff);
+
         [SerializeField] private Transform wizardTransform;
 
         [SerializeField, Min(0f)] private float maximumMana = 60f;
@@ -29,9 +31,24 @@ namespace NoSafeCircle.DoorPrototype.Enemies
         public float CurrentMana => currentMana;
         public bool IsOutOfMana => currentMana < manaPerCast;
 
+        /// The wizard is a facing target whenever it passes the same range and line-of-sight
+        /// checks used for casting. Mana and cooldown intentionally do not affect facing.
+        public Transform FacingTarget
+        {
+            get
+            {
+                return wizardTransform != null && IsWizardInRange() && HasUnobstructedViewOfWizard()
+                    ? wizardTransform
+                    : null;
+            }
+        }
+
+        public bool HasFacingTarget => FacingTarget != null;
+
         private struct Projectile
         {
             public GameObject Visual;
+            public Material Material;
             public Vector3 Direction;
             public float RemainingLifetime;
         }
@@ -70,7 +87,7 @@ namespace NoSafeCircle.DoorPrototype.Enemies
             castCooldown -= deltaTime;
             if (castCooldown > 0f) return;
 
-            if (!IsWizardInRange() || !HasUnobstructedViewOfWizard()) return;
+            if (FacingTarget == null) return;
 
             CastAtWizard();
             currentMana -= manaPerCast;
@@ -112,17 +129,33 @@ namespace NoSafeCircle.DoorPrototype.Enemies
             direction.Normalize();
 
             var visual = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            visual.name = "EnemyFireball";
-            Destroy(visual.GetComponent<Collider>());
+            visual.name = "LanternWisp";
+            Collider collider = visual.GetComponent<Collider>();
+            if (collider != null)
+            {
+                collider.enabled = false;
+                Destroy(collider);
+            }
             visual.transform.localScale = Vector3.one * 0.45f;
             visual.transform.position = transform.position + Vector3.up + direction;
 
             var renderer = visual.GetComponent<Renderer>();
-            if (renderer != null) renderer.material.color = new Color(1f, 0.25f, 0.1f);
+            Material ownedMaterial = null;
+            if (renderer != null)
+            {
+                ownedMaterial = renderer.material;
+                ownedMaterial.color = LanternWispColor;
+                if (ownedMaterial.HasProperty("_EmissionColor"))
+                {
+                    ownedMaterial.EnableKeyword("_EMISSION");
+                    ownedMaterial.SetColor("_EmissionColor", LanternWispColor);
+                }
+            }
 
             projectiles.Add(new Projectile
             {
                 Visual = visual,
+                Material = ownedMaterial,
                 Direction = direction,
                 RemainingLifetime = projectileLifetime,
             });
@@ -135,6 +168,7 @@ namespace NoSafeCircle.DoorPrototype.Enemies
                 Projectile projectile = projectiles[index];
                 if (projectile.Visual == null)
                 {
+                    if (projectile.Material != null) Destroy(projectile.Material);
                     projectiles.RemoveAt(index);
                     continue;
                 }
@@ -161,6 +195,7 @@ namespace NoSafeCircle.DoorPrototype.Enemies
                 if (hitWizard || projectile.RemainingLifetime <= 0f)
                 {
                     Destroy(projectile.Visual);
+                    if (projectile.Material != null) Destroy(projectile.Material);
                     projectiles.RemoveAt(index);
                     continue;
                 }
@@ -174,6 +209,7 @@ namespace NoSafeCircle.DoorPrototype.Enemies
             foreach (Projectile projectile in projectiles)
             {
                 if (projectile.Visual != null) Destroy(projectile.Visual);
+                if (projectile.Material != null) Destroy(projectile.Material);
             }
 
             projectiles.Clear();
