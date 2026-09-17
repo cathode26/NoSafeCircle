@@ -78,11 +78,6 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
         private static readonly Color32 EnemySpriteFillColor = new Color32(168, 46, 46, 255);
         private static readonly Color32 EnemySpriteBorderColor = new Color32(72, 18, 18, 255);
 
-        // The caster reads as fire rather than blood so the two enemy types stay tellable apart
-        // at gameplay distance: bright ember orange against the melee enemy's darker red.
-        private static readonly Color32 CasterSpriteFillColor = new Color32(232, 108, 32, 255);
-        private static readonly Color32 CasterSpriteBorderColor = new Color32(120, 40, 8, 255);
-
         // Single owned root for every authored enemy, so one entry in the scene builder's clear
         // list removes the whole squad instead of leaving copies behind on each rebuild.
         internal const string EnemiesRootName = "Enemies";
@@ -90,7 +85,8 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
         // Classic 2:1 dimetric isometric camera angle (rotate -45 degrees around Y to face
         // a corner, then tilt 30 degrees down) matching Diablo 1 / Ultima Online-style
         // fixed isometric presentation.
-        internal static readonly Vector3 IsometricCameraEulerAngles = new Vector3(30f, -45f, 0f);
+        internal static readonly Vector3 IsometricCameraEulerAngles =
+            new Vector3(30f, -45f, 0f);
 
         // Fixed, hand-picked world-space offset from the follow target to the camera. This is
         // a plain constant - NOT derived by rotating a local vector through the camera's own
@@ -359,10 +355,10 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
         // which all live from the Bone Archive northward.
         private static readonly Vector3 PlayerSpawnPosition = new Vector3(-10f, 0f, -22f);
 
-        // Stationary fire-casters, one per room from the Bone Archive onward. Offset to the
+        // Stationary Lantern Wraiths, one per room from the Bone Archive onward. Offset to the
         // opposite side of each room from the melee enemy so the wizard is pressured from two
         // directions rather than one, and still clear of every door center.
-        private static readonly Vector3[] EnemyCasterSpawnPositions =
+        private static readonly Vector3[] LanternWraithSpawnPositions =
         {
             new Vector3(7f, 0f, 13f),   // Bone Archive, opposite the melee at (-6, 10)
             new Vector3(-9f, 0f, 27f),  // Chapel of Ash, opposite the melee at (7, 31)
@@ -373,57 +369,85 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
         internal static void BuildChaseEnemies(Transform player, string architecturalTileAssetFolder)
         {
             var enemiesRoot = new GameObject(EnemiesRootName);
+            EnemyAnimationAssetBuilder.EnemyAnimationAssets animationAssets =
+                string.IsNullOrEmpty(architecturalTileAssetFolder)
+                    ? EnemyAnimationAssetBuilder.Load()
+                    : EnemyAnimationAssetBuilder.Build();
+
+            if (!string.IsNullOrEmpty(architecturalTileAssetFolder))
+            {
+                AssetDatabase.DeleteAsset(
+                    architecturalTileAssetFolder + "/FireCasterEnemySprite.asset");
+            }
 
             foreach (Vector3 spawnPosition in EnemySpawnPositions)
             {
-                BuildChaseEnemy(player, architecturalTileAssetFolder, enemiesRoot.transform, spawnPosition);
+                BuildChaseEnemy(
+                    player,
+                    architecturalTileAssetFolder,
+                    enemiesRoot.transform,
+                    spawnPosition,
+                    animationAssets);
             }
 
-            foreach (Vector3 spawnPosition in EnemyCasterSpawnPositions)
+            foreach (Vector3 spawnPosition in LanternWraithSpawnPositions)
             {
-                BuildCasterEnemy(player, architecturalTileAssetFolder, enemiesRoot.transform, spawnPosition);
+                BuildLanternWraith(
+                    player,
+                    architecturalTileAssetFolder,
+                    enemiesRoot.transform,
+                    spawnPosition,
+                    animationAssets);
             }
         }
 
-        // The caster holds its ground and answers the wizard's fireball with its own until its
-        // mana runs out. No NavMeshAgent or pursuit components: it owns its range and sight
+        // The Lantern Wraith holds its ground and casts until its mana runs out. No NavMeshAgent
+        // or pursuit components: it owns its range and sight
         // tests directly, so it needs nothing from the navigation surface.
-        private static void BuildCasterEnemy(
+        private static void BuildLanternWraith(
             Transform player,
             string architecturalTileAssetFolder,
             Transform enemiesRoot,
-            Vector3 spawnPosition)
+            Vector3 spawnPosition,
+            EnemyAnimationAssetBuilder.EnemyAnimationAssets animationAssets)
         {
-            var caster = new GameObject("FireCasterEnemy");
-            caster.transform.SetParent(enemiesRoot, false);
-            caster.transform.position = spawnPosition;
+            var wraith = new GameObject("LanternWraith");
+            wraith.transform.SetParent(enemiesRoot, false);
+            wraith.transform.position = spawnPosition;
 
-            DoorPrototypeSceneBuilder.CreateWorldSpriteVisual(
+            SpriteRenderer visual = DoorPrototypeSceneBuilder.CreateWorldSpriteVisual(
                 "Visual",
-                "FireCasterEnemySprite",
-                caster.transform,
+                "LanternWraithSprite",
+                wraith.transform,
                 Vector3.zero,
-                Quaternion.identity,
-                new Vector2(1f, 2f),
+                Quaternion.Euler(IsometricCameraEulerAngles),
+                Vector2.one,
                 CreateWizardSilhouettePixels(
                     DoorPrototypeSceneBuilder.WorldSpriteTextureSize,
                     DoorPrototypeSceneBuilder.WorldSpriteTextureSize,
-                    CasterSpriteFillColor,
-                    CasterSpriteBorderColor),
+                    EnemySpriteFillColor,
+                    EnemySpriteBorderColor),
                 architecturalTileAssetFolder);
+            visual.sprite = animationAssets.WraithSouthIdle;
 
-            caster.AddComponent<EnemyFireballCaster>().Initialize(player);
+            EnemyLanternWispCaster caster = wraith.AddComponent<EnemyLanternWispCaster>();
+            caster.Initialize(player);
 
-            // EnemyHealth makes the caster killable by the wizard's own fireball, which is the
-            // only way past one that still has mana.
-            caster.AddComponent<EnemyHealth>();
+            // EnemyHealth keeps the stationary enemy in the existing damage and defeat flow.
+            wraith.AddComponent<EnemyHealth>();
+
+            Animator animator = wraith.AddComponent<Animator>();
+            animator.runtimeAnimatorController = animationAssets.WraithController;
+            EnemyAnimationController animation = wraith.AddComponent<EnemyAnimationController>();
+            animation.Initialize(animator, EnemyAnimationKind.LanternWraith);
         }
 
         private static void BuildChaseEnemy(
             Transform player,
             string architecturalTileAssetFolder,
             Transform enemiesRoot,
-            Vector3 spawnPosition)
+            Vector3 spawnPosition,
+            EnemyAnimationAssetBuilder.EnemyAnimationAssets animationAssets)
         {
             var enemy = new GameObject("MeleeEnemy");
             enemy.transform.SetParent(enemiesRoot, false);
@@ -442,19 +466,20 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
             agent.stoppingDistance = 0.6f;
             agent.autoBraking = true;
 
-            DoorPrototypeSceneBuilder.CreateWorldSpriteVisual(
+            SpriteRenderer visual = DoorPrototypeSceneBuilder.CreateWorldSpriteVisual(
                 "Visual",
                 "MeleeEnemySprite",
                 enemy.transform,
                 Vector3.zero,
-                Quaternion.identity,
-                new Vector2(1f, 2f),
+                Quaternion.Euler(IsometricCameraEulerAngles),
+                Vector2.one,
                 CreateWizardSilhouettePixels(
                     DoorPrototypeSceneBuilder.WorldSpriteTextureSize,
                     DoorPrototypeSceneBuilder.WorldSpriteTextureSize,
                     EnemySpriteFillColor,
                     EnemySpriteBorderColor),
                 architecturalTileAssetFolder);
+            visual.sprite = animationAssets.MeleeSouthIdle;
 
             // EnemyPursuitMovement and EnemyLockedDoorAttack both resolve their collaborators
             // through GetComponent in Awake, so only the wizard Transform needs injecting here.
@@ -474,6 +499,11 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
 
             enemy.AddComponent<EnemyPursuitMovement>();
             enemy.AddComponent<EnemyHealth>();
+
+            Animator animator = enemy.AddComponent<Animator>();
+            animator.runtimeAnimatorController = animationAssets.MeleeController;
+            EnemyAnimationController animation = enemy.AddComponent<EnemyAnimationController>();
+            animation.Initialize(animator, EnemyAnimationKind.MeleeEnemy);
         }
 
         private static GameObject BuildPlayerSpawn(Transform player)
