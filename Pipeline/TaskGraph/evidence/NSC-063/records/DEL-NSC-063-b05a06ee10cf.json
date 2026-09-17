@@ -1,0 +1,458 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "d55b3b1fae7e171459149d34da46963c77efb7261d17313b9f6d3a914031422e"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "3ed8b6cf9382e5e901e0ee5a4a107cfa81353321",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source.meta",
+      "role": "selected_enemy_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "af735875ca421a7924cabbc034d1124a3042c042",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_melee_e_idle_00.png",
+      "role": "selected_enemy_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "441e250980002f2bf8db99c61df99dbc41c09e6b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_melee_e_idle_00.png.meta",
+      "role": "selected_enemy_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "8b961864da1d6ee891aec31456b7bfa4ee9f8204",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_melee_n_idle_00.png",
+      "role": "selected_enemy_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "fc44cec02b2fd35eb7894ce623d85daacc70928d",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_melee_n_idle_00.png.meta",
+      "role": "selected_enemy_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "0d3ca00656607dfc63597b10cf95348c6bcede28",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_melee_ne_idle_00.png",
+      "role": "selected_enemy_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "27bdab67844eefd8164bd395af17b94d5e0d918f",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_melee_ne_idle_00.png.meta",
+      "role": "selected_enemy_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "e53d6ee786cca65bdd3a76d2a89aeebb72b4b8bf",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_melee_nw_idle_00.png",
+      "role": "selected_enemy_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "7cf328308c6ff13ff7c43fb05a14496b42d8b9b1",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_melee_nw_idle_00.png.meta",
+      "role": "selected_enemy_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "8ddaafb4534a546ffbadbe1a20b19391202fe389",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_melee_s_idle_00.png",
+      "role": "selected_enemy_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "98c0ea6f6d22b361b0a8f79f4e642c414abc33ca",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_melee_s_idle_00.png.meta",
+      "role": "selected_enemy_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "b64ab900c11f08e1426ad6eb2bd42264eaa7900b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_melee_se_idle_00.png",
+      "role": "selected_enemy_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "e2b320265c846af6fc1c5f48022e1eec2e7eb3b6",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_melee_se_idle_00.png.meta",
+      "role": "selected_enemy_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "59fb9bb3179887361d4cc0cc114c0d5cf9fb7db8",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_melee_sw_idle_00.png",
+      "role": "selected_enemy_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "b64b120850716a875cbda2892a63d9dc65372509",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_melee_sw_idle_00.png.meta",
+      "role": "selected_enemy_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "e2f57332ba3b5abac69bb068944b0339bf0ebdda",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_melee_w_idle_00.png",
+      "role": "selected_enemy_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "4422c761a211468df960e95ae4ad1930dbf5109d",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_melee_w_idle_00.png.meta",
+      "role": "selected_enemy_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "e40add9c1fc22dcfde67c28ff0acf8989fd47a35",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_ranged_e_idle_00.png",
+      "role": "selected_enemy_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "38d1b6cf20a42cd2bbb5a76acf65e5fad0dbe4d6",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_ranged_e_idle_00.png.meta",
+      "role": "selected_enemy_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "7fd1c23afe0d335e0ef362bbdfb31268f0bae77c",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_ranged_n_idle_00.png",
+      "role": "selected_enemy_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "6a962fcb23692f4951764ad82dbcb32b48f272ec",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_ranged_n_idle_00.png.meta",
+      "role": "selected_enemy_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "597227b4862f8697e2d917e39996733be64cf49b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_ranged_ne_idle_00.png",
+      "role": "selected_enemy_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "854ea0dff4541384d683f20afcbd2598a055a2a2",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_ranged_ne_idle_00.png.meta",
+      "role": "selected_enemy_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "3049b632259c804c2620f04af8e7869342ad1eae",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_ranged_nw_idle_00.png",
+      "role": "selected_enemy_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "b6acbcfaf48372022b382f1a7648c5332731a38a",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_ranged_nw_idle_00.png.meta",
+      "role": "selected_enemy_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "0c5f35135580e1bf91f2ba43165ab95bb7991c5f",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_ranged_s_idle_00.png",
+      "role": "selected_enemy_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "31b7af2c8a30df46acdd5c5b3a54deadfe9ef99e",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_ranged_s_idle_00.png.meta",
+      "role": "selected_enemy_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "5ede9d23db502b007a66b802ae21701a339c89ea",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_ranged_se_idle_00.png",
+      "role": "selected_enemy_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "9153b5a299fde9d5821c53329c65eeef522154bc",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_ranged_se_idle_00.png.meta",
+      "role": "selected_enemy_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "c7272021ef1b77f4e04b9364a2018702928aad8e",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_ranged_sw_idle_00.png",
+      "role": "selected_enemy_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "fa9d657935601f7312fe30dfbb14bad2f93fd23c",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_ranged_sw_idle_00.png.meta",
+      "role": "selected_enemy_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "29926e27bdac93611fbc77dc3642e7ee4c0f7080",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_ranged_w_idle_00.png",
+      "role": "selected_enemy_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "98aba8e3b69c755ceebbfc10fe734e3c7ff2f484",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_ranged_w_idle_00.png.meta",
+      "role": "selected_enemy_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "35849865a7f4be4d864e33ec3b6c1ad3f2cc8eb8",
+      "path": "Docs/Art/Enemies/Candidates/_inspection/candidate_c_full_128.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "c252b3b2ad7827a24b7345756249cb234229dfe8",
+      "path": "Docs/Art/Enemies/Candidates/_inspection/candidate_c_gameplay_48.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "45a60f770b69c1c22e8bfecd3ca9d196ef12f41f",
+      "path": "Docs/Art/Enemies/Candidates/_inspection/old_vs_new_gameplay_48.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "08d5e62af14db90a657c2e130ded3ef7245c6e37",
+      "path": "Docs/Art/Enemies/Candidates/melee_a/east.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "c788effb813cebd4397b38aca2d1f41b4e446fad",
+      "path": "Docs/Art/Enemies/Candidates/melee_a/north-east.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "37bcbd40c2f35a7e1306b225f040c8b7d86dbc75",
+      "path": "Docs/Art/Enemies/Candidates/melee_a/north-west.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "f69f43da72b0b4a8989bdfab322346047dcbb90a",
+      "path": "Docs/Art/Enemies/Candidates/melee_a/north.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "fe412e96d8a259860c7ff453dff83a1704551689",
+      "path": "Docs/Art/Enemies/Candidates/melee_a/south-east.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "dd9290324e8951fc2c77ad19b8f0bd6d0449f87f",
+      "path": "Docs/Art/Enemies/Candidates/melee_a/south-west.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "e8614df8831290d23b42cf68eee05597a7853459",
+      "path": "Docs/Art/Enemies/Candidates/melee_a/south.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "93ad740765becaf607be49ac832748d6c9d4e4d3",
+      "path": "Docs/Art/Enemies/Candidates/melee_a/west.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "fb10765d4d492796895df09c76a52fe7700de875",
+      "path": "Docs/Art/Enemies/Candidates/melee_b/north-east.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "bea84810692af76a9d051e096fc676de260a52f2",
+      "path": "Docs/Art/Enemies/Candidates/melee_b/north-west.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "ace24a91a56118cd91dd6c9c6595ae5a0157325f",
+      "path": "Docs/Art/Enemies/Candidates/melee_b/south-east.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "5a153e7b0912b8096040ef14e07bd71a01c7277d",
+      "path": "Docs/Art/Enemies/Candidates/melee_b/south-west.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "af735875ca421a7924cabbc034d1124a3042c042",
+      "path": "Docs/Art/Enemies/Candidates/melee_c/east.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "12f5ce17621f29352e85d0f6c410f391cda4cbb0",
+      "path": "Docs/Art/Enemies/Candidates/melee_c/north-east.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "e53d6ee786cca65bdd3a76d2a89aeebb72b4b8bf",
+      "path": "Docs/Art/Enemies/Candidates/melee_c/north-west.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "8b961864da1d6ee891aec31456b7bfa4ee9f8204",
+      "path": "Docs/Art/Enemies/Candidates/melee_c/north.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "b64ab900c11f08e1426ad6eb2bd42264eaa7900b",
+      "path": "Docs/Art/Enemies/Candidates/melee_c/south-east.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "59fb9bb3179887361d4cc0cc114c0d5cf9fb7db8",
+      "path": "Docs/Art/Enemies/Candidates/melee_c/south-west.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "8ddaafb4534a546ffbadbe1a20b19391202fe389",
+      "path": "Docs/Art/Enemies/Candidates/melee_c/south.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "e2f57332ba3b5abac69bb068944b0339bf0ebdda",
+      "path": "Docs/Art/Enemies/Candidates/melee_c/west.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "f41d3e83283991447a1851952886efbc8c25d499",
+      "path": "Docs/Art/Enemies/Candidates/ranged_a/north-east.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "bc8410d6a114263076c28a647ad77ea3042825e6",
+      "path": "Docs/Art/Enemies/Candidates/ranged_a/north-west.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "fb6af247f17488361ed81d688e6f3aa8916df776",
+      "path": "Docs/Art/Enemies/Candidates/ranged_a/south-east.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "de2f7be836001431cb0e8a05d6bce3a7f84f4f4e",
+      "path": "Docs/Art/Enemies/Candidates/ranged_a/south-west.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "5b41b40af1b464c540065028e969b35d54e816a6",
+      "path": "Docs/Art/Enemies/Candidates/ranged_b/east.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "b921ea52a1f811f00c14fdfdfd74b69551fb6951",
+      "path": "Docs/Art/Enemies/Candidates/ranged_b/north-east.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "bae485b5e650649f10ce798e6ed2b08e08564a08",
+      "path": "Docs/Art/Enemies/Candidates/ranged_b/north-west.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "c0a5a99f3f0affd27309be752d909e88aa46b12b",
+      "path": "Docs/Art/Enemies/Candidates/ranged_b/north.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "6c3784e786743746dadafbdcdc345df2b214ffef",
+      "path": "Docs/Art/Enemies/Candidates/ranged_b/south-east.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "f166b220c971785db1e9d8a12f1b39004758eaca",
+      "path": "Docs/Art/Enemies/Candidates/ranged_b/south-west.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "43809c0ea1107d4348857da754d96deed36eca2a",
+      "path": "Docs/Art/Enemies/Candidates/ranged_b/south.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "9e5fc782bae2714f894e27a5731509d34a8bda0d",
+      "path": "Docs/Art/Enemies/Candidates/ranged_b/west.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "e40add9c1fc22dcfde67c28ff0acf8989fd47a35",
+      "path": "Docs/Art/Enemies/Candidates/ranged_c/east.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "597227b4862f8697e2d917e39996733be64cf49b",
+      "path": "Docs/Art/Enemies/Candidates/ranged_c/north-east.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "3049b632259c804c2620f04af8e7869342ad1eae",
+      "path": "Docs/Art/Enemies/Candidates/ranged_c/north-west.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "7fd1c23afe0d335e0ef362bbdfb31268f0bae77c",
+      "path": "Docs/Art/Enemies/Candidates/ranged_c/north.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "5ede9d23db502b007a66b802ae21701a339c89ea",
+      "path": "Docs/Art/Enemies/Candidates/ranged_c/south-east.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "c7272021ef1b77f4e04b9364a2018702928aad8e",
+      "path": "Docs/Art/Enemies/Candidates/ranged_c/south-west.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "0c5f35135580e1bf91f2ba43165ab95bb7991c5f",
+      "path": "Docs/Art/Enemies/Candidates/ranged_c/south.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "29926e27bdac93611fbc77dc3642e7ee4c0f7080",
+      "path": "Docs/Art/Enemies/Candidates/ranged_c/west.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "d8f26fb333837b9844bcadcdbbb5717f198b92c1",
+      "path": "Docs/Art/Enemies/PIXELLAB_GENERATION.md",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "6b3270e24f3aaddd572afc09566b92e1068be3f5",
+      "path": "Docs/Art/Enemies/contact_sheet.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "3751fba74289d37ecd1bb078d00a182f3df011cd",
+      "path": "Docs/Art/Enemies/generation-plan.md",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "04ec2cc85fc841eb6940cbdf5f2d1b4843a7d77e",
+      "path": "Docs/Art/Enemies/inventory.md",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    }
+  ],
+  "delivery": {
+    "base_commit": "31e13ba51e6bf6b654157f8ba2d690cf80cdfa49",
+    "candidate_commit": "8c92a4dc903684d5c3773bd58296f7db35356d0f",
+    "integrated_commit": "b05a06ee10cf0f760e99d8085a05d008061b3af1",
+    "integrated_tree": "4033e98784b27ad70e210f6cc41483220620f095"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "1bac37121e592a7dc7552bc96129cc4a0786b318",
+          "path": "Pipeline/TaskGraph/evidence/NSC-063/artifacts/SourceInventoryValidation-b05a06ee10cf.txt"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "Re-ran the deterministic source inventory at the corrected commit b05a06ee10cf: both archetypes, all eight facings, 16 SHA-matched 128x128 transparent RGBA PNGs (the north-east idle now matches the 2026-09-16 approved single-cleaver candidate, SHA-256 e714d5e5...), 17 Unity .meta GUIDs confirmed byte-identical to the prior conformant record's validated commit 31e13ba51e6b. See the attached artifact for the full per-file check.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "d30d08a6563ca9a2b6811029ef7c73afa584662b",
+          "path": "Pipeline/TaskGraph/evidence/NSC-063/artifacts/AssistantArtSelectionReview-b05a06ee10cf.txt"
+        }
+      ],
+      "gate_id": "VAL-002",
+      "notes": "Assistant independently re-diffed the corrected north-east idle against its own pre-correction bytes (main tip 7fc15c528, before the fix merge): 653 of 16384 pixels differ, matching the documented pixel-count claim; the differing region is confined to the upper-left quadrant where the duplicate blade previously sat (see artifact for the exact bounding box and one unreconciled sub-claim about the inpaint mask's exact footprint, which does not affect this gate). The corrected facing now reads as a single screen-right cleaver, consistent with all seven other facings. Vincent's 2026-09-16 approval of this exact candidate is noted for completeness in human_approval.notes; NSC-063's contract makes this assistant review, not Vincent's, the gate.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "",
+    "decision": "not_required",
+    "notes": "NSC-063 contract requires assistant source-art review only (VAL-002); human approval is not a contractual gate for this task, matching the prior conformant record. Supplementary, non-contractual note: Vincent additionally reviewed and approved the corrected single-cleaver north-east idle (Docs/Art/Enemies/Candidates/melee_ne_single_cleaver/idle_single_cleaver.png as originally produced on the candidate branch codex/nsc063-melee-ne-single-cleaver-20260914, tip 01e3b8ffd3e; SHA-256 e714d5e5d4222982f79597099261f7a20e19c7b7986e55a6588dd056e2537e57, now the retained Source/enemy_melee_ne_idle_00.png) on 2026-09-16, per the 'North-east single-cleaver correction (2026-09-16)' section of Docs/Art/Enemies/PIXELLAB_GENERATION.md. NSC-077 still owns the downstream in-Unity appearance decision.",
+    "required": false
+  },
+  "record_id": "DEL-NSC-063-b05a06ee10cf",
+  "record_type": "delivery",
+  "recorded_at": "2026-09-17T04:02:50Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-063.yaml",
+    "revision": 2,
+    "sha256": "e190acc98b429840f232cb85527eb8f8079d6d0edd62616a3695a4ba6ffeb66e"
+  },
+  "task_id": "NSC-063",
+  "validated_state": {
+    "commit": "b05a06ee10cf0f760e99d8085a05d008061b3af1",
+    "tree": "4033e98784b27ad70e210f6cc41483220620f095"
+  }
+}
