@@ -795,12 +795,35 @@ class PooledLifecycleTests(unittest.TestCase):
         self.assertEqual(["prepare", "settle", "close"], owner.actions())
         self.assertEqual("settled", record["pool_lifecycle"]["status"])
 
+    def test_a_plain_oserror_settles_because_it_does_not_prove_nothing_ran(self):
+        # PermissionError from kill() on a live container, and ChildProcessError from
+        # waitpid, are raised after the provider has already run, so an OSError that is
+        # not a missing executable must settle rather than return the leases uncharged.
+        module, manager, owner, run_id, _root = self.launch(
+            "assistant-pool-ambiguous-", run_directory=False,
+            start_error=OSError("connection reset by the docker daemon"),
+        )
+        with self.assertRaises(OSError):
+            module.run(
+                manager, "NSC-004", run_id, providers="claude,claude",
+                compose_project="assistant-pool", execution_authorized=True,
+            )
+        # Neither settled nor cancelled: with no run directory the leases stay active and
+        # the next owner reclaims them as stranded, so they are never resumed and never
+        # handed back as unused.
+        self.assertEqual(["prepare", "close"], owner.actions())
+        record = json.loads(
+            (manager.records / "NSC-004.decomposition.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual("run_directory_missing", record["pool_lifecycle"]["status"])
+        self.assertEqual("failed", record["status"])
+
     def test_a_provider_that_never_started_returns_the_leases_uncharged(self):
         # The executable could not be spawned, so nothing ran and no run
         # directory exists.
         module, manager, owner, run_id, _root = self.launch(
             "assistant-pool-unstarted-", run_directory=False,
-            start_error=OSError("docker is unavailable"),
+            start_error=FileNotFoundError("docker: no such file or directory"),
         )
         with self.assertRaises(OSError):
             module.run(

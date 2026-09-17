@@ -248,6 +248,19 @@ def _settle_pool(
     return {"action": "settle", "status": "settled", "run_id": run_id, "settlement": settlement}
 
 
+def _proves_nothing_started(error: BaseException, run_dir: Path) -> bool:
+    """Only an exec that never happened, and no run directory, proves no provider ran.
+
+    `subprocess.run` raises FileNotFoundError or NotADirectoryError when the executable or the
+    working directory is missing; nothing started in those cases. Every other OSError is
+    ambiguous: `process.kill()` on a live container raises PermissionError on Windows, and
+    `os.waitpid` raises ChildProcessError, both after the provider has already run. Treating
+    those as unstarted returns used conversations to the pool, where a later run resumes them.
+    """
+
+    return isinstance(error, (FileNotFoundError, NotADirectoryError)) and not _run_directory_started(run_dir)
+
+
 def _cancel_unstarted_pool(
     owner: DecompositionSessionPoolOwner | None, *, run_id: str,
 ) -> dict[str, Any] | None:
@@ -690,17 +703,16 @@ def run(
     except BaseException as exc:
         try:
             if owner is not None and pool_lifecycle is None and not settle_attempted:
-                if _run_directory_started(artifact_root):
-                    # The run left its own directory behind, so the provider
-                    # really started: a timeout, an interrupt, or an OSError
-                    # raised after the spawn settles from those artifacts, and
-                    # both conversations are retired rather than resumed later.
+                if not _proves_nothing_started(exc, artifact_root):
+                    # A provider may have run, so both conversations are retired
+                    # rather than resumed later. Ambiguity settles: cancelling a
+                    # lease that really ran hands a dirty conversation back to the
+                    # pool, while settling one that never ran only spends a session.
                     settle_attempted = True
                     pool_lifecycle = _settle_pool(owner, run_id=run_id, run_dir=artifact_root)
                 else:
-                    # Nothing this run owns exists, so no provider ever started
-                    # and the leases are returned uncharged. Only that absence
-                    # may reach here; the exception type never decides it.
+                    # Two independent proofs that nothing ran: the exec itself
+                    # failed, and no run directory exists.
                     pool_lifecycle = _cancel_unstarted_pool(owner, run_id=run_id)
         except Exception as pool_exc:
             # The pool is not the run. A settlement failure is recorded here, it
