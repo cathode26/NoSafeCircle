@@ -228,7 +228,7 @@
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-075": {
-      "task_contract_sha256": "d4ddfe5b1e490cf439a82a38d7129d1fecd4e8c74547e2e4b3762849e9599fb5",
+      "task_contract_sha256": "14c534487c63d9c966b6761257fb8132d7151f7e90aaf1a65be60a396f4ebba9",
       "required_test_platforms": [
         "EditMode",
         "PlayMode"
