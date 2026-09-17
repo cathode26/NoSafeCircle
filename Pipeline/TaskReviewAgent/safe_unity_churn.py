@@ -1,11 +1,21 @@
-"""Exact policy for recoverable post-Unity ProjectSettings churn."""
+"""Exact policy for recoverable post-Unity ProjectSettings churn.
+
+Also exposes the ``refresh-identical`` subcommand (problem P18), which refreshes
+Git's stale index stat cache for content-identical worktree churn outside the
+named ProjectSettings/scene list handled by this module. See
+:mod:`Pipeline.TaskReviewAgent.refresh_identical_churn` for that policy and why
+it is a separate module.
+"""
 
 from __future__ import annotations
 
 import argparse
 import json
 import subprocess
+import sys
 from pathlib import Path
+
+from Pipeline.TaskReviewAgent.refresh_identical_churn import main as _refresh_identical_main
 
 
 SAFE_POST_UNITY_CHURN_PATHS = frozenset(
@@ -203,12 +213,16 @@ def recover_safe_post_unity_churn(
     return paths
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    raw_argv = sys.argv[1:] if argv is None else argv
+    if raw_argv[:1] == ["refresh-identical"]:
+        return _refresh_identical_main(raw_argv[1:])
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repository", type=Path, required=True)
     parser.add_argument("--expected-head", required=True)
     parser.add_argument("--apply", action="store_true")
-    args = parser.parse_args()
+    args = parser.parse_args(raw_argv)
     try:
         paths = recover_safe_post_unity_churn(
             args.repository,
