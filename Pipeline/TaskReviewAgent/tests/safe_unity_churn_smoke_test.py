@@ -14,8 +14,11 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from Pipeline.TaskReviewAgent.safe_unity_churn import (  # noqa: E402
+    UNITY_SERIALIZED_ROOTS,
+    UNITY_SERIALIZED_SUFFIXES,
     SafeUnityChurnError,
     _is_trailing_whitespace_only,
+    _is_unity_serialized,
     classify_safe_post_unity_churn,
     recover_safe_post_unity_churn,
 )
@@ -33,7 +36,9 @@ ENEMY_CONTROLLER = "Assets/Animation/Enemy.controller"
 UPPERCASE_MATERIAL = "Assets/Materials/Wall.MAT"
 PACKAGE_ASSET = "Packages/com.example.enemies/Runtime/EnemyConfig.asset"
 DOCUMENT = "Docs/Foo.md"
+DOCUMENT_META = "Docs/Foo.meta"
 ASSETS_TEXT = "Assets/Foo.txt"
+GAMEPLAY_SCRIPT = "Assets/NoSafeCircle/Gameplay/Runtime/EnemyHealth.cs"
 
 
 def git(root: Path, *args: str) -> str:
@@ -409,6 +414,132 @@ def test_non_unity_suffix_under_assets_is_refused() -> None:
         assert classify_safe_post_unity_churn(f" M {ASSETS_TEXT}\n", root) is None
 
 
+def test_unity_serialized_suffixes_are_pinned() -> None:
+    """The suffix inventory is frozen here on purpose, not merely sampled.
+
+    Every suffix below is written by Unity's own text serializer, which is the
+    only reason a file carrying it may differ from HEAD at its line ends and
+    still be thrown away and restored from HEAD. A suffix authored by a human or
+    an agent -- `.cs`, `.asmdef`, `.json`, `.md` -- has no such guarantee: its
+    trailing whitespace is content, and recovery would silently discard real
+    uncommitted work while reporting the tree clean.
+
+    So widening this set is a deliberate act that must edit both the policy and
+    this assertion, with a stated reason for why Unity writes the new suffix. It
+    must never be a quiet append made to get a dirty tree past the review agent.
+    """
+
+    assert UNITY_SERIALIZED_SUFFIXES == frozenset(
+        {
+            ".meta",
+            ".asset",
+            ".anim",
+            ".controller",
+            ".overridecontroller",
+            ".prefab",
+            ".unity",
+            ".mat",
+            ".physicmaterial",
+            ".physicsmaterial2d",
+            ".mask",
+            ".playable",
+            ".signal",
+            ".spriteatlas",
+            ".terrainlayer",
+            ".rendertexture",
+            ".cubemap",
+            ".flare",
+            ".fontsettings",
+            ".guiskin",
+            ".mixer",
+            ".preset",
+        }
+    )
+
+    # What the pin buys: a gameplay script is a hand-authored file that happens
+    # to live under Assets/, so trailing-whitespace churn in it stays refused.
+    assert _is_unity_serialized(GAMEPLAY_SCRIPT) is False
+
+    with tempfile.TemporaryDirectory(prefix="nsc-safe-unity-churn-") as temporary:
+        root = Path(temporary)
+        fixture = dict(GENERATED_UNITY_FIXTURE)
+        fixture[GAMEPLAY_SCRIPT] = "public sealed class EnemyHealth\n{\n}\n"
+        build_fixture(root, fixture)
+
+        # A human edit that also happens to be trailing-whitespace-only: were
+        # `.cs` in the set above, recovery would restore HEAD over it.
+        write(root, GAMEPLAY_SCRIPT, "public sealed class EnemyHealth  \n{\n}\t\n")
+        assert _is_trailing_whitespace_only(root, GAMEPLAY_SCRIPT) is True
+        assert classify_safe_post_unity_churn(status(root), root) is None
+        assert classify_safe_post_unity_churn(f" M {GAMEPLAY_SCRIPT}\n", root) is None
+
+
+def test_unity_suffix_outside_the_unity_roots_is_refused() -> None:
+    """The root guard is pinned, and proven with a Unity suffix in the wrong folder.
+
+    `Docs/Foo.meta` carries an allowed Unity suffix, so the only thing refusing
+    it is the root guard. A file outside `Assets/`, `ProjectSettings/` and
+    `Packages/` is never touched by the Unity Editor's importer, so its trailing
+    whitespace is authored content whatever it is named. Widening the roots --
+    to `("",)`, to `Docs/`, to `Pipeline/` -- would let recovery restore HEAD
+    over a hand-written file, so the tuple is asserted exactly here.
+    """
+
+    assert UNITY_SERIALIZED_ROOTS == ("Assets/", "ProjectSettings/", "Packages/")
+    assert _is_unity_serialized(DOCUMENT_META) is False
+
+    with tempfile.TemporaryDirectory(prefix="nsc-safe-unity-churn-") as temporary:
+        root = Path(temporary)
+        fixture = dict(GENERATED_UNITY_FIXTURE)
+        fixture[DOCUMENT_META] = "fileFormatVersion: 2\nguid: 0123456789abcdef\n"
+        build_fixture(root, fixture)
+
+        # The identical suffix and the identical churn under an allowed root is
+        # recoverable, so the refusal below is the root and not the suffix.
+        write(root, ENEMY_META, "fileFormatVersion: 2  \nguid: 0123456789abcdef\t\n")
+        assert classify_safe_post_unity_churn(status(root), root) == (ENEMY_META,)
+
+        write(root, DOCUMENT_META, "fileFormatVersion: 2  \nguid: 0123456789abcdef\t\n")
+        assert _is_trailing_whitespace_only(root, DOCUMENT_META) is True
+        assert classify_safe_post_unity_churn(status(root), root) is None
+        assert classify_safe_post_unity_churn(f" M {DOCUMENT_META}\n", root) is None
+
+
+def test_a_lost_final_newline_is_deliberately_accepted_as_end_of_line_churn() -> None:
+    """A generated file that lost its final newline is recoverable, on purpose.
+
+    `--ignore-space-at-eol` forgives the "\\ No newline at end of file" marker,
+    so HEAD's `"...guid: 0123456789abcdef\\n"` against a worktree
+    `"...guid: 0123456789abcdef"` classifies as end-of-line churn even though no
+    trailing space or tab is involved. This is recorded rather than fixed
+    because the direction is safe: recovery restores the file from HEAD, so the
+    missing newline is put back and nothing authored is lost. The refusal that
+    matters -- a real content difference -- is unaffected.
+
+    If this test ever starts failing, the policy's EOL signal changed. Re-read
+    it before widening anything; do not delete this test to make it green.
+    """
+
+    with tempfile.TemporaryDirectory(prefix="nsc-safe-unity-churn-") as temporary:
+        root = Path(temporary)
+        head = build_fixture(root, GENERATED_UNITY_FIXTURE)
+        committed = GENERATED_UNITY_FIXTURE[ENEMY_META]
+        assert committed.endswith("\n")
+
+        write(root, ENEMY_META, committed.rstrip("\n"))
+        assert (root / ENEMY_META).read_bytes() == committed.rstrip("\n").encode("utf-8")
+
+        # Git sees a real difference; the policy's EOL-tolerant proof does not.
+        assert git_exit(root, "diff", "--quiet", "HEAD", "--", ENEMY_META) == 1
+        assert _is_trailing_whitespace_only(root, ENEMY_META) is True
+        assert classify_safe_post_unity_churn(status(root), root) == (ENEMY_META,)
+
+        # Recovery repairs the file from HEAD, which is why this is tolerable.
+        assert recover_safe_post_unity_churn(root, head, apply=True) == (ENEMY_META,)
+        assert (root / ENEMY_META).read_bytes() == committed.encode("utf-8")
+        assert status(root) == ""
+
+
 def test_untracked_added_and_deleted_generated_files_are_refused() -> None:
     """Only an unstaged modification of an existing generated file is recoverable."""
 
@@ -489,6 +620,9 @@ def main() -> int:
         test_generated_unity_files_refuse_real_content_change,
         test_documentation_whitespace_churn_is_refused,
         test_non_unity_suffix_under_assets_is_refused,
+        test_unity_serialized_suffixes_are_pinned,
+        test_unity_suffix_outside_the_unity_roots_is_refused,
+        test_a_lost_final_newline_is_deliberately_accepted_as_end_of_line_churn,
         test_untracked_added_and_deleted_generated_files_are_refused,
         test_existing_safe_churn_paths_remain_allowed,
     )
