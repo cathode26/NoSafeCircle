@@ -509,8 +509,8 @@ class CrewProfileTests(unittest.TestCase):
             assignment=owner.prepare(run_id="profile-owner",task_id=f.TASK_ID,worker_slot_id=f.WORKER_SLOT_ID,
                 source_commit=head,task_contract_sha256="a"*64,model=routes["implementer"]["model"],
                 reasoning_effort=routes["implementer"]["reasoning_effort"],role_routes=routes)
-            self.assertEqual(len(assignment["leases"]),5)
-            self.assertEqual(len({v["record_id"] for v in assignment["leases"].values()}),5)
+            self.assertEqual(set(assignment["leases"]),set(routes))
+            self.assertEqual(len({v["record_id"] for v in assignment["leases"].values()}),len(routes))
             for role,lease in assignment["leases"].items():
                 self.assertEqual(lease["provider_identifier"],"claude-code" if routes[role]["provider"]=="claude" else "openai-codex")
             restarted=ExecutionCrewSessionPoolOwner(checkout=checkout,runtime_binding=binding)
