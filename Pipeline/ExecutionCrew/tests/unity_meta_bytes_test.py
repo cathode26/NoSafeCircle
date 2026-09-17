@@ -1,5 +1,6 @@
 """P34: crew-staged texture sidecars must import as an ordinary Texture2D, not a
 GUID-only stub that Unity 6000.1 defaults to Cube/point-cookie and never rewrites."""
+import hashlib
 import sys
 import unittest
 from pathlib import Path
@@ -9,7 +10,15 @@ ROOT = Path(__file__).resolve().parents[3]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from Pipeline.ExecutionCrew.run_crew import unity_meta_bytes, unity_meta_guid  # noqa: E402
+# Import the module, not unity_meta_guid, so the texture tests fail on their own
+# assertions against the pre-P34 code instead of on an ImportError.
+from Pipeline.ExecutionCrew import run_crew  # noqa: E402
+from Pipeline.ExecutionCrew.run_crew import unity_meta_bytes  # noqa: E402
+
+
+def documented_guid(path):
+    normalized = "/".join(part.casefold() for part in path.split("/"))
+    return hashlib.sha256(b"NoSafeCircle.ExecutionCrew.UnityMeta/v1\0" + normalized.encode("utf-8")).hexdigest()[:32]
 
 WIZARD_FRAME_PATH = (
     "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/"
@@ -47,19 +56,19 @@ class UnityMetaBytesTextureTests(unittest.TestCase):
     def test_non_texture_paths_are_unchanged_stub_metas(self):
         for extension in ("cs", "unity", "asset", "exr", "hdr"):
             path = f"Assets/A/B.{extension}"
-            guid = unity_meta_guid(path)
+            guid = documented_guid(path)
             expected = f"fileFormatVersion: 2\nguid: {guid}\n".encode("ascii")
             self.assertEqual(unity_meta_bytes(path), expected, extension)
 
     def test_unity_meta_guid_matches_the_guid_line_for_both_kinds(self):
         for path in (WIZARD_FRAME_PATH, "Assets/A/B.cs"):
-            guid = unity_meta_guid(path)
-            self.assertRegex(guid, r"^[0-9a-f]{32}$")
+            guid = run_crew.unity_meta_guid(path)
+            self.assertEqual(guid, documented_guid(path))
             data = unity_meta_bytes(path).decode("ascii")
             self.assertIn(f"guid: {guid}\n", data)
 
     def test_wizard_frame_guid_is_stable(self):
-        self.assertEqual(unity_meta_guid(WIZARD_FRAME_PATH), WIZARD_FRAME_GUID)
+        self.assertEqual(documented_guid(WIZARD_FRAME_PATH), WIZARD_FRAME_GUID)
 
 
 if __name__ == "__main__":
