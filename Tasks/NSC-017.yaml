@@ -66,7 +66,7 @@
   ],
   "confidence": "medium",
   "contract_disposition": "active",
-  "contract_revision": 4,
+  "contract_revision": 5,
   "decomposition_reason": "The locally executable scope is one cohesive production path: extend EnemyPursuitMovement with a read-only locked-door blocker and approach destination, add one reusable in-reach door-attack/reset component, and prove blocker selection, approach, damage, displacement, multiple pursuers, breach continuation, feedback consumption, and reset in one Play Mode test file. Enemy prefab assembly, actual restart-orchestrator wiring, canonical-scene path validation, and gameplay-camera review remain explicit downstream responsibilities.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -81,7 +81,7 @@
     {
       "obligation_id": "INT-001",
       "reference": "NSC-015 Melee Enemy Archetype; NSC-055 Ranged Enemy SpriteRenderer Prefab Setup and Defeat Wiring",
-      "requirement": "When NSC-015 receives its required D1B.2 execution decomposition, its prefab-assembly split must depend on NSC-017, attach EnemyLockedDoorAttack to the assembled Melee Enemy prefab, and supply EnemyTargetKnowledge and EnemyPursuitMovement without taking ownership of those components. The NSC-015 splits must separately preserve one locomotion/shared-surface owner, one Melee attack/reset owner, and one prefab-assembly owner. NSC-055 must not assume the same wiring until Vincent decides how Ranged Enemy keep-distance movement yields to a locked-door approach and what attack form it uses; after that decision, NSC-055 or a reviewed replacement owner requires an explicit dependency on NSC-017 or on the resulting approved shared behavior."
+      "requirement": "When NSC-015 receives its required D1B.2 execution decomposition, its prefab-assembly split (split 2, which also owns Melee-specific locomotion tuning and the generated prefab) must depend on NSC-017, attach EnemyLockedDoorAttack to the generated MeleeEnemyGameplay.prefab, and prove that wiring in its prefab-conformance test, while supplying EnemyTargetKnowledge and EnemyPursuitMovement without taking ownership of those components. The NSC-015 splits must separately preserve one Melee attack/reset owner and one combined locomotion/prefab-assembly owner; there is no third prefab owner. NSC-055 must not assume the same wiring until Vincent decides how Ranged Enemy keep-distance movement yields to a locked-door approach and what attack form it uses; after that decision, NSC-055 or a reviewed replacement owner requires an explicit dependency on NSC-017 or on the resulting approved shared behavior."
     },
     {
       "obligation_id": "INT-002",
@@ -156,6 +156,17 @@
         "reaudit_recommendation": "commit_contract",
         "owner_patch_contract_sha256": "f2af7885acbdadab519a06eead5382f95246db968436ac2dabd389034dcb7a99",
         "recheck_recommendation": "commit_contract"
+      }
+    ],
+    "contract_followups": [
+      {
+        "date": "2026-09-17",
+        "reason": "Follow-up revision 5 from the NSC-015 rev 7 contract check (revise): INT-001 now describes NSC-015's two-split ownership (split 2 attaches EnemyLockedDoorAttack to the generated Melee Enemy prefab and proves the wiring; no third prefab owner). Ranged Enemy wording unchanged.",
+        "source_head": "db0532ab42b40f791f81fb3459adb44724ca2f0c",
+        "previous_contract_revision": 4,
+        "base_contract_sha256": "acc26f92aae27ce525a2dfad89c434cb8efe59b1c0c7b048041a0cf319c6667a",
+        "revised_contract_sha256": "f0f31cea3f03a2268f84d0d80beaaf776a16708bbe7bccff02823a12ae3de76f",
+        "review": "none; taskcontrol validate only (Vincent, 2026-09-16)"
       }
     ]
   },
