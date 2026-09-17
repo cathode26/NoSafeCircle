@@ -581,13 +581,9 @@
       ]
     },
     {
-      "reconciliation_keys": [
-        "dark-cute-dungeon-prop-art-pack"
-      ],
+      "reconciliation_keys": [],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source",
-      "work_ids": [
-        "NSC-078"
-      ]
+      "work_ids": []
     },
     {
       "reconciliation_keys": [

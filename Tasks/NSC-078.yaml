@@ -1,82 +1,277 @@
 {
   "schema_version": "2.0",
   "id": "NSC-078",
-  "contract_revision": 2,
+  "contract_revision": 3,
   "contract_disposition": "active",
-  "title": "Reusable Dark-Cute Dungeon Prop Art Pack",
+  "title": "PixelLab Dungeon Prop and Architecture Source PNGs with PropCatalog.json",
   "reconciliation_key": "dark-cute-dungeon-prop-art-pack",
   "kind": "implementation",
   "type": "art-acquisition",
   "execution_scope": "single_agent",
-  "execution_reason": "One bounded PixelLab art task can select a coherent reusable prop kit without editing room scenes, gameplay geometry, or runtime code.",
+  "execution_reason": "The Art Director Agent, under the art bible and nsc-art-director-guide.md section 1, can run one bounded PixelLab task that acquires the committed 45-entry first-wing prop and architecture-variant source-art catalog without editing room scenes, gameplay geometry, or runtime code. NSC-078_DECISIONS.md (2026-09-17) and the Art Director plan fix texel density (D-1), the NSC-064/NSC-078 ownership boundary (D-2), Lower Vault hazard vocabulary (D-3), and PixelLab processing/raw-retention policy (D-4); the style-lock pilot and Vincent's exact-candidate source-art review remain human gates inside this one task, and Vincent's separate spend go is still required before any PixelLab generation.",
   "decomposition_state": "concrete",
-  "decomposition_reason": "The shared prop catalog and source-art provenance form one reviewable acquisition deliverable consumed by the five room dressing tasks.",
+  "decomposition_reason": "NSC-078_DECISIONS.md and the Art Director plan resolve the four authority decisions that previously forced a coarse split: NSC-078 now owns every independently sorted SpriteRenderer prop for the first wing (45 entries after D-2), at one shared texel density, with Lower Vault hazard art bounded to non-walkable dressing and a recorded PixelLab processing/raw-export policy. The shared prop catalog and source-art provenance remain one reviewable acquisition deliverable consumed by the five room dressing tasks, with the style-lock pilot and Vincent's final source-art review as human gates inside this one concrete task.",
   "parent": "NSC-022",
   "depends_on": [
     "NSC-064"
   ],
   "exclusive_resources": [
     "logical:pixellab-dungeon-prop-art",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/hazard_route.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/furnishings_inventory.json",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/furnishings_inventory.json.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/architecture_inventory.json",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/architecture_inventory.json.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/hazard_route_inventory.json",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/hazard_route_inventory.json.meta",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/PropCatalog.json",
-    "repo-file:Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/PropCatalog.json.meta",
+    "repo-file:Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md",
+    "repo-file:Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md",
+    "repo-file:Docs/Art/Environment/HAZARD_ROUTE_PIXELLAB_GENERATION.md",
+    "repo-file:Docs/Art/Environment/NSC-078_STYLE_LOCK.md",
+    "repo-file:Docs/Art/Environment/Reviews/NSC-078-StylePilotContactSheet.png",
+    "repo-file:Docs/Art/Environment/Reviews/NSC-078-FurnishingsContactSheet.png",
+    "repo-file:Docs/Art/Environment/Reviews/NSC-078-ArchitectureContactSheet.png",
+    "repo-file:Docs/Art/Environment/Reviews/NSC-078-HazardRouteContactSheet.png",
+    "repo-file:Pipeline/Art/render_dungeon_prop_contact_sheets.py",
+    "repo-file:Pipeline/Art/validate_dungeon_prop_catalog.py",
+    "repo-file:Pipeline/Art/validate_dungeon_prop_catalog_smoke_test.py",
+    "repo-file:Docs/Art/Environment/Props/Candidates",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/ba_landmark_chained_grimoire_lectern.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/ba_landmark_chained_grimoire_lectern.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/architecture/ba_landmark_chained_grimoire_lectern.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/ca_landmark_cracked_bell_frame_x.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/ca_landmark_cracked_bell_frame_x.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/architecture/ca_landmark_cracked_bell_frame_x.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/ca_sigil_floor_mark.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/ca_sigil_floor_mark.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/architecture/ca_sigil_floor_mark.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/fr_landmark_bone_throne.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/fr_landmark_bone_throne.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/architecture/fr_landmark_bone_throne.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/lv_landmark_sluice_wheel_gate_x.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/lv_landmark_sluice_wheel_gate_x.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/architecture/lv_landmark_sluice_wheel_gate_x.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/re_broken_masonry_blocks.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/re_broken_masonry_blocks.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/architecture/re_broken_masonry_blocks.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/re_landmark_guardian_statue_broken.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/re_landmark_guardian_statue_broken.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/architecture/re_landmark_guardian_statue_broken.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/re_landmark_guardian_statue_standing.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/re_landmark_guardian_statue_standing.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/architecture/re_landmark_guardian_statue_standing.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/shared_rubble_pile_a.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/shared_rubble_pile_a.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/architecture/shared_rubble_pile_a.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/shared_rubble_scatter_b.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/shared_rubble_scatter_b.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/architecture/shared_rubble_scatter_b.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/shared_stone_column.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/shared_stone_column.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/architecture/shared_stone_column.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ba_book_and_scroll_stack.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ba_book_and_scroll_stack.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/furnishings/ba_book_and_scroll_stack.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ba_collapsed_reading_table_z.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ba_collapsed_reading_table_z.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/furnishings/ba_collapsed_reading_table_z.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ba_comedy_skull_with_spectacles.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ba_comedy_skull_with_spectacles.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/furnishings/ba_comedy_skull_with_spectacles.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ba_shelf_bank_z_end.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ba_shelf_bank_z_end.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/furnishings/ba_shelf_bank_z_end.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ba_shelf_bank_z_middle.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ba_shelf_bank_z_middle.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/furnishings/ba_shelf_bank_z_middle.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ba_shelf_bank_z_start.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ba_shelf_bank_z_start.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/furnishings/ba_shelf_bank_z_start.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ba_spilled_scroll_basket.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ba_spilled_scroll_basket.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/furnishings/ba_spilled_scroll_basket.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ca_altar_ash_bowl_x.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ca_altar_ash_bowl_x.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/furnishings/ca_altar_ash_bowl_x.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ca_ash_heap.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ca_ash_heap.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/furnishings/ca_ash_heap.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ca_candelabra_tall.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ca_candelabra_tall.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/furnishings/ca_candelabra_tall.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ca_comedy_offering_plate_sock.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ca_comedy_offering_plate_sock.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/furnishings/ca_comedy_offering_plate_sock.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ca_pew_x_end.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ca_pew_x_end.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/furnishings/ca_pew_x_end.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ca_pew_x_middle.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ca_pew_x_middle.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/furnishings/ca_pew_x_middle.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ca_pew_x_start.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ca_pew_x_start.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/furnishings/ca_pew_x_start.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/fr_bench_x.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/fr_bench_x.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/furnishings/fr_bench_x.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/fr_comedy_party_hat_skull_cake.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/fr_comedy_party_hat_skull_cake.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/furnishings/fr_comedy_party_hat_skull_cake.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/fr_ritual_bone_candle_ring.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/fr_ritual_bone_candle_ring.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/furnishings/fr_ritual_bone_candle_ring.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/fr_round_table_with_stools.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/fr_round_table_with_stools.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/furnishings/fr_round_table_with_stools.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/lv_barrel.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/lv_barrel.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/furnishings/lv_barrel.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/lv_comedy_barrel_striped_socks.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/lv_comedy_barrel_striped_socks.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/furnishings/lv_comedy_barrel_striped_socks.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/lv_crate.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/lv_crate.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/furnishings/lv_crate.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/re_comedy_thumbs_up_skeleton_hand.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/re_comedy_thumbs_up_skeleton_hand.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/furnishings/re_comedy_thumbs_up_skeleton_hand.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/re_debris_broken_handcart.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/re_debris_broken_handcart.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/furnishings/re_debris_broken_handcart.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/re_roots_and_mushrooms.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/re_roots_and_mushrooms.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/furnishings/re_roots_and_mushrooms.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/shared_bone_pile_a.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/shared_bone_pile_a.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/furnishings/shared_bone_pile_a.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/shared_bone_pile_b.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/shared_bone_pile_b.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/furnishings/shared_bone_pile_b.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/shared_candle_cluster_a.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/shared_candle_cluster_a.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/furnishings/shared_candle_cluster_a.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/shared_web_corner_a.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/shared_web_corner_a.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/furnishings/shared_web_corner_a.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/shared_web_drape_b.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/shared_web_drape_b.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/furnishings/shared_web_drape_b.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/hazard_route/fr_bone_chain_post.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/hazard_route/fr_bone_chain_post.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/hazard_route/fr_bone_chain_post.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/hazard_route/lv_broken_ledge_chunk.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/hazard_route/lv_broken_ledge_chunk.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/hazard_route/lv_broken_ledge_chunk.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/hazard_route/lv_iron_rail_x.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/hazard_route/lv_iron_rail_x.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/hazard_route/lv_iron_rail_x.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/hazard_route/lv_iron_rail_z.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/hazard_route/lv_iron_rail_z.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/hazard_route/lv_iron_rail_z.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/hazard_route/lv_sluice_slime_spill.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/hazard_route/lv_sluice_slime_spill.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/hazard_route/lv_sluice_slime_spill.png"
   ],
   "acceptance_criteria": [
     {
       "criterion_id": "AC-001",
-      "reference": "Vincent-approved Ultima Online visual direction, 2026-09-13",
-      "requirement": "Use PixelLab only for original/local source art and record prompts, settings, dimensions, perspective, palette, and generation identifiers; do not copy Ultima Online or other franchise assets."
+      "reference": "NSC-078_DECISIONS.md D-4 and 'Other contract changes' AC-001; GDD development-time asset tools",
+      "requirement": "Use PixelLab as the only generative source-art tool. The style-lock pilot (AC-003) uses text prompts only. For family acquisition after the pilot, style_image and color_image inputs to create_object_pro_flash are allowed only from Vincent-approved NSC-078 pilot sources, recorded by SHA-256; R01 through R17 and any other franchise screenshot, copied asset, or traced image are never PixelLab inputs at any stage. If PixelLab is unavailable, stop as blocked. Record prompts, every exposed setting, generation identifiers, canvas dimensions, perspective, and palette direction in Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md, Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md, and Docs/Art/Environment/HAZARD_ROUTE_PIXELLAB_GENERATION.md, split by family. Record 'not exposed by PixelLab metadata' for unavailable values. Allowed post-selection edits are: lossless crop or pad, recorded; PixelLab's own inpaint_image or inpaint_image_pro_flash with a recorded mask, proven byte-exact outside the mask; PixelLab's own reduce_colors; and edit_image_pro_flash or create_object_state to make a matching variant from an approved source. No hand-painted, scripted, or other non-PixelLab pixel edit is permitted. Commit every selected PNG's raw PixelLab export under Docs/Art/Environment/Props/Raw/<family>/<id>.png with no .meta companion, even when it is byte-identical to the selected file. Record raw_sha256, selected_sha256, and any crop or pad offset in the family inventory. Keep rejected candidates under Docs/Art/Environment/Props/Candidates/<id>__rNN.png."
     },
     {
       "criterion_id": "AC-002",
-      "reference": "GDD — 2.5D Isometric Visual and World Representation",
-      "requirement": "Provide readable isometric candidates for benches, tables, shelves, crates, candles or candelabras, bones, rubble, webs, vegetation, puddles or slime, and small spooky comedy details, with transparent backgrounds and coherent scale."
+      "reference": "NSC-078_DECISIONS.md D-2 and AC-002; Art Director plan sections 1a, 1b, and 1c",
+      "requirement": "Acquire the Art Director plan's 45-entry first-wing catalog: the plan's section 1a list (35 entries) plus the section 1b rows moved to NSC-078 unchanged under D-2 (ba_shelf_bank_z_start, ba_shelf_bank_z_middle, ba_shelf_bank_z_end, ca_pew_x_start, ca_pew_x_middle, ca_pew_x_end, shared_stone_column, lv_barrel, lv_crate, shared_rubble_pile_a). Every entry records source_owner_task_id 'NSC-078'. The catalog covers every first-wing identity noun per room in the plan's section 1c coverage table: Ruined Entry (broken masonry, webs, vegetation or slime, debris, introductory landmark, comedy); Bone Archive (shelf-bank segments, bone piles, collapsed furniture, books or scrolls, archival clutter, archive landmark, comedy); Chapel of Ash (pews, altar or ritual focus, candle cluster, ash accent, sigil, gothic vertical shape, chapel landmark, comedy); Lower Vault (barrels, crates, rails, water or slime edge, cliff or platform, vault landmark, comedy), subject to AC-006; Final Room (benches, recognizable furniture, ritual detail, bounded-hazard framing, dramatic landmark, comedy). Provide at least two visually distinct entries for the bone_pile and web identity_category values and three for debris_rubble (shared_rubble_scatter_b, re_debris_broken_handcart, shared_rubble_pile_a), and exactly one room-appropriate spooky_comedy_detail entry for each of the five named rooms. No entry uses lava, chasm, or horn-trim vocabulary; that vocabulary stays FutureExpansion-only (AC-006)."
     },
     {
       "criterion_id": "AC-003",
-      "reference": "Human-approved dark-but-cute horror-comedy direction",
-      "requirement": "The selected pack is visually varied but coherent, supports narrow passages and alcoves as visual composition, and preserves clear player and door silhouettes."
+      "reference": "NSC-078_DECISIONS.md D-1 and AC-003; Art Director plan sections 3 and 4a",
+      "requirement": "Create Docs/Art/Environment/NSC-078_STYLE_LOCK.md and generate the four named review PNGs with Pipeline/Art/render_dungeon_prop_contact_sheets.py. Before any family acquisition, Vincent reviews NSC-078-StylePilotContactSheet.png containing the plan's five-source style-lock pilot: shared_bone_pile_a, ba_collapsed_reading_table_z, ca_candelabra_tall, re_broken_masonry_blocks, and lv_iron_rail_x, generated with create_object_pro_flash text prompts only (no style_image). An optional five-generation create_image_pixflux side test of the same five sources may run alongside it. Each pilot and final family sheet has three labeled panels: native pixels; world scale beside the four approved south-east standing wizard sprites at their approved 2x2-unit camera-facing box (about 135 px at 1080p, per Vincent's density decision B) and the 3.0-world-unit door-opening proxy; and gameplay-camera pixel density from orthographic size 8 and Vincent's recorded Game view pixel resolution. Confirm the global prompt clause's upper-left key light direction against the door family and wizard highlights during the pilot and record the confirmed direction, the approved 64-pixels-per-world-unit density, palette, pivot rule, sorting-anchor rule, and pilot candidate commit in NSC-078_STYLE_LOCK.md. No family acquisition proceeds until Vincent approves the exact pilot."
     },
     {
       "criterion_id": "AC-004",
-      "reference": "Art-selection boundary",
-      "requirement": "Deliver a deterministic catalog mapping every selected prop to intended room use and SpriteRenderer or Tilemap use. Do not edit any room scene, builder, collision, navigation, or canonical scene."
+      "reference": "NSC-078_DECISIONS.md R-01, R-02, R-03, D-1, D-4; deterministic source inventory and local validation",
+      "requirement": "Create the three named family inventory JSON files, Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/PropCatalog.json, Pipeline/Art/validate_dungeon_prop_catalog.py, and Pipeline/Art/validate_dungeon_prop_catalog_smoke_test.py. Every selected PNG has one catalog entry containing id, source_path, source_owner_task_id, raw_sha256, selected_sha256, crop_pad_offset_px (recorded when a lossless crop or pad was applied, otherwise null), pixel_width, pixel_height, alpha_bounds_px, has_transparent_pixels, pixels_per_unit (64, the D-1 approved density for props and architecture), footprint_world_size (x, z, h in world units, the drawn object's size, not the gameplay collider), intended_rooms, renderer_use, pivot_normalized, sorting_anchor_normalized, identity_category, variant_group, facing, segment_role, footprint_reference, placement_role, collision_intent, and provenance_document. Allowed intended_rooms values are RuinedEntry, BoneArchive, ChapelOfAsh, LowerVault, FinalRoom, FirstWingConnector, and FutureExpansion. renderer_use is SpriteRenderer for every NSC-078 entry; NSC-064's own Tilemap architecture inventory is out of this task's scope. identity_category is one of: broken_masonry, web, vegetation_or_slime, debris_rubble, introductory_landmark, shelf_bank_segment, bone_pile, collapsed_furniture, books_or_scrolls, archival_clutter, archive_landmark, pew_segment, altar_or_ritual_focus, candle_cluster, ash_accent, sigil, gothic_vertical_shape, chapel_landmark, barrel, crate, rail, water_or_slime_edge, cliff_or_platform, vault_landmark, bench, recognizable_furniture, ritual_detail, bounded_hazard_framing, dramatic_landmark, pillar_column, spooky_comedy_detail. facing is world_x, world_z, or either. segment_role is single, start, middle, or end. Allowed placement_role values are focal_landmark, supporting_cluster, route_edge, wall_rhythm, threshold, hazard_boundary, and background. Allowed collision_intent values are decorative_none, downstream_existing_geometry, and downstream_review_required. Every NSC-078-selected prop is displayed camera-facing in a 2x2-unit box at 64 pixels per world unit, not projected onto a world-aligned Tilemap plane. Use Pipeline/ExecutionCrew/run_crew.py unity_meta_bytes to create GUID-only deterministic Unity .meta companions for every NSC-078-created folder, PNG, and JSON asset; catalog pivot_normalized and pixels_per_unit values remain recommendations for the downstream Unity owner and are not written into or checked against .meta importer fields (INT-003 sets the Sprite importer). NSC-079 through NSC-084 must not create or regenerate NSC-078 source .meta files. Any catalog entry whose source_owner_task_id is not 'NSC-078' is checked only by path and SHA-256 against that task's own published inventory; no current NSC-078 entry has such an owner."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "NSC-078_DECISIONS.md R-02; Art Director plan section 1, 'Facing on screen' and 'Long runs, no seamless tiling'",
+      "requirement": "Each catalog entry's facing records world_x when its long side reads upper-left to lower-right, world_z when its long side reads lower-left to upper-right, or either when the source is not long-footprint or facing-sensitive. Committed room layouts fix one required facing per long-footprint family: Chapel of Ash pews run world_x (ChapelOfAshLayout.PewFootprints), Bone Archive shelf-bank segments run world_z (BoneArchiveLayout.ShelfA/B/C), and Final Room benches run world_x (FinalRoomLayout.WestBenchBounds/EastBenchBounds); the catalog records the other facing as not required for those families rather than mirroring with SpriteRenderer.flipX. Shelf-bank and pew-row sources use named start, middle, and end segment_role entries with an upright post at each segment's joint edge (post-and-panel construction), so long runs butt together without a pixel-exact seam; no NSC-078 entry requires seamless tiling. The production validator checks that every entry required by AC-002 to have a facing or segment_role carries one of the allowed values, and that footprint_world_size is recorded against the named footprint_reference (a GDD or committed Layout.cs citation, for example 'BoneArchiveLayout.ShelfA/B/C') within the tolerance recorded in NSC-078_STYLE_LOCK.md."
+    },
+    {
+      "criterion_id": "AC-006",
+      "reference": "NSC-078_DECISIONS.md D-3; DUNGEON_ART_DIRECTION.md Lower Vault identity",
+      "requirement": "Do not use hazard, rail, water, slime, or cliff source art to invent walkable ground, non-walkable space, safe islands, elevation, collision, or navigation; every Lower Vault entry stays decorative or bounded background art beside the already-committed Tasks/NSC-047.yaml revision 4 Broken Sluice Crossing geometry and Tasks/NSC-082.yaml revision 3 dressing plan. Lava, chasm, and horn-trim vocabulary stays FutureExpansion-only; no NSC-078 entry maps to it."
     },
     {
       "criterion_id": "AC-007",
-      "reference": "Vincent-approved project direction, 2026-09-13",
-      "requirement": "Provide original architectural rhythm modules: repeating arches, buttress or pillar spacing, iron gate variants, framed door thresholds, curved and straight stair modules, raised platforms or courtyards, partial-height wall transitions, and readable negative space. Modules share compatible tile dimensions, pivots, sorting anchors, and door opening widths; stairs, gates, and platforms are navigation landmarks. Include modular bone/organic gothic trim, horn-like silhouettes, ritual floor marks, hazardous chasm/lava/slime edge pieces, skeletal landmarks, corrupted-ground variants, water/slime edges, rock/cliff transitions, wooden bridge spans, small platforms, rail/post elements, and elevation-transition pieces."
+      "reference": "NSC-078_DECISIONS.md D-2; Art Director plan section 1b and section 5",
+      "requirement": "NSC-064 owns Tilemap architecture only: floors, straight walls, corners, end caps, wall pilasters, and the near-wall cutaway-stub family (straight, inside corner, outside corner, and door-jamb transition, about 0.5 world units). It also owns repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment.meta and publishes its own inventory path and schema in its own revision. NSC-078 owns every independently sorted SpriteRenderer prop for the first wing, including shelf-bank segments, pew segments, the stone column, barrels, crates, and rubble piles, made with create_object_pro_flash, which create_building_kit cannot produce. NSC-078 does not duplicate or replace any NSC-064-owned Tilemap source, and declares no repeat_period_px or wall-tiling invariant because it owns no repeatable wall source. NSC-078 keeps its depends_on NSC-064 so the stone, wood, and iron palette and the 64-pixels-per-world-unit density lock against NSC-064's approved wall kit once NSC-064 states and verifies its real PPU, and so the shared Environment.meta exists before NSC-078 writes under it. Framed-threshold and door-aperture sources read the committed NSC-065 selection if it is delivered; otherwise they use the approved 3.0-world-unit door-opening proxy and record that the NSC-065 comparison remains downstream. Gate art (for example lv_landmark_sluice_wheel_gate_x) is decorative architecture and does not replace Door-owned state art."
+    },
+    {
+      "criterion_id": "AC-008",
+      "reference": "Source-art and Unity ownership boundary",
+      "requirement": "NSC-078 creates source PNGs, their deterministic GUID-only .meta files, provenance records, family inventories, contact sheets, PropCatalog.json, and the two validation scripts only. It creates no Unity prefab, Tile asset, Tilemap, Material, Collider, navigation data, light, room builder, room scene, or canonical-scene edit. Catalog pivots, sorting anchors, world footprints, collision intent, door compatibility, and room mappings are recommendations or source metadata; downstream Unity owners configure and prove actual prefab, sorting, placement, collision, door, and navigation behavior."
     }
   ],
   "completion_gates": [
     {
       "gate_id": "VAL-001",
-      "reference": "Deterministic prop inventory",
-      "requirement": "All selected files, dimensions, transparency, intended sorting behavior, provenance, and room mappings are present in PropCatalog.json."
+      "reference": "NSC-078_DECISIONS.md R-01, R-02, R-03, R-07; direct production catalog, PNG, and Unity .meta audit",
+      "requirement": "From a completely clean candidate checkout, run `docker compose run --rm codex-review python3 Pipeline/Art/validate_dungeon_prop_catalog_smoke_test.py` and then `docker compose run --rm codex-review python3 Pipeline/Art/validate_dungeon_prop_catalog.py --catalog Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/PropCatalog.json`. Recheck tracked and untracked state after both commands; any repository mutation fails validation. The validator uses Python 3 standard library only (for example json, hashlib, struct, zlib, argparse, pathlib, tempfile); no third-party packages such as Pillow. The smoke test writes fixtures only under a tempfile.TemporaryDirectory outside the repository, which the codex-review service mounts read-only. The validator reads the committed production catalog, three family inventories, actual PNG bytes, and corresponding .meta files. It verifies exact selected-file coverage, unique IDs and paths, selected_sha256 against actual PNG bytes, decoded dimensions, supported non-interlaced RGBA PNG data with visible and transparent pixels, alpha bounds, required metadata, enum values including identity_category/facing/segment_role, normalized anchors within 0..1, room-identity coverage against AC-002's per-room table, the AC-002 variant-count and comedy-detail rules, and that every entry AC-005 requires to carry a facing or segment_role has one of the allowed values. It verifies that exactly one GUID-only .meta exists for each NSC-078 PNG, JSON file, and folder, and that no .meta is orphaned; it does not check catalog pivot_normalized or pixels_per_unit against .meta importer fields, because the .meta companions carry no importer data. It verifies that every selected PNG has a matching raw export under Docs/Art/Environment/Props/Raw/<family>/<id>.png with no .meta companion, and that raw_sha256 matches the raw file's bytes. Any catalog entry whose source_owner_task_id is not 'NSC-078' is checked only by path and SHA-256 against that task's own published inventory. It rejects unsupported PNG color types or interlacing. The smoke test must include failing fixtures for hash mismatch, dimension mismatch, fully opaque PNG, missing file, unlisted PNG, duplicate ID, out-of-range anchor, missing or orphaned .meta, missing required facing or segment_role, and missing room coverage. Fixture success proves validator behavior only; the production run proves committed inventory and file-identity consistency, not visual pivot, sorting, scale, or composition correctness."
     },
     {
       "gate_id": "VAL-002",
-      "reference": "Assistant art review",
-      "requirement": "The pack reads as dark, cute, spooky, and readable beside the approved wizard art without graphic gore or borrowed franchise imagery."
+      "reference": "NSC-078_DECISIONS.md R-06, R-08; Vincent exact-candidate source-art approval",
+      "requirement": "Vincent records the exact 40-character candidate commit and reviews Docs/Art/Environment/Reviews/NSC-078-StylePilotContactSheet.png, NSC-078-FurnishingsContactSheet.png, NSC-078-ArchitectureContactSheet.png, and NSC-078-HazardRouteContactSheet.png at their native, approved world-scale, and recorded gameplay-camera-scale panels. Every required item must remain identifiable beside the wizard and 3.0-unit door proxy. Approval fails for a missing category or variant; merged wizard, door, or prop silhouettes; inconsistent perspective, scale, texel density, palette, ground contact, or lighting; dirty alpha edges; unreadable comedy details; graphic gore or solemn realism; or apparent copying. Vincent separately compares architecture against R09 and R17, cliff-or-platform sources against R03, rail sources against R05 and R12, and ritual-floor, bone, and hazard-edge vocabulary against R02 and R16; those references are not embedded in the sheets or used as generator inputs. This gameplay-camera panel approximates on-screen density; in-room appearance remains the downstream NSC-079 through NSC-084 review. This gate approves source art only and does not claim in-room gameplay-camera approval."
     }
   ],
   "downstream_integration_obligations": [
     {
       "obligation_id": "INT-001",
-      "reference": "NSC-079 through NSC-084",
-      "requirement": "Room and composition tasks consume only the committed selected sources and catalog; they preserve gameplay geometry and door behavior."
+      "reference": "NSC-079 through NSC-084 contract revisions",
+      "requirement": "Before NSC-079 through NSC-083 execute, revise each dressing contract to use only committed catalog entries and to preserve its committed room blockout's bounds, routes, lanes, cover pockets, door approaches, near-wall cutaway, gameplay collision, and navigation. Each contract must capture entry-approach, focal-zone, and exit-approach shots with the wizard visible using the existing camera rotation (30,-45,0), follow offset (10,10,-10), and orthographic size 8, with shot positions updated from the committed layout after any room GER revision. NSC-084 must apply the same review to D1 through D5 connector approaches."
+    },
+    {
+      "obligation_id": "INT-002",
+      "reference": "NSC-078_DECISIONS.md D-3; Tasks/NSC-047.yaml revision 4 and Tasks/NSC-082.yaml revision 3",
+      "requirement": "NSC-082's Lower Vault dressing pass places NSC-078's rail, slime-spill, ledge-chunk, sluice-gate, barrel, and crate sources against the already-committed NSC-047 revision 4 crossing edge and NSC-082 revision 3's readable alternate approach around LV-C1, without treating this source art as safe-island or crossing proof. The NSC-047-versus-NSC-082 Lower Vault geometry question this obligation previously tracked is resolved on main; no open reconciliation remains for NSC-078 or its dependents."
+    },
+    {
+      "obligation_id": "INT-003",
+      "reference": "NSC-078_DECISIONS.md R-01, R-09; Unity source import, Sprite importer, and door-frame proof",
+      "requirement": "NSC-079 through NSC-084 use NSC-078's committed source PNGs and existing deterministic GUID-only source .meta identities; they create only the Unity prefabs, Tiles, Tilemaps, catalogs, builders, and generated .meta content within their own task ownership. The downstream Unity integration builder sets each NSC-078 sprite's importer from the catalog: textureShape = Texture2D (never left at its GUID-only stub default, which imports as a Cube in Unity 6000.1.8f1), spritePixelsPerUnit 64, spritePivot from pivot_normalized, Point filtering, no compression, and resets the point-light cookie and gamma fields the stub import otherwise leaves set; it configures the prefab as a camera-facing 2x2-unit box, not a world-aligned Tilemap plane. A wall owner proves that NSC-064's straight visual runs reuse one shared Tile across 3, 10, and 100 cells, refresh stale same-size pixel content, sort with the established isometric convention, and remain separate from gameplay collision. The task that integrates NSC-065 door art must additionally prove that the selected door leaf, framed threshold, and 3.0-unit opening align and remain readable in sealed, opening or open, locked, damaged, and broken states."
     }
   ],
   "gdd_evidence": [
     {
-      "reference": "Docs/GDD/No_Safe_Circle_GDD.md — 2.5D Isometric Visual and World Representation",
-      "requirement": "Architecture and independently sorted props remain visually rich while separate from gameplay walkability and collision."
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md - Environment Presentation and Authoring Direction",
+      "requirement": "Isometric Tilemaps provide floors, walls, and repeatable architecture; independently sorted props use world-space SpriteRenderers and prefabs, separate from gameplay geometry."
+    },
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md - Revision policy and room-size authority",
+      "requirement": "Room geometry and door changes belong to reviewed room contracts and NSC-049 reconciliation, not source-art acquisition."
+    },
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md - Runtime Implementation",
+      "requirement": "Development-time source generation does not automatically create Unity prefabs, collision, sorting configuration, or gameplay integration."
+    },
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md - API and Tool Constraints",
+      "requirement": "Generative tools are development-only, credentials remain outside the project, and Unity assets require human inspection."
     }
   ],
   "basis": "human_approved_gameplay_presentation",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "This task acquires original source art only. It does not create Unity prefabs or scenes. Governing visual direction: Docs/Art/Environment/DUNGEON_ART_DIRECTION.md, Vincent-approved project direction dated 2026-09-13. The supplied images are inspiration only; all art and layouts must be original.",
+  "notes": "This revision applies the GER owner's final design decisions in NSC-078_DECISIONS.md (2026-09-17, deciding D-1 through D-4 that Vincent delegated on 2026-09-15) together with the Art Director Agent's plan (briefs/props-078-art-director-plan.md, 2026-09-17) and round-04's non-design fixes R-01 through R-10. The Art Director Agent session executes this task under the art bible, per nsc-art-director-guide.md section 1. Governing visual direction is Docs/Art/Environment/DUNGEON_ART_DIRECTION.md. R01 through R17 are mood and composition references only and may not be copied, traced, imported, shipped, embedded in generated review sheets, or supplied to PixelLab as generator inputs. PixelLab spend needs Vincent's separate go beyond this contract: about 68 create_object_pro_flash plus about 10 create_image_pixflux generations before the style-lock pilot, and about 581 create_object_pro_flash generations (or about 82 if Vincent picks create_image_pixflux) before family acquisition across all 45 entries. Nothing in this contract authorizes that spend. Any later exact catalog data should receive another independent review before graph application if the acquired art meaningfully departs from this plan.",
   "repository_state_at_bootstrap": "missing",
   "repository_evidence_at_bootstrap": [],
   "provenance": {
@@ -86,10 +281,41 @@
     "approved_development_tool": "PixelLab MCP",
     "gdd_rag_validated": true,
     "gdd_rag_chunk_ids": [
-      "nsc-gdd-016",
-      "nsc-gdd-049",
-      "nsc-gdd-071"
+      "nsc-gdd-051",
+      "nsc-gdd-058",
+      "nsc-gdd-071",
+      "nsc-gdd-074",
+      "nsc-gdd-077"
+    ],
+    "ger_revision": {
+      "prior_contract_revision": 2,
+      "prior_gdd_rag_chunk_ids": [
+        "nsc-gdd-016",
+        "nsc-gdd-049",
+        "nsc-gdd-071"
+      ],
+      "round_01_sha256": "7a9f9acac05207b809005af37f054a23a1d4d79328c82f436e46b8ea9aa64687",
+      "round_02_sha256": "3f957209afff6c2bb419c103cbf216a81f2615719df5580bf2158187bdd38fa0",
+      "round_03_sha256": "deef4aa88843c40d0822a1bf0963b161ed316f52bf5c3119e58c12f4949bf9a0",
+      "result": "needs_design"
+    },
+    "owner_decisions": {
+      "date": "2026-09-17",
+      "decided_by": "Claude (GER owner) at Vincent's 2026-09-15 delegation",
+      "record": "C:\\nscrev\\ger-contract-revisions-20260916\\props\\NSC-078_DECISIONS.md and briefs/props-078-art-director-plan.md",
+      "decision": "D-1 sets 64 pixels per world unit for props and architecture, displayed camera-facing; D-2 gives NSC-064 Tilemap architecture only and moves every independently sorted SpriteRenderer prop, including shelf-bank segments, pew segments, the stone column, barrels, crates, and rubble piles, to NSC-078 (45 entries); D-3 keeps the Lower Vault as committed (NSC-047 revision 4, NSC-082 revision 3) with lava/chasm/horn-trim as FutureExpansion-only; D-4 allows lossless crop/pad and PixelLab-native inpaint_image(_pro_flash)/reduce_colors repairs with raw exports committed under Docs/, and drops the VAL-003 repeat-period invariant because post-and-panel segments need no pixel-exact seam."
+    },
+    "contract_followups": [
+      {
+        "date": "2026-09-17",
+        "reason": "Owner decision revision 3 (GER Orchestrator, D-1 to D-4 delegated by Vincent 2026-09-15; NSC-078_DECISIONS.md and the Art Director plan props-078-art-director-plan.md, 2026-09-17): the Art Director Agent acquires the exact 45-entry first-wing prop and architecture-variant catalog with PixelLab after a Vincent-reviewed style-lock pilot, with raw and selected PNG provenance, family inventories, PropCatalog.json and two Python validators; NSC-064 keeps Tilemap architecture; 162 exact resources replace the coarse Props/Source claim. The authoritative validation policy entry is removed because its DungeonPropArtPackTests Unity fixture never existed and revision 3 validates with Python scripts and Vincent's contact-sheet review. Vincent's PixelLab spend go is required before the pilot.",
+        "source_head": "8af1a9422abfd1399749189f031d7abc9bca78ea",
+        "previous_contract_revision": 2,
+        "base_contract_sha256": "992a6491aba4a127bf06db649dd87fc510db9f3fa9efde29055c54064bd915e0",
+        "revised_contract_sha256": "853fbe562b4e79469ad6b2ba779fdc9a496890080fa4bb1011fa7734e98609e0",
+        "review": "post-commit Codex contract check (tiered rule, 2026-09-17)"
+      }
     ]
   },
-  "visual_direction_addendum": "The original modular pack must also include masonry straight lengths, inside/outside corners, end caps, pillars or columns, broken/crumbling variants, height transitions, doorway/arch and explicit door-aperture pieces, stairs, parapets or roof edges, compatible floor variants, deterministic alignment, clean tiling, compatible pivots and sorting anchors, plus water/slime edges, rock/cliff transitions, wooden bridge spans, small platforms, rail/post elements, elevation-transition pieces, modular bone/organic gothic trim, horn-like silhouettes, ritual floor marks, hazardous chasm/lava/slime edge pieces, skeletal landmarks, and corrupted-ground variants. Hazards must be clearly non-walkable background or bounded gameplay surfaces. Reference images are inspiration only and must not be copied or traced."
+  "visual_direction_addendum": "PROPOSAL vocabulary within the approved direction: Ruined Entry uses broken masonry and perimeter clutter around an open introduction; Bone Archive uses irregular shelf, bone, collapsed-furniture, and archival clusters; Chapel of Ash uses a sparse ritual center with selective symmetry; Lower Vault uses damp vault vocabulary only where the committed NSC-047 revision 4 geometry supports it; Final Room uses the strongest focal contrast while preserving open circulation, with violet ritual light and no gold on the final throne so the final door's gold rim stays the one escape accent. NSC-078 supplies source PNGs and deterministic metadata only. NSC-079 through NSC-084 own placement, prefab and Tilemap construction, light placement, route-edge use, and multi-shot gameplay-camera review."
 }

@@ -217,16 +217,6 @@
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
-    "NSC-078": {
-      "task_contract_sha256": "a4653f1aa2b4ed05d4d300c81b2c02d2878f1704814741664d450f0c4d6f2120",
-      "required_test_platforms": [
-        "EditMode"
-      ],
-      "test_filters": {
-        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.Environment.DungeonPropArtPackTests"
-      },
-      "authority": "committed_task_specific_authoritative_validation_policy"
-    },
     "NSC-029": {
       "task_contract_sha256": "74bfe7473d4050579d8a656192ab169e3b1a55e1890415d304d643fac04171db",
       "required_test_platforms": [
