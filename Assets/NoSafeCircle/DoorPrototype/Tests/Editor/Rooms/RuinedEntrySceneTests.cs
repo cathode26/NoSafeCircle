@@ -282,7 +282,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
                 camera.orthographic = true;
                 camera.orthographicSize = 8f;
                 camera.transparencySortMode = TransparencySortMode.CustomAxis;
-                camera.transparencySortAxis = new Vector3(0f, 1f, -0.26f).normalized;
+                camera.transparencySortAxis = IsometricCameraFollow.IsometricTransparencySortAxis;
                 cameraObject.transform.rotation = Quaternion.Euler(30f, -45f, 0f);
                 target = new RenderTexture(800, 600, 24);
                 target.Create();

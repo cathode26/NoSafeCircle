@@ -100,8 +100,9 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
         // Unity draws the LARGER custom-axis dot product first (farther back). This camera sits
         // at -Z looking toward +Z, so a larger world Z is genuinely farther and must produce the
         // larger value: the Z coefficient is positive. A negative coefficient inverted depth and
-        // rendered a door in front of a wizard standing south of it.
-        private static readonly Vector3 IsometricTransparencySortAxis = new Vector3(0f, 1f, 0.26f);
+        // rendered a door in front of a wizard standing south of it. Sourced from
+        // IsometricCameraFollow.IsometricTransparencySortAxis, which reapplies the same value on
+        // every scene load/Play Mode enable, so the two can never drift apart again.
 
         // Every root this class owns and clears before rebuilding, split out from the
         // environment-owned roots DoorPrototypeSceneBuilder clears itself (AC-005: explicit
@@ -165,7 +166,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
             // direction, so world sprites at different isometric positions order correctly
             // relative to one another without any per-object runtime sorting script.
             camera.transparencySortMode = TransparencySortMode.CustomAxis;
-            camera.transparencySortAxis = IsometricTransparencySortAxis;
+            camera.transparencySortAxis = IsometricCameraFollow.IsometricTransparencySortAxis;
 
             cameraObject.transform.rotation = Quaternion.Euler(IsometricCameraEulerAngles);
 
