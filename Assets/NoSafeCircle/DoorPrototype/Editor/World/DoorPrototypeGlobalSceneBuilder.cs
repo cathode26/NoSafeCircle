@@ -564,10 +564,26 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
             textureSettings.spriteAlignment = (int)SpriteAlignment.Custom;
             textureSettings.spritePivot = new Vector2(0.5f, 0f);
             importer.SetTextureSettings(textureSettings);
+            ClearCookieImportDefaults(importer);
             importer.SaveAndReimport();
             var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
             if (sprite == null) throw new InvalidDataException("Wizard source did not import as a Sprite: " + path);
             return sprite;
+        }
+
+        // A GUID-only .meta imports with point-light cookie defaults; reset them to match every other wizard source.
+        private static void ClearCookieImportDefaults(TextureImporter importer)
+        {
+            var serializedImporter = new SerializedObject(importer);
+            foreach (var propertyName in new[] { "m_ApplyGammaDecoding", "m_CookieLightType" })
+            {
+                var property = serializedImporter.FindProperty(propertyName);
+                if (property == null) throw new InvalidDataException("TextureImporter has no serialized property " + propertyName);
+                if (property.propertyType == SerializedPropertyType.Boolean) property.boolValue = false;
+                else property.intValue = 0;
+            }
+
+            serializedImporter.ApplyModifiedPropertiesWithoutUndo();
         }
 
         private static AnimationClip EnsureWizardClip(string name, Sprite[] sprites, int frameRate)
