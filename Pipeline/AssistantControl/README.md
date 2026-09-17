@@ -395,7 +395,7 @@ authority over the graph or final results. Delegated mode does not require a
 worker config and rejects `--authorize-provider-spend`.
 
 Expensive management work that never moves Source runs as an owned background
-job instead of blocking the loop: `decompose` (the two-provider proposal) and
+job instead of blocking the loop: `decompose` (the two-call proposal) and
 `post_crew` (candidate registration and focused Unity validation, including the
 revalidation of a synchronized Gauntlet candidate). The controller launches a
 detached child bound to an exact ticket (task, Source commit, contract hash,
@@ -667,7 +667,14 @@ feedback delivery to provider requests, not paid-provider behavior or Unity visu
 Still pending: broader live demonstrations with Vincent's actual test decisions.
 Existing child contracts can be inspected and processed as tasks. AssistantControl
 also supports an explicit decomposition boundary: `decompose` runs one bounded
-cross-provider author/reviewer pair against read-only Source,
+author/reviewer pair against read-only Source. `claude,codex` is independent by
+provider identity. A same-provider pair such as `claude,claude` is independent
+only as two separate conversations, so that route reserves one durable session
+per role from the decomposition session pool and settles both from the run's own
+artifacts. A pooled same-provider run needs a `--run-id` that is a lowercase
+slug of 1..64 characters (`[a-z0-9-]`, no leading or trailing hyphen), because
+the pool and the container both require that form; `claude,codex` still accepts
+the older mixed-case and dotted run id.
 `inspect-decomposition` rechecks its exact durable artifacts, and
 `apply-decomposition` creates the canonical local D1C commit only while the reviewed
 source, contract and plan are still exact. These commands never push.
