@@ -1129,6 +1129,17 @@
         "NSC-009",
         "NSC-088"
       ]
+    },
+    {
+      "reconciliation_keys": [
+        "fireball",
+        "floor-run-restart-persistent-closure"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DemoRunFlow.cs",
+      "work_ids": [
+        "NSC-007",
+        "NSC-033"
+      ]
     }
   ],
   "schema_version": "1.0",
