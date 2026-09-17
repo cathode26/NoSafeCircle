@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-085",
-  "contract_revision": 3,
+  "contract_revision": 4,
   "contract_disposition": "active",
   "title": "Expanded Dungeon Wing Route Plan and Room/Corridor Task Split",
   "reconciliation_key": "expanded-dungeon-route-graph-side-chambers",
@@ -41,7 +41,7 @@
     {
       "criterion_id": "AC-005",
       "reference": "Structured route and ownership manifest",
-      "requirement": "Embed exactly one fenced JSON topology manifest in the document. Its nodes entries contain id, kind, slug, envelope, landmark, density, and biome. Its edges entries contain id, from, to, kind, centerline, envelope, approximate_length, opening_from, opening_to, and visual_only_elevation; each opening contains center, host_wall, clear_collider_width, and visual_gap. Its encounters entries contain node, melee, wraith, third_enemy_reserved, and admission_rule. Its children entries contain role, slug, phase, scene_path, layout_path, builder_path, test_path, generated_assets, logical_resource, and depends_on. Its gates entries contain placeholder_id, edge_id, behavior, five_second_opening, locks_after_forward_crossing, and approval_state. Both ends of every edge must define matching opening centers and widths. The manifest contains unique IDs, references only defined nodes, and has an acyclic proposed dependency graph. Each opening record is the single shared definition that both adjoining children build against: its center lies on the host node's envelope edge named by host_wall and at the end of the corridor centerline."
+      "requirement": "Embed exactly one fenced JSON topology manifest in the document. Its nodes entries contain id, kind, slug, envelope, landmark, density, and biome. Its edges entries contain id, from, to, kind, centerline, envelope, approximate_length, clear_width, opening_from, opening_to, and visual_only_elevation; each opening contains center, host_wall, clear_collider_width, and visual_gap. Its encounters entries contain node, melee, wraith, third_enemy_reserved, and admission_rule. Its children entries contain role, slug, phase, scene_path, layout_path, builder_path, test_path, generated_assets, logical_resource, and depends_on. Its gates entries contain placeholder_id, edge_id, behavior, five_second_opening, locks_after_forward_crossing, and approval_state. Each edge has two distinct opening records: opening_from's center lies at the centerline's first endpoint on the from node's envelope edge named by its host_wall, and opening_to's center lies at the centerline's last endpoint on the to node's envelope edge named by its host_wall. The edge's clear_width is the corridor floor's clear width, and each opening's clear_collider_width equals it (at least 2.5 units). The manifest contains unique IDs, references only defined nodes, and has an acyclic proposed dependency graph. Each opening record is the single shared definition that both children adjoining that end (the node's child and the corridor's child) build against."
     },
     {
       "criterion_id": "AC-006",
@@ -56,7 +56,7 @@
     {
       "criterion_id": "AC-008",
       "reference": "Docs/Art/Environment/DUNGEON_ART_DIRECTION.md; R01-R17 README; source asset inventory",
-      "requirement": "For every room, specify a named visible outcome, one focal landmark, at least two supporting prop clusters, density, floor and wall material direction, restrained light-pool rhythm, safe and hazardous route read, entrance and exit placement, NSC-078 catalog categories, known separate art requests, builder handoff, and several gameplay-camera review anchors. Place the Drowned Bell and Lantern Sepulcher cage pivots over non-walkable water, corruption, or background and keep each walkable island outside the landmark sprite's screen footprint. Every relevant review shot must confirm that the landmark, near wall, props, and door frame do not hide the wizard, ground contact, walkable floor, cursor target, or aperture. Record east-facing sealed/opening/open/locked/damaged/broken door art, original bell and lantern-cage landmarks, moth details, and cavern floor/wall tiles as known art responsibilities. Do not assume a package, layer, prefab, lighting system, or NSC-078 catalog entry that is not present."
+      "requirement": "For every room, specify a named visible outcome, one focal landmark, at least two supporting prop clusters, density, floor and wall material direction, restrained light-pool rhythm, safe and hazardous route read, entrance and exit placement, NSC-078 catalog categories, known separate art requests, builder handoff, and several gameplay-camera review anchors. Place the Drowned Bell and Lantern Sepulcher cage pivots over non-walkable water, corruption, or background and keep each walkable island outside the landmark sprite's screen footprint. Every relevant review shot must confirm that the landmark, near wall, props, and door frame do not hide the wizard, ground contact, walkable floor, cursor target, or aperture. Record east-facing sealed/opening/open/locked/damaged/broken door art, original bell and lantern-cage landmarks, moth details, cavern floor/wall tiles, and the visual-only stair, bridge, dry-walk, sump-edge, and rock-transition modules as known art responsibilities (INT-003). Do not assume a package, layer, prefab, lighting system, or NSC-078 catalog entry that is not present."
     },
     {
       "criterion_id": "AC-009",
@@ -105,7 +105,7 @@
     {
       "obligation_id": "INT-003",
       "reference": "Known art gaps",
-      "requirement": "A reviewed east-facing door-art responsibility creates original east-facing sealed, opening, open, locked, damaged, and broken states compatible with the existing door behavior and approved pixel density. A separate reviewed environment-art responsibility supplies original Drowned Bell, Lantern Sepulcher cage, moth details, and cavern floor/wall modules without duplicating NSC-078's rock/cliff transition, water/slime edge, stair, or bridge categories. Room and corridor children consume only committed cataloged art and do not silently expand shared art ownership."
+      "requirement": "A reviewed east-facing door-art responsibility creates original east-facing sealed, opening, open, locked, damaged, and broken states compatible with the existing door behavior and approved pixel density. A separate reviewed environment-art responsibility supplies original Drowned Bell, Lantern Sepulcher cage, moth details, cavern floor/wall modules, and the visual-only stair, bridge, dry-walk, sump-edge, and rock-transition modules the wing's corridors and rooms need (for example OrganPipeStair and DryRibWalk); it may reuse NSC-078's committed cliff_or_platform and water_or_slime_edge sources by path and SHA-256 but does not assume NSC-078 supplies any other category. Room and corridor children consume only committed cataloged art and do not silently expand shared art ownership."
     },
     {
       "obligation_id": "INT-004",
@@ -168,6 +168,15 @@
         "previous_contract_revision": 2,
         "base_contract_sha256": "a1ed607709ac47d25b2e76e04b34ab27213422bd77b2dd9dbaa58c64ab1df159",
         "revised_contract_sha256": "9ab748b7b948b8ed8582d75d2cd2c976ed864789b96979fd6c8b6ea45a8d2059",
+        "review": "post-commit Codex contract check (tiered rule, 2026-09-17)"
+      },
+      {
+        "date": "2026-09-17",
+        "reason": "Follow-up revision 4 from the rev 3 Codex check (revise): AC-005 gives each edge a clear_width and two distinct opening records at the centerline's own endpoints on each host node's named envelope edge, replacing the impossible 'matching opening centers' rule; INT-003 and AC-008 assign the wing's visual-only stair, bridge, dry-walk, sump-edge and rock-transition modules to the wing's environment-art responsibility, reusing only NSC-078's committed cliff_or_platform and water_or_slime_edge sources, instead of assuming NSC-078 categories that do not exist.",
+        "source_head": "4b2cc8a16fb36d0d81d74982dce9deb466d57998",
+        "previous_contract_revision": 3,
+        "base_contract_sha256": "6d7391a7c8ba6c80a8aea7e6c1fcf7a02f5418df2c0000584aa29ba0a7785706",
+        "revised_contract_sha256": "2e6a92ed5d2bddb7c55380ba1ff0e09d9b32cf9ae6b42e1bd4b8184c95412406",
         "review": "post-commit Codex contract check (tiered rule, 2026-09-17)"
       }
     ]
