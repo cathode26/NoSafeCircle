@@ -207,6 +207,21 @@ def _pool_owner(
     )
 
 
+def _run_directory_started(run_dir: Path) -> bool:
+    """True when the run left its own artifact directory behind.
+
+    This is the only never-started signal this module owns. The exception type
+    proves nothing: ``subprocess.run`` raises ``OSError`` after a successful
+    spawn as well, when its timeout handler cannot kill the live child or when
+    the wait cannot reap it.
+    """
+
+    try:
+        return run_dir.is_dir()
+    except OSError:
+        return False
+
+
 def _settle_pool(
     owner: DecompositionSessionPoolOwner | None, *, run_id: str, run_dir: Path,
 ) -> dict[str, Any] | None:
@@ -214,11 +229,7 @@ def _settle_pool(
 
     if owner is None:
         return None
-    try:
-        present = run_dir.is_dir()
-    except OSError:
-        present = False
-    if not present:
+    if not _run_directory_started(run_dir):
         # The provider may have run, so the leases are not returned: they stay
         # active until the next owner reclaims them as stranded.
         return {"action": "settle", "status": "run_directory_missing", "run_id": run_id}
@@ -581,9 +592,6 @@ def run(
     owner: DecompositionSessionPoolOwner | None = None
     pool_assignment: dict[str, Any] | None = None
     pool_lifecycle: dict[str, Any] | None = None
-    # True once the provider process has provably been spawned. Only a run that
-    # never reached the spawn may return its leases uncharged.
-    spawned = False
     try:
         if pooled:
             owner = _pool_owner(
@@ -634,28 +642,19 @@ def run(
             command[position:position] = named
         command.extend(("--source", "/workspace", "--output-root", "/decomposition-output"))
         with Path(record["stdout_log"]).open("wb") as stdout, Path(record["stderr_log"]).open("wb") as stderr:
-            try:
-                # Marked before the call, not after it returns: a timeout or a
-                # KeyboardInterrupt leaves real conversations behind, and those
-                # must be retired rather than returned as never invoked.
-                spawned = True
-                completed = subprocess.run(
-                    command,
-                    cwd=manager.source,
-                    env=environment,
-                    stdout=stdout,
-                    stderr=stderr,
-                    timeout=3600,
-                    creationflags=creationflags,
-                    check=False,
-                )
-            except OSError:
-                # The spawn itself failed, so Docker never started, no
-                # reservation was ever invoked, and every lease is returned
-                # uncharged.
-                spawned = False
-                pool_lifecycle = _cancel_unstarted_pool(owner, run_id=run_id)
-                raise
+            # An OSError here is not proof that the spawn never happened, so it
+            # is handled exactly like a timeout or an interrupt: the run's own
+            # artifacts decide what each conversation proved.
+            completed = subprocess.run(
+                command,
+                cwd=manager.source,
+                env=environment,
+                stdout=stdout,
+                stderr=stderr,
+                timeout=3600,
+                creationflags=creationflags,
+                check=False,
+            )
         # Settle from the run's durable artifacts whatever the exit code says:
         # the artifacts, not the process, decide what each conversation proved.
         pool_lifecycle = _settle_pool(owner, run_id=run_id, run_dir=artifact_root)
@@ -673,14 +672,16 @@ def run(
         return record
     except BaseException as exc:
         if owner is not None and pool_lifecycle is None:
-            if spawned:
-                # The provider process really started, so a timeout or an
-                # interrupt settles from the run's own artifacts: those
-                # conversations are retired as interrupted, never resumed.
+            if _run_directory_started(artifact_root):
+                # The run left its own directory behind, so the provider really
+                # started: a timeout, an interrupt, or an OSError raised after
+                # the spawn settles from those artifacts, and both conversations
+                # are retired as interrupted rather than resumed later.
                 pool_lifecycle = _settle_pool(owner, run_id=run_id, run_dir=artifact_root)
             else:
-                # A precondition failed after the reservation and before any
-                # provider ran; the leases are returned uncharged.
+                # Nothing this run owns exists, so no provider ever started and
+                # the leases are returned uncharged. Only that absence may reach
+                # here; the exception type never decides it.
                 pool_lifecycle = _cancel_unstarted_pool(owner, run_id=run_id)
         if pool_lifecycle is not None:
             record["pool_lifecycle"] = pool_lifecycle

@@ -814,6 +814,47 @@ class PooledLifecycleTests(unittest.TestCase):
         self.assertEqual("failed", record["status"])
         self.assertEqual("cancelled_unstarted", record["pool_lifecycle"]["status"])
 
+    def test_an_oserror_raised_after_the_spawn_settles_instead_of_cancelling(self):
+        # `subprocess.run` raises OSError after Popen succeeded too: on Windows
+        # the timeout handler's kill can raise PermissionError against a live
+        # container, and on POSIX the wait can raise ChildProcessError. The run
+        # directory exists, so those conversations are real and are retired.
+        module, manager, owner, run_id, artifact_root = self.launch(
+            "assistant-pool-after-spawn-",
+            start_error=ChildProcessError("no child processes"),
+        )
+        with self.assertRaises(ChildProcessError):
+            module.run(
+                manager, "NSC-004", run_id, providers="claude,claude",
+                compose_project="assistant-pool", execution_authorized=True,
+            )
+        self.assertEqual(["prepare", "settle", "close"], owner.actions())
+        self.assertEqual(("settle", run_id, str(artifact_root)), owner.calls[1])
+        record = json.loads(
+            (manager.records / "NSC-004.decomposition.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual("failed", record["status"])
+        self.assertEqual("settled", record["pool_lifecycle"]["status"])
+
+    def test_an_oserror_raised_instead_of_the_spawn_still_cancels(self):
+        # The executable could not be spawned at all, so no run directory was
+        # created and nothing ran.
+        module, manager, owner, run_id, _root = self.launch(
+            "assistant-pool-no-spawn-", run_directory=False,
+            start_error=FileNotFoundError("docker: no such file or directory"),
+        )
+        with self.assertRaises(FileNotFoundError):
+            module.run(
+                manager, "NSC-004", run_id, providers="claude,claude",
+                compose_project="assistant-pool", execution_authorized=True,
+            )
+        self.assertEqual(["prepare", "cancel_unstarted", "close"], owner.actions())
+        record = json.loads(
+            (manager.records / "NSC-004.decomposition.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual("failed", record["status"])
+        self.assertEqual("cancelled_unstarted", record["pool_lifecycle"]["status"])
+
     def test_a_timed_out_run_settles_instead_of_cancelling(self):
         module, manager, owner, run_id, artifact_root = self.launch(
             "assistant-pool-timeout-",
