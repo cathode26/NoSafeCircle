@@ -737,13 +737,15 @@
         },
         {
           "path": "feminine-light/selected/walk/north-east/frame_004.png",
-          "size_bytes": 4198,
-          "sha256": "447e07c087cc933acbdeafe48628b126f341a708073691ef4a43014d95a2904a"
+          "size_bytes": 3486,
+          "sha256": "9efa70e94d1df66f4ad5ab92f3ae43648ef6a72a882c0af3b66f98edd395de1e",
+          "correction": "NSC-073"
         },
         {
           "path": "feminine-light/selected/walk/north-east/frame_005.png",
-          "size_bytes": 4334,
-          "sha256": "8939f14e249b1eab139a9406249f2dacb2635b1189d7c057276bafa043728548"
+          "size_bytes": 3540,
+          "sha256": "a201861900e1c801545b25f181f3bf116f3be079a2c9f872ca6fd92d809ffe5a",
+          "correction": "NSC-073"
         },
         {
           "path": "feminine-light/selected/walk/north-west/frame_000.png",
@@ -863,6 +865,64 @@
       "excluded_from_authorized_source": [
         "Idle/animations/Walking"
       ]
+    }
+  ],
+  "corrections": [
+    {
+      "correction_task_id": "NSC-073",
+      "reference": "Vincent White Female runtime report, 2026-09-12",
+      "source_key": "feminine-light",
+      "direction": "north-east",
+      "defect": "frame_004.png and frame_005.png lost the wizard hat and shifted to an inconsistent left-facing side profile, breaking continuity with frames 000-003.",
+      "replaced_files": [
+        {
+          "path": "feminine-light/selected/walk/north-east/frame_004.png",
+          "previous_size_bytes": 4198,
+          "previous_sha256": "447e07c087cc933acbdeafe48628b126f341a708073691ef4a43014d95a2904a",
+          "new_size_bytes": 3486,
+          "new_sha256": "9efa70e94d1df66f4ad5ab92f3ae43648ef6a72a882c0af3b66f98edd395de1e"
+        },
+        {
+          "path": "feminine-light/selected/walk/north-east/frame_005.png",
+          "previous_size_bytes": 4334,
+          "previous_sha256": "8939f14e249b1eab139a9406249f2dacb2635b1189d7c057276bafa043728548",
+          "new_size_bytes": 3540,
+          "new_sha256": "a201861900e1c801545b25f181f3bf116f3be079a2c9f872ca6fd92d809ffe5a"
+        }
+      ],
+      "generator": {
+        "tool": "PixelLab MCP",
+        "character_id": "c0be0b26-4477-4d1b-b6f0-cf57f3213a4f",
+        "character_name": "Wizard - Feminine Light",
+        "mcp_tool": "animate_character",
+        "mode": "v3",
+        "animation_group_id": "55641d84-a4ef-423f-ba9f-3526801295bf",
+        "animation_job_id": "75f2d12d-aabf-4238-bdd7-04b3c8fb5734",
+        "north_east_animation_asset_id": "1a6e4335-a4e3-462d-8e2d-f6b297772d1b",
+        "animation_name": "NSC-073 north-east walk replacement candidate v3",
+        "action_description": "walking, classic even-paced walk cycle, both arms swinging naturally, staff held steady, hat and robe consistent with the character's standard pose",
+        "direction": "north-east",
+        "frame_count_requested": 6,
+        "keep_first_frame": true,
+        "generated_canvas": "224x224",
+        "generated_frame_count_total": 7,
+        "generated_at": "2026-09-13"
+      },
+      "selection": {
+        "method": "PixelLab v3 custom animation generated 7 frames (index 0 = start-pose reference matching the character's existing north-east standing rotation, indices 1-6 = one full walk cycle). Both selected frames were re-cropped from the generator's 224x224 canvas to the family's 180x180 canvas using a fixed +22/+22 pixel offset derived by comparing the index-0 reference frame's non-transparent bounding box to the existing standing/north-east.png bounding box; the offset was confirmed against the existing frame_000-frame_003 bounding boxes (x=57-58 in both). This crop is a pixel-exact region copy with zero anti-aliased/partial-alpha pixels introduced (verified 0 of 32400 pixels with 0<alpha<255 in each selected frame) -- no hand-painting or resampling was applied.",
+        "frame_004_source": "generated frame index 1 of animation asset 1a6e4335-a4e3-462d-8e2d-f6b297772d1b, cropped to (22,22)-(202,202) of the 224x224 output",
+        "frame_005_source": "generated frame index 6 of animation asset 1a6e4335-a4e3-462d-8e2d-f6b297772d1b, cropped to (22,22)-(202,202) of the 224x224 output",
+        "continuity_basis": "2026-09-14 alternate reuses generated index 6 for frame_005 from the same PixelLab asset, returning toward the north-east three-quarter view before the loop restarts. Generated index 1 remains selected for frame_004; its rearward turn is still visible and Vincent has not approved this exact candidate."
+      },
+      "not_selected_candidates": "Generated frame indices 0 (start-pose reference, not part of the walk cycle), 2, 3, 4, and 5 were reviewed and not used for this correction; they remain retrievable from PixelLab under animation_group_id 55641d84-a4ef-423f-ba9f-3526801295bf for future reference if needed.",
+      "unity_asset_identity_note": "The original NSC-073 source checkout had no .meta files for these PNGs. Current main tracks .meta GUIDs at both selected paths; this reconciliation changes only the two PNG bytes at their existing paths and preserves those GUIDs.",
+      "verification": {
+        "dimensions_mode": "Both replacement PNGs verified 180x180 8-bit RGBA, matching frames 000-003.",
+        "alpha_preserved": true,
+        "differs_from_defective_bytes": true,
+        "other_wizard_frames_unchanged": "Verified via git status --short: only the two frame_004.png/frame_005.png paths changed.",
+        "unity_playmode_test": "Not run by this worker. WizardArtIntegrationTests must be run by the Windows orchestrator on this exact commit before Vincent's visual review, per NSC-073 VAL-001."
+      }
     }
   ]
 }

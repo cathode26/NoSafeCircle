@@ -100,3 +100,73 @@ The raw masculine-light export also contains an optional four-frame PixelLab
 idle animation, and the raw feminine-light export contains the accidental
 224 x 224 V3 south walk. Neither is in the selected tree and neither is
 authorized for Unity integration.
+
+## NSC-073 correction: feminine-light north-east frames 004/005
+
+Vincent's runtime report on 2026-09-12 found that the selected
+`feminine-light/selected/walk/north-east/frame_004.png` and `frame_005.png`
+lost the wizard's hat and shifted to an inconsistent left-facing side
+profile, breaking continuity with the approved `frame_000.png` through
+`frame_003.png`. NSC-073 replaced only those two PNGs at their existing
+paths using PixelLab.
+
+Replacement generation:
+
+- Tool: PixelLab MCP `animate_character`, mode `v3` (custom action,
+  frame_count 6, `keep_first_frame: true`)
+- Character: `Wizard - Feminine Light`, character ID
+  `c0be0b26-4477-4d1b-b6f0-cf57f3213a4f`
+- Animation group ID: `55641d84-a4ef-423f-ba9f-3526801295bf`
+- Animation job ID: `75f2d12d-aabf-4238-bdd7-04b3c8fb5734`
+- North-east animation asset ID: `1a6e4335-a4e3-462d-8e2d-f6b297772d1b`
+- Direction: `north-east`
+- `action_description`: "walking, classic even-paced walk cycle, both arms
+  swinging naturally, staff held steady, hat and robe consistent with the
+  character's standard pose"
+- PixelLab generated 7 frames on a 224 x 224 canvas (index 0 is the
+  start-pose reference matching the character's existing north-east
+  standing rotation; indices 1-6 are one full walk cycle).
+
+Selection and canvas correction: the generator's 224 x 224 output uses the
+same pixel scale as the family's 180 x 180 canvas, offset by a fixed
+(+22, +22) pixel translation (confirmed by comparing the index-0 reference
+frame's non-transparent bounding box against the existing
+`selected/standing/north-east.png` bounding box, and cross-checked against
+the bounding boxes of the unmodified `frame_000.png`-`frame_003.png`, all of
+which share `x = 57-58`). Both selected replacement frames were cropped from
+`(22, 22)` to `(202, 202)` of the 224 x 224 output to produce exact 180 x 180
+RGBA PNGs. This crop is a pixel-exact region copy: both replacement PNGs were
+verified to contain zero anti-aliased/partial-alpha pixels (0 of 32,400
+pixels with `0 < alpha < 255`), so no resampling or hand-painting was
+applied to PixelLab's output.
+
+- `frame_004.png` <- generated frame index 1 of animation asset
+  `1a6e4335-a4e3-462d-8e2d-f6b297772d1b`, cropped as above.
+- `frame_005.png` <- generated frame index 6 of the same animation asset,
+  cropped as above.
+
+The existing 004/005 fallback used generated indices 1/5. In this alternate,
+frame 005 uses generated index 6 of the same PixelLab animation asset,
+cropped at the same (22,22)-(202,202) region. Index 6 returns closer to the
+north-east three-quarter view before the loop restarts. Frame 004 still
+turns somewhat rearward, so this is a visual review candidate, not an
+approved continuity fix.
+Generated frame indices 0 (start-pose reference), 2, 3, 4, and 5 were
+reviewed and not used; they remain retrievable under the same animation
+group ID for future reference. The former selected index-5 frame 005 is
+preserved by fallback commit 7fe174fc5 with SHA-256
+5e98c6d76a0cebbd4213e45245bf1fee90b5e652b46b9bd4dd51f06f6f8786d3.
+This alternate uses cached PixelLab index 6 with SHA-256
+a201861900e1c801545b25f181f3bf116f3be079a2c9f872ca6fd92d809ffe5a;
+it required no new generator call.
+
+The original NSC-073 source checkout had no `.meta` files for these PNGs.
+Current main tracks `.meta` files at both selected paths. This reconciliation
+changes only the two PNGs at those paths and preserves their Unity GUIDs.
+Full generation and selection provenance, including previous/new size and
+SHA-256 for both files, is recorded under `corrections` in `source-inventory.json`.
+
+This candidate still requires the Windows orchestrator to run the committed
+`WizardArtIntegrationTests` Unity Edit Mode test on this exact commit, and
+Vincent's exact-candidate visual approval in `Assets/Scenes/DoorPrototype.unity`,
+before integration (NSC-073 `VAL-001` and `VAL-002`).
