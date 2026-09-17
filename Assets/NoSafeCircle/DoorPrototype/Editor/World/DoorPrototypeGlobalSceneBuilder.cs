@@ -2,7 +2,9 @@ using System.IO;
 using UnityEditor;
 using UnityEditor.Animations;
 using UnityEditor.Events;
+using NoSafeCircle.DoorPrototype.Enemies;
 using UnityEngine;
+using UnityEngine.AI;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.UI;
@@ -58,27 +60,38 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
                 WizardPresentation.Masculine,
                 WizardSkin.White,
                 "masculine-light",
-                "Masculine Wizard\nLight Skin"),
+                "Ember Wizard"),
             new WizardSelectionDefinition(
                 WizardPresentation.Masculine,
                 WizardSkin.Black,
                 "masculine-dark",
-                "Masculine Wizard\nDark Skin"),
+                "Ash Wizard"),
             new WizardSelectionDefinition(
                 WizardPresentation.Feminine,
                 WizardSkin.White,
                 "feminine-light",
-                "Feminine Wizard\nLight Skin"),
+                "Frost Wizard"),
             new WizardSelectionDefinition(
                 WizardPresentation.Feminine,
                 WizardSkin.Black,
                 "feminine-dark",
-                "Feminine Wizard\nDark Skin")
+                "Dusk Wizard")
         };
 
         // Placeholder color only (GDD: placeholder character sprites are acceptable).
         private static readonly Color32 WizardSpriteFillColor = new Color32(88, 64, 145, 255);
         private static readonly Color32 WizardSpriteBorderColor = new Color32(40, 28, 66, 255);
+        private static readonly Color32 EnemySpriteFillColor = new Color32(168, 46, 46, 255);
+        private static readonly Color32 EnemySpriteBorderColor = new Color32(72, 18, 18, 255);
+
+        // The caster reads as fire rather than blood so the two enemy types stay tellable apart
+        // at gameplay distance: bright ember orange against the melee enemy's darker red.
+        private static readonly Color32 CasterSpriteFillColor = new Color32(232, 108, 32, 255);
+        private static readonly Color32 CasterSpriteBorderColor = new Color32(120, 40, 8, 255);
+
+        // Single owned root for every authored enemy, so one entry in the scene builder's clear
+        // list removes the whole squad instead of leaving copies behind on each rebuild.
+        internal const string EnemiesRootName = "Enemies";
 
         // Classic 2:1 dimetric isometric camera angle (rotate -45 degrees around Y to face
         // a corner, then tilt 30 degrees down) matching Diablo 1 / Ultima Online-style
@@ -94,7 +107,11 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
 
         // Unity Isometric Z-as-Y Individual Tilemap sorting axis. X intentionally contributes no
         // depth so moving along a horizontal wall cannot flip occlusion.
-        private static readonly Vector3 IsometricTransparencySortAxis = new Vector3(0f, 1f, -0.26f);
+        // Unity draws the LARGER custom-axis dot product first (farther back). This camera sits
+        // at -Z looking toward +Z, so a larger world Z is genuinely farther and must produce the
+        // larger value: the Z coefficient is positive. A negative coefficient inverted depth and
+        // rendered a door in front of a wizard standing south of it.
+        private static readonly Vector3 IsometricTransparencySortAxis = new Vector3(0f, 1f, 0.26f);
 
         // Every root this class owns and clears before rebuilding, split out from the
         // environment-owned roots DoorPrototypeSceneBuilder clears itself (AC-005: explicit
@@ -237,7 +254,11 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
             string architecturalTileAssetFolder)
         {
             var player = new GameObject("Player");
-            player.transform.position = new Vector3(0f, 0f, -4f);
+
+            // Far south-west corner of the Ruined Entry (X[-14,14], Z[-26,0]), so the run opens
+            // with a walk across the whole first room toward D1 at (0, 0) instead of starting
+            // a few steps from it.
+            player.transform.position = PlayerSpawnPosition;
 
             var characterController = player.AddComponent<CharacterController>();
             characterController.center = new Vector3(0f, 1f, 0f);
@@ -247,8 +268,10 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
             // CharacterController collision keeps the capsule approximately one skinWidth
             // above the collision surface. Spawn at that already-grounded root height so
             // Play Mode does not begin with the wizard visibly falling onto the floor.
-            player.transform.position =
-                new Vector3(0f, characterController.skinWidth, -4f);
+            player.transform.position = new Vector3(
+                PlayerSpawnPosition.x,
+                characterController.skinWidth,
+                PlayerSpawnPosition.z);
 
             // Placeholder wizard sprite (GDD: placeholder character sprites are acceptable),
             // instantiated from the same reusable world-space SpriteRenderer prefab as the
@@ -312,6 +335,151 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
             }
             SetPrivateField(movement, "inputActions", inputActions);
             playerSpawn = BuildPlayerSpawn(movement.transform).transform;
+        }
+
+        // Places one melee enemy that acquires the wizard through EnemyTargetKnowledge, pursues
+        // across the already-baked gameplay NavMesh, and can be escaped by crossing a door. The
+        // visual reuses the same world-space SpriteRenderer prefab as the wizard and door so
+        // transparent sorting stays consistent with everything else in the scene. Must run after
+        // BuildGameplayNavigation has baked, or the agent has no surface to path on.
+        // One enemy per room beyond the entry, placed near the middle of its own room and well
+        // away from both doors on that room's boundaries, so the wizard never walks through a
+        // door into an enemy waiting on the far side. Room bounds and door centers come from
+        // RoomSceneCatalog: RuinedEntry Z[-26,0], BoneArchive Z[0,20], ChapelOfAsh Z[20,42],
+        // LowerVault Z[42,64], FinalRoom Z[64,86]; doors D1(0,0) D2(6,20) D3(-6,42) D4(4,64)
+        // D5(0,86). The wizard spawns at (0, 0, -4), so RuinedEntry is deliberately left empty.
+        private static readonly Vector3[] EnemySpawnPositions =
+        {
+            new Vector3(-6f, 0f, 10f),  // BoneArchive mid-room; D1 (0,0) and D2 (6,20) both 10 away
+            new Vector3(7f, 0f, 31f),   // ChapelOfAsh mid-room; D2 (6,20) and D3 (-6,42) both 11 away
+            new Vector3(-7f, 0f, 53f),  // LowerVault mid-room; D3 (-6,42) and D4 (4,64) both 11 away
+            new Vector3(8f, 0f, 74f),   // FinalRoom; 10 from D4 (4,64), 12 from the D5 exit (0,86)
+            new Vector3(-8f, 0f, 77f),  // FinalRoom second guard, opposite side
+        };
+
+        // Half a room, so a leashed enemy never reaches either of its room's doorways.
+        private const float EnemyPursuitLeashDistance = 5f;
+
+        // Ruined Entry spans X[-14,14], Z[-26,0] with D1 at (0, 0). Starting in the far
+        // south-west corner keeps the wizard well clear of the first door and of every enemy,
+        // which all live from the Bone Archive northward.
+        private static readonly Vector3 PlayerSpawnPosition = new Vector3(-10f, 0f, -22f);
+
+        // Stationary fire-casters, one per room from the Bone Archive onward. Offset to the
+        // opposite side of each room from the melee enemy so the wizard is pressured from two
+        // directions rather than one, and still clear of every door center.
+        private static readonly Vector3[] EnemyCasterSpawnPositions =
+        {
+            new Vector3(7f, 0f, 13f),   // Bone Archive, opposite the melee at (-6, 10)
+            new Vector3(-9f, 0f, 27f),  // Chapel of Ash, opposite the melee at (7, 31)
+            new Vector3(8f, 0f, 57f),   // Lower Vault, opposite the melee at (-7, 53)
+            new Vector3(0f, 0f, 70f),   // Final Room, covering the approach from D4
+        };
+
+        internal static void BuildChaseEnemies(Transform player, string architecturalTileAssetFolder)
+        {
+            var enemiesRoot = new GameObject(EnemiesRootName);
+
+            foreach (Vector3 spawnPosition in EnemySpawnPositions)
+            {
+                BuildChaseEnemy(player, architecturalTileAssetFolder, enemiesRoot.transform, spawnPosition);
+            }
+
+            foreach (Vector3 spawnPosition in EnemyCasterSpawnPositions)
+            {
+                BuildCasterEnemy(player, architecturalTileAssetFolder, enemiesRoot.transform, spawnPosition);
+            }
+        }
+
+        // The caster holds its ground and answers the wizard's fireball with its own until its
+        // mana runs out. No NavMeshAgent or pursuit components: it owns its range and sight
+        // tests directly, so it needs nothing from the navigation surface.
+        private static void BuildCasterEnemy(
+            Transform player,
+            string architecturalTileAssetFolder,
+            Transform enemiesRoot,
+            Vector3 spawnPosition)
+        {
+            var caster = new GameObject("FireCasterEnemy");
+            caster.transform.SetParent(enemiesRoot, false);
+            caster.transform.position = spawnPosition;
+
+            DoorPrototypeSceneBuilder.CreateWorldSpriteVisual(
+                "Visual",
+                "FireCasterEnemySprite",
+                caster.transform,
+                Vector3.zero,
+                Quaternion.identity,
+                new Vector2(1f, 2f),
+                CreateWizardSilhouettePixels(
+                    DoorPrototypeSceneBuilder.WorldSpriteTextureSize,
+                    DoorPrototypeSceneBuilder.WorldSpriteTextureSize,
+                    CasterSpriteFillColor,
+                    CasterSpriteBorderColor),
+                architecturalTileAssetFolder);
+
+            caster.AddComponent<EnemyFireballCaster>().Initialize(player);
+
+            // EnemyHealth makes the caster killable by the wizard's own fireball, which is the
+            // only way past one that still has mana.
+            caster.AddComponent<EnemyHealth>();
+        }
+
+        private static void BuildChaseEnemy(
+            Transform player,
+            string architecturalTileAssetFolder,
+            Transform enemiesRoot,
+            Vector3 spawnPosition)
+        {
+            var enemy = new GameObject("MeleeEnemy");
+            enemy.transform.SetParent(enemiesRoot, false);
+            enemy.transform.position = spawnPosition;
+
+            // Match the agent to the project-configured type the surface was baked with; a
+            // mismatched radius/height silently refuses to produce a complete path.
+            var agent = enemy.AddComponent<NavMeshAgent>();
+            NavMeshBuildSettings navigationSettings = NavMesh.GetSettingsByIndex(0);
+            agent.agentTypeID = navigationSettings.agentTypeID;
+            agent.radius = navigationSettings.agentRadius;
+            agent.height = navigationSettings.agentHeight;
+            agent.speed = 2.2f;
+            agent.acceleration = 12f;
+            agent.angularSpeed = 720f;
+            agent.stoppingDistance = 0.6f;
+            agent.autoBraking = true;
+
+            DoorPrototypeSceneBuilder.CreateWorldSpriteVisual(
+                "Visual",
+                "MeleeEnemySprite",
+                enemy.transform,
+                Vector3.zero,
+                Quaternion.identity,
+                new Vector2(1f, 2f),
+                CreateWizardSilhouettePixels(
+                    DoorPrototypeSceneBuilder.WorldSpriteTextureSize,
+                    DoorPrototypeSceneBuilder.WorldSpriteTextureSize,
+                    EnemySpriteFillColor,
+                    EnemySpriteBorderColor),
+                architecturalTileAssetFolder);
+
+            // EnemyPursuitMovement and EnemyLockedDoorAttack both resolve their collaborators
+            // through GetComponent in Awake, so only the wizard Transform needs injecting here.
+            EnemyTargetKnowledge targetKnowledge = enemy.AddComponent<EnemyTargetKnowledge>();
+            targetKnowledge.Initialize(player);
+
+            // Authored enemies only: a closed door's doorwayBlocker or a wall must hide the
+            // wizard. Component tests construct EnemyTargetKnowledge directly and keep the
+            // distance-only acquisition contract, which defaults this off.
+            targetKnowledge.SetRequiresLineOfSight(true);
+
+            // Each room is 20-26 units deep with a door at either boundary, so a 5-unit leash
+            // around a mid-room post keeps every enemy at least ~5 units clear of both doors.
+            // Without it, pursuit converges on the doorway and the wizard opens a door into an
+            // enemy already standing in it.
+            targetKnowledge.SetMaximumPursuitDistanceFromStart(EnemyPursuitLeashDistance);
+
+            enemy.AddComponent<EnemyPursuitMovement>();
+            enemy.AddComponent<EnemyHealth>();
         }
 
         private static GameObject BuildPlayerSpawn(Transform player)

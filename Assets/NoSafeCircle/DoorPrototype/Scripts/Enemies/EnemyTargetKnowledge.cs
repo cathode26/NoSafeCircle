@@ -40,6 +40,15 @@ namespace NoSafeCircle.DoorPrototype.Enemies
         private void Awake()
         {
             ValidateDistances(detectionDistance, loseTargetDistance);
+
+            // startPosition/hasStartPosition are deliberately not serialized, so the leash must
+            // anchor itself here rather than relying on IsBeyondPursuitLeash being reached. The
+            // sight test is evaluated first in the acquisition chain, so a lazy anchor would
+            // never initialize while sight is blocked - and would then measure distance from
+            // world origin, which for an enemy at Z 53 exceeds any leash and silently prevents
+            // it from ever acquiring the wizard.
+            startPosition = transform.position;
+            hasStartPosition = true;
         }
 
         private void OnValidate()
@@ -88,9 +97,22 @@ namespace NoSafeCircle.DoorPrototype.Enemies
             {
                 var distanceToWizard = Vector3.Distance(transform.position, wizardTransform.position);
 
-                if (State != EnemyTargetKnowledgeState.Pursuing && distanceToWizard <= detectionDistance)
+                if (State != EnemyTargetKnowledgeState.Pursuing
+                    && distanceToWizard <= detectionDistance
+                    && HasUnobstructedViewOfWizard()
+                    && !IsBeyondPursuitLeash())
                 {
                     AcquireTarget();
+                    return;
+                }
+
+                // Dragged too far from its post: give up and head back rather than following
+                // the wizard onto a doorway.
+                if (State == EnemyTargetKnowledgeState.Pursuing && IsBeyondPursuitLeash())
+                {
+                    LastKnownPosition = startPosition;
+                    State = EnemyTargetKnowledgeState.SearchingLastKnownPosition;
+                    searchTimeRemaining = 0f;
                     return;
                 }
 
@@ -112,6 +134,71 @@ namespace NoSafeCircle.DoorPrototype.Enemies
                     ClearTarget();
                 }
             }
+        }
+
+        /// Demo-scoped sight rule. Off by default so existing component tests keep the
+        /// distance-only acquisition contract they assert; the scene builder turns it on for
+        /// the enemies it authors so a closed door actually hides the wizard. Solid gameplay
+        /// colliders (wall boxes, a door's enabled doorwayBlocker) block the view; triggers
+        /// such as the door's own range volume are ignored.
+        [SerializeField] private bool requiresLineOfSight;
+
+        /// Demo-scoped leash. Zero means unlimited, which is the behavior every existing test
+        /// asserts. When set, the enemy gives up once it has been dragged this far from where
+        /// it started, so it can never follow the wizard onto a doorway and camp the threshold
+        /// the wizard is about to walk through.
+        [SerializeField, Min(0f)] private float maximumPursuitDistanceFromStart;
+
+        private Vector3 startPosition;
+        private bool hasStartPosition;
+
+        public void SetRequiresLineOfSight(bool required)
+        {
+            requiresLineOfSight = required;
+        }
+
+        public void SetMaximumPursuitDistanceFromStart(float distance)
+        {
+            maximumPursuitDistanceFromStart = Mathf.Max(0f, distance);
+            startPosition = transform.position;
+            hasStartPosition = true;
+        }
+
+        private bool IsBeyondPursuitLeash()
+        {
+            if (maximumPursuitDistanceFromStart <= 0f) return false;
+
+            if (!hasStartPosition)
+            {
+                startPosition = transform.position;
+                hasStartPosition = true;
+            }
+
+            var fromStart = transform.position - startPosition;
+            fromStart.y = 0f;
+            return fromStart.magnitude > maximumPursuitDistanceFromStart;
+        }
+
+        private bool HasUnobstructedViewOfWizard()
+        {
+            if (!requiresLineOfSight || wizardTransform == null) return true;
+
+            // Sample at chest height so the ground plane itself never counts as an occluder.
+            var eye = transform.position + Vector3.up;
+            var target = wizardTransform.position + Vector3.up;
+            var toTarget = target - eye;
+            var distance = toTarget.magnitude;
+            if (distance <= 0.01f) return true;
+
+            if (!Physics.Raycast(eye, toTarget / distance, out RaycastHit hit, distance,
+                    Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+            {
+                return true;
+            }
+
+            // The wizard's own CharacterController sits at the end of this ray, so hitting it
+            // means the view is clear. Anything else in the way is a real occluder.
+            return hit.transform == wizardTransform || hit.transform.IsChildOf(wizardTransform);
         }
 
         private void AcquireTarget()

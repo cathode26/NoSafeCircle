@@ -89,7 +89,17 @@ namespace NoSafeCircle.DoorPrototype.Editor
             "Floor",
             "Walls",
             "DoorRoot",
-            FloorRunRestartControllerName
+            FloorRunRestartControllerName,
+            // Both are created fresh by every rebuild, so they must be cleared first or each
+            // Build() leaves another copy behind - a second enemy squad dealing contact damage,
+            // and two run-flow objects drawing the same overlay twice.
+            DoorPrototypeGlobalSceneBuilder.EnemiesRootName,
+            "DemoRunFlow",
+            // Legacy root-level enemies from builds that predate the Enemies root. Without
+            // these two names an earlier build's stale enemy survives every rebuild, keeps its
+            // old spawn point, and has no wizard wired - the one that sat two units past D1.
+            "MeleeEnemy",
+            "FireCasterEnemy"
         };
 
         static DoorPrototypeSceneBuilder()
@@ -173,6 +183,11 @@ namespace NoSafeCircle.DoorPrototype.Editor
                 out var wizardAnimationController,
                 out Transform playerSpawn,
                 architecturalTileAssetFolder);
+
+            DoorPrototypeGlobalSceneBuilder.BuildChaseEnemies(movement.transform, architecturalTileAssetFolder);
+
+            var demoRunFlow = new GameObject("DemoRunFlow");
+            demoRunFlow.AddComponent<DemoRunFlow>();
 
             var doorFeedback = door.GetComponent<DoorInteractionFeedback>();
             SetPrivateField(doorFeedback, "playerMovement", movement);

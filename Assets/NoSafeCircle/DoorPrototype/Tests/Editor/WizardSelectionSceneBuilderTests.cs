@@ -29,10 +29,10 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
 
         private static readonly string[] ExpectedLabels =
         {
-            "Masculine Wizard\nLight Skin",
-            "Masculine Wizard\nDark Skin",
-            "Feminine Wizard\nLight Skin",
-            "Feminine Wizard\nDark Skin"
+            "Ember Wizard",
+            "Ash Wizard",
+            "Frost Wizard",
+            "Dusk Wizard"
         };
 
         private static readonly string[] ExpectedPreviewPaths =
