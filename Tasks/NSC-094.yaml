@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-094",
-  "contract_revision": 2,
+  "contract_revision": 3,
   "contract_disposition": "superseded",
   "superseded_by": "NSC-077",
   "title": "Enemy Eight-Direction Walk Animation Integration",
@@ -66,7 +66,7 @@
   "basis": "human_requested_all_moving_characters_eight_direction_walk",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "Superseded by NSC-077 contract revision 3 on 2026-09-16 at Vincent's direction: NSC-077 now puts the approved enemy idle and walk art, including this task's walk animation scope, on the existing scene enemies. Do not implement this task; its resource claims are released. This task owns only reusable walk animation presentation integration. NSC-015 and NSC-055 consume its outputs during later enemy-prefab assembly; they do not edit this task's generated walk assets. Wizard eight-direction work remains NSC-074/NSC-075.",
+  "notes": "Superseded by NSC-077 contract revision 3 on 2026-09-16 at Vincent's direction: NSC-077 now puts the approved enemy idle and walk art, including this task's walk animation scope, on the existing scene enemies. Do not implement this task; its resource claims are released. Its historical scope was reusable walk animation presentation integration; NSC-077 now owns that output, and NSC-015 and NSC-055 consume NSC-077's enemy animation instead. Wizard eight-direction work remains NSC-074/NSC-075.",
   "repository_state_at_bootstrap": "not_applicable",
   "repository_evidence_at_bootstrap": [],
   "provenance": {
@@ -82,6 +82,15 @@
         "previous_contract_revision": 1,
         "base_contract_sha256": "cfa2ea15ec22950d20e5d34acb4837b8cfb60053686b2bd9e3031cd31a59e6ce",
         "revised_contract_sha256": "b8af1179dc68639dd6ae4b1f8f5b9678be3b88e19118cf3914e2c065ea4da90d",
+        "review": "none; taskcontrol validate only (Vincent, 2026-09-16)"
+      },
+      {
+        "date": "2026-09-17",
+        "reason": "Mechanical: correct the superseded note so NSC-015 and NSC-055 consume NSC-077's enemy animation, not NSC-094 outputs (flagged by the NSC-015 and NSC-055 Codex contract checks). Reference grep done.",
+        "source_head": "b80c74c97bf04b3cd97801abf1ab7c116aa587af",
+        "previous_contract_revision": 2,
+        "base_contract_sha256": "81a6cfb7db890ce9c55e4ee69c8944b3c1e3bd42314b9a790a016d37c0d11973",
+        "revised_contract_sha256": "71a0b045b63410c7d7485fee268ae8ff25a5700590656d6820c3c3b8097fe48e",
         "review": "none; taskcontrol validate only (Vincent, 2026-09-16)"
       }
     ]
