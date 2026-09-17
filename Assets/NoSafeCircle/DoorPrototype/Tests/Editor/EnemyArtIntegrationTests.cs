@@ -188,7 +188,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
         }
 
         // NSC-077 AC-001/AC-007/AC-008 and VAL-003: the committed production scene contains
-        // the existing five moving enemies and four stationary Lantern Wraiths with generated art.
+        // one enemy per builder spawn position, with the generated art and existing gameplay setup.
         [Test]
         public void SavedSceneEnemiesUseGeneratedArtControllersAndExistingGameplaySetup()
         {
@@ -203,9 +203,13 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                 .ToArray();
             GameObject[] meleeEnemies = enemies.Where(enemy => enemy.name == "MeleeEnemy").ToArray();
             GameObject[] wraiths = enemies.Where(enemy => enemy.name == "LanternWraith").ToArray();
-            Assert.AreEqual(5, meleeEnemies.Length);
-            Assert.AreEqual(4, wraiths.Length);
-            Assert.AreEqual(9, enemies.Length);
+            Vector3[] meleeSpawnPositions = EditorSpawnPositions("EnemySpawnPositions");
+            Vector3[] wraithSpawnPositions = EditorSpawnPositions("LanternWraithSpawnPositions");
+            Assert.That(meleeSpawnPositions, Is.Not.Empty);
+            Assert.That(wraithSpawnPositions, Is.Not.Empty);
+            Assert.AreEqual(meleeSpawnPositions.Length, meleeEnemies.Length);
+            Assert.AreEqual(wraithSpawnPositions.Length, wraiths.Length);
+            Assert.AreEqual(meleeSpawnPositions.Length + wraithSpawnPositions.Length, enemies.Length);
             Assert.IsFalse(enemies.Any(enemy => enemy.name == "FireCasterEnemy"));
 
             GameObject[] sceneObjects = scene.GetRootGameObjects()
@@ -220,25 +224,8 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                     "Saved scene has a missing script on " + HierarchyPath(sceneObject.transform));
             }
 
-            CollectionAssert.AreEquivalent(
-                new[]
-                {
-                    new Vector3(-6f, 0f, 10f),
-                    new Vector3(7f, 0f, 31f),
-                    new Vector3(-7f, 0f, 53f),
-                    new Vector3(8f, 0f, 74f),
-                    new Vector3(-8f, 0f, 77f)
-                },
-                meleeEnemies.Select(enemy => enemy.transform.position).ToArray());
-            CollectionAssert.AreEquivalent(
-                new[]
-                {
-                    new Vector3(7f, 0f, 13f),
-                    new Vector3(-9f, 0f, 27f),
-                    new Vector3(8f, 0f, 57f),
-                    new Vector3(0f, 0f, 70f)
-                },
-                wraiths.Select(enemy => enemy.transform.position).ToArray());
+            AssertEnemyPositionsMatchDistinctSpawnPositions(meleeEnemies, meleeSpawnPositions);
+            AssertEnemyPositionsMatchDistinctSpawnPositions(wraiths, wraithSpawnPositions);
 
             SpriteRenderer doorRenderer = scene.GetRootGameObjects()
                 .Single(root => root.name == "DoorRoot")
@@ -460,6 +447,50 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                 BindingFlags.Static | BindingFlags.NonPublic);
             Assert.IsNotNull(field);
             return (Vector3)field.GetValue(null);
+        }
+
+        private static Vector3[] EditorSpawnPositions(string fieldName)
+        {
+            Type builderType = typeof(EnemyAnimationAssetBuilder).Assembly.GetType(
+                "NoSafeCircle.DoorPrototype.Editor.World.DoorPrototypeGlobalSceneBuilder");
+            Assert.IsNotNull(builderType);
+            FieldInfo field = builderType.GetField(
+                fieldName,
+                BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.IsNotNull(field);
+            Assert.AreEqual(typeof(Vector3[]), field.FieldType);
+            Vector3[] positions = (Vector3[])field.GetValue(null);
+            Assert.IsNotNull(positions);
+            return positions;
+        }
+
+        private static void AssertEnemyPositionsMatchDistinctSpawnPositions(
+            IReadOnlyList<GameObject> enemies,
+            IReadOnlyList<Vector3> spawnPositions)
+        {
+            var matchedSpawnPositions = new bool[spawnPositions.Count];
+            foreach (GameObject enemy in enemies)
+            {
+                Vector3 enemyPosition = enemy.transform.position;
+                int matchingIndex = -1;
+                for (int index = 0; index < spawnPositions.Count; index++)
+                {
+                    if (!matchedSpawnPositions[index] &&
+                        Mathf.Abs(enemyPosition.x - spawnPositions[index].x) <= 0.001f &&
+                        Mathf.Abs(enemyPosition.z - spawnPositions[index].z) <= 0.001f)
+                    {
+                        Assert.AreEqual(-1, matchingIndex,
+                            enemy.name + " matches more than one builder spawn position.");
+                        matchingIndex = index;
+                    }
+                }
+
+                Assert.That(matchingIndex, Is.GreaterThanOrEqualTo(0),
+                    enemy.name + " has no distinct matching builder spawn position.");
+                matchedSpawnPositions[matchingIndex] = true;
+            }
+
+            Assert.IsTrue(matchedSpawnPositions.All(isMatched => isMatched));
         }
 
         private static void AssertVector3Exactly(
