@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-009",
-  "contract_revision": 4,
+  "contract_revision": 5,
   "contract_disposition": "active",
   "title": "Force Wave Cast, Enemy Displacement Request, and Cooldown UI",
   "reconciliation_key": "force-wave",
@@ -54,7 +54,7 @@
     },
     {
       "reference": "nsc-gdd-008, nsc-gdd-009, nsc-gdd-074; Docs/GDD/No_Safe_Circle_GDD.md:79,91-92,691-692",
-      "requirement": "ForceWave owns a serialized long cooldown duration and exposes read-only readiness, remaining-time, and duration state. It exposes ResetForceWave(), which clears cooldown and restores Force Wave to its enabled floor-start state without changing PlayerMana or enemy-owned state.",
+      "requirement": "ForceWave owns a serialized long cooldown duration and exposes read-only readiness, remaining-time, and duration state. It exposes ResetForceWave(), which clears cooldown, immediately ends an active cast pulse (AC-012's IsPulseActive becomes false), and restores Force Wave to its enabled floor-start state without changing PlayerMana or enemy-owned state.",
       "criterion_id": "AC-005"
     },
     {
@@ -90,7 +90,7 @@
     {
       "criterion_id": "AC-012",
       "reference": "C:\\nscrev\\ger-contract-revisions-20260916\\spells\\SPELL_DECISIONS.md S5; C:\\nscrev\\ger-contract-revisions-20260916\\spells\\REV4_DECISIONS.md NSC-009 item 5; Docs/GDD/No_Safe_Circle_GDD.md:91,576",
-      "requirement": "ForceWave exposes a read-only bool IsPulseActive and a serialized positive pulse duration. A successful TryCast() (AC-002's spend-then-act path) sets IsPulseActive true during the same call that requests displacement (AC-003) and starts cooldown (AC-005); IsPulseActive returns to false once the serialized pulse duration elapses through ForceWave's own Tick/Update, independent of cooldown length. A refused cast, whether from suspension, an active cooldown, or insufficient mana (AC-002), never sets IsPulseActive and never starts a pulse; ForceWaveCooldownUI (AC-008) shows its existing unavailable/cooldown-refusal state for that refusal instead, and Force Wave introduces no new audio or additional UI beyond that existing display. IsPulseActive and the pulse duration are cosmetic-only: they never gate, delay, or extend AC-001's candidate query, AC-003's displacement request, or AC-002's mana spend and cooldown start (AC-006)."
+      "requirement": "ForceWave exposes a read-only bool IsPulseActive and a serialized positive pulse duration. A successful TryCast() (AC-002's spend-then-act path) sets IsPulseActive true during the same call that requests displacement (AC-003) and starts cooldown (AC-005); IsPulseActive returns to false once the serialized pulse duration elapses through ForceWave's own Tick/Update, independent of cooldown length, or immediately when ResetForceWave() runs (AC-005). A refused cast, whether from suspension, an active cooldown, or insufficient mana (AC-002), never sets IsPulseActive and never starts a pulse; ForceWaveCooldownUI (AC-008) shows its existing unavailable/cooldown-refusal state for that refusal instead, and Force Wave introduces no new audio or additional UI beyond that existing display. IsPulseActive and the pulse duration are cosmetic-only: they never gate, delay, or extend AC-001's candidate query, AC-003's displacement request, or AC-002's mana spend and cooldown start (AC-006)."
     }
   ],
   "completion_gates": [
@@ -106,7 +106,7 @@
     },
     {
       "reference": "Docs/GDD/No_Safe_Circle_GDD.md:68,92,94,100,104; NSC-009 AC-005 through AC-007, AC-011",
-      "requirement": "The ForceWavePlayModeTests filter verifies cooldown completion, ResetForceWave(), SuspendGameplayInput(), EnableGameplayInput(), IsGameplayEnabled, and AC-012's IsPulseActive lifecycle (true on a successful cast, false again after its serialized pulse duration, never set by a refused cast) through public behavior. A test starts a real DoorInteractable opening through PlayerInteractionController.BeginInteraction (or its approach flow), advances it with DoorInteractable.Tick so Progress > 0, casts Force Wave through its Input Action, keeps ticking, and verifies DoorInteractable.IsInteracting stays true, PlayerInteractionController.PendingDoor remains the same door, and Progress never drops and keeps increasing. A further scenario constructs a real TitleScreenController and WizardGameEntryController with their optional ForceWave references left unassigned and verifies WizardGameEntryController.EnterWorld still completes (HasEnteredGameplay true) exactly as with every other optional reference. A final scenario constructs the same pair with their optional ForceWave references assigned and verifies ForceWave spends no mana and starts no cooldown while the title/selection flow is active, then casts normally after WizardGameEntryController.EnterWorld completes, using the same production construction pattern WizardGameEntryPlayModeTests already uses.",
+      "requirement": "The ForceWavePlayModeTests filter verifies cooldown completion, ResetForceWave(), SuspendGameplayInput(), EnableGameplayInput(), IsGameplayEnabled, and AC-012's IsPulseActive lifecycle (true on a successful cast, false again after its serialized pulse duration, never set by a refused cast) through public behavior, including a reset-during-pulse case: cast successfully, call ResetForceWave() while IsPulseActive is still true, and verify IsPulseActive is false immediately, cooldown is cleared, and a new cast is accepted. A test starts a real DoorInteractable opening through PlayerInteractionController.BeginInteraction (or its approach flow), advances it with DoorInteractable.Tick so Progress > 0, casts Force Wave through its Input Action, keeps ticking, and verifies DoorInteractable.IsInteracting stays true, PlayerInteractionController.PendingDoor remains the same door, and Progress never drops and keeps increasing. A further scenario constructs a real TitleScreenController and WizardGameEntryController with their optional ForceWave references left unassigned and verifies WizardGameEntryController.EnterWorld still completes (HasEnteredGameplay true) exactly as with every other optional reference. A final scenario constructs the same pair with their optional ForceWave references assigned and verifies ForceWave spends no mana and starts no cooldown while the title/selection flow is active, then casts normally after WizardGameEntryController.EnterWorld completes, using the same production construction pattern WizardGameEntryPlayModeTests already uses.",
       "gate_id": "VAL-003"
     },
     {
@@ -128,7 +128,7 @@
   "downstream_integration_obligations": [
     {
       "reference": "NSC-033; nsc-gdd-074; Docs/GDD/No_Safe_Circle_GDD.md:102-104,691",
-      "requirement": "NSC-033 connects the shared Floor Run/Restart Orchestrator to ForceWave.ResetForceWave() and proves through the zero-health production path that an active cooldown is cleared and Force Wave is re-enabled without directly changing its fields.",
+      "requirement": "NSC-033 connects the shared Floor Run/Restart Orchestrator to ForceWave.ResetForceWave() and proves through the zero-health production path, with a cast pulse and cooldown both active at zero health, that the cooldown is cleared, IsPulseActive is false, and Force Wave is re-enabled without directly changing its fields.",
       "obligation_id": "INT-001"
     },
     {
@@ -179,7 +179,7 @@
   "basis": "direct_gdd",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "Both blocking decisions (geometry occlusion, shared input scheme) are resolved by SPELL_DECISIONS.md (2026-09-16); this revision is dispatchable. Radius 2-4 world units, knockback distance 1.5-3 world units, and cooldown 30-60 seconds remain author-only starting hypotheses, not contract thresholds. The existing visible cooldown is required; cast VFX/audio beyond the brief pulse and explicit cooldown-refusal feedback remain later presentation decisions (SPELL_DECISIONS.md S5). PlayerMana.Spend(float) and EnemyStatusEffectMovement.RequestDisplacement(Vector3, float) are delivered and unchanged since the original snapshot; check NSC-013 conformance before dispatch. The same graph apply must add work_id NSC-009 with reconciliation key force-wave to the RESOURCE_GROUPS.yaml group for repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs, and equivalent entries for TitleScreenController.cs and WizardGameEntryController.cs; committing this contract alone fails work_graph_validate. NSC-007 and NSC-008 separately add themselves to the same groups when each is committed. Force Wave does not damage or stun enemies, clear target knowledge, stop projectiles, or cancel door opening, and edits no enemy movement, restart, victory, door, room, encounter, wall, or visual-dressing owner files. AC-011's optional ForceWave references on TitleScreenController.cs and WizardGameEntryController.cs are the only edits this task makes to those two files; no other menu-flow behavior changes. The crew never hand-edits the generated scene; the Unity-capable controller owns the named Build step. Revision 4 (2026-09-17): applied GER Orchestrator decisions in REV4_DECISIONS.md and SPELL_DECISIONS.md following the Codex rev3 buildability check (codex-contract-check-NSC-009-rev3-20260917, recommendation: revise); Tasks/NSC-017.yaml VAL-003's stale locked-door-occlusion wording is a separate mechanical follow-up, not made in this revision.",
+  "notes": "Both blocking decisions (geometry occlusion, shared input scheme) are resolved by SPELL_DECISIONS.md (2026-09-16); this revision is dispatchable. Radius 2-4 world units, knockback distance 1.5-3 world units, and cooldown 30-60 seconds remain author-only starting hypotheses, not contract thresholds. The existing visible cooldown is required; cast VFX/audio beyond the brief pulse and explicit cooldown-refusal feedback remain later presentation decisions (SPELL_DECISIONS.md S5). PlayerMana.Spend(float) and EnemyStatusEffectMovement.RequestDisplacement(Vector3, float) are delivered and unchanged since the original snapshot; check NSC-013 conformance before dispatch. RESOURCE_GROUPS.yaml already lists NSC-009 in the groups for DoorPrototypeGlobalSceneBuilder.cs, TitleScreenController.cs and WizardGameEntryController.cs (reconciled when revision 3 was committed); no further group change is needed. NSC-007 and NSC-008 separately add themselves to the same groups when each is committed. Force Wave does not damage or stun enemies, clear target knowledge, stop projectiles, or cancel door opening, and edits no enemy movement, restart, victory, door, room, encounter, wall, or visual-dressing owner files. AC-011's optional ForceWave references on TitleScreenController.cs and WizardGameEntryController.cs are the only edits this task makes to those two files; no other menu-flow behavior changes. The crew never hand-edits the generated scene; the Unity-capable controller owns the named Build step. Revision 4 (2026-09-17): applied GER Orchestrator decisions in REV4_DECISIONS.md and SPELL_DECISIONS.md following the Codex rev3 buildability check (codex-contract-check-NSC-009-rev3-20260917, recommendation: revise); Tasks/NSC-017.yaml VAL-003's stale locked-door-occlusion wording is a separate mechanical follow-up, not made in this revision.",
   "repository_state_at_bootstrap": "missing",
   "repository_evidence_at_bootstrap": [],
   "provenance": {
@@ -207,6 +207,15 @@
         "previous_contract_revision": 3,
         "base_contract_sha256": "9afff24196f338ac17e4d9fabfbadce24950167e0afb366d2c03d4c2529a1e00",
         "revised_contract_sha256": "ca901271cd9e12771789d806b36280266f30a0dee389590bce92a34221fd1531",
+        "review": "post-commit Codex contract check (tiered rule, 2026-09-17)"
+      },
+      {
+        "date": "2026-09-17",
+        "reason": "Follow-up revision 5 from the rev 4 Codex check (revise): ResetForceWave() also ends an active cast pulse (AC-005, AC-012), VAL-003 adds a reset-during-pulse case, and INT-001's zero-health proof covers an active pulse; notes no longer claim the resource groups still need NSC-009 (they were reconciled at revision 3). The NSC-030 VAL-007 enumeration of INT-004's Force Wave checks lands in NSC-030 revision 8.",
+        "source_head": "3ed98ff553dffb6263d5594f7f4fe87db61fe8c7",
+        "previous_contract_revision": 4,
+        "base_contract_sha256": "9aa9424a66eb65276c90bfca16741a72c5f351a56835df00e196adbd18a823b8",
+        "revised_contract_sha256": "e324be7387ac9b88191568632907cbae66e9d2960124972c2d738121f7f33d70",
         "review": "post-commit Codex contract check (tiered rule, 2026-09-17)"
       }
     ]
