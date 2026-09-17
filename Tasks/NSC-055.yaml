@@ -2,32 +2,67 @@
   "acceptance_criteria": [
     {
       "criterion_id": "AC-001",
-      "reference": "NSC-016 AC-007 — Environment Presentation and Authoring Direction; Enemy Health/Defeat; Active Enemy Registry",
-      "requirement": "Creates a reusable world-space SpriteRenderer Ranged Enemy prefab using the shared isometric sorting convention and connects the shared pursuit component, keep-distance movement, projectile attack, Enemy Health/Defeat, and Active Enemy Registry behavior without duplicating health, defeat, or registry state."
+      "reference": "NSC-016 AC-007; NSC-054 INT-003; NSC-015 AC-004 builder pattern",
+      "requirement": "Create Assets/NoSafeCircle/DoorPrototype/Editor/LanternWraithGameplayPrefabBuilder.cs (+.meta), an Editor menu command at No Safe Circle/Build Lantern Wraith Gameplay Prefab exposing public static LanternWraithGameplayPrefabBuilder.BuildLanternWraithGameplayPrefab(), plus a deterministic non-saving in-memory seam for tests, following MeleeEnemyGameplayPrefabBuilder (NSC-015 AC-004). Its production entry point exclusively materializes Assets/NoSafeCircle/DoorPrototype/Generated/LanternWraithGameplay.prefab (+.meta); the prefab and its meta file are builder output and must not be hand-written or reconstructed. The generated prefab contains and wires exactly one NavMeshAgent, EnemyTargetKnowledge, EnemyPursuitMovement, EnemyStatusEffectMovement, EnemyHealth, RangedEnemyKeepDistanceMovement, RangedEnemyAttack, and LanternWraithDefeatResponse (AC-002) on a single GameObject, without duplicating health, defeat, or registry state. It exposes EnemyTargetKnowledge.Initialize(Transform) for the wizard target and EnemyHealth.Initialize(ActiveEnemyRegistry) for activation. It contains no scene registry reference, wizard scene reference, spawn placement, encounter count, room identity, door target, input action, or spell behavior, and no EnemyLockedDoorAttack component (AC-005)."
     },
     {
       "criterion_id": "AC-002",
-      "reference": "NSC-016 AC-007 — Enemy Health/Defeat; Active Enemy Registry",
-      "requirement": "Connects the Enemy Health/Defeat transition so defeat stops movement and attacks, clears active projectiles, and unregisters the persistent enemy exactly once through the shared registry interface."
+      "reference": "NSC-016 AC-007 Enemy Health/Defeat; NSC-015 MeleeEnemyDefeatResponse pattern",
+      "requirement": "Create Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/LanternWraithDefeatResponse.cs (+.meta). On EnemyHealth's Defeated event it disables RangedEnemyKeepDistanceMovement; disables RangedEnemyAttack, whose OnDisable calls RangedEnemyAttack.ResetAttack() and stops any active wind-up and every owned RangedEnemyProjectile; and stops the NavMeshAgent. It does not call ActiveEnemyRegistry.Unregister itself, because EnemyHealth.Defeat() already calls activeEnemyRegistry.Unregister(gameObject) exactly once. It exposes public ResetDefeatResponse(), which re-enables RangedEnemyKeepDistanceMovement and RangedEnemyAttack and resumes the NavMeshAgent, for floor restart (NSC-033 AC-004; downstream_integration_obligations INT-003)."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "NSC-077 AC-003, AC-004, AC-008 (read-only Lantern Wraith presentation); NSC-039 world-sprite convention",
+      "requirement": "The generated prefab presents the Lantern Wraith using NSC-077's delivered assets read-only. A Visual child, created the same way DoorPrototypeSceneBuilder.CreateWorldSpriteVisual creates it, has a SpriteRenderer following the NSC-039 world-sprite sorting and ground-contact pivot convention, in NSC-077's uniform camera-facing Visual box (64 pixels per unit, 2x2 world units, uniform scale 1, world rotation fixed to the camera rotation Euler (30, -45, 0)); it shows the Lantern Wraith's south idle still. The prefab root carries an Animator using the exact generated asset at Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraithAnimator.controller and an EnemyAnimationController. No clip, controller, or sprite is copied; NSC-077's generated assets and EnemyAnimationController.cs are not edited."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "NSC-054 INT-003; RangedEnemyAttack.cs and RangedEnemyProjectile.cs at HEAD; NSC-077 INT-002 wisp look pick",
+      "requirement": "Create Assets/NoSafeCircle/DoorPrototype/Generated/LanternWispProjectile.prefab (+.meta), builder output only, compatible with RangedEnemyProjectile's required components and serialized fields, as a glowing teal ghost-light orb placeholder: unlit or emissive, art-bible teal #30e0cb, no fire colors, at the size of NSC-077's scene stand-in orb. It is assigned to RangedEnemyAttack's serialized projectileTemplate field. LanternWraithGameplay.prefab (not the projectile prefab) includes a child Transform named WispOrigin at the lantern's height and offset, assigned to RangedEnemyAttack's serialized projectileOrigin field, and a child GameObject named LanternFlare assigned to RangedEnemyAttack's serialized windUpFeedback field: its SpriteRenderer is a placeholder teal flare using a builder-generated sprite asset (Assets/NoSafeCircle/DoorPrototype/Generated/LanternFlareSprite.asset + .meta), the SpriteRenderer stays enabled so RangedEnemyAttack.Tick's feedbackRenderer.enabled check passes, and the LanternFlare GameObject itself is active only during wind-up (matching RangedEnemyAttack.Awake and CancelWindUp, which call windUpFeedback.SetActive(false) outside wind-up). RangedEnemyProjectile's speed, lifetimeSeconds, collisionRadius, and damage fields, and RangedEnemyAttack's windUpSeconds and cooldownSeconds fields, keep their delivered values and ownership; this task changes none of them."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "NSC-017 INT-001; GER Orchestrator decision E3, 2026-09-17",
+      "requirement": "This revision does not attach EnemyLockedDoorAttack to the generated prefab and adds no dependency on NSC-017. A Lantern Wraith that loses sight of the wizard behind a locked door uses only its existing EnemyTargetKnowledge target-loss and search behavior. Locked-door wiring is deferred (downstream_integration_obligations INT-002)."
     }
   ],
   "basis": "direct_gdd",
   "completion_gates": [
     {
       "gate_id": "VAL-001",
-      "reference": "NSC-016 VAL-005 — Enemy Health/Defeat; Active Enemy Registry",
-      "requirement": "In a Play Mode prefab test, instantiate or enable the assembled Ranged Enemy prefab, verify it registers exactly once, apply lethal damage through Enemy Health/Defeat, and verify movement and attacks stop, active projectiles are cleared, and it unregisters exactly once."
+      "reference": "NSC-016 VAL-005; NSC-015 VAL-006 harness pattern; NSC-030 AC-005 (production activation, deferred)",
+      "requirement": "In a Play Mode prefab test, instantiate the generated prefab, call EnemyHealth.Initialize(registry) with a test registry, then call ActiveEnemyRegistry.Register(gameObject) explicitly as a test harness only, exactly as NSC-015 VAL-006 does; this does not claim production registration. Verify exactly one registration. Apply lethal damage through EnemyHealth.TakeDamage and verify: RangedEnemyKeepDistanceMovement and RangedEnemyAttack are disabled; every active RangedEnemyProjectile owned by the attack component is stopped and cleared; movement and attacks do not resume; and the harness registry shows exactly one unregistration."
     },
     {
       "gate_id": "VAL-002",
-      "reference": "NSC-016 VAL-001 — Required Enemy Roster; assembled-prefab integration",
-      "requirement": "In a Play Mode prefab test with no Melee Enemy present, instantiate the assembled Ranged Enemy prefab and verify that the same live instance approaches when outside its intended distance, retreats or repositions when too close, and separately completes a visible attack wind-up and spawns a projectile without either behavior disabling, overriding, or preventing the other."
+      "reference": "NSC-016 VAL-001 Required Enemy Roster; assembled-prefab integration",
+      "requirement": "In a Play Mode prefab test with no Melee Enemy present, instantiate the assembled Lantern Wraith prefab and verify that the same live instance approaches when outside its intended distance, retreats or repositions when too close, and separately completes a visible attack wind-up (LanternFlare becomes active, then inactive at launch) and spawns a LanternWisp projectile, without either behavior disabling, overriding, or preventing the other."
+    },
+    {
+      "gate_id": "VAL-003",
+      "reference": "NSC-015 VAL-003 prefab-conformance pattern; AC-001, AC-003, AC-004, AC-005",
+      "requirement": "An Edit Mode test opens the exact generated prefab read-only (or its non-saving builder seam) and verifies exactly one of each required component from AC-001; that RangedEnemyAttack's projectileTemplate, projectileOrigin, and windUpFeedback fields reference LanternWispProjectile, the WispOrigin child, and the LanternFlare child in this same prefab; that the Visual SpriteRenderer, Animator, and EnemyAnimationController match AC-003 exactly, including that the Animator references the exact NSC-077 controller asset path and GUID at Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraithAnimator.controller; that no EnemyLockedDoorAttack component is present; and that no scene or encounter reference exists. Running the production builder a second time creates no duplicate asset or component and changes no existing reference."
+    },
+    {
+      "gate_id": "VAL-004",
+      "reference": "NSC-077 AC-004, AC-005 (EnemyAnimationController state selection)",
+      "requirement": "A Play Mode test drives the assembled prefab's EnemyAnimationController.Tick while moving and while stationary, and verifies the walk state plays while the instance moves and the idle state plays when it stops, using the prefab's bound LanternWraithAnimator.controller."
+    },
+    {
+      "gate_id": "VAL-005",
+      "reference": "NSC-015 VAL-004 materialization pattern; Game Task Lessons Learned",
+      "requirement": "The Windows Unity controller runs No Safe Circle/Build Lantern Wraith Gameplay Prefab, checks that the expected prefab and every asset named in AC-004 were materialized, runs LanternWraithGameplayPrefabTests and LanternWraithGameplayPrefabPlayModeTests, runs the production builder a second time, and compares serialized component and reference meaning rather than raw YAML or whole-file hashes. The second run must not create duplicate assets or components. If Unity materialization is unavailable, stop at NEEDS_MATERIALIZATION with the exact menu path and expected output paths; an implementation agent must not hand-edit the serialized prefab or meta file."
+    },
+    {
+      "gate_id": "VAL-006",
+      "reference": "GER Orchestrator decision E4, 2026-09-17; human gameplay-camera validation",
+      "requirement": "Vincent reviews the exact materialized candidate in Play Mode at gameplay-camera scale. He confirms the lantern is visible, the wisp reads teal with no fire colors, and the wind-up flare reads before the shot. If presentation feedback has not been approved or cannot be read, record the open presentation decision instead of approving this gate."
     }
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 3,
-  "decomposition_reason": "The reusable SpriteRenderer prefab requires an explicit assembly child because the separately implemented movement and projectile components must be connected to shared pursuit, health, defeat, registry, and sorting behavior before the parent feature is usable.",
+  "contract_revision": 4,
+  "decomposition_reason": "The reusable SpriteRenderer prefab requires an explicit assembly child because the separately implemented movement, projectile-attack, and presentation components must be connected to shared pursuit, health, defeat, registry, and sorting behavior, and a Lantern Wisp projectile template and wind-up feedback asset must be authored, before the parent feature is usable.",
   "decomposition_state": "concrete",
   "depends_on": [
     "NSC-012",
@@ -37,11 +72,46 @@
     "NSC-054",
     "NSC-077"
   ],
-  "downstream_integration_obligations": [],
-  "exclusive_resources": [
-    "logical:enemy-locomotion-behavior-surface"
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "NSC-030 AC-005 (already required); NSC-054 INT-003",
+      "requirement": "NSC-030 activates the delivered LanternWraithGameplay.prefab instance: it supplies the wizard Transform through EnemyTargetKnowledge.Initialize(Transform), the shared registry through EnemyHealth.Initialize(ActiveEnemyRegistry), and submits the instance through EncounterAdmissionController.RequestAdmission; EncounterAdmissionController registers the enemy with ActiveEnemyRegistry only after admission. NSC-055 retains prefab behavior and contains no scene-bound target or registry reference; VAL-001's explicit ActiveEnemyRegistry.Register call is a test harness only and proves no production registration."
+    },
+    {
+      "obligation_id": "INT-002",
+      "reference": "NSC-017 INT-001; GER Orchestrator decision E3, 2026-09-17",
+      "requirement": "Once Vincent decides how Ranged Enemy keep-distance movement yields to a locked-door approach and what attack form it uses, a follow-up revision of NSC-055 (or an approved replacement owner) adds the resulting NSC-017 dependency, attaches and wires the decided locked-door behavior on LanternWraithGameplay.prefab, and proves it in prefab-conformance and Play Mode gates. Until that decision, the Lantern Wraith attaches no EnemyLockedDoorAttack and uses only its existing target-loss and search behavior at a locked door."
+    },
+    {
+      "obligation_id": "INT-003",
+      "reference": "NSC-033 AC-004; NSC-015 INT-001 pattern (MeleeEnemyDefeatResponse.ResetDefeatResponse())",
+      "requirement": "NSC-033 AC-004 adds LanternWraithDefeatResponse.ResetDefeatResponse() to the Floor Run/Restart Orchestrator's per-enemy reset call list, alongside the RangedEnemyAttack.ResetAttack() (NSC-054 INT-002) and RangedEnemyKeepDistanceMovement.ResetKeepDistanceMovement() (NSC-053 INT-003) calls it already owns, and verifies that after restart the Lantern Wraith's RangedEnemyKeepDistanceMovement and RangedEnemyAttack are re-enabled and its NavMeshAgent resumes."
+    },
+    {
+      "obligation_id": "INT-004",
+      "reference": "NSC-077 INT-002 (Vincent's Lantern Wraith wisp look pick, 2026-09-16)",
+      "requirement": "A later art task replaces LanternWispProjectile.prefab's placeholder teal orb with Vincent's picked production wisp look (the \"grumpy face\" sample A wisp, a lantern-flare wind-up, and a ring-pop hit), keeping the template's asset path and GUID and RangedEnemyAttack's and RangedEnemyProjectile's delivered gameplay numbers unless Vincent approves a change."
+    }
   ],
-  "execution_reason": "After the movement and projectile behaviors exist, one agent can assemble the prefab and validate its shared-component wiring and defeat response.",
+  "exclusive_resources": [
+    "logical:enemy-locomotion-behavior-surface",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/LanternWraithGameplayPrefabBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/LanternWraithGameplayPrefabBuilder.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/LanternWraithGameplay.prefab",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/LanternWraithGameplay.prefab.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/LanternWispProjectile.prefab",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/LanternWispProjectile.prefab.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/LanternFlareSprite.asset",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/LanternFlareSprite.asset.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/LanternWraithDefeatResponse.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/LanternWraithDefeatResponse.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/LanternWraithGameplayPrefabTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/LanternWraithGameplayPrefabTests.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/LanternWraithGameplayPrefabPlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/LanternWraithGameplayPrefabPlayModeTests.cs.meta"
+  ],
+  "execution_reason": "After the movement, projectile-attack, and read-only presentation components exist, one agent can build the prefab, assign the named Lantern Wisp template, origin, and wind-up feedback to RangedEnemyAttack's serialized fields, wire the shared pursuit, health, defeat, and registry behavior, add the defeat-response component, bind NSC-077's presentation, and validate the assembled prefab in a registration/defeat test harness.",
   "execution_scope": "single_agent",
   "gdd_evidence": [
     {
@@ -55,7 +125,7 @@
   ],
   "id": "NSC-055",
   "kind": "implementation",
-  "notes": "This child connects the named components into the reusable prefab. Encounter placement and the rule requiring Melee support remain outside this proposal. Human-approved audit correction: the assembled-prefab Play Mode coverage must also prove that keep-distance movement and projectile attack operate together on the same live GameObject; the focused component tests remain owned by NSC-053 and NSC-054. Revision 3 (2026-09-16): NSC-094 is superseded by NSC-077 revision 3, which supplies the Ranged Enemy idle and walk animation as LanternWraithAnimator.controller driven by EnemyAnimationController; this prefab reuses them read-only. Vincent decided on 2026-09-16 that the Ranged Enemy is the Lantern Wraith and that its projectile is a teal lantern wisp with unchanged gameplay, so this prefab presents the Lantern Wraith.",
+  "notes": "This child connects the named components into the reusable prefab. Encounter placement and the rule requiring Melee support remain outside this proposal. Human-approved audit correction: the assembled-prefab Play Mode coverage must also prove that keep-distance movement and projectile attack operate together on the same live GameObject; the focused component tests remain owned by NSC-053 and NSC-054. Revision 3 (2026-09-16): NSC-094 is superseded by NSC-077 revision 3, which supplies the Ranged Enemy idle and walk animation as LanternWraithAnimator.controller driven by EnemyAnimationController; this prefab reuses them read-only. Vincent decided on 2026-09-16 that the Ranged Enemy is the Lantern Wraith and that its projectile is a teal lantern wisp with unchanged gameplay, so this prefab presents the Lantern Wraith. Revision 4 (2026-09-17): applies the GER Orchestrator's decisions E1-E6 (C:/nscrev/ger-contract-revisions-20260916/followups-20260917/NSC-055_REV4_DECISIONS.md, from the revision 3 Codex check). Names the production builder, generated prefab, Lantern Wisp projectile template, projectile origin, wind-up feedback, and defeat-response component (NSC-054 INT-003); proves registration and defeat cleanup through an NSC-015 VAL-006-style test harness only, transferring production activation to NSC-030 AC-005 (INT-001); promotes NSC-077's read-only Lantern Wraith presentation (Visual, LanternWraithAnimator.controller, EnemyAnimationController) into acceptance criteria and gates (AC-003, VAL-003, VAL-004, VAL-006); and explicitly defers Ranged Enemy locked-door behavior pending Vincent's decision (NSC-017 INT-001), adding no NSC-017 dependency (AC-005, INT-002).",
   "parent": "NSC-016",
   "provenance": {
     "graph_delta_plan_id": "GDP-2e86f4a379ab3f36dfd476d6afefcbe502dd04d338ea28b6d5e9b26b190b30f3",
@@ -72,6 +142,15 @@
         "base_contract_sha256": "7abd0288aab2ab57b7077e52e23a2df104240b115842d92f23db35cc1a3e99a3",
         "revised_contract_sha256": "3feb1b65b402d35decc9351b05e9c4f1a10c9e9e8665f4f43d783293eee12c51",
         "review": "none; taskcontrol validate only (Vincent, 2026-09-16)"
+      },
+      {
+        "date": "2026-09-17",
+        "reason": "Follow-up revision 4 from the rev 3 Codex check (revise) and the NSC-077 rev 9 check, GER Orchestrator decisions E1-E6 (NSC-055_REV4_DECISIONS.md): the Lantern Wraith gameplay prefab mirrors NSC-015's pattern with exact owned resources (LanternWraithGameplayPrefabBuilder, LanternWraithGameplay.prefab, LanternWispProjectile.prefab as the teal placeholder wisp template, WispOrigin and LanternFlare children, LanternFlareSprite.asset, LanternWraithDefeatResponse, Edit Mode and Play Mode prefab tests) satisfying NSC-054 INT-003; the presentation reuses NSC-077's LanternWraithAnimator.controller and EnemyAnimationController read-only with gates; registration is proven by an explicit test harness and production activation stays with NSC-030; locked-door behavior is deferred until Vincent decides (INT-002); a new authoritative validation policy entry names the two prefab test fixtures.",
+        "source_head": "fff803fd4abe91449245f10530e5b9b9ab9271e0",
+        "previous_contract_revision": 3,
+        "base_contract_sha256": "4fc728288e4f4660e58d2b277181cd126370530176f6ea4a90cc797f42573fdb",
+        "revised_contract_sha256": "af8046febc2422bc048dd8d0cc750cd10cb0cb68e4df57719b57bb1cb79dd3eb",
+        "review": "post-commit Codex contract check (tiered rule, 2026-09-17)"
       }
     ]
   },
@@ -80,6 +159,6 @@
   "repository_state_at_bootstrap": "not_applicable",
   "schema_version": "2.0",
   "source_scope": "required",
-  "title": "Ranged Enemy SpriteRenderer Prefab Setup and Defeat Wiring",
+  "title": "Lantern Wraith Gameplay Prefab, Presentation, and Defeat Wiring",
   "type": "enemy_prefab"
 }
