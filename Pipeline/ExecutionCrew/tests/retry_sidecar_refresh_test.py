@@ -2,7 +2,10 @@
 prior candidate.patch to the current unity_meta_bytes contract, not re-deliver whatever
 bytes a prior run wrote (e.g. a pre-P34 GUID-only texture stub). A committed sidecar is
 tracked source, not pipeline output, so an already_present retry against a stale committed
-sidecar must fail closed instead (round 3)."""
+sidecar must fail closed instead (round 3), naming the exact path so the operator can commit
+the current unity_meta_bytes contract for it and retry -- which the same already_present
+retry must then accept, since a corrected sidecar need not equal the reconstructed prior
+candidate bytes (round 3 fix)."""
 import hashlib
 import os
 import subprocess
@@ -182,6 +185,34 @@ class RetrySidecarRefreshTests(unittest.TestCase):
         self.assertEqual((self.clone / PNG_META).read_bytes(), _stub_meta(PNG_PATH))
         self.assertEqual(_git(self.clone, "status", "--porcelain"), "")
         self.assertEqual(snapshot(self.clone), baseline)
+
+        # Step 2: the operator follows the CrewBlocked message and commits the current
+        # unity_meta_bytes for the stale sidecar, exactly as instructed.
+        (self.clone / PNG_META).write_bytes(unity_meta_bytes(PNG_PATH))
+        _git(self.clone, "add", PNG_META)
+        _git(self.clone, "commit", "-qm", "operator commits corrected meta")
+        corrected_baseline = snapshot(self.clone)
+
+        # Step 3: the same retry must now resume -- already_present, nothing written -- instead
+        # of being blocked again by the reconstructed-prior-candidate equivalence check (P34
+        # round 3 fix: a corrected sidecar is accepted against the current unity_meta_bytes
+        # contract even though it no longer equals the reconstructed prior candidate bytes).
+        result = seed_retry_candidate(self.clone, corrected_baseline, retry)
+        self.assertEqual(result, "already_present")
+        self.assertEqual((self.clone / PNG_META).read_bytes(), unity_meta_bytes(PNG_PATH))
+        self.assertEqual(_git(self.clone, "status", "--porcelain"), "")
+        self.assertEqual(snapshot(self.clone), corrected_baseline)
+
+        # Step 4 (guard): committing some other, non-conformant meta still refuses -- the
+        # relaxation only accepts the current unity_meta_bytes contract, not any edit.
+        (self.clone / PNG_META).write_bytes(b"fileFormatVersion: 2\nguid: 0000000000000000deadbeef000000\n")
+        _git(self.clone, "add", PNG_META)
+        _git(self.clone, "commit", "-qm", "operator commits an unrelated, non-conformant meta")
+        other_baseline = snapshot(self.clone)
+        with self.assertRaises(CrewBlocked):
+            seed_retry_candidate(self.clone, other_baseline, retry)
+        self.assertEqual(_git(self.clone, "status", "--porcelain"), "")
+        self.assertEqual(snapshot(self.clone), other_baseline)
 
     def test_already_conformant_committed_sidecar_is_unchanged_on_already_present_retry(self):
         # Guard: when the committed sidecar already matches the current contract (e.g. a

@@ -1325,11 +1325,21 @@ def seed_retry_candidate(clone: Path, baseline: Snapshot, retry: RetryContext) -
     if reconstructed_paths != expected_paths:
         raise CrewBlocked("reconstructed prior candidate paths do not match prior final_actual_changed_paths")
     current_entries = {path:baseline.entries.get(path) for path in expected_paths}
+    sidecar_paths = set(retry.candidate_sidecars)
+    # Sidecars are pipeline-owned: a committed meta that already matches the current
+    # unity_meta_bytes contract is accepted even when it differs from the reconstructed
+    # prior candidate post-image, so a corrected meta can resume this retry (P34 round 3).
     equivalent = all(
-        postimage_entries[path] is not None
-        and current_entries[path] is not None
-        and postimage_entries[path].kind == current_entries[path].kind == "regular"
-        and postimage_entries[path].sha256 == current_entries[path].sha256
+        current_entries[path] is not None
+        and current_entries[path].kind == "regular"
+        and (
+            (postimage_entries[path] is not None
+             and postimage_entries[path].kind == "regular"
+             and postimage_entries[path].sha256 == current_entries[path].sha256)
+            or (path in sidecar_paths
+                and current_entries[path].sha256
+                == hashlib.sha256(unity_meta_bytes(path[: -len(".meta")])).hexdigest())
+        )
         for path in expected_paths
     )
     if not equivalent:
