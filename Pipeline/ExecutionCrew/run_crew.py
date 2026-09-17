@@ -714,10 +714,157 @@ def _commit_parent_is_tree(root: Path, head: str, parent: str) -> bool:
     result = git(root, "cat-file", "-t", f"{head}:{parent}", check=False)
     return result.returncode == 0 and result.stdout.strip() == "tree"
 
-def unity_meta_bytes(path: str) -> bytes:
+def unity_meta_guid(path: str) -> str:
     normalized = "/".join(part.casefold() for part in path.split("/"))
-    digest = hashlib.sha256(b"NoSafeCircle.ExecutionCrew.UnityMeta/v1\0" + normalized.encode("utf-8")).hexdigest()[:32]
-    return f"fileFormatVersion: 2\nguid: {digest}\n".encode("ascii")
+    return hashlib.sha256(b"NoSafeCircle.ExecutionCrew.UnityMeta/v1\0" + normalized.encode("utf-8")).hexdigest()[:32]
+
+# LDR image extensions Unity imports through TextureImporter. HDR formats (.exr/.hdr)
+# deliberately keep the GUID-only stub below until their importer defaults are
+# checked in Unity; see ExecutionCrew README, "Exact approved new files".
+_TEXTURE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".tga", ".psd", ".gif", ".bmp", ".tif", ".tiff")
+
+# Unity 6000.1.8f1's default TextureImporter meta for a brand-new texture in this
+# project (captured from door_bonestone_broken_S_000.png.meta @ bdf618744, whitespace-
+# normalized as in commit 12d317b58). A GUID-only stub imports as Cube/point-cookie and
+# Unity never rewrites it (P34), so crew-staged textures get this shape instead, with
+# only the guid line filled in from the deterministic digest below.
+_TEXTURE_META_TEMPLATE = """fileFormatVersion: 2
+guid: {guid}
+TextureImporter:
+  internalIDToNameTable: []
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 1
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 0
+    wrapV: 0
+    wrapW: 0
+  nPOTScale: 1
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 0
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 0
+  spriteTessellationDetail: -1
+  textureType: 0
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: WebGL
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites: []
+    outline: []
+    customData:
+    physicsShape: []
+    bones: []
+    spriteID:
+    internalID: 0
+    vertices: []
+    indices:
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable: {}
+  mipmapLimitGroupName:
+  pSDRemoveMatte: 0
+  userData:
+  assetBundleName:
+  assetBundleVariant:
+"""
+
+def unity_meta_bytes(path: str) -> bytes:
+    guid = unity_meta_guid(path)
+    if path.casefold().endswith(_TEXTURE_EXTENSIONS):
+        return _TEXTURE_META_TEMPLATE.replace("{guid}", guid).encode("ascii")
+    return f"fileFormatVersion: 2\nguid: {guid}\n".encode("ascii")
 
 def discard_agent_pipeline_sidecars(root: Path, before: Snapshot, after: Snapshot,
                                     new_paths: tuple[str, ...]) -> list[str]:
@@ -1146,6 +1293,12 @@ def seed_retry_candidate(clone: Path, baseline: Snapshot, retry: RetryContext) -
             entry = seeded.entries.get(path)
             if entry is None or entry.kind != "regular":
                 raise CrewBlocked(f"seeded prior candidate path is not a regular file: {path}")
+        # Sidecars are pipeline-owned, not agent output: refresh them to the current
+        # unity_meta_bytes contract rather than re-delivering the prior run's bytes (P34).
+        for sidecar in retry.candidate_sidecars:
+            expected = unity_meta_bytes(sidecar[: -len(".meta")])
+            if (clone / sidecar).read_bytes() != expected:
+                (clone / sidecar).write_bytes(expected)
         return "applied"
 
     # Candidate-owned paths changed after the prior run. The only safe historical compatibility case
@@ -1172,15 +1325,48 @@ def seed_retry_candidate(clone: Path, baseline: Snapshot, retry: RetryContext) -
     if reconstructed_paths != expected_paths:
         raise CrewBlocked("reconstructed prior candidate paths do not match prior final_actual_changed_paths")
     current_entries = {path:baseline.entries.get(path) for path in expected_paths}
-    equivalent = all(
-        postimage_entries[path] is not None
-        and current_entries[path] is not None
-        and postimage_entries[path].kind == current_entries[path].kind == "regular"
-        and postimage_entries[path].sha256 == current_entries[path].sha256
-        for path in expected_paths
-    )
-    if not equivalent:
-        raise CrewBlocked("prior candidate.patch neither applies cleanly nor is already present at the current source HEAD")
+    sidecar_paths = set(retry.candidate_sidecars)
+    # Sidecars are pipeline-owned: a committed meta that already matches the current
+    # unity_meta_bytes contract is accepted even when it differs from the reconstructed
+    # prior candidate post-image, so a corrected meta can resume this retry (P34 round 3).
+    diverging = [
+        path for path in expected_paths
+        if not (
+            current_entries[path] is not None
+            and current_entries[path].kind == "regular"
+            and (
+                (postimage_entries[path] is not None
+                 and postimage_entries[path].kind == "regular"
+                 and postimage_entries[path].sha256 == current_entries[path].sha256)
+                or (path in sidecar_paths
+                    and current_entries[path].sha256
+                    == hashlib.sha256(unity_meta_bytes(path[: -len(".meta")])).hexdigest())
+            )
+        )
+    ]
+    if diverging:
+        message = "prior candidate.patch neither applies cleanly nor is already present at the current source HEAD"
+        diverging_sidecars = [path for path in diverging if path in sidecar_paths]
+        if diverging_sidecars:
+            # Name the sidecars so an operator can repair them (P34 Codex round 4).
+            message += ("; committed Unity .meta sidecar(s) match neither the prior candidate nor the "
+                        "current pipeline meta contract; commit unity_meta_bytes for it (same GUID), "
+                        "then retry: " + ", ".join(diverging_sidecars))
+        raise CrewBlocked(message)
+    # A committed sidecar is tracked source, not pipeline output: downstream readers
+    # (local_candidate_commit._verified_pipeline_generated_paths, load_retry_context) treat
+    # pipeline-generated paths as companions of newly-approved files only, so rewriting a
+    # committed sidecar here cannot be surfaced to them (P34 round 3). Fail closed instead.
+    stale = [
+        sidecar for sidecar in retry.candidate_sidecars
+        if (clone / sidecar).read_bytes() != unity_meta_bytes(sidecar[: -len(".meta")])
+    ]
+    if stale:
+        raise CrewBlocked(
+            "committed Unity .meta sidecar(s) predate the current pipeline meta contract (P34); "
+            "commit unity_meta_bytes for it (same GUID) in the source, then retry: "
+            + ", ".join(stale)
+        )
     return "already_present"
 
 ProviderFactory = Callable[[str, Path, bool, str], tuple[str, RuntimeConfiguration, Mapping[str, Any]]]
