@@ -98,20 +98,32 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
             caster.Tick(0f);
             Assert.AreEqual(50f, caster.CurrentMana);
+            Assert.AreEqual(1, AllWisps().Length);
+
+            DestroyAllWisps();
             caster.Tick(0.99f);
             Assert.AreEqual(50f, caster.CurrentMana);
+            Assert.AreEqual(0, AllWisps().Length);
             caster.Tick(0.02f);
             Assert.AreEqual(40f, caster.CurrentMana);
+            Assert.AreEqual(1, AllWisps().Length);
 
             for (int cast = 0; cast < 4; cast++)
             {
+                DestroyAllWisps();
                 caster.Tick(1f);
+                Assert.AreEqual(
+                    1,
+                    AllWisps().Length,
+                    "Exactly one LanternWisp must be cast at each one-second interval.");
             }
 
             Assert.AreEqual(0f, caster.CurrentMana);
             Assert.IsTrue(caster.IsOutOfMana);
+            DestroyAllWisps();
             caster.Tick(10f);
             Assert.AreEqual(0f, caster.CurrentMana);
+            Assert.AreEqual(0, AllWisps().Length, "No cast is allowed after all 60 mana is spent.");
         }
 
         // NSC-077 AC-007 and VAL-005: each projectile keeps the existing size/speed/lifetime
@@ -140,6 +152,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.That(wisp.transform.position.x - startX, Is.EqualTo(2f).Within(0.001f));
 
             caster.Tick(3.74f);
+            yield return null;
             Assert.IsTrue(wisp != null, "The wisp must live until its four-second lifetime.");
             caster.Tick(0.02f);
             yield return null;
@@ -151,7 +164,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
         [Test]
         public void LanternWisp_HitsWithinPointEightUnitsAndDealsFiveDamage()
         {
-            wizardObject.transform.position = new Vector3(3f, 0f, 0f);
+            wizardObject.transform.position = new Vector3(3.79f, 0f, 0f);
             Physics.SyncTransforms();
             float startingHealth = wizardHealth.CurrentHealth;
 
@@ -159,6 +172,20 @@ namespace NoSafeCircle.DoorPrototype.Tests
             caster.Tick(0.25f);
 
             Assert.That(wizardHealth.CurrentHealth, Is.EqualTo(startingHealth - 5f).Within(0.001f));
+        }
+
+        [Test]
+        public void LanternWisp_DoesNotHitOutsidePointEightUnits()
+        {
+            wizardObject.transform.position = new Vector3(3.81f, 0f, 0f);
+            Physics.SyncTransforms();
+            float startingHealth = wizardHealth.CurrentHealth;
+
+            caster.Tick(0f);
+            caster.Tick(0.25f);
+
+            Assert.That(wizardHealth.CurrentHealth, Is.EqualTo(startingHealth).Within(0.001f));
+            Assert.AreEqual(1, AllWisps().Length);
         }
 
         private static GameObject[] AllWisps()

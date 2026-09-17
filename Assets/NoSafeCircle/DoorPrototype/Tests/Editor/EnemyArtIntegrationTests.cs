@@ -109,6 +109,25 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             CollectionAssert.AreEquivalent(expectedFrames.Select(frame => frame.Path), importedSpritePaths);
         }
 
+        // NSC-077 AC-003 and VAL-003: runtime code owns its camera-facing constant independently
+        // of the Editor builder, and both values remain the contract's literal Euler angles.
+        [Test]
+        public void RuntimeAndBuilderCameraEulerAnglesMatchExactly()
+        {
+            Vector3 expected = new Vector3(30f, -45f, 0f);
+            Vector3 builderAngles = EditorCameraEulerAngles();
+
+            AssertVector3Exactly(expected, builderAngles, "builder");
+            AssertVector3Exactly(
+                expected,
+                EnemyAnimationController.IsometricCameraEulerAngles,
+                "runtime controller");
+            AssertVector3Exactly(
+                builderAngles,
+                EnemyAnimationController.IsometricCameraEulerAngles,
+                "runtime/editor agreement");
+        }
+
         // NSC-077 AC-004 and VAL-002: two exact 16-state controllers, same-named clips, and
         // exact enemy/direction/frame SpriteRenderer mappings.
         [Test]
@@ -188,6 +207,19 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             Assert.AreEqual(4, wraiths.Length);
             Assert.AreEqual(9, enemies.Length);
             Assert.IsFalse(enemies.Any(enemy => enemy.name == "FireCasterEnemy"));
+
+            GameObject[] sceneObjects = scene.GetRootGameObjects()
+                .SelectMany(root => root.GetComponentsInChildren<Transform>(true))
+                .Select(item => item.gameObject)
+                .ToArray();
+            foreach (GameObject sceneObject in sceneObjects)
+            {
+                Assert.AreEqual(
+                    0,
+                    GameObjectUtility.GetMonoBehavioursWithMissingScriptCount(sceneObject),
+                    "Saved scene has a missing script on " + HierarchyPath(sceneObject.transform));
+            }
+
             CollectionAssert.AreEquivalent(
                 new[]
                 {
@@ -254,9 +286,6 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                 Assert.AreEqual(0, wraith.GetComponents<EnemyPursuitMovement>().Length);
             }
 
-            Assert.IsFalse(enemies.SelectMany(enemy => enemy.GetComponents<Component>())
-                .Any(component => component != null &&
-                    component.GetType().Name == "EnemyFireballCaster"));
         }
 
         private static void AssertSourceImport(ExpectedFrame frame, int walkGroundLineFromTop)
@@ -409,14 +438,9 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             Assert.IsNotNull(southIdle);
             Assert.AreSame(southIdle, renderer.sprite, enemy.name);
             Assert.AreEqual(Vector3.one, renderer.transform.localScale, enemy.name);
-            Quaternion expectedRotation = Quaternion.Euler(EditorCameraEulerAngles());
+            Quaternion expectedRotation = Quaternion.Euler(30f, -45f, 0f);
             Assert.That(Quaternion.Angle(expectedRotation, renderer.transform.rotation),
                 Is.LessThan(0.01f), enemy.name + " Visual must face the isometric camera.");
-            Assert.That(Quaternion.Angle(
-                    Quaternion.Euler(EnemyAnimationController.IsometricCameraEulerAngles),
-                    expectedRotation),
-                Is.LessThan(0.0001f),
-                "Runtime and editor camera-facing rotations must remain identical.");
             Assert.AreEqual(doorRenderer.sortingLayerName, renderer.sortingLayerName, enemy.name);
             Assert.AreEqual(doorRenderer.sortingOrder, renderer.sortingOrder, enemy.name);
             Assert.AreEqual(SpriteSortPoint.Pivot, renderer.spriteSortPoint, enemy.name);
@@ -431,11 +455,33 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             Type builderType = typeof(EnemyAnimationAssetBuilder).Assembly.GetType(
                 "NoSafeCircle.DoorPrototype.Editor.World.DoorPrototypeGlobalSceneBuilder");
             Assert.IsNotNull(builderType);
-            PropertyInfo property = builderType.GetProperty(
+            FieldInfo field = builderType.GetField(
                 "IsometricCameraEulerAngles",
                 BindingFlags.Static | BindingFlags.NonPublic);
-            Assert.IsNotNull(property);
-            return (Vector3)property.GetValue(null);
+            Assert.IsNotNull(field);
+            return (Vector3)field.GetValue(null);
+        }
+
+        private static void AssertVector3Exactly(
+            Vector3 expected,
+            Vector3 actual,
+            string context)
+        {
+            Assert.AreEqual(expected.x, actual.x, context + " x");
+            Assert.AreEqual(expected.y, actual.y, context + " y");
+            Assert.AreEqual(expected.z, actual.z, context + " z");
+        }
+
+        private static string HierarchyPath(Transform item)
+        {
+            string path = item.name;
+            while (item.parent != null)
+            {
+                item = item.parent;
+                path = item.name + "/" + path;
+            }
+
+            return path;
         }
 
         private static IEnumerable<ExpectedFrame> ExpectedFrames()

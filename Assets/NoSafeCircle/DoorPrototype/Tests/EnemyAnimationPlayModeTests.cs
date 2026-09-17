@@ -156,6 +156,37 @@ namespace NoSafeCircle.DoorPrototype.Tests
             }
         }
 
+        // NSC-077 INT-001 regression: encounter admission can deactivate and reactivate an
+        // enemy, so the cached state must be cleared and replayed after re-enabling.
+        [Test]
+        public void OnEnable_ClearsCachedStateBeforeReapplyingTheRetainedFacing()
+        {
+            foreach (EnemyAnimationKind kind in Enum.GetValues(typeof(EnemyAnimationKind)))
+            {
+                GameObject enemy = CreateAnimationEnemy(
+                    kind, out EnemyAnimationController animation);
+                try
+                {
+                    MoveAndTick(enemy, animation, Vector3.right, 0.1f);
+                    animation.Tick(0.1f);
+                    Assert.AreEqual(kind + "_idle_south-east", animation.CurrentState);
+
+                    enemy.SetActive(false);
+                    enemy.SetActive(true);
+
+                    Assert.IsNull(
+                        animation.CurrentState,
+                        kind + " retained a stale animation-state cache after re-enabling.");
+                    animation.Tick(0.1f);
+                    Assert.AreEqual(kind + "_idle_south-east", animation.CurrentState);
+                }
+                finally
+                {
+                    UnityEngine.Object.DestroyImmediate(enemy);
+                }
+            }
+        }
+
         // NSC-077 AC-005 and VAL-004: the enemy classifier matches the corrected wizard
         // classifier for the same eight displacements.
         [Test]
@@ -165,25 +196,32 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 "Update", BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.IsNotNull(wizardUpdate);
 
-            foreach (DirectionSample direction in MovementDirections)
+            foreach (EnemyAnimationKind kind in Enum.GetValues(typeof(EnemyAnimationKind)))
             {
-                var wizardObject = new GameObject("WizardDirectionReference");
-                wizardObject.AddComponent<Animator>();
-                WizardAnimationController wizard = wizardObject.AddComponent<WizardAnimationController>();
-                GameObject enemy = CreateAnimationEnemy(
-                    EnemyAnimationKind.MeleeEnemy, out EnemyAnimationController animation);
-                try
+                foreach (DirectionSample direction in MovementDirections)
                 {
-                    wizardObject.transform.position += direction.WorldMovement;
-                    wizardUpdate.Invoke(wizard, null);
-                    MoveAndTick(enemy, animation, direction.WorldMovement, 0.1f);
+                    var wizardObject = new GameObject("WizardDirectionReference");
+                    wizardObject.AddComponent<Animator>();
+                    WizardAnimationController wizard =
+                        wizardObject.AddComponent<WizardAnimationController>();
+                    GameObject enemy = CreateAnimationEnemy(
+                        kind, out EnemyAnimationController animation);
+                    try
+                    {
+                        wizardObject.transform.position += direction.WorldMovement;
+                        wizardUpdate.Invoke(wizard, null);
+                        MoveAndTick(enemy, animation, direction.WorldMovement, 0.1f);
 
-                    Assert.AreEqual(wizard.LastDirection, animation.LastDirection, direction.Name);
-                }
-                finally
-                {
-                    UnityEngine.Object.DestroyImmediate(wizardObject);
-                    UnityEngine.Object.DestroyImmediate(enemy);
+                        Assert.AreEqual(
+                            wizard.LastDirection,
+                            animation.LastDirection,
+                            kind + " " + direction.Name);
+                    }
+                    finally
+                    {
+                        UnityEngine.Object.DestroyImmediate(wizardObject);
+                        UnityEngine.Object.DestroyImmediate(enemy);
+                    }
                 }
             }
         }
@@ -193,8 +231,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
         [Test]
         public void Tick_RestoresCameraFacingVisualAfterEnemyRootRotates()
         {
-            Quaternion expectedRotation = Quaternion.Euler(
-                EnemyAnimationController.IsometricCameraEulerAngles);
+            Quaternion expectedRotation = Quaternion.Euler(30f, -45f, 0f);
             foreach (EnemyAnimationKind kind in Enum.GetValues(typeof(EnemyAnimationKind)))
             {
                 GameObject enemy = CreateAnimationEnemy(
@@ -251,6 +288,40 @@ namespace NoSafeCircle.DoorPrototype.Tests
             }
         }
 
+        // NSC-077 AC-006 and VAL-004: movement owns facing while walking even when the current
+        // target occupies a different screen sector.
+        [Test]
+        public void Tick_WalkingMeleeFacesMovementInsteadOfCurrentTarget()
+        {
+            var enemy = new GameObject("MeleeEnemy");
+            enemy.AddComponent<Animator>();
+            EnemyTargetKnowledge knowledge = enemy.AddComponent<EnemyTargetKnowledge>();
+            EnemyAnimationController animation = enemy.AddComponent<EnemyAnimationController>();
+            var wizard = new GameObject("Wizard");
+            try
+            {
+                wizard.transform.position = new Vector3(0f, 0f, 3f);
+                knowledge.Initialize(wizard.transform);
+                knowledge.UpdateTargetKnowledge(0f);
+                Assert.IsTrue(knowledge.HasTarget);
+                animation.Initialize(enemy.GetComponent<Animator>(), EnemyAnimationKind.MeleeEnemy);
+
+                MoveAndTick(enemy, animation, Vector3.right, 0.1f);
+
+                Assert.AreEqual("south-east", animation.LastDirection);
+                Assert.AreEqual("MeleeEnemy_walk_south-east", animation.CurrentState);
+                Assert.AreNotEqual(
+                    animation.LastDirection,
+                    DirectionFor(wizard.transform.position - enemy.transform.position),
+                    "Test setup must put the current target outside the movement-facing sector.");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(enemy);
+                UnityEngine.Object.DestroyImmediate(wizard);
+            }
+        }
+
         // NSC-077 AC-006 and VAL-004: a stopped Lantern Wraith faces a wizard in cast range
         // with clear sight, but retains its facing out of range or behind a solid wall.
         [Test]
@@ -274,9 +345,10 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 animation.Tick(0.1f);
                 Assert.AreEqual("LanternWraith_idle_south-east", animation.CurrentState);
 
-                wizard.transform.position = new Vector3(20f, 0f, 0f);
+                wizard.transform.position = new Vector3(0f, 0f, 20f);
                 Physics.SyncTransforms();
                 Assert.IsNull(caster.FacingTarget);
+                Assert.AreEqual("north-east", DirectionFor(wizard.transform.position));
                 animation.Tick(0.1f);
                 Assert.AreEqual("south-east", animation.LastDirection);
 
@@ -309,57 +381,89 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
             GameObject player = FindRoot(scene, "Player");
             GameObject enemiesRoot = FindRoot(scene, "Enemies");
-            GameObject melee = DirectChildren(enemiesRoot)
-                .First(enemy => enemy.name == "MeleeEnemy");
-            GameObject wraith = DirectChildren(enemiesRoot)
-                .First(enemy => enemy.name == "LanternWraith");
+            GameObject melee = FindEnemyAtSpawn(
+                enemiesRoot,
+                "MeleeEnemy",
+                new Vector3(7f, 0f, 31f));
+            GameObject wraith = FindEnemyAtSpawn(
+                enemiesRoot,
+                "LanternWraith",
+                new Vector3(7f, 0f, 13f));
 
             CharacterController playerController = player.GetComponent<CharacterController>();
-            playerController.enabled = false;
-            player.transform.position = melee.transform.position + new Vector3(2f, 0f, 0f);
-            Physics.SyncTransforms();
-
             EnemyAnimationController meleeAnimation = melee.GetComponent<EnemyAnimationController>();
             EnemyTargetKnowledge knowledge = melee.GetComponent<EnemyTargetKnowledge>();
+            NavMeshAgent agent = melee.GetComponent<NavMeshAgent>();
+
+            yield return WaitForCondition(
+                () => agent.isOnNavMesh,
+                5f,
+                "Chapel of Ash MeleeEnemy at (7, 0, 31) did not join the baked NavMesh.");
+
+            TeleportPlayer(player, playerController, new Vector3(9f, 0f, 31f));
+            yield return WaitForCondition(
+                () => knowledge.HasTarget,
+                5f,
+                "Chapel of Ash MeleeEnemy did not acquire the wizard across the clear pew-row gap.");
+
             Vector3 meleeStart = melee.transform.position;
             Vector3 previousMeleePosition = meleeStart;
             Vector3 latestMeleeDisplacement = Vector3.zero;
-            for (int frame = 0; frame < 120 &&
-                (melee.transform.position - meleeStart).sqrMagnitude < 0.001f; frame++)
-            {
-                yield return null;
-                latestMeleeDisplacement = melee.transform.position - previousMeleePosition;
-                previousMeleePosition = melee.transform.position;
-            }
+            yield return WaitForCondition(
+                () =>
+                {
+                    latestMeleeDisplacement = melee.transform.position - previousMeleePosition;
+                    previousMeleePosition = melee.transform.position;
+                    latestMeleeDisplacement.y = 0f;
+                    return latestMeleeDisplacement.sqrMagnitude > 0.000001f &&
+                        meleeAnimation.CurrentState != null &&
+                        meleeAnimation.CurrentState.StartsWith("MeleeEnemy_walk_");
+                },
+                5f,
+                "Chapel of Ash MeleeEnemy acquired the wizard but did not begin moving on the NavMesh.");
 
-            Assert.IsTrue(knowledge.HasTarget);
-            Assert.That((melee.transform.position - meleeStart).sqrMagnitude, Is.GreaterThan(0.001f));
+            Assert.That(
+                (melee.transform.position - meleeStart).sqrMagnitude,
+                Is.GreaterThan(0.000001f));
             Assert.That(meleeAnimation.CurrentState, Does.StartWith("MeleeEnemy_walk_"));
-            Assert.AreEqual(
-                DirectionFor(latestMeleeDisplacement),
-                meleeAnimation.LastDirection);
+            string walkingDirection = DirectionFor(latestMeleeDisplacement);
+            Assert.AreEqual(walkingDirection, meleeAnimation.LastDirection);
 
             EnemyPursuitMovement pursuit = melee.GetComponent<EnemyPursuitMovement>();
             pursuit.enabled = false;
-            NavMeshAgent agent = melee.GetComponent<NavMeshAgent>();
-            if (agent.isOnNavMesh)
-            {
-                agent.isStopped = true;
-                agent.ResetPath();
-            }
+            Assert.IsTrue(
+                agent.isOnNavMesh,
+                "Chapel of Ash MeleeEnemy left the baked NavMesh before the stop-facing check.");
+            agent.isStopped = true;
+            agent.ResetPath();
+            yield return null;
+
+            TeleportPlayer(
+                player,
+                playerController,
+                melee.transform.position + Vector3.left * 2f);
+            string stoppedTargetDirection =
+                DirectionFor(player.transform.position - melee.transform.position);
+            Assert.AreNotEqual(
+                walkingDirection,
+                stoppedTargetDirection,
+                "VAL-006 setup must distinguish target-facing idle from retained movement facing.");
             meleeAnimation.Tick(0.1f);
             Assert.That(meleeAnimation.CurrentState, Does.StartWith("MeleeEnemy_idle_"));
-            Assert.AreEqual(
-                DirectionFor(player.transform.position - melee.transform.position),
-                meleeAnimation.LastDirection);
+            Assert.AreEqual(stoppedTargetDirection, meleeAnimation.LastDirection);
 
-            player.transform.position = wraith.transform.position + new Vector3(2f, 0f, 0f);
-            Physics.SyncTransforms();
+            TeleportPlayer(player, playerController, new Vector3(9f, 0f, 13f));
+            EnemyLanternWispCaster caster = wraith.GetComponent<EnemyLanternWispCaster>();
+            yield return WaitForCondition(
+                () => caster.FacingTarget == player.transform,
+                5f,
+                "Bone Archive LanternWraith at (7, 0, 13) did not get a clear view of the wizard.");
+
             EnemyAnimationController wraithAnimation = wraith.GetComponent<EnemyAnimationController>();
-            for (int frame = 0; frame < 10 && FindNamedObject(scene, "LanternWisp") == null; frame++)
-            {
-                yield return null;
-            }
+            yield return WaitForCondition(
+                () => FindNamedObject(scene, "LanternWisp") != null,
+                5f,
+                "Bone Archive LanternWraith saw the wizard but did not cast a LanternWisp.");
 
             Assert.AreEqual("LanternWraith_idle_south-east", wraithAnimation.CurrentState);
             Assert.That(wraithAnimation.CurrentState, Does.Not.Contain("_walk_"));
@@ -380,6 +484,47 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.IsFalse(allTransforms.Any(item => item.name == "EnemyFireball"));
         }
 
+        private static IEnumerator WaitForCondition(
+            Func<bool> condition,
+            float timeoutSeconds,
+            string failureMessage)
+        {
+            float deadline = Time.realtimeSinceStartup + timeoutSeconds;
+            bool satisfied = condition();
+            while (!satisfied && Time.realtimeSinceStartup < deadline)
+            {
+                yield return null;
+                satisfied = condition();
+            }
+
+            Assert.IsTrue(satisfied, failureMessage);
+        }
+
+        private static void TeleportPlayer(
+            GameObject player,
+            CharacterController controller,
+            Vector3 position)
+        {
+            controller.enabled = false;
+            player.transform.position = position;
+            controller.enabled = true;
+            Physics.SyncTransforms();
+        }
+
+        private static GameObject FindEnemyAtSpawn(
+            GameObject enemiesRoot,
+            string enemyName,
+            Vector3 spawnPosition)
+        {
+            GameObject enemy = DirectChildren(enemiesRoot).SingleOrDefault(candidate =>
+                candidate.name == enemyName &&
+                (candidate.transform.position - spawnPosition).sqrMagnitude < 0.0001f);
+            Assert.IsNotNull(
+                enemy,
+                "Expected " + enemyName + " at builder spawn " + spawnPosition + ".");
+            return enemy;
+        }
+
         private static GameObject CreateAnimationEnemy(
             EnemyAnimationKind kind,
             out EnemyAnimationController animation)
@@ -387,8 +532,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
             var enemy = new GameObject(kind.ToString());
             var visual = new GameObject("Visual", typeof(SpriteRenderer));
             visual.transform.SetParent(enemy.transform, false);
-            visual.transform.rotation = Quaternion.Euler(
-                EnemyAnimationController.IsometricCameraEulerAngles);
+            visual.transform.rotation = Quaternion.Euler(30f, -45f, 0f);
             Animator animator = enemy.AddComponent<Animator>();
             animation = enemy.AddComponent<EnemyAnimationController>();
             animation.Initialize(animator, kind);
