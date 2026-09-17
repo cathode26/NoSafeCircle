@@ -27,8 +27,11 @@ CS_PATH = "Assets/X/b.cs"
 CS_META = "Assets/X/b.cs.meta"
 
 
+NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
+
 def _git(root, *args, **kw):
-    return subprocess.run(("git", "-C", str(root), *args), check=True,
+    return subprocess.run(("git", "-C", str(root), *args), check=True, creationflags=NO_WINDOW,
                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, **kw).stdout.strip()
 
 
@@ -42,7 +45,10 @@ class RetrySidecarRefreshTests(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         self.clone = Path(self.tmp.name) / "clone"
         self.clone.mkdir()
-        subprocess.run(("git", "init", "-q", str(self.clone)), check=True)
+        subprocess.run(("git", "init", "-q", str(self.clone)), check=True, creationflags=NO_WINDOW)
+        # Match clone_exact: the crew's disposable clone applies patches with autocrlf off,
+        # so a host-wide autocrlf=true must not rewrite the seeded bytes here.
+        _git(self.clone, "config", "core.autocrlf", "false")
         _git(self.clone, "config", "user.name", "Retry Sidecar Test")
         _git(self.clone, "config", "user.email", "retry-sidecar-test@example.invalid")
         (self.clone / "Assets" / "X").mkdir(parents=True)
