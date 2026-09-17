@@ -85,8 +85,8 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
         // Classic 2:1 dimetric isometric camera angle (rotate -45 degrees around Y to face
         // a corner, then tilt 30 degrees down) matching Diablo 1 / Ultima Online-style
         // fixed isometric presentation.
-        internal static Vector3 IsometricCameraEulerAngles =>
-            EnemyAnimationController.IsometricCameraEulerAngles;
+        internal static readonly Vector3 IsometricCameraEulerAngles =
+            new Vector3(30f, -45f, 0f);
 
         // Fixed, hand-picked world-space offset from the follow target to the camera. This is
         // a plain constant - NOT derived by rotating a local vector through the camera's own

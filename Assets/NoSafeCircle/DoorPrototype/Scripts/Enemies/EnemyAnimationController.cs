@@ -30,6 +30,45 @@ namespace NoSafeCircle.DoorPrototype.Enemies
             "south-west", "west", "north-west", "north"
         };
 
+        private static readonly string[][] IdleStateNames =
+        {
+            new[]
+            {
+                "MeleeEnemy_idle_north-east", "MeleeEnemy_idle_east",
+                "MeleeEnemy_idle_south-east", "MeleeEnemy_idle_south",
+                "MeleeEnemy_idle_south-west", "MeleeEnemy_idle_west",
+                "MeleeEnemy_idle_north-west", "MeleeEnemy_idle_north"
+            },
+            new[]
+            {
+                "LanternWraith_idle_north-east", "LanternWraith_idle_east",
+                "LanternWraith_idle_south-east", "LanternWraith_idle_south",
+                "LanternWraith_idle_south-west", "LanternWraith_idle_west",
+                "LanternWraith_idle_north-west", "LanternWraith_idle_north"
+            }
+        };
+
+        private static readonly string[][] WalkStateNames =
+        {
+            new[]
+            {
+                "MeleeEnemy_walk_north-east", "MeleeEnemy_walk_east",
+                "MeleeEnemy_walk_south-east", "MeleeEnemy_walk_south",
+                "MeleeEnemy_walk_south-west", "MeleeEnemy_walk_west",
+                "MeleeEnemy_walk_north-west", "MeleeEnemy_walk_north"
+            },
+            new[]
+            {
+                "LanternWraith_walk_north-east", "LanternWraith_walk_east",
+                "LanternWraith_walk_south-east", "LanternWraith_walk_south",
+                "LanternWraith_walk_south-west", "LanternWraith_walk_west",
+                "LanternWraith_walk_north-west", "LanternWraith_walk_north"
+            }
+        };
+
+        private static readonly int[][] IdleStateHashes = CreateStateHashes(IdleStateNames);
+        private static readonly int[][] WalkStateHashes = CreateStateHashes(WalkStateNames);
+
         private static readonly Vector2[] ScreenDirectionVectors =
         {
             new Vector2(0.70710677f, 0.70710677f),
@@ -52,6 +91,7 @@ namespace NoSafeCircle.DoorPrototype.Enemies
         private string currentState;
         private string lastDirection = InitialDirection;
         private bool isWalking;
+        private bool visualLookupComplete;
 
         public string CurrentState => currentState;
         public string LastDirection => lastDirection;
@@ -60,8 +100,14 @@ namespace NoSafeCircle.DoorPrototype.Enemies
         {
             CacheComponents();
             previousPosition = transform.position;
-            ApplyState(false);
             RestoreCameraFacingVisual();
+        }
+
+        private void OnEnable()
+        {
+            CacheComponents();
+            previousPosition = transform.position;
+            currentState = null;
         }
 
         private void LateUpdate()
@@ -123,12 +169,15 @@ namespace NoSafeCircle.DoorPrototype.Enemies
             if (animator == null) animator = GetComponent<Animator>();
             targetKnowledge = GetComponent<EnemyTargetKnowledge>();
             lanternWispCaster = GetComponent<EnemyLanternWispCaster>();
-            if (visual == null) visual = transform.Find("Visual");
+            if (!visualLookupComplete)
+            {
+                visual = transform.Find("Visual");
+                visualLookupComplete = true;
+            }
         }
 
         private void RestoreCameraFacingVisual()
         {
-            if (visual == null) visual = transform.Find("Visual");
             if (visual != null)
             {
                 visual.rotation = Quaternion.Euler(IsometricCameraEulerAngles);
@@ -149,15 +198,36 @@ namespace NoSafeCircle.DoorPrototype.Enemies
 
         private void ApplyState(bool walking)
         {
-            string motion = walking ? "walk" : "idle";
-            string state = animationKind + "_" + motion + "_" + lastDirection;
+            int kindIndex = (int)animationKind;
+            int directionIndex = IndexOf(lastDirection);
+            string[][] stateNames = walking ? WalkStateNames : IdleStateNames;
+            int[][] stateHashes = walking ? WalkStateHashes : IdleStateHashes;
+            string state = stateNames[kindIndex][directionIndex];
             if (state == currentState) return;
 
             currentState = state;
             if (animator != null && animator.runtimeAnimatorController != null)
             {
-                animator.Play(state, 0, 0f);
+                animator.Play(stateHashes[kindIndex][directionIndex], 0, 0f);
             }
+        }
+
+        private static int[][] CreateStateHashes(string[][] stateNames)
+        {
+            var hashes = new int[stateNames.Length][];
+            for (int kindIndex = 0; kindIndex < stateNames.Length; kindIndex++)
+            {
+                hashes[kindIndex] = new int[stateNames[kindIndex].Length];
+                for (int directionIndex = 0;
+                    directionIndex < stateNames[kindIndex].Length;
+                    directionIndex++)
+                {
+                    hashes[kindIndex][directionIndex] =
+                        Animator.StringToHash(stateNames[kindIndex][directionIndex]);
+                }
+            }
+
+            return hashes;
         }
 
         // The fixed isometric camera maps screen right to world X+Z and screen up to Z-X.

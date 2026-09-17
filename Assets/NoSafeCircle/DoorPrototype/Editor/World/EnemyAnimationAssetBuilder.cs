@@ -102,7 +102,8 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
             T asset = AssetDatabase.LoadAssetAtPath<T>(path);
             if (asset == null)
             {
-                throw new FileNotFoundException("Required enemy animation asset is missing", path);
+                throw new FileNotFoundException(
+                    "Required enemy animation asset is missing: " + path, path);
             }
 
             return asset;
@@ -159,7 +160,8 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
             string missingPath = expectedPaths.Except(actualPaths).FirstOrDefault();
             if (missingPath != null)
             {
-                throw new FileNotFoundException("Missing enemy source PNG", missingPath);
+                throw new FileNotFoundException(
+                    "Missing enemy source PNG: " + missingPath, missingPath);
             }
 
             string extraPath = actualPaths.Except(expectedPaths).FirstOrDefault();
@@ -188,7 +190,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
         {
             if (!File.Exists(path))
             {
-                throw new FileNotFoundException("Missing enemy source PNG", path);
+                throw new FileNotFoundException("Missing enemy source PNG: " + path, path);
             }
 
             var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
@@ -223,6 +225,11 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
 
         private static int FindIdleGroundLineFromBottom(string path)
         {
+            if (!File.Exists(path))
+            {
+                throw new FileNotFoundException("Missing enemy source PNG: " + path, path);
+            }
+
             var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
             try
             {
@@ -257,7 +264,8 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
             string path = WalkSourceRoot + "/inventory.json";
             if (!File.Exists(path))
             {
-                throw new FileNotFoundException("Enemy walk inventory is missing", path);
+                throw new FileNotFoundException(
+                    "Enemy walk inventory is missing: " + path, path);
             }
 
             WalkInventory inventory = JsonUtility.FromJson<WalkInventory>(File.ReadAllText(path));
@@ -281,20 +289,23 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
                 .FirstOrDefault(group => group.Count() > 1)?.Key;
             if (duplicate != null)
             {
-                throw new InvalidDataException("Duplicate enemy walk inventory entry: " + duplicate);
+                throw new InvalidDataException(
+                    "Duplicate enemy walk inventory entry: " + WalkSourceRoot + "/" + duplicate);
             }
 
             string[] expectedFiles = ExpectedWalkFileNames().ToArray();
             string missing = expectedFiles.Except(entryFiles).FirstOrDefault();
             if (missing != null)
             {
-                throw new InvalidDataException("Missing enemy walk inventory entry: " + missing);
+                throw new InvalidDataException(
+                    "Missing enemy walk inventory entry: " + WalkSourceRoot + "/" + missing);
             }
 
             string extra = entryFiles.Except(expectedFiles).FirstOrDefault();
             if (extra != null)
             {
-                throw new InvalidDataException("Unexpected enemy walk inventory entry: " + extra);
+                throw new InvalidDataException(
+                    "Unexpected enemy walk inventory entry: " + WalkSourceRoot + "/" + extra);
             }
 
             return inventory;
@@ -309,7 +320,8 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
                 TextureImporter importer = AssetImporter.GetAtPath(frame.Path) as TextureImporter;
                 if (importer == null)
                 {
-                    throw new FileNotFoundException("Enemy source is not a texture", frame.Path);
+                    throw new FileNotFoundException(
+                        "Enemy source is not a texture: " + frame.Path, frame.Path);
                 }
 
                 importer.textureType = TextureImporterType.Sprite;
@@ -350,7 +362,8 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
                 if (property == null)
                 {
                     throw new InvalidDataException(
-                        "TextureImporter has no serialized property " + propertyName);
+                        "TextureImporter for " + importer.assetPath +
+                        " has no serialized property " + propertyName);
                 }
 
                 if (property.propertyType == SerializedPropertyType.Boolean)
