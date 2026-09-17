@@ -13,7 +13,7 @@ import argparse
 import json
 import subprocess
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from Pipeline.TaskReviewAgent.refresh_identical_churn import main as _refresh_identical_main
 
@@ -32,9 +32,58 @@ SAFE_TRAILING_WHITESPACE_CHURN_PATHS = frozenset(
     }
 )
 
+# Only these three folders hold files the Unity Editor imports and rewrites.
+# Anything else in the repository (Docs, Pipeline, CI, tooling) is authored by a
+# human or an agent, so its trailing whitespace is content and never churn.
+UNITY_SERIALIZED_ROOTS = ("Assets/", "ProjectSettings/", "Packages/")
+
+# Suffixes the Unity text serializer writes. Unity emits YAML with trailing
+# spaces on some mapping keys and re-emits them on every import, so a file with
+# one of these suffixes can legitimately differ from HEAD at its line ends.
+# Suffixes are matched case-insensitively because Unity and Windows both treat
+# asset extensions that way (`Wall.MAT` is the same importer as `Wall.mat`).
+UNITY_SERIALIZED_SUFFIXES = frozenset(
+    {
+        ".meta",  # importer settings Unity writes beside every asset
+        ".asset",  # ScriptableObject and generated settings assets
+        ".anim",  # AnimationClip
+        ".controller",  # AnimatorController
+        ".overridecontroller",  # AnimatorOverrideController
+        ".prefab",  # prefab asset
+        ".unity",  # scene asset
+        ".mat",  # Material
+        ".physicmaterial",  # 3D PhysicMaterial
+        ".physicsmaterial2d",  # 2D PhysicsMaterial2D
+        ".mask",  # AvatarMask
+        ".playable",  # PlayableAsset / Timeline
+        ".signal",  # Timeline SignalAsset
+        ".spriteatlas",  # SpriteAtlas
+        ".terrainlayer",  # TerrainLayer
+        ".rendertexture",  # RenderTexture asset
+        ".cubemap",  # Cubemap asset
+        ".flare",  # LensFlare
+        ".fontsettings",  # legacy Font asset settings
+        ".guiskin",  # legacy IMGUI GUISkin
+        ".mixer",  # AudioMixer
+        ".preset",  # Preset asset
+    }
+)
+
 
 class SafeUnityChurnError(RuntimeError):
     """Raised when exact post-Unity recovery cannot be proven safe."""
+
+
+def _is_unity_serialized(path: str) -> bool:
+    """Report whether Unity's text serializer owns this generated file.
+
+    This is never sufficient on its own: a matching path still has to prove a
+    trailing-whitespace-only difference before it becomes recoverable churn.
+    """
+
+    if not path.startswith(UNITY_SERIALIZED_ROOTS):
+        return False
+    return PurePosixPath(path).suffix.casefold() in UNITY_SERIALIZED_SUFFIXES
 
 
 def _is_trailing_whitespace_only(root: Path, path: str) -> bool:
@@ -122,6 +171,18 @@ def classify_safe_post_unity_churn(
             allowed = repository is not None and _is_trailing_whitespace_only(
                 Path(repository).resolve(), path
             )
+        # Unity rewrites trailing whitespace into its own generated files on
+        # every import, so prove that churn per file instead of hand-listing the
+        # hundreds of metas, controllers and clips it touches. This only ever
+        # widens the allowed set: a path already allowed above keeps its exact
+        # existing disposition.
+        if (
+            not allowed
+            and repository is not None
+            and _is_unity_serialized(path)
+            and _is_trailing_whitespace_only(Path(repository).resolve(), path)
+        ):
+            allowed = True
         if status != " M" or not allowed or path in paths:
             return None
         paths.append(path)
