@@ -28,7 +28,7 @@
     {
       "criterion_id": "AC-006",
       "reference": "DemoRunFlow retirement (win path); GER Orchestrator decisions, RESTART_VICTORY_DECOY_DECISIONS.md 'DemoRunFlow retirement' and 'NSC-086 revision 3'",
-      "requirement": "This child retires the win path from Assets/NoSafeCircle/DoorPrototype/Scripts/DemoRunFlow.cs. It removes the door.CrossedForward += HandleFinalDoorCrossed subscription in Start for the final DoorInteractable, the private won field, and the HandleFinalDoorCrossed() method. It removes the \"YOU ESCAPED\" branch of DrawEndScreen's won ternary text and color. If NSC-033 has already removed DemoRunFlow's lost field, the HandlePlayerDied subscription, and the \"YOU DIED\" text by the time this child lands, this child also removes Update's if (won || lost) return; early return, DrawEndScreen, and the \"Press R to play again\" SceneManager.LoadScene reload entirely, since DemoRunFlow then owns neither end state. If NSC-033 has not yet landed, this child narrows Update's early return to if (lost) return;, keeps DrawEndScreen and the R-to-restart reload for the death path only, and DrawEndScreen shows \"YOU DIED\" unconditionally. DemoRunFlow's enemy contact damage, enemy health bars, and player status HUD are unchanged. This child's You Escaped overlay (AC-002) and the Victory Gameplay Suspension Coordinator (AC-003) replace DemoRunFlow's won state and end screen for the win path. This child claims repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DemoRunFlow.cs in exclusive_resources, a resource group shared with NSC-007 and NSC-033."
+      "requirement": "This child retires the win path from Assets/NoSafeCircle/DoorPrototype/Scripts/DemoRunFlow.cs. It removes the door.CrossedForward += HandleFinalDoorCrossed subscription in Start for the final DoorInteractable, the private won field, and the HandleFinalDoorCrossed() method. It removes the \"YOU ESCAPED\" branch of DrawEndScreen's won ternary text and color. If NSC-033 has already removed DemoRunFlow's lost field, the HandlePlayerDied subscription, and the \"YOU DIED\" text by the time this child lands, this child also removes Update's if (won || lost) return; early return, DrawEndScreen, and the \"Press R to play again\" SceneManager.LoadScene reload entirely, since DemoRunFlow then owns neither end state. If NSC-033 has not yet landed, this child narrows Update's early return to if (lost) return;, keeps DrawEndScreen and the R-to-restart reload for the death path only, and DrawEndScreen shows \"YOU DIED\" unconditionally. The won state is final for the run (GER Agent decision, 2026-09-17; the GDD is silent on post-victory damage): DemoRunFlow gains a serialized FinalDoorVictoryTrigger reference, assigned by DoorPrototypeSceneBuilder, and ApplyEnemyContactDamage applies no damage once that trigger's HasWon is true. Otherwise DemoRunFlow's enemy contact damage, enemy health bars, and player status HUD are unchanged. This child's You Escaped overlay (AC-002) and the Victory Gameplay Suspension Coordinator (AC-003) replace DemoRunFlow's won state and end screen for the win path. This child claims repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DemoRunFlow.cs in exclusive_resources, a resource group shared with NSC-007 and NSC-033."
     },
     {
       "criterion_id": "AC-007",
@@ -41,7 +41,7 @@
     {
       "gate_id": "VAL-001",
       "reference": "Win and Loss Conditions; NSC-088 INT-002",
-      "requirement": "FinalDoorVictoryPlayModeTests: Play Mode check in the configured gameplay scene: crossing the final door's forward side displays the You Escaped overlay and immediately stops active movement, an active door approach or opening timer, and active input-driven behavior on Fireball, Frost Field, and Force Wave, and ends an active Spectral Decoy phantom so every redirected enemy leaves its decoy redirect through EnemyTargetKnowledge's owner API. After final-door victory, only the You Escaped overlay shows; DemoRunFlow's legacy end screen does not also appear. An Edit Mode reflection check over the DemoRunFlow type finds no won field and no HandleFinalDoorCrossed method. A source-text check of DemoRunFlow.cs contains no occurrence of \"YOU ESCAPED\"."
+      "requirement": "FinalDoorVictoryPlayModeTests: Play Mode check in the configured gameplay scene: crossing the final door's forward side displays the You Escaped overlay and immediately stops active movement, an active door approach or opening timer, and active input-driven behavior on Fireball, Frost Field, and Force Wave, and ends an active Spectral Decoy phantom so every redirected enemy leaves its decoy redirect through EnemyTargetKnowledge's owner API. After final-door victory, only the You Escaped overlay shows; DemoRunFlow's legacy end screen does not also appear. An Edit Mode reflection check over the DemoRunFlow type finds no won field and no HandleFinalDoorCrossed method. A source-text check of DemoRunFlow.cs contains no occurrence of \"YOU ESCAPED\". A further production-scene case keeps an enemy inside DemoRunFlow's contact range after the final-door crossing for longer than its contact damage would need to bring a full-health wizard to zero, and verifies PlayerHealth.CurrentHealth never decreases, FinalDoorVictoryTrigger.HasWon stays true, the You Escaped overlay stays active, and no floor restart or DemoRunFlow end screen occurs."
     },
     {
       "gate_id": "VAL-002",
@@ -51,19 +51,25 @@
     {
       "gate_id": "VAL-004",
       "reference": "AC-005, AC-007; NSC-086 revision 2 Codex check",
-      "requirement": "FinalDoorVictorySceneTests opens the committed Assets/Scenes/DoorPrototype.unity additively and read-only, scopes lookups to that scene, and closes it without saving. It asserts: exactly one FinalDoorVictoryTrigger exists; its finalDoor is the DoorInteractable whose DoorId is D5 and IsFinalDoor is true, and no DoorInteractable for D1 to D4 is referenced by any FinalDoorVictoryTrigger; its youEscapedOverlay and coordinator references are assigned; exactly one VictoryGameplaySuspensionCoordinator exists and its PlayerMovement, PlayerInteractionController, Fireball, FrostField, ForceWave and SpectralDecoy references are assigned to the scene Player's components; and the overlay starts inactive. The validation run executes this test after the Windows controller's final Build, so a duplicated trigger, coordinator or overlay from a repeated Build fails the exact-count assertions."
+      "requirement": "FinalDoorVictorySceneTests opens the committed Assets/Scenes/DoorPrototype.unity additively and read-only, scopes lookups to that scene, and closes it without saving. It asserts: exactly one FinalDoorVictoryTrigger exists; its finalDoor is the DoorInteractable whose DoorId is D5 and IsFinalDoor is true, and no DoorInteractable for D1 to D4 is referenced by any FinalDoorVictoryTrigger; its youEscapedOverlay and coordinator references are assigned; exactly one VictoryGameplaySuspensionCoordinator exists and its PlayerMovement, PlayerInteractionController, Fireball, FrostField, ForceWave and SpectralDecoy references are assigned to the scene Player's components; and the overlay starts inactive. The validation run executes this test after the Windows controller's final Build, so a duplicated trigger, coordinator or overlay from a repeated Build fails the exact-count assertions. It also asserts the scene's DemoRunFlow references that same FinalDoorVictoryTrigger."
     }
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 3,
+  "contract_revision": 4,
   "decomposition_reason": "The GDD specifies the final-door crossing trigger, overlay, and ownership boundary. This child owns the final Unity scene assembly so the separately implemented trigger and suspension coordinator form one usable Game Flow/Victory behavior.",
   "decomposition_state": "concrete",
   "depends_on": [
     "NSC-020",
     "NSC-087"
   ],
-  "downstream_integration_obligations": [],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "NSC-086 revision 3 closure review; GER Agent decision 2026-09-17 (the won state is final for the run)",
+      "requirement": "NSC-033's Floor Run/Restart Orchestrator ignores PlayerHealth's zero-health transition while the scene's FinalDoorVictoryTrigger.HasWon is true, reading that public state only, so no later damage source (for example NSC-015 melee or NSC-054/NSC-055 ranged attacks) can restart the floor beneath the You Escaped overlay; NSC-033 proves it with a zero-health event after victory."
+    }
+  ],
   "exclusive_resources": [
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
     "unity-scene:Assets/Scenes/DoorPrototype.unity",
@@ -93,7 +99,7 @@
   ],
   "id": "NSC-086",
   "kind": "implementation",
-  "notes": "This child is the final Unity assembly owner. It uses the final door crossing event from NSC-020, installs the You Escaped overlay, adds and configures both proposed components through DoorPrototypeSceneBuilder, and calls one coordinator method instead of duplicating six gameplay-owner calls. Revision 2 (2026-09-17) adds the Spectral Decoy, recording NSC-088 revision 4 INT-002. 2026-09-17 revision 3 (GER Orchestrator decisions, RESTART_VICTORY_DECOY_DECISIONS.md 'DemoRunFlow retirement' and 'NSC-086 revision 3'): new AC-006 retires DemoRunFlow's win path (the CrossedForward subscription, won field, HandleFinalDoorCrossed, and the \"YOU ESCAPED\" text) and claims repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DemoRunFlow.cs, a resource group shared with NSC-007 and NSC-033; VAL-001 adds the post-victory overlay-only, reflection, and source-text proof. Revision 3 also names the trigger, test files and D5 committed-scene conformance (VAL-004) from the revision 2 check, and counts six gameplay owners.",
+  "notes": "This child is the final Unity assembly owner. It uses the final door crossing event from NSC-020, installs the You Escaped overlay, adds and configures both proposed components through DoorPrototypeSceneBuilder, and calls one coordinator method instead of duplicating six gameplay-owner calls. Revision 2 (2026-09-17) adds the Spectral Decoy, recording NSC-088 revision 4 INT-002. 2026-09-17 revision 3 (GER Orchestrator decisions, RESTART_VICTORY_DECOY_DECISIONS.md 'DemoRunFlow retirement' and 'NSC-086 revision 3'): new AC-006 retires DemoRunFlow's win path (the CrossedForward subscription, won field, HandleFinalDoorCrossed, and the \"YOU ESCAPED\" text) and claims repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DemoRunFlow.cs, a resource group shared with NSC-007 and NSC-033; VAL-001 adds the post-victory overlay-only, reflection, and source-text proof. Revision 3 also names the trigger, test files and D5 committed-scene conformance (VAL-004) from the revision 2 check, and counts six gameplay owners. Revision 4 (2026-09-17): the won state is final; DemoRunFlow stops contact damage after HasWon, VAL-001 proves post-victory contact cannot kill or restart, and INT-001 gives NSC-033 the orchestrator rule (closure review of revision 3).",
   "parent": "NSC-035",
   "provenance": {
     "graph_delta_plan_id": "GDP-02475ad0d3f79c27586c7c7f8096c58e77356bd09ca1e38cdc9bad391a0329f6",
@@ -118,6 +124,15 @@
         "previous_contract_revision": 2,
         "base_contract_sha256": "d858e30a076d12002cb1347f973d232e52e43c7c2f1630473b8788a0bf16b504",
         "revised_contract_sha256": "0a4c76ce39c02d6f1b56f6aa79b114d767eb697a644acdd689c869390675c3e4",
+        "review": "post-commit Codex closure review (tiered rule; closure discipline per Astra advice, 2026-09-17)"
+      },
+      {
+        "date": "2026-09-17",
+        "reason": "Follow-up revision 4 from the revision 3 closure review (ledger resolved; one new major finding), GER Agent decision that the won state is final for the run: DemoRunFlow gets a FinalDoorVictoryTrigger reference and applies no contact damage once HasWon is true; VAL-001 proves post-victory enemy contact cannot lower health, clear the win, hide the overlay or restart the floor; INT-001 asks NSC-033's orchestrator to ignore zero health after HasWon so later damage sources cannot restart beneath the overlay.",
+        "source_head": "788491b2eecd7721fda2b67fcf64cf8712fbe091",
+        "previous_contract_revision": 3,
+        "base_contract_sha256": "12851a8b49b4b789d4d7817bd00b5c235f0cf89d6d2972730a1eb2a6f3fb33fc",
+        "revised_contract_sha256": "2764c7fdafbbfd26724221f1c611fbaccee4ce5f51631dcc4084e039a9d10bc0",
         "review": "post-commit Codex closure review (tiered rule; closure discipline per Astra advice, 2026-09-17)"
       }
     ]
