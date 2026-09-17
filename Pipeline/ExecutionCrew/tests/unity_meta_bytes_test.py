@@ -67,6 +67,15 @@ class UnityMetaBytesTextureTests(unittest.TestCase):
             data = unity_meta_bytes(path).decode("ascii")
             self.assertIn(f"guid: {guid}\n", data)
 
+    def test_texture_meta_bytes_are_pinned(self):
+        # Pinned to Unity 6000.1.8f1's committed default meta (door source and NSC-093
+        # walk metas, guid masked, trailing spaces stripped). Change this only after a
+        # Unity import check of the new bytes.
+        self.assertEqual(
+            hashlib.sha256(unity_meta_bytes(WIZARD_FRAME_PATH)).hexdigest(),
+            "6031dc76c36047e05245900edeeada72f64159037c70d4a8cd15e4092a9dc7fa",
+        )
+
     def test_wizard_frame_guid_is_stable(self):
         self.assertEqual(documented_guid(WIZARD_FRAME_PATH), WIZARD_FRAME_GUID)
 

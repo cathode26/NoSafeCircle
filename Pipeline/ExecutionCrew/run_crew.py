@@ -719,7 +719,8 @@ def unity_meta_guid(path: str) -> str:
     return hashlib.sha256(b"NoSafeCircle.ExecutionCrew.UnityMeta/v1\0" + normalized.encode("utf-8")).hexdigest()[:32]
 
 # LDR image extensions Unity imports through TextureImporter. HDR formats (.exr/.hdr)
-# deliberately keep the GUID-only stub below; see run_crew README, P34 follow-ups.
+# deliberately keep the GUID-only stub below until their importer defaults are
+# checked in Unity; see ExecutionCrew README, "Exact approved new files".
 _TEXTURE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".tga", ".psd", ".gif", ".bmp", ".tif", ".tiff")
 
 # Unity 6000.1.8f1's default TextureImporter meta for a brand-new texture in this
