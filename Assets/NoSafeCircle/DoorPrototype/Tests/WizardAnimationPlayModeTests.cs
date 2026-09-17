@@ -1,15 +1,76 @@
 using System;
-using System.Reflection;
 using System.Collections;
+using System.Linq;
+using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
+using UnityEngine.UI;
 
 namespace NoSafeCircle.DoorPrototype.Tests
 {
-    public sealed class WizardAnimationPlayModeTests
+    public sealed class WizardAnimationPlayModeTests : InputTestFixture
     {
+        private static readonly WizardPresentation[] ExpectedPresentations =
+        {
+            WizardPresentation.Masculine,
+            WizardPresentation.Masculine,
+            WizardPresentation.Feminine,
+            WizardPresentation.Feminine
+        };
+
+        private static readonly WizardSkin[] ExpectedSkins =
+        {
+            WizardSkin.White,
+            WizardSkin.Black,
+            WizardSkin.White,
+            WizardSkin.Black
+        };
+
+        private static readonly ScreenDirection[] ScreenDirections =
+        {
+            new ScreenDirection("north", new Vector2(0f, 1f)),
+            new ScreenDirection("north-east", new Vector2(0.70710677f, 0.70710677f)),
+            new ScreenDirection("east", new Vector2(1f, 0f)),
+            new ScreenDirection("south-east", new Vector2(0.70710677f, -0.70710677f)),
+            new ScreenDirection("south", new Vector2(0f, -1f)),
+            new ScreenDirection("south-west", new Vector2(-0.70710677f, -0.70710677f)),
+            new ScreenDirection("west", new Vector2(-1f, 0f)),
+            new ScreenDirection("north-west", new Vector2(-0.70710677f, 0.70710677f))
+        };
+
+        private Mouse mouseDevice;
+        private RenderTexture testRenderTexture;
+        private Camera renderCamera;
+        private InputActionAsset testMovementActions;
+
+        public override void Setup()
+        {
+            base.Setup();
+            mouseDevice = InputSystem.AddDevice<Mouse>();
+            testRenderTexture = new RenderTexture(800, 600, 24);
+            testRenderTexture.Create();
+        }
+
+        public override void TearDown()
+        {
+            ReleaseTestMovementActions();
+            DetachTestRenderTexture();
+            if (testRenderTexture != null)
+            {
+                testRenderTexture.Release();
+                UnityEngine.Object.Destroy(testRenderTexture);
+            }
+
+            testRenderTexture = null;
+            renderCamera = null;
+            mouseDevice = null;
+            base.TearDown();
+        }
+
         [UnitySetUp]
         public IEnumerator LoadDoorPrototypeScene()
         {
@@ -136,82 +197,174 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 InvokeDirectionFor(new Vector3(worldX, 0f, worldZ)));
         }
 
-        [TestCase(1f, 0.41421356f, "north-east")]
-        [TestCase(1f, -0.41421356f, "north-east")]
-        [TestCase(-1f, 0.41421356f, "south-west")]
-        [TestCase(-1f, -0.41421356f, "south-west")]
-        public void DirectionFor_ResolvesExactSectorTiesDeterministically(
-            float worldX, float worldZ, string expectedDirection)
-        {
-            Assert.AreEqual(expectedDirection,
-                InvokeDirectionFor(new Vector3(worldX, 0f, worldZ)));
-            Assert.AreEqual(expectedDirection,
-                InvokeDirectionFor(new Vector3(worldX, 0f, worldZ)));
-        }
-
         [Test]
-        public void DirectionFor_RemainsStableAcrossHeldFramesForEveryWizardVariant()
+        public void DirectionFor_ResolvesEveryExactSectorBoundaryDeterministically()
         {
-            WizardPresentation[] presentations =
-                { WizardPresentation.Masculine, WizardPresentation.Feminine };
-            WizardSkin[] skins = { WizardSkin.White, WizardSkin.Black };
-            Vector3[][] heldSamplesByDirection =
+            float[] boundaryAngles =
             {
-                new[]
-                {
-                    new Vector3(1f, 0f, 0.0001f),
-                    new Vector3(1f, 0f, -0.0001f),
-                    new Vector3(1f, 0f, 0.0001f),
-                    new Vector3(1f, 0f, -0.0001f)
-                },
-                new[]
-                {
-                    new Vector3(-1f, 0f, 0.0001f),
-                    new Vector3(-1f, 0f, -0.0001f),
-                    new Vector3(-1f, 0f, 0.0001f),
-                    new Vector3(-1f, 0f, -0.0001f)
-                },
-                new[]
-                {
-                    new Vector3(0.0001f, 0f, 1f),
-                    new Vector3(-0.0001f, 0f, 1f),
-                    new Vector3(0.0001f, 0f, 1f),
-                    new Vector3(-0.0001f, 0f, 1f)
-                },
-                new[]
-                {
-                    new Vector3(0.0001f, 0f, -1f),
-                    new Vector3(-0.0001f, 0f, -1f),
-                    new Vector3(0.0001f, 0f, -1f),
-                    new Vector3(-0.0001f, 0f, -1f)
-                }
+                22.5f,
+                -22.5f,
+                -67.5f,
+                -112.5f,
+                -157.5f,
+                157.5f,
+                112.5f,
+                67.5f
             };
-            string[] expectedDirections = { "north-east", "south-west", "south-east", "north-west" };
-
-            foreach (WizardPresentation presentation in presentations)
+            string[] expectedDirections =
             {
-                foreach (WizardSkin skin in skins)
-                {
-                    for (int directionIndex = 0; directionIndex < heldSamplesByDirection.Length; directionIndex++)
-                    {
-                        string previousDirection = null;
-                        foreach (Vector3 sample in heldSamplesByDirection[directionIndex])
-                        {
-                            string direction = InvokeDirectionFor(sample);
-                            Assert.AreEqual(expectedDirections[directionIndex], direction,
-                                $"Unexpected direction for {presentation}/{skin}.");
-                            if (previousDirection != null)
-                                Assert.AreEqual(previousDirection, direction,
-                                    $"Facing changed during held movement for {presentation}/{skin}.");
-                            previousDirection = direction;
-                        }
-                    }
-                }
+                "north-east",
+                "south-east",
+                "south-east",
+                "south-west",
+                "south-west",
+                "north-west",
+                "north-west",
+                "north-east"
+            };
+
+            for (int index = 0; index < boundaryAngles.Length; index++)
+            {
+                Vector3 movement = WorldMovementForScreenAngle(boundaryAngles[index]);
+                Assert.AreEqual(expectedDirections[index], InvokeDirectionFor(movement));
+                Assert.AreEqual(expectedDirections[index], InvokeDirectionFor(movement));
             }
         }
 
-        // NSC-070 regression-only invariant: deterministic collision/transform noise at the
-        // equal-component boundary must not oscillate a held facing between adjacent states.
+        // NSC-075 AC-001/AC-004 and VAL-002/VAL-003: the real title/selection flow applies
+        // every wizard to the one existing Player at PlayerSpawn. Mouse movement and door
+        // selection remain live, then all eight held screen directions keep the expected walk
+        // state progressing through alternating orthogonal noise and retain that facing on idle.
+        [UnityTest]
+        public IEnumerator EachConfirmedWizard_LobbyEntrySupportsStableEightDirectionAnimationAndMouseInput()
+        {
+            for (int optionIndex = 0; optionIndex < ExpectedPresentations.Length; optionIndex++)
+            {
+                if (optionIndex > 0)
+                {
+                    yield return SceneManager.LoadSceneAsync("DoorPrototype", LoadSceneMode.Single);
+                }
+
+                Scene scene = SceneManager.GetSceneByName("DoorPrototype");
+                Assert.IsTrue(scene.IsValid() && scene.isLoaded);
+                GameObject player = FindRoot(scene, "Player");
+                GameObject playerSpawn = FindRoot(scene, "PlayerSpawn");
+                GameObject canvas = FindRoot(scene, "Canvas");
+                Camera camera = FindRoot(scene, "Main Camera").GetComponent<Camera>();
+                DoorInteractable door = FindRoot(scene, "DoorRoot").GetComponent<DoorInteractable>();
+                WizardSelectionController selection = canvas.GetComponent<WizardSelectionController>();
+                WizardGameEntryController entry = canvas.GetComponent<WizardGameEntryController>();
+                WizardAnimationController wizard = player.GetComponent<WizardAnimationController>();
+                PlayerMovement movement = player.GetComponent<PlayerMovement>();
+                PlayerInteractionController interaction = player.GetComponent<PlayerInteractionController>();
+                Animator animator = player.GetComponent<Animator>();
+                CharacterController characterController = player.GetComponent<CharacterController>();
+                SpriteRenderer renderer = player.transform.Find("Visual")?.GetComponent<SpriteRenderer>();
+
+                Assert.IsNotNull(camera);
+                Assert.IsNotNull(door);
+                Assert.IsNotNull(selection);
+                Assert.IsNotNull(entry);
+                Assert.IsNotNull(wizard);
+                Assert.IsNotNull(movement);
+                Assert.IsNotNull(interaction);
+                Assert.IsNotNull(animator);
+                Assert.IsNotNull(characterController);
+                Assert.IsNotNull(renderer);
+                Assert.IsNotNull(player.GetComponent<PlayerHealth>());
+                Assert.IsNotNull(player.GetComponent<PlayerMana>());
+
+                Component[] originalComponents = player.GetComponents<Component>();
+                Collider[] originalColliders = player.GetComponents<Collider>();
+                Vector3 originalScale = player.transform.localScale;
+                float originalHeight = characterController.height;
+                float originalRadius = characterController.radius;
+                string originalSortingLayer = renderer.sortingLayerName;
+                int originalSortingOrder = renderer.sortingOrder;
+                SpriteSortPoint originalSortPoint = renderer.spriteSortPoint;
+
+                BeginSelection(canvas);
+                selection.GetOption(optionIndex).Button.onClick.Invoke();
+                ConfirmSelection(canvas);
+
+                Assert.IsTrue(entry.HasEnteredGameplay);
+                Assert.AreEqual(1, entry.GameplayEntryCount);
+                ConfirmedWizardSelection expectedSelection = new ConfirmedWizardSelection(
+                    ExpectedPresentations[optionIndex], ExpectedSkins[optionIndex]);
+                Assert.AreEqual(expectedSelection, entry.AppliedSelection);
+                Assert.AreEqual(expectedSelection, selection.ConfirmedSelection);
+                Assert.AreEqual(ExpectedPresentations[optionIndex], wizard.Presentation);
+                Assert.AreEqual(ExpectedSkins[optionIndex], wizard.Skin);
+                Assert.AreEqual(playerSpawn.transform.position, player.transform.position);
+                Assert.AreEqual(playerSpawn.transform.rotation, player.transform.rotation);
+                Assert.AreSame(player, FindRoot(scene, "Player"));
+                Assert.AreEqual(1, scene.GetRootGameObjects().Count(root => root.name == "Player"));
+                Assert.IsTrue(movement.IsGameplayEnabled);
+                Assert.IsTrue(interaction.IsGameplayEnabled);
+                CollectionAssert.AreEqual(originalComponents, player.GetComponents<Component>());
+                CollectionAssert.AreEqual(originalColliders, player.GetComponents<Collider>());
+                Assert.AreEqual(originalScale, player.transform.localScale);
+                Assert.AreEqual(originalHeight, characterController.height);
+                Assert.AreEqual(originalRadius, characterController.radius);
+                Assert.AreEqual(originalSortingLayer, renderer.sortingLayerName);
+                Assert.AreEqual(originalSortingOrder, renderer.sortingOrder);
+                Assert.AreEqual(originalSortPoint, renderer.spriteSortPoint);
+
+                ConfigureMouseInput(movement, camera);
+                yield return null;
+                SetMouse(Vector2.zero, false);
+                interaction.ResetInteraction();
+                movement.ResetMovement();
+                movement.Tick(0.02f);
+
+                Vector3 movementTarget = playerSpawn.transform.position + new Vector3(1f, 0f, -1f);
+                SetMouse(camera.WorldToScreenPoint(movementTarget), true);
+                movement.Tick(0.02f);
+                Assert.IsTrue(movement.HasPointerWorldTarget,
+                    "The confirmed wizard must retain the scene's mouse pointer projection.");
+                Assert.IsTrue(movement.HasActiveDestination,
+                    "The confirmed wizard must retain mouse-directed movement input.");
+
+                SetMouse(camera.WorldToScreenPoint(movementTarget), false);
+                movement.Tick(0.02f);
+                movement.CancelRequestedDestination();
+                SetMouse(camera.WorldToScreenPoint(door.SelectionPoint), true);
+                movement.Tick(0.02f);
+                Assert.AreSame(door, interaction.PendingDoor,
+                    "The confirmed wizard must retain mouse-driven door selection.");
+                Assert.IsTrue(interaction.HasLockedDoorInteraction);
+
+                SetMouse(camera.WorldToScreenPoint(door.SelectionPoint), false);
+                movement.Tick(0.02f);
+                interaction.ResetInteraction();
+                movement.ResetMovement();
+                movement.enabled = false;
+                yield return null;
+
+                yield return DriveEveryScreenDirection(
+                    player,
+                    wizard,
+                    animator,
+                    ExpectedPresentations[optionIndex],
+                    ExpectedSkins[optionIndex]);
+
+                ConfirmSelection(canvas);
+                selection.ConfirmSelection();
+                movement.SuspendGameplayInput();
+                interaction.SuspendGameplayInput();
+                entry.EnterWorld(expectedSelection);
+                Assert.AreEqual(1, entry.GameplayEntryCount,
+                    "Confirmation must remain a one-shot handoff without a fallback or second Player.");
+                Assert.IsFalse(movement.IsGameplayEnabled,
+                    "A duplicate entry must not issue another movement input-enable call.");
+                Assert.IsFalse(interaction.IsGameplayEnabled,
+                    "A duplicate entry must not issue another interaction input-enable call.");
+                Assert.AreEqual(1, scene.GetRootGameObjects().Count(root => root.name == "Player"));
+            }
+        }
+
+        // NSC-070 regression plus NSC-075 AC-001/VAL-002: deterministic collision/transform
+        // noise at each sector boundary must not oscillate a held facing between adjacent states.
         [Test]
         public void DirectionFor_RetainsPriorDirectionAtEverySectorBoundary()
         {
@@ -291,12 +444,166 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.AreEqual("north-east", wizard.LastDirection);
         }
 
+        private static IEnumerator DriveEveryScreenDirection(
+            GameObject player,
+            WizardAnimationController wizard,
+            Animator animator,
+            WizardPresentation presentation,
+            WizardSkin skin)
+        {
+            foreach (ScreenDirection direction in ScreenDirections)
+            {
+                string expectedWalkState =
+                    $"Wizard_{presentation}_{skin}_walk_{direction.Name}";
+                float previousWalkTime = -1f;
+                for (int sampleIndex = 0; sampleIndex < 4; sampleIndex++)
+                {
+                    player.transform.position += HeldMovement(direction.Vector, sampleIndex);
+                    yield return null;
+
+                    Assert.AreEqual(expectedWalkState, wizard.CurrentState,
+                        $"Unexpected held state for {presentation}/{skin}/{direction.Name}.");
+                    Assert.AreEqual(direction.Name, wizard.LastDirection);
+                    animator.Update(0f);
+                    Assert.IsTrue(animator.GetCurrentAnimatorStateInfo(0).IsName(expectedWalkState));
+                    animator.Update(0.05f);
+                    float walkTime = animator.GetCurrentAnimatorStateInfo(0).normalizedTime;
+                    if (previousWalkTime >= 0f)
+                    {
+                        Assert.Greater(walkTime, previousWalkTime,
+                            $"Held {direction.Name} animation restarted for {presentation}/{skin}.");
+                    }
+
+                    previousWalkTime = walkTime;
+                }
+
+                yield return null;
+                string expectedIdleState =
+                    $"Wizard_{presentation}_{skin}_idle_{direction.Name}";
+                Assert.AreEqual(expectedIdleState, wizard.CurrentState,
+                    $"Idle did not retain {direction.Name} for {presentation}/{skin}.");
+                Assert.AreEqual(direction.Name, wizard.LastDirection);
+                animator.Update(0f);
+                Assert.IsTrue(animator.GetCurrentAnimatorStateInfo(0).IsName(expectedIdleState));
+            }
+        }
+
+        private void ConfigureMouseInput(PlayerMovement movement, Camera camera)
+        {
+            ReleaseTestMovementActions();
+            camera.targetTexture = testRenderTexture;
+            renderCamera = camera;
+            SetPrivateField(movement, "mainCamera", camera);
+
+            InputActionAsset sceneMovementActions =
+                GetPrivateField<InputActionAsset>(movement, "inputActions");
+            testMovementActions = UnityEngine.Object.Instantiate(sceneMovementActions);
+            InputActionMap playerMap = testMovementActions.FindActionMap("Player", true);
+            playerMap.devices = new InputDevice[] { mouseDevice };
+            InputAction pointerPosition = playerMap.FindAction("PointerPosition", true);
+            InputAction moveToCursor = playerMap.FindAction("MoveToCursor", true);
+            SetPrivateField(movement, "inputActions", testMovementActions);
+            SetPrivateField(movement, "pointerPositionAction", pointerPosition);
+            SetPrivateField(movement, "moveToCursorAction", moveToCursor);
+            playerMap.Enable();
+        }
+
+        private void ReleaseTestMovementActions()
+        {
+            if (testMovementActions == null) return;
+
+            testMovementActions.Disable();
+            UnityEngine.Object.DestroyImmediate(testMovementActions);
+            testMovementActions = null;
+        }
+
+        private void DetachTestRenderTexture()
+        {
+            if (renderCamera != null && renderCamera.targetTexture == testRenderTexture)
+            {
+                renderCamera.targetTexture = null;
+            }
+        }
+
+        private void SetMouse(Vector2 screenPosition, bool leftButtonPressed)
+        {
+            InputSystem.QueueStateEvent(mouseDevice, new MouseState
+            {
+                position = screenPosition,
+                buttons = leftButtonPressed ? (ushort)(1 << (int)MouseButton.Left) : (ushort)0
+            });
+            InputSystem.Update();
+        }
+
+        private static GameObject FindRoot(Scene scene, string name)
+        {
+            GameObject result = scene.GetRootGameObjects().SingleOrDefault(root => root.name == name);
+            Assert.IsNotNull(result, $"Expected one '{name}' root in {scene.path}.");
+            return result;
+        }
+
+        private static void BeginSelection(GameObject canvas)
+        {
+            Button startButton = canvas.transform
+                .Find("TitleScreen/TitleCard/StartGameButton")?.GetComponent<Button>();
+            Assert.IsNotNull(startButton);
+            startButton.onClick.Invoke();
+        }
+
+        private static void ConfirmSelection(GameObject canvas)
+        {
+            Button confirmButton = canvas.transform
+                .Find("WizardSelectionScreen/ConfirmSelectionButton")?.GetComponent<Button>();
+            Assert.IsNotNull(confirmButton);
+            confirmButton.onClick.Invoke();
+        }
+
+        private static void SetPrivateField(object target, string fieldName, object value)
+        {
+            FieldInfo field = target.GetType().GetField(
+                fieldName, BindingFlags.NonPublic | BindingFlags.Instance);
+            Assert.IsNotNull(field, $"Expected a private field named '{fieldName}' on {target.GetType().Name}.");
+            field.SetValue(target, value);
+        }
+
+        private static T GetPrivateField<T>(object target, string fieldName) where T : class
+        {
+            FieldInfo field = target.GetType().GetField(
+                fieldName, BindingFlags.NonPublic | BindingFlags.Instance);
+            Assert.IsNotNull(field, $"Expected a private field named '{fieldName}' on {target.GetType().Name}.");
+            T value = field.GetValue(target) as T;
+            Assert.IsNotNull(value, $"Expected '{fieldName}' on {target.GetType().Name} to contain {typeof(T).Name}.");
+            return value;
+        }
+
         private static string InvokeDirectionFor(Vector3 movement)
         {
             MethodInfo directionMethod = typeof(WizardAnimationController).GetMethod(
                 "DirectionFor", BindingFlags.Static | BindingFlags.NonPublic);
             Assert.IsNotNull(directionMethod);
             return (string)directionMethod.Invoke(null, new object[] { movement });
+        }
+
+        private static Vector3 HeldMovement(Vector2 screenDirection, int sampleIndex)
+        {
+            Vector2 perpendicular = new Vector2(-screenDirection.y, screenDirection.x);
+            float noise = sampleIndex % 2 == 0 ? 0.0005f : -0.0005f;
+            Vector2 screenMovement = (screenDirection + perpendicular * noise) * 0.2f;
+            return ScreenToWorldMovement(screenMovement);
+        }
+
+        private static Vector3 WorldMovementForScreenAngle(float angle)
+        {
+            float radians = angle * Mathf.Deg2Rad;
+            return ScreenToWorldMovement(new Vector2(Mathf.Cos(radians), Mathf.Sin(radians)));
+        }
+
+        private static Vector3 ScreenToWorldMovement(Vector2 screenMovement)
+        {
+            return new Vector3(
+                (screenMovement.x + screenMovement.y) * 0.5f,
+                0f,
+                (screenMovement.x - screenMovement.y) * 0.5f);
         }
 
         private static Vector3 BoundaryMovementFor(string direction, float offset)
@@ -320,6 +627,18 @@ namespace NoSafeCircle.DoorPrototype.Tests
             float screenY = Mathf.Sin(radians);
             return new Vector3((screenX + screenY) * 0.5f, 0f,
                 (screenX - screenY) * 0.5f);
+        }
+
+        private readonly struct ScreenDirection
+        {
+            public readonly string Name;
+            public readonly Vector2 Vector;
+
+            public ScreenDirection(string name, Vector2 vector)
+            {
+                Name = name;
+                Vector = vector;
+            }
         }
     }
 }
