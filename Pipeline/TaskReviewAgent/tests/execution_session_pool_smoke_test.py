@@ -342,7 +342,7 @@ def test_success_reuse_unused_cancel_and_exact_once_replay() -> None:
         require(owner.settle(run_id=first["run_id"], result_path=first_result) == "settled", "not settled")
         current = state(owner)
         idle = [x for x in current["pool"]["sessions"] if x["state"] == "idle"]
-        require(len(idle) == 4, "four roles not idle")
+        require(len(idle) == len(CREW_SESSION_ROLES), "not every crew role is idle")
         require(
             all(
                 item["lifecycle"]["known_context_window_percent"] is None
@@ -384,7 +384,7 @@ def test_first_failure_probation_is_offered_once() -> None:
         require(retry["leases"]["implementer"]["mode"] == "resume", "probation retry did not resume")
 
 
-def test_ten_concurrent_runs_reserve_exactly_forty_leases() -> None:
+def test_ten_concurrent_runs_reserve_one_lease_per_role_each() -> None:
     with scratch("execution-pool-concurrency-") as text:
         checkout, _, head, _ = fixture(Path(text))
 
@@ -398,8 +398,9 @@ def test_ten_concurrent_runs_reserve_exactly_forty_leases() -> None:
         require(len({item["run_id"] for item in assignments}) == 10, "run identities collided")
         current = state(pool_owner(checkout))
         active = [x for x in current["pool"]["sessions"] if x["state"] == "active"]
-        require(len(active) == POOL_CAPACITY == 40, f"wrong active capacity: {len(active)}")
-        require(len({x["active_lease"]["lease_id"] for x in active}) == 40, "lease identity collided")
+        expected = 10 * len(CREW_SESSION_ROLES)
+        require(len(active) == expected <= POOL_CAPACITY, f"wrong active lease count: {len(active)}")
+        require(len({x["active_lease"]["lease_id"] for x in active}) == expected, "lease identity collided")
 
 
 def test_restart_recovers_exact_terminal_result_and_never_steals_unknown() -> None:
@@ -1306,7 +1307,7 @@ def main() -> int:
         test_exact_manifest_and_transport_bundle,
         test_success_reuse_unused_cancel_and_exact_once_replay,
         test_first_failure_probation_is_offered_once,
-        test_ten_concurrent_runs_reserve_exactly_forty_leases,
+        test_ten_concurrent_runs_reserve_one_lease_per_role_each,
         test_restart_recovers_exact_terminal_result_and_never_steals_unknown,
         test_tampered_result_quarantines_and_terminal_missing_quarantines,
         test_bridge_supplies_exact_four_lease_transport_and_manual_path_is_ephemeral,
