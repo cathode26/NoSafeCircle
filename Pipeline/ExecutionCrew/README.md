@@ -45,8 +45,8 @@ The Implementer has `repository_read`, `repository_search`, and `repository_writ
 
 For Codex routes, the low-cost Test Author uses a bounded role-specific
 reasoning effort (`low` for fast and standard tasks, and
-`medium` for deep tasks) while the Implementer, Validator, locality auditor,
-and Lead Developer retain the task tier's configured effort. The Test Author
+`medium` for deep tasks) while the Implementer, Validator, and Lead Developer
+retain the task tier's configured effort. The Test Author
 inspects approved tests first, stops immediately when exact required coverage
 already exists, and does not spend provider time on unrelated repository
 surveys or speculative hardening.
@@ -136,8 +136,8 @@ and which are no longer safe to reuse. It starts nothing, waits on nothing, and
 terminates nothing: worker process lifetime stays with whoever launched it, and
 pooling means a resumable conversation, not a live process or container.
 
-`contract_locality_auditor`, `implementer`, `test_author`, and `validator` keep
-separate pools. A conversation is offered back only for the exact stable
+`implementer`, `test_author`, and `validator` keep separate pools (the
+`contract_locality_auditor` pool was retired with that role in 6e718ece2). A conversation is offered back only for the exact stable
 identity that created it: provider, exact model, reasoning effort, session class,
 role, capability class, repository identity, and crew/session protocol version.
 Task ID, source commit, checkout, allowed paths, and the assignment itself are
@@ -453,7 +453,7 @@ outputs/<run-id>/
   contract_locality_audit.json        # every run whose audit reaches a valid pass/contract_review_required result
   candidate.patch                    # review_ready only
   workspace_diagnostic.patch         # diagnostic only, when applicable
-  role_results/<role>_<attempt>.json  # includes contract_locality_auditor_1.json
+  role_results/<role>_<attempt>.json  # runs before 6e718ece2 may also hold contract_locality_auditor_1.json
   task_execution/<invocation-id>/task_request.json
   agent_runtime/<invocation-id>/{request.json,provider.log,result.json}
 ```

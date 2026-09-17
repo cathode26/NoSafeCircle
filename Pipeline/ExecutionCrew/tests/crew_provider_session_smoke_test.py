@@ -29,9 +29,9 @@ from Pipeline.ExecutionCrew.run_crew import (  # noqa: E402
     crew_provider_identifier,
     resolve_role_session,
 )
+from Pipeline.ExecutionCrew.session_pool import CREW_SESSION_ROLES as CREW_ROLES  # noqa: E402
 
 SESSION_A = "3f2504e0-4f89-41d3-9a0c-0305e82c3301"
-CREW_ROLES = ("contract_locality_auditor", "implementer", "test_author", "validator")
 
 
 def require(condition: bool, message: str) -> None:

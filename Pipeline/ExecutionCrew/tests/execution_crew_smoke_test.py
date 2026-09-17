@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministic four-role ExecutionCrew smoke; no Unity or live provider calls."""
+"""Deterministic three-role ExecutionCrew smoke; no Unity or live provider calls."""
 from __future__ import annotations
 import hashlib, io, json, os, shutil, subprocess, sys, tempfile, time
 from contextlib import redirect_stderr, redirect_stdout
@@ -21,7 +21,7 @@ from Pipeline.AgentRuntime.config import RuntimeConfiguration
 from Pipeline.AgentRuntime.contracts import Usage
 from Pipeline.AgentRuntime.providers.base import ProviderInvocationResponse
 from Pipeline.AgentRuntime.providers.claude_code import ClaudeCodeProvider, ClaudeLiveRenderer
-from Pipeline.ExecutionCrew.run_crew import CrewBlocked, EntryState, Snapshot, audit_commands, changed_paths, clone_exact, construct_real_provider, full_patch, main as crew_main, normalize_role_structured_output, normalized_agent_blockers, normalized_agent_claimed_paths, normalized_validator_blocking_issues, patch_commands, powershell_single_quote, print_human_summary, run_crew, runtime_configuration, safe_human_reason, unity_meta_bytes, validate_host_output_root, validator_semantic_reasons
+from Pipeline.ExecutionCrew.run_crew import CrewBlocked, EntryState, Snapshot, changed_paths, clone_exact, construct_real_provider, full_patch, main as crew_main, normalize_role_structured_output, normalized_agent_blockers, normalized_agent_claimed_paths, normalized_validator_blocking_issues, patch_commands, powershell_single_quote, print_human_summary, run_crew, runtime_configuration, safe_human_reason, unity_meta_bytes, validate_host_output_root, validator_semantic_reasons
 
 TASK="NSC-005"; IMPL="Assets/Scripts/PlayerMana.cs"; TEST="Assets/Tests/PlayerManaTests.cs"; OTHER="Assets/Scripts/Other.cs"; NEW_IMPL="Assets/Scripts/EnemyHealth.cs"; NEW_TEST="Assets/Tests/EnemyHealthPlayModeTests.cs"; OUTSIDE_NEW="Docs/NewBehavior.md"; SECRET="FULL_ROLE_PROMPT_SENTINEL_SECRET"
 RELATED_TASK="NSC-010"
@@ -66,7 +66,7 @@ class FakeProvider:
         assert "Docs/Engineering/ENGINEERING_STANDARDS.md" in request.context_paths
         if self.role in ("implementer", "test_author", "validator"):
             assert "ENGINEERING REUSE / TOOL SELECTION" in request.prompt
-        if s.feedback and self.role!="contract_locality_auditor":
+        if s.feedback:
             assert "HUMAN REVIEW REJECTION FROM PRIOR REVIEW-READY CANDIDATE" in request.prompt
             assert s.feedback in request.prompt
             if self.role=="implementer":
@@ -80,45 +80,7 @@ class FakeProvider:
                 assert "A Validator pass must not ignore an unresolved human-review rejection" in request.prompt
                 assert "both the production correction and appropriate regression" in request.prompt
         if s.scenario=="slow" and self.role=="implementer": time.sleep(.06)
-        if self.role=="contract_locality_auditor":
-            assert not self.writable and self.repo.resolve()==s.source.resolve()
-            assert "repository_write" not in request.allowed_capabilities
-            assert not request.write_boundaries.allowed_paths and not request.write_boundaries.denied_paths
-            assert request.model_capability_class=="high_reasoning"
-            for required in ("Contract Locality Auditor", "QUESTION YOU MUST ANSWER", "DETERMINISTIC TASK CATALOG", "local_to_task"):
-                assert required in request.prompt
-            if s.feedback: assert s.feedback not in request.prompt
-            def local(entry_id,entry_type): return {"id":entry_id,"entry_type":entry_type,"classification":"local_to_task","evidence":"owned locally by this task","related_task_ids":[],"recommended_action":"keep"}
-            entries=[local("AC-001","acceptance_criterion"),local("VAL-001","completion_gate")]
-            blocking=[]; audit_status="pass"
-            if s.scenario=="locality_review_required":
-                entries[1]={"id":"VAL-001","entry_type":"completion_gate","classification":"requires_declared_dependency","evidence":"cannot be proven without another task's already-integrated behavior","related_task_ids":[RELATED_TASK],"recommended_action":"add_dependency"}
-                blocking=[{"entry_id":"VAL-001","reason_code":"requires_declared_dependency","issue":"needs a declared dependency","recommended_action":"add_dependency","related_task_ids":[RELATED_TASK]}]
-                audit_status="contract_review_required"
-            elif s.scenario=="locality_add_dependency_empty_related":
-                entries[1]={"id":"VAL-001","entry_type":"completion_gate","classification":"requires_declared_dependency","evidence":"cannot be proven without another task's already-integrated behavior","related_task_ids":[],"recommended_action":"add_dependency"}
-                blocking=[{"entry_id":"VAL-001","reason_code":"requires_declared_dependency","issue":"needs a declared dependency","recommended_action":"add_dependency","related_task_ids":[]}]
-                audit_status="contract_review_required"
-            elif s.scenario=="locality_add_dependency_mismatch":
-                entries[1]={"id":"VAL-001","entry_type":"completion_gate","classification":"requires_declared_dependency","evidence":"cannot be proven without another task's already-integrated behavior","related_task_ids":[RELATED_TASK],"recommended_action":"add_dependency"}
-                blocking=[{"entry_id":"VAL-001","reason_code":"requires_declared_dependency","issue":"needs a declared dependency","recommended_action":"add_dependency","related_task_ids":[]}]
-                audit_status="contract_review_required"
-            elif s.scenario=="locality_invalid":
-                entries[1]={"id":"VAL-001","entry_type":"completion_gate","classification":"downstream_integration","evidence":"verifies a future consumer","related_task_ids":[],"recommended_action":"move_to_downstream_integration"}
-                audit_status="pass"
-            elif s.scenario=="nsc012_like":
-                entries=[local("AC-001","acceptance_criterion"),
-                         {"id":"VAL-001","entry_type":"completion_gate","classification":"downstream_integration",
-                          "evidence":"pursuit/attack-controller shutdown and leaving play is verified by the enemy's own pursuit/attack controller system, a downstream consumer of this task's defeat state, not owned by this health/defeat task",
-                          "related_task_ids":[],"recommended_action":"move_to_downstream_integration"},
-                         {"id":"VAL-002","entry_type":"completion_gate","classification":"requires_declared_dependency",
-                          "evidence":"target-loss/search behavior across room crossings is owned by other enemies' pursuit/search AI and the navigation layer, not this task",
-                          "related_task_ids":["NSC-014"],"recommended_action":"add_dependency"}]
-                blocking=[{"entry_id":"VAL-001","reason_code":"downstream_integration","issue":"verifies a future pursuit/attack controller consumer, not owned by this task","recommended_action":"move_to_downstream_integration","related_task_ids":[]},
-                          {"entry_id":"VAL-002","reason_code":"requires_declared_dependency","issue":"requires other enemies' target-loss/search behavior across room crossings","recommended_action":"add_dependency","related_task_ids":["NSC-014"]}]
-                audit_status="contract_review_required"
-            output={"status":audit_status,"summary":"locality audit","entry_results":entries,"blocking_findings":blocking,"files_reviewed":[IMPL,TEST]}
-        elif self.role=="validator":
+        if self.role=="validator":
             assert not self.writable and self.repo.resolve()==s.source.resolve(); assert "repository_write" not in request.allowed_capabilities; assert not request.write_boundaries.allowed_paths
             untracked=tuple(p for p in cmd(s.clone,"ls-files","--others","--exclude-standard").splitlines() if p)
             exact=full_patch(s.clone,cmd(s.source,"rev-parse","HEAD"),untracked).decode("utf-8","replace")
@@ -311,7 +273,7 @@ def main():
 
     # Rigor is executable authority, not advisory metadata. Lean uses the
     # existing committed test and keeps an independent Validator; standard adds
-    # Test Author; the backward-compatible default remains the full four roles.
+    # Test Author; the backward-compatible full default runs those same three roles.
     lean,lean_state,lean_dir=execute(
         source,outputs,"seed_preserve",270,provider="claude",
         crew_profile="lean",validation_profile="targeted"
@@ -333,7 +295,7 @@ def main():
     default_full,default_full_state,_=execute(source,outputs,"pass",272)
     assert default_full["crew_profile"]=="full" and default_full["validation_profile"]=="full_relevant"
     assert [role for role,_,_ in default_full_state.calls]==[
-        "contract_locality_auditor","implementer","test_author","validator"
+        "implementer","test_author","validator"
     ]
 
     for index,profile,validation,message in (
@@ -391,7 +353,7 @@ def main():
         new_implementation_paths=(NEW_IMPL,),new_test_paths=(NEW_TEST,),
     )
     assert all_new["crew_status"]=="review_ready"
-    assert [role for role,_,_ in all_new_state.calls]==["contract_locality_auditor","implementer","test_author","validator"]
+    assert [role for role,_,_ in all_new_state.calls]==["implementer","test_author","validator"]
     assert all_new["requested_implementation_paths"]==[NEW_IMPL] and all_new["requested_test_paths"]==[NEW_TEST]
     assert all_new["requested_existing_implementation_paths"]==[] and all_new["requested_new_implementation_paths"]==[NEW_IMPL]
     assert all_new["requested_existing_test_paths"]==[] and all_new["requested_new_test_paths"]==[NEW_TEST]
@@ -432,7 +394,7 @@ def main():
     (source/ignored_existing).unlink(); empty_parent.rmdir()
 
     # Source path preflight is targeted: an ignored Unity cache file is neither read nor hashed,
-    # while the production path proceeds through the locality auditor and all fake model roles.
+    # while the production path proceeds through all fake model roles.
     ignored_cache=source/"Library/Cache/large.bin"; write(ignored_cache,"small deterministic sentinel\n")
     original_read_bytes=Path.read_bytes
     def reject_cache_read(path):
@@ -442,10 +404,10 @@ def main():
     with patch.object(Path,"read_bytes",reject_cache_read):
         cache_result,cache_state,_=execute(source,outputs,"pass",148)
     assert cache_result["crew_status"]=="review_ready"
-    assert [role for role,_,_ in cache_state.calls]==["contract_locality_auditor","implementer","test_author","validator"]
+    assert [role for role,_,_ in cache_state.calls]==["implementer","test_author","validator"]
     ignored_cache.unlink(); ignored_cache.parent.rmdir(); ignored_cache.parent.parent.rmdir()
 
-    # New-path preflight failures happen before the locality auditor or either writer.
+    # New-path preflight failures happen before either writer.
     blocked_cases=(
         (("Assets/Missing/Thing.cs",),(NEW_TEST,),"parent"),
         ((IMPL,),(NEW_TEST,),"already tracked"),
@@ -499,7 +461,7 @@ def main():
         else: raise AssertionError(field)
     progress_stderr=io.StringIO(); progress_stdout=io.StringIO()
     with redirect_stderr(progress_stderr), redirect_stdout(progress_stdout): passed,state,d=execute(source,outputs,"pass",1)
-    assert passed["crew_status"]=="review_ready" and (d/"candidate.patch").read_bytes(); assert [x[0] for x in state.calls]==["contract_locality_auditor","implementer","test_author","validator"]
+    assert passed["crew_status"]=="review_ready" and (d/"candidate.patch").read_bytes(); assert [x[0] for x in state.calls]==["implementer","test_author","validator"]
     assert passed["contract_locality_status"]=="pass" and passed["contract_locality_audit_path"] is not None
     assert Path(passed["contract_locality_audit_path"]).samefile(d/"contract_locality_audit.json")
     audit_artifact=json.loads((d/"contract_locality_audit.json").read_text())
@@ -524,10 +486,10 @@ def main():
     assert normal_kwargs["retry_run_id"] is None and normal_kwargs["review_feedback_file"] is None
     assert json.loads((d/"role_results/validator_1.json").read_text())["structured_output"]["criteria_results"][1]["status"]=="not_proven"
     assert json.loads((d/"role_results/validator_1.json").read_text())["structured_output"]["criteria_results"][1]["reason_code"]=="runtime_not_executed"
-    assert len({x[1].run_id for x in state.calls})==4; assert not state.clone.exists(); assert passed["implementation_actual_changed_paths"]==[IMPL] and passed["test_actual_changed_paths"]==[TEST]
+    assert len({x[1].run_id for x in state.calls})==3; assert not state.clone.exists(); assert passed["implementation_actual_changed_paths"]==[IMPL] and passed["test_actual_changed_paths"]==[TEST]
     existing_test_adequate,existing_test_state,existing_test_dir=execute(source,outputs,"existing_test_adequate",155)
     assert existing_test_adequate["crew_status"]=="review_ready"
-    assert [x[0] for x in existing_test_state.calls]==["contract_locality_auditor","implementer","test_author","validator"]
+    assert [x[0] for x in existing_test_state.calls]==["implementer","test_author","validator"]
     assert existing_test_adequate["implementation_actual_changed_paths"]==[IMPL]
     assert existing_test_adequate["test_actual_changed_paths"]==[]
     assert existing_test_adequate["final_actual_changed_paths"]==[IMPL]
@@ -543,29 +505,29 @@ def main():
         role=slow_events[index]["role"]; attempt=slow_events[index]["attempt"]
         completed=next(i for i,event in enumerate(slow_events) if event["event"]=="role_completed" and event["role"]==role and event["attempt"]==attempt)
         assert index < completed and not any(event["event"]=="role_heartbeat" and event["role"]==role and event["attempt"]==attempt for event in slow_events[completed+1:])
-    repaired,state,d=execute(source,outputs,"repair",2); assert repaired["crew_status"]=="review_ready" and repaired["attempts_used"]==2; assert [x[0] for x in state.calls]==["contract_locality_auditor"]+["implementer","test_author","validator"]*2
+    repaired,state,d=execute(source,outputs,"repair",2); assert repaired["crew_status"]=="review_ready" and repaired["attempts_used"]==2; assert [x[0] for x in state.calls]==["implementer","test_author","validator"]*2
     assert repaired["token_usage"]["invocation_count"]==7 and repaired["token_usage"]["input_tokens"]==10 and repaired["token_usage"]["output_tokens"]==17 and repaired["token_usage"]["total_tokens"]==80
     failed_usage,failed_usage_state,failed_usage_dir=execute(source,outputs,"provider_failure_usage",153)
-    assert failed_usage["crew_status"]=="rejected" and [role for role,_,_ in failed_usage_state.calls]==["contract_locality_auditor","implementer"]
+    assert failed_usage["crew_status"]=="rejected" and [role for role,_,_ in failed_usage_state.calls]==["implementer"]
     assert json.loads((failed_usage_dir/"role_results/implementer_1.json").read_text())["agent_status"]=="failed"
     assert failed_usage["token_usage"]["complete"] is True and failed_usage["token_usage"]["total_tokens"]==22
     missing_usage,missing_usage_state,missing_usage_dir=execute(source,outputs,"missing_usage",154)
-    assert missing_usage["crew_status"]=="review_ready" and len(missing_usage_state.calls)==4
+    assert missing_usage["crew_status"]=="review_ready" and len(missing_usage_state.calls)==3
     assert json.loads((missing_usage_dir/"role_results/test_author_1.json").read_text())["usage"] is None
     assert missing_usage["token_usage"]["status"]=="incomplete" and missing_usage["token_usage"]["complete"] is False
     assert missing_usage["token_usage"]["total_tokens"] is None and missing_usage["token_usage"]["reported_total_tokens"]==33
     assert missing_usage["token_usage"]["missing_usage_invocation_count"]==1
-    no_op,state,d=execute(source,outputs,"no_op_repair",6); assert no_op["crew_status"]=="needs_human" and [x[0] for x in state.calls]==["contract_locality_auditor","implementer","test_author","validator","implementer","test_author"]
+    no_op,state,d=execute(source,outputs,"no_op_repair",6); assert no_op["crew_status"]=="needs_human" and [x[0] for x in state.calls]==["implementer","test_author","validator","implementer","test_author"]
     assert "repair cycle made no deterministic changes" in no_op["rejection_reasons"] and not (d/"candidate.patch").exists()
-    twice,state,d=execute(source,outputs,"needs_twice",3); assert twice["crew_status"]=="needs_human" and not (d/"candidate.patch").exists() and (d/"workspace_diagnostic.patch").is_file(); assert len(state.calls)==7
-    design,state,d=execute(source,outputs,"design",4); assert design["crew_status"]=="blocked" and len(state.calls)==4 and not (d/"candidate.patch").exists()
-    blocked,state,d=execute(source,outputs,"blocker",5); assert blocked["crew_status"]=="blocked" and len(state.calls)==2 and (d/"workspace_diagnostic.patch").is_file() and not state.clone.exists()
+    twice,state,d=execute(source,outputs,"needs_twice",3); assert twice["crew_status"]=="needs_human" and not (d/"candidate.patch").exists() and (d/"workspace_diagnostic.patch").is_file(); assert len(state.calls)==6
+    design,state,d=execute(source,outputs,"design",4); assert design["crew_status"]=="blocked" and len(state.calls)==3 and not (d/"candidate.patch").exists()
+    blocked,state,d=execute(source,outputs,"blocker",5); assert blocked["crew_status"]=="blocked" and len(state.calls)==1 and (d/"workspace_diagnostic.patch").is_file() and not state.clone.exists()
     for i,scenario in enumerate(("impl_test","test_impl","untracked","ignored_untracked","deleted","renamed","copied","staged","head"),10):
         rejected,state,d=execute(source,outputs,scenario,i); assert rejected["crew_status"]=="rejected",scenario; assert not (d/"candidate.patch").exists(),scenario
         if scenario=="test_impl": assert any("outside role WriteBoundaries" in x for x in rejected["rejection_reasons"])
         if scenario=="ignored_untracked": assert "untracked file: bad.ignored" in rejected["rejection_reasons"]
     for i,scenario in enumerate(("criteria_missing","criteria_duplicate","criteria_unknown","pass_fail"),50):
-        rejected,state,d=execute(source,outputs,scenario,i); assert rejected["crew_status"]=="rejected" and len(state.calls)==4 and not (d/"candidate.patch").exists()
+        rejected,state,d=execute(source,outputs,scenario,i); assert rejected["crew_status"]=="rejected" and len(state.calls)==3 and not (d/"candidate.patch").exists()
         assert any("validator" in reason for reason in rejected["rejection_reasons"])
     rejected,state,d=execute(source,outputs,"final_staged",60); assert rejected["crew_status"]=="rejected" and not (d/"candidate.patch").exists() and (d/"workspace_diagnostic.patch").is_file()
     assert any("clone baseline index" in reason for reason in rejected["rejection_reasons"])
@@ -641,7 +603,7 @@ def main():
     noop,noop_state,_=retry_execute(source,outputs,"retry_noop",164,seed_prior["run_id"],seed_feedback_path,seed_feedback_text)
     assert noop["crew_status"]=="needs_human"
     assert "human-review retry made no deterministic correction" in noop["rejection_reasons"]
-    assert [role for role,_,_ in noop_state.calls]==["contract_locality_auditor","implementer","test_author"]
+    assert [role for role,_,_ in noop_state.calls]==["implementer","test_author"]
 
     # A repair cycle cannot erase the human-review correction and return to the original seed,
     # even if the second Validator would otherwise report pass.
@@ -723,7 +685,7 @@ def main():
     assert (retry_dir/"human_review_feedback.txt").read_bytes()==feedback_bytes
     feedback_sha=hashlib.sha256(feedback_bytes).hexdigest()
     assert retried["review_origin"]=={"prior_run_id":prior["run_id"],"result":"human_rejected","feedback_artifact":"human_review_feedback.txt","feedback_sha256":feedback_sha}
-    assert [role for role,_,_ in retry_state.calls]==["contract_locality_auditor","implementer","test_author","validator"]
+    assert [role for role,_,_ in retry_state.calls]==["implementer","test_author","validator"]
     retry_telemetry=(retry_dir/"progress.jsonl").read_text()+retry_stderr.getvalue()
     assert feedback_text.strip() not in retry_telemetry and feedback_sha in retry_telemetry and prior["run_id"] in retry_telemetry
     assert any(json.loads(line)["event"]=="human_review_retry_loaded" for line in (retry_dir/"progress.jsonl").read_text().splitlines())
@@ -736,7 +698,7 @@ def main():
     mixed_feedback_path=feedback_dir/"mixed.txt"; mixed_feedback_path.write_bytes(mixed_feedback_text.encode("utf-8"))
     mixed,mixed_state,mixed_dir=retry_execute(source,outputs,"pass",75,prior["run_id"],mixed_feedback_path,mixed_feedback_text)
     assert mixed["crew_status"]=="review_ready"
-    assert [role for role,_,_ in mixed_state.calls]==["contract_locality_auditor","implementer","test_author","validator"]
+    assert [role for role,_,_ in mixed_state.calls]==["implementer","test_author","validator"]
     mixed_impl_record=json.loads((mixed_dir/"role_results/implementer_1.json").read_text())
     assert mixed_impl_record["structured_output"]["blockers"]==[]
     mixed_impl_request=next(request for role,request,_ in mixed_state.calls if role=="implementer")
@@ -746,7 +708,7 @@ def main():
     # A genuine production-scope blocker must still stop the crew before the Test Author runs.
     blocked_retry,blocked_retry_state,blocked_retry_dir=retry_execute(source,outputs,"blocker",76,prior["run_id"],mixed_feedback_path,mixed_feedback_text)
     assert blocked_retry["crew_status"]=="blocked"
-    assert [role for role,_,_ in blocked_retry_state.calls]==["contract_locality_auditor","implementer"]
+    assert [role for role,_,_ in blocked_retry_state.calls]==["implementer"]
     assert any("cannot implement" in reason for reason in blocked_retry["rejection_reasons"])
 
     # Fix 2: stable additive human-facing result, derived from existing information, never fabricated.
@@ -833,7 +795,7 @@ def main():
     assert normalized_agent_blockers(original)==["Cannot compile"]
     impl_leak_retry,impl_leak_state,impl_leak_dir=retry_execute(source,outputs,"blocker_leak",77,prior["run_id"],feedback_path,feedback_text)
     assert impl_leak_retry["crew_status"]=="blocked"
-    assert [role for role,_,_ in impl_leak_state.calls]==["contract_locality_auditor","implementer"]
+    assert [role for role,_,_ in impl_leak_state.calls]==["implementer"]
     assert any(feedback_text.strip() in reason for reason in impl_leak_retry["rejection_reasons"])
     assert impl_leak_retry["human_result"]["reason"]=="The Implementer reported a blocker."
     impl_leak_summary_stderr=io.StringIO()
@@ -843,7 +805,7 @@ def main():
 
     test_leak_retry,test_leak_state,test_leak_dir=retry_execute(source,outputs,"test_blocker_leak",78,prior["run_id"],feedback_path,feedback_text)
     assert test_leak_retry["crew_status"]=="blocked"
-    assert [role for role,_,_ in test_leak_state.calls]==["contract_locality_auditor","implementer","test_author"]
+    assert [role for role,_,_ in test_leak_state.calls]==["implementer","test_author"]
     assert any(feedback_text.strip() in reason for reason in test_leak_retry["rejection_reasons"])
     assert test_leak_retry["human_result"]["reason"]=="The Test Author reported a blocker."
     test_leak_summary_stderr=io.StringIO()
@@ -992,7 +954,7 @@ def main():
         assert "neither applies cleanly nor is already present" in str(exc),str(exc)
     else:
         raise AssertionError("stale/diverged prior candidate unexpectedly accepted")
-    assert [role for role,_,_ in stale_retry_state.calls]==["contract_locality_auditor"]
+    assert [role for role,_,_ in stale_retry_state.calls]==[]
 
     # Retry repair attempt two retains human evidence and the separate Validator findings. Use a
     # fresh review-ready prior rooted at the current source so candidate seeding has valid lineage.
@@ -1020,7 +982,7 @@ def main():
     assert legacy_retry["requested_implementation_paths"]==sorted((IMPL,OTHER))
     assert legacy_retry["requested_test_paths"]==[TEST]
     assert legacy_retry["implementation_actual_changed_paths"]==[IMPL]
-    assert legacy_state.calls[1][1].write_boundaries.allowed_paths==tuple(sorted((IMPL,OTHER)))
+    assert legacy_state.calls[0][1].write_boundaries.allowed_paths==tuple(sorted((IMPL,OTHER)))
 
     # Retry CLI has no duplicated task/provider/scope arguments.
     retry_cli_stdout=io.StringIO(); retry_cli_stderr=io.StringIO()
@@ -1166,151 +1128,18 @@ def main():
     except (OSError, NotImplementedError):
         pass
 
-    # Contract Locality Auditor: mandatory, read-only, runs before the Implementer. When it reports
-    # contract_review_required, no Implementer/Test Author/Validator invocation ever happens.
-    locality_required,locality_state,locality_dir=execute(source,outputs,"locality_review_required",100)
-    assert locality_required["crew_status"]=="contract_review_required"
-    assert [role for role,_,_ in locality_state.calls]==["contract_locality_auditor"]
-    assert locality_required["attempts_used"]==0 and locality_required["validator_status"] is None
-    assert locality_required["candidate_patch_path"] is None and locality_required["workspace_diagnostic_patch_path"] is None
-    assert not (locality_dir/"candidate.patch").exists() and not (locality_dir/"workspace_diagnostic.patch").exists()
-    assert locality_required["contract_locality_status"]=="contract_review_required"
-    assert locality_required["contract_locality_audit_path"] is not None
-    assert Path(locality_required["contract_locality_audit_path"]).samefile(locality_dir/"contract_locality_audit.json")
-    locality_audit=json.loads((locality_dir/"contract_locality_audit.json").read_text())
-    assert locality_audit["schema_version"]=="1.0" and locality_audit["result"]["status"]=="contract_review_required"
-    assert [f["entry_id"] for f in locality_audit["result"]["blocking_findings"]]==["VAL-001"]
-    assert locality_audit["result"]["blocking_findings"][0]["reason_code"]=="requires_declared_dependency"
-    assert locality_audit["result"]["blocking_findings"][0]["related_task_ids"]==[RELATED_TASK]
-    assert locality_required["human_result"]["status"]=="CONTRACT_REVIEW_REQUIRED"
-    assert locality_required["human_result"]["reason"]==("The committed task contract contains one or more AC/VAL items that are not locally "
-                                                           "implementable/provable under its current scope or dependencies.")
-    assert locality_required["human_result"]["next_action"]==("Review the audit, repair the task contract through normal human-reviewed TaskGraph "
-                                                                "workflow, validate the graph, and rerun ExecutionCrew.")
-    assert locality_required["human_result"]["artifact_path"]==locality_required["contract_locality_audit_path"]
-    assert locality_required["human_result"]["commands"]==audit_commands(locality_required["contract_locality_audit_path"])
-    assert locality_required["human_next_step"]==locality_required["human_result"]["next_action"]
-    locality_footer=io.StringIO()
-    with redirect_stderr(locality_footer): print_human_summary(locality_required)
-    locality_footer_text=locality_footer.getvalue()
-    assert "RESULT: CONTRACT_REVIEW_REQUIRED" in locality_footer_text
-    assert f"WHY: {locality_required['human_result']['reason']}" in locality_footer_text
-    assert f"ARTIFACT: {locality_required['human_result']['artifact_path']}" in locality_footer_text
-    assert "FIND AUDIT:" in locality_footer_text and "INSPECT AUDIT:" in locality_footer_text
-    assert audit_commands(locality_required["contract_locality_audit_path"])["find"] in locality_footer_text
-    assert audit_commands(locality_required["contract_locality_audit_path"])["inspect"] in locality_footer_text
-    assert f"NEXT: {locality_required['human_result']['next_action']}" in locality_footer_text
-    # No patch exists in this result: never print patch or diagnostic-patch wording.
-    for forbidden in ("FIND PATCH:", "CHECK PATCH:", "APPLY PATCH:", "FIND DIAGNOSTIC PATCH:", "DO NOT APPLY:", "git apply"):
-        assert forbidden not in locality_footer_text
-    assert cmd(source,"status","--porcelain=v1","--untracked-files=all")==""
-
-    # requires_declared_dependency deterministically requires a nonempty, actionable related_task_ids
-    # naming a task that exists in the validated persistent graph, and the matching blocking finding
-    # must repeat the exact same related_task_ids. An empty array, or a mismatch between the
-    # entry_results and blocking_findings related_task_ids, is an invalid (rejected) audit result.
-    empty_related,empty_related_state,empty_related_dir=execute(source,outputs,"locality_add_dependency_empty_related",104)
-    assert empty_related["crew_status"]=="rejected"
-    assert [role for role,_,_ in empty_related_state.calls]==["contract_locality_auditor"]
-    assert empty_related["contract_locality_status"] is None and empty_related["contract_locality_audit_path"] is None
-    assert not (empty_related_dir/"contract_locality_audit.json").exists()
-    assert empty_related["candidate_patch_path"] is None
-    assert any("requires a nonempty related_task_ids" in reason for reason in empty_related["rejection_reasons"])
-    assert cmd(source,"status","--porcelain=v1","--untracked-files=all")==""
-
-    mismatch_related,mismatch_related_state,mismatch_related_dir=execute(source,outputs,"locality_add_dependency_mismatch",105)
-    assert mismatch_related["crew_status"]=="rejected"
-    assert [role for role,_,_ in mismatch_related_state.calls]==["contract_locality_auditor"]
-    assert mismatch_related["contract_locality_status"] is None and mismatch_related["contract_locality_audit_path"] is None
-    assert not (mismatch_related_dir/"contract_locality_audit.json").exists()
-    assert mismatch_related["candidate_patch_path"] is None
-    assert any("related_task_ids must match entry related_task_ids" in reason for reason in mismatch_related["rejection_reasons"])
-    assert cmd(source,"status","--porcelain=v1","--untracked-files=all")==""
-
-    # An internally inconsistent (invalid) auditor output stops the run before the Implementer as a
-    # rejected/invalid audit, not silently as contract_review_required and not as a passthrough pass.
-    locality_invalid,locality_invalid_state,locality_invalid_dir=execute(source,outputs,"locality_invalid",101)
-    assert locality_invalid["crew_status"]=="rejected"
-    assert [role for role,_,_ in locality_invalid_state.calls]==["contract_locality_auditor"]
-    assert locality_invalid["contract_locality_status"] is None and locality_invalid["contract_locality_audit_path"] is None
-    assert not (locality_invalid_dir/"contract_locality_audit.json").exists()
-    assert locality_invalid["candidate_patch_path"] is None
-    assert any(reason.startswith("contract locality auditor: ") for reason in locality_invalid["rejection_reasons"])
-    assert cmd(source,"status","--porcelain=v1","--untracked-files=all")==""
-
     # A locally provable task contract passes the audit and continues through the normal crew flow.
     locality_pass,locality_pass_state,locality_pass_dir=execute(source,outputs,"pass",102)
     assert locality_pass["crew_status"]=="review_ready"
-    assert [role for role,_,_ in locality_pass_state.calls]==["contract_locality_auditor","implementer","test_author","validator"]
+    assert [role for role,_,_ in locality_pass_state.calls]==["implementer","test_author","validator"]
     assert locality_pass["contract_locality_status"]=="pass"
-
-    # An NSC-012-like contract: single_agent/concrete/self-contained wording that explicitly disclaims
-    # pursuit, attacks, search, and navigation, yet BOTH of its completion gates actually require
-    # nonlocal behavior: real pursuit/attack-controller shutdown and leaving play (owned by the
-    # enemy's own pursuit/attack controller, a downstream consumer of this task's defeat state) and
-    # real target-loss/search/room-crossing behavior (owned by NSC-014, Enemy Pursuit/Search
-    # Foundation). The mandatory pre-Implementer audit must catch both before any writer role runs,
-    # identify both exact nonlocal gate IDs, and route to CONTRACT_REVIEW_REQUIRED.
-    nsc012_clone=root/"nsc012-like"; subprocess.run(("git","clone","-q",str(source),str(nsc012_clone)),check=True)
-    cmd(nsc012_clone,"config","user.name","Crew Smoke"); cmd(nsc012_clone,"config","user.email","crew@example.invalid")
-    (nsc012_clone/f"Tasks/{RELATED_TASK}.yaml").unlink()
-    nsc012_task={
-        "schema_version":"2.0","id":TASK,"contract_revision":4,"contract_disposition":"active",
-        "title":"Enemy Health/Defeat","reconciliation_key":"enemy-health-damage-defeat","kind":"implementation",
-        "type":"implementation","execution_scope":"single_agent",
-        "execution_reason":"A cohesive, bounded, self-contained component that one agent can implement and validate without needing to also implement pursuit, attacks, search, or navigation.",
-        "decomposition_state":"concrete",
-        "decomposition_reason":"The GDD fully specifies health/damage/defeat ownership and reset participation; no missing design blocks a bounded implementation item.",
-        "parent":"NSC-001","depends_on":[],"exclusive_resources":[],
-        "acceptance_criteria":[{"criterion_id":"AC-001","reference":"fixture","requirement":"Health/damage/defeat state is owned and tracked locally by this task."}],
-        "completion_gates":[
-            {"gate_id":"VAL-001","reference":"fixture","requirement":"Verify a defeated enemy's own pursuit/attack controller shuts down immediately and the enemy leaves active play following the defeat transition."},
-            {"gate_id":"VAL-002","reference":"fixture","requirement":"Verify that once this enemy is defeated, other active enemies correctly register target-loss and resume search behavior across room crossings."},
-        ],
-        "downstream_integration_obligations":[],"provenance":{"origin":"fixture"},
-    }
-    nsc014_task={
-        "schema_version":"2.0","id":"NSC-014","contract_revision":1,"contract_disposition":"active",
-        "title":"Enemy Pursuit/Search Foundation","reconciliation_key":"enemy-pursuit-search-foundation","kind":"implementation",
-        "type":"implementation","execution_scope":"single_agent",
-        "execution_reason":"Owns pursuit and target-loss/search behavior across room crossings for enemies.",
-        "decomposition_state":"concrete","decomposition_reason":"GDD specifies pursuit/search ownership.",
-        "parent":"NSC-001","depends_on":[],"exclusive_resources":[],
-        "acceptance_criteria":[{"criterion_id":"AC-001","reference":"fixture","requirement":"Pursuit/search behavior is implemented."}],
-        "completion_gates":[{"gate_id":"VAL-001","reference":"fixture","requirement":"Pursuit/search behavior is verified."}],
-        "downstream_integration_obligations":[],"provenance":{"origin":"fixture"},
-    }
-    write_persistent_graph(nsc012_clone,[root_task(),nsc012_task,nsc014_task])
-    cmd(nsc012_clone,"add","."); cmd(nsc012_clone,"commit","-qm","nsc-012-like fixture")
-    nsc012_head=cmd(nsc012_clone,"rev-parse","HEAD")
-    nsc012,nsc012_state,nsc012_dir=execute(nsc012_clone,outputs,"nsc012_like",103)
-    assert nsc012["crew_status"]=="contract_review_required"
-    assert [role for role,_,_ in nsc012_state.calls]==["contract_locality_auditor"]
-    assert sum(1 for role,_,_ in nsc012_state.calls if role=="implementer")==0
-    assert sum(1 for role,_,_ in nsc012_state.calls if role=="test_author")==0
-    assert sum(1 for role,_,_ in nsc012_state.calls if role=="validator")==0
-    assert nsc012["attempts_used"]==0 and nsc012["validator_status"] is None
-    assert nsc012["candidate_patch_path"] is None and nsc012["workspace_diagnostic_patch_path"] is None
-    assert not (nsc012_dir/"candidate.patch").exists() and not (nsc012_dir/"workspace_diagnostic.patch").exists()
-    assert nsc012["contract_locality_status"]=="contract_review_required"
-    nsc012_audit=json.loads((nsc012_dir/"contract_locality_audit.json").read_text())
-    nsc012_entries={entry["id"]:entry for entry in nsc012_audit["result"]["entry_results"]}
-    assert nsc012_entries["VAL-001"]["classification"]!="local_to_task"
-    assert nsc012_entries["VAL-002"]["classification"]!="local_to_task"
-    assert nsc012_entries["VAL-001"]["classification"] in ("downstream_integration","requires_declared_dependency")
-    assert nsc012_entries["VAL-002"]["classification"] in ("downstream_integration","requires_declared_dependency")
-    blocking_ids=[f["entry_id"] for f in nsc012_audit["result"]["blocking_findings"]]
-    assert set(blocking_ids)=={"VAL-001","VAL-002"}
-    assert nsc012["human_result"]["status"]=="CONTRACT_REVIEW_REQUIRED"
-    assert cmd(nsc012_clone,"rev-parse","HEAD")==nsc012_head
-    assert cmd(nsc012_clone,"status","--porcelain=v1","--untracked-files=all")==""
 
     # Validator structured reason_code is a second safety boundary. An overall pass may only carry a
     # not_proven item whose reason_code is runtime_not_executed; any other not_proven reason_code is a
     # rejected (invalid) validator output, never a silent pass.
     reason_pass_invalid,rpi_state,rpi_dir=execute(source,outputs,"reason_code_pass_invalid",110)
     assert reason_pass_invalid["crew_status"]=="rejected"
-    assert [role for role,_,_ in rpi_state.calls]==["contract_locality_auditor","implementer","test_author","validator"]
+    assert [role for role,_,_ in rpi_state.calls]==["implementer","test_author","validator"]
     assert any("reason_code" in reason for reason in reason_pass_invalid["rejection_reasons"])
     assert not (rpi_dir/"candidate.patch").exists()
 
@@ -1330,7 +1159,7 @@ def main():
     for index,scenario,expected_reason_code in ((112,"validator_missing_integration_dependency","missing_integration_dependency"),(113,"validator_design_ambiguity","design_ambiguity")):
         fallback,fallback_state,fallback_dir=execute(source,outputs,scenario,index)
         assert fallback["crew_status"]=="contract_review_required",scenario
-        assert [role for role,_,_ in fallback_state.calls]==["contract_locality_auditor","implementer","test_author","validator"],scenario
+        assert [role for role,_,_ in fallback_state.calls]==["implementer","test_author","validator"],scenario
         assert fallback["validator_status"]=="blocked_by_design",scenario
         assert fallback["contract_locality_status"]=="pass",scenario
         validator_record=json.loads((fallback_dir/"role_results/validator_1.json").read_text())
@@ -1355,7 +1184,7 @@ def main():
     # The persistent task graph: production behavior loads and validates the real, authoritative
     # persistent work graph (BOOTSTRAP_PERSISTED.json, WORK_ID_MAP.json, PROJECT_REQUIREMENTS.yaml,
     # RESOURCE_GROUPS.yaml, parent hierarchy, dependency graph, resource-group symmetry) via
-    # load_persistent_work_graph, strictly before the Contract Locality Auditor is ever invoked.
+    # load_persistent_work_graph, strictly before any provider role is invoked.
     def task_catalog_from_disk(graph_root):
         catalog={}
         for path in sorted((graph_root/"Tasks").glob("NSC-*.yaml")):
@@ -1370,7 +1199,7 @@ def main():
         graph_default_result=run_crew(source=source,output_root=outputs,task_id=TASK,provider_name="fake",implementation_paths=(IMPL,),test_paths=(TEST,),run_id="graph-loader-default-120",provider_factory=factory(graph_loader_state),_require_physical_read_only_source=False)
     assert graph_default_result["crew_status"]=="review_ready"
     assert graph_loader_calls==[source.resolve()]
-    assert [role for role,_,_ in graph_loader_state.calls][0]=="contract_locality_auditor"
+    assert [role for role,_,_ in graph_loader_state.calls][0]=="implementer"
 
     # A persistent-graph validation failure (here: a missing bootstrap completion marker) blocks
     # before any provider role is invoked, using the real production default loader (not mocked),
@@ -1403,7 +1232,7 @@ def main():
     # and always runs the mandatory current auditor before the Implementer.
     pre_feature_prior,pre_feature_state,pre_feature_dir=execute(source,outputs,"pass",130,provider="claude")
     assert pre_feature_prior["crew_status"]=="review_ready"
-    assert [role for role,_,_ in pre_feature_state.calls]==["contract_locality_auditor","implementer","test_author","validator"]
+    assert [role for role,_,_ in pre_feature_state.calls]==["implementer","test_author","validator"]
     auditor_request_dirs=[p.parent for p in (pre_feature_dir/"task_execution").glob("*/task_request.json")
                            if json.loads(p.read_text())["invocation"]["role"]=="contract_locality_auditor"]
     assert len(auditor_request_dirs)==1
@@ -1441,7 +1270,7 @@ def main():
 
     pre_feature_retry,pre_feature_retry_state,pre_feature_retry_dir=retry_execute(source,outputs,"pass",131,pre_feature_json["run_id"],pre_feature_feedback_path,pre_feature_feedback_text)
     assert pre_feature_retry["crew_status"]=="review_ready"
-    assert [role for role,_,_ in pre_feature_retry_state.calls]==["contract_locality_auditor","implementer","test_author","validator"]
+    assert [role for role,_,_ in pre_feature_retry_state.calls]==["implementer","test_author","validator"]
     assert pre_feature_retry["requested_implementation_paths"]==[IMPL] and pre_feature_retry["requested_test_paths"]==[TEST]
     assert pre_feature_retry["contract_locality_status"]=="pass" and pre_feature_retry["contract_locality_audit_path"] is not None
     assert Path(pre_feature_retry["contract_locality_audit_path"]).samefile(pre_feature_retry_dir/"contract_locality_audit.json")
@@ -1473,11 +1302,11 @@ def main():
     cross_retry,cross_state,_=retry_execute(retry_source,retry_outputs,"cross_new",138,prior_new["run_id"],retry_feedback,"Adjust the newly committed behavior.\n")
     assert cross_retry["crew_status"]=="rejected"
     assert any("outside role WriteBoundaries" in reason for reason in cross_retry["rejection_reasons"])
-    assert [role for role,_,_ in cross_state.calls]==["contract_locality_auditor","implementer","test_author"]
+    assert [role for role,_,_ in cross_state.calls]==["implementer","test_author"]
     noop_new,noop_new_state,_=retry_execute(retry_source,retry_outputs,"retry_noop",137,prior_new["run_id"],retry_feedback,"Adjust the newly committed behavior.\n")
     assert noop_new["crew_status"]=="needs_human" and noop_new["retry_seed_mode"]=="applied"
     assert "human-review retry made no deterministic correction" in noop_new["rejection_reasons"]
-    assert [role for role,_,_ in noop_new_state.calls]==["contract_locality_auditor","implementer","test_author"]
+    assert [role for role,_,_ in noop_new_state.calls]==["implementer","test_author"]
 
     partial_source=root/"partial-new-retry"; subprocess.run(("git","clone","-q",str(retry_source),str(partial_source)),check=True)
     cmd(partial_source,"config","user.name","Crew Smoke"); cmd(partial_source,"config","user.email","crew@example.invalid")
@@ -1488,7 +1317,7 @@ def main():
     try: run_crew(source=partial_source,output_root=retry_outputs,run_id="partial-new-retry-136",retry_run_id=prior_new["run_id"],review_feedback_file=retry_feedback,provider_factory=factory(partial_state),_require_physical_read_only_source=False)
     except CrewBlocked as exc: assert "neither applies cleanly nor is already present" in str(exc),str(exc)
     else: raise AssertionError("partially integrated all-new candidate was accepted")
-    assert [role for role,_,_ in partial_state.calls]==["contract_locality_auditor"]
+    assert [role for role,_,_ in partial_state.calls]==[]
 
     sidecar_source=root/"sidecar-tamper-retry"; subprocess.run(("git","clone","-q",str(retry_source),str(sidecar_source)),check=True)
     cmd(sidecar_source,"config","user.name","Crew Smoke"); cmd(sidecar_source,"config","user.email","crew@example.invalid")
@@ -1498,7 +1327,7 @@ def main():
     try: run_crew(source=sidecar_source,output_root=retry_outputs,run_id="sidecar-tamper-retry-135",retry_run_id=prior_new["run_id"],review_feedback_file=retry_feedback,provider_factory=factory(sidecar_state),_require_physical_read_only_source=False)
     except CrewBlocked as exc: assert "neither applies cleanly nor is already present" in str(exc),str(exc)
     else: raise AssertionError("tampered deterministic sidecar was accepted as already present")
-    assert [role for role,_,_ in sidecar_state.calls]==["contract_locality_auditor"]
+    assert [role for role,_,_ in sidecar_state.calls]==[]
     subprocess.run(("git","-C",str(retry_source),"apply","--binary",str(prior_new_dir/"candidate.patch")),check=True)
     cmd(retry_source,"add",NEW_IMPL,NEW_TEST,NEW_IMPL+".meta",NEW_TEST+".meta"); cmd(retry_source,"commit","-qm","apply prior new candidate")
     retried,retried_state,retried_dir=retry_execute(retry_source,retry_outputs,"new_files",141,prior_new["run_id"],retry_feedback,"Adjust the newly committed behavior.\n")
@@ -1507,7 +1336,7 @@ def main():
     assert retried["requested_existing_implementation_paths"]==[NEW_IMPL] and retried["requested_new_implementation_paths"]==[]
     assert retried["requested_existing_test_paths"]==[NEW_TEST] and retried["requested_new_test_paths"]==[]
     assert retried["pipeline_generated_paths"]==[]
-    assert retried_state.calls[1][1].write_boundaries.allowed_paths==(NEW_IMPL,)
+    assert retried_state.calls[0][1].write_boundaries.allowed_paths==(NEW_IMPL,)
     committed_retry_patch=(retried_dir/"candidate.patch").read_bytes()
     assert b"new file mode" not in committed_retry_patch and b".meta" not in committed_retry_patch
 

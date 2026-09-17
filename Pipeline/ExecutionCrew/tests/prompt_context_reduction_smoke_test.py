@@ -8,10 +8,9 @@ call, Unity invocation, or tracked repository file is involved.
 
 The load-bearing claims are:
 
-  * exactly one role prompt carries the full inline committed GDD, and it is the
-    Contract Locality Auditor -- the only role that must make an exhaustive
-    negative claim about canon (`missing_design`) before any diff exists to
-    anchor a targeted read;
+  * no invoked crew role prompt carries the full inline committed GDD; only the
+    Contract Locality Auditor prompt builder still inlines it, and that role was
+    retired from crew runs in 6e718ece2;
   * the aggregate fixed prompt now scales with the GDD payload exactly once
     rather than four times, which is what proves three payload copies were
     actually removed rather than merely relabelled;
@@ -24,8 +23,8 @@ The load-bearing claims are:
     told that remembered or earlier-assignment GDD text is not canon;
   * a reused pooled session that already saw a different GDD receives no stale
     canon text and no inline canon text at all;
-  * the auditor still fails closed on `missing_design` and on the other nonlocal
-    classifications after its dependent-contract payload was reduced;
+  * the deterministic locality-audit output checks are unchanged, and the
+    auditor prompt builder still carries the reduced locality evidence;
   * the reduced dependent payload keeps every requirement-bearing field verbatim
     and names the exact committed file for the fields it omits;
   * prompt construction is byte-identical across repeated runs.
@@ -77,6 +76,7 @@ from Pipeline.ExecutionCrew.prompts import (  # noqa: E402
 from Pipeline.ExecutionCrew.run_crew import run_crew  # noqa: E402
 from Pipeline.ExecutionCrew.session_pool import (  # noqa: E402
     CREW_SESSION_PROTOCOL_VERSION,
+    CREW_SESSION_ROLES,
     DurableAssignmentResult,
     SessionCompatibility,
     SessionPool,
@@ -93,7 +93,6 @@ ROLES = ("contract_locality_auditor", "implementer", "test_author", "validator")
 INLINE_GDD_ROLE = "contract_locality_auditor"
 NO_INLINE_GDD_ROLES = tuple(role for role in ROLES if role != INLINE_GDD_ROLE)
 ROLE_CLASSES = {
-    "contract_locality_auditor": "high_reasoning",
     "implementer": "standard",
     "test_author": "low_cost",
     "validator": "high_reasoning",
@@ -300,8 +299,7 @@ def fixture(parent: Path, *, sentinel: str = GDD_SENTINEL, directory_name: str =
 class State:
     """Records the exact AgentInvocationRequest every role actually received."""
 
-    def __init__(self, *, audit: str = "pass", feedback: str | None = None) -> None:
-        self.audit = audit
+    def __init__(self, *, feedback: str | None = None) -> None:
         self.feedback = feedback
         self.requests: list = []
 
@@ -312,40 +310,6 @@ class State:
         matches = self.by_role(role)
         require(matches, f"{role} was never invoked")
         return matches[0]
-
-
-def _audit_output(state: State) -> dict:
-    def local(entry_id: str, entry_type: str) -> dict:
-        return {"id": entry_id, "entry_type": entry_type, "classification": "local_to_task",
-                "evidence": "owned locally by this task", "related_task_ids": [],
-                "recommended_action": "keep"}
-
-    entries = [local("AC-001", "acceptance_criterion"), local("VAL-001", "completion_gate")]
-    blocking: list[dict] = []
-    status = "pass"
-    if state.audit == "missing_design":
-        entries[0] = {
-            "id": "AC-001", "entry_type": "acceptance_criterion", "classification": "missing_design",
-            "evidence": "the committed GDD does not authorize the required behavior",
-            "related_task_ids": [], "recommended_action": "clarify_design",
-        }
-        blocking = [{"entry_id": "AC-001", "reason_code": "missing_design",
-                     "issue": "committed canon lacks the approved design authority",
-                     "recommended_action": "clarify_design", "related_task_ids": []}]
-        status = "contract_review_required"
-    elif state.audit == "requires_declared_dependency":
-        entries[1] = {
-            "id": "VAL-001", "entry_type": "completion_gate",
-            "classification": "requires_declared_dependency",
-            "evidence": "needs the dependent task's already-integrated behavior",
-            "related_task_ids": [DEPENDENT_TASK], "recommended_action": "add_dependency",
-        }
-        blocking = [{"entry_id": "VAL-001", "reason_code": "requires_declared_dependency",
-                     "issue": "needs a declared dependency", "recommended_action": "add_dependency",
-                     "related_task_ids": [DEPENDENT_TASK]}]
-        status = "contract_review_required"
-    return {"status": status, "summary": "locality audit", "entry_results": entries,
-            "blocking_findings": blocking, "files_reviewed": [IMPL, TEST]}
 
 
 class FakeProvider:
@@ -370,9 +334,7 @@ class FakeProvider:
             observed = self.session.session_id or (
                 f"beef0000-1111-4111-8111-{len(self.state.requests):012x}")
             self.session_ledger.record(self.session.confirm(observed))
-        if self.role == "contract_locality_auditor":
-            output = _audit_output(self.state)
-        elif self.role == "implementer":
+        if self.role == "implementer":
             # A human-review retry seeds the clone with the rejected candidate, so
             # the corrected candidate must actually differ from it.
             corrected = " public int ManaBarPixels;" if self.reviewing(request) else ""
@@ -423,16 +385,14 @@ def execute(source: Path, outputs: Path, *, run_id: str, state: State, leases=No
         )
 
 
-# ------------------------------------------------- 1: exactly one inline GDD
+# ---------------------------------------------------- 1: no inline GDD
 
 
-def test_exactly_one_role_prompt_carries_the_inline_committed_gdd() -> None:
-    """Before this change every one of the four prompts embedded the whole GDD.
+def test_no_crew_role_prompt_carries_the_inline_committed_gdd() -> None:
+    """Before the prompt reduction every role prompt embedded the whole GDD.
 
-    The auditor is the role that keeps it: it is the only role required to make
-    an exhaustive negative claim about canon (`missing_design`), and the only
-    one that runs before any diff, patch, or changed-path set exists to scope a
-    targeted read.
+    The Contract Locality Auditor kept the only inline copy until 6e718ece2
+    retired it from crew runs, so no invoked role receives the payload now.
     """
     with tempfile.TemporaryDirectory(prefix="prompt-context-") as text:
         parent = Path(text)
@@ -442,17 +402,13 @@ def test_exactly_one_role_prompt_carries_the_inline_committed_gdd() -> None:
         require(result["crew_status"] == "review_ready",
                 f"unexpected status {result['crew_status']}")
 
+        invoked = sorted({request.role for request in state.requests})
+        require(invoked == sorted(CREW_SESSION_ROLES),
+                f"unexpected invoked roles {invoked}")
         gdd = (source / COMMITTED_GDD_PATH).read_text(encoding="utf-8")
-        carrying = [role for role in ROLES if gdd in state.first(role).prompt]
-        require(carrying == [INLINE_GDD_ROLE],
-                f"expected only {INLINE_GDD_ROLE} to inline the GDD; got {carrying}")
-
-        for role in NO_INLINE_GDD_ROLES:
-            prompt = state.first(role).prompt
-            require(GDD_SENTINEL not in prompt,
-                    f"{role} still carries GDD body text")
-        require(GDD_SENTINEL in state.first(INLINE_GDD_ROLE).prompt,
-                "the auditor lost its inline GDD")
+        carrying = sorted({request.role for request in state.requests
+                           if gdd in request.prompt or GDD_SENTINEL in request.prompt})
+        require(carrying == [], f"expected no role to inline the GDD; got {carrying}")
 
 
 # ------------------------------------- 2: context_paths still bind the GDD
@@ -529,15 +485,15 @@ def test_a_reused_pooled_session_receives_no_stale_or_inline_canon() -> None:
                     CREW_SESSION_PROTOCOL_VERSION, "worker"),
                 worker_slot_id="worker-slot-1", task_id=TASK, worker_run_id="pooled-one",
                 source_commit=head_one, checkout_identity=checkout)
-            for role in ROLES
+            for role in CREW_SESSION_ROLES
         }
         first = execute(source, outputs, run_id="pooled-one", state=first_state,
                         leases=leases_one, provider="claude",
                         provider_identity="claude-code",
                         scheduler_repository_identity=REPOSITORY)
         require(first["crew_status"] == "review_ready", str(first["crew_status"]))
-        require(STALE_GDD_SENTINEL in first_state.first(INLINE_GDD_ROLE).prompt,
-                "the first assignment never saw the original GDD")
+        require(STALE_GDD_SENTINEL in cmd(source, "show", f"{head_one}:{COMMITTED_GDD_PATH}"),
+                "the first assignment's committed GDD was not the original one")
         # Return every proven conversation so the second assignment really
         # resumes the same session rather than starting a cold one.
         for role, lease in leases_one.items():
@@ -561,7 +517,7 @@ def test_a_reused_pooled_session_receives_no_stale_or_inline_canon() -> None:
                     CREW_SESSION_PROTOCOL_VERSION, "worker"),
                 worker_slot_id="worker-slot-1", task_id=TASK, worker_run_id="pooled-two",
                 source_commit=head_two, checkout_identity=checkout)
-            for role in ROLES
+            for role in CREW_SESSION_ROLES
         }
         for role, lease in leases_two.items():
             require(lease.mode == "resume",
@@ -582,37 +538,14 @@ def test_a_reused_pooled_session_receives_no_stale_or_inline_canon() -> None:
             require(f"Current source commit: {head_two}" in prompt,
                     f"{role} was not bound to the current source commit")
 
-        auditor = second_state.first(INLINE_GDD_ROLE).prompt
-        require(GDD_SENTINEL in auditor, "the auditor did not receive the current canon")
-        require(STALE_GDD_SENTINEL not in auditor,
-                "the auditor received the previous assignment's canon")
+        validator = second_state.first("validator")
+        require(COMMITTED_GDD_PATH in validator.context_paths,
+                "the Validator was not bound to the current committed canon")
+        require(STALE_GDD_SENTINEL not in validator.prompt,
+                "the Validator received the previous assignment's canon")
 
 
-# ------------------------------ 5: the auditor still fails closed, reduced
-
-
-def test_the_auditor_still_fails_closed_on_missing_design() -> None:
-    with tempfile.TemporaryDirectory(prefix="prompt-context-") as text:
-        parent = Path(text)
-        source = fixture(parent)
-        state = State(audit="missing_design")
-        result = execute(source, parent / "outputs", run_id="missing-design", state=state)
-        require(result["crew_status"] == "contract_review_required",
-                f"missing_design did not stop the crew: {result['crew_status']}")
-        require(result["attempts_used"] == 0, "writers ran after a nonlocal audit")
-        for role in ("implementer", "test_author", "validator"):
-            require(not state.by_role(role), f"{role} ran after a nonlocal audit")
-
-
-def test_the_auditor_still_fails_closed_on_a_missing_declared_dependency() -> None:
-    with tempfile.TemporaryDirectory(prefix="prompt-context-") as text:
-        parent = Path(text)
-        source = fixture(parent)
-        state = State(audit="requires_declared_dependency")
-        result = execute(source, parent / "outputs", run_id="needs-dependency", state=state)
-        require(result["crew_status"] == "contract_review_required",
-                f"requires_declared_dependency did not stop the crew: {result['crew_status']}")
-        require(not state.by_role("implementer"), "the Implementer ran after a nonlocal audit")
+# ------------------------------- 5: deterministic locality validation
 
 
 def test_deterministic_locality_validation_is_unchanged() -> None:
@@ -696,9 +629,7 @@ def test_the_auditor_prompt_still_carries_the_locality_evidence() -> None:
     with tempfile.TemporaryDirectory(prefix="prompt-context-") as text:
         parent = Path(text)
         source = fixture(parent)
-        state = State()
-        execute(source, parent / "outputs", run_id="locality-evidence", state=state)
-        prompt = state.first(INLINE_GDD_ROLE).prompt
+        prompt = _fixed_prompts(gdd_text())[INLINE_GDD_ROLE]
 
         for sentinel in (DEPENDENT_CRITERION_SENTINEL, DEPENDENT_GATE_SENTINEL,
                          DEPENDENT_NOTES_SENTINEL, DEPENDENT_OBLIGATION_SENTINEL,
@@ -740,12 +671,6 @@ def test_each_role_still_receives_its_required_context() -> None:
 
         contract = (source / f"Tasks/{TASK}.yaml").read_text(encoding="utf-8")
         policy = (source / "Docs/Engineering/UNITY_TESTING_POLICY.md").read_text(encoding="utf-8")
-
-        auditor = state.first("contract_locality_auditor").prompt
-        require(contract in auditor, "the auditor lost the exact committed task contract")
-        require("DETERMINISTIC TASK CATALOG" in auditor, "the auditor lost the task catalog")
-        require("QUESTION YOU MUST ANSWER" in auditor, "the auditor lost its question")
-        require("You have no write authority" in auditor, "the auditor gained write authority")
 
         implementer = state.first("implementer").prompt
         require(contract in implementer, "the Implementer lost the exact committed task contract")
@@ -797,8 +722,6 @@ def test_each_role_still_receives_its_required_context() -> None:
             require(feedback_text in prompt, f"{role} lost the human-review feedback")
             require("HUMAN REVIEW REJECTION FROM PRIOR REVIEW-READY CANDIDATE" in prompt,
                     f"{role} lost the human-review header")
-        require(feedback_text not in retry_state.first(INLINE_GDD_ROLE).prompt,
-                "human-review feedback leaked into the auditor prompt")
 
 
 # --------------------------------------------------- 8: determinism of bytes
@@ -813,8 +736,8 @@ def test_prompt_construction_is_byte_identical_across_repeated_runs() -> None:
         for index in (1, 2):
             state = State()
             execute(source, outputs, run_id=f"determinism-{index}", state=state)
-            captured.append({role: state.first(role).prompt for role in ROLES})
-        for role in ROLES:
+            captured.append({role: state.first(role).prompt for role in CREW_SESSION_ROLES})
+        for role in CREW_SESSION_ROLES:
             require(captured[0][role].encode("utf-8") == captured[1][role].encode("utf-8"),
                     f"{role} prompt is not deterministic across runs")
 
