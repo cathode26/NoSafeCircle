@@ -46,7 +46,7 @@
     {
       "gate_id": "VAL-003",
       "reference": "Enemy forced displacement (NSC-013 EnemyStatusEffectMovement.RequestDisplacement); Enemy movement ownership",
-      "requirement": "During a qualifying in-reach attack, call EnemyStatusEffectMovement.RequestDisplacement with a displacement that moves the enemy outside attack reach. Verify no hit occurs while out of reach, ordinary EnemyPursuitMovement returns the still-pursuing enemy to the door, and damage resumes only after a new full uninterrupted in-reach interval. The test does not warp the enemy directly or change attack internals. This proves the enemy-side displacement response only; it does not establish whether a Force Wave cast by the wizard reaches an enemy on the other side of a locked door, which NSC-009 and the GDD do not define."
+      "requirement": "During a qualifying in-reach attack, call EnemyStatusEffectMovement.RequestDisplacement with a displacement that moves the enemy outside attack reach. Verify no hit occurs while out of reach, ordinary EnemyPursuitMovement returns the still-pursuing enemy to the door, and damage resumes only after a new full uninterrupted in-reach interval. The test does not warp the enemy directly or change attack internals. This proves the enemy-side displacement response only; it does not validate NSC-009's settled rule that an enabled locked-door blocker stops a Force Wave cast by the wizard from reaching an enemy on the other side, which NSC-009's own gates prove."
     },
     {
       "gate_id": "VAL-004",
@@ -66,7 +66,7 @@
   ],
   "confidence": "medium",
   "contract_disposition": "active",
-  "contract_revision": 5,
+  "contract_revision": 6,
   "decomposition_reason": "The locally executable scope is one cohesive production path: extend EnemyPursuitMovement with a read-only locked-door blocker and approach destination, add one reusable in-reach door-attack/reset component, and prove blocker selection, approach, damage, displacement, multiple pursuers, breach continuation, feedback consumption, and reset in one Play Mode test file. Enemy prefab assembly, actual restart-orchestrator wiring, canonical-scene path validation, and gameplay-camera review remain explicit downstream responsibilities.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -167,6 +167,15 @@
         "base_contract_sha256": "acc26f92aae27ce525a2dfad89c434cb8efe59b1c0c7b048041a0cf319c6667a",
         "revised_contract_sha256": "f0f31cea3f03a2268f84d0d80beaaf776a16708bbe7bccff02823a12ae3de76f",
         "review": "none; taskcontrol validate only (Vincent, 2026-09-16)"
+      },
+      {
+        "date": "2026-09-17",
+        "reason": "Mechanical follow-up revision 6: VAL-003's closing sentence no longer says NSC-009 leaves locked-door Force Wave reach undefined; NSC-009's settled rule (an enabled locked-door blocker stops Force Wave) is proven by NSC-009's own gates, as the NSC-009 rev 3 Codex check flagged. The gate's test is unchanged.",
+        "source_head": "479e7aeaf1363753dcb0d4c66952504bcb37f4b6",
+        "previous_contract_revision": 5,
+        "base_contract_sha256": "f716f252fa12c2dbdde77c10ade461627c754ba9b8950697e6f322b5a1ce7e22",
+        "revised_contract_sha256": "7458d063b2f79bf04766e358e9497c5536d925aa01ebd44bd0c41334892cad73",
+        "review": "mechanical revision; grep review only (tiered rule, 2026-09-17)"
       }
     ]
   },
