@@ -81,7 +81,12 @@ def _read_record(manager: Checkouts, task_id: str) -> dict[str, Any]:
 
 def _require_clean_source(manager: Checkouts) -> tuple[str, str, str]:
     if changes(manager.source):
-        raise ValueError("Source must be clean before decomposition")
+        raise ValueError(
+            "Source must be clean before decomposition (content-identical churn,"
+            " e.g. stale Unity stat-cache entries, can often be cleared with"
+            " `python -B -m Pipeline.TaskReviewAgent.safe_unity_churn"
+            " refresh-identical --repo <source> --apply`)"
+        )
     head = git(manager.source, "rev-parse", "HEAD").decode().strip()
     tree = git(manager.source, "rev-parse", "HEAD^{tree}").decode().strip()
     branch = git(manager.source, "branch", "--show-current").decode().strip()
