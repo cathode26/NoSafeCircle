@@ -22,7 +22,26 @@ namespace NoSafeCircle.DoorPrototype
     {
         private const float DirectionThreshold = 0.01f;
         private const float DirectionSwitchMargin = 0.001f;
+        private const float DirectionTieEpsilon = 0.0001f;
         internal const string CanonicalInitialDirection = "south-east";
+
+        private static readonly string[] screenDirections =
+        {
+            "north-east", "east", "south-east", "south",
+            "south-west", "west", "north-west", "north"
+        };
+
+        private static readonly Vector2[] screenDirectionVectors =
+        {
+            new Vector2(0.70710677f, 0.70710677f),
+            new Vector2(1f, 0f),
+            new Vector2(0.70710677f, -0.70710677f),
+            new Vector2(0f, -1f),
+            new Vector2(-0.70710677f, -0.70710677f),
+            new Vector2(-1f, 0f),
+            new Vector2(-0.70710677f, 0.70710677f),
+            new Vector2(0f, 1f)
+        };
 
         [SerializeField] private WizardPresentation presentation = WizardPresentation.Masculine;
         [SerializeField] private WizardSkin skin = WizardSkin.White;
@@ -97,34 +116,74 @@ namespace NoSafeCircle.DoorPrototype
             return $"Wizard_{presentation}_{skin}_{motion}_{direction}";
         }
 
-        // The fixed camera maps the dominant world axis to a screen diagonal. Using
-        // the dominant component keeps a small orthogonal movement component from
-        // changing the facing state while the pointer remains in one direction.
+        // The fixed camera maps world movement into screen coordinates where
+        // horizontal = X + Z and vertical = X - Z. The eight equally spaced screen
+        // sectors therefore cover both the world axes and their diagonals.
         private static string DirectionFor(Vector3 movement)
         {
-            if (Mathf.Abs(movement.x) >= Mathf.Abs(movement.z))
-                return movement.x >= 0f ? "north-east" : "south-west";
+            Vector2 screenMovement = new Vector2(
+                movement.x + movement.z, movement.x - movement.z);
+            if (screenMovement.sqrMagnitude < DirectionThreshold * DirectionThreshold)
+                return CanonicalInitialDirection;
 
-            return movement.z >= 0f ? "south-east" : "north-west";
+            int bestIndex = 0;
+            float bestScore = Vector2.Dot(screenMovement, screenDirectionVectors[0]);
+            for (int index = 1; index < screenDirections.Length; index++)
+            {
+                float score = Vector2.Dot(screenMovement, screenDirectionVectors[index]);
+                float tieEpsilon = DirectionTieEpsilon * screenMovement.magnitude;
+                bool isTie = Mathf.Abs(score - bestScore) <= tieEpsilon;
+                bool prefersWorldAxis = IsWorldAxisDirection(index) &&
+                                         !IsWorldAxisDirection(bestIndex);
+                if (score > bestScore + tieEpsilon || (isTie && prefersWorldAxis))
+                {
+                    bestIndex = index;
+                    bestScore = score;
+                }
+            }
+
+            return screenDirections[bestIndex];
         }
 
-        // Keep the previously selected world axis until the other component exceeds it
-        // by a small margin. This prevents equal-component collision/transform noise from
-        // changing the held diagonal state every frame while preserving sign changes.
+        private static bool IsWorldAxisDirection(int directionIndex)
+        {
+            return directionIndex % 2 == 0;
+        }
+
+        // Keep the prior sector while a new sector's projection is only marginally
+        // stronger. Scaling the margin by movement length makes the hysteresis angular,
+        // so it behaves consistently for slow and fast transforms.
         private static string StableDirectionFor(Vector3 movement, string previousDirection)
         {
-            float absoluteX = Mathf.Abs(movement.x);
-            float absoluteZ = Mathf.Abs(movement.z);
-            bool previousDirectionUsesX = previousDirection == "north-east" ||
-                                          previousDirection == "south-west";
-            bool useX = previousDirectionUsesX
-                ? absoluteX + DirectionSwitchMargin >= absoluteZ
-                : absoluteX > absoluteZ + DirectionSwitchMargin;
+            Vector2 screenMovement = new Vector2(
+                movement.x + movement.z, movement.x - movement.z);
+            float movementLength = screenMovement.magnitude;
+            if (movementLength < DirectionThreshold * Mathf.Sqrt(2f))
+                return previousDirection;
 
-            if (useX)
-                return movement.x >= 0f ? "north-east" : "south-west";
+            string candidateDirection = DirectionFor(movement);
+            if (string.IsNullOrEmpty(previousDirection))
+                return candidateDirection;
 
-            return movement.z >= 0f ? "south-east" : "north-west";
+            float candidateScore = Vector2.Dot(
+                screenMovement, screenDirectionVectors[IndexOf(candidateDirection)]);
+            float previousScore = Vector2.Dot(
+                screenMovement, screenDirectionVectors[IndexOf(previousDirection)]);
+            if (previousScore + DirectionSwitchMargin * movementLength >= candidateScore)
+                return previousDirection;
+
+            return candidateDirection;
+        }
+
+        private static int IndexOf(string direction)
+        {
+            for (int index = 0; index < screenDirections.Length; index++)
+            {
+                if (screenDirections[index] == direction)
+                    return index;
+            }
+
+            return 0;
         }
     }
 }
