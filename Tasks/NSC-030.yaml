@@ -2,83 +2,200 @@
   "acceptance_criteria": [
     {
       "criterion_id": "AC-001",
-      "reference": "Section 3 — Required Enemy Roster",
-      "requirement": "No authored encounter introduces a Ranged Enemy without at least one accompanying Melee Enemy in that same encounter."
+      "reference": "Section 3 — Required Enemy Roster; GDD line 518; delivered FIFO admission behavior",
+      "requirement": "Every production encounter request that contains a Ranged Enemy GameObject contains at least one Melee Enemy GameObject and lists at least one Melee Enemy before the first Ranged Enemy. This ordering applies to Chapel of Ash, Final Room, and the Lower Vault mixed roster so EncounterAdmissionController's current FIFO partial admission cannot introduce a Ranged Enemy before that encounter's Melee support."
     },
     {
       "criterion_id": "AC-002",
-      "reference": "Section 3 — Player Experience Success Criteria",
-      "requirement": "Each authored encounter uses between three and eight enemies; the registry-enforced fifteen-active-enemy ceiling remains a separate floor-wide constraint."
+      "reference": "Section 3 — Player Experience Success Criteria; Section 2 — Active Enemy Registry and Encounter Admission",
+      "requirement": "Each named room encounter requests between three and eight persistent enemy GameObjects before admission. The separate floor-wide limit remains fifteen active enemies and is enforced through EncounterAdmissionController and ActiveEnemyRegistry rather than by weakening the authored three-to-eight range."
     },
     {
       "criterion_id": "AC-003",
-      "reference": "Section 4 — Dungeon Encounter Agent",
-      "requirement": "Chapel of Ash and the Final Room are authored with mixed Melee/Ranged compositions as required; Dungeon Encounter authors the per-door durability configuration value but does not implement runtime durability state, damage intake, or the locked-to-broken transition."
+      "reference": "Section 3 — Dungeon Floor Structure and Required Enemy Roster",
+      "requirement": "Ruined Entry and Bone Archive request Melee Enemies only. Chapel of Ash is the first encounter whose authored request contains a Ranged Enemy and has a mixed Melee/Ranged roster. Final Room also has a mixed Melee/Ranged roster. Lower Vault uses the composition recorded as that room's starting roster in this contract's notes."
     },
     {
       "criterion_id": "AC-004",
-      "reference": "Section 3 — Dungeon Floor Structure (Chapel of Ash / Ruined Entry / Bone Archive)",
-      "requirement": "The Ranged Enemy is first introduced in the Chapel of Ash encounter, always alongside Melee Enemy support; the Ruined Entry and Bone Archive encounters remain melee-only."
+      "reference": "Section 2 — Floor-run restart ownership; Section 4 — Dungeon Encounter Agent",
+      "requirement": "Each named room encounter records its approved activation trigger or triggers and authored spawn/reset region (starting values in this contract's notes) inside that room's accepted walkable gameplay geometry. Encounter content does not modify room-owned bounds, obstacles, walls, routes, door anchors, RoomSceneCatalog entries, or navigation configuration."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "Section 2 — Active Enemy Registry and Encounter Admission; NSC-028 INT-003",
+      "requirement": "The No Safe Circle/Build Door Prototype Scene command materializes exactly one ActiveEnemyRegistry and one EncounterAdmissionController in Assets/Scenes/DoorPrototype.unity through Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs. The builder connects EncounterAdmissionController.Initialize to that registry, and every production enemy's EnemyHealth component receives the same registry through EnemyHealth.Initialize. Any other registry reference exposed by the delivered NSC-015 and NSC-055 prefabs is wired to the same ActiveEnemyRegistry. The activation trigger or triggers for each room together call EncounterAdmissionController.RequestAdmission exactly once per floor run with that room's configured prefab instances."
+    },
+    {
+      "criterion_id": "AC-006",
+      "reference": "Section 2 — Active Enemy Registry and Encounter Admission; Section 4 — Dungeon Encounter Agent; owner decision 13",
+      "requirement": "When a room's exit door locks behind the wizard (the forward crossing that locks D1 through D4, reported by that door's DoorInteractable.Locked event), every enemy from that room's admission request still pending in EncounterAdmissionController is cancelled and never activates for the rest of that floor run; enemies already admitted and active from that room are unaffected and keep pursuing. EncounterAdmissionController.ProcessPendingAdmissions retries pending batches in request order whenever registry capacity frees: on every enemy defeat through EnemyHealth.TakeDamage, and on every new RequestAdmission call. Existing registered pursuers are never removed to admit new enemies."
+    },
+    {
+      "criterion_id": "AC-007",
+      "reference": "Section 2 — Core Gameplay Loop and Spell and Enemy Interactions; Section 3 — Dungeon Floor Structure",
+      "requirement": "On the accepted room geometry, encounter authoring preserves the documented tactical purpose of each room: Ruined Entry supports circling, an escape route, and Fireball-charge separation; Bone Archive supports Frost Field lane control, Melee clustering, and punishable aisle choices; Chapel of Ash retains an exposed central route and projectile-cover tradeoff; Lower Vault keeps its several incomplete loops and the D3 doorway, through which surviving pursuers break in, spatially relevant; Final Room retains limited cover and enough movement, Frost Field, Force Wave, and Fireball interaction to create a pressured five-second D5 opening attempt."
+    },
+    {
+      "criterion_id": "AC-008",
+      "reference": "Section 4 — Dungeon Encounter Agent; NSC-050 AC-007",
+      "requirement": "Store the door-durability value table (D1 through D4 values, D5 exempt; starting values in this contract's notes) as the authoring source of truth in Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorSequenceBuilder.cs. DoorSequenceBuilder applies each D1-D4 value to the existing serialized maxDurability field while creating the doors and leaves D5 without an encounter-authored value, and the No Safe Circle/Build Door Prototype Scene command materializes the result in Assets/Scenes/DoorPrototype.unity. Encounter work does not modify DoorInteractable's current durability, damage intake, reset behavior, or locked-to-broken state transition."
+    },
+    {
+      "criterion_id": "AC-009",
+      "reference": "Section 2 — Floor-run restart ownership; NSC-033; NSC-092 AC-007",
+      "requirement": "Each production encounter activation component exposes a public reset method that clears only its own fired and requested state so its trigger can make one new request during the next floor run. Each enemy placed by encounter content has its original room's authored spawn/reset region recorded in the form that the delivered EnemyPursuitMovement.ResetPursuit() reads under NSC-092 AC-007, without hard-coded room coordinates in EnemyPursuitMovement. If delivered NSC-092 exposes no such input, D1B.2 records that gap against NSC-092; an encounter child does not edit EnemyPursuitMovement.cs. NSC-030 does not edit the shared Floor Run/Restart Orchestrator."
     }
   ],
   "basis": "direct_gdd",
   "completion_gates": [
     {
       "gate_id": "VAL-001",
-      "reference": "Section 3 — Player Experience Success Criteria",
-      "requirement": "Verify each authored encounter uses between three and eight enemies; the registry-enforced fifteen-active-enemy floor-wide ceiling is validated separately by encounter-admission-cap-enforcement."
+      "reference": "NSC-030 AC-001 through AC-004 and AC-008; NSC-089",
+      "requirement": "A committed-artifact conformance test opens Assets/Scenes/DoorPrototype.unity without saving it and loads every encounter through the same production content path used by its activation trigger. Verify five room identities; three-to-eight requested enemies per room; Melee-before-Ranged request ordering; melee-only Ruined Entry and Bone Archive; first and mixed Ranged composition in Chapel of Ash; mixed Final Room composition; valid delivered gameplay-prefab references; and the approved Lower Vault roster. For each spawn/reset region, verify representative spawn points are on NSC-089's committed NavMesh, do not overlap non-floor gameplay colliders or any D1-D5 door opening, and lie inside the approved region boundaries recorded for that room, at least 6 units from that room's entry door center (from PlayerStart in Ruined Entry). Verify each trigger is inside its own room and, for Bone Archive through Final Room, does not overlap the opening of the door through which the wizard enters that room. Compare every D1-D4 DoorInteractable.MaxDurability value in the committed scene with the literal values recorded in the durability child's contract (starting values D1 60, D2 80, D3 100, D4 120) and verify the table has no D5 entry."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "NSC-030 AC-002, AC-005, and AC-006; NSC-028 INT-003",
+      "requirement": "In Play Mode using Assets/Scenes/DoorPrototype.unity and the production enemy prefabs, verify exactly one ActiveEnemyRegistry and one initialized EncounterAdmissionController exist and defeating each production enemy through EnemyHealth.TakeDamage removes it from that ActiveEnemyRegistry. Exercise each room's production trigger from a fresh floor-run state. Verify its exact configured GameObjects are submitted through RequestAdmission, only admitted GameObjects become active and register, the registry never exceeds fifteen, that room's triggers cannot submit a second request during that run, and RequestedBatchCount increases by exactly one for that room."
+    },
+    {
+      "gate_id": "VAL-003",
+      "reference": "NSC-030 AC-001 and AC-006; GDD line 518; owner decision 13",
+      "requirement": "In Play Mode using Assets/Scenes/DoorPrototype.unity, fill ActiveEnemyRegistry to fourteen with real enemy instances, then activate Chapel of Ash's production trigger. Verify the one available admission is the first configured Melee Enemy, no Chapel Ranged Enemy becomes active before it, and the rest stay pending in EncounterAdmissionController. Defeat one earlier enemy through EnemyHealth.TakeDamage and verify ProcessPendingAdmissions immediately admits the next pending Chapel enemy in list order. Lock D3, Chapel's exit door, and verify every Chapel enemy still pending at that moment is cancelled and never activates for the rest of that floor run."
+    },
+    {
+      "gate_id": "VAL-004",
+      "reference": "NSC-030 AC-005 and AC-006; NSC-028 INT-002; NSC-017; owner decision 13",
+      "requirement": "In Play Mode using Assets/Scenes/DoorPrototype.unity, preserve enough real enemy GameObjects admitted by earlier production encounters to leave fewer free registry slots than the approved Lower Vault request. Cross and lock D3, allow those still-tracking enemies to attack and break D3 through NSC-017, and activate the production Lower Vault trigger while the same pursuers enter behind the wizard. Verify the earlier GameObjects remain registered, Lower Vault admission uses only remaining capacity, the registry never exceeds fifteen, and every excess Lower Vault enemy stays pending. Continue to D4 and lock it; verify every Lower Vault enemy still pending at that moment is cancelled for the rest of that floor run, while already-admitted Lower Vault enemies remain registered and keep pursuing."
+    },
+    {
+      "gate_id": "VAL-005",
+      "reference": "NSC-030 AC-004 and AC-007; Chapel of Ash cover pockets CA-W and CA-E; NSC-072 ownership boundary; owner decision 17",
+      "requirement": "Open Assets/Scenes/DoorPrototype.unity without saving it and run Physics.Linecast from each of Chapel of Ash's authored Ranged Enemy spawn positions toward cover pockets CA-W and CA-E. Verify that for every spawn position at least one of CA-W or CA-E is occluded by a committed pew or column collider, the same rule NSC-046 rev 6 VAL-001 already proves against this room's committed geometry. This gate validates encounter placement only; NSC-072 retains projectile-collision proof, and NSC-091 and NSC-092 retain target-loss and search proof."
+    },
+    {
+      "gate_id": "VAL-006",
+      "reference": "NSC-030 AC-009; Section 2 — Floor-run restart ownership",
+      "requirement": "In Play Mode using Assets/Scenes/DoorPrototype.unity, fire a production encounter trigger and verify it requests admission once. Invoke that encounter activation component's public reset method, reset admission and registry state through their existing owner methods, and verify the same trigger can make exactly one request in the new floor run. Verify each reset enemy's recorded region is the region that the delivered EnemyPursuitMovement.ResetPursuit() reads. Integrated return-to-region proof after zero health remains NSC-033 VAL-002."
+    },
+    {
+      "gate_id": "VAL-007",
+      "reference": "Section 2 — Core Gameplay Loop and Spell and Enemy Interactions; Section 3 — Dungeon Floor Structure",
+      "requirement": "Vincent plays the exact candidate in Assets/Scenes/DoorPrototype.unity through all five production encounters using the delivered fixed-follow camera, movement, Fireball, Frost Field, Force Wave, Melee Enemy, Ranged Enemy, doors, and locked-door attacks. Record entrance, mid-room tactical, and door-attempt views for every room, adding views when the room exceeds one gameplay screen. Confirm projectile survival, Melee escape, cover and line-of-sight tradeoffs, Fireball-charge opportunities, Frost Field lanes, Force Wave recovery space, persistent pursuit and search, and a pressured five-second door attempt without one repeatable dominant route. Specifically record whether the minimum three-Melee Ruined Entry encounter still teaches circling, whether accepted room sizes make movement-only kiting or distance-based target loss too reliable, and whether Force Wave still presents approximately one meaningful-use decision per encounter space."
     }
   ],
-  "confidence": "high",
+  "confidence": "medium",
   "contract_disposition": "active",
-  "contract_revision": 3,
-  "decomposition_reason": "Exact encounter placements, triggers, per-door durability values, and Final Room pressure composition are explicitly left to later authoring/playtesting by the GDD; only composition/sizing rules (3-8 enemies, never-isolated Ranged Enemy, mixed compositions in two named rooms, Ranged Enemy first introduced in Chapel of Ash) are currently fixed. Inventing exact placements/triggers now would fabricate missing design. Encounter placement/content authoring is a real prerequisite consumer of the room spaces produced by five-room-content-authoring (GDD Section 5 — 2.5D Isometric Visual and World Representation: 'encounter placement/content consumes the authored room spaces and the encounter-admission/cap foundation'); once both features gain concrete descendants, a Progressive Decomposer must attach a concrete encounter-placement -> authored-room implementation/artifact dependency between those descendants rather than a feature-to-feature edge.",
+  "contract_revision": 4,
+  "decomposition_reason": "D1B.2 produces separately owned children for: (1) shared production encounter data and the committed-content validator, dispatchable now since it needs no room geometry; (2) Ruined Entry, (3) Bone Archive, (4) Chapel of Ash, (5) Lower Vault, and (6) Final Room encounter authoring, each held until that room's rebuilt Assets/Scenes/Rooms/*.unity scene and RoomSceneCatalog actually hold its 2026-09-15 approved bounds, not merely until that room's task contract is committed, since VAL-001/VAL-004 load content through the production catalog path (Ruined Entry's built scene already matches; the other four do not yet); (7) canonical-scene ActiveEnemyRegistry, EncounterAdmissionController, trigger, prefab, and authored-region materialization, which also replaces DoorPrototypeGlobalSceneBuilder.BuildChaseEnemies's task-less fixed roster of 5 MeleeEnemy and 4 Ranged Enemy GameObjects with encounter-admitted enemies reusing NSC-077's delivered enemy animation (NSC-077 INT-001); (8) DoorSequenceBuilder durability-table authoring and scene materialization; and (9) production Play Mode and human validation after NSC-015, NSC-055, and NSC-017 are delivered. Integrated floor restart remains an NSC-033/NSC-092 obligation, not an NSC-030 child.",
   "decomposition_state": "needs_future_decomposition",
   "depends_on": [
     "NSC-028",
     "NSC-050",
     "NSC-015",
-    "NSC-055"
+    "NSC-055",
+    "NSC-049",
+    "NSC-007",
+    "NSC-008",
+    "NSC-009",
+    "NSC-071",
+    "NSC-072",
+    "NSC-017",
+    "NSC-089"
   ],
-  "downstream_integration_obligations": [],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "NSC-033 VAL-002; NSC-092 AC-007; Section 2 — Floor-run restart ownership",
+      "requirement": "After production encounter activation and authored spawn/reset regions exist, NSC-033's sole Floor Run/Restart Orchestrator integration child invokes the encounter activation component's public reset method together with EncounterAdmissionController.ResetAdmissionState, ActiveEnemyRegistry.ResetRegistry, EnemyHealth.ResetHealth, and EnemyPursuitMovement.ResetPursuit(). NSC-033 VAL-002 proves in Assets/Scenes/DoorPrototype.unity that each reset enemy returns to its original room's authored spawn/reset region with no retained target, search, attack, status, or displacement state. The task graph adds a dependency from that NSC-033 integration child to the NSC-030 encounter activation child; NSC-092 receives no dependency on NSC-030 work. NSC-030 does not edit the orchestrator or duplicate enemy reset behavior."
+    },
+    {
+      "obligation_id": "INT-002",
+      "reference": "NSC-044 through NSC-049; Room size authority",
+      "requirement": "When an owning room task changes bounds, obstacles, routes, or its exit-door center, NSC-049 absorbs the shared boundary and door-center change. Revalidate and, when necessary, reauthor that room's spawn/reset regions, triggers, and placements against the accepted composed geometry without allowing an encounter child to edit RoomSceneCatalog or room-owned layout assets."
+    },
+    {
+      "obligation_id": "INT-003",
+      "reference": "NSC-079 through NSC-084",
+      "requirement": "After the reviewed visual-content package is materialized in Assets/Scenes/DoorPrototype.unity, revalidate that landmarks, supporting prop clusters, route-shaping colliders, cover, door approaches, encounter triggers, and spawn/reset regions do not overlap or invalidate one another. Visual-content tasks retain ownership of art, dressing prefabs, catalogs, builders, and contact sheets."
+    },
+    {
+      "obligation_id": "INT-004",
+      "reference": "NSC-028 INT-002 and INT-003",
+      "requirement": "Map passing NSC-030 VAL-002 production-caller evidence to NSC-028 INT-003 and passing NSC-030 VAL-004 Lower Vault rear-breach evidence to NSC-028 INT-002. NSC-028's synthetic component tests alone do not close either production integration obligation."
+    },
+    {
+      "obligation_id": "INT-005",
+      "reference": "Shared Context and Coordination Rules; NSC-049, NSC-050, NSC-089, and NSC-033 exclusive resources",
+      "requirement": "D1B.2 must serialize every child that materializes encounter services, encounter GameObjects, or door durability against work holding Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs or Assets/Scenes/DoorPrototype.unity. The durability child additionally locks Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorSequenceBuilder.cs. These children run after NSC-049, NSC-050, and NSC-089 and may not overlap NSC-033's shared builder/scene mutation."
+    }
+  ],
   "exclusive_resources": [],
-  "execution_reason": "Deferred content-authoring feature; not yet a bounded dispatchable unit.",
+  "execution_reason": "This remains a non-dispatchable feature contract awaiting D1B.2 decomposition. The pending-admission policy, Ranged-support ordering, per-room starting rosters, triggers, regions, the Chapel spawn-to-cover rule, door durability values, and Final Room pressure are now decided (recorded in this contract's notes and decomposition_reason), so no open design question blocks decomposition. The five per-room children instead wait, individually, on their own room's Unity rebuild.",
   "execution_scope": "not_applicable",
   "gdd_evidence": [
     {
-      "reference": "Section 4 — Dungeon Encounter Agent",
-      "requirement": "Authors placements, triggers, configured per-door durability values, and final-room pressure, including the mixed Melee/Ranged compositions in Chapel of Ash and the Final Room. Does not own runtime door durability state, damage intake, or the locked-to-broken transition."
+      "reference": "Section 3 — Required Enemy Roster; GDD line 518",
+      "requirement": "A Ranged Enemy never appears as an isolated encounter: an encounter that introduces one also includes at least one Melee Enemy, and a Ranged Enemy may fight alone only after the player defeats its Melee support."
     },
     {
-      "reference": "Section 3 — Required Enemy Roster",
-      "requirement": "Ranged Enemies never appear as an isolated encounter: every encounter that introduces one also includes at least one Melee Enemy. A Ranged Enemy may end up fighting alone only if its Melee support is defeated first."
+      "reference": "Section 3 — Dungeon Floor Structure",
+      "requirement": "Ruined Entry and Bone Archive are Melee teaching spaces, Chapel of Ash first introduces Ranged pressure alongside Melee support, Lower Vault combines its encounter with rear pursuers, and Final Room contains both enemy types."
     },
     {
       "reference": "Section 3 — Player Experience Success Criteria",
-      "requirement": "Encounters use three to eight enemies and never exceed fifteen active enemies."
+      "requirement": "Each encounter uses three to eight enemies while the floor never exceeds fifteen active enemies."
     },
     {
       "reference": "Section 2 — Active Enemy Registry and Encounter Admission",
-      "requirement": "Room-specific encounter authoring consumes the registry/admission foundation once it exists; it is not itself required to exist before that foundation is built."
+      "requirement": "Encounter activation uses the shared registry-backed admission policy, delays or reduces new encounter enemies before exceeding fifteen, and never removes existing persistent pursuers to make room."
+    },
+    {
+      "reference": "Section 2 — Spell and Enemy Interactions; Enemy Detection, Pursuit, and Target Loss",
+      "requirement": "Movement and Frost Field stretch Melee pursuit, Fireball converts separation into damage, Force Wave creates short-range emergency space, pews and columns block Ranged Enemy projectiles without clearing the enemy's target, and target loss remains distance-based with last-known-position search."
+    },
+    {
+      "reference": "Section 2 — Floor-run restart ownership",
+      "requirement": "Encounter activation and admission state reset for a fresh floor attempt, while enemy-owned reset behavior returns each persistent enemy to its original authored room region and initial AI state."
+    },
+    {
+      "reference": "Section 4 — Dungeon Encounter Agent",
+      "requirement": "Dungeon Encounter authors placements, triggers, per-door durability values, Final Room pressure, and encounter-admission policy without owning runtime door durability state, enemy behavior, registry bookkeeping, or the shared restart orchestrator."
+    },
+    {
+      "reference": "Section 5 — 2.5D Isometric Visual and World Representation",
+      "requirement": "Encounter content uses the authored continuous floor, delivered gameplay prefabs, separate gameplay collision and navigation, and the registry/admission implementation rather than changing room visual assets or introducing runtime room loading."
     }
   ],
   "id": "NSC-030",
   "kind": "feature",
-  "notes": "No formal dependency on five-room-content-authoring (both are deferred organizational features per the GDD-hardening example prohibiting feature-to-feature dependencies); it consumes authored room spaces once five-room-content-authoring produces concrete descendants, preserved here as decomposition context only.",
+  "notes": "Assets/Scenes/DoorPrototype.unity is the only canonical runtime scene for encounter population. Encounter content must not be added to Assets/Scenes/Rooms/*.unity because those scenes are immutable composition inputs and NSC-069 excludes encounter population from them. NSC-030 owns the authored activation policy that calls the delivered admission component; AC-006's cancel-on-exit and retry-when-capacity-frees policy needs a reviewed change to Assets/NoSafeCircle/DoorPrototype/Scripts/EncounterAdmissionController.cs, which NSC-028 owns; D1B.2 routes that interface change as NSC-028-owned work ahead of the materialization child, and no encounter child edits that file directly. It does not own room bounds, RoomSceneCatalog, room source scenes, visual dressing, enemy behavior or prefabs, ActiveEnemyRegistry bookkeeping, DoorInteractable runtime durability, or the Floor Run/Restart Orchestrator. Future children that change objects generated through DoorPrototypeSceneBuilder must lock that builder and Assets/Scenes/DoorPrototype.unity, use No Safe Circle/Build Door Prototype Scene for materialization, and name every new or modified script, asset, scene, test, and Unity .meta companion in the owning child acceptance criterion and exclusive_resources. NSC-015 is not yet decomposed; future children should depend on its delivered Melee Enemy prefab child once that child ID exists, and on NSC-055 for the assembled Ranged Enemy prefab. Per-room D1B.2 starting values, tuned by VAL-007 rather than fixed canon: rosters Ruined Entry 3 Melee, Bone Archive 4 Melee, Chapel of Ash 3 Melee + 2 Ranged, Lower Vault 2 Melee + 1 Ranged, Final Room 2 Melee + 2 Ranged plus survivors; one trigger per room, at Bone Archive's D1 entry area (NSC-045 AC-002), Chapel's D2 landing (NSC-046 AC-001), Lower Vault's D3 apron (NSC-047 AC-002), a new ~4x4 Final Room landing on D4, and inside Ruined Entry's own loop away from PlayerStart; each spawn/reset region is that room's walkable interior minus obstacles, door openings, and exit-side staging rectangles, with spawn positions at least 6 units from the entry door center or PlayerStart; starting DoorSequenceBuilder durability D1 60, D2 80, D3 100, D4 120, D5 exempt (crossing it ends gameplay). Until child 7 lands, DoorPrototypeGlobalSceneBuilder.BuildChaseEnemies' fixed enemy positions assume the pre-2026-09-15 room table, so the rebuild of Bone Archive through Final Room must keep each of those enemies inside its intended room (NSC-049 composed-scene follow-up). Rosters, triggers, regions and durability values are GER owner decisions made under Vincent's 2026-09-15 delegation (C:\\nscrev\\ger-contract-revisions-20260916\\encounters\\NSC-030_DECISIONS.md); VAL-007 tunes them.",
   "parent": "NSC-027",
   "provenance": {
     "bootstrap_status_observation": "open",
     "migration_id": "task-contract-schema-v2-20260822-r2",
     "origin": "verified_reconciliation_bootstrap",
+    "owner_decisions": "GER Orchestrator (Claude) owner decisions 13-20, NSC-030_DECISIONS.md, 2026-09-16.",
     "reconciliation_run_id": "20260821T193541Z-998ee7b5",
     "source_schema_version": "1.0",
-    "verification_run_id": "20260821T195959Z-43dba5de"
+    "verification_run_id": "20260821T195959Z-43dba5de",
+    "contract_followups": [
+      {
+        "date": "2026-09-17",
+        "reason": "Owner decision revision 4 (design): GER Orchestrator decisions 13-20 under Vincent's 2026-09-15 delegation (C:\\nscrev\\ger-contract-revisions-20260916\\encounters\\NSC-030_DECISIONS.md) applied to GER packet 20260914-065035-NSC-030's round-03 contract with round-04 fixes R-03 to R-10. Feature node; D1B.2 decomposition follows.",
+        "source_head": "25fdc505df5682e910dac3e239b4d08eb3caa4f7",
+        "previous_contract_revision": 3,
+        "base_contract_sha256": "c10d1859720af275fe9186ad9e18d66e1bbd518c69653f050037f47def847ea7",
+        "revised_contract_sha256": "b1ad6f2ea5143decba14f2f5f38ad55b63b09400caf0aa458429a3e25f1b195b",
+        "review": "none; taskcontrol validate only (Vincent, 2026-09-16)"
+      }
+    ]
   },
   "reconciliation_key": "dungeon-encounter-content-authoring",
   "repository_evidence_at_bootstrap": [],
   "repository_state_at_bootstrap": "missing",
   "schema_version": "2.0",
   "source_scope": "required",
-  "title": "Dungeon Encounter Placement and Composition Authoring",
+  "title": "Room Enemy Encounters: Spawn Regions, Activation Triggers, and Door Durability Values",
   "type": "content-authoring"
 }
