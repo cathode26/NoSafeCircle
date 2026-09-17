@@ -515,6 +515,8 @@ Playtesting may justify later room-layout revisions, but changes to room bounds,
 | Melee Enemy | Runs at the wizard and attacks at close range. | Prevents long stationary casts and becomes dangerous in groups. |
 | Ranged Enemy | Keeps moderate distance and fires a slow telegraphed shot. | Forces lateral movement while Melee Enemies close in. |
 
+**Ranged Enemy presentation (Vincent, September 16, 2026):** the Ranged Enemy is the Lantern Wraith, a hooded ghost carrying a lantern-staff, and its slow telegraphed shot is a teal lantern wisp. This is presentation only; the Ranged Enemy's behavior above is unchanged.
+
 Ranged Enemies never appear as an isolated encounter: every encounter that introduces one also includes at least one Melee Enemy. A Ranged Enemy may still end up fighting alone if the player defeats its Melee support first — tap Fireball, cover, and lateral movement remain effective against a lone survivor.
 
 Both enemy archetypes deal damage through the shared **Player Health** system. A successful Melee or Ranged Enemy attack calls the Player Health damage interface; enemy attack implementations do not maintain separate copies of player-health state.
@@ -529,12 +531,13 @@ Both enemy archetypes deal damage through the shared **Player Health** system. A
 - The enemy continues toward the last known position. If it reaches that position without reacquiring the player, it performs a short, bounded search/wander using controlled randomness to choose a nearby navigable direction or point, periodically checking for the player again.
 - If the player re-enters Detection Distance during search/wander, the enemy reacquires the wizard and returns to normal pursuit.
 - If the bounded search completes without reacquisition, the enemy clears the target and returns to its local idle/wander behavior. Losing the target does not despawn, replace, or reset the enemy; it remains the same persistent enemy object and can be encountered again later.
+- **Spectral Decoy exception (approved by Vincent, September 17, 2026):** while a Spectral Decoy is active, an enemy may switch its target from the wizard to the decoy. Melee Enemies chase the decoy; Ranged Enemies shoot at the decoy and chase it. When the decoy ends, affected enemies return to the normal detection, pursuit, and search rules in this section. Exact eligibility, duration, the state an enemy returns to, and decoy behavior at doors are defined by the approved Spectral Decoy task contract (NSC-088).
 - Exact Detection Distance, Lose Target Distance, search duration, and search/wander weighting are tuning values to be established during playtesting.
 
 
 ### Door and Pursuit Rules
 
-- Enemies move between rooms through open doors; crossing a doorway does not clear pursuit. Active pursuit is lost only through the distance-and-search behavior defined in **Enemy Detection, Pursuit, and Target Loss**.
+- Enemies move between rooms through open doors; crossing a doorway does not clear pursuit. Active pursuit of the wizard is lost only through the distance-and-search behavior defined in **Enemy Detection, Pursuit, and Target Loss**, or redirected by an active Spectral Decoy under the exception defined in that section.
 - A sealed door is a cursor-targeted interactable. Clicking the intended door issues a combined approach-and-interact request: the wizard moves to that door's interaction position, and the five-second opening timer begins automatically when the wizard reaches arm's-reach range. No sustained button hold is required. After the door is selected, cursor drift does not cancel the request or the timer. Taking damage, moving away after timing begins, or issuing another command that cancels/replaces the door interaction resets the attempt.
 - The **Door and Interaction system owns doorway-crossing state**. After a door is open, it detects when the wizard has actually crossed to that door's forward side and exposes that state to consumers. Opening a door does not by itself count as crossing. Door locking and the final escape condition consume this same crossing state rather than implementing separate crossing detectors.
 - **Door passability contract:** Door and Interaction owns the semantic door state (`sealed`, `open`, `locked`, `broken`). The shared gameplay navigation/locomotion layer owns translating that semantic state into enemy walkability through a shared passability interface. Sealed and locked doors block enemy traversal; open and broken doors permit forward enemy traversal. Door state changes update the navigation layer through that interface, while enemy pursuit/attack code does not independently manipulate NavMesh or doorway passability. The exact Unity mechanism used beneath this interface (for example obstacle/carving, a navigation link, or runtime navigation-data update) is an implementation choice rather than a separate game-design decision.
@@ -550,6 +553,7 @@ Both enemy archetypes deal damage through the shared **Player Health** system. A
 - The Dungeon Encounter system consumes the registry before activating new encounter enemies. If activating the requested enemies would exceed fifteen active enemies, new encounter enemies are delayed or reduced first; existing persistent pursuers are never removed to make room.
 - The registry/bookkeeping responsibility is a reusable runtime foundation and does not require the exact five-room encounter layouts, placements, or trigger authoring to be known first. Room-specific encounter authoring consumes this foundation later.
 - Lower Vault is the primary validation case because a rear breach can coincide with the room's own encounter; persistent pursuers keep priority over admitting additional new enemies.
+- The fifteen-active-enemy cap is a balance lever that Vincent may raise after playtesting (see **Required Scope, Exclusions, and Stretch Goals**); until then it remains the hard limit.
 
 ### Required Scope, Exclusions, and Stretch Goals
 
@@ -557,7 +561,11 @@ Both enemy archetypes deal damage through the shared **Player Health** system. A
 
 **Excluded:** multiplayer, classes, equipment, loot, skill trees, quests, vendors, procedural generation, persistent progression, multiple floors, bespoke 3D character models or rigs, free-rotation 3D camera presentation, and generative AI during play.
 
-**Stretch goals:** Spectral Decoy, a third enemy, Fireball-charge reactions, an awareness indicator, Frost Field slowing a breach, advanced door damage, and one additional room.
+**Goals (formerly stretch goals; promoted to goals by Vincent on September 17, 2026):** Spectral Decoy, a third enemy, Fireball-charge reactions, an awareness indicator, Frost Field slowing a breach, advanced door damage, and an expanded dungeon wing. These are planned goals, not optional features to cut first.
+
+**Expanded dungeon:** The dungeon may expand beyond the five rooms of the approved blockout. The former "one additional room" becomes an expanded dungeon wing. Its layout is proposed by NSC-085's route plan, and no new room, door, or mechanic from it becomes canon until Vincent approves it. This document does not pre-decide the wing's size or placement. Other expansions of this document are allowed when Vincent approves the specific addition.
+
+**Balance levers:** The three-to-eight enemy range per encounter and the fifteen-active-enemy cap are balance levers that Vincent may raise after playtesting. Until he does, the stated numbers remain the rule.
 
 ### Environment Presentation and Authoring Direction
 
@@ -641,7 +649,7 @@ Section 4 defines the six development-agent roles and their effects on the game.
 
 The finished Windows game will not use generative AI at runtime. Enemy behavior, spell effects, doors, damage, and pursuit will run locally through standard Unity systems. The game will require no external AI service, API key, token usage, or network connection after it is built. Development-time generative tools may be used to create isometric tiles, props, and directional sprites, but once imported they behave as ordinary Unity assets.
 
-The developer approves feature briefs, resolves architecture decisions, inspects scenes and prefabs, tests game feel, balances encounters, merges changes, and decides which stretch features are accepted.
+The developer approves feature briefs, resolves architecture decisions, inspects scenes and prefabs, tests game feel, balances encounters, merges changes, and approves any expansion of scope beyond the goals listed in Section 3.
 
 ### Agent Coordination
 
@@ -736,4 +744,4 @@ Most focused tasks will be limited to approximately 15,000–30,000 tokens. Larg
 | Weeks 3–4 | Door interactions, door-breaking pressure, room-to-room pursuit, ranged enemy, and 2.5D isometric dungeon floor construction |
 | Weeks 5–6 | Final escape, visual and audio feedback, balancing, performance testing, bug fixes, build, and presentation |
 
-Stretch features will be removed first if the schedule slips. Advanced door visuals and one encounter variation may also be reduced. The three spells, two enemy types, door loop, mana regeneration, pursuit, and final escape remain the required game. If required work in Weeks 5–6 (final escape, balancing, or performance passes) overruns, the fallback is to reduce final-room encounter density toward the low end of the stated three-to-eight-enemy range and simplify presentation polish; required systems are not cut.
+This six-week plan was the original schedule; that deadline has passed (Vincent, September 17, 2026). The former stretch features are now goals (Section 3, **Required Scope, Exclusions, and Stretch Goals**) and are no longer the first features removed. The three spells, two enemy types, door loop, mana regeneration, pursuit, and final escape remain the required game. If required work in Weeks 5–6 (final escape, balancing, or performance passes) overruns, the fallback is to reduce final-room encounter density toward the low end of the stated three-to-eight-enemy range and simplify presentation polish; required systems are not cut.

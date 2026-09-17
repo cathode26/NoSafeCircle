@@ -6,7 +6,7 @@
   },
   "source": {
     "file": "Docs/GDD/No_Safe_Circle_GDD.md",
-    "sha256": "d55b3b1fae7e171459149d34da46963c77efb7261d17313b9f6d3a914031422e"
+    "sha256": "855e791034aeaf94d97212ebcccd2d27b56eca7e789566185eb14e5f7ad08596"
   },
   "document": {
     "document_id": "no-safe-circle-gdd-c614fc48f07a",
@@ -1230,12 +1230,12 @@
       "source": {
         "file": "Docs/GDD/No_Safe_Circle_GDD.md",
         "start_line": 513,
-        "end_line": 522
+        "end_line": 524
       },
       "chunk_part": null,
-      "text": "| Enemy | Basic behavior | Player effect |\n|---|---|---|\n| Melee Enemy | Runs at the wizard and attacks at close range. | Prevents long stationary casts and becomes dangerous in groups. |\n| Ranged Enemy | Keeps moderate distance and fires a slow telegraphed shot. | Forces lateral movement while Melee Enemies close in. |\n\nRanged Enemies never appear as an isolated encounter: every encounter that introduces one also includes at least one Melee Enemy. A Ranged Enemy may still end up fighting alone if the player defeats its Melee support first — tap Fireball, cover, and lateral movement remain effective against a lone survivor.\n\nBoth enemy archetypes deal damage through the shared **Player Health** system. A successful Melee or Ranged Enemy attack calls the Player Health damage interface; enemy attack implementations do not maintain separate copies of player-health state.\n\n**Enemy health and defeat ownership:** A reusable **Enemy Health/Defeat** capability owns each persistent enemy object's current health, damage intake, defeat transition, and restartable health/defeat state. Fireball and any other canon-required damage source request damage through this owner-controlled interface rather than writing enemy health directly. When defeat occurs, the Enemy Health/Defeat owner reports that transition through the **Active Enemy Registry** owner's removal/unregister interface so the active count is updated without duplicating registry bookkeeping. Floor restart restores enemy health/defeat state through the enemy-owned reset entry point; the Floor Run/Restart Orchestrator does not mutate enemy-health internals directly.",
-      "char_count": 1637,
-      "sha256": "4620fa60605ead997968cb208b0c3144c149ddb8851b53372d0b6e5b6186a77d"
+      "text": "| Enemy | Basic behavior | Player effect |\n|---|---|---|\n| Melee Enemy | Runs at the wizard and attacks at close range. | Prevents long stationary casts and becomes dangerous in groups. |\n| Ranged Enemy | Keeps moderate distance and fires a slow telegraphed shot. | Forces lateral movement while Melee Enemies close in. |\n\n**Ranged Enemy presentation (Vincent, September 16, 2026):** the Ranged Enemy is the Lantern Wraith, a hooded ghost carrying a lantern-staff, and its slow telegraphed shot is a teal lantern wisp. This is presentation only; the Ranged Enemy's behavior above is unchanged.\n\nRanged Enemies never appear as an isolated encounter: every encounter that introduces one also includes at least one Melee Enemy. A Ranged Enemy may still end up fighting alone if the player defeats its Melee support first — tap Fireball, cover, and lateral movement remain effective against a lone survivor.\n\nBoth enemy archetypes deal damage through the shared **Player Health** system. A successful Melee or Ranged Enemy attack calls the Player Health damage interface; enemy attack implementations do not maintain separate copies of player-health state.\n\n**Enemy health and defeat ownership:** A reusable **Enemy Health/Defeat** capability owns each persistent enemy object's current health, damage intake, defeat transition, and restartable health/defeat state. Fireball and any other canon-required damage source request damage through this owner-controlled interface rather than writing enemy health directly. When defeat occurs, the Enemy Health/Defeat owner reports that transition through the **Active Enemy Registry** owner's removal/unregister interface so the active count is updated without duplicating registry bookkeeping. Floor restart restores enemy health/defeat state through the enemy-owned reset entry point; the Floor Run/Restart Orchestrator does not mutate enemy-health internals directly.",
+      "char_count": 1909,
+      "sha256": "9571fd25521108b950fa65211ec7ca9f6e7383cc250b0e14187ae76bf111532f"
     },
     {
       "chunk_id": "nsc-gdd-053",
@@ -1252,13 +1252,13 @@
       "canonical": true,
       "source": {
         "file": "Docs/GDD/No_Safe_Circle_GDD.md",
-        "start_line": 526,
-        "end_line": 532
+        "start_line": 528,
+        "end_line": 535
       },
       "chunk_part": null,
-      "text": "- Each enemy uses a **Detection Distance** for acquiring the player and a larger **Lose Target Distance** for breaking active pursuit. Detection Distance must be smaller than Lose Target Distance so an enemy does not rapidly alternate between acquiring and losing the player at one boundary.\n- When the player enters Detection Distance, the enemy acquires the wizard as its target and pursues according to its archetype. Crossing an open doorway does not by itself clear that target.\n- When the player moves beyond Lose Target Distance, the enemy stops tracking the player's exact current position and enters a search state using the player's last known position. The distance threshold determines this transition; randomness does not decide whether the enemy forgets the player.\n- The enemy continues toward the last known position. If it reaches that position without reacquiring the player, it performs a short, bounded search/wander using controlled randomness to choose a nearby navigable direction or point, periodically checking for the player again.\n- If the player re-enters Detection Distance during search/wander, the enemy reacquires the wizard and returns to normal pursuit.\n- If the bounded search completes without reacquisition, the enemy clears the target and returns to its local idle/wander behavior. Losing the target does not despawn, replace, or reset the enemy; it remains the same persistent enemy object and can be encountered again later.\n- Exact Detection Distance, Lose Target Distance, search duration, and search/wander weighting are tuning values to be established during playtesting.",
-      "char_count": 1615,
-      "sha256": "256cc1502687ce49cc04a0249f740cca806e83e80417d4230fc4439a8ddba36a"
+      "text": "- Each enemy uses a **Detection Distance** for acquiring the player and a larger **Lose Target Distance** for breaking active pursuit. Detection Distance must be smaller than Lose Target Distance so an enemy does not rapidly alternate between acquiring and losing the player at one boundary.\n- When the player enters Detection Distance, the enemy acquires the wizard as its target and pursues according to its archetype. Crossing an open doorway does not by itself clear that target.\n- When the player moves beyond Lose Target Distance, the enemy stops tracking the player's exact current position and enters a search state using the player's last known position. The distance threshold determines this transition; randomness does not decide whether the enemy forgets the player.\n- The enemy continues toward the last known position. If it reaches that position without reacquiring the player, it performs a short, bounded search/wander using controlled randomness to choose a nearby navigable direction or point, periodically checking for the player again.\n- If the player re-enters Detection Distance during search/wander, the enemy reacquires the wizard and returns to normal pursuit.\n- If the bounded search completes without reacquisition, the enemy clears the target and returns to its local idle/wander behavior. Losing the target does not despawn, replace, or reset the enemy; it remains the same persistent enemy object and can be encountered again later.\n- **Spectral Decoy exception (approved by Vincent, September 17, 2026):** while a Spectral Decoy is active, an enemy may switch its target from the wizard to the decoy. Melee Enemies chase the decoy; Ranged Enemies shoot at the decoy and chase it. When the decoy ends, affected enemies return to the normal detection, pursuit, and search rules in this section. Exact eligibility, duration, the state an enemy returns to, and decoy behavior at doors are defined by the approved Spectral Decoy task contract (NSC-088).\n- Exact Detection Distance, Lose Target Distance, search duration, and search/wander weighting are tuning values to be established during playtesting.",
+      "char_count": 2132,
+      "sha256": "67ccf8cd97c81364b9a76fd365c31e29ab6ce27cd4fa878e3d18b2cde9f1269c"
     },
     {
       "chunk_id": "nsc-gdd-054",
@@ -1275,16 +1275,16 @@
       "canonical": true,
       "source": {
         "file": "Docs/GDD/No_Safe_Circle_GDD.md",
-        "start_line": 537,
-        "end_line": 541
+        "start_line": 540,
+        "end_line": 544
       },
       "chunk_part": {
         "index": 1,
         "count": 2
       },
-      "text": "- Enemies move between rooms through open doors; crossing a doorway does not clear pursuit. Active pursuit is lost only through the distance-and-search behavior defined in **Enemy Detection, Pursuit, and Target Loss**.\n- A sealed door is a cursor-targeted interactable. Clicking the intended door issues a combined approach-and-interact request: the wizard moves to that door's interaction position, and the five-second opening timer begins automatically when the wizard reaches arm's-reach range. No sustained button hold is required. After the door is selected, cursor drift does not cancel the request or the timer. Taking damage, moving away after timing begins, or issuing another command that cancels/replaces the door interaction resets the attempt.\n- The **Door and Interaction system owns doorway-crossing state**. After a door is open, it detects when the wizard has actually crossed to that door's forward side and exposes that state to consumers. Opening a door does not by itself count as crossing. Door locking and the final escape condition consume this same crossing state rather than implementing separate crossing detectors.\n- **Door passability contract:** Door and Interaction owns the semantic door state (`sealed`, `open`, `locked`, `broken`). The shared gameplay navigation/locomotion layer owns translating that semantic state into enemy walkability through a shared passability interface. Sealed and locked doors block enemy traversal; open and broken doors permit forward enemy traversal. Door state changes update the navigation layer through that interface, while enemy pursuit/attack code does not independently manipulate NavMesh or doorway passability. The exact Unity mechanism used beneath this interface (for example obstacle/carving, a navigation link, or runtime navigation-data update) is an implementation choice rather than a separate game-design decision.\n- After the shared doorway-crossing state confirms that the wizard reached the forward side, the door automatically closes and locks; the player does not provide a second close/lock input. The completed automatic lock requests the small fixed health restoration through Player Health. Any surviving enemy that is still actively tracking/pursuing the player and whose route to the player is blocked by that locked door begins attacking the door. No separate `witnessed escape` or line-of-sight-to-the-crossing state is tracked: if the enemy can still track the player, it is already aggroed/pursuing. An enemy that has already lost the player does not begin attacking a locked door solely because it is nearby. When the door breaks, those tracking/pursuing enemies continue their pursuit through the now-passable doorway. Once locked, a door cannot be reopened, unlocked, or crossed again by the player — the floor is a forward-only escape sequence.",
-      "char_count": 2844,
-      "sha256": "726fa10d68737441bcbe320938628d9383cf054654cfc7ef30f07f0b6c1e41cf"
+      "text": "- Enemies move between rooms through open doors; crossing a doorway does not clear pursuit. Active pursuit of the wizard is lost only through the distance-and-search behavior defined in **Enemy Detection, Pursuit, and Target Loss**, or redirected by an active Spectral Decoy under the exception defined in that section.\n- A sealed door is a cursor-targeted interactable. Clicking the intended door issues a combined approach-and-interact request: the wizard moves to that door's interaction position, and the five-second opening timer begins automatically when the wizard reaches arm's-reach range. No sustained button hold is required. After the door is selected, cursor drift does not cancel the request or the timer. Taking damage, moving away after timing begins, or issuing another command that cancels/replaces the door interaction resets the attempt.\n- The **Door and Interaction system owns doorway-crossing state**. After a door is open, it detects when the wizard has actually crossed to that door's forward side and exposes that state to consumers. Opening a door does not by itself count as crossing. Door locking and the final escape condition consume this same crossing state rather than implementing separate crossing detectors.\n- **Door passability contract:** Door and Interaction owns the semantic door state (`sealed`, `open`, `locked`, `broken`). The shared gameplay navigation/locomotion layer owns translating that semantic state into enemy walkability through a shared passability interface. Sealed and locked doors block enemy traversal; open and broken doors permit forward enemy traversal. Door state changes update the navigation layer through that interface, while enemy pursuit/attack code does not independently manipulate NavMesh or doorway passability. The exact Unity mechanism used beneath this interface (for example obstacle/carving, a navigation link, or runtime navigation-data update) is an implementation choice rather than a separate game-design decision.\n- After the shared doorway-crossing state confirms that the wizard reached the forward side, the door automatically closes and locks; the player does not provide a second close/lock input. The completed automatic lock requests the small fixed health restoration through Player Health. Any surviving enemy that is still actively tracking/pursuing the player and whose route to the player is blocked by that locked door begins attacking the door. No separate `witnessed escape` or line-of-sight-to-the-crossing state is tracked: if the enemy can still track the player, it is already aggroed/pursuing. An enemy that has already lost the player does not begin attacking a locked door solely because it is nearby. When the door breaks, those tracking/pursuing enemies continue their pursuit through the now-passable doorway. Once locked, a door cannot be reopened, unlocked, or crossed again by the player — the floor is a forward-only escape sequence.",
+      "char_count": 2945,
+      "sha256": "8bda158a38a02cfd9b9fa4c79fff32bfa0010cce75815f1b72f90238e8fd3a89"
     },
     {
       "chunk_id": "nsc-gdd-055",
@@ -1301,8 +1301,8 @@
       "canonical": true,
       "source": {
         "file": "Docs/GDD/No_Safe_Circle_GDD.md",
-        "start_line": 542,
-        "end_line": 544
+        "start_line": 545,
+        "end_line": 547
       },
       "chunk_part": {
         "index": 2,
@@ -1327,13 +1327,13 @@
       "canonical": true,
       "source": {
         "file": "Docs/GDD/No_Safe_Circle_GDD.md",
-        "start_line": 548,
-        "end_line": 552
+        "start_line": 551,
+        "end_line": 556
       },
       "chunk_part": null,
-      "text": "- A shared **Active Enemy Registry** tracks the persistent enemy objects currently active in the run and exposes the current active count and remaining capacity under the hard limit of fifteen.\n- Enemy activation registers an enemy with the registry; defeat removes that enemy from the active count. Target loss, searching, crossing rooms, or waiting behind a locked door does not remove a surviving persistent enemy from the registry.\n- The Dungeon Encounter system consumes the registry before activating new encounter enemies. If activating the requested enemies would exceed fifteen active enemies, new encounter enemies are delayed or reduced first; existing persistent pursuers are never removed to make room.\n- The registry/bookkeeping responsibility is a reusable runtime foundation and does not require the exact five-room encounter layouts, placements, or trigger authoring to be known first. Room-specific encounter authoring consumes this foundation later.\n- Lower Vault is the primary validation case because a rear breach can coincide with the room's own encounter; persistent pursuers keep priority over admitting additional new enemies.",
-      "char_count": 1152,
-      "sha256": "400fba844f81ea9db74787fa1b09bee1983d09924ab7d9ecf868580997c8d2e7"
+      "text": "- A shared **Active Enemy Registry** tracks the persistent enemy objects currently active in the run and exposes the current active count and remaining capacity under the hard limit of fifteen.\n- Enemy activation registers an enemy with the registry; defeat removes that enemy from the active count. Target loss, searching, crossing rooms, or waiting behind a locked door does not remove a surviving persistent enemy from the registry.\n- The Dungeon Encounter system consumes the registry before activating new encounter enemies. If activating the requested enemies would exceed fifteen active enemies, new encounter enemies are delayed or reduced first; existing persistent pursuers are never removed to make room.\n- The registry/bookkeeping responsibility is a reusable runtime foundation and does not require the exact five-room encounter layouts, placements, or trigger authoring to be known first. Room-specific encounter authoring consumes this foundation later.\n- Lower Vault is the primary validation case because a rear breach can coincide with the room's own encounter; persistent pursuers keep priority over admitting additional new enemies.\n- The fifteen-active-enemy cap is a balance lever that Vincent may raise after playtesting (see **Required Scope, Exclusions, and Stretch Goals**); until then it remains the hard limit.",
+      "char_count": 1338,
+      "sha256": "27c14ef370efd0b72712a87b6dc6aaec8157e1dfad3948956553e72d96fae9a2"
     },
     {
       "chunk_id": "nsc-gdd-057",
@@ -1350,13 +1350,13 @@
       "canonical": true,
       "source": {
         "file": "Docs/GDD/No_Safe_Circle_GDD.md",
-        "start_line": 556,
-        "end_line": 560
+        "start_line": 560,
+        "end_line": 568
       },
       "chunk_part": null,
-      "text": "**Required:** one wizard, one handcrafted 2.5D isometric floor, five spaces, three spells, two enemies, mana regeneration, sealed doors, pursuit across rooms, death and restart, essential feedback, and a Windows build.\n\n**Excluded:** multiplayer, classes, equipment, loot, skill trees, quests, vendors, procedural generation, persistent progression, multiple floors, bespoke 3D character models or rigs, free-rotation 3D camera presentation, and generative AI during play.\n\n**Stretch goals:** Spectral Decoy, a third enemy, Fireball-charge reactions, an awareness indicator, Frost Field slowing a breach, advanced door damage, and one additional room.",
-      "char_count": 651,
-      "sha256": "2579070ed312ab8f8c5c8b56510f719b63ea93ff1d5d6e8fb14646816c07d88d"
+      "text": "**Required:** one wizard, one handcrafted 2.5D isometric floor, five spaces, three spells, two enemies, mana regeneration, sealed doors, pursuit across rooms, death and restart, essential feedback, and a Windows build.\n\n**Excluded:** multiplayer, classes, equipment, loot, skill trees, quests, vendors, procedural generation, persistent progression, multiple floors, bespoke 3D character models or rigs, free-rotation 3D camera presentation, and generative AI during play.\n\n**Goals (formerly stretch goals; promoted to goals by Vincent on September 17, 2026):** Spectral Decoy, a third enemy, Fireball-charge reactions, an awareness indicator, Frost Field slowing a breach, advanced door damage, and an expanded dungeon wing. These are planned goals, not optional features to cut first.\n\n**Expanded dungeon:** The dungeon may expand beyond the five rooms of the approved blockout. The former \"one additional room\" becomes an expanded dungeon wing. Its layout is proposed by NSC-085's route plan, and no new room, door, or mechanic from it becomes canon until Vincent approves it. This document does not pre-decide the wing's size or placement. Other expansions of this document are allowed when Vincent approves the specific addition.\n\n**Balance levers:** The three-to-eight enemy range per encounter and the fifteen-active-enemy cap are balance levers that Vincent may raise after playtesting. Until he does, the stated numbers remain the rule.",
+      "char_count": 1445,
+      "sha256": "26ad5813b924a89483568a109620e064e8d7419155a9d9da60e46e4c87e72243"
     },
     {
       "chunk_id": "nsc-gdd-058",
@@ -1373,8 +1373,8 @@
       "canonical": true,
       "source": {
         "file": "Docs/GDD/No_Safe_Circle_GDD.md",
-        "start_line": 564,
-        "end_line": 568
+        "start_line": 572,
+        "end_line": 576
       },
       "chunk_part": null,
       "text": "- The game uses a fixed 2.5D isometric presentation inspired by Diablo 1 and Ultima Online.\n- The primary environment visual layer uses **Unity Isometric Tilemaps** for floors, walls, and repeatable architectural tiles.\n- The wizard, enemies, taller props, interactive doors, obstacles, decorative set pieces, and other independently sorted objects use **world-space SpriteRenderers and prefabs** instead of being painted directly into a Tilemap. Placeholder character sprites are acceptable during development, but the wizard and enemy visual representations follow the same isometric sorting conventions as other world-space SpriteRenderers.\n- The visible isometric art layer is kept separate from the underlying gameplay representation so art can be revised without redefining core gameplay rules.\n- The gameplay layer still owns walkability, collision, trigger volumes, door state, pursuit logic, and other simulation behavior. The reusable Tilemap/SpriteRenderer world foundation establishes authoring conventions and visual/gameplay separation; it does **not** by itself include authoring all five room layouts or encounter content.",
@@ -1396,8 +1396,8 @@
       "canonical": true,
       "source": {
         "file": "Docs/GDD/No_Safe_Circle_GDD.md",
-        "start_line": 572,
-        "end_line": 576
+        "start_line": 580,
+        "end_line": 584
       },
       "chunk_part": null,
       "text": "- A first-time player understands that clicking a door sends the wizard to it, and reaching the door is not enough; the automatic opening timer still requires five safe, uninterrupted seconds.\n- Door interaction requires accurate target selection only on the initial click. The wizard approaches automatically, the five-second timer starts automatically on arrival, normal cursor drift does not cancel opening, and crossing an opened doorway causes automatic close-and-lock with no second input.\n- The player understands that enemies left alive remain a threat: leaving them alive means locking a door while they attack it, and later encountering them if that door breaks through.\n- Encounters use three to eight enemies and never exceed fifteen active enemies.\n- Failure is readable: poor positioning, low mana, using Force Wave without an immediate threat and leaving it unavailable when critical space is needed, or waiting too long.",
@@ -1419,8 +1419,8 @@
       "canonical": true,
       "source": {
         "file": "Docs/GDD/No_Safe_Circle_GDD.md",
-        "start_line": 580,
-        "end_line": 580
+        "start_line": 588,
+        "end_line": 588
       },
       "chunk_part": null,
       "text": "Peer feedback identified that the earlier draft did not explain how the spells and room layouts produced different tactical decisions. A targeted multi-agent review then tested whether those decisions could collapse into a dominant strategy. This revision clarifies Fireball's tap-versus-charge tradeoff, Frost Field's resource commitment, Force Wave's mid-room-versus-door decision, mixed enemy compositions, persistent-pursuer priority, room-specific implementation checks, distance-based target loss and search behavior, accessible cursor-targeted door interaction, shared doorway-crossing ownership, enemy damage through Player Health, active-enemy bookkeeping, and runtime ownership boundaries, Player Health restoration ownership, enemy health/defeat ownership, locked-door attack-to-durability ownership, door-to-navigation passability prerequisites, player-experience validation obligations, and failed-task retry policy without expanding the required content scope.",
@@ -1441,8 +1441,8 @@
       "canonical": true,
       "source": {
         "file": "Docs/GDD/No_Safe_Circle_GDD.md",
-        "start_line": 584,
-        "end_line": 584
+        "start_line": 592,
+        "end_line": 592
       },
       "chunk_part": null,
       "text": "Development agents help plan, implement, review, and test No Safe Circle; they do not run in the finished game. Each agent owns a visible game feature, receives concrete acceptance criteria, and produces a Unity test or implementation result.",
@@ -1464,8 +1464,8 @@
       "canonical": true,
       "source": {
         "file": "Docs/GDD/No_Safe_Circle_GDD.md",
-        "start_line": 588,
-        "end_line": 595
+        "start_line": 596,
+        "end_line": 603
       },
       "chunk_part": null,
       "text": "| Agent | Plain-English role | Effect on this game |\n|---|---|---|\n| Feature Planning Agent | Turns one approved feature into acceptance criteria and a file list. | Keeps prompts specific and prevents scope growth. |\n| Wizard Combat Agent | Implements player movement, the shared Unity Input System/Input Actions consumption pattern, the Player Movement-owned cursor-to-gameplay-plane targeting projection, Fireball, Frost Field's casting, mana cost, and feedback, Force Wave, health, mana, cooldowns, and recovery. Frost Field's actual slowdown effect is applied and restored by the Enemy Pursuit Agent, which owns enemy movement and all Ranged Enemy attack behavior; this agent only triggers the Frost Field effect and does not implement Ranged Enemy targeting or attacks. | Creates the tools used to slow, attack, escape, and recover, without editing enemy-movement or enemy-attack code directly. |\n| Door and Interaction Agent | Implements cursor-targeted door selection, click-to-approach movement request consumption, arm's-reach arrival validation, automatic five-second opening timing, interruption, shared doorway-crossing state, automatic closing/locking after forward-side crossing, runtime door durability, the owner-controlled door-damage receive interface, and breaking. It is the single owner of detecting when the wizard crosses to the forward side of an opened door; locking and final escape consume that state. Enemy attack behavior requests door damage through the Door-owned interface instead of writing durability or lifecycle state directly. After a door is clicked, cursor movement off the selected door does not cancel the approach or timer; after timing begins, damage, moving away, or issuing another command that cancels/replaces the interaction resets it. No sustained interaction hold is required. | Makes room exits risky and safety temporary without requiring sustained pointer precision after selection, while preventing multiple systems from inventing separate doorway-crossing or door-durability ownership. |\n| Enemy Pursuit Agent | Implements detection, melee and ranged attacks, pursuit, movement through open doors, distance-based target loss, last-known-position search, bounded randomized search/wander, and reacquisition, including applying and restoring Frost Field's slowdown effect. Detection Distance is smaller than Lose Target Distance; crossing a doorway does not itself clear pursuit. Enemy attacks consume the shared Player Health damage interface rather than owning separate player-health state. Owns the reusable Enemy Health/Defeat capability for persistent enemy objects: damage sources consume its damage interface, defeat reports removal through the Active Enemy Registry interface, and floor restart consumes its reset interface. Owns Ranged Enemy targeting, attack timing, and line-of-sight/projectile-occlusion checks, so Chapel of Ash's cover actually blocks shots. Enemy locomotion consumes the shared gameplay navigation/locomotion layer rather than choosing or configuring that layer independently. Owns the shared Active Enemy Registry bookkeeping for persistent active enemy objects; encounter activation consumes that registry rather than maintaining a separate count. Owns the ongoing state of persistent enemy objects whether they are actively pursuing, searching, or later reacquired. It also owns the application of forced enemy displacement requested by abilities such as Force Wave, including returning affected enemies to the appropriate pursuit/search movement state afterward. Qualifying locked-door attacks are initiated by this enemy behavior but apply durability loss only through the Door and Interaction damage interface. | Makes enemies left alive remain a visible, persistent consequence while preserving explicit ownership of enemy health/defeat, player-health damage, navigation, registry bookkeeping, and Door-owned durability. |\n| Dungeon Encounter Agent | Authors placements, triggers, configured per-door durability values, and final-room pressure, including the mixed Melee/Ranged compositions in Chapel of Ash and the Final Room. It does not own runtime door durability state, damage intake, or the locked-to-broken transition; those remain Door and Interaction responsibilities. Owns encounter-admission policy and consumes the shared Active Enemy Registry before activating new enemies. When persistent enemies and a requested new encounter would together exceed fifteen active enemies, this agent delays or reduces the new encounter's enemies first rather than removing existing pursuers. | Controls when the player can lure, fight, flee, or become trapped, and authors encounter/durability tuning without taking ownership of runtime Door state or the registry's persistent-enemy bookkeeping. |\n| Unity Validation Agent | Reviews changes and creates Play Mode checks for cleanup, references, and edge cases, including Bone Archive lane pathing, Chapel of Ash occlusion, Lower Vault enemy-cap priority, target-loss hysteresis/search and reacquisition, cursor-targeted door range and cursor-drift behavior, isometric sprite sorting, and alignment between Tilemap visuals and gameplay geometry. | Prevents permanent slowdown, stuck enemies, incorrect pursuit/search transitions, inaccessible door interaction behavior, incorrect door states, and visual/gameplay desynchronization. |",
@@ -1487,8 +1487,8 @@
       "canonical": true,
       "source": {
         "file": "Docs/GDD/No_Safe_Circle_GDD.md",
-        "start_line": 599,
-        "end_line": 603
+        "start_line": 607,
+        "end_line": 611
       },
       "chunk_part": {
         "index": 1,
@@ -1513,8 +1513,8 @@
       "canonical": true,
       "source": {
         "file": "Docs/GDD/No_Safe_Circle_GDD.md",
-        "start_line": 604,
-        "end_line": 610
+        "start_line": 612,
+        "end_line": 618
       },
       "chunk_part": {
         "index": 2,
@@ -1539,8 +1539,8 @@
       "canonical": true,
       "source": {
         "file": "Docs/GDD/No_Safe_Circle_GDD.md",
-        "start_line": 614,
-        "end_line": 618
+        "start_line": 622,
+        "end_line": 626
       },
       "chunk_part": null,
       "text": "1. The developer approves one or more feature briefs describing what the player should see and do.\n2. The Feature Planning Agent divides each feature into tasks, identifies dependencies, selects the required files, and removes unapproved additions.\n3. The orchestration pipeline may assign independent tasks to multiple agents at the same time. For example, the Wizard Combat Agent can implement a spell while the Enemy Pursuit Agent works on enemy movement and the Dungeon Encounter Agent prepares an encounter layout.\n4. Tasks that depend on unfinished work, or that require changes to the same scripts, scenes, or prefabs, are completed sequentially. Agents do not modify the same Unity assets concurrently.\n5. Each implementation is reviewed by the Unity Validation Agent. The developer then tests the feature in Play Mode and merges the accepted change into the main project.",
@@ -1562,8 +1562,8 @@
       "canonical": true,
       "source": {
         "file": "Docs/GDD/No_Safe_Circle_GDD.md",
-        "start_line": 622,
-        "end_line": 628
+        "start_line": 630,
+        "end_line": 636
       },
       "chunk_part": null,
       "text": "- **Minimal-context dispatch is a required pipeline constraint:** agents receive only the approved feature brief, its acceptance criteria, the relevant GDD rules, and the files plus scene/prefab information required for the active task. Unrelated project files or broad project context are not included unless the task genuinely requires them.\n- Independent agents work in isolated branches or workspaces so their changes can be reviewed before integration.\n- **Current prototype scene-builder lock:** scene-authoring work that changes objects generated or maintained through `Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs` must take exclusive-write locks on both that builder and `Assets/Scenes/DoorPrototype.unity`. This specifically applies to doorway-crossing work that creates/configures the forward-side crossing trigger and, under the current scene-built UI approach, to final-victory work that creates/configures the **You Escaped** overlay. If a later approved architecture moves the overlay or another scene object into a separately owned runtime prefab/asset, the task may lock that actual asset instead; the task graph must reflect the implementation that exists when it is dispatched.\n- Each task produces changed files, an implementation summary, known risks, and a Play Mode test checklist.\n- Source control commits serve as the handoff between implementation, validation, and integration.\n- Agents may report a risk or recommend a scope cut, but they cannot redesign the game or add features without developer approval.\n- The human developer remains responsible for architecture, merging changes, inspecting Unity scenes and prefabs, playtesting, balance, and final integration.",
@@ -1585,8 +1585,8 @@
       "canonical": true,
       "source": {
         "file": "Docs/GDD/No_Safe_Circle_GDD.md",
-        "start_line": 632,
-        "end_line": 634
+        "start_line": 640,
+        "end_line": 642
       },
       "chunk_part": null,
       "text": "While the Door and Interaction Agent implements click-to-approach door opening, automatic five-second timing on arrival, and automatic locking after crossing, the Enemy Pursuit Agent can independently implement melee enemies following the wizard through open doors. At the same time, the Dungeon Encounter Agent can define the enemy placement for the first encounter space.\n\nAfter those tasks are complete, the Unity Validation Agent checks that enemies can cross an open doorway without automatically losing the player, that distance-based target loss leads through last-known-position search before target clearing, that damage or moving away interrupts opening after arrival while cursor drift after selection does not, and that crossing automatically closes and locks the door with no second input. The developer then combines and tests the features inside Unity.",
@@ -1607,13 +1607,13 @@
       "canonical": true,
       "source": {
         "file": "Docs/GDD/No_Safe_Circle_GDD.md",
-        "start_line": 638,
-        "end_line": 644
+        "start_line": 646,
+        "end_line": 652
       },
       "chunk_part": null,
-      "text": "No Safe Circle will be developed by one developer in Unity using C#. A raw Python orchestration pipeline using Claude Code agents will coordinate specialized development agents that assist with planning, implementation, review, debugging, and test design. Independent tasks may run at the same time, but tasks that modify the same scripts, scenes, or prefabs will be completed sequentially.\n\nSection 4 defines the six development-agent roles and their effects on the game. This section explains how those agents will be coordinated, constrained, budgeted, and validated during development.\n\nThe finished Windows game will not use generative AI at runtime. Enemy behavior, spell effects, doors, damage, and pursuit will run locally through standard Unity systems. The game will require no external AI service, API key, token usage, or network connection after it is built. Development-time generative tools may be used to create isometric tiles, props, and directional sprites, but once imported they behave as ordinary Unity assets.\n\nThe developer approves feature briefs, resolves architecture decisions, inspects scenes and prefabs, tests game feel, balances encounters, merges changes, and decides which stretch features are accepted.",
-      "char_count": 1237,
-      "sha256": "ff56f5a8181175428979aa6f7f48f682959d8339a5078df6d13c2084f811b341"
+      "text": "No Safe Circle will be developed by one developer in Unity using C#. A raw Python orchestration pipeline using Claude Code agents will coordinate specialized development agents that assist with planning, implementation, review, debugging, and test design. Independent tasks may run at the same time, but tasks that modify the same scripts, scenes, or prefabs will be completed sequentially.\n\nSection 4 defines the six development-agent roles and their effects on the game. This section explains how those agents will be coordinated, constrained, budgeted, and validated during development.\n\nThe finished Windows game will not use generative AI at runtime. Enemy behavior, spell effects, doors, damage, and pursuit will run locally through standard Unity systems. The game will require no external AI service, API key, token usage, or network connection after it is built. Development-time generative tools may be used to create isometric tiles, props, and directional sprites, but once imported they behave as ordinary Unity assets.\n\nThe developer approves feature briefs, resolves architecture decisions, inspects scenes and prefabs, tests game feel, balances encounters, merges changes, and approves any expansion of scope beyond the goals listed in Section 3.",
+      "char_count": 1262,
+      "sha256": "a80e441cc2756f0dabd1608e3831d96bea44ff4cca3b9ffbb7f883b093b5abbd"
     },
     {
       "chunk_id": "nsc-gdd-069",
@@ -1630,8 +1630,8 @@
       "canonical": true,
       "source": {
         "file": "Docs/GDD/No_Safe_Circle_GDD.md",
-        "start_line": 648,
-        "end_line": 658
+        "start_line": 656,
+        "end_line": 666
       },
       "chunk_part": null,
       "text": "The orchestration pipeline may run independent tasks in parallel. For example, the Wizard Combat Agent may implement Fireball and Force Wave while the Enemy Pursuit Agent independently implements melee chasing and Ranged Enemy targeting, and the Dungeon Encounter Agent plans an encounter layout. The **Development Agent Ownership Invariants** in Section 4 are mandatory pipeline constraints, not advisory prose; planning and reconciliation must preserve them as explicit process requirements and must not collapse cross-system ownership merely to simplify a task graph.\n\nAgents will work in isolated branches or workspaces. Two agents will not modify the same gameplay files or Unity assets at the same time. Each completed task will produce:\n\n- Changed files\n- An implementation summary\n- Known risks or limitations\n- A Play Mode test checklist\n- A source-control commit for review\n\nSource control will serve as the handoff between implementation, validation, and final integration.",
@@ -1653,8 +1653,8 @@
       "canonical": true,
       "source": {
         "file": "Docs/GDD/No_Safe_Circle_GDD.md",
-        "start_line": 662,
-        "end_line": 666
+        "start_line": 670,
+        "end_line": 674
       },
       "chunk_part": null,
       "text": "The current repository contains two committed `.unity` scenes. This inventory is current repository evidence, not permanent design canon:\n\n- `Assets/Scenes/DoorPrototype.unity` is the current canonical gameplay prototype scene maintained by `Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs`. It contains the populated gameplay prototype, including the current `PlayerMana` and `PlayerManaUI` wiring.\n- `Assets/Scenes/SampleScene.unity` is a non-canonical sample/stub scene.\n- The former `Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity` path no longer exists in the current repository. Historical provenance may still correctly cite that former path when recording earlier repository states.",
@@ -1676,8 +1676,8 @@
       "canonical": true,
       "source": {
         "file": "Docs/GDD/No_Safe_Circle_GDD.md",
-        "start_line": 670,
-        "end_line": 677
+        "start_line": 678,
+        "end_line": 685
       },
       "chunk_part": null,
       "text": "- The project targets a **hybrid isometric architecture**. Unity **2D Tilemap Editor** (`com.unity.2d.tilemap`) is the approved authoring package for Isometric Tilemaps used for floors, walls, and repeatable architecture. **SpriteRenderer prefabs** are used for doors, props, obstacles, the wizard, enemies, and other independently sorted or interactive objects.\n- A generated or hand-authored visual tile does **not** automatically define gameplay behavior. The simulation layer separately defines collision, door interactions, walkability, trigger zones, and navigation.\n- The visible isometric layer and the gameplay/navigation layer should remain decoupled wherever practical so environment art can be regenerated or replaced without rewriting room logic.\n- A shared **gameplay navigation/locomotion layer** owns the walkable movement representation and the navigation-facing configuration used by runtime movers. It also owns the navigation-side implementation of the shared door-passability interface: semantic door state is supplied by Door and Interaction, while this layer translates sealed/open/locked/broken state into enemy walkability. Enemy pursuit/search, melee/ranged behavior, status effects, and forced displacement consume this layer instead of each selecting or configuring navigation technology or doorway passability independently.\n- The approved enemy-navigation implementation is **Unity AI Navigation** (`com.unity.ai.navigation`) using NavMesh-based runtime movement. A minimal working navigation/locomotion layer and the approved package configuration must exist before locomotion-dependent enemy implementation is dispatched, but room-specific visual authoring does not need to be complete first.\n- The reusable visual world foundation (Tilemap/SpriteRenderer conventions and visual/gameplay separation) is distinct from authoring the five named room layouts and encounters. Five-room visual/content authoring consumes this foundation once it exists; encounter placement/content consumes the authored room spaces and the encounter-admission/cap foundation. These are real prerequisite relationships even when the downstream content features remain deferred for future decomposition.\n- The camera is fixed in an isometric presentation; the player does not rotate the world view freely.\n- Mouse-directed click/hold movement is routed through Unity Input System/Input Actions and projected onto the gameplay plane by the Player Movement-owned shared cursor-targeting foundation. Movement, cursor-aimed spells, and Door/Interaction consume the same world-space pointer target, preserving smooth movement similar to early isometric action/RPG controls without independent screen-to-world projection in each gameplay system.",
@@ -1699,8 +1699,8 @@
       "canonical": true,
       "source": {
         "file": "Docs/GDD/No_Safe_Circle_GDD.md",
-        "start_line": 681,
-        "end_line": 684
+        "start_line": 689,
+        "end_line": 692
       },
       "chunk_part": {
         "index": 1,
@@ -1725,8 +1725,8 @@
       "canonical": true,
       "source": {
         "file": "Docs/GDD/No_Safe_Circle_GDD.md",
-        "start_line": 685,
-        "end_line": 689
+        "start_line": 693,
+        "end_line": 697
       },
       "chunk_part": {
         "index": 2,
@@ -1751,8 +1751,8 @@
       "canonical": true,
       "source": {
         "file": "Docs/GDD/No_Safe_Circle_GDD.md",
-        "start_line": 690,
-        "end_line": 694
+        "start_line": 698,
+        "end_line": 702
       },
       "chunk_part": {
         "index": 3,
@@ -1777,8 +1777,8 @@
       "canonical": true,
       "source": {
         "file": "Docs/GDD/No_Safe_Circle_GDD.md",
-        "start_line": 698,
-        "end_line": 711
+        "start_line": 706,
+        "end_line": 719
       },
       "chunk_part": null,
       "text": "The project will use a maximum planning budget of 1.5 million combined input and output tokens across approximately thirty to forty development tasks. This is a spending ceiling rather than a required amount.\n\nMost focused tasks will be limited to approximately 15,000–30,000 tokens. Larger context will be reserved for integration, debugging, and reviewing systems that interact with several Unity components.\n\n| Budget category | Tokens |\n|---|---|\n| Feature planning and task preparation | 150,000 |\n| Wizard combat and spells | 300,000 |\n| Doors and enemy pursuit | 400,000 |\n| Dungeon encounters and integration | 250,000 |\n| Review, debugging, and validation | 400,000 |\n| Total ceiling | 1,500,000 |\n\n**Failed-task retry policy is a required pipeline constraint:** If a task fails, its scope and context will be reduced before it is attempted again. The entire project will not be repeatedly submitted to an agent for a single bug.",
@@ -1800,8 +1800,8 @@
       "canonical": true,
       "source": {
         "file": "Docs/GDD/No_Safe_Circle_GDD.md",
-        "start_line": 715,
-        "end_line": 718
+        "start_line": 723,
+        "end_line": 726
       },
       "chunk_part": null,
       "text": "- **Unity 2D Tilemap Editor** (`com.unity.2d.tilemap`) is approved and required for the intended Isometric Tilemap authoring workflow. If it is absent from `Packages/manifest.json`, adding/configuring it is concrete project-configuration work, not deferred design.\n- **Unity AI Navigation** (`com.unity.ai.navigation`) is the approved enemy-navigation implementation. If it is absent from `Packages/manifest.json`, adding/configuring it is a prerequisite for the gameplay navigation/locomotion layer and locomotion-dependent enemy work.\n- The required delivery target is a **Windows Standalone build**. The current canonical gameplay scene is `Assets/Scenes/DoorPrototype.unity`; that scene, or a later human-approved replacement canonical gameplay scene, must be registered in Unity Build Settings before the Windows delivery requirement can be considered complete. A committed `EditorBuildSettings.asset` with no registered canonical gameplay scene is confirmed incomplete build configuration and must remain represented as open configuration work. `Assets/Scenes/SampleScene.unity` remains non-canonical and does not satisfy this requirement merely because it exists.\n- Package-manifest and ProjectSettings changes authorized by these approved requirements may be implemented by an agent, but the developer must inspect the resulting package state, scene registration, and Windows build configuration before merge.",
@@ -1823,8 +1823,8 @@
       "canonical": true,
       "source": {
         "file": "Docs/GDD/No_Safe_Circle_GDD.md",
-        "start_line": 722,
-        "end_line": 729
+        "start_line": 730,
+        "end_line": 737
       },
       "chunk_part": null,
       "text": "- Generative AI tools are used only during development. Approved development-time asset tools may be used to generate isometric tiles, props, and directional sprite art, but they are not runtime dependencies.\n- API credentials will remain outside the Unity project and source control.\n- Minimal-context dispatch is mandatory: agents receive only the approved feature brief, its acceptance criteria, relevant GDD rules, and files plus scene/prefab information required for the active task. Unrelated repository context is withheld unless the active task requires it.\n- Agents cannot add mechanics, redesign the game, or expand the scope without developer approval.\n- Generated C# must compile before the task moves to validation.\n- Unity scenes, prefab references, animations, and Inspector assignments require human inspection.\n- Agent-generated work is not merged until its Play Mode checklist has been tested.\n- Parallel work is limited to features that do not modify the same files or depend on unfinished systems.",
@@ -1846,13 +1846,13 @@
       "canonical": true,
       "source": {
         "file": "Docs/GDD/No_Safe_Circle_GDD.md",
-        "start_line": 733,
-        "end_line": 739
+        "start_line": 741,
+        "end_line": 747
       },
       "chunk_part": null,
-      "text": "| Window | Planned work |\n|---|---|\n| Weeks 1–2 | Wizard movement, health, mana regeneration, three spells, melee enemy, death, and restart |\n| Weeks 3–4 | Door interactions, door-breaking pressure, room-to-room pursuit, ranged enemy, and 2.5D isometric dungeon floor construction |\n| Weeks 5–6 | Final escape, visual and audio feedback, balancing, performance testing, bug fixes, build, and presentation |\n\nStretch features will be removed first if the schedule slips. Advanced door visuals and one encounter variation may also be reduced. The three spells, two enemy types, door loop, mana regeneration, pursuit, and final escape remain the required game. If required work in Weeks 5–6 (final escape, balancing, or performance passes) overruns, the fallback is to reduce final-room encounter density toward the low end of the stated three-to-eight-enemy range and simplify presentation polish; required systems are not cut.",
-      "char_count": 925,
-      "sha256": "eee944543a996e965a643a469cb601e13be1dcd255a5def1b0503056f9b1b97f"
+      "text": "| Window | Planned work |\n|---|---|\n| Weeks 1–2 | Wizard movement, health, mana regeneration, three spells, melee enemy, death, and restart |\n| Weeks 3–4 | Door interactions, door-breaking pressure, room-to-room pursuit, ranged enemy, and 2.5D isometric dungeon floor construction |\n| Weeks 5–6 | Final escape, visual and audio feedback, balancing, performance testing, bug fixes, build, and presentation |\n\nThis six-week plan was the original schedule; that deadline has passed (Vincent, September 17, 2026). The former stretch features are now goals (Section 3, **Required Scope, Exclusions, and Stretch Goals**) and are no longer the first features removed. The three spells, two enemy types, door loop, mana regeneration, pursuit, and final escape remain the required game. If required work in Weeks 5–6 (final escape, balancing, or performance passes) overruns, the fallback is to reduce final-room encounter density toward the low end of the stated three-to-eight-enemy range and simplify presentation polish; required systems are not cut.",
+      "char_count": 1045,
+      "sha256": "79728c21d7b1e3bc61720518c9b00b0f273172b08e4b9a1d1765a897684fe785"
     }
   ]
 }
