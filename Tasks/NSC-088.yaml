@@ -2,76 +2,254 @@
   "acceptance_criteria": [
     {
       "criterion_id": "AC-001",
-      "reference": "Vincent's Spectral Decoy direction",
-      "requirement": "The wizard can create a travelling phantom that moves down a different available corridor while the wizard takes another route, giving pursuing enemies a possible target to follow. The cast input and route-control rule require Vincent's design decision before implementation."
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:528-535,601,610-611,656; Tasks/NSC-091.yaml; Pipeline/TaskGraph/RESOURCE_GROUPS.yaml:994-1001",
+      "requirement": "The enemy-pursuit-owned decomposition split modifies Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyTargetKnowledge.cs and creates Assets/NoSafeCircle/DoorPrototype/Tests/SpectralDecoyEnemyTargetKnowledgePlayModeTests.cs plus Assets/NoSafeCircle/DoorPrototype/Tests/SpectralDecoyEnemyTargetKnowledgePlayModeTests.cs.meta. EnemyTargetKnowledge exposes public owner-controlled TryRedirectToSpectralDecoy(Transform) and EndSpectralDecoyRedirect(Transform) methods and read-only IsRedirectedToSpectralDecoy state. Wizard Combat calls these methods and never writes CurrentTarget, LastKnownPosition, pursuit/search state, the leash, or enemy movement directly."
     },
     {
       "criterion_id": "AC-002",
-      "reference": "Enemy Detection, Pursuit, and Target Loss",
-      "requirement": "Define which Melee and Ranged Enemies can switch from the wizard to the phantom, when they switch back, and how the choice interacts with existing distance-based target loss, last-known-position search, reacquisition, and door traversal. The phantom does not silently erase an enemy's knowledge of the wizard."
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:528-535; PROPOSAL within_current_GDD: pursuing-target eligibility",
+      "requirement": "TryRedirectToSpectralDecoy returns true only when the supplied Transform is non-null, this EnemyTargetKnowledge is active and enabled, an EnemyHealth on the same GameObject is either absent or not defeated, State is Pursuing, CurrentTarget is the initialized wizard Transform, and the enemy is not already redirected. There is no separate decoy attraction radius: an enemy in the stretched band outside DetectionDistance but still inside normal LoseTargetDistance remains eligible. Idle, SearchingLastKnownPosition, Wandering, defeated, disabled, already redirected, or non-wizard-targeting enemies do not switch. On success, EnemyTargetKnowledge records the wizard position at that moment, keeps State as Pursuing, and assigns CurrentTarget to the exact phantom Transform."
     },
     {
       "criterion_id": "AC-003",
-      "reference": "Chapel of Ash cover and Ranged Enemy attack ownership",
-      "requirement": "Keep projectile collision with an authored wall, shelf, table, pew, or column separate from enemy target selection. Cover blocks a shot only when its gameplay collider and projectile-occlusion rule do so; hiding behind cover alone does not add an unapproved visibility-based target-loss rule."
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:528-535; Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyTargetKnowledge.cs:90-180; Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs:354-355,464-473",
+      "requirement": "While redirected, EnemyTargetKnowledge.UpdateTargetKnowledge skips only the normal wizard-versus-LoseTargetDistance transition. The existing maximum-pursuit-distance-from-start leash remains active. If that leash is exceeded, the enemy ends its redirect, clears its saved decoy data, restores the wizard as its retained target when available, records the existing start position as LastKnownPosition, and enters SearchingLastKnownPosition exactly as the current leash branch does. The existing line-of-sight option remains a fresh-acquisition check only; cover is not consulted to maintain a redirect or to restore pursuit when the decoy ends. ResetTargetKnowledge() additionally clears the redirect flag, exact decoy reference, and saved switch-time wizard position."
     },
     {
       "criterion_id": "AC-004",
-      "reference": "Spell resources, failure, and floor restart",
-      "requirement": "Define the phantom's lifetime, attackability or destruction, failure and expiry behavior, mana cost and any cooldown so repeated casts do not guarantee escape. Spell-owned active state must reset on a floor restart and stop accepting casts when gameplay is suspended."
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:528-535; PROPOSAL within_current_GDD: normal-rule return",
+      "requirement": "EndSpectralDecoyRedirect acts only when the supplied Transform is this enemy's exact current decoy target. It clears all redirect bookkeeping. If the wizard exists and its distance under EnemyTargetKnowledge's normal distance calculation is at or inside this enemy's LoseTargetDistance, the method restores CurrentTarget to the wizard and leaves State as Pursuing without a line-of-sight check. If the wizard is beyond LoseTargetDistance or unavailable, the method restores the wizard target when available, sets LastKnownPosition to the wizard position saved when the redirect began, and enters SearchingLastKnownPosition. It never clears target knowledge merely because the decoy ended."
     },
     {
       "criterion_id": "AC-005",
-      "reference": "Door and Pursuit Rules",
-      "requirement": "Define whether the phantom can traverse open or broken doors, what happens at sealed or locked doors, and whether it persists across rooms without changing the established door-passability and persistent-enemy rules."
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:64,87,89,534,599-611; Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs:40-44; Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs:51-69",
+      "requirement": "The dependent Wizard Combat split creates Assets/NoSafeCircle/DoorPrototype/Scripts/SpectralDecoy.cs, Assets/NoSafeCircle/DoorPrototype/Scripts/SpectralDecoy.cs.meta, Assets/NoSafeCircle/DoorPrototype/Scripts/SpectralDecoyPhantom.cs, and Assets/NoSafeCircle/DoorPrototype/Scripts/SpectralDecoyPhantom.cs.meta. SpectralDecoy owns input acceptance, route validation, PlayerMana spending, cooldown, the one active phantom, the affected-enemy set, reset, suspension, and cleanup. At the successful cast moment it requests a redirect through AC-001 from every enabled EnemyTargetKnowledge on an active GameObject in the loaded scenes (for example Object.FindObjectsByType<EnemyTargetKnowledge>(FindObjectsSortMode.None)) and records only successful requests; it adds no enemy registry, tag, layer, or collider. SpectralDecoyPhantom owns the runtime-created phantom GameObject, its NavMeshAgent movement, lifetime, SpriteRenderer-based feedback, and cleanup. The phantom is not parented under the Player and has no Collider, CharacterController, Rigidbody, PlayerHealth, EnemyHealth, damage behavior, tag, or new physics layer. Its NavMeshAgent uses NoObstacleAvoidance, and the observable result is that the phantom neither shoves nor physically blocks the wizard or enemies."
+    },
+    {
+      "criterion_id": "AC-006",
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:64,83-92; Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs:51-69; PROPOSAL within_current_GDD: cast failure feedback",
+      "requirement": "SpectralDecoy exposes public bool TryCast(), ResetSpectralDecoy(), SuspendGameplayInput(), and EnableGameplayInput() plus read-only active, cooldown, and gameplay-enabled state. TryCast reads PlayerMovement.PointerWorldTarget only while PlayerMovement.HasPointerWorldTarget is true, never polls pointer hardware, never performs Camera projection, and never calls PlayerMovement destination or restriction methods. It validates the route before spending mana. A successful request calls PlayerMana.Spend(float) exactly once before creating the phantom. Missing pointer, invalid route, cooldown, suspension, or an existing phantom refuses without spending mana or restarting cooldown; insufficient mana uses PlayerMana.Spend and its existing CastDenied event. A valid cast with no eligible pursuer still spends mana, creates the visible phantom, and starts cooldown, while the UI gives distinct placeholder feedback that no pursuer was lured."
+    },
+    {
+      "criterion_id": "AC-007",
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:534,540-546,681-693; NSC-017; NSC-089",
+      "requirement": "A successful cast creates the phantom at a valid point on NSC-089's configured NavMesh and assigns the current shared pointer target as one destination only when NavMesh.CalculatePath reports a complete path for the project-configured agent type. PROPOSAL defaults are 4.0 units/second travel speed, tunable from 3.0 to 5.0, and 1.0 unit endpoint sampling tolerance, tunable from 0.25 to 1.5. The phantom follows the shared passability result: it can use complete routes through open or broken doorways and can continue into another room, but a sealed or locked blocker makes that route invalid. It never opens, closes, locks, breaks, damages, or reports player crossing on a door. If passability changes and the remaining route becomes incomplete, the phantom stays at its last reachable position until expiry. A redirected enemy that already has EnemyLockedDoorAttack continues using that production component when a locked door blocks its route to the phantom; Spectral Decoy does not implement door attacks. When the phantom reaches its destination it holds that position, still visible and still the redirected enemies' CurrentTarget, until its lifetime ends."
+    },
+    {
+      "criterion_id": "AC-008",
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:17-25,50-58,79,83-92,108,534; Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs:8-10; PROPOSAL tuning values",
+      "requirement": "Create Assets/NoSafeCircle/DoorPrototype/Scripts/SpectralDecoyCooldownUI.cs and Assets/NoSafeCircle/DoorPrototype/Scripts/SpectralDecoyCooldownUI.cs.meta. PROPOSAL serialized defaults are 30 mana, tunable from 25 to 40; 4.0 seconds active lifetime, tunable from 3.5 to 5.0; and 24 seconds cooldown, tunable from 18 to 35. Values must be positive and cooldown must be at least lifetime. Lifetime and cooldown start when the phantom is created. Under the current PlayerMana defaults, cooldown is the principal repeat-use limiter. One cast may create enough total travel separation for a complete five-second door-opening opportunity; this is an intended choice between spending the decoy during mid-room pressure and saving it for the door, not a guarantee that lifetime alone bounds the window. SpectralDecoyCooldownUI reads only SpectralDecoy public state, displays ready, active, and cooldown progress, flashes on refused non-mana casts, and distinguishes a successful cast that redirected no enemy."
+    },
+    {
+      "criterion_id": "AC-009",
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:21-25,73-79,108,534; PROPOSAL dark-cute first-playable feedback",
+      "requirement": "SpectralDecoyPhantom presents a translucent teal-violet wizard-shaped SpriteRenderer silhouette with a visibly pulsing scale and sparse spell-owned afterimages so it remains distinguishable from the wizard and Lantern Wraith projectile at the fixed gameplay camera. It departs immediately instead of lingering over the wizard; the cast-origin flare is offset toward the destination. Each successfully redirected enemy receives a spell-owned teal-violet switch pulse with a PROPOSAL 0.3-second default tunable from 0.2 to 0.5. The implementation reuses available SpriteRenderer content or creates only spell-owned runtime feedback; it imports no art and creates no authored prefab. Every phantom, afterimage, flare, pulse, and other runtime-created resource has an explicit cleanup path."
+    },
+    {
+      "criterion_id": "AC-010",
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:75-79,116,528-535; Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyPursuitMovement.cs; Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/RangedEnemyKeepDistanceMovement.cs; Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/RangedEnemyAttack.cs; Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/RangedEnemyProjectile.cs",
+      "requirement": "Existing production components use the redirected CurrentTarget. EnemyPursuitMovement follows the phantom for Melee enemies. A production Ranged enemy assembled with EnemyPursuitMovement, RangedEnemyKeepDistanceMovement, and RangedEnemyAttack uses it for approach, retreat, wind-up, and each newly launched projectile direction. A projectile already launched before the switch retains its original direction. Because the phantom has no Collider, a projectile passes through it and can still hit the wizard standing behind it on the same line. A wall, shelf, table, pew, or column collider still stops the projectile without changing wizard or decoy knowledge. Spectral Decoy does not edit EnemyPursuitMovement.cs, EnemyLockedDoorAttack.cs, RangedEnemyKeepDistanceMovement.cs, RangedEnemyAttack.cs, RangedEnemyProjectile.cs, PlayerHealth.cs, EnemyHealth.cs, or attack tuning."
+    },
+    {
+      "criterion_id": "AC-011",
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:98-104; Assets/NoSafeCircle/DoorPrototype/Scripts/TitleScreenController.cs; Assets/NoSafeCircle/DoorPrototype/Scripts/WizardGameEntryController.cs",
+      "requirement": "ResetSpectralDecoy ends the active phantom through EnemyTargetKnowledge.EndSpectralDecoyRedirect, clears cooldown, removes all spell-owned feedback, and restores enabled floor-start state. SuspendGameplayInput ends the phantom through the same API, removes feedback, rejects Input Action and TryCast requests, and preserves elapsed cooldown; EnableGameplayInput permits later casts. These methods work safely even if TitleScreenController calls SuspendGameplayInput before SpectralDecoy.Awake. Add optional serialized SpectralDecoy references to TitleScreenController and WizardGameEntryController. TitleScreenController.SuspendGameplayInput calls SpectralDecoy.SuspendGameplayInput when assigned. WizardGameEntryController.EnterWorld calls SpectralDecoy.EnableGameplayInput after movement and interaction are enabled. A missing optional reference does not invalidate game entry, and SpectralDecoy is not added to gameplayInputBehaviours."
+    },
+    {
+      "criterion_id": "AC-012",
+      "reference": "Settled spell controls, 2026-09-17; Assets/InputSystem_Actions.inputactions; Assets/NoSafeCircle/DoorPrototype/Scripts/DemoRunFlow.cs:291-297",
+      "requirement": "Assets/InputSystem_Actions.inputactions gains one dedicated Button-type SpectralDecoy action in the Player map bound to <Keyboard>/f in the Keyboard&Mouse control scheme only. SpectralDecoy consumes it through Unity Input System callbacks or action state and never polls Keyboard.current, Mouse.current, or other hardware. No SpectralDecoy binding is shared with MoveToCursor, Interact, Fireball, FrostField, ForceWave, or an active debug control. Stock actions are otherwise unchanged and no gamepad binding is added."
+    },
+    {
+      "criterion_id": "AC-013",
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:668-700; Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs:721-745,1012-1029; Docs/AI-Pipeline/GAME_TASK_LESSONS_LEARNED.md",
+      "requirement": "Update Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs so the Player has exactly one SpectralDecoy wired to the existing PlayerMovement, PlayerMana, InputActionAsset, and gameplay NavMesh configuration and the Canvas has exactly one SpectralDecoyCooldownUI. DoorPrototypeGlobalSceneBuilder.BuildTitleScreen and BuildWizardGameEntry assign the Player's SpectralDecoy to TitleScreenController and WizardGameEntryController. The authorized No Safe Circle/Build Door Prototype Scene command materializes Assets/Scenes/DoorPrototype.unity. The implementation crew edits builder source and never hand-edits or reconstructs the serialized scene. Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs is not modified."
+    },
+    {
+      "criterion_id": "AC-014",
+      "reference": "Docs/Engineering/UNITY_TESTING_POLICY.md; AC-005 through AC-013",
+      "requirement": "Create Assets/NoSafeCircle/DoorPrototype/Tests/SpectralDecoyPlayModeTests.cs and Assets/NoSafeCircle/DoorPrototype/Tests/SpectralDecoyPlayModeTests.cs.meta. These Play Mode tests drive the real SpectralDecoy Input Action and TryCast paths with real PlayerMovement, PlayerMana, EnemyTargetKnowledge, EnemyPursuitMovement, RangedEnemyKeepDistanceMovement, RangedEnemyAttack, RangedEnemyProjectile, DoorInteractable, EnemyLockedDoorAttack, and temporary GameplayNavigationSurface objects. They prove cast validation, route traversal, target switching, movement and attack consumption of CurrentTarget, cover separation, expiry, cooldown, reset, suspension, controller enablement, cleanup, and unchanged door-opening progress."
+    },
+    {
+      "criterion_id": "AC-015",
+      "reference": "Docs/Engineering/UNITY_TESTING_POLICY.md; Docs/AI-Pipeline/GAME_TASK_LESSONS_LEARNED.md; Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs:131-144",
+      "requirement": "Create Assets/NoSafeCircle/DoorPrototype/Tests/Editor/SpectralDecoySceneBuilderTests.cs and Assets/NoSafeCircle/DoorPrototype/Tests/Editor/SpectralDecoySceneBuilderTests.cs.meta. In-memory tests call DoorPrototypeSceneBuilder.BuildInMemoryForTests() and verify deterministic Player, Canvas, InputActionAsset, SpectralDecoy, cooldown UI, TitleScreenController, and WizardGameEntryController wiring without opening or saving the canonical scene. After controller materialization, a committed-scene conformance case deliberately opens Assets/Scenes/DoorPrototype.unity, scopes lookup to that scene, closes it without saving, compares scene bytes before and after, and verifies the committed references and F binding."
     }
   ],
-  "basis": "human_requested_stretch_goal_task",
-  "completion_gates": [],
+  "basis": "direct_gdd",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "AC-005 through AC-008 and AC-012; Docs/GDD/No_Safe_Circle_GDD.md:64,83-92,539-546",
+      "requirement": "SpectralDecoyPlayModeTests uses InputTestFixture to press the temporary Player/SpectralDecoy action through the production input path. With real PlayerMovement, PlayerMana, and a temporary NSC-089 GameplayNavigationSurface, verify a successful cast spends the configured serialized mana cost exactly once, creates one phantom, starts the configured active-lifetime and cooldown values, and follows one complete path toward the shared pointer target. Verify missing pointer, invalid or off-NavMesh target, sealed or locked blocked route, active phantom, cooldown, and suspension refuse without spending mana or restarting cooldown and produce the required UI refusal feedback. Verify open and broken routes are accepted, a valid zero-eligible-enemy cast remains visible and reports no pursuer lured, and the phantom changes no DoorInteractable state."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "AC-001 through AC-004, AC-007, AC-010; Docs/GDD/No_Safe_Circle_GDD.md:528-546; NSC-017",
+      "requirement": "SpectralDecoyEnemyTargetKnowledgePlayModeTests and the integrated spell fixture first acquire the wizard through EnemyTargetKnowledge.UpdateTargetKnowledge. Verify active non-defeated enemies Pursuing that exact wizard redirect, including an enemy outside configured DetectionDistance but inside configured LoseTargetDistance. Verify idle, searching, wandering, defeated, disabled, already redirected, and non-wizard-targeting enemies do not switch. With the production scene-style leash enabled, move a redirected enemy beyond it and verify the redirect record clears and the enemy searches its start position. Verify LOS is used for fresh acquisition but does not clear an active redirect. In a temporary door fixture, let the phantom cross while a door is open, then lock the door and verify a redirected enemy already carrying EnemyLockedDoorAttack continues through the production blocking-door and attack path without Spectral Decoy changing door state directly."
+    },
+    {
+      "gate_id": "VAL-003",
+      "reference": "AC-004 and AC-010; Docs/GDD/No_Safe_Circle_GDD.md:528-535; Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/RangedEnemyProjectile.cs",
+      "requirement": "Through production target, pursuit, Ranged movement, attack, and projectile components, end one redirect with the wizard exactly at LoseTargetDistance and verify immediate wizard CurrentTarget and Pursuing state; end another just beyond LoseTargetDistance and verify SearchingLastKnownPosition with the switch-time wizard position, movement there, bounded wander, normal reacquisition, and clearing only after normal search expiry. Verify a newly completed Ranged wind-up launches toward the phantom while a projectile launched before the switch keeps its original direction. With no phantom Collider, verify a shot aimed through the phantom damages a wizard behind it. In a separate setup, place a solid cover collider in the path and verify the projectile stops, wizard health is unchanged, and target knowledge remains redirected. For the configured phantom and enemy speeds and lifetime, record the first time a redirected enemy returns within the fixture's declared close-pressure radius of the switch-time wizard position; preserve the configuration and observed time as balance evidence without asserting a hard expected duration."
+    },
+    {
+      "gate_id": "VAL-004",
+      "reference": "AC-003, AC-006, AC-008, AC-009, and AC-011; Docs/GDD/No_Safe_Circle_GDD.md:98-104",
+      "requirement": "The focused Play Mode tests verify active-lifetime expiry, cooldown completion, one-active-phantom enforcement, ResetSpectralDecoy, SuspendGameplayInput, EnableGameplayInput, component disable, and object destruction through public behavior with no orphan phantom, afterimage, flare, pulse, or late target-state change. Test enemy ResetTargetKnowledge before ResetSpectralDecoy and the reverse order. Destroy a redirected enemy before phantom end and verify cleanup causes no exception. Start a real DoorInteractable opening through PlayerInteractionController, cast Spectral Decoy, and verify the same opening attempt and progress remain active. Construct real TitleScreenController and WizardGameEntryController instances with the optional reference assigned, including an initialization order in which title suspension reaches SpectralDecoy before its Awake; verify no pre-entry cast and normal casting after EnterWorld."
+    },
+    {
+      "gate_id": "VAL-005",
+      "reference": "AC-013 and AC-015; Docs/Engineering/UNITY_TESTING_POLICY.md",
+      "requirement": "SpectralDecoySceneBuilderTests calls DoorPrototypeSceneBuilder.BuildInMemoryForTests() and proves non-saving deterministic wiring and the committed Input Action binding. After the Unity-capable controller runs No Safe Circle/Build Door Prototype Scene, the committed-scene test opens the exact Assets/Scenes/DoorPrototype.unity without saving and verifies one wired SpectralDecoy, one wired SpectralDecoyCooldownUI, optional TitleScreenController and WizardGameEntryController references, and the Player/SpectralDecoy F binding. It closes the scene, confirms byte identity, and the validation run separately confirms clean tracked and untracked state."
+    },
+    {
+      "gate_id": "VAL-006",
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:17-25,50-58,73-79,108-118,373; Vincent's gameplay-camera guidance",
+      "requirement": "Vincent reviews the exact materialized candidate in Play Mode at the fixed gameplay camera. During the first PROPOSAL 0.5 seconds after casting, verify the phantom immediately separates from the wizard, the offset origin flare and enemy switch pulse are readable, and the player can still identify the real wizard. Review a mid-room escape cast versus saving the cooldown for a door attempt; a cast buying a complete five-second opening opportunity is allowed, but it must consume the same cooldown that could have answered mid-room pressure. Verify current scene Melee lures are visibly shortened by their configured leash and that the existing DemoRunFlow proximity-damage loop can still hurt the wizard if a redirected enemy passes close. Observe an open-door lure and any current-passability backward phantom/enemy travel through a broken doorway without treating either observation as a new passability rule. Current scene Lantern Wraith casters ignore the decoy; in-scene Ranged effectiveness is not applicable until NSC-030 replaces them with production Ranged Enemy prefabs. Confirm the cooldown and eligibility rules do not produce one dominant repeatable safe route. Room-by-room route review with production encounters is INT-006, not this gate."
+    },
+    {
+      "gate_id": "VAL-007",
+      "reference": "Docs/Engineering/UNITY_TESTING_POLICY.md:66-75; Docs/AI-Pipeline/GAME_TASK_LESSONS_LEARNED.md:90-96",
+      "requirement": "The Unity-capable controller runs No Safe Circle/Build Door Prototype Scene, then runs the focused Play Mode filters NoSafeCircle.DoorPrototype.Tests.SpectralDecoyEnemyTargetKnowledgePlayModeTests;NoSafeCircle.DoorPrototype.Tests.SpectralDecoyPlayModeTests and focused Edit Mode filter NoSafeCircle.DoorPrototype.Tests.Editor.SpectralDecoySceneBuilderTests. It separately runs regression-only filters NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests;NoSafeCircle.DoorPrototype.Tests.EnemyPursuitPlayModeTests;NoSafeCircle.DoorPrototype.Tests.EnemyPursuitDoorCrossingPlayModeTests;NoSafeCircle.DoorPrototype.Tests.EnemyLockedDoorAttackPlayModeTests;NoSafeCircle.DoorPrototype.Tests.DoorEnemyPassabilityPlayModeTests;NoSafeCircle.DoorPrototype.Tests.RangedEnemyKeepDistanceMovementPlayModeTests;NoSafeCircle.DoorPrototype.Tests.RangedEnemyAttackPlayModeTests;NoSafeCircle.DoorPrototype.Tests.PlayerMovementPlayModeTests;NoSafeCircle.DoorPrototype.Tests.TitleScreenPlayModeTests;NoSafeCircle.DoorPrototype.Tests.TitleScreenCommittedScenePlayModeTests;NoSafeCircle.DoorPrototype.Tests.WizardGameEntryPlayModeTests and NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests;NoSafeCircle.DoorPrototype.Tests.Editor.TitleScreenSceneBuilderTests;NoSafeCircle.DoorPrototype.Tests.Editor.WizardGameEntrySceneBuilderTests. Regression-only results are not acceptance proof. Run the builder a second time to confirm stable equivalent output. Evidence records the exact commit and tree, Unity executable and version, XML totals, exit codes, output paths, and clean tracked and untracked state before and after. If Unity is unavailable, stop at NEEDS_MATERIALIZATION."
+    }
+  ],
   "confidence": "medium",
   "contract_disposition": "active",
-  "contract_revision": 3,
-  "decomposition_reason": "The spell crosses Wizard Combat, enemy pursuit, navigation, ranged attacks, and restart ownership. Decide the gameplay contract first, then determine whether one agent can build it or it needs reviewed child tasks.",
-  "decomposition_state": "coarse",
+  "contract_revision": 4,
+  "decomposition_reason": "Execution requires two ordered ownership bundles, both created by D1B.2 as direct children of NSC-088 so that NSC-088's decomposition_children and requirement hash cover AC-001 through AC-015. The first child is Enemy Pursuit-owned work: it solely modifies EnemyTargetKnowledge.cs, adds the redirect/end/reset behavior, defines leash and LoseTargetDistance return semantics, and owns SpectralDecoyEnemyTargetKnowledgePlayModeTests. The second child is Wizard Combat work that depends on the first child and owns SpectralDecoy, the phantom, UI, input, controller and builder wiring, scene materialization handoff, and integrated tests. No child IDs are allocated by this contract, and NSC-014 is not modified.",
+  "decomposition_state": "concrete",
   "depends_on": [
     "NSC-003",
+    "NSC-005",
+    "NSC-017",
+    "NSC-053",
+    "NSC-054",
+    "NSC-089",
     "NSC-091",
-    "NSC-092",
-    "NSC-089"
+    "NSC-092"
   ],
-  "downstream_integration_obligations": [],
-  "exclusive_resources": [],
-  "execution_reason": "Vincent has chosen a travelling phantom that can draw enemies down another corridor, but cast/path control, enemy switching and reversion, lifetime and destruction, cost, and door behavior are not yet approved. Do not dispatch implementation until those decisions and exact ownership are recorded in a revised contract.",
-  "execution_scope": "unknown",
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:102-104; NSC-033",
+      "requirement": "NSC-033 connects the Floor Run/Restart Orchestrator to SpectralDecoy.ResetSpectralDecoy() and the existing enemy-owner reset methods. Through the production zero-health path, verify an active phantom ends, cooldown clears, no spell feedback survives, and affected enemies retain no decoy target, redirect flag, or saved switch position regardless of reset call order. The orchestrator does not mutate SpectralDecoy or EnemyTargetKnowledge fields."
+    },
+    {
+      "obligation_id": "INT-002",
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:98-100; NSC-087 and NSC-086",
+      "requirement": "NSC-087 calls SpectralDecoy.SuspendGameplayInput() and EnableGameplayInput() through the victory suspension coordinator. NSC-086 wires that coordinator to the materialized SpectralDecoy and verifies that final-door victory ends an active phantom through the enemy-owned return API and rejects later Spectral Decoy input."
+    },
+    {
+      "obligation_id": "INT-003",
+      "reference": "NSC-015 AC-001 and AC-002",
+      "requirement": "The NSC-015 melee-attack split must handle EnemyTargetKnowledge.CurrentTarget without assuming it contains PlayerHealth. When the exact current target is a Spectral Decoy, the wind-up may complete as a readable swipe, but impact applies no damage and throws no exception. The phantom remains without PlayerHealth and NSC-015 does not destroy it or reimplement redirect selection."
+    },
+    {
+      "obligation_id": "INT-004",
+      "reference": "NSC-055; NSC-053; NSC-054",
+      "requirement": "After the production Ranged Enemy prefab is delivered, its prefab-conformance and behavior checks verify one EnemyTargetKnowledge, EnemyPursuitMovement, RangedEnemyKeepDistanceMovement, and RangedEnemyAttack wired so the enemy can chase and fire at a redirected CurrentTarget. NSC-055 remains the prefab owner and does not reimplement Spectral Decoy eligibility or return state."
+    },
+    {
+      "obligation_id": "INT-005",
+      "reference": "NSC-030 AC-001 through AC-007, VAL-001 through VAL-007, and INT-006; NSC-084 AC-001 through AC-005",
+      "requirement": "NSC-030's canonical-scene encounter materialization split replaces DoorPrototypeGlobalSceneBuilder's fixed legacy caster squad with encounter-admitted production Ranged Enemy prefab instances and verifies those scene instances carry the components required by INT-004. Until that replacement lands, the current NSC-077 Lantern Wraith presentation on the legacy caster remains wizard-only and ignores Spectral Decoy. NSC-084 remains content-only and receives no runtime enemy-placement or spell obligation."
+    },
+    {
+      "obligation_id": "INT-006",
+      "reference": "NSC-030 VAL-007; Docs/GDD/No_Safe_Circle_GDD.md:108-118,373",
+      "requirement": "NSC-030 VAL-007 adds the room-level Spectral Decoy play review with the full production encounter set: compare mid-room escape versus saving the cooldown for each door, verify route splitting in Ruined Entry, Bone Archive, Chapel, Lower Vault, and Final Room, verify Chapel cover stops projectiles without clearing knowledge, and assess whether the selected cooldown prevents a dominant repeatable safe route. NSC-071 and NSC-072 retain their existing lane and projectile-cover validation only."
+    }
+  ],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyTargetKnowledge.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/SpectralDecoyEnemyTargetKnowledgePlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/SpectralDecoyEnemyTargetKnowledgePlayModeTests.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/SpectralDecoy.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/SpectralDecoy.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/SpectralDecoyPhantom.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/SpectralDecoyPhantom.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/SpectralDecoyCooldownUI.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/SpectralDecoyCooldownUI.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/SpectralDecoyPlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/SpectralDecoyPlayModeTests.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/SpectralDecoySceneBuilderTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/SpectralDecoySceneBuilderTests.cs.meta",
+    "repo-file:Assets/InputSystem_Actions.inputactions",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/TitleScreenController.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/WizardGameEntryController.cs",
+    "unity-scene:Assets/Scenes/DoorPrototype.unity"
+  ],
+  "execution_reason": "The approved behavior is design-complete, but one execution lease cannot cross the mandatory Wizard Combat versus Enemy Pursuit ownership boundary. The enemy split must land an owner-controlled target-state API first. The dependent spell split can then implement casting, travel, feedback, input, builder wiring, and integrated tests without directly owning enemy pursuit/search state.",
+  "execution_scope": "needs_execution_decomposition",
   "gdd_evidence": [
     {
-      "reference": "Docs/GDD/No_Safe_Circle_GDD.md — Required Scope, Exclusions, and Stretch Goals",
-      "requirement": "Spectral Decoy is listed as a stretch goal, beyond the three required spells."
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:528-535",
+      "requirement": "Spectral Decoy may temporarily redirect an enemy from the wizard; Melee enemies chase it, Ranged enemies shoot at and chase it, and affected enemies return to normal detection, pursuit, and search rules when it ends."
     },
     {
-      "reference": "Docs/GDD/No_Safe_Circle_GDD.md — Enemy Detection, Pursuit, and Target Loss",
-      "requirement": "Current enemies use Detection Distance, a larger Lose Target Distance, last-known-position search, and bounded reacquisition; cover does not itself clear the target."
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:539-546",
+      "requirement": "Open and broken doorways provide enemy traversal under shared passability, sealed and locked doors block traversal, and actively tracking enemies attack a locked door that blocks their route."
     },
     {
-      "reference": "Docs/GDD/No_Safe_Circle_GDD.md — Chapel of Ash and Door and Pursuit Rules",
-      "requirement": "Authored cover can occlude ranged projectiles, and doorway crossing does not itself clear active pursuit."
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:64,83-92,98-104",
+      "requirement": "Cursor-directed spells use Player Movement's shared pointer target, spend through Player Mana, and expose spell-owned reset and suspension methods."
+    },
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:73-79,108-118,373",
+      "requirement": "Movement, Frost Field, Force Wave, Fireball, room lanes, cover, loops, and door approaches remain meaningful alongside the decoy; projectile cover does not become target loss."
+    },
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:599-611,656",
+      "requirement": "Wizard Combat initiates spells through enemy-owned interfaces, while Enemy Pursuit owns target, pursuit, search, locomotion, and attack behavior. Planning must preserve that mandatory ownership split."
+    },
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:560-566",
+      "requirement": "Spectral Decoy is a promoted planned goal rather than optional stretch work."
     }
   ],
   "id": "NSC-088",
   "kind": "implementation",
-  "notes": "This task records Vincent's travelling-corridor-phantom direction, not approval of unresolved spell mechanics or a runnable crew contract. Before dispatch, revise the GDD and this task with explicit decisions for cast/path control, eligible enemies and target priority, attackability/lifetime, mana/cooldown, door/room behavior, and any new visibility rule; add locally provable completion gates and exact file/resource ownership. Then review whether to decompose it. Existing NSC-014 pursuit, NSC-025 navigation, and NSC-054 ranged-attack ownership must be respected; do not silently broaden those tasks or change their contracts as part of this entry.",
+  "notes": "PROPOSAL selected design: F sends one non-colliding NavMesh phantom toward one shared pointer waypoint. Every active, non-defeated enemy already pursuing the wizard may redirect, including stretched pursuers outside DetectionDistance; searching, wandering, idle, or defeated enemies do not. Redirected enemies skip only wizard lose-distance evaluation: the existing scene leash still ends the redirect and searches the enemy start position. Normal expiry restores wizard pursuit at or inside LoseTargetDistance and otherwise searches the wizard position saved at the switch. Starting tuning is 30 mana, 4.0-second lifetime, and 24-second cooldown; the cooldown is intended to limit reuse, and a well-timed cast may buy a complete door-opening opportunity after enemy travel time. The phantom has no Collider or PlayerHealth, so it neither blocks projectiles nor safely absorbs them. Current DoorPrototype scene Melee enemies have LOS acquisition and a short leash; current legacy Lantern Wraith casters have no EnemyTargetKnowledge and ignore the decoy until NSC-030 installs production Ranged Enemy prefabs. DemoRunFlow proximity contact damage also remains independent of CurrentTarget. Existing foundations are PlayerMovement.PointerWorldTarget, PlayerMana.Spend, EnemyTargetKnowledge, EnemyPursuitMovement, RangedEnemyKeepDistanceMovement, RangedEnemyAttack, RangedEnemyProjectile, TitleScreenController, WizardGameEntryController, and DoorPrototypeGlobalSceneBuilder; no Spectral Decoy implementation already exists. The decomposition must assign EnemyTargetKnowledge.cs and SpectralDecoyEnemyTargetKnowledgePlayModeTests exclusively to the enemy-pursuit-owned split. The dependent spell split receives every other listed resource. The graph apply must add the resulting owning work IDs and reconciliation keys to each applicable RESOURCE_GROUPS.yaml entry. No external game source was consulted.",
   "parent": "NSC-006",
   "provenance": {
     "created_by_human_request": true,
-    "design_approval": "mechanics_pending",
+    "design_approval": "spectral_decoy_approved_2026-09-17; exact_spell_mechanics_delegated_to_ger_orchestrator",
     "design_direction": "travelling phantom can draw enemies down another corridor",
-    "origin": "human_requested_stretch_goal_task"
+    "origin": "human_requested_stretch_goal_task",
+    "contract_followups": [
+      {
+        "date": "2026-09-17",
+        "reason": "Task Design GER revision 4 resolves the independent evaluation, selects the single-waypoint spell rules, adds completion gates, and records the mandatory enemy-target-state versus Wizard Combat execution split.",
+        "source_head": "32c6223d3e0e8c6a311958a4fddce92840b1d907",
+        "previous_contract_revision": 3,
+        "base_contract_sha256": "be6cffc80564c86146b3d0e9c39aae5175f45877a7aeac9a5c0a2bbd2e37d706",
+        "round_output_sha256": {
+          "01-codex-generate": "f5b1b9e38c48b42cfb598fca1f1a3525d883e373dd072f47b6ab2f7231518c17",
+          "02-claude-evaluate": "3ede1fb5559ea7d5a56f3aab5785361445f47251b0cf5d81e944290c0a558eea",
+          "03-codex-refine": "c62f20292badc1667717930a34222f9fbf019c32f81f76aac8f09a5991880b8a",
+          "04-claude-reaudit": "8308abce79d6d1f1f9c807c2a636dc7985fc7fcd599b47b660984b5d268fadba"
+        },
+        "review": "Task Design GER: independent Claude evaluation, one bounded Codex refinement, and a fresh Claude re-audit recommending commit_contract_then_decompose with owner edits E1-E6",
+        "revised_contract_sha256": "recorded by the GER Orchestrator commit tool's follow-up record"
+      },
+      {
+        "date": "2026-09-17",
+        "reason": "GER cycle revision 4 (packet 20260917-003348-NSC-088 at 32c6223d3; rounds complete, re-audit commit_contract_then_decompose) with the re-audit's owner edits E1-E6 applied verbatim. Spectral Decoy design decided by the GER Orchestrator under Vincent's delegation ('Yes you can decide everything yourself on spells'): F key; a travelling phantom on a complete NavMesh path to one cursor waypoint that holds there until its lifetime ends; every pursuing, non-defeated enemy switches to it (melee chase it, Lantern Wraiths approach and shoot at it; shots pass through and can still hit a wizard behind it); 30 mana, 4-second lifetime, 24-second cooldown starting values; wizard distance loss paused while redirected with the leash kept; on expiry enemies resume pursuit inside LoseTargetDistance or search the wizard's saved position beyond it; sealed and locked doors reject the route. Two ordered decomposition children: enemy target redirect (EnemyTargetKnowledge) then the Wizard Combat spell.",
+        "source_head": "42dccd0d19187e286da55925a44ede7395a2edaf",
+        "previous_contract_revision": 3,
+        "base_contract_sha256": "77549818a1c6e24b6704b4596e203ffe1e2c45d11b037442d7cec99506a7cebe",
+        "revised_contract_sha256": "39dd68029bbfb258ad8ea32847dfc724ee1f9ab6bf948da72ef1f367c564720e",
+        "review": "post-commit Codex contract check (tiered rule, 2026-09-17)"
+      }
+    ]
   },
   "reconciliation_key": "spectral-decoy-spell",
   "repository_evidence_at_bootstrap": [],
   "repository_state_at_bootstrap": "missing",
   "schema_version": "2.0",
-  "source_scope": "stretch",
-  "title": "Spectral Decoy Spell and Enemy Redirection",
+  "source_scope": "required",
+  "title": "Spectral Decoy Cast, Travelling Phantom, and Enemy Redirection",
   "type": "spell"
 }
