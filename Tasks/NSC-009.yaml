@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-009",
-  "contract_revision": 5,
+  "contract_revision": 6,
   "contract_disposition": "active",
   "title": "Force Wave Cast, Enemy Displacement Request, and Cooldown UI",
   "reconciliation_key": "force-wave",
@@ -38,27 +38,27 @@
       "criterion_id": "AC-001"
     },
     {
-      "reference": "nsc-gdd-007, nsc-gdd-009, nsc-gdd-074; Docs/GDD/No_Safe_Circle_GDD.md:67,86-91,692; Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs",
+      "reference": "nsc-gdd-007, nsc-gdd-009, nsc-gdd-074; Docs/GDD/No_Safe_Circle_GDD.md:67,86-91,693; Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs",
       "requirement": "TryCast() first rejects a request while Force Wave is suspended or cooling down without calling PlayerMana.Spend. Otherwise it calls PlayerMana.Spend(25f) exactly once. Only when Spend returns true does the same TryCast() call query affected enemies (AC-001), request their displacement (AC-003), and start cooldown. A successful no-target cast still spends 25 mana and starts cooldown. An insufficient-mana refusal requests no displacement and does not start or restart cooldown.",
       "criterion_id": "AC-002"
     },
     {
-      "reference": "nsc-gdd-064, nsc-gdd-074; Docs/GDD/No_Safe_Circle_GDD.md:602-603,685; Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyStatusEffectMovement.cs",
+      "reference": "nsc-gdd-064, nsc-gdd-074; Docs/GDD/No_Safe_Circle_GDD.md:693; Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyStatusEffectMovement.cs",
       "requirement": "For every enemy that passes ForceWave's affected-enemy query (AC-001), ForceWave passes the horizontal vector from the wizard to that enemy and a serialized positive knockback distance to the existing EnemyStatusEffectMovement.RequestDisplacement(Vector3, float) method exactly once. ForceWave never writes an enemy Transform, NavMeshAgent, health, attack state, projectile state, EnemyTargetKnowledge state, CurrentTarget, or LastKnownPosition.",
       "criterion_id": "AC-003"
     },
     {
-      "reference": "nsc-gdd-007, nsc-gdd-074; Docs/GDD/No_Safe_Circle_GDD.md:64,692; Tasks/NSC-007.yaml; Tasks/NSC-008.yaml",
+      "reference": "nsc-gdd-007, nsc-gdd-074; Docs/GDD/No_Safe_Circle_GDD.md:64,691; Tasks/NSC-007.yaml; Tasks/NSC-008.yaml",
       "requirement": "Assets/InputSystem_Actions.inputactions gains one dedicated Button-type ForceWave action in the existing Player action map, bound to <Keyboard>/space in the Keyboard&Mouse control scheme only; this same contract removes the existing <Keyboard>/space Keyboard&Mouse binding from the unused stock Jump action, so the key is not shared. ForceWave.cs consumes ForceWave's press through Unity Input System callbacks or action state rather than direct Mouse, Keyboard, or other hardware polling, and casts centered on the wizard; it never polls Mouse.current or Keyboard.current. No ForceWave binding path is also bound to Player/MoveToCursor or to Fireball's or FrostField's action. The stock Attack action is left untouched and no spell reads it; there is no gamepad binding for any spell in this contract.",
       "criterion_id": "AC-004"
     },
     {
-      "reference": "nsc-gdd-008, nsc-gdd-009, nsc-gdd-074; Docs/GDD/No_Safe_Circle_GDD.md:79,91-92,691-692",
+      "reference": "nsc-gdd-008, nsc-gdd-009, nsc-gdd-074; Docs/GDD/No_Safe_Circle_GDD.md:79,91-92,699",
       "requirement": "ForceWave owns a serialized long cooldown duration and exposes read-only readiness, remaining-time, and duration state. It exposes ResetForceWave(), which clears cooldown, immediately ends an active cast pulse (AC-012's IsPulseActive becomes false), and restores Force Wave to its enabled floor-start state without changing PlayerMana or enemy-owned state.",
       "criterion_id": "AC-005"
     },
     {
-      "reference": "nsc-gdd-064, nsc-gdd-074; Docs/GDD/No_Safe_Circle_GDD.md:100,605,690",
+      "reference": "nsc-gdd-064, nsc-gdd-074; Docs/GDD/No_Safe_Circle_GDD.md:100,613",
       "requirement": "ForceWave exposes SuspendGameplayInput(), EnableGameplayInput(), and read-only IsGameplayEnabled members matching the existing gameplay-input owner convention. SuspendGameplayInput() rejects subsequent Input Action and TryCast requests without changing the current cooldown. EnableGameplayInput() permits casts again. Force Wave has no wind-up or travelling effect: a successful TryCast() completes its displacement request (AC-003) and cooldown start (AC-005) synchronously during that call. AC-012's IsPulseActive is a purely cosmetic feedback window read by ForceWaveCooldownUI; it never delays, extends, or otherwise changes when TryCast() performs its displacement, mana spend, or cooldown work.",
       "criterion_id": "AC-006"
     },
@@ -68,8 +68,8 @@
       "criterion_id": "AC-007"
     },
     {
-      "reference": "nsc-gdd-008, nsc-gdd-009; Docs/GDD/No_Safe_Circle_GDD.md:79,91,576; Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs BuildUI, BuildChaseEnemy",
-      "requirement": "Create Assets/NoSafeCircle/DoorPrototype/Scripts/ForceWaveCooldownUI.cs and its Unity-generated Assets/NoSafeCircle/DoorPrototype/Scripts/ForceWaveCooldownUI.cs.meta. The component reads ForceWave's public cooldown state and its AC-012 IsPulseActive feedback state, and continuously shows ready versus unavailable state, remaining cooldown progress, and the brief cast pulse (the accepted first-playable placeholder feedback) without owning or changing cooldown or pulse state. Update DoorPrototypeGlobalSceneBuilder.cs so its in-memory and production build paths create one ForceWave on the existing Player and one wired ForceWaveCooldownUI on the existing Canvas; the cooldown UI is readable at the gameplay camera and does not overlap the existing health, interaction-prompt, door-progress, or mana HUD lanes, the bottom-left debug buttons, or the top-left controls HUD. Update DoorPrototypeGlobalSceneBuilder.BuildChaseEnemy so every MeleeEnemy GameObject it builds has exactly one EnemyStatusEffectMovement component: add one via AddComponent<EnemyStatusEffectMovement>() only when GetComponent<EnemyStatusEffectMovement>() on that GameObject is null, so whichever of NSC-008/NSC-009 lands first adds it and the second finds it already present and adds nothing further. The ranged enemy GameObject built by the global builder (FireCasterEnemy on main; NSC-077 renames it LanternWraith) is not changed; it has no NavMeshAgent, which EnemyStatusEffectMovement requires, and it gains no EnemyStatusEffectMovement. The crew edits builder source only and does not hand-edit or save Assets/Scenes/DoorPrototype.unity.",
+      "reference": "nsc-gdd-008, nsc-gdd-009; Docs/GDD/No_Safe_Circle_GDD.md:79,91,584; Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs BuildUI, BuildChaseEnemy",
+      "requirement": "Create Assets/NoSafeCircle/DoorPrototype/Scripts/ForceWaveCooldownUI.cs and its Unity-generated Assets/NoSafeCircle/DoorPrototype/Scripts/ForceWaveCooldownUI.cs.meta. The component reads ForceWave's public cooldown state and its AC-012 IsPulseActive feedback state, and continuously shows ready versus unavailable state, remaining cooldown progress, and the brief cast pulse (the accepted first-playable placeholder feedback) without owning or changing cooldown or pulse state. Update DoorPrototypeGlobalSceneBuilder.cs so its in-memory and production build paths create one ForceWave on the existing Player and one wired ForceWaveCooldownUI on the existing Canvas; the cooldown UI is readable at the gameplay camera and its RectTransform does not overlap the existing HealthFill (health bar), InteractPrompt (interaction prompt), ProgressFill (door progress bar), ManaFill (mana HUD), DebugDamageButton and DebugManaSpendButton (bottom-left debug buttons), or ControlsHud (top-left controls HUD) RectTransforms when each rect is projected to its screen rectangle at the Canvas's CanvasScaler reference resolution (1920x1080, ScaleWithScreenSize, MatchWidthOrHeight); AC-010 proves this with an automated non-overlap assertion. Update DoorPrototypeGlobalSceneBuilder.BuildChaseEnemy so every MeleeEnemy GameObject it builds has exactly one EnemyStatusEffectMovement component: add one via AddComponent<EnemyStatusEffectMovement>() only when GetComponent<EnemyStatusEffectMovement>() on that GameObject is null, so whichever of NSC-008/NSC-009 lands first adds it and the second finds it already present and adds nothing further. Every GameObject built by DoorPrototypeGlobalSceneBuilder that carries the legacy stationary-caster component (EnemyFireballCaster before NSC-077; EnemyLanternWispCaster after) is not changed by this task; it has no NavMeshAgent, which EnemyStatusEffectMovement requires, and it gains no EnemyStatusEffectMovement. This exclusion does not cover production Ranged Enemy prefab instances, which carry RangedEnemyAttack instead of a legacy caster component, and is trivially satisfied once the builder places no GameObject carrying the legacy caster component. The crew edits builder source only and does not hand-edit or save Assets/Scenes/DoorPrototype.unity.",
       "criterion_id": "AC-008"
     },
     {
@@ -79,7 +79,7 @@
     },
     {
       "reference": "Docs/Engineering/UNITY_TESTING_POLICY.md; Docs/AI-Pipeline/GAME_TASK_LESSONS_LEARNED.md; Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs BuildInMemoryForTests",
-      "requirement": "Create Assets/NoSafeCircle/DoorPrototype/Tests/Editor/ForceWaveSceneBuilderTests.cs and its Unity-generated Assets/NoSafeCircle/DoorPrototype/Tests/Editor/ForceWaveSceneBuilderTests.cs.meta. In-memory tests use DoorPrototypeSceneBuilder.BuildInMemoryForTests() to verify deterministic Player, InputActionAsset, Canvas, ForceWave, and ForceWaveCooldownUI wiring without opening or saving the canonical scene, and to assert that every built MeleeEnemy GameObject has exactly one EnemyStatusEffectMovement component, that the built ranged enemy GameObject (FireCasterEnemy on main; NSC-077 renames it LanternWraith, and either name satisfies this) has zero EnemyStatusEffectMovement and zero NavMeshAgent components, and that TitleScreenController's serialized gameplayInputBehaviours array does not contain ForceWave and still holds exactly its two existing entries, DebugDamageControl and DebugManaSpendControl. A separate Edit Mode test loads the committed Assets/InputSystem_Actions.inputactions asset directly (not a runtime InputActionAsset instance) and asserts: the Player map's ForceWave action is type Button with exactly one binding, path <Keyboard>/space, whose groups (split on ';', ignoring empty entries) contain only Keyboard&Mouse; ForceWave has no gamepad, joystick, touch, or XR binding; no other Player action (MoveToCursor, Interact, Attack, Jump, Fireball, FrostField, or any other) also binds <Keyboard>/space; Attack still has exactly its six base bindings (compared as path plus group set, splitting groups on ';' and ignoring empty entries: <Gamepad>/buttonWest [Gamepad], <Mouse>/leftButton [Keyboard&Mouse], <Touchscreen>/primaryTouch/tap [Touch], <Joystick>/trigger [Joystick], <XRController>/{PrimaryAction} [XR], <Keyboard>/enter [Keyboard&Mouse]); and Jump no longer has a <Keyboard>/space binding but keeps its <Gamepad>/buttonSouth (Gamepad) and <XRController>/secondaryButton (XR) bindings. After controller materialization, a committed-scene conformance test opens the exact Assets/Scenes/DoorPrototype.unity scene deliberately, scopes object searches to that scene, verifies one correctly wired ForceWave, one ForceWaveCooldownUI, and the TitleScreenController/WizardGameEntryController ForceWave references, closes without saving, and verifies the scene bytes and repository tree remain unchanged.",
+      "requirement": "Create Assets/NoSafeCircle/DoorPrototype/Tests/Editor/ForceWaveSceneBuilderTests.cs and its Unity-generated Assets/NoSafeCircle/DoorPrototype/Tests/Editor/ForceWaveSceneBuilderTests.cs.meta. In-memory tests use DoorPrototypeSceneBuilder.BuildInMemoryForTests() to verify deterministic Player, InputActionAsset, Canvas, ForceWave, and ForceWaveCooldownUI wiring without opening or saving the canonical scene, and assert that ForceWaveCooldownUI's RectTransform does not overlap the RectTransform of any of HealthFill (health bar), InteractPrompt (interaction prompt), ProgressFill (door progress bar), ManaFill (mana HUD), DebugDamageButton and DebugManaSpendButton (bottom-left debug buttons), or ControlsHud (top-left controls HUD), each rect computed as its screen rectangle at the Canvas's CanvasScaler reference resolution (1920x1080, ScaleWithScreenSize, MatchWidthOrHeight); the committed-scene conformance case later in this same test file repeats this same non-overlap computation against the materialized scene, and to assert that every built MeleeEnemy GameObject has exactly one EnemyStatusEffectMovement component, that every GameObject built by DoorPrototypeGlobalSceneBuilder carrying the legacy stationary-caster component (EnemyFireballCaster before NSC-077; EnemyLanternWispCaster after) has zero EnemyStatusEffectMovement and zero NavMeshAgent components (this exclusion does not cover production Ranged Enemy prefab instances, which carry RangedEnemyAttack instead of a legacy caster component, and is trivially satisfied once the builder places no GameObject carrying the legacy caster component), and that TitleScreenController's serialized gameplayInputBehaviours array does not contain ForceWave and still holds exactly its two existing entries, DebugDamageControl and DebugManaSpendControl. A separate Edit Mode test loads the committed Assets/InputSystem_Actions.inputactions asset directly (not a runtime InputActionAsset instance) and asserts: the Player map's ForceWave action is type Button with exactly one binding, path <Keyboard>/space, whose groups (split on ';', ignoring empty entries) contain only Keyboard&Mouse; ForceWave has no gamepad, joystick, touch, or XR binding; no other Player action (MoveToCursor, Interact, Attack, Jump, Fireball, FrostField, or any other) also binds <Keyboard>/space; Attack still has exactly its six base bindings (compared as path plus group set, splitting groups on ';' and ignoring empty entries: <Gamepad>/buttonWest [Gamepad], <Mouse>/leftButton [Keyboard&Mouse], <Touchscreen>/primaryTouch/tap [Touch], <Joystick>/trigger [Joystick], <XRController>/{PrimaryAction} [XR], <Keyboard>/enter [Keyboard&Mouse]); and Jump no longer has a <Keyboard>/space binding but keeps its <Gamepad>/buttonSouth (Gamepad) and <XRController>/secondaryButton (XR) bindings. After controller materialization, a committed-scene conformance test opens the exact Assets/Scenes/DoorPrototype.unity scene deliberately, scopes object searches to that scene, verifies one correctly wired ForceWave, one ForceWaveCooldownUI, and the TitleScreenController/WizardGameEntryController ForceWave references, closes without saving, and verifies the scene bytes and repository tree remain unchanged.",
       "criterion_id": "AC-010"
     },
     {
@@ -89,7 +89,7 @@
     },
     {
       "criterion_id": "AC-012",
-      "reference": "C:\\nscrev\\ger-contract-revisions-20260916\\spells\\SPELL_DECISIONS.md S5; C:\\nscrev\\ger-contract-revisions-20260916\\spells\\REV4_DECISIONS.md NSC-009 item 5; Docs/GDD/No_Safe_Circle_GDD.md:91,576",
+      "reference": "C:\\nscrev\\ger-contract-revisions-20260916\\spells\\SPELL_DECISIONS.md S5; C:\\nscrev\\ger-contract-revisions-20260916\\spells\\REV4_DECISIONS.md NSC-009 item 5; Docs/GDD/No_Safe_Circle_GDD.md:91,584",
       "requirement": "ForceWave exposes a read-only bool IsPulseActive and a serialized positive pulse duration. A successful TryCast() (AC-002's spend-then-act path) sets IsPulseActive true during the same call that requests displacement (AC-003) and starts cooldown (AC-005); IsPulseActive returns to false once the serialized pulse duration elapses through ForceWave's own Tick/Update, independent of cooldown length, or immediately when ResetForceWave() runs (AC-005). A refused cast, whether from suspension, an active cooldown, or insufficient mana (AC-002), never sets IsPulseActive and never starts a pulse; ForceWaveCooldownUI (AC-008) shows its existing unavailable/cooldown-refusal state for that refusal instead, and Force Wave introduces no new audio or additional UI beyond that existing display. IsPulseActive and the pulse duration are cosmetic-only: they never gate, delay, or extend AC-001's candidate query, AC-003's displacement request, or AC-002's mana spend and cooldown start (AC-006)."
     }
   ],
@@ -100,7 +100,7 @@
       "gate_id": "VAL-001"
     },
     {
-      "reference": "nsc-gdd-009; Docs/GDD/No_Safe_Circle_GDD.md:86,91,576; NSC-009 AC-002",
+      "reference": "nsc-gdd-009; Docs/GDD/No_Safe_Circle_GDD.md:86,91,584; NSC-009 AC-002",
       "requirement": "The ForceWavePlayModeTests filter verifies that an available cast calls PlayerMana.Spend(25f) exactly once, successful no-target casting spends exactly 25 mana and starts cooldown, and insufficient mana uses PlayerMana's existing CastDenied path without displacement or cooldown. A cooling-down or suspended request leaves CurrentMana unchanged and emits neither ManaSpent nor CastDenied.",
       "gate_id": "VAL-002"
     },
@@ -110,13 +110,13 @@
       "gate_id": "VAL-003"
     },
     {
-      "reference": "nsc-gdd-008, nsc-gdd-009; Docs/GDD/No_Safe_Circle_GDD.md:79,91,576",
-      "requirement": "In human Play Mode review of Assets/Scenes/DoorPrototype.unity, cast Force Wave with no enemies nearby. Verify the brief cast pulse is visible at the moment of casting and ends on its own, the cooldown indicator becomes unavailable and shows remaining progress at gameplay-camera scale, pressing Force Wave again during cooldown shows the cooldown-refusal/unavailable feedback and starts no new pulse while the indicator remains readable, and the indicator returns to ready when cooldown ends. This local gate proves the readable wasted-cast loop but does not claim encounter-balance approval.",
+      "reference": "nsc-gdd-008, nsc-gdd-009; Docs/GDD/No_Safe_Circle_GDD.md:79,91,584",
+      "requirement": "In human Play Mode review of Assets/Scenes/DoorPrototype.unity, cast Force Wave with no enemies nearby. Verify the brief cast pulse is visible at the moment of casting and ends on its own, the cooldown indicator becomes unavailable and shows remaining progress at gameplay-camera scale, pressing Force Wave again during cooldown shows the cooldown-refusal/unavailable feedback and starts no new pulse while the indicator remains readable, and the indicator returns to ready when cooldown ends. The reviewer explicitly confirms ForceWaveCooldownUI is readable and visually overlaps none of HealthFill, InteractPrompt, ProgressFill, ManaFill, DebugDamageButton, DebugManaSpendButton, or ControlsHud at gameplay-camera scale. This local gate proves the readable wasted-cast loop but does not claim encounter-balance approval.",
       "gate_id": "VAL-004"
     },
     {
       "reference": "Docs/Engineering/UNITY_TESTING_POLICY.md; Docs/AI-Pipeline/GAME_TASK_LESSONS_LEARNED.md",
-      "requirement": "The Unity-capable controller runs No Safe Circle -> Build Door Prototype Scene, verifies the Player has exactly one wired ForceWave, the Canvas has exactly one wired ForceWaveCooldownUI, every built MeleeEnemy has exactly one EnemyStatusEffectMovement, and the built ranged enemy GameObject (FireCasterEnemy on main; NSC-077 renames it LanternWraith, and either name satisfies this) has zero EnemyStatusEffectMovement and zero NavMeshAgent, runs the exact test filter NoSafeCircle.DoorPrototype.Tests.ForceWavePlayModeTests;NoSafeCircle.DoorPrototype.Tests.Editor.ForceWaveSceneBuilderTests including its committed-scene conformance test against the materialized Assets/Scenes/DoorPrototype.unity, and runs the builder a second time to confirm stable equivalent output. Evidence records the exact commit and tree, Unity executable and version, XML totals, exit codes, and clean working-tree state before and after. If Unity is unavailable, stop at NEEDS_MATERIALIZATION; a source review or unrelated green fixture is not a pass.",
+      "requirement": "The Unity-capable controller runs No Safe Circle -> Build Door Prototype Scene, verifies the Player has exactly one wired ForceWave, the Canvas has exactly one wired ForceWaveCooldownUI, every built MeleeEnemy has exactly one EnemyStatusEffectMovement, and every GameObject built by DoorPrototypeGlobalSceneBuilder carrying the legacy stationary-caster component (EnemyFireballCaster before NSC-077; EnemyLanternWispCaster after) has zero EnemyStatusEffectMovement and zero NavMeshAgent (this exclusion does not cover production Ranged Enemy prefab instances, which carry RangedEnemyAttack instead of a legacy caster component, and is trivially satisfied once no GameObject carrying the legacy caster component remains), runs the exact test filter NoSafeCircle.DoorPrototype.Tests.ForceWavePlayModeTests;NoSafeCircle.DoorPrototype.Tests.Editor.ForceWaveSceneBuilderTests including its committed-scene conformance test against the materialized Assets/Scenes/DoorPrototype.unity, and runs the builder a second time to confirm stable equivalent output. Evidence records the exact commit and tree, Unity executable and version, XML totals, exit codes, and clean working-tree state before and after. If Unity is unavailable, stop at NEEDS_MATERIALIZATION; a source review or unrelated green fixture is not a pass.",
       "gate_id": "VAL-005"
     },
     {
@@ -127,12 +127,12 @@
   ],
   "downstream_integration_obligations": [
     {
-      "reference": "NSC-033; nsc-gdd-074; Docs/GDD/No_Safe_Circle_GDD.md:102-104,691",
+      "reference": "NSC-033; nsc-gdd-074; Docs/GDD/No_Safe_Circle_GDD.md:102-104,699",
       "requirement": "NSC-033 connects the shared Floor Run/Restart Orchestrator to ForceWave.ResetForceWave() and proves through the zero-health production path, with a cast pulse and cooldown both active at zero health, that the cooldown is cleared, IsPulseActive is false, and Force Wave is re-enabled without directly changing its fields.",
       "obligation_id": "INT-001"
     },
     {
-      "reference": "NSC-087, NSC-086; nsc-gdd-064, nsc-gdd-074; Docs/GDD/No_Safe_Circle_GDD.md:98-100,605,690",
+      "reference": "NSC-087, NSC-086; nsc-gdd-064, nsc-gdd-074; Docs/GDD/No_Safe_Circle_GDD.md:98-100,613",
       "requirement": "NSC-087 calls ForceWave.SuspendGameplayInput() and EnableGameplayInput() through the victory coordinator. NSC-086 wires that coordinator to the materialized ForceWave in Assets/Scenes/DoorPrototype.unity and proves the final-door victory path stops new Force Wave casts without reading or writing cooldown internals.",
       "obligation_id": "INT-002"
     },
@@ -152,15 +152,15 @@
       "requirement": "Force Wave is the primary emergency response to a melee surround or enemies blocking a door. Its long cooldown prevents repeated use, and its short range makes it poor against distant Ranged Enemies."
     },
     {
-      "reference": "nsc-gdd-009; Docs/GDD/No_Safe_Circle_GDD.md:86-92,576",
+      "reference": "nsc-gdd-009; Docs/GDD/No_Safe_Circle_GDD.md:86-92,584",
       "requirement": "Each successful cast spends 25 mana and starts Force Wave's visible long cooldown. Wasting the cast without an immediate threat and then lacking it later is a required readable failure."
     },
     {
-      "reference": "nsc-gdd-064, nsc-gdd-074; Docs/GDD/No_Safe_Circle_GDD.md:602-603,685",
+      "reference": "nsc-gdd-064, nsc-gdd-074; Docs/GDD/No_Safe_Circle_GDD.md:693",
       "requirement": "Force Wave determines affected enemies and requests radial knockback. Enemy movement applies displacement, preserves valid navigation state, and resumes pursuit or search."
     },
     {
-      "reference": "nsc-gdd-053; Docs/GDD/No_Safe_Circle_GDD.md:526-532,537",
+      "reference": "nsc-gdd-053; Docs/GDD/No_Safe_Circle_GDD.md:526-533",
       "requirement": "Target loss is determined by distance, followed by last-known-position search and bounded wander. Doorway crossing does not clear an active target."
     },
     {
@@ -168,7 +168,7 @@
       "requirement": "Pew and column gameplay colliders provide projectile cover in Chapel of Ash. Force Wave remains a poor answer to distant ranged pressure and does not replace projectile-cover behavior."
     },
     {
-      "reference": "nsc-gdd-064, nsc-gdd-074; Docs/GDD/No_Safe_Circle_GDD.md:100,104,605,690-692",
+      "reference": "nsc-gdd-064, nsc-gdd-074; Docs/GDD/No_Safe_Circle_GDD.md:100,104,613,691,699",
       "requirement": "Force Wave exposes owner-controlled reset and gameplay suspend/re-enable methods consumed by restart and victory coordination. Runtime actions use Unity Input System/Input Actions."
     },
     {
@@ -179,7 +179,7 @@
   "basis": "direct_gdd",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "Both blocking decisions (geometry occlusion, shared input scheme) are resolved by SPELL_DECISIONS.md (2026-09-16); this revision is dispatchable. Radius 2-4 world units, knockback distance 1.5-3 world units, and cooldown 30-60 seconds remain author-only starting hypotheses, not contract thresholds. The existing visible cooldown is required; cast VFX/audio beyond the brief pulse and explicit cooldown-refusal feedback remain later presentation decisions (SPELL_DECISIONS.md S5). PlayerMana.Spend(float) and EnemyStatusEffectMovement.RequestDisplacement(Vector3, float) are delivered and unchanged since the original snapshot; check NSC-013 conformance before dispatch. RESOURCE_GROUPS.yaml already lists NSC-009 in the groups for DoorPrototypeGlobalSceneBuilder.cs, TitleScreenController.cs and WizardGameEntryController.cs (reconciled when revision 3 was committed); no further group change is needed. NSC-007 and NSC-008 separately add themselves to the same groups when each is committed. Force Wave does not damage or stun enemies, clear target knowledge, stop projectiles, or cancel door opening, and edits no enemy movement, restart, victory, door, room, encounter, wall, or visual-dressing owner files. AC-011's optional ForceWave references on TitleScreenController.cs and WizardGameEntryController.cs are the only edits this task makes to those two files; no other menu-flow behavior changes. The crew never hand-edits the generated scene; the Unity-capable controller owns the named Build step. Revision 4 (2026-09-17): applied GER Orchestrator decisions in REV4_DECISIONS.md and SPELL_DECISIONS.md following the Codex rev3 buildability check (codex-contract-check-NSC-009-rev3-20260917, recommendation: revise); Tasks/NSC-017.yaml VAL-003's stale locked-door-occlusion wording is a separate mechanical follow-up, not made in this revision.",
+  "notes": "Both blocking decisions (geometry occlusion, shared input scheme) are resolved by SPELL_DECISIONS.md (2026-09-16); this revision is dispatchable. Radius 2-4 world units, knockback distance 1.5-3 world units, and cooldown 30-60 seconds remain author-only starting hypotheses, not contract thresholds. The existing visible cooldown is required; cast VFX/audio beyond the brief pulse and explicit cooldown-refusal feedback remain later presentation decisions (SPELL_DECISIONS.md S5). PlayerMana.Spend(float) and EnemyStatusEffectMovement.RequestDisplacement(Vector3, float) are delivered and unchanged since the original snapshot; check NSC-013 conformance before dispatch. RESOURCE_GROUPS.yaml already lists NSC-007, NSC-008, and NSC-009 together in the groups for DoorPrototypeGlobalSceneBuilder.cs, TitleScreenController.cs and WizardGameEntryController.cs; no further group change is needed. Force Wave does not damage or stun enemies, clear target knowledge, stop projectiles, or cancel door opening, and edits no enemy movement, restart, victory, door, room, encounter, wall, or visual-dressing owner files. AC-011's optional ForceWave references on TitleScreenController.cs and WizardGameEntryController.cs are the only edits this task makes to those two files; no other menu-flow behavior changes. The crew never hand-edits the generated scene; the Unity-capable controller owns the named Build step. Revision 4 (2026-09-17): applied GER Orchestrator decisions in REV4_DECISIONS.md and SPELL_DECISIONS.md following the Codex rev3 buildability check (codex-contract-check-NSC-009-rev3-20260917, recommendation: revise); Tasks/NSC-017.yaml revisions 6-7 have since fixed its locked-door-occlusion wording; no further follow-up is needed there. Revision 6 (2026-09-17): applied GER Orchestrator decisions following the Codex rev5 buildability check (codex-contract-check-NSC-009-rev5-20260917, recommendation: revise): AC-010 gained an Edit Mode RectTransform non-overlap assertion between ForceWaveCooldownUI and the six named HUD regions (HealthFill, InteractPrompt, ProgressFill, ManaFill, DebugDamageButton/DebugManaSpendButton, ControlsHud) at the Canvas's 1920x1080 reference resolution, in both the in-memory build and the committed-scene conformance case, and VAL-004's human review now explicitly confirms the indicator is readable and overlaps none of those regions; the ranged-enemy exclusion in AC-008, AC-010, and VAL-005 now targets GameObjects by their legacy stationary-caster component (EnemyFireballCaster before NSC-077, EnemyLanternWispCaster after) rather than by name, explicitly excludes production Ranged Enemy prefab instances carrying RangedEnemyAttack, and is trivially satisfied once no legacy caster GameObject remains; stale GDD line citations were refreshed to current content; NSC-033 and NSC-030 needed no edits per the GER Orchestrator's decisions (NSC-030 revision 9 VAL-007 already enumerates and discharges INT-004's Force Wave checks; NSC-033 revision 8's INT-001 scenario already covers an active pulse and cooldown at restart).",
   "repository_state_at_bootstrap": "missing",
   "repository_evidence_at_bootstrap": [],
   "provenance": {
@@ -216,6 +216,15 @@
         "previous_contract_revision": 4,
         "base_contract_sha256": "9aa9424a66eb65276c90bfca16741a72c5f351a56835df00e196adbd18a823b8",
         "revised_contract_sha256": "e324be7387ac9b88191568632907cbae66e9d2960124972c2d738121f7f33d70",
+        "review": "post-commit Codex contract check (tiered rule, 2026-09-17)"
+      },
+      {
+        "date": "2026-09-17",
+        "reason": "Follow-up revision 6 from the rev 5 Codex check (revise): AC-008 and AC-010 name the six HUD regions (HealthFill, InteractPrompt, ProgressFill, ManaFill, DebugDamageButton and DebugManaSpendButton, ControlsHud) and ForceWaveSceneBuilderTests proves at the 1920x1080 reference resolution that ForceWaveCooldownUI overlaps none of them, with VAL-004's human review confirming readability; GDD line citations refreshed to the current GDD; notes replace two stale statements (NSC-017 wording and resource groups are already fixed); the ranged-enemy no-status-effect assertion targets legacy stationary caster GameObjects by component, not name, so NSC-055's production Lantern Wraith prefab is not covered. NSC-030 revision 8 already enumerates INT-004's Force Wave checks.",
+        "source_head": "27cd64256d472bca4258d14f035dbfbb22f1e7dd",
+        "previous_contract_revision": 5,
+        "base_contract_sha256": "b731b79dd56b3bf2d527edd6ac61226dc13682411618b96b0859b1383414de66",
+        "revised_contract_sha256": "3aa29529d2deeb18ee2c1c0c27f1292dd79ce3933c0dee051aaef5a2932d3f53",
         "review": "post-commit Codex contract check (tiered rule, 2026-09-17)"
       }
     ]
