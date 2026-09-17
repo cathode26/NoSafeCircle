@@ -436,7 +436,8 @@
         "world-sprite-prefab-sorting",
         "five-room-continuity-door-sequence",
         "fireball",
-        "frost-field"
+        "frost-field",
+        "force-wave"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs",
       "work_ids": [
@@ -446,7 +447,8 @@
         "NSC-039",
         "NSC-049",
         "NSC-007",
-        "NSC-008"
+        "NSC-008",
+        "NSC-009"
       ]
     },
     {
@@ -1092,26 +1094,30 @@
       "reconciliation_keys": [
         "fireball",
         "title-screen-start-game-flow",
-        "frost-field"
+        "frost-field",
+        "force-wave"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/TitleScreenController.cs",
       "work_ids": [
         "NSC-007",
         "NSC-066",
-        "NSC-008"
+        "NSC-008",
+        "NSC-009"
       ]
     },
     {
       "reconciliation_keys": [
         "fireball",
         "selected-wizard-world-placement",
-        "frost-field"
+        "frost-field",
+        "force-wave"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/WizardGameEntryController.cs",
       "work_ids": [
         "NSC-007",
         "NSC-068",
-        "NSC-008"
+        "NSC-008",
+        "NSC-009"
       ]
     }
   ],
