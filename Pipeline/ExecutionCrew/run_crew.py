@@ -37,13 +37,11 @@ from Pipeline.AgentRuntime.json_values import thaw_json
 from Pipeline.TaskExecution.contracts import TASK_EXECUTION_REQUEST_SCHEMA_VERSION, TaskContractIdentity, TaskExecutionRequest
 from Pipeline.TaskExecution.task_runner import TaskExecutionRunner
 from Pipeline.ExecutionCrew.contract_locality import (
-    CONTRACT_LOCALITY_AUDIT_SCHEMA_VERSION,
     ContractLocalityError,
     auditor_dependent_contract_payload,
     build_task_catalog,
     direct_dependency_contracts,
     direct_dependent_contracts,
-    validate_locality_audit_output,
 )
 from Pipeline.ExecutionCrew.prompts import COMMITTED_GDD_PATH, implementer_prompt, test_author_prompt, validator_prompt
 from Pipeline.ExecutionCrew.role_profiles import (
@@ -51,7 +49,6 @@ from Pipeline.ExecutionCrew.role_profiles import (
     ROLE_CAPABILITY_CLASSES,
 )
 from Pipeline.ExecutionCrew.schemas import (
-    CONTRACT_LOCALITY_AUDITOR_OUTPUT_SCHEMA,
     IMPLEMENTER_OUTPUT_SCHEMA,
     TEST_AUTHOR_OUTPUT_SCHEMA,
     VALIDATOR_OUTPUT_SCHEMA,
@@ -2609,44 +2606,11 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
             return inv, result
         return inv, result
 
-    if "contract_locality_auditor" in required_roles:
-        locality_prompt=contract_locality_auditor_prompt(
-            task_id=task_id,title=task["title"],task_contract=task_text,gdd=gdd,
-            execution_scope=str(task.get("execution_scope") or ""),execution_reason=str(task.get("execution_reason") or ""),
-            decomposition_state=str(task.get("decomposition_state") or ""),decomposition_reason=str(task.get("decomposition_reason") or ""),
-            dependency_contracts=dependency_contracts,dependent_contracts=dependent_contracts,
-            task_catalog=task_catalog,source_head=identity.head,source_tree=identity.tree,
-        )
-        audit_inv,audit_res=invoke("contract_locality_auditor",1,source_root,False,locality_prompt,CONTRACT_LOCALITY_AUDITOR_OUTPUT_SCHEMA,"high_reasoning",WriteBoundaries((),()))
-        audit_deterministic=source_revalidation(source_root,identity)
-        audit_scope=list(audit_deterministic)
-        audit_output=thaw_json(audit_res.structured_output) if audit_res.status=="succeeded" else {}
-        audit_semantic=[]
-        if audit_res.status!="succeeded": audit_scope.append(f"AgentResult failed: {audit_res.failure_classification}")
-        else:
-            audit_semantic=validate_locality_audit_output(audit_output,task=task,valid_task_ids=valid_task_ids)
-            audit_scope += audit_semantic
-        audit_record={"role":"contract_locality_auditor","attempt":1,"agent_status":audit_res.status,"failure_classification":audit_res.failure_classification,"structured_output":audit_output,"role_claimed_paths":[],"agent_runtime_claimed_paths":list(audit_res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":[],"scope_check_reasons":audit_scope,"deterministic_changed_path_validation":"rejected" if audit_deterministic else "accepted","semantic_validation":"rejected" if audit_semantic else "accepted","duration_seconds":audit_res.duration_seconds,"model":audit_res.model,"provider":audit_res.provider,"usage":None if audit_res.usage is None else audit_res.usage.to_dict()}
-        record_role_result("contract_locality_auditor",1,audit_record,
-                           agent_status=audit_res.status,failure_classification=audit_res.failure_classification,
-                           semantic_rejected=bool(audit_semantic),changed_paths_rejected=bool(audit_deterministic))
-        role_records.append("role_results/contract_locality_auditor_1.json")
-        progress.emit("contract_locality_audit_completed",f"Contract Locality Auditor completed: {audit_output.get('status') if audit_res.status=='succeeded' else audit_res.status}",role="contract_locality_auditor",attempt=1,status=audit_output.get("status") if audit_res.status=="succeeded" else audit_res.status)
-        if audit_scope:
-            reasons += [f"contract locality auditor: {reason}" for reason in audit_scope]; crew_status="rejected"
-        else:
-            contract_locality_status=audit_output["status"]
-            audit_artifact={"schema_version":CONTRACT_LOCALITY_AUDIT_SCHEMA_VERSION,"run_id":run_id,"task_id":task_id,"provider":provider_name,"source_head":identity.head,"source_tree":identity.tree,"task_contract_identity":contract_identity.to_dict(),"result":audit_output}
-            (run_dir/"contract_locality_audit.json").write_text(json.dumps(audit_artifact,indent=2,sort_keys=True)+"\n")
-            contract_locality_audit_path=str(run_dir/"contract_locality_audit.json")
-            contract_locality_audit_host_path=str(host_root_path/run_id/"contract_locality_audit.json") if host_root_path is not None else None
-            if contract_locality_status=="contract_review_required": crew_status="contract_review_required"
-    else:
-        contract_locality_status="not_required_by_profile"
-        progress.emit(
-            "role_skipped", "Contract Locality Auditor omitted by deterministic crew profile",
-            role="contract_locality_auditor", status="not_required", crew_profile=crew_profile,
-        )
+    contract_locality_status="not_required_by_profile"
+    progress.emit(
+        "role_skipped", "Contract Locality Auditor omitted by deterministic crew profile",
+        role="contract_locality_auditor", status="not_required", crew_profile=crew_profile,
+    )
     if crew_status is None:
         with tempfile.TemporaryDirectory(prefix="nsc-execution-crew-") as temporary:
             clone=clone_exact(source_root,identity.head,Path(temporary))
