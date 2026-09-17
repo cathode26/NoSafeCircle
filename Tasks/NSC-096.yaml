@@ -1,0 +1,89 @@
+{
+  "schema_version": "2.0",
+  "id": "NSC-096",
+  "contract_revision": 1,
+  "contract_disposition": "active",
+  "title": "Wizard 128 px Source Integration Switch",
+  "reconciliation_key": "wizard-128-source-integration-switch",
+  "kind": "implementation",
+  "type": "character-presentation",
+  "execution_scope": "single_agent",
+  "execution_reason": "DoorPrototypeGlobalSceneBuilder already owns WizardSourceRoot, ImportWizardSprite and the generated wizard clip/controller pipeline that NSC-075 built; once NSC-095 supplies the approved 128 px frames and their ground-line inventory, swapping the source root, the import pixels-per-unit and the pivot formula is one bounded Unity-side integration task.",
+  "decomposition_state": "concrete",
+  "decomposition_reason": "One existing builder, one existing wizard art-integration test fixture, four wizard identities, and a single source-root/pixels-per-unit/pivot swap define one complete integration deliverable.",
+  "parent": "NSC-002",
+  "depends_on": [
+    "NSC-095",
+    "NSC-075"
+  ],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/WizardArtIntegrationTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/WizardArtIntegrationTests.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated",
+    "unity-scene:Assets/Scenes/DoorPrototype.unity"
+  ],
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "GER Agent decision X6",
+      "requirement": "DoorPrototypeGlobalSceneBuilder.WizardSourceRoot points at Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128 for all four identities' standing and walk sprites and for the lobby preview sprite (masculine-light standing south-east, loaded by LoadWizardAnimationAssets)."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "GER Agent decision X6",
+      "requirement": "DoorPrototypeGlobalSceneBuilder.ImportWizardSprite imports every wizard frame at 64 pixels per unit. Its other settings stay unchanged: Sprite texture type, TextureImporterShape.Texture2D, SpriteImportMode.Single, FilterMode.Point, TextureImporterCompression.Uncompressed, mipmapEnabled false, and the existing cookie and gamma resets. A 128 px frame therefore spans exactly 2 world units inside NSC-075's 2x2 camera-facing Visual box at uniform scale."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "GER Agent decision X11",
+      "requirement": "ImportWizardSprite no longer sets spritePivot to (0.5, 0). The pivot stays horizontally centered at x = 0.5, and pivot y = (128 - ground_line_y_from_top) / 128, read from source-inventory.json's ground_line_y_from_top for that wizard: one constant per wizard shared by all 56 of its imported sprites (8 directions x (1 standing + 6 walk)), so turning or switching between idle and walk never makes the wizard hop. WizardArtIntegrationTests checks the imported pivot against both the inventory value and the actual pixels of each imported sprite."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "GER Agent decision X6",
+      "requirement": "DoorPrototypeGlobalSceneBuilder regenerates the wizard AnimationClip and AnimatorController assets under Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated in place: the same asset paths, the same 64 Animator states, the same clip names, the same ordered frame membership, and the same frame rates as before the switch."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "GER Agent decision X6",
+      "requirement": "Leave WizardAnimationController's classifier and animation-selection logic, movement, collision, the lobby flow and the rest of gameplay unchanged. Keep the 180 px sources under Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab in the repository as the fallback, with NSC-075's import settings on their .meta files untouched."
+    }
+  ],
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "GER Agent decision X7",
+      "requirement": "NoSafeCircle.DoorPrototype.Tests.Editor.WizardArtIntegrationTests asserts 64 pixels per unit, the PixelLab128 source root, a 128x128 source size, and the AC-003 ground-line pivot for every imported wizard sprite. NoSafeCircle.DoorPrototype.Tests.Editor.WizardPixelLab128SourceAuditTests still passes, showing the import left the PNG bytes unchanged. NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests passes with NSC-075's Visual box assertions. The rebuilt Assets/Scenes/DoorPrototype.unity is proven by saved-scene tests, not byte identity."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "GER Agent decision X7",
+      "requirement": "Vincent confirms in Assets/Scenes/DoorPrototype.unity that all four wizards read crisp at game density in the 2x2 box beside the Dungeon Brute and Lantern Wraith, walk correctly in all eight directions, and still sort correctly in front of and behind the D1 door frame and the walls."
+    }
+  ],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "NSC-066 decomposed title-chase child, AC-008 (Tasks/NSC-066.yaml; TitleScreenChaseBackdrop.cs is contracted but not yet committed)",
+      "requirement": "Keep Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/WizardAnimator.controller and its per-variant idle/walk states at their exact asset paths and names, since NSC-066's title-chase child assigns that same controller as a DoorPrototypeGlobalSceneBuilder.BuildTitleScreen serialized reference for its wizard-identity chase actors."
+    }
+  ],
+  "gdd_evidence": [
+    {
+      "reference": "GDD — Development-time generative tools",
+      "requirement": "Approved development-time tools may generate directional sprite art that is later imported as ordinary Unity assets with no runtime AI dependency."
+    }
+  ],
+  "basis": "human_requested_wizard_128_density_remake",
+  "source_scope": "required",
+  "confidence": "high",
+  "notes": "Vincent, 2026-09-16 (density decision B): \"The wizard should be 128x128\". Vincent, NSC-077 playtest, 2026-09-17: \"the wizards dont look nearly as good sadly\"; \"Whatever you have done to make the enemy look great and in perspective, the wizards need that treatment.\" This task does not change art: it switches DoorPrototypeGlobalSceneBuilder's wizard import to NSC-095's approved 128 px source and its ground-line pivot, and leaves the classifier, movement, collision, lobby flow and gameplay untouched.",
+  "repository_state_at_bootstrap": "missing",
+  "repository_evidence_at_bootstrap": [],
+  "provenance": {
+    "origin": "human_requested_wizard_128_density_remake",
+    "created_by_human_request": true
+  }
+}

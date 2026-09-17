@@ -294,6 +294,28 @@
         "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.Environment.DungeonPropImportSettingsTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-095": {
+      "task_contract_sha256": "ad7f0efc7892921e45fa618496e8ea0bd2f37a1920df09a8ee2f686ea94495ba",
+      "required_test_platforms": [
+        "EditMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.WizardPixelLab128SourceAuditTests;NoSafeCircle.DoorPrototype.Tests.Editor.WizardCardinalSourceAuditTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-096": {
+      "task_contract_sha256": "334bab2b2c4f243e66fcb19a4af130dd817761917c1a806c0471193d6e51ae54",
+      "required_test_platforms": [
+        "EditMode",
+        "PlayMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.WizardArtIntegrationTests;NoSafeCircle.DoorPrototype.Tests.Editor.WizardPixelLab128SourceAuditTests",
+        "PlayMode": "NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
     }
   },
   "decomposition_child_templates": {}

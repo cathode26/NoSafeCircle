@@ -1,0 +1,86 @@
+{
+  "schema_version": "2.0",
+  "id": "NSC-095",
+  "contract_revision": 1,
+  "contract_disposition": "active",
+  "title": "PixelLab 128 px Eight-Direction Wizard Source Remake",
+  "reconciliation_key": "pixellab-wizard-128-source-remake",
+  "kind": "implementation",
+  "type": "art-acquisition",
+  "execution_scope": "single_agent",
+  "execution_reason": "The four approved wizard identities already have complete 180 px eight-direction standing and walk source art; this bounded PixelLab follow-up remakes the same identities at 128x128 game density, with its own inventory, provenance and audit, before any Unity integration.",
+  "decomposition_state": "concrete",
+  "decomposition_reason": "Four existing identities, eight gameplay facings, a six-frame walk cycle per facing, a fixed per-wizard PixelLab production path, and a source-only handoff with a ground-line normalization rule define one complete art deliverable.",
+  "parent": "NSC-002",
+  "depends_on": [
+    "NSC-061",
+    "NSC-073",
+    "NSC-074"
+  ],
+  "exclusive_resources": [
+    "logical:pixellab-wizard-character-art",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128",
+    "repo-file:Docs/Art/Wizard/Raw128",
+    "repo-file:Docs/Art/Wizard/PIXELLAB_128_GENERATION.md",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/WizardPixelLab128SourceAuditTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/WizardPixelLab128SourceAuditTests.cs.meta"
+  ],
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "GER Agent decision X2; Vincent's density decision B, 2026-09-16, and his NSC-077 playtest note, 2026-09-17",
+      "requirement": "Use PixelLab only to remake the four approved wizard identities (masculine-light, masculine-dark, feminine-light, feminine-dark) as transparent 128x128 PNGs: for each identity, one standing frame per screen facing (north, north-east, east, south-east, south, south-west, west, north-west) plus a six-frame walk cycle in each of those eight facings, exactly 4 x (8 + 48) = 224 files, at Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/<key>/selected/standing/<direction>.png and .../selected/walk/<direction>/frame_000.png through frame_005.png. Preserve each identity's hat and band, hair or beard, face, coat or robe, belt book, boots, and the absence of a staff, as far as the approved 180 px source facing shows them; list per-facing exceptions in source-inventory.json with the reason, for Vincent to approve in VAL-002. For example masculine-dark's approved south shows no belt book at all, so create_character v3 had none to rotate. Follow the per-wizard production path: image_to_pixelart (faithful) from the approved standing/south.png; create_character v3 using that result as the reference image; review the 8 rotations against the approved 180 px standing sprites and repair defects with masked inpaint before animating; animate_character v3 once per direction with frame_count 6 and keep_first_frame false, so exactly six frames are stored instead of v3's default reference pose plus six; losslessly centre the raw frames onto 128x128, since v3 returns a different raw canvas per direction (148, 152, 156 and 160 px in the first batch), recording the offset per frame and refusing the step if any opaque pixel would fall outside the 128x128 canvas. The 2026-09-16 trial character 1d1cd21e-dd13-4bcc-9e0d-4c56f84e5e80 may seed masculine-light if its rotations pass review, but its south-east walk's loop-seam feet jump must be re-rolled or given a custom start frame. If PixelLab is unavailable, stop as blocked rather than substituting another generator or hand-edited pixels; a lossless crop or pad is allowed only if recorded. Stop and ask Vincent before exceeding 100 PixelLab generations."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "GER Agent decision X3; the NSC-078 raw-export precedent",
+      "requirement": "Record, per selected frame, the key, direction, frame index, PixelLab character ID, animation or job ID, prompt and settings, raw_size, raw_alpha_bbox, padding_offset, raw_sha256 and selected_sha256 in Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/source-inventory.json. Place raw PixelLab exports under Docs/Art/Wizard/Raw128/<key>/... with no .meta files. Record generation identifiers, prompts, settings and the running generation count against the 100-generation cap in Docs/Art/Wizard/PIXELLAB_128_GENERATION.md, along with the rejects branch name. Commit rejected candidates only on a local art-rejects/NSC-095 branch, never on the task branch."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "GER Agent decision X4",
+      "requirement": "Leave the approved 180 px sources under Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/ (PNGs, .meta files and source-inventory.json) and Docs/Art/Wizard/PIXELLAB_GENERATION.md byte-identical. Make no change to DoorPrototypeGlobalSceneBuilder.cs, any other builder or script, animation clip, Animator controller, prefab or scene, and change no import setting. Every PNG under PixelLab128 has a committed .meta importing it as a 2D texture (TextureImporterShape.Texture2D), either the pipeline's deterministic default TextureImporter meta or a Unity-minted meta committed by exact path in its own commit before any integration binds to it; never a GUID-only stub, which imports as a cubemap. Sprite type, pivot and pixels-per-unit belong to NSC-096."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "GER Agent decisions X10-X11 (Art Director option 1 refinement, 2026-09-17)",
+      "requirement": "Normalize every facing's standing frame and its six walk frames for one wizard and direction (a group) together, by one whole-pixel shift per group, never per frame, so the group's planted row -- the lower median of the six walk frames' lowest opaque row -- lands on that wizard's single ground_line_y_from_top row, and the standing still's lowest opaque row equals it too. The deepest frame in a group may sit below that line by up to the inventory's recorded max_dip_below_ground_line pixels, at most 6 pixels at 128x128; re-roll a walk cycle that exceeds it. source-inventory.json records ground_line_y_from_top per wizard, alpha_bottom_y_from_top per frame, and per group the median row, the deepest row, and the dip."
+    }
+  ],
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "GER Agent decisions X5 and X10-X11",
+      "requirement": "NoSafeCircle.DoorPrototype.Tests.Editor.WizardPixelLab128SourceAuditTests (Assets/NoSafeCircle/DoorPrototype/Tests/Editor/WizardPixelLab128SourceAuditTests.cs plus its .meta, owned by this task) finds exactly the 224 expected PNG paths under PixelLab128 with six ordered frames for each key and direction; confirms every PNG is 128x128 with an alpha channel whose four corner pixels have alpha 0; confirms every PNG appears exactly once in source-inventory.json with selected_sha256 equal to the SHA-256 of its bytes and a non-empty PixelLab character ID and prompt; confirms every PNG's TextureImporter reports TextureImporterShape.Texture2D; and confirms each frame's recorded raw_size and padding_offset match its decoded raw export under Docs/Art/Wizard/Raw128, so the lossless centring is provable. In place of any deepest-row equality, it asserts per group that the lower median of the walk frames' alpha_bottom_y_from_top equals the wizard's ground_line_y_from_top and that the standing still's alpha_bottom_y_from_top equals it too; that the deepest frame in the group sits no more than the inventory's recorded max_dip_below_ground_line pixels (at most 6) below that line; and that source-inventory.json carries ground_line_y_from_top per wizard, alpha_bottom_y_from_top per frame, and the median row, deepest row and dip per group. NoSafeCircle.DoorPrototype.Tests.Editor.WizardCardinalSourceAuditTests still passes, showing the 180 px cardinal set is unaffected."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "GER Agent decision X5",
+      "requirement": "For each wizard, Vincent reviews a package containing contact sheets of the 8 standing and 8 walk directions beside the approved 180 px originals, motion loops, a gameplay-scale read, and the art-review toolkit's frame metrics (opaque pixel count, alpha bounding box, and the loop-seam feet jump per direction), and approves the exact candidate commit before NSC-096 starts. He also approves AC-001's per-facing identity exception list, if it has any entries."
+    }
+  ],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "GER Agent decision X8; NSC-096 wizard-128-source-integration-switch",
+      "requirement": "NSC-096 imports only the approved 224 frames, at 64 pixels per unit, through DoorPrototypeGlobalSceneBuilder.ImportWizardSprite, and keeps the 180 px sources under Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab as the fallback."
+    }
+  ],
+  "gdd_evidence": [
+    {
+      "reference": "GDD development-time generative art and directional sprites",
+      "requirement": "PixelLab is a development-time source-art tool; Unity consumes ordinary transparent PNG assets with no runtime generative dependency."
+    }
+  ],
+  "basis": "human_requested_wizard_128_density_remake",
+  "source_scope": "required",
+  "confidence": "high",
+  "notes": "Vincent, 2026-09-16 (density decision B): \"The wizard should be 128x128\"; on the one-facing trial he answered \"yes\" to option B, re-making characters at game size. Vincent, NSC-077 playtest, 2026-09-17: \"The enemies look great.\"; \"the wizards dont look nearly as good sadly\"; \"Whatever you have done to make the enemy look great and in perspective, the wizards need that treatment.\" This task does not claim Unity integration: it produces and audits source art only. Its identities, layout, provenance and audit are separate from NSC-096, the Game Agent crew task that switches DoorPrototypeGlobalSceneBuilder to consume this source.",
+  "repository_state_at_bootstrap": "missing",
+  "repository_evidence_at_bootstrap": [],
+  "provenance": {
+    "origin": "human_requested_wizard_128_density_remake",
+    "approved_development_tool": "PixelLab MCP",
+    "created_by_human_request": true
+  }
+}
