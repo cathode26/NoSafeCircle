@@ -96,7 +96,6 @@
         "door-passability-publication",
         "door-breach-feedback",
         "animated-wizard-unity-integration",
-        "title-screen-start-game-flow",
         "four-wizard-selection-screen",
         "selected-wizard-world-placement",
         "independent-room-scene-composition",
@@ -127,7 +126,6 @@
         "NSC-051",
         "NSC-052",
         "NSC-062",
-        "NSC-066",
         "NSC-067",
         "NSC-068",
         "NSC-069",
@@ -444,7 +442,8 @@
         "fireball",
         "frost-field",
         "force-wave",
-        "spectral-decoy-spell"
+        "spectral-decoy-spell",
+        "title-screen-start-game-flow"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs",
       "work_ids": [
@@ -456,7 +455,8 @@
         "NSC-007",
         "NSC-008",
         "NSC-009",
-        "NSC-088"
+        "NSC-088",
+        "NSC-066"
       ]
     },
     {

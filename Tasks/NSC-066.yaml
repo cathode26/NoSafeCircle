@@ -1,67 +1,97 @@
 {
   "schema_version": "2.0",
   "id": "NSC-066",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "contract_disposition": "active",
   "title": "Title Screen and Start Game Flow",
   "reconciliation_key": "title-screen-start-game-flow",
   "kind": "implementation",
   "type": "game-flow-ui",
-  "execution_scope": "single_agent",
-  "execution_reason": "A title panel, one Start Game action, and a small transition into character selection form one bounded UI and game-flow task in the existing canonical scene.",
+  "execution_scope": "needs_execution_decomposition",
+  "execution_reason": "A title panel with a transparent, raycast-blocking backdrop over the live gameplay scene, a left-stacked heading and Start Game button, a title-only chase backdrop presentation component with deterministic play mode tests, and one Start Game action form one bounded UI and presentation task, built entirely in DoorPrototypeGlobalSceneBuilder.BuildTitleScreen inside the existing canonical scene.",
   "decomposition_state": "concrete",
-  "decomposition_reason": "The required title text, Start Game action, initial input state, transition boundary, existing scene, and validation behavior are fully specified.",
+  "decomposition_reason": "Two ordered children, created by D1B.2 as direct children of NSC-066. Child 1, the title layout, owns the transparent raycast-blocking panel, the three left-stacked sayings, the chunky left Start Game button, TitleScreenController and TitleScreenSceneBuilderTests/TitleScreenPlayModeTests changes, with no new dependency; it is dispatchable now. Child 2, the chase backdrop, owns TitleScreenChaseBackdrop and TitleScreenChaseBackdropPlayModeTests and depends on child 1, NSC-075 (wizard walk animation) and NSC-077 (enemy walk controllers and EnemyAnimationController). NSC-066 itself cannot depend on NSC-075 or NSC-077: NSC-075 depends on NSC-068, which depends on NSC-067, which depends on NSC-066. D1B.2 therefore narrows NSC-067's dependency on NSC-066 to child 1, so the graph stays acyclic.",
   "parent": "NSC-001",
   "depends_on": [],
   "exclusive_resources": [
     "logical:game-entry-menu-flow",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/TitleScreenController.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/TitleScreenPlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/TitleScreenSceneBuilderTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/TitleScreenChaseBackdrop.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/TitleScreenChaseBackdrop.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/TitleScreenChaseBackdropPlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/TitleScreenChaseBackdropPlayModeTests.cs.meta",
     "unity-scene:Assets/Scenes/DoorPrototype.unity"
   ],
   "acceptance_criteria": [
     {
       "criterion_id": "AC-001",
-      "reference": "Human-approved game-entry flow, 2026-09-12",
-      "requirement": "Entering the canonical game scene first displays a readable title screen containing the game title No Safe Circle and a clearly labeled Start Game button. The gameplay view is not presented as already running behind an ambiguous overlay."
+      "reference": "Human-approved game-entry flow, 2026-09-12; owner revision 2026-09-15 (SpaceInvaders lobby direction)",
+      "requirement": "Entering the canonical game scene first displays the title reading over the live gameplay scene rather than an opaque overlay: DoorPrototypeGlobalSceneBuilder's TitleScreen Image component has its alpha channel set to 0 (the Color32(16, 10, 23, 255) full-screen fill from revision 1 is removed) while raycastTarget stays true so title clicks never reach gameplay. No UI element behind the title text and Start Game button, including any background analogous to revision 1's centered TitleCard panel, renders as a solid opaque fill; an optional left-side gradient or vignette Image is allowed only if its alpha does not exceed 0.6 at the screen's left edge and reaches 0 before the horizontal screen midpoint (viewport x = 0.5). The three sayings \"WELCOME, TINY WIZARD\", \"NO SAFE CIRCLE\", and \"Cute wizards. Terrible odds.\" are present with exactly this text, stacked on the left side of the screen (each text element's RectTransform anchorMax.x <= 0.5), and a chunky Start Game button is stacked below them on the left (its RectTransform anchorMax.x <= 0.5), keeping its existing colors and hover/pressed ColorBlock states and remaining readable at the canonical 1920x1080 reference resolution."
     },
     {
       "criterion_id": "AC-002",
       "reference": "Human-approved game-entry flow, 2026-09-12",
-      "requirement": "Before Start Game is activated, normal player movement, spell, and door-interaction input cannot affect gameplay. The implementation uses existing owner-controlled input or gameplay-enable boundaries where available rather than mutating unrelated systems' internal state."
+      "requirement": "Before Start Game is activated, normal player movement, spell, and door-interaction input cannot affect gameplay. The implementation uses existing owner-controlled input or gameplay-enable boundaries where available rather than mutating unrelated systems' internal state. The title-only chase backdrop plays no part in this suspension and carries no input component of its own."
     },
     {
       "criterion_id": "AC-003",
-      "reference": "Human-approved game-entry flow, 2026-09-12",
-      "requirement": "Activating Start Game exactly once hides the title panel and requests the next game-entry step: wizard selection. It does not bypass selection, start multiple transitions, reload the scene, or create duplicate menu objects."
+      "reference": "Human-approved game-entry flow, 2026-09-12; owner revision 2026-09-15",
+      "requirement": "Activating Start Game exactly once hides the title panel, destroys every TitleScreenChaseBackdrop actor that frame, stops any further pairing from spawning, and requests the next game-entry step: wizard selection. It does not bypass selection, start multiple transitions, reload the scene, or create duplicate menu objects."
     },
     {
       "criterion_id": "AC-004",
-      "reference": "Existing project input and UI conventions",
-      "requirement": "Start Game works with the project's supported pointer input and remains legible at the canonical game resolution. This task does not add account, save-slot, settings, credits, networking, or runtime AI features."
+      "reference": "Existing project input and UI conventions; owner revision 2026-09-15 (T6)",
+      "requirement": "Start Game works with the project's supported pointer input and remains legible at the canonical game resolution. This task does not add account, save-slot, settings, credits, networking, or runtime AI features. The chase backdrop is presentation only: it adds no gameplay, targeting, or AI behavior, and the GDD's first screen and transition remain this task's scope."
     },
     {
       "criterion_id": "AC-005",
-      "reference": "DoorPrototypeSceneBuilder repeatability",
-      "requirement": "DoorPrototypeSceneBuilder.Build installs the title screen and its controller idempotently in Assets/Scenes/DoorPrototype.unity without duplicating the Canvas, EventSystem, title panel, button, listeners, or controller when Build is run repeatedly."
+      "reference": "DoorPrototypeGlobalSceneBuilder repeatability; owner revision 2026-09-15 (T1)",
+      "requirement": "DoorPrototypeGlobalSceneBuilder.BuildTitleScreen, invoked through DoorPrototypeSceneBuilder.Build, installs the title screen, its TitleScreenController, and exactly one TitleScreenChaseBackdrop idempotently in Assets/Scenes/DoorPrototype.unity without duplicating the Canvas, EventSystem, title panel, button, listeners, controller, or backdrop component when Build is run repeatedly."
+    },
+    {
+      "criterion_id": "AC-006",
+      "reference": "Owner revision 2026-09-15 (T3: pairing and cycling)",
+      "requirement": "TitleScreenChaseBackdrop runs only while TitleScreenController.IsTitleScreenVisible is true. After a random interval between 10 and 20 seconds (the first pairing may appear sooner, within 3 seconds of the title screen showing), it spawns one pairing just off-screen on a randomly chosen side: a fleeing wizard using WizardAnimationController.ApplyPresentation, followed about 2.5 world units behind by a pursuer using EnemyAnimationController.Initialize. Both walk at about 1.5 world units per second along a fixed lane at world Z = -20, from X = -14 (west) to X = 14 (east) or the reverse, each actor facing its travel direction, and each is destroyed the frame its X coordinate reaches or passes the far bound (14 heading east, -14 heading west) so no actor's tracked position is recorded outside the Ruined Entry floor bounds X[-14,14] Z[-26,0]. For pairing index i starting at 0, the wizard is WizardSelectionDefinitions[i % 4] in selection order (Ember Wizard, Ash Wizard, Frost Wizard, Dusk Wizard) and the pursuer is the Dungeon Brute (EnemyAnimationKind.MeleeEnemy) when i % 2 == 0 or the Lantern Wraith (EnemyAnimationKind.LanternWraith) when i % 2 == 1, so all 8 identity-and-pursuer combinations appear within 8 pairings. At world position X = 0, Z = -20 (mid-path), both actors' Camera.main.WorldToViewportPoint has viewport x and y each within [0,1], and viewport x >= 0.5 (right of the title text's left-anchored half of the screen)."
+    },
+    {
+      "criterion_id": "AC-007",
+      "reference": "Owner revision 2026-09-15 (T3: nothing gameplay-facing)",
+      "requirement": "Every TitleScreenChaseBackdrop actor carries only presentation components: a SpriteRenderer/Visual and either a WizardAnimationController or an EnemyAnimationController and its Animator. No actor has a NavMeshAgent, a Collider, an EnemyTargetKnowledge, an attack component, a health component, a registry component, or an input component. No actor ever registers with ActiveEnemyRegistry or reads or touches the Player GameObject or PlayerMovement."
+    },
+    {
+      "criterion_id": "AC-008",
+      "reference": "Owner revision 2026-09-15 (T3: deterministic seam)",
+      "requirement": "TitleScreenChaseBackdrop exposes a public Tick(float deltaTime) method that advances spawn timing and actor movement by exactly that delta, plus a serialized seed or an injectable interval selector and side selector, so play mode tests can drive and predict spawn timing, side choice, and pairing order without depending on real time or Unity's own Update loop."
     }
   ],
   "completion_gates": [
     {
       "gate_id": "VAL-001",
       "reference": "Play Mode title-screen validation",
-      "requirement": "Play Mode coverage proves the title screen is the initial visible game-entry state, gameplay input is inactive before Start Game, and one Start Game activation produces exactly one wizard-selection request."
+      "requirement": "TitleScreenPlayModeTests proves the title screen is the initial visible game-entry state, gameplay input is inactive before Start Game, and one Start Game activation produces exactly one wizard-selection request."
     },
     {
       "gate_id": "VAL-002",
-      "reference": "Builder regression validation",
-      "requirement": "Automated coverage runs DoorPrototypeSceneBuilder.Build repeatedly and proves there is one title panel, one Start Game button, one controller, and one listener path afterward."
+      "reference": "Builder regression validation; owner revision 2026-09-15 (T1, T4)",
+      "requirement": "TitleScreenSceneBuilderTests runs DoorPrototypeSceneBuilder.BuildInMemoryForTests (which delegates to DoorPrototypeGlobalSceneBuilder.BuildTitleScreen) and proves: the in-memory build has one TitleScreen Image with alpha 0 (fully transparent) and raycastTarget true, the Color32(16, 10, 23, 255) opaque fill from revision 1 is gone, the three sayings are present with exact text, a left-anchored Start Game button exists, and exactly one TitleScreenChaseBackdrop component exists on the built hierarchy; a second Build call creates no duplicate Canvas, EventSystem, title panel, button, listener path, controller, or backdrop component."
     },
     {
       "gate_id": "VAL-003",
-      "reference": "Developer visual review",
-      "requirement": "Vincent opens Assets/Scenes/DoorPrototype.unity in Play Mode and confirms the title screen is readable, says No Safe Circle, exposes Start Game clearly, and transitions to the wizard-selection step."
+      "reference": "Developer visual review; owner revision 2026-09-15 (T4)",
+      "requirement": "Vincent opens Assets/Scenes/DoorPrototype.unity in Play Mode and confirms: the title reads over the live chase with no solid panel; all three sayings are present; the chunky Start Game button is on the left; pairings cycle through all 4 mages and both enemies; starting the game clears the chase and moves to wizard selection."
+    },
+    {
+      "gate_id": "VAL-004",
+      "reference": "Owner revision 2026-09-15 (T3, T4: chase backdrop play mode coverage)",
+      "requirement": "TitleScreenChaseBackdropPlayModeTests, driving TitleScreenChaseBackdrop.Tick(float) with an injected seed/interval/side selector, proves: the spawn interval stays within 10-20 seconds and the first pairing appears within 3 seconds of the title screen showing; both the west (X = -14) and east (X = 14) sides are used across repeated spawns; the identity-and-pursuer cycling formula (wizard = selection order index i % 4, pursuer = MeleeEnemy when i % 2 == 0 else LanternWraith) covers all 8 combinations within 8 pairings; every spawned actor carries only presentation components (no Collider, NavMeshAgent, EnemyTargetKnowledge, attack, health, registry, or input component) and never registers with ActiveEnemyRegistry; each actor is destroyed the frame it reaches or passes X = 14 or X = -14 (its far edge); at X = 0, Z = -20 both actors' Camera.main.WorldToViewportPoint values fall within [0,1] with viewport x >= 0.5; after TitleScreenController.StartGame runs, every backdrop actor is destroyed that same frame and no further Tick call spawns a new pairing."
+    },
+    {
+      "gate_id": "VAL-005",
+      "reference": "Scene idempotence; NSC-077 VAL-007 precedent",
+      "requirement": "Assets/Scenes/DoorPrototype.unity is excluded from byte-for-byte comparison across repeated builds because Unity regenerates its local fileIDs on every DoorPrototypeGlobalSceneBuilder.Build; content equivalence is proven by TitleScreenSceneBuilderTests and TitleScreenChaseBackdropPlayModeTests (VAL-002, VAL-004), not by comparing the saved scene file's bytes."
     }
   ],
   "downstream_integration_obligations": [
@@ -75,17 +105,32 @@
     {
       "reference": "Human-approved game-entry flow, 2026-09-12",
       "requirement": "The game opens on a title screen with Start Game before presenting wizard selection and gameplay."
+    },
+    {
+      "reference": "Owner decision, 2026-09-15 (graph-lead journal; Vincent's SpaceInvaders lobby direction, C:\\NSC\\SpaceInvaders): title screen over a live chase, per NSC-066_REV2_DECISIONS.md T1-T6",
+      "requirement": "The lobby is the live game scene with UI over it: characters standing in the real world under real lighting, chunky buttons stacked left, and a fleeing-wizard/pursuer pairing drifting across every 10-20 seconds, cycling all 4 mage identities against both enemy types. Presentation only; no account, save, settings, credits, networking, or runtime AI features."
     }
   ],
   "basis": "human_approved_gameplay_presentation",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "This task establishes the first screen and transition only. NSC-067 owns choosing a wizard and entering gameplay. Keep the implementation small and inside the current canonical scene unless a later human-approved design changes scene ownership.",
+  "notes": "This task establishes the first screen and transition only. NSC-067 owns choosing a wizard and entering gameplay. Keep the implementation small and inside the current canonical scene unless a later human-approved design changes scene ownership. Revision 2, 2026-09-15/17: replaced the opaque full-screen title backdrop with a transparent raycast blocker and a left-stacked layout, and added a title-only TitleScreenChaseBackdrop cycling all 4 wizard identities against the Dungeon Brute and Lantern Wraith, per NSC-066_REV2_DECISIONS.md T1-T6. NSC-077 (enemy walk controllers) and NSC-075 (wizard walk animation) were NOT added to depends_on: doing so would create a dependency cycle (NSC-066 -> NSC-075 -> NSC-068 -> NSC-067 -> NSC-066, and equivalently through NSC-077 -> NSC-075); see CONFLICTS in this revision's change-log. The chase actors' generated Animator Controllers (MeleeEnemyAnimator.controller, LanternWraithAnimator.controller) do not yet exist even on NSC-077's current branch as of this draft; they are expected from NSC-077's own delivery, not this task. Decomposition (2026-09-17): the chase backdrop's dependency on NSC-075 and NSC-077 would create a cycle through NSC-067 and NSC-068, so the work is split into a layout child and a chase-backdrop child; see decomposition_reason.",
   "repository_state_at_bootstrap": "missing",
   "repository_evidence_at_bootstrap": [],
   "provenance": {
     "origin": "human_approved_gameplay_presentation_followup",
     "created_by_human_request": true,
-    "approved_at_utc_date": "2026-09-12"
+    "approved_at_utc_date": "2026-09-12",
+    "contract_followups": [
+      {
+        "date": "2026-09-17",
+        "reason": "Owner revision 2 carrying out Vincent's 2026-09-15 title-screen direction (NSC-066_REV2_DECISIONS.md T1-T6): the title builds in DoorPrototypeGlobalSceneBuilder; the solid panel becomes a transparent raycast blocker with the three sayings and a chunky Start Game button stacked left; a presentation-only chase backdrop cycles the four wizard identities fleeing the Dungeon Brute and Lantern Wraith every 10-20 seconds on the Ruined Entry lane and clears on Start Game. Execution splits into a layout child and a chase-backdrop child that depends on NSC-075 and NSC-077, because NSC-066 itself cannot depend on them without a cycle through NSC-067 and NSC-068.",
+        "source_head": "86eb871241d775cfa37cfb5c0973b12f83b54a03",
+        "previous_contract_revision": 1,
+        "base_contract_sha256": "ac7ce426fca6b0ede07856c7943aeda20ede1b9e8d9286a36407dd7c32c455da",
+        "revised_contract_sha256": "9483e884d2f1aa944f814f2ed61c05d2d2c014898eefd680cdecc7ff9341d853",
+        "review": "post-commit Codex closure review (tiered rule; closure discipline per Astra advice, 2026-09-17)"
+      }
+    ]
   }
 }
