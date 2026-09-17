@@ -123,7 +123,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             Assert.IsNotNull(camera);
             Assert.AreEqual(TransparencySortMode.CustomAxis, camera.transparencySortMode);
             Assert.That(
-                Vector3.Distance(new Vector3(0f, 1f, -0.26f).normalized, camera.transparencySortAxis),
+                Vector3.Distance(IsometricCameraFollow.IsometricTransparencySortAxis, camera.transparencySortAxis),
                 Is.LessThan(0.0001f));
 
             TilemapRenderer floor = GameObject.Find("IsometricVisualGrid/FloorTilemap")

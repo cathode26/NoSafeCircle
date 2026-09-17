@@ -1707,10 +1707,9 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                 "Isometric Z-as-Y world sprites and Individual Tilemap cells must use CustomAxis sorting.");
 
             // Unity normalizes Camera.transparencySortAxis when it is assigned.
-            // Compare against the normalized form of the authored axis rather
-            // than expecting the raw (0, 1, -0.26) components to survive.
-            var expectedAxis =
-                new Vector3(0f, 1f, -0.26f).normalized;
+            // Compare against the shared, already-normalized axis constant rather
+            // than expecting raw components to survive.
+            var expectedAxis = IsometricCameraFollow.IsometricTransparencySortAxis;
 
             Assert.That(
                 Vector3.Distance(
