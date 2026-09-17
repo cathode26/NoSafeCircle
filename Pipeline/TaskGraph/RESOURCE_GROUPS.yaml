@@ -434,7 +434,8 @@
         "wizard-eight-direction-locomotion-integration",
         "stationary-enemy-sprite-integration",
         "world-sprite-prefab-sorting",
-        "five-room-continuity-door-sequence"
+        "five-room-continuity-door-sequence",
+        "fireball"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs",
       "work_ids": [
@@ -442,7 +443,8 @@
         "NSC-075",
         "NSC-077",
         "NSC-039",
-        "NSC-049"
+        "NSC-049",
+        "NSC-007"
       ]
     },
     {
@@ -1082,6 +1084,28 @@
         "NSC-046",
         "NSC-047",
         "NSC-048"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "fireball",
+        "title-screen-start-game-flow"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/TitleScreenController.cs",
+      "work_ids": [
+        "NSC-007",
+        "NSC-066"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "fireball",
+        "selected-wizard-world-placement"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/WizardGameEntryController.cs",
+      "work_ids": [
+        "NSC-007",
+        "NSC-068"
       ]
     }
   ],

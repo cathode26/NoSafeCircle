@@ -1,120 +1,178 @@
 {
   "schema_version": "2.0",
   "id": "NSC-007",
-  "contract_revision": 2,
+  "contract_revision": 3,
   "contract_disposition": "active",
-  "title": "Charged Fireball",
+  "title": "Charged Fireball Input, Charge, Projectile Damage, Reset, and Suspension",
   "reconciliation_key": "fireball",
   "kind": "implementation",
   "type": "spell",
   "execution_scope": "single_agent",
-  "execution_reason": "Fireball is one cohesive spell component (tap/charge/cast state, mana spend, movement-restriction request, enemy-damage request, reset, suspend) matching the GDD's own granularity for a single agent task; the anti-decomposition instruction explicitly disallows splitting a spell into projectile/input/damage subtasks absent further approved design.",
+  "execution_reason": "Fireball is one cohesive spell component - tap/charge/cast state, mana spend, movement-restriction request, collision/damage request, reset, and title/entry suspension - now that SPELL_DECISIONS.md (2026-09-16) records the physical binding, collision, aim/expiry, mana-timing, interruption, and placeholder-feedback decisions this task previously held for. One agent implements the Fireball/FireballProjectile components, removes the playable build's embedded fireball from DemoRunFlow, wires both builders, and writes the focused tests.",
   "decomposition_state": "concrete",
-  "decomposition_reason": "GDD Section 2 fully specifies Fireball's tap/charge behavior, cost/restriction relationship, and area-vs-single-target tradeoff; no missing design blocks representing it as one bounded implementation item.",
+  "decomposition_reason": "Fireball's tap/charge relationships, collision rule, mana timing, interruption rule, and placeholder-feedback boundary are now concrete per SPELL_DECISIONS.md; no missing design blocks representing it as one bounded implementation item.",
   "parent": "NSC-006",
   "depends_on": [
     "NSC-003",
+    "NSC-005",
     "NSC-012"
   ],
   "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Fireball.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Fireball.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/FireballProjectile.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/FireballProjectile.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/FireballPlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/FireballPlayModeTests.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/FireballCommittedSceneConformanceTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/FireballCommittedSceneConformanceTests.cs.meta",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs",
+    "repo-file:Assets/InputSystem_Actions.inputactions",
     "unity-scene:Assets/Scenes/DoorPrototype.unity",
-    "repo-file:Assets/InputSystem_Actions.inputactions"
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/TitleScreenController.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/WizardGameEntryController.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DemoRunFlow.cs"
   ],
   "acceptance_criteria": [
     {
-      "reference": "Section 2 — Player Actions and Systems, Fireball row",
-      "requirement": "Tap-cast produces a quick, mobile, cursor-aimed shot suited to a single or separated enemy; hold-to-charge costs more mana, restricts movement further, and deals area damage effective against clustered enemies.",
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:65,75-76,92",
+      "requirement": "Create Assets/NoSafeCircle/DoorPrototype/Scripts/Fireball.cs and Assets/NoSafeCircle/DoorPrototype/Scripts/FireballProjectile.cs. Fireball owns tap, charge, cast, reset, and suspension state and every projectile it creates. FireballProjectile owns one runtime-created in-flight shot; this contract introduces no Fireball prefab asset.",
       "criterion_id": "AC-001"
     },
     {
-      "reference": "Section 2 — Player Movement ownership bullet",
-      "requirement": "While charging, Fireball requests the charging movement restriction through an owner-controlled Player Movement interface and releases it when charging ends/cancels/fires; Fireball never mutates Player Movement internals directly.",
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:65,75-76,566",
+      "requirement": "Expose a deterministic public Tick(float) time seam on Fireball so tests do not depend on wall-clock frames. A quick press-and-release before a configurable positive tap/hold threshold is the tap cast; holding past it builds partial charge up to a configurable full-charge duration. The tap tier starts at 20 mana, 25 damage, 12 units/second projectile speed, a 3 second lifetime, and a 0.9 unit flat horizontal contact radius, and Fireball's cast cooldown starts at 0.5 seconds, matching the values the playable build's DemoRunFlow fireball already used so first-playable feel does not regress. Configured mana cost, enemy damage, and impact area increase monotonically from tap through partial charge to full charge, all serialized; a full charged impact can damage multiple clustered enemies.",
       "criterion_id": "AC-002"
     },
     {
-      "reference": "Section 2 — Resources, Feedback, and Failure / Development Agent Ownership Invariants",
-      "requirement": "Fireball spends mana for both tap and charge casts through Player Mana's existing owner-controlled Spend interface, with charge costing more than tap.",
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:64-65,89,677,683",
+      "requirement": "Fireball reads PlayerMovement.PointerWorldTarget only when PlayerMovement.HasPointerWorldTarget is true and never polls pointer hardware or performs a second screen-to-world projection. Aim is direction-only: the direction from the wizard to that pointer target on the gameplay plane. Without a valid pointer target at the moment a charge would start or a cast would fire, Fireball spends no mana, creates no projectile, applies no damage, and clears the pending cast attempt (AC-005 covers the charging case). Once launched, FireballProjectile flies in a straight line at its configured speed until it detonates on contact (AC-007) or reaches its serialized maximum lifetime, at which point it fizzles in place and deals no damage. This contract does not add cursor-destination/ground-point detonation.",
       "criterion_id": "AC-003"
     },
     {
-      "reference": "Section 3 — Enemy health and defeat ownership bullet",
-      "requirement": "Fireball damages enemies only by requesting damage through the Enemy Health/Defeat owner-controlled damage interface; it does not write enemy health directly.",
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:64-65,89,692; Tasks/NSC-008.yaml; Tasks/NSC-009.yaml",
+      "requirement": "Assets/InputSystem_Actions.inputactions gains one dedicated Button-type Fireball action in the existing Player action map, bound to <Mouse>/rightButton in the Keyboard&Mouse control scheme only. Fireball.cs consumes Fireball's press, hold, and release state through Unity Input System callbacks or action state rather than direct Mouse, Keyboard, or other hardware polling; it never polls Mouse.current or Keyboard.current. Press starts a charge if the tap cost is affordable, hold charges it, and release casts; a quick press-and-release is the tap cast. No Fireball binding path is also bound to Player/MoveToCursor or to FrostField's or ForceWave's action. The stock Attack action is left untouched and no spell reads it; there is no gamepad binding for any spell in this contract.",
       "criterion_id": "AC-004"
     },
     {
-      "reference": "Section 2 — Player Movement ownership / Runtime Implementation",
-      "requirement": "Fireball consumes the shared world-space pointer target exposed by Player Movement for cursor aiming rather than independently projecting screen coordinates.",
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:65,89,602,692; Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs",
+      "requirement": "While charging (holding past the tap/hold threshold), Fireball calls PlayerMovement.RequestMovementRestriction() exactly once and tracks that it owns one outstanding request; a tap cast never requests or releases a restriction. PlayerHealth.Damaged cancels an active charge: Fireball releases its owned restriction exactly once, spends no mana, and creates no projectile. A move click or a door click during a charge does not cancel it - PlayerMovement's own click-to-destination/door-approach handling applies the latest click once movement is unrestricted - and Fireball never calls PlayerMovement.RequestDestination, PlayerMovement.CancelRequestedDestination, or any PlayerInteractionController or DoorInteractable method. There is no separate abort-without-cast input. Fireball also releases its owned restriction, at most once, on: a cast attempt that finds no valid pointer target when it would fire, successful fire, a refused cast, ResetFireball(), SuspendGameplayInput(), component disable, or destruction.",
       "criterion_id": "AC-005"
     },
     {
-      "reference": "Section 5 — Runtime Implementation / Section 2 Player Movement ownership bullet",
-      "requirement": "Fireball's casting input (tap/charge/release) is routed through the project's Unity Input System/Input Actions layer rather than independent direct hardware polling.",
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:65,75,87,602,692; Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs",
+      "requirement": "At press, a charge starts only if PlayerMana.CurrentMana covers the configured tap cost; otherwise the press calls PlayerMana.Spend(tap cost), which returns false and raises PlayerMana.CastDenied, and starts no charge, restriction, or projectile state. While charging, the reached tier grows with hold time but is capped at the highest tier PlayerMana.CurrentMana can currently pay, so visible charge growth stops when mana runs short. At release, Fireball calls PlayerMana.Spend(float) exactly once, for the reached tier's cost; every configured cost is greater than zero. If that Spend call returns false (only possible if mana fell below the tap cost during the charge), PlayerMana.CastDenied fires and nothing launches.",
       "criterion_id": "AC-006"
     },
     {
-      "reference": "Section 2 — Spell-local state ownership bullet",
-      "requirement": "Fireball owns its tap/charge/cast state and exposes an owner-controlled reset entry point for that state, consumed by the Floor Run/Restart Orchestrator, so no residual charge/cast state survives a floor restart.",
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:23,40,522,541-543,602,686; Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyFireballCaster.cs",
+      "requirement": "Solid gameplay colliders block Fireball's projectile: walls, obstacle and prop colliders (shelves, pews, columns, rubble), and any door whose doorway-blocker collider is enabled (sealed, locked, and broken doors, since a broken door keeps its one-way player blocker by design); only an open door the wizard has not yet crossed does not block. FireballProjectile tests this each Tick with a chest-height Physics.Raycast (or equivalent sweep) against non-trigger colliders, using the same default-layer, trigger-ignoring query the ranged enemy caster's HasUnobstructedViewOfWizard already uses (EnemyFireballCaster on main; NSC-077 renames it EnemyLanternWispCaster, and either name satisfies this), and ignoring colliders on the wizard's own CharacterController; no new layer, tag, collider, or query API is introduced. Fireball never collides with or damages the caster. Enemies carry no colliders, so contact is a flat horizontal distance test against active, non-defeated EnemyHealth objects within the projectile's configured contact radius, matching DemoRunFlow's existing enemy-contact pattern; this contract does not add enemy colliders. On contact with an enemy or a blocking collider, the projectile detonates: it damages the contacted enemy and, for tiers above tap, every other active, non-defeated enemy within that tier's configured area radius that has an unobstructed line (the same raycast rule) from the detonation point, damaging each enemy at most once per cast. Nothing behind a wall or a closed door is damaged. Damage goes only through EnemyHealth.TakeDamage(float).",
       "criterion_id": "AC-007"
     },
     {
-      "reference": "Section 2 — Victory/input-shutdown ownership bullet",
-      "requirement": "Fireball exposes an owner-controlled gameplay-enable/suspend interface that immediately stops active charging/casting, rejects new cast input while suspended, and can be re-enabled by an authorized reset/test flow, consumed by the Game Flow/Victory capability.",
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:92,98-104,556,566,690-692",
+      "requirement": "Fireball exposes public ResetFireball(), SuspendGameplayInput(), and EnableGameplayInput() methods plus read-only charging state and normalized charge progress. ResetFireball clears charge and cast state, releases Fireball's restriction if held, removes every FireballProjectile it owns, and re-enables input. SuspendGameplayInput performs the same active-operation cleanup but keeps Fireball suspended; new input is rejected until EnableGameplayInput() or ResetFireball() runs. A programmer-placeholder colored primitive or simple generated sprite for the charge, the in-flight projectile, and the detonation is acceptable for the first playable; no art asset beyond this task's listed files is introduced.",
       "criterion_id": "AC-008"
+    },
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:624; Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs; Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs BuildPlayer",
+      "requirement": "Create Assets/NoSafeCircle/DoorPrototype/Tests/Editor/FireballCommittedSceneConformanceTests.cs. Update DoorPrototypeGlobalSceneBuilder.BuildPlayer to add Fireball to the Player and assign it the existing PlayerMovement, PlayerMana, and InputActionAsset references, and update DoorPrototypeSceneBuilder.cs to route the Fireball reference needed by the title/entry wiring in AC-010. The production Door Prototype builder materializes this wiring in Assets/Scenes/DoorPrototype.unity; implementation code and tests do not hand-edit or reconstruct the serialized scene.",
+      "criterion_id": "AC-009"
+    },
+    {
+      "reference": "Assets/NoSafeCircle/DoorPrototype/Scripts/TitleScreenController.cs; Assets/NoSafeCircle/DoorPrototype/Scripts/WizardGameEntryController.cs",
+      "requirement": "Add an optional serialized Fireball reference to TitleScreenController and to WizardGameEntryController. TitleScreenController.SuspendGameplayInput() calls Fireball.SuspendGameplayInput() when the reference is assigned. WizardGameEntryController.EnterWorld calls Fireball.EnableGameplayInput() immediately after it enables PlayerMovement and PlayerInteractionController. A missing Fireball reference must not make WizardGameEntryController.HasValidReferences() fail. Fireball is never added to TitleScreenController's gameplayInputBehaviours array. Builder wiring in DoorPrototypeGlobalSceneBuilder.BuildTitleScreen and BuildWizardGameEntry assigns the Player's Fireball component to both references. FireballPlayModeTests prove Fireball's Action does nothing (no mana spent, no charge/cast state) before EnterWorld and casts normally after EnterWorld, using the same production TitleScreenController/WizardGameEntryController construction pattern WizardGameEntryPlayModeTests already uses.",
+      "criterion_id": "AC-010"
+    },
+    {
+      "reference": "Assets/NoSafeCircle/DoorPrototype/Scripts/DemoRunFlow.cs",
+      "requirement": "Remove DemoRunFlow's embedded right-click fireball: delete TryFireAtCursor, AdvanceFireballs, the private Fireball struct, the fireballSpeed/fireballLifetime/fireballHitRadius/fireballDamage/fireballManaCost/fireballCooldown fields, the fireballs list, the castCooldown field and its decrement in Update, and the direct Mouse.current polling. Keep DemoRunFlow's enemy contact damage (ApplyEnemyContactDamage), enemy health bars, win and death screens, and the R-to-restart handling unchanged, so exactly one Fireball implementation exists after this task.",
+      "criterion_id": "AC-011"
     }
   ],
   "completion_gates": [
     {
-      "reference": "Section 2 — Spell and Enemy Interactions table / Section 3 Ruined Entry tactical purpose",
-      "requirement": "Validate that a full charge produces meaningful area damage against multiple naturally-clustering pursuing Melee Enemies, not just a single target, and that charging is interruptible/unsafe once enemies close distance.",
+      "reference": "AC-002 through AC-004; Docs/GDD/No_Safe_Circle_GDD.md:64-76",
+      "requirement": "Play Mode behavior tests in FireballPlayModeTests use InputTestFixture, simulated controls, and a temporary in-memory InputActionAsset whose Player map contains PointerPosition, MoveToCursor, and a Button-type Fireball action bound to <Mouse>/rightButton. With real PlayerMovement, PlayerMana, and EnemyHealth components and a valid shared pointer target, drive a tap through the Fireball action and verify the configured 20-mana spend, no retained movement restriction, one projectile aimed from the shared target, and damage to one unobstructed EnemyHealth target within the contact radius. This proves component input handling; VAL-005 proves the committed physical binding.",
       "gate_id": "VAL-001"
     },
     {
-      "reference": "Section 2 — Spell and Enemy Interactions, Charged Fireball vs Ranged row",
-      "requirement": "Validate that a tap shot remains usable against a Ranged Enemy's telegraphed attack pattern where a full charge is impractical.",
+      "reference": "AC-002, AC-006, and AC-007; Docs/GDD/No_Safe_Circle_GDD.md:65,75-76",
+      "requirement": "In Play Mode behavior tests, drive tap, partial, and full holds through the temporary Fireball action and deterministic Tick(float) seam. Verify configured cost, damage, and impact area increase monotonically; full charge damages at least two nearby EnemyHealth targets inside its area radius; and an enemy with multiple colliders (should one exist) is damaged at most once by one cast.",
       "gate_id": "VAL-002"
     },
     {
-      "reference": "Section 2 — Floor-run restart ownership",
-      "requirement": "Validate that triggering a floor restart while Fireball is mid-charge/mid-cast clears that state through Fireball's own reset entry point rather than leaving residual charge/cooldown state.",
+      "reference": "AC-003, AC-005, AC-006, AC-008, and AC-010; Docs/GDD/No_Safe_Circle_GDD.md:89,92,98-104",
+      "requirement": "In Play Mode behavior tests, begin charging through the temporary Fireball action and separately exercise a refused required mana spend, missing pointer target, ResetFireball(), SuspendGameplayInput(), component disable, and destruction. Each path releases only Fireball's owned movement restriction at most once, removes owned projectiles, leaves no delayed damage, and rejects input while suspended until an authorized re-enable or reset. A further scenario constructs a real TitleScreenController and WizardGameEntryController with their optional Fireball references assigned and verifies Fireball spends no mana and starts no charge/cast state while the title/selection flow is active, then casts normally after WizardGameEntryController.EnterWorld completes, using the same production construction pattern WizardGameEntryPlayModeTests already uses.",
       "gate_id": "VAL-003"
+    },
+    {
+      "reference": "AC-007",
+      "requirement": "Play Mode behavior tests place the caster's CharacterController, EnemyHealth targets, a wall or room-cover collider, and representative sealed, locked, open, and broken DoorInteractable states in the projectile path. Assert: a wall/prop collider and a sealed, locked, or broken door (doorway blocker enabled) stop the projectile with no damage through or after it; an open door the wizard has not crossed does not block; the caster is never hit; maximum-lifetime expiry with no contact fizzles and deals no damage; and a charged-tier detonation damages every unobstructed enemy within its area radius exactly once.",
+      "gate_id": "VAL-004"
+    },
+    {
+      "reference": "AC-004, AC-009, and AC-010; Docs/Engineering/UNITY_TESTING_POLICY.md",
+      "requirement": "FireballCommittedSceneConformanceTests opens Assets/Scenes/DoorPrototype.unity additively, scopes all object lookup to that scene, and closes it without saving. It verifies that the scene Player has Fireball references to PlayerMovement, PlayerMana, and the committed InputActionAsset; the referenced Player map contains a bound Fireball action, PointerPosition, and MoveToCursor; and that the scene's TitleScreenController and WizardGameEntryController each have their optional Fireball reference assigned to the Player's Fireball component. Compare the scene bytes before and after and fail if the test mutates the committed scene; the validation run separately records clean tracked and untracked repository state before and after execution.",
+      "gate_id": "VAL-005"
     }
   ],
-  "downstream_integration_obligations": [],
+  "downstream_integration_obligations": [
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:55-79,108-118,373-385,526-537; NSC-015; NSC-054; NSC-044 through NSC-049; NSC-071; NSC-072",
+      "requirement": "Vincent owns the integrated human Play Mode review once Melee Enemy, Ranged Enemy, and composed room geometry exist. At gameplay-camera scale: use Ruined Entry's rubble loop to create separation; verify a rooted charge becomes unsafe as a melee group closes; use a Bone Archive lane to cluster targets while retaining an escape opening; compare tap and charge under a Ranged Enemy telegraph in Chapel's central aisle and at a side cover pocket; confirm cover does not clear enemy target knowledge; check Lower Vault's incomplete loops; and attempt a charge near a door approach to confirm the queued-click behavior and the Final Room five-second door tradeoff. Drive the committed physical Fireball binding and judge charge, full-charge, projectile, impact-area, and denied-cast readability.",
+      "obligation_id": "INT-001"
+    },
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:102-104,691; NSC-033; Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs ResetMovement",
+      "requirement": "NSC-033 connects the Floor Run/Restart Orchestrator to Fireball.ResetFireball() and verifies that a real zero-health restart during charge and projectile flight leaves no charge, Fireball-owned movement restriction, projectile, or delayed enemy damage. The orchestrator invokes Fireball.ResetFireball() before PlayerMovement.ResetMovement(), since ResetMovement zeroes the shared movement-restriction counter and reset order matters once another component also holds a restriction.",
+      "obligation_id": "INT-002"
+    },
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:98-100,690; NSC-086; NSC-087",
+      "requirement": "NSC-087 calls Fireball.SuspendGameplayInput() and EnableGameplayInput() through the victory suspension coordinator, and NSC-086 verifies that the final-door victory path cancels an active Fireball charge or cast and rejects later Fireball input.",
+      "obligation_id": "INT-003"
+    }
+  ],
   "gdd_evidence": [
     {
-      "reference": "Section 2 — Player Actions and Systems, Fireball row",
-      "requirement": "Aim with the cursor. Tap for a quick, mobile shot against a single/separated enemy. Hold to charge: costs more mana and restricts movement further, rewarding preparation by damaging multiple clustered enemies."
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:64-76",
+      "requirement": "Fireball uses cursor aiming; tap is a quick mobile shot, while holding charges a more expensive, movement-restricting attack whose larger damage area rewards clustered targets."
     },
     {
-      "reference": "Section 2 — Spell and Enemy Interactions, Charged Fireball row",
-      "requirement": "Melee enemies naturally cluster while pursuing, making them strong area-damage targets; charging becomes unsafe once they close distance. Against Ranged Enemies, telegraphed attacks force movement, reducing available charge time; quick shots are safer but do less damage/area."
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:75-79,108-118",
+      "requirement": "Melee clustering creates charged-area targets, Ranged Enemy telegraphs favor tap shots, and room routes determine whether the wizard has enough separation to charge."
     },
     {
-      "reference": "Section 2 — Player Movement ownership bullet",
-      "requirement": "Charged Fireball requests and releases its charging movement restriction through an owner-controlled Player Movement interface; Fireball does not directly mutate movement internals."
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:23,40,541-543",
+      "requirement": "Doors buy time, not safety: a locked door is attacked by pursuers and eventually breaks. Fireball's collision rule keeps that pressure real by not letting the wizard shell pursuers through a locked door."
     },
     {
-      "reference": "Section 2 — Spell-local state ownership bullet",
-      "requirement": "Fireball owns its tap/charge/cast state... Each owner exposes a reset entry point for any owned state that can still be active when a floor restart occurs."
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:87-92,602,692",
+      "requirement": "Fireball calls PlayerMana.Spend(float), reads PlayerMovement's shared pointer target, calls its movement-restriction interface, and owns only Fireball-local state."
     },
     {
-      "reference": "Section 2 — Win and Loss Conditions, Victory/input-shutdown ownership",
-      "requirement": "Fireball exposes an owner-controlled gameplay-enable/suspend interface that can immediately stop/cancel current input-driven activity, reject new commands while suspended, and be re-enabled by an authorized reset/test flow."
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:522,686",
+      "requirement": "Fireball calls EnemyHealth.TakeDamage(float) rather than writing enemy health or defeat state."
     },
     {
-      "reference": "Section 3 — Required Enemy Roster / Enemy health and defeat ownership bullet",
-      "requirement": "Fireball and any other canon-required damage source request damage through the Enemy Health/Defeat owner-controlled interface rather than writing enemy health directly."
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:92,98-104,690-692",
+      "requirement": "Fireball provides owner-controlled reset and gameplay-suspend/re-enable methods for restart and victory coordination."
     },
     {
-      "reference": "Section 4 — Development Agent Ownership Invariants, Wizard Combat Agent bullet",
-      "requirement": "Charged Fireball consumes the Player Movement restriction interface instead of mutating movement internals; spells consume Player Mana through its spend interface."
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:526-532,537",
+      "requirement": "Cover collision and doorway crossing do not make an enemy forget the wizard; target loss remains distance-based and leads to last-known-position search."
+    },
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:556,566",
+      "requirement": "The required game includes essential feedback and uses world-space SpriteRenderer presentation; placeholder character/effect sprites are acceptable during development."
     }
   ],
   "basis": "direct_gdd",
   "source_scope": "required",
-  "confidence": "medium",
-  "notes": "Currently blocked on two real cross-domain prerequisites (player-movement's cursor/restriction interfaces, enemy-health-damage-defeat's damage interface); no dependency on player-mana is needed because PlayerMana.Spend already exists and is directly usable.",
+  "confidence": "high",
+  "notes": "D1-D6 are resolved by SPELL_DECISIONS.md (2026-09-16); this revision is dispatchable. Before dispatch, confirm in the live checkout that Assets/InputSystem_Actions.inputactions still contains Player/PointerPosition and Player/MoveToCursor (it does on main today; no restoration or reconstruction is needed). The GER owner's graph apply adds NSC-007 to the RESOURCE_GROUPS.yaml entries for DoorPrototypeGlobalSceneBuilder.cs, TitleScreenController.cs, and WizardGameEntryController.cs at commit time; NSC-008 and NSC-009 separately add themselves to the same groups when each is committed. PROPOSAL tuning search spaces beyond the fixed tap tier, not acceptance requirements: full charge 1-3 seconds; full mana 20-40; full damage 35-75; full radius 1.5-3.5 units; tap/hold threshold 0.15-0.35 seconds. Unity-generated .meta files accompany every new script and test asset. The contract creates FireballProjectile at runtime and introduces no projectile prefab, layer, tag, enemy collider, room edit, or new mechanic. No dependency on NSC-066 or NSC-068 is added; their controller code is on main and this contract's AC-010 edits it directly. INT-004's prior enemy-collider obligation is dropped: enemies remain collider-free and hit detection is a flat horizontal distance test (SPELL_DECISIONS.md S4).",
   "repository_state_at_bootstrap": "missing",
   "repository_evidence_at_bootstrap": [],
   "provenance": {
@@ -123,6 +181,18 @@
     "reconciliation_run_id": "20260821T193541Z-998ee7b5",
     "verification_run_id": "20260821T195959Z-43dba5de",
     "bootstrap_status_observation": "open",
-    "migration_id": "task-contract-schema-v2-20260822-r2"
+    "migration_id": "task-contract-schema-v2-20260822-r2",
+    "owner_decisions": "SPELL_DECISIONS.md, 2026-09-16",
+    "contract_followups": [
+      {
+        "date": "2026-09-17",
+        "reason": "Owner decision revision 3 (design): GER Orchestrator spell decisions under Vincent's delegation (2026-09-15; reconfirmed 2026-09-17 'you can decide everything yourself on spells'), recorded in C:\\nscrev\\ger-contract-revisions-20260916\\spells\\SPELL_DECISIONS.md, applied to the GER packet's round-03 contract with round-04 fixes.",
+        "source_head": "d3bcd4a85fb0edf00351652941afa4326765d10a",
+        "previous_contract_revision": 2,
+        "base_contract_sha256": "c774421f5341db42025b936c1fc52c679d3424e2640b90d24b3125acdb18855b",
+        "revised_contract_sha256": "1dff91816d4fdbf408779d84c420caa01e4bd7bdb9cb06358ad35fcacc433bfc",
+        "review": "none; taskcontrol validate only (Vincent, 2026-09-16)"
+      }
+    ]
   }
 }
