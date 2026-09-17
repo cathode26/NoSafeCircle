@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-077",
-  "contract_revision": 5,
+  "contract_revision": 6,
   "contract_disposition": "active",
   "title": "Enemy Art Integration for the Existing Moving Enemies",
   "reconciliation_key": "stationary-enemy-sprite-integration",
@@ -78,7 +78,7 @@
     {
       "criterion_id": "AC-007",
       "reference": "Vincent, 2026-09-16: the ranged enemy becomes the Lantern Wraith and its fireball becomes a teal ghost-light lantern wisp with the same gameplay; art-director guide section 11 item 2; art bible section 5 (Lantern Wraith)",
-      "requirement": "Turn the scene's fire caster into the Lantern Wraith without changing its gameplay. The builder names each ranged enemy GameObject LanternWraith instead of FireCasterEnemy. EnemyFireballCaster becomes EnemyLanternWispCaster: move EnemyFireballCaster.cs and its .meta to EnemyLanternWispCaster.cs and EnemyLanternWispCaster.cs.meta so the script GUID survives, and keep its public Initialize, Tick, CurrentMana and IsOutOfMana members, its serialized field names and every serialized default (60 mana, 10 mana per cast, 1 second cast interval, 14 unit cast range, projectile speed 8, hit radius 0.8, lifetime 4 seconds, 5 damage). Its projectile GameObject is named LanternWisp and shows a glowing teal ghost-light orb, unlit or emissive in the art bible's teal #30e0cb, with no fire colors, at today's projectile size. The wraith's placeholder asset key becomes LanternWraithSprite, the unused FireCasterEnemySprite.asset and its .meta are deleted, and no fire naming or fire colors remain in the wraith's builder code, script or projectile. The legacy FireCasterEnemy entry in DoorPrototypeSceneBuilder's clear list stays, because that file is not edited. The wisp orb is a stand-in: Vincent picked the look on 2026-09-16 (the \"grumpy face\" sample A wisp, a lantern-flare wind-up and a ring-pop hit), and that art replaces the orb in a later task once its production pass is committed (INT-002)."
+      "requirement": "Turn the scene's fire caster into the Lantern Wraith without changing its gameplay. The builder names each ranged enemy GameObject LanternWraith instead of FireCasterEnemy. EnemyFireballCaster becomes EnemyLanternWispCaster: move EnemyFireballCaster.cs to EnemyLanternWispCaster.cs, moving its .meta with it so the script GUID survives when the executor can move .meta files (an execution pipeline that generates its own deterministic .meta instead is acceptable, because the rebuilt scene is the only reference and VAL-003 proves it has no missing scripts), and keep its public Initialize, Tick, CurrentMana and IsOutOfMana members, its serialized field names and every serialized default (60 mana, 10 mana per cast, 1 second cast interval, 14 unit cast range, projectile speed 8, hit radius 0.8, lifetime 4 seconds, 5 damage). Its projectile GameObject is named LanternWisp and shows a glowing teal ghost-light orb, unlit or emissive in the art bible's teal #30e0cb, with no fire colors, at today's projectile size. The wraith's placeholder asset key becomes LanternWraithSprite, the unused FireCasterEnemySprite.asset and its .meta are deleted, and no fire naming or fire colors remain in the wraith's builder code, script or projectile. The legacy FireCasterEnemy entry in DoorPrototypeSceneBuilder's clear list stays, because that file is not edited. The wisp orb is a stand-in: Vincent picked the look on 2026-09-16 (the \"grumpy face\" sample A wisp, a lantern-flare wind-up and a ring-pop hit), and that art replaces the orb in a later task once its production pass is committed (INT-002)."
     },
     {
       "criterion_id": "AC-008",
@@ -120,12 +120,12 @@
     {
       "gate_id": "VAL-007",
       "reference": "Exact-candidate materialization and regression validation",
-      "requirement": "On the exact candidate, with Unity closed on that checkout: run DoorPrototypeSceneBuilder.Build twice and require no file change after the second run; require a clean compile; pass EnemyArtIntegrationTests, EnemyAnimationPlayModeTests and EnemyLanternWispCasterPlayModeTests; pass the existing EnemyPursuitPlayModeTests, EnemyPursuitDoorCrossingPlayModeTests, EnemyTargetKnowledgePlayModeTests, EnemyHealthPlayModeTests, ActiveEnemyRegistryPlayModeTests, EnemyLockedDoorAttackPlayModeTests, DoorEnemyPassabilityPlayModeTests, WizardAnimationPlayModeTests, WizardArtIntegrationTests and DoorPrototypeSceneBuilderTests fixtures, using semicolon-separated test filters; confirm that the diff under Art/Enemies/Source changes only .png.meta files and that EnemyLanternWispCaster.cs.meta keeps EnemyFireballCaster's GUID; and commit only builder output plus the files this task registers."
+      "requirement": "On the exact candidate, with Unity closed on that checkout: run DoorPrototypeSceneBuilder.Build twice and require no file change after the second run; require a clean compile; pass EnemyArtIntegrationTests, EnemyAnimationPlayModeTests and EnemyLanternWispCasterPlayModeTests; pass the existing EnemyPursuitPlayModeTests, EnemyPursuitDoorCrossingPlayModeTests, EnemyTargetKnowledgePlayModeTests, EnemyHealthPlayModeTests, ActiveEnemyRegistryPlayModeTests, EnemyLockedDoorAttackPlayModeTests, DoorEnemyPassabilityPlayModeTests, WizardAnimationPlayModeTests, WizardArtIntegrationTests and DoorPrototypeSceneBuilderTests fixtures, using semicolon-separated test filters; confirm that the diff under Art/Enemies/Source changes only .png.meta files and that the saved scene has no missing-script references after the rename, recording whether EnemyLanternWispCaster.cs.meta kept EnemyFireballCaster's GUID; and commit only builder output plus the files this task registers."
     },
     {
       "gate_id": "VAL-008",
       "reference": "Vincent's in-game visual approval before integration",
-      "requirement": "Vincent plays the exact candidate in Assets/Scenes/DoorPrototype.unity, lures a MeleeEnemy through all eight screen directions, and walks a circle around a LanternWraith inside its range. He confirms that both enemies show their approved art in all eight facings, with exactly one cleaver on the Dungeon Brute (including north-east) and the lantern visible on the wraith; that an enemy moving up the screen shows its back; that the walk plays only while an enemy moves and the idle when it stops; that the last facing is kept; that feet stay on the floor without jumping between idle and walk, including the south walk loop's restart; that the Lantern Wraith turns toward him and throws teal lantern wisps, not fireballs; that sprites face the camera without leaning or thinning while enemies turn; that sorting against walls, doors and the wizard is correct; and that each enemy's size is acceptable in its 2x2-unit character box (the wizard may still use its older art until its re-make at 128x128 lands). Sprite shimmer while moving belongs to the open pixel-density decision and is recorded there. He approves the exact candidate commit before integration. Code and test results are not visual proof."
+      "requirement": "Vincent plays the exact candidate in Assets/Scenes/DoorPrototype.unity, lures a MeleeEnemy through all eight screen directions, and walks a circle around a LanternWraith inside its range. He confirms that both enemies show their approved art in all eight facings, with exactly one cleaver on the Dungeon Brute (including north-east) and the lantern visible on the wraith; that an enemy moving up the screen shows its back; that the walk plays only while an enemy moves and the idle when it stops; that the last facing is kept; that feet stay on the floor without jumping between idle and walk, including the south walk loop's restart; that the Lantern Wraith turns toward him and throws teal lantern wisps, not fireballs; that sprites face the camera without leaning or thinning while enemies turn; that sorting against walls, doors and the wizard is correct; and that each enemy's size is acceptable in its 2x2-unit character box (the wizard may still use its older art until its re-make at 128x128 lands). Pixel density is settled at 64 pixels per unit (decision B); any remaining sprite shimmer is recorded for the Art Director rather than blocking approval. He approves the exact candidate commit before integration. Code and test results are not visual proof."
     }
   ],
   "downstream_integration_obligations": [
@@ -236,6 +236,15 @@
         "previous_contract_revision": 4,
         "base_contract_sha256": "ea3917cf1425a54059e8937cba8357b80617a68155f7b3423ca867db6541590f",
         "revised_contract_sha256": "c264950f7bb74b3eb60495aa4aba615833f5ba6c70730986bec39f16230a211c",
+        "review": "none; taskcontrol validate only (Vincent, 2026-09-16)"
+      },
+      {
+        "date": "2026-09-17",
+        "reason": "Follow-up revision 6 from the rev 5 Codex check (revise): the script rename keeps the GUID when the executor can move .meta files and accepts a pipeline-generated .meta otherwise (VAL-003 proves no missing scripts); VAL-008 states pixel density is settled at 64 PPU.",
+        "source_head": "5c81b33c95f04ae8c39b6622988ed3d33bff846c",
+        "previous_contract_revision": 5,
+        "base_contract_sha256": "b6fc4bd6b1e5207ddbd664d208b99c6c6c7be1d588e7ccd9d019409011e66062",
+        "revised_contract_sha256": "04a098148cc16aacf2ea86a19ee7f8f1f937e88a1542c84b038c2e871a297d01",
         "review": "none; taskcontrol validate only (Vincent, 2026-09-16)"
       }
     ],
