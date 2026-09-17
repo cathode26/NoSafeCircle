@@ -1,102 +1,164 @@
 {
   "schema_version": "2.0",
   "id": "NSC-008",
-  "contract_revision": 2,
+  "contract_revision": 3,
   "contract_disposition": "active",
-  "title": "Frost Field",
+  "title": "Frost Field Placement, Feedback, and Enemy Slow Requests",
   "reconciliation_key": "frost-field",
   "kind": "implementation",
   "type": "spell",
   "execution_scope": "single_agent",
-  "execution_reason": "Frost Field is one cohesive spell component (cast/placement/active-field state, mana spend, feedback, trigger call to the enemy-owned status-effect interface, reset, suspend); splitting it further is not supported by approved design.",
+  "execution_reason": "After SPELL_DECISIONS.md (2026-09-16) records the control, door-interaction, recast, and victory-suspension decisions this task previously held for, one agent can implement the Player-side FrostField MonoBehaviour, field lifetime and membership, Input System and mana connections, transient feedback, reset and suspension methods, the enemy status-effect wiring, two focused test files, and Player/title/entry wiring. The delivered NSC-013 EnemyStatusEffectMovement component remains the sole owner of enemy slow strength, locomotion modification, and restoration.",
   "decomposition_state": "concrete",
-  "decomposition_reason": "GDD fully specifies Frost Field's targeting, ownership split (Wizard Combat triggers; Enemy Pursuit applies/restores), and feedback requirement; no missing design blocks a single bounded implementation item.",
+  "decomposition_reason": "The implementation remains one cohesive Player-side spell and does not require execution splitting; the control, door-interaction, recast, and victory decisions that previously blocked dispatch are now recorded in SPELL_DECISIONS.md.",
   "parent": "NSC-006",
   "depends_on": [
     "NSC-003",
     "NSC-013"
   ],
   "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/FrostField.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/FrostField.cs.meta",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs",
     "unity-scene:Assets/Scenes/DoorPrototype.unity",
-    "repo-file:Assets/InputSystem_Actions.inputactions"
+    "repo-file:Assets/InputSystem_Actions.inputactions",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/FrostFieldPlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/FrostFieldPlayModeTests.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/FrostFieldSceneBuilderTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/FrostFieldSceneBuilderTests.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/TitleScreenController.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/WizardGameEntryController.cs"
   ],
   "acceptance_criteria": [
     {
-      "reference": "Section 2 — Player Actions and Systems / Frost Field targeting and feedback bullet",
-      "requirement": "Frost Field places its temporary slow area at the current shared world-space pointer target exposed by Player Movement, without independently projecting screen-to-world coordinates.",
+      "reference": "nsc-gdd-010; Docs/GDD/No_Safe_Circle_GDD.md:64-66,89-90",
+      "requirement": "Create Assets/NoSafeCircle/DoorPrototype/Scripts/FrostField.cs with a FrostField MonoBehaviour and public bool TryCast() entry point. TryCast reads PlayerMovement.HasPointerWorldTarget and PlayerMovement.PointerWorldTarget and places an accepted immediate cast at that shared gameplay-plane position. If no pointer target exists, TryCast returns false without spending mana, creating a field, or sending a slow request. FrostField does not poll pointer hardware, project through a Camera, or call PlayerMovement.RequestDestination(), PlayerMovement.CancelRequestedDestination(), PlayerMovement.RequestMovementRestriction(), or any PlayerInteractionController or DoorInteractable method.",
       "criterion_id": "AC-001"
     },
     {
-      "reference": "Section 2 — Frost Field targeting and feedback bullet",
-      "requirement": "Frost Field provides player-facing feedback that makes the cast and the active field readable during placement and while active; the exact visual/audio treatment is an implementation choice.",
+      "reference": "nsc-gdd-010; Docs/GDD/No_Safe_Circle_GDD.md:90,566; Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs",
+      "requirement": "FrostField owns transient player-facing feedback that makes an accepted cast, the active field footprint, and expiry readable at the fixed gameplay camera, using a flat translucent area marker sized to the field's radius as the first-playable placeholder; no art asset beyond this task's listed files is introduced. A cast refused for insufficient mana relies on NSC-005's existing PlayerMana.CastDenied feedback; FrostField adds no parallel mana-denial UI. FrostField cleans up every feedback resource it creates and does not generate a new texture, material, sprite, prefab, animation, or audio asset.",
       "criterion_id": "AC-002"
     },
     {
-      "reference": "Section 4 — Wizard Combat Agent row",
-      "requirement": "Frost Field triggers the enemy slowdown effect through the Enemy Pursuit/status-effect owner-controlled interface; it does not itself implement enemy slowdown application, restoration, Ranged Enemy targeting, or Ranged Enemy attacks.",
+      "reference": "nsc-gdd-008, nsc-gdd-073, nsc-gdd-063; Docs/GDD/No_Safe_Circle_GDD.md:66,76,602-603,685,688; Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyStatusEffectMovement.cs",
+      "requirement": "While a field is active, FrostField finds candidate enemies with FindObjectsByType<EnemyStatusEffectMovement>() restricted to active and enabled instances whose EnemyHealth.IsDefeated is false when an EnemyHealth is present; no new registry or discovery API is added. At cast time and again at a serialized refresh interval (default 0.2 seconds) while the field is active, FrostField treats an enemy as a member while its horizontal position is inside the field's serialized radius and calls EnemyStatusEffectMovement.ApplyFrostSlowdown(multiplier, duration) once per member per refresh, with duration a little longer than the refresh interval. An enemy that stops being a member is no longer refreshed, so its existing slow ends shortly afterward through EnemyStatusEffectMovement's own countdown, and NSC-013's reset/pursuit path restores its speed. FrostField never sets NavMeshAgent.speed or calls NavMeshAgent.Warp directly, and never reads or writes EnemyTargetKnowledge, CurrentTarget, LastKnownPosition, or Ranged Enemy attack-timing state.",
       "criterion_id": "AC-003"
     },
     {
-      "reference": "Section 2 — Resources, Feedback, and Failure / Development Agent Ownership Invariants",
-      "requirement": "Frost Field spends mana through Player Mana's existing owner-controlled Spend interface when cast.",
+      "reference": "nsc-gdd-008, nsc-gdd-010, nsc-gdd-063; Docs/GDD/No_Safe_Circle_GDD.md:76,87,602,692",
+      "requirement": "Each accepted TryCast calls PlayerMana.Spend(float) exactly once before field activation. A failed spend creates no field and sends no slow request. Frost mana cost is a serialized positive tuning value representing a meaningful share of the shared pool; this contract does not promote an uncited exact cost to GDD canon.",
       "criterion_id": "AC-004"
     },
     {
-      "reference": "Section 5 — Runtime Implementation",
-      "requirement": "Frost Field's casting input is routed through the project's Unity Input System/Input Actions layer rather than independent direct hardware polling.",
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:64,89,683,692; Tasks/NSC-007.yaml; Tasks/NSC-009.yaml",
+      "requirement": "Assets/InputSystem_Actions.inputactions gains one dedicated Button-type FrostField action in the existing Player action map, bound to <Keyboard>/q in the Keyboard&Mouse control scheme only. FrostField.cs consumes FrostField's press through Unity Input System callbacks or action state rather than direct Mouse, Keyboard, or other hardware polling, and casts at the current PlayerMovement.PointerWorldTarget; it never polls Mouse.current or Keyboard.current. No FrostField binding path is also bound to Player/MoveToCursor or to Fireball's or ForceWave's action. The stock Attack action is left untouched and no spell reads it; there is no gamepad binding for any spell in this contract.",
       "criterion_id": "AC-005"
     },
     {
-      "reference": "Section 2 — Spell-local state ownership bullet",
-      "requirement": "Frost Field owns its Wizard-Combat-side cast/placement/active-field state and exposes an owner-controlled reset entry point for that state, consumed by the Floor Run/Restart Orchestrator.",
+      "reference": "nsc-gdd-010; Docs/GDD/No_Safe_Circle_GDD.md:92,102-104,691",
+      "requirement": "FrostField owns its accepted-cast, field-lifetime, membership, and feedback state and exposes public ResetFrostField(). ResetFrostField immediately calls EnemyStatusEffectMovement.ResetStatusEffects() for every enemy FrostField currently counts as a member, then clears all FrostField-owned active fields and feedback and restores its gameplay-enabled initial state. It does not write enemy slowdown or pursuit internals beyond that one call.",
       "criterion_id": "AC-006"
     },
     {
-      "reference": "Section 2 — Victory/input-shutdown ownership bullet",
-      "requirement": "Frost Field exposes an owner-controlled gameplay-enable/suspend interface that immediately stops active casting/placement, rejects new cast input while suspended, and can be re-enabled by an authorized reset/test flow, consumed by the Game Flow/Victory capability.",
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:68,94,98-100,605,690",
+      "requirement": "FrostField exposes public SuspendGameplayInput() and EnableGameplayInput(). A Frost cast never resets a pending or in-progress door-opening attempt: FrostField never calls a PlayerMovement destination/restriction method, a PlayerInteractionController method, or a DoorInteractable method (matching GDD:68/94's reset triggers of damage, moving away, and a replacing command, none of which a stationary cast is). Only one field exists at a time: a new accepted TryCast while a field is already active immediately calls EnemyStatusEffectMovement.ResetStatusEffects() for every currently-affected enemy, ends the old field, and starts the new one at the new target; each accepted cast still spends mana once (AC-004). SuspendGameplayInput() rejects the Frost Input Action before cast acceptance (no mana spend, field, or slow request) and, when a field is currently active, immediately calls ResetStatusEffects() for every currently-affected enemy and clears the field. EnableGameplayInput() or ResetFrostField() restores cast acceptance.",
       "criterion_id": "AC-007"
+    },
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:624,660-665; Docs/AI-Pipeline/GAME_TASK_LESSONS_LEARNED.md; Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs BuildChaseEnemy",
+      "requirement": "Update DoorPrototypeGlobalSceneBuilder.cs so its Player construction adds exactly one FrostField component wired to the same PlayerMovement, PlayerMana, and InputActionAsset used by the Player root. Update DoorPrototypeGlobalSceneBuilder.BuildChaseEnemy so every MeleeEnemy GameObject it builds has exactly one EnemyStatusEffectMovement component: add one via AddComponent<EnemyStatusEffectMovement>() only when GetComponent<EnemyStatusEffectMovement>() on that GameObject is null, so whichever of NSC-008/NSC-009 lands first adds it and the second finds it already present and adds nothing further. The ranged enemy GameObject built by the global builder (FireCasterEnemy on main; NSC-077 renames it LanternWraith) is not changed; it has no NavMeshAgent, which EnemyStatusEffectMovement requires, and remains unaffected by Frost Field in the current scene. Keep DoorPrototypeSceneBuilder.cs as the public build facade. The Windows controller runs No Safe Circle/Build Door Prototype Scene to materialize Assets/Scenes/DoorPrototype.unity and reruns the builder to check stable output; the implementation agent must not hand-edit or reconstruct the binary scene, and reports NEEDS_MATERIALIZATION with that exact command and output path if Unity is unavailable.",
+      "criterion_id": "AC-008"
+    },
+    {
+      "reference": "Docs/Engineering/UNITY_TESTING_POLICY.md; NSC-008 AC-001 through AC-008",
+      "requirement": "Create Assets/NoSafeCircle/DoorPrototype/Tests/FrostFieldPlayModeTests.cs for Play Mode component and integration behavior and Assets/NoSafeCircle/DoorPrototype/Tests/Editor/FrostFieldSceneBuilderTests.cs for in-memory builder, project InputActionAsset, and read-only committed-scene conformance. Play Mode tests may construct an in-memory Player action map containing the same Player/FrostField action name to prove component subscription and behavior only; project-action existence, at least one binding, and generated scene wiring are proved separately by FrostFieldSceneBuilderTests. Tests use public production entry points and do not set FrostField's private runtime state directly or save tracked assets.",
+      "criterion_id": "AC-009"
+    },
+    {
+      "reference": "Assets/NoSafeCircle/DoorPrototype/Scripts/TitleScreenController.cs; Assets/NoSafeCircle/DoorPrototype/Scripts/WizardGameEntryController.cs",
+      "requirement": "Add an optional serialized FrostField reference to TitleScreenController and to WizardGameEntryController. TitleScreenController.SuspendGameplayInput() calls FrostField.SuspendGameplayInput() when the reference is assigned. WizardGameEntryController.EnterWorld calls FrostField.EnableGameplayInput() immediately after it enables PlayerMovement and PlayerInteractionController. A missing FrostField reference must not make WizardGameEntryController.HasValidReferences() fail. FrostField is never added to TitleScreenController's gameplayInputBehaviours array. Builder wiring in DoorPrototypeGlobalSceneBuilder.BuildTitleScreen and BuildWizardGameEntry assigns the Player's FrostField component to both references. FrostFieldPlayModeTests prove FrostField's Action does nothing (no mana spent, no field created) before EnterWorld and casts normally after EnterWorld, using the same production TitleScreenController/WizardGameEntryController construction pattern WizardGameEntryPlayModeTests already uses.",
+      "criterion_id": "AC-010"
     }
   ],
   "completion_gates": [
     {
-      "reference": "Section 2 — Spell and Enemy Interactions, Frost Field row",
-      "requirement": "Validate that casting Frost Field creates a readable opening against a melee group (stretches pursuit) without itself guaranteeing a fully safe Fireball charge in every position, matching the resource-tradeoff description.",
+      "reference": "nsc-gdd-008, nsc-gdd-053, nsc-gdd-073; Docs/GDD/No_Safe_Circle_GDD.md:56,66,73-79,526-532,537,595,685,688",
+      "requirement": "In a fresh temporary Play Mode scene with temporary NavMesh data, a test triggers the in-memory Player/FrostField Input Action using a valid PlayerMovement pointer target and drives the production TryCast path with production EnemyTargetKnowledge, delivered EnemyPursuitMovement, and the delivered NSC-013 EnemyStatusEffectMovement component. Two pursuers begin the same distance from the wizard - with the wizard stationary and both start distances inside DetectionDistance and below LoseTargetDistance configured through EnemyTargetKnowledge.ConfigureDistances - on routes where only one crosses the active field. Against an otherwise-identical no-Frost control over a fixed simulated interval, verify one mana spend, placement at the shared target, less travel by the affected pursuer, greater separation between the two pursuers, and unchanged locomotion for the enemy outside the field. Verify Frost does not change either enemy's EnemyTargetKnowledge.State or HasTarget. In two further cases, verify that the affected pursuer's locomotion rate returns to the unslowed control rate (a) after it moves out of the still-active field and (b) after the field's serialized lifetime expires, with no permanent slowdown remaining.",
       "gate_id": "VAL-001"
     },
     {
-      "reference": "Section 2 — Floor-run restart ownership",
-      "requirement": "Validate that triggering a floor restart while a Frost Field cast/placement is active clears Frost Field's own casting-side state through its reset entry point.",
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:92,102-104,595,685,691",
+      "requirement": "A Play Mode test creates an active field through the production cast path with a pursuing enemy inside, calls ResetFrostField(), and verifies every FrostField-owned field and feedback object is cleared, the enemy immediately returns to the same locomotion rate as an otherwise-identical unslowed control through the delivered NSC-013 and EnemyPursuitMovement path, no permanent slowdown remains, and a later authorized cast can begin.",
       "gate_id": "VAL-002"
+    },
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:68,87,94,98-100,690; Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs",
+      "requirement": "Play Mode tests exercise three rejected-cast paths through public behavior: no shared pointer target, insufficient mana, and suspended gameplay input; each produces no field and no slow request, no-target and suspension spend no mana, and insufficient mana raises the existing PlayerMana.CastDenied event. A further scenario casts once, calls SuspendGameplayInput() while the field is still active, and verifies the affected enemy's locomotion rate returns to the unslowed control rate immediately (not merely after the field's own duration) through the delivered NSC-013 and EnemyPursuitMovement path; EnableGameplayInput() then permits a valid action-driven cast again. A recast scenario casts twice at different targets while the first field is still active and verifies the first field's affected enemy is immediately restored, only the second field's target area remains active, and each cast spent mana once. A further scenario constructs a real TitleScreenController and WizardGameEntryController with their optional FrostField references assigned and verifies FrostField spends no mana and starts no field while the title/selection flow is active, then casts normally after WizardGameEntryController.EnterWorld completes, using the same production construction pattern WizardGameEntryPlayModeTests already uses.",
+      "gate_id": "VAL-003"
+    },
+    {
+      "reference": "Docs/Engineering/UNITY_TESTING_POLICY.md; Docs/AI-Pipeline/GAME_TASK_LESSONS_LEARNED.md",
+      "requirement": "FrostFieldSceneBuilderTests uses a non-saving in-memory builder seam to verify one correctly wired FrostField on Player and exactly one EnemyStatusEffectMovement on every built MeleeEnemy. It loads the project InputActionAsset and verifies Player/FrostField exists with at least one binding, that no Player/FrostField binding path is also bound to Player/MoveToCursor or to Fireball's or ForceWave's cast action in the project asset, and that generated FrostField and PlayerMovement reference the same asset. After the Windows controller materializes Assets/Scenes/DoorPrototype.unity, a separate read-only committed-scene check opens that exact scene, scopes object lookup to it, verifies the same wiring plus the TitleScreenController and WizardGameEntryController FrostField references, and closes without saving; the validation run separately records clean tracked and untracked repository state before and after execution.",
+      "gate_id": "VAL-004"
+    },
+    {
+      "reference": "nsc-gdd-008, nsc-gdd-010; Docs/GDD/No_Safe_Circle_GDD.md:54-58,73-79,88-90; Docs/Engineering/UNITY_TESTING_POLICY.md: Human runtime validation",
+      "requirement": "Vincent reviews the materialized canonical scene in Play Mode at the fixed gameplay camera. On open floor and the existing door approach, verify the accepted cast, active boundary, and expiry are readable without obscuring the wizard, pointer target, or door progress. If current-conformant Bone Archive or Chapel content is actually composed in the canonical scene at dispatch, also review the field in a 2.5-unit route and a 3.5- or 4.0-unit lane and beside real pew/column cover. Confirm Frost can stretch melee pursuit without feeling fully safe, does not imply protection from ranged attacks, and does not make cover or lateral movement unnecessary. This human gate does not treat the mere presence of undelivered room files as proof that those review locations are available.",
+      "gate_id": "VAL-005"
     }
   ],
-  "downstream_integration_obligations": [],
+  "downstream_integration_obligations": [
+    {
+      "reference": "NSC-033 Floor Run/Restart Persistent-Systems Closure; Docs/GDD/No_Safe_Circle_GDD.md:102-104,691",
+      "requirement": "NSC-033 invokes FrostField.ResetFrostField() during a production floor restart while an active field affects an enemy and verifies that neither FrostField-owned field state nor enemy-owned slowdown survives the restart.",
+      "obligation_id": "INT-001"
+    },
+    {
+      "reference": "NSC-087 Victory Gameplay Suspension Coordinator and NSC-086 Final-Door Victory Trigger/Suspension Wiring; Docs/GDD/No_Safe_Circle_GDD.md:98-100,605,690",
+      "requirement": "NSC-087 calls FrostField.SuspendGameplayInput() (which itself immediately clears an active field per AC-007) through its five-owner coordinator, and NSC-086 wires the scene reference from that coordinator to the generated FrostField component and verifies the complete final-door victory path, including that a field already active when victory suspension began is cleared immediately rather than left to expire.",
+      "obligation_id": "INT-002"
+    }
+  ],
   "gdd_evidence": [
     {
-      "reference": "Section 2 — Player Actions and Systems, Frost Field row",
-      "requirement": "Place a temporary area at the current cursor world-space target that heavily slows enemies; Frost Field consumes the shared pointer target exposed by Player Movement rather than projecting screen coordinates independently."
+      "reference": "nsc-gdd-010; Docs/GDD/No_Safe_Circle_GDD.md:64-66,89-90",
+      "requirement": "Frost Field places a temporary slowing area at Player Movement's shared world-space pointer target, without independent screen projection, and provides readable cast and active-field feedback."
     },
     {
-      "reference": "Section 2 — Frost Field targeting and feedback bullet",
-      "requirement": "Frost Field is placed at the current shared world-space pointer target exposed by Player Movement. The cast and active field provide player-facing feedback that makes the targeted placement and active effect readable while it is being placed/used."
+      "reference": "nsc-gdd-008; Docs/GDD/No_Safe_Circle_GDD.md:54-58,73-79",
+      "requirement": "Frost Field slows direct melee pursuit and stretches formations to create an opportunity for Fireball or a door attempt, but does not guarantee safety and may be a poor mana trade against a small or loose group."
     },
     {
-      "reference": "Section 2 — Spell-local state ownership bullet",
-      "requirement": "Frost Field owns its Wizard-Combat-side cast/placement/active-field state. Enemy-side Frost slowdown application/restoration remains owned by Enemy Pursuit/status-effect logic. Each owner exposes a reset entry point for owned state active at restart."
+      "reference": "nsc-gdd-008; Docs/GDD/No_Safe_Circle_GDD.md:76",
+      "requirement": "Frost slows a Ranged Enemy's repositioning but does not stop attacks; lateral movement and room geometry remain necessary."
     },
     {
-      "reference": "Section 2 — Spell and Enemy Interactions, Frost Field row",
-      "requirement": "Strongest against melee groups (slows pursuit, stretches formation, creates a Fireball/door opening) though it draws a meaningful share of the shared mana pool. Against Ranged Enemies, slows repositioning but does not stop attacks."
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:68,94",
+      "requirement": "A door-opening attempt resets only on damage, moving away, or a command that cancels or replaces the door interaction; a stationary Frost cast is none of those."
     },
     {
-      "reference": "Section 4 — Development Agent Roles, Wizard Combat Agent row",
-      "requirement": "Frost Field's actual slowdown effect is applied and restored by the Enemy Pursuit Agent; the Wizard Combat Agent only triggers the Frost Field effect and does not implement Ranged Enemy targeting or attacks."
+      "reference": "nsc-gdd-010, nsc-gdd-062, nsc-gdd-063; Docs/GDD/No_Safe_Circle_GDD.md:87,92,591-603",
+      "requirement": "Frost Field owns Player-side cast, field, and feedback state and spends through Player Mana. Enemy Pursuit/status-effect logic owns slowdown strength, application, restoration, and enemy movement state."
+    },
+    {
+      "reference": "nsc-gdd-053; Docs/GDD/No_Safe_Circle_GDD.md:526-532,537",
+      "requirement": "Enemy target loss remains distance-based and transitions through last-known-position search; Frost, cover, and doorway crossing do not make enemies forget the wizard."
+    },
+    {
+      "reference": "nsc-gdd-038; Docs/GDD/No_Safe_Circle_GDD.md:371-385",
+      "requirement": "Chapel pews and columns provide projectile cover while side routes remain reachable by melee pursuit; Frost does not replace cover collision or route behavior."
+    },
+    {
+      "reference": "nsc-gdd-073; Docs/GDD/No_Safe_Circle_GDD.md:685,688",
+      "requirement": "Player abilities determine which enemies are affected and request movement effects through the enemy-owned component; that component restores appropriate pursuit/search movement afterward."
     }
   ],
   "basis": "direct_gdd",
   "source_scope": "required",
-  "confidence": "medium",
-  "notes": "No dependency on player-mana is needed because PlayerMana.Spend already exists and is directly usable; Frost Field's real prerequisites are the still-unfinished Player-Movement pointer projection and the still-unfinished Enemy Pursuit status-effect owner.",
+  "confidence": "high",
+  "notes": "All four blocking decisions (control layout, door-timer effect, recast rule, victory-field behavior) are resolved by SPELL_DECISIONS.md (2026-09-16); this revision is dispatchable. The AC-005 'NSC-003 must restore the Input Actions asset' precondition from revision 3's prior draft is dropped: the asset exists on main today at 1096 lines with Player/PointerPosition and Player/MoveToCursor present; that claim came from a snapshot-scope artifact, not a repository gap. Field radius and lifetime are FrostField tuning (nonbinding starting ranges: lifetime 2.5-4.5 seconds, radius 1.5-3.0 world units); slow strength (approximately 0.25-0.50 of normal locomotion speed) is NSC-013 tuning. Slow applies only while an enemy is inside an active field; no lingering slow beyond one refresh interval after exit is authorized. The GER owner's graph apply adds NSC-008 to the RESOURCE_GROUPS.yaml entries for DoorPrototypeGlobalSceneBuilder.cs, TitleScreenController.cs, and WizardGameEntryController.cs at commit time; NSC-007 and NSC-009 separately add themselves to the same groups when each is committed. No dependency on NSC-066, NSC-068, NSC-015, or NSC-055 is added.",
   "repository_state_at_bootstrap": "missing",
   "repository_evidence_at_bootstrap": [],
   "provenance": {
@@ -105,6 +167,18 @@
     "reconciliation_run_id": "20260821T193541Z-998ee7b5",
     "verification_run_id": "20260821T195959Z-43dba5de",
     "bootstrap_status_observation": "open",
-    "migration_id": "task-contract-schema-v2-20260822-r2"
+    "migration_id": "task-contract-schema-v2-20260822-r2",
+    "owner_decisions": "SPELL_DECISIONS.md, 2026-09-16",
+    "contract_followups": [
+      {
+        "date": "2026-09-17",
+        "reason": "Owner decision revision 3 (design): GER Orchestrator spell decisions under Vincent's delegation (2026-09-15; reconfirmed 2026-09-17 'you can decide everything yourself on spells'), recorded in C:\\nscrev\\ger-contract-revisions-20260916\\spells\\SPELL_DECISIONS.md, applied to the GER packet's round-03 contract with round-04 fixes.",
+        "source_head": "c1b9cd9501557805372501fec4a63d5b34485f37",
+        "previous_contract_revision": 2,
+        "base_contract_sha256": "ce64b728dba5151aac6dbba755d4cd5173821e7da78c5f16ad055fa9f10b4a8c",
+        "revised_contract_sha256": "0f2384fd7f915bfe3ad48fb1282b0ddcd113866271ee39314ed7d46a45b95fb8",
+        "review": "none; taskcontrol validate only (Vincent, 2026-09-16)"
+      }
+    ]
   }
 }
