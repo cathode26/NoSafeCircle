@@ -683,7 +683,7 @@ class PooledSameProviderLaunchTests(unittest.TestCase):
         manager, head = _decomposition_parent_fixture(self, "assistant-decompose-runid-")
         with patch.object(decomposition_module, "decomposition_preflight",
                           return_value={"source_commit": head}):
-            with self.assertRaisesRegex(ValueError, "pooled decomposition run id"):
+            with self.assertRaisesRegex(ValueError, "Pooled decomposition run id"):
                 decomposition_module.run(
                     manager, "NSC-004", "NSC-004.Pooled_Run", providers="claude,claude",
                     compose_project="assistant-pool", execution_authorized=True,
