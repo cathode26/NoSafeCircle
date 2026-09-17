@@ -417,10 +417,11 @@ namespace NoSafeCircle.DoorPrototype.Tests
                     latestMeleeDisplacement.y = 0f;
                     return latestMeleeDisplacement.sqrMagnitude > 0.000001f &&
                         meleeAnimation.CurrentState != null &&
-                        meleeAnimation.CurrentState.StartsWith("MeleeEnemy_walk_");
+                        meleeAnimation.CurrentState.StartsWith("MeleeEnemy_walk_") &&
+                        meleeAnimation.LastDirection == DirectionFor(latestMeleeDisplacement);
                 },
                 5f,
-                "Chapel of Ash MeleeEnemy acquired the wizard but did not begin moving on the NavMesh.");
+                "Chapel of Ash MeleeEnemy did not animate in the direction of its NavMesh movement.");
 
             Assert.That(
                 (melee.transform.position - meleeStart).sqrMagnitude,
@@ -436,36 +437,82 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 "Chapel of Ash MeleeEnemy left the baked NavMesh before the stop-facing check.");
             agent.isStopped = true;
             agent.ResetPath();
-            yield return null;
+            agent.velocity = Vector3.zero;
 
+            const float StoppedPositionSqrTolerance = 0.00000001f;
+            Vector3 previousStoppedPosition = melee.transform.position;
+            int consecutiveStableFrames = 0;
+            bool hasFollowingFrameSample = false;
+            yield return WaitForCondition(
+                () =>
+                {
+                    Vector3 stoppedDisplacement =
+                        melee.transform.position - previousStoppedPosition;
+                    previousStoppedPosition = melee.transform.position;
+                    stoppedDisplacement.y = 0f;
+                    if (!hasFollowingFrameSample)
+                    {
+                        hasFollowingFrameSample = true;
+                        return false;
+                    }
+
+                    consecutiveStableFrames =
+                        stoppedDisplacement.sqrMagnitude <= StoppedPositionSqrTolerance
+                            ? consecutiveStableFrames + 1
+                            : 0;
+                    return consecutiveStableFrames >= 2;
+                },
+                5f,
+                "Chapel of Ash MeleeEnemy did not remain stopped for two consecutive frames.");
+
+            Vector3 stoppedMeleePosition = melee.transform.position;
             TeleportPlayer(
                 player,
                 playerController,
-                melee.transform.position + Vector3.left * 2f);
+                stoppedMeleePosition + Vector3.left * 2f);
             string stoppedTargetDirection =
-                DirectionFor(player.transform.position - melee.transform.position);
+                DirectionFor(player.transform.position - stoppedMeleePosition);
             Assert.AreNotEqual(
                 walkingDirection,
                 stoppedTargetDirection,
                 "VAL-006 setup must distinguish target-facing idle from retained movement facing.");
-            meleeAnimation.Tick(0.1f);
+            yield return WaitForCondition(
+                () =>
+                {
+                    Vector3 stopDrift = melee.transform.position - stoppedMeleePosition;
+                    stopDrift.y = 0f;
+                    return stopDrift.sqrMagnitude <= StoppedPositionSqrTolerance &&
+                        meleeAnimation.CurrentState != null &&
+                        meleeAnimation.CurrentState.StartsWith("MeleeEnemy_idle_") &&
+                        meleeAnimation.LastDirection == stoppedTargetDirection;
+                },
+                5f,
+                "Chapel of Ash MeleeEnemy did not remain stopped and play idle facing the wizard.");
             Assert.That(meleeAnimation.CurrentState, Does.StartWith("MeleeEnemy_idle_"));
             Assert.AreEqual(stoppedTargetDirection, meleeAnimation.LastDirection);
 
             TeleportPlayer(player, playerController, new Vector3(9f, 0f, 13f));
             EnemyLanternWispCaster caster = wraith.GetComponent<EnemyLanternWispCaster>();
+            EnemyAnimationController wraithAnimation =
+                wraith.GetComponent<EnemyAnimationController>();
+            string wraithTargetDirection =
+                DirectionFor(player.transform.position - wraith.transform.position);
             yield return WaitForCondition(
-                () => caster.FacingTarget == player.transform,
+                () => caster.FacingTarget == player.transform &&
+                    wraithAnimation.CurrentState ==
+                        "LanternWraith_idle_" + wraithTargetDirection &&
+                    wraithAnimation.LastDirection == wraithTargetDirection,
                 5f,
-                "Bone Archive LanternWraith at (7, 0, 13) did not get a clear view of the wizard.");
+                "Bone Archive LanternWraith did not play idle facing the visible wizard.");
 
-            EnemyAnimationController wraithAnimation = wraith.GetComponent<EnemyAnimationController>();
             yield return WaitForCondition(
                 () => FindNamedObject(scene, "LanternWisp") != null,
                 5f,
                 "Bone Archive LanternWraith saw the wizard but did not cast a LanternWisp.");
 
-            Assert.AreEqual("LanternWraith_idle_south-east", wraithAnimation.CurrentState);
+            Assert.AreEqual(
+                "LanternWraith_idle_" + wraithTargetDirection,
+                wraithAnimation.CurrentState);
             Assert.That(wraithAnimation.CurrentState, Does.Not.Contain("_walk_"));
             Assert.IsNotNull(FindNamedObject(scene, "LanternWisp"));
 
