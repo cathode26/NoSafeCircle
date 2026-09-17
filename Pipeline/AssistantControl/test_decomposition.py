@@ -1076,6 +1076,28 @@ class SameProviderReviewIndependenceTests(unittest.TestCase):
                 sessions=self.pooled_sessions(), pool=False,
             )
 
+    def test_a_role_session_without_a_confirmed_conversation_is_refused(self):
+        sessions = self.pooled_sessions()
+        reviewer = dict(sessions["claude:decomposition_reviewer"])
+        reviewer["confirmed_session"] = None
+        with self.assertRaisesRegex(ValueError, "no confirmed conversation"):
+            self.verify(
+                ("claude", "claude"), independence="same_provider_separate_sessions",
+                sessions=self.pooled_sessions(**{"claude:decomposition_reviewer": reviewer}),
+            )
+
+    def test_two_role_sessions_sharing_one_conversation_are_refused(self):
+        sessions = self.pooled_sessions()
+        author = sessions["claude:task_decomposer"]
+        reviewer = dict(sessions["claude:decomposition_reviewer"])
+        reviewer["confirmed_session"] = dict(author["confirmed_session"])
+        reviewer["confirmed_session"]["role"] = "decomposition_reviewer"
+        with self.assertRaisesRegex(ValueError, "not two distinct ones"):
+            self.verify(
+                ("claude", "claude"), independence="same_provider_separate_sessions",
+                sessions=self.pooled_sessions(**{"claude:decomposition_reviewer": reviewer}),
+            )
+
     def test_a_same_provider_run_that_used_other_leases_is_refused(self):
         with self.assertRaisesRegex(ValueError, "reserved role leases"):
             self.verify(

@@ -334,10 +334,25 @@ def _verify_review(manager: Checkouts, record: dict[str, Any]) -> dict[str, Any]
         sessions = run_result.get("pooled_sessions")
         if not isinstance(sessions, Mapping) or sorted(sessions) != sorted(reserved_leases):
             raise ValueError("Decomposition run did not use this run's reserved role leases")
+        confirmed_session_ids: list[str] = []
         for key, lease_id in sorted(reserved_leases.items()):
             session = sessions[key]
             if not isinstance(session, Mapping) or session.get("lease_id") != lease_id:
                 raise ValueError("Decomposition run did not use this run's reserved role leases")
+            proof = session.get("confirmed_session")
+            session_id = proof.get("session_id") if isinstance(proof, Mapping) else None
+            if not isinstance(session_id, str) or not session_id:
+                raise ValueError(
+                    "Decomposition run proved no confirmed conversation for a reserved role session"
+                )
+            confirmed_session_ids.append(session_id)
+        # The producer checks this too, but the guard that admits
+        # `same_provider_separate_sessions` must prove it here as well: one
+        # provider is an independent reviewer only as a second conversation.
+        if len(set(confirmed_session_ids)) != len(confirmed_session_ids):
+            raise ValueError(
+                "Same-provider decomposition roles proved one shared conversation, not two distinct ones"
+            )
     if run_result.get("unresolved_findings") != [] or run_result.get("rejection_reasons") != []:
         raise ValueError("Decomposition review carries unresolved findings or rejections")
     identity = run_result.get("source_identity") or {}
