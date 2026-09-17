@@ -152,10 +152,22 @@ def _validate_run_id(run_id: str) -> str:
     return run_id
 
 
+def same_provider_role_pair(providers: Iterable[str]) -> bool:
+    """True for the bounded two-position rotation one provider may serve alone.
+
+    One provider may author and review only as two separate pooled
+    conversations, so every layer that admits or refuses that shape -- this
+    circuit and the AssistantControl host that launches it -- asks here rather
+    than repeating the pair literals.
+    """
+
+    return tuple(providers) in (("codex", "codex"), ("claude", "claude"))
+
+
 def validate_provider_order(providers: Iterable[str], *, independent_codex_roles: bool = False) -> tuple[str, ...]:
     order = tuple(providers)
     # Retain the historical keyword for callers; both identity-bound role pairs qualify.
-    if independent_codex_roles and order in (("codex", "codex"), ("claude", "claude")):
+    if independent_codex_roles and same_provider_role_pair(order):
         return order
     if len(order) < 2:
         raise DecompositionPreflightError(
@@ -657,7 +669,7 @@ def run_round_robin_decomposition(
     if type(task_id) is not str or TASK_ID_RE.fullmatch(task_id) is None:
         raise DecompositionPreflightError("task ID must match NSC-###")
     requested_order = tuple(provider_order)
-    independent_codex_roles = requested_order in (("codex", "codex"), ("claude", "claude")) and lease_bundle is not None
+    independent_codex_roles = same_provider_role_pair(requested_order) and lease_bundle is not None
     order = validate_provider_order(requested_order, independent_codex_roles=independent_codex_roles)
     call_limit = round_robin_call_limit(max_calls)
     if independent_codex_roles:
