@@ -84,7 +84,6 @@ OTHER_REPOSITORY = "https://github.com/cathode26/Other.git"
 OTHER_COMMIT = "b" * 40
 BASE = dt.datetime(2026, 9, 4, 12, 0, 0, tzinfo=dt.timezone.utc)
 ROLE_CLASSES = {
-    "contract_locality_auditor": "high_reasoning",
     "implementer": "standard",
     "test_author": "low_cost",
     "validator": "high_reasoning",
@@ -310,8 +309,6 @@ class PooledFakeProvider:
 
     def role_output(self, attempt: int) -> dict:
         scenario = self.state.scenario
-        if self.role == "contract_locality_auditor":
-            return self.audit_output(scenario)
         if self.role == "implementer":
             if scenario == "schema_invalid_implementer":
                 return {}
@@ -341,33 +338,6 @@ class PooledFakeProvider:
                                   "required_fix": "add repaired marker"}]
                                 if status == "needs_changes" else []),
             "risks": [], "files_reviewed": [IMPL, TEST],
-        }
-
-    def audit_output(self, scenario: str) -> dict:
-        def local(entry_id: str, entry_type: str) -> dict:
-            return {"id": entry_id, "entry_type": entry_type, "classification": "local_to_task",
-                    "evidence": "owned locally by this task", "related_task_ids": [],
-                    "recommended_action": "keep"}
-
-        entries = [local("AC-001", "acceptance_criterion"), local("VAL-001", "completion_gate")]
-        if scenario != "contract_review_required":
-            return {"status": "pass", "summary": "locality audit", "entry_results": entries,
-                    "blocking_findings": [], "files_reviewed": [IMPL, TEST]}
-        entries[1] = {
-            "id": "VAL-001", "entry_type": "completion_gate",
-            "classification": "requires_declared_dependency",
-            "evidence": "cannot be proven without another task's already-integrated behavior",
-            "related_task_ids": [RELATED_TASK], "recommended_action": "add_dependency",
-        }
-        return {
-            "status": "contract_review_required", "summary": "locality audit",
-            "entry_results": entries,
-            "blocking_findings": [{"entry_id": "VAL-001",
-                                   "reason_code": "requires_declared_dependency",
-                                   "issue": "needs a declared dependency",
-                                   "recommended_action": "add_dependency",
-                                   "related_task_ids": [RELATED_TASK]}],
-            "files_reviewed": [IMPL, TEST],
         }
 
 
@@ -826,43 +796,55 @@ def test_missing_or_tampered_role_evidence_cannot_check_in() -> None:
 # ------------------------------------- 3: uninvoked roles and repair cycles
 
 
-def test_early_contract_audit_termination_leaves_later_roles_unproven() -> None:
+def test_a_lean_profile_skip_leaves_its_lease_unproven_and_unrecycled() -> None:
+    """The retired contract_locality_auditor was the only role able to stop the
+    crew before any attempt began, leaving every other role's lease provably
+    unproven; that pre-loop gate is gone (its branch in run_crew.py is now
+    unreachable dead code since `required_roles` never contains it). The
+    closest surviving "a role's pooled lease is never invoked by this run"
+    path is the lean crew profile, which omits the Test Author by design. This
+    still proves the pool quarantines that untouched lease with the right
+    reason and refuses to let a later lease resume it, while the roles that
+    did run check back in reusable.
+    """
+
     with tempfile.TemporaryDirectory(prefix="pooled-crew-") as text:
         parent = Path(text)
         source = fixture(parent)
         outputs = parent / "outputs"
         head, checkout = source_identity(source)
         pool = new_pool()
-        run_id = "nsc-005-audit-stop"
+        run_id = "nsc-005-lean-unproven"
         leases = all_leases(pool, head=head, checkout=checkout, run_id=run_id)
-        state = State("contract_review_required")
-        result, run_dir = pooled_run(source, outputs, run_id=run_id, leases=leases, state=state)
+        state = State("pass")
+        result, run_dir = pooled_run(source, outputs, run_id=run_id, leases=leases, state=state,
+                                     crew_profile="lean", validation_profile="targeted")
 
-        require(result["crew_status"] == "contract_review_required", str(result["crew_status"]))
-        require(result["attempts_used"] == 0, str(result["attempts_used"]))
-        require([item["role"] for item in state.invocations] == ["contract_locality_auditor"],
+        require(result["crew_status"] == "review_ready", str(result["crew_status"]))
+        require([item["role"] for item in state.invocations] == ["implementer", "validator"],
                 str([item["role"] for item in state.invocations]))
-        require(set(result["reusable_role_sessions"]) == {"contract_locality_auditor"},
+        require(set(result["reusable_role_sessions"]) == {"implementer", "validator"},
                 str(result["reusable_role_sessions"]))
-        for role in ("implementer", "test_author", "validator"):
-            record = result["pooled_role_leases"][role]
-            require(record["invoked"] is False, f"{role}: {record['invoked']}")
-            require(record["durable_assignment_result"] is None, f"{role}: {record}")
-            require(role not in result["durable_assignment_results"], role)
-            # A lease with no evidence is returned deliberately, never recycled.
-            session = pool.check_in(lease=leases[role], result=None, evidence_root=run_dir)
-            require(session.state == "quarantined", f"{role}: {session.state}")
-            require("no durable assignment result" in (session.quarantine_reason or ""),
-                    str(session.quarantine_reason))
-            fresh = lease_for(pool, role, head=head, checkout=checkout, run_id="nsc-005-later",
-                              now=BASE + dt.timedelta(seconds=60))
-            require(fresh.mode == "start", f"{role}: an unproven conversation was reused")
-        auditor = DurableAssignmentResult.from_dict(
-            result["durable_assignment_results"]["contract_locality_auditor"]
-        )
-        returned = pool.check_in(lease=leases["contract_locality_auditor"], result=auditor,
-                                 evidence_root=run_dir)
-        require(returned.state == "idle", str(returned.state))
+        record = result["pooled_role_leases"]["test_author"]
+        require(record["invoked"] is False, f"test_author: {record['invoked']}")
+        require(record["durable_assignment_result"] is None, f"test_author: {record}")
+        require("test_author" not in result["durable_assignment_results"], "test_author")
+        # A lease with no evidence is returned deliberately, never recycled.
+        session = pool.check_in(lease=leases["test_author"], result=None, evidence_root=run_dir)
+        require(session.state == "quarantined", f"test_author: {session.state}")
+        require("no durable assignment result" in (session.quarantine_reason or ""),
+                str(session.quarantine_reason))
+        fresh = lease_for(pool, "test_author", head=head, checkout=checkout,
+                          run_id="nsc-005-lean-unproven-2", now=BASE + dt.timedelta(seconds=60))
+        require(fresh.mode == "start", "test_author: an unproven conversation was reused")
+        # The two roles that actually ran check in cleanly and stay reusable.
+        for role in ("implementer", "validator"):
+            returned = pool.check_in(
+                lease=leases[role],
+                result=DurableAssignmentResult.from_dict(result["durable_assignment_results"][role]),
+                evidence_root=run_dir,
+            )
+            require(returned.state == "idle", f"{role}: {returned.state}")
 
 
 def test_a_repair_attempt_keeps_the_same_role_session() -> None:
@@ -885,7 +867,8 @@ def test_a_repair_attempt_keeps_the_same_role_session() -> None:
             require(calls[0]["session_id"] == calls[1]["session_id"] == leases[role].session_id,
                     f"{role}: a repair attempt changed conversation")
             require(calls[1]["mode"] == "resume", f"{role}: a repair attempt started a new session")
-        require(len({record["session_id"] for record in result["provider_sessions"]}) == 4,
+        require(len({record["session_id"] for record in result["provider_sessions"]})
+                == len(ROLE_CLASSES),
                 str(result["provider_sessions"]))
         # The last attempt's artifact is the evidence, and it still checks in.
         evidence = DurableAssignmentResult.from_dict(
@@ -1130,7 +1113,7 @@ def test_a_test_author_format_failure_repairs_only_that_role() -> None:
         require(result["crew_status"] == "review_ready", str(result["crew_status"]))
         require(result["attempts_used"] == 1, str(result["attempts_used"]))
         # The roles that already succeeded are not recomputed.
-        for role in ("contract_locality_auditor", "implementer", "validator"):
+        for role in ("implementer", "validator"):
             require(len(state.for_role(role)) == 1,
                     f"{role} was re-run for another role's format failure")
         # Only the failing role is retried, exactly once, in its own conversation.
@@ -1148,7 +1131,7 @@ def test_a_test_author_format_failure_repairs_only_that_role() -> None:
                 and repairs[0]["session_id"] == leases["test_author"].session_id,
                 str(repairs[0]))
         confirmations = [item for item in events if item["event"] == "provider_session_confirmed"]
-        require(len(confirmations) == 5, f"{len(confirmations)} confirmation receipts")
+        require(len(confirmations) == 4, f"{len(confirmations)} confirmation receipts")
         checkouts = [item for item in events if item["event"] == "pooled_role_checked_out"]
         require({item["role"] for item in checkouts} == set(ROLE_CLASSES), str(checkouts))
         published = [item for item in events if item["event"] == "pooled_role_evidence_published"]
@@ -1194,7 +1177,7 @@ def test_an_unproven_identity_fails_precisely_without_restarting_earlier_roles()
         # An unproven identity is never repaired in place: a fresh conversation
         # would lose the context and this run cannot prove which one the CLI made.
         require(len(state.for_role("test_author")) == 1, str(state.for_role("test_author")))
-        for role in ("contract_locality_auditor", "implementer"):
+        for role in ("implementer",):
             require(len(state.for_role(role)) == 1,
                     f"{role} was re-run for another role's unproven identity")
         require(not state.for_role("validator"), "the validator ran after a fail-closed stop")
@@ -1267,7 +1250,7 @@ def test_lean_profile_invokes_only_required_pooled_roles() -> None:
             == {"implementer", "validator"},
             str(result["durable_assignment_results"]),
         )
-        for role in ("contract_locality_auditor", "test_author"):
+        for role in ("test_author",):
             record = result["pooled_role_leases"][role]
             require(record["invoked"] is False, str(record))
             require(record["durable_assignment_result"] is None, str(record))
@@ -1280,7 +1263,7 @@ TESTS = (
     test_failed_role_output_is_never_reusable,
     test_a_successful_roles_exact_artifact_checks_in_and_resumes,
     test_missing_or_tampered_role_evidence_cannot_check_in,
-    test_early_contract_audit_termination_leaves_later_roles_unproven,
+    test_a_lean_profile_skip_leaves_its_lease_unproven_and_unrecycled,
     test_a_repair_attempt_keeps_the_same_role_session,
     test_a_reused_session_receives_the_capsule_once,
     test_a_pooled_lease_requires_a_session_aware_provider,

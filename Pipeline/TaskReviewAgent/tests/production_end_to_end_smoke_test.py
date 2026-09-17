@@ -374,7 +374,7 @@ DEEP = Scenario(
     expected_tier="deep",
     crew_profile="full",
     validation_profile="full_relevant",
-    required_roles=("contract_locality_auditor", "implementer", "test_author", "validator"),
+    required_roles=("implementer", "test_author", "validator"),
     scene_path="Assets/Scenes/MuffcabbageGauntlet951.unity",
 )
 # The negative cases exercise the fast scenario's fixture.
