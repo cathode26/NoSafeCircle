@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-077",
-  "contract_revision": 9,
+  "contract_revision": 10,
   "contract_disposition": "active",
   "title": "Enemy Art Integration for the Existing Moving Enemies",
   "reconciliation_key": "stationary-enemy-sprite-integration",
@@ -83,7 +83,7 @@
     {
       "criterion_id": "AC-008",
       "reference": "DoorPrototypeSceneBuilder.Build production path; NSC-039 world-sprite convention; enemy behavior boundaries",
-      "requirement": "DoorPrototypeSceneBuilder.Build remains the public materialization command, and DoorPrototypeSceneBuilder.cs is not edited. DoorPrototypeGlobalSceneBuilder.BuildChaseEnemies keeps creating each enemy's Visual child through DoorPrototypeSceneBuilder.CreateWorldSpriteVisual (NSC-039 sorting and ground-contact pivot convention, with AC-003's uniform scale and camera-facing rotation). It then sets the Visual sprite to that enemy type's south idle still, adds an Animator with that enemy type's generated controller, and adds EnemyAnimationController to the enemy root. In the saved scene no enemy SpriteRenderer shows a placeholder silhouette, in the Editor or in Play Mode. When the builder runs without an asset folder (BuildInMemoryForTests()), it loads the committed generated controllers instead of rebuilding them, as it already does for the wizard. Running DoorPrototypeSceneBuilder.Build again with the same inputs changes no controller, clip, import setting or scene object and creates no duplicate state, clip or object. Do not change pursuit, keep-distance movement, NavMeshAgent settings, target knowledge, the wraith's cast timing, range, sight test, mana, projectile flight or damage, enemy health, defeat, the Active Enemy Registry, DemoRunFlow, spawn positions, encounters, doors, rooms or the wizard. Generated clips, controllers, placeholder assets, .meta import settings and the scene are builder output only and are never hand-edited."
+      "requirement": "DoorPrototypeSceneBuilder.Build remains the public materialization command, and DoorPrototypeSceneBuilder.cs is not edited. DoorPrototypeGlobalSceneBuilder.BuildChaseEnemies keeps creating each enemy's Visual child through DoorPrototypeSceneBuilder.CreateWorldSpriteVisual (NSC-039 sorting and ground-contact pivot convention, with AC-003's uniform scale and camera-facing rotation). It then sets the Visual sprite to that enemy type's south idle still, adds an Animator with that enemy type's generated controller, and adds EnemyAnimationController to the enemy root. In the saved scene no enemy SpriteRenderer shows a placeholder silhouette, in the Editor or in Play Mode. When the builder runs without an asset folder (BuildInMemoryForTests()), it loads the committed generated controllers instead of rebuilding them, as it already does for the wizard. Running DoorPrototypeSceneBuilder.Build again with the same inputs changes no generated controller, clip, placeholder asset or .meta import setting, and creates no duplicate animator state, clip, enemy object or enemy component. Assets/Scenes/DoorPrototype.unity is excluded from byte comparison because Unity regenerates its local fileIDs on every save (VAL-007); the absence of duplicate enemy objects and components in the saved scene is proven by VAL-003. Do not change pursuit, keep-distance movement, NavMeshAgent settings, target knowledge, the wraith's cast timing, range, sight test, mana, projectile flight or damage, enemy health, defeat, the Active Enemy Registry, DemoRunFlow, spawn positions, encounters, doors, rooms or the wizard. Generated clips, controllers, placeholder assets, .meta import settings and the scene are builder output only and are never hand-edited."
     }
   ],
   "completion_gates": [
@@ -100,7 +100,7 @@
     {
       "gate_id": "VAL-003",
       "reference": "Focused Edit Mode saved-scene conformance",
-      "requirement": "EnemyArtIntegrationTests opens the saved Assets/Scenes/DoorPrototype.unity without saving and proves that every MeleeEnemy and LanternWraith under the Enemies root, with at least one of each and no FireCasterEnemy, has one Animator using its enemy type's controller, one EnemyAnimationController, a Visual SpriteRenderer showing its south idle still instead of a placeholder, the NSC-039 world-sprite sorting, a uniform Visual scale of 1 and the camera-facing Visual rotation, with EnemyAnimationController's camera-rotation constant equal to DoorPrototypeGlobalSceneBuilder.IsometricCameraEulerAngles, and the gameplay components and NavMeshAgent settings the builder gave that enemy before this task, with EnemyLanternWispCaster in place of EnemyFireballCaster."
+      "requirement": "EnemyArtIntegrationTests opens the saved Assets/Scenes/DoorPrototype.unity without saving and proves that every MeleeEnemy and LanternWraith under the Enemies root, with exactly one MeleeEnemy per entry of DoorPrototypeGlobalSceneBuilder's melee spawn-position array and exactly one LanternWraith per entry of its Lantern Wraith spawn-position array (both read by reflection, at least one of each) and no FireCasterEnemy, has one Animator using its enemy type's controller, one EnemyAnimationController, a Visual SpriteRenderer showing its south idle still instead of a placeholder, the NSC-039 world-sprite sorting, a uniform Visual scale of 1 and the camera-facing Visual rotation, with EnemyAnimationController's camera-rotation constant equal to DoorPrototypeGlobalSceneBuilder.IsometricCameraEulerAngles, and the gameplay components and NavMeshAgent settings the builder gave that enemy before this task, with EnemyLanternWispCaster in place of EnemyFireballCaster."
     },
     {
       "gate_id": "VAL-004",
@@ -272,6 +272,15 @@
         "previous_contract_revision": 8,
         "base_contract_sha256": "6f28c3bd0d1a78391f7524be64f4b7aead4edc978825cf79fb02ca21e55afc03",
         "revised_contract_sha256": "4fe0bfe35ca8b190d2728b1dc10393b19c2a0847de25ef6485f6d13248701f19",
+        "review": "post-commit Codex contract check (tiered rule, 2026-09-17)"
+      },
+      {
+        "date": "2026-09-17",
+        "reason": "Follow-up revision 10 from the rev 9 Codex check (revise, blocking): AC-008's rebuild clause no longer covers scene objects; a repeat Build changes no generated controller, clip, placeholder asset or .meta import setting and duplicates nothing, while Assets/Scenes/DoorPrototype.unity is excluded from byte comparison (VAL-007) and VAL-003 now proves exactly one MeleeEnemy and one LanternWraith per entry of the builder's spawn-position arrays. The validation policy filters are unchanged and rebound to this revision.",
+        "source_head": "2f54be6853479d886d032b107a8a871196a1d02f",
+        "previous_contract_revision": 9,
+        "base_contract_sha256": "1b3377af2db8310e8bb2c62dd08d331e8d29dc785187e754340ba69b7a6a1418",
+        "revised_contract_sha256": "de61930546ce3875bde1129966fb75eff946c559ca87694fbd6e09a1fe1e818a",
         "review": "post-commit Codex contract check (tiered rule, 2026-09-17)"
       }
     ],
