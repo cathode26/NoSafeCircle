@@ -175,7 +175,8 @@ def assert_success(result, state, run_dir):
     require(calls[1]["session"].provider_identifier == "openai-codex" and
             calls[1]["session"].mode == "start" and calls[1]["session"].session_id is None,
             "Codex resumed the exhausted Claude session")
-    require(len(state.invocations) == 5, "earlier roles reran or a second worker was hidden")
+    require(len(state.invocations) == len(shared.ROLE_CLASSES) + 1,
+            "earlier roles reran or a second worker was hidden")
     require(set(result["provider_handoffs"]) == {"implementer"}, "wrong roles handed off")
     handoff = result["provider_handoffs"]["implementer"]
     require(handoff["status"] == "succeeded" and handoff["partial_changed_paths"] == [shared.IMPL], "handoff evidence lost")
@@ -262,12 +263,14 @@ def test_pool_quarantines_exhausted_lease_and_never_reuses_codex_as_claude():
             pass
         else:
             raise AssertionError("tampered quota evidence was accepted")
-        require(len(pool.sessions_for("active")) == 4, "failed evidence mutated pool")
+        require(len(pool.sessions_for("active")) == len(shared.ROLE_CLASSES),
+                "failed evidence mutated pool")
         owner._settle_payload(pool, assignment, result, run_dir)
         quarantine = pool.sessions_for("quarantined")
         require(len(quarantine) == 1 and quarantine[0].record_id == leases["implementer"].record_id,
                 "exhausted session was not quarantined")
-        require(len(pool.sessions_for("idle")) == 3, "other roles lost valid session evidence")
+        require(len(pool.sessions_for("idle")) == len(shared.ROLE_CLASSES) - 1,
+                "other roles lost valid session evidence")
 
 
 def test_no_fallback_for_unrelated_errors_forbidden_codex_or_second_exhaustion():
@@ -301,7 +304,7 @@ def test_codex_only_never_invokes_claude_and_invalid_routes_fail_before_work():
 
 
 def test_all_roles_preserve_their_own_scope_and_unconfirmed_source_session_is_never_invented():
-    for role in ("contract_locality_auditor", "test_author", "validator"):
+    for role in ("test_author", "validator"):
         with case(quota_role=role) as (result, state, _, _, _):
             require(result["crew_status"] == "review_ready", result["rejection_reasons"])
             calls = state.for_role(role)
@@ -309,7 +312,7 @@ def test_all_roles_preserve_their_own_scope_and_unconfirmed_source_session_is_ne
             first, second = [item["request"] for item in calls]
             require(first.write_boundaries == second.write_boundaries and first.allowed_capabilities == second.allowed_capabilities,
                     "role authority changed at handoff")
-            require(len(state.invocations) == 5, "handoff replayed other roles")
+            require(len(state.invocations) == len(shared.ROLE_CLASSES) + 1, "handoff replayed other roles")
     with case("quota_no_identity", pooled=True) as (result, state, run_dir, _, _):
         assert_success(result, state, run_dir)
         failure = result["provider_quota_failures"]["implementer"]
