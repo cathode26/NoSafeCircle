@@ -1,8 +1,9 @@
 {
   "schema_version": "2.0",
   "id": "NSC-094",
-  "contract_revision": 1,
-  "contract_disposition": "active",
+  "contract_revision": 2,
+  "contract_disposition": "superseded",
+  "superseded_by": "NSC-077",
   "title": "Enemy Eight-Direction Walk Animation Integration",
   "reconciliation_key": "enemy-eight-direction-walk-integration",
   "kind": "implementation",
@@ -12,14 +13,11 @@
   "decomposition_state": "concrete",
   "decomposition_reason": "The two enemy prefabs, 96 approved source frames, directional state binding, and focused visual/runtime checks form one integration boundary.",
   "parent": "NSC-010",
-  "depends_on": ["NSC-093", "NSC-077"],
-  "exclusive_resources": [
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/Walk",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/Enemies/Walk",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyWalkAnimation.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/EnemyWalkAnimationIntegrationTests.cs",
-    "logical:enemy-walk-animation-presentation"
+  "depends_on": [
+    "NSC-093",
+    "NSC-077"
   ],
+  "exclusive_resources": [],
   "acceptance_criteria": [
     {
       "criterion_id": "AC-001",
@@ -56,19 +54,36 @@
   ],
   "downstream_integration_obligations": [],
   "gdd_evidence": [
-    {"reference": "GDD Required Enemy Roster", "requirement": "Melee and Ranged enemies are moving gameplay characters."},
-    {"reference": "GDD 2.5D Isometric Visual and World Representation", "requirement": "Directional world-space sprites must remain grounded and readable."}
+    {
+      "reference": "GDD Required Enemy Roster",
+      "requirement": "Melee and Ranged enemies are moving gameplay characters."
+    },
+    {
+      "reference": "GDD 2.5D Isometric Visual and World Representation",
+      "requirement": "Directional world-space sprites must remain grounded and readable."
+    }
   ],
   "basis": "human_requested_all_moving_characters_eight_direction_walk",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "This task owns only reusable walk animation presentation integration. NSC-015 and NSC-055 consume its outputs during later enemy-prefab assembly; they do not edit this task's generated walk assets. Wizard eight-direction work remains NSC-074/NSC-075.",
+  "notes": "Superseded by NSC-077 contract revision 3 on 2026-09-16 at Vincent's direction: NSC-077 now puts the approved enemy idle and walk art, including this task's walk animation scope, on the existing scene enemies. Do not implement this task; its resource claims are released. This task owns only reusable walk animation presentation integration. NSC-015 and NSC-055 consume its outputs during later enemy-prefab assembly; they do not edit this task's generated walk assets. Wizard eight-direction work remains NSC-074/NSC-075.",
   "repository_state_at_bootstrap": "not_applicable",
   "repository_evidence_at_bootstrap": [],
   "provenance": {
     "origin": "human_requested_enemy_eight_direction_walk_followup",
     "source_art_task_id": "NSC-093",
     "presentation_task_id": "NSC-077",
-    "created_by_human_request": true
+    "created_by_human_request": true,
+    "contract_followups": [
+      {
+        "date": "2026-09-17",
+        "reason": "NSC-094 is superseded by NSC-077 revision 3 at Vincent's direction (2026-09-16); its walk animation scope moved there and its resource claims are released.",
+        "source_head": "50753aa5232cdb4a7f9d6469704d9bd813b35003",
+        "previous_contract_revision": 1,
+        "base_contract_sha256": "cfa2ea15ec22950d20e5d34acb4837b8cfb60053686b2bd9e3031cd31a59e6ce",
+        "revised_contract_sha256": "b8af1179dc68639dd6ae4b1f8f5b9678be3b88e19118cf3914e2c065ea4da90d",
+        "review": "none; taskcontrol validate only (Vincent, 2026-09-16)"
+      }
+    ]
   }
 }
