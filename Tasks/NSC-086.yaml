@@ -13,7 +13,7 @@
     {
       "criterion_id": "AC-003",
       "reference": "Victory/input-shutdown ownership",
-      "requirement": "When the won state begins, the component calls the sibling Victory Gameplay Suspension Coordinator's public suspend-all method. It does not call the individual Player Movement, Door Interaction, Fireball, Frost Field, or Force Wave suspend methods itself."
+      "requirement": "When the won state begins, the component calls the sibling Victory Gameplay Suspension Coordinator's public suspend-all method. It does not call the individual Player Movement, Door Interaction, Fireball, Frost Field, Force Wave, or Spectral Decoy suspend methods itself."
     },
     {
       "criterion_id": "AC-004",
@@ -23,7 +23,7 @@
     {
       "criterion_id": "AC-005",
       "reference": "Victory/input-shutdown ownership",
-      "requirement": "DoorPrototypeSceneBuilder adds and configures the victory trigger, Victory Gameplay Suspension Coordinator, and You Escaped overlay in Assets/Scenes/DoorPrototype.unity. The builder assigns the final DoorInteractable crossing source, overlay GameObject, coordinator reference, Player Movement, Door Interaction, Fireball, Frost Field, and Force Wave components so the complete victory call path is usable in Play Mode."
+      "requirement": "DoorPrototypeSceneBuilder adds and configures the victory trigger, Victory Gameplay Suspension Coordinator, and You Escaped overlay in Assets/Scenes/DoorPrototype.unity. The builder assigns the final DoorInteractable crossing source, overlay GameObject, coordinator reference, Player Movement, Door Interaction, Fireball, Frost Field, Force Wave, and SpectralDecoy components so the complete victory call path is usable in Play Mode."
     }
   ],
   "basis": "direct_gdd",
@@ -31,17 +31,17 @@
     {
       "gate_id": "VAL-001",
       "reference": "Win and Loss Conditions",
-      "requirement": "Play Mode check in the configured gameplay scene: crossing the final door's forward side displays the You Escaped overlay and immediately stops active movement, an active door approach or opening timer, and active input-driven behavior on Fireball, Frost Field, and Force Wave."
+      "requirement": "Play Mode check in the configured gameplay scene: crossing the final door's forward side displays the You Escaped overlay and immediately stops active movement, an active door approach or opening timer, and active input-driven behavior on Fireball, Frost Field, and Force Wave, and ends an active Spectral Decoy phantom so every redirected enemy leaves its decoy redirect through EnemyTargetKnowledge's owner API."
     },
     {
       "gate_id": "VAL-002",
       "reference": "Victory/input-shutdown ownership",
-      "requirement": "Play Mode check in the configured gameplay scene: after final-door victory, movement, door-interaction, and spell input has no gameplay effect until the coordinator is invoked by an authorized re-enable or reset flow."
+      "requirement": "Play Mode check in the configured gameplay scene: after final-door victory, movement, door-interaction, and spell input, including the Spectral Decoy action, has no gameplay effect until the coordinator is invoked by an authorized re-enable or reset flow."
     }
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "decomposition_reason": "The GDD specifies the final-door crossing trigger, overlay, and ownership boundary. This child owns the final Unity scene assembly so the separately implemented trigger and suspension coordinator form one usable Game Flow/Victory behavior.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -71,14 +71,25 @@
   ],
   "id": "NSC-086",
   "kind": "implementation",
-  "notes": "This child is the final Unity assembly owner. It uses the final door crossing event from NSC-020, installs the You Escaped overlay, adds and configures both proposed components through DoorPrototypeSceneBuilder, and calls one coordinator method instead of duplicating five gameplay-owner calls.",
+  "notes": "This child is the final Unity assembly owner. It uses the final door crossing event from NSC-020, installs the You Escaped overlay, adds and configures both proposed components through DoorPrototypeSceneBuilder, and calls one coordinator method instead of duplicating six gameplay-owner calls. Revision 2 (2026-09-17) adds the Spectral Decoy, recording NSC-088 revision 4 INT-002.",
   "parent": "NSC-035",
   "provenance": {
     "graph_delta_plan_id": "GDP-02475ad0d3f79c27586c7c7f8096c58e77356bd09ca1e38cdc9bad391a0329f6",
     "origin": "progressive_decomposition",
     "parent_contract_revision": 2,
     "parent_contract_sha256": "66c1260f95dfa61738626b81b84d3c6a8067d5245ceff471aa81756c4e0c0a7f",
-    "parent_task_id": "NSC-035"
+    "parent_task_id": "NSC-035",
+    "contract_followups": [
+      {
+        "date": "2026-09-17",
+        "reason": "Follow-up revision 2 recording NSC-088 revision 4 INT-002 (GER Orchestrator, 2026-09-17): the builder wires the SpectralDecoy component into the victory path and the final-door victory checks prove an active phantom ends, redirected enemies return through EnemyTargetKnowledge's owner API, and later Spectral Decoy input has no effect.",
+        "source_head": "a34c52211a2eecc9007e297750d1ded5d560a2b5",
+        "previous_contract_revision": 1,
+        "base_contract_sha256": "9ae29235fa6307fd0a0d8d5a8bc97ac77df6325ecfad830b9b9a1c4bef136af2",
+        "revised_contract_sha256": "a14be890c44417b341bcc85c9b8770c2d82bd7b0f44e9c78f8fa75a015276582",
+        "review": "post-commit Codex contract check (tiered rule, 2026-09-17)"
+      }
+    ]
   },
   "reconciliation_key": "victory-trigger-overlay-integration",
   "repository_evidence_at_bootstrap": [],
