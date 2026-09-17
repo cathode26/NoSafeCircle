@@ -1,125 +1,188 @@
 {
   "schema_version": "2.0",
   "id": "NSC-077",
-  "contract_revision": 2,
+  "contract_revision": 3,
   "contract_disposition": "active",
-  "title": "Stationary Enemy Sprite Integration and Room Placement",
+  "title": "Enemy Art Integration for the Existing Moving Enemies",
   "reconciliation_key": "stationary-enemy-sprite-integration",
   "kind": "implementation",
-  "type": "stationary-enemy-presentation-integration",
+  "type": "enemy-art-animation-integration",
   "execution_scope": "single_agent",
-  "execution_reason": "One agent can import the approved Melee Enemy and Ranged Enemy presentation sets, materialize deterministic sprite metadata and reusable stationary prefabs, wire the existing world-sprite sorting convention, and place a bounded review sample in the composed five-room world.",
+  "execution_reason": "One Unity integration task can import the approved Melee Enemy and Lantern Wraith idle and walk art in place, generate their Animator controllers and clips through the scene builder, add one enemy animation component, turn the scene's fire caster into the Lantern Wraith with a teal lantern-wisp projectile, and put the art on the enemies DoorPrototypeGlobalSceneBuilder already builds, without changing enemy gameplay.",
   "decomposition_state": "concrete",
-  "decomposition_reason": "The source-art import contract, shared presentation component, prefab materialization, room review placement, and focused conformance checks form one intentionally presentation-only vertical slice. No child task is required or permitted.",
+  "decomposition_reason": "Source import, generated clips and controllers, the enemy animation component and its facing rules, the Lantern Wraith renaming and projectile look, builder wiring for the two existing enemy types, the scene rebuild and the focused tests form one bounded presentation integration. No child task is required.",
   "parent": "NSC-010",
-  "depends_on": ["NSC-063", "NSC-039"],
+  "depends_on": [
+    "NSC-039",
+    "NSC-063",
+    "NSC-075",
+    "NSC-091",
+    "NSC-092",
+    "NSC-093"
+  ],
   "exclusive_resources": [
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/Enemies",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/StationaryEnemyPresentation.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/StationaryEnemyDirection.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/StationaryEnemyReviewPlacement.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Enemies/StationaryEnemyPresentationBuilder.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/StationaryEnemyPresentationIntegrationTests.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/StationaryEnemyStationaryBehaviorPlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Enemies",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs",
-    "unity-scene:Assets/Scenes/DoorPrototype.unity"
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/EnemyAnimationAssetBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/EnemyAnimationAssetBuilder.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/FireCasterEnemySprite.asset",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/FireCasterEnemySprite.asset.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/LanternWraithSprite.asset",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/LanternWraithSprite.asset.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyAnimationController.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyAnimationController.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyFireballCaster.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyFireballCaster.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyLanternWispCaster.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyLanternWispCaster.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/EnemyArtIntegrationTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/EnemyArtIntegrationTests.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/EnemyAnimationPlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/EnemyAnimationPlayModeTests.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/EnemyLanternWispCasterPlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/EnemyLanternWispCasterPlayModeTests.cs.meta",
+    "unity-scene:Assets/Scenes/DoorPrototype.unity",
+    "logical:enemy-walk-animation-presentation"
   ],
   "acceptance_criteria": [
     {
       "criterion_id": "AC-001",
-      "reference": "NSC-063 approved PixelLab source-art handoff",
-      "requirement": "Import exactly the 16 selected source images: Melee Enemy and Ranged Enemy, each with explicit n, ne, e, se, s, sw, w, and nw direction identities. The import contract rejects a missing, duplicated, ambiguously named, wrong-family, or wrong-direction source and does not substitute unapproved art."
+      "reference": "Vincent, 2026-09-16: integrate the art into the existing enemies, and the ranged enemy becomes the Lantern Wraith; DoorPrototypeGlobalSceneBuilder.BuildChaseEnemies on main at b05a06ee1",
+      "requirement": "Put the approved enemy art on the enemies that DoorPrototypeGlobalSceneBuilder.BuildChaseEnemies already builds into Assets/Scenes/DoorPrototype.unity, in place of their generated placeholder silhouettes. Every MeleeEnemy (NavMeshAgent, EnemyTargetKnowledge, EnemyPursuitMovement, EnemyHealth) uses the Melee Enemy (Dungeon Brute) art. Every ranged enemy, today a FireCasterEnemy with EnemyFireballCaster and EnemyHealth, becomes a Lantern Wraith (AC-007) and uses the Ranged Enemy (Lantern Wraith) art. Keep the Enemies root, spawn positions, counts, components and all gameplay tuning. Do not add prefabs, review-only enemies or room placements; the stationary review prefabs and review placement of contract revision 2 are dropped."
     },
     {
       "criterion_id": "AC-002",
-      "reference": "Approved Unity sprite presentation contract and NSC-039 world-sprite sorting foundation",
-      "requirement": "Materialize deterministic Unity sprite metadata for all 16 images with explicit direction and archetype mapping, transparent texture import, the approved feet or grounded pivot, the approved pixels-per-unit and filter mode, and stable scale calibrated against the wizard and closer isometric camera. Every reusable enemy presentation prefab uses a world-space SpriteRenderer and the established isometric sorting convention."
+      "reference": "NSC-063 idle stills in Art/Enemies/Source; NSC-093 walk frames and Art/Enemies/Source/Walk/inventory.json; NSC-075 import fixes 0d28b0bf5 and bf97d116c",
+      "requirement": "EnemyAnimationAssetBuilder imports in place, without copying, exactly the 16 idle stills enemy_<melee|ranged>_<n|ne|e|se|s|sw|w|nw>_idle_00.png (128x128) and the 96 walk frames enemy_<melee|ranged>_<direction code>_walk_<00..05>.png (176x176). Direction codes map explicitly: n is north, ne north-east, e east, se south-east, s south, sw south-west, w west and nw north-west; never infer a direction from file order. For every source the builder sets the TextureImporter explicitly, as ImportWizardSprite does: Sprite texture type, Single sprite mode, Texture2D texture shape, point-light cookie defaults reset, uncompressed, and the AC-003 pixels-per-unit, filter mode and mipmap setting. The pivot is centered horizontally and sits on the image's ground line: for walk frames the inventory's alpha_bottom_y_from_top (132 of 176, pivot y 0.25), and for each idle still the bottom edge of its lowest row that contains an opaque pixel, the same rule NSC-093 used to align the walk frames. Some Lantern Wraith stills have a lantern-staff tip 2 to 4 pixels below the feet; if Vincent sees a facing float or its feet jump between idle and walk, the builder may apply a whole-pixel pivot correction per enemy type and direction from one table in EnemyAnimationAssetBuilder, and the audit tests read the same table. A missing, duplicated, extra or wrongly sized source stops the build with an error that names the file. Under Art/Enemies/Source only .png.meta import settings may change; GUIDs, PNGs, inventory.json and documents stay unchanged. Do not bind exact PNG hashes."
     },
     {
       "criterion_id": "AC-003",
-      "reference": "NSC-069 composed five-room world",
-      "requirement": "Place at least one Melee Enemy and one Ranged Enemy presentation instance at authored review anchors in the deterministic five-room composition, with deterministic scattering or per-room placement data. Anchors keep both examples readable and leave wizard navigation lanes, door openings, and room transitions clear."
+      "reference": "GER owner design decision with Art Director advice, 2026-09-16; art-director guide section 11 item 1 (pixel density, Vincent's pick pending); ImportWizardSprite",
+      "requirement": "All 112 enemy sprites share one named pixels-per-unit constant, set to 128 as a stand-in until Vincent picks the game's pixel density. At 128 an enemy's idle canvas covers the same one-unit footprint as the wizard's 180-pixel canvas, and with the unchanged 1 x 2 Visual size the Dungeon Brute stands about 85% of the wizard's height while the Lantern Wraith's lantern-staff, not its hood, reaches about the wizard's height; an enemy art pixel draws about 1.4 times larger than a wizard art pixel. Idle stills and walk frames share the constant, so an enemy does not change size between idle and walk. Filter mode and mipmap setting match the wizard source importer's (Point and no mipmaps at b05a06ee1), so Vincent's pixel-density choice changes both families together. If Vincent asks for a different enemy size during VAL-008, change only the constant."
     },
     {
       "criterion_id": "AC-004",
-      "reference": "Presentation-only vertical-slice boundary",
-      "requirement": "The integrated examples remain stationary and presentation-only. They contain no pursuit, navigation, attacks, projectiles, damage, health, registry bookkeeping, defeat, encounters, or final balance behavior; those responsibilities remain with NSC-015, NSC-055, and NSC-030."
+      "reference": "NSC-075 AC-002 and AC-005 wizard Animator pattern (DoorPrototypeGlobalSceneBuilder.BuildWizardAnimationAssets)",
+      "requirement": "EnemyAnimationAssetBuilder generates, under Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated, MeleeEnemyAnimator.controller and LanternWraithAnimator.controller, each with one layer and exactly 16 states, and one .anim clip per state. The state name, clip name and clip file name are identical: <MeleeEnemy|LanternWraith>_<idle|walk>_<direction>, where direction is north, north-east, east, south-east, south, south-west, west or north-west. MeleeEnemy clips use the enemy_melee sources and LanternWraith clips use the enemy_ranged sources. An idle clip holds that enemy type's idle still for that direction. A walk clip holds walk_00 to walk_05 of exactly that enemy type and direction, in order, at 12 frames per second. Every clip loops and animates only m_Sprite on the SpriteRenderer of the child named Visual, as the wizard clips do."
     },
     {
       "criterion_id": "AC-005",
-      "reference": "Deterministic Unity builder and generated-asset ownership",
-      "requirement": "A named Editor or batchmode materialization command owns the generated sprite metadata, prefab assets, and review placement serialization. Running it twice from the same inputs produces the same archetype/direction bindings, renderer settings, pivot, scale, sorting values, placement anchors, and object counts without duplicate assets or instances."
+      "reference": "NSC-075 corrected screen mapping (fix 7fc15c528, approved by Vincent in VAL-005); WizardAnimationController",
+      "requirement": "Add EnemyAnimationController in Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies. It requires an Animator, owns only which enemy animation state plays, and never moves the enemy. The walk state plays while the enemy moves and the idle state plays when it stops. Moving is decided from planar speed (distance moved divided by frame time), with a start-walking threshold above a lower stop-walking threshold, so a speed hovering near one threshold cannot switch idle and walk on consecutive frames. While walking, facing is the eight-way screen direction of the movement for the fixed camera rotation (30, -45, 0): screen right is world X + Z and screen up is world Z - X, so world +X faces south-east, +Z north-east, -X north-west, -Z south-west, +X+Z east, +X-Z south, -X+Z north and -X-Z west. Use the same angular hysteresis as WizardAnimationController so movement along a sector boundary does not flicker. Facing starts as south. Expose read-only CurrentState and LastDirection and a public Tick(float deltaTime) that the component calls once per frame after movement (for example from LateUpdate), so Play Mode tests can drive it deterministically. Do not edit WizardAnimationController.cs."
+    },
+    {
+      "criterion_id": "AC-006",
+      "reference": "GER owner design decision, 2026-09-16: the ranged enemy never moves on main, so its eight facings can only be seen when it turns toward the wizard",
+      "requirement": "When an enemy is not walking, it faces its current target with the AC-005 mapping and hysteresis; with no target it keeps its last facing. A MeleeEnemy faces EnemyTargetKnowledge.CurrentTarget while EnemyTargetKnowledge.HasTarget is true. A LanternWraith faces the wizard while the wizard is inside EnemyLanternWispCaster's cast range with an unobstructed view, using the same range and line-of-sight tests it runs before casting, whether or not it has mana left. EnemyLanternWispCaster may gain additive public read-only members that reuse those private checks. A walking enemy always faces its movement, never its target."
+    },
+    {
+      "criterion_id": "AC-007",
+      "reference": "Vincent, 2026-09-16: the ranged enemy becomes the Lantern Wraith and its fireball becomes a teal ghost-light lantern wisp with the same gameplay; art-director guide section 11 item 2; art bible section 5 (Lantern Wraith)",
+      "requirement": "Turn the scene's fire caster into the Lantern Wraith without changing its gameplay. The builder names each ranged enemy GameObject LanternWraith instead of FireCasterEnemy. EnemyFireballCaster becomes EnemyLanternWispCaster: move EnemyFireballCaster.cs and its .meta to EnemyLanternWispCaster.cs and EnemyLanternWispCaster.cs.meta so the script GUID survives, and keep its public Initialize, Tick, CurrentMana and IsOutOfMana members, its serialized field names and every serialized default (60 mana, 10 mana per cast, 1 second cast interval, 14 unit cast range, projectile speed 8, hit radius 0.8, lifetime 4 seconds, 5 damage). Its projectile GameObject is named LanternWisp and shows a glowing teal ghost-light orb, unlit or emissive in the art bible's teal #30e0cb, with no fire colors, at today's projectile size. The wraith's placeholder asset key becomes LanternWraithSprite, the unused FireCasterEnemySprite.asset and its .meta are deleted, and no fire naming or fire colors remain in the wraith's builder code, script or projectile. The legacy FireCasterEnemy entry in DoorPrototypeSceneBuilder's clear list stays, because that file is not edited. The wisp orb is a stand-in: the wind-up flare, the wisp sprite and the hit puff wait for Vincent's pick of the Art Director's samples."
+    },
+    {
+      "criterion_id": "AC-008",
+      "reference": "DoorPrototypeSceneBuilder.Build production path; NSC-039 world-sprite convention; enemy behavior boundaries",
+      "requirement": "DoorPrototypeSceneBuilder.Build remains the public materialization command, and DoorPrototypeSceneBuilder.cs is not edited. DoorPrototypeGlobalSceneBuilder.BuildChaseEnemies keeps creating each enemy's Visual child through DoorPrototypeSceneBuilder.CreateWorldSpriteVisual (NSC-039 sorting, ground-contact pivot convention, 1 x 2 world size). It then sets the Visual sprite to that enemy type's south idle still, adds an Animator with that enemy type's generated controller, and adds EnemyAnimationController to the enemy root. In the saved scene no enemy SpriteRenderer shows a placeholder silhouette, in the Editor or in Play Mode. When the builder runs without an asset folder (BuildInMemoryForTests()), it loads the committed generated controllers instead of rebuilding them, as it already does for the wizard. Running DoorPrototypeSceneBuilder.Build again with the same inputs changes no controller, clip, import setting or scene object and creates no duplicate state, clip or object. Do not change pursuit, keep-distance movement, NavMeshAgent settings, target knowledge, the wraith's cast timing, range, sight test, mana, projectile flight or damage, enemy health, defeat, the Active Enemy Registry, DemoRunFlow, spawn positions, encounters, doors, rooms or the wizard. Generated clips, controllers, placeholder assets, .meta import settings and the scene are builder output only and are never hand-edited."
     }
   ],
   "completion_gates": [
     {
       "gate_id": "VAL-001",
-      "reference": "Focused EditMode import and mapping conformance",
-      "requirement": "StationaryEnemyPresentationIntegrationTests deterministically inventories the exact 16 selected source images, proves both archetypes and all eight direction identities are present exactly once, and proves each generated sprite metadata record resolves to the expected source, transparent import settings, pivot, pixels-per-unit, filtering, and stable grounded scale."
+      "reference": "Focused Edit Mode source import audit",
+      "requirement": "EnemyArtIntegrationTests proves that the 16 idle stills and 96 walk frames each exist exactly once with the expected names and sizes, and that every importer has the AC-002 settings, the shared pixels-per-unit constant, the wizard importer's filter mode and mipmap setting, and a centered pivot on its ground line, checked against each idle still's own pixels and against inventory.json for walk frames, after any correction from the AC-002 table."
     },
     {
       "gate_id": "VAL-002",
-      "reference": "Focused EditMode prefab and sorting conformance",
-      "requirement": "StationaryEnemyPresentationIntegrationTests opens the generated Melee Enemy and Ranged Enemy prefabs and proves the renderer is world-space, the sprite binding is direction-explicit, the pivot and scale are grounded and stable, and the renderer sorting values match the NSC-039 isometric convention without gameplay components."
+      "reference": "Focused Edit Mode controller and clip mapping audit",
+      "requirement": "EnemyArtIntegrationTests proves that MeleeEnemyAnimator.controller and LanternWraithAnimator.controller each have exactly 16 states whose motion is the same-named clip; each idle clip references exactly its enemy type's idle sprite for its direction; each walk clip references walk_00 to walk_05 of exactly its enemy type and direction, in order, at 12 frames per second; every clip loops and binds only the Visual SpriteRenderer m_Sprite; and no clip mixes enemy types or directions."
     },
     {
       "gate_id": "VAL-003",
-      "reference": "Focused EditMode materialization and room-placement conformance",
-      "requirement": "The focused EditMode checks run materialization twice in an isolated temporary asset or scene context, prove idempotent output and no duplicate roots, and prove the composed five-room review anchors contain at least one instance of each archetype while preserving authored door openings and wizard navigation lanes."
+      "reference": "Focused Edit Mode saved-scene conformance",
+      "requirement": "EnemyArtIntegrationTests opens the saved Assets/Scenes/DoorPrototype.unity without saving and proves that every MeleeEnemy and LanternWraith under the Enemies root, with at least one of each and no FireCasterEnemy, has one Animator using its enemy type's controller, one EnemyAnimationController, a Visual SpriteRenderer showing its south idle still instead of a placeholder, the NSC-039 world-sprite sorting and 1 x 2 Visual size, and the gameplay components and NavMeshAgent settings the builder gave that enemy before this task, with EnemyLanternWispCaster in place of EnemyFireballCaster."
     },
     {
       "gate_id": "VAL-004",
-      "reference": "Focused PlayMode stationary behavior check",
-      "requirement": "StationaryEnemyStationaryBehaviorPlayModeTests observes one instance of each archetype for a bounded interval in the composed world and proves their transforms do not move, no attack or projectile state is created, and the examples remain available for visual review."
+      "reference": "Focused Play Mode facing and animation-state checks",
+      "requirement": "EnemyAnimationPlayModeTests drives EnemyAnimationController through Tick and proves, for both enemy types: the eight world movement directions in AC-005 select the matching walk states; held movement along each sector boundary with small alternating sideways noise does not change facing; a speed hovering around the start and stop thresholds does not alternate idle and walk; stopping plays idle and keeps the last facing; the same movement at two different frame times selects the same state; for the same displacements the facing equals WizardAnimationController.LastDirection; and the AC-006 target facing holds for a MeleeEnemy with and without a current target and for a LanternWraith with the wizard in range, out of range, and behind a wall collider."
     },
     {
       "gate_id": "VAL-005",
-      "reference": "Human Unity visual approval before integration",
-      "requirement": "Vincent opens the exact candidate's Assets/Scenes/DoorPrototype.unity, confirms both enemy archetypes are readable at the authored room anchors from the closer camera, checks all eight facing assets through the presentation review path, confirms sprites sort correctly against floors, walls, doors, and the wizard, verifies doors and wizard navigation remain unobstructed, and approves the exact candidate commit before integration."
+      "reference": "Focused Play Mode Lantern Wraith gameplay regression and wisp look",
+      "requirement": "EnemyLanternWispCasterPlayModeTests drives EnemyLanternWispCaster.Tick against a wizard with PlayerHealth and proves the gameplay EnemyFireballCaster had at b05a06ee1: it casts at once when the wizard is within 14 units with a clear view and not when the wizard is out of range or behind a wall collider; it casts once per second, spending 10 of its 60 mana per cast, so it stops after six casts; projectiles travel 8 units per second for at most 4 seconds and deal 5 damage through PlayerHealth.TakeDamage within 0.8 units. Every projectile is a GameObject named LanternWisp that renders the teal ghost-light color with no fire color. The test also covers the additive read-only range and view members used by AC-006."
+    },
+    {
+      "gate_id": "VAL-006",
+      "reference": "Focused Play Mode production-path check in the saved scene",
+      "requirement": "EnemyAnimationPlayModeTests loads the saved Assets/Scenes/DoorPrototype.unity, places the wizard near one MeleeEnemy and one LanternWraith, and proves that the MeleeEnemy acquires the wizard, plays a walk state whose direction matches its actual movement, and on stopping plays idle facing the wizard; that the LanternWraith turns to face the wizard, never plays a walk state, and casts LanternWisp projectiles; and that no enemy SpriteRenderer shows a placeholder sprite and no FireCasterEnemy or EnemyFireball object appears. The scene is closed without saving."
+    },
+    {
+      "gate_id": "VAL-007",
+      "reference": "Exact-candidate materialization and regression validation",
+      "requirement": "On the exact candidate, with Unity closed on that checkout: run DoorPrototypeSceneBuilder.Build twice and require no file change after the second run; require a clean compile; pass EnemyArtIntegrationTests, EnemyAnimationPlayModeTests and EnemyLanternWispCasterPlayModeTests; pass the existing EnemyPursuitPlayModeTests, EnemyPursuitDoorCrossingPlayModeTests, EnemyTargetKnowledgePlayModeTests, EnemyHealthPlayModeTests, ActiveEnemyRegistryPlayModeTests, EnemyLockedDoorAttackPlayModeTests, DoorEnemyPassabilityPlayModeTests, WizardAnimationPlayModeTests, WizardArtIntegrationTests and DoorPrototypeSceneBuilderTests fixtures, using semicolon-separated test filters; confirm that the diff under Art/Enemies/Source changes only .png.meta files and that EnemyLanternWispCaster.cs.meta keeps EnemyFireballCaster's GUID; and commit only builder output plus the files this task registers."
+    },
+    {
+      "gate_id": "VAL-008",
+      "reference": "Vincent's in-game visual approval before integration",
+      "requirement": "Vincent plays the exact candidate in Assets/Scenes/DoorPrototype.unity, lures a MeleeEnemy through all eight screen directions, and walks a circle around a LanternWraith inside its range. He confirms that both enemies show their approved art in all eight facings, with exactly one cleaver on the Dungeon Brute (including north-east) and the lantern visible on the wraith; that an enemy moving up the screen shows its back; that the walk plays only while an enemy moves and the idle when it stops; that the last facing is kept; that feet stay on the floor without jumping between idle and walk, including the south walk loop's restart; that the Lantern Wraith turns toward him and throws teal lantern wisps, not fireballs; that sorting against walls, doors and the wizard is correct; and that each enemy's size next to the wizard is acceptable. Sprite shimmer while moving belongs to the open pixel-density decision and is recorded there. He approves the exact candidate commit before integration. Code and test results are not visual proof."
     }
   ],
   "downstream_integration_obligations": [
     {
       "obligation_id": "INT-001",
-      "reference": "NSC-015, NSC-055, and NSC-030 behavior and encounter work",
-      "requirement": "Later behavior and encounter tasks may consume these presentation prefabs and direction metadata, but must add pursuit, navigation, attack, projectile, health, defeat, registry, encounter admission, and balance behavior under their own contracts and resource ownership."
+      "reference": "NSC-015 Melee Enemy gameplay prefab; NSC-016 and NSC-055 Ranged Enemy prefab",
+      "requirement": "Later enemy prefab tasks reuse EnemyAnimationController and the generated MeleeEnemyAnimator or LanternWraithAnimator controller read-only on their prefabs instead of creating another enemy walk or facing component, present the ranged enemy as the Lantern Wraith, and do not edit this task's generated assets."
+    },
+    {
+      "obligation_id": "INT-002",
+      "reference": "Vincent's Lantern Wraith decision, 2026-09-16; Art Director wind-up, wisp and hit samples awaiting his pick",
+      "requirement": "When Vincent picks the Lantern Wraith wind-up, lantern wisp and hit art, a later task replaces this task's stand-in wisp orb and adds the wind-up and hit effects on EnemyLanternWispCaster without changing its gameplay numbers unless Vincent approves a change."
     }
   ],
   "gdd_evidence": [
     {
-      "reference": "GDD — Required Enemy Roster",
-      "requirement": "The required roster contains distinct Melee Enemy and Ranged Enemy archetypes."
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:511-520 Required Enemy Roster",
+      "requirement": "The game has distinct Melee Enemy and Ranged Enemy types, and both deal damage through the shared Player Health system."
     },
     {
-      "reference": "GDD — 2.5D Isometric Visual and World Representation",
-      "requirement": "Enemies are world-space SpriteRenderer presentation objects using the shared isometric sorting convention."
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:566 Environment Presentation and Authoring Direction",
+      "requirement": "Enemies are world-space SpriteRenderers that follow the same isometric sorting conventions as the wizard; placeholder character sprites are acceptable only during development."
     },
     {
-      "reference": "GDD — Runtime Implementation and room composition canon",
-      "requirement": "The five encounter spaces are composed into one continuous world representation; presentation placement must preserve walkability and door access."
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:670 and 681 2.5D Isometric Visual and World Representation",
+      "requirement": "The wizard and enemies are SpriteRenderer objects inside the shared isometric visual world, not a separate rendering architecture."
+    },
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:694 and 727",
+      "requirement": "Generated directional sprites become ordinary Unity assets that still need explicit import and integration, and scene, animation and Inspector results need human inspection."
     }
   ],
-  "basis": "human_requested_stationary_enemy_presentation_followup",
+  "basis": "human_requested_moving_enemy_art_integration",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "TaskGraph-only candidate for an intentionally presentation-only vertical slice. NSC-063 is the sole source-art authority; this task consumes all 16 approved selected images and does not edit the source-art handoff. NSC-039 supplies sorting conventions. NSC-069's composed five-room implementation is already committed; its missing delivery record does not block this task. The worker must still use and validate the actual composed scene required by AC-003 and VAL-003. The candidate must stop if approved source art or sorting code is unavailable. Generated Unity assets and scene serialization belong to the named builder and must not be hand-authored. Human visual approval is required before integration.",
+  "notes": "Revision 3 replaces revision 2's stationary, presentation-only review scope at Vincent's direction on 2026-09-16: \"So 77 needs to be changed. We have moving enemies. We need to integrate the art into the already created enemies that have no art.\" It absorbs NSC-094's walk animation scope; NSC-094 is superseded by this task. The same day Vincent decided the ranged enemy becomes the Lantern Wraith and its fireball becomes a teal ghost-light lantern wisp with the same gameplay (art-director guide section 11, item 2). The reconciliation key keeps its original stationary wording because reconciliation keys never change. On main the scene enemies come from the playable-build commit 9a3d22c56, which has no task: MeleeEnemy moves through NSC-092's EnemyPursuitMovement and NSC-091's EnemyTargetKnowledge, and the fire caster holds its ground with EnemyFireballCaster and no NavMeshAgent, which no test covers. Their code is integrated on main; missing delivery records for NSC-075, NSC-091 and NSC-092 are graph bookkeeping, not missing code. RangedEnemyKeepDistanceMovement (NSC-053), RangedEnemyAttack and RangedEnemyProjectile (NSC-054) are not used by the scene's ranged enemy and are outside this task; their Lantern Wraith wording belongs to the NSC-016 and NSC-055 revisions. The Melee Enemy north-east single-cleaver idle and walk correction, approved by Vincent, is on main since b05a06ee1. walk_00 to walk_05 are PixelLab frames 1 to 6; the start pose was never committed. The Art Director advised the 128 stand-in, the pivot rules and the VAL-008 checks; Vincent's pixel-density choice (Point and no mipmaps versus smoothed characters, or re-made characters near 64 pixels per unit) is still open and may revise AC-003. Attack, hit and defeat animations need new approved art and a separate task. The unmerged branch codex/nsc077-stationary-enemies-20260914 may be read for its source-inventory check only; do not merge or copy its prefabs, review placement, copied PNGs or scene, and never delete it. Lessons: GUID-only stub .meta files import as Cube with point-light cookie defaults in Unity 6000.1 (NSC-075 fixes 0d28b0bf5 and bf97d116c), so set the texture shape and reset the cookie defaults explicitly; DoorPrototype.unity is binary, so rebuild it with the builder and never merge scene files; NSC-075 shipped with its screen-up axis inverted and its tests encoded the same mistake until Vincent saw it in Unity, which is why AC-005 spells out the mapping and VAL-008 requires his in-game check; Unity test filters are separated by semicolons. No .asmdef, ProjectSettings, DoorPrototypeSceneBuilder.cs or WizardAnimationController.cs change is authorized; stop and report if one is needed.",
   "repository_state_at_bootstrap": "partial",
   "repository_evidence_at_bootstrap": [
     {
-      "path": "Tasks/NSC-063.yaml",
-      "evidence_type": "contract",
-      "observation": "NSC-063 explicitly hands off one selected Melee Enemy set and one selected Ranged Enemy set for later stationary Unity integration and excludes behavior, prefabs, and scene placement."
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs",
+      "evidence_type": "code",
+      "observation": "BuildChaseEnemies builds five MeleeEnemy and four FireCasterEnemy objects whose Visual children show the generated MeleeEnemySprite and FireCasterEnemySprite placeholder silhouettes. BuildWizardAnimationAssets and ImportWizardSprite are the established import, clip and controller pattern."
     },
     {
-      "path": "Tasks/NSC-039.yaml",
-      "evidence_type": "contract",
-      "observation": "NSC-039 establishes reusable world-space SpriteRenderer prefabs and the shared isometric sorting convention."
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/WizardAnimationController.cs",
+      "evidence_type": "code",
+      "observation": "Holds the Vincent-approved eight-direction screen mapping (screen right X + Z, screen up Z - X) with angular hysteresis, corrected in 7fc15c528."
     },
     {
-      "path": "Tasks/NSC-069.yaml",
-      "evidence_type": "contract",
-      "observation": "NSC-069 establishes deterministic five-room composition and preserves navigation and door-anchor validation as composition invariants."
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyFireballCaster.cs",
+      "evidence_type": "code",
+      "observation": "A stationary caster with private cast-range and line-of-sight checks, orange primitive-sphere EnemyFireball projectiles, and no NavMeshAgent or pursuit components; no test fixture covers it."
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/inventory.json",
+      "evidence_type": "asset",
+      "observation": "96 approved walk frames, 176x176, with the alpha bottom normalized to y=132. The 16 idle stills are 128x128. Both sets carry Unity-generated default texture .meta files, not Sprite imports."
     }
   ],
   "provenance": {
@@ -127,8 +190,36 @@
     "source_art_task_id": "NSC-063",
     "sorting_foundation_task_id": "NSC-039",
     "room_composition_task_id": "NSC-069",
-    "behavior_boundaries": ["NSC-015", "NSC-055", "NSC-030"],
+    "behavior_boundaries": [
+      "NSC-015",
+      "NSC-055",
+      "NSC-030"
+    ],
     "created_by_human_request": true,
-    "approved_at_utc_date": "2026-09-13"
+    "approved_at_utc_date": "2026-09-13",
+    "walk_source_art_task_id": "NSC-093",
+    "facing_mapping_task_id": "NSC-075",
+    "supersedes_task_id": "NSC-094",
+    "revision_3_direction": {
+      "by": "Vincent",
+      "date": "2026-09-16",
+      "quote": "So 77 needs to be changed. We have moving enemies. We need to integrate the art into the already created enemies that have no art."
+    },
+    "ranged_enemy_identity_decision": {
+      "by": "Vincent",
+      "date": "2026-09-16",
+      "decision": "The ranged enemy becomes the Lantern Wraith, and its fireball becomes a teal ghost-light lantern wisp with the same gameplay."
+    },
+    "contract_followups": [
+      {
+        "date": "2026-09-17",
+        "reason": "Owner contract revision 3 at Vincent's direction (2026-09-16): put the approved Melee Enemy and Lantern Wraith art on the existing scene enemies, absorb NSC-094's walk scope, and turn the fire caster into the Lantern Wraith with a teal lantern wisp and unchanged gameplay.",
+        "source_head": "bdf618744c5f286d9d4e78e2fe05e244e0366e5f",
+        "previous_contract_revision": 2,
+        "base_contract_sha256": "eefff76a784bcb00823a659f95483dbe9a53ff42a55080e3734718f4ef074790",
+        "revised_contract_sha256": "0b3dff8241c469f1a68dd226c31e3163a871123d58219f8af10971b6ca4fb2e8",
+        "review": "none; taskcontrol validate only (Vincent, 2026-09-16)"
+      }
+    ]
   }
 }
