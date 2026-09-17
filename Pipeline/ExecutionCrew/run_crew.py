@@ -1329,21 +1329,30 @@ def seed_retry_candidate(clone: Path, baseline: Snapshot, retry: RetryContext) -
     # Sidecars are pipeline-owned: a committed meta that already matches the current
     # unity_meta_bytes contract is accepted even when it differs from the reconstructed
     # prior candidate post-image, so a corrected meta can resume this retry (P34 round 3).
-    equivalent = all(
-        current_entries[path] is not None
-        and current_entries[path].kind == "regular"
-        and (
-            (postimage_entries[path] is not None
-             and postimage_entries[path].kind == "regular"
-             and postimage_entries[path].sha256 == current_entries[path].sha256)
-            or (path in sidecar_paths
-                and current_entries[path].sha256
-                == hashlib.sha256(unity_meta_bytes(path[: -len(".meta")])).hexdigest())
+    diverging = [
+        path for path in expected_paths
+        if not (
+            current_entries[path] is not None
+            and current_entries[path].kind == "regular"
+            and (
+                (postimage_entries[path] is not None
+                 and postimage_entries[path].kind == "regular"
+                 and postimage_entries[path].sha256 == current_entries[path].sha256)
+                or (path in sidecar_paths
+                    and current_entries[path].sha256
+                    == hashlib.sha256(unity_meta_bytes(path[: -len(".meta")])).hexdigest())
+            )
         )
-        for path in expected_paths
-    )
-    if not equivalent:
-        raise CrewBlocked("prior candidate.patch neither applies cleanly nor is already present at the current source HEAD")
+    ]
+    if diverging:
+        message = "prior candidate.patch neither applies cleanly nor is already present at the current source HEAD"
+        diverging_sidecars = [path for path in diverging if path in sidecar_paths]
+        if diverging_sidecars:
+            # Name the sidecars so an operator can repair them (P34 Codex round 4).
+            message += ("; committed Unity .meta sidecar(s) match neither the prior candidate nor the "
+                        "current pipeline meta contract; commit unity_meta_bytes for it (same GUID), "
+                        "then retry: " + ", ".join(diverging_sidecars))
+        raise CrewBlocked(message)
     # A committed sidecar is tracked source, not pipeline output: downstream readers
     # (local_candidate_commit._verified_pipeline_generated_paths, load_retry_context) treat
     # pipeline-generated paths as companions of newly-approved files only, so rewriting a

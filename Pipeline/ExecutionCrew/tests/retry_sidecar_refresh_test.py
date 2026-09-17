@@ -209,8 +209,10 @@ class RetrySidecarRefreshTests(unittest.TestCase):
         _git(self.clone, "add", PNG_META)
         _git(self.clone, "commit", "-qm", "operator commits an unrelated, non-conformant meta")
         other_baseline = snapshot(self.clone)
-        with self.assertRaises(CrewBlocked):
+        with self.assertRaises(CrewBlocked) as diverged:
             seed_retry_candidate(self.clone, other_baseline, retry)
+        # The refusal names the sidecar so the operator knows what to repair.
+        self.assertIn(PNG_META, str(diverged.exception))
         self.assertEqual(_git(self.clone, "status", "--porcelain"), "")
         self.assertEqual(snapshot(self.clone), other_baseline)
 
