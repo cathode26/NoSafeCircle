@@ -17,7 +17,7 @@
     },
     {
       "criterion_id": "AC-004",
-      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:562-568, 670-674; NSC-039, NSC-077, NSC-089, and NSC-094 handoffs",
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:562-568, 670-674; NSC-039, NSC-077, and NSC-089 handoffs",
       "requirement": "Create Assets/NoSafeCircle/DoorPrototype/Editor/MeleeEnemyGameplayPrefabBuilder.cs and Assets/NoSafeCircle/DoorPrototype/Editor/MeleeEnemyGameplayPrefabBuilder.cs.meta. Its public static MeleeEnemyGameplayPrefabBuilder.BuildMeleeEnemyGameplayPrefab() production entry point, exposed at the Editor menu path No Safe Circle/Build Melee Enemy Gameplay Prefab, exclusively materializes Assets/NoSafeCircle/DoorPrototype/Generated/MeleeEnemyGameplay.prefab and Assets/NoSafeCircle/DoorPrototype/Generated/MeleeEnemyGameplay.prefab.meta. The prefab and its meta file are builder output and must not be hand-written or reconstructed. Create Assets/NoSafeCircle/DoorPrototype/Tests/Editor/MeleeEnemyGameplayPrefabTests.cs and Assets/NoSafeCircle/DoorPrototype/Tests/Editor/MeleeEnemyGameplayPrefabTests.cs.meta for a non-saving temporary builder seam and deliberate read-only conformance checks against the exact generated prefab."
     },
     {
@@ -33,7 +33,7 @@
     {
       "criterion_id": "AC-007",
       "reference": "Docs/GDD/No_Safe_Circle_GDD.md:593, 687-693; reusable enemy prefab activation",
-      "requirement": "Assets/NoSafeCircle/DoorPrototype/Generated/MeleeEnemyGameplay.prefab contains and wires one NavMeshAgent, EnemyTargetKnowledge, EnemyPursuitMovement, EnemyStatusEffectMovement, EnemyHealth, MeleeEnemyAttack, MeleeEnemyDefeatResponse, the read-only NSC-077 Melee presentation output, and the read-only NSC-094 walk component/output. It exposes EnemyTargetKnowledge.Initialize(Transform) for the wizard target and EnemyHealth.Initialize(ActiveEnemyRegistry) for activation. It contains no scene registry reference, wizard scene reference, spawn placement, encounter count, room identity, door target, input action, or spell behavior. Do not edit NSC-077 or NSC-094 source, generated assets, stationary review prefab, builder, component, or review placement. If the delivered NSC-094 EnemyWalkAnimation does not itself follow this enemy's movement, create Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/MeleeEnemyWalkDirection.cs and Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/MeleeEnemyWalkDirection.cs.meta; MeleeEnemyWalkDirection passes this enemy's NavMeshAgent.velocity each frame to the public direction input that NSC-094 delivers and edits no NSC-094 file. If NSC-094 delivers no public direction input, stop for a resource decision instead of editing EnemyWalkAnimation.cs."
+      "requirement": "Assets/NoSafeCircle/DoorPrototype/Generated/MeleeEnemyGameplay.prefab contains and wires one NavMeshAgent, EnemyTargetKnowledge, EnemyPursuitMovement, EnemyStatusEffectMovement, EnemyHealth, MeleeEnemyAttack, MeleeEnemyDefeatResponse, and the read-only NSC-077 enemy animation output (EnemyAnimationController with the generated MeleeEnemyAnimator.controller). It exposes EnemyTargetKnowledge.Initialize(Transform) for the wizard target and EnemyHealth.Initialize(ActiveEnemyRegistry) for activation. It contains no scene registry reference, wizard scene reference, spawn placement, encounter count, room identity, door target, input action, or spell behavior. Do not edit NSC-077's EnemyAnimationController, EnemyAnimationAssetBuilder or generated enemy animation assets. EnemyAnimationController already follows this enemy's own movement and current target, so no separate walk-direction script is created."
     }
   ],
   "basis": "direct_gdd",
@@ -51,7 +51,7 @@
     {
       "gate_id": "VAL-003",
       "reference": "Unity Testing Policy; committed-prefab conformance",
-      "requirement": "MeleeEnemyGameplayPrefabTests exercises the builder's non-saving seam only in an isolated temporary asset location. Separately, after controller materialization, it deliberately opens the exact Assets/NoSafeCircle/DoorPrototype/Generated/MeleeEnemyGameplay.prefab read-only and closes it without saving. Verify exactly one of each required component, valid same-prefab references, both public activation seams, world-space SpriteRenderer pivot/scale/sorting inherited from NSC-077, NSC-094 walk binding, project-configured NavMesh agent type/radius/height, serialized Melee speed before Awake, stoppingDistance below close attack range, no scene/encounter references, no enemy-body Collider added without Vincent's approval, and no gameplay component added to NSC-077's stationary review prefab."
+      "requirement": "MeleeEnemyGameplayPrefabTests exercises the builder's non-saving seam only in an isolated temporary asset location. Separately, after controller materialization, it deliberately opens the exact Assets/NoSafeCircle/DoorPrototype/Generated/MeleeEnemyGameplay.prefab read-only and closes it without saving. Verify exactly one of each required component, valid same-prefab references, both public activation seams, world-space SpriteRenderer pivot/scale/sorting and the MeleeEnemyAnimator binding inherited from NSC-077, project-configured NavMesh agent type/radius/height, serialized Melee speed before Awake, stoppingDistance below close attack range, no scene/encounter references, and no enemy-body Collider added without Vincent's approval."
     },
     {
       "gate_id": "VAL-004",
@@ -76,7 +76,7 @@
   ],
   "confidence": "medium",
   "contract_disposition": "active",
-  "contract_revision": 6,
+  "contract_revision": 7,
   "decomposition_reason": "Execution has two ordered Unity ownership bundles. The first owns close-range attack, PlayerHealth damage, defeat gating, and ResetAttack with real-component Play Mode tests and no art dependency. The second is the sole owner of logical:enemy-locomotion-behavior-surface for Melee movement tuning, defeat-time movement shutdown/restoration, deterministic gameplay-prefab materialization, assembled-prefab tests, group pursuit validation, and gameplay-camera review. This removes the prior attack/prefab test cycle and prevents two children from mutating locomotion.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -89,8 +89,7 @@
     "NSC-077",
     "NSC-089",
     "NSC-091",
-    "NSC-092",
-    "NSC-094"
+    "NSC-092"
   ],
   "downstream_integration_obligations": [
     {
@@ -110,8 +109,6 @@
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/MeleeEnemyAttack.cs.meta",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/MeleeEnemyDefeatResponse.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/MeleeEnemyDefeatResponse.cs.meta",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/MeleeEnemyWalkDirection.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/MeleeEnemyWalkDirection.cs.meta",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/MeleeEnemyGameplayPrefabBuilder.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/MeleeEnemyGameplayPrefabBuilder.cs.meta",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/MeleeEnemyGameplay.prefab",
@@ -159,7 +156,7 @@
   ],
   "id": "NSC-015",
   "kind": "implementation",
-  "notes": "D1B.2 should produce two ordered responsibility splits without allocating child IDs here. Split 1 owns MeleeEnemyAttack, ResetAttack, and MeleeEnemyAttackPlayModeTests; it depends on NSC-004, NSC-012, NSC-089, NSC-091, and NSC-092 and has no art dependency. Its tests construct real production components and do not require the assembled prefab. Split 2 depends on split 1 and is the sole owner of logical:enemy-locomotion-behavior-surface; it owns MeleeEnemyDefeatResponse, the conditional MeleeEnemyWalkDirection, Melee-specific movement serialization, MeleeEnemyGameplayPrefabBuilder, the generated prefab, prefab conformance, production-input retreat/group tests, Frost baseline-speed proof, and human review. It additionally depends on NSC-003, NSC-011, NSC-013, NSC-039, NSC-077, and NSC-094. A third split is justified only if Vincent approves separate attack or defeat art that does not edit locomotion. No split edits EnemyTargetKnowledge.cs, EnemyPursuitMovement.cs, EnemyStatusEffectMovement.cs, PlayerMovement.cs, PlayerHealth.cs, EnemyHealth.cs, ActiveEnemyRegistry.cs, ProjectSettings, NSC-077 outputs, NSC-094 outputs, room/scene assets, Input Actions, encounters, doors, or spells. NSC-017's locked-door attack remains separate. NSC-007 already owns Charged Fireball's multiple-Melee damage gate, but its target-discovery mechanism and any new dependency edge require separate approval; no Collider, layer, tag, or query API is invented here. Gate mapping from revision 5 is old VAL-001 to new VAL-005, old VAL-002 to new VAL-001, and old VAL-003/VAL-004 to new VAL-002. Split 2 must not be dispatched until Vincent answers the body-blocking, wind-up locomotion, and defeated-enemy visual and collision decisions, because each can change split 2's components or files. The attack-feedback decision gates only VAL-007 approval. Split 1 does not wait for any of these decisions.",
+  "notes": "D1B.2 should produce two ordered responsibility splits without allocating child IDs here. Split 1 owns MeleeEnemyAttack, ResetAttack, and MeleeEnemyAttackPlayModeTests; it depends on NSC-004, NSC-012, NSC-089, NSC-091, and NSC-092 and has no art dependency. Its tests construct real production components and do not require the assembled prefab. Split 2 depends on split 1 and is the sole owner of logical:enemy-locomotion-behavior-surface; it owns MeleeEnemyDefeatResponse, Melee-specific movement serialization, MeleeEnemyGameplayPrefabBuilder, the generated prefab, prefab conformance, production-input retreat/group tests, Frost baseline-speed proof, and human review. It additionally depends on NSC-003, NSC-011, NSC-013, NSC-039, and NSC-077. A third split is justified only if Vincent approves separate attack or defeat art that does not edit locomotion. No split edits EnemyTargetKnowledge.cs, EnemyPursuitMovement.cs, EnemyStatusEffectMovement.cs, PlayerMovement.cs, PlayerHealth.cs, EnemyHealth.cs, ActiveEnemyRegistry.cs, ProjectSettings, NSC-077 outputs, room/scene assets, Input Actions, encounters, doors, or spells. NSC-017's locked-door attack remains separate. NSC-007 already owns Charged Fireball's multiple-Melee damage gate, but its target-discovery mechanism and any new dependency edge require separate approval; no Collider, layer, tag, or query API is invented here. Gate mapping from revision 5 is old VAL-001 to new VAL-005, old VAL-002 to new VAL-001, and old VAL-003/VAL-004 to new VAL-002. Split 2 must not be dispatched until Vincent answers the body-blocking, wind-up locomotion, and defeated-enemy visual and collision decisions, because each can change split 2's components or files. The attack-feedback decision gates only VAL-007 approval. Split 1 does not wait for any of these decisions. Revision 7 (2026-09-16): NSC-094 is superseded by NSC-077 revision 3, which delivers EnemyAnimationController and the generated MeleeEnemyAnimator.controller for the existing scene MeleeEnemy. This prefab reuses them, so the conditional MeleeEnemyWalkDirection script and its resource claims are removed.",
   "parent": "NSC-010",
   "provenance": {
     "bootstrap_status_observation": "open",
@@ -194,6 +191,17 @@
         "reaudit_recommendation": "commit_contract_then_decompose",
         "owner_patch_contract_sha256": "3cede2c5debfd67c2de997d0bb62517f33e39d24e1bfbdd5b04ab93495a86302",
         "recheck_recommendation": "commit_contract_then_decompose"
+      }
+    ],
+    "contract_followups": [
+      {
+        "date": "2026-09-17",
+        "reason": "Follow-up revision 7: NSC-094 is superseded by NSC-077 revision 3, which delivers EnemyAnimationController and MeleeEnemyAnimator.controller; the prefab reuses them, so the NSC-094 dependency and the conditional MeleeEnemyWalkDirection script are removed. Decomposition is still pending.",
+        "source_head": "588bfc03b7b88b159feec010325b0c1f83b5f612",
+        "previous_contract_revision": 6,
+        "base_contract_sha256": "50ff30f44f3b5e8d08c41d693de85b35f2f448b0cd1e93cb327e3ff7f54e986b",
+        "revised_contract_sha256": "4345f845266789afd35e4aa3cc3ba0dce0295c29257c8823cbfb26aabe879508",
+        "review": "none; taskcontrol validate only (Vincent, 2026-09-16)"
       }
     ]
   },
