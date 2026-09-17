@@ -172,24 +172,24 @@
       "selected_frame_index": 0,
       "pixel_lab_frame_index": 1,
       "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
-      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
-      "animation_id": "9c9d4789-2c3e-433b-8db1-45fe2b38714e",
+      "animation_group_id": "be98e54d-77d2-421b-9f00-524052e967cd",
+      "animation_id": "96bfd2b5-e7e5-4ebc-9329-05cd18e738fa",
       "raw_size": [
         152,
-        152
+        132
       ],
       "raw_alpha_bbox": [
-        28,
-        27,
+        49,
+        23,
         129,
-        123
+        113
       ],
       "padding_offset": [
         12,
-        9
+        19
       ],
-      "raw_sha256": "dd6199b5064988c290040a81865420cf08ceed41e53bc7eec3e9da676ac917c1",
-      "selected_sha256": "b3754550fa73287769421135a765a44f0dc51f7bae576a7c606498cf3415c014"
+      "raw_sha256": "ec4ab2320196c383b528564a767e2dc8d56359cb2f1e744a434eac2b888a4960",
+      "selected_sha256": "b86249393de4b09aaee9c7181ea890ce1efba6bb801a6a78a2f8e00ebbceed75"
     },
     {
       "file": "enemy_melee_ne_walk_01.png",
@@ -198,24 +198,24 @@
       "selected_frame_index": 1,
       "pixel_lab_frame_index": 2,
       "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
-      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
-      "animation_id": "9c9d4789-2c3e-433b-8db1-45fe2b38714e",
+      "animation_group_id": "be98e54d-77d2-421b-9f00-524052e967cd",
+      "animation_id": "96bfd2b5-e7e5-4ebc-9329-05cd18e738fa",
       "raw_size": [
         152,
-        152
+        132
       ],
       "raw_alpha_bbox": [
-        26,
-        30,
-        126,
-        124
+        44,
+        25,
+        127,
+        113
       ],
       "padding_offset": [
         12,
-        8
+        19
       ],
-      "raw_sha256": "17b3be4b0da8dce9801247c2782f8d841569a101f09efc38044544249b8e22c2",
-      "selected_sha256": "b3caf40c5aa54b29767caeafe8b6fbdab37429871446fd4a0fcb028934bfb695"
+      "raw_sha256": "510c95fde0a4ea26484cbbf2cecdcc8b94614bc14d58f7b23bfaf4f9fcd2407a",
+      "selected_sha256": "4afe85029c7475b574601d47dd6734894003a5c1fefe1d21f7f17ed78747b391"
     },
     {
       "file": "enemy_melee_ne_walk_02.png",
@@ -224,24 +224,24 @@
       "selected_frame_index": 2,
       "pixel_lab_frame_index": 3,
       "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
-      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
-      "animation_id": "9c9d4789-2c3e-433b-8db1-45fe2b38714e",
+      "animation_group_id": "be98e54d-77d2-421b-9f00-524052e967cd",
+      "animation_id": "96bfd2b5-e7e5-4ebc-9329-05cd18e738fa",
       "raw_size": [
         152,
-        152
+        132
       ],
       "raw_alpha_bbox": [
-        27,
-        31,
-        125,
-        123
+        46,
+        25,
+        129,
+        113
       ],
       "padding_offset": [
         12,
-        9
+        19
       ],
-      "raw_sha256": "3ec162cbcddb57f35907ed288d325dbf170cdf93d3d8be4b40a81fc7511f1366",
-      "selected_sha256": "34bc3fa86298de3df656e8fceca874620789a1e0da5bd6f404cb6a21fd873ee4"
+      "raw_sha256": "61589b3a0766fe0bc06f9dc6932b34bb74ca23504ed9aece8af588cff71befb6",
+      "selected_sha256": "c19e551fbddb28f502e66fcd25eff912c0c63ae92a70a5409dd59f2c42f1f8ba"
     },
     {
       "file": "enemy_melee_ne_walk_03.png",
@@ -250,24 +250,24 @@
       "selected_frame_index": 3,
       "pixel_lab_frame_index": 4,
       "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
-      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
-      "animation_id": "9c9d4789-2c3e-433b-8db1-45fe2b38714e",
+      "animation_group_id": "be98e54d-77d2-421b-9f00-524052e967cd",
+      "animation_id": "96bfd2b5-e7e5-4ebc-9329-05cd18e738fa",
       "raw_size": [
         152,
-        152
+        132
       ],
       "raw_alpha_bbox": [
-        30,
-        29,
-        126,
-        122
+        46,
+        24,
+        129,
+        112
       ],
       "padding_offset": [
         12,
-        10
+        20
       ],
-      "raw_sha256": "e163bb2ce5c94154ef7d7a4279027b099ea361e8f6fda635d2430a85773e1919",
-      "selected_sha256": "d618d2da0451dcf52a065de813ea7b59ea22631cbf48b6d86ef770ed7709de85"
+      "raw_sha256": "261a64cd8a082ea4687ca778f5f4b2846b75b37310983b151d1ab339f0006e45",
+      "selected_sha256": "2ee34f241f64f0d52dbfa0ce31b310f88b231c70b3a2a3c212ecd45e6ce3a926"
     },
     {
       "file": "enemy_melee_ne_walk_04.png",
@@ -276,24 +276,24 @@
       "selected_frame_index": 4,
       "pixel_lab_frame_index": 5,
       "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
-      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
-      "animation_id": "9c9d4789-2c3e-433b-8db1-45fe2b38714e",
+      "animation_group_id": "be98e54d-77d2-421b-9f00-524052e967cd",
+      "animation_id": "96bfd2b5-e7e5-4ebc-9329-05cd18e738fa",
       "raw_size": [
         152,
-        152
+        132
       ],
       "raw_alpha_bbox": [
-        33,
-        27,
-        127,
-        118
+        45,
+        22,
+        129,
+        108
       ],
       "padding_offset": [
         12,
-        14
+        24
       ],
-      "raw_sha256": "144dc5afd66dd47811e01de20aacb8d5d62eea6138968c68f8206c53610ae8ba",
-      "selected_sha256": "82e282c478a145c854fae49a6e59af552d2eb62ccb3db441c3cf405bb7227e61"
+      "raw_sha256": "c0b3369ed812f5bc9968baab32cf8c1021a7a650c392006d219eb30cd51ca70d",
+      "selected_sha256": "fc1ea368e9aebb9ffbee8c1229d76fa9a50d69882a34db78ebbf786e5e7cab75"
     },
     {
       "file": "enemy_melee_ne_walk_05.png",
@@ -302,24 +302,24 @@
       "selected_frame_index": 5,
       "pixel_lab_frame_index": 6,
       "character_id": "070592db-d334-4e7d-b5c9-5dad404d7f98",
-      "animation_group_id": "1829930f-b534-42f5-ac45-3ca2d0acd9dc",
-      "animation_id": "9c9d4789-2c3e-433b-8db1-45fe2b38714e",
+      "animation_group_id": "be98e54d-77d2-421b-9f00-524052e967cd",
+      "animation_id": "96bfd2b5-e7e5-4ebc-9329-05cd18e738fa",
       "raw_size": [
         152,
-        152
+        132
       ],
       "raw_alpha_bbox": [
-        35,
-        28,
-        128,
-        120
+        44,
+        24,
+        127,
+        110
       ],
       "padding_offset": [
         12,
-        12
+        22
       ],
-      "raw_sha256": "5d36edc4efcdd979d2c1c5f172ca51d1d2b293757e36d7ae93b32c5296c705a9",
-      "selected_sha256": "3cfac1dff75d2e2c8d72bffd90f590e5c8f99053bc7c88a0043e21dfe063f24c"
+      "raw_sha256": "2498cd55ba1b2d7245344fecc5426a784ecbe9e5713beb09ba9bba8c0498e00e",
+      "selected_sha256": "5896d2e1e8fa7c32d121e9b75dea6c299701de95a05c9790bb613b83f65ff5b3"
     },
     {
       "file": "enemy_melee_e_walk_00.png",
