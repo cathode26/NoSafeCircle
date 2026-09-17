@@ -14,6 +14,16 @@
       "criterion_id": "AC-003",
       "reference": "Floor-run restart ownership",
       "requirement": "Enemy reset consumes an enemy-owned restart/reset operation that returns each persistent enemy to its authored encounter/spawn region and initial pursuit/search/attack state, with no retained target, search, status-effect, or displacement state; the orchestrator does not write enemy Transform/locomotion internals itself."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "Floor-run restart ownership; downstream_integration_obligations from NSC-007, NSC-008, NSC-009, NSC-015, NSC-017, NSC-020, NSC-030, NSC-041, NSC-053, and NSC-054",
+      "requirement": "Beyond the reset entry points already required by AC-001, the Floor Run/Restart Orchestrator invokes every reset entry point that another task's downstream_integration_obligations assign to NSC-033: Fireball.ResetFireball() (NSC-007 INT-002); FrostField.ResetFrostField() (NSC-008 INT-001); ForceWave.ResetForceWave() (NSC-009 INT-001); MeleeEnemyAttack.ResetAttack() and MeleeEnemyDefeatResponse.ResetDefeatResponse() (NSC-015 INT-001); EnemyPursuitMovement.ResetPursuit() and EnemyLockedDoorAttack.ResetAttack() (NSC-017 INT-002); DoorInteractable.ResetDoor() (NSC-020 INT-003, already required by AC-001); for every enemy GameObject in a production encounter activation component's ActivatedEnemies record, EnemyHealth.ResetHealth() and EnemyPursuitMovement.ResetPursuit(), then that activation component's own public reset method, then ActiveEnemyRegistry.ResetRegistry(), then EncounterAdmissionController.ResetAdmissionState() (NSC-030 INT-001); RangedEnemyKeepDistanceMovement.ResetKeepDistanceMovement() and EnemyStatusEffectMovement.ResetStatusEffects() (NSC-053 INT-003); RangedEnemyAttack.ResetAttack() (NSC-054 INT-002); and DoorInteractionFeedback.ResetFeedback() (NSC-041, already required by AC-001)."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "Floor-run restart ownership; NSC-007 INT-002; NSC-030 AC-009 and INT-001",
+      "requirement": "The orchestrator's reset call order satisfies: (1) Fireball.ResetFireball(), FrostField.ResetFrostField(), and ForceWave.ResetForceWave() run before PlayerMovement.ResetMovement(), because ResetMovement zeroes the shared movement-restriction counter (NSC-007 INT-002); (2) the enemy-owned resets EnemyHealth.ResetHealth(), EnemyPursuitMovement.ResetPursuit(), EnemyLockedDoorAttack.ResetAttack(), MeleeEnemyAttack.ResetAttack(), MeleeEnemyDefeatResponse.ResetDefeatResponse(), RangedEnemyAttack.ResetAttack(), RangedEnemyKeepDistanceMovement.ResetKeepDistanceMovement(), and EnemyStatusEffectMovement.ResetStatusEffects() are invoked only for a persistent enemy whose GameObject was activated during the failed run; for an encounter-admitted enemy that set is exactly the members of its activation component's ActivatedEnemies record (NSC-030 AC-009). An enemy GameObject never activated during the failed run, whether pending or cancelled at the moment of restart, receives no reset call and keeps its authored transform, because EnemyPursuitMovement.Awake never captured a spawn position for it (NSC-030 INT-001); (3) for production encounter-admitted enemies the order is: (a) the enemy-owned resets above for every enemy GameObject in each activation component's ActivatedEnemies record; (b) each encounter activation component's public reset method, which deactivates every one of its configured enemy GameObjects; (c) ActiveEnemyRegistry.ResetRegistry(); (d) EncounterAdmissionController.ResetAdmissionState() (NSC-030 INT-001)."
     }
   ],
   "basis": "direct_gdd",
@@ -26,12 +36,12 @@
     {
       "gate_id": "VAL-002",
       "reference": "Floor-run restart ownership",
-      "requirement": "Play Mode check confirming a defeated/repositioned enemy returns to its authored spawn region with no carried target/search/displacement/status state."
+      "requirement": "Play Mode check confirming a defeated/repositioned enemy returns to its authored spawn region with no carried target/search/displacement/status state. Also, with a Fireball charge active at zero health, verify that after the restart Fireball is not charging and PlayerMovement.IsMovementRestricted is false, and that a new Fireball charge in the next floor run restricts movement and its release unrestricts it, proving the reset left no stale or double-released restriction; the AC-005 call order itself (Fireball, FrostField and ForceWave resets before PlayerMovement.ResetMovement()) is checked in the integration child's code review. Also verify the mixed case with NSC-030 VAL-006's two-room setup (one room's batch partly admitted with its remainder cancelled by its exit-door lock, and another room's batch still pending at the fifteen-enemy cap), reached through a real zero-health restart: only enemies in the activation components' ActivatedEnemies records are reset and return to their authored spawn regions, while the cancelled and still-pending enemies receive no reset call, keep their authored transforms, and every configured enemy is inactive after the restart."
     }
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 7,
+  "contract_revision": 8,
   "decomposition_reason": "The GDD names the complete required participant list and the exact reset contract for full closure; no missing design remains, though most listed owners do not yet exist.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -53,7 +63,8 @@
     "NSC-015",
     "NSC-054",
     "NSC-017",
-    "NSC-041"
+    "NSC-041",
+    "NSC-030"
   ],
   "downstream_integration_obligations": [],
   "exclusive_resources": [
@@ -79,7 +90,7 @@
   ],
   "id": "NSC-033",
   "kind": "implementation",
-  "notes": "The shared orchestrator, DoorPrototypeSceneBuilder.cs, and DoorPrototype.unity are one exact-partition resource group for decomposition: only the integration child edits them. Existing domain owners own their reset APIs and any missing owner operation blocks closure until fixed upstream; NSC-033 children may validate or adapt those APIs within scope and consume them without claiming ownership of another domain's reset implementation. NSC-041 owns DoorInteractionFeedback.ResetFeedback and its door-feedback behavior; NSC-033 invokes and validates it after NSC-041 is delivered. This item cannot be dispatched until its underlying owners exist and are delivered.",
+  "notes": "The shared orchestrator, DoorPrototypeSceneBuilder.cs, and DoorPrototype.unity are one exact-partition resource group for decomposition: only the integration child edits them. Existing domain owners own their reset APIs and any missing owner operation blocks closure until fixed upstream; NSC-033 children may validate or adapt those APIs within scope and consume them without claiming ownership of another domain's reset implementation. NSC-041 owns DoorInteractionFeedback.ResetFeedback and its door-feedback behavior; NSC-033 invokes and validates it after NSC-041 is delivered. This item cannot be dispatched until its underlying owners exist and are delivered. 2026-09-17 revision 8 (GER Orchestrator decisions, C:/nscrev/ger-contract-revisions-20260916/followups-20260917/NSC-033_NSC-049_DECISIONS.md 'NSC-033 revision 8' N1-N4): AC-004 lists every reset entry point another task's downstream_integration_obligations assign to NSC-033; AC-005 states the required reset call order, including that enemy-owned resets apply only to enemies activated during the failed run; VAL-002 adds the Fireball-before-ResetMovement order proof and the mixed activated/never-activated enemy proof. NSC-030 is added to depends_on because AC-005's encounter order and ActivatedEnemies scoping depend on NSC-030 AC-009 and INT-001; decomposition narrows this to the NSC-033 integration child depending on NSC-030's encounter activation child. N1's participant list corrects two misattributions found while drafting: EnemyHealth.ResetHealth() is grounded in NSC-030 INT-001, not a NSC-013 obligation (NSC-013 names no NSC-033 obligation at HEAD), and EnemyStatusEffectMovement.ResetStatusEffects() is grounded in NSC-053 INT-003, not NSC-013; see CONFLICTS in the drafter's report.",
   "parent": "NSC-031",
   "provenance": {
     "bootstrap_status_observation": "open",
@@ -98,7 +109,18 @@
     "origin": "verified_reconciliation_bootstrap",
     "reconciliation_run_id": "20260821T193541Z-998ee7b5",
     "source_schema_version": "1.0",
-    "verification_run_id": "20260821T195959Z-43dba5de"
+    "verification_run_id": "20260821T195959Z-43dba5de",
+    "contract_followups": [
+      {
+        "date": "2026-09-17",
+        "reason": "Follow-up revision 8 (GER Orchestrator decisions N1-N4, NSC-033_NSC-049_DECISIONS.md), from stale-dependent findings of the NSC-007 rev 3/4 and NSC-030 rev 5/6 Codex checks: AC-004 lists every reset entry point other tasks assign to NSC-033; AC-005 fixes the restart order (spell resets before PlayerMovement.ResetMovement; enemy-owned resets only for enemies activated during the failed run, per NSC-030 ActivatedEnemies; activation reset, registry reset, admission reset); VAL-002 adds the Fireball restriction and mixed activated/never-activated restart proofs; depends_on adds NSC-030.",
+        "source_head": "c63a8748fc8c184cf651569c69c78113c3652b32",
+        "previous_contract_revision": 7,
+        "base_contract_sha256": "0b2acbed294de86195734232e1d4a77536bbce326fb29bff088efba689ba65e2",
+        "revised_contract_sha256": "5a7338d937c57a8bca21b7725af3f1ec45f1a69966b081ba232383b3621130a1",
+        "review": "post-commit Codex contract check (tiered rule, 2026-09-17)"
+      }
+    ]
   },
   "reconciliation_key": "floor-run-restart-persistent-closure",
   "repository_evidence_at_bootstrap": [],
