@@ -1149,6 +1149,19 @@ class SameProviderReviewIndependenceTests(unittest.TestCase):
                 sessions=self.pooled_sessions(), pool=False,
             )
 
+    def test_a_reservation_missing_one_role_lease_is_refused(self):
+        # The pool skips a key it cannot scope and reserves the rest, so a
+        # one-lease reservation whose run used exactly that lease would
+        # otherwise verify: one conversation authoring and reviewing.
+        author = "claude:task_decomposer"
+        sessions = self.pooled_sessions()
+        with self.assertRaisesRegex(ValueError, "not one lease per role"):
+            self.verify(
+                ("claude", "claude"), independence="same_provider_separate_sessions",
+                sessions={author: sessions[author]},
+                lease_ids={author: POOL_LEASE_IDS[author]},
+            )
+
     def test_a_role_session_without_a_confirmed_conversation_is_refused(self):
         sessions = self.pooled_sessions()
         reviewer = dict(sessions["claude:decomposition_reviewer"])

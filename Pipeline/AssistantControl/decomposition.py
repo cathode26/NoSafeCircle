@@ -304,6 +304,19 @@ def _verify_review(manager: Checkouts, record: dict[str, Any]) -> dict[str, Any]
         raise ValueError(
             "Same-provider decomposition record carries no role-session lease reservation"
         )
+    if pooled:
+        # The pool skips a key it cannot scope and still reserves what is left,
+        # so a reservation that carries one lease is possible and would let one
+        # conversation author and review. Both role leases must be present.
+        expected_leases = {
+            f"{record['providers'][0]}:task_decomposer",
+            f"{record['providers'][1]}:decomposition_reviewer",
+        }
+        if set(reserved_leases) != expected_leases:
+            raise ValueError(
+                "Same-provider decomposition reserved "
+                f"{sorted(reserved_leases)}, not one lease per role"
+            )
 
     run_path, result_path, graph_path = _artifact_paths(record)
     run_result, run_bytes = _load_object(run_path, "Decomposition run result")
