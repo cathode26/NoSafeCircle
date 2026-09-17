@@ -2,8 +2,8 @@
   "acceptance_criteria": [
     {
       "criterion_id": "AC-001",
-      "reference": "Victory/input-shutdown ownership",
-      "requirement": "Expose a public suspend-all method that calls the existing owner-controlled suspend method on Player Movement from NSC-003, Door Interaction from NSC-019, Fireball from NSC-007, Frost Field from NSC-008, Force Wave from NSC-009, and Spectral Decoy from NSC-088 (SpectralDecoy.SuspendGameplayInput(), which also ends an active phantom through the enemy-owned return API). Each owner remains responsible for stopping its active input-driven behavior and rejecting new commands."
+      "reference": "Victory/input-shutdown ownership; NSC-088 INT-002",
+      "requirement": "Create Assets/NoSafeCircle/DoorPrototype/Scripts/VictoryGameplaySuspensionCoordinator.cs (+.meta) defining the MonoBehaviour VictoryGameplaySuspensionCoordinator with serialized references to PlayerMovement, PlayerInteractionController, Fireball, FrostField, ForceWave and SpectralDecoy, and a public SuspendAllGameplayInput() method that calls the existing owner-controlled suspend method on each: PlayerMovement.SuspendGameplayInput() (NSC-003), PlayerInteractionController.SuspendGameplayInput() (NSC-019), Fireball.SuspendGameplayInput() (NSC-007), FrostField.SuspendGameplayInput() (NSC-008), ForceWave.SuspendGameplayInput() (NSC-009), and SpectralDecoy.SuspendGameplayInput() (NSC-088, which also ends an active phantom through the enemy-owned return API; NSC-088 INT-002). Each owner remains responsible for stopping its active input-driven behavior and rejecting new commands. A missing reference is skipped without an exception."
     },
     {
       "criterion_id": "AC-002",
@@ -12,27 +12,32 @@
     },
     {
       "criterion_id": "AC-003",
-      "reference": "Victory/input-shutdown ownership",
-      "requirement": "Expose a re-enable-all method for an authorized reset or test caller. That method calls each gameplay owner's public re-enable method, including SpectralDecoy.EnableGameplayInput(), and normal victory-triggered gameplay code cannot invoke it."
+      "reference": "Victory/input-shutdown ownership; NSC-088 INT-002",
+      "requirement": "Expose public EnableAllGameplayInput() for an authorized reset or test caller. It calls each owner's public re-enable method (PlayerMovement.EnableGameplayInput(), PlayerInteractionController.EnableGameplayInput(), Fireball.EnableGameplayInput(), FrostField.EnableGameplayInput(), ForceWave.EnableGameplayInput() and SpectralDecoy.EnableGameplayInput()), and normal victory-triggered gameplay code (NSC-086's FinalDoorVictoryTrigger) never calls it."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "NSC-087 revision 2 Codex check",
+      "requirement": "Create Assets/NoSafeCircle/DoorPrototype/Tests/VictoryGameplaySuspensionCoordinatorPlayModeTests.cs (+.meta) containing the NoSafeCircle.DoorPrototype.Tests.VictoryGameplaySuspensionCoordinatorPlayModeTests fixture for VAL-001 and VAL-002. The tests construct the real owner components, drive active behavior through their public entry points, and call only the coordinator's public methods; they never set owner runtime fields directly."
     }
   ],
   "basis": "direct_gdd",
   "completion_gates": [
     {
       "gate_id": "VAL-001",
-      "reference": "Win and Loss Conditions",
-      "requirement": "Play Mode check: invoke the coordinator while each supported owner has active input-driven behavior in an applicable test case, and verify that Player Movement, Door Interaction, Fireball, Frost Field, Force Wave, and Spectral Decoy each stop that behavior immediately; for Spectral Decoy an active phantom ends and every redirected enemy leaves its decoy redirect through EnemyTargetKnowledge's owner API."
+      "reference": "Win and Loss Conditions; NSC-088 INT-002",
+      "requirement": "VictoryGameplaySuspensionCoordinatorPlayModeTests: Play Mode check: invoke the coordinator while each supported owner has active input-driven behavior in an applicable test case, and verify that Player Movement, Door Interaction, Fireball, Frost Field, Force Wave, and Spectral Decoy each stop that behavior immediately; for Spectral Decoy an active phantom ends and every redirected enemy leaves its decoy redirect through EnemyTargetKnowledge's owner API."
     },
     {
       "gate_id": "VAL-002",
-      "reference": "Victory/input-shutdown ownership",
-      "requirement": "Play Mode check: after invoking suspend-all, verify that movement, door-interaction, and spell input, including the Spectral Decoy action, has no gameplay effect until an authorized test or reset caller invokes re-enable-all."
+      "reference": "Victory/input-shutdown ownership; NSC-088 INT-002",
+      "requirement": "VictoryGameplaySuspensionCoordinatorPlayModeTests: Play Mode check: after invoking suspend-all, verify that movement, door-interaction, and spell input, including the Spectral Decoy action, has no gameplay effect until an authorized test or reset caller invokes re-enable-all."
     }
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 2,
-  "decomposition_reason": "The GDD names the five gameplay owners and the suspend/re-enable behavior they expose. This child only coordinates calls to those existing public owner methods and does not implement their internal suspension behavior.",
+  "contract_revision": 3,
+  "decomposition_reason": "The GDD names the six gameplay owners and the suspend/re-enable behavior they expose. This child only coordinates calls to those existing public owner methods and does not implement their internal suspension behavior.",
   "decomposition_state": "concrete",
   "depends_on": [
     "NSC-003",
@@ -43,8 +48,13 @@
     "NSC-088"
   ],
   "downstream_integration_obligations": [],
-  "exclusive_resources": [],
-  "execution_reason": "One coordinator MonoBehaviour and focused Play Mode tests can connect the five existing suspend/re-enable APIs without changing the gameplay state owned by those components.",
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/VictoryGameplaySuspensionCoordinator.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/VictoryGameplaySuspensionCoordinator.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/VictoryGameplaySuspensionCoordinatorPlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/VictoryGameplaySuspensionCoordinatorPlayModeTests.cs.meta"
+  ],
+  "execution_reason": "One coordinator MonoBehaviour and focused Play Mode tests can connect the six existing suspend/re-enable APIs without changing the gameplay state owned by those components.",
   "execution_scope": "single_agent",
   "gdd_evidence": [
     {
@@ -53,12 +63,12 @@
     },
     {
       "reference": "Development Agent Ownership Invariants (Final escape/victory coordination)",
-      "requirement": "The five gameplay systems remain owners of their active behavior. Victory coordination calls their interfaces instead of changing their internal state."
+      "requirement": "The six gameplay systems remain owners of their active behavior. Victory coordination calls their interfaces instead of changing their internal state."
     }
   ],
   "id": "NSC-087",
   "kind": "implementation",
-  "notes": "This child implements only the coordinator API and its behavior tests. The sibling victory-trigger-overlay-integration child owns attaching and configuring the coordinator in Assets/Scenes/DoorPrototype.unity and proving the final-door-to-suspension scene path. Revision 2 (2026-09-17): adds the Spectral Decoy as the sixth suspended owner and NSC-088 to depends_on, recording NSC-088 revision 4 INT-002.",
+  "notes": "This child implements only the coordinator API and its behavior tests. The sibling victory-trigger-overlay-integration child owns attaching and configuring the coordinator in Assets/Scenes/DoorPrototype.unity and proving the final-door-to-suspension scene path. Revision 2 (2026-09-17): adds the Spectral Decoy as the sixth suspended owner and NSC-088 to depends_on, recording NSC-088 revision 4 INT-002. Revision 3 (2026-09-17): names the coordinator file, class, methods and test fixture, counts six owners throughout, and cites NSC-088 INT-002 for the sixth.",
   "parent": "NSC-035",
   "provenance": {
     "graph_delta_plan_id": "GDP-02475ad0d3f79c27586c7c7f8096c58e77356bd09ca1e38cdc9bad391a0329f6",
@@ -75,6 +85,15 @@
         "base_contract_sha256": "da7c191b0da699bfbae90cc6cfdbb1f112657931a4d38e6de1f7cc5431c57ab3",
         "revised_contract_sha256": "c01c0e957a943ea7bec6011e3545b2bbbeefccafdb4fd9934e6e447546d65de5",
         "review": "post-commit Codex contract check (tiered rule, 2026-09-17)"
+      },
+      {
+        "date": "2026-09-17",
+        "reason": "Follow-up revision 3 from the rev 2 check: names VictoryGameplaySuspensionCoordinator.cs with SuspendAllGameplayInput() and EnableAllGameplayInput() and serialized references to the six owners, and the VictoryGameplaySuspensionCoordinatorPlayModeTests fixture (AC-004); counts six owners in every field and cites NSC-088 INT-002; creates the validation policy entry. NSC-035's aggregate owner list and the GDD victory lists are downstream debt for their owners.",
+        "source_head": "e150a94bba0617334dc02a50cb256c081cbb1c9e",
+        "previous_contract_revision": 2,
+        "base_contract_sha256": "0bd8b7f6d4b57dae1a382d7327a545d64d1e8f40e1043c36b0154cae6b11ea12",
+        "revised_contract_sha256": "9d05cadd46c264f0444910d7bcc1f1c6de0ca02db0ba923014405a5c838ae9a6",
+        "review": "post-commit Codex closure review (tiered rule; closure discipline per Astra advice, 2026-09-17)"
       }
     ]
   },
