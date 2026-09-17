@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-077",
-  "contract_revision": 4,
+  "contract_revision": 5,
   "contract_disposition": "active",
   "title": "Enemy Art Integration for the Existing Moving Enemies",
   "reconciliation_key": "stationary-enemy-sprite-integration",
@@ -58,7 +58,7 @@
     {
       "criterion_id": "AC-003",
       "reference": "Vincent's pixel-density decision B, 2026-09-16 (art-director guide section 11 item 1 and the section 12 Pixel density row): characters are a 128x128 canvas at about 64 pixels per world unit in a camera-facing 2x2-unit box",
-      "requirement": "All 112 enemy sprites import at one named pixels-per-unit constant of 64, with Point filter and no mipmaps, so a 128x128 idle still is 2x2 world units and a 176x176 walk frame is 2.75x2.75 world units with the same character pixel size; an enemy does not change size between idle and walk. Each enemy Visual is created through DoorPrototypeSceneBuilder.CreateWorldSpriteVisual with world size (1, 1), so its scale is uniform, and keeps the ground-contact position and NSC-039 sorting. The Visual's world rotation always equals the fixed isometric camera rotation, Euler (30, -45, 0) (DoorPrototypeGlobalSceneBuilder.IsometricCameraEulerAngles), whatever rotation the NavMeshAgent gives the enemy root: EnemyAnimationController restores it every frame after movement, so the sprite never leans, thins or turns edge-on. Changing NavMeshAgent settings to achieve this is not allowed. If Vincent asks for a different enemy size during VAL-008, change only the pixels-per-unit constant."
+      "requirement": "All 112 enemy sprites import at one named pixels-per-unit constant of 64, with Point filter and no mipmaps, so a 128x128 idle still is 2x2 world units and a 176x176 walk frame is 2.75x2.75 world units with the same character pixel size; an enemy does not change size between idle and walk. Each enemy Visual is created through DoorPrototypeSceneBuilder.CreateWorldSpriteVisual with world size (1, 1), so its scale is uniform, and keeps the ground-contact position and NSC-039 sorting. The Visual's world rotation always equals the fixed isometric camera rotation, Euler (30, -45, 0), whatever rotation the NavMeshAgent gives the enemy root: EnemyAnimationController restores it every frame after movement, so the sprite never leans, thins or turns edge-on. EnemyAnimationController is runtime code and must not reference the Editor-only DoorPrototypeGlobalSceneBuilder: it holds the camera rotation as its own constant (30, -45, 0), as WizardAnimationController holds its screen mapping, and an Edit Mode test in EnemyArtIntegrationTests asserts that constant equals DoorPrototypeGlobalSceneBuilder.IsometricCameraEulerAngles. Changing NavMeshAgent settings to achieve this is not allowed. If Vincent asks for a different enemy size during VAL-008, change only the pixels-per-unit constant."
     },
     {
       "criterion_id": "AC-004",
@@ -100,12 +100,12 @@
     {
       "gate_id": "VAL-003",
       "reference": "Focused Edit Mode saved-scene conformance",
-      "requirement": "EnemyArtIntegrationTests opens the saved Assets/Scenes/DoorPrototype.unity without saving and proves that every MeleeEnemy and LanternWraith under the Enemies root, with at least one of each and no FireCasterEnemy, has one Animator using its enemy type's controller, one EnemyAnimationController, a Visual SpriteRenderer showing its south idle still instead of a placeholder, the NSC-039 world-sprite sorting, a uniform Visual scale of 1 and the camera-facing Visual rotation, and the gameplay components and NavMeshAgent settings the builder gave that enemy before this task, with EnemyLanternWispCaster in place of EnemyFireballCaster."
+      "requirement": "EnemyArtIntegrationTests opens the saved Assets/Scenes/DoorPrototype.unity without saving and proves that every MeleeEnemy and LanternWraith under the Enemies root, with at least one of each and no FireCasterEnemy, has one Animator using its enemy type's controller, one EnemyAnimationController, a Visual SpriteRenderer showing its south idle still instead of a placeholder, the NSC-039 world-sprite sorting, a uniform Visual scale of 1 and the camera-facing Visual rotation, with EnemyAnimationController's camera-rotation constant equal to DoorPrototypeGlobalSceneBuilder.IsometricCameraEulerAngles, and the gameplay components and NavMeshAgent settings the builder gave that enemy before this task, with EnemyLanternWispCaster in place of EnemyFireballCaster."
     },
     {
       "gate_id": "VAL-004",
       "reference": "Focused Play Mode facing and animation-state checks",
-      "requirement": "EnemyAnimationPlayModeTests drives EnemyAnimationController through Tick and proves, for both enemy types: the eight world movement directions in AC-005 select the matching walk states; held movement along each sector boundary with small alternating sideways noise does not change facing; a speed hovering around the start and stop thresholds does not alternate idle and walk; stopping plays idle and keeps the last facing; the same movement at two different frame times selects the same state; after the enemy root is rotated, as NavMeshAgent does while moving, the Visual's world rotation still equals the camera rotation; for the same displacements the facing equals WizardAnimationController.LastDirection; and the AC-006 target facing holds for a MeleeEnemy with and without a current target and for a LanternWraith with the wizard in range, out of range, and behind a wall collider."
+      "requirement": "EnemyAnimationPlayModeTests drives EnemyAnimationController through Tick and proves, for both enemy types: the eight world movement directions in AC-005 select the matching walk states; held movement along each sector boundary with small alternating sideways noise does not change facing; a speed hovering around the start and stop thresholds does not alternate idle and walk; stopping plays idle and keeps the last facing; the same movement at two different frame times selects the same state; after the enemy root is rotated, as NavMeshAgent does while moving, the Visual's world rotation still equals the literal camera rotation Euler (30, -45, 0); for the same displacements the facing equals WizardAnimationController.LastDirection; and the AC-006 target facing holds for a MeleeEnemy with and without a current target and for a LanternWraith with the wizard in range, out of range, and behind a wall collider."
     },
     {
       "gate_id": "VAL-005",
@@ -227,6 +227,15 @@
         "previous_contract_revision": 3,
         "base_contract_sha256": "676b96ce66a6ac00b5f2c503b39b6920f43475cf6a3557687f090bd670dca422",
         "revised_contract_sha256": "b0aec6d396140e0d31cac7429b6f12f038ac6d8cd1235f74535c6528abc66057",
+        "review": "none; taskcontrol validate only (Vincent, 2026-09-16)"
+      },
+      {
+        "date": "2026-09-17",
+        "reason": "Follow-up revision 5 from the rev 4 contract check (revise): EnemyAnimationController keeps the camera rotation (30, -45, 0) as its own runtime constant instead of referencing the Editor-only DoorPrototypeGlobalSceneBuilder.IsometricCameraEulerAngles, which would not compile; an Edit Mode test asserts the two match.",
+        "source_head": "17fbcdfcdc9e591270245e12f6d34bb914f157e5",
+        "previous_contract_revision": 4,
+        "base_contract_sha256": "ea3917cf1425a54059e8937cba8357b80617a68155f7b3423ca867db6541590f",
+        "revised_contract_sha256": "c264950f7bb74b3eb60495aa4aba615833f5ba6c70730986bec39f16230a211c",
         "review": "none; taskcontrol validate only (Vincent, 2026-09-16)"
       }
     ],
