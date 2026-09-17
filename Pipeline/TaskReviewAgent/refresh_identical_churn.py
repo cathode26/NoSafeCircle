@@ -22,9 +22,11 @@ this lives in its own module rather than being folded into that one.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import subprocess
+import tempfile
 from pathlib import Path
 
 _CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0
@@ -36,7 +38,13 @@ class RefreshIdenticalChurnError(RuntimeError):
     """Raised when refresh-identical cannot prove or complete its precondition."""
 
 
-def _run_git(root: Path, *args: str) -> subprocess.CompletedProcess:
+def _run_git(
+    root: Path, *args: str, env: dict[str, str] | None = None
+) -> subprocess.CompletedProcess:
+    full_env = None
+    if env:
+        full_env = dict(os.environ)
+        full_env.update(env)
     try:
         return subprocess.run(
             ("git", "--no-optional-locks", "-C", str(root), *args),
@@ -44,13 +52,14 @@ def _run_git(root: Path, *args: str) -> subprocess.CompletedProcess:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             creationflags=_CREATE_NO_WINDOW,
+            env=full_env,
         )
     except OSError as exc:
         raise RefreshIdenticalChurnError("Git could not be invoked") from exc
 
 
-def _git_bytes(root: Path, *args: str) -> bytes:
-    result = _run_git(root, *args)
+def _git_bytes(root: Path, *args: str, env: dict[str, str] | None = None) -> bytes:
+    result = _run_git(root, *args, env=env)
     if result.returncode != 0:
         detail = result.stderr.decode("utf-8", errors="replace").strip()
         raise RefreshIdenticalChurnError(
@@ -60,8 +69,45 @@ def _git_bytes(root: Path, *args: str) -> bytes:
     return result.stdout
 
 
-def _git_text(root: Path, *args: str) -> str:
-    return _git_bytes(root, *args).decode("utf-8", errors="strict").strip()
+def _git_text(root: Path, *args: str, env: dict[str, str] | None = None) -> str:
+    return _git_bytes(root, *args, env=env).decode("utf-8", errors="strict").strip()
+
+
+def _git_index_path(root: Path) -> Path:
+    """Resolve the repository's current ``.git/index`` file path."""
+
+    raw = _git_text(root, "rev-parse", "--git-path", "index")
+    path = Path(raw)
+    if not path.is_absolute():
+        path = root / path
+    return path.resolve()
+
+
+def _restore_index_bytes(index_path: Path, original_bytes: bytes) -> None:
+    """Atomically replace ``index_path`` with ``original_bytes`` and verify it."""
+
+    fd, tmp_name = tempfile.mkstemp(
+        dir=str(index_path.parent), prefix=".refresh-identical-churn-index-"
+    )
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(original_bytes)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(tmp_name, index_path)
+    except BaseException:
+        try:
+            os.unlink(tmp_name)
+        except OSError:
+            pass
+        raise
+
+    restored_bytes = index_path.read_bytes()
+    if hashlib.sha256(restored_bytes).hexdigest() != hashlib.sha256(original_bytes).hexdigest():
+        raise RefreshIdenticalChurnError(
+            "index restore verification failed: restored .git/index does not match "
+            "the bytes saved before refresh-identical apply"
+        )
 
 
 def _parse_porcelain_v1_z(raw: bytes) -> list[tuple[str, str]]:
@@ -94,10 +140,18 @@ def _parse_ls_files_s_z(raw: bytes) -> dict[str, tuple[str, str]]:
     return index
 
 
-def _hash_object(root: Path, path: str) -> str | None:
+def _hash_object(root: Path, path: str) -> str:
+    """Hash the worktree file at ``path``. A non-zero exit is a real Git error,
+    never a stand-in for "content differs" -- callers must let it propagate.
+    """
+
     result = _run_git(root, "hash-object", "--path", path, "--", path)
     if result.returncode != 0:
-        return None
+        detail = result.stderr.decode("utf-8", errors="replace").strip()
+        raise RefreshIdenticalChurnError(
+            f"git hash-object failed for {path!r} ({result.returncode})"
+            + (f": {detail}" if detail else "")
+        )
     return result.stdout.decode("ascii", errors="replace").strip()
 
 
@@ -118,6 +172,11 @@ def find_identical_churn(repository: Path | str) -> dict[str, object]:
         if status == "??":
             untracked_ignored.append(path)
             continue
+        if status == " A":
+            # git add --intent-to-add: staged as a placeholder with no real
+            # blob yet; this is not worktree content churn at all.
+            left_modified.append({"path": path, "reason": "intent-to-add"})
+            continue
         if status[0] != " ":
             left_modified.append({"path": path, "reason": "staged"})
             continue
@@ -132,8 +191,11 @@ def find_identical_churn(repository: Path | str) -> dict[str, object]:
             left_modified.append({"path": path, "reason": "not a regular file"})
             continue
 
+        # A hash-object failure (e.g. a broken required clean filter) is a
+        # real Git error and must not be swallowed as "content differs" --
+        # let RefreshIdenticalChurnError propagate to the caller.
         worktree_oid = _hash_object(root, path)
-        if worktree_oid is not None and worktree_oid == index_oid:
+        if worktree_oid == index_oid:
             refreshable.append(path)
         else:
             left_modified.append({"path": path, "reason": "content differs"})
@@ -151,11 +213,17 @@ def refresh_identical_churn(repository: Path | str, *, apply: bool) -> dict[str,
 
     Never touches a path unless it proves tracked, worktree-modified-only,
     a regular file, and worktree-hash-identical to the current index blob.
-    Applying stages exactly the qualifying paths with ``git add`` and then
-    re-verifies: index blobs for refreshed paths are unchanged, HEAD is
-    unchanged, no other path's index entry moved, and none of the refreshed
-    paths remain in ``git status``. Any verification failure raises without
-    resetting anything, so the caller can inspect the repository as-is.
+    Applying re-proves every qualifying path immediately before staging (a
+    path that changed in the window between the scan and the add is dropped
+    and reported as ``"changed during refresh"``, never staged), stages the
+    exact qualifying paths with ``git add`` using literal pathspecs (so a
+    path like ``data[1].txt`` cannot expand to match a sibling such as
+    ``data1.txt``), and then re-verifies: index blobs for refreshed paths are
+    unchanged, HEAD is unchanged, no other path's index entry moved, and none
+    of the refreshed paths remain in ``git status``. Any verification failure,
+    or a failing ``git add`` itself, restores the ``.git/index`` bytes saved
+    immediately before staging (atomically, and byte-verified) before raising,
+    so a failed apply never leaves a partial or raced mutation staged.
     """
 
     root = Path(repository).resolve()
@@ -165,50 +233,96 @@ def refresh_identical_churn(repository: Path | str, *, apply: bool) -> dict[str,
     head_before = _git_text(root, "rev-parse", "HEAD")
     findings = find_identical_churn(root)
     refreshable = list(findings["refreshable"])
+    left_modified = list(findings["left_modified"])
 
     refreshed: list[str] = []
     if apply and refreshable:
+        index_path = _git_index_path(root)
+        lock_path = index_path.with_name(index_path.name + ".lock")
+        if lock_path.exists():
+            raise RefreshIdenticalChurnError(
+                f"refusing to start: {lock_path} exists "
+                "(another Git operation may be in progress)"
+            )
+
         pre_index = _parse_ls_files_s_z(_git_bytes(root, "ls-files", "-s", "-z"))
-        _git_text(root, "add", "--", *refreshable)
 
-        head_after = _git_text(root, "rev-parse", "HEAD")
-        if head_after != head_before:
-            raise RefreshIdenticalChurnError(
-                f"HEAD changed during refresh-identical apply: {head_before!r} -> {head_after!r}"
-            )
-
-        post_index = _parse_ls_files_s_z(_git_bytes(root, "ls-files", "-s", "-z"))
+        # Re-prove every qualifying path immediately before staging. A path
+        # that changed (or vanished, or now fails to hash) in the window
+        # since the scan is dropped rather than staged.
+        still_qualifying: list[str] = []
         for path in refreshable:
-            before = pre_index.get(path)
-            after = post_index.get(path)
-            if before is None or after is None or before[1] != after[1]:
-                raise RefreshIdenticalChurnError(
-                    f"index blob changed unexpectedly for refreshed path: {path}"
-                )
-        for path, before in pre_index.items():
-            if path in refreshable:
+            expected_oid = pre_index.get(path, (None, None))[1]
+            full = root / path
+            try:
+                if full.is_symlink() or not full.is_file():
+                    raise RefreshIdenticalChurnError("path is no longer a regular file")
+                current_oid = _hash_object(root, path)
+            except RefreshIdenticalChurnError:
+                left_modified.append({"path": path, "reason": "changed during refresh"})
                 continue
-            if post_index.get(path) != before:
+            if current_oid != expected_oid:
+                left_modified.append({"path": path, "reason": "changed during refresh"})
+                continue
+            still_qualifying.append(path)
+        refreshable = still_qualifying
+
+    if apply and refreshable:
+        index_bytes_before = index_path.read_bytes()
+
+        try:
+            _git_text(
+                root, "add", "--", *refreshable, env={"GIT_LITERAL_PATHSPECS": "1"}
+            )
+        except RefreshIdenticalChurnError:
+            _restore_index_bytes(index_path, index_bytes_before)
+            raise
+
+        try:
+            head_after = _git_text(root, "rev-parse", "HEAD")
+            if head_after != head_before:
                 raise RefreshIdenticalChurnError(
-                    f"non-qualifying path's index entry changed: {path}"
+                    f"HEAD changed during refresh-identical apply: {head_before!r} -> {head_after!r}"
                 )
 
-        remaining_status = _parse_porcelain_v1_z(
-            _git_bytes(root, "status", "--porcelain=v1", "-z", "--untracked-files=all")
-        )
-        remaining_paths = {path for _status, path in remaining_status}
-        still_dirty = [path for path in refreshable if path in remaining_paths]
-        if still_dirty:
-            raise RefreshIdenticalChurnError(
-                f"refreshed paths still reported modified: {still_dirty}"
+            post_index = _parse_ls_files_s_z(_git_bytes(root, "ls-files", "-s", "-z"))
+            for path in refreshable:
+                before = pre_index.get(path)
+                after = post_index.get(path)
+                if before is None or after is None or before[1] != after[1]:
+                    raise RefreshIdenticalChurnError(
+                        f"index blob changed unexpectedly for refreshed path: {path}"
+                    )
+            for path, before in pre_index.items():
+                if path in refreshable:
+                    continue
+                if post_index.get(path) != before:
+                    raise RefreshIdenticalChurnError(
+                        f"non-qualifying path's index entry changed: {path}"
+                    )
+
+            remaining_status = _parse_porcelain_v1_z(
+                _git_bytes(root, "status", "--porcelain=v1", "-z", "--untracked-files=all")
             )
+            remaining_paths = {path for _status, path in remaining_status}
+            still_dirty = [path for path in refreshable if path in remaining_paths]
+            if still_dirty:
+                raise RefreshIdenticalChurnError(
+                    f"refreshed paths still reported modified: {still_dirty}"
+                )
+        except RefreshIdenticalChurnError as exc:
+            _restore_index_bytes(index_path, index_bytes_before)
+            raise RefreshIdenticalChurnError(
+                f"{exc} (the .git/index was restored to its pre-refresh state)"
+            ) from exc
+
         refreshed = refreshable
 
     return {
         "mode": "apply" if apply else "dry-run",
         "repository": str(root),
         "refreshed": refreshed if apply else refreshable,
-        "left_modified": findings["left_modified"],
+        "left_modified": left_modified,
         "untracked_ignored": findings["untracked_ignored"],
     }
 
