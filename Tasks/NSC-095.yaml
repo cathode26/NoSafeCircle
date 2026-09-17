@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-095",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "contract_disposition": "active",
   "title": "PixelLab 128 px Eight-Direction Wizard Source Remake",
   "reconciliation_key": "pixellab-wizard-128-source-remake",
@@ -29,12 +29,12 @@
     {
       "criterion_id": "AC-001",
       "reference": "GER Agent decision X2; Vincent's density decision B, 2026-09-16, and his NSC-077 playtest note, 2026-09-17",
-      "requirement": "Use PixelLab only to remake the four approved wizard identities (masculine-light, masculine-dark, feminine-light, feminine-dark) as transparent 128x128 PNGs: for each identity, one standing frame per screen facing (north, north-east, east, south-east, south, south-west, west, north-west) plus a six-frame walk cycle in each of those eight facings, exactly 4 x (8 + 48) = 224 files, at Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/<key>/selected/standing/<direction>.png and .../selected/walk/<direction>/frame_000.png through frame_005.png. Preserve each identity's hat and band, hair or beard, face, coat or robe, belt book, boots, and the absence of a staff, as far as the approved 180 px source facing shows them; list per-facing exceptions in source-inventory.json with the reason, for Vincent to approve in VAL-002. For example masculine-dark's approved south shows no belt book at all, so create_character v3 had none to rotate. Follow the per-wizard production path: image_to_pixelart (faithful) from the approved standing/south.png; create_character v3 using that result as the reference image; review the 8 rotations against the approved 180 px standing sprites and repair defects with masked inpaint before animating; animate_character v3 once per direction with frame_count 6 and keep_first_frame false, so exactly six frames are stored instead of v3's default reference pose plus six; losslessly centre the raw frames onto 128x128, since v3 returns a different raw canvas per direction (148, 152, 156 and 160 px in the first batch), recording the offset per frame and refusing the step if any opaque pixel would fall outside the 128x128 canvas. The 2026-09-16 trial character 1d1cd21e-dd13-4bcc-9e0d-4c56f84e5e80 may seed masculine-light if its rotations pass review, but its south-east walk's loop-seam feet jump must be re-rolled or given a custom start frame. If PixelLab is unavailable, stop as blocked rather than substituting another generator or hand-edited pixels; a lossless crop or pad is allowed only if recorded. Stop and ask Vincent before exceeding 100 PixelLab generations."
+      "requirement": "Use PixelLab only to remake the four approved wizard identities (masculine-light, masculine-dark, feminine-light, feminine-dark) as transparent 128x128 PNGs: for each identity, one standing frame per screen facing (north, north-east, east, south-east, south, south-west, west, north-west) plus a six-frame walk cycle in each of those eight facings, exactly 4 x (8 + 48) = 224 files, at Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/<key>/selected/standing/<direction>.png and .../selected/walk/<direction>/frame_000.png through frame_005.png. Preserve each identity's hat and band, hair or beard, face, coat or robe, belt book, boots, and the absence of a staff, as far as the approved 180 px source facing shows them; list per-facing exceptions in source-inventory.json with the reason, for Vincent to approve in VAL-002. For example masculine-dark's approved south shows no belt book at all, so create_character v3 had none to rotate. Follow the per-wizard production path: image_to_pixelart (faithful) from the approved standing/south.png; create_character v3 using that result as the reference image; review the 8 rotations against the approved 180 px standing sprites and repair defects with masked inpaint before animating; animate_character v3 once per direction with frame_count 6 and keep_first_frame false, so exactly six frames are stored instead of v3's default reference pose plus six; losslessly centre the raw frames onto 128x128, since v3 returns a different raw canvas per direction (148, 152, 156 and 160 px in the first batch), recording the offset per frame and refusing the step if any opaque pixel would fall outside the 128x128 canvas. The 2026-09-16 trial character 1d1cd21e-dd13-4bcc-9e0d-4c56f84e5e80 may seed masculine-light if its rotations pass review, but its south-east walk's loop-seam feet jump must be re-rolled or given a custom start frame. If PixelLab is unavailable, stop as blocked rather than substituting another generator or hand-edited pixels; a lossless crop or pad is allowed only if recorded. Stop and ask Vincent before exceeding 140 PixelLab generations, counted from the PixelLab balance meter (get_balance before and after each batch), not from the per-call printed estimates, which under-report."
     },
     {
       "criterion_id": "AC-002",
       "reference": "GER Agent decision X3; the NSC-078 raw-export precedent",
-      "requirement": "Record, per selected frame, the key, direction, frame index, PixelLab character ID, animation or job ID, prompt and settings, raw_size, raw_alpha_bbox, padding_offset, raw_sha256 and selected_sha256 in Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/source-inventory.json. Place raw PixelLab exports under Docs/Art/Wizard/Raw128/<key>/... with no .meta files. Record generation identifiers, prompts, settings and the running generation count against the 100-generation cap in Docs/Art/Wizard/PIXELLAB_128_GENERATION.md, along with the rejects branch name. Commit rejected candidates only on a local art-rejects/NSC-095 branch, never on the task branch."
+      "requirement": "Record, per selected frame, the key, direction, frame index, PixelLab character ID, animation or job ID, prompt and settings, raw_size, raw_alpha_bbox, padding_offset, raw_sha256 and selected_sha256 in Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/source-inventory.json. Place raw PixelLab exports under Docs/Art/Wizard/Raw128/<key>/... with no .meta files. Record generation identifiers, prompts, settings and the running generation count against the 140-generation cap, measured from the balance meter in Docs/Art/Wizard/PIXELLAB_128_GENERATION.md, along with the rejects branch name. Commit rejected candidates only on a local art-rejects/NSC-095 branch, never on the task branch."
     },
     {
       "criterion_id": "AC-003",
@@ -75,12 +75,23 @@
   "basis": "human_requested_wizard_128_density_remake",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "Vincent, 2026-09-16 (density decision B): \"The wizard should be 128x128\"; on the one-facing trial he answered \"yes\" to option B, re-making characters at game size. Vincent, NSC-077 playtest, 2026-09-17: \"The enemies look great.\"; \"the wizards dont look nearly as good sadly\"; \"Whatever you have done to make the enemy look great and in perspective, the wizards need that treatment.\" This task does not claim Unity integration: it produces and audits source art only. Its identities, layout, provenance and audit are separate from NSC-096, the Game Agent crew task that switches DoorPrototypeGlobalSceneBuilder to consume this source.",
+  "notes": "Vincent, 2026-09-16 (density decision B): \"The wizard should be 128x128\"; on the one-facing trial he answered \"yes\" to option B, re-making characters at game size. Vincent, NSC-077 playtest, 2026-09-17: \"The enemies look great.\"; \"the wizards dont look nearly as good sadly\"; \"Whatever you have done to make the enemy look great and in perspective, the wizards need that treatment.\" This task does not claim Unity integration: it produces and audits source art only. Its identities, layout, provenance and audit are separate from NSC-096, the Game Agent crew task that switches DoorPrototypeGlobalSceneBuilder to consume this source. Vincent, 2026-09-17, after the Art Director stopped at 96 generations and asked as AC-001 requires: \"raise the cap, cost doesnt matter much on art, raise it 40\", so revision 2 sets the cap at 140. The cap counts meter generations, not printed ones: measured against get_balance on 2026-09-17, create_character v3 with a reference image prints 2 and costs about 7, inpaint_image_pro_flash prints an estimated 6 (pricing provisional) and costs about 10.5, while animate_character v3 at frame_count 6 is accurate at 2 per direction. Those first two figures were attributed by elimination from one run's 25 unexplained generations, so they are measurements, not published prices, and the forecast for the four wizards is about 105 to 125 of the 140.",
   "repository_state_at_bootstrap": "missing",
   "repository_evidence_at_bootstrap": [],
   "provenance": {
     "origin": "human_requested_wizard_128_density_remake",
     "approved_development_tool": "PixelLab MCP",
-    "created_by_human_request": true
+    "created_by_human_request": true,
+    "contract_followups": [
+      {
+        "date": "2026-09-17",
+        "reason": "Vincent raised the generation cap after the Art Director stopped at 96 and asked as AC-001 requires: 'raise the cap, cost doesnt matter much on art, raise it 40'. AC-001 and AC-002 now say 140, counted from the PixelLab balance meter rather than the per-call printed estimates, which the Art Director measured as under-reporting; the notes carry those measurements with their caveat.",
+        "source_head": "574d7880db6ed1e17f359cc6ee69e7984a4c0ccf",
+        "previous_contract_revision": 1,
+        "base_contract_sha256": "c844998e78ab652e7ec4dde2a51288bb7efa57d8c6c75784077e6bad448dd7e2",
+        "revised_contract_sha256": "038dbb26134c53f95481992545d7a71a729e2381819c7c8c3c64b5b5ce317dc8",
+        "review": "post-commit closure review (tiered rule, 2026-09-17)"
+      }
+    ]
   }
 }
