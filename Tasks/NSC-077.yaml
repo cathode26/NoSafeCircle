@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-077",
-  "contract_revision": 7,
+  "contract_revision": 8,
   "contract_disposition": "active",
   "title": "Enemy Art Integration for the Existing Moving Enemies",
   "reconciliation_key": "stationary-enemy-sprite-integration",
@@ -120,7 +120,7 @@
     {
       "gate_id": "VAL-007",
       "reference": "Exact-candidate materialization and regression validation",
-      "requirement": "On the exact candidate, with Unity closed on that checkout: run DoorPrototypeSceneBuilder.Build twice and require that the second run changes no file's bytes except Assets/Scenes/DoorPrototype.unity. That binary scene is re-saved with regenerated local fileIDs on every build, so for it require semantic identity with the first run's output instead: the same object count per class and per MonoBehaviour script GUID, and the same sorted serialized object sizes per class and script GUID; record that comparison as delivery evidence. Require a clean compile; pass EnemyArtIntegrationTests, EnemyAnimationPlayModeTests and EnemyLanternWispCasterPlayModeTests; pass the existing EnemyPursuitPlayModeTests, EnemyPursuitDoorCrossingPlayModeTests, EnemyTargetKnowledgePlayModeTests, EnemyHealthPlayModeTests, ActiveEnemyRegistryPlayModeTests, EnemyLockedDoorAttackPlayModeTests, DoorEnemyPassabilityPlayModeTests, WizardAnimationPlayModeTests, WizardArtIntegrationTests and DoorPrototypeSceneBuilderTests fixtures, using the semicolon-separated Edit Mode and Play Mode test filters recorded for NSC-077 in Pipeline/TaskReviewAgent/authoritative_validation_policy.json. Two DoorPrototypeSceneBuilderTests tests went stale before this task, when commit 9a3d22c56 (the playable build) moved the player to PlayerSpawnPosition: Build_PlayerStartsAtCharacterControllerGroundedHeight and Build_MainCamera_FramesPlayerAndStartingDoorInView. They do not block this task when they also fail with the same assertion on the candidate's base commit; record the base and candidate results for both. Every other test in both filters must pass; confirm that the diff under Art/Enemies/Source changes only .png.meta files and that the saved scene has no missing-script references after the rename, that EnemyLanternWispCaster.cs.meta keeps GUID 73b9fddab19c3f34e878119acd894458, and that neither EnemyFireballCaster.cs nor EnemyFireballCaster.cs.meta remains; and commit only builder output plus the files this task registers."
+      "requirement": "On the exact candidate, with Unity closed on that checkout: run DoorPrototypeSceneBuilder.Build twice and require that the second run changes no file's bytes except Assets/Scenes/DoorPrototype.unity. That binary scene is re-saved with regenerated local fileIDs on every build, so for it require identical normalized scene snapshots taken in the Unity Editor after each Build instead. A snapshot lists every GameObject by hierarchy path and sibling index with its name, tag, layer and active state; every component on it by type name and index among components of that type; and every serialized property reached by iterating the component's SerializedObject with SerializedProperty.Next(true), as property path, property type and value. Object references are written as the referenced scene object's hierarchy path, sibling index, component type and index, as an asset GUID plus local identifier for an asset, or as null, never as a scene-local fileID. The snapshot tool is delivery-evidence tooling kept with the evidence, not a file this task registers; record both snapshots and their comparison. Require a clean compile; pass EnemyArtIntegrationTests, EnemyAnimationPlayModeTests and EnemyLanternWispCasterPlayModeTests; pass the existing EnemyPursuitPlayModeTests, EnemyPursuitDoorCrossingPlayModeTests, EnemyTargetKnowledgePlayModeTests, EnemyHealthPlayModeTests, ActiveEnemyRegistryPlayModeTests, EnemyLockedDoorAttackPlayModeTests, DoorEnemyPassabilityPlayModeTests, WizardAnimationPlayModeTests, WizardArtIntegrationTests and DoorPrototypeSceneBuilderTests fixtures, using the semicolon-separated Edit Mode and Play Mode test filters recorded for NSC-077 in Pipeline/TaskReviewAgent/authoritative_validation_policy.json. Every test in both filters must pass, including the whole DoorPrototypeSceneBuilderTests fixture: the Unity runner and validation manifests accept no failed test. Build_PlayerStartsAtCharacterControllerGroundedHeight and Build_MainCamera_FramesPlayerAndStartingDoorInView went stale before this task, when commit 9a3d22c56 (the playable build) moved the player to PlayerSpawnPosition; a separate test-maintenance fix updates them, and this task's candidate is rebased onto a main that contains that fix before its authoritative validation runs; confirm that the diff under Art/Enemies/Source changes only .png.meta files and that the saved scene has no missing-script references after the rename, that EnemyLanternWispCaster.cs.meta keeps GUID 73b9fddab19c3f34e878119acd894458, and that neither EnemyFireballCaster.cs nor EnemyFireballCaster.cs.meta remains; and commit only builder output plus the files this task registers."
     },
     {
       "gate_id": "VAL-008",
@@ -254,6 +254,15 @@
         "previous_contract_revision": 6,
         "base_contract_sha256": "f6379d912563bfa17e1cb291765484b0bef43b3656993199d975f7447933c7ba",
         "revised_contract_sha256": "15f4ffde8c7336d3bf7d4691db11e68d565697a57313df5baba9d2595c1f6bea",
+        "review": "post-commit Codex contract check (tiered rule, 2026-09-17)"
+      },
+      {
+        "date": "2026-09-17",
+        "reason": "Follow-up revision 8 from the rev 7 Codex check (revise): VAL-007 requires the whole DoorPrototypeSceneBuilderTests fixture to pass (the Unity runner and manifests accept no failed test), with the candidate rebased onto the separate test-maintenance fix for the two tests made stale by 9a3d22c56; scene idempotence is proven by identical normalized SerializedObject snapshots of the two Builds (fileID-free references) instead of counts and sizes; the validation policy keeps its filters and is rebound to this revision.",
+        "source_head": "a58d21e31873fdbe8484b568b6e12f44a5fcd78a",
+        "previous_contract_revision": 7,
+        "base_contract_sha256": "9f0cb361b63f6d5133883ca778b04e7b891268bd9f5f85fff9a0925dc118ac97",
+        "revised_contract_sha256": "e9e2e7baca712a3361fb26be9dd7654023ec412965c147bda32318e52055e91e",
         "review": "post-commit Codex contract check (tiered rule, 2026-09-17)"
       }
     ],
