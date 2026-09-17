@@ -182,13 +182,13 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.AreEqual(originalSkin, wizard.Skin);
         }
 
-        [TestCase(1f, 0f, "north-east")]
-        [TestCase(0f, 1f, "south-east")]
-        [TestCase(-1f, 0f, "south-west")]
-        [TestCase(0f, -1f, "north-west")]
+        [TestCase(1f, 0f, "south-east")]
+        [TestCase(0f, 1f, "north-east")]
+        [TestCase(-1f, 0f, "north-west")]
+        [TestCase(0f, -1f, "south-west")]
         [TestCase(1f, 1f, "east")]
-        [TestCase(1f, -1f, "north")]
-        [TestCase(-1f, 1f, "south")]
+        [TestCase(1f, -1f, "south")]
+        [TestCase(-1f, 1f, "north")]
         [TestCase(-1f, -1f, "west")]
         public void DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections(
             float worldX, float worldZ, string expectedDirection)
@@ -418,9 +418,9 @@ namespace NoSafeCircle.DoorPrototype.Tests
             movement.enabled = false;
             yield return null;
 
-            // Prime the intended X-axis facing before exercising ambiguous boundary noise.
-            // With no prior movement, retaining the canonical initial Z-axis facing is valid.
-            player.transform.position += new Vector3(1f, 0f, 0f);
+            // Prime the intended Z-axis facing before exercising ambiguous boundary noise.
+            // With no prior movement, retaining the canonical initial X-axis facing is valid.
+            player.transform.position += new Vector3(0f, 0f, 1f);
             yield return null;
             const string expectedWalkState = "Wizard_Masculine_White_walk_north-east";
             Assert.AreEqual(expectedWalkState, wizard.CurrentState);
@@ -429,7 +429,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
             animator.Update(0.1f);
             float firstWalkTime = animator.GetCurrentAnimatorStateInfo(0).normalizedTime;
 
-            player.transform.position += new Vector3(1f, 0f, 0.4143f);
+            player.transform.position += new Vector3(0.4143f, 0f, 1f);
             yield return null;
             Assert.AreEqual(expectedWalkState, wizard.CurrentState);
             animator.Update(0f);
@@ -601,9 +601,9 @@ namespace NoSafeCircle.DoorPrototype.Tests
         private static Vector3 ScreenToWorldMovement(Vector2 screenMovement)
         {
             return new Vector3(
-                (screenMovement.x + screenMovement.y) * 0.5f,
+                (screenMovement.x - screenMovement.y) * 0.5f,
                 0f,
-                (screenMovement.x - screenMovement.y) * 0.5f);
+                (screenMovement.x + screenMovement.y) * 0.5f);
         }
 
         private static Vector3 BoundaryMovementFor(string direction, float offset)
@@ -625,8 +625,8 @@ namespace NoSafeCircle.DoorPrototype.Tests
             float radians = (angle + offset) * Mathf.Deg2Rad;
             float screenX = Mathf.Cos(radians);
             float screenY = Mathf.Sin(radians);
-            return new Vector3((screenX + screenY) * 0.5f, 0f,
-                (screenX - screenY) * 0.5f);
+            return new Vector3((screenX - screenY) * 0.5f, 0f,
+                (screenX + screenY) * 0.5f);
         }
 
         private readonly struct ScreenDirection

@@ -116,13 +116,13 @@ namespace NoSafeCircle.DoorPrototype
             return $"Wizard_{presentation}_{skin}_{motion}_{direction}";
         }
 
-        // The fixed camera maps world movement into screen coordinates where
-        // horizontal = X + Z and vertical = X - Z. The eight equally spaced screen
+        // The fixed isometric camera (30, -45, 0) looks toward world -X +Z, so screen
+        // horizontal = X + Z and screen vertical = Z - X. The eight equally spaced screen
         // sectors therefore cover both the world axes and their diagonals.
         private static string DirectionFor(Vector3 movement)
         {
             Vector2 screenMovement = new Vector2(
-                movement.x + movement.z, movement.x - movement.z);
+                movement.x + movement.z, movement.z - movement.x);
             if (screenMovement.sqrMagnitude < DirectionThreshold * DirectionThreshold)
                 return CanonicalInitialDirection;
 
@@ -156,7 +156,7 @@ namespace NoSafeCircle.DoorPrototype
         private static string StableDirectionFor(Vector3 movement, string previousDirection)
         {
             Vector2 screenMovement = new Vector2(
-                movement.x + movement.z, movement.x - movement.z);
+                movement.x + movement.z, movement.z - movement.x);
             float movementLength = screenMovement.magnitude;
             if (movementLength < DirectionThreshold * Mathf.Sqrt(2f))
                 return previousDirection;
