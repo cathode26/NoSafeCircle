@@ -9,8 +9,16 @@ namespace NoSafeCircle.DoorPrototype
     [RequireComponent(typeof(Camera))]
     public class IsometricCameraFollow : MonoBehaviour
     {
-        private static readonly Vector3 IsometricTransparencySortAxis =
-            new Vector3(0f, 1f, -0.26f).normalized;
+        // Unity Isometric Z-as-Y Individual Tilemap sorting axis. X intentionally contributes no
+        // depth so moving along a horizontal wall cannot flip occlusion.
+        // Unity draws the LARGER custom-axis dot product first (farther back). This camera sits
+        // at -Z looking toward +Z, so a larger world Z is genuinely farther and must produce the
+        // larger value: the Z coefficient is positive. A negative coefficient inverted depth and
+        // rendered a door in front of a wizard standing south of it. Shared with
+        // DoorPrototypeGlobalSceneBuilder.BuildCamera so the editor-authored value and the
+        // value OnEnable reapplies at scene load/Play Mode can never drift apart again.
+        public static readonly Vector3 IsometricTransparencySortAxis =
+            new Vector3(0f, 1f, 0.26f).normalized;
 
         [SerializeField] private Transform target;
         [SerializeField] private Vector3 offset;
