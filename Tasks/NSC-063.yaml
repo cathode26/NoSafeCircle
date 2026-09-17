@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-063",
-  "contract_revision": 2,
+  "contract_revision": 3,
   "contract_disposition": "active",
   "title": "PixelLab Stationary Enemy Art Direction and Selection",
   "reconciliation_key": "pixellab-stationary-enemy-art-selection",
@@ -61,7 +61,7 @@
     {
       "obligation_id": "INT-001",
       "reference": "Future stationary enemy Unity integration",
-      "requirement": "A separate task imports only the approved source art as world-space SpriteRenderer prefabs and initially demonstrates the enemies stationary, without claiming pursuit or attack behavior."
+      "requirement": "NSC-077 imports the approved Melee Enemy and Lantern Wraith source art onto the moving enemies DoorPrototypeGlobalSceneBuilder already builds (idle and walk animation in a camera-facing Visual), without changing pursuit or attack behavior; no separate stationary-enemy demonstration is planned (NSC-077 revision 3, 2026-09-16)."
     }
   ],
   "gdd_evidence": [
@@ -77,7 +77,7 @@
   "basis": "human_approved_gameplay_presentation",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "This task deliberately acquires art before behavior. Vincent will approve Unity appearance later, after a separate integration task places stationary enemies in the game.",
+  "notes": "This task deliberately acquires art before behavior. Vincent approves the Unity appearance in NSC-077's VAL-008 play review of the existing moving enemies; the earlier plan for a separate stationary-enemy placement task was dropped by NSC-077 revision 3 (2026-09-16).",
   "repository_state_at_bootstrap": "missing",
   "repository_evidence_at_bootstrap": [],
   "provenance": {
@@ -85,6 +85,21 @@
     "approved_development_tool": "PixelLab MCP",
     "approved_at_utc_date": "2026-09-12",
     "gdd_rag_validated": true,
-    "gdd_rag_chunk_ids": ["nsc-gdd-002", "nsc-gdd-052", "nsc-gdd-062"]
+    "gdd_rag_chunk_ids": [
+      "nsc-gdd-002",
+      "nsc-gdd-052",
+      "nsc-gdd-062"
+    ],
+    "contract_followups": [
+      {
+        "date": "2026-09-17",
+        "reason": "Mechanical follow-up revision 3 from the NSC-077 rev 9 Codex check (minor, stale dependent): INT-001 and notes no longer promise a separate stationary-enemy import and demonstration; NSC-077 integrates the approved art onto the existing moving enemies and its VAL-008 play review is where Vincent approves the Unity appearance. Historical art-generation wording is unchanged.",
+        "source_head": "c8e6e622772e87e85d957a6a6faf45a9bf8a07dd",
+        "previous_contract_revision": 2,
+        "base_contract_sha256": "55aa0f169555e96c5aacc9a4f9a48b958d9cc82040d849b42455d652bfdec6f7",
+        "revised_contract_sha256": "45f1ee5710bb76a1cca705f067ddce4f6d9fe3142ce7cc442967cbb104e1e834",
+        "review": "mechanical revision; grep review only (tiered rule, 2026-09-17)"
+      }
+    ]
   }
 }
