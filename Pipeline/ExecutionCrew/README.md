@@ -5,7 +5,7 @@ A human selects one eligible committed `NSC-###` task, one provider, explicit pr
 ```text
 lean:     Implementer -> Validator
 standard: Implementer -> Unity Test Author -> Validator
-full:     Contract Locality Auditor -> Implementer -> Unity Test Author -> Validator
+full:     Implementer -> Unity Test Author -> Validator
 ```
 
 The selected task must be `active`, `implementation`, `single_agent`, and `concrete`. This is eligibility, not dependency readiness or authorization. All roles use one human-selected provider (`claude` or `codex`); mixed-provider orchestration is not implemented.

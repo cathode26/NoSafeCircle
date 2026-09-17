@@ -462,11 +462,8 @@ def main():
     progress_stderr=io.StringIO(); progress_stdout=io.StringIO()
     with redirect_stderr(progress_stderr), redirect_stdout(progress_stdout): passed,state,d=execute(source,outputs,"pass",1)
     assert passed["crew_status"]=="review_ready" and (d/"candidate.patch").read_bytes(); assert [x[0] for x in state.calls]==["implementer","test_author","validator"]
-    assert passed["contract_locality_status"]=="pass" and passed["contract_locality_audit_path"] is not None
-    assert Path(passed["contract_locality_audit_path"]).samefile(d/"contract_locality_audit.json")
-    audit_artifact=json.loads((d/"contract_locality_audit.json").read_text())
-    assert audit_artifact["schema_version"]=="1.0" and audit_artifact["task_id"]==TASK and audit_artifact["result"]["status"]=="pass"
-    assert audit_artifact["source_head"]==passed["source_head"] and audit_artifact["task_contract_identity"]==passed["task_contract_identity"]
+    assert passed["contract_locality_status"]=="not_required_by_profile" and passed["contract_locality_audit_path"] is None
+    assert not (d/"contract_locality_audit.json").exists()
     assert progress_stdout.getvalue()=="" and "ExecutionCrew started" in progress_stderr.getvalue() and "ExecutionCrew completed: review_ready" in progress_stderr.getvalue()
     events=[json.loads(line) for line in (d/"progress.jsonl").read_text().splitlines() if line]
     names=[event["event"] for event in events]; assert names[0]=="run_started" and names[-1]=="run_completed"
@@ -494,10 +491,10 @@ def main():
     assert existing_test_adequate["test_actual_changed_paths"]==[]
     assert existing_test_adequate["final_actual_changed_paths"]==[IMPL]
     assert (existing_test_dir/"candidate.patch").is_file()
-    assert len(list((d/"task_execution").glob("*/task_request.json")))==4 and len(list((d/"agent_runtime").glob("*/result.json")))==4
+    assert len(list((d/"task_execution").glob("*/task_request.json")))==3 and len(list((d/"agent_runtime").glob("*/result.json")))==3
     impl_record=json.loads((d/"role_results/implementer_1.json").read_text()); assert impl_record["role_claimed_paths"]==["claim-impl.cs"] and impl_record["agent_runtime_claimed_paths"]==["runtime-claim.cs"] and impl_record["deterministic_incremental_actual_changed_paths"]==[IMPL]
     assert impl_record["usage"]=={"estimated_cost_usd":None,"input_tokens":1,"output_tokens":2,"total_tokens":11}
-    assert passed["token_usage"]=={"schema_version":"1.0","status":"complete","complete":True,"input_tokens":4,"output_tokens":8,"total_tokens":44,"reported_input_tokens":4,"reported_output_tokens":8,"reported_total_tokens":44,"invocation_count":4,"usage_available_invocation_count":4,"missing_usage_invocation_count":0}
+    assert passed["token_usage"]=={"schema_version":"1.0","status":"complete","complete":True,"input_tokens":3,"output_tokens":6,"total_tokens":33,"reported_input_tokens":3,"reported_output_tokens":6,"reported_total_tokens":33,"invocation_count":3,"usage_available_invocation_count":3,"missing_usage_invocation_count":0}
     with patch.dict(os.environ,{"NSC_EXECUTION_HEARTBEAT_SECONDS":"0.01"},clear=False), redirect_stderr(io.StringIO()): slow,state,d=execute(source,outputs,"slow",61)
     slow_events=[json.loads(line) for line in (d/"progress.jsonl").read_text().splitlines()]; heartbeats=[i for i,event in enumerate(slow_events) if event["event"]=="role_heartbeat"]
     assert slow["crew_status"]=="review_ready" and heartbeats
@@ -506,16 +503,16 @@ def main():
         completed=next(i for i,event in enumerate(slow_events) if event["event"]=="role_completed" and event["role"]==role and event["attempt"]==attempt)
         assert index < completed and not any(event["event"]=="role_heartbeat" and event["role"]==role and event["attempt"]==attempt for event in slow_events[completed+1:])
     repaired,state,d=execute(source,outputs,"repair",2); assert repaired["crew_status"]=="review_ready" and repaired["attempts_used"]==2; assert [x[0] for x in state.calls]==["implementer","test_author","validator"]*2
-    assert repaired["token_usage"]["invocation_count"]==7 and repaired["token_usage"]["input_tokens"]==10 and repaired["token_usage"]["output_tokens"]==17 and repaired["token_usage"]["total_tokens"]==80
+    assert repaired["token_usage"]["invocation_count"]==6 and repaired["token_usage"]["input_tokens"]==9 and repaired["token_usage"]["output_tokens"]==15 and repaired["token_usage"]["total_tokens"]==69
     failed_usage,failed_usage_state,failed_usage_dir=execute(source,outputs,"provider_failure_usage",153)
     assert failed_usage["crew_status"]=="rejected" and [role for role,_,_ in failed_usage_state.calls]==["implementer"]
     assert json.loads((failed_usage_dir/"role_results/implementer_1.json").read_text())["agent_status"]=="failed"
-    assert failed_usage["token_usage"]["complete"] is True and failed_usage["token_usage"]["total_tokens"]==22
+    assert failed_usage["token_usage"]["complete"] is True and failed_usage["token_usage"]["total_tokens"]==11
     missing_usage,missing_usage_state,missing_usage_dir=execute(source,outputs,"missing_usage",154)
     assert missing_usage["crew_status"]=="review_ready" and len(missing_usage_state.calls)==3
     assert json.loads((missing_usage_dir/"role_results/test_author_1.json").read_text())["usage"] is None
     assert missing_usage["token_usage"]["status"]=="incomplete" and missing_usage["token_usage"]["complete"] is False
-    assert missing_usage["token_usage"]["total_tokens"] is None and missing_usage["token_usage"]["reported_total_tokens"]==33
+    assert missing_usage["token_usage"]["total_tokens"] is None and missing_usage["token_usage"]["reported_total_tokens"]==22
     assert missing_usage["token_usage"]["missing_usage_invocation_count"]==1
     no_op,state,d=execute(source,outputs,"no_op_repair",6); assert no_op["crew_status"]=="needs_human" and [x[0] for x in state.calls]==["implementer","test_author","validator","implementer","test_author"]
     assert "repair cycle made no deterministic changes" in no_op["rejection_reasons"] and not (d/"candidate.patch").exists()
@@ -1128,12 +1125,6 @@ def main():
     except (OSError, NotImplementedError):
         pass
 
-    # A locally provable task contract passes the audit and continues through the normal crew flow.
-    locality_pass,locality_pass_state,locality_pass_dir=execute(source,outputs,"pass",102)
-    assert locality_pass["crew_status"]=="review_ready"
-    assert [role for role,_,_ in locality_pass_state.calls]==["implementer","test_author","validator"]
-    assert locality_pass["contract_locality_status"]=="pass"
-
     # Validator structured reason_code is a second safety boundary. An overall pass may only carry a
     # not_proven item whose reason_code is runtime_not_executed; any other not_proven reason_code is a
     # rejected (invalid) validator output, never a silent pass.
@@ -1155,20 +1146,20 @@ def main():
 
     # blocked_by_design with reason_code=missing_integration_dependency or design_ambiguity routes the
     # crew to CONTRACT_REVIEW_REQUIRED (fallback safety boundary), not a generic BLOCKED result, even
-    # though the mandatory pre-Implementer audit already passed and writers already ran.
+    # though the writers already ran.
     for index,scenario,expected_reason_code in ((112,"validator_missing_integration_dependency","missing_integration_dependency"),(113,"validator_design_ambiguity","design_ambiguity")):
         fallback,fallback_state,fallback_dir=execute(source,outputs,scenario,index)
         assert fallback["crew_status"]=="contract_review_required",scenario
         assert [role for role,_,_ in fallback_state.calls]==["implementer","test_author","validator"],scenario
         assert fallback["validator_status"]=="blocked_by_design",scenario
-        assert fallback["contract_locality_status"]=="pass",scenario
+        assert fallback["contract_locality_status"]=="not_required_by_profile",scenario
         validator_record=json.loads((fallback_dir/"role_results/validator_1.json").read_text())
         assert validator_record["structured_output"]["criteria_results"][1]["reason_code"]==expected_reason_code,scenario
         assert fallback["candidate_patch_path"] is None,scenario
         assert fallback["workspace_diagnostic_patch_path"] is not None,scenario
         assert Path(fallback["workspace_diagnostic_patch_path"]).samefile(fallback_dir/"workspace_diagnostic.patch"),scenario
         assert fallback["human_result"]["status"]=="CONTRACT_REVIEW_REQUIRED",scenario
-        # Fallback artifact is the diagnostic patch (writers already ran), not the (already-passed) audit.
+        # Fallback artifact is the diagnostic patch (writers already ran); no audit artifact exists.
         assert fallback["human_result"]["artifact_path"]==fallback["workspace_diagnostic_patch_path"],scenario
         assert fallback["human_result"]["commands"]==patch_commands(fallback["workspace_diagnostic_patch_path"],applyable=False),scenario
         fallback_footer=io.StringIO()
@@ -1224,31 +1215,18 @@ def main():
     assert cmd(broken_graph_clone,"rev-parse","HEAD")==broken_graph_head
     assert cmd(broken_graph_clone,"status","--porcelain=v1","--untracked-files=all")==""
 
-    # Pre-feature human-review retries: a review_ready prior run created before the Contract Locality
-    # Auditor existed (no auditor TaskExecution request/result, no contract_locality_* crew_result
-    # fields, no contract_locality_audit.json) must still recover scope and retry successfully. The
-    # prior Validator TaskExecution and prior Implementer/Test Author WriteBoundaries remain
-    # authoritative and required; a prior auditor is optional; the retry never trusts a prior audit
-    # and always runs the mandatory current auditor before the Implementer.
+    # Pre-feature human-review retries: a review_ready prior run recorded before the contract locality
+    # fields existed (no contract_locality_* crew_result fields, no contract_locality_audit.json) must
+    # still recover scope and retry successfully. The prior Validator TaskExecution and prior
+    # Implementer/Test Author WriteBoundaries remain authoritative and required. No crew role audits
+    # contract locality any more, so the retry writes no audit and reports not_required_by_profile.
     pre_feature_prior,pre_feature_state,pre_feature_dir=execute(source,outputs,"pass",130,provider="claude")
     assert pre_feature_prior["crew_status"]=="review_ready"
     assert [role for role,_,_ in pre_feature_state.calls]==["implementer","test_author","validator"]
-    auditor_request_dirs=[p.parent for p in (pre_feature_dir/"task_execution").glob("*/task_request.json")
-                           if json.loads(p.read_text())["invocation"]["role"]=="contract_locality_auditor"]
-    assert len(auditor_request_dirs)==1
-    auditor_agent_runtime_dir=None
-    for candidate in (pre_feature_dir/"agent_runtime").glob("*"):
-        request_json=candidate/"request.json"
-        if request_json.is_file() and json.loads(request_json.read_text()).get("role")=="contract_locality_auditor":
-            auditor_agent_runtime_dir=candidate; break
-    shutil.rmtree(auditor_request_dirs[0])
-    (pre_feature_dir/"role_results/contract_locality_auditor_1.json").unlink()
-    if auditor_agent_runtime_dir is not None: shutil.rmtree(auditor_agent_runtime_dir)
     pre_feature_result_path=pre_feature_dir/"crew_result.json"
     pre_feature_json=json.loads(pre_feature_result_path.read_text())
     for field in ("contract_locality_status","contract_locality_audit_path","contract_locality_audit_host_path"):
         pre_feature_json.pop(field,None)
-    pre_feature_json["role_results"]=[p for p in pre_feature_json["role_results"] if p!="role_results/contract_locality_auditor_1.json"]
     pre_feature_result_path.write_text(json.dumps(pre_feature_json,indent=2,sort_keys=True)+"\n", newline="\n")
     (pre_feature_dir/"contract_locality_audit.json").unlink(missing_ok=True)
     assert not (pre_feature_dir/"contract_locality_audit.json").exists()
@@ -1272,8 +1250,8 @@ def main():
     assert pre_feature_retry["crew_status"]=="review_ready"
     assert [role for role,_,_ in pre_feature_retry_state.calls]==["implementer","test_author","validator"]
     assert pre_feature_retry["requested_implementation_paths"]==[IMPL] and pre_feature_retry["requested_test_paths"]==[TEST]
-    assert pre_feature_retry["contract_locality_status"]=="pass" and pre_feature_retry["contract_locality_audit_path"] is not None
-    assert Path(pre_feature_retry["contract_locality_audit_path"]).samefile(pre_feature_retry_dir/"contract_locality_audit.json")
+    assert pre_feature_retry["contract_locality_status"]=="not_required_by_profile" and pre_feature_retry["contract_locality_audit_path"] is None
+    assert not (pre_feature_retry_dir/"contract_locality_audit.json").exists()
 
     assert cmd(source,"status","--porcelain=v1","--untracked-files=all")==""
 
