@@ -102,7 +102,8 @@
         "independent-room-scene-composition",
         "wizard-animation-audit-repair",
         "victory-trigger-overlay-integration",
-        "navmesh-agent-configuration-foundation"
+        "navmesh-agent-configuration-foundation",
+        "spectral-decoy-spell"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
       "work_ids": [
@@ -132,7 +133,8 @@
         "NSC-069",
         "NSC-070",
         "NSC-086",
-        "NSC-089"
+        "NSC-089",
+        "NSC-088"
       ]
     },
     {
