@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using NUnit.Framework;
 using UnityEditor;
@@ -56,6 +57,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             bool wizardRendererEnabledBefore = true;
             CameraClearFlags previousClearFlags = CameraClearFlags.SolidColor;
             Color previousBackgroundColor = Color.black;
+            var silencedRenderers = new List<Renderer>();
 
             try
             {
@@ -115,6 +117,23 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                 camera.clearFlags = CameraClearFlags.SolidColor;
                 camera.backgroundColor = new Color(0f, 0f, 0f, 0f);
 
+                // Silence every other renderer in the scene. Otherwise the floor and walls are
+                // opaque in all three captures, the contested set becomes most of the frame, and
+                // the door drawing over the FLOOR beside the wizard counts as a regression.
+                foreach (GameObject root in openedScene.GetRootGameObjects())
+                {
+                    foreach (Renderer sceneRenderer in root.GetComponentsInChildren<Renderer>(true))
+                    {
+                        if (sceneRenderer == doorRenderer || sceneRenderer == wizardRenderer || !sceneRenderer.enabled)
+                        {
+                            continue;
+                        }
+
+                        sceneRenderer.enabled = false;
+                        silencedRenderers.Add(sceneRenderer);
+                    }
+                }
+
                 wizardRenderer.enabled = false;
                 doorRenderer.enabled = true;
                 camera.Render();
@@ -164,6 +183,11 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             {
                 if (doorRenderer != null) doorRenderer.enabled = doorRendererEnabledBefore;
                 if (wizardRenderer != null) wizardRenderer.enabled = wizardRendererEnabledBefore;
+
+                foreach (Renderer silenced in silencedRenderers)
+                {
+                    if (silenced != null) silenced.enabled = true;
+                }
                 if (camera != null)
                 {
                     camera.targetTexture = previousCameraTarget;
