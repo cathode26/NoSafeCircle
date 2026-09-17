@@ -66,7 +66,7 @@
   ],
   "confidence": "medium",
   "contract_disposition": "active",
-  "contract_revision": 6,
+  "contract_revision": 7,
   "decomposition_reason": "The locally executable scope is one cohesive production path: extend EnemyPursuitMovement with a read-only locked-door blocker and approach destination, add one reusable in-reach door-attack/reset component, and prove blocker selection, approach, damage, displacement, multiple pursuers, breach continuation, feedback consumption, and reset in one Play Mode test file. Enemy prefab assembly, actual restart-orchestrator wiring, canonical-scene path validation, and gameplay-camera review remain explicit downstream responsibilities.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -86,7 +86,7 @@
     {
       "obligation_id": "INT-002",
       "reference": "NSC-033 Floor Run/Restart Persistent-Systems Closure",
-      "requirement": "NSC-033 must make the Floor Run/Restart Orchestrator call EnemyPursuitMovement.ResetPursuit() and EnemyLockedDoorAttack.ResetAttack() for every persistent enemy during an actual zero-health restart. Verify no target, path, BlockingLockedDoor reference, pending interval, or delayed door hit survives into the next floor attempt. NSC-017 does not edit the orchestrator, its builder wiring, or the canonical scene."
+      "requirement": "NSC-033 must make the Floor Run/Restart Orchestrator call EnemyPursuitMovement.ResetPursuit() and EnemyLockedDoorAttack.ResetAttack() for every persistent enemy activated during the failed run (never-activated encounter enemies receive no reset call; NSC-030 INT-001) during an actual zero-health restart. Verify no target, path, BlockingLockedDoor reference, pending interval, or delayed door hit survives into the next floor attempt. NSC-017 does not edit the orchestrator, its builder wiring, or the canonical scene."
     },
     {
       "obligation_id": "INT-003",
@@ -131,7 +131,7 @@
   ],
   "id": "NSC-017",
   "kind": "implementation",
-  "notes": "Exact attack reach, interval, absolute damage, and resulting breach time are implementation/playtest tuning not fixed by the GDD. Initial hypotheses are 0.5-1.5 world units of reach, 0.6-1.2 seconds per full attack interval, and 5-15 absolute durability points per hit against the snapshot default maximum durability of 100; none is a completion requirement. Breach time scales with the number of attackers that actually reach the door. Frost Field does not change door-attack timing in required scope; that remains a stretch goal requiring Vincent's approval. Only Pursuing qualifies under this revision. A SearchingLastKnownPosition enemy whose last known position is unreachable beyond a locked door may stall indefinitely under the current NSC-092 implementation; NSC-017 neither treats HasTarget as active tracking nor repairs that separate search-arrival gap. Local proof is limited to enemies whose NavMeshAgent is driven by EnemyPursuitMovement. Ranged Enemy door approach, attack form, and interaction with keep-distance movement remain unresolved design. The temporary fixture bakes before creating the door and therefore cannot prove that the canonical builder's bake order leaves a broken doorway walkable; INT-003 owns that built-scene proof. NSC-021 VAL-001 and NSC-051 INT-001 remain in their current contracts and may consume NSC-017 evidence without being transferred. Existing EnemyPursuitPlayModeTests and EnemyPursuitDoorCrossingPlayModeTests are regression-only checks that must remain green but are not exclusive resources or NSC-017 completion evidence. The snapshot contains prerequisite source files but no TaskGraph delivery records for NSC-013, NSC-050, NSC-051, NSC-052, NSC-091, or NSC-092.",
+  "notes": "Exact attack reach, interval, absolute damage, and resulting breach time are implementation/playtest tuning not fixed by the GDD. Initial hypotheses are 0.5-1.5 world units of reach, 0.6-1.2 seconds per full attack interval, and 5-15 absolute durability points per hit against the snapshot default maximum durability of 100; none is a completion requirement. Breach time scales with the number of attackers that actually reach the door. Frost Field does not change door-attack timing in required scope; that remains a stretch goal requiring Vincent's approval. Only Pursuing qualifies under this revision. A SearchingLastKnownPosition enemy whose last known position is unreachable beyond a locked door may stall indefinitely under the current NSC-092 implementation; NSC-017 neither treats HasTarget as active tracking nor repairs that separate search-arrival gap. Local proof is limited to enemies whose NavMeshAgent is driven by EnemyPursuitMovement. Ranged Enemy door approach, attack form, and interaction with keep-distance movement remain unresolved design. The temporary fixture bakes before creating the door and therefore cannot prove that the canonical builder's bake order leaves a broken doorway walkable; INT-003 owns that built-scene proof. NSC-021 VAL-001 and NSC-051 INT-001 remain in their current contracts and may consume NSC-017 evidence without being transferred. Existing EnemyPursuitPlayModeTests and EnemyPursuitDoorCrossingPlayModeTests are regression-only checks that must remain green but are not exclusive resources or NSC-017 completion evidence. The snapshot contains prerequisite source files but no TaskGraph delivery records for NSC-013, NSC-050, NSC-051, NSC-052, NSC-091, or NSC-092. 2026-09-17 mechanical revision 7 (GER Orchestrator decisions, C:/nscrev/ger-contract-revisions-20260916/followups-20260917/NSC-033_NSC-049_DECISIONS.md 'NSC-017 and NSC-053: mechanical obligation wording'): INT-002 qualifies 'every persistent enemy' to 'every persistent enemy activated during the failed run', matching NSC-033 rev8 AC-005 and NSC-030 INT-001; no other wording changes.",
   "parent": "NSC-010",
   "provenance": {
     "bootstrap_status_observation": "open",
@@ -175,6 +175,15 @@
         "previous_contract_revision": 5,
         "base_contract_sha256": "f716f252fa12c2dbdde77c10ade461627c754ba9b8950697e6f322b5a1ce7e22",
         "revised_contract_sha256": "7458d063b2f79bf04766e358e9497c5536d925aa01ebd44bd0c41334892cad73",
+        "review": "mechanical revision; grep review only (tiered rule, 2026-09-17)"
+      },
+      {
+        "date": "2026-09-17",
+        "reason": "Mechanical follow-up revision 7: INT-002 qualifies 'every persistent enemy' to 'every persistent enemy activated during the failed run', matching NSC-033 revision 8 AC-005 and NSC-030 INT-001 (never-activated encounter enemies receive no reset call). No other change.",
+        "source_head": "130f2dc7493582dd4f14794a302b544497fd564a",
+        "previous_contract_revision": 6,
+        "base_contract_sha256": "df9c47f8c58229ea2177ad9ad8e8d3743cefc144890d8ad8225d4ef5bf85fe68",
+        "revised_contract_sha256": "d7724540809e8e012397579cf04143d8460a26a1d9e921349694589335b84f49",
         "review": "mechanical revision; grep review only (tiered rule, 2026-09-17)"
       }
     ]
