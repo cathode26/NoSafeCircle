@@ -28,7 +28,7 @@
     {
       "criterion_id": "AC-006",
       "reference": "Docs/GDD/No_Safe_Circle_GDD.md:522, 576, 686; Enemy Health/Defeat ownership",
-      "requirement": "Create Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/MeleeEnemyDefeatResponse.cs and Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/MeleeEnemyDefeatResponse.cs.meta, with focused coverage in Assets/NoSafeCircle/DoorPrototype/Tests/MeleeEnemyDefeatResponsePlayModeTests.cs and Assets/NoSafeCircle/DoorPrototype/Tests/MeleeEnemyDefeatResponsePlayModeTests.cs.meta. On EnemyHealth.Defeated, MeleeEnemyDefeatResponse calls MeleeEnemyAttack.ResetAttack(), stops EnemyPursuitMovement participation, and removes this defeated enemy's NavMeshAgent avoidance obstruction without destroying or replacing the persistent GameObject. It exposes public ResetDefeatResponse(), which restores only the movement-disable state it owns. After ResetDefeatResponse(), EnemyHealth.ResetHealth(), and EnemyPursuitMovement.ResetPursuit() have all run in any order, the same GameObject is alive, its agent is on the NavMesh at its reset placement, and it can later acquire and pursue again. SpriteRenderer treatment and physical body collision remain pending Vincent's decisions."
+      "requirement": "Create Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/MeleeEnemyDefeatResponse.cs and Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/MeleeEnemyDefeatResponse.cs.meta, with focused coverage in Assets/NoSafeCircle/DoorPrototype/Tests/MeleeEnemyDefeatResponsePlayModeTests.cs and Assets/NoSafeCircle/DoorPrototype/Tests/MeleeEnemyDefeatResponsePlayModeTests.cs.meta. On EnemyHealth.Defeated, MeleeEnemyDefeatResponse calls MeleeEnemyAttack.ResetAttack(), calls EnemyLockedDoorAttack.ResetAttack() and disables that component so no pending locked-door attack can damage a door after defeat, stops EnemyPursuitMovement participation, and removes this defeated enemy's NavMeshAgent avoidance obstruction without destroying or replacing the persistent GameObject. It exposes public ResetDefeatResponse(), which restores only the movement-disable state it owns and re-enables EnemyLockedDoorAttack. After ResetDefeatResponse(), EnemyHealth.ResetHealth(), and EnemyPursuitMovement.ResetPursuit() have all run in any order, the same GameObject is alive, its agent is on the NavMesh at its reset placement, and it can later acquire and pursue again. SpriteRenderer treatment and physical body collision remain pending Vincent's decisions."
     },
     {
       "criterion_id": "AC-007",
@@ -66,7 +66,7 @@
     {
       "gate_id": "VAL-006",
       "reference": "Docs/GDD/No_Safe_Circle_GDD.md:522, 686, 690-693; defeat and reset",
-      "requirement": "In Play Mode, load the exact generated prefab read-only the same way as VAL-005 and instantiate it into a registry test harness. The harness calls ActiveEnemyRegistry.Register only to establish the test state and does not claim production encounter activation. Defeat the enemy through EnemyHealth.TakeDamage and verify one unregister, no later player damage, no pursuit movement, no NavMeshAgent avoidance obstruction, and preservation of the same GameObject. Exercise every call order among MeleeEnemyDefeatResponse.ResetDefeatResponse(), EnemyHealth.ResetHealth(), and EnemyPursuitMovement.ResetPursuit(); after all three calls verify the agent is on the NavMesh at its reset placement. Re-register through the harness, initialize the target normally, and verify the same GameObject can acquire and pursue again."
+      "requirement": "In Play Mode, load the exact generated prefab read-only the same way as VAL-005 and instantiate it into a registry test harness. The harness calls ActiveEnemyRegistry.Register only to establish the test state and does not claim production encounter activation. Defeat the enemy through EnemyHealth.TakeDamage and verify one unregister, no later player damage, no pursuit movement, no NavMeshAgent avoidance obstruction, and preservation of the same GameObject. Exercise every call order among MeleeEnemyDefeatResponse.ResetDefeatResponse(), EnemyHealth.ResetHealth(), and EnemyPursuitMovement.ResetPursuit(); after all three calls verify the agent is on the NavMesh at its reset placement. Re-register through the harness, initialize the target normally, and verify the same GameObject can acquire and pursue again. Also defeat an enemy while its EnemyLockedDoorAttack has a pending attack on a locked door and verify the door takes no further damage before ResetDefeatResponse(), and that after ResetDefeatResponse() the component is enabled again."
     },
     {
       "gate_id": "VAL-007",
@@ -76,7 +76,7 @@
   ],
   "confidence": "medium",
   "contract_disposition": "active",
-  "contract_revision": 8,
+  "contract_revision": 9,
   "decomposition_reason": "Execution has two ordered Unity ownership bundles. The first owns close-range attack, PlayerHealth damage, defeat gating, and ResetAttack with real-component Play Mode tests and no art dependency. The second is the sole owner of logical:enemy-locomotion-behavior-surface for Melee movement tuning, defeat-time movement shutdown/restoration, deterministic gameplay-prefab materialization, assembled-prefab tests, group pursuit validation, and gameplay-camera review. This removes the prior attack/prefab test cycle and prevents two children from mutating locomotion.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -211,6 +211,15 @@
         "previous_contract_revision": 7,
         "base_contract_sha256": "afa6886854c16ebd4d64701dce23c224bb32ac59fe35b948d8ac16d16699e768",
         "revised_contract_sha256": "57b5d6908749709f11dfa985888e2b7b098af08d92000ed7b1f04219f945ead7",
+        "review": "none; taskcontrol validate only (Vincent, 2026-09-16)"
+      },
+      {
+        "date": "2026-09-17",
+        "reason": "Follow-up revision 9 from the rev 8 Codex check (revise): MeleeEnemyDefeatResponse also resets and disables EnemyLockedDoorAttack on defeat and re-enables it on ResetDefeatResponse; VAL-006 proves no door damage after defeat.",
+        "source_head": "3eb886805c9d6e10381afc67b6d6bd4ba2fe0d9a",
+        "previous_contract_revision": 8,
+        "base_contract_sha256": "c97f51b33c34e65efe8300b9aeb83acbcb34a3dd9f4587095daefd271cb03c4a",
+        "revised_contract_sha256": "ccaccbb1b12143244a265077f37212d3b1a4455eac3925b2a23b3e4ae9dd8f24",
         "review": "none; taskcontrol validate only (Vincent, 2026-09-16)"
       }
     ]
