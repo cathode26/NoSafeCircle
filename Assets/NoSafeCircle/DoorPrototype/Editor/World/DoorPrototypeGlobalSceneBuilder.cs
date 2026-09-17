@@ -553,6 +553,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
             var importer = AssetImporter.GetAtPath(path) as TextureImporter;
             if (importer == null) throw new FileNotFoundException("Wizard source is not a texture", path);
             importer.textureType = TextureImporterType.Sprite;
+            importer.textureShape = TextureImporterShape.Texture2D;
             importer.spriteImportMode = SpriteImportMode.Single;
             importer.filterMode = FilterMode.Point;
             importer.textureCompression = TextureImporterCompression.Uncompressed;
