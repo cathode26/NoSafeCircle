@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using NoSafeCircle.DoorPrototype.Editor.World;
 using NoSafeCircle.DoorPrototype.Enemies;
 using NUnit.Framework;
@@ -61,6 +62,9 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
         [Test]
         public void ApprovedEnemySourcesHaveExactInventoryImportSettingsAndGroundPivots()
         {
+            Assert.AreEqual(64f, EnemyAnimationAssetBuilder.EnemyPixelsPerUnit,
+                "NSC-077's shared enemy pixels-per-unit constant changed.");
+
             List<ExpectedFrame> expectedFrames = ExpectedFrames().ToList();
             Assert.AreEqual(112, expectedFrames.Count);
             Assert.AreEqual(112, expectedFrames.Select(frame => frame.Path).Distinct().Count());
@@ -404,7 +408,15 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                 IdlePath(sourceEnemyName, "s"));
             Assert.IsNotNull(southIdle);
             Assert.AreSame(southIdle, renderer.sprite, enemy.name);
-            Assert.AreEqual(new Vector3(1f, 2f, 1f), renderer.transform.localScale, enemy.name);
+            Assert.AreEqual(Vector3.one, renderer.transform.localScale, enemy.name);
+            Quaternion expectedRotation = Quaternion.Euler(EditorCameraEulerAngles());
+            Assert.That(Quaternion.Angle(expectedRotation, renderer.transform.rotation),
+                Is.LessThan(0.01f), enemy.name + " Visual must face the isometric camera.");
+            Assert.That(Quaternion.Angle(
+                    Quaternion.Euler(EnemyAnimationController.IsometricCameraEulerAngles),
+                    expectedRotation),
+                Is.LessThan(0.0001f),
+                "Runtime and editor camera-facing rotations must remain identical.");
             Assert.AreEqual(doorRenderer.sortingLayerName, renderer.sortingLayerName, enemy.name);
             Assert.AreEqual(doorRenderer.sortingOrder, renderer.sortingOrder, enemy.name);
             Assert.AreEqual(SpriteSortPoint.Pivot, renderer.spriteSortPoint, enemy.name);
@@ -412,6 +424,18 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             string expectedInitialState = kind + "_idle_south";
             Assert.IsTrue(animator.runtimeAnimatorController.animationClips
                 .Any(clip => clip.name == expectedInitialState), enemy.name);
+        }
+
+        private static Vector3 EditorCameraEulerAngles()
+        {
+            Type builderType = typeof(EnemyAnimationAssetBuilder).Assembly.GetType(
+                "NoSafeCircle.DoorPrototype.Editor.World.DoorPrototypeGlobalSceneBuilder");
+            Assert.IsNotNull(builderType);
+            PropertyInfo property = builderType.GetProperty(
+                "IsometricCameraEulerAngles",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.IsNotNull(property);
+            return (Vector3)property.GetValue(null);
         }
 
         private static IEnumerable<ExpectedFrame> ExpectedFrames()

@@ -188,6 +188,38 @@ namespace NoSafeCircle.DoorPrototype.Tests
             }
         }
 
+        // NSC-077 AC-003 and VAL-004: NavMeshAgent can rotate an enemy root while moving, but
+        // both enemy SpriteRenderers must retain the fixed camera-facing world rotation.
+        [Test]
+        public void Tick_RestoresCameraFacingVisualAfterEnemyRootRotates()
+        {
+            Quaternion expectedRotation = Quaternion.Euler(
+                EnemyAnimationController.IsometricCameraEulerAngles);
+            foreach (EnemyAnimationKind kind in Enum.GetValues(typeof(EnemyAnimationKind)))
+            {
+                GameObject enemy = CreateAnimationEnemy(
+                    kind, out EnemyAnimationController animation);
+                try
+                {
+                    Transform visual = enemy.transform.Find("Visual");
+                    enemy.transform.position += Vector3.right;
+                    enemy.transform.rotation = Quaternion.Euler(0f, 90f, 0f);
+                    Assert.That(Quaternion.Angle(expectedRotation, visual.rotation),
+                        Is.GreaterThan(1f), kind + " test setup did not rotate the Visual.");
+
+                    animation.Tick(0.1f);
+
+                    Assert.That(animation.CurrentState, Does.Contain("_walk_"), kind.ToString());
+                    Assert.That(Quaternion.Angle(expectedRotation, visual.rotation),
+                        Is.LessThan(0.01f), kind + " Visual did not return to camera rotation.");
+                }
+                finally
+                {
+                    UnityEngine.Object.DestroyImmediate(enemy);
+                }
+            }
+        }
+
         // NSC-077 AC-006 and VAL-004: a stopped MeleeEnemy faces only a current knowledge
         // target; without one it retains its prior direction.
         [Test]
@@ -353,6 +385,10 @@ namespace NoSafeCircle.DoorPrototype.Tests
             out EnemyAnimationController animation)
         {
             var enemy = new GameObject(kind.ToString());
+            var visual = new GameObject("Visual", typeof(SpriteRenderer));
+            visual.transform.SetParent(enemy.transform, false);
+            visual.transform.rotation = Quaternion.Euler(
+                EnemyAnimationController.IsometricCameraEulerAngles);
             Animator animator = enemy.AddComponent<Animator>();
             animation = enemy.AddComponent<EnemyAnimationController>();
             animation.Initialize(animator, kind);
