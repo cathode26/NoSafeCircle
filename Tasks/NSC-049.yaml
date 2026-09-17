@@ -19,6 +19,16 @@
       "criterion_id": "AC-004",
       "reference": "NSC-069 AC-004 (revised 2026-09-15, in parallel with this revision); GER room decision 1 and revised decision 2 (2026-09-15); NSC-045 INT-001, NSC-046 INT-001/INT-006, NSC-047 INT-001, NSC-048 INT-001",
       "requirement": "In RoomSceneComposer, at each shared north/south room boundary (Z 0 between Ruined Entry and Bone Archive, Z 20 between Bone Archive and Chapel of Ash, Z 54 between Chapel of Ash and Lower Vault, and Z 76 between Lower Vault and Final Room), keep the northern room's SouthLowWallTilemap (0.5-unit) wall visual cells under its composed Room_<RoomId>/Visuals Grid and remove the southern room's NorthFullWallTilemap wall visual cells only over the span the northern room's SouthLowWallTilemap covers; the southern room's NorthFullWallTilemap cells outside that span stay. Exactly one 2.5-unit gameplay wall BoxCollider remains along each part of the boundary: where one room's NorthWallWestCollision/NorthWallEastCollision or SouthWallWestCollision/SouthWallEastCollision pieces under its composed Room_<RoomId>/GameplayGeometry lie entirely inside the span of the other room's corresponding pieces on that boundary, composition removes the contained pieces by name, without resizing any collider. Door openings D1 through D4 stay clear of both wall visuals and colliders. West and east perimeter walls, including corner cells, are not shared-boundary walls and are never removed. Everything else in each room's Visuals, GameplayGeometry, and DoorAnchors categories is still cloned unchanged."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "NSC-030 INT-006; GER Orchestrator decision, NSC-049 revision 6, F1 (2026-09-17)",
+      "requirement": "If DoorPrototypeGlobalSceneBuilder.BuildChaseEnemies still builds its fixed EnemySpawnPositions (5 MeleeEnemy) and EnemyCasterSpawnPositions squad (renamed LanternWraithSpawnPositions under NSC-077; this criterion holds under either name) when this task recomposes Bone Archive through Final Room to the 2026-09-15 approved bounds — Bone Archive X[-12,12] Z[0,20], Chapel of Ash X[-18,18] Z[20,54], Lower Vault X[-20,20] Z[54,76], Final Room X[-15,15] Z[76,104] — move each fixed spawn position into its intended room under those bounds: melee enemies in Bone Archive, Chapel of Ash, Lower Vault, and two in the Final Room; ranged enemies in Bone Archive, Chapel of Ash, Lower Vault, and the Final Room. Keep each spawn's placement intent: the melee enemy mid-room between that room's two doors; its ranged partner on the opposite side of the room from its melee partner, with a sight line to the room's main route; the Final Room ranged enemy covering the approach from D4. If NSC-030's canonical-scene materialization child (child 7) has already replaced the fixed squad with encounter-admitted enemies before this task lands, this criterion needs no change (NSC-030 INT-006)."
+    },
+    {
+      "criterion_id": "AC-006",
+      "reference": "GER Orchestrator decision, NSC-049 revision 6, F2 (2026-09-17); nsc-33's NSC-077 review",
+      "requirement": "Every fixed spawn position DoorPrototypeGlobalSceneBuilder.BuildChaseEnemies still builds, once repositioned under AC-005, must: lie inside its intended room's approved bounds at least 1.5 units inside the room's walls; return true from NavMesh.SamplePosition at the spawn position with a 0.1-unit maxDistance against the baked gameplay NavMesh; and be clear of colliders — Physics.CheckSphere at a point 1 unit above the spawn position, radius 0.5, with QueryTriggerInteraction.Ignore, hits no non-trigger collider. This corrects the placement defect nsc-33's NSC-077 review found: fixed spawns inside Bone Archive's Shelf A, Chapel of Ash's Column1, and the edge of Lower Vault's LV-W1."
     }
   ],
   "basis": "direct_gdd",
@@ -57,11 +67,16 @@
       "gate_id": "VAL-007",
       "reference": "NSC-017 INT-003",
       "requirement": "NSC-049, which owns Assets/Scenes/DoorPrototype.unity, DoorPrototypeSceneBuilder.cs, and logical:gameplay-walkability-surface, must record and perform this check. In the built canonical scene, without saving it, lock a composed door through its production crossing path or an explicitly labeled setup seam, call DoorInteractable.TakeDamage(float) until DoorInteractable.IsBroken, wait for DoorEnemyPassability carving to settle, and verify a test-owned NavMeshAgent using the project agent type finds a complete path from the door's approach side to its forward side. The check targets the builder's door-before-bake order and the doorway-blocker collider that remains enabled after Break; it does not require an enemy prefab or EnemyLockedDoorAttack. A passing temporary NSC-017 fixture does not discharge it. Any failure must be assigned after diagnosis to the existing door-passability, navigation, or composition owner; NSC-017 does not edit the builder or scene."
+    },
+    {
+      "gate_id": "VAL-008",
+      "reference": "AC-005; AC-006",
+      "requirement": "A builder test in FiveRoomCompositionTests.cs or FiveRoomDoorSequencePlayModeTests.cs — whichever of NSC-049's already-claimed test files can reach a baked gameplay NavMesh for the NavMesh.SamplePosition check — composes or loads the canonical scene and, for every fixed spawn position DoorPrototypeGlobalSceneBuilder.BuildChaseEnemies still builds, asserts all three AC-006 conditions: the spawn lies inside its intended room's approved bounds at least 1.5 units inside the room's walls; NavMesh.SamplePosition succeeds within 0.1 units of the spawn position; and Physics.CheckSphere at a point 1 unit above the spawn position, radius 0.5, with QueryTriggerInteraction.Ignore, finds no non-trigger collider. If NSC-030's canonical-scene materialization child has already replaced the fixed squad with encounter-admitted enemies before this task lands, this gate needs no change."
     }
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 5,
+  "contract_revision": 6,
   "decomposition_reason": "Cross-room continuity and the D1–D5 sequence are shared integration responsibilities that cannot be completed independently inside any single room child.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -113,7 +128,7 @@
   ],
   "id": "NSC-049",
   "kind": "implementation",
-  "notes": "This child integrates authored room and door content only; it does not implement encounter placement, door lifecycle internals, or victory coordination internals. The five Assets/Scenes/Rooms/*.unity files are immutable composition inputs: this task reads them, verifies their hashes are unchanged before and after composition, and never claims them as write resources. TaskGraph has no read-only context-path field, so this input boundary is enforced by exact write scope and validation evidence. Revision 5 carries the settled 2026-09-15 room table into this contract: Ruined Entry X [-14,+14] Z [-26,0], Bone Archive X [-12,+12] Z [0,20], Chapel of Ash X [-18,+18] Z [20,54], Lower Vault X [-20,+20] Z [54,76], and Final Room X [-15,+15] Z [76,104], with D1 (0,0), D2 (6,20), D3 (-8,54), D4 (4,76), and D5 (0,104). NSC-049 now owns Assets/NoSafeCircle/DoorPrototype/Tests/Editor/World/CommittedRoomSourceSceneConformanceTests.cs, which the four room contracts cite only as regression-only evidence for their own gates. The shared-boundary wall exclusion (AC-004) is composition-only: it never edits a room source scene, and it never removes a west or east perimeter wall. The batched refresh (AC-001, VAL-002) is triggered once NSC-046, NSC-047, and NSC-048 land their combined RoomSceneCatalog.cs and RoomSceneCatalog.asset changes together (GER room decision 4, 2026-09-15); it gates that landing rather than being gated by it, and NSC-044 through NSC-048's own completion gates do not wait for it. The door feedback proof (VAL-006) and the NSC-017 INT-003 check (VAL-007) are automated proofs only; they do not substitute for Vincent's gameplay-camera review (VAL-005) and do not authorize a different door-art or wall-tiling choice than NSC-065 and the room contracts already deliver.",
+  "notes": "This child integrates authored room and door content only; it does not implement encounter placement, door lifecycle internals, or victory coordination internals. The five Assets/Scenes/Rooms/*.unity files are immutable composition inputs: this task reads them, verifies their hashes are unchanged before and after composition, and never claims them as write resources. TaskGraph has no read-only context-path field, so this input boundary is enforced by exact write scope and validation evidence. Revision 5 carries the settled 2026-09-15 room table into this contract: Ruined Entry X [-14,+14] Z [-26,0], Bone Archive X [-12,+12] Z [0,20], Chapel of Ash X [-18,+18] Z [20,54], Lower Vault X [-20,+20] Z [54,76], and Final Room X [-15,+15] Z [76,104], with D1 (0,0), D2 (6,20), D3 (-8,54), D4 (4,76), and D5 (0,104). NSC-049 now owns Assets/NoSafeCircle/DoorPrototype/Tests/Editor/World/CommittedRoomSourceSceneConformanceTests.cs, which the four room contracts cite only as regression-only evidence for their own gates. The shared-boundary wall exclusion (AC-004) is composition-only: it never edits a room source scene, and it never removes a west or east perimeter wall. The batched refresh (AC-001, VAL-002) is triggered once NSC-046, NSC-047, and NSC-048 land their combined RoomSceneCatalog.cs and RoomSceneCatalog.asset changes together (GER room decision 4, 2026-09-15); it gates that landing rather than being gated by it, and NSC-044 through NSC-048's own completion gates do not wait for it. The door feedback proof (VAL-006) and the NSC-017 INT-003 check (VAL-007) are automated proofs only; they do not substitute for Vincent's gameplay-camera review (VAL-005) and do not authorize a different door-art or wall-tiling choice than NSC-065 and the room contracts already deliver. Revision 6 (2026-09-17) adds AC-005, AC-006 and VAL-008 to carry NSC-030 INT-006's fixed-squad reconciliation into this contract: if BuildChaseEnemies still builds its fixed melee/ranged squad when this task lands, each spawn moves into its intended room under the 2026-09-15 approved bounds and must pass the bounds/wall-inset, NavMesh, and collider-clearance checks nsc-33's NSC-077 review motivated.",
   "parent": "NSC-029",
   "provenance": {
     "graph_delta_plan_id": "GDP-5f799a9d352217a315b42a5ec36178abecd2ff16235c9191797508850edfc9d2",
@@ -153,6 +168,15 @@
         "review": "independent Claude Sonnet re-check",
         "review_report_sha256": "910852cebe5d19c3b699a9eeebe86845ef284ea4da00bfb29da3557da13adca7",
         "recheck_recommendation": "commit_contract"
+      },
+      {
+        "date": "2026-09-17",
+        "reason": "Follow-up revision 6 (GER Orchestrator decisions F1-F3, NSC-033_NSC-049_DECISIONS.md) for NSC-030 INT-006 and the NSC-077 review's spawn findings: while DoorPrototypeGlobalSceneBuilder still builds the fixed enemy squad, recomposition to the 2026-09-15 approved room bounds moves each fixed spawn into its intended room with its placement intent (AC-005), and every fixed spawn lies 1.5 units inside its room, samples the baked NavMesh within 0.1 units and is clear of non-trigger colliders (AC-006, VAL-008). The validation policy filters are unchanged and rebound to this revision.",
+        "source_head": "cd4817b2de12fc3f752612f84d0809eefd75f0ec",
+        "previous_contract_revision": 5,
+        "base_contract_sha256": "1da7667cfbf91d15f533fd1354dd652be612ae551e5475c03280403939cc8b2a",
+        "revised_contract_sha256": "c67ffabb9907dad8d0f80da27c1ed3f8f0784519c48c5565f880b5a406bed156",
+        "review": "post-commit Codex contract check (tiered rule, 2026-09-17)"
       }
     ]
   },
