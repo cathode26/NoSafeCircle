@@ -111,6 +111,10 @@ def build_fixture(
     git(root, "init", "--initial-branch=main")
     git(root, "config", "user.name", "Safe Unity Churn Test")
     git(root, "config", "user.email", "safe-unity-churn@example.invalid")
+    # These tests compare exact bytes, and they are about trailing whitespace, not line
+    # endings. Windows' global core.autocrlf=true would restore CRLF into the worktree and
+    # break that comparison, so every fixture repository pins it off.
+    git(root, "config", "core.autocrlf", "false")
     for relative, text in files.items():
         write(root, relative, text)
     for relative, data in (binaries or {}).items():
@@ -148,6 +152,10 @@ def test_scene_requires_proven_trailing_whitespace_only_diff() -> None:
         git(root, "init", "--initial-branch=main")
         git(root, "config", "user.name", "Safe Unity Churn Test")
         git(root, "config", "user.email", "safe-unity-churn@example.invalid")
+        # These tests compare exact bytes, and they are about trailing whitespace, not line
+        # endings. Windows' global core.autocrlf=true would restore CRLF into the worktree and
+        # break that comparison, so every fixture repository pins it off.
+        git(root, "config", "core.autocrlf", "false")
         scene = root / SCENE
         coverage = root / COVERAGE
         generated_tile = root / GENERATED_TILE
