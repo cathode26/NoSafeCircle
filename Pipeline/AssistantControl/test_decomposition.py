@@ -747,10 +747,10 @@ class PooledLifecycleTests(unittest.TestCase):
 
         def fake_run(command, *args, **kwargs):
             if list(command)[:2] == ["docker", "compose"]:
-                if start_error is not None:
-                    raise start_error
                 if run_directory:
                     artifact_root.mkdir(parents=True, exist_ok=True)
+                if start_error is not None:
+                    raise start_error
                 return subprocess.CompletedProcess(command, exit_code)
             return real_run(command, *args, **kwargs)
 
@@ -796,8 +796,11 @@ class PooledLifecycleTests(unittest.TestCase):
         self.assertEqual("settled", record["pool_lifecycle"]["status"])
 
     def test_a_provider_that_never_started_returns_the_leases_uncharged(self):
+        # The executable could not be spawned, so nothing ran and no run
+        # directory exists.
         module, manager, owner, run_id, _root = self.launch(
-            "assistant-pool-unstarted-", start_error=OSError("docker is unavailable"),
+            "assistant-pool-unstarted-", run_directory=False,
+            start_error=OSError("docker is unavailable"),
         )
         with self.assertRaises(OSError):
             module.run(
@@ -810,6 +813,43 @@ class PooledLifecycleTests(unittest.TestCase):
         )
         self.assertEqual("failed", record["status"])
         self.assertEqual("cancelled_unstarted", record["pool_lifecycle"]["status"])
+
+    def test_a_timed_out_run_settles_instead_of_cancelling(self):
+        module, manager, owner, run_id, artifact_root = self.launch(
+            "assistant-pool-timeout-",
+            start_error=subprocess.TimeoutExpired(["docker", "compose"], 3600),
+        )
+        with self.assertRaises(subprocess.TimeoutExpired):
+            module.run(
+                manager, "NSC-004", run_id, providers="claude,claude",
+                compose_project="assistant-pool", execution_authorized=True,
+            )
+        # The container really ran, so both conversations are retired from the
+        # run's artifacts; returning them uncharged would resume them later.
+        self.assertEqual(["prepare", "settle", "close"], owner.actions())
+        self.assertEqual(("settle", run_id, str(artifact_root)), owner.calls[1])
+        record = json.loads(
+            (manager.records / "NSC-004.decomposition.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual("failed", record["status"])
+        self.assertEqual("settled", record["pool_lifecycle"]["status"])
+
+    def test_an_interrupted_run_settles_instead_of_cancelling(self):
+        module, manager, owner, run_id, artifact_root = self.launch(
+            "assistant-pool-interrupt-", start_error=KeyboardInterrupt(),
+        )
+        with self.assertRaises(KeyboardInterrupt):
+            module.run(
+                manager, "NSC-004", run_id, providers="claude,claude",
+                compose_project="assistant-pool", execution_authorized=True,
+            )
+        self.assertEqual(["prepare", "settle", "close"], owner.actions())
+        self.assertEqual(("settle", run_id, str(artifact_root)), owner.calls[1])
+        record = json.loads(
+            (manager.records / "NSC-004.decomposition.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual("failed", record["status"])
+        self.assertEqual("settled", record["pool_lifecycle"]["status"])
 
     def test_a_run_without_a_run_directory_is_never_cancelled_as_unstarted(self):
         module, manager, owner, run_id, _root = self.launch(

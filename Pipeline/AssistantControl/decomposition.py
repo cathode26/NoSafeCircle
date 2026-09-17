@@ -566,7 +566,9 @@ def run(
     owner: DecompositionSessionPoolOwner | None = None
     pool_assignment: dict[str, Any] | None = None
     pool_lifecycle: dict[str, Any] | None = None
-    launched = False
+    # True once the provider process has provably been spawned. Only a run that
+    # never reached the spawn may return its leases uncharged.
+    spawned = False
     try:
         if pooled:
             owner = _pool_owner(
@@ -618,6 +620,10 @@ def run(
         command.extend(("--source", "/workspace", "--output-root", "/decomposition-output"))
         with Path(record["stdout_log"]).open("wb") as stdout, Path(record["stderr_log"]).open("wb") as stderr:
             try:
+                # Marked before the call, not after it returns: a timeout or a
+                # KeyboardInterrupt leaves real conversations behind, and those
+                # must be retired rather than returned as never invoked.
+                spawned = True
                 completed = subprocess.run(
                     command,
                     cwd=manager.source,
@@ -629,11 +635,12 @@ def run(
                     check=False,
                 )
             except OSError:
-                # Docker could not start at all, so no reservation was ever
-                # invoked and every lease is returned uncharged.
+                # The spawn itself failed, so Docker never started, no
+                # reservation was ever invoked, and every lease is returned
+                # uncharged.
+                spawned = False
                 pool_lifecycle = _cancel_unstarted_pool(owner, run_id=run_id)
                 raise
-            launched = True
         # Settle from the run's durable artifacts whatever the exit code says:
         # the artifacts, not the process, decide what each conversation proved.
         pool_lifecycle = _settle_pool(owner, run_id=run_id, run_dir=artifact_root)
@@ -650,10 +657,16 @@ def run(
         write_record(path, record)
         return record
     except BaseException as exc:
-        if owner is not None and not launched and pool_lifecycle is None:
-            # A precondition failed after the reservation and before any
-            # provider ran; the leases are returned uncharged.
-            pool_lifecycle = _cancel_unstarted_pool(owner, run_id=run_id)
+        if owner is not None and pool_lifecycle is None:
+            if spawned:
+                # The provider process really started, so a timeout or an
+                # interrupt settles from the run's own artifacts: those
+                # conversations are retired as interrupted, never resumed.
+                pool_lifecycle = _settle_pool(owner, run_id=run_id, run_dir=artifact_root)
+            else:
+                # A precondition failed after the reservation and before any
+                # provider ran; the leases are returned uncharged.
+                pool_lifecycle = _cancel_unstarted_pool(owner, run_id=run_id)
         if pool_lifecycle is not None:
             record["pool_lifecycle"] = pool_lifecycle
         record.update(status="failed", completed_at_utc=_now(), error=f"{type(exc).__name__}: {exc}")
