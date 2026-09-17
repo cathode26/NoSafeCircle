@@ -1334,16 +1334,20 @@ def seed_retry_candidate(clone: Path, baseline: Snapshot, retry: RetryContext) -
     )
     if not equivalent:
         raise CrewBlocked("prior candidate.patch neither applies cleanly nor is already present at the current source HEAD")
-    # These sidecars are pipeline-owned, not agent output, and some were committed by a
-    # pre-P34 run: refresh any that predate the current unity_meta_bytes contract the same
-    # way the "applied" branch does above, before accepting the already-present candidate
-    # (P34 round 2). The GUID line is unaffected, so tracked references still resolve. The
-    # caller diffs baseline_clone against the post-seed snapshot to learn which sidecars (if
-    # any) actually changed, so only genuinely refreshed paths join pipeline_generated.
-    for sidecar in retry.candidate_sidecars:
-        expected = unity_meta_bytes(sidecar[: -len(".meta")])
-        if (clone / sidecar).read_bytes() != expected:
-            (clone / sidecar).write_bytes(expected)
+    # A committed sidecar is tracked source, not pipeline output: downstream readers
+    # (local_candidate_commit._verified_pipeline_generated_paths, load_retry_context) treat
+    # pipeline-generated paths as companions of newly-approved files only, so rewriting a
+    # committed sidecar here cannot be surfaced to them (P34 round 3). Fail closed instead.
+    stale = [
+        sidecar for sidecar in retry.candidate_sidecars
+        if (clone / sidecar).read_bytes() != unity_meta_bytes(sidecar[: -len(".meta")])
+    ]
+    if stale:
+        raise CrewBlocked(
+            "committed Unity .meta sidecar(s) predate the current pipeline meta contract (P34); "
+            "commit unity_meta_bytes for it (same GUID) in the source, then retry: "
+            + ", ".join(stale)
+        )
     return "already_present"
 
 ProviderFactory = Callable[[str, Path, bool, str], tuple[str, RuntimeConfiguration, Mapping[str, Any]]]
@@ -2632,15 +2636,9 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
             retry_seed_snapshot = None
             if retry_context is not None:
                 retry_seed_mode = seed_retry_candidate(clone, baseline_clone, retry_context)
+                if retry_seed_mode == "applied":
+                    pipeline_generated.update(retry_context.candidate_sidecars)
                 retry_seed_snapshot = snapshot(clone)
-                # Both seed modes may write pipeline-owned sidecars into the clone (a fresh
-                # apply, or an already-present refresh to the current unity_meta_bytes
-                # contract). Diff against baseline_clone instead of branching on
-                # retry_seed_mode, so an already_present sidecar that needed no refresh is
-                # not falsely claimed as a pipeline-generated change below (P34 round 2).
-                pipeline_generated.update(
-                    set(retry_context.candidate_sidecars) & set(changed_paths(baseline_clone, retry_seed_snapshot))
-                )
                 progress.emit(
                     "human_review_candidate_seeded",
                     f"Prior review-ready candidate seed verified: {retry_seed_mode}",

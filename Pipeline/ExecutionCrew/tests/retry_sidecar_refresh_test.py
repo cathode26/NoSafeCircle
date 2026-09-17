@@ -1,6 +1,8 @@
-"""P34 FIX_FIRST: seed_retry_candidate must refresh pipeline-owned sidecars in a seeded
+"""P34: seed_retry_candidate must refresh pipeline-owned sidecars in a seeded, uncommitted
 prior candidate.patch to the current unity_meta_bytes contract, not re-deliver whatever
-bytes a prior run wrote (e.g. a pre-P34 GUID-only texture stub)."""
+bytes a prior run wrote (e.g. a pre-P34 GUID-only texture stub). A committed sidecar is
+tracked source, not pipeline output, so an already_present retry against a stale committed
+sidecar must fail closed instead (round 3)."""
 import hashlib
 import os
 import subprocess
@@ -15,7 +17,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from Pipeline.ExecutionCrew.run_crew import (  # noqa: E402
-    RetryContext, seed_retry_candidate, snapshot, unity_meta_bytes, unity_meta_guid, paths_patch,
+    CrewBlocked, RetryContext, seed_retry_candidate, snapshot, unity_meta_bytes, unity_meta_guid, paths_patch,
 )
 from Pipeline.TaskExecution.contracts import TaskContractIdentity  # noqa: E402
 
@@ -114,12 +116,15 @@ class RetrySidecarRefreshTests(unittest.TestCase):
         # A sidecar that already matched the current contract stays byte-identical.
         self.assertEqual((self.clone / CS_META).read_bytes(), unity_meta_bytes(CS_PATH))
 
-    def test_stale_texture_sidecar_committed_pre_p34_is_refreshed_on_already_present_retry(self):
+    def test_stale_texture_sidecar_committed_pre_p34_blocks_already_present_retry(self):
         # A pre-P34 run's candidate -- a GUID-only texture stub plus an already-correct .cs
         # stub -- was committed to source verbatim (not just seeded into a disposable clone).
-        # Retrying it after P34 changed the meta contract must take the already_present
-        # branch (the paths differ from prior_source_head, but exactly match the
-        # reconstructed prior candidate post-image) and still refresh the stale stub.
+        # A committed sidecar is tracked source, not pipeline output: downstream readers
+        # (local_candidate_commit._verified_pipeline_generated_paths, load_retry_context)
+        # only ever treat pipeline-generated paths as companions of newly-approved files, so
+        # rewriting it here cannot be surfaced to them. Retrying after P34 changed the meta
+        # contract must fail closed instead of silently rewriting committed history (P34
+        # round 3), even though the paths otherwise match the already_present criteria.
         self._write(PNG_PATH, b"not a real png, just a few bytes")
         self._write(PNG_META, _stub_meta(PNG_PATH))
         self._write(CS_PATH, b"public class B {}\n")
@@ -164,23 +169,19 @@ class RetrySidecarRefreshTests(unittest.TestCase):
             quota_fallback_provider=None,
         )
 
-        result = seed_retry_candidate(self.clone, baseline, retry)
+        committed_png_meta = (self.clone / PNG_META).read_bytes()
 
-        self.assertEqual(result, "already_present")
-        # The stale, already-committed GUID-only texture stub is refreshed in place.
-        self.assertEqual((self.clone / PNG_META).read_bytes(), unity_meta_bytes(PNG_PATH))
-        self.assertNotEqual((self.clone / PNG_META).read_bytes(), _stub_meta(PNG_PATH))
-        # Its GUID line -- the only part references depend on -- survives the refresh.
-        guid_line = f"guid: {unity_meta_guid(PNG_PATH)}".encode("ascii")
-        self.assertIn(guid_line, (self.clone / PNG_META).read_bytes())
-        # A sidecar that already matched the current contract stays byte-identical.
-        self.assertEqual((self.clone / CS_META).read_bytes(), unity_meta_bytes(CS_PATH))
-        # Only the stale sidecar is a working-tree change; the conformant one and the
-        # already-committed candidate files themselves are left alone.
-        touched = {
-            line.split()[-1] for line in _git(self.clone, "status", "--porcelain").splitlines()
-        }
-        self.assertEqual(touched, {PNG_META})
+        with self.assertRaises(CrewBlocked) as caught:
+            seed_retry_candidate(self.clone, baseline, retry)
+        self.assertIn(PNG_META, str(caught.exception))
+        self.assertNotIn(CS_META, str(caught.exception))
+
+        # Nothing in the clone was written: the stale sidecar is untouched, and there is no
+        # working-tree change at all.
+        self.assertEqual((self.clone / PNG_META).read_bytes(), committed_png_meta)
+        self.assertEqual((self.clone / PNG_META).read_bytes(), _stub_meta(PNG_PATH))
+        self.assertEqual(_git(self.clone, "status", "--porcelain"), "")
+        self.assertEqual(snapshot(self.clone), baseline)
 
     def test_already_conformant_committed_sidecar_is_unchanged_on_already_present_retry(self):
         # Guard: when the committed sidecar already matches the current contract (e.g. a
