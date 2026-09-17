@@ -51,7 +51,7 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 3,
+  "contract_revision": 4,
   "decomposition_reason": "The GDD fully specifies this component's two effect types (Frost slowdown apply/restore; forced displacement apply/restore), the explicit Ranged-Enemy-attack-is-unaffected constraint, the pursuit/search hand-back requirement, and reset participation. No missing design blocks a bounded implementation item; the two effect types are explicitly bundled into one reusable component by GDD Section 5.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -96,7 +96,7 @@
   ],
   "id": "NSC-013",
   "kind": "implementation",
-  "notes": "A repository-wide grep across Assets/ for 'Frost' and 'Displacement' found no matches; this capability does not exist in any form. Force Wave's request to trigger displacement is a consumer relationship owned by the wizard_combat domain's force-wave item, not a dependency of this item.",
+  "notes": "Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyStatusEffectMovement.cs exists on main with ApplyFrostSlowdown(float speedMultiplier, float duration), RequestDisplacement(Vector3, float), ResetStatusEffects() and Tick(float); this task still has no delivery record, so its acceptance criteria are proven by delivery evidence against that component rather than by new implementation work. Callers supply the Frost speed multiplier (NSC-008 revision 4 FrostField owns it). Force Wave's request to trigger displacement is a consumer relationship owned by the wizard_combat domain's force-wave item, not a dependency of this item.",
   "parent": "NSC-010",
   "provenance": {
     "bootstrap_status_observation": "open",
@@ -104,7 +104,18 @@
     "origin": "verified_reconciliation_bootstrap",
     "reconciliation_run_id": "20260821T193541Z-998ee7b5",
     "source_schema_version": "1.0",
-    "verification_run_id": "20260821T195959Z-43dba5de"
+    "verification_run_id": "20260821T195959Z-43dba5de",
+    "contract_followups": [
+      {
+        "date": "2026-09-17",
+        "reason": "Mechanical follow-up revision 4: the stale notes claim that no Frost or displacement capability exists is replaced by the current state: EnemyStatusEffectMovement.cs (commits 26aaa09ce, ed8a44ed7) is on main with ApplyFrostSlowdown(speedMultiplier, duration), RequestDisplacement, ResetStatusEffects and Tick, the task still lacks a delivery record, and callers such as FrostField supply the Frost multiplier. No criterion, gate or resource change.",
+        "source_head": "661ce495b0bafa4c7e8814a25e992349710d9b43",
+        "previous_contract_revision": 3,
+        "base_contract_sha256": "f54b1a93ff614c8dc3e68604157484bc44ad8720a8a88215126b9d5050a1747b",
+        "revised_contract_sha256": "26fa31175145e4e5f4b478a31224131d23f7f5dfd1bf6a802267ac883077d941",
+        "review": "mechanical revision; grep review only (tiered rule, 2026-09-17)"
+      }
+    ]
   },
   "reconciliation_key": "enemy-status-effect-displacement",
   "repository_evidence_at_bootstrap": [],
