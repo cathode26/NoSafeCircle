@@ -509,8 +509,12 @@ class CrewProfileTests(unittest.TestCase):
             assignment=owner.prepare(run_id="profile-owner",task_id=f.TASK_ID,worker_slot_id=f.WORKER_SLOT_ID,
                 source_commit=head,task_contract_sha256="a"*64,model=routes["implementer"]["model"],
                 reasoning_effort=routes["implementer"]["reasoning_effort"],role_routes=routes)
-            self.assertEqual(len(assignment["leases"]),5)
-            self.assertEqual(len({v["record_id"] for v in assignment["leases"].values()}),5)
+            # Pin the routed crew roles literally: comparing against `routes` alone would
+            # still agree if crew_role_routes silently dropped one (6e718ece2 removed the
+            # contract locality auditor, which is how the old count of 5 went stale).
+            self.assertEqual(set(routes),{"implementer","test_author","validator","lead_developer"})
+            self.assertEqual(set(assignment["leases"]),set(routes))
+            self.assertEqual(len({v["record_id"] for v in assignment["leases"].values()}),len(routes))
             for role,lease in assignment["leases"].items():
                 self.assertEqual(lease["provider_identifier"],"claude-code" if routes[role]["provider"]=="claude" else "openai-codex")
             restarted=ExecutionCrewSessionPoolOwner(checkout=checkout,runtime_binding=binding)

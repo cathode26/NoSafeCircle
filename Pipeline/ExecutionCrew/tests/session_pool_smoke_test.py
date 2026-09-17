@@ -401,7 +401,7 @@ def test_claude_and_codex_pools_remain_separate() -> None:
 def test_every_crew_role_keeps_its_own_pool() -> None:
     require(
         set(CREW_SESSION_ROLES)
-        == {"contract_locality_auditor", "implementer", "test_author", "validator"},
+        == {"implementer", "test_author", "validator"},
         str(CREW_SESSION_ROLES),
     )
     keys = {
