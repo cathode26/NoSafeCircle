@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-008",
-  "contract_revision": 7,
+  "contract_revision": 8,
   "contract_disposition": "active",
   "title": "Frost Field Placement, Feedback, and Enemy Slow Requests",
   "reconciliation_key": "frost-field",
@@ -122,7 +122,7 @@
     },
     {
       "reference": "NSC-087 Victory Gameplay Suspension Coordinator and NSC-086 Final-Door Victory Trigger/Suspension Wiring; Docs/GDD/No_Safe_Circle_GDD.md:98-100,613,698",
-      "requirement": "NSC-087 calls FrostField.SuspendGameplayInput() (which itself immediately clears an active field per AC-007) through its five-owner coordinator, and NSC-086 wires the scene reference from that coordinator to the generated FrostField component and verifies the complete final-door victory path, including that a field already active when victory suspension began is cleared immediately rather than left to expire.",
+      "requirement": "NSC-087 calls FrostField.SuspendGameplayInput() (which itself immediately clears an active field per AC-007) through its six-owner coordinator (VictoryGameplaySuspensionCoordinator, NSC-087 revision 3), and NSC-086 wires the scene reference from that coordinator to the generated FrostField component and verifies the complete final-door victory path, including that a field already active when victory suspension began is cleared immediately rather than left to expire.",
       "obligation_id": "INT-002"
     }
   ],
@@ -219,6 +219,15 @@
         "base_contract_sha256": "58a3149d0245b430341ea99927e69a7c4e217743bd465b019b2fe301481d80f4",
         "revised_contract_sha256": "5cf5798619a3d3f9e5d457c0eccc3f0f93dfe90f203bb3ab7e0ca31290e96d2e",
         "review": "post-commit Codex contract check (tiered rule, 2026-09-17)"
+      },
+      {
+        "date": "2026-09-17",
+        "reason": "Mechanical follow-up revision 8 (NSC-087 rev 2 check, downstream debt): the victory obligation names the six-owner VictoryGameplaySuspensionCoordinator (NSC-087 revision 3) instead of a five-owner coordinator. No other change.",
+        "source_head": "cd9bbfb868b850ff42ccf0bab1eb416112acc508",
+        "previous_contract_revision": 7,
+        "base_contract_sha256": "937c27592e466333491522c7618aac4b8f73676bc9516f486bff497c0ceeb106",
+        "revised_contract_sha256": "d17e41f959b10ad88b96eda36a0cd4e2c013845d610e0cdd7b811f14a4114adf",
+        "review": "mechanical revision; grep review only (tiered rule, 2026-09-17)"
       }
     ]
   }
