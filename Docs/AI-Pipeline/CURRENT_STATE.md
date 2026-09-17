@@ -4,7 +4,7 @@
 >
 > This file is a routing/status snapshot, not a substitute for TaskGraph, committed evidence, or the current GDD.
 
-Last updated: 2026-09-01, including the uncommitted Software Architect polling branch
+Last updated: 2026-09-18. The graph shape, proving target and delivery state were refreshed by the Documentation Agent from `taskcontrol` output at main `a71849dc5`. Sections not marked with that date still describe 2026-09-01, including the uncommitted Software Architect polling branch
 status. The merged baseline below remains unchanged.
 
 ## Current merged baseline
@@ -33,11 +33,14 @@ Validated graph shape at this baseline:
 
 ```text
 Task contract schema:  2.0
-Active contracts:      49
-Superseded contracts:  0
-Cancelled contracts:   0
-Parent edges:           48
-Dependency edges:       82
+Tasks:                 93
+Active contracts:      92
+Superseded contracts:   1
+Cancelled contracts:    0
+Parent edges:          92
+Dependency edges:     204
+Resource groups:      101
+Project requirements:  17
 Resource groups:        9
 Project requirements:   17
 Parent hierarchy:       connected + acyclic
@@ -329,7 +332,11 @@ The current decision is **test D1B.2 first, measure, then decide**.
 
 ## Current proving target
 
-The immediate decomposition proving target is `NSC-016 — Ranged Enemy Archetype`.
+**Refreshed 2026-09-18.** `NSC-016 — Ranged Enemy Archetype` is now an aggregate parent, and its ranged-enemy work ran through children instead (NSC-063, NSC-077, NSC-093).
+
+The open decomposition targets are **NSC-015** and **NSC-033**, both aggregates waiting on a D1B.2 rerun. NSC-015's rerun is blocked by the P18 Source line-ending churn; see rows H-20260917-13 and H-20260917-14 on `C:\nscrev\reports\handoffs\BOARD.md`.
+
+The 2026-09-01 note below is kept for history:
 
 Prior D1B.1 runs on NSC-016 exposed the exact semantic failure classes D1B.2 was built to challenge:
 
@@ -343,6 +350,14 @@ The next useful experiment is therefore a real D1B.2 NSC-016 run from current `m
 Record the run's provider calls, duration, result quality, findings, revisions, and practical context/token pressure before deciding whether retrieval should enter the reviewer loop.
 
 ## Implementation-delivery state
+
+**Where delivery stands, 2026-09-18** (from `taskcontrol states` at `a71849dc5`):
+
+- **16 tasks are conformant:** NSC-003, 004, 005, 011, 012, 019, 023, 024, 028, 037, 038, 039, 041, 042, 063, 093. That covers movement, health, mana, the enemy registry and defeat, door opening, the camera, tilemap and navigation, the enemy cap, the Windows build scene, tilemap and door visuals, wall tiling, and the enemy art.
+- **49 tasks are not delivered.** Among them are the three required spells, NSC-007 Charged Fireball, NSC-008 Frost Field and NSC-009 Force Wave, which still have no code under `Assets/` despite several contract revisions each. The 2026-09-17 architecture review called this the main gap.
+- **NSC-077** (enemy art integration) is merged on `main` but still reads `not_delivered` until its delivery evidence is recorded.
+- **Local `main` and `origin/main` are the same commit,** `a71849dc5`, after the 2026-09-17 release.
+- **Nothing records how long a task takes or what it costs.** `task_run.py` (board row H-20260917-27) will log that per run.
 
 The gameplay implementation path remains:
 
