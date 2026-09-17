@@ -395,6 +395,8 @@ fileFormatVersion: 2
 guid: <sha256("NoSafeCircle.ExecutionCrew.UnityMeta/v1\0" + casefolded POSIX path)[:32]>
 ```
 
+For a new file whose casefolded name ends in `.png`, `.jpg`, `.jpeg`, `.tga`, `.psd`, `.gif`, `.bmp`, `.tif`, or `.tiff`, the sidecar is instead a full Unity 6000.1 default `TextureImporter` meta (same deterministic guid on its `guid:` line) so the staged art imports as an ordinary Texture2D instead of a GUID-only stub, which Unity 6000.1 imports as Cube/point-cookie and never rewrites (P34). Every other new file keeps the two-line form above.
+
 Snapshots record HEAD, exact index bytes, tracked/untracked identity, entry type, and regular-file SHA-256. This prevents a later role from changing an earlier role's untracked new file or a pipeline sidecar. Candidate and diagnostic patches contain the ordinary binary/full-index tracked diff followed in stable path order by `git diff --no-index -- /dev/null <new-file>` fragments for approved new files and sidecars. Nothing is staged. A review-ready candidate must pass `git apply --check` against the unchanged captured baseline.
 
 For an approved candidate, the human applies `candidate.patch` normally; it creates both the approved new file and its deterministic `.meta` sidecar. Do not create or regenerate the sidecar separately. The sidecar is pipeline-owned and is never a model write path.

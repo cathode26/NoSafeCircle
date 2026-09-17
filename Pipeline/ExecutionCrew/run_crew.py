@@ -714,10 +714,156 @@ def _commit_parent_is_tree(root: Path, head: str, parent: str) -> bool:
     result = git(root, "cat-file", "-t", f"{head}:{parent}", check=False)
     return result.returncode == 0 and result.stdout.strip() == "tree"
 
-def unity_meta_bytes(path: str) -> bytes:
+def unity_meta_guid(path: str) -> str:
     normalized = "/".join(part.casefold() for part in path.split("/"))
-    digest = hashlib.sha256(b"NoSafeCircle.ExecutionCrew.UnityMeta/v1\0" + normalized.encode("utf-8")).hexdigest()[:32]
-    return f"fileFormatVersion: 2\nguid: {digest}\n".encode("ascii")
+    return hashlib.sha256(b"NoSafeCircle.ExecutionCrew.UnityMeta/v1\0" + normalized.encode("utf-8")).hexdigest()[:32]
+
+# LDR image extensions Unity imports through TextureImporter. HDR formats (.exr/.hdr)
+# deliberately keep the GUID-only stub below; see run_crew README, P34 follow-ups.
+_TEXTURE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".tga", ".psd", ".gif", ".bmp", ".tif", ".tiff")
+
+# Unity 6000.1.8f1's default TextureImporter meta for a brand-new texture in this
+# project (captured from door_bonestone_broken_S_000.png.meta @ bdf618744, whitespace-
+# normalized as in commit 12d317b58). A GUID-only stub imports as Cube/point-cookie and
+# Unity never rewrites it (P34), so crew-staged textures get this shape instead, with
+# only the guid line filled in from the deterministic digest below.
+_TEXTURE_META_TEMPLATE = """fileFormatVersion: 2
+guid: {guid}
+TextureImporter:
+  internalIDToNameTable: []
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 1
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 0
+    wrapV: 0
+    wrapW: 0
+  nPOTScale: 1
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 0
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 0
+  spriteTessellationDetail: -1
+  textureType: 0
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: WebGL
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites: []
+    outline: []
+    customData:
+    physicsShape: []
+    bones: []
+    spriteID:
+    internalID: 0
+    vertices: []
+    indices:
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable: {}
+  mipmapLimitGroupName:
+  pSDRemoveMatte: 0
+  userData:
+  assetBundleName:
+  assetBundleVariant:
+"""
+
+def unity_meta_bytes(path: str) -> bytes:
+    guid = unity_meta_guid(path)
+    if path.casefold().endswith(_TEXTURE_EXTENSIONS):
+        return _TEXTURE_META_TEMPLATE.replace("{guid}", guid).encode("ascii")
+    return f"fileFormatVersion: 2\nguid: {guid}\n".encode("ascii")
 
 def discard_agent_pipeline_sidecars(root: Path, before: Snapshot, after: Snapshot,
                                     new_paths: tuple[str, ...]) -> list[str]:

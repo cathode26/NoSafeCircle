@@ -12,7 +12,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from Pipeline.ExecutionCrew.run_crew import unity_meta_bytes
+from Pipeline.ExecutionCrew.run_crew import unity_meta_bytes, unity_meta_guid
 from Pipeline.TaskReviewAgent.decomposition_policy_audit import (
     audit_decomposition_policy, parent_semantic_hash, read_committed_tasks,
 )
@@ -54,7 +54,7 @@ def _json_bytes(value: Any) -> bytes:
 
 
 def _meta_guid(source_path: str) -> str:
-    return unity_meta_bytes(source_path).decode("ascii").split("guid: ", 1)[1].strip()
+    return unity_meta_guid(source_path)
 
 
 def _unit_suffixes(task_id: str) -> tuple[str, ...]:
