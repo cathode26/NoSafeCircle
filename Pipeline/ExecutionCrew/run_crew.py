@@ -1293,6 +1293,12 @@ def seed_retry_candidate(clone: Path, baseline: Snapshot, retry: RetryContext) -
             entry = seeded.entries.get(path)
             if entry is None or entry.kind != "regular":
                 raise CrewBlocked(f"seeded prior candidate path is not a regular file: {path}")
+        # Sidecars are pipeline-owned, not agent output: refresh them to the current
+        # unity_meta_bytes contract rather than re-delivering the prior run's bytes (P34).
+        for sidecar in retry.candidate_sidecars:
+            expected = unity_meta_bytes(sidecar[: -len(".meta")])
+            if (clone / sidecar).read_bytes() != expected:
+                (clone / sidecar).write_bytes(expected)
         return "applied"
 
     # Candidate-owned paths changed after the prior run. The only safe historical compatibility case
