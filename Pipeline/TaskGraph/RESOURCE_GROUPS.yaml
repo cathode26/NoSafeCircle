@@ -1133,12 +1133,14 @@
     {
       "reconciliation_keys": [
         "fireball",
-        "floor-run-restart-persistent-closure"
+        "floor-run-restart-persistent-closure",
+        "victory-trigger-overlay-integration"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DemoRunFlow.cs",
       "work_ids": [
         "NSC-007",
-        "NSC-033"
+        "NSC-033",
+        "NSC-086"
       ]
     }
   ],

@@ -262,6 +262,18 @@
         "PlayMode": "NoSafeCircle.DoorPrototype.Tests.LanternWraithGameplayPrefabPlayModeTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-086": {
+      "task_contract_sha256": "12851a8b49b4b789d4d7817bd00b5c235f0cf89d6d2972730a1eb2a6f3fb33fc",
+      "required_test_platforms": [
+        "EditMode",
+        "PlayMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.FinalDoorVictorySceneTests",
+        "PlayMode": "NoSafeCircle.DoorPrototype.Tests.FinalDoorVictoryPlayModeTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
     }
   },
   "decomposition_child_templates": {}
