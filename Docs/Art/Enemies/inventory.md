@@ -12,12 +12,24 @@ which replaced the original selection as the retained source. The original
 selection's inventory (180x180, `melee_a`/`ranged_b`) is preserved further
 below as superseded review history.
 
+**2026-09-16 update:** Vincent approved a single-cleaver correction for the
+Melee Enemy's north-east idle only (`enemy_melee_ne_idle_00.png`), which had
+shown a duplicate second cleaver above the screen-left shoulder. The row
+below now records the corrected SHA-256
+(`e714d5e5d4222982f79597099261f7a20e19c7b7986e55a6588dd056e2537e57`,
+replacing `0bb2b4602048e04094e5bdf06e768e7706d83efb3334b0eb90cdbcfa6b8e458e`).
+Dimensions, mode, and `character_id` are unchanged. See
+"North-east single-cleaver correction (2026-09-16)" in
+`PIXELLAB_GENERATION.md` for full provenance. This is the only row this
+update changes; all seven other melee facings and all eight ranged facings
+are untouched.
+
 ## Selected source (`Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/`) — current, 2026-09-14 revision
 
 | File | Archetype | Facing | Frame | Size | Mode | Transparent (alpha min) | SHA-256 | PixelLab `character_id` |
 |---|---|---|---|---|---|---|---|---|
 | `enemy_melee_n_idle_00.png` | Melee | north | idle (standing) | 128x128 | RGBA | 0 | `7c3e9594e149a4da8b82703334c5fe6ba818f842a972c2e8c4724856756ef5d9` | `070592db-d334-4e7d-b5c9-5dad404d7f98` |
-| `enemy_melee_ne_idle_00.png` | Melee | north-east | idle (standing) | 128x128 | RGBA | 0 | `0bb2b4602048e04094e5bdf06e768e7706d83efb3334b0eb90cdbcfa6b8e458e` | `070592db-d334-4e7d-b5c9-5dad404d7f98` |
+| `enemy_melee_ne_idle_00.png` | Melee | north-east | idle (standing) | 128x128 | RGBA | 0 | `e714d5e5d4222982f79597099261f7a20e19c7b7986e55a6588dd056e2537e57` (2026-09-16 single-cleaver correction; was `0bb2b4602048e04094e5bdf06e768e7706d83efb3334b0eb90cdbcfa6b8e458e`) | `070592db-d334-4e7d-b5c9-5dad404d7f98` |
 | `enemy_melee_e_idle_00.png` | Melee | east | idle (standing) | 128x128 | RGBA | 0 | `23ac1bc0940d63f47ca263eef0bd9a956b89f2820bec7434e7602d5a11efbd65` | `070592db-d334-4e7d-b5c9-5dad404d7f98` |
 | `enemy_melee_se_idle_00.png` | Melee | south-east | idle (standing) | 128x128 | RGBA | 0 | `5d2b83a5628b8adde41bd937abb62025cce849d4f3b9d33f9323623e23b83df0` | `070592db-d334-4e7d-b5c9-5dad404d7f98` |
 | `enemy_melee_s_idle_00.png` | Melee | south | idle (standing) | 128x128 | RGBA | 0 | `394c2ab9b7b240036e882976f87e14b0fc1565a81d7531371f88f589527efbd6` | `070592db-d334-4e7d-b5c9-5dad404d7f98` |
@@ -39,7 +51,12 @@ file is 128x128 RGBA with a fully transparent minimum alpha value (0); one
 idle/standing frame per facing (no animation frames, matching the "no movement
 or attack animations" boundary); no duplicate or ambiguous filenames; each
 revised file verified byte-identical (via `cmp`) to its raw export in
-`Docs/Art/Enemies/Candidates/melee_c/` or `Docs/Art/Enemies/Candidates/ranged_c/`.
+`Docs/Art/Enemies/Candidates/melee_c/` or `Docs/Art/Enemies/Candidates/ranged_c/`,
+**except** `enemy_melee_ne_idle_00.png`, which since 2026-09-16 is instead
+byte-identical to the approved single-cleaver correction candidate,
+`Docs/Art/Enemies/Candidates/melee_ne_single_cleaver/idle_single_cleaver.png`
+(see "North-east single-cleaver correction (2026-09-16)" in
+`PIXELLAB_GENERATION.md`).
 
 ## Revision raw candidate exports (`Docs/Art/Enemies/Candidates/`, current selection)
 

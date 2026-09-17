@@ -325,3 +325,60 @@ Selected source files use the plan's naming rule:
 and `<direction>` in `{n, ne, e, se, s, sw, w, nw}`. See `inventory.md` in
 this folder for the complete deterministic inventory mapping each retained
 filename to its exact generation identifier, dimensions, and hash.
+
+## North-east single-cleaver correction (2026-09-16)
+
+Reason for correction: the retained Melee Enemy north-east idle frame,
+`enemy_melee_ne_idle_00.png` (2026-09-14 revision character
+`070592db-d334-4e7d-b5c9-5dad404d7f98`), showed a duplicate second cleaver
+above the screen-left shoulder. Every other facing shows exactly one
+cleaver, held in the right hand on the screen-right side; north-east was the
+sole outlier. This is task NSC-063 (this idle frame); the companion task
+NSC-093 (the six north-east walk frames) is corrected separately and
+documented in `PIXELLAB_WALK_GENERATION.md`.
+
+Vincent reviewed a single-cleaver candidate and **approved it on 2026-09-16**.
+
+- Candidate branch: `codex/nsc063-melee-ne-single-cleaver-20260914`, tip
+  `01e3b8ffd3e47b2f712733ac4ba4f891cc9dd395`.
+- Candidate file (as approved):
+  `Docs/Art/Enemies/Candidates/melee_ne_single_cleaver/idle_single_cleaver.png`,
+  128x128 RGBA, 3014 bytes, SHA-256
+  `e714d5e5d4222982f79597099261f7a20e19c7b7986e55a6588dd056e2537e57`.
+- Provenance, from that candidate's own
+  `Docs/Art/Enemies/Candidates/melee_ne_single_cleaver/README.md` at the
+  approved commit: PixelLab MCP `inpaint_image`, transparent 128x128 PNG,
+  masked edit, against the same character (`070592db-d334-4e7d-b5c9-5dad404d7f98`)
+  and rotation (`north-east`) as the retained revision source. A first job,
+  `3834cd04-96b4-4911-bce9-65979529bd60` (mask `(16,16,34,52)`), was tried and
+  rejected because it altered the arm but left the extra blade; its raw
+  output is retained as `rejected_first_inpaint.png` in the same candidate
+  folder. The accepted second job, `1486257a-cbd8-4446-810d-36d134054429`
+  (mask `(14,12,36,57)`, `crop_to_mask=true`, `no_background=true`), used a
+  prompt that identified the duplicate blade at x20-36/y20-49 and its handle
+  at x34-43/y45-62, required a transparent background and an empty left
+  hand, and required the existing screen-right cleaver to remain unchanged.
+  Verification recorded in that README: exactly 653 pixels differ from the
+  prior source, all inside the second job's mask, zero pixels differ outside
+  it; the screen-right cleaver is pixel-for-pixel unchanged.
+- `enemy_melee_ne_idle_00.png` was replaced byte-for-byte with this approved
+  candidate. Its `.meta` file (and GUID) was left unchanged.
+  - Old SHA-256 (2026-09-14 revision, two cleavers):
+    `0bb2b4602048e04094e5bdf06e768e7706d83efb3334b0eb90cdbcfa6b8e458e`.
+  - New SHA-256 (approved single-cleaver candidate):
+    `e714d5e5d4222982f79597099261f7a20e19c7b7986e55a6588dd056e2537e57`.
+  - Dimensions and mode are unchanged: 128x128 RGBA.
+
+This correction touches only the north-east idle frame. The other seven
+facings' idle files and hashes in `inventory.md` are unaffected. The
+"Completeness check" note in `inventory.md` stating every revised file is
+byte-identical to its raw export in `Candidates/melee_c/` no longer holds for
+`enemy_melee_ne_idle_00.png` alone; see the updated note there.
+
+`Docs/Art/Enemies/contact_sheet.png` was **not** regenerated for this
+correction: no build script for it exists anywhere in this repository (a
+repo-wide search for `contact_sheet`, `gameplay_scale`, and Pillow
+sheet-assembly code found none — those sheets were previously assembled by
+an agent session that did not preserve the assembly script). The existing
+sheet still shows the two-cleaver north-east idle and is stale for that one
+facing until it is rebuilt by hand or a generator script is written.
