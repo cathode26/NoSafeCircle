@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-093",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "contract_disposition": "active",
   "title": "PixelLab Enemy Eight-Direction Walk Source Art",
   "reconciliation_key": "pixellab-enemy-eight-direction-walk-art",
@@ -12,7 +12,9 @@
   "decomposition_state": "concrete",
   "decomposition_reason": "Two existing enemy identities, eight gameplay facings, six frames per facing, and a source-only handoff define one complete art deliverable.",
   "parent": "NSC-010",
-  "depends_on": ["NSC-063"],
+  "depends_on": [
+    "NSC-063"
+  ],
   "exclusive_resources": [
     "logical:pixellab-enemy-walk-art",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk",
@@ -50,13 +52,19 @@
   "downstream_integration_obligations": [
     {
       "obligation_id": "INT-001",
-      "reference": "NSC-094 runtime animation integration",
-      "requirement": "NSC-094 imports only the approved 96 walk frames and preserves NSC-063 stationary source art and NSC-077 presentation outputs."
+      "reference": "NSC-077 runtime animation integration (NSC-094 superseded 2026-09-16)",
+      "requirement": "NSC-077 imports only the approved 96 walk frames and preserves NSC-063 stationary source art and NSC-077 presentation outputs."
     }
   ],
   "gdd_evidence": [
-    {"reference": "GDD Required Enemy Roster", "requirement": "Melee and Ranged Enemy identities must remain readable as distinct threats."},
-    {"reference": "GDD 2.5D Isometric Visual and World Representation", "requirement": "Moving world-space characters use directional sprites with grounded presentation."}
+    {
+      "reference": "GDD Required Enemy Roster",
+      "requirement": "Melee and Ranged Enemy identities must remain readable as distinct threats."
+    },
+    {
+      "reference": "GDD 2.5D Isometric Visual and World Representation",
+      "requirement": "Moving world-space characters use directional sprites with grounded presentation."
+    }
   ],
   "basis": "human_requested_all_moving_characters_eight_direction_walk",
   "source_scope": "required",
@@ -68,6 +76,17 @@
     "origin": "human_requested_enemy_eight_direction_walk_followup",
     "source_art_task_id": "NSC-063",
     "approved_development_tool": "PixelLab MCP",
-    "created_by_human_request": true
+    "created_by_human_request": true,
+    "contract_followups": [
+      {
+        "date": "2026-09-17",
+        "reason": "Mechanical: INT-001 names NSC-077 as the walk-frame consumer (NSC-094 superseded); obligation text only, delivered scope unchanged. Flagged by three contract checks.",
+        "source_head": "512cb1b203175453782e446838c0e1ec9859802b",
+        "previous_contract_revision": 1,
+        "base_contract_sha256": "f55f79cc95c3af24394a1f530934ea28106bdeabbd9c6e23302d90a754c87a6e",
+        "revised_contract_sha256": "f7bb0cc5daf05a7afaf6d51c9f2642874f792b9ff16e229a441b80244adcad8a",
+        "review": "none; taskcontrol validate only (Vincent, 2026-09-16)"
+      }
+    ]
   }
 }
