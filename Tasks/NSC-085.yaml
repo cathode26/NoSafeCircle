@@ -1,20 +1,18 @@
 {
   "schema_version": "2.0",
   "id": "NSC-085",
-  "contract_revision": 2,
+  "contract_revision": 3,
   "contract_disposition": "active",
-  "title": "Expanded Dungeon Route Graph and Side Chambers",
+  "title": "Expanded Dungeon Wing Route Plan and Room/Corridor Task Split",
   "reconciliation_key": "expanded-dungeon-route-graph-side-chambers",
   "kind": "implementation",
   "type": "world-authoring-foundation",
   "execution_scope": "single_agent",
-  "execution_reason": "This is a planning and decomposition parent for a later dungeon wing; it defines topology and exact ownership without changing the playable first wing.",
+  "execution_reason": "One planning author can create the source-bound expanded-wing route document, embedded original topology diagram, structured manifest, encounter and visual proposal, and exact future ownership split without editing Unity assets, first-wing files, TaskGraph children, GDD text, or runtime settings.",
   "decomposition_state": "proposed",
-  "decomposition_reason": "The broader wing decomposes into disjoint room and corridor implementation tasks, each owning an exact scene, builder, layout data, and focused tests. This parent remains an expansion contract and does not block NSC-078 through NSC-084.",
+  "decomposition_reason": "After Vincent approves the proposed wing, reviewed D1B.2 work must allocate disjoint room, corridor, shared authoring, art, canonical-scene connection, encounter, and validation responsibilities. Each room or corridor child owns one source Scene, one layout file, one deterministic Scene builder, one focused test file, its generated-asset directory and .meta companions, and one unique logical surface. Review-only planning reserves no child ID or resource.",
   "parent": "NSC-022",
-  "depends_on": [
-    "NSC-084"
-  ],
+  "depends_on": [],
   "exclusive_resources": [
     "repo-file:Docs/World/ExpandedDungeonRouteGraph.md",
     "logical:expanded-dungeon-route-graph"
@@ -22,84 +20,157 @@
   "acceptance_criteria": [
     {
       "criterion_id": "AC-001",
-      "reference": "Vincent-approved expansion direction, 2026-09-13",
-      "requirement": "Define an original broader topology beyond the first five-room wing with branching paths, at least one navigable loop, optional dead-end reward rooms, short connector corridors, recognizable orientation landmarks, and future locked or return routes."
+      "reference": "GDD Expanded dungeon approval boundary; NSC-047 revision 4; NSC-049 revision 5; Vincent direction, 2026-09-17",
+      "requirement": "Create Docs/World/ExpandedDungeonRouteGraph.md as this task's only repository file and label every new room, corridor, door, coordinate, landmark, encounter, prop, material, light, phase, and name as PROPOSAL pending Vincent's approval. Reproduce the settled first-wing bounds and D1-D5 centers, then propose P-EW-A at Lower Vault's east wall center (20,57) and P-EW-B at (20,72), each with a 3.0-unit collider opening, 4.0-unit visual gap, and clear 5-by-5 interior approach rectangle: X [14.75,19.75], Z [54.5,59.5] for P-EW-A and X [14.75,19.75], Z [69.5,74.5] for P-EW-B. State that D4 remains (4,76), D5 remains (0,104), D5 remains the final escape door, and no placeholder becomes a canonical identity until Vincent approves it."
     },
     {
       "criterion_id": "AC-002",
-      "reference": "Vincent-provided natural-cavern visual direction, 2026-09-13",
-      "requirement": "Include an original natural-cavern branch with irregular chamber outlines, narrow passages opening into larger spaces, elevation changes or stairs, one hub-like junction, at least one loop, biome and color transitions, natural chokepoints, optional alcoves, and connections back into constructed masonry rooms. Preserve smooth traversal and do not copy the reference map."
+      "reference": "Docs/Art/Environment/DUNGEON_ART_DIRECTION.md — Connecting and expanding the dungeon",
+      "requirement": "Define the original Drowned Bell and Rootwell Circuit with eight room children: Crooked Gatehouse X [26,42] Z [50,66], Drowned Bell Cistern X [48,76] Z [44,72], Keeper's Refectory X [80,104] Z [78,96], Choir Landing X [112,138] Z [78,98], Glowmoss Breach X [82,108] Z [20,44], Rootwell Junction X [112,138] Z [48,72], Ossuary Confluence X [108,140] Z [106,130], whose east edge may extend to at most X 156 to receive C08 and C09, and Lantern Sepulcher X [44,72] Z [76,104]. Define Moth-Keeper Nook as an optional no-loot alcove inside Ossuary Confluence at X [110,118] Z [114,124], owned and tested by that room child rather than a separate child."
     },
     {
       "criterion_id": "AC-003",
-      "reference": "Expansion decomposition boundary",
-      "requirement": "Decompose the proposal into future disjoint room and corridor implementation tasks, including separately owned natural-cavern chambers, connectors, elevation transitions, and masonry return connections. Each child must own exactly one scene, builder, layout-data surface, and focused tests, with no shared write ownership and no edits to the first wing's room contracts unless explicitly sequenced through a later integration task."
+      "reference": "Original broader topology; natural-cavern direction; PlayerMovement single gameplay plane",
+      "requirement": "Define exactly eleven corridor children and their planning envelopes: C01 LowerVaultEntryPassage X [20,26] Z [55,59]; C02 BellmouthPassage X [42,48] Z [56,60]; C03 OrganPipeStair X [64,90] Z [72,78]; C04 ChoirGallery X [104,112] Z [85,89]; C05 ButtressDescent X [122,128] Z [72,78]; C06 CrackedSluice X [76,84] Z [44,52]; C07 RootStair X [108,116] Z [36,48]; C08 DryRibWalk and C09 LowSumpCrossing, whose routes the document defines; C10 LanternThroatAxis X [72,108] Z [100,118]; and C11 UndertakersReturn X [20,44] Z [70,90]. R02 splits into masonry and natural branches that rejoin at R06; C08 and C09 form a second side-by-side loop from R06 to R07: both leave Rootwell Junction through its east wall, outside the masonry-versus-cavern loop, and run north on the east side of Choir Landing to Ossuary Confluence; neither crosses, touches, or opens into C04, C05, or Choir Landing; C10 reaches R08; and C11 returns to P-EW-B. All walkable surfaces remain on the existing Y=0 gameplay plane. Stairs, ledges, bridges, high routes, and low routes are visual-only and never stack, cross vertically, or add falling, climbing, swimming, slowing, damage, teleportation, or another movement mechanic. Each listed envelope is a planning bounding box. In the manifest, a corridor's floor is its centerline swept by its clear width, and no corridor floor or room envelope may intersect another except at a declared opening."
     },
     {
       "criterion_id": "AC-004",
-      "reference": "First-wing preservation",
-      "requirement": "Keep the current five-room wing playable, preserve D1-D5 and their navigation widths, and leave NSC-078 through NSC-084 runnable without waiting on this expansion."
+      "reference": "GDD door loop, persistent enemies, encounter range, and Active Enemy Registry",
+      "requirement": "Propose the wing as an optional challenge circuit whose player-facing purpose is additional exploration, route mastery, and encounter variety without loot or persistent progression. Propose four non-final sealed-door placeholders using the existing five-second interaction and lock behavior: P-EW-A at the Lower Vault entry, P-HUB at the R02 entrance, P-DEST at the R08 entrance, and P-EW-B at the return. Record P-EW-A as a committed-entry gate and P-EW-B as the locked return, and state that under the existing GDD Close and Lock rule a locked door cannot be reopened or crossed again, so P-EW-A stays locked from the wing side, and that each of the four gates also grants the existing close-and-lock health restore. Propose encounter sets of R01 3 Melee; R02 2 Melee plus 1 Lantern Wraith; R03 3 Melee plus 1 Lantern Wraith; R05 4 Melee; R06 2 Melee plus 2 Lantern Wraiths; R07 3 Melee plus 1 Lantern Wraith; and R08 4 Melee plus 2 Lantern Wraiths. Record 28 authored enemies across the wing, the unchanged 15-active-enemy cap, admission delay or reduction before exceeding that cap, and a playtest target of no more than three wing survivors reaching P-EW-B. Existing enemies are never removed to make capacity. Reserve one R08 spawn envelope for a future third enemy replacing one Lantern Wraith, but define no third-enemy behavior, art, attack, prefab, or runtime integration."
     },
     {
       "criterion_id": "AC-005",
-      "reference": "Reference images",
-      "requirement": "Use the supplied macro layouts only as connectivity inspiration. All topology, rooms, corridors, assets, and layouts must be original and must not copy or trace a reference layout."
+      "reference": "Structured route and ownership manifest",
+      "requirement": "Embed exactly one fenced JSON topology manifest in the document. Its nodes entries contain id, kind, slug, envelope, landmark, density, and biome. Its edges entries contain id, from, to, kind, centerline, envelope, approximate_length, opening_from, opening_to, and visual_only_elevation; each opening contains center, host_wall, clear_collider_width, and visual_gap. Its encounters entries contain node, melee, wraith, third_enemy_reserved, and admission_rule. Its children entries contain role, slug, phase, scene_path, layout_path, builder_path, test_path, generated_assets, logical_resource, and depends_on. Its gates entries contain placeholder_id, edge_id, behavior, five_second_opening, locks_after_forward_crossing, and approval_state. Both ends of every edge must define matching opening centers and widths. The manifest contains unique IDs, references only defined nodes, and has an acyclic proposed dependency graph. Each opening record is the single shared definition that both adjoining children build against: its center lies on the host node's envelope edge named by host_wall and at the end of the corridor centerline."
     },
     {
       "criterion_id": "AC-006",
-      "reference": "Docs/Art/Environment/DUNGEON_ART_DIRECTION.md — Dungeon layout rules, Vincent-approved project direction, 2026-09-13",
-      "requirement": "Use mixed room sizes in clusters, mostly short connectors, a few landmark long corridors or axes, loops and shortcuts, irregular footprints, incremental reveal, elevation-separated subareas, and optional reward alcoves. Progression must include a legible entrance wing, memorable central hub or set piece, branching or looping middle, distinct destination, gated access, and at least one later shortcut creating a meaningful return route. Keep the topology original and decomposable into exact disjoint room/corridor ownership."
+      "reference": "Future D1B.2 exclusive-resource boundary; wall-tiling and generated-content guidance",
+      "requirement": "For each of the eight room and eleven corridor slugs, propose one future child owning exactly Assets/Scenes/ExpandedWing/<Slug>.unity, Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/ExpandedWing/<Slug>Layout.cs, Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/ExpandedWing/<Slug>SceneBuilder.cs, Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/ExpandedWing/<Slug>SceneTests.cs, Assets/NoSafeCircle/DoorPrototype/Generated/ExpandedWing/<Slug> with its folder .meta companion, and logical:expanded-wing-surface:<kebab-slug>. The generated directory owns <Slug>NearWallStubTile.asset, <Slug>BlockoutProxySprite.asset, and both .meta companions. Each child owns only its side of a shared opening. Separately propose an expanded-wing identity/catalog/composer foundation, east-facing door art, landmark and cavern art, canonical-scene connection, encounter placement, and composed-world validation responsibilities. Propose Phase A for R01, R02, R05, R06, R07, R08 and C01, C02, C06-C11; Phase B for R03, R04, and C03-C05. Canonical integration waits for both phases. Do not allocate child IDs. The eight room slugs are CrookedGatehouse, DrownedBellCistern, KeepersRefectory, ChoirLanding, GlowmossBreach, RootwellJunction, OssuaryConfluence, and LanternSepulcher; logical resources use the kebab-case form, for example logical:expanded-wing-surface:crooked-gatehouse. The proposed expanded-wing identity/catalog/composer foundation child owns and creates the shared folders Assets/Scenes/ExpandedWing, Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/ExpandedWing, Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/ExpandedWing, Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/ExpandedWing, and Assets/NoSafeCircle/DoorPrototype/Generated/ExpandedWing, each with its folder .meta companion, plus the expanded-wing room and door identity type used by wing content and door-anchor markers; every room and corridor child depends on that foundation child. For each proposed gate, the document names the child that authors each door anchor; because LowerVault.unity stays unchanged, the Lower Vault-side anchors of P-EW-A and P-EW-B belong to the connection/revision responsibility, and live door instances exist only in the composed canonical scene."
     },
     {
       "criterion_id": "AC-007",
-      "reference": "Docs/Art/Environment/DUNGEON_ART_DIRECTION.md — expansion and transition rules, 2026-09-13",
-      "requirement": "Use asymmetrical winding routes, deliberate narrow-to-wide pacing, sudden chamber reveals, optional side branches, multiple reconnection points, authored threshold/biome transition pockets, and landmark-to-landmark sightline continuity around a legible central route. Avoid repetitive corridor widths and a single linear sequence; preserve original topology and exact disjoint room/corridor ownership."
+      "reference": "First-wing preservation and sequenced revision boundary",
+      "requirement": "State that this planning delivery and all future room/corridor component children may not edit a first-wing task contract, source-room Scene, source-room layout, source-room builder, first-wing dressing prefab, ProjectSettings, Packages, or build settings. State plainly that implementing P-EW-A and P-EW-B changes Lower Vault's tactical topology, bypasses its single crossing through a long circuit, conflicts with NSC-049 AC-004/VAL-004 perimeter preservation, and requires Vincent's approval plus a separately sequenced revision of NSC-049 and the NSC-069 five-room identity assumption. Recommend a separate expanded-wing identity type rather than silently extending the authoritative first-wing RoomId and DoorId enums. Require the future connection/revision responsibility to acquire unity-scene:Assets/Scenes/DoorPrototype.unity, repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs, repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneComposer.cs, repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorSequenceBuilder.cs, repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/World/RoomAuthoringContract.cs, repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/World/FiveRoomCompositionTests.cs, and logical:gameplay-walkability-surface. Require a sequenced NSC-082 revision to keep both 5-by-5 approaches clear."
+    },
+    {
+      "criterion_id": "AC-008",
+      "reference": "Docs/Art/Environment/DUNGEON_ART_DIRECTION.md; R01-R17 README; source asset inventory",
+      "requirement": "For every room, specify a named visible outcome, one focal landmark, at least two supporting prop clusters, density, floor and wall material direction, restrained light-pool rhythm, safe and hazardous route read, entrance and exit placement, NSC-078 catalog categories, known separate art requests, builder handoff, and several gameplay-camera review anchors. Place the Drowned Bell and Lantern Sepulcher cage pivots over non-walkable water, corruption, or background and keep each walkable island outside the landmark sprite's screen footprint. Every relevant review shot must confirm that the landmark, near wall, props, and door frame do not hide the wizard, ground contact, walkable floor, cursor target, or aperture. Record east-facing sealed/opening/open/locked/damaged/broken door art, original bell and lantern-cage landmarks, moth details, and cavern floor/wall tiles as known art responsibilities. Do not assume a package, layer, prefab, lighting system, or NSC-078 catalog entry that is not present."
+    },
+    {
+      "criterion_id": "AC-009",
+      "reference": "GDD approval boundary and exclusions; reference-image usage",
+      "requirement": "State that the route plan is review-only design evidence and does not make any room, door, encounter, child task, graph edit, identity type, first-wing revision, or mechanic canonical. Exclude loot, equipment, currency, permanent upgrades, persistent progression, procedural generation, multiple floors, and real elevation mechanics. Use R01-R17 only as mood and composition vocabulary; no image, asset, texture, icon, character, silhouette, room outline, or route layout may be imported, copied, or traced. List every exact Vincent decision required before D1B.2 application or Unity implementation."
     }
   ],
   "completion_gates": [
     {
       "gate_id": "VAL-001",
-      "reference": "Topology review",
-      "requirement": "A deterministic graph document identifies every proposed room, corridor, transition pocket, landmark, branch, loop, optional reward destination, locked route, return route, density-state change, hazard-shaped traversal segment, and future child task ownership without cycles in dependency metadata."
+      "reference": "Independent structured-document review",
+      "requirement": "An independent Task Review reviewer of the delivered document, who is not its author, manually checks the document's fenced JSON manifest against AC-005. The review verifies unique IDs, defined-node references, exactly eight room children, one R07-owned alcove, exactly eleven corridor children, one entry, one return, four proposed sealed-door gates, the R02 masonry-versus-cavern loop, the R06 high-versus-low side-by-side loop, R08 destination, C10 landmark axis, C11 return, all matching opening values, seven encounter entries, and an acyclic future dependency graph. No nonexistent parser or Unity execution is claimed."
     },
     {
       "gate_id": "VAL-002",
-      "reference": "First-wing non-blocking review",
-      "requirement": "Validation proves the expansion proposal changes no first-wing task contract, scene, door, geometry, or runtime build setting."
+      "reference": "This delivery versus future-plan preservation",
+      "requirement": "For this delivery, the changed-path inventory contains only Docs/World/ExpandedDungeonRouteGraph.md. For the future plan, the reviewer verifies that no room or corridor child owns an existing first-wing path and that every existing first-wing file that may change appears only in the separately sequenced connection/revision responsibility with the exact locks listed in AC-007. The document reproduces all five first-wing bounds and D1-D5 centers exactly and keeps D5 final."
     },
     {
       "gate_id": "VAL-003",
-      "reference": "Developer map review",
-      "requirement": "A readable original topology map or diagram shows route hierarchy and orientation landmarks at a useful camera or map scale."
+      "reference": "Vincent topology readability review",
+      "requirement": "The Markdown document embeds an original ASCII or Mermaid topology diagram and a plain-text fallback showing the first wing, P-EW-A, P-HUB, P-DEST, P-EW-B, primary route, masonry branch, natural-cavern branch, both loops, R07 alcove, R08 destination, C10 axis, C11 return, and D4-to-D5 continuation. Vincent confirms that the route hierarchy, landmarks, gates, and return are readable at normal document scale without consulting a reference image. No separate diagram file is created."
+    },
+    {
+      "gate_id": "VAL-004",
+      "reference": "D1B.2 ownership and local-completion review",
+      "requirement": "The independent reviewer verifies that every room and corridor slug maps to one unique Scene, layout, builder, test, generated directory, generated Tile and Sprite with .meta companions, and logical resource; no path has two proposed owners; every opening record lies on its host node's named envelope edge and at its corridor centerline end, with a clear collider width of at least 2.5 units and a stated visual gap; integration, art, encounter, and validation work are separate; every component gate is locally satisfiable from that child's outputs or test-owned fixtures; and real canonical-world proof is assigned to the later connection and validation responsibilities."
+    },
+    {
+      "gate_id": "VAL-005",
+      "reference": "Independent source, asset, approval, and proof-boundary review",
+      "requirement": "The independent Task Review reviewer of the delivered document verifies the GDD approval boundary, first-wing coordinates, NSC-047 tactical constraint, NSC-049 perimeter rule, RoomAuthoringContract five-room identity, PlayerMovement Y=0 projection, encounter range and active cap, art direction, R01-R17 README, Unity testing policy, and wall-tiling guide. It verifies that NSC-078 PropCatalog.json, east-facing door art, expanded-wing assets, focal landmarks, cavern tiles, and third-enemy content are absent at the source commit; that existing enemy and south-facing door source art are present; and that every creative addition is labeled PROPOSAL. No static document check is presented as Unity, navigation, gameplay, or visual-approval evidence."
     }
   ],
   "downstream_integration_obligations": [
     {
       "obligation_id": "INT-001",
-      "reference": "Future decomposed room/corridor tasks",
-      "requirement": "Future children must use exact disjoint scene/builder/layout/test ownership and compose through a separately reviewed integration task."
+      "reference": "GDD expanded-dungeon approval boundary",
+      "requirement": "Vincent must approve the optional-versus-mandatory purpose, Lower Vault connection and tactical bypass, four-door proposal, room and corridor scope, visual-only elevation, destination, encounter direction, third-enemy reservation, implementation phases, and future content parent before any proposed item becomes canon or D1B.2 output is applied."
+    },
+    {
+      "obligation_id": "INT-002",
+      "reference": "Future reviewed decomposition",
+      "requirement": "After approval, create a separate content-authoring parent for expanded-wing implementation because NSC-022 excludes room/content authoring. D1B.2 then allocates deterministic child IDs and exact non-overlapping resources for the eight rooms, eleven corridors, expanded-wing authoring foundation, two known art responsibilities, connection/revision work, encounters, and composed-world validation. Review-only output reserves no ID or execution authority."
+    },
+    {
+      "obligation_id": "INT-003",
+      "reference": "Known art gaps",
+      "requirement": "A reviewed east-facing door-art responsibility creates original east-facing sealed, opening, open, locked, damaged, and broken states compatible with the existing door behavior and approved pixel density. A separate reviewed environment-art responsibility supplies original Drowned Bell, Lantern Sepulcher cage, moth details, and cavern floor/wall modules without duplicating NSC-078's rock/cliff transition, water/slime edge, stair, or bridge categories. Room and corridor children consume only committed cataloged art and do not silently expand shared art ownership."
+    },
+    {
+      "obligation_id": "INT-004",
+      "reference": "Future canonical-scene connection and first-wing revision",
+      "requirement": "After both implementation phases and the first-wing composition are settled, a separately reviewed connection/revision task acquires every exact lock in AC-007, applies the Vincent-approved NSC-049 and NSC-069 revisions, creates the two composed-world Lower Vault openings and expanded-wing identities, preserves the two 5-by-5 approaches, connects continuous walkability and existing door behavior, and proves D1-D5 coordinates, D5 final crossing, first-wing source-room immutability, runtime build settings, and the single Y=0 continuous-floor rule. It must explicitly revalidate the approved Lower Vault tactical change rather than claiming the old single-crossing invariant still holds."
+    },
+    {
+      "obligation_id": "INT-005",
+      "reference": "Future encounters and production-path validation",
+      "requirement": "A separately owned encounter task places the approved Melee Enemy and Lantern Wraith sets on the composed wing and uses the production Active Enemy Registry and encounter-admission path. Play Mode validation on the committed composed world proves navigation through every authored route and opening, five-second behavior and locking for approved doors, persistent pursuit, admission under the fifteen-active cap, restart participation, carry-over pressure at P-EW-B and D4, and unchanged D5 victory behavior. Builder tests, committed-scene conformance tests, Play Mode tests, and Vincent gameplay-camera review remain distinct evidence. A third enemy is excluded until its own approved contract is delivered."
     }
   ],
   "gdd_evidence": [
     {
-      "reference": "Docs/GDD/No_Safe_Circle_GDD.md — Runtime Implementation",
-      "requirement": "The existing playable wing remains a continuous authored world with persistent gameplay state."
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md — Required Scope, Exclusions, and Stretch Goals",
+      "requirement": "An expanded dungeon wing is a goal, but its size, placement, rooms, doors, and mechanics remain proposals until Vincent approves them; loot, persistent progression, procedural generation, and multiple floors remain excluded."
     },
     {
-      "reference": "Docs/GDD/No_Safe_Circle_GDD.md — 2.5D Isometric Visual and World Representation",
-      "requirement": "Future spaces preserve readable isometric presentation and separation of visual content from walkability."
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md — Dungeon Floor Structure and revision policy; Tasks/NSC-047.yaml revision 4; Tasks/NSC-049.yaml revision 5",
+      "requirement": "The first wing keeps its settled bounds and D1-D5 sequence with D5 final. Lower Vault currently has one primary crossing and NSC-049 preserves east/west perimeter walls, so the proposed side circuit requires an explicit reviewed design and integration revision."
+    },
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md — Enemy roster, encounters, Active Enemy Registry, and persistent pursuit",
+      "requirement": "Melee Enemy and Lantern Wraith encounters contain three to eight enemies, surviving enemies remain persistent, and new admission delays or reduces activation before the active set would exceed fifteen."
+    },
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md — Environment Presentation and Authoring Direction; Docs/Art/Environment/DUNGEON_ART_DIRECTION.md",
+      "requirement": "Future spaces use original fixed-isometric Tilemap and SpriteRenderer presentation, separate visual content from walkability and collision, provide focal landmarks and readable routes, protect the wizard and cursor targets, and use supplied references only as mood and composition vocabulary."
     }
   ],
-  "basis": "human_approved_world_expansion",
+  "basis": "human_approved_expansion_planning_authority",
   "source_scope": "required",
   "confidence": "medium",
-  "notes": "Planning parent only. It does not create rooms, assets, scene files, runtime transitions, or new dependencies for the first wing. Governing visual direction: Docs/Art/Environment/DUNGEON_ART_DIRECTION.md, Vincent-approved project direction dated 2026-09-13. The supplied images are inspiration only; all art and layouts must be original. The topology must use asymmetrical winding routes, narrow-to-wide pacing, sudden reveals, optional side branches, authored transition pockets, and multiple reconnection points around a legible central route.",
+  "notes": "Planning deliverable only. The Drowned Bell and Rootwell Circuit, all four door placeholders, coordinates, envelopes, encounter sets, phases, landmarks, props, materials, lights, identity architecture, and future responsibility names are PROPOSALS for Vincent's approval, not canon or implementation authority. NSC-085 itself changes only Docs/World/ExpandedDungeonRouteGraph.md. The recommended wing is an optional committed challenge circuit from Lower Vault's east wall after D3 and back before D4. It knowingly changes Lower Vault's composed tactical topology and therefore cannot be implemented under the current NSC-049 perimeter-wall rule or NSC-069 five-room identity without reviewed revisions. At source commit 32c6223d3e0e8c6a311958a4fddce92840b1d907, NSC-078 PropCatalog.json, east-facing door art, expanded-wing assets, focal landmarks, cavern tiles, and third-enemy content are absent; enemy source art and south-facing door source art are present. References R01-R17 are inspiration only and must not be copied or traced.",
   "repository_state_at_bootstrap": "partial",
   "repository_evidence_at_bootstrap": [],
   "provenance": {
     "origin": "human_approved_environment_expansion_followup",
     "approved_at_utc_date": "2026-09-13",
-    "approved_by": "Vincent"
+    "approved_by": "Vincent",
+    "design_decisions": [
+      {
+        "date": "2026-09-15",
+        "decided_by": "Vincent",
+        "record": "NSC-085 side-chamber wing decision",
+        "decision": "Approved pursuing and planning a side-chamber wing; this did not approve the exact Drowned Bell and Rootwell layout, doors, coordinates, encounters, or mechanics."
+      },
+      {
+        "date": "2026-09-17",
+        "decided_by": "Vincent",
+        "record": "Dungeon expansion planning direction and GDD commit 294e5d3fa",
+        "decision": "The additional-room stretch goal became an expanded-wing goal. NSC-085 proposes the concrete wing, and no new room, door, or mechanic becomes canon until Vincent approves the specific proposal. Loot, persistent progression, procedural generation, and multiple floors remain excluded."
+      }
+    ],
+    "contract_followups": [
+      {
+        "date": "2026-09-17",
+        "reason": "GER cycle revision 3 (packet 20260917-003348-NSC-085 at 32c6223d3; rounds complete, re-audit commit_contract) with the re-audit's mandatory edits E-1 to E-8 applied verbatim: the planning deliverable Docs/World/ExpandedDungeonRouteGraph.md proposes the Drowned Bell and Rootwell Circuit (8 rooms, 11 corridors, masonry and natural-cavern branches, loops, the Lantern Sepulcher destination, four gates, encounter proposals and a reserved third-enemy slot) as a proposal only, with non-overlapping corridor floors, a foundation child owning shared folders and identities, and the existing Close and Lock rule at P-EW-A. The wing, its doors and its mechanics stay proposals until Vincent approves the seven listed decisions. The validation policy entry is removed: its ExpandedDungeonRouteGraphTests Unity fixture never existed and revision 3 is a reviewed Markdown deliverable.",
+        "source_head": "d5037a354fd873275e5c61a627b190ef9753b7e1",
+        "previous_contract_revision": 2,
+        "base_contract_sha256": "a1ed607709ac47d25b2e76e04b34ab27213422bd77b2dd9dbaa58c64ab1df159",
+        "revised_contract_sha256": "9ab748b7b948b8ed8582d75d2cd2c976ed864789b96979fd6c8b6ea45a8d2059",
+        "review": "post-commit Codex contract check (tiered rule, 2026-09-17)"
+      }
+    ]
   },
-  "visual_direction_addendum": "A future infernal or corrupted wing may use original bone/organic gothic trim, horn-like silhouettes, ritual marks, corrupted ground, hazardous voids or lava, and strong biome identity. Hazards must be clearly separated from smooth primary traversal and represented as bounded gameplay surfaces or non-walkable background. Do not copy Diablo assets, layouts, icons, textures, or the supplied reference map."
+  "visual_direction_addendum": "PROPOSAL — Drowned Bell and Rootwell Circuit. Begin with damp constructed masonry and human maintenance clutter, open onto the sparse Drowned Bell landmark over bounded non-walkable water, split between an amber lived-in masonry branch and an irregular teal-green cavern branch, reconnect around the Rootwell, offer side-by-side dry-rib and low-sump routes on the same Y=0 gameplay plane, pass the room-owned Moth-Keeper Nook alcove, culminate in the Lantern Sepulcher's empty cage and safe stone route, then follow restrained amber markers through Undertaker's Return to Lower Vault before D4. Every room has one focal landmark, at least two supporting clusters, protected openings and movement lanes, original materials and silhouettes, readable near-wall cutaways, and multiple gameplay-camera anchors. Tall landmark pivots and screen footprints stay over non-walkable background and never hide the wizard, floor route, cursor target, or door. Hazards shape routes or remain non-walkable background and add no mechanic."
 }
