@@ -54,6 +54,8 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             SpriteRenderer wizardRenderer = null;
             bool doorRendererEnabledBefore = true;
             bool wizardRendererEnabledBefore = true;
+            CameraClearFlags previousClearFlags = CameraClearFlags.SolidColor;
+            Color previousBackgroundColor = Color.black;
 
             try
             {
@@ -104,6 +106,15 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                 target.Create();
                 camera.targetTexture = target;
 
+                // Clear to transparent black so alpha marks sprite coverage. With the scene
+                // camera's own opaque clear, every pixel reads as opaque in both single renders,
+                // the contested set becomes the whole frame, and the door legitimately showing
+                // beside the wizard counts as a regression.
+                previousClearFlags = camera.clearFlags;
+                previousBackgroundColor = camera.backgroundColor;
+                camera.clearFlags = CameraClearFlags.SolidColor;
+                camera.backgroundColor = new Color(0f, 0f, 0f, 0f);
+
                 wizardRenderer.enabled = false;
                 doorRenderer.enabled = true;
                 camera.Render();
@@ -153,7 +164,13 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             {
                 if (doorRenderer != null) doorRenderer.enabled = doorRendererEnabledBefore;
                 if (wizardRenderer != null) wizardRenderer.enabled = wizardRendererEnabledBefore;
-                if (camera != null) camera.targetTexture = previousCameraTarget;
+                if (camera != null)
+                {
+                    camera.targetTexture = previousCameraTarget;
+                    camera.clearFlags = previousClearFlags;
+                    camera.backgroundColor = previousBackgroundColor;
+                }
+
                 RenderTexture.active = previousActive;
 
                 if (doorOnly != null) Object.DestroyImmediate(doorOnly);
