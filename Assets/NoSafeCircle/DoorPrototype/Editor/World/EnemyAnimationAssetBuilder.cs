@@ -13,7 +13,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
     /// Animator controllers. The scene builder is the only production caller.
     public static class EnemyAnimationAssetBuilder
     {
-        public const float EnemyPixelsPerUnit = 128f;
+        public const float EnemyPixelsPerUnit = 64f;
 
         internal const string SourceRoot =
             "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source";
@@ -45,7 +45,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
         };
 
         // Reserved for Vincent-approved whole-pixel corrections after the in-game visual gate.
-        // Builder and audit tests both read this single table; revision 3 starts with no offsets.
+        // Builder and audit tests both read this single table; revision 4 starts with no offsets.
         private static readonly IReadOnlyDictionary<string, int> PivotCorrections =
             new Dictionary<string, int>();
 

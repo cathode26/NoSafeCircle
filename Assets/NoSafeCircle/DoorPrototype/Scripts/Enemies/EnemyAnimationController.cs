@@ -8,11 +8,15 @@ namespace NoSafeCircle.DoorPrototype.Enemies
         LanternWraith
     }
 
-    /// Selects the directional idle or walk state for an enemy without owning movement.
+    /// Selects the directional idle or walk state and keeps the enemy Visual camera-facing
+    /// without owning movement.
     [DisallowMultipleComponent]
     [RequireComponent(typeof(Animator))]
     public sealed class EnemyAnimationController : MonoBehaviour
     {
+        public static readonly Vector3 IsometricCameraEulerAngles =
+            new Vector3(30f, -45f, 0f);
+
         private const float DirectionThreshold = 0.01f;
         private const float DirectionSwitchMargin = 0.001f;
         private const float DirectionTieEpsilon = 0.0001f;
@@ -43,6 +47,7 @@ namespace NoSafeCircle.DoorPrototype.Enemies
 
         private EnemyTargetKnowledge targetKnowledge;
         private EnemyLanternWispCaster lanternWispCaster;
+        private Transform visual;
         private Vector3 previousPosition;
         private string currentState;
         private string lastDirection = InitialDirection;
@@ -56,10 +61,13 @@ namespace NoSafeCircle.DoorPrototype.Enemies
             CacheComponents();
             previousPosition = transform.position;
             ApplyState(false);
+            RestoreCameraFacingVisual();
         }
 
         private void LateUpdate()
         {
+            // NavMeshAgent applies its root rotation before MonoBehaviour LateUpdate. Restore the
+            // child here so the SpriteRenderer's final world pose remains camera-facing.
             Tick(Time.deltaTime);
         }
 
@@ -75,10 +83,12 @@ namespace NoSafeCircle.DoorPrototype.Enemies
             lastDirection = InitialDirection;
             currentState = null;
             ApplyState(false);
+            RestoreCameraFacingVisual();
         }
 
-        /// Advances only animation-state selection. Tests can move the Transform, then call this
-        /// method with an explicit frame time to exercise speed and facing deterministically.
+        /// Advances animation-state selection and restores the Visual's presentation rotation.
+        /// Tests can move or rotate the Transform, then call this method with an explicit frame
+        /// time to exercise speed and facing deterministically.
         public void Tick(float deltaTime)
         {
             Vector3 displacement = transform.position - previousPosition;
@@ -105,6 +115,7 @@ namespace NoSafeCircle.DoorPrototype.Enemies
             }
 
             ApplyState(isWalking);
+            RestoreCameraFacingVisual();
         }
 
         private void CacheComponents()
@@ -112,6 +123,16 @@ namespace NoSafeCircle.DoorPrototype.Enemies
             if (animator == null) animator = GetComponent<Animator>();
             targetKnowledge = GetComponent<EnemyTargetKnowledge>();
             lanternWispCaster = GetComponent<EnemyLanternWispCaster>();
+            if (visual == null) visual = transform.Find("Visual");
+        }
+
+        private void RestoreCameraFacingVisual()
+        {
+            if (visual == null) visual = transform.Find("Visual");
+            if (visual != null)
+            {
+                visual.rotation = Quaternion.Euler(IsometricCameraEulerAngles);
+            }
         }
 
         private Transform ResolveFacingTarget()

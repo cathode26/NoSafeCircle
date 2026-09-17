@@ -85,7 +85,8 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
         // Classic 2:1 dimetric isometric camera angle (rotate -45 degrees around Y to face
         // a corner, then tilt 30 degrees down) matching Diablo 1 / Ultima Online-style
         // fixed isometric presentation.
-        internal static readonly Vector3 IsometricCameraEulerAngles = new Vector3(30f, -45f, 0f);
+        internal static Vector3 IsometricCameraEulerAngles =>
+            EnemyAnimationController.IsometricCameraEulerAngles;
 
         // Fixed, hand-picked world-space offset from the follow target to the camera. This is
         // a plain constant - NOT derived by rotating a local vector through the camera's own
@@ -419,8 +420,8 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
                 "LanternWraithSprite",
                 wraith.transform,
                 Vector3.zero,
-                Quaternion.identity,
-                new Vector2(1f, 2f),
+                Quaternion.Euler(IsometricCameraEulerAngles),
+                Vector2.one,
                 CreateWizardSilhouettePixels(
                     DoorPrototypeSceneBuilder.WorldSpriteTextureSize,
                     DoorPrototypeSceneBuilder.WorldSpriteTextureSize,
@@ -470,8 +471,8 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
                 "MeleeEnemySprite",
                 enemy.transform,
                 Vector3.zero,
-                Quaternion.identity,
-                new Vector2(1f, 2f),
+                Quaternion.Euler(IsometricCameraEulerAngles),
+                Vector2.one,
                 CreateWizardSilhouettePixels(
                     DoorPrototypeSceneBuilder.WorldSpriteTextureSize,
                     DoorPrototypeSceneBuilder.WorldSpriteTextureSize,
