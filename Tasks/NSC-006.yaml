@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-006",
-  "contract_revision": 3,
+  "contract_revision": 4,
   "contract_disposition": "active",
   "title": "Wizard Combat and Spells",
   "reconciliation_key": "combat",
@@ -30,7 +30,7 @@
   "basis": "direct_gdd",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "The spell children are Fireball (NSC-007), Frost Field (NSC-008), Force Wave (NSC-009), and the Spectral Decoy (NSC-088). Vincent approved the Spectral Decoy on 2026-09-15, made all former stretch goals goals on 2026-09-17 (GDD 294e5d3fa), and delegated its spell design; NSC-088 revision 4 is decided and awaits its own execution decomposition.",
+  "notes": "The spell children are Fireball (NSC-007), Frost Field (NSC-008), Force Wave (NSC-009), and the Spectral Decoy (NSC-088). Vincent approved the Spectral Decoy on 2026-09-15, made all former stretch goals goals on 2026-09-17 (GDD 294e5d3fa), and delegated its spell design; NSC-088 is decided (revision 6 at 391b53337 passed its closure review) and awaits its own execution decomposition.",
   "repository_state_at_bootstrap": "missing",
   "repository_evidence_at_bootstrap": [],
   "provenance": {
@@ -48,6 +48,15 @@
         "previous_contract_revision": 2,
         "base_contract_sha256": "426428f069ee4f30f1adb8c1a34a2a3cbfd28269f515323b46ab038a6f9dbf9b",
         "revised_contract_sha256": "ed08062afd7e84b3169cf87dc201bf75c41533f44cddbc0e8001de088b6ac1fb",
+        "review": "mechanical revision; grep review only (tiered rule, 2026-09-17)"
+      },
+      {
+        "date": "2026-09-17",
+        "reason": "Mechanical follow-up revision 4 (downstream debt from the NSC-088 revision 6 closure review): the notes cite NSC-088 revision 6 instead of revision 4. No other change.",
+        "source_head": "43baa6184f74cd7a8fe6bdd3f8ccacd303f57965",
+        "previous_contract_revision": 3,
+        "base_contract_sha256": "82c47f915f962b6f118fca506c799cbe49936ef82bcc15795a27cf39caeef65a",
+        "revised_contract_sha256": "aa5a9cbd0057664b11eca3fb641d1debf8e8e90ee328348c7ec373180b23e56b",
         "review": "mechanical revision; grep review only (tiered rule, 2026-09-17)"
       }
     ]
