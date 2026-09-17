@@ -1,0 +1,1058 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "d55b3b1fae7e171459149d34da46963c77efb7261d17313b9f6d3a914031422e"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "28b3fb46738f6c997cef0b4d65a8b0618d888724",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "f7d6322d7354b63ad5737f950ef88d950062c757",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_e_walk_00.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "996ff3613987d4bc91ef4c85d781174d2809539d",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_e_walk_00.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "dd75862991f693e34187485122e20a1e3dfbc279",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_e_walk_01.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "fe228e13f1f7c054dd5c96039945e819fa73ff2f",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_e_walk_01.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "3fcb5f4fe14870b116d4ebd03994e544a0ddeea2",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_e_walk_02.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "973add98b845920a44a14f6f69218a669beab4cd",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_e_walk_02.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "ec3c27368bec127580ffb1b38b0c021ecd4f144a",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_e_walk_03.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "9886ef7b9c2206e9b073a220fcc4c9662f32ec91",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_e_walk_03.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "ae7d31e7730437a72920d9686e587f2f9d419b0a",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_e_walk_04.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "f5b6a310a001bc529e7e1e260d4162bec08b2bf0",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_e_walk_04.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "08a59a9ca6a4fffbed838032df31cdb78210bc8b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_e_walk_05.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "e7659818e1b7fed284766466476a9cf850d10b6f",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_e_walk_05.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "2cf1a7fc7d5077151f8498d22b1afd87f5730bc5",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_n_walk_00.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "e9acf5d0e644c2769bc4bf8fafb65411d4b871e4",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_n_walk_00.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "32bb0143eec0fc98b89ad61bf70ca268f86e6ce0",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_n_walk_01.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "ab516790e9b5665efecce7471adb68994b1f8a67",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_n_walk_01.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "01e8581b417f9d906e71ca4564e73c752f7dca5c",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_n_walk_02.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "e744d755b59a1d0f4351d174be248d947ee67ba4",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_n_walk_02.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "25cd492405c8d002991f2a3ff55ac0cba1c6bded",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_n_walk_03.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "16aa9567331b0d12561f7c19bc09fcffae19389a",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_n_walk_03.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "0066907f433cf5b2afe05ed11a6ac1f560324fff",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_n_walk_04.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "f994582d5c1412cbb2f5ba58fa33623a16734ed4",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_n_walk_04.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "a2b46f9913c17ef8195ca1d3a0b443c4d1d99966",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_n_walk_05.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "73b8e4fcbc2901cf8651c9a0052be75b3864878b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_n_walk_05.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "f048b0ef46624a6d1a7db7bf1e31e9de2a7d061e",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_ne_walk_00.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "9dd768bbdcaab61e79754155b9de3855edf30439",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_ne_walk_00.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "653d7c27e3fddf666fbe490644c68a18fa073179",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_ne_walk_01.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "5638c2d0e775928e2de12f7c9e498e0d9605a7d7",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_ne_walk_01.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "5bbb090710125a1476469d876f6eb602bcee2f77",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_ne_walk_02.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "a3dc09767d57ce13cacc3fa519304fd1f7b5be1b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_ne_walk_02.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "b7f989745b81024a44405dcd9e0b6555a4f204a6",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_ne_walk_03.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "4d8f3bb58ad09e3a7e4f8e725e2f8d01613532d9",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_ne_walk_03.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "1369e45713840d40735a226608e29d29412466fa",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_ne_walk_04.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "c5c0ab0a9822410bc16dfdc9b91b9281cb287d98",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_ne_walk_04.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "048caadc64c82cbb3e05b46bd41e193748fe4985",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_ne_walk_05.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "a5256e551a48090f549b5a998a9d3c8659642207",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_ne_walk_05.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "831bdd740b4b0a792ab4d7828a75ae2d6e769b76",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_nw_walk_00.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "c99a7bbbae1e3c2c346aee39754f05909838412a",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_nw_walk_00.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "9bda6ad9920fd360924deaea6d8f0bf91ca43e63",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_nw_walk_01.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "863dcd1618eb6b3bf912a700155b517f1c1d2769",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_nw_walk_01.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "0fec31a850c5cd6fa72509c4e3f5c888037ec9a4",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_nw_walk_02.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "ab62f7c1fe02421fa422ed8364fa332dbc540f49",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_nw_walk_02.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "485e498065e17383c8f0d8a73feaa0276fd7f294",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_nw_walk_03.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "d9b436e93f0e3efc247fc80b5fde794397ebfe0d",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_nw_walk_03.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "55f4ce51f0b511f2df7ecfa658e2dc3899ae80a3",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_nw_walk_04.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "efb97ef248fe9b045598b510b5e6beb674dbe28c",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_nw_walk_04.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "5d51372e61eb0484a8b29f7dbc4bfa06287194d6",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_nw_walk_05.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "ec4e65c2e39d97cc9f4edb31055eaa67b4c2cd4b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_nw_walk_05.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "db53423325faeed6800e8c322de492a4d25c9051",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_s_walk_00.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "67de3540d7564a247ba7f651a11d94306c08a50b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_s_walk_00.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "8ee948259ab91a4458c992a35e50245c8eeafe3f",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_s_walk_01.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "bc6168f372483bf64d85c2b20690e9f84d85b372",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_s_walk_01.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "5f8f0ff4e8768f3119b1e49c62607fa3ce29948b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_s_walk_02.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "ab8d84e698d3f23e63d7df86bca29f340667e5ff",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_s_walk_02.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "bd867d0567d13e89f081a10b144229f45ef75aec",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_s_walk_03.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "a4566472fedea9371498536f08a78f5e4c82f6b5",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_s_walk_03.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "3f5c0be1d845dfd6ebc76eb41d59a58875f98200",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_s_walk_04.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "ada758d68c6cc6699804642569fcddc0bf9a33ce",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_s_walk_04.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "add9a326322f516fd2018f64c3483d114114f45a",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_s_walk_05.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "62ac93d3dd55f8c2fbe32ca57108b69ebdbb6522",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_s_walk_05.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "369261aef52eeb84defe2d82285c0117ccbba091",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_se_walk_00.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "c2084f99d13995e728210b945392591b293fccd5",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_se_walk_00.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "b759687046d880cf2f842ff1b0635632b0795301",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_se_walk_01.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "d49205ce3a8868c40d2bd2f0b02d085d605e572c",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_se_walk_01.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "e31b84f8583336319933ddcee513b127a4ae4157",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_se_walk_02.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "e4a3e814b091939c85024a47ffcd1ae46e62b95f",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_se_walk_02.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "e6d4f94129a2347913e7fbdd24a7833410ff16df",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_se_walk_03.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "27052f456a3ebf5acded53c4d1edce6bd5933938",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_se_walk_03.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "e8f8f519de160daa37df70ce94889687ff29e28f",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_se_walk_04.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "e63164d7a40f9e4c06f09497f3e158d21a795523",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_se_walk_04.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "7a41b4fa2e679dcd313ec9572d299502fb475d5c",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_se_walk_05.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "60fe4707b20f83b1e95b38be24238019ef384fb9",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_se_walk_05.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "f1e4e895dbb3a4b5ead3a4ba70c3f46de15498dc",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_sw_walk_00.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "018183104fa8b7cd3ced3fe3b6db4fc1b6d4826b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_sw_walk_00.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "b588fcba42686f7f841a8cdda9da7c1aa35b50c1",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_sw_walk_01.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "01b88ba092d3ba76013636454ae02df3f0592136",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_sw_walk_01.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "bb28852399873b59aa295b082bb7b6158c641c66",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_sw_walk_02.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "758a96043f5cf30e6b35a0cfe8aa7d7fdf4efd80",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_sw_walk_02.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "4300fa70d1bc500b1fb950208206f038d50d6833",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_sw_walk_03.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "0c584c7d18422707a139b9079ba2e37f1f7b4e72",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_sw_walk_03.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "31e8115d069e342aaa43ab67f110990f7b4e6b78",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_sw_walk_04.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "e0a0326ebadfe89bd8c2f43a257a5c9ee958bdad",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_sw_walk_04.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "0e365121a8d65daad5994a5b13b8ee69922e26be",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_sw_walk_05.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "bc6e72b57a8a1fca87248d154f28ae54fccd69fb",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_sw_walk_05.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "855f865b0c6531f635085d735ea5fe6e0998d54d",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_w_walk_00.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "0ea641368ad03fa595fe9afe63b476fb85b6abc3",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_w_walk_00.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "bec6f8d842fb2aa66eb7a8a8cd0e7f209884a52d",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_w_walk_01.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "551fd3c1615d47a215224479cf1854864d0017f9",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_w_walk_01.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "4c606983375aabc8f4d20c531f84e61419e3e47c",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_w_walk_02.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "7a2187f9511a87c83a55f700a9d60738dc125bf0",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_w_walk_02.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "2ffb972375187c9845a7f1aa75c32907ae5e53d2",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_w_walk_03.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "61b279ba68cc58475aeda774f796157db6207446",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_w_walk_03.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "ac39498fc0c1491a9adf5a7edd00488c8d2bb9a6",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_w_walk_04.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "ae507f1cde0f6554ddbd1855575ee2ba2f3c51e4",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_w_walk_04.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "e7e9759c33fd0a3e9823b1600619e227ecbb52b4",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_w_walk_05.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "59e65a9116cf226152dabe801daa6faa62cfe255",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_w_walk_05.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "6a3d33cd117ad35fee694811c829c1ecf16a5a8b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_e_walk_00.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "2ca85fae83f6942bda0a98f74360bfebe592c86f",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_e_walk_00.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "23709af96ec856e0fb057be2264271215743d8b5",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_e_walk_01.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "6c7c5bb6e5635290a012d71aaacee2c342ab64a1",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_e_walk_01.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "d3001afd0986beb239cea7e83c59794ad5259f16",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_e_walk_02.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "5e0dc6f8b4728394403720cea1ca9b5346ad08c7",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_e_walk_02.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "ad06e7f33fad05e39d6bd7fb125764032f681af4",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_e_walk_03.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "d0027d8b9eeaacc99a00541672e21c824bb9ada7",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_e_walk_03.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "a62bb04f8937270c67c85dd3e2c90f769b9b070d",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_e_walk_04.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "dc88daa0d7f4b8f9f027a13042356e16d23af8ea",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_e_walk_04.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "2cb61d271207607e299738650b72aa841b67bb75",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_e_walk_05.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "a74f885eeeb2c2f8469a2b38e974f76a89a14de6",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_e_walk_05.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "7e1e326c62b3469f6a91985eb39232f2d42e3a3b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_n_walk_00.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "cfed5f28424b526a468bb9448f7c68df76251ea2",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_n_walk_00.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "b949d2718852d6feb0461ff56ae7138ff82a8f9b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_n_walk_01.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "b6518d08c8317ba093b78da2f3b72cadd3cb9bbb",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_n_walk_01.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "1bf3ac5f36baf2671cada6c4d9fed0b9564825fb",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_n_walk_02.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "de3cf7fe82c41ff27ba9323e64c853e7e55407a9",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_n_walk_02.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "352b195aaadb215bb452ef15ae4e3efb653dde74",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_n_walk_03.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "5001c98694ecc69ed4e3300c97e68dd01cb27862",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_n_walk_03.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "7fe7476fbb6e297fcac9525914d143d638c5c24e",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_n_walk_04.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "c8054a104b087f0801cdbece670a796568038298",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_n_walk_04.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "e38f70515431abb23b09bee2ec70cd1ea28a75ea",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_n_walk_05.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "862edc5f3c47dce2c4ca8cd6b00a10ac31ba9623",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_n_walk_05.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "a4729a8bebc00500c749de8608b63abb3466d693",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_ne_walk_00.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "a3746162c1f50b0fdcc87200dd3d5b91b1abc9ca",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_ne_walk_00.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "3bebeb0ec7a547aa3a385e9ff64ea8dff4d2ca9a",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_ne_walk_01.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "cbd21ff00bca94daa519c7e2e0510621c622837c",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_ne_walk_01.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "02233fb01b4d2510a123d23740917dd4f398389b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_ne_walk_02.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "ffa668e81847a718f66ad107f001a51353036d2e",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_ne_walk_02.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "3d1f53a45b75413eb1f6e53da737fbc2a82c4abf",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_ne_walk_03.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "ad25fa0e2485492471a1c80e7ba1c5981a611277",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_ne_walk_03.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "4b6fe36b3977cfaea57b2876400c948305eae5a5",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_ne_walk_04.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "9401813193ac4432563aebbd15c6f8e884aac332",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_ne_walk_04.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "1dbc41d93cab6f3c90fcf1523ab232bc64729d1b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_ne_walk_05.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "d5a48a5a4be3fac7911922bcf2f4d5884c713225",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_ne_walk_05.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "7508ee262838a5b1e9dbb90269e1d47050903507",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_nw_walk_00.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "d2d0f24c85cfde5fcec3563c551b37ff73e8919d",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_nw_walk_00.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "42edc525d6eb0036e982e5aef5327211d543f478",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_nw_walk_01.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "c0bf6f5262661d980dc5dffbcaa580883e5966a1",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_nw_walk_01.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "348a65777531df74177957b23954df295c34f6ae",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_nw_walk_02.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "a3604d56e54c34e988bdaa3621e05aa7cd127eb8",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_nw_walk_02.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "31d539c454bf4af13a61922455be8a33cb8d2e5a",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_nw_walk_03.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "ad4a20cee614b4d9daee8553a5b5df494c0b210a",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_nw_walk_03.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "fa85fa99a7a6ea2f38771f6d3482b0bb65a2584a",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_nw_walk_04.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "e69fbb09fa5059cb3c32674e983e8585d4ca91f2",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_nw_walk_04.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "fbe2c81caa90c5d317b52f60c7375f17ad1ded7e",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_nw_walk_05.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "a976e7ea05b0673d920016c518207e66171bcf4c",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_nw_walk_05.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "c85bfaf35d9665ca4681a1f9f1918f58b2c73e35",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_s_walk_00.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "64d47e58087342c71fdc53042f806f3d36f6ef5e",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_s_walk_00.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "e42bdd311e54ec1127c58f6afda86d7b32b08178",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_s_walk_01.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "b3f7cfab592866bdde881201e544b7ca6e64ea55",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_s_walk_01.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "603740e81a9d663a46716454a36313399c29ec93",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_s_walk_02.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "4c4e95d2c2a677f5a2d61616a1618abfb49cd69f",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_s_walk_02.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "aea4bfcb12f0ca5ff0b8dcab9975b0dad2563d28",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_s_walk_03.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "a41c743a3bbf0cc59a7022a5b154edcdad8b2d86",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_s_walk_03.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "358bc38ccce0aa02dd4ea3c83aa76fcedffecf03",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_s_walk_04.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "a9b05411deb5b9113f61c75e2fe9e62f6a0430e2",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_s_walk_04.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "4aee041edf7d00a2380737d62643652834f7a596",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_s_walk_05.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "fae3c6b14f6277c559701ded9c3afb4f964ad15a",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_s_walk_05.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "8eb58286ed65f70bbd2d4c0060c0f99542a8cb39",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_se_walk_00.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "a5733aacdc6d32c77e0a365a7578f1baec6bdd3f",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_se_walk_00.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "c98ea60514b5760c31960612680815de9b1162a5",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_se_walk_01.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "589fcbf74b14fe287e53cb837d04d3935ab5f71f",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_se_walk_01.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "3c7dc18f56ae421353bddb6ba4df6861881db872",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_se_walk_02.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "f94000b2184e39337a2b003ed87cefd91cd576af",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_se_walk_02.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "988d9552493b5f144f5d746910365582ce3397cd",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_se_walk_03.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "3b77c6f738688872db555a4ad394143987a9dc7f",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_se_walk_03.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "621d90bd386583e9a3379d9d2b10aabeab6ff48b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_se_walk_04.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "ce890522ea7c039a1c1739167a26848e9df9bc07",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_se_walk_04.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "d660d739a886c9611e612a4aef5c2b9eba9fdc47",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_se_walk_05.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "03661b2fa9635e85fac4499498551a8ddf4f17e4",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_se_walk_05.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "1d7a89257166b309bcd5894a8cefc9141eeefc25",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_sw_walk_00.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "59ed39c134dab4ac2440b0a3c927c4a4197017ba",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_sw_walk_00.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "e5961fc677e9cbf8ac542af2822f8efba175fb90",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_sw_walk_01.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "34471706cbf448c074a46b93f89a656f174ce2f0",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_sw_walk_01.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "42cac0f615cce6630f83a13b4f2d6566fa7014af",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_sw_walk_02.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "c56d0abb286390008daf0effff70d43336ac4745",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_sw_walk_02.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "b515593b711bc892a60d2b0608f79a79c31b731c",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_sw_walk_03.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "c66b0b6aaad650618aa27f0ba707989a49ed4e65",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_sw_walk_03.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "941f7e56621e0fcafe74d7da9aca83bee2b95d3e",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_sw_walk_04.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "e15dd2507f7145c22d0dea41ef84622676a3e038",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_sw_walk_04.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "fbdc052783ab2e5c5ffeca370d5bb5e2a3fce52a",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_sw_walk_05.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "2746f7d42c51adb903404b605ba38f3c8b3269b5",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_sw_walk_05.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "78fbdf2c817cb9625c391050d77358e1ea7ee8bb",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_w_walk_00.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "2f1bbb653c198831f7855d399090a7f5b3969d31",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_w_walk_00.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "cbb3602288eb7152ffbcda927003c5f1a187dd45",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_w_walk_01.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "c7b5a15d28a5f72e786f829a1edb841bcf19f414",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_w_walk_01.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "ecf7da3cdaefe7b8cef2c0e9738c94cd46b8e274",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_w_walk_02.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "4d32bf9fe8d61e8b83ee5a3927327da85e17e012",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_w_walk_02.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "d92d5d20eef6525727adabc47b4cc7559046c580",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_w_walk_03.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "cdf469d9fd4fe136eaad4982d1380ae52ab00604",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_w_walk_03.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "96092b97fec54386101ad341fa130ee1751c3bd8",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_w_walk_04.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "43cafb8d3f9e96099817405a906b27aa314ca5de",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_w_walk_04.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "ed64282695a485f41b9df2d4602f04f28705493a",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_w_walk_05.png",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "4c8c704ee8cd195ab56949ec8907502319732849",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_w_walk_05.png.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "a39565fd93072775c24bdf49763ed7cbd9c77dcd",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/inventory.json",
+      "role": "selected_enemy_walk_provenance_inventory"
+    },
+    {
+      "blob_sha": "86e859eca150f094ee88530eb1e6774991a64478",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/inventory.json.meta",
+      "role": "selected_enemy_walk_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "cb18b55168c37f47cc3cd8aa509b5e557e3fae1a",
+      "path": "Docs/Art/Enemies/PIXELLAB_WALK_GENERATION.md",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "310ab85beefac0cd7164b72050afaf17f31ac87c",
+      "path": "Docs/Art/Enemies/Walk/melee_contact_sheet.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "0519b951723a8f78e55ad997363e98b1172407b5",
+      "path": "Docs/Art/Enemies/Walk/melee_gameplay_scale.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "085b54f2ccf04170f42fcd6f2a8fc2816166ba79",
+      "path": "Docs/Art/Enemies/Walk/ranged_contact_sheet.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    },
+    {
+      "blob_sha": "d90ba191a1c07f9adfbf1ddfb8e41a433f645ec1",
+      "path": "Docs/Art/Enemies/Walk/ranged_gameplay_scale.png",
+      "role": "pixellab_generation_inventory_or_review_reference"
+    }
+  ],
+  "delivery": {
+    "base_commit": "03804a785e853f23209bd1c48eda030910c0b2ee",
+    "candidate_commit": "9810029590bf2fd4099b36495dad7109c950302d",
+    "integrated_commit": "a467266c727b5c73027554797970ac72591968c5",
+    "integrated_tree": "9693984d1b5b59dcfed89e585bb8b42812fe953f"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "142dd3d6fb0ae3ea99add7200f6874cdd02a8d81",
+          "path": "Pipeline/TaskGraph/evidence/NSC-093/artifacts/SourceInventoryValidation-a467266c727b.txt"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "Deterministic source audit at a467266c727b (= b05a06ee10cf plus the NSC-063 evidence commit, which touches only Pipeline/TaskGraph/evidence/NSC-063/): exactly 96 walk PNGs, 2 archetypes x 8 directions x 6 ordered frames, all 176x176 RGBA, every selected_sha256 in Source/Walk/inventory.json matches the file on disk, complete PixelLab provenance fields present per entry, 97 Unity .meta GUIDs confirmed byte-identical to the pre-correction commit 981002959. The six corrected north-east melee frames were independently confirmed changed from that commit (payload only; GUIDs untouched). See the attached artifact for the full per-file check.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "8a8acf42463e9047d875ca3490ea5ae3c3f784cd",
+          "path": "Pipeline/TaskGraph/evidence/NSC-093/artifacts/HumanVisualApproval-a467266c727b.txt"
+        }
+      ],
+      "gate_id": "VAL-002",
+      "notes": "Vincent reviewed contact sheets and gameplay-scale sheets for both enemies across all eight facings and approved the candidate on 2026-09-15 (committed inventory.json status field 'approved_by_vincent_visual_review', corroborated by commit 981002959's message); he separately reviewed and approved the corrected six north-east melee walk frames on 2026-09-16 (Docs/Art/Enemies/PIXELLAB_WALK_GENERATION.md 'North-east single-cleaver correction (2026-09-16)' section, corroborated by commit 8c92a4dc9). See the attached artifact for the full record and citations.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "Vincent Liguori",
+    "decision": "approved",
+    "notes": "Vincent reviewed the eight-facing contact sheets and gameplay-scale sheets for both enemies (Docs/Art/Enemies/Walk/melee_contact_sheet.png, melee_gameplay_scale.png, ranged_contact_sheet.png, ranged_gameplay_scale.png) and approved the 96-frame walk candidate on 2026-09-15; Source/Walk/inventory.json's committed status field has read 'approved_by_vincent_visual_review' since. He then reviewed the corrected six north-east melee walk frames specifically (comparison sheet ne_walk_candidate_sheet.png and loop ne_walk_attempt1.gif under C:\\nscrev\\reports\\nsc063-cleaver\\) and approved them on 2026-09-16, per Docs/Art/Enemies/PIXELLAB_WALK_GENERATION.md: 'Vincent reviewed the comparison sheet ... and the loop ... and approved these six north-east walk frames on 2026-09-16.'",
+    "required": true
+  },
+  "record_id": "DEL-NSC-093-a467266c727b",
+  "record_type": "delivery",
+  "recorded_at": "2026-09-17T04:04:35Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-093.yaml",
+    "revision": 1,
+    "sha256": "1bf2567e667148deaa6f0e9783cf11fbd8ae4dae17c16f2933d83ffc27c85e8a"
+  },
+  "task_id": "NSC-093",
+  "validated_state": {
+    "commit": "a467266c727b5c73027554797970ac72591968c5",
+    "tree": "9693984d1b5b59dcfed89e585bb8b42812fe953f"
+  }
+}

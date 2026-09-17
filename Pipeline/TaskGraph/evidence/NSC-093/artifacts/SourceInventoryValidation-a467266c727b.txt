@@ -1,0 +1,19 @@
+NSC-093 deterministic source inventory check (independently re-run)
+Validated commit: a467266c727b5c73027554797970ac72591968c5 (= b05a06ee10cf0f760e99d8085a05d008061b3af1 plus the NSC-063 delivery-evidence commit recorded immediately before this one in the same branch-verify session; that commit touches only Pipeline/TaskGraph/evidence/NSC-063/, so every path checked below is byte-identical to b05a06ee1)
+Contract: Tasks/NSC-093.yaml revision 1, gates VAL-001/VAL-002
+
+Selected walk PNG count: 96 (expected 96)
+Files with a mismatch or missing inventory entry: 0
+archetype x direction x frame-index coverage: 96/96 unique triples present.
+Every PNG is 176x176 RGBA; every selected_sha256 matches the file on disk; exactly 96 unique (archetype, direction, frame) triples, matching 2 archetypes x 8 directions x 6 frames.
+.meta files checked: 97 (96 PNG .meta + 1 folder .meta); missing: 0
+Unique GUIDs: 97; GUID drift vs pre-correction commit 9810029590bf: 0 finding(s).
+enemy_melee_ne_walk_00.png: pre-correction sha256 b3754550fa732877... -> current b86249393de4b09a... (changed, as documented)
+enemy_melee_ne_walk_01.png: pre-correction sha256 b3caf40c5aa54b29... -> current 4afe85029c7475b5... (changed, as documented)
+enemy_melee_ne_walk_02.png: pre-correction sha256 34bc3fa86298de3d... -> current c19e551fbddb28f5... (changed, as documented)
+enemy_melee_ne_walk_03.png: pre-correction sha256 d618d2da0451dcf5... -> current 2ee34f241f64f0d5... (changed, as documented)
+enemy_melee_ne_walk_04.png: pre-correction sha256 82e282c478a145c8... -> current fc1ea368e9aebb9f... (changed, as documented)
+enemy_melee_ne_walk_05.png: pre-correction sha256 3cfac1dff75d2e2c... -> current 5896d2e1e8fa7c32... (changed, as documented)
+
+Completeness: exactly 96 walk PNGs, both archetypes, all eight facings, six ordered frames each, all 176x176 RGBA, every selected_sha256 matches the file on disk, complete PixelLab provenance (character_id/animation_group_id/animation_id/raw_size/raw_alpha_bbox/padding_offset/raw_sha256/selected_sha256) present for every entry, 97/97 .meta GUIDs identical to the pre-correction commit 9810029590bf (the correction touched only the six north-east melee walk PNG payloads, confirmed changed from that commit, never their .meta/GUIDs). No duplicate or ambiguous filenames.
+Result: PASS for task completion gate VAL-001.
