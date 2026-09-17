@@ -2,7 +2,7 @@
   "schema_version": "1.0",
   "tasks": {
     "NSC-020": {
-      "task_contract_sha256": "f8c9e326646e16e2c4bcf5eba4a6505494a5044491bc70127d5b0a1603150a3b",
+      "task_contract_sha256": "ad592751a099c94e346ab3241f4f25ebabf0c2d68e13ae3a9788ccecf1bdac29",
       "required_test_platforms": [
         "PlayMode"
       ],
@@ -22,7 +22,7 @@
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-044": {
-      "task_contract_sha256": "94ecef79e4b0eb3b4421628c1a9f15e7360f67d07374df9247dabba77edb1bbb",
+      "task_contract_sha256": "58392e8a16aa615702420b791ce6dd31ea237d98821f780be2b62b713863fb21",
       "required_test_platforms": [
         "EditMode"
       ],
@@ -32,7 +32,7 @@
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-045": {
-      "task_contract_sha256": "7ad5a1ee6591896ca9e23a7ecdb89cd17a6d9d6faa536108af336f288d71b858",
+      "task_contract_sha256": "5e5dbd4e73b09c1faabaab7c9dfeb11f872fc6891cc2fcd4317fd488d2ce50e3",
       "required_test_platforms": [
         "EditMode"
       ],
@@ -42,7 +42,7 @@
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-046": {
-      "task_contract_sha256": "9d9df3eefd968ef2a3bc6d1e08642b24b075372b27a1e4152da1885382149418",
+      "task_contract_sha256": "8a81ef43ace6dc4af1e5c6fddb319d8e0d7a4506409c5aa6b7ab436b992d48a8",
       "required_test_platforms": [
         "EditMode"
       ],
@@ -52,7 +52,7 @@
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-047": {
-      "task_contract_sha256": "5a8f88a50b3952f1174c86517b6cf3a7ffb85b333892b83fcbad08bcc9892e9a",
+      "task_contract_sha256": "6a592b90f5dcff4cd8c91e265d48f019e03eee36dd41d8fe4d43290ad700db65",
       "required_test_platforms": [
         "EditMode"
       ],
@@ -62,7 +62,7 @@
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-048": {
-      "task_contract_sha256": "c79c64db87c936e3120190878cf9fd851c036dfe849ddd0f403bc6dbd6e32cd1",
+      "task_contract_sha256": "397eeee65882b2490144cad99610ff316c12198f8fe6d3a276b77fe68e5fa9c8",
       "required_test_platforms": [
         "EditMode"
       ],
@@ -72,7 +72,7 @@
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-049": {
-      "task_contract_sha256": "51cb89b813ab1dbb72dcaa742029e9179f3fc2f3aea085e87bdeeeaeaa217500",
+      "task_contract_sha256": "06aa242c7165a554a4aaf4ef7011b2f23429fc961f92c679f62d7590138f35b9",
       "required_test_platforms": [
         "EditMode",
         "PlayMode"
@@ -96,7 +96,7 @@
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-069": {
-      "task_contract_sha256": "379ec1a261c77d8d4f495aaa1fa4b6c6285bb6d5ac3a22e9464342662be9019c",
+      "task_contract_sha256": "3748d05684aba1709b928b990d34c3f12b4e956fcaf40fd188b7d34422ab51b5",
       "required_test_platforms": [
         "EditMode"
       ],
@@ -178,7 +178,7 @@
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-082": {
-      "task_contract_sha256": "223f6a4d65bc0a2f9423003286d8bf7c829c09669d66d372b36dfb925c01a95c",
+      "task_contract_sha256": "a36b041db024c6b09d5a1b891200d54484bf01b80dc20c3c475b5a6b484b0aaa",
       "required_test_platforms": [
         "EditMode"
       ],
