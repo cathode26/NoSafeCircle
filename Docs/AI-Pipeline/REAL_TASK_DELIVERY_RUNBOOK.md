@@ -42,7 +42,7 @@ A fresh model should be able to reach a real bounded implementation attempt quic
 
 This snapshot is for fast orientation only. The repository and `taskcontrol` remain authoritative; re-check before acting if this file is older than the task work you are about to perform.
 
-As of 2026-08-24:
+As of 2026-08-24; the NSC-007 lines were updated on 2026-09-17 to contract revision 4:
 
 - canonical playable scene: `Assets/Scenes/DoorPrototype.unity`;
 - NSC-003 delivered the current mouse-directed Player Movement / shared pointer projection / movement-restriction foundation;
@@ -51,7 +51,7 @@ As of 2026-08-24:
 - the current human-selected next gameplay foundation is `NSC-011 — Active Enemy Registry`;
 - `NSC-011` is a concrete `single_agent` implementation with no dependencies;
 - `NSC-012 — Enemy Health/Defeat` depends on NSC-011;
-- `NSC-007 — Charged Fireball` depends on NSC-003 and NSC-012.
+- `NSC-007 — Charged Fireball Input, Charge, Projectile Damage, Reset, and Suspension` depends on NSC-003, NSC-005 and NSC-012.
 
 That gives the useful dependency path:
 
@@ -60,7 +60,7 @@ NSC-011 Active Enemy Registry
         ↓
 NSC-012 Enemy Health/Defeat
         ↓
-NSC-007 Charged Fireball
+NSC-007 Charged Fireball Input, Charge, Projectile Damage, Reset, and Suspension
 ```
 
 Do not treat this dated snapshot as readiness or execution authorization. Confirm the current graph before each new task.
