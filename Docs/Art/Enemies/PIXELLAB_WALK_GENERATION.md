@@ -115,6 +115,11 @@ frame (nothing cropped); legs show a varied, readable walking stride across
 the six frames. See the comparison sheet and GIF referenced in the NSC-063
 fix report for this correction.
 
+**Approval.** Vincent reviewed the comparison sheet
+(`C:\nscrev\reports\nsc063-cleaver\ne_walk_candidate_sheet.png`) and the loop
+(`ne_walk_attempt1.gif`) and **approved these six north-east walk frames on
+2026-09-16**.
+
 **Replaced files and hashes.**
 
 | File | Old `selected_sha256` | New `selected_sha256` |
