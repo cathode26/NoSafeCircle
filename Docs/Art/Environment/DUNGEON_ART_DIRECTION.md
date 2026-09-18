@@ -61,7 +61,14 @@ playful, or endearing detail.
 - **Chapel of Ash:** pews, altar or ritual focus, candles, ash accents, sigils,
   gothic vertical shapes, and selective symmetry.
 - **Lower Vault:** water or slime channels, bridges or raised routes, barrels and
-  crates, rails, cliffs, platforms, and an alternate route.
+  crates, rails, cliffs, platforms, and an alternate route. **Art must not
+  out-promise the geometry.** It never implies walkable ground, a safe island, a
+  crossing or a change of elevation that the room's committed layout does not
+  have. As of NSC-047 revision 4 the Lower Vault commits none of those, so a
+  painted bridge, ledge or platform is scenery **until a task commits one with
+  collision** - after which the art may depict it, because it states a fact
+  rather than an implication. Lava, chasms and horn trim stay FutureExpansion
+  vocabulary until a task owns them.
 - **Final Room:** dramatic focal structure, recognizable benches and furniture,
   ritual details, candles, bounded hazard framing, and an open encounter area.
 
