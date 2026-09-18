@@ -378,6 +378,16 @@
         "PlayMode": "NoSafeCircle.DoorPrototype.Tests.RangedEnemyKeepDistanceMovementPlayModeTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-090": {
+      "task_contract_sha256": "09de6567bbc657000d0684c93afb62457808e0f4ad0c499052f777df26b889b7",
+      "required_test_platforms": [
+        "PlayMode"
+      ],
+      "test_filters": {
+        "PlayMode": "NoSafeCircle.DoorPrototype.Tests.DoorEnemyPassabilityPlayModeTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
     }
   },
   "decomposition_child_templates": {}
