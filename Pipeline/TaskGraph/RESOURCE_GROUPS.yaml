@@ -1270,22 +1270,14 @@
       ]
     },
     {
-      "reconciliation_keys": [
-        "fireball"
-      ],
+      "reconciliation_keys": [],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/FireballPlayModeTests.cs",
-      "work_ids": [
-        "NSC-007"
-      ]
+      "work_ids": []
     },
     {
-      "reconciliation_keys": [
-        "fireball"
-      ],
+      "reconciliation_keys": [],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/FireballPlayModeTests.cs.meta",
-      "work_ids": [
-        "NSC-007"
-      ]
+      "work_ids": []
     },
     {
       "reconciliation_keys": [
