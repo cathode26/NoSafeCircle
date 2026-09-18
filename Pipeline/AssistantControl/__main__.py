@@ -139,6 +139,12 @@ def main(argv=None) -> int:
     settlement = commands.add_parser("settle-worker", help="Release ended worker capacity after verified process/container exit")
     settlement.add_argument("task")
     settlement.add_argument("--run-id", required=True)
+    retire = commands.add_parser(
+        "retire-worker",
+        help="Archive one settled, dead failed/stopped worker so its task can be dispatched again",
+    )
+    retire.add_argument("task")
+    retire.add_argument("--run-id", required=True)
     revision = commands.add_parser("revise", help="Reopen an explicitly rejected candidate without discarding its work")
     revision.add_argument("task")
     revision.add_argument("--candidate-commit", required=True)
@@ -548,6 +554,9 @@ def main(argv=None) -> int:
             elif args.command == "settle-worker":
                 from Pipeline.AssistantControl.worker_settlement import settle_completed
                 result = settle_completed(manager, args.task, run_id=args.run_id)
+            elif args.command == "retire-worker":
+                from Pipeline.AssistantControl import worker_control as _worker_control
+                result = _worker_control.retire_settled_worker(manager, args.task, run_id=args.run_id)
             elif args.command == "revise":
                 from Pipeline.AssistantControl.revisions import begin_revision
                 result = begin_revision(manager, args.task, expected_candidate=args.candidate_commit)
