@@ -90,5 +90,77 @@ class PreparedRefreshTests(unittest.TestCase):
         self.assertFalse((self.manager.records / "NSC-042.prepared-refresh.json").exists())
 
 
+class RefreshAcceptsFinishedHistoryTests(unittest.TestCase):
+    """A refresh refuses live work; finished history must not block it forever.
+
+    `settle-worker` updates the worker entry and `retire-worker` archives it into
+    `worker_history`, so a record always carries evidence of a finished run. Refusing on that
+    evidence left NSC-046 and NSC-007 with no way to move their checkouts to current HEAD, which
+    is what `reserve` requires.
+    """
+
+    @staticmethod
+    def settled(**overrides):
+        entry = {"run_id": "r1", "status": "stopped", "capacity_released": True,
+                 "settled_at": "2026-09-17T01:00:00+00:00"}
+        entry.update(overrides)
+        return entry
+
+    def base(self, **fields):
+        record = {"task_id": "NSC-046", "status": "prepared"}
+        record.update(fields)
+        return record
+
+    def test_a_retired_run_does_not_block_a_refresh(self):
+        # The exact shape after retire-worker: history plus the launcher record it left.
+        record = self.base(worker_history=[self.settled()],
+                           launch={"run_id": "r1", "status": "ready_pending"})
+        prepared_refresh._forbidden(record)
+
+    def test_a_settled_worker_still_in_place_does_not_block(self):
+        record = self.base(worker=self.settled(),
+                           launch={"run_id": "r1", "status": "ready_pending"})
+        prepared_refresh._forbidden(record)
+
+    def test_a_live_worker_still_blocks(self):
+        record = self.base(worker=self.settled(status="running", capacity_released=False))
+        with self.assertRaises(prepared_refresh.PreparedRefreshError) as caught:
+            prepared_refresh._forbidden(record)
+        self.assertIn("worker", str(caught.exception))
+
+    def test_a_succeeded_worker_still_blocks(self):
+        # Its output belongs to the review path; refreshing over it would discard real work.
+        record = self.base(worker=self.settled(status="succeeded"))
+        with self.assertRaises(prepared_refresh.PreparedRefreshError):
+            prepared_refresh._forbidden(record)
+
+    def test_a_launch_for_an_unknown_run_still_blocks(self):
+        # No worker and no history proves this run ended, so the launch is taken at face value.
+        record = self.base(launch={"run_id": "mystery", "status": "ready_pending"})
+        with self.assertRaises(prepared_refresh.PreparedRefreshError) as caught:
+            prepared_refresh._forbidden(record)
+        self.assertIn("launch", str(caught.exception))
+
+    def test_a_launch_for_a_different_run_than_the_finished_one_still_blocks(self):
+        record = self.base(worker_history=[self.settled(run_id="r1")],
+                           launch={"run_id": "r2", "status": "ready_pending"})
+        with self.assertRaises(prepared_refresh.PreparedRefreshError):
+            prepared_refresh._forbidden(record)
+
+    def test_real_output_still_blocks(self):
+        for field, value in (("candidate", {"commit": "abc"}), ("integration", {"commit": "abc"}),
+                             ("revision", {"id": 1}), ("human_review", {"state": "pending"})):
+            with self.subTest(field=field):
+                record = self.base(worker_history=[self.settled()], **{field: value})
+                with self.assertRaises(prepared_refresh.PreparedRefreshError) as caught:
+                    prepared_refresh._forbidden(record)
+                self.assertIn(field, str(caught.exception))
+
+    def test_a_non_prepared_record_still_blocks(self):
+        record = self.base(worker_history=[self.settled()])
+        record["status"] = "integrated"
+        with self.assertRaises(prepared_refresh.PreparedRefreshError):
+            prepared_refresh._forbidden(record)
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

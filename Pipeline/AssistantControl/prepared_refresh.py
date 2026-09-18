@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from Pipeline.AssistantControl.admission import _read_registry, _source_registry_paths
+from Pipeline.AssistantControl.worker_state import is_finished_launch, is_finished_worker
 from Pipeline.AssistantControl.checkouts import Checkouts, write_record
 from Pipeline.AssistantControl.inspect_project import git
 from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task
@@ -58,7 +59,17 @@ def _clean_owned(checkouts: Checkouts, record: dict[str, Any]) -> Path:
 
 
 def _forbidden(record: dict[str, Any]) -> None:
-    for field in ("worker", "launch", "worker_history", "candidate", "revision", "revision_history",
+    # Finished runs leave evidence behind on purpose: settle updates the worker entry and
+    # retire archives it into worker_history. Refusing on that evidence made a refresh
+    # impossible after any cancelled or failed run, and with refresh unreachable the
+    # checkout stays pinned at its old commit and reserve refuses too.
+    worker = record.get("worker")
+    if worker and not is_finished_worker(worker):
+        raise PreparedRefreshError("prepared refresh refuses record with worker")
+    launch = record.get("launch")
+    if launch and not is_finished_launch(record, launch):
+        raise PreparedRefreshError("prepared refresh refuses record with launch")
+    for field in ("candidate", "revision", "revision_history",
                   "candidate_lineage", "integration", "human_review"):
         if record.get(field):
             raise PreparedRefreshError(f"prepared refresh refuses record with {field}")
