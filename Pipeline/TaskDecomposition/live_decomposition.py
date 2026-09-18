@@ -12,6 +12,7 @@ import sys
 import tempfile
 import threading
 import time
+import unicodedata
 from datetime import datetime, timezone
 from typing import Any, Callable, Mapping
 
@@ -265,7 +266,12 @@ def _model_value_problem(value) -> str:
         return "has leading or trailing whitespace"
     if any(character.isspace() for character in value):
         return "contains whitespace"
-    if any(ord(character) < 0x20 or ord(character) == 0x7F for character in value):
+    # Cc and Cf, not just C0 and DEL: a review pointed out the first version
+    # accepted U+009B (the 8-bit CSI escape), U+200B, U+202E and a leading
+    # U+FEFF, so the comment claiming "control character" was not true. The
+    # harm was only ever a misleading log line - docker gets one exact argv
+    # element either way - but a rule should mean what it says.
+    if any(unicodedata.category(character) in ("Cc", "Cf") for character in value):
         return "contains a control character"
     if len(value) > _MAX_MODEL_LENGTH:
         return f"is longer than {_MAX_MODEL_LENGTH} characters"

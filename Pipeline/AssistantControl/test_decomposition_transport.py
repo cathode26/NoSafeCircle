@@ -175,6 +175,9 @@ class DecompositionTransportTests(unittest.TestCase):
             ("a\nb", "contains whitespace"),
             (" trailing ", "whitespace"),
             ("a\x00b", "control character"),
+            ("a\u009bb", "control character"),   # the 8-bit CSI escape
+            ("a\u200bb", "control character"),   # zero-width space
+            ("\ufeffclaude-opus-5", "control character"),
             (123, "is not a string"),
             ("x" * 400, "longer than"),
         ):
