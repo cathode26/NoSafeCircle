@@ -77,7 +77,11 @@ from Pipeline.TaskReviewAgent.decomposition_session_pool import (  # noqa: E402
 from Pipeline.TaskReviewAgent.supervisor_session_pool import (  # noqa: E402
     codex_resume_activation_from_environment,
 )
-from TaskDecomposition.live_decomposition import provider_configuration  # noqa: E402
+from TaskDecomposition.live_decomposition import (  # noqa: E402
+    model_environment_arguments,
+    provider_configuration,
+    resolve_provider_model_environment,
+)
 from TaskDecomposition.contracts import DecompositionResult  # noqa: E402
 from graph_delta import GraphDeltaPlan  # noqa: E402
 from graph_apply_plan import plan_graph_apply  # noqa: E402
@@ -130,8 +134,17 @@ def build_compose_command(
     run_id: str | None = None,
     pool_assignment: dict | None = None,
     provider_allowlist: tuple[str, ...] | None = None,
+    provider_environment: dict | None = None,
 ) -> tuple[str, ...]:
     provider_order = decomposition_provider_order(providers, provider_allowlist)
+    if pool_assignment is not None and provider_environment is not None:
+        # A pooled run's model is part of the identity its leases were reserved
+        # for; a second source would either lose silently or make the container
+        # fail closed. One source, not a winner.
+        raise RuntimeError(
+            "a pooled decomposition takes its model from its reservation: "
+            "provider_environment is one source too many"
+        )
     _require_bounded_codex_roles(provider_order, max_calls=max_calls, pooled=pool_assignment is not None)
     command = [
         "docker",
@@ -158,9 +171,15 @@ def build_compose_command(
         command.extend(
             ("--volume", f"{pool_assignment['lease_bundle_path']}:{POOL_LEASE_MOUNT}:ro")
         )
-        for name, value in sorted(pool_assignment.get("provider_environment", {}).items()):
-            if value:
-                command.extend(("--env", f"{name}={value}"))
+        command.extend(
+            model_environment_arguments(pool_assignment.get("provider_environment", {}))
+        )
+    elif provider_environment:
+        # The same pinning for a run with no reservation - a mixed pair, or a
+        # single-provider round. Without it the container ran
+        # `provider_configuration`'s own defaults while the run reported
+        # success, so a caller who escalated the model silently got the default.
+        command.extend(model_environment_arguments(provider_environment))
     if len(provider_order) == 1:
         command.extend([
             f"{provider_order[0]}-decompose", "python3",
@@ -594,6 +613,14 @@ def _run_proposal(
                 run_id=requested_run_id,
                 pool_assignment=pool_assignment,
                 provider_allowlist=permitted,
+                # Only when there is no reservation to carry the models: a
+                # pooled run refuses a second source, by design.
+                provider_environment=(
+                    None if pool_assignment is not None
+                    else resolve_provider_model_environment(
+                        decomposition_provider_order(args.providers, permitted)
+                    )
+                ),
             ),
             cwd=str(workspace),
             env=environment,

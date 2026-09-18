@@ -510,6 +510,119 @@ def test_gate_off_pools_claude_only_and_ephemeral_launch_is_unchanged() -> None:
             launcher.subprocess.run, launcher._decomposition_pool_owner = originals
 
 
+def test_unpooled_command_carries_the_resolved_models() -> None:
+    """A run with no reservation gets its models pinned too.
+
+    Until 2026-09-18 `provider_environment` was read only from
+    `pool_assignment`, so an unpooled round was launched with no `--env` and
+    `provider_configuration` re-ran inside the container with none of the
+    host's environment. It returned the defaults and the run reported success
+    at a model nobody chose.
+    """
+    command = launcher.build_compose_command(
+        task_id=TASK, project="nosafecircle-m2a", providers="codex,claude", max_calls=4,
+        provider_environment={"NSC_CLAUDE_MODEL": "claude-opus-5",
+                              "NSC_OPENAI_CODEX_MODEL": "gpt-6-astra"},
+    )
+    require(command[:7] == ("docker", "compose", "-p", "nosafecircle-m2a", "run", "--rm", "-T"),
+            str(command))
+    require(("--env", "NSC_CLAUDE_MODEL=claude-opus-5",
+             "--env", "NSC_OPENAI_CODEX_MODEL=gpt-6-astra") == command[7:11], str(command))
+    require("--volume" not in command, str(command))
+    require("--role-session-leases" not in command, str(command))
+    # Passing nothing still builds exactly the old argv.
+    plain = launcher.build_compose_command(
+        task_id=TASK, project="nosafecircle-m2a", providers="codex,claude", max_calls=4,
+    )
+    require("--env" not in plain, str(plain))
+
+
+def test_a_pooled_command_refuses_a_second_source_of_models() -> None:
+    """One source for the model, not a winner between two."""
+    assignment = {
+        "lease_bundle_path": "C:/pool/run.leases.json",
+        "repository_identity": REPOSITORY,
+        "provider_environment": {"NSC_CLAUDE_MODEL": "claude-sonnet-5"},
+    }
+    try:
+        launcher.build_compose_command(
+            task_id=TASK, project="p", providers="codex,claude", max_calls=4,
+            run_id="nsc-010-d1b2-run", pool_assignment=assignment,
+            provider_environment={"NSC_CLAUDE_MODEL": "claude-opus-5"},
+        )
+    except RuntimeError as exc:
+        require("one source too many" in str(exc), str(exc))
+    else:
+        raise AssertionError("a pooled run accepted a second source of models")
+
+
+def test_only_the_model_variables_can_be_injected() -> None:
+    """`--env` is a hole into the container, not a general passthrough."""
+    for name in ("PATH", "ANTHROPIC_API_KEY", "A B", ""):
+        try:
+            launcher.build_compose_command(
+                task_id=TASK, project="p", providers="codex,claude", max_calls=4,
+                provider_environment={name: "value"},
+            )
+        except ValueError as exc:
+            require("model environment" in str(exc), str(exc))
+        else:
+            raise AssertionError(f"{name!r} was injected into the container")
+
+
+def test_the_unpooled_call_site_resolves_and_passes_the_models() -> None:
+    """The builder half is worthless if the caller passes nothing.
+
+    That was the defect: the parameter did not exist, so no caller could. This
+    drives the real `_run_proposal` with pooling off and captures what it hands
+    the builder.
+    """
+    seen: list[dict] = []
+    real_builder = launcher.build_compose_command
+    original_run = launcher.subprocess.run
+
+    def capture(**kwargs):
+        seen.append(dict(kwargs))
+        return real_builder(**kwargs)
+
+    def refuse_docker(command, **kwargs):
+        if tuple(command)[:1] != ("docker",):
+            return original_run(command, **kwargs)
+        return subprocess.CompletedProcess(tuple(command), 1)
+
+    with tempfile.TemporaryDirectory(prefix="nsc-decomp-unpooled-", ignore_cleanup_errors=True) as text:
+        temp = Path(text)
+        fx = pooled.Fixture(temp)
+        fx.owner.close()
+        launcher.build_compose_command = capture
+        launcher.subprocess.run = refuse_docker
+        try:
+            args = SimpleNamespace(
+                task_id=TASK, compose_project="nosafecircle-m2a", providers="claude,codex",
+                max_calls=2, run_id=None, worker_id="worker-launcher",
+                enable_decomposition_session_pool=False,
+            )
+            try:
+                launcher._run_proposal(
+                    args=args, workspace=fx.source, output_root=fx.output_root,
+                    source_head=fx.head, service=RecordingService(),
+                )
+            except BaseException:
+                # The run itself is expected to fail: docker is refused above.
+                # What is under test is what reached the builder before that.
+                pass
+        finally:
+            launcher.build_compose_command = real_builder
+            launcher.subprocess.run = original_run
+
+    require(seen, "the launcher never reached build_compose_command")
+    passed = seen[0].get("provider_environment")
+    require(passed is not None, f"the unpooled call site passed no models: {seen[0]!r}")
+    require(set(passed) == {"NSC_CLAUDE_MODEL", "NSC_OPENAI_CODEX_MODEL"}, str(passed))
+    require(all(value for value in passed.values()), str(passed))
+    require(seen[0].get("pool_assignment") is None, "pooling was supposed to be off")
+
+
 def main() -> int:
     tests = [value for name, value in sorted(globals().items()) if name.startswith("test_") and callable(value)]
     for test in tests:

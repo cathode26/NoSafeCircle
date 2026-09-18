@@ -559,6 +559,13 @@ class BoundedAuthorCorrectionReviewTests(unittest.TestCase):
 
 
 POOL_REPOSITORY = "https://example.invalid/NoSafeCircle.git"
+
+def _resolve_unpooled(decomposition_module, provider_order):
+    """The unpooled model resolution, with the two model variables pinned."""
+    with patch.dict(os.environ, {"NSC_CLAUDE_MODEL": "claude-opus-5",
+                                 "NSC_OPENAI_CODEX_MODEL": "gpt-6-astra"}):
+        return decomposition_module._unpooled_provider_environment(provider_order)
+
 POOL_MODEL = "claude-fixture-5"
 POOL_LEASE_IDS = {
     "claude:task_decomposer": "11111111-1111-4111-8111-111111111111",
@@ -676,6 +683,87 @@ class PooledSameProviderLaunchTests(unittest.TestCase):
         self.assertIsNone(record.get("pool_lifecycle"))
         self.assertNotIn("--volume", commands[0])
         self.assertNotIn("--role-session-leases", commands[0])
+
+    def test_cross_provider_launch_carries_both_resolved_models(self):
+        """The caller half of the mixed-provider model gap.
+
+        Fixing the transport alone would have proved nothing: the defect was
+        that ``decomposition.py`` passed no model at all for a mixed pair, so
+        the container re-resolved ``provider_configuration`` with none of the
+        host's environment and got ``claude-sonnet-5`` and ``gpt-5.6-sol``. The
+        run then reported success at a model nobody chose.
+        """
+        from Pipeline.AssistantControl import decomposition as decomposition_module
+
+        manager, head = _decomposition_parent_fixture(self, "assistant-decompose-crossenv-")
+        commands: list[list[str]] = []
+        real_run = subprocess.run
+
+        def fake_run(command, *args, **kwargs):
+            if list(command)[:2] == ["docker", "compose"]:
+                commands.append(list(command))
+                return subprocess.CompletedProcess(command, 1)
+            return real_run(command, *args, **kwargs)
+
+        with patch.dict(os.environ, {"NSC_CLAUDE_MODEL": "claude-opus-5",
+                                     "NSC_OPENAI_CODEX_MODEL": "gpt-6-astra"}), \
+                patch.object(decomposition_module, "decomposition_preflight",
+                             return_value={"source_commit": head}), \
+                patch.object(decomposition_module.subprocess, "run", side_effect=fake_run):
+            record = decomposition_module.run(
+                manager, "NSC-004", "nsc-004-crossenv-run", providers="claude,codex",
+                compose_project="assistant-pool", execution_authorized=True,
+            )
+
+        command = commands[0]
+        self.assertEqual(
+            ["docker", "compose", "-p", "assistant-pool", "run", "--rm", "-T"], command[:7],
+        )
+        self.assertEqual(
+            ["--env", "NSC_CLAUDE_MODEL=claude-opus-5",
+             "--env", "NSC_OPENAI_CODEX_MODEL=gpt-6-astra"],
+            command[7:11],
+        )
+        self.assertEqual("round-robin-decompose", command[11])
+        # Still no reservation: this is the unpooled route.
+        self.assertNotIn("--volume", command)
+        self.assertNotIn("--role-session-leases", command)
+        self.assertIsNone(record.get("pool"))
+        # The record says which models the run was launched with, so an
+        # unexpected result can be traced without re-deriving the environment.
+        self.assertEqual(
+            {"NSC_CLAUDE_MODEL": "claude-opus-5", "NSC_OPENAI_CODEX_MODEL": "gpt-6-astra"},
+            record["provider_environment"],
+        )
+
+    def test_cross_provider_launch_names_only_the_providers_in_use(self):
+        """A codex,codex pair is pooled, so the unpooled resolver must never be
+        asked for a provider the run does not use."""
+        from Pipeline.AssistantControl import decomposition as decomposition_module
+
+        self.assertEqual(
+            {"NSC_CLAUDE_MODEL": "claude-opus-5", "NSC_OPENAI_CODEX_MODEL": "gpt-6-astra"},
+            _resolve_unpooled(decomposition_module, ["claude", "codex"]),
+        )
+        # Duplicates collapse, and only the named provider appears.
+        self.assertEqual(
+            {"NSC_CLAUDE_MODEL": "claude-opus-5"},
+            _resolve_unpooled(decomposition_module, ["claude", "claude"]),
+        )
+
+    def test_the_unpooled_models_fall_back_to_the_documented_defaults(self):
+        from Pipeline.AssistantControl import decomposition as decomposition_module
+
+        with patch.dict(os.environ, {}, clear=False) as _environment:
+            os.environ.pop("NSC_CLAUDE_MODEL", None)
+            os.environ.pop("NSC_OPENAI_CODEX_MODEL", None)
+            resolved = decomposition_module._unpooled_provider_environment(["claude", "codex"])
+        # The same defaults live_decomposition.provider_configuration uses, so
+        # the host and the container agree instead of silently differing.
+        self.assertEqual(
+            {"NSC_CLAUDE_MODEL": "claude-sonnet-5", "NSC_OPENAI_CODEX_MODEL": "gpt-5.6-sol"},
+            resolved,
+        )
 
     def test_a_pooled_run_id_the_pool_cannot_own_is_refused_before_any_record(self):
         from Pipeline.AssistantControl import decomposition as decomposition_module

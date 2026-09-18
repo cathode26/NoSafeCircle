@@ -223,6 +223,68 @@ def provider_configuration(provider_name: str) -> tuple[str, RuntimeConfiguratio
     return key, configuration
 
 
+# ---------------------------------------------------------------------------
+# The model selection a container receives.
+#
+# `provider_configuration` above runs on whichever side of the boundary calls
+# it. Inside the container it sees none of the host's environment, so it
+# returns the defaults - which is correct behaviour and was the whole bug: a
+# launcher that forwarded no model let the container answer for itself, and the
+# run reported success at a model nobody chose. Both launchers resolve the
+# models on the host and pin them, and both do it through here so their answers
+# cannot drift apart.
+# ---------------------------------------------------------------------------
+
+PROVIDER_MODEL_ENVIRONMENT = {
+    "claude": "NSC_CLAUDE_MODEL",
+    "codex": "NSC_OPENAI_CODEX_MODEL",
+}
+
+MODEL_ENVIRONMENT_NAMES = tuple(sorted(PROVIDER_MODEL_ENVIRONMENT.values()))
+
+_SAFE_MODEL = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
+
+
+def resolve_provider_model_environment(provider_order) -> dict:
+    """The model each named provider resolves to on this host.
+
+    Only the providers actually in the run are named: telling a container about
+    a provider it is not using invites it to resolve a route nobody asked for.
+    """
+    environment: dict = {}
+    for provider in dict.fromkeys(provider_order):
+        name = PROVIDER_MODEL_ENVIRONMENT.get(provider)
+        if name is None:
+            continue
+        key, configuration = provider_configuration(provider)
+        entry = configuration.to_dict()["provider_configurations"][key]
+        environment[name] = str(entry["models"]["high_reasoning"])
+    return environment
+
+
+def model_environment_arguments(environment) -> list:
+    """Render ``--env NAME=value`` for the model selection, or refuse.
+
+    ``--env`` is a hole into the container, so this is an allow-list of exactly
+    the two model variables and not a general passthrough. Empty values are
+    dropped rather than forwarded: ``NSC_CLAUDE_MODEL=`` would override the
+    container's own default with the empty string, which is worse than silence.
+    """
+    arguments: list = []
+    for name, value in sorted(dict(environment).items()):
+        if name not in MODEL_ENVIRONMENT_NAMES:
+            raise ValueError(
+                "only the model environment variables "
+                f"{', '.join(MODEL_ENVIRONMENT_NAMES)} may be injected, not {name!r}"
+            )
+        if value is None or value == "":
+            continue
+        if type(value) is not str or not _SAFE_MODEL.fullmatch(value):
+            raise ValueError(f"model value for {name} is not one plain model id: {value!r}")
+        arguments.extend(("--env", f"{name}={value}"))
+    return arguments
+
+
 def _real_provider_bundle(
     provider_name: str,
     source_root: Path,
