@@ -452,6 +452,18 @@
         "PlayMode": "NoSafeCircle.DoorPrototype.Tests.WizardSelectionPlayModeTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-097": {
+      "task_contract_sha256": "a195332b393c930a530ba87950ce1f23954289f741d44b1a7560652ea6867f58",
+      "required_test_platforms": [
+        "EditMode",
+        "PlayMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.DoorwayOpeningSealTests",
+        "PlayMode": "NoSafeCircle.DoorPrototype.Tests.DoorwayTraversalPlayModeTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
     }
   },
   "decomposition_child_templates": {}

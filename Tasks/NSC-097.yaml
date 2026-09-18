@@ -1,0 +1,106 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "Game Agent probe at main b7e46c320, C:/nscrev/reports/door-crack-probe/FINDING.md; Vincent's play report 2026-09-17",
+      "requirement": "Size the doorway blocker from the wall opening, not from the door art leaf. At HEAD Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs sets the BoxCollider to (2, 2.5, 0.3) under a comment reading \"sized to the door's footprint\", while wall collision does not begin until 1.5 units either side of centre, so a 2-unit blocker sits in a 3-unit opening. The measured consequence is that rays at 1.25 units either side of centre are blocked by nothing on both jambs of all five doors - ten open sightlines. The blocker must span the full opening including both jambs, so that while it is enabled no ray, projectile or line-of-sight query passes between the leaf and the wall. Derive the span from the authored opening width rather than replacing one hard-coded literal with another, so a later change to the opening cannot silently reopen the gap. This is a builder correction applied once, not a per-door fix."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "Vincent's approval 2026-09-17 (\"door art approved\"); Art Director audit C:/nscrev/reports/art-director/door-art-audit-20260917/AUDIT.md",
+      "requirement": "Bind the approved bonestone door sprites to the door states the code can actually reach, replacing the placeholder rectangle the scene draws today. DoorInteractable at HEAD carries IsOpen, IsLocked, IsBroken and isFinalDoor as independent booleans with one BoxCollider toggled on and off; it has no damaged and no opening concept. Bind exactly four sprites - sealed for the closed state, locked, open, and final for the final door - from Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source. Do not bind door_bonestone_damaged, door_bonestone_opening or door_bonestone_broken: damaged belongs to NSC-052's breach feedback, opening to a state model that does not exist, and broken is out of scope by Vincent's instruction of 2026-09-17 (\"A broken door occurs later, dont use it now\"). Binding a sprite no state can display would ship a gate that cannot pass."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "Art Director measurement 2026-09-17: the sprite's opening is 1.00 x 1.30 world units against a 1.64-unit wizard; GER Agent decision 2026-09-17 on which remedy to take",
+      "requirement": "The bound door must present an opening the wizard can actually cross. Differencing the sealed and open sprites isolates a painted opening of 1.00 x 1.30 world units, while the wizard stands 1.64 units tall, so at native binding he does not fit through the door he is required to walk through. Bind the sprite at a scale that yields an opening of at least 2.0 units wide and tall enough to clear the wizard with margin; the measured zero-generation binding is approximately 1.54x, giving an opening near 2.0 units and an arch near 3 units. GER Agent decision, taken rather than queued: scale the existing approved art rather than re-author it, because re-authoring costs PixelLab generations and delays filming, and the proportion is plausible for a vault gate. If the proportion is later rejected the remedy is a revision of this criterion, not a rebuild. AC-001's blocker span must be derived from the resulting opening, so the two criteria agree by construction rather than by coincidence."
+    }
+  ],
+  "basis": "direct_gdd",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "AC-001 and AC-003",
+      "requirement": "The Edit Mode test Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorwayOpeningSealTests.cs plus its .meta, owned by this task, builds the doorway through DoorPrototypeSceneBuilder's existing non-saving in-memory seam and casts rays across the doorway from both sides. With the blocker enabled, every ray is blocked at no fewer than five lateral offsets spanning the full opening width - including offsets outside the former 2-unit span, which are the ones that fail today - and at no fewer than three heights. With the blocker disabled, the same rays pass. A single centre-line ray is explicitly insufficient and must not be the only case: it strikes DoorVisual and passes at HEAD, which is precisely how ten open sightlines survived every existing gate. The fixture asserts the blocker's span is derived from the opening rather than equal to a literal 2."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "AC-002",
+      "requirement": "In the same Edit Mode fixture, each of the four bound states renders its approved sprite from Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source, no placeholder rectangle remains on any door, and every bound sprite imports at the project's standard 64 pixels per unit so the doors stay in scale with the wizard and the approved props. The fixture asserts that no damaged, opening or broken sprite is referenced."
+    },
+    {
+      "gate_id": "VAL-003",
+      "reference": "AC-003",
+      "requirement": "The Play Mode test Assets/NoSafeCircle/DoorPrototype/Tests/DoorwayTraversalPlayModeTests.cs plus its .meta, owned by this task, drives production PlayerMovement through the doorway from both sides with the real collider present and the door open, reaching the far side without becoming wedged. With the door closed and the blocker enabled, the same attempt does not cross."
+    },
+    {
+      "gate_id": "VAL-004",
+      "reference": "Vincent's visual approval",
+      "requirement": "Vincent reviews the exact materialized candidate in Play Mode from the gameplay camera and confirms that the doors show their authored art in each reachable state, that the wizard walks through a doorway that looks like it fits him, and that nothing is visible through the doorway edges when a door is closed."
+    }
+  ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "One bounded responsibility with a measured single-line cause and a demonstrable test. No sub-behaviour needs its own contract; state-dependent collision is deliberately excluded and belongs to a separate later item.",
+  "decomposition_state": "concrete",
+  "depends_on": [],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "requirement": "Hand the deferred state-dependent collision question to the later task that owns it, alongside NSC-052's breach feedback and whatever resolves NSC-020's needs_replan, with Vincent's answer of 2026-09-17 already recorded: \"YEs an enemy can come through a broken door, they broke it.\" So when collision gains per-state shape, the broken leaf's painted hole is a genuine opening and collision must follow the art there. That is the inverse of this task's defect and the same principle: at the jambs the art was right and the collision was wrong; at the broken leaf the art is right and the collision must follow it. This task deliberately does not implement per-state collision shape."
+    },
+    {
+      "obligation_id": "INT-002",
+      "requirement": "NSC-007 must not be credited with fixing this defect and must not be treated as covering it. Its projectile raycast finds the same genuinely clear path through the jambs, so NSC-007 can pass every one of its own gates while a fireball still flies through a closed door on camera. If NSC-007 is dispatched before this task lands, that outcome is expected rather than a regression in NSC-007."
+    }
+  ],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorwayOpeningSealTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorwayOpeningSealTests.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/DoorwayTraversalPlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/DoorwayTraversalPlayModeTests.cs.meta",
+    "unity-scene:Assets/Scenes/DoorPrototype.unity",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source/door_bonestone_sealed_S_000.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source/door_bonestone_locked_S_000.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source/door_bonestone_open_S_000.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source/door_bonestone_final_S_000.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source/door_bonestone_sealed_S_000.png.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source/door_bonestone_locked_S_000.png.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source/door_bonestone_open_S_000.png.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source/door_bonestone_final_S_000.png.meta"
+  ],
+  "execution_reason": "One crew corrects one builder expression and binds an already-approved sprite family to the door states the code can reach. The seal and the art are the same object: the blocker must be derived from the opening the art paints, so splitting them invites a second seam defect.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "GDD Overview, door and pursuit rules (Docs/GDD/No_Safe_Circle_GDD.md:25)",
+      "requirement": "\"Locked doors provide recovery time, not permanent safety.\" A closed door whose jambs pass rays and projectiles grants no recovery at all, so the recovery the GDD promises is fake while this defect stands."
+    },
+    {
+      "reference": "GDD Core Loop (Docs/GDD/No_Safe_Circle_GDD.md:50)",
+      "requirement": "The player must \"cross through\" each door, which requires an opening the wizard fits through - the basis for AC-003."
+    }
+  ],
+  "id": "NSC-097",
+  "kind": "implementation",
+  "notes": "Created 2026-09-17 at Vincent's direct request after he diagnosed the defect in play. The cause is measured, not inferred: a 2-unit blocker in a 3-unit opening, ten open sightlines across five doors, one builder expression. depends_on is deliberately empty so this is dispatchable immediately - it is on Vincent's filming path. The door sprite family it binds is the output of NSC-065 (art direction and selection, needs_testing), but the selection was settled by Vincent's own approval on 2026-09-17 rather than by NSC-065's record, so a dependency on NSC-065 would block this task on bookkeeping rather than on substance; GER Agent decision, recorded here rather than queued to him during a quiet period. Claiming DoorPrototypeSceneBuilder.cs and the generated scene puts this task in contention with 27 and 31 other contracts respectively; that is honest - it edits both - and is resolved by sequencing rather than by narrowing the claim, per the ownership rule learned on 2026-09-17 that an unclaimed file has no contention protection at all. The sweep fixture is a NEW file owned solely by this task rather than an addition to DoorPrototypeSceneBuilderTests.cs, which five other tasks claim. The art's damaged, opening and broken states are excluded because the code cannot reach them; writing a seven-state gate against a four-state code path would produce an unbuildable gate, the same failure shape that cost NSC-069 three revisions on 2026-09-17.",
+  "parent": "NSC-018",
+  "provenance": {
+    "graph_delta_plan_id": null,
+    "origin": "ger_agent_contract_request",
+    "parent_contract_revision": null,
+    "parent_contract_sha256": null,
+    "parent_task_id": null,
+    "task_design_ger": "Vincent 2026-09-17: \"007, 091, 044 + door crack fix task?\" and \"So we have fancy door art, why dont we have a task to add the door art and fix the gap?\" Defect measured by the Game Agent at main b7e46c320 (C:/nscrev/reports/door-crack-probe/FINDING.md); door art approved by Vincent the same evening."
+  },
+  "reconciliation_key": "doorway-opening-seal-and-door-art-binding",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "Doorway Opening Seal and Door Art State Binding",
+  "type": "gameplay_feedback"
+}

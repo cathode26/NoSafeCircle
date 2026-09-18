@@ -102,7 +102,8 @@
         "wizard-animation-audit-repair",
         "victory-trigger-overlay-integration",
         "navmesh-agent-configuration-foundation",
-        "spectral-decoy-spell"
+        "spectral-decoy-spell",
+        "doorway-opening-seal-and-door-art-binding"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
       "work_ids": [
@@ -132,7 +133,8 @@
         "NSC-070",
         "NSC-086",
         "NSC-089",
-        "NSC-088"
+        "NSC-088",
+        "NSC-097"
       ]
     },
     {
@@ -188,7 +190,8 @@
         "victory-trigger-overlay-integration",
         "navmesh-agent-configuration-foundation",
         "spectral-decoy-spell",
-        "wizard-128-source-integration-switch"
+        "wizard-128-source-integration-switch",
+        "doorway-opening-seal-and-door-art-binding"
       ],
       "resource_key": "unity-scene:Assets/Scenes/DoorPrototype.unity",
       "work_ids": [
@@ -222,7 +225,8 @@
         "NSC-086",
         "NSC-089",
         "NSC-088",
-        "NSC-096"
+        "NSC-096",
+        "NSC-097"
       ]
     },
     {
