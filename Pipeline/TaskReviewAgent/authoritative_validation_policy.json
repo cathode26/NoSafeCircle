@@ -440,6 +440,18 @@
         "PlayMode": "NoSafeCircle.DoorPrototype.Tests.DoorPassabilityConnectionPlayModeTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-067": {
+      "task_contract_sha256": "d7ef690d1d198ccefbca2ed5de21e955c62bfedf69c51dd11ddc96d45fc196ad",
+      "required_test_platforms": [
+        "EditMode",
+        "PlayMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.WizardSelectionSceneBuilderTests",
+        "PlayMode": "NoSafeCircle.DoorPrototype.Tests.WizardSelectionPlayModeTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
     }
   },
   "decomposition_child_templates": {}
