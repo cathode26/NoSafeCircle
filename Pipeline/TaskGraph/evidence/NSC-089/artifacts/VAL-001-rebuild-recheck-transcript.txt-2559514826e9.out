@@ -1,0 +1,26 @@
+HEAD: 2559514826e919bea243e1bf6fda4ad73462ac62
+committed scene sha256: 819f30ebc3b19fe62011a9cc7e8c89d364b6f6ddeeab85dc63d6bb9b24f327d5
+=== builder materialization 1 ===
+builder 1 exit: 0
+scene sha256 after build 1: 4673deda253e55486a2de4f96b4b7a2f021ffb34e81572464cdf82dfc2b958b3
+dirty paths after build 1: 312
+=== VAL-001 recheck 1 (EditMode, against the BUILT scene) ===
+recheck 1 exit: 0
+recheck 1:
+  counts: {'total': '2', 'passed': '2', 'failed': '0', 'skipped': '0', 'result': 'Passed'}
+  declaring types: ['NoSafeCircle.DoorPrototype.Tests.Editor.NavMeshAgentConfigurationTests']
+  VERDICT: PASS
+=== builder materialization 2 ===
+builder 2 exit: 0
+scene sha256 after build 2: d971c0bb9abb199af4c4ed4a353a68619bf36c35666e7951614ec4eb633ee6f1
+dirty paths after build 2: 312
+=== VAL-001 recheck 2 (EditMode, against the BUILT scene) ===
+recheck 2 exit: 0
+recheck 2:
+  counts: {'total': '2', 'passed': '2', 'failed': '0', 'skipped': '0', 'result': 'Passed'}
+  declaring types: ['NoSafeCircle.DoorPrototype.Tests.Editor.NavMeshAgentConfigurationTests']
+  VERDICT: PASS
+=== restoring the checkout ===
+checkout restored: 0 changes
+HEAD still: 2559514826e919bea243e1bf6fda4ad73462ac62
+committed scene sha256 restored: 819f30ebc3b19fe62011a9cc7e8c89d364b6f6ddeeab85dc63d6bb9b24f327d5
