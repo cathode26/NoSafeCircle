@@ -152,3 +152,63 @@ def force_stop(checkouts: Checkouts, task_id: str, *, run_id: str) -> dict:
     return {"task_id": task_id, "run_id": run_id, **cleanup, "host_exit_confirmed": True,
             "host_tree_exit_confirmed": tree_exited,
             "capacity_released": False}
+
+
+def retire_settled_worker(checkouts: Checkouts, task_id: str, *, run_id: str) -> dict:
+    """Archive one settled, provably dead worker so its task can be dispatched again.
+
+    `settle-worker` releases capacity but leaves the worker entry in place, and the dispatch
+    path refuses on the *presence* of that entry, not on its state: `scope._worker_underway`
+    and `prepared_refresh._forbidden` both test `record.get("worker") is not None`. A failed or
+    cancelled crew therefore removed its task from circulation permanently.
+
+    Every precondition below is a fact about the run being over, and each is checked rather than
+    assumed, because this rewrites a durable record the whole graph reads. Work that produced
+    something -- a candidate, an approval, an integration, a revision -- is never retired here:
+    that is real output and belongs to the review path, not to re-dispatch.
+    """
+
+    task_id = validate_task_id(task_id)
+    with _exclusive_file_lock(checkouts.records / "checkouts.lock", timeout_seconds=10):
+        path = checkouts.records / f"{task_id}.json"
+        record = json.loads(path.read_text(encoding="utf-8"))
+        worker = record.get("worker")
+        if not isinstance(worker, dict):
+            raise ValueError("Task has no worker entry to retire")
+        if worker.get("run_id") != run_id:
+            raise ValueError("Exact worker run id does not match the record")
+        if record.get("status") != "prepared":
+            raise ValueError(f"Retiring a worker needs a prepared record, not {record.get('status')!r}")
+        if worker.get("status") not in {"failed", "stopped"}:
+            raise ValueError(
+                f"Only a failed or stopped worker is retired, not {worker.get('status')!r}; "
+                "a succeeded worker's output belongs to the review path"
+            )
+        if worker.get("capacity_released") is not True or not worker.get("settled_at"):
+            raise ValueError("Worker is not settled; run settle-worker first")
+        identity = worker.get("process_identity")
+        if not isinstance(identity, dict) or matches(identity) is not False:
+            raise ValueError("Retiring a worker requires a confirmed dead host identity")
+        job_name = worker.get("job_name")
+        if job_name and active_count(job_name) != 0:
+            raise ValueError("Worker job still has live processes; retire refused")
+        for field in ("candidate", "approval", "integration", "revision"):
+            if record.get(field):
+                raise ValueError(f"Record carries {field}; retire refused")
+
+        history = record.get("worker_history")
+        if not isinstance(history, list):
+            history = []
+        if any(isinstance(entry, dict) and entry.get("run_id") == run_id for entry in history):
+            raise ValueError("Worker run id is already in worker_history")
+        history.append({**worker, "retired_at": datetime.now(timezone.utc).isoformat()})
+        record["worker_history"] = history
+        record.pop("worker", None)
+        write_record(path, record)
+    return {
+        "task_id": task_id,
+        "run_id": run_id,
+        "status": record.get("status"),
+        "retired": True,
+        "worker_history": len(record["worker_history"]),
+    }
