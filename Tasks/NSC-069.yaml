@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-069",
-  "contract_revision": 8,
+  "contract_revision": 9,
   "contract_disposition": "active",
   "title": "Independent Room Scene Authoring and Deterministic World Composition Foundation",
   "reconciliation_key": "independent-room-scene-composition",
@@ -61,7 +61,7 @@
     {
       "gate_id": "VAL-001",
       "reference": "Authoritative EditMode composition-foundation validation; corrected 2026-09-17 after the Game Agent found the named fixture has never existed on main and the filter therefore selects zero tests",
-      "requirement": "The Edit Mode fixtures NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneComposerTests and NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneContractTests, in RoomSceneComposerTests.cs and RoomSceneContractTests.cs, together verify catalog completeness/order, root and anchor contracts, source-scene immutability, local-reference ownership, build-settings exclusion, and composition failure before canonical save. Sorting is deliberately not among the clauses this gate proves. The project defines exactly one sorting layer, Default, and DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName is that same layer, so RoomSceneComposer.ValidateSortingConvention cannot fail: Unity refuses every attempt to move a renderer off Default when no other layer exists, including assigning sortingLayerID directly (probed in Unity at 7a1bae97a). The guard stays in the code for the day a dedicated layer exists, and this gate claims only what it can prove today."
+      "requirement": "RoomSceneComposerTests.cs and RoomSceneContractTests.cs each declare part of the single Edit Mode fixture NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests, a partial class; those file names are not type names. That one fixture verifies catalog completeness/order, root and anchor contracts, source-scene immutability, local-reference ownership, build-settings exclusion, and composition failure before canonical save. Sorting is deliberately not among the clauses this gate proves. The project defines exactly one sorting layer, Default, and DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName is that same layer, so RoomSceneComposer.ValidateSortingConvention cannot fail: Unity refuses every attempt to move a renderer off Default when no other layer exists, including assigning sortingLayerID directly (probed in Unity at 7a1bae97a). The guard stays in the code for the day a dedicated layer exists, and this gate claims only what it can prove today."
     },
     {
       "gate_id": "VAL-002",
@@ -94,6 +94,11 @@
       "obligation_id": "INT-002",
       "reference": "NSC-049",
       "requirement": "After all five rooms and door dependencies are conformant, replace the legacy prototype environment with deterministic composition in Assets/Scenes/DoorPrototype.unity, instantiate D1-D5 once from typed anchors, build continuous walkability, and validate final single-scene continuity."
+    },
+    {
+      "obligation_id": "INT-003",
+      "reference": "GER Agent, 2026-09-17, after the Game Agent's Unity probe at 7a1bae97a; Vincent, 2026-09-17: \"Create a new Sorting layer\"",
+      "requirement": "The task that makes the world-sprite sorting convention real - adding a dedicated sorting layer to ProjectSettings/TagManager.asset, repointing DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName at it, and moving every builder-authored renderer onto it - also restores the proof this gate cannot carry today: a room whose Visuals or GameplayGeometry renderer sits on a different sorting layer is reported as an error by RoomSceneComposer.ValidateOpenRoomScene. That case is unwritable while Default is the only layer defined, and becomes writable as soon as a second one exists."
     }
   ],
   "gdd_evidence": [
@@ -109,7 +114,7 @@
   "basis": "human_approved_engineering_architecture",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "This task establishes shared authoring and composition infrastructure only. NSC-044 through NSC-048 create the five room source scenes and their room-specific builders, layouts, tests, and Unity .meta files. It does not author tactical room layouts, encounters, D1-D5 live door instances, final global NavMesh, or victory behavior. Room source scenes are Editor-only inputs and must not be added to enabled build settings. NSC-049 owns the final canonical content switch. Vincent approved the room-task catalog exception in AC-006 on 2026-09-14 so Task Design GER room revisions can resize rooms within the GDD room size authority. Revision 7, 2026-09-17: VAL-001 and the validation policy named NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests, a fixture that has never existed on main, so a Unity run with that filter selected zero tests and NSC-069 could never become conformant - parking NSC-044 through NSC-048, which depend on it and nothing else. The gate now names the two fixtures that exist and that this task already claims, RoomSceneComposerTests and RoomSceneContractTests, and the policy filter is rebound to both. One clause was genuinely unproven rather than misnamed: AC-003 requires validating the approved sorting convention and RoomSceneComposer.ValidateSortingConvention implements it, but no test rejected a wrong sorting layer, so VAL-001 now requires that negative case alongside the existing ones. Revision 8, 2026-09-17: revision 7 asked for a negative sorting case; the Game Agent probed Unity at 7a1bae97a and showed one cannot be written - with only the Default layer defined, a SpriteRenderer stays on Default however the layer name or id is assigned, so ValidateSortingConvention is unreachable and any such test could not fail. VAL-001 therefore stops claiming sorting and says why, the guard stays in the code, and the design debt - a constant named WorldSpriteSortingLayerName that points at Default because a dedicated world-sprite layer was never created, plus sorting order going entirely unvalidated - is on Vincent's list as its own task. Everything VAL-001 still claims is covered by RoomSceneComposerTests and RoomSceneContractTests on main today.",
+  "notes": "This task establishes shared authoring and composition infrastructure only. NSC-044 through NSC-048 create the five room source scenes and their room-specific builders, layouts, tests, and Unity .meta files. It does not author tactical room layouts, encounters, D1-D5 live door instances, final global NavMesh, or victory behavior. Room source scenes are Editor-only inputs and must not be added to enabled build settings. NSC-049 owns the final canonical content switch. Vincent approved the room-task catalog exception in AC-006 on 2026-09-14 so Task Design GER room revisions can resize rooms within the GDD room size authority. Revision 7, 2026-09-17: VAL-001 and the validation policy named NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests, a fixture that has never existed on main, so a Unity run with that filter selected zero tests and NSC-069 could never become conformant - parking NSC-044 through NSC-048, which depend on it and nothing else. The gate now names the two fixtures that exist and that this task already claims, RoomSceneComposerTests and RoomSceneContractTests, and the policy filter is rebound to both. One clause was genuinely unproven rather than misnamed: AC-003 requires validating the approved sorting convention and RoomSceneComposer.ValidateSortingConvention implements it, but no test rejected a wrong sorting layer, so VAL-001 now requires that negative case alongside the existing ones. Revision 8, 2026-09-17: revision 7 asked for a negative sorting case; the Game Agent probed Unity at 7a1bae97a and showed one cannot be written - with only the Default layer defined, a SpriteRenderer stays on Default however the layer name or id is assigned, so ValidateSortingConvention is unreachable and any such test could not fail. VAL-001 therefore stops claiming sorting and says why, the guard stays in the code, and the design debt - a constant named WorldSpriteSortingLayerName that points at Default because a dedicated world-sprite layer was never created, plus sorting order going entirely unvalidated - is on Vincent's list as its own task. Everything VAL-001 still claims is covered by RoomSceneComposerTests and RoomSceneContractTests on main today. Revision 9, 2026-09-17: revisions 7 and 8 rested on a false premise. NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests does exist - it is a partial class declared in both RoomSceneComposerTests.cs and RoomSceneContractTests.cs, while no types named after those files exist - so the original filter was right and revision 7's two-fixture filter would have selected zero tests, the exact defect it claimed to fix. The premise came from searching the tree for a file named after the class, and was checked the same flawed way here; proving a type absent needs a content grep for its declaration. Revision 9 restores the fixture name in VAL-001 and the policy filter. Revision 8's sorting treatment stands on its own evidence and is unchanged, with INT-003 handing the sorting proof to the task that adds the dedicated layer.",
   "repository_state_at_bootstrap": "partial",
   "repository_evidence_at_bootstrap": [
     {
@@ -179,6 +184,15 @@
         "previous_contract_revision": 7,
         "base_contract_sha256": "97f0d115c3a6c92d82095e34471b82bc2d633abdf91ecbadd0e0fbff0d7d7e6b",
         "revised_contract_sha256": "00f941deaaae0e624dd60d254543035d3ce8234c19e273e5ff51cab6b98d8d6e",
+        "review": "post-commit closure review (tiered rule, 2026-09-17)"
+      },
+      {
+        "date": "2026-09-18",
+        "reason": "Revisions 7 and 8 rested on a false premise: RoomSceneCompositionFoundationTests does exist, as a partial class declared in both RoomSceneComposerTests.cs and RoomSceneContractTests.cs, while no types named after those files exist. The original filter was correct and revision 7's replacement named two non-existent types, which would have selected zero tests. Revision 9 restores the fixture name in VAL-001 and rebinds the policy filter to it. Revision 8's sorting treatment stands on separate evidence, with a new obligation handing that proof to the task that adds the dedicated sorting layer.",
+        "source_head": "3549843c02d9038a4091a78972a941604b494000",
+        "previous_contract_revision": 8,
+        "base_contract_sha256": "86cc6ecdddb60a780d063320d8605057d20813bb4bf666f17fe9b34c54bffb0c",
+        "revised_contract_sha256": "dbe9f70223d4e3157615667ec3d35dbe8c1e755e0feb64bc120241925e43dc90",
         "review": "post-commit closure review (tiered rule, 2026-09-17)"
       }
     ]

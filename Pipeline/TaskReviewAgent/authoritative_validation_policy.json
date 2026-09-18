@@ -96,12 +96,12 @@
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-069": {
-      "task_contract_sha256": "b7907b755817c0c3adcb5342251745a8eed510d53c1238a7cb11ad806a961645",
+      "task_contract_sha256": "1d253d33a2a66cddaa8709306808579bfeabb108046baa3389f8cbfd205970e1",
       "required_test_platforms": [
         "EditMode"
       ],
       "test_filters": {
-        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneComposerTests;NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneContractTests"
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
