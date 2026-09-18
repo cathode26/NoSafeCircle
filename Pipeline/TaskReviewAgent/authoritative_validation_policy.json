@@ -358,6 +358,16 @@
         "PlayMode": "NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-017": {
+      "task_contract_sha256": "62b57529e98114b93b24695e07d6285cfe94e2e1e68fd7c46137fddb96512889",
+      "required_test_platforms": [
+        "PlayMode"
+      ],
+      "test_filters": {
+        "PlayMode": "NoSafeCircle.DoorPrototype.Tests.EnemyLockedDoorAttackPlayModeTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
     }
   },
   "decomposition_child_templates": {}
