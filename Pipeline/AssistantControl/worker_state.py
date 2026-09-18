@@ -34,8 +34,16 @@ def finished_run_ids(record: Mapping[str, Any]) -> set[str]:
 
     finished: set[str] = set()
     for entry in (record.get("worker"), *(record.get("worker_history") or ())):
-        if is_finished_worker(entry) and isinstance(entry.get("run_id"), str):
-            finished.add(entry["run_id"])
+        if not isinstance(entry, Mapping):
+            continue
+        # Two archive shapes exist: `retire-worker` copies the worker's fields to the top
+        # level, while `worker_launcher` nests them under "worker". Read both, or a run
+        # archived by one of them would not count as finished by the other.
+        for candidate in (entry, entry.get("worker")):
+            if is_finished_worker(candidate):
+                run_id = candidate.get("run_id") or entry.get("run_id")
+                if isinstance(run_id, str):
+                    finished.add(run_id)
     return finished
 
 
