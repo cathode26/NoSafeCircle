@@ -446,7 +446,8 @@
         "force-wave",
         "spectral-decoy-spell",
         "title-screen-start-game-flow",
-        "wizard-128-source-integration-switch"
+        "wizard-128-source-integration-switch",
+        "melee-enemy"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs",
       "work_ids": [
@@ -460,7 +461,8 @@
         "NSC-009",
         "NSC-088",
         "NSC-066",
-        "NSC-096"
+        "NSC-096",
+        "NSC-015"
       ]
     },
     {
@@ -1036,11 +1038,13 @@
     },
     {
       "reconciliation_keys": [
-        "enemy-pursuit-navmesh-movement"
+        "enemy-pursuit-navmesh-movement",
+        "melee-enemy"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/EnemyPursuitPlayModeTests.cs",
       "work_ids": [
-        "NSC-092"
+        "NSC-092",
+        "NSC-015"
       ]
     },
     {
