@@ -420,6 +420,16 @@
         "PlayMode": "NoSafeCircle.DoorPrototype.Tests.FloorRunRestartPlayModeTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-050": {
+      "task_contract_sha256": "00e503e4b60518386cba9aa91cedffd2a540c63827bee5b745a5436b62a2d591",
+      "required_test_platforms": [
+        "PlayMode"
+      ],
+      "test_filters": {
+        "PlayMode": "NoSafeCircle.DoorPrototype.Tests.DoorLockDurabilityPlayModeTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
     }
   },
   "decomposition_child_templates": {}
