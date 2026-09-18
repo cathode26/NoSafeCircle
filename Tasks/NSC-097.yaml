@@ -7,8 +7,8 @@
     },
     {
       "criterion_id": "AC-002",
-      "reference": "Vincent's approval 2026-09-17 (\"door art approved\"); Art Director audit C:/nscrev/reports/art-director/door-art-audit-20260917/AUDIT.md",
-      "requirement": "Bind the approved bonestone door sprites to the door states the code can actually reach, replacing the placeholder rectangle the scene draws today. DoorInteractable at HEAD carries IsOpen, IsLocked, IsBroken and isFinalDoor as independent booleans with one BoxCollider toggled on and off; it has no damaged and no opening concept. Bind exactly four sprites - sealed for the closed state, locked, open, and final for the final door - from Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source. Do not bind door_bonestone_damaged, door_bonestone_opening or door_bonestone_broken: damaged belongs to NSC-052's breach feedback, opening to a state model that does not exist, and broken is out of scope by Vincent's instruction of 2026-09-17 (\"A broken door occurs later, dont use it now\"). Binding a sprite no state can display would ship a gate that cannot pass."
+      "reference": "Vincent's approval 2026-09-17, recorded at Docs/Art/Doors/APPROVAL.md (committed 841fd8133); Art Director state list read off DoorPassabilityState rather than sprite names; DoorPassabilityState verified at Assets/NoSafeCircle/DoorPrototype/Scripts/World/DoorEnemyPassability.cs:10 to be exactly {Sealed, Open, Locked, Broken}",
+      "requirement": "Bind the approved bonestone door sprites by the door's state as the CODE expresses it, not by sprite filename, replacing the placeholder rectangle the scene draws today. DoorPassabilityState at Assets/NoSafeCircle/DoorPrototype/Scripts/World/DoorEnemyPassability.cs holds exactly Sealed, Open, Locked and Broken; DoorInteractable separately carries isFinalDoor. Bind Sealed to door_bonestone_sealed, Locked to door_bonestone_locked, and Open to door_bonestone_open. door_bonestone_final is NOT a state: the art is a closed leaf with a gold glow, so it binds only where isFinalDoor is true AND the door is closed, and it must never be displayed for an open passage - an open final door shows the open sprite. Getting this wrong renders the win-condition door as shut after the player has opened it. Do not bind door_bonestone_damaged, door_bonestone_opening or door_bonestone_broken: damaged belongs to NSC-052's breach feedback and waits on a damage threshold, opening belongs to a state model that does not exist in code, and broken is out of scope by Vincent's instruction of 2026-09-17 (\"A broken door occurs later, dont use it now\"). Binding a sprite no state can reach would ship a gate that cannot pass."
     },
     {
       "criterion_id": "AC-003",
@@ -26,7 +26,7 @@
     {
       "gate_id": "VAL-002",
       "reference": "AC-002",
-      "requirement": "In the same Edit Mode fixture, each of the four bound states renders its approved sprite from Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source, no placeholder rectangle remains on any door, and every bound sprite imports at the project's standard 64 pixels per unit so the doors stay in scale with the wizard and the approved props. The fixture asserts that no damaged, opening or broken sprite is referenced."
+      "requirement": "In the same Edit Mode fixture, each of the four bound states renders its approved sprite from Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source, no placeholder rectangle remains on any door, and every bound sprite imports at the project's standard 64 pixels per unit so the doors stay in scale with the wizard and the approved props. The fixture asserts that no damaged, opening or broken sprite is referenced. The fixture additionally asserts that the final-door sprite is never the rendered sprite while that door is open, and that a door with isFinalDoor false never renders it at all."
     },
     {
       "gate_id": "VAL-003",
@@ -41,7 +41,7 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "decomposition_reason": "One bounded responsibility with a measured single-line cause and a demonstrable test. No sub-behaviour needs its own contract; state-dependent collision is deliberately excluded and belongs to a separate later item.",
   "decomposition_state": "concrete",
   "depends_on": [],
@@ -86,7 +86,7 @@
   ],
   "id": "NSC-097",
   "kind": "implementation",
-  "notes": "Created 2026-09-17 at Vincent's direct request after he diagnosed the defect in play. The cause is measured, not inferred: a 2-unit blocker in a 3-unit opening, ten open sightlines across five doors, one builder expression. depends_on is deliberately empty so this is dispatchable immediately - it is on Vincent's filming path. The door sprite family it binds is the output of NSC-065 (art direction and selection, needs_testing), but the selection was settled by Vincent's own approval on 2026-09-17 rather than by NSC-065's record, so a dependency on NSC-065 would block this task on bookkeeping rather than on substance; GER Agent decision, recorded here rather than queued to him during a quiet period. Claiming DoorPrototypeSceneBuilder.cs and the generated scene puts this task in contention with 27 and 31 other contracts respectively; that is honest - it edits both - and is resolved by sequencing rather than by narrowing the claim, per the ownership rule learned on 2026-09-17 that an unclaimed file has no contention protection at all. The sweep fixture is a NEW file owned solely by this task rather than an addition to DoorPrototypeSceneBuilderTests.cs, which five other tasks claim. The art's damaged, opening and broken states are excluded because the code cannot reach them; writing a seven-state gate against a four-state code path would produce an unbuildable gate, the same failure shape that cost NSC-069 three revisions on 2026-09-17.",
+  "notes": "Created 2026-09-17 at Vincent's direct request after he diagnosed the defect in play. The cause is measured, not inferred: a 2-unit blocker in a 3-unit opening, ten open sightlines across five doors, one builder expression. depends_on is deliberately empty so this is dispatchable immediately - it is on Vincent's filming path. The door sprite family it binds is the output of NSC-065 (art direction and selection, needs_testing), but the selection was settled by Vincent's own approval on 2026-09-17 rather than by NSC-065's record, so a dependency on NSC-065 would block this task on bookkeeping rather than on substance; GER Agent decision, recorded here rather than queued to him during a quiet period. Claiming DoorPrototypeSceneBuilder.cs and the generated scene puts this task in contention with 27 and 31 other contracts respectively; that is honest - it edits both - and is resolved by sequencing rather than by narrowing the claim, per the ownership rule learned on 2026-09-17 that an unclaimed file has no contention protection at all. The sweep fixture is a NEW file owned solely by this task rather than an addition to DoorPrototypeSceneBuilderTests.cs, which five other tasks claim. The art's damaged, opening and broken states are excluded because the code cannot reach them; writing a seven-state gate against a four-state code path would produce an unbuildable gate, the same failure shape that cost NSC-069 three revisions on 2026-09-17. Revision 2, 2026-09-17: AC-002 rewritten to bind by DoorPassabilityState rather than by sprite name, after the Art Director read the state list off the enum. Revision 1's wording (\"final for the final door\") would have permitted a crew to render the closed gold-glow leaf for an OPEN final door - the win-condition door, in footage being recorded tonight. DoorPassabilityState was verified at HEAD to be exactly {Sealed, Open, Locked, Broken} with no Final member, so final is a skin on a closed state selected by isFinalDoor, not a state. VAL-002 gained the two assertions that catch the mistake. The approval reference also moves to Docs/Art/Doors/APPROVAL.md, which is committed, rather than to a report path outside the repository.",
   "parent": "NSC-018",
   "provenance": {
     "graph_delta_plan_id": null,
@@ -94,7 +94,18 @@
     "parent_contract_revision": null,
     "parent_contract_sha256": null,
     "parent_task_id": null,
-    "task_design_ger": "Vincent 2026-09-17: \"007, 091, 044 + door crack fix task?\" and \"So we have fancy door art, why dont we have a task to add the door art and fix the gap?\" Defect measured by the Game Agent at main b7e46c320 (C:/nscrev/reports/door-crack-probe/FINDING.md); door art approved by Vincent the same evening."
+    "task_design_ger": "Vincent 2026-09-17: \"007, 091, 044 + door crack fix task?\" and \"So we have fancy door art, why dont we have a task to add the door art and fix the gap?\" Defect measured by the Game Agent at main b7e46c320 (C:/nscrev/reports/door-crack-probe/FINDING.md); door art approved by Vincent the same evening.",
+    "contract_followups": [
+      {
+        "date": "2026-09-18",
+        "reason": "AC-002 rewritten to bind by DoorPassabilityState rather than sprite name: revision 1 would have permitted the closed gold-glow final sprite to render on an OPEN final door, the win-condition door in tonight's footage. DoorPassabilityState verified at HEAD as exactly {Sealed, Open, Locked, Broken} with no Final member.",
+        "source_head": "634c0bb4afd2184975f628155198f6ec9d9e69b0",
+        "previous_contract_revision": 1,
+        "base_contract_sha256": "71a75b379b403f1ec9f54a3e3708cea490a260124bee99d20d8241d584e04db8",
+        "revised_contract_sha256": "9f38f21a69f3bd51a696a18b526f262951e72d35fe7a084a2242f162cf645a7d",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      }
+    ]
   },
   "reconciliation_key": "doorway-opening-seal-and-door-art-binding",
   "repository_evidence_at_bootstrap": [],
