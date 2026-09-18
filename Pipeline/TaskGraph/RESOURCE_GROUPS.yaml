@@ -63,8 +63,7 @@
         "fireball",
         "frost-field",
         "force-wave",
-        "spectral-decoy-spell",
-        "fireball-second-mint"
+        "spectral-decoy-spell"
       ],
       "resource_key": "repo-file:Assets/InputSystem_Actions.inputactions",
       "work_ids": [
@@ -72,8 +71,7 @@
         "NSC-007",
         "NSC-008",
         "NSC-009",
-        "NSC-088",
-        "NSC-098"
+        "NSC-088"
       ]
     },
     {
@@ -105,8 +103,7 @@
         "victory-trigger-overlay-integration",
         "navmesh-agent-configuration-foundation",
         "spectral-decoy-spell",
-        "doorway-opening-seal-and-door-art-binding",
-        "fireball-second-mint"
+        "doorway-opening-seal-and-door-art-binding"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
       "work_ids": [
@@ -137,8 +134,7 @@
         "NSC-086",
         "NSC-089",
         "NSC-088",
-        "NSC-097",
-        "NSC-098"
+        "NSC-097"
       ]
     },
     {
@@ -1126,8 +1122,7 @@
         "title-screen-start-game-flow",
         "frost-field",
         "force-wave",
-        "spectral-decoy-spell",
-        "fireball-second-mint"
+        "spectral-decoy-spell"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/TitleScreenController.cs",
       "work_ids": [
@@ -1135,8 +1130,7 @@
         "NSC-066",
         "NSC-008",
         "NSC-009",
-        "NSC-088",
-        "NSC-098"
+        "NSC-088"
       ]
     },
     {
@@ -1145,8 +1139,7 @@
         "selected-wizard-world-placement",
         "frost-field",
         "force-wave",
-        "spectral-decoy-spell",
-        "fireball-second-mint"
+        "spectral-decoy-spell"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/WizardGameEntryController.cs",
       "work_ids": [
@@ -1154,23 +1147,20 @@
         "NSC-068",
         "NSC-008",
         "NSC-009",
-        "NSC-088",
-        "NSC-098"
+        "NSC-088"
       ]
     },
     {
       "reconciliation_keys": [
         "fireball",
         "floor-run-restart-persistent-closure",
-        "victory-trigger-overlay-integration",
-        "fireball-second-mint"
+        "victory-trigger-overlay-integration"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DemoRunFlow.cs",
       "work_ids": [
         "NSC-007",
         "NSC-033",
-        "NSC-086",
-        "NSC-098"
+        "NSC-086"
       ]
     },
     {
@@ -1263,45 +1253,48 @@
     },
     {
       "reconciliation_keys": [
-        "fireball",
-        "fireball-second-mint"
+        "fireball"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/FireballCommittedSceneConformanceTests.cs",
       "work_ids": [
-        "NSC-007",
-        "NSC-098"
+        "NSC-007"
       ]
     },
     {
       "reconciliation_keys": [
-        "fireball",
-        "fireball-second-mint"
+        "fireball"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/FireballCommittedSceneConformanceTests.cs.meta",
       "work_ids": [
-        "NSC-007",
-        "NSC-098"
+        "NSC-007"
       ]
     },
     {
       "reconciliation_keys": [
-        "fireball",
-        "fireball-second-mint"
+        "fireball"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/FireballPlayModeTests.cs",
       "work_ids": [
-        "NSC-007",
-        "NSC-098"
+        "NSC-007"
       ]
     },
     {
       "reconciliation_keys": [
-        "fireball",
-        "fireball-second-mint"
+        "fireball"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/FireballPlayModeTests.cs.meta",
       "work_ids": [
-        "NSC-007",
+        "NSC-007"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "melee-enemy",
+        "fireball-second-mint"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs.meta",
+      "work_ids": [
+        "NSC-015",
         "NSC-098"
       ]
     }

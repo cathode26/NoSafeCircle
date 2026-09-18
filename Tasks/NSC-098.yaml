@@ -1,148 +1,157 @@
 {
   "schema_version": "2.0",
   "id": "NSC-098",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "contract_disposition": "active",
-  "title": "Charged Fireball Input, Charge, Projectile Damage, Reset, and Suspension",
+  "title": "Fireball Presentation: Art Binding, Tier-Scaled Projectile, and Charge Glow",
   "reconciliation_key": "fireball-second-mint",
   "kind": "implementation",
-  "type": "spell",
+  "type": "gameplay_feedback",
   "execution_scope": "single_agent",
-  "execution_reason": "Fireball is one cohesive spell component - tap/charge/cast state, mana spend, movement-restriction request, collision/damage request, reset, and title/entry suspension - now that SPELL_DECISIONS.md (2026-09-16) records the physical binding, collision, aim/expiry, mana-timing, interruption, and placeholder-feedback decisions this task previously held for. One agent implements the Fireball/FireballProjectile components, removes the playable build's embedded fireball from DemoRunFlow, wires both builders, and writes the focused tests.",
+  "execution_reason": "One crew binds an approved sprite set to spell states that already exist, scales one visual with a tier the mechanics already carry, and adds one glow component reading a public seam NSC-007 already exposes. No new gameplay rule, no balance change, no new input.",
   "decomposition_state": "concrete",
-  "decomposition_reason": "Fireball's tap/charge relationships, collision rule, mana timing, interruption rule, and placeholder-feedback boundary are now concrete per SPELL_DECISIONS.md; no missing design blocks representing it as one bounded implementation item.",
+  "decomposition_reason": "One bounded presentation responsibility over a fixed 28-sprite set. The three parts share the same art, the same charge seam and the same fixtures, so splitting them would triple the wiring and the review for no isolation.",
   "parent": "NSC-006",
   "depends_on": [
-    "NSC-003",
-    "NSC-005",
-    "NSC-012"
+    "NSC-007"
   ],
   "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/core_still.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/spark_still.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/impact_still.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/scorch.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/gather_0.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/gather_1.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/gather_2.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/gather_3.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/gather_4.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/gather_5.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/hold_0.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/hold_1.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/hold_2.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/hold_3.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/hold_4.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/hold_5.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/projectile_0.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/projectile_1.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/projectile_2.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/projectile_3.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/impact_0.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/impact_1.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/impact_2.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/impact_3.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/impact_4.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/impact_5.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/impact_6.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/impact_7.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/core_still.png.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/spark_still.png.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/impact_still.png.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/scorch.png.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/gather_0.png.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/gather_1.png.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/gather_2.png.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/gather_3.png.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/gather_4.png.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/gather_5.png.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/hold_0.png.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/hold_1.png.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/hold_2.png.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/hold_3.png.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/hold_4.png.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/hold_5.png.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/projectile_0.png.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/projectile_1.png.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/projectile_2.png.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/projectile_3.png.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/impact_0.png.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/impact_1.png.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/impact_2.png.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/impact_3.png.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/impact_4.png.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/impact_5.png.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/impact_6.png.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/impact_7.png.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/source-inventory.json",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/source-inventory.json.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/FireballChargeGlow.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/FireballChargeGlow.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/FireballPresentation.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/FireballPresentation.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/FireballPresentationAuditTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/FireballPresentationAuditTests.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/FireballPresentationPlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/FireballPresentationPlayModeTests.cs.meta",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Fireball.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Fireball.cs.meta",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/FireballProjectile.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/FireballProjectile.cs.meta",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/FireballPlayModeTests.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/FireballPlayModeTests.cs.meta",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/FireballCommittedSceneConformanceTests.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/FireballCommittedSceneConformanceTests.cs.meta",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs",
-    "repo-file:Assets/InputSystem_Actions.inputactions",
-    "unity-scene:Assets/Scenes/DoorPrototype.unity",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/TitleScreenController.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/WizardGameEntryController.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DemoRunFlow.cs"
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs.meta",
+    "unity-scene:Assets/Scenes/DoorPrototype.unity"
   ],
   "acceptance_criteria": [
     {
-      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:65,75-76,92",
-      "requirement": "Create Assets/NoSafeCircle/DoorPrototype/Scripts/Fireball.cs and Assets/NoSafeCircle/DoorPrototype/Scripts/FireballProjectile.cs. Fireball owns tap, charge, cast, reset, and suspension state and every projectile it creates. FireballProjectile owns one runtime-created in-flight shot; this contract introduces no Fireball prefab asset.",
-      "criterion_id": "AC-001"
+      "criterion_id": "AC-001",
+      "reference": "Art Director package C:/nscrev/reports/art-director/fireball-20260917 (final48, 28 sprites, 64 px per world unit, 48-colour lock); Vincent's spend approval 2026-09-17, cap 100",
+      "requirement": "Import the approved fireball sprite set into Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source as transparent PNGs and record each one in source-inventory.json with its key, frame index, PixelLab id, prompt, canvas size, alpha bounding box and sha256 of the committed bytes, in the shape NSC-095's PixelLab128 inventory uses. The set is exactly 28 files: core_still, spark_still, impact_still, scorch, gather_0..5, hold_0..5, projectile_0..3 and impact_0..7. Every sprite imports at 64 pixels per world unit - the standard the merged wizard art and the approved door art use - so the effect sits in scale with the characters rather than at its native canvas size. This task introduces no PixelLab call and generates no art; the sprites already exist and are approved."
     },
     {
-      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:65,75-76,566",
-      "requirement": "Expose a deterministic public Tick(float) time seam on Fireball so tests do not depend on wall-clock frames. A quick press-and-release before a configurable positive tap/hold threshold is the tap cast; holding past it builds partial charge up to a configurable full-charge duration. The tap tier starts at 20 mana, 25 damage, 12 units/second projectile speed, a 3 second lifetime, and a 0.9 unit flat horizontal contact radius, and Fireball's cast cooldown starts at 0.5 seconds, matching the values the playable build's DemoRunFlow fireball already used so first-playable feel does not regress. Configured mana cost, enemy damage, and impact area increase monotonically from tap through partial charge to full charge, all serialized; a full charged impact can damage multiple clustered enemies.",
-      "criterion_id": "AC-002"
+      "criterion_id": "AC-002",
+      "reference": "Vincent 2026-09-18: the placeholder primitives were never meant to ship; NSC-007 AC-008",
+      "requirement": "Replace NSC-007's programmer placeholders with the imported art. Create Assets/NoSafeCircle/DoorPrototype/Scripts/FireballPresentation.cs to own every fireball visual: the charge gather (gather_0..5) while a charge is building, the charge hold loop (hold_0..5) once full charge is reached, the in-flight projectile loop (projectile_0..3), the detonation burst (impact_0..7) at the detonation point, and the scorch decal left behind. NSC-007's placeholder primitive or generated sprite is removed in the same change, so exactly one fireball visual exists afterwards. Presentation reads state and never drives it: this component must not spend mana, start or cancel a charge, create or destroy projectiles, apply damage, or alter any timing or radius the mechanics own. If the required state is not publicly readable, add only a read-only accessor - never a behaviour change - to Assets/NoSafeCircle/DoorPrototype/Scripts/Fireball.cs or Assets/NoSafeCircle/DoorPrototype/Scripts/FireballProjectile.cs."
     },
     {
-      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:64-65,89,677,683",
-      "requirement": "Fireball reads PlayerMovement.PointerWorldTarget only when PlayerMovement.HasPointerWorldTarget is true and never polls pointer hardware or performs a second screen-to-world projection. Aim is direction-only: the direction from the wizard to that pointer target on the gameplay plane. Without a valid pointer target at the moment a charge would start or a cast would fire, Fireball spends no mana, creates no projectile, applies no damage, and clears the pending cast attempt (AC-005 covers the charging case). Once launched, FireballProjectile flies in a straight line at its configured speed until it detonates on contact (AC-007) or reaches its serialized maximum lifetime, at which point it fizzles in place and deals no damage. This contract does not add cursor-destination/ground-point detonation.",
-      "criterion_id": "AC-003"
+      "criterion_id": "AC-003",
+      "reference": "Vincent 2026-09-18: \"The fireball that shot out wasnt bigger.\" NSC-007 AC-002 scales mana cost, damage and impact area with charge, and says nothing about the projectile's size",
+      "requirement": "The in-flight projectile must be visibly larger at higher charge tiers. Its rendered size is derived from the tier the mechanics already carry - tap, partial charge, full charge - and increases monotonically across them, so a full-charge shot reads as bigger than a tap at a glance and at gameplay distance, not only in a frame-by-frame comparison. The detonation burst scales with that tier's configured impact area so the visible explosion matches the radius that actually deals damage; a burst that looks larger than the area it damages, or smaller, is a failure of this criterion. **The projectile's gameplay contact radius and every damage value stay exactly as NSC-007 configures them** - this criterion changes what the player sees, never what the projectile hits. Serialize the per-tier visual scales rather than hard-coding them."
     },
     {
-      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:64-65,89,692; Tasks/NSC-008.yaml; Tasks/NSC-009.yaml",
-      "requirement": "Assets/InputSystem_Actions.inputactions gains one dedicated Button-type Fireball action in the existing Player action map, bound to <Mouse>/rightButton in the Keyboard&Mouse control scheme only. Fireball.cs consumes Fireball's press, hold, and release state through Unity Input System callbacks or action state rather than direct Mouse, Keyboard, or other hardware polling; it never polls Mouse.current or Keyboard.current. Press starts a charge if the tap cost is affordable, hold charges it, and release casts; a quick press-and-release is the tap cast. No Fireball binding path is also bound to Player/MoveToCursor or to FrostField's or ForceWave's action. The stock Attack action is left untouched and no spell reads it; there is no gamepad binding for any spell in this contract.",
-      "criterion_id": "AC-004"
+      "criterion_id": "AC-004",
+      "reference": "Vincent 2026-09-18: \"We also want the player to like glow when they are charged up like in DBZ\"",
+      "requirement": "Create Assets/NoSafeCircle/DoorPrototype/Scripts/FireballChargeGlow.cs, a component on the wizard that makes charging readable on the caster's own body. It reads NSC-007 AC-008's existing public charging state and normalized charge progress and nothing else - it polls no input, spends no mana and never writes charge state. The glow builds with charge progress rather than switching on at a threshold, is visibly stronger at full charge than at partial, and clears immediately when the charge ends for any reason: cast, cancellation by damage, refused cast, ResetFireball, SuspendGameplayInput, component disable or destruction. It must not obscure the wizard's silhouette or his facing direction, and it must not change his sorting relative to walls, doors or enemies - the NSC-039 sorting band and the isometric transparency sort axis stay as they are. A tap cast, which never enters a charge, produces no glow."
     },
     {
-      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:65,89,602,692; Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs; Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs; Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerInteractionController.cs",
-      "requirement": "While charging (holding past the tap/hold threshold), Fireball calls PlayerMovement.RequestMovementRestriction() exactly once and tracks that it owns one outstanding request; a tap cast never requests or releases a restriction. PlayerHealth.Damaged cancels an active charge: Fireball releases its owned restriction exactly once, spends no mana, and creates no projectile. A move click or a door click during a charge does not cancel it - PlayerMovement's own click-to-destination/door-approach handling applies the latest click once movement is unrestricted - and Fireball never calls PlayerMovement.RequestDestination, PlayerMovement.CancelRequestedDestination, or any PlayerInteractionController or DoorInteractable method. There is no separate abort-without-cast input. Fireball also releases its owned restriction, at most once, on: a cast attempt that finds no valid pointer target when it would fire, successful fire, a refused cast, ResetFireball(), SuspendGameplayInput(), component disable, or destruction. Casting or charging Fireball while PlayerInteractionController is running a door-opening attempt never resets or interferes with that attempt: PlayerInteractionController.IsInteracting stays true, PlayerInteractionController.PendingDoor remains the same door, and DoorInteractable.Progress never drops and keeps increasing as DoorInteractable.Tick advances.",
-      "criterion_id": "AC-005"
-    },
-    {
-      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:65,75,87,602,692; Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs",
-      "requirement": "At press, a charge starts only if PlayerMana.CurrentMana covers the configured tap cost; otherwise the press calls PlayerMana.Spend(tap cost), which returns false and raises PlayerMana.CastDenied, and starts no charge, restriction, or projectile state. While charging, the reached tier grows with hold time but is capped at the highest tier PlayerMana.CurrentMana can currently pay, so visible charge growth stops when mana runs short. At release, Fireball calls PlayerMana.Spend(float) exactly once, for the reached tier's cost; every configured cost is greater than zero. If that Spend call returns false (only possible if mana fell below the tap cost during the charge), PlayerMana.CastDenied fires and nothing launches.",
-      "criterion_id": "AC-006"
-    },
-    {
-      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:23,40,522,541-543,602,686; Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyFireballCaster.cs",
-      "requirement": "Solid gameplay colliders block Fireball's projectile: walls, obstacle and prop colliders (shelves, pews, columns, rubble), and any door whose doorway-blocker collider is enabled (sealed, locked, and broken doors, since a broken door keeps its one-way player blocker by design); only an open door the wizard has not yet crossed does not block. FireballProjectile tests this each Tick with a chest-height Physics.Raycast (or equivalent sweep) against non-trigger colliders, using the same default-layer, trigger-ignoring query the ranged enemy caster's HasUnobstructedViewOfWizard already uses (EnemyFireballCaster on main; NSC-077 renames it EnemyLanternWispCaster, and either name satisfies this), and ignoring colliders on the wizard's own CharacterController; no new layer, tag, collider, or query API is introduced. Fireball never collides with or damages the wizard who cast it. Ranged enemies are valid Fireball targets like any other enemy: an enemy carrying EnemyFireballCaster (EnemyLanternWispCaster after NSC-077) has no special immunity and takes damage through EnemyHealth.TakeDamage(float) exactly like a melee enemy. Enemies carry no colliders, so contact is a flat horizontal distance test against active, non-defeated EnemyHealth objects within the projectile's configured contact radius, matching DemoRunFlow's existing enemy-contact pattern; this contract does not add enemy colliders. On contact with an enemy or a blocking collider, the projectile detonates: it damages the contacted enemy and, for tiers above tap, every other active, non-defeated enemy within that tier's configured area radius that has an unobstructed line (the same raycast rule) from the detonation point, damaging each enemy at most once per cast. Nothing behind a wall or a closed door is damaged. Damage goes only through EnemyHealth.TakeDamage(float).",
-      "criterion_id": "AC-007"
-    },
-    {
-      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:92,98-104,556,566,690-692",
-      "requirement": "Fireball exposes public ResetFireball(), SuspendGameplayInput(), and EnableGameplayInput() methods plus read-only charging state and normalized charge progress. ResetFireball clears charge and cast state, releases Fireball's restriction if held, removes every FireballProjectile it owns, and re-enables input. SuspendGameplayInput performs the same active-operation cleanup but keeps Fireball suspended; new input is rejected until EnableGameplayInput() or ResetFireball() runs. A programmer-placeholder colored primitive or simple generated sprite for the charge, the in-flight projectile, and the detonation is acceptable for the first playable; no art asset beyond this task's listed files is introduced.",
-      "criterion_id": "AC-008"
-    },
-    {
-      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:624; Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs; Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs BuildPlayer; Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerHealth.cs",
-      "requirement": "Create Assets/NoSafeCircle/DoorPrototype/Tests/Editor/FireballCommittedSceneConformanceTests.cs. Update DoorPrototypeGlobalSceneBuilder.BuildPlayer to add Fireball to the Player and assign it the existing PlayerMovement, PlayerMana, PlayerHealth, and InputActionAsset references, and update DoorPrototypeSceneBuilder.cs to route the Fireball reference needed by the title/entry wiring in AC-010. The production Door Prototype builder materializes this wiring in Assets/Scenes/DoorPrototype.unity; implementation code and tests do not hand-edit or reconstruct the serialized scene.",
-      "criterion_id": "AC-009"
-    },
-    {
-      "reference": "Assets/NoSafeCircle/DoorPrototype/Scripts/TitleScreenController.cs; Assets/NoSafeCircle/DoorPrototype/Scripts/WizardGameEntryController.cs",
-      "requirement": "Add an optional serialized Fireball reference to TitleScreenController and to WizardGameEntryController. TitleScreenController.SuspendGameplayInput() calls Fireball.SuspendGameplayInput() when the reference is assigned. WizardGameEntryController.EnterWorld calls Fireball.EnableGameplayInput() immediately after it enables PlayerMovement and PlayerInteractionController. A missing Fireball reference must not make WizardGameEntryController.HasValidReferences() fail. Fireball is never added to TitleScreenController's gameplayInputBehaviours array. Builder wiring in DoorPrototypeGlobalSceneBuilder.BuildTitleScreen and BuildWizardGameEntry assigns the Player's Fireball component to both references. FireballPlayModeTests prove Fireball's Action does nothing (no mana spent, no charge/cast state) before EnterWorld and casts normally after EnterWorld, using the same production TitleScreenController/WizardGameEntryController construction pattern WizardGameEntryPlayModeTests already uses.",
-      "criterion_id": "AC-010"
-    },
-    {
-      "reference": "Assets/NoSafeCircle/DoorPrototype/Scripts/DemoRunFlow.cs",
-      "requirement": "Remove DemoRunFlow's embedded right-click fireball: delete TryFireAtCursor, AdvanceFireballs, the private Fireball struct, the fireballSpeed/fireballLifetime/fireballHitRadius/fireballDamage/fireballManaCost/fireballCooldown fields, the fireballs list, the castCooldown field and its decrement in Update, and the direct Mouse.current polling. Keep DemoRunFlow's enemy contact damage (ApplyEnemyContactDamage), enemy health bars (DrawEnemyHealthBars), the player status HUD (DrawPlayerStatus), the win and death end screens (DrawEndScreen), and the R-to-restart handling (the \"Press R to play again\" SceneManager.LoadScene reload) unchanged within this task, so exactly one Fireball implementation exists after this task. NSC-086 later retires DemoRunFlow's win path (the won field, the HandleFinalDoorCrossed subscription, and the \"YOU ESCAPED\" end-screen text) and NSC-033 later retires DemoRunFlow's death path (the lost field, the HandlePlayerDied subscription, and the \"YOU DIED\" end-screen text); neither retirement is in scope for this task.",
-      "criterion_id": "AC-011"
+      "criterion_id": "AC-005",
+      "reference": "NSC-007 AC-009 and AC-010's builder-wiring pattern",
+      "requirement": "Update DoorPrototypeGlobalSceneBuilder.BuildPlayer to add FireballChargeGlow and FireballPresentation to the Player and assign their references deterministically, the same way it adds Fireball. The production builder materializes the wiring into Assets/Scenes/DoorPrototype.unity; implementation code and tests never hand-edit or reconstruct the serialized scene. Running the builder twice produces an equivalent hierarchy, references and component values - raw scene bytes are not the equivalence oracle, since every rebuild assigns new fileIDs."
     }
   ],
   "completion_gates": [
     {
-      "reference": "AC-002 through AC-004; Docs/GDD/No_Safe_Circle_GDD.md:64-76",
-      "requirement": "Play Mode behavior tests in FireballPlayModeTests use InputTestFixture, simulated controls, and a temporary in-memory InputActionAsset whose Player map contains PointerPosition, MoveToCursor, and a Button-type Fireball action bound to <Mouse>/rightButton. With real PlayerMovement, PlayerMana, and EnemyHealth components and a valid shared pointer target, drive a tap through the Fireball action and verify: PlayerMana.ManaSpent fires with amount 20; no retained movement restriction; one projectile aimed from the shared target that advances at 12 units per second of Tick and fizzles with no damage after 3 seconds with no contact; with Tick steps small enough that the projectile never moves more than 0.05 units per step, a target whose closest flat horizontal distance to the projectile's straight path is 0.85 units is damaged by 25 and a target at 0.95 units is not (contact radius 0.9). Also verify cast cooldown: a second tap attempted within 0.5 seconds of a completed cast spends no mana, raises no PlayerMana.CastDenied, and creates no projectile, while a tap after Tick advances the cooldown by 0.5 seconds casts normally. This proves component input handling and the tap tier's tuned values; VAL-005 proves the committed physical binding.",
-      "gate_id": "VAL-001"
+      "gate_id": "VAL-001",
+      "reference": "AC-001",
+      "requirement": "The Edit Mode fixture Assets/NoSafeCircle/DoorPrototype/Tests/Editor/FireballPresentationAuditTests.cs plus its .meta, owned by this task, finds exactly the 28 expected sprite paths under Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source, confirms every PNG has an alpha channel, confirms each appears exactly once in source-inventory.json with a selected sha256 equal to the sha256 of its committed bytes and a non-empty PixelLab id, and confirms every sprite's TextureImporter reports 64 pixels per unit."
     },
     {
-      "reference": "AC-002, AC-006, and AC-007; Docs/GDD/No_Safe_Circle_GDD.md:65,75-76",
-      "requirement": "In Play Mode behavior tests, drive tap, partial, and full holds through the temporary Fireball action and deterministic Tick(float) seam. Verify configured cost, damage, and impact area increase monotonically; full charge damages at least two nearby EnemyHealth targets inside its area radius; and an enemy with multiple colliders (should one exist) is damaged at most once by one cast. Additionally, counting PlayerMana.ManaSpent and PlayerMana.CastDenied events: a press below the tap cost raises CastDenied exactly once and starts no charge, restriction, or projectile; with mana available for only an intermediate tier, normalized charge progress stops growing at the highest tier CurrentMana can currently pay while held; calling PlayerMana.Spend directly mid-charge to drop mana below the tap cost lowers the cap and, at release, raises CastDenied exactly once with no projectile and the restriction released once; and a normal release raises ManaSpent exactly once, for the reached tier's cost.",
-      "gate_id": "VAL-002"
+      "gate_id": "VAL-002",
+      "reference": "AC-002 and AC-005",
+      "requirement": "In the same Edit Mode fixture, the committed scene's Player carries FireballPresentation and FireballChargeGlow with their references assigned, no placeholder primitive or generated-sprite fireball visual remains anywhere in the scene or in Fireball's serialized fields, and a second builder run produces an equivalent result."
     },
     {
-      "reference": "AC-003, AC-005, AC-006, AC-008, and AC-010; Docs/GDD/No_Safe_Circle_GDD.md:89,92,98-104; Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerHealth.cs",
-      "requirement": "In Play Mode behavior tests, begin charging through the temporary Fireball action and separately exercise a refused required mana spend, missing pointer target, ResetFireball(), SuspendGameplayInput(), component disable, and destruction. Each path releases only Fireball's owned movement restriction at most once, removes owned projectiles, leaves no delayed damage, and rejects input while suspended until an authorized re-enable or reset; for ResetFireball(), SuspendGameplayInput(), disable, and destruction, run a separate case with a projectile already in flight and assert it is removed and further Tick calls cause no damage. A real PlayerHealth.TakeDamage call during an active charge cancels it immediately with zero PlayerMana.ManaSpent events and zero projectiles; prove the restriction is released exactly once by having the test also hold its own PlayerMovement restriction before the cancel, so PlayerMovement.IsMovementRestricted stays true until the test releases its own restriction, and by a separate case without the test's own restriction where IsMovementRestricted is false immediately after the cancel. A further scenario constructs a real TitleScreenController and WizardGameEntryController with their optional Fireball references assigned and verifies Fireball spends no mana and starts no charge/cast state while the title/selection flow is active, then casts normally after WizardGameEntryController.EnterWorld completes, using the same production construction pattern WizardGameEntryPlayModeTests already uses; a separate case leaves both optional Fireball references unassigned and verifies WizardGameEntryController.HasValidReferences() stays true and EnterWorld still completes.",
-      "gate_id": "VAL-003"
+      "gate_id": "VAL-003",
+      "reference": "AC-003",
+      "requirement": "The Play Mode fixture Assets/NoSafeCircle/DoorPrototype/Tests/FireballPresentationPlayModeTests.cs plus its .meta, owned by this task, drives Fireball's deterministic Tick seam to fire a tap shot, a partial-charge shot and a full-charge shot, and asserts the rendered projectile size increases strictly across the three tiers, that the detonation burst's rendered size corresponds to that tier's configured impact area, and - the regression that matters - that the projectile's gameplay contact radius and every damage value are byte-identical to NSC-007's configured values in all three cases. A visual change that moves a gameplay number fails this gate."
     },
     {
-      "reference": "AC-007; Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyFireballCaster.cs",
-      "requirement": "Play Mode behavior tests place the wizard's CharacterController, EnemyHealth targets, a wall or room-cover collider, and representative sealed, locked, open, and broken DoorInteractable states in the projectile path. Assert: a wall/prop collider and a sealed, locked, or broken door (doorway blocker enabled) stop the projectile with no damage through or after it; an open door the wizard has not crossed does not block; the wizard who cast the Fireball is never hit; maximum-lifetime expiry with no contact fizzles and deals no damage; and a charged-tier detonation damages every unobstructed enemy within its area radius exactly once. An EnemyHealth target that also carries the ranged enemy's caster component (EnemyLanternWispCaster when NSC-077 is on the candidate's base, EnemyFireballCaster otherwise; the test uses whichever exists) is a valid target and is damaged like any other enemy. A contact case and an area-tier case each place an EnemyHealth target 1.5 units above the projectile's height but within the horizontal contact or area radius and assert it is damaged, proving contact and area checks are flat horizontal distance tests.",
-      "gate_id": "VAL-004"
+      "gate_id": "VAL-004",
+      "reference": "AC-004",
+      "requirement": "In the same Play Mode fixture, the glow is absent before a charge begins, increases between partial and full charge, and is cleared after each of: a completed cast, a charge cancelled by PlayerHealth.Damaged, a refused cast, ResetFireball(), SuspendGameplayInput(), and component disable. A tap cast produces no glow at any point. The wizard's sorting layer and order are unchanged by the glow's presence."
     },
     {
-      "reference": "AC-004, AC-009, and AC-010; Docs/Engineering/UNITY_TESTING_POLICY.md; Assets/InputSystem_Actions.inputactions",
-      "requirement": "FireballCommittedSceneConformanceTests opens Assets/Scenes/DoorPrototype.unity additively, scopes all object lookup to that scene, and closes it without saving. It verifies that the scene Player has Fireball references to PlayerMovement, PlayerMana, PlayerHealth, and the committed InputActionAsset; and that the scene's TitleScreenController and WizardGameEntryController each have their optional Fireball reference assigned to the Player's Fireball component, and that TitleScreenController's gameplayInputBehaviours array does not contain Fireball and still holds exactly its two debug controls (DebugDamageControl, DebugManaSpendControl). An Edit Mode test in this file loads the committed Assets/InputSystem_Actions.inputactions directly and asserts, for the Player map's Fireball action: action type Button; exactly one binding, with path <Mouse>/rightButton, whose groups contain only Keyboard&Mouse; no gamepad, joystick, touch, or XR binding on the action; that <Mouse>/rightButton is bound by no other Player action (MoveToCursor, Interact, Attack, Jump, or any other); and that Attack still has exactly its six base bindings (<Gamepad>/buttonWest ;Gamepad, <Mouse>/leftButton ;Keyboard&Mouse, <Touchscreen>/primaryTouch/tap ;Touch, <Joystick>/trigger Joystick, <XRController>/{PrimaryAction} XR, <Keyboard>/enter Keyboard&Mouse). Compare the scene bytes before and after and fail if the test mutates the committed scene; the validation run separately records clean tracked and untracked repository state before and after execution.",
-      "gate_id": "VAL-005"
-    },
-    {
-      "reference": "AC-005; Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs; Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerInteractionController.cs",
-      "requirement": "FireballPlayModeTests start a real door-opening attempt through the production path (a DoorInteractable in range and PlayerInteractionController.BeginInteraction or its approach flow), advance it with DoorInteractable.Tick so Progress > 0, then cast Fireball through its Input Action: once with a tap, and separately with a charge held and released. Keep ticking DoorInteractable afterward and assert the same attempt continues: PlayerInteractionController.IsInteracting stays true, PlayerInteractionController.PendingDoor is unchanged, and DoorInteractable.Progress never drops and keeps increasing. Fireball calls no PlayerInteractionController or DoorInteractable method in either case.",
-      "gate_id": "VAL-006"
-    },
-    {
-      "reference": "AC-011; Assets/NoSafeCircle/DoorPrototype/Scripts/DemoRunFlow.cs",
-      "requirement": "An Edit Mode reflection test (in FireballCommittedSceneConformanceTests.cs or another Edit Mode test file this contract already claims) inspects the DemoRunFlow type and asserts it declares no TryFireAtCursor or AdvanceFireballs method, no nested Fireball type, and no fireballSpeed, fireballLifetime, fireballHitRadius, fireballDamage, fireballManaCost, fireballCooldown, fireballs, or castCooldown field. A source-text check of DemoRunFlow.cs asserts it contains no occurrence of Mouse.current. FireballCommittedSceneConformanceTests separately counts Fireball components in the opened Assets/Scenes/DoorPrototype.unity scene and asserts there is exactly one.",
-      "gate_id": "VAL-007"
+      "gate_id": "VAL-005",
+      "reference": "Vincent's visual approval",
+      "requirement": "Vincent reviews the exact materialized candidate in Play Mode from the gameplay camera and confirms that the fireball reads as fire rather than as a placeholder, that a full charge is obviously bigger than a tap, and that the charge glow on the wizard reads the way he asked for it."
     }
   ],
   "downstream_integration_obligations": [
     {
-      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:55-79,108-118,373-385,526-537; NSC-015; NSC-054; NSC-044 through NSC-049; NSC-071; NSC-072",
-      "requirement": "Vincent owns the integrated human Play Mode review once Melee Enemy, Ranged Enemy, and composed room geometry exist. At gameplay-camera scale: use Ruined Entry's rubble loop to create separation; verify a rooted charge becomes unsafe as a melee group closes; use a Bone Archive lane to cluster targets while retaining an escape opening; compare tap and charge under a Ranged Enemy telegraph in Chapel's central aisle and at a side cover pocket; confirm cover does not clear enemy target knowledge; check Lower Vault's incomplete loops; and attempt a charge near a door approach to confirm the queued-click behavior and the Final Room five-second door tradeoff. Drive the committed physical Fireball binding and judge charge, full-charge, projectile, impact-area, and denied-cast readability.",
-      "obligation_id": "INT-001"
+      "obligation_id": "INT-001",
+      "requirement": "Frost Field (NSC-008) and Force Wave (NSC-009) carry the identical placeholder hole - NSC-008 AC-002 calls its area marker a \"first-playable placeholder\" with \"no art asset beyond this task's listed files\". Whatever pattern this task establishes for reading spell state without driving it, and for deriving visual scale from a tier the mechanics own, is the pattern those two should reuse rather than reinvent. This task does not implement their art."
     },
     {
-      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:102-104,691; NSC-033; Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs ResetMovement",
-      "requirement": "NSC-033 connects the Floor Run/Restart Orchestrator to Fireball.ResetFireball() and verifies that a real zero-health restart during charge and projectile flight leaves no charge, Fireball-owned movement restriction, projectile, or delayed enemy damage. The orchestrator invokes Fireball.ResetFireball() before PlayerMovement.ResetMovement(), since ResetMovement zeroes the shared movement-restriction counter and reset order matters once another component also holds a restriction.",
-      "obligation_id": "INT-002"
-    },
-    {
-      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:98-100,690; NSC-086; NSC-087",
-      "requirement": "NSC-087 calls Fireball.SuspendGameplayInput() and EnableGameplayInput() through the victory suspension coordinator, and NSC-086 verifies that the final-door victory path cancels an active Fireball charge or cast and rejects later Fireball input.",
-      "obligation_id": "INT-003"
+      "obligation_id": "INT-002",
+      "requirement": "This task does not resolve NSC-007's blocked worker record and must not be read as doing so. NSC-007 still owns the mechanics and still has four dependents - NSC-030, NSC-033, NSC-035 and NSC-087 - which depend on NSC-007 and not on this id."
     }
   ],
   "gdd_evidence": [
@@ -182,16 +191,27 @@
   "basis": "direct_gdd",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "D1-D6 are resolved by SPELL_DECISIONS.md (2026-09-16); this revision is dispatchable. Before dispatch, confirm in the live checkout that Assets/InputSystem_Actions.inputactions still contains Player/PointerPosition and Player/MoveToCursor (it does on main today; no restoration or reconstruction is needed). The GER owner's graph apply adds NSC-007 to the RESOURCE_GROUPS.yaml entries for DoorPrototypeGlobalSceneBuilder.cs, TitleScreenController.cs, and WizardGameEntryController.cs at commit time; NSC-008 and NSC-009 separately add themselves to the same groups when each is committed. PROPOSAL tuning search spaces beyond the fixed tap tier, not acceptance requirements: full charge 1-3 seconds; full mana 20-40; full damage 35-75; full radius 1.5-3.5 units; tap/hold threshold 0.15-0.35 seconds. Unity-generated .meta files accompany every new script and test asset. The contract creates FireballProjectile at runtime and introduces no projectile prefab, layer, tag, enemy collider, room edit, or new mechanic. No dependency on NSC-066 or NSC-068 is added; their controller code is on main and this contract's AC-010 edits it directly. INT-004's prior enemy-collider obligation is dropped: enemies remain collider-free and hit detection is a flat horizontal distance test (SPELL_DECISIONS.md S4). 2026-09-17 revision 4 (GER Orchestrator decisions, C:\\nscrev\\ger-contract-revisions-20260916\\spells\\REV4_DECISIONS.md 'NSC-007' items 1-11 and shared SP4-1/SP4-2/SP4-3, applied after the Codex contract check codex-contract-check-NSC-007-rev3-20260917.report.md recommended revise): AC-007/VAL-004 reword 'caster' to 'the wizard who cast the Fireball' and state ranged enemies (EnemyFireballCaster, EnemyLanternWispCaster after NSC-077) are valid Fireball targets; VAL-005 now proves the committed physical binding directly against Assets/InputSystem_Actions.inputactions (action type, sole binding, control scheme, no gamepad/touch/XR binding, no shared Player action path, unchanged Attack bindings) and asserts the Player's PlayerHealth reference on Fireball (AC-009); VAL-001/VAL-002 add explicit tap-tier value, cooldown, and PlayerMana.ManaSpent/CastDenied event-count proof for affordable-tier capping, denial at press, mana falling mid-charge, and exactly one release Spend; VAL-003 adds a real PlayerHealth.TakeDamage-during-charge cancellation case (using a second test-held restriction to prove exactly-one release), a missing-Fireball-reference title/entry case (SP4-3), and separate in-flight-projectile cleanup cases for ResetFireball/SuspendGameplayInput/disable/destroy; VAL-004 adds a vertical-offset (1.5 unit) contact and area case; new VAL-006 proves a door-opening attempt continues unaffected through a tap and a charge/release (SP4-2); new VAL-007 proves DemoRunFlow's legacy fireball is gone by Edit Mode reflection, a DemoRunFlow.cs source check for 'Mouse.current', and a committed-scene count of exactly one Fireball component. NSC-033's INT-002 reset-order gap, NSC-015's stale target-discovery note, and Docs/AI-Pipeline/REAL_TASK_DELIVERY_RUNBOOK.md's stale title/dependency are out of scope for this task (REV4_DECISIONS.md NSC-007 item 11). 2026-09-17 revision 5 (GER Orchestrator decisions, RESTART_VICTORY_DECOY_DECISIONS.md 'DemoRunFlow retirement' and 'NSC-007 revision 5'): AC-011 wording only, clarifying that DemoRunFlow's enemy contact damage, enemy health bars, player status HUD, win and death end screens, and R-to-restart handling stay unchanged within this task, and naming that NSC-086 later retires the win path while NSC-033 later retires the death path. No other field changes. MINT NOTE, 2026-09-18: this contract is NSC-007's scope verbatim under a new id, created on Vincent's direct instruction (\"Just create a copy of fireball with a new id and run it\"). It exists to route around a wedged worker record, NOT because NSC-007's contract was wrong - NSC-007 is sound and unchanged. The wedge is a stale launch reading status ready_pending against a retired run id with no capacity_released and no settled_at; refresh-prepared consults worker_history for that run while start-worker does not, and a launch cannot settle itself. A fresh id has no such record. exclusive_resources are IDENTICAL to NSC-007's fifteen so the already-validated scope plan is reusable unchanged; because they are identical, the two contracts contend on every resource and the graph will never run them concurrently, which is the desired protection rather than a defect. THIS TASK IS NOT A DESIGN CHANGE: any genuine scope question belongs to NSC-007. FOLLOW-UP REQUIRED once this delivers, and it is not optional: NSC-030, NSC-033, NSC-035 and NSC-087 all depend on NSC-007, not on this id, so they stay blocked until NSC-007 is superseded by this task and those four are repointed. Delivering this task alone does not unblock them. Recorded here so the obligation cannot be lost with the session that created it.",
+  "notes": "Revision 2, 2026-09-18, on Vincent's instruction \"turn NSC-098 in the art and glow task\". This contract was revision 1 a verbatim copy of NSC-007's mechanics, minted to route around a wedged worker record; carrying two identical fireballs was the wrong outcome, so the id is repurposed instead of retired and NSC-007 keeps the mechanics unchanged along with its four dependents. The three additions all came from Vincent playing the build: the art was never in NSC-007 (its AC-008 says placeholder primitives and \"no art asset beyond this task's listed files\"), the projectile does not grow with charge (NSC-007 AC-002 scales cost, damage and impact area only, and pins the contact radius), and no charge glow exists anywhere in it - a keyword sweep of NSC-007 found zero occurrences of glow, visual, VFX or particle. INVARIANT WART, stated so nobody is misled: reconciliation_key cannot change across a revision, so it remains \"fireball-second-mint\", which describes this contract's history and not its content. depends_on is NSC-007 and that dependency is real, not bookkeeping: Fireball.cs and FireballProjectile.cs do not exist at HEAD, so there is nothing to bind art to or read charge state from until the mechanics land. This task therefore cannot run before NSC-007 delivers, and repurposing this id means there is no longer a second fireball id that could run the mechanics tonight - NSC-007's worker-record wedge is the blocker and it belongs to the Pipeline Maintainer. The 28 sprites are already generated and approved (Vincent's cap of 100, spend recorded by the Art Director), so this task makes no PixelLab call. It claims Fireball.cs and FireballProjectile.cs because a read-only accessor may be needed; the contention with NSC-007 is resolved by the dependency, not by narrowing the claim. Art files are claimed individually rather than as a directory, deliberately: a folder claim serialises against everything beneath it, which is a declared-contention artifact worth avoiding.",
   "repository_state_at_bootstrap": "missing",
   "repository_evidence_at_bootstrap": [],
   "provenance": {
-    "origin": "ger_agent_second_mint_of_NSC-007",
+    "origin": "ger_agent_repurposed_from_NSC-007_duplicate",
     "source_schema_version": "1.0",
     "reconciliation_run_id": "20260821T193541Z-998ee7b5",
     "verification_run_id": "20260821T195959Z-43dba5de",
     "bootstrap_status_observation": "open",
     "migration_id": "task-contract-schema-v2-20260822-r2",
-    "owner_decisions": "Vincent 2026-09-18: \"Just create a copy of fireball with a new id and run it.\" GER Agent minted NSC-098 as NSC-007's scope under a new id, keeping exclusive_resources identical; NSC-007 left active and unchanged because its contract was never the fault."
+    "owner_decisions": "Vincent 2026-09-18: \"turn NSC-098 in the art and glow task\", after asking \"Can you verify what nsc007 was supposed to do first?\" and being shown that NSC-007 AC-008 excluded art by design, AC-002 scales impact area rather than projectile size, and no glow appears in the contract at all. Earlier the same evening he authorised the art itself without a task: \"Tell it to make me some fireball art with out a task right now, make the task after when we can.\" This is that task.",
+    "contract_followups": [
+      {
+        "date": "2026-09-18",
+        "reason": "Vincent 2026-09-18: 'turn NSC-098 in the art and glow task'. Repurposed from a verbatim duplicate of NSC-007's mechanics into the fireball presentation contract: bind the 28 approved sprites at 64 PPU, scale the projectile visual with charge tier (NSC-007 scales impact area only), and add the wizard charge glow reading NSC-007 AC-008's existing charge-progress seam. NSC-007 keeps the mechanics and its four dependents.",
+        "source_head": "0424e318c7ce828d2831ea9905738160eb954617",
+        "previous_contract_revision": 1,
+        "base_contract_sha256": "64c1f9aa134131054cd7c429438e636aa829d4f43794986a530b16b3242012a5",
+        "revised_contract_sha256": "b3911dfaa50b52958be45b91c4936e3db08cadd86c582119834ff31487b3e981",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      }
+    ]
   }
 }

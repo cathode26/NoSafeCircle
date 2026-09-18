@@ -466,14 +466,14 @@
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-098": {
-      "task_contract_sha256": "5b7aebd03cd1f0b985464188f278109bf0ed9d1ce7ec2a530d0f11549ee1e1d6",
+      "task_contract_sha256": "41656b5ffe9a1c04317e770688c09e14511a06b46897fd72d18820042a1c7aaf",
       "required_test_platforms": [
         "EditMode",
         "PlayMode"
       ],
       "test_filters": {
-        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.FireballCommittedSceneConformanceTests",
-        "PlayMode": "NoSafeCircle.DoorPrototype.Tests.FireballPlayModeTests"
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.FireballPresentationAuditTests",
+        "PlayMode": "NoSafeCircle.DoorPrototype.Tests.FireballPresentationPlayModeTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
     }
