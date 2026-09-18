@@ -410,6 +410,16 @@
         "PlayMode": "NoSafeCircle.DoorPrototype.Tests.DoorBreachFeedbackPlayModeTests;NoSafeCircle.DoorPrototype.Tests.FiveRoomDoorSequencePlayModeTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-032": {
+      "task_contract_sha256": "621612ad82657a510b51311c0b9ef232b770774b3ea6b67a4c23bb2890935f3a",
+      "required_test_platforms": [
+        "PlayMode"
+      ],
+      "test_filters": {
+        "PlayMode": "NoSafeCircle.DoorPrototype.Tests.FloorRunRestartPlayModeTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
     }
   },
   "decomposition_child_templates": {}
