@@ -476,6 +476,18 @@
         "PlayMode": "NoSafeCircle.DoorPrototype.Tests.FireballPresentationPlayModeTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-099": {
+      "task_contract_sha256": "cefa578c88e5db5da62c428db952cb0efe65fa091132054a63fe290722def88a",
+      "required_test_platforms": [
+        "EditMode",
+        "PlayMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.EnemyDeathLookAuditTests",
+        "PlayMode": "NoSafeCircle.DoorPrototype.Tests.EnemyDeathLookPlayModeTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
     }
   },
   "decomposition_child_templates": {}

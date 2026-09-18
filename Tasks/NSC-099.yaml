@@ -1,0 +1,114 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "Art Director package C:/nscrev/reports/art-director/nsc015-death-looks-20260917; Vincent's approval of the stylised-violent direction and the batch, cap 90, 2026-09-17",
+      "requirement": "Import exactly these eight approved death sprites into Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Death/Source, taken from the package's `aligned/` directory: brute_blasted, brute_burned, brute_decapitated_r2, brute_dismembered_r1, wraith_dissipated, wraith_snuffed_r2, wraith_shattered, wraith_unravelled_r2. These are one look per kind after the Art Director's round-1 versus round-2 comparison; the rejected variants are not imported. **Copy the aligned bytes verbatim - do not re-export, re-encode, re-compress or round-trip them through an image editor, and do not re-run the alignment.** The files in `aligned/` have already had their ground line corrected by whole-pixel shifts, and re-processing would change every hash and undo that work. Record each sprite in source-inventory.json in the NSC-095 shape: key, enemy type, look name, PixelLab id, prompt, canvas size, alpha bounding box, and the sha256 of the committed bytes. This task makes no PixelLab call and generates no art."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "Art Director measurements: aligned/ground_line_report.json and ART_DIRECTION.md",
+      "requirement": "Import every sprite at **64 pixels per world unit** with a **single shared pivot of (0.5, 0.03125)** for the whole set - not a per-sprite pivot. The canvas is 144x96 for a 2 x 1 x 0.4 world-unit footprint, and the pivot is (96 - 93) / 96, the same formula the existing enemy metas use. Every sprite's lowest opaque row already sits on row 92 of 96 with spread 0, so one pivot is correct for all eight and a per-sprite pivot would reintroduce the floating-corpse defect the alignment pass removed. The eight share one 48-colour palette, quantized together in a single pass; do not re-quantize, recolour or palette-shift them individually."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "NSC-015 revision 12 AC-006, which defers visual identity to this task",
+      "requirement": "Wire the **four brute sprites** into NSC-015's MeleeEnemyDefeatResponse as its serialized death-look set, so a defeated melee enemy renders one of them. This task supplies the set and the assignment only: **the selection rule, the ground-line requirement and the no-collision-once-defeated behaviour are NSC-015's and must not be reimplemented, altered or duplicated here.** If the serialized field does not exist in the shape this requires, that is a revision request against NSC-015 rather than a licence to change its behaviour from this task. The burned look is the variant NSC-015 gates to fire kills where a distinct fire damage type exists; this task does not introduce a damage-type system."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "Art Director correction 2026-09-17: the wraith has no arms to sever and does not bleed",
+      "requirement": "The **four wraith sprites are imported and inventoried by this task but deliberately left unwired**, because the Lantern Wraith's defeat wiring belongs to NSC-055 and no wraith defeat-response type exists at HEAD. They are imported here rather than in NSC-055 because all twelve candidates were quantized together in a single colour-lock pass and aligned in a single ground-line pass, so importing the set in two places would risk two different palettes and two different pivots. This is a deliberate, time-boxed instance of committed-but-unwired art, named here so it is not later mistaken for the kind of orphaned art that had no owner: **NSC-055 is the owner** and INT-001 records the handoff."
+    }
+  ],
+  "basis": "direct_gdd",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "AC-001 and AC-002",
+      "requirement": "The Edit Mode fixture Assets/NoSafeCircle/DoorPrototype/Tests/Editor/EnemyDeathLookAuditTests.cs plus its .meta, owned by this task, finds exactly the eight expected sprite paths under Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Death/Source and no others; confirms each PNG is 144x96 with an alpha channel; confirms each appears exactly once in source-inventory.json with a sha256 equal to the sha256 of its committed bytes and a non-empty PixelLab id; confirms every TextureImporter reports 64 pixels per unit and pivot (0.5, 0.03125); and confirms the union of colours across the eight is at most 48."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "AC-002",
+      "requirement": "In the same fixture, every sprite's lowest opaque row is identical across all eight - the property the alignment pass established and the one that keeps corpses from floating. A single sprite off that row fails this gate, and the remedy is to re-copy from the package's aligned/ directory rather than to adjust a pivot."
+    },
+    {
+      "gate_id": "VAL-003",
+      "reference": "AC-003",
+      "requirement": "The Play Mode fixture Assets/NoSafeCircle/DoorPrototype/Tests/EnemyDeathLookPlayModeTests.cs plus its .meta, owned by this task, defeats a melee enemy through EnemyHealth and asserts the renderer shows one of the four brute death sprites, that repeated defeats can produce more than one distinct look across runs, and that the defeated body still carries no physical collision - NSC-015's rule, re-checked here because this task is what makes the corpse visible and therefore what would make a regression noticeable."
+    },
+    {
+      "gate_id": "VAL-004",
+      "reference": "Vincent's visual approval",
+      "requirement": "Vincent reviews the exact materialized candidate in Play Mode from the gameplay camera and confirms the death looks read as he intended at gameplay scale - properly violent and varied, and stylised rather than anatomical - and that no corpse floats or blocks a doorway."
+    }
+  ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "One bounded import-and-wire responsibility over a fixed set of eight sprites that were colour-locked and ground-line aligned together as one batch.",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-015"
+  ],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "requirement": "NSC-055 (Lantern Wraith Gameplay Prefab, Presentation, and Defeat Wiring) owns wiring the four wraith death sprites this task imports: wraith_dissipated, wraith_snuffed_r2, wraith_shattered and wraith_unravelled_r2. It should reuse the same shared pivot (0.5, 0.03125) and the same single-set selection shape NSC-015 defines rather than inventing a second mechanism. Until NSC-055 runs, those four sprites are committed and unreferenced by design."
+    }
+  ],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Death/Source/brute_blasted.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Death/Source/brute_burned.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Death/Source/brute_decapitated_r2.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Death/Source/brute_dismembered_r1.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Death/Source/wraith_dissipated.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Death/Source/wraith_snuffed_r2.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Death/Source/wraith_shattered.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Death/Source/wraith_unravelled_r2.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Death/Source/brute_blasted.png.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Death/Source/brute_burned.png.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Death/Source/brute_decapitated_r2.png.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Death/Source/brute_dismembered_r1.png.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Death/Source/wraith_dissipated.png.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Death/Source/wraith_snuffed_r2.png.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Death/Source/wraith_shattered.png.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Death/Source/wraith_unravelled_r2.png.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Death/Source/source-inventory.json",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Death/Source/source-inventory.json.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/EnemyDeathLookAuditTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/EnemyDeathLookAuditTests.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/EnemyDeathLookPlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/EnemyDeathLookPlayModeTests.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/MeleeEnemyDefeatResponse.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/MeleeEnemyDefeatResponse.cs.meta"
+  ],
+  "execution_reason": "One crew imports an approved, already-generated sprite set and wires four of them to a defeat response that another task builds. No generation, no design decision, no gameplay rule.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "GDD Overview (Docs/GDD/No_Safe_Circle_GDD.md:21)",
+      "requirement": "The presentation is authored isometric art in a dark-but-cute register; defeated enemies must read as violent and varied without the literal anatomical detail the approved direction rules out, which is why the stylised set was chosen over gore."
+    }
+  ],
+  "id": "NSC-099",
+  "kind": "implementation",
+  "notes": "Created 2026-09-18 at Vincent's request (\"We need a task to add them in\"). The art is already generated and approved, so this task spends nothing: the batch cost 72 generations of his approved cap of 90, verified from both recorded reading pairs - remaining 4381 -> 4309 and used 618 -> 690, each giving 72. The eight are one look per kind after the Art Director compared round 1 with round 2 on the four contested looks; round 2 won three and round 1 won one, and that single reversal (brute dismembered) came from measuring the colour-locked files rather than assuming the newer re-roll was better - round 2 had lost the severed arm entirely and read as a dropped weapon. Those are the Art Director's measured recommendations; if Vincent picks differently on any contested look before this dispatches, the remedy is a revision naming the other file, not a crew substituting one. Scope boundary that matters: NSC-015 owns the death-look MECHANISM - selection rule, alignment requirement, no-collision-once-defeated - and this task owns only the identity of the sprites and their assignment. The wraith four land committed-but-unwired on purpose, with NSC-055 named as owner in INT-001, because all twelve candidates were colour-locked and ground-line aligned as one batch and splitting the import across two tasks would risk two palettes and two pivots.",
+  "parent": "NSC-010",
+  "provenance": {
+    "graph_delta_plan_id": null,
+    "origin": "ger_agent_contract_request",
+    "parent_contract_revision": null,
+    "parent_contract_sha256": null,
+    "parent_task_id": null,
+    "task_design_ger": "Vincent 2026-09-18: \"NSC-015 death looks: the eight I recommend, the two contested brute pairs, and the set at gameplay scale - 72 generations of your 90. We need a task to add them in.\" NSC-015 revision 12 AC-006 had already deferred visual identity to a separate art task; this is it."
+  },
+  "reconciliation_key": "enemy-death-look-art-integration",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "Enemy Death Look Art Integration",
+  "type": "gameplay_feedback"
+}

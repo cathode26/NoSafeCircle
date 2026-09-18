@@ -1297,6 +1297,28 @@
         "NSC-015",
         "NSC-098"
       ]
+    },
+    {
+      "reconciliation_keys": [
+        "melee-enemy",
+        "enemy-death-look-art-integration"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/MeleeEnemyDefeatResponse.cs",
+      "work_ids": [
+        "NSC-015",
+        "NSC-099"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "melee-enemy",
+        "enemy-death-look-art-integration"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/MeleeEnemyDefeatResponse.cs.meta",
+      "work_ids": [
+        "NSC-015",
+        "NSC-099"
+      ]
     }
   ],
   "schema_version": "1.0",
