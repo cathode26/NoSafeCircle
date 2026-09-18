@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-082",
-  "contract_revision": 3,
+  "contract_revision": 4,
   "contract_disposition": "active",
   "title": "Lower Vault Visual Dressing",
   "reconciliation_key": "lower-vault-visual-dressing",
@@ -41,8 +41,8 @@
     },
     {
       "criterion_id": "AC-005",
-      "reference": "Docs/Art/Environment/DUNGEON_ART_DIRECTION.md — Vincent-approved project direction, 2026-09-13; Tasks/NSC-047.yaml revision 4 INT-002 and R-08 room review finding (2026-09-15)",
-      "requirement": "Create an original vault landmark plus water, slime, corrupted-ground, cliff, or chasm dressing that visibly shapes the route into safe islands and a primary crossing. Include a raised route, bridge/platform/rail cluster, and a readable alternate approach around LV-C1; hazards must be bounded surfaces or non-walkable background, never copied/traced reference art or flat decoration."
+      "reference": "Docs/Art/Environment/DUNGEON_ART_DIRECTION.md:63-71, the Lower Vault canon line committed 2026-09-17 at b7e46c320 (\"Art must not out-promise the geometry\"), approved by Vincent; Tasks/NSC-047.yaml revision 4 INT-002 and the R-08 room review finding (2026-09-15)",
+      "requirement": "Create an original vault landmark and dress the room with water or slime channels, corrupted ground, cliffs, barrels and crates, rails, and platform or ledge scenery, plus a readable alternate approach around LV-C1. **The art must not out-promise the geometry.** The dressing may depict a bridge, a ledge, a raised route or a stepping-stone island, but while NSC-047's committed layout contains none of them, that art is **scenery**: it must not read as walkable ground, a safe island, a crossing, or a change of elevation the player can use. Compose so the eye is drawn along the route the layout actually provides rather than across a painted crossing that does not exist. Hazards remain bounded surfaces or non-walkable background, never copied or traced reference art and never flat decoration. **Do not use chasms or lava**: canon reserves them, with horn trim, as FutureExpansion vocabulary until a task owns them, and none does. This criterion is forward-compatible by design - if and when a task commits a crossing, ledge or raised route with real collision, the art may then depict that feature as a fact and this criterion permits it without a further revision."
     }
   ],
   "completion_gates": [
@@ -54,7 +54,7 @@
     {
       "gate_id": "VAL-002",
       "reference": "Developer visual review",
-      "requirement": "A gameplay-camera screenshot/contact sheet of the prefab staged against the approved blockout visibly shows the vault landmark, hazard-shaped crossing, safe islands, raised route and alternate approach around LV-C1, readable wizard and D4 approach, and original no-copy art direction."
+      "requirement": "A gameplay-camera screenshot or contact sheet of the prefab staged against the approved blockout visibly shows the vault landmark, the hazard dressing, the prop clusters and the readable alternate approach around LV-C1, and Vincent approves it. The review explicitly checks the canon rule in the other direction as well: **nothing in the frame may read as a walkable island, a usable crossing, or a step up to a higher level**, because the committed layout provides none. A reviewer who looks at the shot and believes they could walk across something they cannot is a failure of this gate, not a matter of taste. If a later task commits such geometry, this gate instead confirms the art matches what the layout now has."
     }
   ],
   "downstream_integration_obligations": [
@@ -73,7 +73,7 @@
   "basis": "human_approved_gameplay_presentation",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "Visual dressing may add presentation objects only; geometry and navigation remain authoritative. Governing visual direction: Docs/Art/Environment/DUNGEON_ART_DIRECTION.md, Vincent-approved project direction dated 2026-09-13. The supplied images are inspiration only; all art and layouts must be original. Revision 3 replaces AC-005's stale 'readable alternate route to D4' with 'readable alternate approach around LV-C1', and carries the same fix into VAL-001, VAL-002, and visual_direction_addendum, because the committed Lower Vault (Tasks/NSC-047.yaml revision 4, 2026-09-15) offers exactly one primary crossing to D4 at X [+7,+12] (NSC-047 AC-002) reached by two convergent lanes around LV-C1, per R-08 (NSC-047 GER re-audit) and NSC-047 INT-002, which already uses this wording for NSC-082.",
+  "notes": "Visual dressing may add presentation objects only; geometry and navigation remain authoritative. Governing visual direction: Docs/Art/Environment/DUNGEON_ART_DIRECTION.md, Vincent-approved project direction dated 2026-09-13. The supplied images are inspiration only; all art and layouts must be original. Revision 3 replaces AC-005's stale 'readable alternate route to D4' with 'readable alternate approach around LV-C1', and carries the same fix into VAL-001, VAL-002, and visual_direction_addendum, because the committed Lower Vault (Tasks/NSC-047.yaml revision 4, 2026-09-15) offers exactly one primary crossing to D4 at X [+7,+12] (NSC-047 AC-002) reached by two convergent lanes around LV-C1, per R-08 (NSC-047 GER re-audit) and NSC-047 INT-002, which already uses this wording for NSC-082. Revision 4, 2026-09-18: reconciled with the Lower Vault canon line committed at b7e46c320. Revision 3's AC-005 required dressing that \"visibly shapes the route into safe islands and a primary crossing\" and that \"Include a raised route\", and VAL-002 required a screenshot proving those were visible - so the contract mandated art promising three things NSC-047 revision 4 does not commit, and its own gate would have certified them. AC-005 also permitted chasm dressing, which canon reserves as FutureExpansion vocabulary; that is now excluded along with lava. Both criteria are written forward-compatibly: when a task commits a crossing or raised route with collision, the art may depict it as a fact and neither needs revising again. Vincent has asked for a real walkable ledge (\"it would be great if you could get on the ledge!\"), which is a geometry task and not this one - this revision keeps the dressing honest until that lands rather than pre-empting it.",
   "repository_state_at_bootstrap": "partial",
   "repository_evidence_at_bootstrap": [],
   "provenance": {
@@ -91,6 +91,15 @@
         "review": "independent Claude Sonnet re-check",
         "review_report_sha256": "ca0244b85c0bdfc31da92b215a66874d9e8e0fb5f80e9b6efca87ec5bd312f46",
         "recheck_recommendation": "commit_contract"
+      },
+      {
+        "date": "2026-09-18",
+        "reason": "Reconcile with the Lower Vault canon line committed at b7e46c320. Revision 3's AC-005 required dressing that 'visibly shapes the route into safe islands and a primary crossing' plus a raised route, and VAL-002 required a screenshot proving them visible - all three are implications canon forbids while NSC-047 rev 4 commits none of them. AC-005 also permitted chasms, which canon reserves as FutureExpansion. Both rewritten forward-compatibly; AC-001/002/003, resources and dependencies unchanged.",
+        "source_head": "7fb260eb838f314f713150ad5878e20f14227b4a",
+        "previous_contract_revision": 3,
+        "base_contract_sha256": "7071bd351b7f280a3517441b5d241d6b08bf5d945c1c98d75feaf076affed8da",
+        "revised_contract_sha256": "fbb94746b3bae765c66fcaacd44e556f869b1ed6248619dfc00496a73bdc4eb0",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
       }
     ]
   },
