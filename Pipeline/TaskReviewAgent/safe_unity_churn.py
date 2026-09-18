@@ -15,7 +15,16 @@ import subprocess
 import sys
 from pathlib import Path, PurePosixPath
 
-from Pipeline.TaskReviewAgent.refresh_identical_churn import main as _refresh_identical_main
+# This file is run by path as well as imported: run_unity_tests_clean.ps1 invokes
+# `& python <path>/safe_unity_churn.py`, and the guides tell people to do the same. Python
+# then puts this file's folder on sys.path, never the repository root, so the absolute
+# import below cannot resolve without this bootstrap. The by-path regression test in
+# tests/safe_unity_churn_smoke_test.py exists because that is how this broke.
+_REPOSITORY_ROOT = str(Path(__file__).resolve().parents[2])
+if _REPOSITORY_ROOT not in sys.path:
+    sys.path.insert(0, _REPOSITORY_ROOT)
+
+from Pipeline.TaskReviewAgent.refresh_identical_churn import main as _refresh_identical_main  # noqa: E402
 
 
 SAFE_POST_UNITY_CHURN_PATHS = frozenset(

@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -548,6 +550,45 @@ def test_a_lost_final_newline_is_deliberately_accepted_as_end_of_line_churn() ->
         assert status(root) == ""
 
 
+def test_the_script_runs_when_it_is_invoked_by_path() -> None:
+    """run_unity_tests_clean.ps1 runs this file by path, not as a module.
+
+    Python puts a by-path script's own folder on sys.path, not the repository root, so an
+    absolute `Pipeline.` import at module scope fails with ModuleNotFoundError. That broke every
+    Unity verification run for a day, and the module-style tests could not see it, because they
+    import the module instead of executing the file. This test executes the file.
+    """
+
+    with tempfile.TemporaryDirectory(prefix="nsc-safe-unity-churn-") as temporary:
+        root = Path(temporary)
+        head = build_fixture(root, GENERATED_UNITY_FIXTURE)
+        script = Path(__file__).resolve().parents[1] / "safe_unity_churn.py"
+
+        # PYTHONPATH must not leak in: the PowerShell wrapper does not set it, and with it set
+        # the absolute import resolves even when the bootstrap is missing, so the test would pass
+        # against the very bug it exists to catch.
+        bare = {name: value for name, value in os.environ.items() if name != "PYTHONPATH"}
+
+        completed = subprocess.run(
+            (sys.executable, "-B", str(script), "--repository", str(root),
+             "--expected-head", head),
+            capture_output=True, text=True, cwd=str(root), env=bare,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+        assert "ModuleNotFoundError" not in completed.stderr, completed.stderr
+        assert completed.returncode == 0, f"{completed.returncode}: {completed.stderr}"
+        assert json.loads(completed.stdout)["status"] in {"clean", "recovered"}, completed.stdout
+
+        # The subcommand P18 added reaches its own module through the same bootstrap.
+        helped = subprocess.run(
+            (sys.executable, "-B", str(script), "refresh-identical", "--help"),
+            capture_output=True, text=True, cwd=str(root), env=bare,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+        assert helped.returncode == 0, helped.stderr
+        assert "ModuleNotFoundError" not in helped.stderr, helped.stderr
+
+
 def test_untracked_added_and_deleted_generated_files_are_refused() -> None:
     """Only an unstaged modification of an existing generated file is recoverable."""
 
@@ -631,6 +672,7 @@ def main() -> int:
         test_unity_serialized_suffixes_are_pinned,
         test_unity_suffix_outside_the_unity_roots_is_refused,
         test_a_lost_final_newline_is_deliberately_accepted_as_end_of_line_churn,
+        test_the_script_runs_when_it_is_invoked_by_path,
         test_untracked_added_and_deleted_generated_files_are_refused,
         test_existing_safe_churn_paths_remain_allowed,
     )
