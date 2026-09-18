@@ -572,14 +572,19 @@ class DecompositionSessionPoolOwner:
     def _source_tree(self, source_commit: str) -> str:
         """Bind the checkout's exact tree, refusing a checkout not at the admitted commit."""
 
+        # Every spawn is windowless: these run on the owner's desktop while he
+        # works, and a flashing console per pooled run is not acceptable.
+        creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0
         try:
             head = subprocess.run(
                 ("git", "rev-parse", "--verify", "HEAD"), cwd=str(self.checkout),
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True, timeout=30.0,
+                creationflags=creationflags,
             ).stdout.decode("utf-8").strip()
             tree = subprocess.run(
                 ("git", "rev-parse", "HEAD^{tree}"), cwd=str(self.checkout),
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True, timeout=30.0,
+                creationflags=creationflags,
             ).stdout.decode("utf-8").strip()
         except (OSError, subprocess.SubprocessError, UnicodeDecodeError) as exc:
             raise DecompositionSessionPoolError("task checkout source identity could not be read") from exc

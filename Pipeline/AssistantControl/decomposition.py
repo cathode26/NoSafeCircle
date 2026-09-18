@@ -24,7 +24,14 @@ from Pipeline.AssistantControl.inspect_project import changes, git
 from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task
 from Pipeline.TaskReviewAgent.contracts import validate_task_id
 from Pipeline.TaskReviewAgent.decomposition_policy_audit import decomposition_preflight
+from Pipeline.TaskReviewAgent.decomposition_session_pool import (
+    DecompositionSessionPoolError,
+    DecompositionSessionPoolOwner,
+)
 from Pipeline.TaskReviewAgent.execution_session_pool import _exclusive_file_lock
+from Pipeline.TaskReviewAgent.supervisor_session_pool import (
+    codex_resume_activation_from_environment,
+)
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -34,7 +41,11 @@ for module_root in (ROOT, ROOT / "Pipeline", TASK_GRAPH_ROOT):
         sys.path.insert(0, str(module_root))
 
 from TaskDecomposition.contracts import DecompositionResult  # noqa: E402
-from TaskDecomposition.round_robin_decomposition import candidate_sha256  # noqa: E402
+from TaskDecomposition.live_decomposition import provider_configuration  # noqa: E402
+from TaskDecomposition.round_robin_decomposition import (  # noqa: E402
+    candidate_sha256,
+    same_provider_role_pair,
+)
 from apply_graph_delta import apply_graph_delta  # noqa: E402
 from graph_apply_plan import plan_graph_apply  # noqa: E402
 from graph_delta import GraphDeltaPlan  # noqa: E402
@@ -42,7 +53,13 @@ from persistent_work_graph import load_persistent_work_graph  # noqa: E402
 
 
 SCHEMA = "assistant-decomposition/v1"
+POOL_MANIFEST_SCHEMA = "assistant-decomposition-pool-identity/v1"
+POOL_DECOMPOSITION_MODE = "round_robin_d1b2"
+POOL_WORKER_ID = "assistant-control"
 _RUN_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+# The pool and the container both require the stricter lowercase slug, so a
+# pooled run id is refused here rather than after the record already exists.
+_POOLED_RUN_ID = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$")
 _CONTAINER_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{1,127}$")
 _LABEL_KEY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 _LABEL_VALUE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,255}$")
@@ -132,6 +149,138 @@ def _ensure_owner(manager: Checkouts) -> None:
         write_record(owner, identity)
 
 
+def _pool_manifest(manager: Checkouts, repository_identity: str) -> Path:
+    """Write the checkout-identity manifest whose bytes the pool hashes.
+
+    The owner hashes this file into every lease's ``checkout_identity`` and
+    compares the stored value at settlement; it never re-reads the file. It
+    lives under AssistantControl's own records because Source is the artifact
+    under decomposition and nothing here may write into it.
+    """
+
+    path = manager.records / "decomposition-pool" / "checkout-identity.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    identity = {
+        "schema_version": POOL_MANIFEST_SCHEMA,
+        "source": str(manager.source),
+        "checkout_root": str(manager.root),
+        "repository_identity": repository_identity,
+    }
+    if path.exists():
+        current, _ = _load_object(path, "AssistantControl decomposition pool identity")
+        if current == identity:
+            return path
+    # `write_record` replaces atomically, so the identity a concurrent run is
+    # reading is never briefly absent.
+    write_record(path, identity)
+    return path
+
+
+def _pool_owner(
+    manager: Checkouts, *, provider: str, compose_project: str,
+) -> DecompositionSessionPoolOwner:
+    """Own the role-scoped sessions one same-provider decomposition needs.
+
+    The model comes from the same routing the production launcher uses, so the
+    reservation, the container's resolved route, and settlement all name one
+    model. Pool state stays where the owner puts it: one pool per checkout,
+    shared with the production launcher.
+    """
+
+    _key, configuration = provider_configuration(provider)
+    entry = configuration.to_dict()["provider_configurations"][f"{provider}-decomposition"]
+    repository_identity = git(manager.source, "remote", "get-url", "origin").decode().strip()
+    return DecompositionSessionPoolOwner(
+        checkout=manager.source,
+        repository_identity=repository_identity,
+        provider_models={
+            provider: (
+                str(entry["models"]["high_reasoning"]),
+                "high" if provider == "codex" else None,
+            )
+        },
+        codex_resume_activation=(
+            codex_resume_activation_from_environment() if provider == "codex" else None
+        ),
+        compose_project=compose_project,
+        manifest_path=_pool_manifest(manager, repository_identity),
+    )
+
+
+def _run_directory_started(run_dir: Path) -> bool:
+    """True when the run left its own artifact directory behind.
+
+    This is the only never-started signal this module owns. The exception type
+    proves nothing: ``subprocess.run`` raises ``OSError`` after a successful
+    spawn as well, when its timeout handler cannot kill the live child or when
+    the wait cannot reap it.
+    """
+
+    try:
+        return run_dir.is_dir()
+    except OSError:
+        return False
+
+
+def _settle_pool(
+    owner: DecompositionSessionPoolOwner | None, *, run_id: str, run_dir: Path,
+) -> dict[str, Any] | None:
+    """Settle one run's leases from its artifacts; a pool failure never fails the run."""
+
+    if owner is None:
+        return None
+    if not _run_directory_started(run_dir):
+        # The provider may have run, so the leases are not returned: they stay
+        # active until the next owner reclaims them as stranded.
+        return {"action": "settle", "status": "run_directory_missing", "run_id": run_id}
+    try:
+        settlement = owner.settle(run_id=run_id, run_dir=run_dir)
+    except (DecompositionSessionPoolError, OSError, RuntimeError, ValueError) as exc:
+        return {
+            "action": "settle",
+            "status": "pool_degraded",
+            "run_id": run_id,
+            "error_type": type(exc).__name__,
+            "error": " ".join(str(exc).split())[:900],
+            "note": ("The decomposition result stands on its own artifacts. The still-active "
+                     "leases are reclaimed as stranded by the next owner and are never reused."),
+        }
+    return {"action": "settle", "status": "settled", "run_id": run_id, "settlement": settlement}
+
+
+def _proves_nothing_started(error: BaseException, run_dir: Path) -> bool:
+    """Only an exec that never happened, and no run directory, proves no provider ran.
+
+    `subprocess.run` raises FileNotFoundError or NotADirectoryError when the executable or the
+    working directory is missing; nothing started in those cases. Every other OSError is
+    ambiguous: `process.kill()` on a live container raises PermissionError on Windows, and
+    `os.waitpid` raises ChildProcessError, both after the provider has already run. Treating
+    those as unstarted returns used conversations to the pool, where a later run resumes them.
+    """
+
+    return isinstance(error, (FileNotFoundError, NotADirectoryError)) and not _run_directory_started(run_dir)
+
+
+def _cancel_unstarted_pool(
+    owner: DecompositionSessionPoolOwner | None, *, run_id: str,
+) -> dict[str, Any] | None:
+    """Return one run's leases uncharged after a proven provider-start failure."""
+
+    if owner is None:
+        return None
+    try:
+        owner.cancel_unstarted(run_id=run_id)
+    except (DecompositionSessionPoolError, OSError, RuntimeError, ValueError) as exc:
+        return {
+            "action": "cancel_unstarted",
+            "status": "pool_degraded",
+            "run_id": run_id,
+            "error_type": type(exc).__name__,
+            "error": " ".join(str(exc).split())[:900],
+        }
+    return {"action": "cancel_unstarted", "status": "cancelled_unstarted", "run_id": run_id}
+
+
 def _artifact_paths(record: dict[str, Any]) -> tuple[Path, Path, Path]:
     root = Path(str(record.get("artifact_root") or "")).resolve()
     expected = (
@@ -159,6 +308,29 @@ def _verify_review(manager: Checkouts, record: dict[str, Any]) -> dict[str, Any]
     if not source_advancement["authoritative_graph_inputs_unchanged"]:
         raise ValueError("TaskGraph inputs changed after the decomposition proposal")
 
+    pooled = same_provider_role_pair(record["providers"])
+    pool = record.get("pool") or {}
+    reserved_leases = pool.get("lease_ids") if isinstance(pool.get("lease_ids"), Mapping) else None
+    if pooled and not (pool.get("lease_bundle_path") and reserved_leases):
+        # One provider proves an independent review only as two separate
+        # conversations, and only the host's reservation establishes them.
+        raise ValueError(
+            "Same-provider decomposition record carries no role-session lease reservation"
+        )
+    if pooled:
+        # The pool skips a key it cannot scope and still reserves what is left,
+        # so a reservation that carries one lease is possible and would let one
+        # conversation author and review. Both role leases must be present.
+        expected_leases = {
+            f"{record['providers'][0]}:task_decomposer",
+            f"{record['providers'][1]}:decomposition_reviewer",
+        }
+        if set(reserved_leases) != expected_leases:
+            raise ValueError(
+                "Same-provider decomposition reserved "
+                f"{sorted(reserved_leases)}, not one lease per role"
+            )
+
     run_path, result_path, graph_path = _artifact_paths(record)
     run_result, run_bytes = _load_object(run_path, "Decomposition run result")
     result_payload, result_bytes = _load_object(result_path, "Decomposition result")
@@ -182,13 +354,41 @@ def _verify_review(manager: Checkouts, record: dict[str, Any]) -> dict[str, Any]
         "calls_used": 2,
         "run_status": "review_ready",
         "decision": "decomposed",
-        "review_independence": "cross_provider",
+        # Two distinct providers are independent by provider identity; one
+        # provider is independent only through two separate pooled sessions,
+        # and neither order may claim the other's proof.
+        "review_independence": (
+            "same_provider_separate_sessions" if pooled else "cross_provider"
+        ),
         "authority": "review_only_not_applied",
     }
     for field, wanted in expected.items():
         if run_result.get(field) != wanted:
             raise ValueError(
                 f"Decomposition review {field} is {run_result.get(field)!r}, expected {wanted!r}"
+            )
+    if pooled:
+        sessions = run_result.get("pooled_sessions")
+        if not isinstance(sessions, Mapping) or sorted(sessions) != sorted(reserved_leases):
+            raise ValueError("Decomposition run did not use this run's reserved role leases")
+        confirmed_session_ids: list[str] = []
+        for key, lease_id in sorted(reserved_leases.items()):
+            session = sessions[key]
+            if not isinstance(session, Mapping) or session.get("lease_id") != lease_id:
+                raise ValueError("Decomposition run did not use this run's reserved role leases")
+            proof = session.get("confirmed_session")
+            session_id = proof.get("session_id") if isinstance(proof, Mapping) else None
+            if not isinstance(session_id, str) or not session_id:
+                raise ValueError(
+                    "Decomposition run proved no confirmed conversation for a reserved role session"
+                )
+            confirmed_session_ids.append(session_id)
+        # The producer checks this too, but the guard that admits
+        # `same_provider_separate_sessions` must prove it here as well: one
+        # provider is an independent reviewer only as a second conversation.
+        if len(set(confirmed_session_ids)) != len(confirmed_session_ids):
+            raise ValueError(
+                "Same-provider decomposition roles proved one shared conversation, not two distinct ones"
             )
     if run_result.get("unresolved_findings") != [] or run_result.get("rejection_reasons") != []:
         raise ValueError("Decomposition review carries unresolved findings or rejections")
@@ -328,7 +528,14 @@ def run(
     container_name: str | None = None,
     container_labels: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
-    """Run one two-call, cross-provider decomposition proposal.
+    """Run one two-call decomposition proposal: an author and an independent reviewer.
+
+    ``providers`` names two Claude/Codex roles. Two distinct providers are
+    independent by provider identity and run exactly as they always have. One
+    provider serving both roles is independent only as two separate
+    conversations, so that route first reserves one durable session per role
+    from the decomposition session pool, mounts the lease bundle read-only, and
+    settles those leases from the run's own artifacts afterwards.
 
     ``container_name`` names the ``docker compose run`` container so an owner
     can stop exactly this proposal's provider container by name, and
@@ -351,8 +558,13 @@ def run(
     if labels and container_name is None:
         raise ValueError("Decomposition container labels require the named container")
     provider_order = [item.strip() for item in providers.split(",") if item.strip()]
-    if len(provider_order) != 2 or len(set(provider_order)) != 2:
-        raise ValueError("Assistant decomposition requires two distinct providers")
+    if len(provider_order) != 2 or any(name not in {"claude", "codex"} for name in provider_order):
+        raise ValueError("Assistant decomposition requires exactly two claude/codex roles")
+    pooled = same_provider_role_pair(provider_order)
+    if pooled and not _POOLED_RUN_ID.fullmatch(run_id):
+        raise ValueError(
+            "Pooled decomposition run id must be a lowercase slug of 1..64 characters"
+        )
     _ensure_owner(manager)
     head, tree, branch = _require_clean_source(manager)
     task = load_committed_task(manager.source, task_id, commit=head)
@@ -400,25 +612,68 @@ def run(
         }
         write_record(path, record)
 
-    command = list(build_compose_command(
-        task_id=task_id,
-        project=compose_project,
-        providers=",".join(provider_order),
-        max_calls=2,
-        run_id=run_id,
-    ))
-    if container_name is not None:
-        position = command.index("run") + 1
-        named: list[str] = ["--name", container_name]
-        for key, value in sorted(labels.items()):
-            named.extend(["--label", f"{key}={value}"])
-        command[position:position] = named
-    command.extend(("--source", "/workspace", "--output-root", "/decomposition-output"))
     environment = os.environ.copy()
     environment["NSC_DECOMPOSITION_HOST_OUTPUT_ROOT"] = str(output_root)
     creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0
+    owner: DecompositionSessionPoolOwner | None = None
+    pool_assignment: dict[str, Any] | None = None
+    pool_lifecycle: dict[str, Any] | None = None
+    # Whether settlement was attempted, which is not the same fact as whether
+    # it produced a lifecycle: a settle that raised must never be retried here.
+    settle_attempted = False
     try:
+        if pooled:
+            owner = _pool_owner(
+                manager, provider=provider_order[0], compose_project=compose_project,
+            )
+            pool_assignment = owner.prepare(
+                run_id=run_id,
+                task_id=task_id,
+                decomposition_mode=POOL_DECOMPOSITION_MODE,
+                provider_order=tuple(provider_order),
+                max_calls=2,
+                source_commit=head,
+                worker_id=POOL_WORKER_ID,
+            )
+            if pool_assignment["compose_project"] != compose_project:
+                # The leases name the conversation volumes of one exact
+                # project; launching under another would use other sessions.
+                raise ValueError(
+                    "Reserved decomposition sessions name another Compose project than this launch"
+                )
+            record["pool"] = {
+                "lease_bundle_path": pool_assignment["lease_bundle_path"],
+                "repository_identity": pool_assignment["repository_identity"],
+                "checkout_identity": pool_assignment["checkout_identity"],
+                "compose_project": pool_assignment["compose_project"],
+                "lease_keys": sorted(pool_assignment["leases"]),
+                "lease_ids": {
+                    key: value["lease_id"]
+                    for key, value in sorted(pool_assignment["leases"].items())
+                },
+                "skipped_keys": list(pool_assignment["skipped_keys"]),
+            }
+            write_record(path, record)
+
+        command = list(build_compose_command(
+            task_id=task_id,
+            project=compose_project,
+            providers=",".join(provider_order),
+            max_calls=2,
+            run_id=run_id,
+            pool_assignment=pool_assignment,
+        ))
+        if container_name is not None:
+            position = command.index("run") + 1
+            named: list[str] = ["--name", container_name]
+            for key, value in sorted(labels.items()):
+                named.extend(["--label", f"{key}={value}"])
+            command[position:position] = named
+        command.extend(("--source", "/workspace", "--output-root", "/decomposition-output"))
         with Path(record["stdout_log"]).open("wb") as stdout, Path(record["stderr_log"]).open("wb") as stderr:
+            # An OSError here is not proof that the spawn never happened, so it
+            # is handled exactly like a timeout or an interrupt: the run's own
+            # artifacts decide what each conversation proved.
             completed = subprocess.run(
                 command,
                 cwd=manager.source,
@@ -429,6 +684,12 @@ def run(
                 creationflags=creationflags,
                 check=False,
             )
+        # Settle from the run's durable artifacts whatever the exit code says:
+        # the artifacts, not the process, decide what each conversation proved.
+        settle_attempted = True
+        pool_lifecycle = _settle_pool(owner, run_id=run_id, run_dir=artifact_root)
+        if pool_lifecycle is not None:
+            record["pool_lifecycle"] = pool_lifecycle
         if completed.returncode != 0:
             detail = Path(record["stderr_log"]).read_text(encoding="utf-8", errors="replace")[-1600:]
             record.update(status="failed", completed_at_utc=_now(), exit_code=completed.returncode,
@@ -440,9 +701,40 @@ def run(
         write_record(path, record)
         return record
     except BaseException as exc:
+        try:
+            if owner is not None and pool_lifecycle is None and not settle_attempted:
+                if not _proves_nothing_started(exc, artifact_root):
+                    # A provider may have run, so both conversations are retired
+                    # rather than resumed later. Ambiguity settles: cancelling a
+                    # lease that really ran hands a dirty conversation back to the
+                    # pool, while settling one that never ran only spends a session.
+                    settle_attempted = True
+                    pool_lifecycle = _settle_pool(owner, run_id=run_id, run_dir=artifact_root)
+                else:
+                    # Two independent proofs that nothing ran: the exec itself
+                    # failed, and no run directory exists.
+                    pool_lifecycle = _cancel_unstarted_pool(owner, run_id=run_id)
+        except Exception as pool_exc:
+            # The pool is not the run. A settlement failure is recorded here, it
+            # never replaces the run's own error, and it never skips the record
+            # write below that takes this task out of `running`.
+            pool_lifecycle = {
+                "action": "settle" if settle_attempted else "cancel_unstarted",
+                "status": "pool_degraded",
+                "run_id": run_id,
+                "error_type": type(pool_exc).__name__,
+                "error": " ".join(str(pool_exc).split())[:900],
+            }
+        if pool_lifecycle is not None:
+            record["pool_lifecycle"] = pool_lifecycle
         record.update(status="failed", completed_at_utc=_now(), error=f"{type(exc).__name__}: {exc}")
         write_record(path, record)
         raise
+    finally:
+        if owner is not None:
+            # Settling and cancelling release their own run liveness; this
+            # releases anything a failure left held, on every path.
+            owner.close()
 
 
 def inspect(manager: Checkouts, task_id: str) -> dict[str, Any]:

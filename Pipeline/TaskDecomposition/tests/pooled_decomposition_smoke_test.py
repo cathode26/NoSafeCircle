@@ -962,6 +962,59 @@ def test_all_codex_requires_distinct_identity_bound_roles() -> None:
         require(_validated_provider_order(forged) is None, "missing round identity fails closed")
 
 
+def test_container_cli_refuses_unpooled_same_provider_and_foreign_bundles() -> None:
+    """The container entry point is the last layer, and it fails closed on its own."""
+
+    from TaskDecomposition import run_round_robin_decomposition as cli
+    from TaskDecomposition.session_pool_support import bind_lease_bundle_to_run
+
+    with fixture() as text:
+        fx = Fixture(Path(text))
+        base = [
+            "run_round_robin_decomposition.py", "--task-id", TASK, "--max-calls", "2",
+            "--source", str(fx.source), "--output-root", str(fx.output_root),
+        ]
+        argv = sys.argv
+        try:
+            for order in ("claude,claude", "codex,codex"):
+                sys.argv = base + ["--providers", order, "--run-id", "run-cli-unpooled"]
+                require(cli.main() == 2, f"{order} without leases must be refused")
+            assignment = fx.owner.prepare(
+                run_id="run-cli-bound", task_id=TASK, decomposition_mode="round_robin_d1b2",
+                provider_order=("claude", "claude"), max_calls=2, source_commit=fx.head,
+                worker_id="worker-cli",
+            )
+            bundle_path = assignment["lease_bundle_path"]
+            sys.argv = base + [
+                "--providers", "claude,claude", "--run-id", "run-cli-other",
+                "--role-session-leases", bundle_path,
+                "--scheduler-repository-identity", REPOSITORY,
+            ]
+            require(cli.main() == 2, "a bundle bound to another run must be refused")
+            sys.argv = base + [
+                "--providers", "claude,claude", "--run-id", "run-cli-bound",
+                "--role-session-leases", bundle_path,
+            ]
+            require(cli.main() == 2, "leases without the scheduler identity must be refused")
+        finally:
+            sys.argv = argv
+            fx.owner.close()
+        bundle = load_lease_bundle(bundle_path, run_id="run-cli-bound")
+        for task_id, head, fragment in (
+            ("NSC-011", fx.head, "bound to task"),
+            (TASK, "0" * 40, "bound to source commit"),
+        ):
+            expect_error(
+                lambda task_id=task_id, head=head: bind_lease_bundle_to_run(
+                    bundle, task_id=task_id, source_head=head, source_root=fx.source,
+                    decomposition_mode="round_robin_d1b2",
+                    scheduler_repository_identity=REPOSITORY,
+                    provider_order=("claude", "claude"),
+                ),
+                DecompositionSessionError, fragment,
+            )
+
+
 def main() -> int:
     tests = [value for name, value in sorted(globals().items()) if name.startswith("test_") and callable(value)]
     for test in tests:

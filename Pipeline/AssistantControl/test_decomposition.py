@@ -558,5 +558,676 @@ class BoundedAuthorCorrectionReviewTests(unittest.TestCase):
                         author_corrections_used=1)
 
 
+POOL_REPOSITORY = "https://example.invalid/NoSafeCircle.git"
+POOL_MODEL = "claude-fixture-5"
+POOL_LEASE_IDS = {
+    "claude:task_decomposer": "11111111-1111-4111-8111-111111111111",
+    "claude:decomposition_reviewer": "22222222-2222-4222-8222-222222222222",
+}
+
+
+def _decomposition_parent_fixture(test: unittest.TestCase, prefix: str) -> tuple[Checkouts, str]:
+    """One committed childless decomposition parent with a configured origin."""
+
+    temporary = tempfile.TemporaryDirectory(prefix=prefix, ignore_cleanup_errors=True)
+    test.addCleanup(temporary.cleanup)
+    root = Path(temporary.name)
+    source = root / "source"
+    source.mkdir()
+    create_repository(source)
+    _git(source, "remote", "add", "origin", POOL_REPOSITORY)
+    task_path = source / "Tasks" / "NSC-004.yaml"
+    selected = json.loads(task_path.read_text(encoding="utf-8"))
+    selected.update(
+        execution_scope="needs_execution_decomposition",
+        execution_reason="Synthetic pooled-decomposition regression requires decomposition.",
+    )
+    _write_json(task_path, selected)
+    _git(source, "add", "--", "Tasks/NSC-004.yaml")
+    _git(source, "commit", "-m", "fixture: childless decomposition parent")
+    return Checkouts(source, root / "checkouts"), _git(source, "rev-parse", "HEAD")
+
+
+class PooledSameProviderLaunchTests(unittest.TestCase):
+    """`claude,claude` reserves two role sessions and launches with them mounted."""
+
+    def test_same_provider_launch_reserves_role_leases_and_pins_the_model(self):
+        from Pipeline.AssistantControl import decomposition as decomposition_module
+        from Pipeline.AssistantControl.decomposition_transport import POOL_LEASE_MOUNT
+
+        manager, head = _decomposition_parent_fixture(self, "assistant-decompose-pooled-")
+        commands: list[list[str]] = []
+        real_run = subprocess.run
+
+        def fake_run(command, *args, **kwargs):
+            if list(command)[:2] == ["docker", "compose"]:
+                commands.append(list(command))
+                return subprocess.CompletedProcess(command, 1)
+            return real_run(command, *args, **kwargs)
+
+        with patch.dict(os.environ, {"NSC_CLAUDE_MODEL": POOL_MODEL}), \
+                patch.object(decomposition_module, "decomposition_preflight",
+                             return_value={"source_commit": head}), \
+                patch.object(decomposition_module.subprocess, "run", side_effect=fake_run):
+            record = decomposition_module.run(
+                manager, "NSC-004", "nsc-004-pooled-run", providers="claude,claude",
+                compose_project="assistant-pool", execution_authorized=True,
+            )
+
+        self.assertEqual(["claude", "claude"], record["providers"])
+        pool = record["pool"]
+        self.assertEqual(
+            ["claude:decomposition_reviewer", "claude:task_decomposer"],
+            sorted(pool["lease_keys"]),
+        )
+        self.assertEqual(POOL_REPOSITORY, pool["repository_identity"])
+        self.assertTrue(pool["checkout_identity"].startswith("manifest-sha256:"))
+        # The manifest whose bytes are that identity is AssistantControl's own
+        # record, never a file inside Source.
+        manifest = manager.records / "decomposition-pool" / "checkout-identity.json"
+        self.assertTrue(manifest.is_file())
+        self.assertFalse((manager.source / ".task-review-agent").exists())
+
+        bundle = Path(pool["lease_bundle_path"])
+        payload = json.loads(bundle.read_text(encoding="utf-8"))
+        self.assertEqual("nsc-004-pooled-run", payload["run_id"])
+        self.assertEqual("NSC-004", payload["task_id"])
+        self.assertEqual(head, payload["source_commit"])
+        self.assertEqual(POOL_REPOSITORY, payload["repository_identity"])
+        self.assertEqual(sorted(pool["lease_keys"]), sorted(payload["leases"]))
+        self.assertIsNone(payload["codex_resume_sandbox_argument"])
+
+        self.assertEqual(1, len(commands))
+        command = commands[0]
+        self.assertEqual(
+            ["docker", "compose", "-p", "assistant-pool", "run", "--rm", "-T"], command[:7],
+        )
+        self.assertEqual(["--volume", f"{bundle}:{POOL_LEASE_MOUNT}:ro"], command[7:9])
+        self.assertEqual(["--env", f"NSC_CLAUDE_MODEL={POOL_MODEL}"], command[9:11])
+        self.assertEqual("round-robin-decompose", command[11])
+        self.assertEqual("claude,claude", command[command.index("--providers") + 1])
+        self.assertEqual(POOL_LEASE_MOUNT, command[command.index("--role-session-leases") + 1])
+        self.assertEqual(
+            POOL_REPOSITORY, command[command.index("--scheduler-repository-identity") + 1],
+        )
+        self.assertEqual("failed", record["status"])
+
+    def test_cross_provider_launch_reserves_nothing(self):
+        from Pipeline.AssistantControl import decomposition as decomposition_module
+
+        manager, head = _decomposition_parent_fixture(self, "assistant-decompose-cross-")
+        commands: list[list[str]] = []
+        real_run = subprocess.run
+
+        def fake_run(command, *args, **kwargs):
+            if list(command)[:2] == ["docker", "compose"]:
+                commands.append(list(command))
+                return subprocess.CompletedProcess(command, 1)
+            return real_run(command, *args, **kwargs)
+
+        with patch.object(decomposition_module, "decomposition_preflight",
+                          return_value={"source_commit": head}), \
+                patch.object(decomposition_module.subprocess, "run", side_effect=fake_run):
+            record = decomposition_module.run(
+                manager, "NSC-004", "nsc-004-cross-run", providers="claude,codex",
+                compose_project="assistant-pool", execution_authorized=True,
+            )
+        self.assertIsNone(record.get("pool"))
+        self.assertIsNone(record.get("pool_lifecycle"))
+        self.assertNotIn("--volume", commands[0])
+        self.assertNotIn("--role-session-leases", commands[0])
+
+    def test_a_pooled_run_id_the_pool_cannot_own_is_refused_before_any_record(self):
+        from Pipeline.AssistantControl import decomposition as decomposition_module
+
+        manager, head = _decomposition_parent_fixture(self, "assistant-decompose-runid-")
+        with patch.object(decomposition_module, "decomposition_preflight",
+                          return_value={"source_commit": head}):
+            with self.assertRaisesRegex(ValueError, "Pooled decomposition run id"):
+                decomposition_module.run(
+                    manager, "NSC-004", "NSC-004.Pooled_Run", providers="claude,claude",
+                    compose_project="assistant-pool", execution_authorized=True,
+                )
+        self.assertFalse((manager.records / "NSC-004.decomposition.json").exists())
+
+
+class FakePoolOwner:
+    """Records the exact lifecycle calls AssistantControl makes on the pool."""
+
+    def __init__(self, bundle: Path, *, settle_error: BaseException | None = None):
+        self.bundle = bundle
+        self.settle_error = settle_error
+        self.calls: list[tuple] = []
+
+    def prepare(self, **kwargs):
+        self.calls.append(("prepare", kwargs))
+        return {
+            "run_id": kwargs["run_id"],
+            "repository_identity": POOL_REPOSITORY,
+            "compose_project": "assistant-pool",
+            "checkout_identity": "manifest-sha256:" + "0" * 64,
+            "lease_bundle_path": str(self.bundle),
+            "leases": {key: {"lease_id": value} for key, value in POOL_LEASE_IDS.items()},
+            "skipped_keys": [],
+            "provider_environment": {"NSC_CLAUDE_MODEL": POOL_MODEL, "NSC_OPENAI_CODEX_MODEL": ""},
+        }
+
+    def settle(self, *, run_id, run_dir):
+        self.calls.append(("settle", run_id, str(run_dir)))
+        if self.settle_error is not None:
+            raise self.settle_error
+        return {"run_id": run_id, "run_status": "review_ready", "leases": {}}
+
+    def cancel_unstarted(self, *, run_id):
+        self.calls.append(("cancel_unstarted", run_id))
+
+    def close(self):
+        self.calls.append(("close",))
+
+    def actions(self) -> list[str]:
+        return [call[0] for call in self.calls]
+
+
+class PooledLifecycleTests(unittest.TestCase):
+    """Settle from artifacts, cancel only a proven non-start, always close."""
+
+    def launch(self, prefix: str, *, exit_code: int = 0, run_directory: bool = True,
+               start_error: BaseException | None = None,
+               settle_error: BaseException | None = None):
+        from Pipeline.AssistantControl import decomposition as decomposition_module
+
+        manager, head = _decomposition_parent_fixture(self, prefix)
+        run_id = "nsc-004-lifecycle-run"
+        artifact_root = (manager.records / "decomposition-runs").resolve() / run_id
+        bundle = manager.root / "fixture.leases.json"
+        manager.root.mkdir(parents=True, exist_ok=True)
+        bundle.write_text("{}\n", encoding="utf-8", newline="\n")
+        owner = FakePoolOwner(bundle, settle_error=settle_error)
+        real_run = subprocess.run
+
+        def fake_run(command, *args, **kwargs):
+            if list(command)[:2] == ["docker", "compose"]:
+                if run_directory:
+                    artifact_root.mkdir(parents=True, exist_ok=True)
+                if start_error is not None:
+                    raise start_error
+                return subprocess.CompletedProcess(command, exit_code)
+            return real_run(command, *args, **kwargs)
+
+        context = [
+            patch.object(decomposition_module, "_pool_owner", return_value=owner),
+            patch.object(decomposition_module, "decomposition_preflight",
+                         return_value={"source_commit": head}),
+            patch.object(decomposition_module.subprocess, "run", side_effect=fake_run),
+            patch.object(decomposition_module, "_verify_review",
+                         return_value={"status": "review_ready", "child_ids": ["NSC-1001"]}),
+        ]
+        for entered in context:
+            entered.start()
+            self.addCleanup(entered.stop)
+        return decomposition_module, manager, owner, run_id, artifact_root
+
+    def test_a_successful_run_settles_from_its_run_directory_and_closes(self):
+        module, manager, owner, run_id, artifact_root = self.launch("assistant-pool-settle-")
+        record = module.run(
+            manager, "NSC-004", run_id, providers="claude,claude",
+            compose_project="assistant-pool", execution_authorized=True,
+        )
+        self.assertEqual("review_ready", record["status"])
+        self.assertEqual(["prepare", "settle", "close"], owner.actions())
+        self.assertEqual(("settle", run_id, str(artifact_root)), owner.calls[1])
+        prepared = owner.calls[0][1]
+        self.assertEqual("round_robin_d1b2", prepared["decomposition_mode"])
+        self.assertEqual(("claude", "claude"), prepared["provider_order"])
+        self.assertEqual(2, prepared["max_calls"])
+        self.assertEqual(record["source_commit"], prepared["source_commit"])
+        self.assertEqual("settled", record["pool_lifecycle"]["status"])
+
+    def test_a_failed_run_that_produced_a_run_directory_still_settles(self):
+        module, manager, owner, run_id, artifact_root = self.launch(
+            "assistant-pool-failed-", exit_code=1,
+        )
+        record = module.run(
+            manager, "NSC-004", run_id, providers="claude,claude",
+            compose_project="assistant-pool", execution_authorized=True,
+        )
+        self.assertEqual("failed", record["status"])
+        self.assertEqual(["prepare", "settle", "close"], owner.actions())
+        self.assertEqual("settled", record["pool_lifecycle"]["status"])
+
+    def test_a_plain_oserror_settles_because_it_does_not_prove_nothing_ran(self):
+        # PermissionError from kill() on a live container, and ChildProcessError from
+        # waitpid, are raised after the provider has already run, so an OSError that is
+        # not a missing executable must settle rather than return the leases uncharged.
+        module, manager, owner, run_id, _root = self.launch(
+            "assistant-pool-ambiguous-", run_directory=False,
+            start_error=OSError("connection reset by the docker daemon"),
+        )
+        with self.assertRaises(OSError):
+            module.run(
+                manager, "NSC-004", run_id, providers="claude,claude",
+                compose_project="assistant-pool", execution_authorized=True,
+            )
+        # Neither settled nor cancelled: with no run directory the leases stay active and
+        # the next owner reclaims them as stranded, so they are never resumed and never
+        # handed back as unused.
+        self.assertEqual(["prepare", "close"], owner.actions())
+        record = json.loads(
+            (manager.records / "NSC-004.decomposition.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual("run_directory_missing", record["pool_lifecycle"]["status"])
+        self.assertEqual("failed", record["status"])
+
+    def test_a_provider_that_never_started_returns_the_leases_uncharged(self):
+        # The executable could not be spawned, so nothing ran and no run
+        # directory exists.
+        module, manager, owner, run_id, _root = self.launch(
+            "assistant-pool-unstarted-", run_directory=False,
+            start_error=FileNotFoundError("docker: no such file or directory"),
+        )
+        with self.assertRaises(OSError):
+            module.run(
+                manager, "NSC-004", run_id, providers="claude,claude",
+                compose_project="assistant-pool", execution_authorized=True,
+            )
+        self.assertEqual(["prepare", "cancel_unstarted", "close"], owner.actions())
+        record = json.loads(
+            (manager.records / "NSC-004.decomposition.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual("failed", record["status"])
+        self.assertEqual("cancelled_unstarted", record["pool_lifecycle"]["status"])
+
+    def test_an_oserror_raised_after_the_spawn_settles_instead_of_cancelling(self):
+        # `subprocess.run` raises OSError after Popen succeeded too: on Windows
+        # the timeout handler's kill can raise PermissionError against a live
+        # container, and on POSIX the wait can raise ChildProcessError. The run
+        # directory exists, so those conversations are real and are retired.
+        module, manager, owner, run_id, artifact_root = self.launch(
+            "assistant-pool-after-spawn-",
+            start_error=ChildProcessError("no child processes"),
+        )
+        with self.assertRaises(ChildProcessError):
+            module.run(
+                manager, "NSC-004", run_id, providers="claude,claude",
+                compose_project="assistant-pool", execution_authorized=True,
+            )
+        self.assertEqual(["prepare", "settle", "close"], owner.actions())
+        self.assertEqual(("settle", run_id, str(artifact_root)), owner.calls[1])
+        record = json.loads(
+            (manager.records / "NSC-004.decomposition.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual("failed", record["status"])
+        self.assertEqual("settled", record["pool_lifecycle"]["status"])
+
+    def test_an_oserror_raised_instead_of_the_spawn_still_cancels(self):
+        # The executable could not be spawned at all, so no run directory was
+        # created and nothing ran.
+        module, manager, owner, run_id, _root = self.launch(
+            "assistant-pool-no-spawn-", run_directory=False,
+            start_error=FileNotFoundError("docker: no such file or directory"),
+        )
+        with self.assertRaises(FileNotFoundError):
+            module.run(
+                manager, "NSC-004", run_id, providers="claude,claude",
+                compose_project="assistant-pool", execution_authorized=True,
+            )
+        self.assertEqual(["prepare", "cancel_unstarted", "close"], owner.actions())
+        record = json.loads(
+            (manager.records / "NSC-004.decomposition.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual("failed", record["status"])
+        self.assertEqual("cancelled_unstarted", record["pool_lifecycle"]["status"])
+
+    def test_a_timed_out_run_settles_instead_of_cancelling(self):
+        module, manager, owner, run_id, artifact_root = self.launch(
+            "assistant-pool-timeout-",
+            start_error=subprocess.TimeoutExpired(["docker", "compose"], 3600),
+        )
+        with self.assertRaises(subprocess.TimeoutExpired):
+            module.run(
+                manager, "NSC-004", run_id, providers="claude,claude",
+                compose_project="assistant-pool", execution_authorized=True,
+            )
+        # The container really ran, so both conversations are retired from the
+        # run's artifacts; returning them uncharged would resume them later.
+        self.assertEqual(["prepare", "settle", "close"], owner.actions())
+        self.assertEqual(("settle", run_id, str(artifact_root)), owner.calls[1])
+        record = json.loads(
+            (manager.records / "NSC-004.decomposition.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual("failed", record["status"])
+        self.assertEqual("settled", record["pool_lifecycle"]["status"])
+
+    def test_an_interrupted_run_settles_instead_of_cancelling(self):
+        module, manager, owner, run_id, artifact_root = self.launch(
+            "assistant-pool-interrupt-", start_error=KeyboardInterrupt(),
+        )
+        with self.assertRaises(KeyboardInterrupt):
+            module.run(
+                manager, "NSC-004", run_id, providers="claude,claude",
+                compose_project="assistant-pool", execution_authorized=True,
+            )
+        self.assertEqual(["prepare", "settle", "close"], owner.actions())
+        self.assertEqual(("settle", run_id, str(artifact_root)), owner.calls[1])
+        record = json.loads(
+            (manager.records / "NSC-004.decomposition.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual("failed", record["status"])
+        self.assertEqual("settled", record["pool_lifecycle"]["status"])
+
+    def test_a_run_without_a_run_directory_is_never_cancelled_as_unstarted(self):
+        module, manager, owner, run_id, _root = self.launch(
+            "assistant-pool-nodir-", exit_code=1, run_directory=False,
+        )
+        record = module.run(
+            manager, "NSC-004", run_id, providers="claude,claude",
+            compose_project="assistant-pool", execution_authorized=True,
+        )
+        self.assertEqual("failed", record["status"])
+        # The provider may have run: the leases stay active and the next owner
+        # reclaims them as stranded.
+        self.assertEqual(["prepare", "close"], owner.actions())
+        self.assertEqual("run_directory_missing", record["pool_lifecycle"]["status"])
+
+    def test_a_settle_failure_degrades_pooling_and_never_fails_a_good_run(self):
+        from Pipeline.TaskReviewAgent.decomposition_session_pool import (
+            DecompositionSessionPoolError,
+        )
+
+        module, manager, owner, run_id, _root = self.launch(
+            "assistant-pool-degraded-",
+            settle_error=DecompositionSessionPoolError("fixture settlement failure"),
+        )
+        record = module.run(
+            manager, "NSC-004", run_id, providers="claude,claude",
+            compose_project="assistant-pool", execution_authorized=True,
+        )
+        self.assertEqual("review_ready", record["status"])
+        self.assertEqual(["prepare", "settle", "close"], owner.actions())
+        self.assertEqual("pool_degraded", record["pool_lifecycle"]["status"])
+        self.assertIn("fixture settlement failure", record["pool_lifecycle"]["error"])
+
+    def test_a_settle_that_raises_still_leaves_a_failed_record_and_one_settle(self):
+        # A settlement failure the pool helper does not classify escapes into
+        # the run's own failure path. It must be settled exactly once, it must
+        # not hide the error it raised, and it must not leave the record
+        # `running` with no process behind it.
+        module, manager, owner, run_id, _root = self.launch(
+            "assistant-pool-settle-raises-",
+            settle_error=KeyError("fixture settlement failure"),
+        )
+        with self.assertRaises(KeyError) as raised:
+            module.run(
+                manager, "NSC-004", run_id, providers="claude,claude",
+                compose_project="assistant-pool", execution_authorized=True,
+            )
+        self.assertIn("fixture settlement failure", str(raised.exception))
+        self.assertEqual(["prepare", "settle", "close"], owner.actions())
+        record_path = manager.records / "NSC-004.decomposition.json"
+        record = json.loads(record_path.read_text(encoding="utf-8"))
+        self.assertEqual("failed", record["status"])
+        self.assertIn("KeyError", record["error"])
+        # The task is no longer held mid-flight: a later run meets the settled
+        # `failed` record an operator can clear, never a `running` one that no
+        # process owns.
+        with self.assertRaises(ValueError) as refused:
+            module.run(
+                manager, "NSC-004", "nsc-004-lifecycle-rerun", providers="claude,claude",
+                compose_project="assistant-pool", execution_authorized=True,
+            )
+        self.assertIn("status failed", str(refused.exception))
+        self.assertNotIn("status running", str(refused.exception))
+        self.assertEqual(["prepare", "settle", "close"], owner.actions())
+
+
+class SameProviderReviewIndependenceTests(unittest.TestCase):
+    """`same_provider_separate_sessions` is admitted only for a pooled same-provider run."""
+
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory(prefix="assistant-d1c-same-provider-")
+        self.addCleanup(temporary.cleanup)
+        root = Path(temporary.name)
+        source = root / "source"
+        source.mkdir()
+        create_repository(source)
+        self.task_id = "NSC-004"
+        task_path = source / "Tasks" / f"{self.task_id}.yaml"
+        selected = json.loads(task_path.read_text(encoding="utf-8"))
+        selected.update(
+            execution_scope="needs_execution_decomposition",
+            execution_reason="Synthetic same-provider regression requires decomposition.",
+        )
+        _write_json(task_path, selected)
+        _git(source, "add", "--", f"Tasks/{self.task_id}.yaml")
+        _git(source, "commit", "-m", "fixture: select childless decomposition parent")
+        graph = load_persistent_work_graph(source)
+        parent = graph.tasks_by_id[self.task_id]
+        proposal = decomposed_result(parent)
+        proposal["children"][0]["exclusive_resources"] = []
+        proposal["inbound_dependency_rewrites"] = []
+        decomposition = validate_decomposition_result(
+            proposal, parent_task=parent, existing_reconciliation_keys=graph.plan.id_map,
+        )
+        stored_plan = plan_graph_delta(graph, decomposition.parent_task, decomposition)
+        head = _git(source, "rev-parse", "HEAD")
+        tree = _git(source, "rev-parse", "HEAD^{tree}")
+        branch = _git(source, "branch", "--show-current")
+        task = load_committed_task(source, self.task_id, commit=head)
+        self.manager = Checkouts(source, root / "checkouts")
+        self.manager.records.mkdir(parents=True)
+        self.run_id = "nsc-004-same-provider-run"
+        output_root = (self.manager.records / "decomposition-runs").resolve()
+        self.artifact_root = output_root / self.run_id
+        self.artifact_root.mkdir(parents=True)
+        _write_json(self.artifact_root / "decomposition_result.json", decomposition.to_dict())
+        _write_json(self.artifact_root / "graph_delta.json", stored_plan.to_dict())
+        self.digest = candidate_sha256(decomposition)
+        self.candidate = {
+            "version": 1,
+            "author_provider": "claude",
+            "sha256": self.digest,
+            "decision": "decomposed",
+            "graph_delta_plan_id": stored_plan.plan_id,
+        }
+        self.head, self.tree, self.branch, self.task = head, tree, branch, task
+        self.output_root = output_root
+
+    # -- exact fixtures ----------------------------------------------------
+
+    def pooled_sessions(self, **overrides) -> dict:
+        sessions = {}
+        for index, (key, lease_id) in enumerate(sorted(POOL_LEASE_IDS.items())):
+            role = key.split(":", 1)[1]
+            sessions[key] = {
+                "lease_id": lease_id,
+                "record_id": f"{index}0000000-0000-4000-8000-000000000000",
+                "role": role,
+                "provider_identifier": "claude-code",
+                "invoked": True,
+                "identity_unproven": None,
+                "confirmed_session": {
+                    "provider_identifier": "claude-code",
+                    "role": role,
+                    "mode": "start",
+                    "session_id": f"{index + 3}3333333-3333-4333-8333-333333333333",
+                },
+            }
+        sessions.update(overrides)
+        return sessions
+
+    def run_result(self, providers, *, independence, sessions=None) -> dict:
+        return {
+            "schema_version": "1.0",
+            "mode": "round_robin_d1b2",
+            "run_id": self.run_id,
+            "task_id": self.task_id,
+            "provider_order": list(providers),
+            "max_calls": 2,
+            "calls_used": 2,
+            "run_status": "review_ready",
+            "decision": "decomposed",
+            "review_independence": independence,
+            "authority": "review_only_not_applied",
+            "unresolved_findings": [],
+            "rejection_reasons": [],
+            "source_identity": {"head_commit": self.head, "head_tree": self.tree},
+            "task_execution_contract_identity": {
+                "revision": self.task["contract_revision"],
+                "sha256": self.task["task_contract_sha256"],
+            },
+            "latest_candidate": self.candidate,
+            "independent_approver_provider": providers[1],
+            "pooled_sessions": sessions,
+            "rounds": [
+                {
+                    "role": "task_decomposer", "correction_of_round": None,
+                    "requested_provider": providers[0], "actual_model": POOL_MODEL,
+                    "agent_status": "succeeded", "status": "candidate_valid",
+                    "candidate_after": self.candidate,
+                },
+                {
+                    "role": "decomposition_reviewer", "correction_of_round": None,
+                    "requested_provider": providers[1], "actual_model": POOL_MODEL,
+                    "agent_status": "succeeded", "status": "independent_pass",
+                    "verdict": "pass", "candidate_before": self.candidate,
+                    "candidate_after": None,
+                },
+            ],
+            "finding_history": [{
+                "verdict": "pass",
+                "reviewed_candidate_sha256": self.digest,
+                "findings": [],
+            }],
+        }
+
+    def record(self, providers, *, pool=True, lease_ids=None) -> dict:
+        value = {
+            "schema_version": "assistant-decomposition/v1",
+            "task_id": self.task_id,
+            "run_id": self.run_id,
+            "source": str(self.manager.source),
+            "source_commit": self.head,
+            "source_tree": self.tree,
+            "source_branch": self.branch,
+            "task_contract_sha256": self.task["task_contract_sha256"],
+            "providers": list(providers),
+            "output_root": str(self.output_root),
+            "artifact_root": str(self.artifact_root),
+            "status": "review_ready",
+        }
+        if pool:
+            value["pool"] = {
+                "lease_bundle_path": str(self.manager.records / "fixture.leases.json"),
+                "repository_identity": POOL_REPOSITORY,
+                "checkout_identity": "manifest-sha256:" + "0" * 64,
+                "compose_project": "assistant-pool",
+                "lease_keys": sorted(POOL_LEASE_IDS),
+                "lease_ids": dict(lease_ids or POOL_LEASE_IDS),
+            }
+        return value
+
+    def verify(self, providers, *, independence, sessions=None, pool=True, lease_ids=None):
+        _write_json(
+            self.artifact_root / "decomposition_run_result.json",
+            self.run_result(providers, independence=independence, sessions=sessions),
+        )
+        return _verify_review(self.manager, self.record(providers, pool=pool, lease_ids=lease_ids))
+
+    # -- accepted ----------------------------------------------------------
+
+    def test_pooled_same_provider_run_verifies(self):
+        review = self.verify(
+            ("claude", "claude"),
+            independence="same_provider_separate_sessions",
+            sessions=self.pooled_sessions(),
+        )
+        self.assertEqual("review_ready", review["status"])
+        self.assertEqual(self.digest, review["candidate_sha256"])
+        self.assertEqual("claude", review["reviewer_provider"])
+
+    def test_cross_provider_verification_is_unchanged(self):
+        review = self.verify(("claude", "codex"), independence="cross_provider", pool=False)
+        self.assertEqual("review_ready", review["status"])
+
+    # -- refused -----------------------------------------------------------
+
+    def test_a_same_provider_run_may_not_claim_cross_provider_independence(self):
+        with self.assertRaisesRegex(ValueError, "review_independence"):
+            self.verify(
+                ("claude", "claude"), independence="cross_provider",
+                sessions=self.pooled_sessions(),
+            )
+
+    def test_a_cross_provider_run_may_not_claim_separate_sessions(self):
+        with self.assertRaisesRegex(ValueError, "review_independence"):
+            self.verify(
+                ("claude", "codex"), independence="same_provider_separate_sessions",
+                pool=False,
+            )
+
+    def test_a_same_provider_record_without_a_lease_reservation_is_refused(self):
+        with self.assertRaisesRegex(ValueError, "lease reservation"):
+            self.verify(
+                ("claude", "claude"), independence="same_provider_separate_sessions",
+                sessions=self.pooled_sessions(), pool=False,
+            )
+
+    def test_a_reservation_missing_one_role_lease_is_refused(self):
+        # The pool skips a key it cannot scope and reserves the rest, so a
+        # one-lease reservation whose run used exactly that lease would
+        # otherwise verify: one conversation authoring and reviewing.
+        author = "claude:task_decomposer"
+        sessions = self.pooled_sessions()
+        with self.assertRaisesRegex(ValueError, "not one lease per role"):
+            self.verify(
+                ("claude", "claude"), independence="same_provider_separate_sessions",
+                sessions={author: sessions[author]},
+                lease_ids={author: POOL_LEASE_IDS[author]},
+            )
+
+    def test_a_role_session_without_a_confirmed_conversation_is_refused(self):
+        sessions = self.pooled_sessions()
+        reviewer = dict(sessions["claude:decomposition_reviewer"])
+        reviewer["confirmed_session"] = None
+        with self.assertRaisesRegex(ValueError, "no confirmed conversation"):
+            self.verify(
+                ("claude", "claude"), independence="same_provider_separate_sessions",
+                sessions=self.pooled_sessions(**{"claude:decomposition_reviewer": reviewer}),
+            )
+
+    def test_two_role_sessions_sharing_one_conversation_are_refused(self):
+        sessions = self.pooled_sessions()
+        author = sessions["claude:task_decomposer"]
+        reviewer = dict(sessions["claude:decomposition_reviewer"])
+        reviewer["confirmed_session"] = dict(author["confirmed_session"])
+        reviewer["confirmed_session"]["role"] = "decomposition_reviewer"
+        with self.assertRaisesRegex(ValueError, "not two distinct ones"):
+            self.verify(
+                ("claude", "claude"), independence="same_provider_separate_sessions",
+                sessions=self.pooled_sessions(**{"claude:decomposition_reviewer": reviewer}),
+            )
+
+    def test_a_same_provider_run_that_used_other_leases_is_refused(self):
+        with self.assertRaisesRegex(ValueError, "reserved role leases"):
+            self.verify(
+                ("claude", "claude"), independence="same_provider_separate_sessions",
+                sessions=self.pooled_sessions(),
+                lease_ids={key: "99999999-9999-4999-8999-999999999999"
+                           for key in POOL_LEASE_IDS},
+            )
+        with self.assertRaisesRegex(ValueError, "reserved role leases"):
+            self.verify(
+                ("claude", "claude"), independence="same_provider_separate_sessions",
+                sessions=None,
+            )
+        partial = self.pooled_sessions()
+        del partial["claude:decomposition_reviewer"]
+        with self.assertRaisesRegex(ValueError, "reserved role leases"):
+            self.verify(
+                ("claude", "claude"), independence="same_provider_separate_sessions",
+                sessions=partial,
+            )
+
+
 if __name__ == "__main__":
     unittest.main()
