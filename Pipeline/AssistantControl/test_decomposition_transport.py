@@ -130,6 +130,63 @@ class DecompositionTransportTests(unittest.TestCase):
                 provider_environment={"NSC_CLAUDE_MODEL": "claude-opus-5"},
             )
 
+
+    REAL_MODEL_IDS = (
+        "claude-opus-5",
+        "claude-opus-5[1m]",          # the Claude Code long-context id form
+        "anthropic/claude-opus-5",    # a namespaced id
+        "claude-opus-5@20260801",     # a dated pin
+        "gpt-6-astra",
+    )
+
+    def test_real_model_ids_survive_on_the_unpooled_path(self):
+        """The value check is well-formedness, not a policy gate on models.
+
+        Its first version was `[A-Za-z0-9._:-]` only, which rejected three of
+        these - and would have done it *after* the leases were reserved.
+        """
+        for model in self.REAL_MODEL_IDS:
+            with self.subTest(model=model):
+                command = build_compose_command(
+                    task_id="NSC-025", project="assistant-nsc", providers="claude,codex",
+                    max_calls=2, run_id="nsc-025-run",
+                    provider_environment={"NSC_CLAUDE_MODEL": model},
+                )
+                self.assertEqual(("--env", f"NSC_CLAUDE_MODEL={model}"), command[7:9])
+
+    def test_real_model_ids_survive_on_the_pooled_path(self):
+        """The pooled path is live and carries every run today; it must not
+        have gained a refusal it did not have before."""
+        for model in self.REAL_MODEL_IDS:
+            with self.subTest(model=model):
+                command = build_compose_command(
+                    task_id="NSC-025", project="assistant-nsc", providers="claude,claude",
+                    max_calls=2, run_id="nsc-025-run",
+                    pool_assignment=self.assignment(provider_environment={
+                        "NSC_CLAUDE_MODEL": model,
+                    }),
+                )
+                self.assertEqual(("--env", f"NSC_CLAUDE_MODEL={model}"), command[9:11])
+
+    def test_only_unusable_model_values_are_refused(self):
+        """What is left is what cannot work at all, not what looks unusual."""
+        for value, reason in (
+            ("a b", "contains whitespace"),
+            ("a\nb", "contains whitespace"),
+            (" trailing ", "whitespace"),
+            ("a\x00b", "control character"),
+            (123, "is not a string"),
+            ("x" * 400, "longer than"),
+        ):
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError) as caught:
+                    build_compose_command(
+                        task_id="NSC-025", project="assistant-nsc", providers="claude,codex",
+                        max_calls=2, run_id="nsc-025-run",
+                        provider_environment={"NSC_CLAUDE_MODEL": value},
+                    )
+                self.assertIn(reason, str(caught.exception))
+
     def test_model_environment_names_are_checked(self):
         """Only the two model variables may be injected. --env is a hole into
         the container, and this is not a general passthrough."""
@@ -143,7 +200,7 @@ class DecompositionTransportTests(unittest.TestCase):
                     )
 
     def test_model_values_cannot_smuggle_an_argument(self):
-        for value in ("a b", "a\nb", "--privileged", "a\tb"):
+        for value in ("a b", "a\nb", "a\tb"):
             with self.subTest(value=value):
                 with self.assertRaisesRegex(ValueError, "model value"):
                     build_compose_command(
@@ -151,6 +208,25 @@ class DecompositionTransportTests(unittest.TestCase):
                         max_calls=2, run_id="nsc-025-run",
                         provider_environment={"NSC_CLAUDE_MODEL": value},
                     )
+
+    def test_a_dash_leading_value_is_a_value_not_a_flag(self):
+        """`--privileged` used to be refused here, which sounded prudent and
+        was not: the value is concatenated after `NSC_CLAUDE_MODEL=` into an
+        argv LIST, so it can never be read as a docker flag. Refusing it bought
+        nothing, and the same rule rejected real model ids such as
+        `claude-opus-5[1m]` - on the live pooled path, after the leases had
+        been reserved. Pinned as *accepted* so the false threat model cannot
+        come back.
+        """
+        command = build_compose_command(
+            task_id="NSC-025", project="assistant-nsc", providers="claude,codex",
+            max_calls=2, run_id="nsc-025-run",
+            provider_environment={"NSC_CLAUDE_MODEL": "--privileged"},
+        )
+        self.assertEqual(("--env", "NSC_CLAUDE_MODEL=--privileged"), command[7:9])
+        # One argv element, so docker reads one --env value and no extra flag.
+        self.assertEqual(1, sum(1 for a in command if a.startswith("NSC_CLAUDE_MODEL=")))
+        self.assertNotIn("--privileged", command)
 
     def test_same_provider_requires_a_pool_reservation(self):
         for providers in ("claude,claude", "codex,codex"):

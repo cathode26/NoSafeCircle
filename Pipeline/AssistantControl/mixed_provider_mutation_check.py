@@ -6,8 +6,9 @@ buggy argv verbatim. So each piece of the fix is reverted here on its own and
 the suite must notice. Both halves matter independently: fixing the transport
 while the caller passes nothing reproduces the original bug exactly.
 
-Runs against a COPY of the two files, never the working tree, so a kill cannot
-leave a half-reverted checkout behind.
+Runs against a COPY of Pipeline/, never the working tree, so a kill cannot
+leave a half-reverted checkout behind. The unmutated copy is proved green
+before any mutation, because "caught" only means a non-zero exit.
 
     PYTHONPATH=<clone> C:/Python313/python.exe -B \
         Pipeline/AssistantControl/mixed_provider_mutation_check.py
@@ -75,18 +76,18 @@ MUTATIONS = [
     ),
     (
         "empty values forwarded",
-        "NSC_CLAUDE_MODEL= overrides the container default with the empty string",
+        "the empty-value DROP: without it an empty value is refused instead of skipped",
         SHARED,
         '        if value is None or value == "":\n            continue',
         "        if False:\n            continue",
         "Pipeline.AssistantControl.test_decomposition_transport",
     ),
     (
-        "model value check removed",
-        "a model id could carry whitespace or a leading dash into the argv",
+        "model value well-formedness check removed",
+        "a model id could carry a newline or a tab into the argv",
         SHARED,
-        "        if type(value) is not str or not _SAFE_MODEL.fullmatch(value):",
-        "        if False:",
+        "        problem = _model_value_problem(value)\n        if problem:",
+        "        problem = \"\"\n        if problem:",
         "Pipeline.AssistantControl.test_decomposition_transport",
     ),
     # The same gap existed in the production launcher. Fixing one and leaving
@@ -165,6 +166,24 @@ def main() -> int:
 
     originals = {name: (workdir / name).read_text(encoding="utf-8")
                  for name in (TRANSPORT, CALLER, SHARED, PRODUCTION)}
+
+    # Baseline first. "Caught" only means a non-zero exit, so if the copy is
+    # red for some unrelated reason every mutation reads as caught and the
+    # whole run is theatre. A reviewer hit exactly that by placing the scratch
+    # temp dir inside the copy, which made the pool suite refuse before it ran
+    # a single assertion - and all four production mutations looked caught.
+    print("baseline: the unmutated copy must be green before anything is broken")
+    for module in sorted({m for _l, _w, _f, _o, _n, m in MUTATIONS}):
+        passed, output = run_module(workdir, module, temp)
+        label = module.rsplit("/", 1)[-1].rsplit(".", 1)[-1]
+        if not passed:
+            print(f"  BASELINE RED  {module}")
+            print("\n".join(output.splitlines()[-15:]))
+            print("\nthe copy is not green, so no mutation result here would mean anything")
+            scratch.cleanup()
+            return 1
+        print(f"  baseline green  {label}")
+
     survivors = []
     try:
         for label, why, filename, old, new, module in MUTATIONS:

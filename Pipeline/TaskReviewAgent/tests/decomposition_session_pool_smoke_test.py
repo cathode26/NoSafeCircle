@@ -623,6 +623,33 @@ def test_the_unpooled_call_site_resolves_and_passes_the_models() -> None:
     require(seen[0].get("pool_assignment") is None, "pooling was supposed to be off")
 
 
+def test_real_model_ids_survive_the_pooled_production_path() -> None:
+    """The pooled production path must not have gained a refusal.
+
+    A review found the first value check rejecting `claude-opus-5[1m]` and
+    friends here, after the leases were already reserved.
+    """
+    for model in ("claude-opus-5", "claude-opus-5[1m]", "anthropic/claude-opus-5",
+                  "claude-opus-5@20260801"):
+        assignment = {
+            "lease_bundle_path": "C:/pool/run.leases.json",
+            "repository_identity": REPOSITORY,
+            "provider_environment": {"NSC_CLAUDE_MODEL": model},
+        }
+        command = launcher.build_compose_command(
+            task_id=TASK, project="nosafecircle-m2a", providers="codex,claude", max_calls=4,
+            run_id="nsc-010-d1b2-run", pool_assignment=assignment,
+        )
+        require(("--env", f"NSC_CLAUDE_MODEL={model}") == command[9:11], f"{model}: {command}")
+    # And the same on the unpooled route.
+    for model in ("claude-opus-5[1m]", "anthropic/claude-opus-5"):
+        command = launcher.build_compose_command(
+            task_id=TASK, project="nosafecircle-m2a", providers="codex,claude", max_calls=4,
+            provider_environment={"NSC_CLAUDE_MODEL": model},
+        )
+        require(("--env", f"NSC_CLAUDE_MODEL={model}") == command[7:9], f"{model}: {command}")
+
+
 def main() -> int:
     tests = [value for name, value in sorted(globals().items()) if name.startswith("test_") and callable(value)]
     for test in tests:

@@ -242,7 +242,34 @@ PROVIDER_MODEL_ENVIRONMENT = {
 
 MODEL_ENVIRONMENT_NAMES = tuple(sorted(PROVIDER_MODEL_ENVIRONMENT.values()))
 
-_SAFE_MODEL = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
+# Well-formedness, NOT a policy gate on which models are allowed.
+#
+# The first version of this was `^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`, which a
+# review caught: it also gates the POOLED path, which is live and carries every
+# run today, and it rejects real model id forms - `claude-opus-5[1m]`,
+# `anthropic/claude-opus-5`, `claude-opus-5@20260801`. Worse, it would have
+# rejected them *after* the leases were reserved, stranding the reservation.
+#
+# The character check bought nothing: the value goes into an argv LIST after
+# `NAME=`, so there is no shell to inject into and a leading dash cannot be
+# read as a flag. What is genuinely unusable is a non-string, an empty string,
+# something with a newline or a tab in it, or untrimmed whitespace - all of
+# which would break the container rather than express a model choice.
+_MAX_MODEL_LENGTH = 256
+
+
+def _model_value_problem(value) -> str:
+    if type(value) is not str:
+        return "is not a string"
+    if value != value.strip():
+        return "has leading or trailing whitespace"
+    if any(character.isspace() for character in value):
+        return "contains whitespace"
+    if any(ord(character) < 0x20 or ord(character) == 0x7F for character in value):
+        return "contains a control character"
+    if len(value) > _MAX_MODEL_LENGTH:
+        return f"is longer than {_MAX_MODEL_LENGTH} characters"
+    return ""
 
 
 def resolve_provider_model_environment(provider_order) -> dict:
@@ -279,8 +306,9 @@ def model_environment_arguments(environment) -> list:
             )
         if value is None or value == "":
             continue
-        if type(value) is not str or not _SAFE_MODEL.fullmatch(value):
-            raise ValueError(f"model value for {name} is not one plain model id: {value!r}")
+        problem = _model_value_problem(value)
+        if problem:
+            raise ValueError(f"model value for {name} {problem}: {value!r}")
         arguments.extend(("--env", f"{name}={value}"))
     return arguments
 
