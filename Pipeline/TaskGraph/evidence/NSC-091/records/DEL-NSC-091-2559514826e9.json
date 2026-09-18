@@ -1,0 +1,61 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "2d5c8a1dc5d4bba469fb158b27967717309e5b7ad6f8ab4a38fbbd05ad583c9f"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "68ee9c162c8e839384496297512c42d1dc7e773e",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyTargetKnowledge.cs",
+      "role": "Runtime component under test: detection and lose-target thresholds, target acquisition, last-known-position recording, bounded search timing and ResetTargetKnowledge()"
+    },
+    {
+      "blob_sha": "4a0fd498ee3206b015384689e928e13c7a66a0c7",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/EnemyTargetKnowledgePlayModeTests.cs",
+      "role": "The PlayMode fixture the committed validation policy names for this task"
+    }
+  ],
+  "delivery": {
+    "base_commit": "33e37e51277eb8c4e7a3dea33b973968f9f4470d",
+    "candidate_commit": "2559514826e919bea243e1bf6fda4ad73462ac62",
+    "integrated_commit": "2559514826e919bea243e1bf6fda4ad73462ac62",
+    "integrated_tree": "7ddb061ebe28e54eac6988b665c6b5fc6c5162fc"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "b8bd4f327e919a377977eb5e28fd50523c790436",
+          "path": "Pipeline/TaskGraph/evidence/NSC-091/artifacts/Unity-PlayMode-01-2559514826e9.xml"
+        },
+        {
+          "blob_sha": "c8f30eb1ddbff2f042db30eec54d335adf52de38",
+          "path": "Pipeline/TaskGraph/evidence/NSC-091/artifacts/Unity-PlayMode-01-2559514826e9.log"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "Authoritative PlayMode run at the validated commit through run_unity_tests_clean.ps1: 22 tests, 22 passed, 0 failed, 0 skipped, runner exit 0, final line VALIDATION PASSED. Counts read from test-results.xml, not from the console summary. All 22 cases report their declaring type as NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests, the type the committed policy names; it is a sealed-shaped, non-partial class, so the filter cannot silently select a subset. The bound manifest records commit and post_commit both 2559514826e919bea243e1bf6fda4ad73462ac62 and tree and post_tree both 7ddb061ebe28e54eac6988b665c6b5fc6c5162fc, clean before and after: the run mutated nothing.\n\nThe gate names eight behaviours, and the pass count alone does not show they are covered, so each is mapped to its cases. Strict threshold relationship: ConfigureDistances_DetectionDistanceEqualToLoseTargetDistance_ThrowsArgumentException, ConfigureDistances_DetectionDistanceGreaterThanLoseTargetDistance_ThrowsArgumentException, ConfigureDistances_DetectionDistanceStrictlySmaller_UpdatesBothValues. Acquisition inside Detection Distance: UpdateTargetKnowledge_WizardInsideDetectionDistance_AcquiresTargetAndEntersPursuing, UpdateTargetKnowledge_WizardExactlyAtDetectionDistance_Acquires, UpdateTargetKnowledge_WizardOutsideDetectionDistance_StaysIdle. Distance-only transition to the recorded last-known position: UpdateTargetKnowledge_PursuingWizardExceedsLoseTargetDistance_TransitionsToSearchingAndRecordsLastKnownPosition, UpdateTargetKnowledge_PursuingWizardExactlyAtLoseTargetDistance_StaysPursuing, UpdateTargetKnowledge_WizardPositionChangeWithinLoseTargetDistance_RetainsPursuit. Bounded search timing: ReportArrivedAtLastKnownPosition_WhileSearching_EntersWanderingWithFullSearchDuration, UpdateTargetKnowledge_WhileWanderingBeforeDurationElapses_StaysWandering, UpdateTargetKnowledge_WanderingDurationFullyElapsesWithoutReacquisition_ClearsTargetAndReturnsToIdle. Reacquisition during search: UpdateTargetKnowledge_WizardReentersDetectionDistanceWhileSearchingBeforeArrival_ReacquiresAndReturnsToPursuing, UpdateTargetKnowledge_WizardReentersDetectionDistanceWhileWandering_ReacquiresAndReturnsToPursuing, ResetTargetKnowledge_ThenWizardReentersDetectionDistance_CanAcquireAgain. Target clearing after search expires: the wandering-expiry case above and UpdateTargetKnowledge_WizardDestroyedWhileWandering_StillExpiresAndClearsTarget. Persistence of the same enemy GameObject: FullTargetLossAndExpiryCycle_DoesNotDestroyOrReplaceEnemyGameObject_AndAllowsReacquisitionLater. ResetTargetKnowledge(): ResetTargetKnowledge_WhilePursuing_ClearsTargetAndReturnsToIdle, ResetTargetKnowledge_WhileWandering_ClearsLastKnownPositionAndSearchTimer, and the reacquire-after-reset case above. Three further cases are boundary and robustness coverage the gate neither names nor forbids: InitialState_IsIdleWithoutTarget, ReportArrivedAtLastKnownPosition_WhileIdle_DoesNotChangeState, and UpdateTargetKnowledge_WithoutWizardWired_DoesNotThrowAndStaysIdle.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "",
+    "decision": "not_required",
+    "notes": "NSC-091 has exactly one completion gate, VAL-001, and it is an automated PlayMode gate; the contract contains no human gate, so no human approval is claimed. Delivery evidence recorded by the Game Agent (Integration Steward) on 2026-09-18 at canonical main 2559514826e919bea243e1bf6fda4ad73462ac62, which is where Unity actually ran. That is not the historical integration commit: the implementation landed earlier in 38904af15 (Implement enemy target knowledge and bounded search state) and 9a3d22c56 (Playable build), and main has moved since. record_delivery requires HEAD == validated_commit, so binding the historical commit would produce an evidence commit that could never fast-forward main. This record is evidence debt being paid on merged work, not a claim that the work landed today. Enemy NavMesh pursuit movement, door traversal and prefab wiring belong to NSC-092, NSC-015 and NSC-016 and are not claimed.",
+    "required": false
+  },
+  "record_id": "DEL-NSC-091-2559514826e9",
+  "record_type": "delivery",
+  "recorded_at": "2026-09-18T11:31:21Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-091.yaml",
+    "revision": 2,
+    "sha256": "4290d3221cd930aeac9f193a47cffe301d81b6e9d972f2c132317ad328a43533"
+  },
+  "task_id": "NSC-091",
+  "validated_state": {
+    "commit": "2559514826e919bea243e1bf6fda4ad73462ac62",
+    "tree": "7ddb061ebe28e54eac6988b665c6b5fc6c5162fc"
+  }
+}
