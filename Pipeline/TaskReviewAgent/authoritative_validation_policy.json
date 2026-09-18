@@ -348,6 +348,16 @@
         "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.NavMeshAgentConfigurationTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-091": {
+      "task_contract_sha256": "3ba557ed37174f0f5198efd263d034788cb45965cd35c259139b3bdedf8b35af",
+      "required_test_platforms": [
+        "PlayMode"
+      ],
+      "test_filters": {
+        "PlayMode": "NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
     }
   },
   "decomposition_child_templates": {}
