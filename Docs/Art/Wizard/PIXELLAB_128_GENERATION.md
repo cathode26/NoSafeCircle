@@ -69,13 +69,49 @@ alignment is `C:\nscrev\reports\art-director\wizard-ground-line-20260917\tools\g
 | masculine-dark | south | the body dropped about 8 px halfway through the cycle (feet rows 106, 104, 107, 115, 113, 113), over the 6 px dip cap, so the aligner refused it | re-rolled with the prompt pinning head and shoulder height; dip now 4 px |
 | masculine-light | south | loop seam of 10 px between the last and first frame | re-rolled with a seamless-loop prompt; seam now 7 px |
 
-## Known characteristic, not yet fixed
+## Walk alignment: corrected to the enemy rule (NSC-095 rev 4)
 
-The walk *toward* the camera drifts downward across its six frames and snaps back at the loop: masculine-light
-7 px, masculine-dark 8 px, feminine-light 6 px, feminine-dark 3 px. Three of the four cycles behave this way even
-after a re-roll, so it looks inherent to `animate_character` v3 for the south facing rather than a bad roll.
-Measured in `review/continuity_summary.json`. Vincent has the numbers with the review package; the untried option
-is v3's interpolation mode with the standing pose as both start and end frame.
+The first delivery aligned each group - one wizard and direction, the standing frame plus its six walk frames - by
+a single whole-pixel shift, deliberately **not** per frame, on my reasoning that per-frame alignment would flatten
+the walk bob. The walk toward the camera then drifted downward across its cycle and snapped back at the loop:
+foot seam 7 px masculine-light, 8 px masculine-dark, 6 px feminine-light, 3 px feminine-dark.
+
+**Vincent asked for that drift fixed. Measurement showed my rule was the cause.** The approved NSC-077 enemy
+walks in `Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk` all have their alpha bottom on the identical
+row in every frame:
+
+| Enemy walk | Foot row per frame | Foot spread / loop seam | Head spread / loop seam |
+|---|---|---|---|
+| melee east | 131 x6 | 0 / 0 | 5 / 1 |
+| melee south | 131 x6 | 0 / 0 | 4 / 2 |
+| ranged east | 131 x6 | 0 / 0 | 9 / 6 |
+| ranged south | 131 x6 | 0 / 0 | 2 / 2 |
+
+So the look Vincent called great is **per-frame** alignment: feet planted on one line, the bob carried by the head.
+The bob is not in the lowest foot, which is what my reasoning got wrong.
+
+**One re-generation attempt was made and rejected.** `animate_character` v3 with `end_frame_url` set to the
+standing pose (masculine-dark south, group `0a9d54bd-e6e7-4572-9306-147b9b3f684b`, call 22) returned six
+near-identical standing frames, feet rows 108 x6: forcing a cycle to end where it starts removes the stride.
+A closed seam with no walk is worse than an open seam with one, so the technique is recorded as unusable here.
+
+**The fix used no generations.** `plant_feet.py` shifts each frame by whole pixels onto that wizard's existing
+`ground_line_y_from_top`, asserting the opaque pixel count and that the alpha bbox moved by exactly the shift,
+and refusing any shift that would push an opaque pixel off the canvas.
+
+| Wizard | Foot spread / loop seam after | Head spread after | Ground line and pivot |
+|---|---|---|---|
+| masculine-light | 0 / 0 | 2-7 px | 122, (0.5, 6/128) unchanged |
+| masculine-dark | 0 / 0 | 2-7 px | 121, (0.5, 7/128) unchanged |
+| feminine-light | 0 / 0 | 2-6 px | 120, (0.5, 8/128) unchanged |
+| feminine-dark | 0 / 0 | 2-7 px | 121, (0.5, 7/128) unchanged |
+
+Per-frame alignment carries one risk, the one NSC-077 met with the Lantern Wraith's staff tip: if a frame's lowest
+pixel is not the foot, planting it lifts the character. Checked on the three largest shifts (5 px each): the
+lowest pixel is a **boot** in every case, so no whole-pixel correction table is needed for the wizards.
+
+The inventory records each frame's `plant_dy`, `dip_below_ground_line` 0, and `walk_alignment` per wizard. The
+ground lines and pivots did not change, so NSC-096 is unaffected.
 
 ## Identity exceptions (AC-001, recorded per the inventory requirement)
 
@@ -128,8 +164,9 @@ character archive downloads) cost nothing and are not listed.
 | 19 | `animate_character` v3 | masculine-dark walk: north, north-west, west, south-west | 8 | 91 |
 | 20 | `animate_character` v3 | masculine-dark south re-roll (8 px body drop) | 2 | 93 |
 | 21 | `animate_character` v3 | masculine-light south re-roll (10 px loop seam) | 2 | 95 |
+| 22 | `animate_character` v3, interpolation | masculine-dark south, `end_frame_url` set to the standing pose, to close the loop seam (rejected: see below) | 2 | 97 |
 
-**Printed total: 95.** Of that, 21 went on masculine-dark's belt book across the two inpaints and the rebuild,
+**Printed total: 97.** Of that, 21 went on masculine-dark's belt book across the two inpaints and the rebuild,
 and 8 on the four single-direction defect re-rolls.
 
 ## Spend
@@ -137,12 +174,13 @@ and 8 on the four single-direction defect re-rolls.
 | Measure | Value |
 |---|---|
 | `get_balance` before the first call | 4669 remaining, 331 used |
-| `get_balance` after the last call, queue empty | 4539 remaining, 461 used |
-| **Measured spend for the run** | **130 generations** |
-| Sum of the per-call costs the tools printed (see the call log) | 95 |
+| `get_balance` after the last call, queue empty | 4537 remaining, 463 used |
+| Derivation | 463 - 331 = **132**; earlier statements of 130/93, 130/95 and 133/97 were hand-arithmetic slips |
+| **Measured spend for the run** | **132 generations** (463 - 331, from the two recorded readings) |
+| Sum of the per-call costs the tools printed (see the call log) | 97 |
 | Cap | NSC-095 rev 3: **200**, counted from this call log with the balance readings beside it. Vincent raised it in steps: "raise it 40" (140, the number this run worked to), then 150, then "Then it needs more like 200". AC-001's guard is stop-and-ask, which triggered once at 96 |
 
-**The printed costs under-report.** The meter moved 130 against 95 printed, about 37% more, over this run, and the meter also
+**The printed costs under-report.** The meter moved 132 against 97 printed, about 36% more, over this run, and the meter also
 lags behind completed jobs, so a number only counts with the queue empty. The per-tool split of the difference is
 not established and no per-call price should be quoted from this run.
 
