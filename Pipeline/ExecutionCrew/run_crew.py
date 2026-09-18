@@ -1901,10 +1901,25 @@ def construct_real_provider(provider_name: str, repository_root: Path, writable:
 
 # Per-role invocation budgets. The implementer under the full profile edits
 # authored Unity assets and scenes (tens of thousands of YAML lines), which the
-# 32-turn default cannot finish: NSC-042 died on max_turns twice. Operators may
-# override any role with NSC_<ROLE>_TURN_LIMIT / NSC_<ROLE>_TIMEOUT_SECONDS.
+# 32-turn default cannot finish: NSC-042 died on max_turns twice. The full-profile
+# test author gets the same room for the same reason: NSC-007 asked it for two full
+# suites and it died on the wall at 1200.4s.
+#
+# These have to be defaults rather than operator settings. `role_budgets` reads
+# NSC_<ROLE>_TURN_LIMIT / NSC_<ROLE>_TIMEOUT_SECONDS *inside the container*, and
+# compose's crew services declare a fixed `environment:` block with no NSC_*
+# passthrough, so a host-side override never crosses the boundary. The override
+# still works for a run started inside the container, and a run record then
+# explains its own limits, which a host-inherited value would not.
+#
+# Deliberately full-profile only, matching the implementer: a standard-profile
+# test author keeps the default. If a standard run starts dying on the wall, raise
+# it here rather than reaching for the environment.
 DEFAULT_ROLE_BUDGET = (32, 1200.0)
-ROLE_BUDGET_DEFAULTS = {("implementer", "full"): (96, 3600.0)}
+ROLE_BUDGET_DEFAULTS = {
+    ("implementer", "full"): (96, 3600.0),
+    ("test_author", "full"): (96, 3600.0),
+}
 
 
 def role_budgets(role: str, crew_profile: str | None) -> Budgets:

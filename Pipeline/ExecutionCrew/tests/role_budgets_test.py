@@ -1,4 +1,4 @@
-"""Crew role budgets: the full-profile implementer gets room to edit authored assets."""
+"""Crew role budgets: the full-profile writers get room; everything else keeps the default."""
 import os
 import sys
 import unittest
@@ -14,16 +14,27 @@ from Pipeline.ExecutionCrew.run_crew import role_budgets  # noqa: E402
 
 
 class RoleBudgetTests(unittest.TestCase):
-    def test_full_profile_implementer_gets_the_large_budget(self):
-        with patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("NSC_IMPLEMENTER_TURN_LIMIT", None)
-            os.environ.pop("NSC_IMPLEMENTER_TIMEOUT_SECONDS", None)
-            budget = role_budgets("implementer", "full")
-        self.assertEqual((budget.turn_limit, budget.timeout_seconds), (96, 3600.0))
-        self.assertEqual((role_budgets("implementer", None).turn_limit), 96, "no profile means full")
+    def test_full_profile_writers_get_the_large_budget(self):
+        """Both writing roles, pinned together.
+
+        The implementer was raised after NSC-042 died on max_turns twice; the test author
+        after NSC-007 died on the 1200s wall writing two full suites. The environment
+        override cannot substitute for either: compose's crew services declare a fixed
+        environment block, so a host value never reaches the container.
+        """
+
+        for role in ("implementer", "test_author"):
+            with self.subTest(role=role):
+                with patch.dict(os.environ, {}, clear=False):
+                    os.environ.pop(f"NSC_{role.upper()}_TURN_LIMIT", None)
+                    os.environ.pop(f"NSC_{role.upper()}_TIMEOUT_SECONDS", None)
+                    budget = role_budgets(role, "full")
+                self.assertEqual((budget.turn_limit, budget.timeout_seconds), (96, 3600.0))
+                self.assertEqual(role_budgets(role, None).turn_limit, 96, "no profile means full")
 
     def test_other_roles_and_profiles_keep_the_default(self):
-        for role, profile in (("implementer", "lean"), ("validator", "full"), ("test_author", "full")):
+        # The standard-profile test author is deliberately not raised; only the full profile is.
+        for role, profile in (("implementer", "lean"), ("validator", "full"), ("test_author", "standard")):
             with patch.dict(os.environ, {}, clear=False):
                 os.environ.pop(f"NSC_{role.upper()}_TURN_LIMIT", None)
                 budget = role_budgets(role, profile)
