@@ -25,6 +25,7 @@ from Pipeline.AssistantControl.admission import (
     _source_registry_paths,
     require_reservation,
 )
+from Pipeline.AssistantControl.worker_state import is_finished_launch
 from Pipeline.AssistantControl.checkouts import Checkouts, write_record
 from Pipeline.AssistantControl.process_identity import identify
 from Pipeline.TaskReviewAgent.execution_session_pool import _exclusive_file_lock
@@ -110,10 +111,19 @@ def _archive_previous_attempt(record: dict[str, Any], *, task_id: str,
                 and active.get("before_ready") is True)
         )
     )
-    if active.get("status") not in {"failed", "stopped"} and not settled_spawn_failure:
-        raise WorkerLauncherError("live, unsettled, or succeeded worker replacement refused")
-    if active.get("capacity_released") is not True:
-        raise WorkerLauncherError("worker replacement requires released capacity")
+    # When the worker entry is gone -- archived by `retire-worker` -- the launcher record is
+    # all that is left, and it keeps whatever status the launcher wrote, so it can never
+    # settle itself. If the record proves that run ended, by carrying a finished worker with
+    # the same run id in `worker` or `worker_history`, the launch is history too and refusing
+    # on its stale status blocks every re-dispatch after a cancelled run. `prepared_refresh`
+    # makes exactly this judgement with the same helper; the two gates must not disagree
+    # about one record.
+    finished_launch = active is launch and is_finished_launch(record, active)
+    if not finished_launch:
+        if active.get("status") not in {"failed", "stopped"} and not settled_spawn_failure:
+            raise WorkerLauncherError("live, unsettled, or succeeded worker replacement refused")
+        if active.get("capacity_released") is not True:
+            raise WorkerLauncherError("worker replacement requires released capacity")
     history = record.get("worker_history", [])
     if not isinstance(history, list):
         raise WorkerLauncherError("owned worker history is malformed")
