@@ -79,6 +79,21 @@ jobs:
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
 
+      - name: Run ExecutionCrew coverage checks
+        shell: pwsh
+        run: |
+          $tests = @(
+            "Pipeline/ExecutionCrew/tests/crew_provider_session_smoke_test.py",
+            "Pipeline/ExecutionCrew/tests/prompt_blocker_policy_smoke_test.py",
+            "Pipeline/ExecutionCrew/tests/retry_sidecar_refresh_test.py",
+            "Pipeline/ExecutionCrew/tests/role_budgets_test.py",
+            "Pipeline/ExecutionCrew/tests/unity_meta_bytes_test.py"
+          )
+          foreach ($test in $tests) {
+            python $test
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+
       - name: Run Codex provider boundary checks
         shell: pwsh
         run: |
