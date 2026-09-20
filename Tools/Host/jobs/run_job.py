@@ -25,6 +25,11 @@ import sys
 import time
 from pathlib import Path
 
+# nsc_paths sits one directory up in both layouts: <repo>/Tools/Host for the
+# tracked copy, <workspace>/tools for a deployment.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+import nsc_paths  # noqa: E402
+
 # --------------------------------------------------------------------------
 # Paths and environment overrides.
 #
@@ -53,12 +58,18 @@ def _override(name: str, default: str) -> str:
     return value
 
 
-NSCREV = Path(_override("NSC_RUN_JOB_NSCREV", r"C:\nscrev"))
+# Resolved, not spelled. nsc_paths derives workspace and canonical from where
+# these tools are installed and refuses to read them from the environment, for
+# the reason the comment above gives: they are what the guards below protect.
+# Deploying the tools under a different root moves the guards with them.
+NSCREV = Path(_override("NSC_RUN_JOB_NSCREV", str(nsc_paths.work())))
 JOBS_DIR = Path(_override("NSC_RUN_JOB_JOBS_DIR", str(NSCREV / "claude-jobs")))
 TELEMETRY = Path(_override("NSC_RUN_JOB_TELEMETRY", str(JOBS_DIR / "jobs.jsonl")))
-GUIDE = Path(_override("NSC_RUN_JOB_GUIDE", r"C:\NSC\nsc-codex-jobs-guide.md"))
-CANONICAL = Path(_override("NSC_RUN_JOB_CANONICAL", r"C:\NSC\NSC\NoSafeCircle"))
-FORBIDDEN_ROOT = Path(_override("NSC_RUN_JOB_FORBIDDEN_ROOT", r"C:\NSC"))
+GUIDE = Path(_override("NSC_RUN_JOB_GUIDE",
+                       str(nsc_paths.workspace() / "nsc-codex-jobs-guide.md")))
+CANONICAL = Path(_override("NSC_RUN_JOB_CANONICAL", str(nsc_paths.canonical())))
+FORBIDDEN_ROOT = Path(_override("NSC_RUN_JOB_FORBIDDEN_ROOT",
+                                str(nsc_paths.workspace())))
 COMPOSE_PROJECT = _override("NSC_RUN_JOB_COMPOSE_PROJECT", "nosafecircle")
 
 # Model ids, verified against `claude --help` ("--model <model> ... or a
