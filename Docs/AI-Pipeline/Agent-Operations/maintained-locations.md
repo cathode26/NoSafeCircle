@@ -62,6 +62,41 @@ cleanup targets, and the tracked copy is still the source of record for editing.
 deploy. A deployed copy that has drifted from its source is a defect, not a second master — and
 these two were hash-identical when recorded on 2026-09-20, which is the state to keep.
 
+## Checking for drift, until there is a tool for it
+
+A generated source-to-deployment map is designed and owned by the Pipeline Maintainer. **Until it
+exists, this is the manual check** — compare each tracked file against its deployed copy by hash,
+ignoring line endings:
+
+```bash
+R=C:/NSC/NSC/NoSafeCircle; fam=astra; dep=C:/NSC/tools/astra
+while IFS= read -r p; do
+  live="$dep/${p#Tools/Host/$fam/}"
+  [ -f "$live" ] || { echo "no deployed copy: $p"; continue; }
+  t=$(git -C "$R" show "main:$p" | tr -d '\r' | sha256sum | cut -c1-16)
+  l=$(tr -d '\r' < "$live" | sha256sum | cut -c1-16)
+  [ "$t" = "$l" ] || echo "DRIFT $p  tracked=$t deployed=$l"
+done < <(git -C "$R" ls-tree -r --name-only main -- "Tools/Host/$fam")
+```
+
+**Take the deployed root from the table in `Tools/Host/README.md`, not from the family name.**
+`jobs/templates/` deploys to `C:/nscrev/claude-jobs/templates/`, not under `C:/NSC/tools/jobs/`;
+pointing the check at the wrong root reported six false drifts on 2026-09-20 before the table was
+consulted.
+
+**Three outcomes, and conflating them is what makes a drift check noisy:**
+
+| Outcome | Meaning | Action |
+|---|---|---|
+| Hashes differ | **Real drift.** Someone edited one side only | Reconcile, then edit the tracked source from now on |
+| No deployed copy | Either **authored in the repo** (a README with no deployment) or a **deliberately retired** deployment, e.g. `main_write.py.removed-20260920` | Usually nothing. Confirm which before acting |
+| Hashes match | In step | Nothing |
+
+**Found by this check on the day it was written:** `Tools/Host/astra/README.md` was tracked as
+*"the live smoke test has not been run"* while its deployed copy recorded the round trip passing on
+2026-09-20. **The source of record was the stale one.** Reconciled in the same commit — which is the
+whole point: drift is silent, cheap to find, and it always looks like nobody's fault.
+
 ## What is a receipt and what is an index
 
 `Tools/Host/source-map.json` is a **receipt of one import run**, not a living source/deployment map:

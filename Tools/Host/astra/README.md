@@ -104,12 +104,18 @@ because the first run of the suite was green on the first try, which is when to 
 rather than trust them — and it immediately found one test that asserted the right outcome for the
 wrong reason.
 
-## Still owed
+## Live smoke — passed
 
-**The live smoke test has not been run**: `init`, then `ask --from "Pipeline Maintainer Agent"
---question "Reply with exactly OK"`, plus a check that Astra can read a `C:\NSC\*.md` file from the
-read-only sandbox. It needs Codex quota, which returns **2026-09-19**. Until that passes, treat
-the argv as verified and the round trip as unverified.
+**2026-09-20, Pipeline Maintainer Agent.** The round trip works. `init`, then `ask --from
+"Pipeline Maintainer Agent"` returned the exact requested string with exit 0, and Astra read a
+`C:\NSC\*.md` file verbatim from the read-only sandbox. Re-verified the same day from both the
+real path `C:\NSC\tools\astra\` and the junction `C:\nscrev\astra\`, after the tools were
+committed under `Tools/Host/`. Evidence: `C:\nscrev\reports\tool-verification-20260920.md`.
+
+**Known remaining bug, a false red:** the tool crashes while *printing* an answer containing
+non-cp1252 characters and exits non-zero after having succeeded. The answer is safe on disk.
+
+**Still owed:** its first review. Nothing has reviewed this tool at all.
 
 ## Environment overrides
 
