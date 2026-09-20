@@ -85,6 +85,36 @@ _HISTORICAL_REFERENCE_ALLOWLIST = frozenset(
 # file, which then needs its own entry. That recursion is the reason for the rule.
 
 
+# Files inside an otherwise-archival tree that are deliberately mutable, so the
+# prefix exemption must not swallow them.
+#
+# d0bcba055 exempted the whole Historical-Context-Sessions tree on the premise that
+# it is "imported, immutable history by definition". That premise was wrong, and the
+# contradiction sat in the directory being exempted: its README says, under a heading
+# called "CURRENT_CONTEXT.md rules", that CURRENT_CONTEXT.md "is the only
+# intentionally mutable file in this directory", and its read order makes it the
+# FIRST file a continuing agent opens. A noncanonical scene reference there
+# misdirects live work; it is not archaeology. Found by the 2026-09-20 main-commit
+# review with a reproduction, and confirmed here before fixing.
+_MUTABLE_WITHIN_EXCLUDED = frozenset({
+    "Docs/AI-Pipeline/Historical-Context-Sessions/CURRENT_CONTEXT.md",
+})
+
+
+def _is_excluded_from_scene_checks(path: str) -> bool:
+    """True when a path is archival or generated, so not live project content.
+
+    Both callers go through this rather than testing the prefixes directly: the
+    tracked-.unity check does not use _is_live_text_path, so a carve-out applied in
+    one place only would leave the other half exempt - the same shape as the bug
+    d0bcba055 itself had to fix twice.
+    """
+    if path in _MUTABLE_WITHIN_EXCLUDED:
+        return False
+    return any(path.startswith(prefix)
+               for prefix in _IMMUTABLE_OR_GENERATED_PREFIXES)
+
+
 class ScenePathPolicyError(RuntimeError):
     pass
 
@@ -136,7 +166,7 @@ def _references(value: Any, location: str) -> Iterable[tuple[str, str]]:
 def _is_live_text_path(path: str) -> bool:
     if path.startswith("Tasks/"):
         return False
-    if any(path.startswith(prefix) for prefix in _IMMUTABLE_OR_GENERATED_PREFIXES):
+    if _is_excluded_from_scene_checks(path):
         return False
     if not (path.startswith(_LIVE_ROOTS) or "/" not in path):
         return False
@@ -157,7 +187,7 @@ def inspect_scene_path_policy(root: Path | str | None = None) -> dict[str, Any]:
         # captured scene build). It is not a live scene and must not be judged as one. This
         # check does NOT go through _is_live_text_path, so widening the prefix list alone
         # would have left this finding standing - NSC-069/scene-build2.unity did exactly that.
-        if any(path.startswith(prefix) for prefix in _IMMUTABLE_OR_GENERATED_PREFIXES):
+        if _is_excluded_from_scene_checks(path):
             continue
         if not path.startswith(CANONICAL_SCENE_ROOT):
             findings.append(
@@ -217,6 +247,7 @@ def inspect_scene_path_policy(root: Path | str | None = None) -> dict[str, Any]:
             for path, reference in sorted(_HISTORICAL_REFERENCE_ALLOWLIST)
         ],
         "excluded_historical_prefixes": list(_IMMUTABLE_OR_GENERATED_PREFIXES),
+        "still_checked_inside_excluded": sorted(_MUTABLE_WITHIN_EXCLUDED),
         "findings": findings,
         "status": "pass" if not findings else "fail",
     }

@@ -96,6 +96,48 @@ class TheGuardStillWorks(PolicyRepo):
         self.assertEqual(self.findings(), [])
 
 
+class TheMutableFileInsideHistoryIsStillLive(PolicyRepo):
+    """Main-Commit-Review 20260920-180652, finding 3, reproduced before fixing.
+
+    d0bcba055 exempted this whole tree as immutable. The tree's own README says
+    CURRENT_CONTEXT.md is deliberately mutable and is the first file a continuing
+    agent reads, so a stale scene path there misdirects live work rather than
+    recording history. The exemption belongs to archival material only.
+    """
+
+    def test_a_noncanonical_reference_in_current_context_IS_a_finding(self):
+        self.write(f"{HISTORY}/CURRENT_CONTEXT.md",
+                   f"Continue the door work in {STRAY_SCENE}." + chr(10))
+        self.commit()
+        self.assertEqual(len(self.findings()), 1, self.findings())
+
+    def test_its_archived_neighbours_are_still_exempt(self):
+        """The carve-out must not undo the fix it sits inside."""
+        self.write(f"{HISTORY}/reports/some-import/notes.md",
+                   f"Historically this lived at {STRAY_SCENE}." + chr(10))
+        self.write(f"{HISTORY}/raw/transcript.md",
+                   f"...and also {STRAY_SCENE}." + chr(10))
+        self.commit()
+        self.assertEqual(self.findings(), [])
+
+    def test_identical_bytes_judged_by_file_not_by_tree(self):
+        body = f"see {STRAY_SCENE}" + chr(10)
+        self.write(f"{HISTORY}/CURRENT_CONTEXT.md", body)
+        self.write(f"{HISTORY}/reports/archived-copy.md", body)
+        self.commit()
+        found = self.findings()
+        self.assertEqual(len(found), 1, found)
+        self.assertIn("CURRENT_CONTEXT.md", json.dumps(found))
+
+    def test_the_carve_out_is_reported_not_only_applied(self):
+        """A silent carve-out is how the original wrong premise survived review."""
+        self.write("Docs/an-ordinary-live-note.md", "no scene reference here")
+        self.commit()
+        report = inspect_scene_path_policy(self.repo)
+        self.assertIn(f"{HISTORY}/CURRENT_CONTEXT.md",
+                      report["still_checked_inside_excluded"])
+
+
 class ImportedHistoryIsNotLive(PolicyRepo):
     """The actual regression: the three shapes that broke main."""
 
