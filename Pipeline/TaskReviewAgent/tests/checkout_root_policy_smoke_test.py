@@ -28,8 +28,15 @@ CANONICAL_CHECKOUT_ROOT = Path(r"C:\NSC\NSC")
 
 # Historical artifacts record where past runs actually occurred; the
 # ReferenceProjects host root is governed by its own independent policy.
+# The whole Historical-Context-Sessions tree, not just raw/. The 2026-09-20
+# preservation import landed under .../reports/, and the six offenders are copies
+# of Pipeline/ArchitectureReview/outputs/ and Pipeline/ExecutionCrew/outputs/ files
+# that are ALREADY allowlisted at their original paths - the same bytes judged
+# differently by which folder they sit in. Identical defect to the one that broke
+# taskcontrol validate; this file carried the same stale string and was missed
+# because that fix did not grep for it.
 ALLOWED_PATH_PREFIXES = (
-    "Docs/AI-Pipeline/Historical-Context-Sessions/raw/",
+    "Docs/AI-Pipeline/Historical-Context-Sessions/",
     "Pipeline/TaskGraph/evidence/",
     "Pipeline/ArchitectureReview/outputs/",
     "Pipeline/Reconciliation/outputs/",
@@ -46,7 +53,19 @@ def require(value: bool, message: str) -> None:
         raise AssertionError(message)
 
 
+# Deliberately mutable files inside an otherwise-archival tree. That tree's README
+# says CURRENT_CONTEXT.md "is the only intentionally mutable file in this
+# directory" and makes it the first file a continuing agent reads, so an obsolete
+# checkout root named there is live misdirection, not archaeology. Kept in step
+# with _MUTABLE_WITHIN_EXCLUDED in Pipeline/TaskGraph/scene_path_policy.py.
+STILL_CHECKED_INSIDE_ALLOWED = (
+    "Docs/AI-Pipeline/Historical-Context-Sessions/CURRENT_CONTEXT.md",
+)
+
+
 def _is_allowed(path: str) -> bool:
+    if path in STILL_CHECKED_INSIDE_ALLOWED:
+        return False
     if path in ALLOWED_EXACT_PATHS:
         return True
     return any(path.startswith(prefix) for prefix in ALLOWED_PATH_PREFIXES)

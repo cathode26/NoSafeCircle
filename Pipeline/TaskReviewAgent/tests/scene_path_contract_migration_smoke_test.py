@@ -90,10 +90,18 @@ def test_historical_raw_context_is_not_live_scene_authority() -> None:
             "immutable raw historical context was treated as live authority",
         )
 
+        # Assert the PROPERTY, not the spelling. This used to require that exact
+        # string be present, so widening the prefix to cover the whole tree - which
+        # is what fixed taskcontrol validate - turned this red. A test pinned to a
+        # constant fails when the constant legitimately changes while the behaviour
+        # it cares about still holds. Narrowing the exclusion back still fails here.
+        raw_prefix = "Docs/AI-Pipeline/Historical-Context-Sessions/raw/"
         require(
-            "Docs/AI-Pipeline/Historical-Context-Sessions/raw/"
-            in raw_result["excluded_historical_prefixes"],
-            "raw historical context prefix was not reported as excluded",
+            any(raw_prefix.startswith(excluded)
+                for excluded in raw_result["excluded_historical_prefixes"]),
+            "raw historical context is not covered by any excluded prefix; "
+            "reported: "
+            + ", ".join(sorted(raw_result["excluded_historical_prefixes"])),
         )
 
         live_path = (
