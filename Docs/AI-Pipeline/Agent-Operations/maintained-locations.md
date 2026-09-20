@@ -46,6 +46,22 @@ destination for it under row 3 of the table.
 moves here, the loose copy becomes a deployment that names its source and revision — not a second
 place to edit. If you find yourself editing both, one of them is wrong and it is usually the loose one.
 
+## Required runtime locations (recorded, not accidents)
+
+The audit's choice was: change the callers, **or** explicitly retain the old paths as required
+runtime locations. **These are recorded as required.** They must keep existing, they are not
+cleanup targets, and the tracked copy is still the source of record for editing.
+
+| Path | Why it is required | Source of record |
+|---|---|---|
+| `C:/nscrev/codex-jobs/` | The closure-review runners resolve job clones, prompts and logs beneath it, and `make_closure_prompt.py` writes beside itself — so the tracked generator and runner would disagree about where the prompt goes if run from the repo | `Tools/Host/codex-jobs/` |
+| `C:/nscrev/ger-tools/` (junction) | `validate_in_memory.py` still resolves helpers through it | `Tools/Host/ger-contract-revisions-20260916/` |
+| `C:/NSC/tools/<family>/` | Every deployed host tool runs from here; six junctions under `C:/nscrev` point into it | `Tools/Host/<family>/` |
+
+**Recording a path as required is not approval to keep editing it.** Edit the tracked source, then
+deploy. A deployed copy that has drifted from its source is a defect, not a second master — and
+these two were hash-identical when recorded on 2026-09-20, which is the state to keep.
+
 ## What is a receipt and what is an index
 
 `Tools/Host/source-map.json` is a **receipt of one import run**, not a living source/deployment map:
