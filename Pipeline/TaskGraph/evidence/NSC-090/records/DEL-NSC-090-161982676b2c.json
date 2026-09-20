@@ -1,0 +1,61 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "2d5c8a1dc5d4bba469fb158b27967717309e5b7ad6f8ab4a38fbbd05ad583c9f"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "b72539024b592a8c34f2937eb664bb6b80195c59",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/World/DoorEnemyPassability.cs",
+      "role": "Runtime component under test: owns one NavMeshObstacle sized to the doorway and carves or releases it from the baked walkable NavMesh according to the semantic door state"
+    },
+    {
+      "blob_sha": "a2535cf6134144beae4b0712d40ea36fd4d92584",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/DoorEnemyPassabilityPlayModeTests.cs",
+      "role": "The PlayMode fixture the committed validation policy names for this task"
+    }
+  ],
+  "delivery": {
+    "base_commit": "4047a43359d1a4c0c61e73b514f6330ab79a3f8b",
+    "candidate_commit": "161982676b2cafbfd48c9aae1eba9d92e9fec55f",
+    "integrated_commit": "161982676b2cafbfd48c9aae1eba9d92e9fec55f",
+    "integrated_tree": "c83562cf735d1d7a4d6828bd880ee0f72c21c8ff"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "60af41b55f6697ffaaa78192d756cf36e44d3eb6",
+          "path": "Pipeline/TaskGraph/evidence/NSC-090/artifacts/Unity-PlayMode-01-161982676b2c.xml"
+        },
+        {
+          "blob_sha": "2571327f86a490439a2ca44713997580cf60ba02",
+          "path": "Pipeline/TaskGraph/evidence/NSC-090/artifacts/Unity-PlayMode-01-161982676b2c.log"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "Authoritative PlayMode run at the validated commit through run_unity_tests_clean.ps1: 5 tests, 5 passed, 0 failed, 0 skipped, runner exit 0, final line VALIDATION PASSED. Counts read from test-results.xml, not from the console summary. All 5 cases report their declaring type as NoSafeCircle.DoorPrototype.Tests.DoorEnemyPassabilityPlayModeTests, the type the committed policy names; it is a public sealed, non-partial class, so the filter cannot silently select a subset. The bound manifest records commit and post_commit both 161982676b2cafbfd48c9aae1eba9d92e9fec55f and tree and post_tree both c83562cf735d1d7a4d6828bd880ee0f72c21c8ff, clean before and after: the run mutated nothing.\n\nThe gate asks for all four semantic states, and all four are covered by name: SetDoorState_Sealed_BlocksCompletePath and SetDoorState_Locked_BlocksCompletePath prove sealed and locked prevent a complete path through the opening; SetDoorState_Open_AllowsCompletePath and SetDoorState_Broken_AllowsCompletePath prove open and broken allow one. SetDoorState_AcrossAllFourStatesInSequence_MatchesEachExpectedPassability additionally walks all four in sequence on one doorway, which is what shows the obstacle is released and re-carved rather than only being correct on first application. The fixture builds its own NavMesh floor, doorway and GameplayNavigationSurface from temporary scene objects; the manifest's clean-before/clean-after pair is the evidence that Assets/Scenes/DoorPrototype.unity was not saved or modified, as the gate requires.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "",
+    "decision": "not_required",
+    "notes": "NSC-090 has exactly one completion gate, VAL-001, and it is an automated PlayMode gate; the contract contains no human gate, so no human approval is claimed. Delivery evidence recorded by the Game Agent (Integration Steward) on 2026-09-18 at 161982676b2cafbfd48c9aae1eba9d92e9fec55f, which is where Unity actually ran - the tip of the evidence branch that also carries the NSC-089 and NSC-091 records, and which differs from canonical main 2559514826e9 only by files under Pipeline/TaskGraph/evidence/. That is not the historical integration commit: the implementation landed earlier in c5b40974b and 68eb0d0ca (\"Disable open door NavMesh obstacle for physical traversal\"), and main has moved since. record_delivery requires HEAD == validated_commit, so binding a historical commit would produce an evidence commit that could never fast-forward main. This record pays evidence debt on merged work; it does not claim the work landed today. Noted for the record because the wording invites a wrong reading: c5b40974b's subject calls the implementation \"provisional\", but nothing in the committed DoorEnemyPassability.cs or its fixture is marked provisional today - the file carries full AC-001/AC-002 citations - so the word describes that commit's moment, not the validated state. Door art, door interaction wiring and per-door obstacle sizing belong to NSC-051, NSC-097 and the door tasks, and are not claimed.",
+    "required": false
+  },
+  "record_id": "DEL-NSC-090-161982676b2c",
+  "record_type": "delivery",
+  "recorded_at": "2026-09-18T11:42:31Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-090.yaml",
+    "revision": 2,
+    "sha256": "6104b14dd4f72c405accb378f7d94d51b6385f69305556d6d425af40e797d6f0"
+  },
+  "task_id": "NSC-090",
+  "validated_state": {
+    "commit": "161982676b2cafbfd48c9aae1eba9d92e9fec55f",
+    "tree": "c83562cf735d1d7a4d6828bd880ee0f72c21c8ff"
+  }
+}
