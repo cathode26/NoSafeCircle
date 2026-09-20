@@ -900,7 +900,7 @@ class TestAccountGuard(Base):
 
 
 class ReviewCloneGuardSpellings(Base):
-    """The clone guard compared strings, so other spellings of the same
+    r"""The clone guard compared strings, so other spellings of the same
     directory walked straight past it. `resolve()` keeps the `\\?\` and UNC
     prefixes, `relative_to` raises ValueError, and `is_under` returned False."""
 

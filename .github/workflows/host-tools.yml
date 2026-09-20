@@ -1,0 +1,66 @@
+name: Host Tools
+
+# The host tool suites under Tools/Host had no CI at all until 2026-09-20: no
+# workflow referenced that tree, so 330 tests ran only when somebody remembered
+# to run them by hand. Thirty-eight of them could not be run by hand correctly
+# either - the ArtReview suites need their package root importable and fail on
+# ModuleNotFoundError otherwise, which an earlier pass misread as passing.
+#
+# run_tool_tests.py owns how each suite is invoked and refuses to call a suite
+# green unless it printed a `Ran N tests` line, exited 0, and N > 0. That is the
+# whole point: a suite that runs nothing must fail here rather than report a
+# green.
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/host-tools.yml"
+      - "Tools/Host/**"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/host-tools.yml"
+      - "Tools/Host/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  host-tool-suites:
+    name: Host tool suites
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out the exact commit
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Compile the host tools
+        run: python -m compileall -q Tools/Host
+
+      # No pytest: this machine class does not have it and the suites are plain
+      # unittest. Installing it would hide that they must stay runnable with the
+      # interpreter alone, which is what the F: validation checkout gets.
+      - name: Run every host tool suite
+        run: python -B Tools/Host/run_tool_tests.py
+
+      # The suites must not depend on this runner's drive letters. Any absolute
+      # C:/ or F:/ path they leave behind in fixtures is a relocation bug, and
+      # a Linux-style path would mean a fixture escaped the temp directory.
+      - name: Fail if a suite wrote outside the temp directory
+        shell: pwsh
+        run: |
+          $stray = Get-ChildItem -Path $env:GITHUB_WORKSPACE -Recurse -Force `
+            -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -match 'nsc-run-job-tests|run-job\\tests' }
+          if ($stray) {
+            Write-Host "Test fixtures landed inside the checkout:"
+            $stray | ForEach-Object { Write-Host "  $($_.FullName)" }
+            exit 1
+          }
+          Write-Host "No fixtures inside the checkout."
