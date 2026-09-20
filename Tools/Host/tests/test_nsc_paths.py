@@ -58,10 +58,10 @@ class TheEnvironmentAlwaysWins(Base):
         self.assertEqual(nsc_paths.work().path, Path(r"F:\NSC\ValidationRuns"))
 
     def test_it_beats_a_derivation_that_would_have_worked(self):
-        # Without the variable this derives canonical from the tracked layout.
+        # Without the variable containing_repo derives from the tracked layout.
         repo = self.tmp / "repo"
         self.at("repo", "Tools", "Host")
-        self.assertEqual(nsc_paths.canonical().path, repo)
+        self.assertEqual(nsc_paths.containing_repo().path, repo)
         os.environ["NSC_CANONICAL"] = r"F:\elsewhere"
         self.assertEqual(nsc_paths.canonical().path, Path(r"F:\elsewhere"))
 
@@ -84,7 +84,7 @@ class DerivingFromWhereTheFileIs(Base):
     def test_tracked_copy_derives_the_repo_it_lives_in(self):
         repo = self.tmp / "checkout"
         self.at("checkout", "Tools", "Host")
-        root = nsc_paths.canonical()
+        root = nsc_paths.containing_repo()
         self.assertEqual(root.path, repo)
         self.assertIn("tracked", root.how)
 
@@ -138,6 +138,30 @@ class CanonicalTriesBothKnownLayouts(Base):
         self._deployed_under(["NSC"])
         root = nsc_paths.canonical()
         self.assertIn("does not exist", root.how)
+
+
+class CanonicalIsNotTheRepoYouLiveIn(Base):
+    """The footgun this split exists to remove."""
+
+    def test_running_from_a_clone_does_not_make_that_clone_canonical(self):
+        # run_job.py clones job clones FROM canonical. If canonical derived
+        # from the tracked location, a tool running inside a clone would make
+        # that clone its own source.
+        home = self.tmp / "NSC"
+        (home / "NSC" / "NoSafeCircle").mkdir(parents=True)
+        os.environ["NSC_HOME"] = str(home)
+        self.at("some-job-clone", "Tools", "Host")
+        self.assertEqual(nsc_paths.canonical().path,
+                         home / "NSC" / "NoSafeCircle")
+
+    def test_containing_repo_still_answers_the_other_question(self):
+        clone = self.tmp / "some-job-clone"
+        self.at("some-job-clone", "Tools", "Host")
+        self.assertEqual(nsc_paths.containing_repo().path, clone)
+
+    def test_containing_repo_is_none_for_a_deployed_copy(self):
+        self.at("NSC", "tools")
+        self.assertIsNone(nsc_paths.containing_repo())
 
 
 class WorkIsNeverDerived(Base):

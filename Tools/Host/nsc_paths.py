@@ -16,12 +16,14 @@ another:
 
 On this machine they are C:/NSC, C:/NSC/NSC/NoSafeCircle and C:/nscrev.
 `work` is a SIBLING of `workspace` with an unrelated name, so no amount of
-walking up from __file__ finds it; it has to be told. `canonical` usually can be
-derived, but not always - the F: validation checkout is F:/NSC/NoSafeCircle,
-with no doubled NSC - so derivation is a default, never an assumption.
+walking up from __file__ finds it; it has to be told. `canonical` is searched
+for under the workspace rather than derived from this file, because a tool
+running inside a job clone still needs the REAL checkout - that clone is not it.
+containing_repo() answers the other question, "which repository is this file
+part of", and the two are not interchangeable.
 
-Resolution order for each root: an explicit environment variable, then a
-derivation from this file's own location, then the documented default.
+Resolution order: an explicit environment variable first, then whatever that
+root can honestly work out for itself, then the documented default.
 
 **This is deployment configuration, not a test hook.** run_job.py's existing
 NSC_RUN_JOB_* overrides are ignored unless NSC_RUN_JOB_TESTING=1, which is
@@ -39,7 +41,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-__all__ = ["workspace", "canonical", "work", "describe", "require", "Root"]
+__all__ = ["workspace", "canonical", "work", "containing_repo", "describe",
+           "require", "Root"]
 
 # The documented defaults: this machine, so nothing changes until someone sets
 # the environment. Recorded in Tools/Host/README.md's deployment table.
@@ -110,21 +113,22 @@ def workspace() -> Root:
 
 
 def canonical() -> Root:
-    """The git checkout.
+    """The installation's canonical git checkout.
 
-    Derived from the tracked location when this file is running out of the
-    repository, because that is unambiguous. Otherwise the two known layouts
-    are tried in order - <workspace>/NSC/NoSafeCircle on this machine, and
-    <workspace>/NoSafeCircle, which is what the F: validation checkout uses -
-    and the first that exists wins. If neither exists the machine's layout is
-    returned so the error names a real path instead of guessing.
+    Deliberately NOT derived from this file's own location. run_job.py uses
+    this as the source that job clones are cloned FROM, so when it runs out
+    of a clone it still needs the real canonical checkout - "the repo I happen
+    to live in" would quietly make a clone its own source. Use
+    containing_repo() when you do want the repository this file belongs to.
+
+    The two known layouts are tried in order: <workspace>/NSC/NoSafeCircle on
+    this machine, and <workspace>/NoSafeCircle, which the F: validation
+    checkout uses. If neither exists the machine's layout is returned so the
+    error names a real path instead of guessing.
     """
     found = _from_env("NSC_CANONICAL")
     if found is not None:
         return found
-    tracked = _tracked_repo_root()
-    if tracked is not None:
-        return Root(tracked, "derived from this file's tracked location")
     home = workspace().path
     doubled, flat = home / "NSC" / "NoSafeCircle", home / "NoSafeCircle"
     if doubled.exists():
@@ -132,6 +136,21 @@ def canonical() -> Root:
     if flat.exists():
         return Root(flat, "found under the workspace")
     return Root(doubled, "assumed under the workspace - does not exist")
+
+
+def containing_repo() -> Root | None:
+    """The repository this file is part of, or None when it is deployed.
+
+    The tracked copy lives at <repo>/Tools/Host/nsc_paths.py; a deployed copy
+    lives outside any checkout. For a tool that operates on its own repository
+    - a linter, a test runner - this is the right root, and canonical() is
+    not. Returns None rather than guessing, so a caller has to decide what to
+    do when there is no containing repository.
+    """
+    tracked = _tracked_repo_root()
+    if tracked is None:
+        return None
+    return Root(tracked, "derived from this file's tracked location")
 
 
 def work() -> Root:
