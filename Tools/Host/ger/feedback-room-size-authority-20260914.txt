@@ -1,0 +1,7 @@
+Vincent's design direction for this GER cycle (2026-09-14), recorded in the GDD blockout section 13 "Room size authority":
+
+1. Room size is not a hard size. Each room may grow up to three times its current width and three times its current depth (Ruined Entry's 20 x 18 baseline may grow to at most 60 x 54 world units). Choose the size that best serves the room; do not grow it without a reason.
+2. Door opening widths, route and lane widths, aisle widths, circulation clearances and staging areas stay minimums. Room proportions, obstacle and furniture footprints, and their placement are yours to propose.
+3. Use the Diablo and Ultima Online reference images we supplied (Docs/Art/Environment/References R01-R17 and its README) and the dungeon art direction to shape the room's visuals and composition.
+4. Think about cover and positioning for a wizard: breaking line of sight from ranged enemies, room to charge Fireball, lanes for Frost Field, space for Force Wave, circling and escape routes, and holding a door for five seconds. Cover blocks shots but does not make enemies forget the wizard.
+5. Keep each room's tactical purpose, one continuous floor with doors D1 to D5 in order, and D5 as the final door. Room-size and door-center changes must be reconciled through NSC-049.

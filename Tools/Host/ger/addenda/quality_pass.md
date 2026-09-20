@@ -1,0 +1,12 @@
+Previously delivered gameplay and feedback quality pass (NSC-012 Enemy Health and Defeat, NSC-041 door hover and selection feedback, NSC-020 doorway crossing state, NSC-003 mouse-directed movement, NSC-005 Player Mana, NSC-004 Player Health):
+- These tasks have past implementation and delivery evidence on main. NSC-012 currently derives conformant; the others derive needs_testing or needs_replan. The hold asks whether polish, a revised contract, or only fresh validation is warranted.
+- Establish the current state first:
+  - the delivered classes, prefabs, scene wiring and tests in the snapshot, citing file:line;
+  - the task's history in Tasks/;
+  - why TaskGraph derives its current state, citing the rule in Pipeline/TaskGraph.
+- Judge quality from the wizard player's side at gameplay-camera scale, against the GDD and the current contract: responsiveness, readability of feedback, restart behavior, and edge cases a playtest would hit.
+- Recommend the smallest change that fixes a real, cited gap. Do not re-open delivered behavior without a cited defect or design reason. Never propose deleting delivered code, tests or evidence as cleanup.
+- Before proposing any contract revision, check in Pipeline/TaskGraph how a contract revision change affects this task's recorded delivery evidence and derived state.
+- No-change outcome (this category only; it overrides the revision-increment instruction):
+  - If the current contract is already right and only fresh validation is needed, the author writes NO CONTRACT CHANGE in the proposed-contract section and reproduces the current contract unchanged, with the same contract_revision.
+  - The re-auditor may then give the final recommendation release_without_change, naming the completion gates to revalidate.

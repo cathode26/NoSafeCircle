@@ -1,0 +1,67 @@
+diff --git a/Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs b/Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs
+index eff7f3e10b801b68e0da11e9a3711afc05475e85..786c2311e107e134c7e64265aff5b12fc24a1da6 100644
+--- a/Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs
++++ b/Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs
+@@ -12,11 +12,16 @@ namespace NoSafeCircle.DoorPrototype
+         [SerializeField] private float deniedFlashDuration = 0.25f;
+ 
+         private float deniedFlashTimeRemaining;
++        private Image deniedFeedbackOverlay;
+ 
+         private void OnEnable()
+         {
+             if (mana != null) mana.CastDenied += HandleCastDenied;
+-            if (fillImage != null) normalColor = fillImage.color;
++            if (fillImage != null)
++            {
++                normalColor = fillImage.color;
++                EnsureDeniedFeedbackOverlay();
++            }
+         }
+ 
+         private void OnDisable()
+@@ -33,7 +38,15 @@ namespace NoSafeCircle.DoorPrototype
+             if (deniedFlashTimeRemaining > 0f)
+             {
+                 deniedFlashTimeRemaining -= Time.deltaTime;
+-                fillImage.color = deniedFlashTimeRemaining > 0f ? deniedColor : normalColor;
++                var flashing = deniedFlashTimeRemaining > 0f;
++                fillImage.color = flashing ? deniedColor : normalColor;
++
++                if (deniedFeedbackOverlay != null)
++                {
++                    deniedFeedbackOverlay.color = flashing
++                        ? deniedColor
++                        : new Color(deniedColor.r, deniedColor.g, deniedColor.b, 0f);
++                }
+             }
+         }
+ 
+@@ -43,5 +56,27 @@ namespace NoSafeCircle.DoorPrototype
+         {
+             deniedFlashTimeRemaining = deniedFlashDuration;
+         }
++
++        /// Creates a full-rect overlay stretched over fillImage so denied-cast feedback
++        /// stays visible even when CurrentMana is 0 and the Filled fillImage has no
++        /// visible fill pixels left to recolor. Transparent outside the flash window so
++        /// the indicator's normal scene-authored appearance is otherwise unaffected.
++        private void EnsureDeniedFeedbackOverlay()
++        {
++            if (deniedFeedbackOverlay != null) return;
++
++            var overlayObject = new GameObject("DeniedCastFeedbackOverlay", typeof(RectTransform));
++            overlayObject.transform.SetParent(fillImage.transform, false);
++
++            var overlayRect = (RectTransform)overlayObject.transform;
++            overlayRect.anchorMin = Vector2.zero;
++            overlayRect.anchorMax = Vector2.one;
++            overlayRect.offsetMin = Vector2.zero;
++            overlayRect.offsetMax = Vector2.zero;
++
++            deniedFeedbackOverlay = overlayObject.AddComponent<Image>();
++            deniedFeedbackOverlay.raycastTarget = false;
++            deniedFeedbackOverlay.color = new Color(deniedColor.r, deniedColor.g, deniedColor.b, 0f);
++        }
+     }
+ }

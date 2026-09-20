@@ -1,0 +1,10 @@
+docs(TaskDesignGER): describe how the GER owner runs GER
+
+Record the operator tooling and mechanics behind the GER runbook: the packet
+and frozen blob snapshot, the four provider rounds and their exact CLI flags,
+the node driver, monitoring, the contract commit with resource-group
+reconciliation, where design decisions are recorded, and lessons learned (room
+catalog ownership, resource groups, CRLF hashes, Git Bash paths, live Unity
+changes). The tools themselves are still outside the repository.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

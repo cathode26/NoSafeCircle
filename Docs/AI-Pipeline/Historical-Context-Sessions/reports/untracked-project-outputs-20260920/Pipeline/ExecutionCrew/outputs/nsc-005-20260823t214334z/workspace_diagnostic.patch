@@ -1,0 +1,312 @@
+diff --git a/Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs b/Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs
+index 14280fd004f73f091e2e65d889e73be50d368a7d..040cd0a69544f19065fd3487ee25c8a956ba1269 100644
+--- a/Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs
++++ b/Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs
+@@ -16,10 +16,13 @@ namespace NoSafeCircle.DoorPrototype
+         public float CurrentMana { get; private set; }
+         public event Action<float> ManaSpent;
+ 
++        /// Raised when a cast attempt is denied due to insufficient mana, carrying the
++        /// requested amount, so spells/UI can present distinct low-mana feedback.
++        public event Action<float> ManaSpendDenied;
++
+         private void Awake()
+         {
+-            CurrentMana = maxMana;
+-            timeSinceLastSpend = postCastRegenDelay;
++            ResetState();
+         }
+ 
+         private void Update()
+@@ -43,12 +46,26 @@ namespace NoSafeCircle.DoorPrototype
+         /// the pool doesn't have enough, so callers (spells) know the cast was refused.
+         public bool Spend(float amount)
+         {
+-            if (amount <= 0f || amount > CurrentMana) return false;
++            if (amount <= 0f) return false;
++
++            if (amount > CurrentMana)
++            {
++                ManaSpendDenied?.Invoke(amount);
++                return false;
++            }
+ 
+             CurrentMana -= amount;
+             timeSinceLastSpend = 0f;
+             ManaSpent?.Invoke(amount);
+             return true;
+         }
++
++        /// Restores current mana to full and clears the post-cast regeneration-delay
++        /// timer, for use by owner-controlled floor-restart reset flows.
++        public void ResetState()
++        {
++            CurrentMana = maxMana;
++            timeSinceLastSpend = postCastRegenDelay;
++        }
+     }
+ }
+diff --git a/Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs b/Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs
+index 722718a4cef333f2af2ed4acd81b56976e8da1f7..3b8986fb282f8bc2d20d84a840f69a56b2104eb1 100644
+--- a/Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs
++++ b/Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs
+@@ -7,12 +7,46 @@ namespace NoSafeCircle.DoorPrototype
+     {
+         [SerializeField] private PlayerMana mana;
+         [SerializeField] private Image fillImage;
++        [SerializeField] private Color normalColor = Color.white;
++        [SerializeField] private Color deniedColor = Color.red;
++        [SerializeField] private float deniedFlashDuration = 0.2f;
++
++        private float deniedFlashTimeRemaining;
++
++        private void OnEnable()
++        {
++            if (mana != null)
++            {
++                mana.ManaSpendDenied += HandleManaSpendDenied;
++            }
++        }
++
++        private void OnDisable()
++        {
++            if (mana != null)
++            {
++                mana.ManaSpendDenied -= HandleManaSpendDenied;
++            }
++        }
+ 
+         private void Update()
+         {
+             if (mana == null || fillImage == null) return;
+ 
+             fillImage.fillAmount = mana.MaxMana > 0f ? mana.CurrentMana / mana.MaxMana : 0f;
++
++            if (deniedFlashTimeRemaining > 0f)
++            {
++                deniedFlashTimeRemaining -= Time.deltaTime;
++                fillImage.color = deniedFlashTimeRemaining > 0f ? deniedColor : normalColor;
++            }
++        }
++
++        /// Flashes the mana indicator so a denied cast (insufficient mana) is
++        /// readable as distinct from a successful spend.
++        private void HandleManaSpendDenied(float requestedAmount)
++        {
++            deniedFlashTimeRemaining = deniedFlashDuration;
+         }
+     }
+ }
+diff --git a/Assets/NoSafeCircle/DoorPrototype/Tests/PlayerManaPlayModeTests.cs b/Assets/NoSafeCircle/DoorPrototype/Tests/PlayerManaPlayModeTests.cs
+index 811b64170b39672c7f668a6ea86e61813ae2176f..72d54c8bbfcb31327c22c1c566c8ade7f08b8c18 100644
+--- a/Assets/NoSafeCircle/DoorPrototype/Tests/PlayerManaPlayModeTests.cs
++++ b/Assets/NoSafeCircle/DoorPrototype/Tests/PlayerManaPlayModeTests.cs
+@@ -1,7 +1,9 @@
+ using System.Collections;
++using System.Reflection;
+ using NUnit.Framework;
+ using UnityEngine;
+ using UnityEngine.TestTools;
++using UnityEngine.UI;
+ 
+ namespace NoSafeCircle.DoorPrototype.Tests
+ {
+@@ -103,5 +105,198 @@ namespace NoSafeCircle.DoorPrototype.Tests
+                 elapsed += dt;
+             }
+         }
++
++        // AC-001: ResetState restores current mana to full and clears post-cast
++        // regeneration-delay timer state, for use by floor-restart reset flows.
++
++        [UnityTest]
++        public IEnumerator ResetState_RestoresCurrentManaToFull_AfterSpend()
++        {
++            mana.Spend(40f);
++            Assert.Less(mana.CurrentMana, mana.MaxMana);
++
++            mana.ResetState();
++
++            yield return null;
++
++            Assert.AreEqual(mana.MaxMana, mana.CurrentMana, 0.001f);
++        }
++
++        [UnityTest]
++        public IEnumerator ResetState_ClearsPostCastRegenDelayTimer()
++        {
++            mana.Spend(40f);
++            AdvanceManaTime(mana, mana.PostCastRegenDelay * 0.5f);
++
++            mana.ResetState();
++
++            yield return null;
++
++            var timeSinceLastSpend = (float)GetPrivateField(mana, "timeSinceLastSpend");
++            Assert.AreEqual(mana.PostCastRegenDelay, timeSinceLastSpend, 0.001f);
++        }
++
++        [UnityTest]
++        public IEnumerator ResetState_AllowsNormalPostCastDelayBehavior_OnNextSpend()
++        {
++            mana.Spend(50f);
++            AdvanceManaTime(mana, mana.PostCastRegenDelay + 0.5f);
++
++            mana.ResetState();
++
++            mana.Spend(20f);
++            var afterSpend = mana.CurrentMana;
++            AdvanceManaTime(mana, mana.PostCastRegenDelay * 0.5f);
++
++            yield return null;
++
++            Assert.AreEqual(afterSpend, mana.CurrentMana, 0.001f);
++        }
++
++        // AC-002: Spend raises a distinct denied signal when a cast attempt is
++        // refused for insufficient mana, separate from a successful spend.
++
++        [UnityTest]
++        public IEnumerator Spend_RaisesManaSpendDenied_WhenAmountExceedsCurrentMana()
++        {
++            float? deniedAmount = null;
++            mana.ManaSpendDenied += amount => deniedAmount = amount;
++
++            var requested = mana.CurrentMana + 10f;
++            var success = mana.Spend(requested);
++
++            yield return null;
++
++            Assert.IsFalse(success);
++            Assert.IsTrue(deniedAmount.HasValue);
++            Assert.AreEqual(requested, deniedAmount.Value, 0.001f);
++        }
++
++        [UnityTest]
++        public IEnumerator Spend_DoesNotRaiseManaSpendDenied_WhenSpendSucceeds()
++        {
++            var deniedRaised = false;
++            mana.ManaSpendDenied += _ => deniedRaised = true;
++
++            var success = mana.Spend(10f);
++
++            yield return null;
++
++            Assert.IsTrue(success);
++            Assert.IsFalse(deniedRaised);
++        }
++
++        [UnityTest]
++        public IEnumerator Spend_DoesNotRaiseManaSpendDenied_ForNonPositiveAmount()
++        {
++            var deniedRaised = false;
++            mana.ManaSpendDenied += _ => deniedRaised = true;
++
++            var success = mana.Spend(0f);
++
++            yield return null;
++
++            Assert.IsFalse(success);
++            Assert.IsFalse(deniedRaised);
++        }
++
++        // VAL-002 / VAL-003: low-mana failure is readable through the mana
++        // indicator's denied-cast flash, distinct from its normal fill state.
++
++        [UnityTest]
++        public IEnumerator PlayerManaUI_FlashesDeniedColor_OnManaSpendDenied()
++        {
++            var uiObject = new GameObject("TestManaUI");
++            uiObject.SetActive(false);
++            var manaUI = uiObject.AddComponent<PlayerManaUI>();
++            var fillImage = uiObject.AddComponent<Image>();
++            SetPrivateField(manaUI, "mana", mana);
++            SetPrivateField(manaUI, "fillImage", fillImage);
++
++            try
++            {
++                uiObject.SetActive(true);
++
++                var requested = mana.CurrentMana + 10f;
++                mana.Spend(requested);
++
++                yield return null;
++
++                var deniedColor = (Color)GetPrivateField(manaUI, "deniedColor");
++                Assert.AreEqual(deniedColor, fillImage.color);
++            }
++            finally
++            {
++                Object.Destroy(uiObject);
++            }
++        }
++
++        [UnityTest]
++        public IEnumerator PlayerManaUI_RevertsToNormalColor_AfterFlashDurationElapses()
++        {
++            var uiObject = new GameObject("TestManaUI");
++            uiObject.SetActive(false);
++            var manaUI = uiObject.AddComponent<PlayerManaUI>();
++            var fillImage = uiObject.AddComponent<Image>();
++            SetPrivateField(manaUI, "mana", mana);
++            SetPrivateField(manaUI, "fillImage", fillImage);
++
++            try
++            {
++                uiObject.SetActive(true);
++
++                var requested = mana.CurrentMana + 10f;
++                mana.Spend(requested);
++
++                var flashDuration = (float)GetPrivateField(manaUI, "deniedFlashDuration");
++                yield return new WaitForSeconds(flashDuration + 0.1f);
++
++                var normalColor = (Color)GetPrivateField(manaUI, "normalColor");
++                Assert.AreEqual(normalColor, fillImage.color);
++            }
++            finally
++            {
++                Object.Destroy(uiObject);
++            }
++        }
++
++        [UnityTest]
++        public IEnumerator PlayerManaUI_DoesNotFlashDeniedColor_OnSuccessfulSpend()
++        {
++            var uiObject = new GameObject("TestManaUI");
++            uiObject.SetActive(false);
++            var manaUI = uiObject.AddComponent<PlayerManaUI>();
++            var fillImage = uiObject.AddComponent<Image>();
++            SetPrivateField(manaUI, "mana", mana);
++            SetPrivateField(manaUI, "fillImage", fillImage);
++
++            try
++            {
++                uiObject.SetActive(true);
++                fillImage.color = Color.blue;
++
++                mana.Spend(10f);
++
++                yield return null;
++
++                Assert.AreEqual(Color.blue, fillImage.color);
++            }
++            finally
++            {
++                Object.Destroy(uiObject);
++            }
++        }
++
++        private static void SetPrivateField(object target, string fieldName, object value)
++        {
++            var field = target.GetType().GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Instance);
++            field.SetValue(target, value);
++        }
++
++        private static object GetPrivateField(object target, string fieldName)
++        {
++            var field = target.GetType().GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Instance);
++            return field.GetValue(target);
++        }
+     }
+ }

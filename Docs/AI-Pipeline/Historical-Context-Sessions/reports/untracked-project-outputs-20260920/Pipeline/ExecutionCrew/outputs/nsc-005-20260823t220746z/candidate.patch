@@ -1,0 +1,327 @@
+diff --git a/Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs b/Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs
+index 14280fd004f73f091e2e65d889e73be50d368a7d..240aeae52f519da9fa117a49a5ad8abdbf20409b 100644
+--- a/Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs
++++ b/Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs
+@@ -16,6 +16,10 @@ namespace NoSafeCircle.DoorPrototype
+         public float CurrentMana { get; private set; }
+         public event Action<float> ManaSpent;
+ 
++        /// Raised when a cast attempt is rejected because CurrentMana is insufficient,
++        /// distinct from ManaSpent, so consumers can present low-mana cast-denied feedback.
++        public event Action<float> CastDenied;
++
+         private void Awake()
+         {
+             CurrentMana = maxMana;
+@@ -43,12 +47,26 @@ namespace NoSafeCircle.DoorPrototype
+         /// the pool doesn't have enough, so callers (spells) know the cast was refused.
+         public bool Spend(float amount)
+         {
+-            if (amount <= 0f || amount > CurrentMana) return false;
++            if (amount <= 0f) return false;
++
++            if (amount > CurrentMana)
++            {
++                CastDenied?.Invoke(amount);
++                return false;
++            }
+ 
+             CurrentMana -= amount;
+             timeSinceLastSpend = 0f;
+             ManaSpent?.Invoke(amount);
+             return true;
+         }
++
++        /// Owner-controlled reset entry point for floor restart: restores CurrentMana to
++        /// full and clears the post-cast regeneration-delay timer state.
++        public void ResetForRestart()
++        {
++            CurrentMana = maxMana;
++            timeSinceLastSpend = postCastRegenDelay;
++        }
+     }
+ }
+diff --git a/Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs b/Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs
+index 722718a4cef333f2af2ed4acd81b56976e8da1f7..c3732868f234d220fb09591ddc146b0add52448e 100644
+--- a/Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs
++++ b/Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs
+@@ -7,12 +7,57 @@ namespace NoSafeCircle.DoorPrototype
+     {
+         [SerializeField] private PlayerMana mana;
+         [SerializeField] private Image fillImage;
++        [SerializeField] private Color deniedCastColor = new Color(1f, 0.3f, 0.3f, 1f);
++        [SerializeField] private float deniedCastFlashDuration = 0.25f;
++
++        private Color normalColor;
++        private float deniedFlashTimeRemaining;
++
++        private void Awake()
++        {
++            if (fillImage != null)
++            {
++                normalColor = fillImage.color;
++            }
++        }
++
++        private void OnEnable()
++        {
++            if (mana != null)
++            {
++                mana.CastDenied += HandleCastDenied;
++            }
++        }
++
++        private void OnDisable()
++        {
++            if (mana != null)
++            {
++                mana.CastDenied -= HandleCastDenied;
++            }
++        }
+ 
+         private void Update()
+         {
+             if (mana == null || fillImage == null) return;
+ 
+             fillImage.fillAmount = mana.MaxMana > 0f ? mana.CurrentMana / mana.MaxMana : 0f;
++
++            if (deniedFlashTimeRemaining > 0f)
++            {
++                deniedFlashTimeRemaining -= Time.deltaTime;
++                fillImage.color = deniedCastColor;
++            }
++            else
++            {
++                fillImage.color = normalColor;
++            }
++        }
++
++        /// Presents readable low-mana feedback when a cast is denied for insufficient mana.
++        private void HandleCastDenied(float attemptedAmount)
++        {
++            deniedFlashTimeRemaining = deniedCastFlashDuration;
+         }
+     }
+ }
+diff --git a/Assets/NoSafeCircle/DoorPrototype/Tests/PlayerManaPlayModeTests.cs b/Assets/NoSafeCircle/DoorPrototype/Tests/PlayerManaPlayModeTests.cs
+index 811b64170b39672c7f668a6ea86e61813ae2176f..39a734e415b9332d7d210cd8fe76f19a55928408 100644
+--- a/Assets/NoSafeCircle/DoorPrototype/Tests/PlayerManaPlayModeTests.cs
++++ b/Assets/NoSafeCircle/DoorPrototype/Tests/PlayerManaPlayModeTests.cs
+@@ -1,7 +1,9 @@
+ using System.Collections;
++using System.Reflection;
+ using NUnit.Framework;
+ using UnityEngine;
+ using UnityEngine.TestTools;
++using UnityEngine.UI;
+ 
+ namespace NoSafeCircle.DoorPrototype.Tests
+ {
+@@ -92,6 +94,107 @@ namespace NoSafeCircle.DoorPrototype.Tests
+             Assert.AreEqual(afterSecondSpend, mana.CurrentMana, 0.001f);
+         }
+ 
++        // AC-002: Spend must raise CastDenied, distinct from ManaSpent, when the pool cannot
++        // cover the attempted amount, so a consuming spell/UI can present readable low-mana
++        // feedback (GDD Section 3 "Failure is readable").
++        [UnityTest]
++        public IEnumerator Spend_RaisesCastDenied_WithAttemptedAmount_WhenInsufficient()
++        {
++            var before = mana.CurrentMana;
++            var attempted = before + 25f;
++            float? deniedAmount = null;
++            mana.CastDenied += amount => deniedAmount = amount;
++
++            var success = mana.Spend(attempted);
++
++            yield return null;
++
++            Assert.IsFalse(success);
++            Assert.IsTrue(deniedAmount.HasValue, "CastDenied must fire when a cast is refused for insufficient mana.");
++            Assert.AreEqual(attempted, deniedAmount.Value, 0.001f);
++        }
++
++        [UnityTest]
++        public IEnumerator Spend_DoesNotRaiseCastDenied_WhenSufficient()
++        {
++            var deniedRaised = false;
++            mana.CastDenied += _ => deniedRaised = true;
++
++            var success = mana.Spend(20f);
++
++            yield return null;
++
++            Assert.IsTrue(success);
++            Assert.IsFalse(deniedRaised, "A successful spend must not raise CastDenied.");
++        }
++
++        [UnityTest]
++        public IEnumerator Spend_DoesNotRaiseManaSpent_WhenDenied()
++        {
++            var manaSpentRaised = false;
++            mana.ManaSpent += _ => manaSpentRaised = true;
++            var before = mana.CurrentMana;
++
++            mana.Spend(before + 10f);
++
++            yield return null;
++
++            Assert.IsFalse(manaSpentRaised, "ManaSpent must not fire for a denied cast attempt, keeping the two signals distinct.");
++        }
++
++        // AC-001: ResetForRestart is the owner-controlled entry point for floor restart and must
++        // restore current mana to full and clear post-cast regeneration-delay timer state.
++        [UnityTest]
++        public IEnumerator ResetForRestart_RestoresCurrentManaToFull()
++        {
++            mana.Spend(40f);
++            Assert.Less(mana.CurrentMana, mana.MaxMana);
++
++            mana.ResetForRestart();
++
++            yield return null;
++
++            Assert.AreEqual(mana.MaxMana, mana.CurrentMana, 0.001f);
++        }
++
++        [UnityTest]
++        public IEnumerator ResetForRestart_RestoresFullMana_EvenMidPostCastDelay()
++        {
++            mana.Spend(30f);
++            AdvanceManaTime(mana, mana.PostCastRegenDelay * 0.5f);
++
++            mana.ResetForRestart();
++
++            yield return null;
++
++            Assert.AreEqual(mana.MaxMana, mana.CurrentMana, 0.001f,
++                "Reset must restore full mana even when called while a post-cast regen delay is still pending.");
++        }
++
++        [UnityTest]
++        public IEnumerator ResetForRestart_ClearsRegenDelayState_SoNextSpendCycleBehavesLikeAFreshDelay()
++        {
++            mana.Spend(50f);
++            AdvanceManaTime(mana, mana.PostCastRegenDelay * 0.2f);
++
++            mana.ResetForRestart();
++
++            mana.Spend(10f);
++            var afterSpend = mana.CurrentMana;
++
++            AdvanceManaTime(mana, mana.PostCastRegenDelay * 0.5f);
++            yield return null;
++
++            Assert.AreEqual(afterSpend, mana.CurrentMana, 0.001f,
++                "Mana must not regenerate before the delay elapses on the first spend cycle after a restart reset.");
++
++            AdvanceManaTime(mana, mana.PostCastRegenDelay * 0.6f);
++            yield return null;
++
++            Assert.Greater(mana.CurrentMana, afterSpend,
++                "Mana must regenerate normally once the post-cast delay elapses after a restart reset.");
++        }
++
+         private static void AdvanceManaTime(PlayerMana target, float totalSeconds)
+         {
+             const float step = 0.05f;
+@@ -104,4 +207,99 @@ namespace NoSafeCircle.DoorPrototype.Tests
+             }
+         }
+     }
++
++    // VAL-002 / VAL-003: low-mana failure must be readable to the player through the mana
++    // indicator (Section 3 Player Experience Success Criteria). PlayerManaUI is the shared
++    // continuous mana indicator, so its reaction to CastDenied is the readability proof.
++    public class PlayerManaUIDeniedCastFeedbackPlayModeTests
++    {
++        private GameObject manaObject;
++        private PlayerMana mana;
++        private GameObject uiObject;
++        private Image fillImage;
++        private PlayerManaUI ui;
++
++        [SetUp]
++        public void SetUp()
++        {
++            manaObject = new GameObject("TestMana");
++            mana = manaObject.AddComponent<PlayerMana>();
++
++            uiObject = new GameObject("TestManaUI");
++            uiObject.SetActive(false);
++            fillImage = uiObject.AddComponent<Image>();
++            ui = uiObject.AddComponent<PlayerManaUI>();
++            SetPrivateField(ui, "mana", mana);
++            SetPrivateField(ui, "fillImage", fillImage);
++            uiObject.SetActive(true);
++        }
++
++        [TearDown]
++        public void TearDown()
++        {
++            Object.Destroy(uiObject);
++            Object.Destroy(manaObject);
++        }
++
++        [UnityTest]
++        public IEnumerator PlayerManaUI_ShowsDeniedColor_WhenCastDeniedFires()
++        {
++            yield return null;
++            var normalColor = fillImage.color;
++            var deniedColor = GetPrivateField<Color>(ui, "deniedCastColor");
++            Assert.AreNotEqual(normalColor, deniedColor,
++                "Test setup assumption: the denied-cast color must differ from the resting indicator color to be readable feedback.");
++
++            mana.Spend(mana.CurrentMana + 1f);
++
++            yield return null;
++
++            Assert.AreEqual(deniedColor, fillImage.color,
++                "Mana indicator must visibly present denied-cast feedback so low-mana failure is readable (GDD Section 3).");
++        }
++
++        [UnityTest]
++        public IEnumerator PlayerManaUI_DoesNotShowDeniedColor_OnSuccessfulSpend()
++        {
++            yield return null;
++            var normalColor = fillImage.color;
++
++            mana.Spend(10f);
++
++            yield return null;
++
++            Assert.AreEqual(normalColor, fillImage.color,
++                "A successful spend must not trigger denied-cast feedback; only insufficient-mana casts flash.");
++        }
++
++        [UnityTest]
++        public IEnumerator PlayerManaUI_RevertsToNormalColor_AfterDeniedFlashDurationElapses()
++        {
++            yield return null;
++            var normalColor = fillImage.color;
++
++            mana.Spend(mana.CurrentMana + 1f);
++            yield return null;
++
++            var flashDuration = GetPrivateField<float>(ui, "deniedCastFlashDuration");
++            yield return new WaitForSeconds(flashDuration + 0.1f);
++
++            Assert.AreEqual(normalColor, fillImage.color,
++                "Denied-cast feedback must be temporary so it doesn't permanently obscure the continuous mana indicator reading.");
++        }
++
++        private static void SetPrivateField(object target, string fieldName, object value)
++        {
++            var field = target.GetType().GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Instance);
++            Assert.IsNotNull(field, $"Expected a private field named '{fieldName}' on {target.GetType().Name}.");
++            field.SetValue(target, value);
++        }
++
++        private static T GetPrivateField<T>(object target, string fieldName)
++        {
++            var field = target.GetType().GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Instance);
++            Assert.IsNotNull(field, $"Expected a private field named '{fieldName}' on {target.GetType().Name}.");
++            return (T)field.GetValue(target);
++        }
++    }
+ }

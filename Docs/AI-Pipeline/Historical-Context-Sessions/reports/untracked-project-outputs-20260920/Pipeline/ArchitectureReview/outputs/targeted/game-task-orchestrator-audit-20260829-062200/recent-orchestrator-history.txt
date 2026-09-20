@@ -1,0 +1,488 @@
+59e7138c6cd8d007d03d59cc966674493b12d3aa	2026-08-29T01:12:19-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Run completed Issue duplicate guard regression
+ .github/workflows/task-review-agent-deterministic.yml | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+b9f32b6eab18c98dbf654bdf292f489ebecb2da8	2026-08-29T01:10:52-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Test completed task duplicate Issue prevention
+ .../tests/completed_issue_guard_smoke_test.py      | 247 +++++++++++++++++++++
+ 1 file changed, 247 insertions(+)
+
+b5eccfb9f92a530891a4c79b867e4b910b52dd2c	2026-08-29T01:09:31-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Install completed task Issue guard
+ Pipeline/TaskReviewAgent/__init__.py | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+c0a60eac97a12cb24d1f39d0bd28dd96ab589c2e	2026-08-29T01:08:59-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Keep completed task Issues discoverable
+ Pipeline/TaskReviewAgent/completed_issue_guard.py | 134 ++++++++++++++++++++++
+ 1 file changed, 134 insertions(+)
+
+fc157eba61baed5b34861f3333a15e6f03f11897	2026-08-29T00:47:48-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Assert safe downstream wrapper order
+ .../tests/merge_closeout_check_repoll_smoke_test.py    | 18 ++++++++++++------
+ 1 file changed, 12 insertions(+), 6 deletions(-)
+
+c5e30178e18435008f71e26bfbdbdcf78a222415	2026-08-29T00:44:36-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Validate latest pull-request check authority
+ .../pull-request-check-authority-deterministic.yml | 58 ++++++++++++++++++++++
+ 1 file changed, 58 insertions(+)
+
+15108aaadd76211183072fcc9df4e4edb4e109dc	2026-08-29T00:44:14-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Test latest effective pull-request check authority
+ .../pull_request_check_authority_smoke_test.py     | 292 +++++++++++++++++++++
+ 1 file changed, 292 insertions(+)
+
+ffc763dc44327dec3ece69871a743334ff0d4d81	2026-08-29T00:42:59-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Install latest pull-request check authority
+ Pipeline/TaskReviewAgent/__init__.py | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+30a5654a8a485b64a66bf856ba62b1aca303a5f2	2026-08-29T00:42:35-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Use only the latest effective pull-request checks
+ .../pull_request_check_authority.py                | 232 +++++++++++++++++++++
+ 1 file changed, 232 insertions(+)
+
+61da2dedaba5b083685e906159758d9a1093fa14	2026-08-28T23:50:36-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Run merge-closeout check repoll regression
+ .github/workflows/task-review-agent-deterministic.yml | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+23442be54fe2b887292af15bd80fa79e45f83ef5	2026-08-28T23:49:13-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Test merge-closeout check repolling
+ .../merge_closeout_check_repoll_smoke_test.py      | 146 +++++++++++++++++++++
+ 1 file changed, 146 insertions(+)
+
+9c9f16bb78774f49e62a728fef729bd6cf0f77fa	2026-08-28T23:48:46-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Install merge-closeout check repolling
+ Pipeline/TaskReviewAgent/__init__.py | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+aeb6900fddea0c03b2ad7f422fe7077721e12142	2026-08-28T23:48:26-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Repoll PR checks on each merge-closeout run
+ .../TaskReviewAgent/merge_closeout_check_repoll.py | 134 +++++++++++++++++++++
+ 1 file changed, 134 insertions(+)
+
+c6105faa76a6bc9b51fbf63f720cffe4cb0c50a4	2026-08-28T23:29:08-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Keep new CI guards compatible with older exact PR heads
+ .github/workflows/task-review-agent-deterministic.yml | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
+
+45c48d4afb44c104fd908c3e118f86d7d8e872c0	2026-08-28T23:22:28-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Merge PR #79: normalize Unity evidence logs before merge
+de521e0f8f022230d0cf4c35be5733962269a08d	2026-08-28T23:19:14-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Fix workflow identity scan byte normalization
+ Pipeline/TaskReviewAgent/tests/git_identity_guard_smoke_test.py | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+be211db53c37584093534b59881a6e31e3b5cf14	2026-08-28T23:19:12-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Remove one-shot whitespace hygiene installer workflow
+ .../apply-unity-evidence-whitespace-hygiene.yml    | 88 ----------------------
+ 1 file changed, 88 deletions(-)
+
+ba0254389e0bf5414e4f8fb603a564906752ada1	2026-08-28T23:18:22-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Apply Unity evidence whitespace policy in D1B.2 CI
+ .github/workflows/d1b2-core-deterministic.yml | 19 +++++++++++++++++--
+ 1 file changed, 17 insertions(+), 2 deletions(-)
+
+0b6027a3c73b03097e2099592dda8e278fd8ea3e	2026-08-28T23:18:21-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Document safe automation Git identity policy
+ AGENTS.md | 2 ++
+ 1 file changed, 2 insertions(+)
+
+d3383f36c409c6335efd47e02d080ebf36a7fe82	2026-08-28T23:17:56-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Enforce automation Git identity policy in CI
+ .github/workflows/task-review-agent-deterministic.yml | 15 ++++-----------
+ 1 file changed, 4 insertions(+), 11 deletions(-)
+
+2e55edc9eea12f2174432c5c95f5801053e70e1b	2026-08-28T23:17:50-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Enforce Unity evidence hygiene in TaskReviewAgent CI
+ .github/workflows/task-review-agent-deterministic.yml | 19 +++++++++++++++++--
+ 1 file changed, 17 insertions(+), 2 deletions(-)
+
+68afa02e9638870e301f0f44b7820d288f0d92a6	2026-08-28T23:17:41-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Test automation Git identity safety
+ .../tests/git_identity_guard_smoke_test.py         | 146 +++++++++++++++++++++
+ 1 file changed, 146 insertions(+)
+
+629cbeed4006390ee92e3fdb5d3d4da233c6b503	2026-08-28T23:17:20-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Install automation Git identity guard
+ Pipeline/TaskReviewAgent/__init__.py | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+aa91dd1148b35b39eeab792430be8ed1b41583d1	2026-08-28T23:17:12-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Add non-attributable automation Git identity guard
+ Pipeline/TaskReviewAgent/git_identity_guard.py | 101 +++++++++++++++++++++++++
+ 1 file changed, 101 insertions(+)
+
+82bfa65c698133b88a69cafc63fa07b1e83edb1a	2026-08-29T04:16:42Z	No Safe Circle Pipeline <pipeline@users.noreply.github.com>	Normalize Unity evidence logs before merge
+ Docs/AI-Pipeline/UNITY_WORKSPACE_HYGIENE.md     | 17 ++++++++++++++++
+ Pipeline/TaskReviewAgent/downstream_pipeline.py | 27 +++++++------------------
+ 2 files changed, 24 insertions(+), 20 deletions(-)
+
+6ca29322d70d120bef1cbd0ac63abf0c78ab7ecb	2026-08-28T23:15:55-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Stage non-workflow hygiene changes for automated push
+ .github/workflows/apply-unity-evidence-whitespace-hygiene.yml | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
+
+17eb15b5098599c8e237b9cd8e6d39617090b00e	2026-08-28T23:12:37-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Repair installer templates before applying
+ .github/workflows/apply-unity-evidence-whitespace-hygiene.yml | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+81462052c1c2b2a5a0dec612c2329b517c855805	2026-08-28T23:10:26-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Apply Unity evidence whitespace hygiene
+ .../apply-unity-evidence-whitespace-hygiene.yml    | 83 ++++++++++++++++++++++
+ 1 file changed, 83 insertions(+)
+
+b0cec5312bf3677e6e7e7b377e1aca440450f1db	2026-08-28T22:12:42-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Run downstream action grounding regression
+ .github/workflows/task-review-agent-deterministic.yml | 3 +++
+ 1 file changed, 3 insertions(+)
+
+f0454b13feb0c0e4d1645929f4354dcde08110bd	2026-08-28T22:12:19-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Install exact downstream action grounding
+ Pipeline/TaskReviewAgent/__init__.py | 17 +++++++++++------
+ 1 file changed, 11 insertions(+), 6 deletions(-)
+
+693ca1c7b7e2e0d798d1a5aaddc22557823baf88	2026-08-28T22:10:51-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Test exact delivery artifact grounding
+ .../downstream_action_grounding_smoke_test.py      | 319 +++++++++++++++++++++
+ 1 file changed, 319 insertions(+)
+
+6172f229284606422b28c61352b69b038e449cf7	2026-08-28T22:10:06-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Ground downstream proposal actions in exact draft facts
+ .../TaskReviewAgent/downstream_action_grounding.py | 368 +++++++++++++++++++++
+ 1 file changed, 368 insertions(+)
+
+79eb4237c5d047eeaf9e09d852dcfbfaa2bfaa88	2026-08-28T21:44:16-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Hash committed task contract in Windows regression
+ .../TaskReviewAgent/tests/downstream_determinism_smoke_test.py   | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
+
+c2d0f56dae754be5c66b0810584c42e6720ccbcc	2026-08-28T21:40:59-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Test strict search arguments at the host boundary
+ .../tests/downstream_determinism_smoke_test.py     | 36 ++++++++++------------
+ 1 file changed, 17 insertions(+), 19 deletions(-)
+
+a31a9ddf5545ae8700a3958d7e38827ee402c170	2026-08-28T21:39:44-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Keep strict search checks in host validation
+ Pipeline/TaskReviewAgent/__init__.py | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+0079d4c0ee63a1a00b478a0d00df9b97f4537490	2026-08-28T21:35:35-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Run downstream authority and routing regression
+ .github/workflows/task-review-agent-deterministic.yml | 3 +++
+ 1 file changed, 3 insertions(+)
+
+af846624e6545e19857941fc326aa3c90e76b1db	2026-08-28T21:35:02-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Install downstream authority fixes before operator logging
+ Pipeline/TaskReviewAgent/__init__.py | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+a842fc5fb7c903bb029ca265f58dbbab4ec01397	2026-08-28T21:34:42-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Test durable human authority and deterministic routing
+ .../tests/downstream_determinism_smoke_test.py     | 510 +++++++++++++++++++++
+ 1 file changed, 510 insertions(+)
+
+98997040faab887b8191708d347181fdec26b43b	2026-08-28T21:33:49-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Add durable downstream authority and deterministic routing
+ Pipeline/TaskReviewAgent/downstream_determinism.py | 892 +++++++++++++++++++++
+ 1 file changed, 892 insertions(+)
+
+3a3bdd352fc2348529baac7f57e58ba0e0354180	2026-08-28T20:50:21-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Test Unity-friendly progress and debug logging
+ .../tests/progress_logging_smoke_test.py           | 271 ++++++++++++++++-----
+ 1 file changed, 209 insertions(+), 62 deletions(-)
+
+e5ef6c16de324d4cc28d1d5104e8b4263da27ba5	2026-08-28T20:49:37-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Install Unity-friendly task-agent logging
+ Pipeline/TaskReviewAgent/__init__.py | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+a96e0fca7e207f7bd7a25f7731feae0c55d3e753	2026-08-28T20:49:26-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Add Unity-friendly task-agent log presentation
+ Pipeline/TaskReviewAgent/operator_logging.py | 365 +++++++++++++++++++++++++++
+ 1 file changed, 365 insertions(+)
+
+29f434c77bff779265b0aac8e461558105b2a9ce	2026-08-28T20:48:21-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Make task-agent progress logs operator friendly
+ Pipeline/TaskReviewAgent/progress.py | 196 ++++++++++++++++++++++++++++++++---
+ 1 file changed, 180 insertions(+), 16 deletions(-)
+
+f838eadfd2c134caf5e3c0758561145680dcbe70	2026-08-28T18:18:35-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Remove temporary reintegration bridge bootstrap
+ ...tch-contract-migration-reintegration-bridge.yml | 65 ----------------------
+ 1 file changed, 65 deletions(-)
+
+c7ec9164e609c3ba47c708a37625ffb71249a1ab	2026-08-28T23:18:09Z	No Safe Circle Reintegration Bridge <reintegration-bridge@users.noreply.github.com>	Bridge verified contract migrations into later mainline integration
+ Pipeline/TaskReviewAgent/downstream_resilience.py  | 178 +++++++++++++++++----
+ .../tests/downstream_resilience_smoke_test.py      |  84 ++++++++++
+ 2 files changed, 232 insertions(+), 30 deletions(-)
+
+512d8b94b7103db9c5289ab217e07eb89a7705a2	2026-08-28T18:17:27-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Run contract migration reintegration bridge patch script
+ ...tch-contract-migration-reintegration-bridge.yml | 355 +--------------------
+ 1 file changed, 7 insertions(+), 348 deletions(-)
+
+5958a6b2b77975df5c2934d206418cd97a45f088	2026-08-28T18:15:48-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Add one-shot contract migration reintegration bridge workflow
+ ...tch-contract-migration-reintegration-bridge.yml | 406 +++++++++++++++++++++
+ 1 file changed, 406 insertions(+)
+
+6a8065cec3e71106a67223be1c4490139d3aca85	2026-08-28T18:06:33-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Remove temporary fixture patch workflow
+ .../patch-downstream-resilience-fixture.yml        | 54 ----------------------
+ 1 file changed, 54 deletions(-)
+
+fbf6d2d847c21f8874634c36efa7f0cdf85f791f	2026-08-28T23:05:53Z	No Safe Circle Resilience Fix <resilience@users.noreply.github.com>	Keep obsolete scene path synthetic in resilience test
+ Pipeline/TaskReviewAgent/tests/downstream_resilience_smoke_test.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+50a0ab59bba9db0e0f2dea8d2d3819b3a5f0e04c	2026-08-28T18:05:19-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Patch downstream resilience fixture path construction
+ .../patch-downstream-resilience-fixture.yml        | 54 ++++++++++++++++++++++
+ 1 file changed, 54 insertions(+)
+
+b705ab8f22ac28b8563a3535b1bc4b5a3fd1733d	2026-08-28T23:02:49Z	No Safe Circle Resilience Fix <resilience@users.noreply.github.com>	Fix downstream PASS carry-forward and rejection loops
+ .../workflows/apply-downstream-resilience-fix.yml  |   81 --
+ .../workflows/task-review-agent-deterministic.yml  |    3 +
+ Pipeline/TaskReviewAgent/__init__.py               |    8 +-
+ .../authoritative_validation_policy.json           |   15 +
+ Pipeline/TaskReviewAgent/downstream_resilience.py  | 1103 ++++++++++++++++++++
+ .../tests/downstream_resilience_smoke_test.py      |  488 +++++++++
+ 6 files changed, 1615 insertions(+), 83 deletions(-)
+
+e034ddf59f026cf0a310f49b8e09e3e05a5b9439	2026-08-28T17:53:49-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Add one-shot downstream resilience bootstrap workflow
+ .../workflows/apply-downstream-resilience-fix.yml  | 81 ++++++++++++++++++++++
+ 1 file changed, 81 insertions(+)
+
+e25a19b7e7c5b78cdeddbc6a36906e14a8533ed7	2026-08-28T14:25:48-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Run contract migration checkout regression
+ .github/workflows/task-review-agent-deterministic.yml | 3 +++
+ 1 file changed, 3 insertions(+)
+
+f6e28542419fd6f1df77a34c127c99d7c1136e21	2026-08-28T14:25:15-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Test durable checkout contract migration resume
+ .../contract_migration_checkout_smoke_test.py      | 238 +++++++++++++++++++++
+ 1 file changed, 238 insertions(+)
+
+9bea63f937fdae2b57cdefc5fa9e736bf4cf427e	2026-08-28T14:24:24-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Resume exact task checkout after contract migration
+ Pipeline/TaskReviewAgent/resumable_checkout.py | 151 +++++++++++++++++++++----
+ 1 file changed, 127 insertions(+), 24 deletions(-)
+
+9b31cea8f0518899a7ec4adaa67c7d659b8d7053	2026-08-28T14:20:40-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Canonicalize Unity scene paths
+ .../workflows/task-review-agent-deterministic.yml  |   5 +
+ Docs/AI-Pipeline/01_MILESTONE_TASK_GRAPH.md        |   2 +-
+ Docs/AI-Pipeline/REAL_TASK_DELIVERY_RUNBOOK.md     |   2 +-
+ Pipeline/TaskReviewAgent/issue_workflow.py         |  56 +++++++++-
+ Pipeline/TaskReviewAgent/mainline_reintegration.py |  33 +++---
+ .../scene_path_contract_migration_smoke_test.py    | 120 +++++++++++++++++++++
+ 6 files changed, 199 insertions(+), 19 deletions(-)
+
+40665cc1a01a8d4accf5a21e06c502309a30c56f	2026-08-28T12:54:29-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Run mainline reintegration regression tests
+ .github/workflows/task-review-agent-deterministic.yml | 3 +++
+ 1 file changed, 3 insertions(+)
+
+769da8feb653c09d09a1825f39b226d9d20231ee	2026-08-28T12:54:04-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Install mainline reintegration transition
+ Pipeline/TaskReviewAgent/__init__.py | 11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
+
+14a2fd1d600857d0aa465e237513769b461164e6	2026-08-28T12:53:53-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Add mainline reintegration regression coverage
+ .../tests/mainline_reintegration_smoke_test.py     | 573 +++++++++++++++++++++
+ 1 file changed, 573 insertions(+)
+
+11d84f56831c64a2975bcd69ae4ed78adfb49a1c	2026-08-28T12:52:49-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Add deterministic mainline reintegration transition
+ Pipeline/TaskReviewAgent/mainline_reintegration.py | 1140 ++++++++++++++++++++
+ 1 file changed, 1140 insertions(+)
+
+e5d204f51159422f681c79990461f8a67046e83f	2026-08-28T05:57:43-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Preserve porcelain status prefixes during safe churn recovery
+ Pipeline/TaskReviewAgent/resumable_checkout.py | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+f4102a3e42a48d9e17e5b716b8ee86164ed0f47f	2026-08-28T05:54:54-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Configure deterministic Git identity for checkout fixtures
+ .github/workflows/task-review-agent-deterministic.yml | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+c2ae3b5dfa8c00b0fd66c0f00900f5c7c6861eaf	2026-08-28T05:52:53-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Run checkout circuit-breaker regression tests
+ .github/workflows/task-review-agent-deterministic.yml | 3 +++
+ 1 file changed, 3 insertions(+)
+
+c3a0c0eb545643e5a90e059533f9450b2bf290a3	2026-08-28T05:52:13-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Test checkout circuit breaker and lease release
+ .../tests/goal_loop_guard_smoke_test.py            | 194 +++++++++++++++++++++
+ 1 file changed, 194 insertions(+)
+
+a9ad95e2b07cd218859954bce463e5e84ad8399c	2026-08-28T05:51:36-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Test safe Unity churn recovery after human handoff
+ .../tests/resumable_checkout_smoke_test.py         | 211 +++++++++++++++++----
+ 1 file changed, 174 insertions(+), 37 deletions(-)
+
+b2e7a0accf3d057f340e90ccb39f829934e1c61e	2026-08-28T05:50:36-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Guard checkout preparation against blocked no-op loops
+ Pipeline/TaskReviewAgent/run_pipeline_agent.py | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+255584ec373befa5a30c5e01f2149c3173b2f3aa	2026-08-28T05:49:57-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Recover narrow Unity churn before downstream resume
+ Pipeline/TaskReviewAgent/resumable_checkout.py | 103 ++++++++++++++++++++++++-
+ 1 file changed, 99 insertions(+), 4 deletions(-)
+
+25d7e16814e46ded839ef153d5ff4ba950dcab57	2026-08-28T05:49:21-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Add deterministic checkout no-progress guard
+ Pipeline/TaskReviewAgent/goal_loop_guard.py | 217 ++++++++++++++++++++++++++++
+ 1 file changed, 217 insertions(+)
+
+7d65d969b05a074be8781d33b12a19ee21502a34	2026-08-28T04:37:43-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Run progress logging regression tests
+ .github/workflows/task-review-agent-deterministic.yml | 3 +++
+ 1 file changed, 3 insertions(+)
+
+a19daff3d9d8ba8c20eb6f198ce9ac251ca5564e	2026-08-28T04:37:04-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Create and persist one live progress log per agent run
+ Pipeline/TaskReviewAgent/run_pipeline_agent.py | 65 +++++++++++++++++++++++++-
+ 1 file changed, 63 insertions(+), 2 deletions(-)
+
+65256b6d6d4f9f55b041dade4bc8d05a8d67c0c2	2026-08-28T04:36:06-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Stream downstream goal-loop progress and heartbeats
+ Pipeline/TaskReviewAgent/openai_downstream.py | 181 ++++++++++++++++++++------
+ 1 file changed, 143 insertions(+), 38 deletions(-)
+
+c81bcbb914331d207b23498e59cb378fa5889010	2026-08-28T04:35:00-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Stream implementation goal-loop progress and heartbeats
+ Pipeline/TaskReviewAgent/openai_pipeline.py | 220 +++++++++++++++++++++-------
+ 1 file changed, 166 insertions(+), 54 deletions(-)
+
+b39ca4a0e8f39ad8b4d1dbfda8dc1b38d8359a36	2026-08-28T04:33:31-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Test live progress logging and heartbeats
+ .../tests/progress_logging_smoke_test.py           | 120 +++++++++++++++++++++
+ 1 file changed, 120 insertions(+)
+
+daf5d1f0b19c54b935ed472edc7b6889458698f1	2026-08-28T04:33:03-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Add durable live progress logger
+ Pipeline/TaskReviewAgent/progress.py | 301 +++++++++++++++++++++++++++++++++++
+ 1 file changed, 301 insertions(+)
+
+27b5a557e979158fc0faa16916f7f4a488216292	2026-08-28T04:09:44-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Test host Python UTF-8 subprocess decoding
+ .../tests/codex_supervisor_turn_smoke_test.py      | 60 ++++++++++++++++++++++
+ 1 file changed, 60 insertions(+)
+
+de489184e9ee5287397a124db3e6b8f066f729db	2026-08-28T04:08:57-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Force UTF-8 mode for host task agent Python
+ Pipeline/TaskReviewAgent/Start-GameTaskAgent.ps1 | 24 +++++++++++++++++++++---
+ 1 file changed, 21 insertions(+), 3 deletions(-)
+
+3adde0510f3a47799e9b0bc2c0d4b35e98debd88	2026-08-28T03:50:48-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Run strict Codex supervisor turn tests
+ .github/workflows/task-review-agent-deterministic.yml | 3 +++
+ 1 file changed, 3 insertions(+)
+
+3ca3801687ccdb9dfae93a55c8ccc50762688cd8	2026-08-28T03:50:19-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Test strict Codex supervisor output schemas
+ .../tests/codex_supervisor_turn_smoke_test.py      | 123 +++++++++++++++++++++
+ 1 file changed, 123 insertions(+)
+
+9b7d76f6c97694b07e89f4871172cc25e11f7f65	2026-08-28T03:49:46-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Normalize Codex supervisor schema and expose bounded errors
+ Pipeline/TaskReviewAgent/codex_supervisor_turn.py | 140 +++++++++++++++++++++-
+ 1 file changed, 136 insertions(+), 4 deletions(-)
+
+d44ec7468b39d05718be4cafe2c1b7f916ad1604	2026-08-28T03:29:09-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Use a temporary Python file for multiline argv regression
+ .../tests/native_command_smoke_test.ps1            | 29 +++++++++++++++++-----
+ 1 file changed, 23 insertions(+), 6 deletions(-)
+
+2940ed0c39331adf1fbe3877c60fbd4c435d7b18	2026-08-28T03:27:59-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Fix multiline argument regression probe quoting
+ Pipeline/TaskReviewAgent/tests/native_command_smoke_test.ps1 | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+6175fef7578d582493129c2394f4b9dc0243f418	2026-08-28T03:26:15-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Test LF normalization for Linux shell payloads
+ .../tests/native_command_smoke_test.ps1            | 22 ++++++++++++++++++++++
+ 1 file changed, 22 insertions(+)
+
+70e7c93c88b02da1ee09ebbe159602249eb9fea5	2026-08-28T03:25:52-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Normalize multiline native command arguments to LF
+ Pipeline/TaskReviewAgent/NativeCommand.ps1 | 18 +++++++++++++++++-
+ 1 file changed, 17 insertions(+), 1 deletion(-)
+
+133315bf3459af48aacd94b8cc4369e714f4949f	2026-08-28T03:03:50-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Run Windows PowerShell native stderr regression test
+ .github/workflows/task-review-agent-deterministic.yml | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+92828bfff2ff0007327ca88d3f3705737eb8930e	2026-08-28T03:02:47-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Test native stderr handling in Windows PowerShell
+ .../tests/native_command_smoke_test.ps1            | 40 ++++++++++++++++++++++
+ 1 file changed, 40 insertions(+)
+
+7d89587d3cfeb6312ecb770fd8993bb0de686a2a	2026-08-28T03:02:36-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Make Docker preflight safe under Windows PowerShell 5.1
+ Pipeline/TaskReviewAgent/Start-GameTaskAgent.ps1 | 73 +++++++++++++++++++-----
+ 1 file changed, 58 insertions(+), 15 deletions(-)
+
+5e4482ca16f6114f4fdca1562f2f24818830c8cd	2026-08-28T03:00:53-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Add Windows PowerShell-safe native command wrapper
+ Pipeline/TaskReviewAgent/NativeCommand.ps1 | 42 ++++++++++++++++++++++++++++++
+ 1 file changed, 42 insertions(+)
+
+6d7afab1c3b2b9cb2a2c7bb90541f4be1e094d84	2026-08-28T02:46:30-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Run Codex credential volume regression test
+ .github/workflows/task-review-agent-deterministic.yml | 3 +++
+ 1 file changed, 3 insertions(+)
+
+e5dc2209d1fa59cfc1cc7a9583f272f01fa3a722	2026-08-28T02:46:04-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Add external Codex volume regression test
+ .../tests/compose_supervisor_volume_smoke_test.py  | 43 ++++++++++++++++++++++
+ 1 file changed, 43 insertions(+)
+
+f58e83e28964f0597994cbf17fc4ae4823de1542	2026-08-28T02:07:52-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Validate API-key-free Codex supervisor
+ .github/workflows/task-review-agent-deterministic.yml | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+0605de578078d9cc533bcc9426d5decb5c4e99b8	2026-08-28T02:07:18-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Test API-key-free Codex supervisor goal loops
+ .../tests/codex_supervisor_smoke_test.py           | 407 +++++++++++++++++++++
+ 1 file changed, 407 insertions(+)
+
+7329567b71195a3e3a80da72496b81afadcde3f0	2026-08-28T02:05:41-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Report authenticated Codex supervisor runtime
+ Pipeline/TaskReviewAgent/run_pipeline_agent.py | 19 ++++++++++---------
+ 1 file changed, 10 insertions(+), 9 deletions(-)
+
+b38eec36df9d5d2266dead2991b731a87f5a3d6c	2026-08-28T02:03:50-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Remove host API-key SDK dependency
+ Pipeline/TaskReviewAgent/requirements.txt | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+b1238ff34d37942bdca39591578fc7a605041165	2026-08-28T02:03:34-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Reuse authenticated Codex CLI volume for task supervisor
+ Pipeline/TaskReviewAgent/Start-GameTaskAgent.ps1 | 70 +++++++++++++++++++++---
+ 1 file changed, 62 insertions(+), 8 deletions(-)
+
+39b920ca50c958429ec6218079a9edd6a357532f	2026-08-28T02:01:31-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Use automatic Compose override for Codex supervisor
+ Pipeline/TaskReviewAgent/compose.supervisor.yaml | 27 ------------------------
+ 1 file changed, 27 deletions(-)
+
+bb075294155447809317edd725a4b01ea8dbfcc2	2026-08-28T02:00:28-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Add read-only Codex supervisor Compose service
+ Pipeline/TaskReviewAgent/compose.supervisor.yaml | 27 ++++++++++++++++++++++++
+ 1 file changed, 27 insertions(+)
+
+5d308bbd8b37c311c89cecd875b89ca4c92d9736	2026-08-28T01:59:29-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Drive downstream workflow with authenticated Codex CLI
+ Pipeline/TaskReviewAgent/openai_downstream.py | 583 ++++++++++++--------------
+ 1 file changed, 273 insertions(+), 310 deletions(-)
+
+b8810483f2bcacf78b49f30d9c4319c46d17398b	2026-08-28T01:57:53-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Drive production workflow with authenticated Codex CLI
+ Pipeline/TaskReviewAgent/openai_pipeline.py | 556 +++++++++++++++-------------
+ 1 file changed, 297 insertions(+), 259 deletions(-)
+
+c1fc72a5c2c5ae96824ba63b0597a3de28c1c045	2026-08-28T01:56:25-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Add Docker Codex goal-supervisor decision runtime
+ Pipeline/TaskReviewAgent/codex_supervisor.py | 410 +++++++++++++++++++++++++++
+ 1 file changed, 410 insertions(+)
+
+01d53c900de208042e97ebb15e5419099e50f530	2026-08-28T01:54:51-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Add authenticated Codex CLI supervisor turn adapter
+ Pipeline/TaskReviewAgent/codex_supervisor_turn.py | 162 ++++++++++++++++++++++
+ 1 file changed, 162 insertions(+)
+
+a54979191eb112d54ad86bd34393ecd7bc7eb20b	2026-08-28T01:07:19-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Validate Game Task Agent PowerShell syntax
+ .github/workflows/task-review-agent-deterministic.yml | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+7a2d560377f1fa8082da495f53247edf39692560	2026-08-28T01:05:58-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Harden Docker output permissions and durable output default
+ Pipeline/TaskReviewAgent/Start-GameTaskAgent.ps1 | 70 +++++++++++++++++++++---
+ 1 file changed, 62 insertions(+), 8 deletions(-)
+
+ddcbf27f00d8b716403fb91dacf4f8862a7e0980	2026-08-28T00:48:16-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Make workflow runtime test model two-pass observation
+ .../TaskReviewAgent/tests/workflow_runtime_smoke_test.py    | 13 ++++++++++++-
+ 1 file changed, 12 insertions(+), 1 deletion(-)
+
+071bb4c0f70b0cd4a1eb9126c92674620af2a091	2026-08-28T00:44:17-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Run the actual downstream smoke test suite
+ .github/workflows/task-review-agent-deterministic.yml | 12 +++---------
+ 1 file changed, 3 insertions(+), 9 deletions(-)
+
+586549182d869fdd328a6c4ab81f4c8c80229882	2026-08-28T00:39:44-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Fix delivery review smoke test API compatibility
+ .../tests/delivery_review_smoke_test.py            | 34 ++++++++++++----------
+ 1 file changed, 18 insertions(+), 16 deletions(-)
+
+926eee90daf5d90413319001be68cde52f6f622b	2026-08-27T11:34:46-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Run downstream resume and closeout regressions in CI
+ .github/workflows/task-review-agent-deterministic.yml | 3 +++
+ 1 file changed, 3 insertions(+)
+
+83ebdfbe9e2b8f6de690dd9d8c622cc9256c5282	2026-08-27T11:33:52-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Add downstream evidence and closeout smoke tests
+ .../TaskReviewAgent/tests/downstream_smoke_test.py | 510 +++++++++++++++++++++
+ 1 file changed, 510 insertions(+)
+
+fdae1435ae603e326a6b1d2b8b1cb0c373b49435	2026-08-27T11:31:14-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Select managed downstream work independently of delivery state
+ Pipeline/TaskReviewAgent/durable_selection.py | 110 ++++++++++++++++++++++++++
+ 1 file changed, 110 insertions(+)
+
+f182382dd09886ca143648f58117a86139336538	2026-08-27T11:27:09-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Route conformant managed tasks through downstream closeout
+ Pipeline/TaskReviewAgent/run_pipeline_agent.py | 66 +++++++++++++++++++++++++-
+ 1 file changed, 64 insertions(+), 2 deletions(-)
+
+c32bcbc5a3e5bb5a011f1344ad1c0bd93a631657	2026-08-27T11:26:34-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Harden downstream resume, evidence base, and post-merge verification
+ Pipeline/TaskReviewAgent/downstream_runtime.py | 441 ++++++++++++++++++++++++-
+ 1 file changed, 437 insertions(+), 4 deletions(-)
+
+1f868951b66d2d12dcae9af9539189f9ec33c864	2026-08-27T11:21:15-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Test managed Issue observation after TaskGraph conformance
+ .../tests/workflow_runtime_smoke_test.py           | 155 +++++++++++++++++++++
+ 1 file changed, 155 insertions(+)
+
+6f4bab9dbb18a9e06bc9b1ed306441cb7a38df6e	2026-08-27T11:20:10-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Allow managed Issue resume after TaskGraph becomes conformant
+ Pipeline/TaskReviewAgent/workflow_runtime.py | 63 ++++++++++++++++++++++++++++
+ 1 file changed, 63 insertions(+)
+
+b19c98bc96f4a3d61e82278ca5c2ad236791516b	2026-08-27T11:18:29-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Run downstream delivery and Issue state smoke tests
+ .github/workflows/task-review-agent-deterministic.yml | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+8b2c25f7b4e5cfefbb678c6a70bc03fc72ad3ce3	2026-08-27T11:17:44-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Test strict delivery proposal and approved review materialization
+ .../tests/delivery_review_smoke_test.py            | 257 +++++++++++++++++++++
+ 1 file changed, 257 insertions(+)
+
+c16bd25a5a329258de133d0452af7465175c3834	2026-08-27T11:16:46-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Test durable delivery review and evidence-head resume transitions
+ .../tests/downstream_issue_smoke_test.py           | 242 +++++++++++++++++++++
+ 1 file changed, 242 insertions(+)
+
+132aff53a333a5eea7d058fbe302611372a91b7d	2026-08-27T11:15:22-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Pass Unity and downstream output settings through generic launcher
+ Pipeline/TaskReviewAgent/Start-GameTaskAgent.ps1 | 20 ++++++++++++++++++--
+ 1 file changed, 18 insertions(+), 2 deletions(-)
+
+52194c4d3c6b1bc0f2e1fe3946ed04ba0e0830e8	2026-08-27T11:14:44-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Route generic task agents into downstream delivery phases
+ Pipeline/TaskReviewAgent/run_pipeline_agent.py | 70 +++++++++++++++++++++++---
+ 1 file changed, 62 insertions(+), 8 deletions(-)
+
+6350b2217b4536d98c73b997e9662ebf1748ef3a	2026-08-27T11:13:53-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Add OpenAI downstream delivery and closeout supervisor
+ Pipeline/TaskReviewAgent/openai_downstream.py | 335 ++++++++++++++++++++++++++
+ 1 file changed, 335 insertions(+)
+
+09dc2cf6480763e11142624c96ab30cd8f9edeec	2026-08-27T11:12:26-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Expose bounded downstream repository discovery
+ Pipeline/TaskReviewAgent/downstream_runtime.py | 190 ++++++++++++++++++++-----
+ 1 file changed, 154 insertions(+), 36 deletions(-)
+
+dd30d17d47921ed314b10e644edcf1378ee49143	2026-08-27T11:09:47-05:00	cathode26 <Vincent.J.Liguori@outlook.com>	Route all human Issue transitions through unified state action
+ .github/workflows/nsc-issue-workflow.yml | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)

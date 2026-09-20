@@ -1,0 +1,10 @@
+{
+  "game_technical_director": "claude-sonnet-5",
+  "workflow_systems_architect": "claude-sonnet-5",
+  "llm_reliability_engineer": "claude-sonnet-5",
+  "unity_production_engineer": "claude-sonnet-5",
+  "yagni_complexity_critic": "claude-sonnet-5",
+  "autonomous_agent_architect": "claude-sonnet-5",
+  "adversarial_qa": "claude-sonnet-5",
+  "game_producer": "claude-sonnet-5"
+}

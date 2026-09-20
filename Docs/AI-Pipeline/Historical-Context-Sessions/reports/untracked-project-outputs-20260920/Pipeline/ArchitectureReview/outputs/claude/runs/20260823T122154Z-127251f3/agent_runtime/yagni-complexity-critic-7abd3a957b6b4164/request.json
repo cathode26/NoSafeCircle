@@ -1,0 +1,213 @@
+{
+  "allowed_capabilities": [
+    "repository_read",
+    "repository_search"
+  ],
+  "budgets": {
+    "timeout_seconds": 3600,
+    "token_limit": null,
+    "turn_limit": 64
+  },
+  "context_paths": [
+    "AI_PIPELINE.md",
+    "Docs/AI-Pipeline/START_HERE.md",
+    "Docs/AI-Pipeline/CURRENT_STATE.md",
+    "Docs/AI-Pipeline/00_MASTER_CONTEXT.md",
+    "Docs/AI-Pipeline/01_MILESTONE_TASK_GRAPH.md",
+    "Docs/AI-Pipeline/02_RAG_SCANNER_CONTEXT.md",
+    "Docs/AI-Pipeline/03_SUPERVISOR_GIT_GITHUB_CONTEXT.md",
+    "Docs/AI-Pipeline/04_EXECUTION_GER_VALIDATION_CONTEXT.md",
+    "Docs/AI-Pipeline/05_CONTINUOUS_AUTONOMY_CONTEXT.md",
+    "Docs/AI-Pipeline/DECISIONS.md"
+  ],
+  "model_capability_class": "standard",
+  "output_schema": {
+    "additionalProperties": false,
+    "properties": {
+      "alternative_architecture": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "needed": {
+            "type": "boolean"
+          },
+          "why_better": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "needed",
+          "description",
+          "why_better"
+        ],
+        "type": "object"
+      },
+      "architecture_summary": {
+        "type": "string"
+      },
+      "biggest_uncertainty": {
+        "type": "string"
+      },
+      "confidence": {
+        "maximum": 1,
+        "minimum": 0,
+        "type": "number"
+      },
+      "do_not_build_yet": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "evidence": {
+        "items": {
+          "additionalProperties": false,
+          "properties": {
+            "observation": {
+              "type": "string"
+            },
+            "path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "path",
+            "observation"
+          ],
+          "type": "object"
+        },
+        "type": "array"
+      },
+      "gdd_iteration_concerns": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "human_intervention_points": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "hypothetical_failure_solutions": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "missing_components": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "next_slice": {
+        "additionalProperties": false,
+        "properties": {
+          "deliverables": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "proof_of_value": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "why": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "why",
+          "deliverables",
+          "proof_of_value"
+        ],
+        "type": "object"
+      },
+      "observed_failure_solutions": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "overall_verdict": {
+        "enum": [
+          "sound_high_leverage",
+          "sound_overbuilt",
+          "partially_unsound",
+          "fundamentally_wrong_approach",
+          "insufficient_evidence"
+        ],
+        "type": "string"
+      },
+      "overengineering": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "state_and_authority_concerns": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "strong_decisions": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "structural_flaws": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "throughput_assessment": {
+        "type": "string"
+      },
+      "verdict_reason": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "architecture_summary",
+      "overall_verdict",
+      "verdict_reason",
+      "strong_decisions",
+      "structural_flaws",
+      "observed_failure_solutions",
+      "hypothetical_failure_solutions",
+      "overengineering",
+      "missing_components",
+      "state_and_authority_concerns",
+      "gdd_iteration_concerns",
+      "throughput_assessment",
+      "human_intervention_points",
+      "next_slice",
+      "do_not_build_yet",
+      "alternative_architecture",
+      "evidence",
+      "confidence",
+      "biggest_uncertainty"
+    ],
+    "type": "object"
+  },
+  "prompt": "# No Safe Circle adversarial architecture review\n\nYou are the **YAGNI and Complexity Critic**.\n\nYour specialization:\nAssume every subsystem must earn its existence. Identify machinery that solves hypothetical rather than observed failures, overlapping abstractions, premature generalization, and the smallest architecture that could deliver most of the autonomy benefit without sacrificing correctness.\n\n## Mission\n\nIndependently evaluate whether the current No Safe Circle autonomous AI-development\narchitecture is fundamentally sound and whether it is likely to create enough leverage\nto make game development materially faster.\n\nThis is NOT an approval exercise. The existing architecture, milestone ordering, ADRs,\nand proposed next step are hypotheses. You may reject them.\n\nThe frozen repository commit for this review is:\n\n`e15a16e46083bfaaa2bdc4e0d738f70efe5e3e1a`\n\nInspect the repository directly using Read/Glob/Grep. Architecture documents are claims\nto verify against implementation and repository history, not unquestioned truth.\n\nExperimental independence rule: do not inspect prior ArchitectureReview reviewer\noutputs, syntheses, or critiques. Do not inspect `Pipeline/ArchitectureReview/outputs/`\nfrom prior or other-provider runs, and do not inspect preserved ArchitectureReview\nevidence merely to learn previous reviewers' conclusions. Form your independent review\nfrom architecture documents, implementation, tests, Git history, Unity/project evidence,\nand other primary repository evidence. Do not inspect sibling reviewer outputs or their\nAgentRuntime logs.\n\nWhen architecture or current-state documents summarize or quote prior\nArchitectureReview conclusions, distinguish implemented architecture and accepted\nproject decisions from prior reviewer opinions. Ignore prior ArchitectureReview\nverdicts, reviewer recommendations, synthesis conclusions, adversarial critique\nconclusions, and reviewer vote/count summaries. Do not use those prior reviewer opinions\nas evidence for your new independent verdict. You may use the current implementation,\ntests, accepted ADR decisions, Git history, Unity/project state, task/evidence structures,\nand current documented architecture facts, but independently decide whether they are\ngood or bad.\n\nStart with these documents, then inspect implementation/tests/history where needed:\n\n- `AI_PIPELINE.md`\n- `Docs/AI-Pipeline/START_HERE.md`\n- `Docs/AI-Pipeline/CURRENT_STATE.md`\n- `Docs/AI-Pipeline/00_MASTER_CONTEXT.md`\n- `Docs/AI-Pipeline/01_MILESTONE_TASK_GRAPH.md`\n- `Docs/AI-Pipeline/02_RAG_SCANNER_CONTEXT.md`\n- `Docs/AI-Pipeline/03_SUPERVISOR_GIT_GITHUB_CONTEXT.md`\n- `Docs/AI-Pipeline/04_EXECUTION_GER_VALIDATION_CONTEXT.md`\n- `Docs/AI-Pipeline/05_CONTINUOUS_AUTONOMY_CONTEXT.md`\n- `Docs/AI-Pipeline/DECISIONS.md`\n\nAlso inspect relevant material under:\n- `Pipeline/Reconciliation/`\n- `Assignment3AgentCrew/`, `DynamicContentPipeline/`, Assignment 5/6/7 areas if relevant\n- Unity `Assets/` and tests where relevant to your specialty\n\n## The actual decision we need\n\nWe want a more autonomous development pipeline that can help develop No Safe Circle in\ndays instead of weeks. But speed is not enough: if the architecture is unsound, we need\nto consider a different solution.\n\nJudge in this order:\n\n1. Is the architecture fundamentally sound for autonomous Unity game development?\n2. If not, what should be replaced or reorganized?\n3. If sound, is it overbuilt or appropriately sized?\n4. Does it plausibly create major near-term development leverage?\n5. What is the single best next implementation slice?\n\nDo NOT assume `Tasks/*.yaml`, the Work Graph Seeder, `taskcontrol`, or the current\nmilestone order is correct merely because repository docs say it is next.\n\nA particularly important concern is that the GDD is iterative and will continue to\nchange while the game is built. Challenge whether reconciliation/verification is framed\ncorrectly for a moving design target. Distinguish synchronization with evolving canon\nfrom one-time bootstrap correctness.\n\nMandatory questions to answer in your analysis:\n- Which mechanisms solve failures this project has actually experienced?\n- Which mechanisms mostly protect against hypothetical future failures?\n- Which state/authority boundaries are necessary, and which duplicate responsibility?\n- What happens when the GDD changes after work has been planned or implemented?\n- What human intervention will still be required?\n- If forbidden to build more infrastructure for one development slice, what would break\n  first when trying to advance a real gameplay feature with the current machinery?\n- If you reject the current architecture, propose a materially different architecture\n  covering state, planning, execution, validation, recovery, and Unity integration.\n\nDo not vote with imagined reviewers. Give your own evidence-backed judgment.\n",
+  "provider_configuration_key": "architecture-review-claude",
+  "role": "yagni_complexity_critic",
+  "run_id": "yagni-complexity-critic-7abd3a957b6b4164",
+  "schema_version": "1.0",
+  "write_boundaries": {
+    "allowed_paths": [],
+    "denied_paths": []
+  }
+}

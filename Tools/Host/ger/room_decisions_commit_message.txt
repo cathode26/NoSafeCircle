@@ -1,0 +1,21 @@
+Record Vincent's room decisions for GER room revisions
+
+Vincent decided on 2026-09-14 how room tasks may resize rooms under the GDD
+room size authority:
+- NSC-069 revision 5: AC-006 lets each room task NSC-044 to NSC-048 edit its own
+  RoomBounds entry and exit-door center in RoomSceneCatalog.cs and regenerate
+  RoomSceneCatalog.asset; tasks take turns on those shared files and NSC-049
+  reconciles shared boundaries and door alignment.
+- NSC-049 revision 4: compose at the RoomSceneCatalog bounds and door centers
+  the room tasks revise (AC-001, VAL-001), and place the existing Player and
+  PlayerSpawn at the start point NSC-044 records in RuinedEntryLayout.cs (new
+  AC-003 and VAL-003). NSC-049 joins the DoorPrototypeGlobalSceneBuilder.cs
+  resource group.
+- Dungeon art direction: the camera follows the wizard, so rooms may exceed one
+  screen; near south and east walls use a low cutaway stub while far walls keep
+  full height; each room owns an Isometric Tilemap for its walls.
+
+taskcontrol validate passes. No room contract changed yet; GER v3 applies these
+decisions per room.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

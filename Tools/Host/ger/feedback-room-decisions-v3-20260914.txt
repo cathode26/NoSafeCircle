@@ -1,0 +1,10 @@
+Vincent's design decisions for this GER v3 cycle (2026-09-14). They are recorded in the GDD blockout section 13 "Room size authority", NSC-069 AC-006, NSC-049 AC-001/AC-003 and Docs/Art/Environment/DUNGEON_ART_DIRECTION.md.
+
+1. Room size is not a hard size. Each room may grow up to three times its current width and depth (Ruined Entry 20 x 18 may grow to at most 60 x 54 world units). Door openings, route and lane widths, aisles, circulation clearances and staging areas stay minimums. Proportions, obstacle and furniture footprints, and placement are yours to propose.
+2. The camera follows the wizard, so a room may be bigger than one screen. Use several gameplay-camera review shots.
+3. Seriously evaluate a larger layout against the room's tactical purpose and the Diablo and Ultima Online references (R01-R17). Choose the size on design merit; do not keep the baseline only because resizing needs follow-up work in other tasks. Record that follow-up as integration obligations.
+4. Room catalog: this room task may edit its own room's RoomBounds entry and exit-door center in RoomSceneCatalog.cs and regenerate RoomSceneCatalog.asset. Tasks take turns on those shared files; NSC-049 reconciles shared boundaries and door alignment.
+5. Walls: each room uses an Isometric Tilemap for its walls, owned by this room task; tiles may differ per room. Near (south and east) walls are a low cutaway stub about 0.5 units high, tunable after review; far walls stay full height; door frames stay readable; gameplay colliders stay 2.5 units high.
+6. Player start: NSC-044 records the Ruined Entry start point (south end, per the GDD START) in RuinedEntryLayout.cs; NSC-049 places the Player and PlayerSpawn there.
+7. Think about cover and positioning for a wizard: breaking line of sight from ranged enemies, room to charge Fireball, lanes for Frost Field, space for Force Wave, circling and escape routes, and holding a door for five seconds. Cover blocks shots but does not make enemies forget the wizard.
+8. Keep each room's tactical purpose, one continuous floor with doors D1 to D5 in order, and D5 as the final door.

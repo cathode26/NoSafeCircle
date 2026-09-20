@@ -7,3 +7,7 @@ Assets/Plugins/Demigiant/DOTween/** -text -whitespace
 Assets/Plugins/Demigiant/DOTween.meta -text -whitespace
 Assets/Plugins/deVoid/Signals/Signals.cs -text -whitespace
 Assets/Plugins/deVoid/Signals/LICENSE.txt -text -whitespace
+
+# Preserve imported historical evidence and original host guidance byte-for-byte.
+Docs/AI-Pipeline/Historical-Context-Sessions/reports/untracked-project-outputs-20260920/** -text -whitespace
+Docs/AI-Pipeline/Agent-Operations/host-guides/originals/** -text -whitespace

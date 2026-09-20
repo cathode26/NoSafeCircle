@@ -1,0 +1,83 @@
+diff --git a/Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs b/Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs
+index 14280fd004f73f091e2e65d889e73be50d368a7d..8aa9631e32e988ec0608ebbdcd08702581522615 100644
+--- a/Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs
++++ b/Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs
+@@ -15,8 +15,16 @@ namespace NoSafeCircle.DoorPrototype
+         public float PostCastRegenDelay => postCastRegenDelay;
+         public float CurrentMana { get; private set; }
+         public event Action<float> ManaSpent;
++        public event Action<float> ManaSpendDenied;
+ 
+         private void Awake()
++        {
++            ResetMana();
++        }
++
++        /// Owner-controlled reset entry point for floor restart: restores current mana to
++        /// full and clears the post-cast regeneration-delay timer state.
++        public void ResetMana()
+         {
+             CurrentMana = maxMana;
+             timeSinceLastSpend = postCastRegenDelay;
+@@ -41,9 +49,17 @@ namespace NoSafeCircle.DoorPrototype
+ 
+         /// Attempts to spend mana. Returns false and leaves CurrentMana unchanged when
+         /// the pool doesn't have enough, so callers (spells) know the cast was refused.
++        /// Raises ManaSpendDenied (rather than ManaSpent) when the refusal is specifically
++        /// due to insufficient mana, so consumers can present readable low-mana feedback.
+         public bool Spend(float amount)
+         {
+-            if (amount <= 0f || amount > CurrentMana) return false;
++            if (amount <= 0f) return false;
++
++            if (amount > CurrentMana)
++            {
++                ManaSpendDenied?.Invoke(amount);
++                return false;
++            }
+ 
+             CurrentMana -= amount;
+             timeSinceLastSpend = 0f;
+diff --git a/Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs b/Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs
+index 722718a4cef333f2af2ed4acd81b56976e8da1f7..de30e0cecd42cb8da305e67f4812a21beecab14f 100644
+--- a/Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs
++++ b/Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs
+@@ -7,12 +7,38 @@ namespace NoSafeCircle.DoorPrototype
+     {
+         [SerializeField] private PlayerMana mana;
+         [SerializeField] private Image fillImage;
++        [SerializeField] private Color normalColor = Color.white;
++        [SerializeField] private Color deniedCastColor = Color.red;
++        [SerializeField] private float deniedCastFeedbackDuration = 0.3f;
++
++        private float deniedCastFeedbackRemaining;
++
++        private void OnEnable()
++        {
++            if (mana != null) mana.ManaSpendDenied += HandleManaSpendDenied;
++        }
++
++        private void OnDisable()
++        {
++            if (mana != null) mana.ManaSpendDenied -= HandleManaSpendDenied;
++        }
+ 
+         private void Update()
+         {
+             if (mana == null || fillImage == null) return;
+ 
+             fillImage.fillAmount = mana.MaxMana > 0f ? mana.CurrentMana / mana.MaxMana : 0f;
++
++            if (deniedCastFeedbackRemaining > 0f)
++            {
++                deniedCastFeedbackRemaining -= Time.deltaTime;
++                fillImage.color = deniedCastFeedbackRemaining > 0f ? deniedCastColor : normalColor;
++            }
++        }
++
++        private void HandleManaSpendDenied(float amount)
++        {
++            deniedCastFeedbackRemaining = deniedCastFeedbackDuration;
+         }
+     }
+ }

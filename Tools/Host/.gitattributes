@@ -1,0 +1,3 @@
+# Keep imported host-tool snapshots byte-identical, including CRLF endings.
+# Continue checking ordinary trailing whitespace while accepting the preserved CR.
+** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol

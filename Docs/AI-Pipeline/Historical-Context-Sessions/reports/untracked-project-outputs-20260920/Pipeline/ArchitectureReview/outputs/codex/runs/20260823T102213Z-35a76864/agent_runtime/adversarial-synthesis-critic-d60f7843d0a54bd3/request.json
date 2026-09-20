@@ -1,0 +1,97 @@
+{
+  "allowed_capabilities": [
+    "repository_read",
+    "repository_search"
+  ],
+  "budgets": {
+    "timeout_seconds": 1800,
+    "token_limit": null,
+    "turn_limit": 30
+  },
+  "context_paths": [
+    "AI_PIPELINE.md",
+    "Docs/AI-Pipeline/START_HERE.md",
+    "Docs/AI-Pipeline/CURRENT_STATE.md",
+    "Docs/AI-Pipeline/00_MASTER_CONTEXT.md",
+    "Docs/AI-Pipeline/01_MILESTONE_TASK_GRAPH.md",
+    "Docs/AI-Pipeline/02_RAG_SCANNER_CONTEXT.md",
+    "Docs/AI-Pipeline/03_SUPERVISOR_GIT_GITHUB_CONTEXT.md",
+    "Docs/AI-Pipeline/04_EXECUTION_GER_VALIDATION_CONTEXT.md",
+    "Docs/AI-Pipeline/05_CONTINUOUS_AUTONOMY_CONTEXT.md",
+    "Docs/AI-Pipeline/DECISIONS.md"
+  ],
+  "model_capability_class": "high_reasoning",
+  "output_schema": {
+    "additionalProperties": false,
+    "properties": {
+      "better_next_step_if_any": {
+        "type": "string"
+      },
+      "failure_if_followed": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "final_assessment": {
+        "enum": [
+          "synthesis_holds",
+          "synthesis_needs_revision",
+          "synthesis_is_unsafe"
+        ],
+        "type": "string"
+      },
+      "hidden_assumptions": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "ignored_minority_arguments": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "reason": {
+        "type": "string"
+      },
+      "strongest_counter_case": {
+        "type": "string"
+      },
+      "synthesis_weaknesses": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "what_would_change_my_mind": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      }
+    },
+    "required": [
+      "synthesis_weaknesses",
+      "strongest_counter_case",
+      "hidden_assumptions",
+      "ignored_minority_arguments",
+      "failure_if_followed",
+      "better_next_step_if_any",
+      "what_would_change_my_mind",
+      "final_assessment",
+      "reason"
+    ],
+    "type": "object"
+  },
+  "prompt": "# Adversarial critique of architecture synthesis\n\nAssume the synthesis recommendation is wrong and following it could waste the remaining\ndevelopment window or lock No Safe Circle into a flawed autonomous-development design.\n\nFrozen repository commit: `9f2485dca1b61360e6d02810adc71e021346496e`\n\nRead:\n- synthesis: `Pipeline/ArchitectureReview/outputs/codex/runs/20260823T102213Z-35a76864/synthesis.json`\n- all independent reviews: `Pipeline/ArchitectureReview/outputs/codex/runs/20260823T102213Z-35a76864/reviews/`\n- repository architecture and implementation evidence as needed\n\nUse only that current-run synthesis, the eight current-run human-facing reviews, and\nprimary repository evidence as needed. Ignore all prior-run or other-provider\nArchitectureReview conclusions and provider/AgentRuntime logs.\n\nBuild the strongest technical and production case AGAINST the synthesis.\n\nSpecifically look for:\n- hidden assumptions;\n- minority reviewer arguments the synthesis undervalued;\n- state-model or authority flaws;\n- bad assumptions about an evolving GDD;\n- Unity realities the synthesis abstracted away;\n- optimistic autonomy/throughput assumptions;\n- a simpler or materially different architecture that would be safer or faster.\n\nThen decide whether the synthesis still holds, needs revision, or is unsafe.\n",
+  "provider_configuration_key": "architecture-review-openai",
+  "role": "adversarial_synthesis_critic",
+  "run_id": "adversarial-synthesis-critic-d60f7843d0a54bd3",
+  "schema_version": "1.0",
+  "write_boundaries": {
+    "allowed_paths": [],
+    "denied_paths": []
+  }
+}

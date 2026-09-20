@@ -1,0 +1,39 @@
+{
+  "attempts_used": 1,
+  "candidate_patch_path": "/execution-output/nsc-005-20260823t220746z/candidate.patch",
+  "crew_status": "review_ready",
+  "duration_seconds": 447.3495908479963,
+  "final_actual_changed_paths": [
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Tests/PlayerManaPlayModeTests.cs"
+  ],
+  "human_next_step": "Review candidate.patch; apply manually only if approved.",
+  "implementation_actual_changed_paths": [
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs"
+  ],
+  "provider": "claude",
+  "rejection_reasons": [],
+  "role_results": [
+    "role_results/implementer_1.json",
+    "role_results/test_author_1.json",
+    "role_results/validator_1.json"
+  ],
+  "run_id": "nsc-005-20260823t220746z",
+  "schema_version": "1.0",
+  "source_branch": "provider-adapters",
+  "source_head": "8be58c872b8cf867c199bf40f128a609ad83bb78",
+  "source_tree": "84514d275a822bccdfa3328c7d0504deb28a557e",
+  "task_contract_identity": {
+    "path": "Tasks/NSC-005.yaml",
+    "revision": 1,
+    "sha256": "60b445efa977b83b4cf84cd209fbd43881d7810761ebf7bbd6461bb8d696b123"
+  },
+  "task_id": "NSC-005",
+  "test_actual_changed_paths": [
+    "Assets/NoSafeCircle/DoorPrototype/Tests/PlayerManaPlayModeTests.cs"
+  ],
+  "validator_status": "pass",
+  "workspace_diagnostic_patch_path": null
+}

@@ -5,10 +5,13 @@ This document describes the operator tooling the GER owner (Claude) uses to run 
 runbook remains the process authority. This page records the concrete mechanics:
 commands, evidence layout, checks, and lessons learned.
 
-**Status (2026-09-14):** the round runner, node driver and contract-apply tools
-listed below live outside the repository in `C:\nscrev\ger-tools\`. They are
-operator tooling, not yet reviewed repository code. Porting them into
-`Pipeline/TaskDesignGER/` with smoke tests is a recommended follow-up.
+**Source tracking (2026-09-20):** the round runner, node driver and contract-apply
+tools are preserved in [`Tools/Host/ger`](../../Tools/Host/ger), with the host
+deployment map in [`Tools/Host/README.md`](../../Tools/Host/README.md). The commands
+below still describe the existing `C:\nscrev\ger-tools\` compatibility deployment.
+Source preservation does not deploy that copy, remove its existing review holds,
+or approve provider execution. Behavioral integration and smoke tests remain
+separate work. Existing host copies stay in place during this tracking task.
 
 ## 1. Flow at a glance
 

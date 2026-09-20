@@ -1,0 +1,42 @@
+{
+  "agent_runtime_claimed_paths": [],
+  "agent_status": "succeeded",
+  "attempt": 1,
+  "deterministic_incremental_actual_changed_paths": [
+    "Assets/NoSafeCircle/DoorPrototype/Tests/PlayerManaPlayModeTests.cs"
+  ],
+  "duration_seconds": 184.6087677020114,
+  "failure_classification": "none",
+  "model": "claude-sonnet-5",
+  "provider": "claude-code",
+  "role": "test_author",
+  "role_claimed_paths": [
+    "Assets/NoSafeCircle/DoorPrototype/Tests/PlayerManaPlayModeTests.cs"
+  ],
+  "scope_check_reasons": [],
+  "structured_output": {
+    "blockers": [],
+    "claimed_changed_paths": [
+      "Assets/NoSafeCircle/DoorPrototype/Tests/PlayerManaPlayModeTests.cs"
+    ],
+    "known_limitations": [
+      "AC-003 (Player Mana must not absorb spell-local cooldown/charge/cast/placement/active-field state) is not directly asserted by a new test; it is an absence-of-responsibility ownership boundary best preserved by code review of PlayerMana.cs's public surface rather than a runtime assertion.",
+      "Tests were authored only; per instructions no Unity execution was performed, so no pass/fail evidence, exit code, or result XML exists yet.",
+      "PlayerManaUI tests use reflection (System.Reflection, not UnityEditor.SerializedObject) to wire the private [SerializeField] mana/fillImage/deniedCastColor/deniedCastFlashDuration fields, since the Tests asmdef does not reference UnityEditor and editing the asmdef was out of scope.",
+      "The denied-cast color flash's actual visual legibility/contrast against the fill Image is a design judgment that requires a human visual check in the Editor, not something these assertions can prove."
+    ],
+    "proposed_unity_test_scope": "Unity -batchmode -runTests -testPlatform PlayMode -projectPath <repo> -testFilter \"NoSafeCircle.DoorPrototype.Tests.PlayerManaPlayModeTests|NoSafeCircle.DoorPrototype.Tests.PlayerManaUIDeniedCastFeedbackPlayModeTests\" -testResults <path-outside-repo>/PlayerMana-results.xml, run by a human/CI with a clean Git working tree recorded before and after per the Unity Testing Policy evidence requirements.",
+    "summary": "Extended PlayerManaPlayModeTests.cs with new Play Mode coverage for the two behaviors added in the NSC-005 diff: PlayerMana.CastDenied (distinct from ManaSpent, fired on insufficient-mana Spend attempts) and PlayerMana.ResetForRestart (restores CurrentMana to MaxMana and leaves the post-cast regen-delay timer in a clean state even when reset mid-delay). Added a second test class exercising PlayerManaUI's reaction to CastDenied (color flash shown on denial, not shown on success, and reverting after the flash duration) to satisfy the GDD's \"failure is readable through the mana indicator\" gates. No production code was read as write-eligible or modified.",
+    "test_cases_added_or_updated": [
+      "Spend_RaisesCastDenied_WithAttemptedAmount_WhenInsufficient",
+      "Spend_DoesNotRaiseCastDenied_WhenSufficient",
+      "Spend_DoesNotRaiseManaSpent_WhenDenied",
+      "ResetForRestart_RestoresCurrentManaToFull",
+      "ResetForRestart_RestoresFullMana_EvenMidPostCastDelay",
+      "ResetForRestart_ClearsRegenDelayState_SoNextSpendCycleBehavesLikeAFreshDelay",
+      "PlayerManaUI_ShowsDeniedColor_WhenCastDeniedFires",
+      "PlayerManaUI_DoesNotShowDeniedColor_OnSuccessfulSpend",
+      "PlayerManaUI_RevertsToNormalColor_AfterDeniedFlashDurationElapses"
+    ]
+  }
+}

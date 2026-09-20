@@ -1,0 +1,72 @@
+{
+  "claimed_changed_paths": [],
+  "claimed_test_commands": [],
+  "claims_execution_occurred": false,
+  "duration_seconds": 169.24484194398974,
+  "failure_classification": "none",
+  "failure_message": null,
+  "model": "claude-sonnet-5",
+  "provider": "claude-code",
+  "raw_log_reference": "provider.log",
+  "role": "validator",
+  "run_id": "nsc-005-validator-1-a024772f9007",
+  "schema_version": "1.0",
+  "status": "succeeded",
+  "structured_output": {
+    "blocking_issues": [],
+    "criteria_results": [
+      {
+        "evidence": "PlayerMana.cs adds `public void ResetForRestart() { CurrentMana = maxMana; timeSinceLastSpend = postCastRegenDelay; }`. This restores current mana to full and sets the regen-delay timer to the same 'no delay pending' value used by Awake() at first initialization, which is the codebase's established meaning of a clean/cleared timer state (Tick() treats timeSinceLastSpend >= postCastRegenDelay as 'not delayed'). The method is public and owner-controlled (only PlayerMana mutates its own private timeSinceLastSpend field).",
+        "id": "AC-001",
+        "status": "pass"
+      },
+      {
+        "evidence": "PlayerMana.Spend() now branches: `if (amount > CurrentMana) { CastDenied?.Invoke(amount); return false; }` before the existing spend path, and the successful-spend path is unchanged (still fires only ManaSpent). CastDenied and ManaSpent are mutually exclusive per call, satisfying 'distinct from a successful spend.' PlayerManaUI subscribes to CastDenied and flashes the existing continuous fill Image, giving a consuming UI a working example of presenting low-mana feedback without new scene-wired UI, consistent with the task's stated implementation-choice latitude.",
+        "id": "AC-002",
+        "status": "pass"
+      },
+      {
+        "evidence": "The diff touches only PlayerMana.cs, PlayerManaUI.cs, and the test file. No Fireball/Frost Field/Force Wave cooldown, charge, cast, placement, or active-field code is referenced or modified. PlayerMana's added public surface (CastDenied event, ResetForRestart method) only manipulates its existing owned fields (CurrentMana, timeSinceLastSpend), so the ownership boundary from GDD §2 is preserved.",
+        "id": "AC-003",
+        "status": "pass"
+      },
+      {
+        "evidence": "PlayerManaPlayModeTests.cs is extended in the diff with reset and denied-cast-signal coverage, but neither the implementer nor the test author executed Unity/Play Mode tests (both explicitly disclosed no execution occurred). Whether the existing and extended suite 'continues to pass' is unverified execution evidence per UNITY_TESTING_POLICY.md, which states LLM claims are not execution evidence.",
+        "id": "VAL-001",
+        "status": "not_proven"
+      },
+      {
+        "evidence": "The denied-cast color flash mechanism exists in source and is exercised by new Play Mode test assertions, but 'validate that failure is readable' requires either an executed test run or human visual confirmation; neither occurred. Source inspection alone cannot establish readability quality.",
+        "id": "VAL-002",
+        "status": "not_proven"
+      },
+      {
+        "evidence": "The flash targets the same fillImage used as the continuous mana indicator, which is structurally correct, but confirming that low-mana failure is actually readable to a player through that indicator requires a human runtime/visual check per UNITY_TESTING_POLICY.md's 'Human runtime validation' section; the test author's own known_limitations explicitly flags this as unproven by assertions.",
+        "id": "VAL-003",
+        "status": "not_proven"
+      }
+    ],
+    "files_reviewed": [
+      "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs",
+      "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs",
+      "Assets/NoSafeCircle/DoorPrototype/Tests/PlayerManaPlayModeTests.cs",
+      "Tasks/NSC-005.yaml",
+      "Docs/GDD/No_Safe_Circle_GDD.md",
+      "Docs/Engineering/UNITY_TESTING_POLICY.md"
+    ],
+    "risks": [
+      "VAL-001 ('continues to pass') cannot be confirmed from source review; both agents explicitly did not execute Unity/Play Mode tests, so pass/fail of the extended PlayerManaPlayModeTests.cs suite is unproven pending an actual test run.",
+      "VAL-002/VAL-003 require human/runtime visual confirmation that the denied-cast flash is legible against the fill Image's normal states; the test-author's own known_limitations section flags this as unprovable by assertions alone.",
+      "The 'ResetForRestart_ClearsRegenDelayState_SoNextSpendCycleBehavesLikeAFreshDelay' test's regen-timing assertions are actually driven by the subsequent Spend(10f) call's own timeSinceLastSpend=0 reset, not by ResetForRestart() in isolation, so it only weakly demonstrates that ResetForRestart() itself clears the regen-delay timer (the production code is correct, but this specific test does not uniquely isolate that part of AC-001).",
+      "The test-author handoff does not follow UNITY_TESTING_POLICY.md's required literal handoff template (test classification, contract/gate mapping, Git HEAD/tree, working-tree state fields are not explicitly itemized), though the equivalent information is present in prose form."
+    ],
+    "status": "pass",
+    "summary": "The candidate patch adds PlayerMana.CastDenied (fired only on insufficient-mana Spend() calls, distinct from ManaSpent) and PlayerMana.ResetForRestart() (restores CurrentMana to maxMana and resets timeSinceLastSpend to postCastRegenDelay, mirroring Awake's fresh-state initialization), then wires PlayerManaUI to flash the existing fill Image on CastDenied and revert after a configurable duration. No spell-local (Fireball/Frost Field/Force Wave) state is touched. The test-author diff extends PlayerManaPlayModeTests.cs with reset/denied-signal coverage and a new PlayerManaUIDeniedCastFeedbackPlayModeTests class using pre-activation reflection injection to avoid Awake/OnEnable race conditions. Manual reconstruction of both production files and the test file from the diff shows syntactically balanced, internally consistent code with no logic defects against AC-001/AC-002/AC-003. VAL-001/VAL-002/VAL-003 require actual Unity Play Mode execution and human visual/readability confirmation per UNITY_TESTING_POLICY.md; no execution was performed by either agent (both explicitly disclosed this), so these remain not_proven from source review alone."
+  },
+  "usage": {
+    "estimated_cost_usd": 0.37114899999999995,
+    "input_tokens": 196078,
+    "output_tokens": 17153,
+    "total_tokens": 213231
+  }
+}

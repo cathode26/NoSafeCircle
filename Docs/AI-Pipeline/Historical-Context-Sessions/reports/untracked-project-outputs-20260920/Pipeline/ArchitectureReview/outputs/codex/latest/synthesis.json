@@ -1,0 +1,119 @@
+{
+  "agent": "Architecture Synthesis",
+  "provider": "openai-codex",
+  "model": "gpt-5.6-sol",
+  "reasoning_effort": "max",
+  "duration_seconds": 904.32,
+  "agent_runtime_run_id": "architecture-synthesis-8fd93307d4ba42c3",
+  "agent_runtime_artifacts": "Pipeline/ArchitectureReview/outputs/codex/runs/20260823T102213Z-35a76864/agent_runtime/architecture-synthesis-8fd93307d4ba42c3",
+  "result": {
+    "architecture_classification": "partially_unsound",
+    "change_or_replace": [
+      "Replace the platform-first milestone sequence with one serial delivery transaction: human selection → isolated implementation → deterministic/Unity validation → bounded repair → human review → merge → exact-commit receipt.",
+      "Separate durable game requirements from volatile repository inventory and pipeline policy. Introduce stable requirement IDs and revisions incrementally for touched, near-frontier requirements; GDDRAG ordinal chunk IDs are navigation identities, not requirement identities.",
+      "Replace whole-GDD conformance invalidation with task-relevant requirement revisions plus reviewed impact sets. Unrelated GDD edits must not stale every delivery, while changed requirements must force contract review rather than permit rerunning obsolete gates.",
+      "Replace manually asserted ordinary-task evidence with typed gate manifests derived from actual Git/Unity runners. Evidence may not be empty; manifests must identify the runner, command, exact integration ref/commit, XML or human evidence, and reviewed dependency surfaces.",
+      "Add a narrow selected-task preflight that verifies referenced paths, canonical Unity assets, `.meta` GUIDs, packages, Input Actions, and Build Settings. Derive resource-group membership from task claims instead of maintaining two writable copies.",
+      "Make TaskExecution resolve the selected contract revision/hash from a committed base rather than trusting caller-supplied identity. Join task, worktree, commits, attempts, validation, repairs, human decisions, and disposition in one restartable attempt journal.",
+      "Enable one safely contained write-capable coding path. Do not require both providers, mixed-provider execution, or a three-role crew before the first gameplay delivery.",
+      "Replace “any Assets diff means progress” with progress against named unresolved gates; irrelevant churn remains failed progress.",
+      "Make one mechanically checked current-status view authoritative. Retain milestone documents as history, but remove their stale present-tense readiness and next-step claims from operational routing."
+    ],
+    "critical_risks": [
+      "Confidently wrong green state: TaskGraph validation and GDDRAG integrity pass while canon, tasks, resource locks, and Git disagree about the authoritative scene.",
+      "Moving-canon handling is simultaneously over-sensitive and under-sensitive: any GDD byte change globally stales evidence, while omitted surfaces or unchanged obsolete contracts can remain semantically wrong.",
+      "There is no restartable transaction connecting selected work, repository writes, Unity execution, repair, merge, evidence publication, and dependency satisfaction.",
+      "Current evidence records can structurally contain empty conformance surfaces or passing gates with empty evidence; they also evaluate HEAD rather than proving integration into a protected branch such as main.",
+      "NSC-003 is marked concrete/single-agent despite unresolved input arbitration, cancellation, arrival, pathing, and ownership decisions. Dispatching labels as truth would invite design invention and broad shared-asset changes.",
+      "Unity validation remains host-dependent. Bypassing the clean runner risks repeating the observed passing-test mutation of a canonical scene.",
+      "Continued investment in provider, reconciliation, scheduler, and evidence infrastructure could further displace gameplay without improving delivery time.",
+      "Duplicated current-state documentation undermines the repository-as-memory goal and can route future agents to obsolete milestones."
+    ],
+    "decision_rationale": "This conclusion rests on primary behavior, not reviewer frequency. At frozen clean HEAD 9f2485dca1b61360e6d02810adc71e021346496e, TaskGraph reports 37 valid contracts and 59 dependency edges but readiness is unavailable and zero tasks are authorized; NSC-003 and NSC-005 are not delivered, while NSC-023 is conformant. GDDRAG reports 41 current, integrity-valid chunks. Nevertheless, the GDD and its current RAG call the deleted nested DoorPrototype scene canonical; Git contains only Assets/Scenes/DoorPrototype.unity, 13 tasks still lock the deleted scene, 16 tasks mention it, and NSC-037 explicitly rejects the real authoritative scene. Structural validation still passes. Pipeline/TaskGraph/current_conformance.py binds the entire GDD hash and manually listed surfaces, while conformance_records.py permits empty evidence lists/surfaces. AgentRuntime providers reject writes and approved commands, and TaskExecution is only an audit wrapper. Since the historical camera GER commit, 244 commits landed with no runtime-script changes. Conversely, the camera and destructive-test incidents directly support preserving runtime feedback, bounded repair, clean-tree Unity execution, and human qualitative review. Read-only diagnostics were actually executed with exit code 0; HEAD/tree remained 9f2485d/eea3cc6 and clean before and after. No Unity command was executed, so Unity version, XML, and assertion totals are not claimed.",
+    "defer_or_delete": [
+      "Do not rebuild the Work Graph Seeder, make Tasks/*.yaml/taskcontrol readiness the next milestone, or enable autonomous dispatch yet. Retain the existing graph as planning inventory and manually select work.",
+      "Defer dependency-derived readiness until two or three real deliveries prove what “satisfied” must mean operationally.",
+      "Defer continuous supervision, automatic backlog replenishment, automatic merge, merge queues, and project-wide budget governance.",
+      "Defer parallel workers, leases, generalized resource scheduling, and worktree pools.",
+      "Defer GitHub Issues/Projects synchronization; if later added, make it a projection of the single local attempt ledger.",
+      "Defer the Progressive Decomposer, Artifact Authority, artifact generation/GER, and style pipeline until a concrete delivery is blocked by missing approved design.",
+      "Defer provider fallback, cross-provider comparison, and any requirement that mixed-provider execution precede gameplay delivery.",
+      "Defer a generalized scanner, Roslyn platform, incremental caches, and top-k-only context packs; use targeted Git/rg/Unity inspection and the whole small GDD for now.",
+      "Delete empty-evidence acceptance and the requirement that both adapters precede one writable implementation lane.",
+      "Delete duplicated mutable current-state assertions from the operational path; preserve immutable reconciliation and historical milestone artifacts as archive evidence."
+    ],
+    "evidence_gaps": [
+      "No current production gameplay task has traversed write, Unity validation, repair, merge, and evidence publication through this architecture.",
+      "No production revalidation record exists, so recovery and evolving-canon behavior remain synthetic.",
+      "The Windows Unity host, licensing/import latency, and repeatable build reliability were not exercised in this review environment.",
+      "Per-ticket wall time, model cost, repair count, human minutes, and escaped defects are not measured comparably.",
+      "Requirement-to-task and transitive implementation impact will initially require human-reviewed mapping; automatic completeness is not yet justified.",
+      "Final product priority remains human-owned. NSC-005 is recommended as an architecture/throughput experiment, not asserted as the highest-value design priority."
+    ],
+    "executive_verdict": "The architecture is not fundamentally wrong: its safety kernel is strong. Its current composition is partially unsound and presently functions as an audit/review platform rather than an autonomous game-development system. Preserve the authority and validation boundaries, replace the canon/conformance and lifecycle model, stop the platform-first sequence, and prove one thin serial gameplay delivery before building readiness, decomposition, GitHub, parallelism, or more provider machinery.",
+    "expected_autonomy_and_throughput": "Current gameplay autonomy is effectively zero: the production path cannot select, authorize, write, run Unity, repair, merge, or publish delivery evidence. The realistic near-term target is assisted serial autonomy: a human chooses priority, resolves design, performs experiential review, and merges; one bounded agent performs implementation and evidence-driven repair. Major leverage should not be claimed until the same thin lane delivers two or three real slices within roughly one working day each, with at most two repairs and no more than about 60–90 minutes of human hands-on orchestration per slice. The shortest route is direct manual selection, one worktree, one writer, the existing clean Unity runner, and a compact receipt—not taskcontrol readiness or another infrastructure milestone.",
+    "gdd_iteration_strategy": "Treat GDD evolution as scoped change management. Product requirements receive stable IDs and per-requirement revisions; repository inventory and pipeline rules move to derived engineering/project-state sources. Each approved change records added, changed, clarified, tuned, or removed requirement IDs and a human-reviewed impact set. Planned contracts become unaffected, revised, superseded, or cancelled. Active attempts remain bound to their starting revisions and pause for an explicit continue/replan decision when affected. Delivered work becomes unaffected, targeted-revalidation, or remediation work; prior receipts remain immutable lineage. Reconciliation should be an exceptional immutable audit for major redesign, milestone review, backlog exhaustion, or suspected systemic drift. Verification should independently challenge material semantic impact or high-risk changes, not become a routine global swarm. Neither reconciliation nor verification directly mutates operational state; deterministic reference checks and a reviewed apply boundary remain mandatory.",
+    "major_disagreements": [
+      {
+        "assessment": "Choose the strong minority NSC-005 argument. The first experiment should isolate the missing delivery transaction, not simultaneously solve input design, Input Actions, scene wiring, shared targeting, and movement feel. Movement should follow immediately after a human-approved micro-brief and contract split.",
+        "issue": "First implementation slice: NSC-003A movement versus NSC-005 mana",
+        "positions": [
+          "Five reviews favored a split mouse-movement slice because it unlocks six downstream contracts and exercises broader Unity integration.",
+          "Three reviews favored mana reset/denied-spend feedback because it has existing runtime code and five PlayMode tests, no dependencies or exclusive resources, and avoids unresolved control semantics."
+        ]
+      },
+      {
+        "assessment": "Keep the authority distinction and immutable raw artifacts, but replace the ordinary-task critical path with one typed compact manifest. Retain richer lineage only for baselines, revalidation, migration, or unusually high-risk surfaces.",
+        "issue": "How much bespoke conformance infrastructure to preserve",
+        "positions": [
+          "Preserve exact immutable contract/canon/commit/artifact lineage as the safety foundation.",
+          "Use the protected integration commit plus a compact validation manifest for ordinary deliveries because the current evidence DAG adds handoffs without proving surface completeness or command provenance."
+        ]
+      },
+      {
+        "assessment": "Because dispatch is disabled and NSC-005 need not modify the scene, correct NSC-005's stale observation and add selected-task path preflight now. Block every scene/build task until a separately reviewed scoped scene-authority migration updates canon, contracts, requirements, and locks. Do not let that global cleanup consume the gameplay experiment.",
+        "issue": "Whether canonical-scene repair must precede all gameplay delivery",
+        "positions": [
+          "Some reviews require the complete scene-authority migration before the first feature.",
+          "Others proceed with a non-scene gameplay slice and treat the split as a blocking preflight issue for affected work."
+        ]
+      },
+      {
+        "assessment": "Keep the graph as durable planning inventory, but manual selection remains correct. Implement readiness only after delivery receipts and dependency semantics have been demonstrated repeatedly.",
+        "issue": "Operational role of Tasks/*.yaml and taskcontrol",
+        "positions": [
+          "Older milestone documents describe the graph as living operational state with seven ready tasks.",
+          "Current code and correction documents intentionally treat contracts as definitions only and disable readiness/authorization."
+        ]
+      }
+    ],
+    "minimum_viable_architecture": "A human selects one small approved contract bound to relevant canon revisions and a committed base. A narrow preflight validates actual paths and Unity identities. A deterministic driver creates one isolated branch/worktree and one append-only attempt journal with states selected, implementing, validating, needs_repair, needs_human, merge_ready, merged, blocked, or superseded. One write-capable agent implements and checkpoint-commits within enforced scope. Git diff checks and the clean Unity runner produce actual evidence; a fresh semantic review is used where risk warrants it, and human Play Mode review remains required for feel/readability. At most two evidence-driven repairs are allowed, with no-op/gate-neutral attempts consuming budget. Recovery reconciles the journal with real refs, commits, and artifacts rather than replaying blindly. A human merges; validation reruns on the exact protected integration commit; one typed receipt binds contract, relevant requirements, commit/tree, changed surfaces, runner evidence, and human approval. No scheduler, GitHub mirror, parallelism, automatic readiness, or provider parity is required.",
+    "preserve": [
+      "Human authority over product priority, ambiguous design, visual/game-feel approval, architecture changes, and merge.",
+      "Bounded near-frontier task contracts separated from attempt state and completion truth.",
+      "One worker initially, isolated branches/worktrees, and integrated Git state outranking worker claims.",
+      "Deterministic ownership of identity, Git facts, scope checks, test parsing, cleanliness, retry budgets, and recovery.",
+      "The Unity testing policy: no tracked mutation, external XML/logs, exact version/commit reporting, and separate builder versus committed-artifact claims.",
+      "Runtime and human evidence that can overturn static semantic approval, feeding bounded GER repair with circuit breakers.",
+      "GDDRAG freshness/integrity as search and navigation, while withholding any claim that top-k retrieval is complete canon.",
+      "Immutable reconciliation snapshots and the explicit review/apply boundary, demoted from routine development.",
+      "The semantic separation between generic AgentRuntime invocation and NSC task identity, while avoiding multiple competing operational authorities."
+    ],
+    "recommended_next_slice": {
+      "deliverables": [
+        "Human-approve NSC-005 revision 2: remove duplicated readability gates, correct/remove its stale scene bootstrap observation, define one bounded visible denied-mana response using the existing mana indicator, and specify typed automated versus human proof.",
+        "Add only a selected-task preflight for referenced-path existence. Demonstrate that the stale revision-1 scene reference is rejected and revision 2 passes; do not build a general scanner.",
+        "Use one manually selected isolated worktree, exact base commit, relevant-canon packet, and append-only attempt manifest. Invoke one write-capable coding agent with at most two evidence-driven repairs and checkpoint commits.",
+        "Implement PlayerMana.Reset, a distinct insufficient-mana signal that does not alter mana or report a successful spend, and a bounded PlayerManaUI response using the existing wired indicator. Preserve current spend/regeneration behavior and avoid scene saving/regeneration.",
+        "Testing handoff classification: component plus PlayMode behavior tests mapped to revision-2 gates, using in-memory objects and no canonical scene writes. Preserve the existing five tests and add explicit reset, denied-event, and UI-response/recovery coverage.",
+        "Run the focused clean Unity runner on an exact committed candidate with XML/logs outside the repository and prove HEAD/tree and full working-tree cleanliness before and after.",
+        "Perform the human Play Mode readability check, merge manually, rerun required validation on the exact protected integration commit, publish one compact typed delivery receipt, and record elapsed time, human minutes, model calls, repairs, Unity time, and failure causes.",
+        "Record the global canonical-scene split as a dispatch-blocking scoped migration for every scene/build task; do not fold a 16-contract cleanup or global reconciliation into this slice.",
+        "Add no Work Graph Seeder, readiness policy, supervisor, GitHub integration, provider-parity work, or generalized ExecutionCrew platform."
+      ],
+      "success_test": "From a clean base, deliberately interrupt once after a checkpoint and resume without duplicate commits or lost state. The focused Unity run must keep all five existing PlayerManaPlayModeTests passing and add passing tests equivalent to Reset_RestoresFullMana_AndIsIdempotent, Spend_WhenInsufficient_RaisesDeniedExactlyOnce_WithoutChangingManaOrManaSpent, and PlayerManaUI_DeniedSpend_ShowsFeedback_ThenRestoresBaseline. Unity must exit 0, parsed XML must report zero failed tests, and Git HEAD/tree/status must be unchanged by testing. In Play Mode, the human repeatedly uses the existing debug spend control until a spend is denied and confirms the response is noticeable, bounded, and does not falsely reduce mana; reset behavior is also approved. After manual merge, rerun on the exact integration commit and publish the receipt. The workflow creates value only if this completes within one working day, with no more than two repairs, roughly 90 minutes or less of human hands-on orchestration, and no generalized platform subsystem added.",
+      "title": "Ship NSC-005 mana reset and denied-spend feedback through a thin resumable lane",
+      "why": "This is the shortest honest test of the architecture's missing value path. NSC-005 extends two small existing components and an existing five-test PlayMode suite, has no dependencies or exclusive resources, produces visible player feedback, and avoids NSC-003's unresolved input semantics and broad shared Unity surface. If this narrow slice cannot be implemented, recovered, Unity-validated, reviewed, merged, and receipted efficiently, more scheduler, graph, provider, or decomposition infrastructure is not justified."
+    }
+  }
+}

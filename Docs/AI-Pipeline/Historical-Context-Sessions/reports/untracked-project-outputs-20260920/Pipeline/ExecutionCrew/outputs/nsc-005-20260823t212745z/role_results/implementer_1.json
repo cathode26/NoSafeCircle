@@ -1,0 +1,19 @@
+{
+  "agent_runtime_claimed_paths": [],
+  "agent_status": "failed",
+  "attempt": 1,
+  "deterministic_incremental_actual_changed_paths": [
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs"
+  ],
+  "duration_seconds": 39.07104969100328,
+  "failure_classification": "internal_error",
+  "model": "claude-sonnet-5",
+  "provider": "claude-code",
+  "role": "implementer",
+  "role_claimed_paths": [],
+  "scope_check_reasons": [
+    "AgentResult failed: internal_error"
+  ],
+  "structured_output": {}
+}

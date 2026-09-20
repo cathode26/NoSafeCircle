@@ -1,0 +1,118 @@
+{
+  "allowed_capabilities": [
+    "repository_read",
+    "repository_search"
+  ],
+  "budgets": {
+    "timeout_seconds": 1200.0,
+    "token_limit": null,
+    "turn_limit": 32
+  },
+  "context_paths": [
+    "Tasks/NSC-005.yaml",
+    "Docs/GDD/No_Safe_Circle_GDD.md",
+    "Docs/Engineering/UNITY_TESTING_POLICY.md",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Tests/PlayerManaPlayModeTests.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Tests/NoSafeCircle.DoorPrototype.Tests.asmdef"
+  ],
+  "model_capability_class": "high_reasoning",
+  "output_schema": {
+    "additionalProperties": false,
+    "properties": {
+      "blocking_issues": {
+        "items": {
+          "additionalProperties": false,
+          "properties": {
+            "issue": {
+              "type": "string"
+            },
+            "path": {
+              "type": "string"
+            },
+            "required_fix": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "path",
+            "issue",
+            "required_fix"
+          ],
+          "type": "object"
+        },
+        "type": "array"
+      },
+      "criteria_results": {
+        "items": {
+          "additionalProperties": false,
+          "properties": {
+            "evidence": {
+              "type": "string"
+            },
+            "id": {
+              "type": "string"
+            },
+            "status": {
+              "enum": [
+                "pass",
+                "fail",
+                "not_proven"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "status",
+            "evidence"
+          ],
+          "type": "object"
+        },
+        "type": "array"
+      },
+      "files_reviewed": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "risks": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "status": {
+        "enum": [
+          "pass",
+          "needs_changes",
+          "blocked_by_design"
+        ],
+        "type": "string"
+      },
+      "summary": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "status",
+      "summary",
+      "criteria_results",
+      "blocking_issues",
+      "risks",
+      "files_reviewed"
+    ],
+    "type": "object"
+  },
+  "prompt": "You are the independent read-only Validator for NSC-005 - Player Mana Ownership, Restart Reset, and Denied-Cast Feedback. Semantically review the supplied implementation and test changes against the exact task and canon. You have no write authority. Do not run Unity, tests, builds, scripts, or package managers. A pass means semantic review only: it does not mean Unity passed, delivery occurred, conformance/readiness exists, or integration is approved.\nREPOSITORY VIEW SEMANTICS\n- The repository visible through Read/Glob/Grep is the committed BASELINE source at the captured source HEAD.\n- The baseline repository is intentionally unchanged and therefore WILL NOT contain the candidate changes.\n- The authoritative proposed delta under semantic review is the supplied EXACT FULL CANDIDATE GIT PATCH plus EXACT DETERMINISTIC ACTUAL CHANGED PATHS.\n- Absence of candidate changes from the baseline source is not a failure reason. A blocking issue must not be based only on candidate changes not being present, committed, or applied in the baseline source checkout.\n- Do not request that the candidate be committed or applied to the real source before semantic validation.\n- Use the baseline repository only to understand surrounding code and context and to judge how the candidate patch changes it.\n- Evaluate source-level acceptance criteria against the candidate state represented by baseline plus candidate patch.\n- If the patch cannot be reconciled with the baseline, is internally inconsistent, omits necessary changes, or violates canon, report that actual defect.\n- Runtime or Unity evidence that was not executed remains not_proven wherever execution is required.\nReport exactly one criteria_results item for every acceptance-criterion ID and completion-gate ID (AC/VAL ID) in the task, with no other IDs. Use not_proven when execution or runtime evidence is required but was not actually run. Never mark a Unity/runtime completion gate pass merely from source inspection.\nHUMAN REVIEW REJECTION FROM PRIOR REVIEW-READY CANDIDATE\n---\n﻿Human review result: rejected\n\nTask: NSC-005\n\nObserved problem:\nThe insufficient-mana feedback changes the color of the mana fill Image.\n\nWhen current mana is zero, PlayerManaUI sets fillAmount to zero. There are\ntherefore no visible fill pixels to change color, so the denied-cast feedback\nis effectively invisible at exactly the point where it is most important.\n\nThe feedback only becomes visible after some mana regenerates.\n\nRequired correction:\nInsufficient-mana feedback must remain clearly visible when CurrentMana == 0.\n\nDo not temporarily increase fillAmount or otherwise visually imply that the\nplayer has mana they do not actually have.\n\nPrefer feedback on an always-visible portion of the mana indicator, such as\nthe bar background/frame, or another clearly readable pulse/flash treatment.\n\nAfter the feedback completes, the UI must return to its normal scene-authored\nappearance.\n\nRegression requirement:\nAdd automated coverage for a denied spend while mana is exactly zero and prove\nthat the feedback mechanism remains visible/active independent of fillAmount.\n\nHuman validation will be repeated after the repaired candidate is produced.\r\n\n---\nTreat this as review evidence, not as an override of the GDD or TaskContract. Semantically determine whether the candidate as a whole - both the production correction and appropriate regression coverage - addresses the human rejection. A Validator pass must not ignore an unresolved human-review rejection. The current committed source may already contain the rejected candidate.\n\nEXACT COMMITTED TASK CONTRACT\n---\n{\n  \"schema_version\": \"2.0\",\n  \"id\": \"NSC-005\",\n  \"contract_revision\": 1,\n  \"contract_disposition\": \"active\",\n  \"title\": \"Player Mana Ownership, Restart Reset, and Denied-Cast Feedback\",\n  \"reconciliation_key\": \"player-mana\",\n  \"kind\": \"implementation\",\n  \"type\": \"implementation\",\n  \"execution_scope\": \"single_agent\",\n  \"execution_reason\": \"Bounded addition to one existing component (PlayerMana.cs) that does not require new scene-wired UI, since the existing PlayerManaUI/fill Image can consume a new denied-cast event without builder changes.\",\n  \"decomposition_state\": \"concrete\",\n  \"decomposition_reason\": \"Required reset and denied-cast-signal behavior are fully specified by current GDD text without inventing new design; exact feedback presentation is explicitly an implementation choice.\",\n  \"parent\": \"NSC-002\",\n  \"depends_on\": [],\n  \"exclusive_resources\": [],\n  \"acceptance_criteria\": [\n    {\n      \"reference\": \"GDD §5 Runtime Implementation\",\n      \"requirement\": \"Exposes an owner-controlled reset entry point that restores current mana to full and clears post-cast regeneration-delay timer state for floor restart.\",\n      \"criterion_id\": \"AC-001\"\n    },\n    {\n      \"reference\": \"GDD §3 Player Experience Success Criteria — Failure is readable\",\n      \"requirement\": \"Exposes a signal (e.g. an event) when a cast attempt is denied due to insufficient mana, distinct from a successful spend, so a consuming spell/UI can present readable low-mana feedback; exact presentation is an implementation choice.\",\n      \"criterion_id\": \"AC-002\"\n    },\n    {\n      \"reference\": \"GDD §2 Player Mana ownership\",\n      \"requirement\": \"Continues to own only current mana and post-cast regeneration-delay state; does not absorb Fireball/Frost Field/Force Wave spell-local cooldown, charge, cast, placement, or active-field state.\",\n      \"criterion_id\": \"AC-003\"\n    }\n  ],\n  \"completion_gates\": [\n    {\n      \"reference\": \"GDD §2 Resources, Feedback, and Failure\",\n      \"requirement\": \"Existing Play Mode coverage of Spend/regen/post-cast-delay behavior (PlayerManaPlayModeTests.cs) continues to pass and is extended to cover the new reset entry point and denied-cast signal.\",\n      \"gate_id\": \"VAL-001\"\n    },\n    {\n      \"reference\": \"GDD §3 Player Experience Success Criteria\",\n      \"requirement\": \"Validate that failure is readable through low-mana feedback as one of the stated readable failure causes.\",\n      \"gate_id\": \"VAL-002\"\n    },\n    {\n      \"reference\": \"Section 3 - Player Experience Success Criteria\",\n      \"requirement\": \"Failure caused by low mana is readable to the player through the mana indicator, as part of the required 'failure is readable' success criterion.\",\n      \"gate_id\": \"VAL-003\"\n    }\n  ],\n  \"downstream_integration_obligations\": [],\n  \"gdd_evidence\": [\n    {\n      \"reference\": \"GDD §2 Resources, Feedback, and Failure — Player Mana ownership\",\n      \"requirement\": \"The shared Player Mana system is the single owner of current mana and the post-cast regeneration-delay state; spells spend mana through its owner-controlled spend interface; Player Mana does not own spell-local cooldown/charge/cast/placement/active-field state.\"\n    },\n    {\n      \"reference\": \"GDD §5 Runtime Implementation\",\n      \"requirement\": \"Player Mana owns current mana and post-cast regeneration-delay state and exposes an owner-controlled spend/reset interface to spells and restart orchestration.\"\n    },\n    {\n      \"reference\": \"GDD §2 Loss / Floor-run restart ownership\",\n      \"requirement\": \"Player Mana and its regeneration-delay state are required reset participants for the Floor Run/Restart Orchestrator.\"\n    }\n  ],\n  \"basis\": \"direct_gdd\",\n  \"source_scope\": \"required\",\n  \"confidence\": \"high\",\n  \"notes\": \"Force Wave's 25-mana cost and other spell-local spend amounts remain owned by the individual spells, not this item; this item only owns the shared pool, regen-delay, spend interface, reset, and denied-cast signal.\",\n  \"repository_state_at_bootstrap\": \"partial\",\n  \"repository_evidence_at_bootstrap\": [\n    {\n      \"path\": \"Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs\",\n      \"evidence_type\": \"code\",\n      \"observation\": \"Implements CurrentMana/MaxMana, Spend(amount) with silent-fail-on-insufficient behavior, Tick-driven post-cast-delay regeneration, and a ManaSpent event; no reset entry point and no denied-cast event exist.\"\n    },\n    {\n      \"path\": \"Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs\",\n      \"evidence_type\": \"code\",\n      \"observation\": \"Continuously binds a fill Image to CurrentMana/MaxMana every Update, satisfying the GDD's continuous mana indicator requirement.\"\n    },\n    {\n      \"path\": \"Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity\",\n      \"evidence_type\": \"scene\",\n      \"observation\": \"Both PlayerMana.cs (guid fd54c6f00e974856b70833ac4771b9ae) and PlayerManaUI.cs (guid 0a03ab321b0847f59d3f91214dabcf5c) are serialized and wired on the Player/Canvas GameObjects, confirming the continuous mana indicator is currently integrated, not just buildable.\"\n    },\n    {\n      \"path\": \"Assets/NoSafeCircle/DoorPrototype/Tests/PlayerManaPlayModeTests.cs\",\n      \"evidence_type\": \"test\",\n      \"observation\": \"Real Play Mode tests cover Spend success/failure, post-cast-delay non-regeneration, regeneration after delay, and delay-reset on subsequent spend.\"\n    }\n  ],\n  \"provenance\": {\n    \"origin\": \"verified_reconciliation_bootstrap\",\n    \"source_schema_version\": \"1.0\",\n    \"reconciliation_run_id\": \"20260821T193541Z-998ee7b5\",\n    \"verification_run_id\": \"20260821T195959Z-43dba5de\",\n    \"bootstrap_status_observation\": \"open\",\n    \"migration_id\": \"task-contract-schema-v2-20260822-r2\"\n  }\n}\n\n---\nFULL COMMITTED CANONICAL GDD\n---\nEXACT DETERMINISTIC ACTUAL CHANGED PATHS\n---\n- Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs\n- Assets/NoSafeCircle/DoorPrototype/Tests/PlayerManaPlayModeTests.cs\n---\nIMPLEMENTER STRUCTURED OUTPUT\n---\n{\n  \"summary\": \"Fixed the rejected denied-cast feedback bug in PlayerManaUI.cs: the flash now targets the fill Image's parent frame/background Image (present in the committed scene as an always-rendered Sliced-type Image) when one exists, instead of tinting the Filled-type fill Image whose rendered area is zero when CurrentMana == 0. Falls back to flashing the fill Image itself if no parent Image is found (preserving behavior for hierarchy-less test setups). fillAmount logic and normal-color revert behavior are unchanged. PlayerMana.cs required no changes; ResetMana and CastDenied already satisfy AC-001/AC-002/AC-003.\",\n  \"claimed_changed_paths\": [\n    \"Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs\"\n  ],\n  \"blockers\": [],\n  \"notes\": [\n    \"Regression coverage still needed (Test Author-owned, not implemented here): a denied Spend while CurrentMana == 0 should assert that the resolved flash target (the fill's parent Image, per the committed scene hierarchy) transitions to deniedColor and back to its own normalColor, independent of fillImage.fillAmount staying 0 throughout.\",\n    \"No scene or test files were modified; fix relies only on the existing fillImage reference and the fill's already-committed parent hierarchy (ManaFill background Image), consistent with the task's 'no builder changes' scope.\"\n  ]\n}\n---\nTEST AUTHOR STRUCTURED OUTPUT\n---\n{\n  \"summary\": \"Added one new Play Mode regression test to PlayerManaPlayModeTests.cs covering the human-review rejection: denied-cast feedback must remain visible when CurrentMana == 0. The new test builds a background/frame Image + child fill Image hierarchy (mirroring the production ResolveFlashTargetImage parent-lookup), drains mana to exactly zero, triggers a denied spend, and asserts the parent background Image flashes the denied color and reverts to its actual scene-authored color afterward, independent of fillAmount (which is asserted to be 0). No production code or other test paths were touched; the asmdef required no changes since UnityEngine.UI was already referenced.\",\n  \"claimed_changed_paths\": [\n    \"Assets/NoSafeCircle/DoorPrototype/Tests/PlayerManaPlayModeTests.cs\"\n  ],\n  \"test_cases_added_or_updated\": [\n    \"PlayerManaUI_FlashesParentBackgroundImage_OnCastDenied_WhenCurrentManaIsZero (new, VAL-002/VAL-003 regression coverage for the prior human-review rejection)\"\n  ],\n  \"blockers\": [],\n  \"known_limitations\": [\n    \"Test was authored via static review only; per policy no Unity executable was run, so pass/fail status, exit code, and XML results are not available and are not claimed.\",\n    \"The test constructs a minimal in-memory GameObject hierarchy (background Image parent + child fill Image) rather than opening the committed DoorPrototype scene, so it proves PlayerManaUI's ResolveFlashTargetImage/flash behavior in isolation; it does not by itself confirm the committed scene's actual Canvas hierarchy wires a background/frame Image as the fill Image's parent. A human should visually confirm in Play Mode that the scene-authored mana bar frame flashes as expected at zero mana.\",\n    \"Existing UI tests (which use a fill Image with no parent) were left unchanged since they already correctly exercise the fallback-to-self path in ResolveFlashTargetImage; no existing test needed modification.\"\n  ],\n  \"proposed_unity_test_scope\": \"Play Mode test run scoped to NoSafeCircle.DoorPrototype.Tests.PlayerManaPlayModeTests (Unity Test Runner, Play Mode), e.g. `-runTests -testPlatform PlayMode -assemblyNames NoSafeCircle.DoorPrototype.Tests -testFilter PlayerManaPlayModeTests` against a clean working tree, followed by tree/HEAD verification per the Unity Testing Policy post-run checklist.\"\n}\n---\nEXACT FULL CANDIDATE GIT PATCH\n---\ndiff --git a/Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs b/Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs\nindex eff7f3e10b801b68e0da11e9a3711afc05475e85..9d5b251d099a940a2eb1aca46f1952b5bb52f35e 100644\n--- a/Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs\n+++ b/Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs\n@@ -12,11 +12,14 @@ namespace NoSafeCircle.DoorPrototype\n         [SerializeField] private float deniedFlashDuration = 0.25f;\n \n         private float deniedFlashTimeRemaining;\n+        private Image flashTargetImage;\n \n         private void OnEnable()\n         {\n             if (mana != null) mana.CastDenied += HandleCastDenied;\n-            if (fillImage != null) normalColor = fillImage.color;\n+\n+            flashTargetImage = ResolveFlashTargetImage();\n+            if (flashTargetImage != null) normalColor = flashTargetImage.color;\n         }\n \n         private void OnDisable()\n@@ -30,11 +33,30 @@ namespace NoSafeCircle.DoorPrototype\n \n             fillImage.fillAmount = mana.MaxMana > 0f ? mana.CurrentMana / mana.MaxMana : 0f;\n \n-            if (deniedFlashTimeRemaining > 0f)\n+            if (deniedFlashTimeRemaining > 0f && flashTargetImage != null)\n             {\n                 deniedFlashTimeRemaining -= Time.deltaTime;\n-                fillImage.color = deniedFlashTimeRemaining > 0f ? deniedColor : normalColor;\n+                flashTargetImage.color = deniedFlashTimeRemaining > 0f ? deniedColor : normalColor;\n+            }\n+        }\n+\n+        /// A fully-drained fill Image has no rendered fill area, so tinting it is\n+        /// invisible exactly when denied-cast feedback matters most. Flash the fill's\n+        /// parent frame/background Image instead when one exists, since that frame\n+        /// renders regardless of fillAmount; fall back to the fill Image itself\n+        /// otherwise so the feedback still shows without requiring scene rewiring.\n+        private Image ResolveFlashTargetImage()\n+        {\n+            if (fillImage == null) return null;\n+\n+            var parentTransform = fillImage.transform.parent;\n+            if (parentTransform != null)\n+            {\n+                var backgroundImage = parentTransform.GetComponent<Image>();\n+                if (backgroundImage != null) return backgroundImage;\n             }\n+\n+            return fillImage;\n         }\n \n         /// Presents readable low-mana feedback on the existing mana indicator\ndiff --git a/Assets/NoSafeCircle/DoorPrototype/Tests/PlayerManaPlayModeTests.cs b/Assets/NoSafeCircle/DoorPrototype/Tests/PlayerManaPlayModeTests.cs\nindex 624070c91cd8972e09c898cc6ae462d1713ed57e..be7c63422c3c87957f4bca1c8ac7b1cc44ff82e4 100644\n--- a/Assets/NoSafeCircle/DoorPrototype/Tests/PlayerManaPlayModeTests.cs\n+++ b/Assets/NoSafeCircle/DoorPrototype/Tests/PlayerManaPlayModeTests.cs\n@@ -347,6 +347,66 @@ namespace NoSafeCircle.DoorPrototype.Tests\n             }\n         }\n \n+        // VAL-002/VAL-003 (regression coverage for prior human-review rejection): a fully-\n+        // drained fill Image renders no visible fill area, so tinting the fill Image alone\n+        // is invisible exactly when CurrentMana == 0 — the point where low-mana failure most\n+        // needs to be readable. PlayerManaUI resolves a parent background/frame Image (when\n+        // the fill Image has one) and flashes that instead, independent of fillAmount.\n+        [UnityTest]\n+        public IEnumerator PlayerManaUI_FlashesParentBackgroundImage_OnCastDenied_WhenCurrentManaIsZero()\n+        {\n+            var backgroundObject = new GameObject(\"TestManaBackground\");\n+            try\n+            {\n+                var backgroundImage = backgroundObject.AddComponent<Image>();\n+                var backgroundColor = new Color(0.2f, 0.2f, 0.2f, 1f);\n+                backgroundImage.color = backgroundColor;\n+\n+                var fillObject = new GameObject(\"TestManaFill\");\n+                fillObject.transform.SetParent(backgroundObject.transform);\n+                var fillImage = fillObject.AddComponent<Image>();\n+\n+                var ui = backgroundObject.AddComponent<PlayerManaUI>();\n+                SetPrivateField(ui, \"mana\", mana);\n+                SetPrivateField(ui, \"fillImage\", fillImage);\n+                SetPrivateField(ui, \"deniedFlashDuration\", 0.05f);\n+                ui.enabled = false;\n+                ui.enabled = true;\n+\n+                yield return null;\n+\n+                mana.Spend(mana.MaxMana);\n+\n+                yield return null;\n+\n+                Assert.AreEqual(0f, mana.CurrentMana, 0.001f);\n+                Assert.AreEqual(0f, fillImage.fillAmount, 0.001f,\n+                    \"Expected the fill Image to render no visible area when CurrentMana is zero.\");\n+\n+                var deniedColor = (Color)GetPrivateField(ui, \"deniedColor\");\n+\n+                mana.Spend(10f);\n+\n+                yield return null;\n+\n+                Assert.AreEqual(deniedColor, backgroundImage.color,\n+                    \"Failure caused by zero mana must remain readable through the parent background/frame \" +\n+                    \"Image flashing a denied color, since the fully-drained fill Image has no visible area \" +\n+                    \"to tint.\");\n+\n+                yield return new WaitForSeconds(0.1f);\n+                yield return null;\n+\n+                Assert.AreEqual(backgroundColor, backgroundImage.color,\n+                    \"Expected the denied flash to revert the background/frame Image to its actual \" +\n+                    \"scene-authored color after the flash duration.\");\n+            }\n+            finally\n+            {\n+                Object.Destroy(backgroundObject);\n+            }\n+        }\n+\n         // AC-003 (regression-only ownership-boundary invariant): PlayerMana continues to\n         // own only current mana and post-cast regen-delay state and must not absorb\n         // spell-local cooldown/charge/cast/placement/active-field state. This locks the\n\n---",
+  "provider_configuration_key": "claude-crew",
+  "role": "validator",
+  "run_id": "nsc-005-validator-1-7f892d376476",
+  "schema_version": "1.0",
+  "write_boundaries": {
+    "allowed_paths": [],
+    "denied_paths": []
+  }
+}

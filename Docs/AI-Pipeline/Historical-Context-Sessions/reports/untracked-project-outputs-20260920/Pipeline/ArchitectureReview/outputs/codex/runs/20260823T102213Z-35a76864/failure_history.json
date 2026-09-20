@@ -1,0 +1,9 @@
+[
+  {
+    "recorded_at": "2026-08-23T11:04:12.502690+00:00",
+    "stage": "adversarial_critique",
+    "failures": [
+      "Adversarial Synthesis Critic [gpt-5.6-sol] AgentRuntime invocation adversarial-synthesis-critic-d60f7843d0a54bd3 failed (timeout): Codex invocation exceeded its external timeout; artifacts: Pipeline/ArchitectureReview/outputs/codex/runs/20260823T102213Z-35a76864/agent_runtime/adversarial-synthesis-critic-d60f7843d0a54bd3"
+    ]
+  }
+]

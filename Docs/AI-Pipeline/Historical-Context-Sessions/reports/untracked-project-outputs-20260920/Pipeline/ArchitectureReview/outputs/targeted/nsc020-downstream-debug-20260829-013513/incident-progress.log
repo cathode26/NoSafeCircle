@@ -1,0 +1,135 @@
+[2026-08-29T00:59:17Z] [NSC-020] [run_started] Game Task Agent downstream run started | run_id=20260829-005917Z-sktop-6lmnlck-e37f47ba91-b3d78d95 worker_id=task-review-agent-desktop-6lmnlck-e37f47ba91
+[2026-08-29T00:59:17Z] [NSC-020] [log_ready] Live progress log: C:\UnityProjects\NoSafeCircleAgentCrew\.task-review-agent\outputs\NSC-020\20260829-005917Z-sktop-6lmnlck-e37f47ba91-b3d78d95\progress.log
+[2026-08-29T00:59:17Z] [NSC-020] [log_watch] Watch from another PowerShell window with: Get-Content -Wait -LiteralPath 'C:\UnityProjects\NoSafeCircleAgentCrew\.task-review-agent\outputs\NSC-020\20260829-005917Z-sktop-6lmnlck-e37f47ba91-b3d78d95\progress.log'
+[2026-08-29T00:59:17Z] [NSC-020] [routing_started] Selecting the deterministic pipeline route from the durable Issue state | selected_phase=delivery_evidence issue_number=64
+[2026-08-29T00:59:17Z] [NSC-020] [routing_observation_started] Reading the durable Issue, TaskGraph, Git, and checkout state
+[2026-08-29T00:59:20Z] [NSC-020] [routing_observation_completed] Reading the durable Issue, TaskGraph, Git, and checkout state completed | duration_seconds=2.534
+[2026-08-29T00:59:20Z] [NSC-020] [routing_completed] Selected downstream pipeline | observed_phase=delivery_evidence issue_state=agent_ready
+[2026-08-29T00:59:20Z] [NSC-020] [state_observation_started] Turn 1: reading deterministic downstream state | turn=1
+[2026-08-29T00:59:22Z] [NSC-020] [state_observation_completed] Turn 1: reading deterministic downstream state completed | duration_seconds=2.371 turn=1
+[2026-08-29T00:59:22Z] [NSC-020] [state_observed] Turn 1: deterministic downstream state read | turn=1 issue_state=agent_ready phase=delivery_evidence next_action=acquire_agent_lease checkout_status=ready issue_number=64
+[2026-08-29T00:59:22Z] [NSC-020] [codex_supervisor_started] Turn 1: Codex is choosing the next downstream action | turn=1 expected_next_action=acquire_agent_lease
+[2026-08-29T00:59:35Z] [NSC-020] [codex_supervisor_completed] Turn 1: Codex is choosing the next downstream action completed | duration_seconds=13.288 turn=1 expected_next_action=acquire_agent_lease
+[2026-08-29T00:59:35Z] [NSC-020] [supervisor_decision] Turn 1: Codex selected acquire_agent_lease | turn=1 action=acquire_agent_lease rationale=The deterministic observation explicitly identifies acquire_agent_lease as the sole next prerequisite before any downstream side effect.
+[2026-08-29T00:59:35Z] [NSC-020] [pipeline_action_started] Turn 1: executing acquire_agent_lease | turn=1 action=acquire_agent_lease
+[2026-08-29T00:59:43Z] [NSC-020] [pipeline_action_completed] Turn 1: executing acquire_agent_lease completed | duration_seconds=7.442 turn=1 action=acquire_agent_lease
+[2026-08-29T00:59:43Z] [NSC-020] [action_completed] Turn 1: acquire_agent_lease completed | turn=1 action=acquire_agent_lease
+[2026-08-29T00:59:43Z] [NSC-020] [state_observation_started] Turn 2: reading deterministic downstream state | turn=2
+[2026-08-29T00:59:47Z] [NSC-020] [state_observation_completed] Turn 2: reading deterministic downstream state completed | duration_seconds=3.766 turn=2
+[2026-08-29T00:59:47Z] [NSC-020] [state_observed] Turn 2: deterministic downstream state read | turn=2 issue_state=agent_working phase=delivery_evidence next_action=run_authoritative_unity_tests checkout_status=ready issue_number=64
+[2026-08-29T00:59:47Z] [NSC-020] [codex_supervisor_started] Turn 2: Codex is choosing the next downstream action | turn=2 expected_next_action=run_authoritative_unity_tests
+[2026-08-29T01:00:01Z] [NSC-020] [codex_supervisor_completed] Turn 2: Codex is choosing the next downstream action completed | duration_seconds=14.859 turn=2 expected_next_action=run_authoritative_unity_tests
+[2026-08-29T01:00:01Z] [NSC-020] [supervisor_decision] Turn 2: Codex selected read_issue_log | turn=2 action=read_issue_log rationale=Read the validated Issue workflow events and human comments as the next required read-only prerequisite before selecting the exact commit...
+[2026-08-29T01:00:01Z] [NSC-020] [pipeline_action_started] Turn 2: executing read_issue_log | turn=2 action=read_issue_log
+[2026-08-29T01:00:04Z] [NSC-020] [pipeline_action_completed] Turn 2: executing read_issue_log completed | duration_seconds=2.474 turn=2 action=read_issue_log
+[2026-08-29T01:00:04Z] [NSC-020] [action_completed] Turn 2: read_issue_log completed | turn=2 action=read_issue_log
+[2026-08-29T01:00:04Z] [NSC-020] [state_observation_started] Turn 3: reading deterministic downstream state | turn=3
+[2026-08-29T01:00:08Z] [NSC-020] [state_observation_completed] Turn 3: reading deterministic downstream state completed | duration_seconds=3.771 turn=3
+[2026-08-29T01:00:08Z] [NSC-020] [state_observed] Turn 3: deterministic downstream state read | turn=3 issue_state=agent_working phase=delivery_evidence next_action=run_authoritative_unity_tests checkout_status=ready issue_number=64
+[2026-08-29T01:00:08Z] [NSC-020] [codex_supervisor_started] Turn 3: Codex is choosing the next downstream action | turn=3 expected_next_action=run_authoritative_unity_tests
+[2026-08-29T01:00:23Z] [NSC-020] [codex_supervisor_heartbeat] Turn 3: Codex is choosing the next downstream action — still running | elapsed_seconds=15.0 turn=3 expected_next_action=run_authoritative_unity_tests
+[2026-08-29T01:00:26Z] [NSC-020] [codex_supervisor_completed] Turn 3: Codex is choosing the next downstream action completed | duration_seconds=18.708 turn=3 expected_next_action=run_authoritative_unity_tests
+[2026-08-29T01:00:26Z] [NSC-020] [supervisor_decision] Turn 3: Codex selected list_repository_files | turn=3 action=list_repository_files rationale=Before authoritative Unity validation, the required task contract, Unity testing policy, programmer-language policy, and exact committed ...
+[2026-08-29T01:00:26Z] [NSC-020] [pipeline_action_started] Turn 3: executing list_repository_files | turn=3 action=list_repository_files
+[2026-08-29T01:00:27Z] [NSC-020] [pipeline_action_completed] Turn 3: executing list_repository_files completed | duration_seconds=0.106 turn=3 action=list_repository_files
+[2026-08-29T01:00:27Z] [NSC-020] [action_completed] Turn 3: list_repository_files completed | turn=3 action=list_repository_files
+[2026-08-29T01:00:27Z] [NSC-020] [state_observation_started] Turn 4: reading deterministic downstream state | turn=4
+[2026-08-29T01:00:30Z] [NSC-020] [state_observation_completed] Turn 4: reading deterministic downstream state completed | duration_seconds=3.506 turn=4
+[2026-08-29T01:00:30Z] [NSC-020] [state_observed] Turn 4: deterministic downstream state read | turn=4 issue_state=agent_working phase=delivery_evidence next_action=run_authoritative_unity_tests checkout_status=ready issue_number=64
+[2026-08-29T01:00:30Z] [NSC-020] [codex_supervisor_started] Turn 4: Codex is choosing the next downstream action | turn=4 expected_next_action=run_authoritative_unity_tests
+[2026-08-29T01:00:42Z] [NSC-020] [codex_supervisor_completed] Turn 4: Codex is choosing the next downstream action completed | duration_seconds=12.409 turn=4 expected_next_action=run_authoritative_unity_tests
+[2026-08-29T01:00:42Z] [NSC-020] [supervisor_decision] Turn 4: Codex selected read_repository_file | turn=4 action=read_repository_file rationale=Read the committed NSC-020 task contract as the next required bounded prerequisite before authoritative Unity validation; the Issue log i...
+[2026-08-29T01:00:42Z] [NSC-020] [pipeline_action_started] Turn 4: executing read_repository_file | turn=4 action=read_repository_file
+[2026-08-29T01:00:43Z] [NSC-020] [pipeline_action_completed] Turn 4: executing read_repository_file completed | duration_seconds=0.1 turn=4 action=read_repository_file
+[2026-08-29T01:00:43Z] [NSC-020] [action_completed] Turn 4: read_repository_file completed | turn=4 action=read_repository_file
+[2026-08-29T01:00:43Z] [NSC-020] [state_observation_started] Turn 5: reading deterministic downstream state | turn=5
+[2026-08-29T01:00:46Z] [NSC-020] [state_observation_completed] Turn 5: reading deterministic downstream state completed | duration_seconds=3.611 turn=5
+[2026-08-29T01:00:46Z] [NSC-020] [state_observed] Turn 5: deterministic downstream state read | turn=5 issue_state=agent_working phase=delivery_evidence next_action=run_authoritative_unity_tests checkout_status=ready issue_number=64
+[2026-08-29T01:00:46Z] [NSC-020] [codex_supervisor_started] Turn 5: Codex is choosing the next downstream action | turn=5 expected_next_action=run_authoritative_unity_tests
+[2026-08-29T01:01:01Z] [NSC-020] [codex_supervisor_heartbeat] Turn 5: Codex is choosing the next downstream action — still running | elapsed_seconds=15.0 turn=5 expected_next_action=run_authoritative_unity_tests
+[2026-08-29T01:01:02Z] [NSC-020] [codex_supervisor_completed] Turn 5: Codex is choosing the next downstream action completed | duration_seconds=16.058 turn=5 expected_next_action=run_authoritative_unity_tests
+[2026-08-29T01:01:02Z] [NSC-020] [supervisor_decision] Turn 5: Codex selected list_repository_files | turn=5 action=list_repository_files rationale=The task contract and Issue log have been read, but the required Unity testing and programmer-language policies still must be located and...
+[2026-08-29T01:01:02Z] [NSC-020] [pipeline_action_started] Turn 5: executing list_repository_files | turn=5 action=list_repository_files
+[2026-08-29T01:01:02Z] [NSC-020] [pipeline_action_completed] Turn 5: executing list_repository_files completed | duration_seconds=0.102 turn=5 action=list_repository_files
+[2026-08-29T01:01:02Z] [NSC-020] [action_completed] Turn 5: list_repository_files completed | turn=5 action=list_repository_files
+[2026-08-29T01:01:02Z] [NSC-020] [state_observation_started] Turn 6: reading deterministic downstream state | turn=6
+[2026-08-29T01:01:06Z] [NSC-020] [state_observation_completed] Turn 6: reading deterministic downstream state completed | duration_seconds=3.866 turn=6
+[2026-08-29T01:01:06Z] [NSC-020] [state_observed] Turn 6: deterministic downstream state read | turn=6 issue_state=agent_working phase=delivery_evidence next_action=run_authoritative_unity_tests checkout_status=ready issue_number=64
+[2026-08-29T01:01:06Z] [NSC-020] [codex_supervisor_started] Turn 6: Codex is choosing the next downstream action | turn=6 expected_next_action=run_authoritative_unity_tests
+[2026-08-29T01:01:21Z] [NSC-020] [codex_supervisor_completed] Turn 6: Codex is choosing the next downstream action completed | duration_seconds=14.744 turn=6 expected_next_action=run_authoritative_unity_tests
+[2026-08-29T01:01:21Z] [NSC-020] [supervisor_decision] Turn 6: Codex selected search_repository | turn=6 action=search_repository rationale=The Issue log and task contract are already read, but the required Unity testing and programmer-language policies have not yet been locat...
+[2026-08-29T01:01:21Z] [NSC-020] [pipeline_action_started] Turn 6: executing search_repository | turn=6 action=search_repository
+[2026-08-29T01:01:21Z] [NSC-020] [pipeline_action_failed] Turn 6: executing search_repository failed: repository prefix must be non-empty | duration_seconds=0.088 error_type=DownstreamPipelineError turn=6 action=search_repository
+[2026-08-29T01:01:21Z] [NSC-020] [action_rejected] Turn 6: search_repository was rejected by deterministic validation | turn=6 action=search_repository error_type=DownstreamPipelineError error=repository prefix must be non-empty
+[2026-08-29T01:01:21Z] [NSC-020] [state_observation_started] Turn 7: reading deterministic downstream state | turn=7
+[2026-08-29T01:01:25Z] [NSC-020] [state_observation_completed] Turn 7: reading deterministic downstream state completed | duration_seconds=4.246 turn=7
+[2026-08-29T01:01:25Z] [NSC-020] [state_observed] Turn 7: deterministic downstream state read | turn=7 issue_state=agent_working phase=delivery_evidence next_action=run_authoritative_unity_tests checkout_status=ready issue_number=64
+[2026-08-29T01:01:25Z] [NSC-020] [codex_supervisor_started] Turn 7: Codex is choosing the next downstream action | turn=7 expected_next_action=run_authoritative_unity_tests
+[2026-08-29T01:01:40Z] [NSC-020] [codex_supervisor_heartbeat] Turn 7: Codex is choosing the next downstream action — still running | elapsed_seconds=15.0 turn=7 expected_next_action=run_authoritative_unity_tests
+[2026-08-29T01:01:42Z] [NSC-020] [codex_supervisor_completed] Turn 7: Codex is choosing the next downstream action completed | duration_seconds=16.357 turn=7 expected_next_action=run_authoritative_unity_tests
+[2026-08-29T01:01:42Z] [NSC-020] [supervisor_decision] Turn 7: Codex selected search_repository | turn=7 action=search_repository rationale=The Issue log and task contract have been read, but the mandatory Unity testing and programmer-language policies remain uninspected. Corr...
+[2026-08-29T01:01:42Z] [NSC-020] [pipeline_action_started] Turn 7: executing search_repository | turn=7 action=search_repository
+[2026-08-29T01:01:42Z] [NSC-020] [pipeline_action_failed] Turn 7: executing search_repository failed: repository prefix is outside downstream read roots | duration_seconds=0.068 error_type=DownstreamPipelineError turn=7 action=search_repository
+[2026-08-29T01:01:42Z] [NSC-020] [action_rejected] Turn 7: search_repository was rejected by deterministic validation | turn=7 action=search_repository error_type=DownstreamPipelineError error=repository prefix is outside downstream read roots
+[2026-08-29T01:01:42Z] [NSC-020] [state_observation_started] Turn 8: reading deterministic downstream state | turn=8
+[2026-08-29T01:01:45Z] [NSC-020] [state_observation_completed] Turn 8: reading deterministic downstream state completed | duration_seconds=3.568 turn=8
+[2026-08-29T01:01:45Z] [NSC-020] [state_observed] Turn 8: deterministic downstream state read | turn=8 issue_state=agent_working phase=delivery_evidence next_action=run_authoritative_unity_tests checkout_status=ready issue_number=64
+[2026-08-29T01:01:45Z] [NSC-020] [codex_supervisor_started] Turn 8: Codex is choosing the next downstream action | turn=8 expected_next_action=run_authoritative_unity_tests
+[2026-08-29T01:02:00Z] [NSC-020] [codex_supervisor_completed] Turn 8: Codex is choosing the next downstream action completed | duration_seconds=14.615 turn=8 expected_next_action=run_authoritative_unity_tests
+[2026-08-29T01:02:00Z] [NSC-020] [supervisor_decision] Turn 8: Codex selected list_repository_files | turn=8 action=list_repository_files rationale=The required Unity testing and programmer-language policies remain unread, and the prior searches were rejected for invalid prefixes. Lis...
+[2026-08-29T01:02:00Z] [NSC-020] [pipeline_action_started] Turn 8: executing list_repository_files | turn=8 action=list_repository_files
+[2026-08-29T01:02:00Z] [NSC-020] [pipeline_action_failed] Turn 8: executing list_repository_files failed: repository prefix is outside downstream read roots | duration_seconds=0.128 error_type=DownstreamPipelineError turn=8 action=list_repository_files
+[2026-08-29T01:02:00Z] [NSC-020] [action_rejected] Turn 8: list_repository_files was rejected by deterministic validation | turn=8 action=list_repository_files error_type=DownstreamPipelineError error=repository prefix is outside downstream read roots
+[2026-08-29T01:02:00Z] [NSC-020] [state_observation_started] Turn 9: reading deterministic downstream state | turn=9
+[2026-08-29T01:02:04Z] [NSC-020] [state_observation_completed] Turn 9: reading deterministic downstream state completed | duration_seconds=3.532 turn=9
+[2026-08-29T01:02:04Z] [NSC-020] [state_observed] Turn 9: deterministic downstream state read | turn=9 issue_state=agent_working phase=delivery_evidence next_action=run_authoritative_unity_tests checkout_status=ready issue_number=64
+[2026-08-29T01:02:04Z] [NSC-020] [codex_supervisor_started] Turn 9: Codex is choosing the next downstream action | turn=9 expected_next_action=run_authoritative_unity_tests
+[2026-08-29T01:02:19Z] [NSC-020] [codex_supervisor_heartbeat] Turn 9: Codex is choosing the next downstream action — still running | elapsed_seconds=15.0 turn=9 expected_next_action=run_authoritative_unity_tests
+[2026-08-29T01:02:19Z] [NSC-020] [codex_supervisor_completed] Turn 9: Codex is choosing the next downstream action completed | duration_seconds=15.708 turn=9 expected_next_action=run_authoritative_unity_tests
+[2026-08-29T01:02:19Z] [NSC-020] [supervisor_decision] Turn 9: Codex selected read_repository_file | turn=9 action=read_repository_file rationale=Read the committed NSC-020 PlayMode test source identified by the repository listing so the exact authoritative Unity test filter can be ...
+[2026-08-29T01:02:19Z] [NSC-020] [pipeline_action_started] Turn 9: executing read_repository_file | turn=9 action=read_repository_file
+[2026-08-29T01:02:19Z] [NSC-020] [pipeline_action_completed] Turn 9: executing read_repository_file completed | duration_seconds=0.105 turn=9 action=read_repository_file
+[2026-08-29T01:02:19Z] [NSC-020] [action_completed] Turn 9: read_repository_file completed | turn=9 action=read_repository_file
+[2026-08-29T01:02:19Z] [NSC-020] [state_observation_started] Turn 10: reading deterministic downstream state | turn=10
+[2026-08-29T01:02:23Z] [NSC-020] [state_observation_completed] Turn 10: reading deterministic downstream state completed | duration_seconds=3.789 turn=10
+[2026-08-29T01:02:23Z] [NSC-020] [state_observed] Turn 10: deterministic downstream state read | turn=10 issue_state=agent_working phase=delivery_evidence next_action=run_authoritative_unity_tests checkout_status=ready issue_number=64
+[2026-08-29T01:02:23Z] [NSC-020] [codex_supervisor_started] Turn 10: Codex is choosing the next downstream action | turn=10 expected_next_action=run_authoritative_unity_tests
+[2026-08-29T01:02:38Z] [NSC-020] [codex_supervisor_completed] Turn 10: Codex is choosing the next downstream action completed | duration_seconds=14.476 turn=10 expected_next_action=run_authoritative_unity_tests
+[2026-08-29T01:02:38Z] [NSC-020] [supervisor_decision] Turn 10: Codex selected run_authoritative_unity_test | turn=10 action=run_authoritative_unity_test rationale=The lease is valid and downstream.next_action requires authoritative Unity validation. Run the required PlayMode platform using the exact...
+[2026-08-29T01:02:38Z] [NSC-020] [pipeline_action_started] Turn 10: executing run_authoritative_unity_test | turn=10 action=run_authoritative_unity_test
+[2026-08-29T01:02:52Z] [NSC-020] [pipeline_action_failed] Turn 10: executing run_authoritative_unity_test failed: no unique task-contract migration authorizes the preserved human PASS | duration_seconds=13.978 error_type=DownstreamPipelineError turn=10 action=run_authoritative_unity_test
+[2026-08-29T01:02:52Z] [NSC-020] [action_rejected] Turn 10: run_authoritative_unity_test was rejected by deterministic validation | turn=10 action=run_authoritative_unity_test error_type=DownstreamPipelineError error=no unique task-contract migration authorizes the preserved human PASS
+[2026-08-29T01:02:52Z] [NSC-020] [state_observation_started] Turn 11: reading deterministic downstream state | turn=11
+[2026-08-29T01:02:56Z] [NSC-020] [state_observation_completed] Turn 11: reading deterministic downstream state completed | duration_seconds=4.194 turn=11
+[2026-08-29T01:02:56Z] [NSC-020] [state_observed] Turn 11: deterministic downstream state read | turn=11 issue_state=agent_working phase=delivery_evidence next_action=run_authoritative_unity_tests checkout_status=ready issue_number=64
+[2026-08-29T01:02:56Z] [NSC-020] [codex_supervisor_started] Turn 11: Codex is choosing the next downstream action | turn=11 expected_next_action=run_authoritative_unity_tests
+[2026-08-29T01:03:11Z] [NSC-020] [codex_supervisor_heartbeat] Turn 11: Codex is choosing the next downstream action — still running | elapsed_seconds=15.0 turn=11 expected_next_action=run_authoritative_unity_tests
+[2026-08-29T01:03:23Z] [NSC-020] [codex_supervisor_completed] Turn 11: Codex is choosing the next downstream action completed | duration_seconds=27.324 turn=11 expected_next_action=run_authoritative_unity_tests
+[2026-08-29T01:03:23Z] [NSC-020] [supervisor_decision] Turn 11: Codex selected prepare_task_checkout | turn=11 action=prepare_task_checkout rationale=The authoritative Unity action was deterministically rejected because the preserved human PASS lacks a uniquely resolved task-contract mi...
+[2026-08-29T01:03:23Z] [NSC-020] [pipeline_action_started] Turn 11: executing prepare_task_checkout | turn=11 action=prepare_task_checkout
+[2026-08-29T01:03:33Z] [NSC-020] [pipeline_action_completed] Turn 11: executing prepare_task_checkout completed | duration_seconds=10.186 turn=11 action=prepare_task_checkout
+[2026-08-29T01:03:33Z] [NSC-020] [action_completed] Turn 11: prepare_task_checkout completed | turn=11 action=prepare_task_checkout
+[2026-08-29T01:03:33Z] [NSC-020] [state_observation_started] Turn 12: reading deterministic downstream state | turn=12
+[2026-08-29T01:03:37Z] [NSC-020] [state_observation_completed] Turn 12: reading deterministic downstream state completed | duration_seconds=3.909 turn=12
+[2026-08-29T01:03:37Z] [NSC-020] [state_observed] Turn 12: deterministic downstream state read | turn=12 issue_state=agent_working phase=delivery_evidence next_action=integrate_current_main checkout_status=ready issue_number=64
+[2026-08-29T01:03:37Z] [NSC-020] [codex_supervisor_started] Turn 12: Codex is choosing the next downstream action | turn=12 expected_next_action=integrate_current_main
+[2026-08-29T01:03:52Z] [NSC-020] [codex_supervisor_heartbeat] Turn 12: Codex is choosing the next downstream action — still running | elapsed_seconds=15.0 turn=12 expected_next_action=integrate_current_main
+[2026-08-29T01:04:07Z] [NSC-020] [codex_supervisor_heartbeat] Turn 12: Codex is choosing the next downstream action — still running | elapsed_seconds=30.0 turn=12 expected_next_action=integrate_current_main
+[2026-08-29T01:04:22Z] [NSC-020] [codex_supervisor_heartbeat] Turn 12: Codex is choosing the next downstream action — still running | elapsed_seconds=45.0 turn=12 expected_next_action=integrate_current_main
+[2026-08-29T01:04:37Z] [NSC-020] [codex_supervisor_heartbeat] Turn 12: Codex is choosing the next downstream action — still running | elapsed_seconds=60.0 turn=12 expected_next_action=integrate_current_main
+[2026-08-29T01:04:52Z] [NSC-020] [codex_supervisor_heartbeat] Turn 12: Codex is choosing the next downstream action — still running | elapsed_seconds=75.0 turn=12 expected_next_action=integrate_current_main
+[2026-08-29T01:05:07Z] [NSC-020] [codex_supervisor_heartbeat] Turn 12: Codex is choosing the next downstream action — still running | elapsed_seconds=90.0 turn=12 expected_next_action=integrate_current_main
+[2026-08-29T01:05:22Z] [NSC-020] [codex_supervisor_heartbeat] Turn 12: Codex is choosing the next downstream action — still running | elapsed_seconds=105.0 turn=12 expected_next_action=integrate_current_main
+[2026-08-29T01:05:37Z] [NSC-020] [codex_supervisor_heartbeat] Turn 12: Codex is choosing the next downstream action — still running | elapsed_seconds=120.1 turn=12 expected_next_action=integrate_current_main
+[2026-08-29T01:05:52Z] [NSC-020] [codex_supervisor_heartbeat] Turn 12: Codex is choosing the next downstream action — still running | elapsed_seconds=135.1 turn=12 expected_next_action=integrate_current_main
+[2026-08-29T01:06:07Z] [NSC-020] [codex_supervisor_heartbeat] Turn 12: Codex is choosing the next downstream action — still running | elapsed_seconds=150.1 turn=12 expected_next_action=integrate_current_main
+[2026-08-29T01:06:22Z] [NSC-020] [codex_supervisor_heartbeat] Turn 12: Codex is choosing the next downstream action — still running | elapsed_seconds=165.1 turn=12 expected_next_action=integrate_current_main
+[2026-08-29T01:06:37Z] [NSC-020] [codex_supervisor_heartbeat] Turn 12: Codex is choosing the next downstream action — still running | elapsed_seconds=180.1 turn=12 expected_next_action=integrate_current_main
+[2026-08-29T01:06:52Z] [NSC-020] [codex_supervisor_heartbeat] Turn 12: Codex is choosing the next downstream action — still running | elapsed_seconds=195.1 turn=12 expected_next_action=integrate_current_main
+[2026-08-29T01:07:07Z] [NSC-020] [codex_supervisor_heartbeat] Turn 12: Codex is choosing the next downstream action — still running | elapsed_seconds=210.1 turn=12 expected_next_action=integrate_current_main
+[2026-08-29T01:07:22Z] [NSC-020] [codex_supervisor_heartbeat] Turn 12: Codex is choosing the next downstream action — still running | elapsed_seconds=225.1 turn=12 expected_next_action=integrate_current_main
+[2026-08-29T01:07:37Z] [NSC-020] [codex_supervisor_heartbeat] Turn 12: Codex is choosing the next downstream action — still running | elapsed_seconds=240.1 turn=12 expected_next_action=integrate_current_main
+[2026-08-29T01:07:52Z] [NSC-020] [codex_supervisor_heartbeat] Turn 12: Codex is choosing the next downstream action — still running | elapsed_seconds=255.1 turn=12 expected_next_action=integrate_current_main
+[2026-08-29T01:08:07Z] [NSC-020] [codex_supervisor_heartbeat] Turn 12: Codex is choosing the next downstream action — still running | elapsed_seconds=270.1 turn=12 expected_next_action=integrate_current_main
+[2026-08-29T01:08:22Z] [NSC-020] [codex_supervisor_heartbeat] Turn 12: Codex is choosing the next downstream action — still running | elapsed_seconds=285.2 turn=12 expected_next_action=integrate_current_main
+[2026-08-29T01:08:23Z] [NSC-020] [codex_supervisor_failed] Turn 12: Codex is choosing the next downstream action failed: | duration_seconds=285.465 error_type=KeyboardInterrupt turn=12 expected_next_action=integrate_current_main

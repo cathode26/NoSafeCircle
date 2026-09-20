@@ -1,0 +1,17 @@
+GDD: make five-room blockout sizes a maximum envelope for GER
+
+Vincent decided on 2026-09-14 that the approved five-room blockout sizes are
+baselines, not fixed sizes. Each room may grow to three times its listed width
+and depth. Room proportions, obstacle footprints and placement become Task
+Design GER proposals, guided by the dungeon art direction and the 17 reference
+images, while sealed-door openings, route and lane widths, aisles, circulation
+and staging clearances stay minimums. One continuous floor, the D1-D5 order and
+the final-door identity still apply; accepted room revisions are recorded in the
+owning room task contracts and reconciled through NSC-049.
+
+The GDDRAG knowledge base is rebuilt from the revised GDD: 78 chunks with the
+same chunk IDs, text changed only in nsc-gdd-016, nsc-gdd-022 and nsc-gdd-051.
+gddctl validate and the GDDRAG smoke, integrity and retrieval regression tests
+pass.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

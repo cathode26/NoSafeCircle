@@ -1,0 +1,280 @@
+{
+  "allowed_capabilities": [
+    "repository_read",
+    "repository_search"
+  ],
+  "budgets": {
+    "timeout_seconds": 900.0,
+    "token_limit": null,
+    "turn_limit": 24
+  },
+  "context_paths": [
+    "Tasks/NSC-040.yaml",
+    "Assets",
+    "Packages",
+    "ProjectSettings"
+  ],
+  "model_capability_class": "high_reasoning",
+  "output_schema": {
+    "additionalProperties": false,
+    "properties": {
+      "assumptions": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "confidence": {
+        "maximum": 1,
+        "minimum": 0,
+        "type": "number"
+      },
+      "conflict_reasons": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "conflicting_task_ids": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "design_advice": {
+        "additionalProperties": false,
+        "properties": {
+          "implementation_summary": {
+            "type": "string"
+          },
+          "recommended_interfaces": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "sequencing_notes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "suggested_decomposition": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "suggested_exclusive_resources": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "suggested_taskgraph_changes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "implementation_summary",
+          "recommended_interfaces",
+          "sequencing_notes",
+          "suggested_exclusive_resources",
+          "suggested_taskgraph_changes",
+          "suggested_decomposition"
+        ],
+        "type": "object"
+      },
+      "escalation": {
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "enum": [
+              "none",
+              "design_or_canon_ambiguity",
+              "task_scope_or_contract_change",
+              "decomposition_required"
+            ],
+            "type": "string"
+          },
+          "question": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "category",
+          "question"
+        ],
+        "type": "object"
+      },
+      "evidence": {
+        "items": {
+          "additionalProperties": false,
+          "properties": {
+            "observation": {
+              "type": "string"
+            },
+            "path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "path",
+            "observation"
+          ],
+          "type": "object"
+        },
+        "type": "array"
+      },
+      "execution_recommendation": {
+        "additionalProperties": false,
+        "properties": {
+          "capability_tier": {
+            "enum": [
+              "fast",
+              "standard",
+              "deep"
+            ],
+            "type": "string"
+          },
+          "provider_preference": {
+            "enum": [
+              "openai",
+              "claude",
+              "no_preference"
+            ],
+            "type": "string"
+          },
+          "rationale": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "capability_tier",
+          "provider_preference",
+          "rationale"
+        ],
+        "type": "object"
+      },
+      "integration_risk": {
+        "enum": [
+          "none",
+          "low",
+          "medium",
+          "high",
+          "unknown"
+        ],
+        "type": "string"
+      },
+      "parallel_recommendation": {
+        "enum": [
+          "start",
+          "wait",
+          "human_review"
+        ],
+        "type": "string"
+      },
+      "predicted_change_surface": {
+        "additionalProperties": false,
+        "properties": {
+          "exact_paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "path_patterns": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "shared_systems": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "symbols_or_components": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "unity_serialized_assets": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "exact_paths",
+          "path_patterns",
+          "unity_serialized_assets",
+          "symbols_or_components",
+          "shared_systems"
+        ],
+        "type": "object"
+      },
+      "source_head": {
+        "type": "string"
+      },
+      "task_contract_sha256": {
+        "type": "string"
+      },
+      "task_id": {
+        "type": "string"
+      },
+      "unknown_surface_disjointness": {
+        "items": {
+          "additionalProperties": false,
+          "properties": {
+            "justification": {
+              "type": "string"
+            },
+            "task_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "task_id",
+            "justification"
+          ],
+          "type": "object"
+        },
+        "type": "array"
+      }
+    },
+    "required": [
+      "task_id",
+      "source_head",
+      "task_contract_sha256",
+      "predicted_change_surface",
+      "integration_risk",
+      "parallel_recommendation",
+      "execution_recommendation",
+      "conflicting_task_ids",
+      "conflict_reasons",
+      "escalation",
+      "unknown_surface_disjointness",
+      "design_advice",
+      "evidence",
+      "confidence",
+      "assumptions"
+    ],
+    "type": "object"
+  },
+  "prompt": "# Polling orchestrator read-only architect preflight\n\nYou are the advisory software architect for candidate `NSC-040` at committed source\nHEAD `2df60b26b0b8322a26ead787a99db701ced284a8` and task-contract SHA-256 `085ef58764d8a7bf0bcded9febd6ba4b0c23591c76ed8e592a8dff2da6b43d42`.\n\nAuthority and safety rules:\n- The supplied committed task contract and current repository are evidence.\n- Existing approved GDD and TaskGraph canon are authority. Do not redesign requirements.\n- You are advisory only. Do not create or edit Tasks, GDD/canon, dependencies, resources,\n  Git, GitHub Issues, claims, leases, branches, or any repository file.\n- Do not choose a replacement or lower-ranked task. The deterministic Stage-2 planner\n  owns selection and deterministic Python owns admission.\n- Predict files, Unity assets, symbols, and systems this task will LIKELY need to modify.\n- Compare that prediction with every supplied in-flight integration reservation. Actual\n  changed paths and committed exclusive resources are stronger evidence than prediction.\n- Pay special attention to Unity merge hot spots: `.unity`, `.prefab`, `.asset`, `.meta`\n  and GUID implications, ProjectSettings, Packages, Input Actions, shared\n  ScriptableObjects, and central managers or registries.\n- Identify interface or design choices that would reduce coupling. Keep design advice\n  separate from the scheduling recommendation. Suggestions for resource tokens,\n  dependencies, TaskGraph changes, or decomposition are proposals only and will not be\n  applied by this run.\n- Return the ENTIRE strict output schema, including every list even when it is empty.\n- Echo task_id, source_head, and task_contract_sha256 exactly as supplied.\n\nScheduling policy you must follow:\n- This scheduler optimizes for clean parallelism, not worker utilization. Waiting is\n  cheap and safe; a merge or Unity-asset conflict is expensive.\n- Use `parallel_recommendation: start` only when you can positively establish that this\n  candidate is safe to run concurrently with every supplied reservation, and set\n  `integration_risk` to `none` or `low` with honest `confidence`.\n- Use `parallel_recommendation: wait` for EVERY kind of merge/integration uncertainty,\n  including insufficient repository evidence, ambiguous overlap you cannot rule out, and\n  an in-flight reservation whose surface is unknown. Use `integration_risk: unknown` when\n  you cannot judge the risk. A wait is not an error and blocks nothing permanently: the\n  scheduler simply considers another task and reconsiders this one when the repository or\n  in-flight state changes. Never fabricate certainty to avoid waiting.\n- Use `parallel_recommendation: human_review` ONLY for genuine design or canon authority\n  ambiguity: incompatible architectures that would change intended design, work that\n  cannot proceed without changing task scope/requirements/dependencies, or a task that\n  should be decomposed or contractually changed before implementation. Never ask for a\n  human merely because conflict prediction is uncertain; that is a wait.\n- Set `escalation.category` to `none` unless you are raising exactly such a design/canon\n  question. When it is not `none`, state the specific question a human must answer in\n  `escalation.question`; leave `escalation.question` empty only for `none`.\n- A reservation whose `surface_unknown` is true cannot be compared by paths. List it in\n  `unknown_surface_disjointness` ONLY when you can positively justify that this candidate\n  cannot touch that work, citing committed resources, an established subsystem boundary,\n  observed paths, or the task contract. Omit it when you cannot; omission means wait for\n  that pair, and it does not block unrelated repository work.\n\nExecution capability recommendation (advisory only):\n- Always return `execution_recommendation`. It cannot change WAIT or HUMAN_REVIEW into\n  START and cannot bypass any deterministic admission gate.\n- Recommend `fast` for mechanical or local work with a strong established pattern and\n  low uncertainty; `standard` for ordinary gameplay implementation needing moderate\n  reasoning; and `deep` for cross-system architecture, refactors,\n  decomposition-adjacent work, or high uncertainty. These are judgment heuristics, not\n  deterministic eligibility rules.\n- Consider task size and scope, architectural uncertainty, the number and sharedness of\n  systems, Unity serialized-asset risk, subsystem familiarity, the strength of existing\n  patterns and tests, and expected rework cost.\n- `provider_preference` may be `openai`, `claude`, or `no_preference`. This preference is\n  advisory. Deterministic Python maps it to an allowed execution provider, model,\n  reasoning effort, and budget. Never put a model identifier, reasoning effort, turn\n  limit, Docker service/command, or environment variable in this recommendation.\n- Give a non-empty rationale of no more than\n  1200 characters. Model names are operational\n  configuration and never TaskGraph or game-design authority.\n\nCommitted task contract:\n```json\n{\n  \"acceptance_criteria\": [\n    {\n      \"criterion_id\": \"AC-001\",\n      \"reference\": \"GDD - Environment Presentation and Authoring Direction\",\n      \"requirement\": \"Keep visual Tilemap and SpriteRenderer objects independent from gameplay-owned walkability, collision, trigger volumes, door state, and pursuit logic so replacing visual assets does not redefine simulation behavior.\"\n    },\n    {\n      \"criterion_id\": \"AC-002\",\n      \"reference\": \"GDD - Runtime Implementation\",\n      \"requirement\": \"Structure the visual-world foundation so all five spaces can coexist in one continuous Unity scene or floor representation without requiring scene-loading or cross-scene state transfer.\"\n    }\n  ],\n  \"basis\": \"direct_gdd\",\n  \"completion_gates\": [\n    {\n      \"gate_id\": \"VAL-001\",\n      \"reference\": \"GDD - Unity Validation Agent role (Section 4)\",\n      \"requirement\": \"Integrated Unity validation checks representative Tilemap and SpriteRenderer visuals against separately owned collision and walkability geometry and detects visual/simulation desynchronization.\"\n    },\n    {\n      \"gate_id\": \"VAL-002\",\n      \"reference\": \"GDD - Runtime Implementation\",\n      \"requirement\": \"Unity validation confirms the foundation extends within the canonical continuous gameplay scene and introduces no room-transition scene-loading or cross-scene state-transfer dependency.\"\n    }\n  ],\n  \"confidence\": \"high\",\n  \"contract_disposition\": \"active\",\n  \"contract_revision\": 1,\n  \"decomposition_reason\": \"Cross-layer separation and continuous-scene support require an integration pass after both visual representations exist, but do not require authoring the five room layouts.\",\n  \"decomposition_state\": \"concrete\",\n  \"depends_on\": [\n    \"NSC-038\",\n    \"NSC-039\"\n  ],\n  \"downstream_integration_obligations\": [],\n  \"exclusive_resources\": [\n    \"repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs\",\n    \"unity-scene:Assets/Scenes/DoorPrototype.unity\"\n  ],\n  \"execution_reason\": \"One agent can integrate the two proposed visual foundations with the existing simulation representation and validate the resulting ownership and continuous-scene boundaries.\",\n  \"execution_scope\": \"single_agent\",\n  \"gdd_evidence\": [\n    {\n      \"reference\": \"GDD - Environment Presentation and Authoring Direction\",\n      \"requirement\": \"The visible isometric art layer is separate from the gameplay representation, which continues to own walkability, collision, triggers, door state, pursuit, and other simulation behavior.\"\n    },\n    {\n      \"reference\": \"GDD - Runtime Implementation\",\n      \"requirement\": \"All five encounter spaces exist inside one continuous Unity scene or floor representation, with no scene-load or cross-scene state-transfer system required.\"\n    }\n  ],\n  \"id\": \"NSC-040\",\n  \"kind\": \"implementation\",\n  \"notes\": \"This proposed integration scope excludes five-room geometry, encounter placement, navigation implementation, and room-specific content authoring.\",\n  \"parent\": \"NSC-026\",\n  \"provenance\": {\n    \"graph_delta_plan_id\": \"GDP-9ed2e9f5d29e19e8e03f6907b7ecdd4e4deac9b8cb465283df856a88a3cc0db8\",\n    \"origin\": \"progressive_decomposition\",\n    \"parent_contract_revision\": 1,\n    \"parent_contract_sha256\": \"8dd459df6c99ef48df5ee4893db957150139abc7eedded1e8098799e9b115177\",\n    \"parent_task_id\": \"NSC-026\"\n  },\n  \"reconciliation_key\": \"visual-simulation-continuity\",\n  \"repository_evidence_at_bootstrap\": [],\n  \"repository_state_at_bootstrap\": \"not_applicable\",\n  \"schema_version\": \"2.0\",\n  \"source_scope\": \"required\",\n  \"task_contract_sha256\": \"085ef58764d8a7bf0bcded9febd6ba4b0c23591c76ed8e592a8dff2da6b43d42\",\n  \"title\": \"Visual/Simulation Separation and Continuous-Scene Integration\",\n  \"type\": \"world-foundation\"\n}\n```\n\nIn-flight integration reservations:\n```json\n[]\n```\n\nInspect the repository with read/search capability as needed. Cite repository paths and\nconcrete observations in `evidence`. Do not report that a path exists unless you observed\nit. Put likely but unconfirmed paths in the predicted surface and explain the assumption.\n",
+  "provider_configuration_key": "polling-architect-claude",
+  "role": "polling_architect",
+  "run_id": "architect-nsc-040-c213a586ef0247fb",
+  "schema_version": "1.0",
+  "write_boundaries": {
+    "allowed_paths": [],
+    "denied_paths": []
+  }
+}

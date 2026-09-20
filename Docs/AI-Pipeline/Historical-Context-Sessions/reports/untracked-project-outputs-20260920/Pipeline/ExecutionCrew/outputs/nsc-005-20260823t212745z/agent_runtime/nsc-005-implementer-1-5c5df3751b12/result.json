@@ -1,0 +1,17 @@
+{
+  "claimed_changed_paths": [],
+  "claimed_test_commands": [],
+  "claims_execution_occurred": false,
+  "duration_seconds": 39.07104969100328,
+  "failure_classification": "internal_error",
+  "failure_message": "Claude Code exited successfully with unexpected stderr: Ignoring 14 permissions.allow entries from .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects[\"/tmp/nsc-execution-crew-j1qg8fwi/crew-repository\"].hasTrustDialogAccepted: true in /home/agent/.claude/.claude.json.",
+  "model": "claude-sonnet-5",
+  "provider": "claude-code",
+  "raw_log_reference": "provider.log",
+  "role": "implementer",
+  "run_id": "nsc-005-implementer-1-5c5df3751b12",
+  "schema_version": "1.0",
+  "status": "failed",
+  "structured_output": null,
+  "usage": null
+}

@@ -1,0 +1,2353 @@
+{
+  "schema_version": 1,
+  "created_at_utc": "2026-09-20T07:39:47.890478+00:00",
+  "scope": "Exact-byte source preservation; no deployment or behavior change. Originals retained.",
+  "source_root": "C:\\NSC\\tools",
+  "repository": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo",
+  "destination_root": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host",
+  "additional_source_roots": [
+    "C:\\nscrev\\claude-jobs\\templates"
+  ],
+  "records": [
+    {
+      "source": "C:\\NSC\\tools\\art\\PROVENANCE.md",
+      "family": "art",
+      "relative_path": "PROVENANCE.md",
+      "kind": "file",
+      "size_bytes": 4004,
+      "source_sha256": "254f8fa71a293592fc97038c62e91bdbe86e14af88184dbe14a7fb0155873a78",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\art\\PROVENANCE.md",
+      "repository_path": "Tools/Host/art/PROVENANCE.md",
+      "destination_sha256": "254f8fa71a293592fc97038c62e91bdbe86e14af88184dbe14a7fb0155873a78",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\art\\ArtReview\\README.md",
+      "family": "art",
+      "relative_path": "ArtReview\\README.md",
+      "kind": "file",
+      "size_bytes": 14167,
+      "source_sha256": "b673effbf86f2357304240461ae974b3577e7e8406a3bd55accc48d8792abac9",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\art\\ArtReview\\README.md",
+      "repository_path": "Tools/Host/art/ArtReview/README.md",
+      "destination_sha256": "b673effbf86f2357304240461ae974b3577e7e8406a3bd55accc48d8792abac9",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\art\\ArtReview\\art_review\\__pycache__",
+      "kind": "directory",
+      "disposition": "excluded_cache_or_environment",
+      "reason": "Generated cache/environment, not authored source; subtree not read."
+    },
+    {
+      "source": "C:\\NSC\\tools\\art\\ArtReview\\art_review\\__init__.py",
+      "family": "art",
+      "relative_path": "ArtReview\\art_review\\__init__.py",
+      "kind": "file",
+      "size_bytes": 87,
+      "source_sha256": "bacc83828fdd96e579a21aac4292614f14998c78c323c1334e8daa70e8517a70",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\art\\ArtReview\\art_review\\__init__.py",
+      "repository_path": "Tools/Host/art/ArtReview/art_review/__init__.py",
+      "destination_sha256": "bacc83828fdd96e579a21aac4292614f14998c78c323c1334e8daa70e8517a70",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\art\\ArtReview\\art_review\\__main__.py",
+      "family": "art",
+      "relative_path": "ArtReview\\art_review\\__main__.py",
+      "kind": "file",
+      "size_bytes": 110,
+      "source_sha256": "5dd9753f514c1c2df35fc5859eb06281f23f947ce628b9abf99101a2eccd303d",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\art\\ArtReview\\art_review\\__main__.py",
+      "repository_path": "Tools/Host/art/ArtReview/art_review/__main__.py",
+      "destination_sha256": "5dd9753f514c1c2df35fc5859eb06281f23f947ce628b9abf99101a2eccd303d",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\art\\ArtReview\\art_review\\camera.py",
+      "family": "art",
+      "relative_path": "ArtReview\\art_review\\camera.py",
+      "kind": "file",
+      "size_bytes": 8133,
+      "source_sha256": "60f32a0f8bb85549884d886877f4467fed06c5daa5a33300fc866d9678ac1aff",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\art\\ArtReview\\art_review\\camera.py",
+      "repository_path": "Tools/Host/art/ArtReview/art_review/camera.py",
+      "destination_sha256": "60f32a0f8bb85549884d886877f4467fed06c5daa5a33300fc866d9678ac1aff",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\art\\ArtReview\\art_review\\cli.py",
+      "family": "art",
+      "relative_path": "ArtReview\\art_review\\cli.py",
+      "kind": "file",
+      "size_bytes": 18836,
+      "source_sha256": "775aaa5d6ab6a5859a13854429619565857df5a08b11b5d7e28753ca86d31ff2",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\art\\ArtReview\\art_review\\cli.py",
+      "repository_path": "Tools/Host/art/ArtReview/art_review/cli.py",
+      "destination_sha256": "775aaa5d6ab6a5859a13854429619565857df5a08b11b5d7e28753ca86d31ff2",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\art\\ArtReview\\art_review\\font.py",
+      "family": "art",
+      "relative_path": "ArtReview\\art_review\\font.py",
+      "kind": "file",
+      "size_bytes": 5723,
+      "source_sha256": "978d0339ce5b8abc47f6fd4a7fde5aa0245446360e7c05d81d4d4c6a2fbba7ce",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\art\\ArtReview\\art_review\\font.py",
+      "repository_path": "Tools/Host/art/ArtReview/art_review/font.py",
+      "destination_sha256": "978d0339ce5b8abc47f6fd4a7fde5aa0245446360e7c05d81d4d4c6a2fbba7ce",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\art\\ArtReview\\art_review\\gifio.py",
+      "family": "art",
+      "relative_path": "ArtReview\\art_review\\gifio.py",
+      "kind": "file",
+      "size_bytes": 7704,
+      "source_sha256": "edd5e45633901ad8c793f5294e86e0e688db851a232cedb1ad383db085d31991",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\art\\ArtReview\\art_review\\gifio.py",
+      "repository_path": "Tools/Host/art/ArtReview/art_review/gifio.py",
+      "destination_sha256": "edd5e45633901ad8c793f5294e86e0e688db851a232cedb1ad383db085d31991",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\art\\ArtReview\\art_review\\ledger.py",
+      "family": "art",
+      "relative_path": "ArtReview\\art_review\\ledger.py",
+      "kind": "file",
+      "size_bytes": 10418,
+      "source_sha256": "540bdb7d4329490a80c928bcf83ea0764875504e9f1e1789f258279072525364",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\art\\ArtReview\\art_review\\ledger.py",
+      "repository_path": "Tools/Host/art/ArtReview/art_review/ledger.py",
+      "destination_sha256": "540bdb7d4329490a80c928bcf83ea0764875504e9f1e1789f258279072525364",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\art\\ArtReview\\art_review\\maskdiff.py",
+      "family": "art",
+      "relative_path": "ArtReview\\art_review\\maskdiff.py",
+      "kind": "file",
+      "size_bytes": 2910,
+      "source_sha256": "4bb08f4810e77dc0dc8f9a117d038bc1379fe7f170caf05943461cc3dc1b1178",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\art\\ArtReview\\art_review\\maskdiff.py",
+      "repository_path": "Tools/Host/art/ArtReview/art_review/maskdiff.py",
+      "destination_sha256": "4bb08f4810e77dc0dc8f9a117d038bc1379fe7f170caf05943461cc3dc1b1178",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\art\\ArtReview\\art_review\\metrics.py",
+      "family": "art",
+      "relative_path": "ArtReview\\art_review\\metrics.py",
+      "kind": "file",
+      "size_bytes": 5146,
+      "source_sha256": "28dff02586dd351bf3d86deb9b23ac73c8dc31f78e399671e495ac403f9d5b78",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\art\\ArtReview\\art_review\\metrics.py",
+      "repository_path": "Tools/Host/art/ArtReview/art_review/metrics.py",
+      "destination_sha256": "28dff02586dd351bf3d86deb9b23ac73c8dc31f78e399671e495ac403f9d5b78",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\art\\ArtReview\\art_review\\normalize.py",
+      "family": "art",
+      "relative_path": "ArtReview\\art_review\\normalize.py",
+      "kind": "file",
+      "size_bytes": 1596,
+      "source_sha256": "96d5aa6650ec785f58d29866bb0cef844fdd29022655211e6868a0d7a03e6ee9",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\art\\ArtReview\\art_review\\normalize.py",
+      "repository_path": "Tools/Host/art/ArtReview/art_review/normalize.py",
+      "destination_sha256": "96d5aa6650ec785f58d29866bb0cef844fdd29022655211e6868a0d7a03e6ee9",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\art\\ArtReview\\art_review\\pngio.py",
+      "family": "art",
+      "relative_path": "ArtReview\\art_review\\pngio.py",
+      "kind": "file",
+      "size_bytes": 6356,
+      "source_sha256": "0837aaa9600106fa7ed39c30cad7011a60abfff96474e1948149548e5e3516a2",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\art\\ArtReview\\art_review\\pngio.py",
+      "repository_path": "Tools/Host/art/ArtReview/art_review/pngio.py",
+      "destination_sha256": "0837aaa9600106fa7ed39c30cad7011a60abfff96474e1948149548e5e3516a2",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\art\\ArtReview\\art_review\\raster.py",
+      "family": "art",
+      "relative_path": "ArtReview\\art_review\\raster.py",
+      "kind": "file",
+      "size_bytes": 5120,
+      "source_sha256": "e42ca3193ae638e4dd9f66df6bb93b82ca8fec08d7dbd6ebe0c03be86d54331b",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\art\\ArtReview\\art_review\\raster.py",
+      "repository_path": "Tools/Host/art/ArtReview/art_review/raster.py",
+      "destination_sha256": "e42ca3193ae638e4dd9f66df6bb93b82ca8fec08d7dbd6ebe0c03be86d54331b",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\art\\ArtReview\\art_review\\sheets.py",
+      "family": "art",
+      "relative_path": "ArtReview\\art_review\\sheets.py",
+      "kind": "file",
+      "size_bytes": 5371,
+      "source_sha256": "1342cfd719af3c01a11feda713d6593ce29a288a378c3d0eba310c0524d7f8db",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\art\\ArtReview\\art_review\\sheets.py",
+      "repository_path": "Tools/Host/art/ArtReview/art_review/sheets.py",
+      "destination_sha256": "1342cfd719af3c01a11feda713d6593ce29a288a378c3d0eba310c0524d7f8db",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\art\\ArtReview\\tests\\__init__.py",
+      "family": "art",
+      "relative_path": "ArtReview\\tests\\__init__.py",
+      "kind": "file",
+      "size_bytes": 33,
+      "source_sha256": "3f14f4d197f10c33cb466f09389dba0e9e6a8408035e3f58896241da25549a35",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\art\\ArtReview\\tests\\__init__.py",
+      "repository_path": "Tools/Host/art/ArtReview/tests/__init__.py",
+      "destination_sha256": "3f14f4d197f10c33cb466f09389dba0e9e6a8408035e3f58896241da25549a35",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\art\\ArtReview\\tests\\test_analysis_ledger_sheets.py",
+      "family": "art",
+      "relative_path": "ArtReview\\tests\\test_analysis_ledger_sheets.py",
+      "kind": "file",
+      "size_bytes": 6000,
+      "source_sha256": "32830dc4aacf841039dd60ebbcb0a36ae95168e43052159087b5407368ff54df",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\art\\ArtReview\\tests\\test_analysis_ledger_sheets.py",
+      "repository_path": "Tools/Host/art/ArtReview/tests/test_analysis_ledger_sheets.py",
+      "destination_sha256": "32830dc4aacf841039dd60ebbcb0a36ae95168e43052159087b5407368ff54df",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\art\\ArtReview\\tests\\test_cli.py",
+      "family": "art",
+      "relative_path": "ArtReview\\tests\\test_cli.py",
+      "kind": "file",
+      "size_bytes": 4799,
+      "source_sha256": "863aa658edfba00e3f3095b334c60abbf24ba2ef1b29954de51c8f7f20c4fab6",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\art\\ArtReview\\tests\\test_cli.py",
+      "repository_path": "Tools/Host/art/ArtReview/tests/test_cli.py",
+      "destination_sha256": "863aa658edfba00e3f3095b334c60abbf24ba2ef1b29954de51c8f7f20c4fab6",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\art\\ArtReview\\tests\\test_fix2.py",
+      "family": "art",
+      "relative_path": "ArtReview\\tests\\test_fix2.py",
+      "kind": "file",
+      "size_bytes": 4285,
+      "source_sha256": "61b537c4d036a563556ea2236d051cf17ba5742a45c1e914db952adda8b6fafb",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\art\\ArtReview\\tests\\test_fix2.py",
+      "repository_path": "Tools/Host/art/ArtReview/tests/test_fix2.py",
+      "destination_sha256": "61b537c4d036a563556ea2236d051cf17ba5742a45c1e914db952adda8b6fafb",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\art\\ArtReview\\tests\\test_gif.py",
+      "family": "art",
+      "relative_path": "ArtReview\\tests\\test_gif.py",
+      "kind": "file",
+      "size_bytes": 5951,
+      "source_sha256": "fb41504c5a1de92e4b0f768771b82b97986e8134f219f2d49727e5bcad5a33fa",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\art\\ArtReview\\tests\\test_gif.py",
+      "repository_path": "Tools/Host/art/ArtReview/tests/test_gif.py",
+      "destination_sha256": "fb41504c5a1de92e4b0f768771b82b97986e8134f219f2d49727e5bcad5a33fa",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\art\\ArtReview\\tests\\test_png_camera.py",
+      "family": "art",
+      "relative_path": "ArtReview\\tests\\test_png_camera.py",
+      "kind": "file",
+      "size_bytes": 8443,
+      "source_sha256": "f9839905cdf507c4457efbf6f925010a44bbbc863f5513db0d29d727ad8bdc5d",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\art\\ArtReview\\tests\\test_png_camera.py",
+      "repository_path": "Tools/Host/art/ArtReview/tests/test_png_camera.py",
+      "destination_sha256": "f9839905cdf507c4457efbf6f925010a44bbbc863f5513db0d29d727ad8bdc5d",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\art\\ArtReview\\tests\\test_review_fixes.py",
+      "family": "art",
+      "relative_path": "ArtReview\\tests\\test_review_fixes.py",
+      "kind": "file",
+      "size_bytes": 14514,
+      "source_sha256": "dad7ea8bae309ac97bc1a83bc4a3e6587fe2cd5f607c163e747d74d2baa3dcdc",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\art\\ArtReview\\tests\\test_review_fixes.py",
+      "repository_path": "Tools/Host/art/ArtReview/tests/test_review_fixes.py",
+      "destination_sha256": "dad7ea8bae309ac97bc1a83bc4a3e6587fe2cd5f607c163e747d74d2baa3dcdc",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\astra\\README.md",
+      "family": "astra",
+      "relative_path": "README.md",
+      "kind": "file",
+      "size_bytes": 6182,
+      "source_sha256": "0f7a36d2ff4d57e907732ff952dd77628431a79770297d745a09cd2f7d56eeaf",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\astra\\README.md",
+      "repository_path": "Tools/Host/astra/README.md",
+      "destination_sha256": "0f7a36d2ff4d57e907732ff952dd77628431a79770297d745a09cd2f7d56eeaf",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\astra\\ask_astra.py",
+      "family": "astra",
+      "relative_path": "ask_astra.py",
+      "kind": "file",
+      "size_bytes": 27957,
+      "source_sha256": "e3af6ca7c58ea375c98a0bc40d12e7503b1ad39ace14c6c46b3dcd329d3e5bba",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\astra\\ask_astra.py",
+      "repository_path": "Tools/Host/astra/ask_astra.py",
+      "destination_sha256": "e3af6ca7c58ea375c98a0bc40d12e7503b1ad39ace14c6c46b3dcd329d3e5bba",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\astra\\primer.md",
+      "family": "astra",
+      "relative_path": "primer.md",
+      "kind": "file",
+      "size_bytes": 1189,
+      "source_sha256": "b3e8e6b91bb87527a343e441c3f1192a35ca5c65fed7815422e4c6672328cf48",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\astra\\primer.md",
+      "repository_path": "Tools/Host/astra/primer.md",
+      "destination_sha256": "b3e8e6b91bb87527a343e441c3f1192a35ca5c65fed7815422e4c6672328cf48",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\astra\\tests\\fake_codex.py",
+      "family": "astra",
+      "relative_path": "tests\\fake_codex.py",
+      "kind": "file",
+      "size_bytes": 3359,
+      "source_sha256": "565c8d1b82d958afd700f83de47b36cae1bf852bd8ff9d9fbdb9c47ce9ecce2b",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\astra\\tests\\fake_codex.py",
+      "repository_path": "Tools/Host/astra/tests/fake_codex.py",
+      "destination_sha256": "565c8d1b82d958afd700f83de47b36cae1bf852bd8ff9d9fbdb9c47ce9ecce2b",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\astra\\tests\\mutation_check.py",
+      "family": "astra",
+      "relative_path": "tests\\mutation_check.py",
+      "kind": "file",
+      "size_bytes": 6760,
+      "source_sha256": "e699cacfde70803f44e12379c656301295424f4bac21d34338c782a23d237926",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\astra\\tests\\mutation_check.py",
+      "repository_path": "Tools/Host/astra/tests/mutation_check.py",
+      "destination_sha256": "e699cacfde70803f44e12379c656301295424f4bac21d34338c782a23d237926",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\astra\\tests\\test_ask_astra.py",
+      "family": "astra",
+      "relative_path": "tests\\test_ask_astra.py",
+      "kind": "file",
+      "size_bytes": 29203,
+      "source_sha256": "6c6d1bcc046633eccde28e0883877d69ea50e05b20dd307cb61f9e3dfa4b1abf",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\astra\\tests\\test_ask_astra.py",
+      "repository_path": "Tools/Host/astra/tests/test_ask_astra.py",
+      "destination_sha256": "6c6d1bcc046633eccde28e0883877d69ea50e05b20dd307cb61f9e3dfa4b1abf",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\GER_AGENT_RUNBOOK.draft.md",
+      "family": "ger",
+      "relative_path": "GER_AGENT_RUNBOOK.draft.md",
+      "kind": "file",
+      "size_bytes": 13690,
+      "source_sha256": "b44084f10afce34da69de8cda92e69dd57706ae66cdd5ddfa384350aafbc32fe",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\ger\\GER_AGENT_RUNBOOK.draft.md",
+      "repository_path": "Tools/Host/ger/GER_AGENT_RUNBOOK.draft.md",
+      "destination_sha256": "b44084f10afce34da69de8cda92e69dd57706ae66cdd5ddfa384350aafbc32fe",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\apply_contract.before-decision-revision.bak.py",
+      "family": "ger",
+      "relative_path": "apply_contract.before-decision-revision.bak.py",
+      "kind": "file",
+      "size_bytes": 20851,
+      "source_sha256": "f3d1b25c0d16e8bce47c50be747327f777a43872d0ceb2a2fb8fb1569b86cea4",
+      "disposition": "excluded_retained",
+      "reason": "Historical pre-fix backup; current named implementation imported. Original retained; no deletion or claim of semantic equivalence."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\apply_contract.before-groups-append.bak.py",
+      "family": "ger",
+      "relative_path": "apply_contract.before-groups-append.bak.py",
+      "kind": "file",
+      "size_bytes": 17275,
+      "source_sha256": "a7296b2efe5554fb41f8c4c75cda7bde4ccd138753acf5d5d90aae503f80c928",
+      "disposition": "excluded_retained",
+      "reason": "Historical pre-fix backup; current named implementation imported. Original retained; no deletion or claim of semantic equivalence."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\apply_contract.before-groups-update.bak.py",
+      "family": "ger",
+      "relative_path": "apply_contract.before-groups-update.bak.py",
+      "kind": "file",
+      "size_bytes": 19090,
+      "source_sha256": "e7e0bee57748e3d6b4ead6b32289a59d50b8122ddad3886d313fe624e76f40aa",
+      "disposition": "excluded_retained",
+      "reason": "Historical pre-fix backup; current named implementation imported. Original retained; no deletion or claim of semantic equivalence."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\apply_contract.before-recheck.bak.py",
+      "family": "ger",
+      "relative_path": "apply_contract.before-recheck.bak.py",
+      "kind": "file",
+      "size_bytes": 13497,
+      "source_sha256": "dab4bcd727646065b1dbc563cc8b5387bb30ea2b6afc088aad7c1af6a89503e5",
+      "disposition": "excluded_retained",
+      "reason": "Historical pre-fix backup; current named implementation imported. Original retained; no deletion or claim of semantic equivalence."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\apply_contract.before-skip-recheck.bak.py",
+      "family": "ger",
+      "relative_path": "apply_contract.before-skip-recheck.bak.py",
+      "kind": "file",
+      "size_bytes": 24727,
+      "source_sha256": "55757d33fdfbb0553e250214ce9290731a6647c2916b1e2488662e285a124ae5",
+      "disposition": "excluded_retained",
+      "reason": "Historical pre-fix backup; current named implementation imported. Original retained; no deletion or claim of semantic equivalence."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\apply_contract.py",
+      "family": "ger",
+      "relative_path": "apply_contract.py",
+      "kind": "file",
+      "size_bytes": 39605,
+      "source_sha256": "94fd540560f5330071dca7f6b4c34e242b173540f618a1db97ef2dcee523e020",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\ger\\apply_contract.py",
+      "repository_path": "Tools/Host/ger/apply_contract.py",
+      "destination_sha256": "94fd540560f5330071dca7f6b4c34e242b173540f618a1db97ef2dcee523e020",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\apply_followup_revision.py",
+      "family": "ger",
+      "relative_path": "apply_followup_revision.py",
+      "kind": "file",
+      "size_bytes": 16644,
+      "source_sha256": "1cc53340f878a6c7f68cd89825df10024824880fdae5c93a1a3dab207901b923",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\ger\\apply_followup_revision.py",
+      "repository_path": "Tools/Host/ger/apply_followup_revision.py",
+      "destination_sha256": "1cc53340f878a6c7f68cd89825df10024824880fdae5c93a1a3dab207901b923",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\apply_room_decisions.py",
+      "family": "ger",
+      "relative_path": "apply_room_decisions.py",
+      "kind": "file",
+      "size_bytes": 8681,
+      "source_sha256": "f1a0449d4d56f1eb59376373a964ea7f27e8a084a1f77128e4c902c87a2ab782",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\ger\\apply_room_decisions.py",
+      "repository_path": "Tools/Host/ger/apply_room_decisions.py",
+      "destination_sha256": "f1a0449d4d56f1eb59376373a964ea7f27e8a084a1f77128e4c902c87a2ab782",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\apply_runbook_update.py",
+      "family": "ger",
+      "relative_path": "apply_runbook_update.py",
+      "kind": "file",
+      "size_bytes": 5891,
+      "source_sha256": "12d8d424ac2d519847e231920c7467408a4fcfa8fd5cb001fba1e2f058452fbe",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\ger\\apply_runbook_update.py",
+      "repository_path": "Tools/Host/ger/apply_runbook_update.py",
+      "destination_sha256": "12d8d424ac2d519847e231920c7467408a4fcfa8fd5cb001fba1e2f058452fbe",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\branch_prs.py",
+      "family": "ger",
+      "relative_path": "branch_prs.py",
+      "kind": "file",
+      "size_bytes": 9887,
+      "source_sha256": "ba87446879c976279accebabacd6ff67594ca86e13014744eec67b67dd89610d",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\ger\\branch_prs.py",
+      "repository_path": "Tools/Host/ger/branch_prs.py",
+      "destination_sha256": "ba87446879c976279accebabacd6ff67594ca86e13014744eec67b67dd89610d",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\contract_commit.py",
+      "family": "ger",
+      "relative_path": "contract_commit.py",
+      "kind": "file",
+      "size_bytes": 23159,
+      "source_sha256": "66a8c0dff880729823f8e4c160974753e28cfaa022c181e80ecf27618b897179",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\ger\\contract_commit.py",
+      "repository_path": "Tools/Host/ger/contract_commit.py",
+      "destination_sha256": "66a8c0dff880729823f8e4c160974753e28cfaa022c181e80ecf27618b897179",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\feedback-room-decisions-v3-20260914.txt",
+      "family": "ger",
+      "relative_path": "feedback-room-decisions-v3-20260914.txt",
+      "kind": "file",
+      "size_bytes": 2118,
+      "source_sha256": "29184f8b4622ea58edac9a0c7131c919a9270ad69ee6b0c7e45710020677c2ce",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\ger\\feedback-room-decisions-v3-20260914.txt",
+      "repository_path": "Tools/Host/ger/feedback-room-decisions-v3-20260914.txt",
+      "destination_sha256": "29184f8b4622ea58edac9a0c7131c919a9270ad69ee6b0c7e45710020677c2ce",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\feedback-room-size-authority-20260914.txt",
+      "family": "ger",
+      "relative_path": "feedback-room-size-authority-20260914.txt",
+      "kind": "file",
+      "size_bytes": 1285,
+      "source_sha256": "b2ecbe4d9c5a3b7eb3a3f41db1be6074d5a4673c02de34256d23b234b98c1b69",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\ger\\feedback-room-size-authority-20260914.txt",
+      "repository_path": "Tools/Host/ger/feedback-room-size-authority-20260914.txt",
+      "destination_sha256": "b2ecbe4d9c5a3b7eb3a3f41db1be6074d5a4673c02de34256d23b234b98c1b69",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\gdd_commit_message.txt",
+      "family": "ger",
+      "relative_path": "gdd_commit_message.txt",
+      "kind": "file",
+      "size_bytes": 969,
+      "source_sha256": "77c70c2632935e52ef2634dd223900ec773d81b95befe217acb173418c325c27",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\ger\\gdd_commit_message.txt",
+      "repository_path": "Tools/Host/ger/gdd_commit_message.txt",
+      "destination_sha256": "77c70c2632935e52ef2634dd223900ec773d81b95befe217acb173418c325c27",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\ger_automation_doc_commit_message.txt",
+      "family": "ger",
+      "relative_path": "ger_automation_doc_commit_message.txt",
+      "kind": "file",
+      "size_bytes": 556,
+      "source_sha256": "c060c6dc5c9e22e8f85e1ff7da7c602bd97dedb888f423bad777853bdf4f9ed1",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\ger\\ger_automation_doc_commit_message.txt",
+      "repository_path": "Tools/Host/ger/ger_automation_doc_commit_message.txt",
+      "destination_sha256": "c060c6dc5c9e22e8f85e1ff7da7c602bd97dedb888f423bad777853bdf4f9ed1",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\ger_decision_revision.py",
+      "family": "ger",
+      "relative_path": "ger_decision_revision.py",
+      "kind": "file",
+      "size_bytes": 8891,
+      "source_sha256": "df7b4543f3181f2fa523c44e5e6e070985ac0130bcc5c8ceed12646c1ac65fad",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\ger\\ger_decision_revision.py",
+      "repository_path": "Tools/Host/ger/ger_decision_revision.py",
+      "destination_sha256": "df7b4543f3181f2fa523c44e5e6e070985ac0130bcc5c8ceed12646c1ac65fad",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\ger_node.before-drain-fix.bak.py",
+      "family": "ger",
+      "relative_path": "ger_node.before-drain-fix.bak.py",
+      "kind": "file",
+      "size_bytes": 14436,
+      "source_sha256": "7ebbb77bbaf8d064658c22500b18ce6d263fecdf756017edbe411ec7f07fb252",
+      "disposition": "excluded_retained",
+      "reason": "Historical pre-fix backup; current named implementation imported. Original retained; no deletion or claim of semantic equivalence."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\ger_node.before-snapshot-scope.bak.py",
+      "family": "ger",
+      "relative_path": "ger_node.before-snapshot-scope.bak.py",
+      "kind": "file",
+      "size_bytes": 13507,
+      "source_sha256": "969896ba4b3b3ee361013e83ff6cf42b127c5aa6f786928916c20b3593c18f3d",
+      "disposition": "excluded_retained",
+      "reason": "Historical pre-fix backup; current named implementation imported. Original retained; no deletion or claim of semantic equivalence."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\ger_node.before-transient-retry.bak.py",
+      "family": "ger",
+      "relative_path": "ger_node.before-transient-retry.bak.py",
+      "kind": "file",
+      "size_bytes": 14717,
+      "source_sha256": "5ffdb0c8fcc4917bd1d5b0911113a008398e3dab34aa440d70a9fcc424e4b89d",
+      "disposition": "excluded_retained",
+      "reason": "Historical pre-fix backup; current named implementation imported. Original retained; no deletion or claim of semantic equivalence."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\ger_node.py",
+      "family": "ger",
+      "relative_path": "ger_node.py",
+      "kind": "file",
+      "size_bytes": 16751,
+      "source_sha256": "448d29be5f006e094007e608bc2cd746239a12a6cccb253031748d01cd97eadb",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\ger\\ger_node.py",
+      "repository_path": "Tools/Host/ger/ger_node.py",
+      "destination_sha256": "448d29be5f006e094007e608bc2cd746239a12a6cccb253031748d01cd97eadb",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\ger_node.v3-live.bak.py",
+      "family": "ger",
+      "relative_path": "ger_node.v3-live.bak.py",
+      "kind": "file",
+      "size_bytes": 11054,
+      "source_sha256": "85b7ece8069441baa0493b924ab6afad6543119e1aa1a83b920393da6f7af90d",
+      "disposition": "excluded_retained",
+      "reason": "Historical pre-fix backup; current named implementation imported. Original retained; no deletion or claim of semantic equivalence."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\ger_patch.before-object-insert.bak.py",
+      "family": "ger",
+      "relative_path": "ger_patch.before-object-insert.bak.py",
+      "kind": "file",
+      "size_bytes": 9295,
+      "source_sha256": "070cf933cdffde15f3a47b2118605b2f2e22b7c619b4739740d192291f0b0fb1",
+      "disposition": "excluded_retained",
+      "reason": "Historical pre-fix backup; current named implementation imported. Original retained; no deletion or claim of semantic equivalence."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\ger_patch.py",
+      "family": "ger",
+      "relative_path": "ger_patch.py",
+      "kind": "file",
+      "size_bytes": 10440,
+      "source_sha256": "c0c1106ef0b97e18466991afde3c6aa3ed43a353a157c6f422116adb162aa7de",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\ger\\ger_patch.py",
+      "repository_path": "Tools/Host/ger/ger_patch.py",
+      "destination_sha256": "c0c1106ef0b97e18466991afde3c6aa3ed43a353a157c6f422116adb162aa7de",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\ger_round.before-recheck.bak.py",
+      "family": "ger",
+      "relative_path": "ger_round.before-recheck.bak.py",
+      "kind": "file",
+      "size_bytes": 31943,
+      "source_sha256": "a1c8bcde88d01b7ffc45ef064662d548d617505028695af8b14b106f5e87fcbb",
+      "disposition": "excluded_retained",
+      "reason": "Historical pre-fix backup; current named implementation imported. Original retained; no deletion or claim of semantic equivalence."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\ger_round.before-snapshot-scope.bak.py",
+      "family": "ger",
+      "relative_path": "ger_round.before-snapshot-scope.bak.py",
+      "kind": "file",
+      "size_bytes": 34536,
+      "source_sha256": "af5846402c6a18ae70ebe30817cf0c7c10ad01fd0cee34947733bfef49cbd82a",
+      "disposition": "excluded_retained",
+      "reason": "Historical pre-fix backup; current named implementation imported. Original retained; no deletion or claim of semantic equivalence."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\ger_round.py",
+      "family": "ger",
+      "relative_path": "ger_round.py",
+      "kind": "file",
+      "size_bytes": 36051,
+      "source_sha256": "71d3e25f9f17db4dc339e35be4213cc5e1c318f9a2dc0b0c343fa99029fb8832",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\ger\\ger_round.py",
+      "repository_path": "Tools/Host/ger/ger_round.py",
+      "destination_sha256": "71d3e25f9f17db4dc339e35be4213cc5e1c318f9a2dc0b0c343fa99029fb8832",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\ger_round.v3-live.bak.py",
+      "family": "ger",
+      "relative_path": "ger_round.v3-live.bak.py",
+      "kind": "file",
+      "size_bytes": 29484,
+      "source_sha256": "0e0c25c88bc77ead2e01697dca6163b2ef5b4580519733a8bf8719c96f4884fc",
+      "disposition": "excluded_retained",
+      "reason": "Historical pre-fix backup; current named implementation imported. Original retained; no deletion or claim of semantic equivalence."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\hold_ger_task.py",
+      "family": "ger",
+      "relative_path": "hold_ger_task.py",
+      "kind": "file",
+      "size_bytes": 4862,
+      "source_sha256": "986d209d7158799e5406a74dcf9aa7635b117de0723e3ec5ebcdc9596b5f04a5",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\ger\\hold_ger_task.py",
+      "repository_path": "Tools/Host/ger/hold_ger_task.py",
+      "destination_sha256": "986d209d7158799e5406a74dcf9aa7635b117de0723e3ec5ebcdc9596b5f04a5",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\main_write.py",
+      "family": "ger",
+      "relative_path": "main_write.py",
+      "kind": "file",
+      "size_bytes": 5542,
+      "source_sha256": "8f2da4f98ad46042dd3f047442dec5e77f94cbae24b9be4d54279363895e1292",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\ger\\main_write.py",
+      "repository_path": "Tools/Host/ger/main_write.py",
+      "destination_sha256": "8f2da4f98ad46042dd3f047442dec5e77f94cbae24b9be4d54279363895e1292",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\merge_all_branches.py",
+      "family": "ger",
+      "relative_path": "merge_all_branches.py",
+      "kind": "file",
+      "size_bytes": 5938,
+      "source_sha256": "6823d7e68c2cbdf7191c97375f551e21b036848cf27b3187211f4b64ca568065",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\ger\\merge_all_branches.py",
+      "repository_path": "Tools/Host/ger/merge_all_branches.py",
+      "destination_sha256": "6823d7e68c2cbdf7191c97375f551e21b036848cf27b3187211f4b64ca568065",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\room_decisions_commit_message.txt",
+      "family": "ger",
+      "relative_path": "room_decisions_commit_message.txt",
+      "kind": "file",
+      "size_bytes": 1148,
+      "source_sha256": "9fe79262f3292ecffac0d90d2c1105c634a9200a48f1a5dbb2e8471fabbf1a12",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\ger\\room_decisions_commit_message.txt",
+      "repository_path": "Tools/Host/ger/room_decisions_commit_message.txt",
+      "destination_sha256": "9fe79262f3292ecffac0d90d2c1105c634a9200a48f1a5dbb2e8471fabbf1a12",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\runbook_commit_message.txt",
+      "family": "ger",
+      "relative_path": "runbook_commit_message.txt",
+      "kind": "file",
+      "size_bytes": 830,
+      "source_sha256": "bcefcdd45107a332f6b95189756494cd8b9e2144635821897099c1d9f18161b8",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\ger\\runbook_commit_message.txt",
+      "repository_path": "Tools/Host/ger/runbook_commit_message.txt",
+      "destination_sha256": "bcefcdd45107a332f6b95189756494cd8b9e2144635821897099c1d9f18161b8",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\salvage_ger.py",
+      "family": "ger",
+      "relative_path": "salvage_ger.py",
+      "kind": "file",
+      "size_bytes": 13791,
+      "source_sha256": "89851678be6203f933cfc48a20c0845e4c0139bb16039e8b67b972e55761c5a3",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\ger\\salvage_ger.py",
+      "repository_path": "Tools/Host/ger/salvage_ger.py",
+      "destination_sha256": "89851678be6203f933cfc48a20c0845e4c0139bb16039e8b67b972e55761c5a3",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\watch_issue.py",
+      "family": "ger",
+      "relative_path": "watch_issue.py",
+      "kind": "file",
+      "size_bytes": 4683,
+      "source_sha256": "018776ad4c1ff7ef257cb59e56d7c488b15c1f67876169548041fcc76d8fbcc0",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\ger\\watch_issue.py",
+      "repository_path": "Tools/Host/ger/watch_issue.py",
+      "destination_sha256": "018776ad4c1ff7ef257cb59e56d7c488b15c1f67876169548041fcc76d8fbcc0",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\addenda\\art.md",
+      "family": "ger",
+      "relative_path": "addenda\\art.md",
+      "kind": "file",
+      "size_bytes": 1433,
+      "source_sha256": "215f2d28beef65132c51f7ec37eab13a5e1eb822bdb34f4b946deeeb4e27f46c",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\ger\\addenda\\art.md",
+      "repository_path": "Tools/Host/ger/addenda/art.md",
+      "destination_sha256": "215f2d28beef65132c51f7ec37eab13a5e1eb822bdb34f4b946deeeb4e27f46c",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\addenda\\breach_feedback.md",
+      "family": "ger",
+      "relative_path": "addenda\\breach_feedback.md",
+      "kind": "file",
+      "size_bytes": 2468,
+      "source_sha256": "6caabd913cd2a6b4b69a8a9963aef5e99efa62d912d13d1977caf2248074b0d6",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\ger\\addenda\\breach_feedback.md",
+      "repository_path": "Tools/Host/ger/addenda/breach_feedback.md",
+      "destination_sha256": "6caabd913cd2a6b4b69a8a9963aef5e99efa62d912d13d1977caf2248074b0d6",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\addenda\\composition.md",
+      "family": "ger",
+      "relative_path": "addenda\\composition.md",
+      "kind": "file",
+      "size_bytes": 1207,
+      "source_sha256": "2ef8374041b9bde6c502a0c9b453682a8775ca909552a68dd7ba831a801ba470",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\ger\\addenda\\composition.md",
+      "repository_path": "Tools/Host/ger/addenda/composition.md",
+      "destination_sha256": "2ef8374041b9bde6c502a0c9b453682a8775ca909552a68dd7ba831a801ba470",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\addenda\\encounter.md",
+      "family": "ger",
+      "relative_path": "addenda\\encounter.md",
+      "kind": "file",
+      "size_bytes": 1562,
+      "source_sha256": "ba77e03dbc3e354c1cd9fd9113983033faa48577022831ebda3f18d3cb53c94c",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\ger\\addenda\\encounter.md",
+      "repository_path": "Tools/Host/ger/addenda/encounter.md",
+      "destination_sha256": "ba77e03dbc3e354c1cd9fd9113983033faa48577022831ebda3f18d3cb53c94c",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\addenda\\planning.md",
+      "family": "ger",
+      "relative_path": "addenda\\planning.md",
+      "kind": "file",
+      "size_bytes": 1298,
+      "source_sha256": "fb9f11fcbc62efb845f79ba4619757c0f025fbfeb864a730536f77afa0d14f06",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\ger\\addenda\\planning.md",
+      "repository_path": "Tools/Host/ger/addenda/planning.md",
+      "destination_sha256": "fb9f11fcbc62efb845f79ba4619757c0f025fbfeb864a730536f77afa0d14f06",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\addenda\\quality_pass.md",
+      "family": "ger",
+      "relative_path": "addenda\\quality_pass.md",
+      "kind": "file",
+      "size_bytes": 1769,
+      "source_sha256": "7e7812c7faf1c5570b8a2e829194bf7d41037181b98bb7b8f3d1599ea8b81c5c",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\ger\\addenda\\quality_pass.md",
+      "repository_path": "Tools/Host/ger/addenda/quality_pass.md",
+      "destination_sha256": "7e7812c7faf1c5570b8a2e829194bf7d41037181b98bb7b8f3d1599ea8b81c5c",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\addenda\\room_validation.md",
+      "family": "ger",
+      "relative_path": "addenda\\room_validation.md",
+      "kind": "file",
+      "size_bytes": 1247,
+      "source_sha256": "c3f87a22499eb979f16f3801fb3fd6fd4a12c283f4f50109a32e4edc833d2c8b",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\ger\\addenda\\room_validation.md",
+      "repository_path": "Tools/Host/ger/addenda/room_validation.md",
+      "destination_sha256": "c3f87a22499eb979f16f3801fb3fd6fd4a12c283f4f50109a32e4edc833d2c8b",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\addenda\\spells_enemies.md",
+      "family": "ger",
+      "relative_path": "addenda\\spells_enemies.md",
+      "kind": "file",
+      "size_bytes": 2130,
+      "source_sha256": "c787f17c6ce64b54ca8b040d8b57f22ceeab44dc21242e17d4a2c77ffda37029",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\ger\\addenda\\spells_enemies.md",
+      "repository_path": "Tools/Host/ger/addenda/spells_enemies.md",
+      "destination_sha256": "c787f17c6ce64b54ca8b040d8b57f22ceeab44dc21242e17d4a2c77ffda37029",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\addenda\\title_screen.md",
+      "family": "ger",
+      "relative_path": "addenda\\title_screen.md",
+      "kind": "file",
+      "size_bytes": 1501,
+      "source_sha256": "e3723d694f9a2fed136c22645048d630fdb668a918c4be8801e161fcf0b4d00b",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\ger\\addenda\\title_screen.md",
+      "repository_path": "Tools/Host/ger/addenda/title_screen.md",
+      "destination_sha256": "e3723d694f9a2fed136c22645048d630fdb668a918c4be8801e161fcf0b4d00b",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\addenda\\generated\\NSC-003.md",
+      "family": "ger",
+      "relative_path": "addenda\\generated\\NSC-003.md",
+      "kind": "file",
+      "size_bytes": 2936,
+      "source_sha256": "4820328cb1c09ca4e2e2cb4ef88f7cbe40d37f3028b3816484305827e5abf425",
+      "disposition": "excluded_retained",
+      "reason": "Generated task-specific prompt output; reusable addenda and authored notes imported."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\addenda\\generated\\NSC-012.md",
+      "family": "ger",
+      "relative_path": "addenda\\generated\\NSC-012.md",
+      "kind": "file",
+      "size_bytes": 2394,
+      "source_sha256": "6769e4ef3887731db861f4051feaa2d1115ff45366cfbfc4c3b0ac4782e50fab",
+      "disposition": "excluded_retained",
+      "reason": "Generated task-specific prompt output; reusable addenda and authored notes imported."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\addenda\\generated\\NSC-066.md",
+      "family": "ger",
+      "relative_path": "addenda\\generated\\NSC-066.md",
+      "kind": "file",
+      "size_bytes": 2434,
+      "source_sha256": "05f30c5ffb86218569a460f067f03793ee5bcc4cdd9732f64ba31843e1188cc6",
+      "disposition": "excluded_retained",
+      "reason": "Generated task-specific prompt output; reusable addenda and authored notes imported."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\addenda\\notes\\NSC-003.md",
+      "family": "ger",
+      "relative_path": "addenda\\notes\\NSC-003.md",
+      "kind": "file",
+      "size_bytes": 1167,
+      "source_sha256": "1a951fbe3f8ec769d2d1f8481bb9fea65651ea36575cce18d86f13d7fd9a5067",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\ger\\addenda\\notes\\NSC-003.md",
+      "repository_path": "Tools/Host/ger/addenda/notes/NSC-003.md",
+      "destination_sha256": "1a951fbe3f8ec769d2d1f8481bb9fea65651ea36575cce18d86f13d7fd9a5067",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\addenda\\notes\\NSC-012.md",
+      "family": "ger",
+      "relative_path": "addenda\\notes\\NSC-012.md",
+      "kind": "file",
+      "size_bytes": 625,
+      "source_sha256": "fc9da68ac96bcbc1c815765a2684295521484109b7577bd00f3fbed0a14e90e4",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\ger\\addenda\\notes\\NSC-012.md",
+      "repository_path": "Tools/Host/ger/addenda/notes/NSC-012.md",
+      "destination_sha256": "fc9da68ac96bcbc1c815765a2684295521484109b7577bd00f3fbed0a14e90e4",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\addenda\\notes\\NSC-066.md",
+      "family": "ger",
+      "relative_path": "addenda\\notes\\NSC-066.md",
+      "kind": "file",
+      "size_bytes": 933,
+      "source_sha256": "b1e541b2324075192a7d56f0536dbc2cfd8d4bc48d96801d8efac749d60db3d3",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\ger\\addenda\\notes\\NSC-066.md",
+      "repository_path": "Tools/Host/ger/addenda/notes/NSC-066.md",
+      "destination_sha256": "b1e541b2324075192a7d56f0536dbc2cfd8d4bc48d96801d8efac749d60db3d3",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\issue127\\01-hi-status.md",
+      "family": "ger",
+      "relative_path": "issue127\\01-hi-status.md",
+      "kind": "file",
+      "size_bytes": 1506,
+      "source_sha256": "e13e009b04873ce9177d6e0ae800dc1fe7c78c19895cf99b184fdc697d41ff5a",
+      "disposition": "excluded_retained",
+      "reason": "Historical issue comment bodies and mutable watch state, outside the reusable host-tool source import."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\issue127\\02-room-results.md",
+      "family": "ger",
+      "relative_path": "issue127\\02-room-results.md",
+      "kind": "file",
+      "size_bytes": 3287,
+      "source_sha256": "b730cbc0fb1917ed8cb5182482af0aa340f64eeba28d4743c09150cef40d33b4",
+      "disposition": "excluded_retained",
+      "reason": "Historical issue comment bodies and mutable watch state, outside the reusable host-tool source import."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\issue127\\03-batch-a-status.md",
+      "family": "ger",
+      "relative_path": "issue127\\03-batch-a-status.md",
+      "kind": "file",
+      "size_bytes": 797,
+      "source_sha256": "8d958b85eb465d3a13ea7747e0399dcc6756332f3707d096b448c5aee13563c8",
+      "disposition": "excluded_retained",
+      "reason": "Historical issue comment bodies and mutable watch state, outside the reusable host-tool source import."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\issue127\\04-ready-nsc044.md",
+      "family": "ger",
+      "relative_path": "issue127\\04-ready-nsc044.md",
+      "kind": "file",
+      "size_bytes": 2206,
+      "source_sha256": "b2633a175eede9376b4b67d9d36edef3927613ec54660b66772273222e5b1091",
+      "disposition": "excluded_retained",
+      "reason": "Historical issue comment bodies and mutable watch state, outside the reusable host-tool source import."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\issue127\\05-blocked-nsc008.md",
+      "family": "ger",
+      "relative_path": "issue127\\05-blocked-nsc008.md",
+      "kind": "file",
+      "size_bytes": 2276,
+      "source_sha256": "97051bbb94093a5a829322f5b670fac85a2c4e24078072158e8458df251ddd1f",
+      "disposition": "excluded_retained",
+      "reason": "Historical issue comment bodies and mutable watch state, outside the reusable host-tool source import."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\issue127\\06-blocked-nsc007.md",
+      "family": "ger",
+      "relative_path": "issue127\\06-blocked-nsc007.md",
+      "kind": "file",
+      "size_bytes": 2177,
+      "source_sha256": "559cc6a69cbefe5b4b55836fa2009100ccd65dba41f46a26b2336c74567d19e6",
+      "disposition": "excluded_retained",
+      "reason": "Historical issue comment bodies and mutable watch state, outside the reusable host-tool source import."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\issue127\\07-blocked-nsc078.md",
+      "family": "ger",
+      "relative_path": "issue127\\07-blocked-nsc078.md",
+      "kind": "file",
+      "size_bytes": 2269,
+      "source_sha256": "86a43892d69b5cf1cf2e5869e16d362073fc2e13edc5472bfb297e428372b73c",
+      "disposition": "excluded_retained",
+      "reason": "Historical issue comment bodies and mutable watch state, outside the reusable host-tool source import."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\issue127\\08-blocked-nsc030.md",
+      "family": "ger",
+      "relative_path": "issue127\\08-blocked-nsc030.md",
+      "kind": "file",
+      "size_bytes": 2404,
+      "source_sha256": "a3e04b1cc38e785c5b82268c014bd913181b85867cc09315c669a7c060a86e79",
+      "disposition": "excluded_retained",
+      "reason": "Historical issue comment bodies and mutable watch state, outside the reusable host-tool source import."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\issue127\\09-blocked-nsc085.md",
+      "family": "ger",
+      "relative_path": "issue127\\09-blocked-nsc085.md",
+      "kind": "file",
+      "size_bytes": 2562,
+      "source_sha256": "89a4a9371dfd5def53443a52f75c4a653ec7b7f6474316e019a61c28b0d5d100",
+      "disposition": "excluded_retained",
+      "reason": "Historical issue comment bodies and mutable watch state, outside the reusable host-tool source import."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\issue127\\10-queue-checkin.md",
+      "family": "ger",
+      "relative_path": "issue127\\10-queue-checkin.md",
+      "kind": "file",
+      "size_bytes": 1158,
+      "source_sha256": "449357e3a69e7be983177ab80691e86943adcc85610b5795c74e6d72cae6eb9a",
+      "disposition": "excluded_retained",
+      "reason": "Historical issue comment bodies and mutable watch state, outside the reusable host-tool source import."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\issue127\\11-decomposition-constraints.md",
+      "family": "ger",
+      "relative_path": "issue127\\11-decomposition-constraints.md",
+      "kind": "file",
+      "size_bytes": 1267,
+      "source_sha256": "edcebe25f1313c75f63716d277aa61c22cf187f2af915e6a572f980933c78afc",
+      "disposition": "excluded_retained",
+      "reason": "Historical issue comment bodies and mutable watch state, outside the reusable host-tool source import."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\issue127\\12-blocked-nsc009.md",
+      "family": "ger",
+      "relative_path": "issue127\\12-blocked-nsc009.md",
+      "kind": "file",
+      "size_bytes": 2064,
+      "source_sha256": "a6c987c75d01823ab9ebf4b8842aab84f8e03710c54ff2930917b46cd3f98141",
+      "disposition": "excluded_retained",
+      "reason": "Historical issue comment bodies and mutable watch state, outside the reusable host-tool source import."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\issue127\\13-ready-nsc017.md",
+      "family": "ger",
+      "relative_path": "issue127\\13-ready-nsc017.md",
+      "kind": "file",
+      "size_bytes": 2384,
+      "source_sha256": "3f80e883795b9c433a59e935b7aeee93ce9f41a97496763cf1538054ddf8e878",
+      "disposition": "excluded_retained",
+      "reason": "Historical issue comment bodies and mutable watch state, outside the reusable host-tool source import."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\issue127\\14-decomposition-queued-nsc015.md",
+      "family": "ger",
+      "relative_path": "issue127\\14-decomposition-queued-nsc015.md",
+      "kind": "file",
+      "size_bytes": 2323,
+      "source_sha256": "bc5d28258d0be05e9f7c12af54cebb0f4e5e483e4dfef0750d7a68d9d31cd2bd",
+      "disposition": "excluded_retained",
+      "reason": "Historical issue comment bodies and mutable watch state, outside the reusable host-tool source import."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\issue127\\15-ready-nsc052.md",
+      "family": "ger",
+      "relative_path": "issue127\\15-ready-nsc052.md",
+      "kind": "file",
+      "size_bytes": 2582,
+      "source_sha256": "7ac3284867bcbf68548f25cf36e860cdcdfff29ab1e241b9ead22f5d2531caac",
+      "disposition": "excluded_retained",
+      "reason": "Historical issue comment bodies and mutable watch state, outside the reusable host-tool source import."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\issue127\\16-ready-nsc053.md",
+      "family": "ger",
+      "relative_path": "issue127\\16-ready-nsc053.md",
+      "kind": "file",
+      "size_bytes": 2617,
+      "source_sha256": "dd289684c6f80152ae558b6be445a9072c44533f0141acf4df4975ebd567a3bd",
+      "disposition": "excluded_retained",
+      "reason": "Historical issue comment bodies and mutable watch state, outside the reusable host-tool source import."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\issue127\\17-queue-checkin.md",
+      "family": "ger",
+      "relative_path": "issue127\\17-queue-checkin.md",
+      "kind": "file",
+      "size_bytes": 1196,
+      "source_sha256": "89882958c28e7916fc5c1e04faccb0050d190174d96176c4528c09e917262aaa",
+      "disposition": "excluded_retained",
+      "reason": "Historical issue comment bodies and mutable watch state, outside the reusable host-tool source import."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\issue127\\18-ready-nsc012-no-change.md",
+      "family": "ger",
+      "relative_path": "issue127\\18-ready-nsc012-no-change.md",
+      "kind": "file",
+      "size_bytes": 1612,
+      "source_sha256": "a2e0bab1ab1795618975ee7aa4292e424b3a6f0de963344e80c9c218deeb92ad",
+      "disposition": "excluded_retained",
+      "reason": "Historical issue comment bodies and mutable watch state, outside the reusable host-tool source import."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\issue127\\19-blocked-nsc088.md",
+      "family": "ger",
+      "relative_path": "issue127\\19-blocked-nsc088.md",
+      "kind": "file",
+      "size_bytes": 3326,
+      "source_sha256": "3142bea2ca21bd9977b821c9a829a1c29a6d13e1fce6c43da6b8d9137fab0833",
+      "disposition": "excluded_retained",
+      "reason": "Historical issue comment bodies and mutable watch state, outside the reusable host-tool source import."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\issue127\\20-blocked-nsc015-d1b2-launch.md",
+      "family": "ger",
+      "relative_path": "issue127\\20-blocked-nsc015-d1b2-launch.md",
+      "kind": "file",
+      "size_bytes": 1582,
+      "source_sha256": "2e09fa1f20c1a1027efcec4985342686ec60ba9651e2f7df871d39f1e8e69ba5",
+      "disposition": "excluded_retained",
+      "reason": "Historical issue comment bodies and mutable watch state, outside the reusable host-tool source import."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\issue127\\21-blocked-nsc041.md",
+      "family": "ger",
+      "relative_path": "issue127\\21-blocked-nsc041.md",
+      "kind": "file",
+      "size_bytes": 2016,
+      "source_sha256": "c6a8e4c37e5dbb8e1ee940071d9d3cb16f6e064f685abefcc2356de91e3a2fcf",
+      "disposition": "excluded_retained",
+      "reason": "Historical issue comment bodies and mutable watch state, outside the reusable host-tool source import."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\issue127\\22-ready-nsc054.md",
+      "family": "ger",
+      "relative_path": "issue127\\22-ready-nsc054.md",
+      "kind": "file",
+      "size_bytes": 3096,
+      "source_sha256": "53de6404bf1a5707665483877bc55f9fc173c4833fa28ecab8e483434ffed0e9",
+      "disposition": "excluded_retained",
+      "reason": "Historical issue comment bodies and mutable watch state, outside the reusable host-tool source import."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\issue127\\23-ready-nsc041-no-change.md",
+      "family": "ger",
+      "relative_path": "issue127\\23-ready-nsc041-no-change.md",
+      "kind": "file",
+      "size_bytes": 1224,
+      "source_sha256": "ac3ae5307c66d79025dd8dadf8940c643608fab1c2d5d91c8cd501d6dd4dfb49",
+      "disposition": "excluded_retained",
+      "reason": "Historical issue comment bodies and mutable watch state, outside the reusable host-tool source import."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\issue127\\24-queue-checkin.md",
+      "family": "ger",
+      "relative_path": "issue127\\24-queue-checkin.md",
+      "kind": "file",
+      "size_bytes": 1348,
+      "source_sha256": "5e5fbf93c352daa89247d847f0170d13659edc71b39d55d7b34ee1239f224d4b",
+      "disposition": "excluded_retained",
+      "reason": "Historical issue comment bodies and mutable watch state, outside the reusable host-tool source import."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\issue127\\25-nsc088-reduced-decisions.md",
+      "family": "ger",
+      "relative_path": "issue127\\25-nsc088-reduced-decisions.md",
+      "kind": "file",
+      "size_bytes": 1919,
+      "source_sha256": "0d1a0bb5f5b143a842ac30142bbaf4c09e8292102669a086f83a3cd8955b0ce7",
+      "disposition": "excluded_retained",
+      "reason": "Historical issue comment bodies and mutable watch state, outside the reusable host-tool source import."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\issue127\\26-ready-nsc020.md",
+      "family": "ger",
+      "relative_path": "issue127\\26-ready-nsc020.md",
+      "kind": "file",
+      "size_bytes": 3527,
+      "source_sha256": "3b8807c1d0fdec9aa961baf5ef49754c14d767f0f828441c20bb02193451cfbc",
+      "disposition": "excluded_retained",
+      "reason": "Historical issue comment bodies and mutable watch state, outside the reusable host-tool source import."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\issue127\\27-ready-nsc005-no-change.md",
+      "family": "ger",
+      "relative_path": "issue127\\27-ready-nsc005-no-change.md",
+      "kind": "file",
+      "size_bytes": 2531,
+      "source_sha256": "1e60a3daf6db0a5624eac465f9df87a08bfeed76a637e68fbb0d088edbd83e98",
+      "disposition": "excluded_retained",
+      "reason": "Historical issue comment bodies and mutable watch state, outside the reusable host-tool source import."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\issue127\\28-ready-nsc003.md",
+      "family": "ger",
+      "relative_path": "issue127\\28-ready-nsc003.md",
+      "kind": "file",
+      "size_bytes": 3107,
+      "source_sha256": "ef254be65eb78394152fe0a1bf3bd30eba0fd5c8fc2a96b37624e12bfbc99d9f",
+      "disposition": "excluded_retained",
+      "reason": "Historical issue comment bodies and mutable watch state, outside the reusable host-tool source import."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\issue127\\29-blocked-codex-usage-limit.md",
+      "family": "ger",
+      "relative_path": "issue127\\29-blocked-codex-usage-limit.md",
+      "kind": "file",
+      "size_bytes": 1068,
+      "source_sha256": "991430b5e5c6ec58c159c1d7db7acf5b7538208d37ce196509938bf5e380043a",
+      "disposition": "excluded_retained",
+      "reason": "Historical issue comment bodies and mutable watch state, outside the reusable host-tool source import."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\issue127\\30-end-of-window.md",
+      "family": "ger",
+      "relative_path": "issue127\\30-end-of-window.md",
+      "kind": "file",
+      "size_bytes": 1108,
+      "source_sha256": "84268cbae9b6f9f7325bf4a4e7f62a66e03aa15f3273a9a7a0823dbbf537214e",
+      "disposition": "excluded_retained",
+      "reason": "Historical issue comment bodies and mutable watch state, outside the reusable host-tool source import."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\issue127\\31-ger-stopped.md",
+      "family": "ger",
+      "relative_path": "issue127\\31-ger-stopped.md",
+      "kind": "file",
+      "size_bytes": 571,
+      "source_sha256": "bc36e571b6bf7c22d1bff7b6191d93db6c03f827a913bc81e20349be313ae0f0",
+      "disposition": "excluded_retained",
+      "reason": "Historical issue comment bodies and mutable watch state, outside the reusable host-tool source import."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\issue127\\recent-comments.txt",
+      "family": "ger",
+      "relative_path": "issue127\\recent-comments.txt",
+      "kind": "file",
+      "size_bytes": 3002,
+      "source_sha256": "303405daea62a76572c23c0ad0cc51ebff48d3f6ca69d289836d6999ceb73f32",
+      "disposition": "excluded_retained",
+      "reason": "Historical issue comment bodies and mutable watch state, outside the reusable host-tool source import."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\issue127\\seen_comment_urls.json",
+      "family": "ger",
+      "relative_path": "issue127\\seen_comment_urls.json",
+      "kind": "file",
+      "size_bytes": 4072,
+      "source_sha256": "b099cbada815ff8669bf728238d7daf7327b37972ded24090c4272808315dcd3",
+      "disposition": "excluded_retained",
+      "reason": "Historical issue comment bodies and mutable watch state, outside the reusable host-tool source import."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\next\\ger_node.py",
+      "family": "ger",
+      "relative_path": "next\\ger_node.py",
+      "kind": "file",
+      "size_bytes": 13507,
+      "source_sha256": "969896ba4b3b3ee361013e83ff6cf42b127c5aa6f786928916c20b3593c18f3d",
+      "disposition": "excluded_retained",
+      "reason": "Staged alternative implementations and their staging tests; not the current deployed source, retained for separate review."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\next\\ger_round.py",
+      "family": "ger",
+      "relative_path": "next\\ger_round.py",
+      "kind": "file",
+      "size_bytes": 31943,
+      "source_sha256": "a1c8bcde88d01b7ffc45ef064662d548d617505028695af8b14b106f5e87fcbb",
+      "disposition": "excluded_retained",
+      "reason": "Staged alternative implementations and their staging tests; not the current deployed source, retained for separate review."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\next\\make_staged.py",
+      "family": "ger",
+      "relative_path": "next\\make_staged.py",
+      "kind": "file",
+      "size_bytes": 12031,
+      "source_sha256": "a717130125a44af58252de8e14971235a8d7d9d7f94c45cd24a693156d7efc5e",
+      "disposition": "excluded_retained",
+      "reason": "Staged alternative implementations and their staging tests; not the current deployed source, retained for separate review."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\next\\test_live_prompts.py",
+      "family": "ger",
+      "relative_path": "next\\test_live_prompts.py",
+      "kind": "file",
+      "size_bytes": 2861,
+      "source_sha256": "fdea57d87022df079fbfa2777583d12a7abf9e199da5517e5873211c7d890380",
+      "disposition": "excluded_retained",
+      "reason": "Staged alternative implementations and their staging tests; not the current deployed source, retained for separate review."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\next\\test_recommendation_parser.py",
+      "family": "ger",
+      "relative_path": "next\\test_recommendation_parser.py",
+      "kind": "file",
+      "size_bytes": 2514,
+      "source_sha256": "3dfda88d716d7a28fddb035ca8e25e63f407036b5a1c1a5d3b6d0b1bc22d4c20",
+      "disposition": "excluded_retained",
+      "reason": "Staged alternative implementations and their staging tests; not the current deployed source, retained for separate review."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\next\\test_staged_prompts.py",
+      "family": "ger",
+      "relative_path": "next\\test_staged_prompts.py",
+      "kind": "file",
+      "size_bytes": 4227,
+      "source_sha256": "d498306876d3e1ee357448232dba493f81c4fa85e328fa1fd2375026103196a3",
+      "disposition": "excluded_retained",
+      "reason": "Staged alternative implementations and their staging tests; not the current deployed source, retained for separate review."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\patches\\NSC-003-reaudit-replacements.json",
+      "family": "ger",
+      "relative_path": "patches\\NSC-003-reaudit-replacements.json",
+      "kind": "file",
+      "size_bytes": 2611,
+      "source_sha256": "7924b80d728e6b49cfbc0b096ac4317d1711e9c0dc8674278592b8a208b0ad91",
+      "disposition": "excluded_retained",
+      "reason": "Dated migration scripts, task-specific candidate inputs and run outputs; retained at original path for a separate evidence decision."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\patches\\NSC-003-round03-contract.json",
+      "family": "ger",
+      "relative_path": "patches\\NSC-003-round03-contract.json",
+      "kind": "file",
+      "size_bytes": 8510,
+      "source_sha256": "bf1aa090c773155d175d1ab260935bca0ab8d76db3f9e14eb96af7af06415418",
+      "disposition": "excluded_retained",
+      "reason": "Dated migration scripts, task-specific candidate inputs and run outputs; retained at original path for a separate evidence decision."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\patches\\NSC-015-reaudit-replacements.json",
+      "family": "ger",
+      "relative_path": "patches\\NSC-015-reaudit-replacements.json",
+      "kind": "file",
+      "size_bytes": 5084,
+      "source_sha256": "3562d00818b154b97b40c2d3d8b5c6c1f9873061a297fec749bc7b56fadd37f5",
+      "disposition": "excluded_retained",
+      "reason": "Dated migration scripts, task-specific candidate inputs and run outputs; retained at original path for a separate evidence decision."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\patches\\NSC-015-round03-contract.json",
+      "family": "ger",
+      "relative_path": "patches\\NSC-015-round03-contract.json",
+      "kind": "file",
+      "size_bytes": 22288,
+      "source_sha256": "df008c3bb5ab80dd58f549135c770f9e917a086e6ff8024037e46ad0cce3c2c8",
+      "disposition": "excluded_retained",
+      "reason": "Dated migration scripts, task-specific candidate inputs and run outputs; retained at original path for a separate evidence decision."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\patches\\NSC-017-reaudit-replacements.json",
+      "family": "ger",
+      "relative_path": "patches\\NSC-017-reaudit-replacements.json",
+      "kind": "file",
+      "size_bytes": 5788,
+      "source_sha256": "467c1222684cd59d1e98b11478f7b20c987056af29c0da68970cc2ff4061a69a",
+      "disposition": "excluded_retained",
+      "reason": "Dated migration scripts, task-specific candidate inputs and run outputs; retained at original path for a separate evidence decision."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\patches\\NSC-017-round03-contract.json",
+      "family": "ger",
+      "relative_path": "patches\\NSC-017-round03-contract.json",
+      "kind": "file",
+      "size_bytes": 18049,
+      "source_sha256": "49e90bf1266c90b9343817e8cef08089140b83c5654d4e3a9b8055081f5de69d",
+      "disposition": "excluded_retained",
+      "reason": "Dated migration scripts, task-specific candidate inputs and run outputs; retained at original path for a separate evidence decision."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\patches\\NSC-020-reaudit-replacements.json",
+      "family": "ger",
+      "relative_path": "patches\\NSC-020-reaudit-replacements.json",
+      "kind": "file",
+      "size_bytes": 6638,
+      "source_sha256": "2e95b82c1d7ffc73afa1f15aa072a7357755294b5aad0a90e58d4a06e43fdecf",
+      "disposition": "excluded_retained",
+      "reason": "Dated migration scripts, task-specific candidate inputs and run outputs; retained at original path for a separate evidence decision."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\patches\\NSC-020-round03-contract.json",
+      "family": "ger",
+      "relative_path": "patches\\NSC-020-round03-contract.json",
+      "kind": "file",
+      "size_bytes": 11684,
+      "source_sha256": "5be7923ae4704de9a2446c52746f768cab8783d297cf54714eb73c159313721e",
+      "disposition": "excluded_retained",
+      "reason": "Dated migration scripts, task-specific candidate inputs and run outputs; retained at original path for a separate evidence decision."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\patches\\NSC-044-reaudit-replacements.json",
+      "family": "ger",
+      "relative_path": "patches\\NSC-044-reaudit-replacements.json",
+      "kind": "file",
+      "size_bytes": 7551,
+      "source_sha256": "d5bf52ede21ae28f5132f68e2785cdbb3aae88e36e11df51d5f54c1bfe1173d0",
+      "disposition": "excluded_retained",
+      "reason": "Dated migration scripts, task-specific candidate inputs and run outputs; retained at original path for a separate evidence decision."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\patches\\NSC-044-round03-contract.json",
+      "family": "ger",
+      "relative_path": "patches\\NSC-044-round03-contract.json",
+      "kind": "file",
+      "size_bytes": 21860,
+      "source_sha256": "f30c7f41fb3e615698c327ac4e92df080bed87659bfd97490c711ffdcd17d148",
+      "disposition": "excluded_retained",
+      "reason": "Dated migration scripts, task-specific candidate inputs and run outputs; retained at original path for a separate evidence decision."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\patches\\NSC-052-reaudit-replacements.json",
+      "family": "ger",
+      "relative_path": "patches\\NSC-052-reaudit-replacements.json",
+      "kind": "file",
+      "size_bytes": 6643,
+      "source_sha256": "897911cdde547aecf22eade5d87c81088e04785bec49fb7189adcf4e462267be",
+      "disposition": "excluded_retained",
+      "reason": "Dated migration scripts, task-specific candidate inputs and run outputs; retained at original path for a separate evidence decision."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\patches\\NSC-052-round03-contract.json",
+      "family": "ger",
+      "relative_path": "patches\\NSC-052-round03-contract.json",
+      "kind": "file",
+      "size_bytes": 17522,
+      "source_sha256": "017539d6c1f1d7ef988025f7cb16c0ae17f990ac2c465b07e1227b9894c8688d",
+      "disposition": "excluded_retained",
+      "reason": "Dated migration scripts, task-specific candidate inputs and run outputs; retained at original path for a separate evidence decision."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\patches\\NSC-053-reaudit-replacements.json",
+      "family": "ger",
+      "relative_path": "patches\\NSC-053-reaudit-replacements.json",
+      "kind": "file",
+      "size_bytes": 9883,
+      "source_sha256": "8bc59bc69e3e2c435772e28c766d5f2859de9bfc1007070da44cb361e4421573",
+      "disposition": "excluded_retained",
+      "reason": "Dated migration scripts, task-specific candidate inputs and run outputs; retained at original path for a separate evidence decision."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\patches\\NSC-053-round03-contract.json",
+      "family": "ger",
+      "relative_path": "patches\\NSC-053-round03-contract.json",
+      "kind": "file",
+      "size_bytes": 18194,
+      "source_sha256": "eb7ca33df9be1a517021974c4fe607d513d8b4d11f20376ed3dd1a7bba2dbf10",
+      "disposition": "excluded_retained",
+      "reason": "Dated migration scripts, task-specific candidate inputs and run outputs; retained at original path for a separate evidence decision."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\patches\\NSC-054-reaudit-replacements.json",
+      "family": "ger",
+      "relative_path": "patches\\NSC-054-reaudit-replacements.json",
+      "kind": "file",
+      "size_bytes": 4954,
+      "source_sha256": "813f01643ccabd7510c1ec23910409063826b4593c44281e76cbcbe74f41c0ab",
+      "disposition": "excluded_retained",
+      "reason": "Dated migration scripts, task-specific candidate inputs and run outputs; retained at original path for a separate evidence decision."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\patches\\NSC-054-round03-contract.json",
+      "family": "ger",
+      "relative_path": "patches\\NSC-054-round03-contract.json",
+      "kind": "file",
+      "size_bytes": 18948,
+      "source_sha256": "4bbcbf7d41fe818258768ad6c2769e36f92a2ab811f437cb3878ae8bc4e82960",
+      "disposition": "excluded_retained",
+      "reason": "Dated migration scripts, task-specific candidate inputs and run outputs; retained at original path for a separate evidence decision."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\patches\\nsc003-commit.txt",
+      "family": "ger",
+      "relative_path": "patches\\nsc003-commit.txt",
+      "kind": "file",
+      "size_bytes": 959,
+      "source_sha256": "ddb142652cda2ad62ec6b61ebdbed2b60e360d816514aff8f34657a71b63abae",
+      "disposition": "excluded_retained",
+      "reason": "Dated migration scripts, task-specific candidate inputs and run outputs; retained at original path for a separate evidence decision."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\patches\\nsc003-dryrun.txt",
+      "family": "ger",
+      "relative_path": "patches\\nsc003-dryrun.txt",
+      "kind": "file",
+      "size_bytes": 10140,
+      "source_sha256": "75090443a42d1c6d9b8d73ae9fc5fa4b6e7862346e8edd11262dd1ed08386341",
+      "disposition": "excluded_retained",
+      "reason": "Dated migration scripts, task-specific candidate inputs and run outputs; retained at original path for a separate evidence decision."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\patches\\nsc017-dryrun.txt",
+      "family": "ger",
+      "relative_path": "patches\\nsc017-dryrun.txt",
+      "kind": "file",
+      "size_bytes": 21454,
+      "source_sha256": "1d153f157f3e657db3ae200b50fc023295ded97949b1655c4f750c3d40567283",
+      "disposition": "excluded_retained",
+      "reason": "Dated migration scripts, task-specific candidate inputs and run outputs; retained at original path for a separate evidence decision."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\patches\\nsc017-release-ok.txt",
+      "family": "ger",
+      "relative_path": "patches\\nsc017-release-ok.txt",
+      "kind": "file",
+      "size_bytes": 3,
+      "source_sha256": "8a798890fe93817163b10b5f7bd2ca4d25d84c52739a645a889c173eee7d9d3d",
+      "disposition": "excluded_retained",
+      "reason": "Dated migration scripts, task-specific candidate inputs and run outputs; retained at original path for a separate evidence decision."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\patches\\nsc020-commit.txt",
+      "family": "ger",
+      "relative_path": "patches\\nsc020-commit.txt",
+      "kind": "file",
+      "size_bytes": 1087,
+      "source_sha256": "f268ce85779c6cd9fbc1f91b0a715832bf44f0e64a8b47674ca91086af8c353b",
+      "disposition": "excluded_retained",
+      "reason": "Dated migration scripts, task-specific candidate inputs and run outputs; retained at original path for a separate evidence decision."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\patches\\nsc020-dryrun.txt",
+      "family": "ger",
+      "relative_path": "patches\\nsc020-dryrun.txt",
+      "kind": "file",
+      "size_bytes": 14207,
+      "source_sha256": "a63095ed749c40f44761a787bd1f8d5a1d4d957e524c22db8bd251485ddd0d52",
+      "disposition": "excluded_retained",
+      "reason": "Dated migration scripts, task-specific candidate inputs and run outputs; retained at original path for a separate evidence decision."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\patches\\nsc044-dryrun.txt",
+      "family": "ger",
+      "relative_path": "patches\\nsc044-dryrun.txt",
+      "kind": "file",
+      "size_bytes": 26171,
+      "source_sha256": "0fad70f9c04923c175fa389515e3ff8079c5151be799184416bf707929cfc7ee",
+      "disposition": "excluded_retained",
+      "reason": "Dated migration scripts, task-specific candidate inputs and run outputs; retained at original path for a separate evidence decision."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\patches\\nsc044-release-ok.txt",
+      "family": "ger",
+      "relative_path": "patches\\nsc044-release-ok.txt",
+      "kind": "file",
+      "size_bytes": 3,
+      "source_sha256": "8a798890fe93817163b10b5f7bd2ca4d25d84c52739a645a889c173eee7d9d3d",
+      "disposition": "excluded_retained",
+      "reason": "Dated migration scripts, task-specific candidate inputs and run outputs; retained at original path for a separate evidence decision."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\patches\\nsc052-release-ok.txt",
+      "family": "ger",
+      "relative_path": "patches\\nsc052-release-ok.txt",
+      "kind": "file",
+      "size_bytes": 3,
+      "source_sha256": "8a798890fe93817163b10b5f7bd2ca4d25d84c52739a645a889c173eee7d9d3d",
+      "disposition": "excluded_retained",
+      "reason": "Dated migration scripts, task-specific candidate inputs and run outputs; retained at original path for a separate evidence decision."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\patches\\nsc053-release-ok.txt",
+      "family": "ger",
+      "relative_path": "patches\\nsc053-release-ok.txt",
+      "kind": "file",
+      "size_bytes": 3,
+      "source_sha256": "8a798890fe93817163b10b5f7bd2ca4d25d84c52739a645a889c173eee7d9d3d",
+      "disposition": "excluded_retained",
+      "reason": "Dated migration scripts, task-specific candidate inputs and run outputs; retained at original path for a separate evidence decision."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\patches\\nsc054-commit.txt",
+      "family": "ger",
+      "relative_path": "patches\\nsc054-commit.txt",
+      "kind": "file",
+      "size_bytes": 1108,
+      "source_sha256": "123f2cae72fa3dc91696b2763228e85bc1ad98099ba00271af15cdc3d635b0ee",
+      "disposition": "excluded_retained",
+      "reason": "Dated migration scripts, task-specific candidate inputs and run outputs; retained at original path for a separate evidence decision."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\patches\\nsc054-dryrun.txt",
+      "family": "ger",
+      "relative_path": "patches\\nsc054-dryrun.txt",
+      "kind": "file",
+      "size_bytes": 21875,
+      "source_sha256": "f27797b3cf0d996029f7efc06ce2b9b129f6ef7bebc21218e3a46f14acf51405",
+      "disposition": "excluded_retained",
+      "reason": "Dated migration scripts, task-specific candidate inputs and run outputs; retained at original path for a separate evidence decision."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\patches\\report_update_1450.py",
+      "family": "ger",
+      "relative_path": "patches\\report_update_1450.py",
+      "kind": "file",
+      "size_bytes": 13772,
+      "source_sha256": "ed1b55c7f3b2a6a227c8b6ebedfe1507f434abd40d9b90fcd9ca1e3d44217ad8",
+      "disposition": "excluded_retained",
+      "reason": "Dated migration scripts, task-specific candidate inputs and run outputs; retained at original path for a separate evidence decision."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\patches\\report_update_1456.py",
+      "family": "ger",
+      "relative_path": "patches\\report_update_1456.py",
+      "kind": "file",
+      "size_bytes": 4688,
+      "source_sha256": "a92ae794e6cad6f8d329d5e21a1081b88ed4eec671f0d60bf86ee71a3ce0dfd9",
+      "disposition": "excluded_retained",
+      "reason": "Dated migration scripts, task-specific candidate inputs and run outputs; retained at original path for a separate evidence decision."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\patches\\upgrade_apply_contract_decision_revision.py",
+      "family": "ger",
+      "relative_path": "patches\\upgrade_apply_contract_decision_revision.py",
+      "kind": "file",
+      "size_bytes": 6605,
+      "source_sha256": "b56327dbd2f6d5754dde7872182a88afba3accab3a6645525385edc5c9099245",
+      "disposition": "excluded_retained",
+      "reason": "Dated migration scripts, task-specific candidate inputs and run outputs; retained at original path for a separate evidence decision."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\patches\\upgrade_apply_contract_groups_append.py",
+      "family": "ger",
+      "relative_path": "patches\\upgrade_apply_contract_groups_append.py",
+      "kind": "file",
+      "size_bytes": 4364,
+      "source_sha256": "e80a08b419ef5d3162b0dea3dafa60d753fe6adc6eb69699f8f24aca26e1aabf",
+      "disposition": "excluded_retained",
+      "reason": "Dated migration scripts, task-specific candidate inputs and run outputs; retained at original path for a separate evidence decision."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\patches\\upgrade_apply_contract_groups_update.py",
+      "family": "ger",
+      "relative_path": "patches\\upgrade_apply_contract_groups_update.py",
+      "kind": "file",
+      "size_bytes": 4566,
+      "source_sha256": "4ef5c23fe365ce8e2a51a7e81ea8b6e649684f4f9b2cf6d23e117475088a07bf",
+      "disposition": "excluded_retained",
+      "reason": "Dated migration scripts, task-specific candidate inputs and run outputs; retained at original path for a separate evidence decision."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\patches\\upgrade_apply_contract_skip_recheck.py",
+      "family": "ger",
+      "relative_path": "patches\\upgrade_apply_contract_skip_recheck.py",
+      "kind": "file",
+      "size_bytes": 5195,
+      "source_sha256": "dd91ef0835aef9656aaa2d3ea0da9836fe8de24cc68db84c19af5c92300117b4",
+      "disposition": "excluded_retained",
+      "reason": "Dated migration scripts, task-specific candidate inputs and run outputs; retained at original path for a separate evidence decision."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\patches\\upgrade_ger_node_transient_retry.py",
+      "family": "ger",
+      "relative_path": "patches\\upgrade_ger_node_transient_retry.py",
+      "kind": "file",
+      "size_bytes": 4621,
+      "source_sha256": "5b2eeef8c6f32790e187b9325a49333117548dde417449b65ac35ad1bbe7c407",
+      "disposition": "excluded_retained",
+      "reason": "Dated migration scripts, task-specific candidate inputs and run outputs; retained at original path for a separate evidence decision."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\patches\\upgrade_snapshot_scope.py",
+      "family": "ger",
+      "relative_path": "patches\\upgrade_snapshot_scope.py",
+      "kind": "file",
+      "size_bytes": 7667,
+      "source_sha256": "2176ae310c1199dabfbb3206dec3d1860f752d1086e4f7c4e9b324664da25287",
+      "disposition": "excluded_retained",
+      "reason": "Dated migration scripts, task-specific candidate inputs and run outputs; retained at original path for a separate evidence decision."
+    },
+    {
+      "source": "C:\\NSC\\tools\\ger\\patches\\upgrade_tools_recheck.py",
+      "family": "ger",
+      "relative_path": "patches\\upgrade_tools_recheck.py",
+      "kind": "file",
+      "size_bytes": 10704,
+      "source_sha256": "f10406c967f6d72b7b27bcbe5b21367f8eb33e4ad341718c60265900003bdebf",
+      "disposition": "excluded_retained",
+      "reason": "Dated migration scripts, task-specific candidate inputs and run outputs; retained at original path for a separate evidence decision."
+    },
+    {
+      "source": "C:\\NSC\\tools\\jobs\\README-propagation-check.md",
+      "family": "jobs",
+      "relative_path": "README-propagation-check.md",
+      "kind": "file",
+      "size_bytes": 5988,
+      "source_sha256": "6e5dd3e9b20b1fc06fba4a3e57966b68cdef447a0657f503cc571da89c21c8db",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\jobs\\README-propagation-check.md",
+      "repository_path": "Tools/Host/jobs/README-propagation-check.md",
+      "destination_sha256": "6e5dd3e9b20b1fc06fba4a3e57966b68cdef447a0657f503cc571da89c21c8db",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\jobs\\README.md",
+      "family": "jobs",
+      "relative_path": "README.md",
+      "kind": "file",
+      "size_bytes": 12020,
+      "source_sha256": "1de638ef323339360687276e3094cfeb3492e40569f200dbf916e87842fd8e7d",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\jobs\\README.md",
+      "repository_path": "Tools/Host/jobs/README.md",
+      "destination_sha256": "1de638ef323339360687276e3094cfeb3492e40569f200dbf916e87842fd8e7d",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\jobs\\propagation_check.before-review-fixes-20260918T154614.bak.py",
+      "family": "jobs",
+      "relative_path": "propagation_check.before-review-fixes-20260918T154614.bak.py",
+      "kind": "file",
+      "size_bytes": 25616,
+      "source_sha256": "208f2a594a05227ede817947e7f57f5fef66c4f1c99a7aac7e763390d88ad531",
+      "disposition": "excluded_retained",
+      "reason": "Historical pre-fix backup; current named implementation imported. Original retained; no deletion or claim of semantic equivalence."
+    },
+    {
+      "source": "C:\\NSC\\tools\\jobs\\propagation_check.before-round6.bak.py",
+      "family": "jobs",
+      "relative_path": "propagation_check.before-round6.bak.py",
+      "kind": "file",
+      "size_bytes": 51694,
+      "source_sha256": "cd7d15be623373e4b78318268f40497b5662f10e06f95b565bf8ebba17dc0352",
+      "disposition": "excluded_retained",
+      "reason": "Historical pre-fix backup; current named implementation imported. Original retained; no deletion or claim of semantic equivalence."
+    },
+    {
+      "source": "C:\\NSC\\tools\\jobs\\propagation_check.py",
+      "family": "jobs",
+      "relative_path": "propagation_check.py",
+      "kind": "file",
+      "size_bytes": 52163,
+      "source_sha256": "3c975d5a66d122812deb1fb4451d4576a0a90c78659ade627f10a8a199a81745",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\jobs\\propagation_check.py",
+      "repository_path": "Tools/Host/jobs/propagation_check.py",
+      "destination_sha256": "3c975d5a66d122812deb1fb4451d4576a0a90c78659ade627f10a8a199a81745",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\jobs\\run_job.before-review-fixes-20260918T064051.bak.py",
+      "family": "jobs",
+      "relative_path": "run_job.before-review-fixes-20260918T064051.bak.py",
+      "kind": "file",
+      "size_bytes": 45024,
+      "source_sha256": "cfc369fd307fca001a56eac77486aa3d33f8a67747bf99393dd1286a7accda51",
+      "disposition": "excluded_retained",
+      "reason": "Historical pre-fix backup; current named implementation imported. Original retained; no deletion or claim of semantic equivalence."
+    },
+    {
+      "source": "C:\\NSC\\tools\\jobs\\run_job.before-round3.bak.py",
+      "family": "jobs",
+      "relative_path": "run_job.before-round3.bak.py",
+      "kind": "file",
+      "size_bytes": 55819,
+      "source_sha256": "b1899f5d33e08e2cd484e68d9755d6a8d803c6a95b201fe837b1a3554df6867c",
+      "disposition": "excluded_retained",
+      "reason": "Historical pre-fix backup; current named implementation imported. Original retained; no deletion or claim of semantic equivalence."
+    },
+    {
+      "source": "C:\\NSC\\tools\\jobs\\run_job.py",
+      "family": "jobs",
+      "relative_path": "run_job.py",
+      "kind": "file",
+      "size_bytes": 59026,
+      "source_sha256": "af3b15efdd8f9650494fa57a98bd3f6c4af132a43d92afc150a52ea745fec5c9",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\jobs\\run_job.py",
+      "repository_path": "Tools/Host/jobs/run_job.py",
+      "destination_sha256": "af3b15efdd8f9650494fa57a98bd3f6c4af132a43d92afc150a52ea745fec5c9",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\jobs\\too_hard_benchmark.py",
+      "family": "jobs",
+      "relative_path": "too_hard_benchmark.py",
+      "kind": "file",
+      "size_bytes": 3695,
+      "source_sha256": "b98e4e299ab00012dd6968fa0425b7c324be39b2fa98e1d90f04c72faaaf3023",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\jobs\\too_hard_benchmark.py",
+      "repository_path": "Tools/Host/jobs/too_hard_benchmark.py",
+      "destination_sha256": "b98e4e299ab00012dd6968fa0425b7c324be39b2fa98e1d90f04c72faaaf3023",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\jobs\\whoami.py",
+      "family": "jobs",
+      "relative_path": "whoami.py",
+      "kind": "file",
+      "size_bytes": 1357,
+      "source_sha256": "041846c7d96aedd06ea6b44120d7b073aca82e9516f9ee02c6bf16c331fe0f75",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\jobs\\whoami.py",
+      "repository_path": "Tools/Host/jobs/whoami.py",
+      "destination_sha256": "041846c7d96aedd06ea6b44120d7b073aca82e9516f9ee02c6bf16c331fe0f75",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\jobs\\tests\\fake_claude.py",
+      "family": "jobs",
+      "relative_path": "tests\\fake_claude.py",
+      "kind": "file",
+      "size_bytes": 3197,
+      "source_sha256": "d9ed933b85ca4b5db4d1b87c856cfe71d3a4566da8d66d0fcdc6743353e45528",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\jobs\\tests\\fake_claude.py",
+      "repository_path": "Tools/Host/jobs/tests/fake_claude.py",
+      "destination_sha256": "d9ed933b85ca4b5db4d1b87c856cfe71d3a4566da8d66d0fcdc6743353e45528",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\jobs\\tests\\fake_docker.py",
+      "family": "jobs",
+      "relative_path": "tests\\fake_docker.py",
+      "kind": "file",
+      "size_bytes": 3501,
+      "source_sha256": "0c5adfa36ff5528e95a007283bb4eafde4be02148d238249b17e7c3005fbaf03",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\jobs\\tests\\fake_docker.py",
+      "repository_path": "Tools/Host/jobs/tests/fake_docker.py",
+      "destination_sha256": "0c5adfa36ff5528e95a007283bb4eafde4be02148d238249b17e7c3005fbaf03",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\jobs\\tests\\propagation_mutation_check.py",
+      "family": "jobs",
+      "relative_path": "tests\\propagation_mutation_check.py",
+      "kind": "file",
+      "size_bytes": 18190,
+      "source_sha256": "baf17c31236789e2e8259a9ff1b48542ad7836405bf8ea2f6e258e168b5d5e5e",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\jobs\\tests\\propagation_mutation_check.py",
+      "repository_path": "Tools/Host/jobs/tests/propagation_mutation_check.py",
+      "destination_sha256": "baf17c31236789e2e8259a9ff1b48542ad7836405bf8ea2f6e258e168b5d5e5e",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\jobs\\tests\\review_mutation_check.py",
+      "family": "jobs",
+      "relative_path": "tests\\review_mutation_check.py",
+      "kind": "file",
+      "size_bytes": 10118,
+      "source_sha256": "49c8e66a05a3a42259786d795ae871ee29a3198ce7e7e9630f31e2cc62214550",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\jobs\\tests\\review_mutation_check.py",
+      "repository_path": "Tools/Host/jobs/tests/review_mutation_check.py",
+      "destination_sha256": "49c8e66a05a3a42259786d795ae871ee29a3198ce7e7e9630f31e2cc62214550",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\jobs\\tests\\test_propagation_check.py",
+      "family": "jobs",
+      "relative_path": "tests\\test_propagation_check.py",
+      "kind": "file",
+      "size_bytes": 68774,
+      "source_sha256": "6a792821bbfab8a52d6d3c0614c5851afda0d032dd042fd21302cde8a0aef5d2",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\jobs\\tests\\test_propagation_check.py",
+      "repository_path": "Tools/Host/jobs/tests/test_propagation_check.py",
+      "destination_sha256": "6a792821bbfab8a52d6d3c0614c5851afda0d032dd042fd21302cde8a0aef5d2",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\jobs\\tests\\test_run_job.py",
+      "family": "jobs",
+      "relative_path": "tests\\test_run_job.py",
+      "kind": "file",
+      "size_bytes": 65937,
+      "source_sha256": "8c11d54dd5456ae7b9864e198485f4324e453be29931734f062c811a0e7e6095",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\jobs\\tests\\test_run_job.py",
+      "repository_path": "Tools/Host/jobs/tests/test_run_job.py",
+      "destination_sha256": "8c11d54dd5456ae7b9864e198485f4324e453be29931734f062c811a0e7e6095",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\session\\README.md",
+      "family": "session",
+      "relative_path": "README.md",
+      "kind": "file",
+      "size_bytes": 10640,
+      "source_sha256": "b27c88b3047fa73ba000e671fb92257b5861e8cf79e81062c32ed6f9cf8be128",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\session\\README.md",
+      "repository_path": "Tools/Host/session/README.md",
+      "destination_sha256": "b27c88b3047fa73ba000e671fb92257b5861e8cf79e81062c32ed6f9cf8be128",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\session\\nsc_session_digest.py",
+      "family": "session",
+      "relative_path": "nsc_session_digest.py",
+      "kind": "file",
+      "size_bytes": 24370,
+      "source_sha256": "59ae7a3b084772372601f5d65be6c4804b277e9e8d683b210a9acfff24ae3bdb",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\session\\nsc_session_digest.py",
+      "repository_path": "Tools/Host/session/nsc_session_digest.py",
+      "destination_sha256": "59ae7a3b084772372601f5d65be6c4804b277e9e8d683b210a9acfff24ae3bdb",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\session\\digests\\release-agent-20260918-0359-c09833ee.md",
+      "family": "session",
+      "relative_path": "digests\\release-agent-20260918-0359-c09833ee.md",
+      "kind": "file",
+      "size_bytes": 52131,
+      "source_sha256": "43ac0cf12e3c56dd1ef6e4619995e863408fb45a60e17271c1dc83d6adfadde3",
+      "disposition": "excluded_retained",
+      "reason": "Generated session evidence, retained outside runtime source; not a source dependency."
+    },
+    {
+      "source": "C:\\NSC\\tools\\session\\digests\\release-agent-20260918-0458-c09833ee.md",
+      "family": "session",
+      "relative_path": "digests\\release-agent-20260918-0458-c09833ee.md",
+      "kind": "file",
+      "size_bytes": 88563,
+      "source_sha256": "7655921766a50015b51e8836a891dd0d4e896efde8787d9cf2014c47f516d6cb",
+      "disposition": "excluded_retained",
+      "reason": "Generated session evidence, retained outside runtime source; not a source dependency."
+    },
+    {
+      "source": "C:\\NSC\\tools\\viewer\\__pycache__",
+      "kind": "directory",
+      "disposition": "excluded_cache_or_environment",
+      "reason": "Generated cache/environment, not authored source; subtree not read."
+    },
+    {
+      "source": "C:\\NSC\\tools\\viewer\\audit_evidence_debt.py",
+      "family": "viewer",
+      "relative_path": "audit_evidence_debt.py",
+      "kind": "file",
+      "size_bytes": 6025,
+      "source_sha256": "c8f44d2c99c8ca8f54509504c5594641f82e85661f2ee8d5b856bf8b55c7c462",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\viewer\\audit_evidence_debt.py",
+      "repository_path": "Tools/Host/viewer/audit_evidence_debt.py",
+      "destination_sha256": "c8f44d2c99c8ca8f54509504c5594641f82e85661f2ee8d5b856bf8b55c7c462",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\viewer\\nsc_viewer.py",
+      "family": "viewer",
+      "relative_path": "nsc_viewer.py",
+      "kind": "file",
+      "size_bytes": 27905,
+      "source_sha256": "2b68037d7bd1d50d96320c7202482f51aa3116d38b1478b05c761ffb17ee9d9c",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\viewer\\nsc_viewer.py",
+      "repository_path": "Tools/Host/viewer/nsc_viewer.py",
+      "destination_sha256": "2b68037d7bd1d50d96320c7202482f51aa3116d38b1478b05c761ffb17ee9d9c",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\NSC\\tools\\viewer\\nsc_watch.py",
+      "family": "viewer",
+      "relative_path": "nsc_watch.py",
+      "kind": "file",
+      "size_bytes": 12795,
+      "source_sha256": "0709e69bc355f3d488b4eda786fe64062cf1498dc8b0362432c91a636156e42f",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\viewer\\nsc_watch.py",
+      "repository_path": "Tools/Host/viewer/nsc_watch.py",
+      "destination_sha256": "0709e69bc355f3d488b4eda786fe64062cf1498dc8b0362432c91a636156e42f",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\nscrev\\claude-jobs\\templates\\README.md",
+      "family": "jobs",
+      "relative_path": "README.md",
+      "kind": "file",
+      "size_bytes": 1453,
+      "source_sha256": "c69ec36b6cb10da4fa1d6adbbe4646fda9cc862c8f28e8efffa2ec5a8b0e158a",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\jobs\\templates\\README.md",
+      "repository_path": "Tools/Host/jobs/templates/README.md",
+      "destination_sha256": "c69ec36b6cb10da4fa1d6adbbe4646fda9cc862c8f28e8efffa2ec5a8b0e158a",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\nscrev\\claude-jobs\\templates\\clone-edit-job-prompt.md",
+      "family": "jobs",
+      "relative_path": "clone-edit-job-prompt.md",
+      "kind": "file",
+      "size_bytes": 2100,
+      "source_sha256": "a958ab6081d7a7db743db376fb1faf3a53225074f75c0752c5808a0466c656c8",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\jobs\\templates\\clone-edit-job-prompt.md",
+      "repository_path": "Tools/Host/jobs/templates/clone-edit-job-prompt.md",
+      "destination_sha256": "a958ab6081d7a7db743db376fb1faf3a53225074f75c0752c5808a0466c656c8",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\nscrev\\claude-jobs\\templates\\contract-draft-job-prompt.md",
+      "family": "jobs",
+      "relative_path": "contract-draft-job-prompt.md",
+      "kind": "file",
+      "size_bytes": 3523,
+      "source_sha256": "bceae0ec6ec318fa2337853c82090bc1d7e340b63c6423c707b089d43bb1e2de",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\jobs\\templates\\contract-draft-job-prompt.md",
+      "repository_path": "Tools/Host/jobs/templates/contract-draft-job-prompt.md",
+      "destination_sha256": "bceae0ec6ec318fa2337853c82090bc1d7e340b63c6423c707b089d43bb1e2de",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\nscrev\\claude-jobs\\templates\\lookup-job-prompt.md",
+      "family": "jobs",
+      "relative_path": "lookup-job-prompt.md",
+      "kind": "file",
+      "size_bytes": 1438,
+      "source_sha256": "3fb99126a65b4a74ad8aaf190c3db0857b13ea531ab0cdae4223af1c638336c0",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\jobs\\templates\\lookup-job-prompt.md",
+      "repository_path": "Tools/Host/jobs/templates/lookup-job-prompt.md",
+      "destination_sha256": "3fb99126a65b4a74ad8aaf190c3db0857b13ea531ab0cdae4223af1c638336c0",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\nscrev\\claude-jobs\\templates\\review-job-prompt.md",
+      "family": "jobs",
+      "relative_path": "review-job-prompt.md",
+      "kind": "file",
+      "size_bytes": 3006,
+      "source_sha256": "69263b366be8b0a79db3d74ac30d982f77435dc05a84b94940d37fa783e34bfc",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\jobs\\templates\\review-job-prompt.md",
+      "repository_path": "Tools/Host/jobs/templates/review-job-prompt.md",
+      "destination_sha256": "69263b366be8b0a79db3d74ac30d982f77435dc05a84b94940d37fa783e34bfc",
+      "byte_identical": true
+    },
+    {
+      "source": "C:\\nscrev\\claude-jobs\\templates\\test-run-job-prompt.md",
+      "family": "jobs",
+      "relative_path": "test-run-job-prompt.md",
+      "kind": "file",
+      "size_bytes": 1935,
+      "source_sha256": "0a79a5ba35dcc25b6cdb8775fb358527bda194e919c2ddcd512b232da47a30e3",
+      "disposition": "imported_exact",
+      "destination": "C:\\nscrev\\work\\track-unversioned\\20260920-023734\\repo\\Tools\\Host\\jobs\\templates\\test-run-job-prompt.md",
+      "repository_path": "Tools/Host/jobs/templates/test-run-job-prompt.md",
+      "destination_sha256": "0a79a5ba35dcc25b6cdb8775fb358527bda194e919c2ddcd512b232da47a30e3",
+      "byte_identical": true
+    }
+  ],
+  "validation": {
+    "classification": "Static syntax and byte-preservation inspection only; no imported code executed; no Unity or provider run.",
+    "python": "3.13.1 (tags/v3.13.1:0671451, Dec  3 2024, 19:06:28) [MSC v.1942 64 bit (AMD64)]",
+    "python_ast": [
+      {
+        "path": "Tools/Host/art/ArtReview/art_review/__init__.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/art/ArtReview/art_review/__main__.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/art/ArtReview/art_review/camera.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/art/ArtReview/art_review/cli.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/art/ArtReview/art_review/font.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/art/ArtReview/art_review/gifio.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/art/ArtReview/art_review/ledger.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/art/ArtReview/art_review/maskdiff.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/art/ArtReview/art_review/metrics.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/art/ArtReview/art_review/normalize.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/art/ArtReview/art_review/pngio.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/art/ArtReview/art_review/raster.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/art/ArtReview/art_review/sheets.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/art/ArtReview/tests/__init__.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/art/ArtReview/tests/test_analysis_ledger_sheets.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/art/ArtReview/tests/test_cli.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/art/ArtReview/tests/test_fix2.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/art/ArtReview/tests/test_gif.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/art/ArtReview/tests/test_png_camera.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/art/ArtReview/tests/test_review_fixes.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/astra/ask_astra.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/astra/tests/fake_codex.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/astra/tests/mutation_check.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/astra/tests/test_ask_astra.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/ger/apply_contract.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/ger/apply_followup_revision.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/ger/apply_room_decisions.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/ger/apply_runbook_update.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/ger/branch_prs.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/ger/contract_commit.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/ger/ger_decision_revision.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/ger/ger_node.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/ger/ger_patch.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/ger/ger_round.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/ger/hold_ger_task.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/ger/main_write.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/ger/merge_all_branches.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/ger/salvage_ger.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/ger/watch_issue.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/jobs/propagation_check.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/jobs/run_job.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/jobs/too_hard_benchmark.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/jobs/whoami.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/jobs/tests/fake_claude.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/jobs/tests/fake_docker.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/jobs/tests/propagation_mutation_check.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/jobs/tests/review_mutation_check.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/jobs/tests/test_propagation_check.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/jobs/tests/test_run_job.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/session/nsc_session_digest.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/viewer/audit_evidence_debt.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/viewer/nsc_viewer.py",
+        "result": "pass"
+      },
+      {
+        "path": "Tools/Host/viewer/nsc_watch.py",
+        "result": "pass"
+      }
+    ],
+    "copy_count": 85,
+    "excluded_file_count": 98,
+    "excluded_directory_count": 2,
+    "all_copied_bytes_equal": true,
+    "reverification_issues": [],
+    "syntax_warnings": [
+      {
+        "path": "Tools/Host/jobs/tests/test_run_job.py",
+        "line": 885,
+        "category": "SyntaxWarning",
+        "message": "Existing invalid escape sequence in a docstring, preserved without repair."
+      }
+    ]
+  },
+  "generated_files": [
+    {
+      "path": "Tools/Host/README.md",
+      "sha256": "ae098818ed70221c218b9729607b20e0306e3948545e9ba3fa3317c5c5861b3a",
+      "purpose": "Import scope, deployment mapping and inherited limitations"
+    },
+    {
+      "path": "Tools/Host/.gitattributes",
+      "sha256": "2f3215491b3ff23377d47b37fba16579c367481a3871e7176a2735885ac34b9f",
+      "purpose": "Preserve imported file bytes in Git"
+    }
+  ]
+}

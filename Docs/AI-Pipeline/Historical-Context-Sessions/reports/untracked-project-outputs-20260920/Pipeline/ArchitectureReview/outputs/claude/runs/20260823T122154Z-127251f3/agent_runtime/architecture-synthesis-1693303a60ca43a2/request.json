@@ -1,0 +1,162 @@
+{
+  "allowed_capabilities": [
+    "repository_read",
+    "repository_search"
+  ],
+  "budgets": {
+    "timeout_seconds": 3600,
+    "token_limit": null,
+    "turn_limit": 72
+  },
+  "context_paths": [
+    "AI_PIPELINE.md",
+    "Docs/AI-Pipeline/START_HERE.md",
+    "Docs/AI-Pipeline/CURRENT_STATE.md",
+    "Docs/AI-Pipeline/00_MASTER_CONTEXT.md",
+    "Docs/AI-Pipeline/01_MILESTONE_TASK_GRAPH.md",
+    "Docs/AI-Pipeline/02_RAG_SCANNER_CONTEXT.md",
+    "Docs/AI-Pipeline/03_SUPERVISOR_GIT_GITHUB_CONTEXT.md",
+    "Docs/AI-Pipeline/04_EXECUTION_GER_VALIDATION_CONTEXT.md",
+    "Docs/AI-Pipeline/05_CONTINUOUS_AUTONOMY_CONTEXT.md",
+    "Docs/AI-Pipeline/DECISIONS.md"
+  ],
+  "model_capability_class": "high_reasoning",
+  "output_schema": {
+    "additionalProperties": false,
+    "properties": {
+      "architecture_classification": {
+        "enum": [
+          "sound_high_leverage",
+          "sound_overbuilt",
+          "partially_unsound",
+          "fundamentally_wrong_approach",
+          "insufficient_evidence"
+        ],
+        "type": "string"
+      },
+      "change_or_replace": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "critical_risks": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "decision_rationale": {
+        "type": "string"
+      },
+      "defer_or_delete": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "evidence_gaps": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "executive_verdict": {
+        "type": "string"
+      },
+      "expected_autonomy_and_throughput": {
+        "type": "string"
+      },
+      "gdd_iteration_strategy": {
+        "type": "string"
+      },
+      "major_disagreements": {
+        "items": {
+          "additionalProperties": false,
+          "properties": {
+            "assessment": {
+              "type": "string"
+            },
+            "issue": {
+              "type": "string"
+            },
+            "positions": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "issue",
+            "positions",
+            "assessment"
+          ],
+          "type": "object"
+        },
+        "type": "array"
+      },
+      "minimum_viable_architecture": {
+        "type": "string"
+      },
+      "preserve": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "recommended_next_slice": {
+        "additionalProperties": false,
+        "properties": {
+          "deliverables": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "success_test": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "why": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "why",
+          "deliverables",
+          "success_test"
+        ],
+        "type": "object"
+      }
+    },
+    "required": [
+      "executive_verdict",
+      "architecture_classification",
+      "preserve",
+      "change_or_replace",
+      "defer_or_delete",
+      "major_disagreements",
+      "gdd_iteration_strategy",
+      "minimum_viable_architecture",
+      "recommended_next_slice",
+      "expected_autonomy_and_throughput",
+      "critical_risks",
+      "decision_rationale",
+      "evidence_gaps"
+    ],
+    "type": "object"
+  },
+  "prompt": "# Architecture review synthesis\n\nYou are the lead architecture synthesizer for No Safe Circle.\n\nFrozen repository commit: `e15a16e46083bfaaa2bdc4e0d738f70efe5e3e1a`\n\nEight independent reviews are stored in:\n`Pipeline/ArchitectureReview/outputs/claude/runs/20260823T122154Z-127251f3/reviews/`\n\nRead every `*.json` review in that directory and inspect the repository yourself where\nneeded.\n\nUse only the eight human-facing review files from this current run plus primary\nrepository evidence as needed. Do not read prior-run or other-provider reviews,\nsyntheses, critiques, or provider/AgentRuntime logs.\n\nYour job is NOT to count votes. These reviewers share model-family biases and repeated\nclaims are not independent proof. Evaluate arguments and repository evidence.\n\nDetermine:\n- whether the current architecture is fundamentally sound;\n- which boundaries should be preserved, changed, replaced, deferred, or deleted;\n- whether reconciliation/verification has the right role when the GDD evolves\n  iteratively;\n- the minimum viable architecture that still gives strong safety and recovery;\n- the shortest path to materially higher game-development throughput;\n- the single next implementation slice and an explicit test proving it creates value.\n\nA strong minority argument may defeat a shallow majority. Call out disagreements rather\nthan smoothing them over.\n\nDo not assume the Work Graph Seeder / `Tasks/*.yaml` / `taskcontrol` is next. Recommend\nit only if the evidence supports it.\n",
+  "provider_configuration_key": "architecture-review-claude",
+  "role": "architecture_synthesis",
+  "run_id": "architecture-synthesis-1693303a60ca43a2",
+  "schema_version": "1.0",
+  "write_boundaries": {
+    "allowed_paths": [],
+    "denied_paths": []
+  }
+}

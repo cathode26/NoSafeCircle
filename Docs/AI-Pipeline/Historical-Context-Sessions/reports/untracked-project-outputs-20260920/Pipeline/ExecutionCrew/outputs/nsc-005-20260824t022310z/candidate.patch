@@ -1,0 +1,124 @@
+diff --git a/Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs b/Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs
+index eff7f3e10b801b68e0da11e9a3711afc05475e85..9d5b251d099a940a2eb1aca46f1952b5bb52f35e 100644
+--- a/Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs
++++ b/Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs
+@@ -12,11 +12,14 @@ namespace NoSafeCircle.DoorPrototype
+         [SerializeField] private float deniedFlashDuration = 0.25f;
+ 
+         private float deniedFlashTimeRemaining;
++        private Image flashTargetImage;
+ 
+         private void OnEnable()
+         {
+             if (mana != null) mana.CastDenied += HandleCastDenied;
+-            if (fillImage != null) normalColor = fillImage.color;
++
++            flashTargetImage = ResolveFlashTargetImage();
++            if (flashTargetImage != null) normalColor = flashTargetImage.color;
+         }
+ 
+         private void OnDisable()
+@@ -30,11 +33,30 @@ namespace NoSafeCircle.DoorPrototype
+ 
+             fillImage.fillAmount = mana.MaxMana > 0f ? mana.CurrentMana / mana.MaxMana : 0f;
+ 
+-            if (deniedFlashTimeRemaining > 0f)
++            if (deniedFlashTimeRemaining > 0f && flashTargetImage != null)
+             {
+                 deniedFlashTimeRemaining -= Time.deltaTime;
+-                fillImage.color = deniedFlashTimeRemaining > 0f ? deniedColor : normalColor;
++                flashTargetImage.color = deniedFlashTimeRemaining > 0f ? deniedColor : normalColor;
++            }
++        }
++
++        /// A fully-drained fill Image has no rendered fill area, so tinting it is
++        /// invisible exactly when denied-cast feedback matters most. Flash the fill's
++        /// parent frame/background Image instead when one exists, since that frame
++        /// renders regardless of fillAmount; fall back to the fill Image itself
++        /// otherwise so the feedback still shows without requiring scene rewiring.
++        private Image ResolveFlashTargetImage()
++        {
++            if (fillImage == null) return null;
++
++            var parentTransform = fillImage.transform.parent;
++            if (parentTransform != null)
++            {
++                var backgroundImage = parentTransform.GetComponent<Image>();
++                if (backgroundImage != null) return backgroundImage;
+             }
++
++            return fillImage;
+         }
+ 
+         /// Presents readable low-mana feedback on the existing mana indicator
+diff --git a/Assets/NoSafeCircle/DoorPrototype/Tests/PlayerManaPlayModeTests.cs b/Assets/NoSafeCircle/DoorPrototype/Tests/PlayerManaPlayModeTests.cs
+index 624070c91cd8972e09c898cc6ae462d1713ed57e..be7c63422c3c87957f4bca1c8ac7b1cc44ff82e4 100644
+--- a/Assets/NoSafeCircle/DoorPrototype/Tests/PlayerManaPlayModeTests.cs
++++ b/Assets/NoSafeCircle/DoorPrototype/Tests/PlayerManaPlayModeTests.cs
+@@ -347,6 +347,66 @@ namespace NoSafeCircle.DoorPrototype.Tests
+             }
+         }
+ 
++        // VAL-002/VAL-003 (regression coverage for prior human-review rejection): a fully-
++        // drained fill Image renders no visible fill area, so tinting the fill Image alone
++        // is invisible exactly when CurrentMana == 0 — the point where low-mana failure most
++        // needs to be readable. PlayerManaUI resolves a parent background/frame Image (when
++        // the fill Image has one) and flashes that instead, independent of fillAmount.
++        [UnityTest]
++        public IEnumerator PlayerManaUI_FlashesParentBackgroundImage_OnCastDenied_WhenCurrentManaIsZero()
++        {
++            var backgroundObject = new GameObject("TestManaBackground");
++            try
++            {
++                var backgroundImage = backgroundObject.AddComponent<Image>();
++                var backgroundColor = new Color(0.2f, 0.2f, 0.2f, 1f);
++                backgroundImage.color = backgroundColor;
++
++                var fillObject = new GameObject("TestManaFill");
++                fillObject.transform.SetParent(backgroundObject.transform);
++                var fillImage = fillObject.AddComponent<Image>();
++
++                var ui = backgroundObject.AddComponent<PlayerManaUI>();
++                SetPrivateField(ui, "mana", mana);
++                SetPrivateField(ui, "fillImage", fillImage);
++                SetPrivateField(ui, "deniedFlashDuration", 0.05f);
++                ui.enabled = false;
++                ui.enabled = true;
++
++                yield return null;
++
++                mana.Spend(mana.MaxMana);
++
++                yield return null;
++
++                Assert.AreEqual(0f, mana.CurrentMana, 0.001f);
++                Assert.AreEqual(0f, fillImage.fillAmount, 0.001f,
++                    "Expected the fill Image to render no visible area when CurrentMana is zero.");
++
++                var deniedColor = (Color)GetPrivateField(ui, "deniedColor");
++
++                mana.Spend(10f);
++
++                yield return null;
++
++                Assert.AreEqual(deniedColor, backgroundImage.color,
++                    "Failure caused by zero mana must remain readable through the parent background/frame " +
++                    "Image flashing a denied color, since the fully-drained fill Image has no visible area " +
++                    "to tint.");
++
++                yield return new WaitForSeconds(0.1f);
++                yield return null;
++
++                Assert.AreEqual(backgroundColor, backgroundImage.color,
++                    "Expected the denied flash to revert the background/frame Image to its actual " +
++                    "scene-authored color after the flash duration.");
++            }
++            finally
++            {
++                Object.Destroy(backgroundObject);
++            }
++        }
++
+         // AC-003 (regression-only ownership-boundary invariant): PlayerMana continues to
+         // own only current mana and post-cast regen-delay state and must not absorb
+         // spell-local cooldown/charge/cast/placement/active-field state. This locks the

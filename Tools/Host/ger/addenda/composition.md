@@ -1,0 +1,6 @@
+Composition task (NSC-049, five-room continuity and door sequence):
+- Read the five room blockout contracts, Tasks/NSC-044.yaml to Tasks/NSC-048.yaml, in this snapshot. Their provenance.task_design_ger records show which rooms carry a GER revision. Every downstream_integration_obligations entry that names NSC-049 is an input this contract must absorb, route to its real owner, or reject with evidence.
+- Room bounds and door centers are whatever those room contracts require each room to record in RoomSceneCatalog. Where two adjoining rooms disagree about a shared boundary or a door center, state the exact values, the reconciliation this task performs, and whether a room contract must change instead. Do not silently pick one room's numbers.
+- Keep Door and Interaction's ownership of door state and crossing, the single Player and PlayerSpawn at the start point recorded in RuinedEntryLayout.cs (NSC-049 AC-003), and the rule that Assets/Scenes/Rooms/*.unity files are read-only composition inputs.
+- A composed floor larger than one screen is reviewed with several gameplay-camera shots along the D1 to D5 route.
+- If the work is too large for one worker, say so and name the responsibility splits.

@@ -1,0 +1,271 @@
+All four reports and the load-bearing code are verified. Every architectural claim I rely on below was checked directly in the frozen checkout — including the confirmed false-PASS handoff bug (`issue_workflow_store.py:571-576` template vs. the fence-unaware `HUMAN_RESULT_RE` at `issue_workflow.py:34-38` and newest-first matching at `issue_state_action.py:41-45`), the dead `durable_selection.select_agent_ready_issue`, the `agent_ready` exemption in `_resource_conflicts` (`issue_workflow_store.py:339-343`), the unguarded `find→create_issue`, the per-run UUID worker id, and the 0/2-only exit codes.
+
+Here is the decided architecture.
+
+---
+
+# Generic Get-Work Dispatcher — Final Architecture
+
+Frozen analysis commit: `131cc63079532c0e741aa69791681fa153b0ebc5`. All line references are at that commit.
+
+## Executive decision
+
+The no-argument `Start-GameTaskAgent.ps1` command becomes: **resume-first, then fresh-claim, both serialized through atomic creation of a Git ref on the GitHub origin.**
+
+1. **Authority** comes from one new committed file, `Pipeline/TaskGraph/DISPATCH_POLICY.yaml`, containing human-ordered priority lanes, WIP limits, and an explicit `enabled` flag approved by PR. `execution_authority.py` keeps its deny-by-default and authorizes only what the policy names. No LLM ever ranks or selects; the whole selection path is deterministic host code.
+2. **The linearization point** is the success or rejection of a single `git push --atomic` that *creates* `refs/nsc/claims/<TASK-ID>` (plus one ref per exclusive resource) on origin. Git receive-pack's ref-update transaction is the atomic primitive: of two concurrent creators of the same ref, exactly one succeeds. Each claim commit carries a worker-unique nonce so no two claims can be byte-identical (closing the "no-op push succeeds" hole in the adversary report's variant of this design).
+3. **The same claim ref guards resume**, fixing the currently *guaranteed* two-worker resume collision, whose real failure mode is permanent event-chain poisoning (`issue_workflow.py:896-899`), not a clean loss.
+4. Everything else — the Issue state machine, event chains, isolated checkouts, human Unity validation, delivery evidence, PR/merge/closeout, completed-Issue guard — is preserved. The event chain's duplicate detection becomes a backstop invariant that should never fire, instead of the concurrency mechanism it is being misused as today.
+5. **Four independent live defects ship first, as Stage 0**, because they block safe operation regardless of the dispatcher: the agent handoff template that parses as a human PASS, the silent 1000-Issue list truncation, the `exclusive_resources: []` stub loader on the live selection path, and the `agent_ready` exemption in resource reservation.
+
+Where the reviewers disagreed, I ruled as follows (details in "Rejected alternatives"): per-resource claim refs in one atomic push (concurrency reviewer) over post-win read-back election (authority reviewer), because deterministic selection makes collisions the common case and the atomic push removes the only silent-overlap window; a single unversioned claim ref per task over the `v<N>` scheme, because refs are deleted after each guarded transition and fencing prevents ABA; automatic fenced GC of *claim refs only* (operator/adversary reviewers) over manual-only GC (authority reviewer), because a claim ref is pure coordination state with no work attached; and `-TaskId` retains fresh-dispatch ability with the full safety predicate but without lane membership or WIP checks, recorded as an explicit operator override.
+
+## Why the current command is resume-only
+
+Verified in code, this is a deliberate fail-closed design, not an accident:
+
+- With no `-TaskId`, `run_pipeline_agent.py:169` calls `generic_selection.select_agent_ready_task`, which reads the validated agent-ready queue and raises `GenericSelectionError` on empty (`generic_selection.py:24-28`), producing exit 2 and the "Pass an explicit -TaskId" stop.
+- Fresh work exists only through the `-TaskId` path, and `execution_authority.assess_execution_authorization` (`execution_authority.py:30-39`) unconditionally returns `authorized=False` with reason `evidence_derived_dispatch_policy_not_enabled`; `taskcontrol.ready_tasks` raises `UnsafeExecutionAuthorizationError` (`taskcontrol.py:205-211`).
+- The denial message states the reason precisely: conformance evidence exists, but **dependency-readiness policy and dispatch-authorization policy were never implemented or approved**. There is also no priority source anywhere (no `Tasks/*.yaml` has a priority field; every ordering is issue-number or task-ID sort), and no linearization point anywhere (every Issue write is read-then-write).
+
+So the command is resume-only because the three artifacts required to make fresh selection safe — a readiness definition, an approved dispatch policy with priority, and an atomic claim — do not exist. This design adds exactly those three artifacts and nothing else.
+
+## Final command semantics
+
+The normal operator workflow is one argument-free command:
+
+```
+.\Pipeline\TaskReviewAgent\Start-GameTaskAgent.ps1
+```
+
+meaning: resume the highest-priority validated agent-ready Issue; otherwise select, claim, and start the highest-priority eligible fresh task under the committed policy; otherwise report exactly why there is nothing to do and exit cleanly. Two concurrent invocations receive different, resource-disjoint tasks or a clean "no eligible work."
+
+| Invocation / situation | Behavior | Exit |
+|---|---|---|
+| no args, validated agent-ready Issue exists | resume the highest-ranked one (phase rank → lane order → Issue number); pipeline unchanged after selection | 0 |
+| no args, empty queue, eligible fresh candidate | claim → initialize Issue → lease → checkout → run pipeline | 0 |
+| no args, claim lost to a rival | not an exit: refresh snapshots, retry next eligible candidate, bounded at `min(len(candidates), 10)` attempts | per final outcome |
+| `-TaskId NSC-###`, open managed Issue exists | resume that Issue, as today | 0 / 2 |
+| `-TaskId NSC-###`, no Issue | fresh dispatch via the full claim protocol; full safety predicate enforced; lane membership, ranking, and WIP limits skipped; `dispatch_mode: explicit_operator_override` recorded durably | 0 / 2 / 5 |
+| `-ResumeOnly` | today's behavior exactly: resume or clean stop; never claims fresh work | 0 / 3 |
+| queue empty, zero policy candidates | "NO ELIGIBLE WORK" with per-task reason table | 3 |
+| policy file missing / `enabled: false` / invalid | names `DISPATCH_POLICY.yaml`, states fresh dispatch is fail-closed, resume still works | 4 |
+| candidates exist but all blocked (deps / resources / WIP / orphans) or all lost to rivals | reason table naming each concrete blocker; "safe to rerun" when losses were the cause | 5 |
+| contract / chain / Git / GitHub failure | current STOP behavior | 2 |
+
+`Start-GameTaskAgent.ps1` throws only on 1–2 (today it throws on any nonzero, `Start-GameTaskAgent.ps1:279-281`); 3/4/5 print friendly messages and pass the code through. Every run ends with a two-line human queue summary: how many Issues await Vincent's Unity Play Mode validation and how many await merge, with Issue URLs — because the operator's real decision is "run again or go test."
+
+Messages follow the Unity-programmer language policy: name the task, the blocking task, the scene or component resource, and the Issue number (`NSC-050 blocked: unity-scene:Assets/Scenes/DoorPrototype.unity reserved by NSC-045 (Issue #81)`).
+
+## Committed dispatch-policy schema
+
+New file `Pipeline/TaskGraph/DISPATCH_POLICY.yaml`, JSON-subset like every other TaskGraph file (contracts are parsed with `json.loads` — verified in `durable_selection._committed_task`), validated by `work_graph_validate.py`, hashed with the existing `semantic_json_sha256`:
+
+- `schema_version` — `"1.0"`.
+- `enabled` — boolean. Missing file, unparseable file, or `false` reproduces today's exact denial. Enabling requires a reviewed PR.
+- `approved_by`, `approval_reference` — human name and PR URL. Approval is Git-audited and revocable by a one-line revert.
+- `policy_revision` — monotonically increasing integer.
+- `priority_lanes` — ordered list of `{lane, rationale, task_ids}`. **Order across lanes and order within a lane's `task_ids` list is the priority.** The human's typed order is the ranking; nothing is derived. Rationales cite the GDD Section 5 six-week plan and the scope-reduction order in `PROJECT_REQUIREMENTS.yaml`. A task absent from every lane is ineligible for fresh dispatch — this is how "do not silently enable every active task" is enforced structurally. No task ID may appear twice.
+- `wip_limits` — `max_agent_working: 2`, `max_open_managed_issues: 4`, `max_human_action_required: 2`. The last is the practically binding limit: it stops the agents from manufacturing a Unity-validation backlog for one human.
+- `claim_ttl_minutes: 60` — advisory GC trigger only; never grants authority by itself.
+- `allowed_kinds: ["implementation"]`, `allowed_execution_scopes: ["single_agent"]`. Policy v1 excludes `artifact` because `real_workflow._task_ready_for_coordination` hard-requires `kind == "implementation"` (`real_workflow.py:138`); widening is a policy edit plus that one check, deferred (open question).
+
+Priority and WIP deliberately stay **out of task contracts**: schema v2 forbids operational fields, and contract-hash churn would trigger spurious `needs_replan`.
+
+## Exact candidate eligibility algorithm
+
+One pure function, `evaluate_fresh_dispatch_eligibility(...)`, evaluated against a single recorded snapshot: a freshly **fetched** `origin/main` SHA (the live path never fetches today — `real_observation` reads the last-fetched ref, so `fresh_dispatch` must fetch explicitly), the policy at that SHA, one completed-aware Issue-list snapshot, and one `ls-remote` snapshot of `refs/nsc/claims/*` and `refs/heads/nsc-*`. Every failing clause yields a stable reason code recorded in the selection receipt. A task is fresh-eligible iff **all** hold:
+
+1. **Policy gate.** Policy present, valid, `enabled: true`, and the task ID appears in a priority lane. Reason: `policy_disabled` / `not_in_priority_lanes`.
+2. **Contract shape.** `schema_version == "2.0"`, `contract_disposition == "active"`, `kind` and `execution_scope` in the policy's allowed sets, `decomposition_state == "concrete"`. Mirrors the existing checkout gate (`real_checkout.py:379-386`). Reason: `contract_shape_ineligible`.
+3. **Own conformance is exactly `not_delivered`**, via `evaluate_current_conformance` — necessary, never sufficient. `needs_testing`, `needs_replan`, `needs_human`, `invalid_evidence`, `ambiguous_evidence` mean prior evidence needs human triage: reason `blocked_needs_human_triage`, never fresh dispatch. `dirty_worktree` on any evaluation fails the whole enumeration closed.
+4. **Dependency readiness** (the missing definition, now explicit): every `d ∈ depends_on` has `evaluate_current_conformance(d).state == "conformant"` and a disposition that is not `superseded`/`cancelled`. Decomposed feature dependencies use the derived aggregate conformance already implemented in `current_conformance.py`. No transitive shortcut, no "probably done." Reason: `dependency_not_conformant`.
+5. **Issue state**, via the completed-aware discovery already installed at package import (`__init__.py:45`): no open managed Issue (open ⇒ resume path, not fresh), and no closed COMPLETE Issue. A closed COMPLETE Issue coexisting with non-conformant TaskGraph state is a contradiction surfaced for human review, never dispatched through. Closed non-complete Issues don't block but are listed in the receipt. Reason: `open_issue_exists` / `completed_terminal`.
+6. **Remote branch and claim-ref state.** No `refs/heads/<branch_name(task)>` (deterministic name, `real_checkout.py:105-106`) and no `refs/nsc/claims/<TASK-ID>` in the ref snapshot. An orphan branch or foreign claim ref ⇒ `orphan_remote_state_requires_reconciliation`; recovery is explicit, never silent reuse.
+7. **Resource disjointness.** `exclusive_resources` (from the **committed contract** — never the stub loader) disjoint from (a) resources of every *open* managed Issue in any non-complete state (the strengthened reservation rule below) and (b) resources of any task holding a live claim ref, and (c) any live `refs/nsc/claims/res/*` ref. `RESOURCE_GROUPS.yaml` remains the membership authority. Reason: `resource_reserved`.
+8. **WIP limits** not exceeded, counted from the Issue snapshot plus live claim refs. Reason: `blocked_wip_limit`.
+9. **Freshness.** All inputs read at the one recorded SHA; if origin advances before the claim completes, re-evaluate (enforced again at protocol step 4 below).
+
+## Exact deterministic priority algorithm
+
+- **Fresh selection:** iterate lanes in file order; within a lane, iterate `task_ids` in list order; the first eligible task is the candidate. The only tie-break is the human's typed list. Task-number order appears nowhere.
+- **Resume selection:** rank validated agent-ready Issues by (1) phase, closest-to-done first — `merge_closeout` → `delivery_evidence` → `unity_runtime_validation`/repair → `implementation` — because finishing releases exclusive resources and shrinks the window in which `main` drifts under an open branch; then (2) lane position of the Issue's task; then (3) Issue number as the final deterministic tie-break, printed rather than hidden.
+- A stale-contract agent-ready Issue (hash mismatch against the committed contract) is skipped and *reported*, and selection falls through to the next resume candidate and then to fresh dispatch — an idle agent is never the right answer to a stale Issue that needs the human contract-migration path.
+
+## Atomic fresh-claim protocol and linearization point
+
+**Atomic primitive:** a `git push --atomic` that creates refs on the GitHub origin. Receive-pack takes the ref-transaction lock; a push creating an already-existing ref is rejected; `--atomic` makes the multi-ref creation all-or-nothing. **The linearization point of every claim — fresh or resume — is the acceptance or rejection of that single push.**
+
+**Claim commit:** an empty-tree-delta commit whose parent is the recorded `origin/main` SHA and whose message is a canonical JSON receipt: `task_id`, `worker_id`, `nonce` (per-run UUID), `base_head`, `task_contract_sha256`, `policy_sha256`, `expected_state_version`, `dispatch_mode`, `occurred_at_utc`. The nonce guarantees no two workers' claim commits are identical, so the second creation attempt is always a genuine rejection. The commit is itself the durable claim receipt.
+
+**Ref namespace:** `refs/nsc/claims/<TASK-ID>` for the task; `refs/nsc/claims/res/<sha256-16(resource_key)>` per exclusive resource (resource keys contain `:` and `/`, which are illegal or ambiguous in refnames, hence the hash; the receipt commit message records the plaintext key). The namespace is outside `refs/heads/*`: it never appears in branch listings, carries no reviewed content, and is disjoint from the task branch, whose name embeds the mutable title slug and whose lifetime is implementation content.
+
+**Fresh claim, per candidate in priority order:**
+
+1. **Select** deterministically (algorithm above); write the selection receipt JSON (candidates, per-task reasons, input hashes) under the worker output root.
+2. **CAS-win:** one `git push --atomic origin` creating `refs/nsc/claims/<TASK-ID>` and every `refs/nsc/claims/res/*` for the task's exclusive resources. Rejected ⇒ claim lost: refresh the ref snapshot, exclude this candidate and every resource-conflicted candidate, continue with the next. Accepted ⇒ this worker owns the task and its resources, atomically. Two workers can never both hold overlapping resource refs — this is what removes the silent fresh-vs-fresh resource overlap (today's most dangerous window) without any read-back election.
+3. **Fencing discipline:** from here until release, before *every* durable Issue write, verify via `ls-remote` that `refs/nsc/claims/<TASK-ID>` still points at this worker's exact claim commit. A failed check means the claim was GC'd or superseded: abort without writing.
+4. **Revalidate after winning:** re-fetch `origin/main`; recompute the contract hash; re-run `find(task_id)`; re-check resources against open Issues. Contract changed, an Issue appeared, or an Issue-held resource conflicts ⇒ abort: fenced-delete own refs, restart selection. Never proceed on stale identity.
+5. **Initialize the Issue** exactly as `_initialize_issue` does today (state `agent_ready`, version 0), then verify with `find`.
+6. **Acquire the lease** (`agent_lease_acquired`, sequence 1) through the existing `acquire_agent_lease`, now passing the claim guard; the store calls `verify_held` immediately before `add_comment` and before `update_issue`. The lease and init events record `claim_ref`, `claim_commit`, `policy_sha256`, `eligibility_evaluated_at`, `dispatch_mode` inside `details` (free-form object — no event schema bump).
+7. **Verify** with the existing re-read; the event chain stays the fail-closed backstop.
+8. **Release:** fenced-delete the task ref and all resource refs using `git push --force-with-lease=<ref>:<expected-claim-sha> origin :<ref>` — the explicit-expected-value form is itself a CAS; the bare form (leasing against possibly stale tracking refs) is prohibited. From this instant the open Issue is the durable reservation of the task and its resources (reservation rule below). Checkout then proceeds unchanged through `ResumableTaskCheckoutManager` — deliberately *after* the durable lease, so a checkout failure leaves a resumable `agent_working` Issue, not a directory holding an implicit claim.
+
+**Resume claim (fixes the guaranteed resume race):** to advance an existing Issue observed at `state_version = N`, first CAS-create `refs/nsc/claims/<TASK-ID>` (task ref only — the open Issue already reserves resources) with `expected_state_version: N` in the receipt; only the winner appends event N+1; fenced-delete after the verify re-read. The loser re-reads: if the Issue moved to `agent_working` by another worker, drain to the next queue item. This replaces "always take `ready[0]`" with a queue-drain loop.
+
+## Two-worker behavior from an empty queue
+
+W1 and W2 run the bare command concurrently; the Issue queue is empty; the policy lists NSC-053, NSC-054 (which share `logical:enemy-locomotion-behavior-surface` per `RESOURCE_GROUPS.yaml`) and NSC-032 (disjoint resource).
+
+1. Both fetch, both evaluate, and — because selection is deterministic — both select **NSC-053**. Determinism guarantees this collision; arbitration is downstream by design.
+2. Both push their claim-commit creations of `refs/nsc/claims/NSC-053` + `refs/nsc/claims/res/<enemy-locomotion-hash>`. GitHub's ref transaction admits exactly one — say W1. W2's atomic push is rejected wholesale.
+3. W1 revalidates, initializes Issue #N, acquires the lease (fenced), releases its refs, clones its checkout, and starts NSC-053.
+4. W2 refreshes the ref snapshot, sees NSC-053 claimed, excludes it **and** NSC-054 (resource overlap with a live claim/Issue), and selects **NSC-032**. Its atomic push of `refs/nsc/claims/NSC-032` + its resource ref succeeds. W2 proceeds identically.
+5. End state: two Issues, two leases, two disjoint resource sets, two isolated checkouts, zero refs left under `refs/nsc/claims/`. If W2's snapshot races ahead of W1's Issue creation, the resource *ref* still excludes NSC-054 — the atomic multi-ref push covers exactly the window where Issue-based reservation can't.
+6. Single-candidate variant: W2 exhausts the list and exits 5 with "concurrent worker claimed all candidates; rerunning is safe."
+
+No interleaving of this protocol can create two Issues for one task, two sequence-1 lease events, or overlapping exclusive resources: each of those requires a durable write by a worker that does not hold the task's claim ref at that instant, which the fencing check forbids, and ref ownership is unique by the atomic primitive.
+
+## Crash and orphan recovery
+
+Deterministic recovery for every boundary in the brief:
+
+| Failure point | Durable state left | Recovery |
+|---|---|---|
+| Candidate selected, claim not won | selection receipt only | Nothing to recover; next candidate or exit 3/5. |
+| Claim won, crash before Issue creation | claim refs only | Same worker rerun (stable worker id, below) recognizes its own receipt and resumes at revalidation. Others: task is `orphan_remote_state_requires_reconciliation`; after `claim_ttl_minutes`, dispatch preflight GC fenced-deletes the refs (delete is itself a CAS on the exact claim SHA, so a revived original and the collector cannot both win — the revived worker's next fencing check fails and it aborts cleanly). |
+| Issue created, lease not acquired | `agent_ready` Issue + refs | The Issue is durably visible; any worker's normal resume path claims it via the resume-CAS; GC removes the now-redundant refs (open Issue supersedes claim ref). |
+| Lease acquired, checkout not created | `agent_working` Issue, refs released | Existing resume path: same worker gets `status: "resumed"` (`issue_workflow_store.py:432-433`) — which now works after crashes because worker ids are stable per machine, fixing the current per-run-UUID stranding. Other workers see `agent_working_by_other` and skip. Agents never steal `agent_working` leases; a truly dead worker's lease is a human `blocked`/release decision. |
+| Crash mid-Issue-write (comment posted, body not updated) | one seq-N+1 event, stale body | Because only the fenced ref-holder could have written, at most one such event exists — the R3 double-sequence wedge is unreachable. The ref-holder (same worker on rerun, or a successor after GC + re-CAS) completes the body/label update idempotently from the posted event. This bounded repair replaces the currently-impossible chain surgery. |
+| Process crash generally | any of the above | Converges via the rows above within one TTL, using only durable state. |
+| Stale/orphan remote task branch, no open Issue | branch with real commits | Task ineligible; reported as `abandoned_branch_requires_human`. Never auto-deleted — branches carry work, refs don't. |
+| Contract or `main` advanced mid-dispatch | hash mismatch | Abort at revalidation (fresh) or the existing lease-time hash guard (`issue_workflow_store.py:428-431`); fenced-delete refs; rerun selection at the new head. |
+| Candidate became resource-conflicted during claim | conflict at revalidation | Abort, fenced-delete own refs, next candidate. |
+| Zero eligible work / all blocked | — | Exit 3 / 5 with the reason table. |
+| Completed or abandoned tasks | closed Issues | `completed_issue_guard` keeps COMPLETE terminal (with truncation now a hard error); closed drafts don't block but are receipted; leftover branches caught by the branch clause. A lingering claim ref for a complete Issue is GC-reportable. |
+
+GC policy, precisely: automatic fenced deletion applies to **claim refs only**, and only when TTL has elapsed *and* the Issue cross-check confirms redundancy or absence; anything holding work — branches, Issues, checkouts — is report-only, consistent with the checkout convention's existing-checkout rule and the testing policy's preserve-don't-repair stance. Clock skew can delay GC but never double-grant, because every destructive act is fenced on the exact claim-commit SHA, never wall-clock alone.
+
+## Resource and WIP enforcement
+
+Three rules, one of which fixes a latent bug independent of this feature:
+
+1. **Every open managed Issue reserves its task's exclusive resources until `complete`.** Today `_resource_conflicts` exempts `agent_ready` (`issue_workflow_store.py:339-343`), so an Issue sitting agent-ready in `repair` or `delivery_evidence` — with an unmerged pushed branch editing its resources — reserves nothing. Add `AGENT_READY` to the reserving states. This is also what makes it safe to release resource claim refs the moment the Issue exists.
+2. **Conflict inputs = open Issues ∪ live claim refs**, with resources always loaded from committed contracts. The `exclusive_resources: []` stub loader at `generic_selection.py:20` and `run_pipeline_agent.py:125-129` is replaced by the committed-contract loader (the pattern already written in `durable_selection._committed_task`). The stub in `issue_state_action.py` is harmless (its transitions don't consult resources) but gets the same loader for uniformity.
+3. **Fresh-vs-fresh exclusion is atomic** via the resource refs in the claim push; **anything-vs-in-flight** is the Issue reservation; the post-win revalidation stitches the two.
+
+WIP limits are counted from the completed-aware Issue snapshot plus live claim refs at selection time: `max_agent_working` caps concurrent leases, `max_human_action_required` caps the human's validation queue, `max_open_managed_issues` caps total non-complete Issues. A hit reports `blocked_wip_limit` (exit 5); resume is exempt (finishing work shrinks WIP).
+
+Throughput note for Vincent, from the operator review: the real 2-wide ceiling is the resource model, not the scheduler — the DoorPrototype scene and shared builder groups each cover ~26 of 55 tasks. Sustained two-worker throughput means pairing one scene task with one logical-group task; refining resource groups is a reconciliation-review decision, never a dispatcher relaxation.
+
+## Explicit -TaskId behavior
+
+`-TaskId` remains the repair and override tool, but stops being an unguarded hole:
+
+- **Resume** of an existing managed Issue: unchanged.
+- **Fresh dispatch**: runs the *full* safety predicate — contract shape, own-state, dependency conformance, Issue/branch/claim state, resource disjointness — and the full claim protocol (atomic push, fencing, revalidation). It skips exactly three things: lane membership, priority ranking, and WIP limits, because the human choosing a task *is* the selection authority. It works even when the policy is absent or disabled (preserving today's operator capability through the rollout), but every receipt and lease event records `dispatch_mode: explicit_operator_override`, making it durably distinguishable and auditable — answering the adversary's A5 without breaking the operator's escape hatch.
+- Safety clauses are never bypassable by any flag.
+
+## No-work and policy-disabled behavior
+
+- **Exit 3 — no eligible work:** queue empty and no policy-listed candidate passes eligibility, or `-ResumeOnly` with an empty queue. Output: per-task one-line reasons for the top candidates in Unity-programmer language, plus the human queue summary. When the binding constraint is `max_human_action_required`, the message says so plainly — "2 Issues await your Unity validation" is a correct outcome, presented as such.
+- **Exit 4 — policy disabled:** file missing, `enabled: false`, or invalid. Names the file, states resume still works, and points at the enabling procedure (PR flipping `enabled` with `approved_by`).
+- **Exit 5 — blocked or outraced:** eligible candidates existed but every one was dependency-blocked, resource-reserved, WIP-capped, orphan-flagged, or claimed by a rival during this run. Distinct from 3 because immediate rerun can succeed.
+- All three are quiet non-error stops a wrapper can branch on; 2 remains "human needed"; `issue_queue.py` and `_outcome_status`'s default-succeeded are corrected so 0 always means real progress.
+
+## Durable events, receipts, branches, and Issues
+
+- **Claim commit** (in-ref): the canonical-JSON receipt described above — the authority record for who won and against which base, policy, and contract.
+- **Selection receipt** (JSON under the worker output root): ordered candidates, per-task exclusion reasons, `policy_sha256`, base SHA, Issue-snapshot summary, claim attempts and outcomes (`won|lost|error`), worker id/PID/host. "Why this task" is always answerable from artifacts.
+- **Issue events**: `workflow_initialized` and `agent_lease_acquired` gain `claim_ref`, `claim_commit`, `policy_sha256`, `eligibility_evaluated_at`, `dispatch_mode` inside the existing free-form `details` — no event-schema version bump.
+- **Skipped-Issue visibility**: any Issue dropped as invalid during queue listing is reported with number and reasons in the selection output, never silently omitted (today `completed_issue_guard.py:102-103` drops silently — an invisible poisoned Issue is how split work goes unnoticed).
+- **Branches, checkouts, PRs, closeout**: unchanged. Closeout's final step deletes the task's claim ref if one lingers.
+- **`doctor`** read-only subcommand: walks managed Issues and the claim namespace; lists invalid chains, label drift, orphan refs/branches, and their ages.
+
+## Exact patch plan by module/function
+
+No code here — inputs, outputs, and invariants per unit.
+
+**New files**
+
+- `Pipeline/TaskGraph/DISPATCH_POLICY.yaml` — schema above. Lands with `enabled: false` in Stage 2; task lists re-derived from live conformance at implementation time, not copied from any review.
+- `Pipeline/TaskGraph/dispatch_policy.py` — `load_dispatch_policy(root, at_sha) -> DispatchPolicy`: reads the file from the given committed SHA via `git show` (never a dirty working copy); validates schema, lane task-ID existence and `active` disposition, no duplicates, positive limits; exposes `policy_sha256` via `semantic_json_sha256`. Invariant: any validation failure ⇒ the policy is "disabled" for all consumers.
+- `Pipeline/TaskGraph/dependency_readiness.py` — `assess_dependency_readiness(task_id, graph) -> ReadinessAssessment` wrapping `evaluate_current_conformance` per dependency; output: per-dependency `{dep_id, state, disposition, ready: bool, findings}`. Invariant: `dirty_worktree` anywhere ⇒ not ready, fail closed.
+- `Pipeline/TaskReviewAgent/claim_refs.py` — `ClaimStore` protocol: `try_claim(refs: mapping of refname→claim-commit-payload) -> won|lost` (single atomic operation), `read_claims()`, `verify_held(ref, expected_sha) -> bool`, `release(ref, expected_sha)`. Implementations: `GitRefClaimStore` (builds the empty-tree-delta claim commit; `git push --atomic` for creation; `ls-remote` for reads; `git push --force-with-lease=<ref>:<sha> origin :<ref>` for deletion — the explicit-expected form only) and `MemoryClaimStore` for tier-1 tests. Invariant: `try_claim` is all-or-nothing; `release` succeeds only against the exact expected SHA.
+- `Pipeline/TaskReviewAgent/fresh_dispatch.py` — `enumerate_candidates(...)` (the eligibility + priority algorithms; pure; emits the selection receipt), `run_fresh_dispatch(...)` (protocol steps 1–8; `on_step(name)` seam for crash injection; returns a selection dict shaped like `select_agent_ready_task`'s so downstream routing in `run_pipeline_agent` is untouched), `gc(...)` (fenced claim-ref GC per the rules above; report-only for branches/Issues), `doctor(...)`. Invariant: no durable Issue write without a passing `verify_held` immediately prior.
+
+**Modified files**
+
+- `Pipeline/TaskGraph/execution_authority.py` — `assess_execution_authorization(task, *, policy=None, readiness=None, issue_snapshot=None, claim_snapshot=None)`; returns `authorized=True` only when the full predicate passes, with granular reason codes (`policy_disabled`, `not_in_priority_lanes`, `dependency_not_conformant`, `blocked_wip_limit`, `resource_reserved`, `orphan_remote_state_requires_reconciliation`, `blocked_needs_human_triage`, `contract_shape_ineligible`, `open_issue_exists`, `completed_terminal`). Invariant: called with no policy arguments, behavior is byte-identical to today's denial (existing regression harness must stay green).
+- `Pipeline/TaskGraph/taskcontrol.py` — `ready_tasks(graph)` implements the gated predicate instead of raising; `command_ready` prints the lane-ordered eligible list plus the exclusion table; new `command_dispatch_plan` (`taskcontrol dispatch-plan --json`): read-only dry run of the full selection for the pre-enable rollout.
+- `Pipeline/TaskGraph/work_graph_validate.py` — when `DISPATCH_POLICY.yaml` exists, validate lane membership against contracts and `RESOURCE_GROUPS.yaml`.
+- `Pipeline/TaskReviewAgent/generic_selection.py` — new `select_work(...)`: resume queue-drain loop (phase/lane/issue ranking; per-item resume-CAS via the claim store; stale-contract items skipped-and-reported) falling through to `fresh_dispatch.run_fresh_dispatch`; committed-contract task loader replacing the `[]` stub; distinct exceptions `NoEligibleWork`, `PolicyDisabled`, `AllCandidatesBlocked` for exit mapping. `select_agent_ready_task` retained for `-ResumeOnly`. `durable_selection.py`'s contract-hash logic is folded in and the dead module deleted (one selector, not two near-duplicates).
+- `Pipeline/TaskReviewAgent/issue_workflow_store.py` — `acquire_agent_lease` accepts an optional claim guard and calls `verify_held` before `add_comment` and before `update_issue`; `_resource_conflicts` adds `AGENT_READY` to reserving states and consults the claim store; `_initialize_issue` reachable only behind a held claim ref on the fresh path; lease/init `details` carry the new receipt keys. Invariant: the verify-after-write re-read stays exactly as-is — backstop, not mechanism.
+- `Pipeline/TaskReviewAgent/run_pipeline_agent.py` — `--resume-only`; exit codes 3/4/5; `default_worker_id` becomes stable per machine (hostname-derived, persisted; per-run uniqueness moves into the lease nonce) so crash-resume works; `_outcome_status` no longer defaults to `"succeeded"`, and non-progress outcomes stop returning 0; wires the claim store from the existing `_remote_url`.
+- `Pipeline/TaskReviewAgent/Start-GameTaskAgent.ps1` — `-ResumeOnly` switch; stable `$WorkerId` default matching the Python rule; throw only on exit 1–2; print the queue summary for 0/3/4/5.
+- `Pipeline/TaskReviewAgent/completed_issue_guard.py` — `_gh_list_all_issues` hard-errors when the result length equals the limit (truncation alarm); `_open_agent_ready_only` returns skipped-invalid Issues alongside the ready list for reporting.
+- **Stage-0 fixes** — `issue_workflow.py`: `parse_human_validation_result` strips fenced code blocks before applying `HUMAN_RESULT_RE`; `issue_workflow_store.publish_human_handoff`: template changed to a non-matching placeholder (`Result: <PASS or FAIL>`); `issue_state_action.py`: the accepted result comment must postdate the `human_handoff_created` event and must not be authored by the workflow's own agent identity. Belt, suspenders, and gate — any one alone closes the false PASS.
+
+## Ordered implementation stages
+
+Each stage lands independently and is independently revertible.
+
+- **Stage 0 — live-defect fixes (no dispatcher):** false-PASS handoff (release-blocking independent of this feature), list-truncation hard error, committed-contract loader replacing the `[]` stub on live paths, `AGENT_READY` resource reservation, truthful exit statuses, stable worker id, skipped-Issue reporting. Existing smoke suites plus new regressions.
+- **Stage 1 — claim primitive + guarded resume:** `claim_refs.py`; resume queue-drain with resume-CAS. Fixes the guaranteed two-worker resume poisoning before fresh dispatch exists. Behavior with one worker: unchanged.
+- **Stage 2 — policy machinery, dry-run only:** `dispatch_policy.py`, `dependency_readiness.py`, rewired `execution_authority`, `taskcontrol dispatch-plan`; land `DISPATCH_POLICY.yaml` with `enabled: false`. With the file absent or disabled, all behavior is byte-identical to today (proven by the phase-1 regression). Vincent compares `dispatch-plan` output against his own intent for a few days.
+- **Stage 3 — fresh dispatch, single worker:** `fresh_dispatch.py` wired into `select_work`; exit codes 3/4/5; PS1 updates. Human PR flips `enabled: true` with `approved_by`, `max_agent_working: 1`.
+- **Stage 4 — two workers:** raise `max_agent_working` to 2 only after the full race suite is green against a real bare remote and one supervised live concurrent session (canary plan below). Rollback at any stage is a one-line policy revert; the code degrades to today's denial, never an intermediate state.
+
+## Complete deterministic regression matrix
+
+All tests obey the Unity testing policy's non-mutation invariant: temp directories, disposable bare Git repos as origins, `MemoryIssueBackend` (`issue_workflow_store.py:703`) or a new `FileIssueBackend` (per-call atomicity via `O_CREAT|O_EXCL`, between-call races fully real), result artifacts outside the repo.
+
+| # | Test | Asserts |
+|---|---|---|
+| 1 | Eligibility unit table — every clause independently falsified (coarse decomposition, non-single-agent, superseded dep, `needs_testing` self-state, unlisted task, dirty worktree, open Issue, orphan branch, WIP-capped) | fail-closed with the exact reason code |
+| 2 | Priority determinism | lane/list order (not ID order) drives fresh selection; phase→lane→number drives resume; reordering the policy file provably changes selection with no code change |
+| 3 | **Tier-2 real two-process race from an empty queue** (brief-mandatory): bare `file://` remote (genuine receive-pack locking and `--atomic`), shared `FileIssueBackend`, barrier start; variants: two disjoint tasks / two tasks sharing one resource / one task; 20 repetitions, invariant-based assertions | distinct tasks (variant A); exactly one winner and a clean exit-5 loser (B/C); exactly one Issue per task; exactly one seq-1 lease event per Issue; every chain validates; `agent_working` resource sets pairwise disjoint; zero residual `refs/nsc/claims/*` |
+| 4 | Tier-1 scripted interleavings via `on_step` pauses: same-candidate collision, overlapping-resource fresh claims, rival Issue appears post-win, contract hash drifts post-win, resume race on one agent-ready Issue | loser retries/drains; abort paths fenced-delete and reselect; invariants S1–S7 hold |
+| 5 | Crash injection (`NSC_TEST_CRASH_AFTER=<step>` SIGKILL) after each of the 8 protocol steps × (same-worker rerun, other-worker rerun + GC) | deterministic resume, adoption, or report; never a double claim, duplicate Issue, or duplicate sequence |
+| 6 | Orphan lifecycle: stale ref w/o Issue; ref beside open Issue; ref beside closed COMPLETE Issue; ABA revival (GC deletes, original revives) | ineligible + reported; TTL'd fenced GC restores eligibility; revived worker's fencing check refuses the write |
+| 7 | Mid-dispatch drift: remote `main` advances / contract mutates between selection and claim | re-evaluation or fail-closed via hash guards; no lease against a stale head |
+| 8 | Policy gating: missing file, `enabled:false`, bad hash, duplicate lane entry, unknown task ID | exit 4 / validation failure; zero authorized tasks |
+| 9 | WIP saturation of each limit with fixture Issues | `blocked_wip_limit`, exit 5, resume unaffected |
+| 10 | `-TaskId` override: safety clause violated vs. only lane/WIP skipped | safety always blocks; override recorded as `explicit_operator_override` |
+| 11 | False-PASS regression: agent-ready label with no human comment; malformed FAIL comment; result comment authored by the agent | Action refuses all three (today the first records a PASS — the pinned bug) |
+| 12 | Truncation overflow: backend simulating >limit Issues with the oldest closed-COMPLETE outside the window | hard error, no resurrection |
+| 13 | Exit-code contract: table-driven mapping of every terminal outcome, including empty queue, policy disabled, all-blocked, all-lost, backend 5xx | exact codes 0/2/3/4/5; 0 only on real progress |
+| 14 | Phase-parity regression: policy file absent | `taskcontrol`, selection, and denial output byte-identical to today |
+| 15 | Duplicate-unreachability pins: forced `find→None` on both workers; forced duplicate-sequence attempt | the guard refuses the write; chain invalidation (the old "detector") never fires |
+
+## Production canary plan
+
+1. **Dry-run week (Stage 2):** after each work session, run `taskcontrol dispatch-plan --json`; Vincent confirms the top candidate matches what he would have typed as `-TaskId`. Two disagreements ⇒ fix lanes before enabling.
+2. **First live claim (Stage 3, `max_agent_working: 1`):** seed lane 1 with a **code-only** task from a logical resource group (enemy-behavior family), not a DoorPrototype-scene task, so the first fresh claim cannot collide with any scene work. Verify afterward: claim commit receipt, Issue events carrying `claim_ref`/`policy_sha256`, zero residual claim refs, correct exit code and queue summary.
+3. **Crash drill before going 2-wide:** in a throwaway clone against the production remote's claim namespace only, kill a dispatcher after the claim push; confirm the task reports as orphaned, GC after TTL restores eligibility, and no Issue/branch was touched.
+4. **Two-terminal canary (Stage 4):** with the race suite green in CI, Vincent starts two terminals within seconds of each other on a queue containing one resume candidate and lanes holding one scene task plus one code-only task; expected: terminal A resumes, terminal B fresh-claims the code-only task. Then the empty-queue variant. Any anomaly ⇒ revert `max_agent_working` to 1 (one-line PR).
+5. **Standing checks:** `doctor` run at the start of each operator day; `max_human_action_required: 2` stays until Vincent asks for more; the runbook's stale "current human-selected next task" prose is replaced with a pointer at `DISPATCH_POLICY.yaml` so the two cannot drift.
+
+## Rejected alternatives and why
+
+- **Serialized GitHub Actions dispatcher.** Real serialization, but Actions `concurrency` keeps at most one pending run and cancels older ones — a built-in lost wakeup exactly in the multi-worker case; adds minutes of latency and an Actions-availability dependency to starting local work; makes the mandated hermetic two-worker test effectively impossible. Actions stays where it is: idempotent label-transition validation.
+- **Coordination-Issue comment election.** Comment creation is atomic and ordered, but election requires a list read-back whose timing GitHub does not contract, plus epoch bookkeeping and an unbounded hot Issue — strictly more moving parts than one ref push for the same guarantee.
+- **Labels or Issue-body writes as the lock.** Read-modify-write, last-writer-wins on both the label diff (`issue_workflow_store.py:930-936`) and the body; the existing verify-after-write detects races by permanently poisoning the chain — detection without election. Banned by the brief; kept only as the backstop.
+- **The task branch as the claim ref.** Its name embeds the mutable title slug; its semantics are "content pushed at handoff," and the handoff verifier requires branch head == tested commit — overloading it entangles claim GC with implementation history and breaks abandoned-branch detection.
+- **Post-win read-back election instead of resource refs** (authority reviewer's simpler variant). Safe only if revalidation reads are ordered relative to rivals' pushes; a worker whose revalidation lands before the rival's push proceeds while the rival's later read triggers an election the first worker never sees. The atomic multi-ref push closes this unconditionally for the cost of a hash and a flag.
+- **`v<N>`-versioned claim refs per transition** (concurrency reviewer's richer variant). Unnecessary given ref deletion after each guarded transition plus per-write fencing on the exact claim SHA; the version lives in the receipt instead. Fewer ref names, one GC rule.
+- **Non-`--atomic` multi-ref push.** Default push updates refs independently: worker A wins the task ref while B wins a resource ref — a partial-claim deadlock. Atomicity must be explicit.
+- **Bare `--force-with-lease` for deletion.** Leases against local tracking refs, only as fresh as the last fetch; only the explicit `<ref>:<expected-sha>` form is a CAS.
+- **TTL-only claim stealing.** Timestamp-based deletion invites ABA (revived original writes with a claim it lost); every delete is fenced and every holder re-verifies before every write.
+- **Auto-closing duplicate Issues.** Duplicates are unreachable through the guarded path; legacy/manual duplicates are a `doctor` report for the human, consistent with the preserve-don't-repair doctrine.
+- **`not_delivered` ⇒ ready; conformance ⇒ dependency readiness; enabling all `active` contracts; task-number priority; LLM selection; local file locks; a database or standing scheduler.** All excluded by the brief and by the failure model: two-ish workers, one human, GitHub as the durable store — fully served by one atomic ref push plus the existing Issue state machine.
+
+## Open questions requiring Vincent's decision
+
+1. **Repository visibility.** If `cathode26/NoSafeCircle` is public (or ever becomes public), the adversary findings A1/A2 apply: any commenter can append hash-valid workflow events or spoof the task marker to brick a task. Decision needed: is the repo private? If not, comment-author allowlisting (fetch `author` in `get_comments`, accept events only from approved logins) must join Stage 0.
+2. **Lane contents and order.** The initial `priority_lanes` must be authored by you against *live* conformance at implementation time (deliveries have advanced past the frozen commit); the review's example task IDs must not be copied.
+3. **WIP limit values.** Proposed `max_agent_working: 2`, `max_open_managed_issues: 4`, `max_human_action_required: 2` — confirm, especially the human-queue cap, which will be the limit you actually feel.
+4. **Claim TTL.** 60 minutes proposed. Shorter self-heals claim-then-crash faster; longer tolerates slow Docker/Codex startup without GC racing a live worker.
+5. **`-TaskId` and WIP.** I ruled the explicit override skips WIP limits (recorded as an override). If you want the override WIP-capped too, it is a one-clause change.
+6. **`artifact`-kind dispatch.** Policy v1 dispatches `implementation` only (matching the hard check in `real_workflow.py:138`). Say the word if artifact tasks should become dispatchable, and that check widens with the policy.
+7. **Resource-group refinement.** For sustained two-wide throughput, the DoorPrototype scene/builder mega-groups are the ceiling. Splitting them (e.g., per-room scene authority) is a reconciliation-review decision only you can approve — the dispatcher will never relax the checks itself.

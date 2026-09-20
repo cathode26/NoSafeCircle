@@ -1,0 +1,145 @@
+{
+  "claimed_changed_paths": [],
+  "claimed_test_commands": [],
+  "claims_execution_occurred": false,
+  "duration_seconds": 227.13251381998998,
+  "failure_classification": "none",
+  "failure_message": null,
+  "model": "claude-sonnet-5",
+  "provider": "claude-code",
+  "raw_log_reference": "provider.log",
+  "role": "unity_production_engineer",
+  "run_id": "unity-production-engineer-75edff6a0b044631",
+  "schema_version": "1.0",
+  "status": "succeeded",
+  "structured_output": {
+    "alternative_architecture": {
+      "description": "The layered persistent-graph + evidence + GER architecture is directionally correct for Unity work specifically because it already treats deterministic Git/Unity facts as authoritative over LLM/agent claims, which is the single most important property for surviving real Unity production (scene corruption, false completion claims, meta/GUID drift). No wholesale replacement is warranted.",
+      "needed": false,
+      "why_better": "N/A — the identified problems (stale resource paths, missing worktree/Library plan, path-string instead of GUID-based asset identity) are fixable defects and gaps within the current architecture, not evidence that its fundamental shape (deterministic authority + bounded LLM workers + evidence-gated completion) is wrong for Unity."
+    },
+    "architecture_summary": "A layered pipeline (persistent task-contract graph → RAG/scanner/decomposition [planned] → supervisor/worktrees [planned] → GER execution/validation [partially proven] → provider-neutral AgentRuntime [implemented for read-only ArchitectureReview only]) sits above one real Unity vertical slice: the DoorPrototype scene with a code-driven, idempotent Editor scene builder, componentized gameplay scripts, EditMode/PlayMode tests, and a deterministic clean-repo Unity batch-mode test runner. Only a thin slice is actually executing against Unity today: NSC-023's fixed-camera contract has one committed Phase-3 evidence baseline: EditMode assertions on the in-memory builder plus direct byte-preserving inspection of the committed scene, bound to exact Git blob SHAs, with mandatory human Play Mode sign-off. No autonomous worker has ever written to the Unity project; dependency readiness and dispatch authorization are both hard-disabled by policy.",
+    "biggest_uncertainty": "Whether the stale exclusive_resources paths are purely a data-hygiene oversight that will be trivially fixed once noticed, or a symptom of a deeper process gap (no deterministic check ties persisted task metadata to current repository truth) that will keep recurring as the game and its GDD evolve — I could not run git history tooling in this environment to confirm exactly when the rename landed relative to the Phase 2 migration review, so I inferred the timeline from evidence-record text and CURRENT_STATE.md rather than a verified commit log.",
+    "confidence": 0.72,
+    "do_not_build_yet": [
+      "Progressive Decomposer / Artifact Authority Gate machinery (Milestone 2) — no real ticket has yet demonstrated a genuine missing-design gap that this would solve.",
+      "Supervisor, Git worktree automation, claims/leases, and Draft-PR automation (Milestone 3) — until the exclusive-resource path-integrity defect is fixed and at least one more real ticket has gone through the evidence loop with a human standing in for the supervisor.",
+      "Any multi-worker/parallel execution — Unity scene/prefab conflict risk is concretely elevated by the discovered stale-resource-path defect; parallelism must wait until resource claiming is demonstrably correct, not merely designed.",
+      "Dual-provider (Claude vs. Codex) comparison/orchestration for ArchitectureReview — this is meta-tooling for reviewing the pipeline itself and does not advance Unity gameplay.",
+      "Full-game speculative task decomposition beyond the current 37 records."
+    ],
+    "evidence": [
+      {
+        "observation": "exclusive_resources lists unity-scene:Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity, a path that does not exist in the repository.",
+        "path": "Tasks/NSC-003.yaml:16-20"
+      },
+      {
+        "observation": "The actual, only committed DoorPrototype scene lives at Assets/Scenes/DoorPrototype.unity, confirmed by Glob; 16 task contracts still reference the old pre-centralization path.",
+        "path": "Assets/Scenes/DoorPrototype.unity"
+      },
+      {
+        "observation": "SceneFolder/ScenePath constants confirm the canonical scene path is Assets/Scenes/DoorPrototype.unity, matching the current repository state, not the stale task-contract references.",
+        "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs:16-17"
+      },
+      {
+        "observation": "The correctly current evidence baseline explicitly documents 'after centralizing the authoritative DoorPrototype scene under Assets/Scenes,' confirming the rename happened and was deliberate, yet exclusive_resources in sibling tasks were not updated to match.",
+        "path": "Pipeline/TaskGraph/evidence/NSC-023/records/BASE-NSC-023-86af98f41ab5.json:31-38,101-103"
+      },
+      {
+        "observation": "Phase 2's reviewed migration explicitly lists corrections made to NSC-003, NSC-019, and NSC-023 on the same date the scene was centralized, without catching the stale scene path in any of them.",
+        "path": "Docs/AI-Pipeline/CURRENT_STATE.md:166-179"
+      },
+      {
+        "observation": "Batch-mode runner enforces clean-before/clean-after Git state, HEAD/tree equality, and parses required XML total/passed/failed/skipped/result fields before declaring success — solid Unity CI discipline.",
+        "path": "Pipeline/Testing/run_unity_tests_clean.ps1"
+      },
+      {
+        "observation": "Committed-scene tests read scene bytes before/after, open additively, scope lookups to the loaded scene, and close without saving — correct committed-artifact test hygiene per the project's own UNITY_TESTING_POLICY.md.",
+        "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/CommittedSceneCameraConformanceTests.cs:29-71"
+      },
+      {
+        "observation": "Comprehensive, realistic policy distinguishing test classifications, non-mutation invariants, .meta/GUID discipline, and required human runtime validation — genuinely production-aware guidance.",
+        "path": "Docs/Engineering/UNITY_TESTING_POLICY.md"
+      },
+      {
+        "observation": "Describes per-task Git worktrees with no mention anywhere of Unity Library/ cache cost, reimport time, or contention between concurrently open Editor instances.",
+        "path": "Docs/AI-Pipeline/03_SUPERVISOR_GIT_GITHUB_CONTEXT.md"
+      }
+    ],
+    "gdd_iteration_concerns": [
+      "The architecture correctly frames RAG as a search/navigation aid, not complete canon, and correctly warns against 'automatic GDD impact analysis without a reviewed causal model' — this is the right instinct for a moving design target.",
+      "However, the observed stale-scene-path defect shows the graph does not yet reliably absorb even a mechanical, low-semantic-risk repository change (a rename), which is a weaker case than absorbing a genuine GDD content change. If simple renames can silently desync exclusive_resources without any validator catching it, there is no current evidence the pipeline would correctly propagate a real GDD-driven requirement change (e.g., camera angle changed, movement redesigned) through the 37 existing task contracts' acceptance criteria/completion gates without a full manual reconciliation pass.",
+      "Reconciliation is explicitly deferred to 'material GDD change / milestone completion / low backlog / human request' rather than continuous sync, which is reasonable, but there is no deterministic trigger or checklist tying a GDD edit to which task contracts must be revisited — that gap is currently bridged only by human judgment/memory, which is the same class of gap that let the scene-path staleness through unnoticed."
+    ],
+    "human_intervention_points": [
+      "Every Play Mode / visual / interaction / framing judgment, per UNITY_TESTING_POLICY.md and demonstrated by NSC-023's baseline (Vincent Liguori's explicit approval was required and recorded by name).",
+      "Opening and closing the actual Unity Editor to run batch-mode tests today — the pipeline has no agent-driven Unity execution yet; a human runs run_unity_tests_clean.ps1 and commits the resulting evidence record manually.",
+      "Resolving the exclusive_resources ambiguity/renaming issue and any future asset-identity drift, since no automated consistency check exists.",
+      "Deciding NSC-003's open design questions (Input Action ownership/arbitration among click-to-move, spells, and door interaction) before any worker can safely receive it, as CURRENT_STATE.md itself states.",
+      "Approving any generated design/content artifact through the Artifact Authority Gate once Milestone 2 exists — this is designed as a permanent human/authorized checkpoint, not a temporary one."
+    ],
+    "hypothetical_failure_solutions": [
+      "Milestone 2's RAG/scanner/Progressive-Decomposer/Artifact-Authority bundle is fully speculative infrastructure for a failure mode (invented design, oversized decomposition) that has not yet been observed on a real ticket since no autonomous implementation ticket has been run end-to-end.",
+      "The entire Supervisor/branch/worktree/Draft-PR/claims lifecycle in 03_SUPERVISOR context is unimplemented and untested against real Unity concurrency; its resource-claim design already contains a live data defect before a single worker has used it.",
+      "Exclusive-resource groups for logical:enemy-locomotion-behavior-surface and logical:floor-run-restart-orchestrator are pre-declared for systems that do not exist yet in Assets/ — reasonable as forward bookkeeping, but unverifiable against real Unity behavior until those systems exist.",
+      "Provider fallback, dual-provider comparison, and parallel worker orchestration are explicitly deferred (correctly) but represent a large amount of documented target-architecture surface area that has not been pressure-tested against any real concurrent-Unity-editing scenario."
+    ],
+    "missing_components": [
+      "A canonicalization or GUID-based identity layer for unity-scene/prefab exclusive resources, so that a path rename (which will happen again as the project grows past DoorPrototype) cannot silently desynchronize the conflict-prevention mechanism the way it already has.",
+      "A deterministic consistency checker that verifies exclusive_resources / repository_evidence_at_bootstrap paths in Tasks/*.yaml still exist in the current tree (or are explicitly marked historical), runnable the same way taskcontrol validate is run today — this would have caught the stale-scene-path defect immediately.",
+      "Any documented plan for Unity Library/ cache handling across Git worktrees before Milestone 3 is attempted; this is a well-known, expensive Unity-specific problem (re-import time, disk usage, and the risk of two Unity Editor instances contending for one Library) that production Unity teams solve with Accelerator/cache-server or per-worktree Library acceptance, and it is currently unaddressed even at the planning-document level.",
+      "Prefab-specific tooling/tests — everything Unity-specific proven so far is scene-level; the project has no prefabs yet, so prefab GUID/variant-conflict handling (a common real Unity merge-conflict source once art/content scales) is entirely unproven."
+    ],
+    "next_slice": {
+      "deliverables": [
+        "Correct all 16 stale unity-scene exclusive_resources paths in Tasks/*.yaml to Assets/Scenes/DoorPrototype.unity, and add a deterministic taskcontrol validator check that exclusive_resources/repo-file paths currently exist in the tree (fail validate otherwise).",
+        "Resolve NSC-003's named open design questions (Input Action ownership/arbitration, click vs. hold, cancellation semantics) with human review, splitting the contract only if genuinely needed.",
+        "Run one real bounded implementation pass (human-in-the-loop is fine; does not require the unimplemented Supervisor) that adds mouse-directed movement using the existing EditMode/PlayMode/committed-scene test patterns already proven on NSC-023, producing a real Phase 3 delivery record (not another baseline) bound to committed Git blob SHAs.",
+        "Do not build Milestone 2 (RAG/Decomposer/Artifact-Authority) or Milestone 3 (Supervisor/worktrees) speculative infrastructure as part of this slice."
+      ],
+      "proof_of_value": "A second real task-contract (NSC-003, or its human-approved split) reaches `conformant` through a genuine `delivery` record (not `baseline`), proving the evidence/validation loop generalizes beyond the one pre-existing camera feature, and that the stale-path defect class has a repeatable, checkable fix rather than a one-off correction.",
+      "title": "Fix and guard exclusive-resource/path integrity across Tasks/*.yaml, then hand NSC-003 (or a split of it) to one real bounded worker end-to-end through the existing Unity evidence path",
+      "why": "The architecture already has a working, human-validated Unity evidence loop (NSC-023) and a disciplined test/scene-builder foundation; the highest-leverage next step is proving that loop can absorb a real worker-authored change, not building more planning infrastructure. Before that, the newly discovered stale-scene-path defect must be fixed since it directly threatens the exclusive-resource mechanism this exact slice would depend on if any future concurrency is introduced."
+    },
+    "observed_failure_solutions": [
+      "Assignment 6's camera passing static evaluation while being unusable in Play Mode led directly to ADR-015 (runtime evidence is first-class validation input) and the GER runtime-feedback loop — a real observed Unity gap addressed with a real mechanism.",
+      "Assignment 6's Refiner reporting 'implemented' with no changes under Assets/ led to ADR-016 (no-op refinement counts as failed progress) — addresses an actually-observed false-success failure mode.",
+      "Phase 3A's demonstrated behavior of ignoring uncommitted evidence and only accepting evidence after commit (proven on NSC-023, not merely claimed) directly closes a real risk class: an agent or human fabricating 'it works' claims without committed, blob-bound proof.",
+      "The clean-repo, HEAD/tree-checking test runner is a direct, working response to the general Unity CI risk of tests silently leaving Library/meta/scene mutations behind — proven with a real 5/5 PlayMode run with before/after clean-tree verification."
+    ],
+    "overall_verdict": "partially_unsound",
+    "overengineering": [
+      "Eight independent reviewer roles plus synthesis plus adversarial critique for ArchitectureReview itself, run per provider (Claude and Codex separately) with a dual-provider comparison explicitly named as a future goal, is heavy process for a solo-developer project relative to the amount of real gameplay code (roughly a dozen scripts) that exists so far.",
+      "Schema 2.0's fully separated acceptance_criteria / completion_gates / downstream_integration_obligations / gdd_evidence / provenance / conformance_surfaces taxonomy, replicated per task across 37 records, is a lot of structured bookkeeping for a project whose actual executed Unity surface is currently one prototype scene and one validated camera contract.",
+      "The AgentRuntime/TaskExecution separation (ADR-039), while conceptually clean, has so far only been exercised by two read-only ArchitectureReview consumers; building a fully generic provider-neutral invocation layer before a single write-capable Unity execution consumer exists risks the abstraction being wrong for the actual write/command/Unity-execution requirements once ExecutionCrew is built."
+    ],
+    "state_and_authority_concerns": [
+      "exclusive_resources fields are declared part of live approved work definition (schema 2.0), not historical evidence, yet 16/37 tasks contain stale nonexistent paths — a real boundary violation where 'approved current state' silently degraded into inaccurate data without anyone (including the reviewed migration) noticing.",
+      "Two different truth sources for the DoorPrototype scene's historical path coexist by design: NSC-023's repository_evidence_at_bootstrap (intentionally frozen, old path, acceptable) versus its separate baseline evidence record's conformance_surfaces (correct, current path). This split is architecturally justified for NSC-023 specifically, but the same justification does not excuse exclusive_resources in the other 15 tasks, which are not evidence records and are supposed to track current claims.",
+      "Repository writing, approved command execution, and Unity execution by any agent remain entirely unimplemented; every Unity fact proven so far (NSC-023's baseline, the PlayMode 5/5 run) was produced by a human running the runner and committing evidence manually, not by any part of the described autonomous loop. This is honestly documented, but it means the 'autonomous Unity execution' claim in the mission has essentially zero implemented/proven surface today."
+    ],
+    "strong_decisions": [
+      "Code-driven, idempotent Editor scene builder (DoorPrototypeSceneBuilder.cs) instead of hand-edited/AI-edited scene YAML — this is the single highest-leverage Unity decision in the repo because it makes scene state regenerable and diffable through C# rather than merge-conflict-prone serialized YAML.",
+      "A dedicated non-saving BuildInMemoryForTests() seam so builder tests never open/save/refresh the canonical asset, with production Build() delegating to the same construction path — avoids the common Unity-test failure mode of tests silently mutating the real scene.",
+      "Byte-identity assertions (File.ReadAllBytes before/after) around every committed-scene conformance test, combined with additive-load scoped GameObject lookup instead of global Find — directly defends against silent scene corruption and cross-scene ambiguity.",
+      "run_unity_tests_clean.ps1 treats any HEAD/tree drift or dirty working tree as failure even when all assertions pass, and preserves XML/log artifacts outside the repo rather than auto-cleaning — this is the correct posture for trustworthy CI evidence.",
+      "Evidence records bind conformance to exact Git blob SHAs of the scene, its .meta, the builder, and the tests (not just presence/existence), and Phase 3A demonstrably distinguished uncommitted evidence (ignored) from committed evidence (accepted) on a real run.",
+      "UNITY_TESTING_POLICY.md correctly separates test classifications (in-memory builder vs. committed-scene conformance vs. Play Mode) and explicitly requires human runtime/visual checks wherever source-level assertions cannot prove quality — this is realistic about what automated Unity tests can and cannot prove.",
+      "Execution/dispatch authority is fail-closed by explicit policy (`taskcontrol ready` returns UNAVAILABLE, `authorize` returns DENIED) rather than aspirationally 'not yet used' — no autonomous worker has ever touched the Unity project, which is the correct order of operations before trusting concurrent scene edits.",
+      "ADR-013/ADR-006/Git-worktree-per-ticket model is the right default posture for Unity: one worker at a time, isolated branches, before ever attempting parallelism against shared scenes/prefabs/Input Actions."
+    ],
+    "structural_flaws": [
+      "Stale unity-scene exclusive-resource paths across 16/37 active task contracts (all referencing the old, nonexistent Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity instead of the current Assets/Scenes/DoorPrototype.unity) show the persisted graph does not reliably track simple, mechanical repository changes, undermining the one mechanism designed to prevent concurrent Unity scene conflicts.",
+      "No plan anywhere (Master Context, Supervisor context, DECISIONS.md) addresses Unity's Library/ cache cost per Git worktree. Each worktree either needs its own multi-GB Library (slow first import, disk-heavy) or a shared/symlinked Library across concurrently open Unity Editor instances (which Unity does not safely support for simultaneous open projects). This is deferred implicitly by 'start with one worker,' but it is not named as a known unresolved problem before Milestone 3, so it risks being discovered the hard way once worktrees are actually built.",
+      "The exclusive-resource model is string-keyed by literal repository path (repo-file:, unity-scene:, logical:) with no normalization, canonicalization, or GUID-based identity. Unity assets are conventionally identified by .meta GUID, not path; a path-string lock is fragile to exactly the kind of rename that already broke it once."
+    ],
+    "throughput_assessment": "\"For the one real proven Unity slice (NSC-023), the deterministic-evidence + human-approval loop appears trustworthy but is entirely human-driven end to end — a human ran the tests, a human reviewed Play Mode, a human committed the evidence record. No part of the described architecture has yet reduced human effort for Unity work; it has so far only added rigor and auditability around human-produced Unity evidence. Near-term leverage requires the still-unbuilt worker execution path (Milestone 3/4) to actually write Unity code and pass this evidence bar with less human hand-holding, which has not been attempted even once.\"",
+    "verdict_reason": "The Unity-facing engineering that has actually been built is unusually disciplined for an AI-assisted pipeline: a code-generated, idempotent scene builder instead of hand-maintained scene YAML; a non-saving in-memory test seam that never touches the canonical asset; additive-scene-scoped lookups instead of ambiguous global Find; byte-identity assertions before/after opening committed scenes; a batch-mode runner that treats HEAD/tree drift or a dirty working tree as failure even when all assertions pass; and an evidence model that binds conformance to exact Git blob SHAs of the scene, its .meta, the builder, and the tests rather than to file existence. That is genuinely production-grade Unity CI discipline and it is sound. But the review found a concrete, unforced defect that the architecture's own claimed rigor should have caught: when the canonical DoorPrototype scene was centralized from `Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity` to `Assets/Scenes/DoorPrototype.unity`, 16 of 37 active task contracts (NSC-003, 004, 005, 007, 008, 009, 019, 020, 021, 025, 026, 032, 033, 035, 037, plus NSC-023's bootstrap evidence) were left referencing the old, now-nonexistent path in `exclusive_resources` and/or evidence fields — a field schema 2.0 explicitly defines as live \"approved definition of work,\" not historical record. This slipped past the reviewed schema-2.0 migration that specifically touched several of these same task IDs the same day. Since resource-claim exclusivity is the mechanism the plan relies on to prevent two future workers from touching the same Unity scene concurrently, this is not cosmetic: it is a latent correctness bug in the one mechanism meant to prevent exactly the class of Unity failure (silent scene/asset conflicts) this architecture is most worried about, and it demonstrates that a routine, purely mechanical repository change (a file rename) was not reliably propagated through the \"authoritative\" graph. That undercuts confidence in the broader claim that reconciliation/evidence machinery will keep pace with an iterating GDD and repository, which is the central risk this review was asked to weigh."
+  },
+  "usage": {
+    "estimated_cost_usd": 0.8030288000000001,
+    "input_tokens": 1123008,
+    "output_tokens": 17968,
+    "total_tokens": 1140976
+  }
+}

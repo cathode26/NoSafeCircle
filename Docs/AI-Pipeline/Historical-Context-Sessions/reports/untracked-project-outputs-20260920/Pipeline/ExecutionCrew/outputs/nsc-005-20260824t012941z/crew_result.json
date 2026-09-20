@@ -1,0 +1,48 @@
+{
+  "attempts_used": 1,
+  "candidate_patch_path": null,
+  "crew_status": "blocked",
+  "duration_seconds": 146.232202462008,
+  "final_actual_changed_paths": [
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs"
+  ],
+  "human_next_step": "Inspect diagnostics and role artifacts; no review-ready patch was emitted.",
+  "implementation_actual_changed_paths": [
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs"
+  ],
+  "provider": "claude",
+  "rejection_reasons": [
+    "implementer blocker: The rejection's regression requirement (automated Play Mode coverage proving denied-cast feedback stays visible/active when CurrentMana==0, independent of fillAmount) requires editing Assets/NoSafeCircle/DoorPrototype/Tests/PlayerManaPlayModeTests.cs, which is a denied write path for this task. That test coverage was not added and needs to be supplied through whatever path owns that file."
+  ],
+  "requested_implementation_paths": [
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs"
+  ],
+  "requested_test_paths": [
+    "Assets/NoSafeCircle/DoorPrototype/Tests/PlayerManaPlayModeTests.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Tests/NoSafeCircle.DoorPrototype.Tests.asmdef"
+  ],
+  "review_origin": {
+    "feedback_artifact": "human_review_feedback.txt",
+    "feedback_sha256": "c60638dcab4c21be5f4eccd9f4560a194bb466d2e70d452e6a785bfc801f722d",
+    "prior_run_id": "nsc-005-20260823t222010z",
+    "result": "human_rejected"
+  },
+  "role_results": [
+    "role_results/implementer_1.json"
+  ],
+  "run_id": "nsc-005-20260824t012941z",
+  "schema_version": "1.0",
+  "source_branch": "executioncrew-human-review-retry",
+  "source_head": "112f0fdb68ed547b547b02283de7406d7f6ba20e",
+  "source_tree": "35ef4926d2bcbc57a817a67a7f2862b7dbd16c04",
+  "task_contract_identity": {
+    "path": "Tasks/NSC-005.yaml",
+    "revision": 1,
+    "sha256": "60b445efa977b83b4cf84cd209fbd43881d7810761ebf7bbd6461bb8d696b123"
+  },
+  "task_id": "NSC-005",
+  "test_actual_changed_paths": [],
+  "validator_status": null,
+  "workspace_diagnostic_patch_path": "/execution-output/nsc-005-20260824t012941z/workspace_diagnostic.patch"
+}

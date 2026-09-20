@@ -33,6 +33,18 @@ legacy mode is explicitly requested.
 
 ## Shared project guidance
 
+Reusable host-tool source belongs in this repository; see `Tools/Host/README.md`
+for the imported tool families and their existing deployment paths. Make future
+source changes in the tracked location and deliberately deploy them when that
+operation is authorized. A live external copy is not a substitute for tracked
+source, and importing a tool does not remove its review or execution restrictions.
+See `Docs/AI-Pipeline/Agent-Operations/README.md` for preserved host guidance and
+the current source-tracking boundary. Live credentials, process locks, caches and
+active controller records remain outside source control. Required settled evidence
+must be explicitly selected and preserved; generated output folders are not a
+durable source location by default. This tracking task authorizes no cleanup or
+deletion of existing copies.
+
 Before creating or revising a game task or decomposition child, read [Game Task Lessons Learned](Docs/AI-Pipeline/GAME_TASK_LESSONS_LEARNED.md). Apply the relevant lessons to worker tooling, generated Unity assets and the visual test plan. Add new confirmed lessons there after investigations; keep full logs in their original evidence locations.
 
 Any agent creating, modifying, or reviewing Unity runtime code, editor tools, tests, Addressables/build tooling, content-loading infrastructure, or related project architecture must first read `Docs/Engineering/ENGINEERING_STANDARDS.md`.

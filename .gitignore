@@ -115,3 +115,6 @@ __pycache__/
 
 # Stage 5B generated execution artifacts
 /Pipeline/ExecutionCrew/outputs/
+
+# Explicitly retained historical project evidence; live output/cache rules remain above.
+!/Docs/AI-Pipeline/Historical-Context-Sessions/reports/untracked-project-outputs-20260920/**/*.log

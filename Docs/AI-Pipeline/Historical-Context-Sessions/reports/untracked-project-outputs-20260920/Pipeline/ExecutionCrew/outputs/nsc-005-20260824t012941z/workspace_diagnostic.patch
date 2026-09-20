@@ -1,0 +1,56 @@
+diff --git a/Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs b/Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs
+index eff7f3e10b801b68e0da11e9a3711afc05475e85..a386c62d7ba963ce166a1b7b220c5c2767de13e1 100644
+--- a/Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs
++++ b/Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs
+@@ -7,16 +7,19 @@ namespace NoSafeCircle.DoorPrototype
+     {
+         [SerializeField] private PlayerMana mana;
+         [SerializeField] private Image fillImage;
+-        [SerializeField] private Color normalColor = Color.white;
+         [SerializeField] private Color deniedColor = Color.red;
+         [SerializeField] private float deniedFlashDuration = 0.25f;
+ 
++        private Image feedbackImage;
++        private Color normalColor;
+         private float deniedFlashTimeRemaining;
+ 
+         private void OnEnable()
+         {
+             if (mana != null) mana.CastDenied += HandleCastDenied;
+-            if (fillImage != null) normalColor = fillImage.color;
++
++            feedbackImage = ResolveFeedbackImage();
++            if (feedbackImage != null) normalColor = feedbackImage.color;
+         }
+ 
+         private void OnDisable()
+@@ -30,13 +33,27 @@ namespace NoSafeCircle.DoorPrototype
+ 
+             fillImage.fillAmount = mana.MaxMana > 0f ? mana.CurrentMana / mana.MaxMana : 0f;
+ 
+-            if (deniedFlashTimeRemaining > 0f)
++            if (deniedFlashTimeRemaining > 0f && feedbackImage != null)
+             {
+                 deniedFlashTimeRemaining -= Time.deltaTime;
+-                fillImage.color = deniedFlashTimeRemaining > 0f ? deniedColor : normalColor;
++                feedbackImage.color = deniedFlashTimeRemaining > 0f ? deniedColor : normalColor;
+             }
+         }
+ 
++        /// Denied-cast feedback targets an always-visible portion of the mana indicator (the
++        /// bar background/frame behind the fill Image, when one is wired as its parent) so the
++        /// flash stays readable even when CurrentMana is 0 and the fill Image itself has no
++        /// visible fill pixels to recolor. Falls back to the fill Image directly when no such
++        /// background is present.
++        private Image ResolveFeedbackImage()
++        {
++            if (fillImage == null) return null;
++
++            var parent = fillImage.transform.parent;
++            var background = parent != null ? parent.GetComponent<Image>() : null;
++            return background != null ? background : fillImage;
++        }
++
+         /// Presents readable low-mana feedback on the existing mana indicator
+         /// when a cast is denied due to insufficient mana.
+         private void HandleCastDenied(float requestedAmount)

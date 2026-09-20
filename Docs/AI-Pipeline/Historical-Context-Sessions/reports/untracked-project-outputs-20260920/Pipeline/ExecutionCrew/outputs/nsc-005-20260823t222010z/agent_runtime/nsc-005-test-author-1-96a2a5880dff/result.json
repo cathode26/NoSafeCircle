@@ -1,0 +1,47 @@
+{
+  "claimed_changed_paths": [],
+  "claimed_test_commands": [],
+  "claims_execution_occurred": false,
+  "duration_seconds": 267.9713748880022,
+  "failure_classification": "none",
+  "failure_message": null,
+  "model": "claude-sonnet-5",
+  "provider": "claude-code",
+  "raw_log_reference": "provider.log",
+  "role": "test_author",
+  "run_id": "nsc-005-test-author-1-96a2a5880dff",
+  "schema_version": "1.0",
+  "status": "succeeded",
+  "structured_output": {
+    "blockers": [],
+    "claimed_changed_paths": [
+      "Assets/NoSafeCircle/DoorPrototype/Tests/PlayerManaPlayModeTests.cs",
+      "Assets/NoSafeCircle/DoorPrototype/Tests/NoSafeCircle.DoorPrototype.Tests.asmdef"
+    ],
+    "known_limitations": [
+      "ResetMana_ClearsPostCastRegenDelayTimerState uses reflection on the private `timeSinceLastSpend` field because ResetMana always also sets CurrentMana to MaxMana, and Tick() short-circuits whenever CurrentMana >= MaxMana, so the timer-clearing half of AC-001 has no observable effect through the public Spend/Tick/CurrentMana surface alone; this mirrors the project's existing reflection-based private-member test pattern in the Editor test suite but is tied to the current field name.",
+      "PlayerManaUI tests wire the private `mana`/`fillImage`/`deniedFlashDuration` serialized fields via reflection (no public setters exist) and toggle `enabled` off/on so OnEnable re-subscribes to CastDenied with the correct mana reference, since the initial AddComponent-triggered OnEnable runs before the fields are set.",
+      "PlayerMana_PublicApiSurface_OnlyOwnsManaAndRegenDelayState (AC-003) is a regression-only public-surface lock; it cannot prove no private spell-local state was ever added to PlayerMana, only that its public contract has not grown to expose such state.",
+      "No Unity Editor, compiler, or test runner was executed; compilation and pass/fail status are unverified by me and require an actual Unity Test Runner run plus human Play Mode/visual confirmation of the mana-denied flash readability."
+    ],
+    "proposed_unity_test_scope": "Run the Unity Test Runner in Play Mode against the NoSafeCircle.DoorPrototype.Tests assembly (filter: NoSafeCircle.DoorPrototype.Tests.PlayerManaPlayModeTests) on a clean working tree, capture the XML result (total/passed/failed/skipped), and recheck `git status`/`git diff` afterward to confirm the non-mutation invariant held; a human should also visually confirm in Play Mode that the mana bar's red flash on a denied Force Wave/Fireball cast reads clearly as low-mana failure feedback per GDD §3.",
+    "summary": "Extended Assets/NoSafeCircle/DoorPrototype/Tests/PlayerManaPlayModeTests.cs with Play Mode (and one pure reflection) tests covering NSC-005's new PlayerMana.ResetMana() entry point and CastDenied event, plus PlayerManaUI's denied-cast flash feedback, and added UnityEngine.UI to the test asmdef so the UI tests can compile. No production code was touched.",
+    "test_cases_added_or_updated": [
+      "ResetMana_RestoresCurrentManaToFull_AfterPartialSpend (AC-001)",
+      "ResetMana_RestoresCurrentManaToFull_AfterManaFullySpent (AC-001)",
+      "ResetMana_ClearsPostCastRegenDelayTimerState (AC-001, reflection on private timeSinceLastSpend field)",
+      "Spend_RaisesCastDenied_WhenAmountExceedsCurrentMana (AC-002)",
+      "Spend_DoesNotRaiseCastDenied_WhenSpendSucceeds (AC-002)",
+      "Spend_ZeroOrNegativeAmount_DoesNotRaiseCastDenied (regression-only)",
+      "PlayerManaUI_FlashesDeniedColor_OnCastDenied_ThenRevertsAfterDuration (VAL-002/VAL-003)",
+      "PlayerManaUI_DoesNotFlash_OnSuccessfulSpend (regression-only)",
+      "PlayerMana_PublicApiSurface_OnlyOwnsManaAndRegenDelayState (AC-003, regression-only ownership-boundary invariant)"
+    ]
+  },
+  "usage": {
+    "estimated_cost_usd": 0.8086629999999999,
+    "input_tokens": 1130717,
+    "output_tokens": 27506,
+    "total_tokens": 1158223
+  }
+}

@@ -1,0 +1,8 @@
+frozen_head=03ec56e13398f158dfe04d10e232f24dbd9e8c7a
+model=claude-fable-5
+effort=max
+primary_file_count=79
+primary_test_file_count=27
+integration_seed_file_count=76
+primary_inventory_sha256=c43605a8c1787aea2a8a93d133edf3291a871b44d99ee58ef1bb78343e2c69db
+created_utc=2026-08-29T06:22:01.1668500Z

@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "captured_at_utc": "2026-09-20T07:40:00.569147+00:00",
+  "import_run": "20260920-023734",
+  "scope": "Tracking only; no cleanup, runtime migration, execution, or completed undo implementation.",
+  "entries": [
+    {
+      "source": "C:\\NSC\\nsc-checkpoint-handoff-guide.md",
+      "destination": "Docs/AI-Pipeline/Agent-Operations/host-guides/originals/nsc-checkpoint-handoff-guide.md",
+      "bytes": 26447,
+      "source_sha256": "0fa3dfb11587725e46d1f3d9c0f7747e8d9a9de76142e9fc51edcb5f652cb1af",
+      "destination_sha256": "0fa3dfb11587725e46d1f3d9c0f7747e8d9a9de76142e9fc51edcb5f652cb1af",
+      "classification": "historical_guidance",
+      "reason": "Exact source as found on 2026-09-20; retained for provenance, not a current operational instruction.",
+      "executed": false
+    },
+    {
+      "source": "C:\\NSC\\nsc-cleanup-agent-guide.md",
+      "destination": "Docs/AI-Pipeline/Agent-Operations/host-guides/originals/nsc-cleanup-agent-guide.md",
+      "bytes": 14641,
+      "source_sha256": "a69a2b38accdbc222560692ba328d2c703e8de42153014914b6aae39ad686194",
+      "destination_sha256": "a69a2b38accdbc222560692ba328d2c703e8de42153014914b6aae39ad686194",
+      "classification": "historical_guidance",
+      "reason": "Exact source as found on 2026-09-20; retained for provenance, not a current operational instruction.",
+      "executed": false
+    },
+    {
+      "source": "C:\\NSC\\nsc-workspace-lifecycle-policy.md",
+      "destination": "Docs/AI-Pipeline/Agent-Operations/host-guides/originals/nsc-workspace-lifecycle-policy.md",
+      "bytes": 12842,
+      "source_sha256": "da0f3acf919746c0006aead3eeb065a5bcf79c59d00e252f14e769d04672b241",
+      "destination_sha256": "da0f3acf919746c0006aead3eeb065a5bcf79c59d00e252f14e769d04672b241",
+      "classification": "historical_guidance",
+      "reason": "Exact source as found on 2026-09-20; retained for provenance, not a current operational instruction.",
+      "executed": false
+    },
+    {
+      "source": "C:\\NSC\\NoSafeCircle-AssistantCheckouts\\.assistant-control\\parse_pixellab_logs.py",
+      "destination": "Tools/Host/assistant-utilities/originals/parse_pixellab_logs.py",
+      "bytes": 2605,
+      "source_sha256": "7ff9fc5b603a3309c83c8eb937d9a9a3f3c6a3fdbc84ab6a65d5cea13182d5bc",
+      "destination_sha256": "7ff9fc5b603a3309c83c8eb937d9a9a3f3c6a3fdbc84ab6a65d5cea13182d5bc",
+      "classification": "reusable_source_pending_validation",
+      "reason": "Reusable source with no embedded credential values observed; not executed or promoted to a supported entry point.",
+      "executed": false
+    },
+    {
+      "source": "C:\\NSC\\NoSafeCircle-AssistantCheckouts\\.assistant-control\\Set-PixelLabClaudeMcp.ps1",
+      "destination": "Tools/Host/assistant-utilities/originals/Set-PixelLabClaudeMcp.ps1",
+      "bytes": 2963,
+      "source_sha256": "91be69fdc3cfa058013fb32a9301e8ba7818d41e4a16e27d28c208f6939b7f49",
+      "destination_sha256": "91be69fdc3cfa058013fb32a9301e8ba7818d41e4a16e27d28c208f6939b7f49",
+      "classification": "reusable_source_pending_validation",
+      "reason": "Reusable source with no embedded credential values observed; not executed or promoted to a supported entry point.",
+      "executed": false
+    },
+    {
+      "source": "C:\\NSC\\NoSafeCircle-AssistantCheckouts\\.assistant-control\\build_door_contact_sheet.py",
+      "destination": "Tools/Host/assistant-utilities/historical/NSC-065/build_door_contact_sheet.py",
+      "bytes": 1341,
+      "source_sha256": "2a73ecdefa5298759b271b454a3e830f975820e4af0c2fc6a509876352462d00",
+      "destination_sha256": "2a73ecdefa5298759b271b454a3e830f975820e4af0c2fc6a509876352462d00",
+      "classification": "historical_task_script",
+      "reason": "Hard-coded NSC-065 paths; runs on import and changes task assets/evidence. Preserve source only; historical authorization statements are not current permission.",
+      "executed": false
+    },
+    {
+      "source": "C:\\NSC\\NoSafeCircle-AssistantCheckouts\\.assistant-control\\finalize_door_selection.py",
+      "destination": "Tools/Host/assistant-utilities/historical/NSC-065/finalize_door_selection.py",
+      "bytes": 3614,
+      "source_sha256": "81f83cd5b4c6297af91f32f623de3f3d72faf5244d7f7430950a4dadfee06616",
+      "destination_sha256": "81f83cd5b4c6297af91f32f623de3f3d72faf5244d7f7430950a4dadfee06616",
+      "classification": "historical_task_script",
+      "reason": "Hard-coded NSC-065 paths; runs on import and changes task assets/evidence. Preserve source only; historical authorization statements are not current permission.",
+      "executed": false
+    },
+    {
+      "source": "C:\\NSC\\NoSafeCircle-AssistantCheckouts\\.assistant-control\\controller-run-nsc-066.ps1",
+      "destination": "Tools/Host/assistant-utilities/historical/NSC-066/controller-run-nsc-066.ps1",
+      "bytes": 704,
+      "source_sha256": "4092fd3a00e78abd95d336079ce4ec2ce41859e0ed6535237f91273f0bbd1bae",
+      "destination_sha256": "4092fd3a00e78abd95d336079ce4ec2ce41859e0ed6535237f91273f0bbd1bae",
+      "classification": "historical_task_launcher",
+      "reason": "Hard-coded task/provider-spend launcher for an old autonomous graph path. Not a supported current entry point; source only.",
+      "executed": false
+    }
+  ],
+  "exclusions": [
+    {
+      "scope": "Live .assistant-control and .task-review-agent task JSON, worker state, approvals, logs and outputs",
+      "reason": "Mutable runtime state was not read or copied in this import; task-aware checkpoint handling is separate work."
+    },
+    {
+      "scope": "Claude configuration, PixelLab tokens, configuration backups, provider session history",
+      "reason": "Credential and private runtime data are excluded; only the setup script source was inspected and copied."
+    },
+    {
+      "scope": "Other host guides and other loose utility files",
+      "reason": "Outside the eight explicitly assigned source files; no broad host scan or import."
+    }
+  ],
+  "verification": {
+    "all_copies_byte_identical": true,
+    "source_review": "All five utility scripts inspected as text; no embedded credential values observed.",
+    "root_secret_scan": "Root agent performs independent gitleaks scan before publication.",
+    "runtime_execution": "None"
+  }
+}

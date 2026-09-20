@@ -1,0 +1,145 @@
+You are an independent principal engineer reviewing a failure in the
+No Safe Circle autonomous Unity-development pipeline.
+
+You have read-only repository access. Do not edit files. Do not assume that
+the current implementation, prior diagnoses, Issue state, or proposed fixes
+are correct. Inspect the actual code and identify the smallest safe correction.
+
+FROZEN REPOSITORY IDENTITY
+
+Repository commit:
+fdeabfefd33fc447a2e2ca43cc685f1e662026f5
+
+PRIMARY INCIDENT LOG
+
+Read this complete copied log before reaching a conclusion:
+
+Pipeline/ArchitectureReview/outputs/targeted/nsc020-downstream-debug-20260829-013513/incident-progress.log
+
+When present, also inspect:
+
+Pipeline/ArchitectureReview/outputs/targeted/nsc020-downstream-debug-20260829-013513/progress.jsonl
+Pipeline/ArchitectureReview/outputs/targeted/nsc020-downstream-debug-20260829-013513/run.json
+
+OBSERVED INCIDENT
+
+The durable state repeatedly reported:
+
+  phase=delivery_evidence
+  next_action=run_authoritative_unity_tests
+  checkout_status=ready
+
+Despite that, the Codex goal supervisor spent multiple turns selecting:
+
+  read_issue_log
+  list_repository_files
+  search_repository
+  read_repository_file
+
+Some calls were rejected with:
+
+  repository prefix must be non-empty
+
+and:
+
+  repository prefix is outside downstream read roots
+
+The deterministic authoritative Unity action was eventually selected and was
+rejected with:
+
+  no unique task-contract migration authorizes the preserved human PASS
+
+A later checkout-preparation action caused the deterministic next action to
+change to:
+
+  integrate_current_main
+
+The operator also reports that earlier versions printed more useful debugging
+information. Current terminal output identifies the action and error but does
+not show the sanitized action arguments or useful flattened result fields.
+
+FILES TO INSPECT
+
+At minimum, inspect:
+
+- Pipeline/TaskReviewAgent/openai_downstream.py
+- Pipeline/TaskReviewAgent/downstream_runtime.py
+- Pipeline/TaskReviewAgent/downstream_pipeline.py
+- Pipeline/TaskReviewAgent/downstream_resilience.py
+- Pipeline/TaskReviewAgent/mainline_reintegration.py
+- Pipeline/TaskReviewAgent/goal_loop_guard.py
+- Pipeline/TaskReviewAgent/progress.py
+- Pipeline/TaskReviewAgent/codex_supervisor.py
+- Pipeline/TaskReviewAgent/codex_supervisor_turn.py
+- Pipeline/TaskReviewAgent/issue_workflow.py
+- Pipeline/TaskReviewAgent/issue_workflow_store.py
+- Pipeline/TaskReviewAgent/resumable_checkout.py
+- Pipeline/TaskReviewAgent/authoritative_validation_policy.json
+- Pipeline/TaskGraph/migrations/canonical-unity-scene-paths-20260828.json
+- all directly relevant TaskReviewAgent smoke tests
+
+QUESTIONS TO ANSWER
+
+1. Reconstruct the exact control flow that produced the incident.
+
+2. Explain why the supervisor was allowed to browse when deterministic state
+   already contained an exact authoritative Unity platform and filter.
+
+3. Determine whether repository browsing should be removed from the allowed
+   action set for that state, or merely discouraged through prompting.
+
+4. Determine why the host reported:
+
+     no unique task-contract migration authorizes the preserved human PASS
+
+   Inspect event selection, migration-ledger matching, receipt creation,
+   import/installation order, multiple historical migration events, and any
+   stale durable-state assumptions.
+
+5. Determine whether prepare_task_checkout legitimately caused
+   next_action=integrate_current_main, or merely masked the actual migration
+   receipt defect.
+
+6. Review these proposed changes critically:
+
+   a. Deterministically narrow the offered actions when a next action and exact
+      authoritative test plan are already known.
+
+   b. Remove contradictory instructions requiring policy discovery after the
+      host has loaded and validated that policy.
+
+   c. Log bounded, sanitized action arguments.
+
+   d. Flatten result summaries into useful terminal fields.
+
+   e. Add a same-state rejection-streak breaker in addition to the identical
+      rejection fingerprint breaker.
+
+   f. Reject blank array entries and omit nullable optional arguments before
+      invoking controller functions.
+
+7. Identify any additional defect that would remain after those changes.
+
+8. Provide the smallest safe patch plan, naming exact modules, functions, and
+   regression tests. Prefer fixing deterministic routing and authority over
+   adding more prompt prose.
+
+9. Specify the exact regression sequence that must pass before NSC-020 is
+   resumed.
+
+REQUIRED RESPONSE STRUCTURE
+
+Use these headings:
+
+- Executive verdict
+- Reconstructed failure sequence
+- Confirmed root causes
+- Assessment of the proposed fixes
+- Additional defects found
+- Minimal patch plan
+- Required regression tests
+- Safe NSC-020 recovery procedure
+- Changes that should not be made
+
+Be direct. Distinguish confirmed code facts from inference. Cite repository
+paths and function names for every important conclusion.

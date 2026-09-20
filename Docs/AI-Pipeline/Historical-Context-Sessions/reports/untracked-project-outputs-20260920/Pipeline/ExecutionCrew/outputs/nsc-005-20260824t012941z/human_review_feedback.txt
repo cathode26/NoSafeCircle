@@ -1,0 +1,30 @@
+﻿Human review result: rejected
+
+Task: NSC-005
+
+Observed problem:
+The insufficient-mana feedback changes the color of the mana fill Image.
+
+When current mana is zero, PlayerManaUI sets fillAmount to zero. There are
+therefore no visible fill pixels to change color, so the denied-cast feedback
+is effectively invisible at exactly the point where it is most important.
+
+The feedback only becomes visible after some mana regenerates.
+
+Required correction:
+Insufficient-mana feedback must remain clearly visible when CurrentMana == 0.
+
+Do not temporarily increase fillAmount or otherwise visually imply that the
+player has mana they do not actually have.
+
+Prefer feedback on an always-visible portion of the mana indicator, such as
+the bar background/frame, or another clearly readable pulse/flash treatment.
+
+After the feedback completes, the UI must return to its normal scene-authored
+appearance.
+
+Regression requirement:
+Add automated coverage for a denied spend while mana is exactly zero and prove
+that the feedback mechanism remains visible/active independent of fillAmount.
+
+Human validation will be repeated after the repaired candidate is produced.

@@ -1,0 +1,74 @@
+{
+  "claimed_changed_paths": [],
+  "claimed_test_commands": [],
+  "claims_execution_occurred": false,
+  "duration_seconds": 155.19901001799735,
+  "failure_classification": "none",
+  "failure_message": null,
+  "model": "claude-sonnet-5",
+  "provider": "claude-code",
+  "raw_log_reference": "provider.log",
+  "role": "validator",
+  "run_id": "nsc-005-validator-1-7f892d376476",
+  "schema_version": "1.0",
+  "status": "succeeded",
+  "structured_output": {
+    "blocking_issues": [],
+    "criteria_results": [
+      {
+        "evidence": "PlayerMana.cs (unchanged by this patch, already present in baseline) exposes public ResetMana() which sets CurrentMana = maxMana and timeSinceLastSpend = postCastRegenDelay (an already-elapsed state), satisfying the owner-controlled reset entry point requirement for floor restart.",
+        "id": "AC-001",
+        "status": "pass"
+      },
+      {
+        "evidence": "PlayerMana.cs exposes public event Action<float> CastDenied, invoked only in Spend() when amount > CurrentMana, and explicitly not invoked on a successful spend (verified by existing Spend_DoesNotRaiseCastDenied_WhenSpendSucceeds test), giving a consuming UI a signal distinct from ManaSpent.",
+        "id": "AC-002",
+        "status": "pass"
+      },
+      {
+        "evidence": "PlayerMana.cs's public surface remains CastDenied, CurrentMana, ManaSpent, MaxMana, PostCastRegenDelay, ResetMana, Spend, Tick with no spell-local cooldown/charge/cast/placement/active-field members; PlayerMana_PublicApiSurface_OnlyOwnsManaAndRegenDelayState locks this via reflection. The candidate patch does not touch PlayerMana.cs at all.",
+        "id": "AC-003",
+        "status": "pass"
+      },
+      {
+        "evidence": "No Unity Play Mode execution occurred (confirmed by the Test Author's own known_limitations: 'no Unity executable was run'). Source review shows the existing Spend/regen/post-cast-delay tests and the AC-001/AC-002 reset/denied-signal tests are present and structurally sound, and the new UI test does not alter any existing test's logic, but 'continues to pass' is an execution claim this static review cannot certify.",
+        "id": "VAL-001",
+        "status": "not_proven"
+      },
+      {
+        "evidence": "The new PlayerManaUI_FlashesParentBackgroundImage_OnCastDenied_WhenCurrentManaIsZero test is semantically well-targeted at proving low-mana failure readability at CurrentMana == 0, and matches the real committed-scene hierarchy (ManaFill background Image is the fill Image's actual parent, per DoorPrototypeSceneBuilder.cs and DoorPrototype.unity), but no Play Mode run was executed to produce pass/fail evidence, so runtime validation of readability remains unproven.",
+        "id": "VAL-002",
+        "status": "not_proven"
+      },
+      {
+        "evidence": "Same reasoning as VAL-002: the fix and its regression test are semantically correct for making low-mana failure readable through the mana indicator (specifically its always-visible frame), including at the previously broken zero-mana case, but this requires actual Play Mode/visual execution evidence not produced in this review.",
+        "id": "VAL-003",
+        "status": "not_proven"
+      }
+    ],
+    "files_reviewed": [
+      "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs",
+      "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs",
+      "Assets/NoSafeCircle/DoorPrototype/Tests/PlayerManaPlayModeTests.cs",
+      "Assets/NoSafeCircle/DoorPrototype/Tests/NoSafeCircle.DoorPrototype.Tests.asmdef",
+      "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+      "Assets/Scenes/DoorPrototype.unity",
+      "Tasks/NSC-005.yaml",
+      "Docs/GDD/No_Safe_Circle_GDD.md",
+      "Docs/Engineering/UNITY_TESTING_POLICY.md"
+    ],
+    "risks": [
+      "No Play Mode execution evidence was produced for any test (existing or new); VAL-001/002/003 remain unproven pending an actual Unity Test Runner run per the Unity Testing Policy's evidence-claim requirements.",
+      "The fix's correctness for the real scene depends on the fill Image's parent always carrying an Image component (the ManaFill background). This is currently guaranteed by DoorPrototypeSceneBuilder.cs and reflected in the committed scene, but if a future scene edit reparents or removes that background Image without updating PlayerManaUI, the flash would silently fall back to tinting the (often zero-area) fill Image again with no test catching the regression against the actual committed scene (the new test builds its own in-memory hierarchy rather than opening the committed scene, as the Test Author's own known_limitations note).",
+      "Per the Test Author's known_limitations, a human should still visually confirm in Play Mode that the committed scene's mana bar frame is legible when it flashes red at zero mana (e.g. contrast/visibility against the dark 0.15/0.15/0.15 background), since this is a readability judgment call the automated color-equality test cannot fully capture."
+    ],
+    "status": "pass",
+    "summary": "The candidate directly repairs the human-rejected bug: PlayerManaUI now flashes an always-rendered parent frame/background Image (resolved via fillImage.transform.parent.GetComponent<Image>()) instead of tinting the Filled-type fill Image, whose rendered area collapses to zero exactly when CurrentMana == 0. I confirmed against the committed scene (Assets/Scenes/DoorPrototype.unity) and its authoritative builder (DoorPrototypeSceneBuilder.cs BuildManaUI) that the fill Image's parent GameObject 'ManaFill' really does carry a Sliced-type background Image (color 0.15/0.15/0.15/0.85) that renders regardless of fillAmount, so the resolved flash target is not hypothetical — it matches the real, reproducible scene hierarchy. fillAmount computation is untouched (still driven purely by CurrentMana/MaxMana), so the fix never fakes mana the player doesn't have. normalColor now captures the resolved target's own scene-authored color (not a hardcoded default), so the flash reverts to true original appearance. The fallback path (flash the fill Image itself when it has no parent Image) preserves all three pre-existing UI tests unchanged. The new regression test explicitly drains mana to exactly 0, asserts fillAmount stays 0 throughout, and asserts the parent background Image transitions to deniedColor and back to its actual authored color — directly proving the previously-missing 'visible at zero mana, independent of fillAmount' behavior the human reviewer required. AC-001/AC-002/AC-003 are already satisfied by unchanged PlayerMana.cs (ResetMana, CastDenied, and a locked-down public API surface). No blocking issues found. VAL-001/002/003 require actual Play Mode execution evidence, which this read-only review cannot produce and the Test Author explicitly did not claim, so those gates are reported not_proven rather than pass."
+  },
+  "usage": {
+    "estimated_cost_usd": 0.47936200000000007,
+    "input_tokens": 610650,
+    "output_tokens": 14676,
+    "total_tokens": 625326
+  }
+}

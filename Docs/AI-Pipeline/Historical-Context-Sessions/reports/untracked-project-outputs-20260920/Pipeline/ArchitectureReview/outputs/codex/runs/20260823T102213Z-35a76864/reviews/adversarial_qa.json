@@ -1,0 +1,209 @@
+{
+  "agent": "Adversarial QA and Failure-Mode Reviewer",
+  "provider": "openai-codex",
+  "model": "gpt-5.6-sol",
+  "reasoning_effort": "high",
+  "duration_seconds": 713.96,
+  "agent_runtime_run_id": "adversarial-qa-8856c20c5e85441d",
+  "agent_runtime_artifacts": "Pipeline/ArchitectureReview/outputs/codex/runs/20260823T102213Z-35a76864/agent_runtime/adversarial-qa-8856c20c5e85441d",
+  "result": {
+    "alternative_architecture": {
+      "description": "Replace the graph-first program with a delivery-first thin control plane. State: separate stable-ID design requirements from repository facts and pipeline policy; keep task contracts only for the near-term frontier. Planning: a human selects priority, then a scoped impact check creates or revises one contract. Execution: one writable agent in one disposable branch/worktree, using the whole small GDD plus targeted files. Validation: typed gates invoke deterministic Git/Unity checks, a fresh semantic diff review, and required human Play Mode checks. Recovery: append-only attempt records, checkpoint commits, bounded retries, no-op detection, and resumable branches. Integration: human merge, post-merge validation on the exact commit, then a delivery receipt referencing requirement revisions and automatically discovered dependency surfaces.",
+      "needed": true,
+      "why_better": "It preserves the sound boundaries already learned while removing speculative layers. Stable requirement-level impact prevents both global invalidation and silent stale-contract revalidation. A real vertical delivery immediately measures cycle time, human effort, Unity reliability, and model usefulness—the quantities needed to justify further autonomy."
+    },
+    "architecture_summary": "The current architecture separates GDD canon, hash-validated RAG, schema-v2 task contracts, Git-object conformance records, generic provider invocation, task-associated invocation identity, and intended future supervision/validation. Its intended control philosophy—bounded workers, deterministic facts, Git isolation, bounded repair, and human design/runtime authority—is sound. The implemented system, however, stops before writable gameplay execution, Unity command execution, task claiming, readiness, recovery, or merge. Worse, its moving-canon model is internally consistent but semantically unsafe: the GDD mixes design, repository observations, and pipeline policy; tasks use free-text references; conformance uses a whole-document hash and manually selected surfaces.",
+    "biggest_uncertainty": "No production architecture path has attempted a writable real gameplay delivery. Historical agents delivered useful mana and camera work, but the new AgentRuntime/TaskExecution stack has only exercised read-only ArchitectureReview. Consequently, its real delivery speed, repair quality, Unity failure rate, and human orchestration cost are unmeasured.",
+    "confidence": 0.94,
+    "do_not_build_yet": [
+      "Parallel workers, merge queues, or distributed resource leases.",
+      "Automatic readiness, dispatch, task priority, or merge.",
+      "GitHub Issues/Projects synchronization and dashboard automation.",
+      "A full Progressive Decomposer or Artifact Authority platform before a real task is blocked by missing design.",
+      "More provider-comparison or ArchitectureReview infrastructure.",
+      "A general project scanner/context-pack platform; the repository itself says to provide the whole small GDD until coverage is proven.",
+      "Another global reconciliation/verification campaign to repair ordinary near-term drift.",
+      "A three-role production ExecutionCrew before one capable writing agent completes a real vertical slice."
+    ],
+    "evidence": [
+      {
+        "observation": "The GDD still declares the deleted nested DoorPrototype scene canonical and calls Assets/Scenes/DoorPrototype.unity a non-canonical stub, despite commit 484e66a moving the authoritative populated scene there.",
+        "path": "Docs/GDD/No_Safe_Circle_GDD.md"
+      },
+      {
+        "observation": "This is the sole populated authoritative DoorPrototype scene at the frozen commit.",
+        "path": "Assets/Scenes/DoorPrototype.unity"
+      },
+      {
+        "observation": "NSC-037 requires the deleted scene, prohibits the now-authoritative scene, and therefore cannot be executed correctly from its current contract.",
+        "path": "Tasks/NSC-037.yaml"
+      },
+      {
+        "observation": "NSC-003 and many other tasks lock the deleted scene path, leaving the actual shared scene outside their declared collision set.",
+        "path": "Tasks/NSC-003.yaml"
+      },
+      {
+        "observation": "The frozen production index reports CURRENT because its source hash matches, while retrieval returns the false canonical-scene assertion. Byte freshness does not establish semantic truth.",
+        "path": "Pipeline/GDDRAG/knowledge_base/No_Safe_Circle_GDD_RAG.json"
+      },
+      {
+        "observation": "The graph validator passed all 37 contracts even with nonexistent resource paths because it checks membership consistency but not whether repo-file or Unity-asset targets exist.",
+        "path": "Pipeline/TaskGraph/work_graph_validate.py"
+      },
+      {
+        "observation": "Current conformance compares the entire GDD hash and only manually enumerated conformance surfaces. Any GDD edit invalidates every delivered task, while omitted dependency surfaces cannot invalidate one.",
+        "path": "Pipeline/TaskGraph/current_conformance.py"
+      },
+      {
+        "observation": "Record validation permits an empty conformance-surface list and permits a passing gate with an empty evidence list; such a manually authored receipt can become structurally valid without executable proof.",
+        "path": "Pipeline/TaskGraph/conformance_records.py"
+      },
+      {
+        "observation": "The synthetic suite tests a missing gate and corrupt artifact, but not empty gate evidence, empty surfaces, or semantic contract-to-canon coverage after a GDD revision.",
+        "path": "Pipeline/TaskGraph/conformance_evaluator_smoke_test.py"
+      },
+      {
+        "observation": "CURRENT_STATE contradicts itself: its opening describes Stage 4C/Codex migration, while later sections call Codex unimplemented and direct a Claude-only migration.",
+        "path": "Docs/AI-Pipeline/CURRENT_STATE.md"
+      },
+      {
+        "observation": "The reconciliation 'current' view still says human approval is pending even though bootstrap, schema migration, and later conformance work are complete.",
+        "path": "Pipeline/Reconciliation/outputs/current/STATUS.md"
+      },
+      {
+        "observation": "AgentRuntime explicitly lacks repository writing, command execution, crew roles, Unity execution, task selection, Git workflow, and dispatch.",
+        "path": "Pipeline/AgentRuntime/README.md"
+      },
+      {
+        "observation": "TaskExecution publishes a caller-supplied task identity but does not verify that its hash/revision matches committed repository content; it is an audit wrapper, not an authority boundary.",
+        "path": "Pipeline/TaskExecution/task_runner.py"
+      },
+      {
+        "observation": "Assignment 6 records two static PASS results for camera versions that failed in Unity, followed by a Refiner that claimed implementation while making no Assets change.",
+        "path": "Assignment6GER/README_Assignment6.md"
+      },
+      {
+        "observation": "The non-saving builder seam and committed-scene tests were introduced after normal EditMode tests had called the production builder that opened and saved the canonical scene.",
+        "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs"
+      },
+      {
+        "observation": "The historical content critic rejected 8 of 13 initial outputs for concrete canon drift, demonstrating that generation-plus-retrieval alone was insufficient.",
+        "path": "DynamicContentPipeline/README.md"
+      },
+      {
+        "observation": "The quality audit reports zero findings, yet NSC-004 VAL-001/VAL-002 and NSC-005 VAL-002/VAL-003 are substantively duplicated readability gates.",
+        "path": "Tasks/NSC-005.yaml"
+      },
+      {
+        "observation": "From pipeline update 9f08c7b through the frozen commit there are 242 commits and zero commits touching runtime Scripts. Excluding generated outputs, core Pipeline subsystems contain roughly 30,000 lines, versus 441 lines across ten runtime C# scripts.",
+        "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/"
+      }
+    ],
+    "gdd_iteration_concerns": [
+      "The GDD conflates durable design with dated repository observations and pipeline rules. Moving a Unity scene changed repository truth without changing canon, producing a hash-current but false source.",
+      "Tasks do not reference stable requirement IDs; they cite free-text sections. GDDRAG chunk IDs are ordinal and can shift after unrelated edits, so neither provides durable impact identity.",
+      "Any GDD edit makes every existing conformance record stale because the evaluator binds the whole document hash. This will create broad revalidation work even for unrelated wording or pipeline-policy changes.",
+      "The inverse is also unsafe: if an affected task contract is not revised, old gates can be rerun and a new revalidation record can bind the new whole-GDD hash. Nothing deterministically proves that the old contract and gates cover the changed requirement.",
+      "There is no implemented workflow for active branches when canon changes: no attempt-to-requirement dependency set, change-impact state, cancellation/supersession handoff, or required replan-before-merge gate.",
+      "The demonstrated scene move shows that contract resources and repository-evidence notes do not migrate with implementation changes. A future dispatcher could acquire the wrong locks, inspect the wrong asset, or refuse a correct build configuration.",
+      "Reconciliation is framed appropriately as an occasional snapshot, but there is no implemented scoped graph-delta/apply mechanism for routine evolving-canon changes. Global reconciliation is too expensive and too indirect for normal iteration."
+    ],
+    "human_intervention_points": [
+      "Choose product priority; dependency readiness cannot decide what is most valuable next.",
+      "Approve GDD changes and decide which stable requirements and active tasks they affect.",
+      "Resolve genuine design ambiguity such as NSC-003 input arbitration, click/hold semantics, cancellation, pathing, and movement ownership.",
+      "Inspect Unity scenes, prefabs, serialized references, package resolution, build settings, imports, and Console state.",
+      "Perform Play Mode checks for input feel, framing, readability, visual/audio feedback, animation, encounter quality, and balance.",
+      "Review scope deviations, architecture-changing prerequisites, and circuit-breaker escalations.",
+      "Approve or reject generated design/art artifacts and any subordinate canon.",
+      "Review and merge branches; automatic merge is not justified by current evidence."
+    ],
+    "hypothetical_failure_solutions": [
+      "Worktrees, claims, leases, resource locks, Draft PR automation, and merge queues mainly address future concurrent-worker conflicts; no production parallel worker system exists yet.",
+      "Progressive Decomposition and Artifact Authority protect against future missing-design invention; the repository has no production artifact flow and no demonstrated blocking artifact case.",
+      "Provider-neutral multi-provider execution and cross-provider comparison mainly protect portability and correlated-model risk; they have not accelerated a gameplay delivery.",
+      "The extensive AgentRuntime defenses against polymorphic Python values, cyclic JSON, reserved Windows names, and malicious provider metadata are robust but mostly adversarial future hardening for a trusted single-user project.",
+      "Automatic continuous scheduling, backlog replenishment, GitHub synchronization, and project-level budget governance are hypothetical until one-ticket execution exists.",
+      "Evidence ancestry ambiguity and immutable-record protections address plausible future corruption, but only one production baseline and no production revalidation currently exercise them."
+    ],
+    "missing_components": [
+      "Stable, human-owned requirement IDs and per-requirement revisions separate from GDDRAG chunk ordinals.",
+      "Separation of pure design canon from repository observations, technical decisions, and pipeline operating policy.",
+      "A scoped GDD change-impact mechanism that updates/supersedes affected contracts and active attempts before revalidation.",
+      "Repository-aware validation of task paths, Unity asset GUIDs, resource locks, and stale bootstrap evidence.",
+      "Typed completion gates defining required runner, artifact type, human check, and whether evidence may ever be empty.",
+      "Automatic discovery or reviewed closure of conformance surfaces and transitive integration dependencies.",
+      "A writable, command-capable, worktree-isolated one-task execution path.",
+      "A durable attempt journal with claim, heartbeat, checkpoints, retry counts, blocker state, and restart/resume semantics.",
+      "A trustworthy evidence publisher that derives facts from Git and Unity results instead of accepting hand-authored pass assertions.",
+      "Unity-machine integration for compile, EditMode, PlayMode, build, clean-tree verification, and artifact collection.",
+      "A post-merge exact-commit validation and delivery-receipt workflow.",
+      "An owner and enforcement mechanism for downstream integration obligations; current obligations are prose and need not map to a later task."
+    ],
+    "next_slice": {
+      "deliverables": [
+        "Revise NSC-005 to contract revision 2: remove duplicate readability gates, remove stale scene evidence, and define typed proof for reset behavior, denied-spend signaling, actual UI feedback, and human readability.",
+        "Use one disposable branch/worktree and one writing agent with the whole current GDD and targeted mana files; do not build the general ExecutionCrew first.",
+        "Implement PlayerMana reset, denied-spend signaling, and a bounded readable response in PlayerManaUI while preserving existing spend/regen behavior.",
+        "Add isolated Play Mode/component coverage mapped to the revised gate IDs, then run the clean Unity runner on an exact committed candidate.",
+        "Perform the required human Play Mode readability check, merge manually, rerun required post-merge validation, and publish one derived delivery receipt.",
+        "Record wall time, model usage, repair attempts, human minutes, failure causes, and whether recovery from an interrupted attempt works."
+      ],
+      "proof_of_value": "The slice proves value only if one approved contract moves from selected to merged and currently conformant with clean Git/Unity evidence and human runtime approval, while materially reducing human implementation time. A target such as one working day with under 30 minutes of orchestration would be meaningful; another passing infrastructure fixture would not.",
+      "title": "One-task delivery lane: NSC-005 mana reset and denied-cast feedback",
+      "why": "NSC-005 is small, grounded in existing runtime code and Play Mode tests, exercises behavior plus player-facing Unity feedback, and feeds later restart work. It avoids NSC-003's unresolved control design while testing every critical delivery boundary: contract revision, writable execution, tests, Unity, human judgment, merge, evidence, recovery, and throughput."
+    },
+    "observed_failure_solutions": [
+      "Runtime evidence re-entering GER directly solves the experienced camera failures that passed static evaluation but faced the wrong way, failed to follow, or framed gameplay poorly.",
+      "No-op diff detection and bounded refinement solve the experienced Refiner claim of implementation with no Assets change and prevent infinite repair loops.",
+      "The Unity testing policy, clean runner, in-memory builder seam, committed-scene conformance tests, and meta/scene identity checks solve experienced mutation and duplicate-authoritative-scene hazards.",
+      "Hash-validated production GDDRAG solves the experienced stale Assignment 4 index after the GDD changed; it does not solve stale or incorrect content inside the current GDD itself.",
+      "Immutable reconciliation snapshots, raw-output preservation, deterministic graph checks, and targeted resume/recovery solve experienced dangling dependencies, timeout losses, partial refinement, identity collisions, and rerun cost visible throughout repository history.",
+      "The DynamicContent critic/revisor loop solves observed tooltip/tutorial drift such as overclaiming Frost Field, absolute Force Wave usage, and unsafe door advice.",
+      "Committed-HEAD conformance prevents uncommitted evidence from changing state and distinguishes integrated code from worker claims; the NSC-023 baseline demonstrates this boundary."
+    ],
+    "overall_verdict": "partially_unsound",
+    "overengineering": [
+      "The project built approximately 30,000 lines across AgentRuntime, TaskExecution, TaskGraph, Reconciliation, GDDRAG, and Testing—excluding generated outputs—around a game with 441 runtime C# lines.",
+      "After the pipeline-plan update, 242 commits landed with zero commits touching runtime Scripts. The architecture has not yet demonstrated near-term gameplay throughput.",
+      "The one-time reconciliation bootstrap accumulated parallel workers, multi-model verification, streaming field repair, conflict arbitration, identity recovery, resume tools, and many patch installers. Much of this should not be a routine development path.",
+      "AgentRuntime received two providers, deeply defensive JSON/path/type hardening, and an ArchitectureReview migration before any production provider can write one gameplay task.",
+      "TaskExecution adds an immutable identity wrapper that does not verify identity against Git and currently enables no execution behavior.",
+      "Multiple overlapping handoff/status documents and mutable 'current' views require manual synchronization and have already drifted.",
+      "A full-game 37-contract graph was semantically hardened before a thin repeated delivery lane established which planning detail is actually useful."
+    ],
+    "state_and_authority_concerns": [
+      "Necessary boundaries are: human-approved design versus implementation; task definition versus attempt state versus current conformance; worker claims versus deterministic Git/Unity facts; candidate branch versus integrated main; and automated checks versus human game-feel judgment.",
+      "The GDD currently duplicates repository state and pipeline policy, giving a design document authority over facts better derived from Git. This produced the verified canonical-scene contradiction.",
+      "CURRENT_STATE, MASTER_CONTEXT, milestone records, Reconciliation/current, Tasks, and evidence records all make overlapping current-state claims. Their drift shows responsibility is duplicated rather than derived.",
+      "TaskExecution records a caller-supplied hash without resolving it from committed Git. This is acceptable as non-authoritative audit data but adds little protection and could be mistaken for a real binding.",
+      "A conformance record can structurally pass with no surfaces or no artifacts for a gate. Exact hashes authenticate bytes, not that a validation command actually produced them.",
+      "Manual conformance surfaces create an under-invalidation authority gap; whole-GDD hashes create an over-invalidation problem.",
+      "Downstream integration obligations are excluded from current completion yet are not linked to owning future task IDs, allowing required integration checks to disappear.",
+      "The frozen deterministic tools simultaneously report graph PASS, RAG CURRENT, and NSC-023 conformant while canon contains false repository facts. Those green states prove internal consistency only."
+    ],
+    "strong_decisions": [
+      "Keep the continuous loop outside model context and make workers bounded and replaceable.",
+      "Separate task contracts from mutable completion/status claims.",
+      "Treat Git integration, Unity results, and human approval as different evidence classes; never let a worker declare completion.",
+      "Use branches/worktrees and human merge authority, starting with one worker.",
+      "Preserve failure evidence and use bounded GER repair with no-op detection and circuit breakers.",
+      "Use clean, non-mutating Unity test execution and distinguish builder behavior from committed-artifact conformance.",
+      "Fail closed on stale RAG indexes and treat retrieval as navigation rather than complete canon.",
+      "Keep reconciliation snapshots immutable and require an explicit review/apply boundary before graph mutation.",
+      "Preserve provider logs and normalized results as audit artifacts without granting them validation authority."
+    ],
+    "structural_flaws": [
+      "There is no implemented autonomous development pipeline: readiness is unavailable, authorization is denied, providers cannot write or execute approved commands, ExecutionCrew is absent, and Unity execution is external.",
+      "The moving-design model is hash-based rather than requirement/impact-based. It cannot distinguish irrelevant edits from changed task meaning.",
+      "Canon combines game design, current repository evidence, and development-process rules; the actual scene move proved that these authorities drift independently.",
+      "Graph validation proves schema and graph consistency, not repository truth. It accepts deleted resource paths and stale scene assertions.",
+      "Evidence records authenticate selected files but do not prove surface completeness, command provenance, or semantic coverage of revised canon.",
+      "Contract gates remain free-text and can be duplicated, vague, future-dependent, or satisfied by self-authored pass assertions.",
+      "No operational state machine joins task selection, claim, attempt, branch, validation, human review, merge, evidence, and recovery. The components are isolated foundations rather than a resumable workflow.",
+      "Current documentation cannot reliably bootstrap an agent because mutually incompatible 'next' instructions coexist in the claimed source of truth."
+    ],
+    "throughput_assessment": "The current system does not plausibly make development materially faster in the near term. From pipeline update 9f08c7b to the frozen commit, 242 commits produced zero runtime-script commits. The implemented production path is read-only and dispatch-disabled, so a real feature immediately falls back to manual orchestration. Historical Assignment 5/6 work shows that bounded agents plus runtime feedback can provide leverage, but it also required repeated human Unity runs and three refinements for one camera. Major leverage remains plausible only after a delivery-first lane repeatedly merges small gameplay work; further infrastructure-first milestones are likely to lengthen, not shorten, the schedule.",
+    "verdict_reason": "The architecture is not fundamentally wrong, but it is not currently sound enough for autonomous Unity development. Its strongest principles are correct, yet evolving-canon handling, resource truth, evidence completeness, and operational recovery are structurally incomplete, and no writable end-to-end delivery exists. The observed scene-path contradiction demonstrates a confidently wrong state despite green validation, while the repository history demonstrates severe infrastructure-to-gameplay imbalance. Reorganize around a thin real delivery loop before adding autonomy."
+  }
+}

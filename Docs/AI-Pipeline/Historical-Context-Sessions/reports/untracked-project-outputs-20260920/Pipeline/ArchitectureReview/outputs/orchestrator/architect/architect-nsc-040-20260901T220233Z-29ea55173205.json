@@ -1,0 +1,141 @@
+{
+  "active_integration_surface_fingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "analysis_id": "architect-nsc-040-20260901T220233Z-29ea55173205",
+  "authority": "advisory_only_not_applied",
+  "candidate": {
+    "source_head": "2df60b26b0b8322a26ead787a99db701ced284a8",
+    "task_contract_sha256": "085ef58764d8a7bf0bcded9febd6ba4b0c23591c76ed8e592a8dff2da6b43d42",
+    "task_id": "NSC-040"
+  },
+  "created_at_utc": "2026-09-01T22:04:34.904971+00:00",
+  "explicitly_not_applied": {
+    "decomposition_changes": true,
+    "dependency_changes": true,
+    "exclusive_resource_changes": true,
+    "gdd_or_canon_changes": true,
+    "taskgraph_changes": true
+  },
+  "invocation": {
+    "agent_runtime_artifacts": "agent_runtime/architect-nsc-040-c213a586ef0247fb",
+    "agent_runtime_run_id": "architect-nsc-040-c213a586ef0247fb",
+    "duration_seconds": 121.43620914299999,
+    "model": "claude-sonnet-5",
+    "provider": "claude-code",
+    "usage": {
+      "estimated_cost_usd": 0.445859,
+      "input_tokens": 365610,
+      "output_tokens": 10962,
+      "total_tokens": 376572
+    }
+  },
+  "scheduler": {
+    "candidate_task_id": "NSC-040",
+    "scheduler_id": "polling-orchestrator-8ecd9c626ec745d0"
+  },
+  "schema_version": "1.1",
+  "structured_architect_output": {
+    "assumptions": [
+      "The supplied empty in-flight integration reservations list is authoritative for the current moment; no other candidate currently holds or is predicted to hold the DoorPrototypeSceneBuilder.cs or DoorPrototype.unity exclusive resources.",
+      "NSC-040's own exclusive_resources will be honored by deterministic admission before any other task claiming the same repo-file/unity-scene resource keys is allowed to run concurrently, per Pipeline/TaskGraph/RESOURCE_GROUPS.yaml.",
+      "The exact new test file(s) NSC-040 will add are not yet observable in the repository since NSC-040 has not been implemented yet; the predicted test-file path is inferred from sibling task conventions (NSC-042) and existing test naming patterns."
+    ],
+    "confidence": 0.82,
+    "conflict_reasons": [],
+    "conflicting_task_ids": [],
+    "design_advice": {
+      "implementation_summary": "Add an integration validation pass (new EditMode test class or extension of an existing one) that opens the committed Assets/Scenes/DoorPrototype.unity scene additively (matching CommittedSceneCameraConformanceTests.cs's open/inspect/close-without-write pattern), locates representative Tilemap visuals (FloorTilemap/WallTilemap/ArchitecturalTilemap) and SpriteRenderer visuals (the WorldSpriteVisual-based Wizard and Door sprites), and asserts none of them carry a Collider, trigger, door-state, or pursuit component while the existing separately-owned gameplay objects (Floor Plane collider, WallLeft/WallRight cubes, DoorRoot's rangeTrigger/doorwayBlocker, DoorInteractable) remain the sole owners of that behavior. Pair this with a check (extending WindowsBuildSceneRegistrationTests.cs or similar) confirming the build/scene registration contains only the single canonical scene and that no SceneManager.LoadScene/LoadSceneAsync room-transition call site exists, satisfying VAL-002's continuous-scene requirement.",
+      "recommended_interfaces": [
+        "Reuse DoorPrototypeSceneBuilder.Build()/BuildInMemoryForTests() and existing object/component names (FloorTilemap, WallTilemap, ArchitecturalTilemap, DoorInteractable, PlayerMovement) as the inspection seam rather than introducing new production abstractions or a runtime ownership-marker API."
+      ],
+      "sequencing_notes": [
+        "Prefer adding validation-only tests; avoid modifying DoorPrototypeSceneBuilder.cs production logic unless the new validation actually surfaces a visual/simulation desync, since the current committed builder already documents (and appears to implement) the required separation from NSC-038/NSC-039.",
+        "Confirm the current committed DoorPrototype.unity already satisfies AC-002/VAL-002 (single continuous scene, no cross-scene transfer) before authoring new content; if it does, this task may be primarily test/validation authoring rather than scene restructuring."
+      ],
+      "suggested_decomposition": [],
+      "suggested_exclusive_resources": [
+        "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs (or the specific new conformance-test file path chosen) — NSC-040's contract does not currently list this test file as an exclusive resource even though sibling task NSC-042 explicitly reserves it; adding it would prevent a future race between these two NSC-026 children on the same test file."
+      ],
+      "suggested_taskgraph_changes": []
+    },
+    "escalation": {
+      "category": "none",
+      "question": ""
+    },
+    "evidence": [
+      {
+        "observation": "Committed contract matches supplied contract exactly: depends_on NSC-038/NSC-039, exclusive_resources are repo-file:.../DoorPrototypeSceneBuilder.cs and unity-scene:Assets/Scenes/DoorPrototype.unity.",
+        "path": "Tasks/NSC-040.yaml"
+      },
+      {
+        "observation": "NSC-038 delivery record shows human_approval.decision=approved and gate VAL-001 result=pass; integrated_commit 54d53e2304576d6bc236c7a188e6ae8cc21bd174.",
+        "path": "Pipeline/TaskGraph/evidence/NSC-038/records/DEL-NSC-038-54d53e230457.json"
+      },
+      {
+        "observation": "NSC-039 delivery record shows human_approval.decision=approved and gate VAL-001 result=pass (45/45 tests); integrated_commit d2add2488b922fbf1660e750ad46300e82b0ec92.",
+        "path": "Pipeline/TaskGraph/evidence/NSC-039/records/DEL-NSC-039-d2add2488b92.json"
+      },
+      {
+        "observation": "Current file already contains extensive 'NSC-039 AC-001/VAL-001' sorting-convention comments and a clear split between gameplay colliders (Floor Plane MeshRenderer disabled, WallLeft/WallRight Cube colliders, DoorRoot rangeTrigger/doorwayBlocker) and visual-only Tilemap/SpriteRenderer objects, confirming NSC-038/NSC-039 are integrated into the working tree at the supplied HEAD.",
+        "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs"
+      },
+      {
+        "observation": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs and unity-scene:Assets/Scenes/DoorPrototype.unity resource groups list NSC-040 alongside many sibling world-foundation/door tasks (NSC-041, NSC-042, NSC-044-052, etc.), confirming this file/scene is a known serialization hot spot across the NSC-026 family, but exclusivity is enforced by the same exclusive_resources mechanism NSC-040 already declares.",
+        "path": "Pipeline/TaskGraph/RESOURCE_GROUPS.yaml"
+      },
+      {
+        "observation": "Existing established pattern for opening the committed scene additively, asserting conformance, and verifying scene bytes are unchanged afterward — a directly reusable template for NSC-040's VAL-001/VAL-002 checks.",
+        "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/CommittedSceneCameraConformanceTests.cs"
+      },
+      {
+        "observation": "Existing test confirms only Assets/Scenes/DoorPrototype.unity is registered/enabled in EditorBuildSettings and that the non-canonical SampleScene is not registered, directly relevant evidence for VAL-002's no-scene-loading requirement.",
+        "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/WindowsBuildSceneRegistrationTests.cs"
+      },
+      {
+        "observation": "reconciliation_key 'visual-simulation-continuity' maps to NSC-040, confirming task identity.",
+        "path": "Pipeline/TaskGraph/WORK_ID_MAP.json"
+      }
+    ],
+    "execution_recommendation": {
+      "capability_tier": "standard",
+      "provider_preference": "no_preference",
+      "rationale": "This is a focused integration/validation pass over an already-separated visual and gameplay layer (NSC-038/NSC-039 are delivered and integrated at HEAD, and the builder's own comments already document the ownership split). It requires moderate cross-system reasoning (Tilemap, SpriteRenderer, colliders, build settings) but follows strong existing local patterns (CommittedSceneCameraConformanceTests.cs, WindowsBuildSceneRegistrationTests.cs) rather than novel architecture. No decomposition-adjacent ambiguity or heavy refactor is expected, so standard effort is sufficient; deep reasoning is not clearly warranted and fast/mechanical would risk missing the Unity validation-agent style checks the contract requires."
+    },
+    "integration_risk": "low",
+    "parallel_recommendation": "start",
+    "predicted_change_surface": {
+      "exact_paths": [
+        "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+        "Assets/Scenes/DoorPrototype.unity"
+      ],
+      "path_patterns": [
+        "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/*ConformanceTests.cs",
+        "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs"
+      ],
+      "shared_systems": [
+        "DoorPrototype canonical gameplay scene",
+        "Unity Isometric Tilemap visual layer (NSC-038)",
+        "World-space SpriteRenderer prefab/sorting convention (NSC-039)",
+        "EditorBuildSettings scene registration (NSC-037)"
+      ],
+      "symbols_or_components": [
+        "DoorPrototypeSceneBuilder",
+        "DoorInteractable",
+        "FloorTilemap",
+        "WallTilemap",
+        "ArchitecturalTilemap",
+        "IsometricVisualGrid",
+        "WorldSpriteVisual (prefab)",
+        "PlayerMovement",
+        "doorwayBlocker BoxCollider",
+        "Floor Plane collider"
+      ],
+      "unity_serialized_assets": [
+        "Assets/Scenes/DoorPrototype.unity"
+      ]
+    },
+    "source_head": "2df60b26b0b8322a26ead787a99db701ced284a8",
+    "task_contract_sha256": "085ef58764d8a7bf0bcded9febd6ba4b0c23591c76ed8e592a8dff2da6b43d42",
+    "task_id": "NSC-040",
+    "unknown_surface_disjointness": []
+  }
+}

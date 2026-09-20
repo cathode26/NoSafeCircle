@@ -1,0 +1,13 @@
+TaskDesignGER: run GER through contract edits, decomposition and release
+
+Vincent directed that Task Design GER carry each held node through to an
+improved executable task contract committed on main and any needed D1B.2
+decomposition, instead of stopping at a review-only brief. The runbook now has
+the GER owner commit the audited contract edit, apply reviewed decomposition
+plans through the supported graph path, and release executable work with the
+viewer finish marker. It keeps the four immutable mixed-provider rounds, the
+journal hold as the dispatch authority, and the rules never to push or to claim
+approval or test results that did not happen. The README's packet description
+now points to that cycle instead of requiring a separate acceptance step.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

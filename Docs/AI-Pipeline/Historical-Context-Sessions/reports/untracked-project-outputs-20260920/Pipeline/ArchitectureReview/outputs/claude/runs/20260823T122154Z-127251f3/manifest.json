@@ -1,0 +1,53 @@
+{
+  "provider_namespace": "claude",
+  "run_id": "20260823T122154Z-127251f3",
+  "started_at": "2026-08-23T12:21:54.425256+00:00",
+  "frozen_head": "e15a16e46083bfaaa2bdc4e0d738f70efe5e3e1a",
+  "dirty_worktree_allowed": false,
+  "model_pool": [
+    "claude-sonnet-5"
+  ],
+  "synthesis_model": "claude-sonnet-5",
+  "adversary_model": "claude-sonnet-5",
+  "seed": 660492068,
+  "roles": [
+    {
+      "key": "game_technical_director",
+      "name": "Pragmatic Game Technical Director"
+    },
+    {
+      "key": "workflow_systems_architect",
+      "name": "Workflow and Distributed-Systems Architect"
+    },
+    {
+      "key": "llm_reliability_engineer",
+      "name": "LLM Reliability Engineer"
+    },
+    {
+      "key": "unity_production_engineer",
+      "name": "Unity Production Engineer"
+    },
+    {
+      "key": "yagni_complexity_critic",
+      "name": "YAGNI and Complexity Critic"
+    },
+    {
+      "key": "autonomous_agent_architect",
+      "name": "Autonomous-Agent Architect"
+    },
+    {
+      "key": "adversarial_qa",
+      "name": "Adversarial QA and Failure-Mode Reviewer"
+    },
+    {
+      "key": "game_producer",
+      "name": "Game Producer and Throughput Reviewer"
+    }
+  ],
+  "status": "complete",
+  "reviews_completed_at": "2026-08-23T12:27:21.369562+00:00",
+  "completed_review_count": 8,
+  "synthesis_completed_at": "2026-08-23T12:32:15.607106+00:00",
+  "completed_at": "2026-08-23T12:35:46.492213+00:00",
+  "review_count": 8
+}
