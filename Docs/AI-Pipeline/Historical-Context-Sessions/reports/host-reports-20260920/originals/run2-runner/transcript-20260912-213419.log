@@ -1,0 +1,15 @@
+[PASS] Controller 799907e03959626323f74e2662378931e734234a
+[PASS] Source gauntlet-replay/fresh-1160-20260913 at 799907e03959626323f74e2662378931e734234a
+
+[RUN 1] 21:34:20 run-graph starting; output C:\NSC\GauntletFresh1140-20260912-1-Checkouts-6\operator-logs\run-graph-20260912-213420.json
+[RUN 1] exit 1; status command_failed; actions 0; harvested 0; source 
+    error: [Errno 10060] timed out after 10s waiting for exclusive file lock: 'C:\\NSC\\GauntletFresh1140-20260912-1-Checkouts-6\\.assistant-control\\checkouts.lock'
+[STOP] Non-zero exit. Escalate.
+
+============================================================
+[DONE] Operator loop ended with status: command_failed
+============================================================
+[STATE] Last result JSON: C:\NSC\GauntletFresh1140-20260912-1-Checkouts-6\operator-logs\run-graph-20260912-213420.json
+[STATE] Records: C:\NSC\GauntletFresh1140-20260912-1-Checkouts-6\.assistant-control
+[STATE] Journal: C:\NSC\GauntletFresh1140-20260912-1-Checkouts-6\.assistant-control\graph-controller-events.jsonl
+[NEXT] complete -> tell Vincent. awaiting_human -> tell Vincent the waiting_human list. Anything else -> send the section 5 escalation to the reviewer and stop.

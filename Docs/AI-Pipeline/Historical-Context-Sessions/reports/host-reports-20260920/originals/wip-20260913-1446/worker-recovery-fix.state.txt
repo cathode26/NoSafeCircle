@@ -1,0 +1,8 @@
+worktree: /c/nscrev/worker-recovery-fix
+branch: throughput/worker-recovery-fix
+head: 86068e6490c33bb71b025cbe1b6de204859a24af
+snapshot_utc: 2026-09-13T14:47:02Z
+ M Pipeline/AssistantControl/__main__.py
+ M Pipeline/AssistantControl/crew_worker.py
+ M Pipeline/AssistantControl/graph_controller.py
+?? Pipeline/AssistantControl/worker_recovery.py

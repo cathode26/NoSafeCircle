@@ -1,0 +1,6 @@
+﻿Temporary artifacts will be preserved at: C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-d111c6ab2c66494fa012fd2c932bd6af
+Safe Unity churn recovery: {"paths": ["ProjectSettings/Packages/com.unity.testtools.codecoverage/Settings.json"], "status": "recovered"}
+Safe Unity churn recovery: {"paths": [], "status": "clean"}
+UNITY FAILURE: Unity exited with code 2.
+XML: C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-d111c6ab2c66494fa012fd2c932bd6af\test-results.xml
+Log: C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-d111c6ab2c66494fa012fd2c932bd6af\unity.log

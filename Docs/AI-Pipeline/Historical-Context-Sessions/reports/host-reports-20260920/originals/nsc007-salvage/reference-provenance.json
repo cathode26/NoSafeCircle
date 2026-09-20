@@ -1,0 +1,43 @@
+{
+  "task_contract": {
+    "path": "Tasks/NSC-007.yaml",
+    "revision": 5,
+    "committed_at": "36a47b14412f68fea886926bbea7711d1768ce46",
+    "sha256": "33218cdf8b170ac4b4cd8ee4a5ac0b7951c6bbf6a352bdc4ea978b751d7b45c3",
+    "hash_method": "git show 36a47b144:Tasks/NSC-007.yaml | sha256sum (committed LF blob, not the CRLF worktree file)"
+  },
+  "validation_policy": {
+    "path": "Pipeline/TaskReviewAgent/authoritative_validation_policy.json",
+    "entry": "NSC-007",
+    "bound_task_contract_sha256": "33218cdf8b170ac4b4cd8ee4a5ac0b7951c6bbf6a352bdc4ea978b751d7b45c3",
+    "binding_verified": true,
+    "required_test_platforms": ["EditMode", "PlayMode"],
+    "test_filters": {
+      "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.FireballCommittedSceneConformanceTests",
+      "PlayMode": "NoSafeCircle.DoorPrototype.Tests.FireballPlayModeTests"
+    }
+  },
+  "design_sources_cited_by_the_contract": [
+    "Docs/GDD/No_Safe_Circle_GDD.md:624",
+    "SPELL_DECISIONS.md (2026-09-16) - physical binding, collision, aim/expiry, mana timing, interruption, placeholder-feedback decisions",
+    "C:/nscrev/ger-contract-revisions-20260916/spells/REV4_DECISIONS.md - NSC-007 items 1-11 and shared SP4-1/SP4-2/SP4-3",
+    "RESTART_VICTORY_DECOY_DECISIONS.md - DemoRunFlow retirement and NSC-007 revision 5"
+  ],
+  "salvage_artifacts": [
+    "C:/nscrev/reports/nsc007-salvage/nsc007-candidate.patch",
+    "C:/nscrev/reports/nsc007-salvage/changed-paths.json",
+    "C:/nscrev/reports/nsc007-salvage/evidence.json"
+  ],
+  "scope": {
+    "plan_id": "scope-d272d1521385e2097ae11fa7a562094f9f4bf945b0b4d9862a384b73b8d933b5",
+    "registered_allowed_paths": 11,
+    "candidate_changed_paths": 10,
+    "subset_of_registered_scope": true
+  },
+  "pipeline_defect_found_by_this_run": {
+    "summary": "worker timeout_seconds (3600) is not sized for a full crew plus a repair cycle, while per-role budgets are 3600s each",
+    "owner": "Pipeline Maintainer Agent",
+    "related_merge": "0424e318c - fix/start-worker-finished-launch, which raised test_author to the implementer's 96 turns / 3600s and made a single role able to consume the whole worker lifetime",
+    "reported": false
+  }
+}

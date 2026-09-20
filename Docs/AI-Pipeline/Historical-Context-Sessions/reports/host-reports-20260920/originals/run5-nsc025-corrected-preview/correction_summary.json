@@ -1,0 +1,25 @@
+{
+  "source_commit": "3a565100697010e444e052dc008620509c0c0113",
+  "old_run5_plan_id": "GDP-320675f3e272a0e1c41be1c731a77df676a5cad5fd75d4e27e70c0082eca09c3",
+  "corrected_preview_plan_id": "GDP-07fb2284b1c4d47e036b49bed0d824f525b4e9c3626ae5afe1d30a3e3ef77824",
+  "allocated_child_ids": {
+    "door-enemy-passability-interface": "NSC-090",
+    "navmesh-agent-configuration-foundation": "NSC-089"
+  },
+  "scope": "review-only deterministic preview; not independently reviewed or authorized for apply",
+  "read_only_graph_apply_preflight": "fresh",
+  "changed_entries": [
+    {
+      "child": "navmesh-agent-configuration-foundation",
+      "entry": "AC-002",
+      "before": "Create Assets/NoSafeCircle/DoorPrototype/Scripts/World/GameplayNavigationSurface.cs as the runtime component that owns and configures Unity AI Navigation's NavMeshSurface, and add the Unity.AI.Navigation reference to Assets/NoSafeCircle/DoorPrototype/NoSafeCircle.DoorPrototype.asmdef. The component and test-owned NavMeshAgent must use the same project-configured agent type and its radius, height, and slope settings. Do not edit ProjectSettings or the Editor asmdef.",
+      "after": "Create Assets/NoSafeCircle/DoorPrototype/Scripts/World/GameplayNavigationSurface.cs as the runtime component that owns and configures Unity AI Navigation's NavMeshSurface, and add the Unity.AI.Navigation reference to Assets/NoSafeCircle/DoorPrototype/NoSafeCircle.DoorPrototype.asmdef. The component and test-owned NavMeshAgent must use the same project-configured agent type and its radius, height, and slope settings. Do not edit ProjectSettings or the Editor asmdef. Create Assets/NoSafeCircle/DoorPrototype/Tests/Editor/NavMeshAgentConfigurationTests.cs for the configuration and navigation validation in VAL-001."
+    },
+    {
+      "child": "navmesh-agent-configuration-foundation",
+      "entry": "VAL-001",
+      "before": "The Edit Mode test Assets/NoSafeCircle/DoorPrototype/Tests/Editor/NavMeshAgentConfigurationTests.cs creates a fresh in-memory scene, calls the existing non-saving DoorPrototypeSceneBuilder test seam, verifies that GameplayNavigation and GameplayNavigationSurface are created after the scene geometry, and verifies that a test-owned NavMeshAgent using the selected agent type can calculate a complete path across the open gameplay floor. The test does not open or save Assets/Scenes/DoorPrototype.unity.",
+      "after": "The Edit Mode test Assets/NoSafeCircle/DoorPrototype/Tests/Editor/NavMeshAgentConfigurationTests.cs uses a fresh in-memory scene to verify GameplayNavigationSurface configuration and that a test-owned NavMeshAgent using the selected agent type finds a complete path across a test-owned open gameplay floor. That check does not prove canonical room composition. After the authorized No Safe Circle/Build Door Prototype Scene command materializes Assets/Scenes/DoorPrototype.unity in the isolated task checkout, validate the built canonical scene without saving or changing it: the five-room composition has removed the legacy Floor, exactly one builder-owned GameplayNavigation and GameplayNavigationSurface survive, navigation uses the composed FloorCollision and obstacle colliders rather than visual Tilemaps, and a configured test-owned NavMeshAgent finds a complete path across open composed gameplay floor after scene load or the specified runtime rebuild. Repeat the authorized builder materialization and recheck that exactly one navigation owner remains and the composed-floor path still works. Validation-only tests must not save or modify the committed canonical scene."
+    }
+  ]
+}

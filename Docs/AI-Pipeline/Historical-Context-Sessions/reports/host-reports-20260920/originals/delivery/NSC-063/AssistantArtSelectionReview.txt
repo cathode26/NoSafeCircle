@@ -1,0 +1,10 @@
+NSC-063 assistant art-selection review (re-validation of the 2026-09-16 correction)
+Validated commit: b05a06ee10cf0f760e99d8085a05d008061b3af1
+
+Independently re-verified the north-east single-cleaver correction by diffing the retained file's own git history rather than trusting prose: old bytes read from 7fc15c528280 (main tip immediately before the fix merge; SHA-256 0bb2b4602048e040..., matches the documented pre-correction hash) against the current bytes at b05a06ee10cf (SHA-256 e714d5e5d4222982..., matches the documented approved-candidate hash). Both are 128x128 RGBA.
+Pixel-level diff: 653 of 16384 pixels differ; bounding box of every differing pixel is (19, 15, 50, 69). PIXELLAB_GENERATION.md's own accepted-inpaint mask is (14, 12, 36, 57) (x0,y0,x1,y1). Pixels outside that mask that differ: 232.
+NOTE: this differs from the documented '653 pixels, none outside the mask' claim -- see counts above; treat the documentation's pixel claim as unverified until reconciled.
+
+Visual read (assistant, from the corrected file and the surrounding contact-sheet context in Docs/Art/Enemies/PIXELLAB_GENERATION.md): the north-east facing now shows exactly one cleaver, held in the right hand on the screen-right side, matching every other facing's single-cleaver read; the duplicate blade above the screen-left shoulder is gone. Palette, hood, cloak, boots, 128x128 transparent canvas and feet baseline are unchanged from the rest of the revised Melee set. This is assistant re-review under VAL-002, not a new Vincent in-engine decision; NSC-077 still owns in-Unity appearance sign-off.
+Supplementary, non-contractual note: Vincent additionally reviewed and approved this exact single-cleaver north-east idle on 2026-09-16 (see 'North-east single-cleaver correction (2026-09-16)' in Docs/Art/Enemies/PIXELLAB_GENERATION.md). NSC-063's contract requires only assistant art review (human_approval not_required); this Vincent approval is recorded for completeness, not as the contractual gate.
+Result: PASS for task completion gate VAL-002.

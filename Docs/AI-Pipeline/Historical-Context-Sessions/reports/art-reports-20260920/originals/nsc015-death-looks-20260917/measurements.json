@@ -1,0 +1,154 @@
+[
+  {
+    "name": "death_brute_blasted",
+    "object_id": "4423f1d2-08ee-44d8-ba0a-c81abeeb95f0",
+    "seed": 40001,
+    "canvas": [
+      144,
+      96
+    ],
+    "alpha_bbox": [
+      1,
+      3,
+      141,
+      90
+    ],
+    "lowest_opaque_row": 89,
+    "colours": 4009,
+    "sha256": "d766b3d1bb11ca03bdcf2cd5c8bff25576685d49531fcb49f26ad9f2da84ccc8",
+    "bytes": 16447
+  },
+  {
+    "name": "death_brute_burned",
+    "object_id": "a102f7b2-29c4-4747-8d08-687a2e71bce0",
+    "seed": 40002,
+    "canvas": [
+      144,
+      96
+    ],
+    "alpha_bbox": [
+      13,
+      5,
+      122,
+      88
+    ],
+    "lowest_opaque_row": 87,
+    "colours": 3668,
+    "sha256": "92c475300756e7607ae2a71ca2cce0cfe48abbfab6dfc5509fd2e2c7d515d067",
+    "bytes": 12799
+  },
+  {
+    "name": "death_brute_decapitated",
+    "object_id": "693166c8-0c4e-471f-84a1-bd7faf8a13e1",
+    "seed": 40003,
+    "canvas": [
+      144,
+      96
+    ],
+    "alpha_bbox": [
+      17,
+      9,
+      126,
+      91
+    ],
+    "lowest_opaque_row": 90,
+    "colours": 114,
+    "sha256": "a6f9165eab668af8d88caa75ecad10df6e5ae6533c38ee0543d3d0d8caa5cacc",
+    "bytes": 9949
+  },
+  {
+    "name": "death_brute_dismembered",
+    "object_id": "1a791813-e690-4431-a7b8-49959eeee6ea",
+    "seed": 40004,
+    "canvas": [
+      144,
+      96
+    ],
+    "alpha_bbox": [
+      7,
+      5,
+      141,
+      94
+    ],
+    "lowest_opaque_row": 93,
+    "colours": 3654,
+    "sha256": "30d317730e90632995de1e18bca076ebe3e5ac1da109bad0bc9816e2eae4a879",
+    "bytes": 14763
+  },
+  {
+    "name": "death_wraith_dissipated",
+    "object_id": "56059dfa-96a2-4529-8606-14004efd373d",
+    "seed": 40005,
+    "canvas": [
+      144,
+      96
+    ],
+    "alpha_bbox": [
+      12,
+      2,
+      129,
+      95
+    ],
+    "lowest_opaque_row": 94,
+    "colours": 3346,
+    "sha256": "004227cc8029687a8844676e0c12a3bb939caa3a04ec7dd450c58a3281372e74",
+    "bytes": 11717
+  },
+  {
+    "name": "death_wraith_snuffed",
+    "object_id": "e8c7d38f-3a15-4386-b5cb-23ef8a835577",
+    "seed": 40006,
+    "canvas": [
+      144,
+      96
+    ],
+    "alpha_bbox": [
+      7,
+      6,
+      136,
+      89
+    ],
+    "lowest_opaque_row": 88,
+    "colours": 4128,
+    "sha256": "e82ccc4e6221ab94e3adadee1d74d6e48654bdf69300e097614762a677ffd983",
+    "bytes": 14489
+  },
+  {
+    "name": "death_wraith_shattered",
+    "object_id": "6da672cb-9ad2-427a-9473-60f124c686d2",
+    "seed": 40007,
+    "canvas": [
+      144,
+      96
+    ],
+    "alpha_bbox": [
+      3,
+      5,
+      139,
+      92
+    ],
+    "lowest_opaque_row": 91,
+    "colours": 3796,
+    "sha256": "74b2f5c29b0c29513becf319b2c1d994d1798b2326cf700e36d7c77bd4d26e92",
+    "bytes": 15498
+  },
+  {
+    "name": "death_wraith_unravelled",
+    "object_id": "89f40548-a7dc-48c6-aba9-520158027751",
+    "seed": 40008,
+    "canvas": [
+      144,
+      96
+    ],
+    "alpha_bbox": [
+      14,
+      5,
+      116,
+      91
+    ],
+    "lowest_opaque_row": 90,
+    "colours": 3200,
+    "sha256": "a2d80ffe307303008a38cf69abb4ed68cc429287545b5d357de6f4461411d35f",
+    "bytes": 12995
+  }
+]

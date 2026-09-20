@@ -1,0 +1,22 @@
+Merge fix/world-sprite-sorting-layer: define a WorldSprites sorting layer
+
+Vincent, 2026-09-17: "Create a new Sorting layer".
+
+Until now Default was the only sorting layer the project defined, and
+DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName pointed at it, so
+RoomSceneComposer.ValidateSortingConvention could never report an error. A Unity
+probe proved it: the editor silently refuses every attempt to move a renderer off
+Default when no other layer exists, including a direct sortingLayerID assignment.
+The guard was unreachable rather than merely untested, which is why NSC-069
+revision 8 stopped claiming it.
+
+Defining a second layer makes that validation reachable and its negative test
+writable. This commit only defines the layer; nothing is moved onto it.
+Repointing WorldSpriteSortingLayerName would shift every builder-authored
+renderer between layers and belongs to the task that owns it.
+
+One file, three lines. Verified: the merge changes only
+ProjectSettings/TagManager.asset despite the branch sitting on an older main.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+

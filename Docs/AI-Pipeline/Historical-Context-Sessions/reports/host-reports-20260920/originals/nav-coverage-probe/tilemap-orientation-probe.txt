@@ -1,0 +1,15 @@
+default orientation: XY
+  cell (0, 0, 0) -> world (0, 0, 0)
+  cell (3, 0, 0) -> world (3, 0, 0)
+  cell (0, 4, 0) -> world (0, 2, 0)
+  renderer bounds: center (2, 1.25, 0.5) size (4, 2.5, 1)
+
+after Orientation.Custom + orientationMatrix Euler(-30,45,0):
+  orientation now: Custom
+  cell (0, 0, 0) -> world (0, 0, 0)
+  cell (3, 0, 0) -> world (3, 0, 0)
+  cell (0, 4, 0) -> world (0, 2, 0)
+  renderer bounds: center (2, 1.25, 0.5) size (4, 2.5, 1)
+  GetTransformMatrix(0,0,0) rotation: (0, 0, 0)
+  orientationMatrix rotation: (330, 45, 0)
+  cells moved: False

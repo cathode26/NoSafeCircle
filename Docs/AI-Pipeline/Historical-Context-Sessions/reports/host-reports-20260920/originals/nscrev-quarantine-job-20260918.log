@@ -1,0 +1,3 @@
+The inline scan of all ~215 `C:\nscrev` entries is running in the background (task `bkll4ptt4`) — git branch/head/on-main status against canonical `main`, dirty state, stash count, last-commit date, and size for each. I've already cross-referenced the named guards from the brief plus board/journal/agent-state mentions for the ambiguous ones (`cj-decompose` vs `decomp-snapshot`, `art-rejects-078`, `codex-jobs-fix`, `cj-nsc095`, `room-layouts-20260915`, `ger-salvage-20260914`, etc.).
+
+I'll assemble the report and the `MOVE-NSCREV.ps1` script once the scan finishes — you'll see the next update when it lands.

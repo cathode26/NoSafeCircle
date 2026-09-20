@@ -1,0 +1,655 @@
+[Licensing::Module] Trying to connect to existing licensing client channel...
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-VincentLiguori" at "2026-09-17T02:35:16.7893422Z"
+[Licensing::Client] Code 10 while verifying Licensing Client signature (process Id: 28360, path: "C:/Program Files/Unity Hub/UnityLicensingClient_V1/Unity.Licensing.Client.exe")
+[Licensing::Module] LicensingClient has failed validation; ignoring
+[Licensing::Client] Handshaking with LicensingClient:
+  Version:                 1.18.3+d7ffd15
+  Session Id:              a887a9efb51848b5a4495ce4c37d6a72
+  Correlation Id:          c3a9b5f7dc93b1dab59b61320cead0dc
+  External correlation Id: 3714957412961604962
+  Machine Id:              HxO4LzPDSZi5N+Qj55f7MhdwfeY=
+[Licensing::Module] Successfully connected to LicensingClient on channel: "LicenseClient-VincentLiguori" (connect: 0.00s, validation: 0.01s, handshake: 0.03s)
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-VincentLiguori-notifications" at "2026-09-17T02:35:16.8354156Z"
+[Licensing::Module] Error: Access token is unavailable; failed to update
+[Licensing::Client] Successfully resolved entitlement details
+[Licensing::Module] Serial number assigned to: "37203-UnityPersXXXX"
+[Licensing::Client] Successfully updated license, isAync: True, time: 0.01
+Built from '6000.1/staging' branch; Version is '6000.1.8f1 (2a5b1522e5ab) revision 2775829'; Using compiler version '194234433'; Build Type 'Release'
+OS: 'Windows 11  (10.0.26200) 64bit Professional' Language: 'en' Physical Memory: 64969 MB
+[Licensing::Client] Successfully resolved entitlement details
+BatchMode: 1, IsHumanControllingUs: 0, StartBugReporterOnCrash: 0, Is64bit: 1, IsPro: 0
+Date: 2026-09-17T02:35:16Z
+
+COMMAND LINE ARGUMENTS:
+C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Unity.exe
+-batchmode
+-quit
+-projectPath
+C:/nscrev/branch-verify
+-executeMethod
+NoSafeCircle.DoorPrototype.Editor.DoorPrototypeSceneBuilder.Build
+-logFile
+C:/nscrev/reports/nsc075/builder-run1.log
+Successfully changed project path to: C:/nscrev/branch-verify
+C:/nscrev/branch-verify
+[UnityMemory] Configuration Parameters - Can be set up in boot.config
+    "memorysetup-allocator-temp-initial-block-size-main=262144"
+    "memorysetup-allocator-temp-initial-block-size-worker=262144"
+    "memorysetup-bucket-allocator-granularity=16"
+    "memorysetup-bucket-allocator-bucket-count=8"
+    "memorysetup-bucket-allocator-block-size=33554432"
+    "memorysetup-bucket-allocator-block-count=8"
+    "memorysetup-main-allocator-block-size=16777216"
+    "memorysetup-thread-allocator-block-size=16777216"
+    "memorysetup-gfx-main-allocator-block-size=16777216"
+    "memorysetup-gfx-thread-allocator-block-size=16777216"
+    "memorysetup-cache-allocator-block-size=4194304"
+    "memorysetup-typetree-allocator-block-size=2097152"
+    "memorysetup-profiler-bucket-allocator-granularity=16"
+    "memorysetup-profiler-bucket-allocator-bucket-count=8"
+    "memorysetup-profiler-bucket-allocator-block-size=33554432"
+    "memorysetup-profiler-bucket-allocator-block-count=8"
+    "memorysetup-profiler-allocator-block-size=16777216"
+    "memorysetup-profiler-editor-allocator-block-size=1048576"
+    "memorysetup-temp-allocator-size-main=16777216"
+    "memorysetup-job-temp-allocator-block-size=2097152"
+    "memorysetup-job-temp-allocator-block-size-background=1048576"
+    "memorysetup-job-temp-allocator-reduction-small-platforms=262144"
+    "memorysetup-temp-allocator-size-background-worker=32768"
+    "memorysetup-temp-allocator-size-job-worker=262144"
+    "memorysetup-temp-allocator-size-preload-manager=33554432"
+    "memorysetup-temp-allocator-size-nav-mesh-worker=65536"
+    "memorysetup-temp-allocator-size-audio-worker=65536"
+    "memorysetup-temp-allocator-size-cloud-worker=32768"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gfx=262144"
+Player connection [44512]  Target information:
+
+Player connection [44512]  * "[IP] 172.28.64.1 [Port] 55504 [Flags] 2 [Guid] 58546117 [EditorId] 58546117 [Version] 1048832 [Id] WindowsEditor(7,DESKTOP-6LMNLCK) [Debug] 1 [PackageName] WindowsEditor [ProjectName] Editor" 
+
+Player connection [44512]  * "[IP] 192.168.10.143 [Port] 55504 [Flags] 2 [Guid] 58546117 [EditorId] 58546117 [Version] 1048832 [Id] WindowsEditor(7,DESKTOP-6LMNLCK) [Debug] 1 [PackageName] WindowsEditor [ProjectName] Editor" 
+
+Player connection [44512] Host joined multi-casting on [225.0.0.222:54997]...
+Player connection [44512] Host joined alternative multi-casting on [225.0.0.222:34997]...
+Input System module state changed to: Initialized.
+[Physics::Module] Initialized fallback backend.
+[Physics::Module] Id: 0xdecafbad
+[Package Manager] Connected to IPC stream "Upm-31024" after 0.2 seconds.
+Library Redirect Path: Library/
+[Package Manager] Restoring resolved packages state from cache
+[Licensing::Client] Successfully resolved entitlement details
+[Package Manager] Registered 56 packages:
+  Packages from [https://packages.unity.com]:
+    com.unity.ai.navigation@2.0.14 (location: C:\nscrev\branch-verify\Library\PackageCache\com.unity.ai.navigation@134dd6a3b97b)
+    com.unity.collab-proxy@2.13.5 (location: C:\nscrev\branch-verify\Library\PackageCache\com.unity.collab-proxy@120d77864ebc)
+    com.unity.inputsystem@1.14.0 (location: C:\nscrev\branch-verify\Library\PackageCache\com.unity.inputsystem@7fe8299111a7)
+    com.unity.timeline@1.8.7 (location: C:\nscrev\branch-verify\Library\PackageCache\com.unity.timeline@c58b4ee65782)
+    com.unity.visualscripting@1.9.7 (location: C:\nscrev\branch-verify\Library\PackageCache\com.unity.visualscripting@6279e2b7c485)
+    com.unity.ide.visualstudio@2.0.23 (location: C:\nscrev\branch-verify\Library\PackageCache\com.unity.ide.visualstudio@198cdf337d13)
+    com.unity.ide.rider@3.0.36 (location: C:\nscrev\branch-verify\Library\PackageCache\com.unity.ide.rider@4d374c7eb6db)
+    com.unity.editorcoroutines@1.0.0 (location: C:\nscrev\branch-verify\Library\PackageCache\com.unity.editorcoroutines@7d48783e7b8c)
+    com.unity.performance.profile-analyzer@1.2.3 (location: C:\nscrev\branch-verify\Library\PackageCache\com.unity.performance.profile-analyzer@a68e7bc84997)
+    com.unity.testtools.codecoverage@1.2.6 (location: C:\nscrev\branch-verify\Library\PackageCache\com.unity.testtools.codecoverage@205a02cbcb39)
+    com.unity.collections@2.6.8 (location: C:\nscrev\branch-verify\Library\PackageCache\com.unity.collections@84e8eb3fc12e)
+    com.unity.settings-manager@2.1.0 (location: C:\nscrev\branch-verify\Library\PackageCache\com.unity.settings-manager@41738c275190)
+    com.unity.burst@1.8.29 (location: C:\nscrev\branch-verify\Library\PackageCache\com.unity.burst@6bb9aca3ef38)
+    com.unity.mathematics@1.3.2 (location: C:\nscrev\branch-verify\Library\PackageCache\com.unity.mathematics@8017b507cc74)
+    com.unity.nuget.mono-cecil@1.11.6 (location: C:\nscrev\branch-verify\Library\PackageCache\com.unity.nuget.mono-cecil@ecb9724e46ff)
+    com.unity.test-framework.performance@3.1.0 (location: C:\nscrev\branch-verify\Library\PackageCache\com.unity.test-framework.performance@92d1d09a72ed)
+  Built-in packages:
+    com.unity.2d.tilemap@1.0.0 (location: C:\nscrev\branch-verify\Library\PackageCache\com.unity.2d.tilemap@855769f9baae)
+    com.unity.feature.development@1.0.2 (location: C:\nscrev\branch-verify\Library\PackageCache\com.unity.feature.development@767aadbc6eb7)
+    com.unity.multiplayer.center@1.0.0 (location: C:\nscrev\branch-verify\Library\PackageCache\com.unity.multiplayer.center@f3fb577b3546)
+    com.unity.ugui@2.0.0 (location: C:\nscrev\branch-verify\Library\PackageCache\com.unity.ugui@57cef44123c7)
+    com.unity.modules.accessibility@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.accessibility)
+    com.unity.modules.ai@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.ai)
+    com.unity.modules.androidjni@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.androidjni)
+    com.unity.modules.animation@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.animation)
+    com.unity.modules.assetbundle@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.assetbundle)
+    com.unity.modules.audio@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.audio)
+    com.unity.modules.cloth@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.cloth)
+    com.unity.modules.director@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.director)
+    com.unity.modules.imageconversion@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.imageconversion)
+    com.unity.modules.imgui@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.imgui)
+    com.unity.modules.jsonserialize@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.jsonserialize)
+    com.unity.modules.particlesystem@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.particlesystem)
+    com.unity.modules.physics@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.physics)
+    com.unity.modules.physics2d@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.physics2d)
+    com.unity.modules.screencapture@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.screencapture)
+    com.unity.modules.terrain@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.terrain)
+    com.unity.modules.terrainphysics@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.terrainphysics)
+    com.unity.modules.tilemap@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.tilemap)
+    com.unity.modules.ui@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.ui)
+    com.unity.modules.uielements@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.uielements)
+    com.unity.modules.umbra@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.umbra)
+    com.unity.modules.unityanalytics@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.unityanalytics)
+    com.unity.modules.unitywebrequest@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.unitywebrequest)
+    com.unity.modules.unitywebrequestassetbundle@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.unitywebrequestassetbundle)
+    com.unity.modules.unitywebrequestaudio@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.unitywebrequestaudio)
+    com.unity.modules.unitywebrequesttexture@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.unitywebrequesttexture)
+    com.unity.modules.unitywebrequestwww@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.unitywebrequestwww)
+    com.unity.modules.vehicles@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.vehicles)
+    com.unity.modules.video@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.video)
+    com.unity.modules.vr@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.vr)
+    com.unity.modules.wind@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.wind)
+    com.unity.modules.xr@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.xr)
+    com.unity.modules.subsystems@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.subsystems)
+    com.unity.modules.hierarchycore@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.hierarchycore)
+    com.unity.test-framework@1.5.1 (location: C:\nscrev\branch-verify\Library\PackageCache\com.unity.test-framework@7056e7f856e9)
+    com.unity.ext.nunit@2.0.5 (location: C:\nscrev\branch-verify\Library\PackageCache\com.unity.ext.nunit@031a54704bff)
+[Physics::Module] Selected backend.
+[Physics::Module] Name: PhysX
+[Physics::Module] Id: 0xf2b8ea05
+[Physics::Module] SDK Version: 4.1.2
+[Physics::Module] Integration Version: 1.0.0
+[Physics::Module] Threading Mode: Multi-Threaded
+[Subsystems] No new subsystems found in resolved package list.
+Package Manager log level set to [2]
+[Package Manager] Done registering packages in 0.46 seconds
+Artifact Garbage Collection - Removed 1 unused hashed content files
+Refreshing native plugins compatible for Editor in 3.33 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Initialize engine version: 6000.1.8f1 (2a5b1522e5ab)
+[Subsystems] Discovering subsystems at path C:/Program Files/Unity/Hub/Editor/6000.1.8f1/Editor/Data/Resources/UnitySubsystems
+[Subsystems] Discovering subsystems at path C:/nscrev/branch-verify/Assets
+GfxDevice: creating device client; kGfxThreadingModeNonThreaded
+Direct3D:
+    Version:         Direct3D 12 [level 12.1]
+    Renderer:        NVIDIA GeForce RTX 4070 Laptop GPU (ID=0x2820)
+    Vendor:          NVIDIA
+    VRAM:            7948 MB
+    App VRAM Budget: 7180 MB
+    Driver:          32.0.15.9658
+[Licensing::Client] Successfully resolved entitlement details
+Initialize mono
+Mono path[0] = 'C:/Program Files/Unity/Hub/Editor/6000.1.8f1/Editor/Data/Managed'
+Mono path[1] = 'C:/Program Files/Unity/Hub/Editor/6000.1.8f1/Editor/Data/MonoBleedingEdge/lib/mono/unityjit-win32'
+Mono config path = 'C:/Program Files/Unity/Hub/Editor/6000.1.8f1/Editor/Data/MonoBleedingEdge/etc'
+Using monoOptions --debugger-agent=transport=dt_socket,embedding=1,server=y,suspend=n,address=127.0.0.1:56024
+Using cacheserver namespaces - metadata:defaultmetadata, artifacts:defaultartifacts
+Using cacheserver namespaces - metadata:defaultmetadata, artifacts:defaultartifacts
+ImportWorker Server TCP listen port: 0
+AcceleratorClientConnectionCallback - disconnected - :0
+Begin MonoManager ReloadAssembly
+Registering precompiled unity dll's ...
+Register platform support module: C:/Program Files/Unity/Hub/Editor/6000.1.8f1/Editor/Data/PlaybackEngines/WebGLSupport/UnityEditor.WebGL.Extensions.dll
+Register platform support module: C:/Program Files/Unity/Hub/Editor/6000.1.8f1/Editor/Data/PlaybackEngines/WindowsStandaloneSupport/UnityEditor.WindowsStandalone.Extensions.dll
+Registered in 0.002739 seconds.
+- Loaded All Assemblies, in  0.308 seconds
+Native extension for WindowsStandalone target not found
+Native extension for WebGL target not found
+Mono: successfully reloaded assembly
+- Finished resetting the current domain, in  0.281 seconds
+Domain Reload Profiling: 587ms
+	BeginReloadAssembly (110ms)
+		ExecutionOrderSort (0ms)
+		DisableScriptedObjects (0ms)
+		BackupInstance (0ms)
+		ReleaseScriptingObjects (0ms)
+		CreateAndSetChildDomain (1ms)
+	RebuildCommonClasses (27ms)
+	RebuildNativeTypeToScriptingClass (8ms)
+	initialDomainReloadingComplete (42ms)
+	LoadAllAssembliesAndSetupDomain (118ms)
+		LoadAssemblies (108ms)
+		RebuildTransferFunctionScriptingTraits (0ms)
+		AnalyzeDomain (115ms)
+			TypeCache.Refresh (114ms)
+				TypeCache.ScanAssembly (104ms)
+			BuildScriptInfoCaches (0ms)
+			ResolveRequiredComponents (1ms)
+	FinalizeReload (281ms)
+		ReleaseScriptCaches (0ms)
+		RebuildScriptCaches (0ms)
+		SetupLoadedEditorAssemblies (252ms)
+			LogAssemblyErrors (0ms)
+			InitializePlatformSupportModulesInManaged (47ms)
+			SetLoadedEditorAssemblies (4ms)
+			BeforeProcessingInitializeOnLoad (48ms)
+			ProcessInitializeOnLoadAttributes (104ms)
+			ProcessInitializeOnLoadMethodAttributes (48ms)
+			AfterProcessingInitializeOnLoad (0ms)
+			EditorAssembliesLoaded (0ms)
+		ExecutionOrderSort2 (0ms)
+		AwakeInstancesAfterBackupRestoration (0ms)
+[Licensing::Client] Successfully resolved entitlement details
+Application.AssetDatabase Initial Refresh Start
+[ScriptCompilation] Requested script compilation because: Assetdatabase observed changes in script compilation related files
+info: Microsoft.Hosting.Lifetime[14]
+      Now listening on: http://localhost:80
+info: Microsoft.Hosting.Lifetime[0]
+      Application started. Press Ctrl+C to shut down.
+info: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Production
+info: Microsoft.Hosting.Lifetime[0]
+      Content root path: C:\nscrev\branch-verify\
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/Ping application/grpc -
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'gRPC - /UnityILPP.PostProcessing/Ping'
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'gRPC - /UnityILPP.PostProcessing/Ping'
+info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/Ping application/grpc - - 200 - application/grpc 31.4470ms
+Starting: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\bee_backend.exe --ipc --defer-dag-verification --dagfile="Library/Bee/1900b0aEDbg.dag" --continue-on-failure --profile="Library/Bee/backend1.traceevents" ScriptAssemblies
+WorkingDir: C:/nscrev/branch-verify
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/ConfigurePostProcessors application/grpc -
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'gRPC - /UnityILPP.PostProcessing/ConfigurePostProcessors'
+warn: Unity.ILPP.Runner.PostProcessingAssemblyLoadContext[0]
+      Assembly system.runtime.interopservices.windowsruntime has duplicate hint path. Ignoring "C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\UnityReferenceAssemblies\unity-4.8-api\Facades\System.Runtime.InteropServices.WindowsRuntime.dll" in favor of "C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\NetStandard\Extensions\2.0.0\System.Runtime.InteropServices.WindowsRuntime.dll"
+warn: Unity.ILPP.Runner.PostProcessingAssemblyLoadContext[0]
+      Assembly system.componentmodel.composition has duplicate hint path. Ignoring "C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\UnityReferenceAssemblies\unity-4.8-api\System.ComponentModel.Composition.dll" in favor of "C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\NetStandard\compat\2.1.0\shims\netfx\System.ComponentModel.Composition.dll"
+DisplayProgressbar: Compiling Scripts
+info: Unity.ILPP.Runner.PostProcessingAssemblyLoadContext[0]
+      Resolved Unity.Burst.Cecil, Version=0.11.6.0, Culture=neutral, PublicKeyToken=50cebf1cceb9d05e with Library\PackageCache\com.unity.burst@6bb9aca3ef38\Unity.Burst.CodeGen\Unity.Burst.Cecil.dll
+info: Unity.ILPP.Runner.PostProcessingAssemblyLoadContext[0]
+      Resolved Mono.Cecil, Version=0.11.5.0, Culture=neutral, PublicKeyToken=50cebf1cceb9d05e with Library\PackageCache\com.unity.nuget.mono-cecil@ecb9724e46ff\Mono.Cecil.dll
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'gRPC - /UnityILPP.PostProcessing/ConfigurePostProcessors'
+info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/ConfigurePostProcessors application/grpc - - 200 - application/grpc 45.0469ms
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/PostProcessAssembly application/grpc -
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'gRPC - /UnityILPP.PostProcessing/PostProcessAssembly'
+info: Unity.ILPP.Runner.PostProcessingPipeline[0]
+      Processing assembly Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.dll, with 130 defines and 263 references
+info: Unity.ILPP.Runner.PostProcessingPipeline[0]
+      processors: Unity.Jobs.CodeGen.JobsILPostProcessor, zzzUnity.Burst.CodeGen.BurstILPostProcessor
+info: Unity.ILPP.Runner.PostProcessingPipeline[0]
+      running Unity.Jobs.CodeGen.JobsILPostProcessor
+info: Unity.ILPP.Runner.PostProcessingPipeline[0]
+      running zzzUnity.Burst.CodeGen.BurstILPostProcessor
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'gRPC - /UnityILPP.PostProcessing/PostProcessAssembly'
+info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/PostProcessAssembly application/grpc - - 200 - application/grpc 11.6996ms
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/PostProcessAssembly application/grpc -
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/PostProcessAssembly application/grpc -
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'gRPC - /UnityILPP.PostProcessing/PostProcessAssembly'
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'gRPC - /UnityILPP.PostProcessing/PostProcessAssembly'
+info: Unity.ILPP.Runner.PostProcessingPipeline[0]
+      Processing assembly Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.Editor.dll, with 128 defines and 270 references
+info: Unity.ILPP.Runner.PostProcessingPipeline[0]
+      Processing assembly Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.Tests.dll, with 130 defines and 247 references
+info: Unity.ILPP.Runner.PostProcessingPipeline[0]
+      processors: Unity.Jobs.CodeGen.JobsILPostProcessor, zzzUnity.Burst.CodeGen.BurstILPostProcessor
+info: Unity.ILPP.Runner.PostProcessingPipeline[0]
+      processors: Unity.Jobs.CodeGen.JobsILPostProcessor, zzzUnity.Burst.CodeGen.BurstILPostProcessor
+info: Unity.ILPP.Runner.PostProcessingPipeline[0]
+      running Unity.Jobs.CodeGen.JobsILPostProcessor
+info: Unity.ILPP.Runner.PostProcessingPipeline[0]
+      running zzzUnity.Burst.CodeGen.BurstILPostProcessor
+info: Unity.ILPP.Runner.PostProcessingPipeline[0]
+      running Unity.Jobs.CodeGen.JobsILPostProcessor
+info: Unity.ILPP.Runner.PostProcessingPipeline[0]
+      running zzzUnity.Burst.CodeGen.BurstILPostProcessor
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'gRPC - /UnityILPP.PostProcessing/PostProcessAssembly'
+info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/PostProcessAssembly application/grpc - - 200 - application/grpc 2.0526ms
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'gRPC - /UnityILPP.PostProcessing/PostProcessAssembly'
+info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/PostProcessAssembly application/grpc - - 200 - application/grpc 2.2920ms
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/PostProcessAssembly application/grpc -
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'gRPC - /UnityILPP.PostProcessing/PostProcessAssembly'
+info: Unity.ILPP.Runner.PostProcessingPipeline[0]
+      Processing assembly Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.Tests.Editor.dll, with 128 defines and 257 references
+info: Unity.ILPP.Runner.PostProcessingPipeline[0]
+      processors: Unity.Jobs.CodeGen.JobsILPostProcessor, zzzUnity.Burst.CodeGen.BurstILPostProcessor
+info: Unity.ILPP.Runner.PostProcessingPipeline[0]
+      running Unity.Jobs.CodeGen.JobsILPostProcessor
+info: Unity.ILPP.Runner.PostProcessingPipeline[0]
+      running zzzUnity.Burst.CodeGen.BurstILPostProcessor
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'gRPC - /UnityILPP.PostProcessing/PostProcessAssembly'
+info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/PostProcessAssembly application/grpc - - 200 - application/grpc 2.0251ms
+info: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/PostProcessAssembly application/grpc -
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'gRPC - /UnityILPP.PostProcessing/PostProcessAssembly'
+info: Unity.ILPP.Runner.PostProcessingPipeline[0]
+      Processing assembly Library/Bee/artifacts/1900b0aEDbg.dag/Assembly-CSharp-firstpass.dll, with 130 defines and 288 references
+info: Unity.ILPP.Runner.PostProcessingPipeline[0]
+      processors: Unity.Jobs.CodeGen.JobsILPostProcessor, zzzUnity.Burst.CodeGen.BurstILPostProcessor
+info: Unity.ILPP.Runner.PostProcessingPipeline[0]
+      running Unity.Jobs.CodeGen.JobsILPostProcessor
+info: Unity.ILPP.Runner.PostProcessingAssemblyLoadContext[0]
+      Resolved Unity.Collections, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null with Library\Bee\artifacts\1900b0aEDbg.dag\Unity.Collections.dll
+info: Unity.ILPP.Runner.PostProcessingAssemblyLoadContext[0]
+      Resolved UnityEditor.CoreModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null with C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Managed\UnityEngine\UnityEditor.CoreModule.dll
+info: Unity.ILPP.Runner.PostProcessingAssemblyLoadContext[0]
+      Resolved UnityEngine.CoreModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null with C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Managed\UnityEngine\UnityEngine.CoreModule.dll
+info: Unity.ILPP.Runner.PostProcessingPipeline[0]
+      running zzzUnity.Burst.CodeGen.BurstILPostProcessor
+info: Unity.ILPP.Runner.PostProcessingAssemblyLoadContext[0]
+      Resolved Unity.Burst.Cecil.Rocks, Version=0.11.6.0, Culture=neutral, PublicKeyToken=50cebf1cceb9d05e with Library\PackageCache\com.unity.burst@6bb9aca3ef38\Unity.Burst.CodeGen\Unity.Burst.Cecil.Rocks.dll
+info: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'gRPC - /UnityILPP.PostProcessing/PostProcessAssembly'
+info: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/PostProcessAssembly application/grpc - - 200 - application/grpc 308.8757ms
+ExitCode: 0 Duration: 2s566ms
+[572/728    0s] ILPP-Configuration Library/ilpp-configuration.nevergeneratedoutput
+[708/728    1s] Csc Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.dll (+2 others)
+[709/728    0s] ILPostProcess Library/Bee/artifacts/1900b0aEDbg.dag/post-processed/NoSafeCircle.DoorPrototype.dll (+pdb)
+Processing assembly Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.dll, with 130 defines and 263 references
+
+processors: Unity.Jobs.CodeGen.JobsILPostProcessor, zzzUnity.Burst.CodeGen.BurstILPostProcessor
+
+running Unity.Jobs.CodeGen.JobsILPostProcessor
+
+running zzzUnity.Burst.CodeGen.BurstILPostProcessor
+[710/728    0s] CopyFiles Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.dll
+[711/728    0s] CopyFiles Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.pdb
+[712/728    0s] Csc Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.Editor.dll (+2 others)
+Assets\NoSafeCircle\DoorPrototype\Editor\DoorPrototypeSceneBuilder.cs(11,7): warning CS0105: The using directive for 'NoSafeCircle.DoorPrototype.World' appeared previously in this namespace
+
+Assets\NoSafeCircle\DoorPrototype\Editor\Rooms\ChapelOfAshSceneBuilder.cs(58,19): warning CS0219: The variable 'roomWidth' is assigned but its value is never used
+[713/728    0s] Csc Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.Tests.dll (+2 others)
+[714/728    0s] ILPostProcess Library/Bee/artifacts/1900b0aEDbg.dag/post-processed/NoSafeCircle.DoorPrototype.Tests.dll (+pdb)
+Processing assembly Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.Tests.dll, with 130 defines and 247 references
+
+processors: Unity.Jobs.CodeGen.JobsILPostProcessor, zzzUnity.Burst.CodeGen.BurstILPostProcessor
+
+running Unity.Jobs.CodeGen.JobsILPostProcessor
+
+running zzzUnity.Burst.CodeGen.BurstILPostProcessor
+[715/728    0s] ILPostProcess Library/Bee/artifacts/1900b0aEDbg.dag/post-processed/NoSafeCircle.DoorPrototype.Editor.dll (+pdb)
+Processing assembly Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.Editor.dll, with 128 defines and 270 references
+
+processors: Unity.Jobs.CodeGen.JobsILPostProcessor, zzzUnity.Burst.CodeGen.BurstILPostProcessor
+
+running Unity.Jobs.CodeGen.JobsILPostProcessor
+
+running zzzUnity.Burst.CodeGen.BurstILPostProcessor
+[716/728    0s] CopyFiles Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Editor.dll
+[717/728    0s] CopyFiles Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Editor.pdb
+[718/728    0s] CopyFiles Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Tests.pdb
+[719/728    0s] CopyFiles Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Tests.dll
+[720/728    0s] Csc Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.Tests.Editor.dll (+2 others)
+[721/728    0s] ILPostProcess Library/Bee/artifacts/1900b0aEDbg.dag/post-processed/NoSafeCircle.DoorPrototype.Tests.Editor.dll (+pdb)
+Processing assembly Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.Tests.Editor.dll, with 128 defines and 257 references
+
+processors: Unity.Jobs.CodeGen.JobsILPostProcessor, zzzUnity.Burst.CodeGen.BurstILPostProcessor
+
+running Unity.Jobs.CodeGen.JobsILPostProcessor
+
+running zzzUnity.Burst.CodeGen.BurstILPostProcessor
+[722/728    0s] CopyFiles Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Tests.Editor.pdb
+[723/728    0s] CopyFiles Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Tests.Editor.dll
+[724/728    0s] Csc Library/Bee/artifacts/1900b0aEDbg.dag/Assembly-CSharp-firstpass.dll (+2 others)
+[725/728    0s] ILPostProcess Library/Bee/artifacts/1900b0aEDbg.dag/post-processed/Assembly-CSharp-firstpass.dll (+pdb)
+Processing assembly Library/Bee/artifacts/1900b0aEDbg.dag/Assembly-CSharp-firstpass.dll, with 130 defines and 288 references
+
+processors: Unity.Jobs.CodeGen.JobsILPostProcessor, zzzUnity.Burst.CodeGen.BurstILPostProcessor
+
+running Unity.Jobs.CodeGen.JobsILPostProcessor
+
+running zzzUnity.Burst.CodeGen.BurstILPostProcessor
+[726/728    0s] CopyFiles Library/ScriptAssemblies/Assembly-CSharp-firstpass.dll
+[727/728    0s] CopyFiles Library/ScriptAssemblies/Assembly-CSharp-firstpass.pdb
+*** Tundra build success (2.54 seconds), 21 items updated, 728 evaluated
+Assets\NoSafeCircle\DoorPrototype\Editor\DoorPrototypeSceneBuilder.cs(11,7): warning CS0105: The using directive for 'NoSafeCircle.DoorPrototype.World' appeared previously in this namespace
+Assets\NoSafeCircle\DoorPrototype\Editor\Rooms\ChapelOfAshSceneBuilder.cs(58,19): warning CS0219: The variable 'roomWidth' is assigned but its value is never used
+AssetDatabase: script compilation time: 3.013504s
+Begin MonoManager ReloadAssembly
+- Loaded All Assemblies, in  0.795 seconds
+Refreshing native plugins compatible for Editor in 1.88 ms, found 4 plugins.
+Native extension for WindowsStandalone target not found
+Native extension for WebGL target not found
+Refreshing native plugins compatible for Editor in 1.82 ms, found 4 plugins.
+Mono: successfully reloaded assembly
+- Finished resetting the current domain, in  3.863 seconds
+Domain Reload Profiling: 4654ms
+	BeginReloadAssembly (255ms)
+		ExecutionOrderSort (0ms)
+		DisableScriptedObjects (10ms)
+		BackupInstance (0ms)
+		ReleaseScriptingObjects (0ms)
+		CreateAndSetChildDomain (129ms)
+	RebuildCommonClasses (24ms)
+	RebuildNativeTypeToScriptingClass (8ms)
+	initialDomainReloadingComplete (26ms)
+	LoadAllAssembliesAndSetupDomain (477ms)
+		LoadAssemblies (379ms)
+		RebuildTransferFunctionScriptingTraits (0ms)
+		AnalyzeDomain (181ms)
+			TypeCache.Refresh (143ms)
+				TypeCache.ScanAssembly (134ms)
+			BuildScriptInfoCaches (30ms)
+			ResolveRequiredComponents (4ms)
+	FinalizeReload (3863ms)
+		ReleaseScriptCaches (0ms)
+		RebuildScriptCaches (0ms)
+		SetupLoadedEditorAssemblies (3698ms)
+			LogAssemblyErrors (0ms)
+			InitializePlatformSupportModulesInManaged (23ms)
+			SetLoadedEditorAssemblies (4ms)
+			BeforeProcessingInitializeOnLoad (157ms)
+			ProcessInitializeOnLoadAttributes (3464ms)
+			ProcessInitializeOnLoadMethodAttributes (44ms)
+			AfterProcessingInitializeOnLoad (5ms)
+			EditorAssembliesLoaded (0ms)
+		ExecutionOrderSort2 (0ms)
+		AwakeInstancesAfterBackupRestoration (10ms)
+Refreshing native plugins compatible for Editor in 1.82 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=445552faa3e571d4eabe80f37db03d73): Total: 8.414 seconds - Initiated by InitialRefreshV2(ForceSynchronousImport)
+	Summary:
+		Imports: total=0 (actual=0, local cache=0, cache server=0)
+		Asset DB Process Time: managed=0 ms, native=4365 ms
+		Asset DB Callback time: managed=151 ms, native=10 ms
+		Scripting: domain reloads=1, domain reload time=795 ms, compile time=3015 ms, other=75 ms
+		Project Asset Count: scripts=1002, non-scripts=1595
+		Asset File Changes: new=0, changed=4, moved=0, deleted=0
+		Scan Filter Count: 0
+	InvokeCustomDependenciesCallbacks: 0.001ms
+	InvokePackagesCallback: 1.530ms
+	ApplyChangesToAssetFolders: 0.484ms
+	Scan: 262.754ms
+	OnSourceAssetsModified: 0.852ms
+	CategorizeAssetsWithTransientArtifact: 35.802ms
+	ProcessAssetsWithTransientArtifactChanges: 44.073ms
+	CategorizeAssets: 16.603ms
+	ImportOutOfDateAssets: 3872.320ms (856.496ms without children)
+		CompileScripts: 3015.044ms
+		ReloadNativeAssets: 0.001ms
+		UnloadImportedAssets: 0.162ms
+		EnsureUptoDateAssetsAreRegisteredWithGuidPM: 0.324ms
+		InitializingProgressBar: 0.000ms
+		PostProcessAllAssetNotificationsAddChangedAssets: 0.001ms
+		OnDemandSchedulerStart: 0.293ms
+	PostProcessAllAssets: 153.148ms
+	Hotreload: 7.884ms
+	GatherAllCurrentPrimaryArtifactRevisions: 0.001ms
+	UnloadStreamsBegin: 0.191ms
+	PersistCurrentRevisions: 0.059ms
+	UnloadStreamsEnd: 0.001ms
+	GenerateScriptTypeHashes: 1.179ms
+	Untracked: 4018.096ms
+
+Application.AssetDatabase Initial Refresh End
+Launched and connected shader compiler UnityShaderCompiler.exe after 0.01 seconds
+Scanning for USB devices : 2.349ms
+Initializing Unity extensions:
+[Licensing::Client] Successfully resolved entitlement details
+[MODES] ModeService[none].Initialize
+[MODES] ModeService[none].LoadModes
+[MODES] Loading mode Default (0) for mode-current-id-NoSafeCircle
+Unloading 3 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 5035 unused Assets / (2.5 MB). Loaded Objects now: 5533.
+Memory consumption went from 139.5 MB to 137.0 MB.
+Total: 8.324500 ms (FindLiveObjects: 0.337600 ms CreateObjectMapping: 0.191100 ms MarkObjects: 4.859100 ms  DeleteObjects: 2.935800 ms)
+
+Opening scene 'Assets/Scenes/DoorPrototype.unity'
+Unloading 8 Unused Serialized files (Serialized files now loaded: 0)
+Loaded scene 'Assets/Scenes/DoorPrototype.unity'
+	Deserialize:            22.357 ms
+	Integration:            204.838 ms
+	Integration of assets:  1.168 ms
+	Thread Wait Time:       4.875 ms
+	Total Operation Time:   233.238 ms
+Unloading 2 unused Assets / (Unknown). Loaded Objects now: 6905.
+Memory consumption went from 138.1 MB to 140.0 MB.
+Total: 5.940100 ms (FindLiveObjects: 0.363000 ms CreateObjectMapping: 0.142200 ms MarkObjects: 5.398600 ms  DeleteObjects: 0.035200 ms)
+
+Start importing Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/FloorTile.asset using Guid(ef41a67a8bf6c9448b0f1e0732b60b4b) (NativeFormatImporter) -> (artifact id: '8b334d15e1336fd9e322154e8a630edd') in 0.0072702 seconds
+Refreshing native plugins compatible for Editor in 1.92 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=c087959e2876910428c3ce131c689a20): Total: 0.039 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/WallTile.asset using Guid(4a2a3879e8507b543b68d9eef20db2a9) (NativeFormatImporter) -> (artifact id: '9889d248879caee1dcc9f51a81f4e5c8') in 0.0047421 seconds
+Refreshing native plugins compatible for Editor in 2.59 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=0810da8b3c93c7749bdba7af1b3fd26b): Total: 0.023 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/ArchitecturalBorderTile.asset using Guid(b6f0160d5f52f704b860d04529cf5d13) (NativeFormatImporter) -> (artifact id: '8f16ab88feb1039035acb4c2e6897446') in 0.005525 seconds
+Refreshing native plugins compatible for Editor in 3.24 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=5cba5b594a46be64fa4418f70fa3b3d3): Total: 0.029 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Opening scene 'Assets/Scenes/Rooms/RuinedEntry.unity additively'
+Loaded scene 'Assets/Scenes/Rooms/RuinedEntry.unity'
+	Deserialize:            12.067 ms
+	Integration:            5.439 ms
+	Integration of assets:  0.005 ms
+	Thread Wait Time:       2.501 ms
+	Total Operation Time:   20.011 ms
+Opening scene 'Assets/Scenes/Rooms/BoneArchive.unity additively'
+Loaded scene 'Assets/Scenes/Rooms/BoneArchive.unity'
+	Deserialize:            3.999 ms
+	Integration:            0.609 ms
+	Integration of assets:  0.025 ms
+	Thread Wait Time:       0.028 ms
+	Total Operation Time:   4.661 ms
+Opening scene 'Assets/Scenes/Rooms/ChapelOfAsh.unity additively'
+Loaded scene 'Assets/Scenes/Rooms/ChapelOfAsh.unity'
+	Deserialize:            3.205 ms
+	Integration:            0.422 ms
+	Integration of assets:  0.023 ms
+	Thread Wait Time:       0.018 ms
+	Total Operation Time:   3.668 ms
+Opening scene 'Assets/Scenes/Rooms/LowerVault.unity additively'
+Loaded scene 'Assets/Scenes/Rooms/LowerVault.unity'
+	Deserialize:            5.424 ms
+	Integration:            0.470 ms
+	Integration of assets:  0.037 ms
+	Thread Wait Time:       0.025 ms
+	Total Operation Time:   5.955 ms
+Opening scene 'Assets/Scenes/Rooms/FinalRoom.unity additively'
+Loaded scene 'Assets/Scenes/Rooms/FinalRoom.unity'
+	Deserialize:            5.361 ms
+	Integration:            0.753 ms
+	Integration of assets:  0.039 ms
+	Thread Wait Time:       0.022 ms
+	Total Operation Time:   6.174 ms
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/standing/north.png using Guid(91c375ee4e2b5704283a23738abe263d) (TextureImporter) -> (artifact id: '96448a2c792be8924e457b98214b93b2') in 0.0099456 seconds
+Refreshing native plugins compatible for Editor in 2.99 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=bf69d70db84d27a4dbe3b24db953b85f): Total: 0.039 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/standing/north.png using Guid(91c375ee4e2b5704283a23738abe263d) (TextureImporter) -> (artifact id: '96448a2c792be8924e457b98214b93b2') in 0.0059128 seconds
+Refreshing native plugins compatible for Editor in 2.85 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=6da8fa0c9452c8f49be232a0c02392c1): Total: 0.026 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/standing/north-east.png using Guid(5e344f0605b848f42982320da2ee30b0) (TextureImporter) -> (artifact id: 'ec982e4bc7fed084f720d63c08bf00ff') in 0.0059035 seconds
+Refreshing native plugins compatible for Editor in 3.42 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=4f8596de837ad1a4fbbc4ab4733fbb74): Total: 0.026 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/standing/north-east.png using Guid(5e344f0605b848f42982320da2ee30b0) (TextureImporter) -> (artifact id: 'ec982e4bc7fed084f720d63c08bf00ff') in 0.0044306 seconds
+Refreshing native plugins compatible for Editor in 2.92 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=f793cd372faa41f4e90428436bd6aea1): Total: 0.023 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/standing/east.png using Guid(855cc5850577ad643b9c96440c146d49) (TextureImporter) -> (artifact id: '7f0e84f20008e25dc5b67bc5f3c416a1') in 0.0045423 seconds
+Refreshing native plugins compatible for Editor in 2.13 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=56893242fd947484eb44a068fba26dbf): Total: 0.021 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/standing/east.png using Guid(855cc5850577ad643b9c96440c146d49) (TextureImporter) -> (artifact id: '7f0e84f20008e25dc5b67bc5f3c416a1') in 0.0043492 seconds
+Refreshing native plugins compatible for Editor in 5.72 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=362fb3edd8637d042a8e1419f0e3c286): Total: 0.025 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/standing/south-east.png using Guid(ba32e804c3c549e43aa53b4a61cad7be) (TextureImporter) -> (artifact id: 'ea93765076be854a0d811904ff9cb21e') in 0.0061982 seconds
+Refreshing native plugins compatible for Editor in 2.31 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=63ba3c479ed216447b554a00fce72238): Total: 0.029 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/standing/south-east.png using Guid(ba32e804c3c549e43aa53b4a61cad7be) (TextureImporter) -> (artifact id: 'ea93765076be854a0d811904ff9cb21e') in 0.0062668 seconds
+Refreshing native plugins compatible for Editor in 2.26 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=c3a54c08d459a794b949f15c589dd1ab): Total: 0.028 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/standing/south.png using Guid(afd38f6e75ecac9469a8b9b3c8c5d9cf) (TextureImporter) -> (artifact id: 'f7eb6b563561967fe09ab157fb12abe3') in 0.004949 seconds
+Refreshing native plugins compatible for Editor in 1.96 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=092f6449e9bee114caab725697cb513d): Total: 0.024 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/standing/south.png using Guid(afd38f6e75ecac9469a8b9b3c8c5d9cf) (TextureImporter) -> (artifact id: 'f7eb6b563561967fe09ab157fb12abe3') in 0.0038841 seconds
+Refreshing native plugins compatible for Editor in 2.19 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=6f8ad8641bd29e541bd0a5fe055aa85e): Total: 0.020 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/standing/south-west.png using Guid(f1200e2de20b94f4e82a8b06bf3373e4) (TextureImporter) -> (artifact id: 'f06271d46522c0dc62f99fe3e8e175c7') in 0.0049523 seconds
+Refreshing native plugins compatible for Editor in 2.18 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=10856f97287c24248874608d370d4ce3): Total: 0.021 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/standing/south-west.png using Guid(f1200e2de20b94f4e82a8b06bf3373e4) (TextureImporter) -> (artifact id: 'f06271d46522c0dc62f99fe3e8e175c7') in 0.0039803 seconds
+Refreshing native plugins compatible for Editor in 2.28 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=83d7fce1457ed86458cef8842c3edab7): Total: 0.023 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/standing/west.png using Guid(fcab85bd8cb12954790ec61cad798011) (TextureImporter) -> (artifact id: '619a549616710f6f8c18f4ec9fe9cae1') in 0.0044867 seconds
+Refreshing native plugins compatible for Editor in 1.89 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=3a9cc9bfc41d84342a11b455bc1046e8): Total: 0.020 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/standing/west.png using Guid(fcab85bd8cb12954790ec61cad798011) (TextureImporter) -> (artifact id: '619a549616710f6f8c18f4ec9fe9cae1') in 0.0051474 seconds
+Refreshing native plugins compatible for Editor in 2.55 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=057dbeca9fd2d8d4994d55376e80a216): Total: 0.022 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/standing/north-west.png using Guid(90987ee35d8dc3942b6c07b1e7be561d) (TextureImporter) -> (artifact id: '936478f301bed31f876bed28e8f38b64') in 0.0045111 seconds
+Refreshing native plugins compatible for Editor in 1.97 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=d4e6245db5f86ab4c95c8d57aedefb5c): Total: 0.019 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/standing/north-west.png using Guid(90987ee35d8dc3942b6c07b1e7be561d) (TextureImporter) -> (artifact id: '936478f301bed31f876bed28e8f38b64') in 0.0039761 seconds
+Refreshing native plugins compatible for Editor in 3.22 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=06f0b7c3d03626746b6038ceef5a1495): Total: 0.028 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/standing/north.png using Guid(91c375ee4e2b5704283a23738abe263d) (TextureImporter) -> (artifact id: '96448a2c792be8924e457b98214b93b2') in 0.0070876 seconds
+Refreshing native plugins compatible for Editor in 3.60 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=53b28349b582d9b4f98325c96dad88cd): Total: 0.029 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/standing/north.png using Guid(91c375ee4e2b5704283a23738abe263d) (TextureImporter) -> (artifact id: '96448a2c792be8924e457b98214b93b2') in 0.0063038 seconds
+Refreshing native plugins compatible for Editor in 2.06 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=e2c5325721239fd4cab641533fa19d04): Total: 0.027 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_White_idle_north.anim using Guid(216d2ed55c73b3d44be8c802857d0ad4) (NativeFormatImporter) -> (artifact id: 'bf5a844cf6b9484d9a3d1173cf8f270f') in 0.0022395 seconds
+Refreshing native plugins compatible for Editor in 2.00 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=50f60363702ce0b40ad7165dbe47cd49): Total: 0.021 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_White_idle_north.anim using Guid(216d2ed55c73b3d44be8c802857d0ad4) (NativeFormatImporter) -> (artifact id: '608ade622e788a860a6f28b0bfc3dd1f') in 0.0018864 seconds
+Refreshing native plugins compatible for Editor in 2.91 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=6810987e544c8514c8fe6dc8f06da0df): Total: 0.028 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/north/frame_000.png using Guid(5c6239b09a01ecae426d1622ae9b4750) (TextureImporter) -> (artifact id: '6bcc1626d6e1884778577539cdc801ee') in 0.0059818 seconds
+Refreshing native plugins compatible for Editor in 2.03 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=e9e5d0a5f294d914689c78bde1e48886): Total: 0.021 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/north/frame_000.png using Guid(5c6239b09a01ecae426d1622ae9b4750) (TextureImporter) -> (artifact id: '2789d94b80641fb61bc0ee61c53fd4c6') in 0.0070439 seconds
+Refreshing native plugins compatible for Editor in 2.12 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=8061b01126577204289731ba2ce3071a): Total: 0.032 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+InvalidDataException: Wizard source did not import as a Sprite: Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/north/frame_000.png
+  at NoSafeCircle.DoorPrototype.Editor.World.DoorPrototypeGlobalSceneBuilder.ImportWizardSprite (System.String path) [0x000b0] in C:\nscrev\branch-verify\Assets\NoSafeCircle\DoorPrototype\Editor\World\DoorPrototypeGlobalSceneBuilder.cs:568 
+  at NoSafeCircle.DoorPrototype.Editor.World.DoorPrototypeGlobalSceneBuilder.BuildWizardAnimationAssets () [0x001f8] in C:\nscrev\branch-verify\Assets\NoSafeCircle\DoorPrototype\Editor\World\DoorPrototypeGlobalSceneBuilder.cs:530 
+  at NoSafeCircle.DoorPrototype.Editor.World.DoorPrototypeGlobalSceneBuilder.BuildPlayer (NoSafeCircle.DoorPrototype.PlayerMovement& movement, NoSafeCircle.DoorPrototype.PlayerInteractionController& interactionController, NoSafeCircle.DoorPrototype.PlayerHealth& health, NoSafeCircle.DoorPrototype.DebugDamageControl& debugControl, NoSafeCircle.DoorPrototype.PlayerMana& mana, NoSafeCircle.DoorPrototype.DebugManaSpendControl& debugManaControl, NoSafeCircle.DoorPrototype.WizardAnimationController& wizardAnimationController, UnityEngine.Transform& playerSpawn, System.String architecturalTileAssetFolder) [0x000e8] in C:\nscrev\branch-verify\Assets\NoSafeCircle\DoorPrototype\Editor\World\DoorPrototypeGlobalSceneBuilder.cs:298 
+  at NoSafeCircle.DoorPrototype.Editor.DoorPrototypeSceneBuilder.RebuildSceneContents (UnityEngine.SceneManagement.Scene scene, System.String architecturalTileAssetFolder) [0x00089] in C:\nscrev\branch-verify\Assets\NoSafeCircle\DoorPrototype\Editor\DoorPrototypeSceneBuilder.cs:176 
+  at NoSafeCircle.DoorPrototype.Editor.DoorPrototypeSceneBuilder.Build () [0x00038] in C:\nscrev\branch-verify\Assets\NoSafeCircle\DoorPrototype\Editor\DoorPrototypeSceneBuilder.cs:122 
+
+(Filename: Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs Line: 122)
+
+executeMethod method NoSafeCircle.DoorPrototype.Editor.DoorPrototypeSceneBuilder.Build threw exception.
+Exiting without the bug reporter. Application will terminate with return code 1

@@ -1,0 +1,21 @@
+Tests: cover the removed pursuit leash and clear fixed enemy spawns
+
+EnemySpawnPlacementTests (new Edit Mode fixture): reads
+DoorPrototypeGlobalSceneBuilder's EnemySpawnPositions and
+LanternWraithSpawnPositions by reflection, opens the committed
+Assets/Scenes/DoorPrototype.unity scene without saving, and proves every
+fixed spawn point samples onto the baked gameplay NavMesh within 0.1 units
+and its 0.5-radius capsule at y=1 does not overlap any non-trigger gameplay
+collider (enemies temporarily disabled since none currently own a Collider,
+per the design's documented exclusion contract).
+
+EnemyPursuitPlayModeTests: adds a Play Mode regression that loads the same
+committed scene (the leash lived in the builder, so only the actual
+builder-authored MeleeEnemy exercises it) and drives its Chapel of Ash
+MeleeEnemy through 20 seconds of game time chasing a wizard that keeps
+retreating while staying within Lose Target Distance. Asserts it never
+enters SearchingLastKnownPosition and never turns back toward its spawn.
+Fails within about a second against the old leashed builder.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+

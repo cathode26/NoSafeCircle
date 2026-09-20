@@ -11,3 +11,8 @@ Assets/Plugins/deVoid/Signals/LICENSE.txt -text -whitespace
 # Preserve imported historical evidence and original host guidance byte-for-byte.
 Docs/AI-Pipeline/Historical-Context-Sessions/reports/untracked-project-outputs-20260920/** -text -whitespace
 Docs/AI-Pipeline/Agent-Operations/host-guides/originals/** -text -whitespace
+
+# Exact historical bytes from the authored-guides and durable-reports import.
+Docs/AI-Pipeline/Agent-Operations/host-documents-20260920/originals/** -text -whitespace
+Docs/AI-Pipeline/Historical-Context-Sessions/reports/host-reports-20260920/originals/** -text -whitespace
+Docs/AI-Pipeline/Historical-Context-Sessions/reports/art-reports-20260920/originals/** -text -whitespace

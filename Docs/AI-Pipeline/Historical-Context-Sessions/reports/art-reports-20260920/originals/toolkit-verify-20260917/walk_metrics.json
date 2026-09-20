@@ -1,0 +1,167 @@
+{
+  "deltas": [
+    {
+      "bbox_bottom_change": 1,
+      "bbox_width_change": 0,
+      "flags": [],
+      "from": 0,
+      "loop_seam": false,
+      "opaque_change_percent": -0.655307994757536,
+      "to": 1
+    },
+    {
+      "bbox_bottom_change": -2,
+      "bbox_width_change": 0,
+      "flags": [],
+      "from": 1,
+      "loop_seam": false,
+      "opaque_change_percent": 3.386103781882146,
+      "to": 2
+    },
+    {
+      "bbox_bottom_change": 2,
+      "bbox_width_change": 0,
+      "flags": [],
+      "from": 2,
+      "loop_seam": false,
+      "opaque_change_percent": 3.8706933219906423,
+      "to": 3
+    },
+    {
+      "bbox_bottom_change": 0,
+      "bbox_width_change": 0,
+      "flags": [],
+      "from": 3,
+      "loop_seam": false,
+      "opaque_change_percent": 4.054054054054054,
+      "to": 4
+    },
+    {
+      "bbox_bottom_change": 5,
+      "bbox_width_change": 0,
+      "flags": [
+        "baseline_jump"
+      ],
+      "from": 4,
+      "loop_seam": false,
+      "opaque_change_percent": -0.5116096025186935,
+      "to": 5
+    },
+    {
+      "bbox_bottom_change": -6,
+      "bbox_width_change": 0,
+      "flags": [
+        "baseline_jump"
+      ],
+      "from": 5,
+      "loop_seam": true,
+      "opaque_change_percent": -9.454113924050633,
+      "to": 0
+    }
+  ],
+  "frames": [
+    {
+      "alpha_bbox": [
+        42,
+        12,
+        87,
+        112
+      ],
+      "distinct_color_count": 65,
+      "opaque_pixel_count": 2289,
+      "path": "C:\\nscrev\\reports\\art-director\\density-trial-20260916\\pixellab\\3c_walk_se_128\\frame_01.png",
+      "sha256": "79ee0b41731bc7c33f84d792de0c0968490a85918a0244f18153aa0062d23c2e",
+      "size": [
+        128,
+        128
+      ]
+    },
+    {
+      "alpha_bbox": [
+        43,
+        14,
+        88,
+        113
+      ],
+      "distinct_color_count": 65,
+      "opaque_pixel_count": 2274,
+      "path": "C:\\nscrev\\reports\\art-director\\density-trial-20260916\\pixellab\\3c_walk_se_128\\frame_02.png",
+      "sha256": "b887d3be229c53a71f636e2660303e6666ed129383025274f355ba2b83cf001c",
+      "size": [
+        128,
+        128
+      ]
+    },
+    {
+      "alpha_bbox": [
+        43,
+        12,
+        88,
+        111
+      ],
+      "distinct_color_count": 65,
+      "opaque_pixel_count": 2351,
+      "path": "C:\\nscrev\\reports\\art-director\\density-trial-20260916\\pixellab\\3c_walk_se_128\\frame_03.png",
+      "sha256": "611b180599ac287d07492bc9b6cd464497a84b412bc556f4c895563fc6a9ffcb",
+      "size": [
+        128,
+        128
+      ]
+    },
+    {
+      "alpha_bbox": [
+        43,
+        11,
+        88,
+        113
+      ],
+      "distinct_color_count": 65,
+      "opaque_pixel_count": 2442,
+      "path": "C:\\nscrev\\reports\\art-director\\density-trial-20260916\\pixellab\\3c_walk_se_128\\frame_04.png",
+      "sha256": "34886f57536742b6791858abff29ea1cc4f8d70ac65e1e639672233ca4154be3",
+      "size": [
+        128,
+        128
+      ]
+    },
+    {
+      "alpha_bbox": [
+        43,
+        11,
+        88,
+        113
+      ],
+      "distinct_color_count": 65,
+      "opaque_pixel_count": 2541,
+      "path": "C:\\nscrev\\reports\\art-director\\density-trial-20260916\\pixellab\\3c_walk_se_128\\frame_05.png",
+      "sha256": "137b00a90ba79fb73363d55f744fcc395f21e902037534faf6d4ef24ff9a84bc",
+      "size": [
+        128,
+        128
+      ]
+    },
+    {
+      "alpha_bbox": [
+        43,
+        14,
+        88,
+        118
+      ],
+      "distinct_color_count": 65,
+      "opaque_pixel_count": 2528,
+      "path": "C:\\nscrev\\reports\\art-director\\density-trial-20260916\\pixellab\\3c_walk_se_128\\frame_06.png",
+      "sha256": "49a2224553015de44f6cdbfa4f50af0c31c5ed0307aed6b169ba2bb84c486890",
+      "size": [
+        128,
+        128
+      ]
+    }
+  ],
+  "has_outliers": true,
+  "loop": true,
+  "thresholds": {
+    "baseline_jump_pixels": 3,
+    "bbox_width_pixels": 8,
+    "opaque_change_percent": 15.0
+  }
+}

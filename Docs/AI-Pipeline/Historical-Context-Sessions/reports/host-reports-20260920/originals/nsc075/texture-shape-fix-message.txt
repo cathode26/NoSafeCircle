@@ -1,0 +1,5 @@
+NSC-075: import wizard sprites as 2D textures
+
+In Unity 6000.1, a GUID-only .meta file, like those written for the NSC-074 cardinal walk frames, imports with textureShape set to Cube. ImportWizardSprite changed the texture type to Sprite but left the shape alone, so Unity generated no Sprite. DoorPrototypeSceneBuilder.Build then threw "did not import as a Sprite" on the first cardinal walk frame. Set the shape to Texture2D before saving the importer.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

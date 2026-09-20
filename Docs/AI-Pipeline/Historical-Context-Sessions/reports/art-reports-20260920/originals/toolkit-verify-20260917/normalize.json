@@ -1,0 +1,180 @@
+{
+  "errors": [],
+  "frames": [
+    {
+      "origin_on_canvas": [
+        -12,
+        -12
+      ],
+      "output": "C:\\nscrev\\reports\\art-director\\toolkit-verify-20260917\\normalized\\frame_00.png",
+      "raw_bbox": [
+        54,
+        23,
+        99,
+        126
+      ],
+      "raw_sha256": "bdd5381a7b13d6e006614bd4b6c7dd85e843af36c9948a8a5ba2f6707f7da1d5",
+      "raw_size": [
+        152,
+        152
+      ],
+      "selected_bbox": [
+        42,
+        11,
+        87,
+        114
+      ],
+      "selected_sha256": "45efb14612ed004a9b1b6c3f0aa8e456b96187a653c53655efeb19a9ddb4a159"
+    },
+    {
+      "origin_on_canvas": [
+        -12,
+        -12
+      ],
+      "output": "C:\\nscrev\\reports\\art-director\\toolkit-verify-20260917\\normalized\\frame_01.png",
+      "raw_bbox": [
+        54,
+        24,
+        99,
+        124
+      ],
+      "raw_sha256": "cbff55872a8970e5020688d45e6983f6d76273154305dea7180d47633b5ec9f6",
+      "raw_size": [
+        152,
+        152
+      ],
+      "selected_bbox": [
+        42,
+        12,
+        87,
+        112
+      ],
+      "selected_sha256": "327c71b6b750c2a628158ed72a806a6d7e1965c5c3ab64475d840c7c1524c9b0"
+    },
+    {
+      "origin_on_canvas": [
+        -12,
+        -12
+      ],
+      "output": "C:\\nscrev\\reports\\art-director\\toolkit-verify-20260917\\normalized\\frame_02.png",
+      "raw_bbox": [
+        55,
+        26,
+        100,
+        125
+      ],
+      "raw_sha256": "c23d6bcfdc722b6115d081dde0110017f49de4a1eeaf0c5869c060dbabb528db",
+      "raw_size": [
+        152,
+        152
+      ],
+      "selected_bbox": [
+        43,
+        14,
+        88,
+        113
+      ],
+      "selected_sha256": "00a5a5ff631fe4f6fbbf005f8a25af604743ceed56f217683412bc375317801b"
+    },
+    {
+      "origin_on_canvas": [
+        -12,
+        -12
+      ],
+      "output": "C:\\nscrev\\reports\\art-director\\toolkit-verify-20260917\\normalized\\frame_03.png",
+      "raw_bbox": [
+        55,
+        24,
+        100,
+        123
+      ],
+      "raw_sha256": "6632b9974f8d9901edafd275c2640f6a7cd51de38d12b4c269b64dddc8da826f",
+      "raw_size": [
+        152,
+        152
+      ],
+      "selected_bbox": [
+        43,
+        12,
+        88,
+        111
+      ],
+      "selected_sha256": "597b51cf8068f54ed3fe01191f93919bb36354ca37fd9c0931c1d5b9cb6a836a"
+    },
+    {
+      "origin_on_canvas": [
+        -12,
+        -12
+      ],
+      "output": "C:\\nscrev\\reports\\art-director\\toolkit-verify-20260917\\normalized\\frame_04.png",
+      "raw_bbox": [
+        55,
+        23,
+        100,
+        125
+      ],
+      "raw_sha256": "b04fc1ef839f8f69e68b41045780c086c1cd018f1d325b7871700ec8fe8a6e92",
+      "raw_size": [
+        152,
+        152
+      ],
+      "selected_bbox": [
+        43,
+        11,
+        88,
+        113
+      ],
+      "selected_sha256": "467783320c6e07c7819893d5d90e142988531ceeb92b323b494d29b2ed109ce4"
+    },
+    {
+      "origin_on_canvas": [
+        -12,
+        -12
+      ],
+      "output": "C:\\nscrev\\reports\\art-director\\toolkit-verify-20260917\\normalized\\frame_05.png",
+      "raw_bbox": [
+        55,
+        23,
+        100,
+        125
+      ],
+      "raw_sha256": "8181d11e09b63a4f8ca99ed1ca50edf372a0c08f68622ad9d4636da6fa959f2c",
+      "raw_size": [
+        152,
+        152
+      ],
+      "selected_bbox": [
+        43,
+        11,
+        88,
+        113
+      ],
+      "selected_sha256": "af7f075063702fdff0d457c623c739fa1da44c2b0f88fd094364f2bec76f7de2"
+    },
+    {
+      "origin_on_canvas": [
+        -12,
+        -12
+      ],
+      "output": "C:\\nscrev\\reports\\art-director\\toolkit-verify-20260917\\normalized\\frame_06.png",
+      "raw_bbox": [
+        55,
+        26,
+        100,
+        130
+      ],
+      "raw_sha256": "e2ebea6ddf8f76ec9738c15c82d5f26d1a0fba38b9d0a6c6fe30cdb6b1bb0e86",
+      "raw_size": [
+        152,
+        152
+      ],
+      "selected_bbox": [
+        43,
+        14,
+        88,
+        118
+      ],
+      "selected_sha256": "09b9d679ec7a2a73eee5b8e92d57b66f3dc22c8fa7d75df99a747ed38bc1267d"
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+Merge fix/content-identical-churn: refresh Git's stale stat cache for content-identical churn
+
+Pipeline Maintainer fix P18. Windows checkouts accumulate tracked files that Git reports as modified while their filtered content equals the index blob, because the recorded size is stale. `git status` never re-hashes them, so a clean-tree gate refuses a worktree whose content is in fact unchanged.
+
+- New `Pipeline/TaskReviewAgent/refresh_identical_churn.py`, exposed as `safe_unity_churn refresh-identical`. It refreshes only the index stat entries of tracked, worktree-modified, unstaged, regular files whose filtered hash equals the index blob. It never rewrites worktree files, never stages a real edit, re-hashes each file immediately before `git add`, restores the index byte-identically on any failure, refuses while `index.lock` exists, and defaults to a dry run.
+- `safe_unity_churn.main` takes an optional argv and dispatches the new subcommand; existing callers import `classify_safe_post_unity_churn` and the test runner's `--repository/--expected-head/--apply` invocation is unchanged.
+- `decomposition.py`'s "Source must be clean" error now names the command.
+
+Verification:
+- Reviews: a fresh pipeline-reviewer returned FIX FIRST on pathspec magic and race rollback, then APPROVE after the fix; a host Codex review of an earlier SHA found the same blocking race plus two minors, all fixed. No Codex round on the final SHA: Codex is out of quota and Vincent asked for all-Claude work until 2026-09-19.
+- Game Agent at the tip: refresh_identical_churn_smoke_test 12 passed, safe_unity_churn_smoke_test 1 passed.
+- Propagation check: the branch removes no symbol; the only signature change is backward compatible, and every reference to safe_unity_churn across Python, PowerShell, workflows and docs still resolves.
+- Already exercised in production on 2026-09-17: run against the canonical checkout it refreshed 33 content-identical entries and left the tree clean, which unblocked NSC-015 decomposition.
+
+Approved for merge by Vincent on 2026-09-18 ("4) yes merge", his batched answer relayed by the Documentation Agent).
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

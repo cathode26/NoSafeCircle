@@ -1,0 +1,163 @@
+{
+  "deltas": [
+    {
+      "bbox_bottom_change": 0,
+      "bbox_width_change": 0,
+      "flags": [],
+      "from": 0,
+      "loop_seam": false,
+      "opaque_change_percent": 7.681564245810056,
+      "to": 1
+    },
+    {
+      "bbox_bottom_change": -1,
+      "bbox_width_change": 0,
+      "flags": [],
+      "from": 1,
+      "loop_seam": false,
+      "opaque_change_percent": -9.72762645914397,
+      "to": 2
+    },
+    {
+      "bbox_bottom_change": 0,
+      "bbox_width_change": 0,
+      "flags": [],
+      "from": 2,
+      "loop_seam": false,
+      "opaque_change_percent": -3.4961685823754785,
+      "to": 3
+    },
+    {
+      "bbox_bottom_change": 1,
+      "bbox_width_change": 0,
+      "flags": [],
+      "from": 3,
+      "loop_seam": false,
+      "opaque_change_percent": 10.32258064516129,
+      "to": 4
+    },
+    {
+      "bbox_bottom_change": 0,
+      "bbox_width_change": 5,
+      "flags": [],
+      "from": 4,
+      "loop_seam": false,
+      "opaque_change_percent": 7.602339181286549,
+      "to": 5
+    },
+    {
+      "bbox_bottom_change": 0,
+      "bbox_width_change": -5,
+      "flags": [],
+      "from": 5,
+      "loop_seam": true,
+      "opaque_change_percent": -10.200668896321071,
+      "to": 0
+    }
+  ],
+  "frames": [
+    {
+      "alpha_bbox": [
+        40,
+        19,
+        83,
+        122
+      ],
+      "distinct_color_count": 65,
+      "opaque_pixel_count": 2148,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-light\\aligned\\walk\\west\\frame_00.png",
+      "sha256": "a894675feeceefb66534ae553e97f3312584a8e14d4107638e713d47cf250011",
+      "size": [
+        128,
+        128
+      ]
+    },
+    {
+      "alpha_bbox": [
+        40,
+        20,
+        83,
+        122
+      ],
+      "distinct_color_count": 65,
+      "opaque_pixel_count": 2313,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-light\\aligned\\walk\\west\\frame_01.png",
+      "sha256": "dfcaf16b162f5431ff9d8c599997d437313f97b3fbd626e6bbf797242664d578",
+      "size": [
+        128,
+        128
+      ]
+    },
+    {
+      "alpha_bbox": [
+        40,
+        19,
+        83,
+        121
+      ],
+      "distinct_color_count": 65,
+      "opaque_pixel_count": 2088,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-light\\aligned\\walk\\west\\frame_02.png",
+      "sha256": "db060bce1e553b0877208fe2f7c7b90cd6adf07e1b69b4c474cea3f177c42861",
+      "size": [
+        128,
+        128
+      ]
+    },
+    {
+      "alpha_bbox": [
+        40,
+        17,
+        83,
+        121
+      ],
+      "distinct_color_count": 65,
+      "opaque_pixel_count": 2015,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-light\\aligned\\walk\\west\\frame_03.png",
+      "sha256": "b23f76a41fa8db9bd25a9f7a38ed0f599c71693bd391295887323126c2aa6ee5",
+      "size": [
+        128,
+        128
+      ]
+    },
+    {
+      "alpha_bbox": [
+        40,
+        19,
+        83,
+        122
+      ],
+      "distinct_color_count": 65,
+      "opaque_pixel_count": 2223,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-light\\aligned\\walk\\west\\frame_04.png",
+      "sha256": "893c379bb97d66e849b2d228d4740f9d4be2cd322c28f8e55ad264ba15d04fed",
+      "size": [
+        128,
+        128
+      ]
+    },
+    {
+      "alpha_bbox": [
+        37,
+        20,
+        85,
+        122
+      ],
+      "distinct_color_count": 65,
+      "opaque_pixel_count": 2392,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-light\\aligned\\walk\\west\\frame_05.png",
+      "sha256": "0fac60fedeec4433992b02be9e69334aeec0c3ec59b306683fb7f20c5ef8cff0",
+      "size": [
+        128,
+        128
+      ]
+    }
+  ],
+  "has_outliers": false,
+  "loop": true,
+  "thresholds": {
+    "baseline_jump_pixels": 3,
+    "bbox_width_pixels": 8,
+    "opaque_change_percent": 15.0
+  }
+}

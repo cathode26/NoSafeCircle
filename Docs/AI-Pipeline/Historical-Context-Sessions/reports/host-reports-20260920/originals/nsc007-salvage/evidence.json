@@ -1,0 +1,72 @@
+{
+  "kind": "salvaged_from_timed_out_crew_run",
+  "crew_reviewed": false,
+  "registered_by": "Game Agent (Integration Steward)",
+  "registered_at": "2026-09-18T05:20:00Z",
+  "authorized_by": "Vincent, 2026-09-18, after being told the validator gap: \"yeah the time matters. Restore the patch as a candidate\"",
+
+  "origin_run": {
+    "task_id": "NSC-007",
+    "run_id": "task-orch-nsc007-20260918-2",
+    "lease_id": "task-orch-nsc007-20260918b",
+    "provider": "claude",
+    "execution_model": "claude-sonnet-5",
+    "crew_profile": "full",
+    "pinned_source_head": "36a47b14412f68fea886926bbea7711d1768ce46",
+    "container": "assistant-crew-87f15d6f43cfe366e0a6-claude-exec-run-8a18212ea0f8",
+    "container_clone": "/tmp/nsc-execution-crew-cmyy6mqp/crew-repository"
+  },
+
+  "why_no_crew_result": {
+    "cause": "worker overall timeout",
+    "configured_timeout_seconds": 3600,
+    "measured_elapsed_seconds": 3604,
+    "start_utc": "2026-09-18T04:04:20.5624821Z",
+    "last_host_write_utc": "2026-09-18T05:04:24.7842678Z",
+    "detail": "The host worker process (pid 8120) was killed at its own timeout_seconds ceiling during Test Author 2 and wrote no crew_result.json and no role_results. Per-role budgets are 3600s each while the worker's total lifetime is also 3600s, so a full crew plus a repair cycle cannot fit.",
+    "role_timings_seconds": {
+      "implementer_1": 642.1,
+      "test_author_1": 2138.6,
+      "validator_1": 571.8,
+      "implementer_2": 59.7,
+      "test_author_2": "killed at ~65s"
+    }
+  },
+
+  "what_this_tree_contains": [
+    "Implementer 1: 8 changed paths, pipeline scope check passed",
+    "Test Author 1: 2 new test files, pipeline scope check passed",
+    "Implementer 2: repair of the validator's production finding - IsBlockedByCollider now reports the contact point, so a charged detonation's area radius is measured from the actual impact point"
+  ],
+
+  "known_gaps": [
+    "Validator 1 returned needs_changes with two blocking findings. The production finding is fixed in this tree; the second finding lives in the test file and Implementer 2 could not address it because the test file is a denied write path for that role.",
+    "Test Author 2 was killed 65s in and never addressed the test-file finding.",
+    "There is no Validator 2 pass. This candidate has NO crew review verdict. crew_review is false.",
+    "All Unity and runtime gates (VAL-001..VAL-007) are unproven: no Unity run has executed against this tree.",
+    "The 4 .cs.meta sidecars the crew wrote were deliberately dropped from this commit - they are pipeline-owned and outside the registered path scope. Unity materialization must generate them.",
+    "Assets/Scenes/DoorPrototype.unity is in the registered scope but unchanged here; the committed scene wiring required by AC-009 has not been materialized yet."
+  ],
+
+  "extraction_method": "docker exec into the still-live orphaned container, git add -A then git diff --cached --binary in the crew clone, docker cp to the host, then git apply into the pinned task checkout. Patch applied cleanly with git apply --check. Salvaged patch retained at C:/nscrev/reports/nsc007-salvage/nsc007-candidate.patch (113412 bytes, 14 files including the dropped metas).",
+
+  "next_required_steps": [
+    "materialize-candidate: generate the .meta sidecars and the committed scene wiring, then run the bound validation policy",
+    "EditMode filter: NoSafeCircle.DoorPrototype.Tests.Editor.FireballCommittedSceneConformanceTests",
+    "PlayMode filter: NoSafeCircle.DoorPrototype.Tests.FireballPlayModeTests",
+    "Human Play Mode review by Vincent per AC-VR, noting that the room-tactics half of that criterion cannot be satisfied until the room geometry tasks land"
+  ],
+
+  "tuning_values_chosen_by_the_implementer": {
+    "tap_mana_cost": 20.0,
+    "tap_damage": 25.0,
+    "tap_contact_radius": 0.9,
+    "projectile_speed": 12.0,
+    "projectile_lifetime": 3.0,
+    "tap_hold_threshold": 0.25,
+    "full_charge_duration": 1.5,
+    "full_mana_cost": 40.0,
+    "full_damage": 65.0,
+    "full_area_radius": 2.5
+  }
+}

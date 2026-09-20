@@ -1,0 +1,137 @@
+[PASS] Controller 14776a8f9d3ecc18f4d471974ccda87caf54a84e
+[PASS] Source gauntlet-trial/fresh-e90670d at 14776a8f9d3ecc18f4d471974ccda87caf54a84e
+[STATE] Previous controller: controller_released (invocation ff4876eda5b64608a0bdc73334ade3d5)
+[STATE] Graph status before this run: handoff_required; last error: 
+
+[RUN 1] 19:31:59 run-graph starting; output C:\NSC\GauntletFresh1140-20260912-1-Checkouts-5\operator-logs\run-graph-20260912-193159.json
+[RUN 1] exit 1; status blocked; actions 107; harvested 25; source 273798a94fcdc9c38a946107349bead420aff3ba
+    decompose NSC-1140 -> launched
+    reserve NSC-1141 -> active
+    start_worker NSC-1141 -> 
+    reserve NSC-1142 -> active
+    start_worker NSC-1142 -> 
+    reserve NSC-1143 -> active
+    start_worker NSC-1143 -> 
+    reserve NSC-1144 -> active
+    start_worker NSC-1144 -> 
+    wait_job NSC-1140 -> progress
+    settle_worker NSC-1143 -> 
+    post_crew NSC-1143 -> launched
+    wait_job NSC-1140 -> progress
+    settle_worker NSC-1141 -> 
+    settle_worker NSC-1142 -> 
+    settle_worker NSC-1144 -> 
+    post_crew NSC-1141 -> launched
+    post_crew NSC-1142 -> launched
+    wait_job NSC-1140 -> progress
+    post_crew NSC-1144 -> launched
+    wait_job NSC-1140 -> progress
+    apply_decomposition NSC-1140 -> applied
+    prepare NSC-1148 -> prepared
+    scope NSC-1148 -> 
+    prepare NSC-1149 -> prepared
+    scope NSC-1149 -> 
+    reserve NSC-1148 -> active
+    start_worker NSC-1148 -> 
+    reserve NSC-1149 -> active
+    start_worker NSC-1149 -> 
+    sync_candidate NSC-1142 -> awaiting_human
+    post_crew NSC-1142 -> launched
+    wait_job NSC-1141 -> progress
+    sync_candidate NSC-1141 -> awaiting_human
+    post_crew NSC-1141 -> launched
+    sync_candidate NSC-1144 -> awaiting_human
+    post_crew NSC-1144 -> launched
+    wait_job NSC-1141 -> progress
+    auto_approve NSC-1142 -> approved
+    integrate NSC-1142 -> integrated
+    wait_job NSC-1141 -> progress
+    sync_candidate NSC-1141 -> awaiting_human
+    post_crew NSC-1141 -> launched
+    sync_candidate NSC-1144 -> awaiting_human
+    post_crew NSC-1144 -> launched
+    wait_job NSC-1141 -> progress
+    settle_worker NSC-1148 -> 
+    settle_worker NSC-1149 -> 
+    post_crew NSC-1148 -> launched
+    post_crew NSC-1149 -> launched
+    auto_approve NSC-1141 -> approved
+    integrate NSC-1141 -> integrated
+    decompose NSC-1145 -> launched
+    sync_candidate NSC-1144 -> awaiting_human
+    post_crew NSC-1144 -> launched
+    wait_job NSC-1144 -> progress
+    sync_candidate NSC-1149 -> awaiting_human
+    post_crew NSC-1149 -> launched
+    auto_approve NSC-1144 -> approved
+    sync_candidate NSC-1148 -> awaiting_human
+    post_crew NSC-1148 -> launched
+    wait_job NSC-1145 -> progress
+    auto_approve NSC-1148 -> approved
+    auto_approve NSC-1149 -> approved
+    wait_job NSC-1145 -> progress
+    integrate NSC-1144 -> integrated
+    apply_decomposition NSC-1145 -> applied
+    prepare NSC-1150 -> prepared
+    scope NSC-1150 -> 
+    prepare NSC-1151 -> prepared
+    scope NSC-1151 -> 
+    reserve NSC-1150 -> active
+    start_worker NSC-1150 -> 
+    reserve NSC-1151 -> active
+    start_worker NSC-1151 -> 
+    sync_candidate NSC-1148 -> awaiting_human
+    post_crew NSC-1148 -> launched
+    sync_candidate NSC-1149 -> awaiting_human
+    post_crew NSC-1149 -> launched
+    wait_job NSC-1148 -> progress
+    auto_approve NSC-1148 -> approved
+    integrate NSC-1148 -> integrated
+    sync_candidate NSC-1149 -> awaiting_human
+    post_crew NSC-1149 -> launched
+    wait_job NSC-1149 -> progress
+    settle_worker NSC-1150 -> 
+    settle_worker NSC-1151 -> 
+    post_crew NSC-1150 -> launched
+    post_crew NSC-1151 -> launched
+    wait_job NSC-1149 -> progress
+    auto_approve NSC-1149 -> approved
+    integrate NSC-1149 -> integrated
+    wait_job NSC-1150 -> progress
+    sync_candidate NSC-1150 -> awaiting_human
+    post_crew NSC-1150 -> launched
+    sync_candidate NSC-1151 -> awaiting_human
+    post_crew NSC-1151 -> launched
+    wait_job NSC-1150 -> progress
+    auto_approve NSC-1150 -> approved
+    integrate NSC-1150 -> integrated
+    sync_candidate NSC-1151 -> awaiting_human
+    post_crew NSC-1151 -> launched
+    wait_job NSC-1151 -> progress
+    auto_approve NSC-1151 -> approved
+    integrate NSC-1151 -> integrated
+    decompose NSC-1146 -> launched
+    wait_job NSC-1146 -> progress
+    job decompose NSC-1140: completed
+    job post_crew NSC-1141: completed
+    job post_crew NSC-1142: completed
+    job post_crew NSC-1143: completed
+    job post_crew NSC-1144: completed
+    job decompose NSC-1145: completed
+    job decompose NSC-1146: failed
+    job post_crew NSC-1148: completed
+    job post_crew NSC-1149: completed
+    job post_crew NSC-1150: completed
+    job post_crew NSC-1151: completed
+    blocked NSC-1143: validation_failed
+    blocked NSC-1146: background_job_failed
+    blocked NSC-1147: dependencies
+[STOP] Non-zero exit. Escalate.
+
+============================================================
+[DONE] Operator loop ended with status: blocked
+============================================================
+[STATE] Last result JSON: C:\NSC\GauntletFresh1140-20260912-1-Checkouts-5\operator-logs\run-graph-20260912-193159.json
+[STATE] Records: C:\NSC\GauntletFresh1140-20260912-1-Checkouts-5\.assistant-control
+[STATE] Journal: C:\NSC\GauntletFresh1140-20260912-1-Checkouts-5\.assistant-control\graph-controller-events.jsonl
+[NEXT] complete -> tell Vincent. awaiting_human -> tell Vincent the waiting_human list. Anything else -> send the section 5 escalation to the reviewer and stop.

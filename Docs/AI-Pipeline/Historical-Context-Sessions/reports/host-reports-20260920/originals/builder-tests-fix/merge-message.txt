@@ -1,0 +1,13 @@
+Merge fix/builder-tests-spawn-camera-20260917: update two stale scene builder tests
+
+Game-test maintenance, no gameplay change. Since 9a3d22c56 the wizard spawns at PlayerSpawnPosition (-10, 0, -22), in the Ruined Entry's south-west corner. Two DoorPrototypeSceneBuilderTests still assumed the old start and failed on main (reproduced on 32c6223d3):
+- Build_PlayerStartsAtCharacterControllerGroundedHeight now checks the builder's own PlayerSpawnPosition (read by reflection) at CharacterController grounded height.
+- Build_MainCamera_FramesPlayerAndStartingDoorInView now requires the player near the viewport center at scene start. The starting-door check is dropped; D1 wayfinding is judged in the Ruined Entry room review. The test name is kept for continuity with recorded evidence.
+
+The test intent was decided by the GER Agent. NSC-077 rev 8's VAL-007 needs the whole DoorPrototypeSceneBuilderTests fixture to pass.
+
+Verification on a2762a3e4: Unity 6000.1.8f1 Edit Mode DoorPrototypeSceneBuilderTests 58/58 passed. The Codex adversarial review (codex-review-builder-tests-fix-20260917-0600) returned APPROVE with no findings. Since that commit, main has changed only task contracts and the validation policy.
+
+Approved for merge by Vincent on 2026-09-17.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

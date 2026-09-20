@@ -1,0 +1,7 @@
+NSC-077 scene idempotency (semantic), candidate materialize commit 3233ac923, Unity 6000.1.8f1, 2026-09-17T05:37:34Z
+A = committed scene (build 1, git show 3233ac923:Assets/Scenes/DoorPrototype.unity); B = after build 2; C = after build 3
+sha256: A \b0f6b790156f643 B \2c875c84593218e C \98a042009eb7724
+base objects 1261 distinct (class, script) keys 66
+sceneB.bin objects 1261 | count diffs: none | size diffs: none
+sceneC.bin objects 1261 | count diffs: none | size diffs: none
+pathID overlap B vs C (from sfdiff.py): 89 of 1261 common; 1172 regenerated

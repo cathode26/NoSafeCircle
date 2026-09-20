@@ -1,0 +1,12 @@
+diff --git a/orig3.md b/base2.md
+index 3f1d96e..55ee088 100644
+--- a/orig3.md
++++ b/base2.md
+@@ -318,6 +318,7 @@ dark-but-cute horror-comedy dungeon prop, chunky readable proportions, low top-d
+ 
+ ### 4d. Generation estimate for Vincent's spend go
+ 
++- **Read every number in this section as a printed estimate, not a spend.** The NSC-095 wizard run measured the PixelLab account meter moving **130 generations against 93 of printed per-call costs, about 37% more**, with no other PixelLab work on the account to explain it. Multiply the table below by roughly 1.4 to budget in meter terms: the pilot is about 95 rather than 68, and all 45 entries about 800 rather than 581. Count a task's own recorded calls for its cap and read `get_balance` with the queue empty as the cross-check; a printed-versus-meter gap of about a third is expected, not a defect.
+ - **Unit costs:** provisional Pro Flash quotes from 2026-09-16 were 5 at up to 64 px and 6 at up to 128 px. Canvases above 128 px are assumed 8 (unquoted). Get a free `get_pro_flash_capabilities` quote per size before asking.
+ - **Attempts:** 1.5 per ordinary entry, 2 per segment, 3 per landmark.
+ 

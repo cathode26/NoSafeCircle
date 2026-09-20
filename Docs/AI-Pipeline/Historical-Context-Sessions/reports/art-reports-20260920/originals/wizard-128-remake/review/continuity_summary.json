@@ -1,0 +1,170 @@
+{
+ "masculine-light": {
+  "north": {
+   "loop_seam_foot_shift": 0,
+   "worst_step_foot_shift": 3,
+   "opaque_change_max_pct": 2.8
+  },
+  "north-east": {
+   "loop_seam_foot_shift": 2,
+   "worst_step_foot_shift": 3,
+   "opaque_change_max_pct": 2.4
+  },
+  "east": {
+   "loop_seam_foot_shift": 1,
+   "worst_step_foot_shift": 2,
+   "opaque_change_max_pct": 10.2
+  },
+  "south-east": {
+   "loop_seam_foot_shift": 2,
+   "worst_step_foot_shift": 3,
+   "opaque_change_max_pct": 8.8
+  },
+  "south": {
+   "loop_seam_foot_shift": 10,
+   "worst_step_foot_shift": 5,
+   "opaque_change_max_pct": 5.1
+  },
+  "south-west": {
+   "loop_seam_foot_shift": 2,
+   "worst_step_foot_shift": 3,
+   "opaque_change_max_pct": 4.7
+  },
+  "west": {
+   "loop_seam_foot_shift": 0,
+   "worst_step_foot_shift": 1,
+   "opaque_change_max_pct": 10.3
+  },
+  "north-west": {
+   "loop_seam_foot_shift": 0,
+   "worst_step_foot_shift": 4,
+   "opaque_change_max_pct": 2.1
+  }
+ },
+ "masculine-dark": {
+  "north": {
+   "loop_seam_foot_shift": 2,
+   "worst_step_foot_shift": 4,
+   "opaque_change_max_pct": 2.2
+  },
+  "north-east": {
+   "loop_seam_foot_shift": 2,
+   "worst_step_foot_shift": 5,
+   "opaque_change_max_pct": 6.6
+  },
+  "east": {
+   "loop_seam_foot_shift": 0,
+   "worst_step_foot_shift": 3,
+   "opaque_change_max_pct": 15.2
+  },
+  "south-east": {
+   "loop_seam_foot_shift": 5,
+   "worst_step_foot_shift": 3,
+   "opaque_change_max_pct": 6.0
+  },
+  "south": {
+   "loop_seam_foot_shift": 8,
+   "worst_step_foot_shift": 6,
+   "opaque_change_max_pct": 3.9
+  },
+  "south-west": {
+   "loop_seam_foot_shift": 5,
+   "worst_step_foot_shift": 4,
+   "opaque_change_max_pct": 8.6
+  },
+  "west": {
+   "loop_seam_foot_shift": 1,
+   "worst_step_foot_shift": 4,
+   "opaque_change_max_pct": 13.4
+  },
+  "north-west": {
+   "loop_seam_foot_shift": 0,
+   "worst_step_foot_shift": 3,
+   "opaque_change_max_pct": 2.1
+  }
+ },
+ "feminine-light": {
+  "north": {
+   "loop_seam_foot_shift": 4,
+   "worst_step_foot_shift": 5,
+   "opaque_change_max_pct": 3.0
+  },
+  "north-east": {
+   "loop_seam_foot_shift": 3,
+   "worst_step_foot_shift": 4,
+   "opaque_change_max_pct": 2.8
+  },
+  "east": {
+   "loop_seam_foot_shift": 1,
+   "worst_step_foot_shift": 4,
+   "opaque_change_max_pct": 8.0
+  },
+  "south-east": {
+   "loop_seam_foot_shift": 4,
+   "worst_step_foot_shift": 4,
+   "opaque_change_max_pct": 5.4
+  },
+  "south": {
+   "loop_seam_foot_shift": 6,
+   "worst_step_foot_shift": 3,
+   "opaque_change_max_pct": 1.9
+  },
+  "south-west": {
+   "loop_seam_foot_shift": 6,
+   "worst_step_foot_shift": 6,
+   "opaque_change_max_pct": 7.5
+  },
+  "west": {
+   "loop_seam_foot_shift": 0,
+   "worst_step_foot_shift": 5,
+   "opaque_change_max_pct": 8.0
+  },
+  "north-west": {
+   "loop_seam_foot_shift": 2,
+   "worst_step_foot_shift": 4,
+   "opaque_change_max_pct": 8.1
+  }
+ },
+ "feminine-dark": {
+  "north": {
+   "loop_seam_foot_shift": 3,
+   "worst_step_foot_shift": 3,
+   "opaque_change_max_pct": 2.6
+  },
+  "north-east": {
+   "loop_seam_foot_shift": 1,
+   "worst_step_foot_shift": 5,
+   "opaque_change_max_pct": 6.0
+  },
+  "east": {
+   "loop_seam_foot_shift": 1,
+   "worst_step_foot_shift": 4,
+   "opaque_change_max_pct": 12.4
+  },
+  "south-east": {
+   "loop_seam_foot_shift": 2,
+   "worst_step_foot_shift": 3,
+   "opaque_change_max_pct": 4.1
+  },
+  "south": {
+   "loop_seam_foot_shift": 3,
+   "worst_step_foot_shift": 5,
+   "opaque_change_max_pct": 2.5
+  },
+  "south-west": {
+   "loop_seam_foot_shift": 3,
+   "worst_step_foot_shift": 4,
+   "opaque_change_max_pct": 4.0
+  },
+  "west": {
+   "loop_seam_foot_shift": 1,
+   "worst_step_foot_shift": 2,
+   "opaque_change_max_pct": 12.6
+  },
+  "north-west": {
+   "loop_seam_foot_shift": 3,
+   "worst_step_foot_shift": 1,
+   "opaque_change_max_pct": 2.5
+  }
+ }
+}

@@ -1,0 +1,142 @@
+[
+ {
+  "id": "shared_bone_pile_a",
+  "object_id": "28c4f29d-46e1-40e5-9c58-051f48a4760c",
+  "seed": 101,
+  "file": "C:/nscrev/reports/art-director/nsc078-pilot-20260917\\round1\\shared_bone_pile_a.png",
+  "size": [
+   100,
+   84
+  ],
+  "expected_size": [
+   100,
+   84
+  ],
+  "size_ok": true,
+  "alpha_bbox": [
+   8,
+   5,
+   89,
+   79
+  ],
+  "touches_edge": false,
+  "transparent_corners": true,
+  "opaque_pixels": 4057,
+  "distinct_colours": 2998,
+  "fill_percent": 48.3,
+  "brightest_colour": "#fefffd",
+  "sha256": "21de2b3a68146e9c4ccde6ed8d24210e9d847c79c7553df51b62e59187d20cfd"
+ },
+ {
+  "id": "ba_collapsed_reading_table_z",
+  "object_id": "30372cd0-ec66-4365-8a29-6b8f42f57601",
+  "seed": 102,
+  "file": "C:/nscrev/reports/art-director/nsc078-pilot-20260917\\round1\\ba_collapsed_reading_table_z.png",
+  "size": [
+   144,
+   148
+  ],
+  "expected_size": [
+   144,
+   148
+  ],
+  "size_ok": true,
+  "alpha_bbox": [
+   6,
+   2,
+   135,
+   141
+  ],
+  "touches_edge": false,
+  "transparent_corners": true,
+  "opaque_pixels": 9798,
+  "distinct_colours": 7254,
+  "fill_percent": 46.0,
+  "brightest_colour": "#fffdff",
+  "sha256": "e22a050464cec13c077e7725a8723155e5162d27ade98a4219f96882e1293b66"
+ },
+ {
+  "id": "ca_candelabra_tall",
+  "object_id": "cc89c4c3-a991-4e76-8f24-59023e5995ba",
+  "seed": 103,
+  "file": "C:/nscrev/reports/art-director/nsc078-pilot-20260917\\round1\\ca_candelabra_tall.png",
+  "size": [
+   64,
+   148
+  ],
+  "expected_size": [
+   64,
+   148
+  ],
+  "size_ok": true,
+  "alpha_bbox": [
+   5,
+   6,
+   59,
+   141
+  ],
+  "touches_edge": false,
+  "transparent_corners": true,
+  "opaque_pixels": 2647,
+  "distinct_colours": 1831,
+  "fill_percent": 27.9,
+  "brightest_colour": "#fffdff",
+  "sha256": "1c609abc269ed55b12c0aa42db426f481a3e86f5ab1e1f1c26931370279de9c0"
+ },
+ {
+  "id": "re_broken_masonry_blocks",
+  "object_id": "66f2bbc1-fc87-48ee-98c5-876423c5e0b9",
+  "seed": 104,
+  "file": "C:/nscrev/reports/art-director/nsc078-pilot-20260917\\round1\\re_broken_masonry_blocks.png",
+  "size": [
+   124,
+   112
+  ],
+  "expected_size": [
+   124,
+   112
+  ],
+  "size_ok": true,
+  "alpha_bbox": [
+   4,
+   3,
+   114,
+   102
+  ],
+  "touches_edge": false,
+  "transparent_corners": true,
+  "opaque_pixels": 5991,
+  "distinct_colours": 4387,
+  "fill_percent": 43.1,
+  "brightest_colour": "#fdf9ff",
+  "sha256": "678112706d04e1723a5a6d06fa45a7e7b209cc8a047890b1389c0b3c4d3ca1ca"
+ },
+ {
+  "id": "lv_iron_rail_x",
+  "object_id": "696e0b20-7364-4132-8493-09a7250e8854",
+  "seed": 105,
+  "file": "C:/nscrev/reports/art-director/nsc078-pilot-20260917\\round1\\lv_iron_rail_x.png",
+  "size": [
+   108,
+   116
+  ],
+  "expected_size": [
+   108,
+   116
+  ],
+  "size_ok": true,
+  "alpha_bbox": [
+   5,
+   13,
+   101,
+   100
+  ],
+  "touches_edge": false,
+  "transparent_corners": true,
+  "opaque_pixels": 2753,
+  "distinct_colours": 2031,
+  "fill_percent": 22.0,
+  "brightest_colour": "#fffea1",
+  "sha256": "68fbbd2a6f5576c4dffc565df1f7e84f8234461c0c1c02d2a1d29ce284ee0393"
+ }
+]

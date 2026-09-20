@@ -1,0 +1,30 @@
+Merge NSC-077: enemy art integration for the existing moving enemies
+
+The Dungeon Brute (MeleeEnemy) and the Lantern Wraith now use their approved PixelLab art in-game (contract revision 10).
+- EnemyAnimationAssetBuilder imports the 16 NSC-063 idle stills and 96 NSC-093 walk frames in place:
+  - Sprite, Texture2D shape, cookie defaults reset;
+  - 64 pixels per unit, Point filter, no mipmaps, ground-line pivots.
+  It generates MeleeEnemyAnimator and LanternWraithAnimator, each with 8-direction idle and walk clips.
+- DoorPrototypeGlobalSceneBuilder gives each enemy:
+  - a uniform (1,1) Visual whose world rotation matches the isometric camera;
+  - its south idle still;
+  - an Animator and EnemyAnimationController.
+- EnemyAnimationController picks walk or idle and one of eight facings, using the NSC-075 screen mapping. It adds hysteresis, target facing when stopped (AC-006), and restores the camera-facing rotation every frame after NavMeshAgent rotates the root.
+- The fire caster becomes the Lantern Wraith: EnemyFireballCaster.cs moves to EnemyLanternWispCaster.cs with its GUID kept, it casts teal LanternWisp stand-in orbs, and its gameplay numbers are unchanged.
+- Pursuit, NavMeshAgent settings, spawns, health, doors and the wizard are unchanged.
+
+Built by Codex in four rounds, from contract revision 3 through revision 10.
+- Reviews: a fresh Claude review (its FIX_FIRST findings all fixed), then Docker Claude delta reviews that each returned APPROVE. The GER Agent's Codex contract check of revision 10 returned commit_contract.
+- Verified in Unity 6000.1.8f1 on candidate 6b0d255dc (base 7698abac0), with builder output committed as 74c1923e8:
+  - Build ran twice, and all 185 non-scene generated files were byte-identical (the scene is excluded by VAL-007);
+  - Edit Mode 65/65, including DoorPrototypeSceneBuilderTests 58/58;
+  - Play Mode 107/107, run twice.
+- VAL-008: Vincent played the candidate. "The enemies look great." Approved for merge on 2026-09-17 ("Merge both").
+
+Follow-ups, routed to their owners:
+- wizard gets the same camera-facing treatment, with the 128x128 remake and door sorting;
+- melee search/wander back-and-forth;
+- whether the Lantern Wraith should chase;
+- three enemy spawns overlap room colliders.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

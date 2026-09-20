@@ -1,0 +1,42 @@
+{
+  "files": [
+    {
+      "example_colors": [],
+      "matching_pixel_count": 0,
+      "path": "C:\\nscrev\\reports\\art-director\\lantern-wisp-20260916\\pixellab\\wisp_A2_still.png",
+      "total_nontransparent_pixels": 284
+    },
+    {
+      "example_colors": [],
+      "matching_pixel_count": 0,
+      "path": "C:\\nscrev\\reports\\art-director\\lantern-wisp-20260916\\pixellab\\wisp_B2_still.png",
+      "total_nontransparent_pixels": 325
+    },
+    {
+      "example_colors": [],
+      "matching_pixel_count": 0,
+      "path": "C:\\nscrev\\reports\\art-director\\lantern-wisp-20260916\\pixellab\\wisp_C2_still.png",
+      "total_nontransparent_pixels": 237
+    },
+    {
+      "example_colors": [],
+      "matching_pixel_count": 0,
+      "path": "C:\\nscrev\\reports\\art-director\\lantern-wisp-20260916\\pixellab\\windup_se_128.png",
+      "total_nontransparent_pixels": 4129
+    }
+  ],
+  "matching_pixel_count": 0,
+  "minimum_saturation": 0.3,
+  "minimum_value": 0.3,
+  "range_semantics": "strict_default_warm",
+  "ranges": [
+    [
+      0.0,
+      70.0
+    ],
+    [
+      330.0,
+      360.0
+    ]
+  ]
+}

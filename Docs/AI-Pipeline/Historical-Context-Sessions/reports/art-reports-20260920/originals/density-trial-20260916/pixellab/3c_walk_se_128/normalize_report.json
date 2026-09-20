@@ -1,0 +1,233 @@
+[
+  {
+    "frame": "frame_00.png",
+    "raw_size": [
+      152,
+      152
+    ],
+    "raw_alpha_bbox": [
+      54,
+      23,
+      99,
+      126
+    ],
+    "raw_sha256": "bdd5381a7b13d6e006614bd4b6c7dd85e843af36c9948a8a5ba2f6707f7da1d5",
+    "canvas": [
+      128,
+      128
+    ],
+    "raw_origin_on_canvas": [
+      -12,
+      -12
+    ],
+    "opaque_pixels_fit": true,
+    "selected_file": "pixellab\\3c_walk_se_128\\frame_00.png",
+    "selected_alpha_bbox": [
+      42,
+      11,
+      87,
+      114
+    ],
+    "raw_opaque_pixels": 2395,
+    "selected_opaque_pixels": 2395,
+    "selected_sha256": "762e62e2824ae34e3a3a059fc87bbc538d059b24c5d216823efc44fe5753b5e5"
+  },
+  {
+    "frame": "frame_01.png",
+    "raw_size": [
+      152,
+      152
+    ],
+    "raw_alpha_bbox": [
+      54,
+      24,
+      99,
+      124
+    ],
+    "raw_sha256": "cbff55872a8970e5020688d45e6983f6d76273154305dea7180d47633b5ec9f6",
+    "canvas": [
+      128,
+      128
+    ],
+    "raw_origin_on_canvas": [
+      -12,
+      -12
+    ],
+    "opaque_pixels_fit": true,
+    "selected_file": "pixellab\\3c_walk_se_128\\frame_01.png",
+    "selected_alpha_bbox": [
+      42,
+      12,
+      87,
+      112
+    ],
+    "raw_opaque_pixels": 2289,
+    "selected_opaque_pixels": 2289,
+    "selected_sha256": "79ee0b41731bc7c33f84d792de0c0968490a85918a0244f18153aa0062d23c2e"
+  },
+  {
+    "frame": "frame_02.png",
+    "raw_size": [
+      152,
+      152
+    ],
+    "raw_alpha_bbox": [
+      55,
+      26,
+      100,
+      125
+    ],
+    "raw_sha256": "c23d6bcfdc722b6115d081dde0110017f49de4a1eeaf0c5869c060dbabb528db",
+    "canvas": [
+      128,
+      128
+    ],
+    "raw_origin_on_canvas": [
+      -12,
+      -12
+    ],
+    "opaque_pixels_fit": true,
+    "selected_file": "pixellab\\3c_walk_se_128\\frame_02.png",
+    "selected_alpha_bbox": [
+      43,
+      14,
+      88,
+      113
+    ],
+    "raw_opaque_pixels": 2274,
+    "selected_opaque_pixels": 2274,
+    "selected_sha256": "b887d3be229c53a71f636e2660303e6666ed129383025274f355ba2b83cf001c"
+  },
+  {
+    "frame": "frame_03.png",
+    "raw_size": [
+      152,
+      152
+    ],
+    "raw_alpha_bbox": [
+      55,
+      24,
+      100,
+      123
+    ],
+    "raw_sha256": "6632b9974f8d9901edafd275c2640f6a7cd51de38d12b4c269b64dddc8da826f",
+    "canvas": [
+      128,
+      128
+    ],
+    "raw_origin_on_canvas": [
+      -12,
+      -12
+    ],
+    "opaque_pixels_fit": true,
+    "selected_file": "pixellab\\3c_walk_se_128\\frame_03.png",
+    "selected_alpha_bbox": [
+      43,
+      12,
+      88,
+      111
+    ],
+    "raw_opaque_pixels": 2351,
+    "selected_opaque_pixels": 2351,
+    "selected_sha256": "611b180599ac287d07492bc9b6cd464497a84b412bc556f4c895563fc6a9ffcb"
+  },
+  {
+    "frame": "frame_04.png",
+    "raw_size": [
+      152,
+      152
+    ],
+    "raw_alpha_bbox": [
+      55,
+      23,
+      100,
+      125
+    ],
+    "raw_sha256": "b04fc1ef839f8f69e68b41045780c086c1cd018f1d325b7871700ec8fe8a6e92",
+    "canvas": [
+      128,
+      128
+    ],
+    "raw_origin_on_canvas": [
+      -12,
+      -12
+    ],
+    "opaque_pixels_fit": true,
+    "selected_file": "pixellab\\3c_walk_se_128\\frame_04.png",
+    "selected_alpha_bbox": [
+      43,
+      11,
+      88,
+      113
+    ],
+    "raw_opaque_pixels": 2442,
+    "selected_opaque_pixels": 2442,
+    "selected_sha256": "34886f57536742b6791858abff29ea1cc4f8d70ac65e1e639672233ca4154be3"
+  },
+  {
+    "frame": "frame_05.png",
+    "raw_size": [
+      152,
+      152
+    ],
+    "raw_alpha_bbox": [
+      55,
+      23,
+      100,
+      125
+    ],
+    "raw_sha256": "8181d11e09b63a4f8ca99ed1ca50edf372a0c08f68622ad9d4636da6fa959f2c",
+    "canvas": [
+      128,
+      128
+    ],
+    "raw_origin_on_canvas": [
+      -12,
+      -12
+    ],
+    "opaque_pixels_fit": true,
+    "selected_file": "pixellab\\3c_walk_se_128\\frame_05.png",
+    "selected_alpha_bbox": [
+      43,
+      11,
+      88,
+      113
+    ],
+    "raw_opaque_pixels": 2541,
+    "selected_opaque_pixels": 2541,
+    "selected_sha256": "137b00a90ba79fb73363d55f744fcc395f21e902037534faf6d4ef24ff9a84bc"
+  },
+  {
+    "frame": "frame_06.png",
+    "raw_size": [
+      152,
+      152
+    ],
+    "raw_alpha_bbox": [
+      55,
+      26,
+      100,
+      130
+    ],
+    "raw_sha256": "e2ebea6ddf8f76ec9738c15c82d5f26d1a0fba38b9d0a6c6fe30cdb6b1bb0e86",
+    "canvas": [
+      128,
+      128
+    ],
+    "raw_origin_on_canvas": [
+      -12,
+      -12
+    ],
+    "opaque_pixels_fit": true,
+    "selected_file": "pixellab\\3c_walk_se_128\\frame_06.png",
+    "selected_alpha_bbox": [
+      43,
+      14,
+      88,
+      118
+    ],
+    "raw_opaque_pixels": 2528,
+    "selected_opaque_pixels": 2528,
+    "selected_sha256": "49a2224553015de44f6cdbfa4f50af0c31c5ed0307aed6b169ba2bb84c486890"
+  }
+]

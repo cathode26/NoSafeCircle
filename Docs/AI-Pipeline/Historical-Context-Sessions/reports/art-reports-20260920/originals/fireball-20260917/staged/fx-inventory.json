@@ -1,0 +1,568 @@
+{
+  "schema": "nsc-pixellab-fx/v1",
+  "family": "fireball",
+  "task_id": null,
+  "authority": "Vincent, 2026-09-17: \"Tell it to make me some fireball art with out a task right now, make the task after when we can.\" Cap 100 generations.",
+  "pixels_per_unit": 64,
+  "filter_mode": "Point",
+  "sets": {
+    "charge_gather": {
+      "frames": 6,
+      "canvas": [
+        48,
+        48
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "pivot_note": "mid-air set: centred pivot, position is the emitter's job",
+      "world_size_units": 0.75,
+      "files": [
+        {
+          "file": "Source/PixelLabFX/Fireball/charge_gather/frame_000.png",
+          "canvas": [
+            48,
+            48
+          ],
+          "bbox": [
+            11,
+            9,
+            34,
+            36
+          ],
+          "lowest_opaque_row": 35,
+          "sha256": "09612770a561c43221d9e56810320819a23ac63f7225b248eeda5ee6c2294f33",
+          "bytes": 1013,
+          "colours": 36
+        },
+        {
+          "file": "Source/PixelLabFX/Fireball/charge_gather/frame_001.png",
+          "canvas": [
+            48,
+            48
+          ],
+          "bbox": [
+            11,
+            10,
+            34,
+            36
+          ],
+          "lowest_opaque_row": 35,
+          "sha256": "fed69dc76b7492715cd78d46fbb2c3e88e21251187fce8fd1274a0d99caaf954",
+          "bytes": 873,
+          "colours": 25
+        },
+        {
+          "file": "Source/PixelLabFX/Fireball/charge_gather/frame_002.png",
+          "canvas": [
+            48,
+            48
+          ],
+          "bbox": [
+            11,
+            14,
+            35,
+            36
+          ],
+          "lowest_opaque_row": 35,
+          "sha256": "ef217cd4c3a88a664997c76dd1847b17930f8f2b53f96ef0492ca821e4b067d8",
+          "bytes": 937,
+          "colours": 26
+        },
+        {
+          "file": "Source/PixelLabFX/Fireball/charge_gather/frame_003.png",
+          "canvas": [
+            48,
+            48
+          ],
+          "bbox": [
+            10,
+            14,
+            36,
+            36
+          ],
+          "lowest_opaque_row": 35,
+          "sha256": "4ab2c2cda905f591f2ef588d866a9cf56195eb13eaac230d4811cb1d7a0c9a9c",
+          "bytes": 898,
+          "colours": 26
+        },
+        {
+          "file": "Source/PixelLabFX/Fireball/charge_gather/frame_004.png",
+          "canvas": [
+            48,
+            48
+          ],
+          "bbox": [
+            12,
+            14,
+            36,
+            36
+          ],
+          "lowest_opaque_row": 35,
+          "sha256": "952cfa3c791972ccfef27db075725c58fd6f3172c75f52c8dca6cd1e76b93aa6",
+          "bytes": 905,
+          "colours": 34
+        },
+        {
+          "file": "Source/PixelLabFX/Fireball/charge_gather/frame_005.png",
+          "canvas": [
+            48,
+            48
+          ],
+          "bbox": [
+            12,
+            11,
+            35,
+            36
+          ],
+          "lowest_opaque_row": 35,
+          "sha256": "ab2faba1acc20c6af007d5bbcad72bd162f5dbd18e7d64ca4db12f4460cf1040",
+          "bytes": 970,
+          "colours": 32
+        }
+      ]
+    },
+    "charge_hold": {
+      "frames": 6,
+      "canvas": [
+        48,
+        48
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "pivot_note": "mid-air set: centred pivot, position is the emitter's job",
+      "world_size_units": 0.75,
+      "files": [
+        {
+          "file": "Source/PixelLabFX/Fireball/charge_hold/frame_000.png",
+          "canvas": [
+            48,
+            48
+          ],
+          "bbox": [
+            5,
+            4,
+            41,
+            41
+          ],
+          "lowest_opaque_row": 40,
+          "sha256": "cb34b8f949f094790a142aae92d22ac0da4315d7efc11395941db5aefba44d9d",
+          "bytes": 2044,
+          "colours": 37
+        },
+        {
+          "file": "Source/PixelLabFX/Fireball/charge_hold/frame_001.png",
+          "canvas": [
+            48,
+            48
+          ],
+          "bbox": [
+            6,
+            4,
+            40,
+            41
+          ],
+          "lowest_opaque_row": 40,
+          "sha256": "c0941df239f80a1b679849265046b85e754490735603de34ed45cbcae60f6399",
+          "bytes": 1658,
+          "colours": 35
+        },
+        {
+          "file": "Source/PixelLabFX/Fireball/charge_hold/frame_002.png",
+          "canvas": [
+            48,
+            48
+          ],
+          "bbox": [
+            6,
+            4,
+            40,
+            41
+          ],
+          "lowest_opaque_row": 40,
+          "sha256": "5c78bb368ca3c6e6d09f10eb05df05b2710ffed6afa70ed4f0f3e35b98dc33b1",
+          "bytes": 1559,
+          "colours": 37
+        },
+        {
+          "file": "Source/PixelLabFX/Fireball/charge_hold/frame_003.png",
+          "canvas": [
+            48,
+            48
+          ],
+          "bbox": [
+            7,
+            6,
+            39,
+            41
+          ],
+          "lowest_opaque_row": 40,
+          "sha256": "3d9d9fef4085126c2b401a6aa52f7a3e068db5e3eb37bba4936f46720acd8c12",
+          "bytes": 1536,
+          "colours": 38
+        },
+        {
+          "file": "Source/PixelLabFX/Fireball/charge_hold/frame_004.png",
+          "canvas": [
+            48,
+            48
+          ],
+          "bbox": [
+            8,
+            5,
+            38,
+            41
+          ],
+          "lowest_opaque_row": 40,
+          "sha256": "ae0358bf0ff81d99819e39f272dfe636ca6216c961978c1a1d57592378aa3b0e",
+          "bytes": 1639,
+          "colours": 37
+        },
+        {
+          "file": "Source/PixelLabFX/Fireball/charge_hold/frame_005.png",
+          "canvas": [
+            48,
+            48
+          ],
+          "bbox": [
+            7,
+            7,
+            39,
+            41
+          ],
+          "lowest_opaque_row": 40,
+          "sha256": "28a06abb2b602933d14cd501d5333de13600cc7688668434c3e57df9b02eaa84",
+          "bytes": 1670,
+          "colours": 36
+        }
+      ]
+    },
+    "projectile": {
+      "frames": 4,
+      "canvas": [
+        48,
+        48
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "pivot_note": "mid-air set: centred pivot, position is the emitter's job",
+      "world_size_units": 0.75,
+      "files": [
+        {
+          "file": "Source/PixelLabFX/Fireball/projectile/frame_000.png",
+          "canvas": [
+            48,
+            48
+          ],
+          "bbox": [
+            5,
+            5,
+            41,
+            41
+          ],
+          "lowest_opaque_row": 40,
+          "sha256": "b0cbaf20364abea61999ba81d447d8859554d53398b87e60573d994e2cfaf522",
+          "bytes": 1955,
+          "colours": 40
+        },
+        {
+          "file": "Source/PixelLabFX/Fireball/projectile/frame_001.png",
+          "canvas": [
+            48,
+            48
+          ],
+          "bbox": [
+            6,
+            6,
+            40,
+            41
+          ],
+          "lowest_opaque_row": 40,
+          "sha256": "7e3915a8f4dc707ba6a0d226be7e7f8f85b0c4487fdcec93fd9ec06a52f50622",
+          "bytes": 1397,
+          "colours": 35
+        },
+        {
+          "file": "Source/PixelLabFX/Fireball/projectile/frame_002.png",
+          "canvas": [
+            48,
+            48
+          ],
+          "bbox": [
+            7,
+            5,
+            39,
+            41
+          ],
+          "lowest_opaque_row": 40,
+          "sha256": "867726b94081c7eb55e6a8854fb5a08455ebe2a1ae46f86d9e81b47760d82211",
+          "bytes": 1848,
+          "colours": 39
+        },
+        {
+          "file": "Source/PixelLabFX/Fireball/projectile/frame_003.png",
+          "canvas": [
+            48,
+            48
+          ],
+          "bbox": [
+            7,
+            1,
+            39,
+            41
+          ],
+          "lowest_opaque_row": 40,
+          "sha256": "1f3f3c0168bddaddccf0b651815549efb09a855a288226add526717b6484317f",
+          "bytes": 1694,
+          "colours": 36
+        }
+      ]
+    },
+    "impact": {
+      "frames": 8,
+      "canvas": [
+        96,
+        96
+      ],
+      "pivot": [
+        0.5,
+        0.15625
+      ],
+      "pivot_note": "floor-sitting set: one pivot for all frames from the modal base row 80 of 96; per-frame rows [82, 81, 80, 80, 80, 80, 80, 80]",
+      "world_size_units": 1.5,
+      "files": [
+        {
+          "file": "Source/PixelLabFX/Fireball/impact/frame_000.png",
+          "canvas": [
+            96,
+            96
+          ],
+          "bbox": [
+            3,
+            10,
+            94,
+            83
+          ],
+          "lowest_opaque_row": 82,
+          "sha256": "199f51a1d1145d0109372562a22d7d8f0fd7b3fac725ae0b4cefc30077e24d88",
+          "bytes": 6851,
+          "colours": 30
+        },
+        {
+          "file": "Source/PixelLabFX/Fireball/impact/frame_001.png",
+          "canvas": [
+            96,
+            96
+          ],
+          "bbox": [
+            6,
+            10,
+            87,
+            82
+          ],
+          "lowest_opaque_row": 81,
+          "sha256": "7f5bd2f8162c84824ae5fb4fa992ccbc8b8bd17f6f894b96dd2fe99071750a50",
+          "bytes": 5172,
+          "colours": 30
+        },
+        {
+          "file": "Source/PixelLabFX/Fireball/impact/frame_002.png",
+          "canvas": [
+            96,
+            96
+          ],
+          "bbox": [
+            8,
+            12,
+            85,
+            81
+          ],
+          "lowest_opaque_row": 80,
+          "sha256": "8868ee8cc2ad5bf9f6660de07944504c360e4f6da01cc272623c67b4f5a3fd46",
+          "bytes": 4438,
+          "colours": 30
+        },
+        {
+          "file": "Source/PixelLabFX/Fireball/impact/frame_003.png",
+          "canvas": [
+            96,
+            96
+          ],
+          "bbox": [
+            12,
+            16,
+            79,
+            81
+          ],
+          "lowest_opaque_row": 80,
+          "sha256": "57f87607505f2be9e2133bd8bad134a902c91ad3f05f1f38dc50c0309c3ff892",
+          "bytes": 2798,
+          "colours": 32
+        },
+        {
+          "file": "Source/PixelLabFX/Fireball/impact/frame_004.png",
+          "canvas": [
+            96,
+            96
+          ],
+          "bbox": [
+            25,
+            17,
+            76,
+            81
+          ],
+          "lowest_opaque_row": 80,
+          "sha256": "c5eaacf7afd432f1b8c40411ac21e8718b33588b8cadc5252ce3720ffca43fee",
+          "bytes": 2322,
+          "colours": 26
+        },
+        {
+          "file": "Source/PixelLabFX/Fireball/impact/frame_005.png",
+          "canvas": [
+            96,
+            96
+          ],
+          "bbox": [
+            16,
+            16,
+            75,
+            81
+          ],
+          "lowest_opaque_row": 80,
+          "sha256": "df0eb18ea48f08977b46078ab4bc468ae4dcbcd4f17050d1350892533584ee4c",
+          "bytes": 1912,
+          "colours": 26
+        },
+        {
+          "file": "Source/PixelLabFX/Fireball/impact/frame_006.png",
+          "canvas": [
+            96,
+            96
+          ],
+          "bbox": [
+            25,
+            19,
+            71,
+            81
+          ],
+          "lowest_opaque_row": 80,
+          "sha256": "aedf434bf80769e3b623de8696582975071b646946f0b51e100a44d10af43581",
+          "bytes": 2101,
+          "colours": 30
+        },
+        {
+          "file": "Source/PixelLabFX/Fireball/impact/frame_007.png",
+          "canvas": [
+            96,
+            96
+          ],
+          "bbox": [
+            26,
+            44,
+            65,
+            81
+          ],
+          "lowest_opaque_row": 80,
+          "sha256": "54818068a675340eba18e7dd7fe21d07869e5debefa655f67ee355693d00d109",
+          "bytes": 1711,
+          "colours": 27
+        }
+      ]
+    },
+    "scorch": {
+      "frames": 1,
+      "canvas": [
+        136,
+        68
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "pivot_note": "flat floor decal, centred; 136x68 is the 2:1 ground ellipse at 1.5 units",
+      "world_size_units": 2.125,
+      "files": [
+        {
+          "file": "Source/PixelLabFX/Fireball/scorch.png",
+          "canvas": [
+            136,
+            68
+          ],
+          "bbox": [
+            2,
+            4,
+            131,
+            64
+          ],
+          "lowest_opaque_row": 63,
+          "sha256": "0069760682956088961ff3c2f8abf259ef0a15b3fbf04f69f1ce3f3edb9425d1",
+          "bytes": 8400,
+          "colours": 32
+        }
+      ]
+    }
+  },
+  "stills": {
+    "core": {
+      "file": "Source/PixelLabFX/Fireball/stills/core.png",
+      "canvas": [
+        48,
+        48
+      ],
+      "bbox": [
+        5,
+        3,
+        41,
+        41
+      ],
+      "lowest_opaque_row": 40,
+      "sha256": "5098d97f2295685e14e5b0d15b1648f85df532cbf0dd60f05ec1304815ab6712",
+      "bytes": 2296,
+      "colours": 43
+    },
+    "spark": {
+      "file": "Source/PixelLabFX/Fireball/stills/spark.png",
+      "canvas": [
+        48,
+        48
+      ],
+      "bbox": [
+        12,
+        10,
+        34,
+        36
+      ],
+      "lowest_opaque_row": 35,
+      "sha256": "4b54ed97b3d5bb3b24b31db6dcaa4a9225a71eb53fec14f11a82bbaf6ccba72d",
+      "bytes": 1061,
+      "colours": 37
+    },
+    "impact_base": {
+      "file": "Source/PixelLabFX/Fireball/stills/impact_base.png",
+      "canvas": [
+        96,
+        96
+      ],
+      "bbox": [
+        2,
+        11,
+        93,
+        84
+      ],
+      "lowest_opaque_row": 83,
+      "sha256": "452361794c1d1ae51ca3dd7366e7b43b64a78614dc09781fcac9b7bc0e5df08f",
+      "bytes": 7920,
+      "colours": 40
+    }
+  },
+  "palette": {
+    "file": "Source/PixelLabFX/Fireball/fire_palette.png",
+    "colours": 48,
+    "note": "every frame except the scorch uses only these 48 colours; the scorch has its own 32"
+  }
+}

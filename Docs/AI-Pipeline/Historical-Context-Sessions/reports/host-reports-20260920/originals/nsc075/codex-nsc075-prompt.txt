@@ -1,0 +1,71 @@
+You are working in the No Safe Circle Unity repository, mounted at /workspace. It is a standalone clone made for this job. Before you begin, read AGENTS.md, CLAUDE.md, Docs/Engineering/UNITY_TESTING_POLICY.md and Tasks/NSC-075.yaml.
+
+HARD RULES. They apply to every step below.
+- NEVER push. Do not add or change git remotes.
+- Work only on branch codex/nsc075-eight-direction-20260916. It is already checked out at commit 22955c5a8, which is the current main. Never commit to main or move it. Never delete a branch, worktree or tag.
+- Commit as user.name "No Safe Circle Codex Worker", user.email "codex-worker@nosafecircle.invalid". Stage exact paths with `git add -- <path>`. Never use `git add .` or `git add -A`.
+- Unity is NOT available in this container, so you cannot compile or run tests. Never claim that code compiled or that a test passed. The Windows orchestrator will run the Unity builder and the tests after you finish.
+- Never hand-edit generated or serialized Unity files. That covers anything under Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/, any .unity scene, and any .anim, .controller, .prefab or .asset file. It also covers every existing .meta file. The only .meta you may add is one for a brand-new C# file: two lines, `fileFormatVersion: 2` and a fresh 32-hex-digit `guid`.
+- Do not edit Tasks/*.yaml, the 96 cardinal PNGs, or source-inventory.json.
+- Whenever reality contradicts these instructions, stop and report. Do not guess.
+
+GOAL
+Implement NSC-075 revision 2, "Unity Eight-Direction Wizard Locomotion Integration". Change source and focused tests only.
+
+ALREADY VERIFIED ON THIS BASE. Do not re-derive these.
+- NSC-073 (the light female wizard's hat-frame fix) is merged.
+- NSC-074 is merged. It added 96 cardinal walk frames: 4 variants x north/east/south/west x frame_000..frame_005, each with a GUID-only .meta. It also added WizardCardinalSourceAuditTests.
+- Every variant has standing source images for all eight directions under Art/Wizard/Source/PixelLab/<variant>/selected/standing/.
+- DoorPrototypeGlobalSceneBuilder.BuildWizardAnimationAssets() does the following:
+  - loops WizardStandingDirections (eight directions) for idle states;
+  - loops WizardDirections (only the four diagonals today) for walk states;
+  - configures each source sprite's importer (Sprite, uncompressed, 180 pixels per unit, feet pivot).
+- WizardAnimationController.cs selects only the four diagonals today.
+- Main also carries the playable build: DemoRunFlow, a chase enemy, a fire-caster enemy, the fireball, and the win and death screens. All of it must keep working.
+- Branch origin/assistant/nsc-075-builder-prep (tip 5a139770e, from 2026-09-13) already holds three commits of NSC-075 preparation:
+  - an eight-sector classifier with a switch margin and deterministic ties, with classifier tests in WizardAnimationPlayModeTests.cs;
+  - the builder's walk directions set to all eight;
+  - wizard sorting validation in WizardArtIntegrationTests.cs.
+  - A trial merge onto this base conflicts only in Assets/NoSafeCircle/DoorPrototype/Tests/Editor/WizardArtIntegrationTests.cs.
+
+STEP 1 - Start from the prep work.
+Merge origin/assistant/nsc-075-builder-prep into your branch. Resolve the WizardArtIntegrationTests.cs conflict so the file keeps every current-main assertion that still holds and gains the prep branch's eight-direction checks. Commit the merge. Then review the prep classifier against NSC-075 AC-001 and fix any real defect you find.
+
+STEP 2 - Audit against NSC-075 rev 2 and close every gap. Change source and focused tests only.
+- AC-001 and VAL-002:
+  - The classifier must give stable matching directions for all eight screen directions, with explicit sector boundaries, deterministic tie behaviour, and hysteresis, so small orthogonal noise never flickers into an adjacent or opposite state.
+  - Idle keeps the last meaningful facing.
+  - WizardAnimationPlayModeTests must drive every wizard through all eight held screen directions over multiple frames with small alternating orthogonal noise. It must check stable expected states and walking progression, and that idle keeps the last facing.
+- AC-002, AC-003 and VAL-001:
+  - The builder must generate 8 idle and 8 walk states per variant, which is 64 states and 64 clips.
+  - Each state must resolve to the same-named clip.
+  - Each walk clip uses frame_000..frame_005 from exactly one variant and direction, in playback order.
+  - Each idle clip uses the matching standing sprite.
+  - Cardinal frames get the same importer settings as the diagonal frames.
+  - WizardArtIntegrationTests must enumerate all 64 states and check exact state-to-clip identity, ordered six-frame sprite membership, source identity, import geometry, the feet pivot, and SpriteRenderer binding, with no mixed-direction or mixed-variant references.
+- AC-004 and VAL-003:
+  - Add a focused Play Mode path. It starts the lobby, selects and confirms each wizard, and checks there is exactly one Player at the canonical spawn. It then proves that eight-direction movement animation works and that mouse interaction and input are still available.
+  - Put this new coverage in WizardAnimationPlayModeTests.cs, which NSC-075 owns. You may read WizardGameEntryPlayModeTests.cs and WizardSelectionPlayModeTests.cs for helpers and patterns, but do not edit them.
+  - Never create a second Player or a fallback wizard.
+- AC-005:
+  - DoorPrototypeSceneBuilder.Build stays the public materialization command and delegates wizard Animator construction to DoorPrototypeGlobalSceneBuilder.
+  - The builder stays idempotent across two runs.
+  - When the orchestrator runs the builder, it will rewrite the 96 cardinal frames' .meta files with importer settings. That is expected. Do not pre-write those metas.
+- Only edit files NSC-075 owns:
+  - WizardAnimationController.cs
+  - DoorPrototypeGlobalSceneBuilder.cs
+  - WizardArtIntegrationTests.cs
+  - WizardAnimationPlayModeTests.cs
+  - WizardCardinalSourceAuditTests.cs, only if strictly necessary
+  - If another file must change, stop and report why instead of editing it.
+- Search the focused tests for other hard-coded four-direction or 32-state assumptions and update only what NSC-075 requires. The canonical initial direction "south-east" may stay.
+
+Make small logical commits with clear messages. Keep C# consistent with the surrounding code, and re-read every edited file for compile errors, because nothing will compile it before the orchestrator does.
+
+FINAL OUTPUT. Write a concise report containing:
+1. Every commit SHA you created and what it changes.
+2. How you resolved the WizardArtIntegrationTests.cs conflict.
+3. A table of NSC-075 AC-001..AC-005 and VAL-001..VAL-003, naming the file and test that covers each.
+4. The exact fully qualified Unity test filters for the orchestrator to run, one line for Edit Mode and one for Play Mode. Separate multiple entries with semicolons, not commas. Edit Mode tests live in namespace NoSafeCircle.DoorPrototype.Tests.Editor and Play Mode tests in NoSafeCircle.DoorPrototype.Tests.
+5. Anything you could not verify without Unity, and any contract wording that conflicts with the finished code, for example NSC-070's 32-state gates. Report these; do not edit contracts.
+Say plainly what you did not do.

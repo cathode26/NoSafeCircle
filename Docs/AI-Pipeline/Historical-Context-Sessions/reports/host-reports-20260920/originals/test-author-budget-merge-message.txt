@@ -1,0 +1,29 @@
+Merge fix/test-author-budget: give the full-profile test author the implementer's room
+
+NSC-007's crew produced no candidate: Test Author 1 failed at 1200.4s, the
+per-role wall, while writing two full test suites. DEFAULT_ROLE_BUDGET is
+(32, 1200.0) and ROLE_BUDGET_DEFAULTS raised only ("implementer", "full") to
+(96, 3600.0), after NSC-042 died on max_turns twice. The test author was never
+given the same room for the same reason.
+
+The documented NSC_<ROLE>_TIMEOUT_SECONDS override cannot fix it from outside:
+role_budgets reads the environment inside the crew container, and compose's
+claude-exec service declares a fixed environment block with no NSC_* passthrough,
+so a host value never crosses the boundary. start-worker has no retry flag
+either, so a retry was a fresh run into the same wall.
+
+This adds ("test_author", "full"): (96, 3600.0) and nothing else. Deliberately
+full-profile only, matching the implementer; the standard profile keeps the
+default and that limit stays pinned by a test rather than left implicit.
+
+Verified before merging by the Game Agent at tip b35e8c40b: role_budgets_test
+3/3 on Windows. The merge changes exactly two files - run_crew.py and
+role_budgets_test.py - despite the branch sitting on an older main, so nothing
+newer on main is reverted. Author and committer are .invalid.
+
+The Pipeline Maintainer's caution, recorded because it will matter: the wall is
+now an hour rather than twenty minutes, so a genuinely stuck test author burns
+longer before failing. A second death at 3600s is a different defect and wants
+diagnosis, not a larger number.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

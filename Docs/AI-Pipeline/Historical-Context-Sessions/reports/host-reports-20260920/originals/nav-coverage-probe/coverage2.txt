@@ -1,0 +1,22 @@
+RuinedEntry z[-25,4] vertex heights: y=0.083x105 y=1.333x16 y=2.583x2
+BoneArchive z[4,22] vertex heights: y=0.083x114 y=2.583x10
+ChapelOfAsh z[22,44] vertex heights: y=0.083x222
+LowerVault z[44,64] vertex heights: y=0.083x132 y=1.583x12 y=2.583x8
+FinalRoom z[64,86] vertex heights: y=0.083x52 y=0.088x6 y=2.083x8
+Final Room grid (nearest navmesh y within 5, '-' = nothing):
+  z=84     0.085  0.083  0.083  0.083  0.083  0.083  0.083  0.083  0.083  0.083  0.085
+  z=82     0.097  0.088  0.083  0.083  0.083  0.083  0.083  0.083  0.083  0.087  0.097
+  z=80     0.109  0.099   0.09  0.083  0.083  0.083  0.083  0.083   0.09  0.099  0.109
+  z=78      0.12  0.111  0.102  0.093  0.083  2.083  2.083  0.092  0.102  0.112  0.121
+  z=76     0.132  0.123  0.114  0.097  0.083  2.083  2.083  0.095  0.114  0.124  0.128
+  z=74     0.136  0.135  0.123  0.097  0.083  0.083  0.083  0.095  0.124  0.136  0.128
+  z=72     0.136  0.147  0.123  0.107  0.083  0.083  0.083  0.105  0.124  0.148  0.128
+  z=70     0.136  0.156  0.147  0.119  0.088  0.083  0.087   0.12  0.145  0.157  0.128
+  z=68     0.136   0.48   0.16  0.129  0.098  0.083  0.098  0.132  0.164  0.481  0.128
+  z=66     0.118  0.118  0.118  0.118  0.108  0.083   0.11  0.118  0.118  0.118  0.118
+  x=         -10     -8     -6     -4     -2      0      2      4      6      8     10
+under (8,74): World/ComposedRooms/Room_FinalRoom/GameplayGeometry/FloorCollision@y0(trigger=False,bounds y[-0.1,0])
+under (-8,77): World/ComposedRooms/Room_FinalRoom/GameplayGeometry/FloorCollision@y0(trigger=False,bounds y[-0.1,0])
+under (-2,53): World/ComposedRooms/Room_LowerVault/GameplayGeometry/FloorCollision@y0(trigger=False,bounds y[-0.1,0])
+under (0,82): World/ComposedRooms/Room_FinalRoom/GameplayGeometry/FloorCollision@y0(trigger=False,bounds y[-0.1,0])
+under (8,70): World/ComposedRooms/Room_FinalRoom/GameplayGeometry/FloorCollision@y0(trigger=False,bounds y[-0.1,0])

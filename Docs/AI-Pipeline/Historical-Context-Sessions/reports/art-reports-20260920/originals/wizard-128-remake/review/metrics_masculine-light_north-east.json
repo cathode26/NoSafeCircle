@@ -1,0 +1,165 @@
+{
+  "deltas": [
+    {
+      "bbox_bottom_change": 2,
+      "bbox_width_change": 2,
+      "flags": [],
+      "from": 0,
+      "loop_seam": false,
+      "opaque_change_percent": 2.4196747322491077,
+      "to": 1
+    },
+    {
+      "bbox_bottom_change": 0,
+      "bbox_width_change": -1,
+      "flags": [],
+      "from": 1,
+      "loop_seam": false,
+      "opaque_change_percent": -2.672347017815647,
+      "to": 2
+    },
+    {
+      "bbox_bottom_change": -3,
+      "bbox_width_change": -1,
+      "flags": [
+        "baseline_jump"
+      ],
+      "from": 2,
+      "loop_seam": false,
+      "opaque_change_percent": -0.6764822920811778,
+      "to": 3
+    },
+    {
+      "bbox_bottom_change": -2,
+      "bbox_width_change": 0,
+      "flags": [],
+      "from": 3,
+      "loop_seam": false,
+      "opaque_change_percent": -0.8413461538461539,
+      "to": 4
+    },
+    {
+      "bbox_bottom_change": 1,
+      "bbox_width_change": 0,
+      "flags": [],
+      "from": 4,
+      "loop_seam": false,
+      "opaque_change_percent": -0.5656565656565656,
+      "to": 5
+    },
+    {
+      "bbox_bottom_change": 2,
+      "bbox_width_change": 0,
+      "flags": [],
+      "from": 5,
+      "loop_seam": true,
+      "opaque_change_percent": 2.438033319788704,
+      "to": 0
+    }
+  ],
+  "frames": [
+    {
+      "alpha_bbox": [
+        43,
+        18,
+        85,
+        123
+      ],
+      "distinct_color_count": 65,
+      "opaque_pixel_count": 2521,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-light\\aligned\\walk\\north-east\\frame_00.png",
+      "sha256": "e7f8b0624096bed3d88dc1bbb5fc019b14259451b07f203fdb8bf7fcc935a3cc",
+      "size": [
+        128,
+        128
+      ]
+    },
+    {
+      "alpha_bbox": [
+        43,
+        20,
+        87,
+        125
+      ],
+      "distinct_color_count": 65,
+      "opaque_pixel_count": 2582,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-light\\aligned\\walk\\north-east\\frame_01.png",
+      "sha256": "ebc90960df3943047a315717d0f742821449832d5eb93d3eaf8eaa52b82e9627",
+      "size": [
+        128,
+        128
+      ]
+    },
+    {
+      "alpha_bbox": [
+        43,
+        21,
+        86,
+        125
+      ],
+      "distinct_color_count": 65,
+      "opaque_pixel_count": 2513,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-light\\aligned\\walk\\north-east\\frame_02.png",
+      "sha256": "32dad113d284dbd4551e7086f42f0d0d75d739295aefc296db6e85b0487b6d2e",
+      "size": [
+        128,
+        128
+      ]
+    },
+    {
+      "alpha_bbox": [
+        43,
+        19,
+        85,
+        122
+      ],
+      "distinct_color_count": 65,
+      "opaque_pixel_count": 2496,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-light\\aligned\\walk\\north-east\\frame_03.png",
+      "sha256": "ac8fa5b54bf9717c8c893b5435a992f09c0803be56590fc45230ab6d0aa70307",
+      "size": [
+        128,
+        128
+      ]
+    },
+    {
+      "alpha_bbox": [
+        43,
+        17,
+        85,
+        120
+      ],
+      "distinct_color_count": 65,
+      "opaque_pixel_count": 2475,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-light\\aligned\\walk\\north-east\\frame_04.png",
+      "sha256": "929da586d4d6f10ad045b27f5436a55830cc94c7d861f90c6bc14311242d1303",
+      "size": [
+        128,
+        128
+      ]
+    },
+    {
+      "alpha_bbox": [
+        43,
+        20,
+        85,
+        121
+      ],
+      "distinct_color_count": 65,
+      "opaque_pixel_count": 2461,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-light\\aligned\\walk\\north-east\\frame_05.png",
+      "sha256": "fd6cc5a59cbe81e39638486ed8553d632fc646fb920ceba2af4a546caee604a7",
+      "size": [
+        128,
+        128
+      ]
+    }
+  ],
+  "has_outliers": true,
+  "loop": true,
+  "thresholds": {
+    "baseline_jump_pixels": 3,
+    "bbox_width_pixels": 8,
+    "opaque_change_percent": 15.0
+  }
+}

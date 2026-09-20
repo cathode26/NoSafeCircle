@@ -1,0 +1,1346 @@
+{
+ "north": {
+  "deltas": [
+   {
+    "bbox_bottom_change": 3,
+    "bbox_width_change": -1,
+    "flags": [
+     "baseline_jump"
+    ],
+    "from": 0,
+    "loop_seam": false,
+    "opaque_change_percent": -1.6300940438871474,
+    "to": 1
+   },
+   {
+    "bbox_bottom_change": -1,
+    "bbox_width_change": -1,
+    "flags": [],
+    "from": 1,
+    "loop_seam": false,
+    "opaque_change_percent": -2.4537922243467176,
+    "to": 2
+   },
+   {
+    "bbox_bottom_change": -5,
+    "bbox_width_change": 0,
+    "flags": [
+     "baseline_jump"
+    ],
+    "from": 2,
+    "loop_seam": false,
+    "opaque_change_percent": 0.03266906239790918,
+    "to": 3
+   },
+   {
+    "bbox_bottom_change": 4,
+    "bbox_width_change": 5,
+    "flags": [
+     "baseline_jump"
+    ],
+    "from": 3,
+    "loop_seam": false,
+    "opaque_change_percent": 3.037230568256042,
+    "to": 4
+   },
+   {
+    "bbox_bottom_change": 3,
+    "bbox_width_change": 2,
+    "flags": [
+     "baseline_jump"
+    ],
+    "from": 4,
+    "loop_seam": false,
+    "opaque_change_percent": -1.0776545166402536,
+    "to": 5
+   },
+   {
+    "bbox_bottom_change": -4,
+    "bbox_width_change": -5,
+    "flags": [
+     "baseline_jump"
+    ],
+    "from": 5,
+    "loop_seam": true,
+    "opaque_change_percent": 2.210829862223646,
+    "to": 0
+   }
+  ],
+  "frames": [
+   {
+    "alpha_bbox": [
+     40,
+     14,
+     90,
+     119
+    ],
+    "distinct_color_count": 65,
+    "opaque_pixel_count": 3190,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\north\\frame_00.png",
+    "sha256": "470735ccd690e7c24d1d52560ad73eb40a72a7264351ce84600fe2f13fdb1be7",
+    "size": [
+     128,
+     128
+    ]
+   },
+   {
+    "alpha_bbox": [
+     40,
+     17,
+     89,
+     122
+    ],
+    "distinct_color_count": 63,
+    "opaque_pixel_count": 3138,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\north\\frame_01.png",
+    "sha256": "929c11811d8202a92629c32b741f1624157e032b1ec053a42cfd789d1c9010fa",
+    "size": [
+     128,
+     128
+    ]
+   },
+   {
+    "alpha_bbox": [
+     40,
+     18,
+     88,
+     121
+    ],
+    "distinct_color_count": 65,
+    "opaque_pixel_count": 3061,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\north\\frame_02.png",
+    "sha256": "99afc15e7ab690809e0b304ba5091df5b7ec9ac55f0ef99d950c1d7fd42f65a5",
+    "size": [
+     128,
+     128
+    ]
+   },
+   {
+    "alpha_bbox": [
+     40,
+     15,
+     88,
+     116
+    ],
+    "distinct_color_count": 64,
+    "opaque_pixel_count": 3062,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\north\\frame_03.png",
+    "sha256": "c21ae39f7bbb09abc5376c66d372968e8faba455d7096b05900ba04106b8e230",
+    "size": [
+     128,
+     128
+    ]
+   },
+   {
+    "alpha_bbox": [
+     40,
+     14,
+     93,
+     120
+    ],
+    "distinct_color_count": 65,
+    "opaque_pixel_count": 3155,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\north\\frame_04.png",
+    "sha256": "43cbec3d172fcd7b5f113d0ac45db950a4d6dc6cabce9cf08e5fec68422caf19",
+    "size": [
+     128,
+     128
+    ]
+   },
+   {
+    "alpha_bbox": [
+     40,
+     17,
+     95,
+     123
+    ],
+    "distinct_color_count": 65,
+    "opaque_pixel_count": 3121,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\north\\frame_05.png",
+    "sha256": "7b588cccc0238e8ae1244761183469a0d19ab3344dd69646b85bd23e545b3400",
+    "size": [
+     128,
+     128
+    ]
+   }
+  ],
+  "has_outliers": true,
+  "loop": true,
+  "thresholds": {
+   "baseline_jump_pixels": 3,
+   "bbox_width_pixels": 8,
+   "opaque_change_percent": 15.0
+  }
+ },
+ "north-east": {
+  "deltas": [
+   {
+    "bbox_bottom_change": 1,
+    "bbox_width_change": 2,
+    "flags": [],
+    "from": 0,
+    "loop_seam": false,
+    "opaque_change_percent": 2.330851408222726,
+    "to": 1
+   },
+   {
+    "bbox_bottom_change": 0,
+    "bbox_width_change": -1,
+    "flags": [],
+    "from": 1,
+    "loop_seam": false,
+    "opaque_change_percent": -3.0686491616577034,
+    "to": 2
+   },
+   {
+    "bbox_bottom_change": -2,
+    "bbox_width_change": -1,
+    "flags": [],
+    "from": 2,
+    "loop_seam": false,
+    "opaque_change_percent": -0.97911227154047,
+    "to": 3
+   },
+   {
+    "bbox_bottom_change": -4,
+    "bbox_width_change": -1,
+    "flags": [
+     "baseline_jump"
+    ],
+    "from": 3,
+    "loop_seam": false,
+    "opaque_change_percent": -2.0105471324983517,
+    "to": 4
+   },
+   {
+    "bbox_bottom_change": 2,
+    "bbox_width_change": 1,
+    "flags": [],
+    "from": 4,
+    "loop_seam": false,
+    "opaque_change_percent": 2.791792801883619,
+    "to": 5
+   },
+   {
+    "bbox_bottom_change": 3,
+    "bbox_width_change": 0,
+    "flags": [
+     "baseline_jump"
+    ],
+    "from": 5,
+    "loop_seam": true,
+    "opaque_change_percent": 1.0798429319371727,
+    "to": 0
+   }
+  ],
+  "frames": [
+   {
+    "alpha_bbox": [
+     40,
+     13,
+     89,
+     121
+    ],
+    "distinct_color_count": 64,
+    "opaque_pixel_count": 3089,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\north-east\\frame_00.png",
+    "sha256": "bd2af8bc0e1d2424ad868223bf4af1b4a6c9e6b1149c2bbad2d8eed1408ef471",
+    "size": [
+     128,
+     128
+    ]
+   },
+   {
+    "alpha_bbox": [
+     40,
+     15,
+     91,
+     122
+    ],
+    "distinct_color_count": 64,
+    "opaque_pixel_count": 3161,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\north-east\\frame_01.png",
+    "sha256": "0e9d0ea38d2786b00dc639e5fc6024b38622a2b5dadaf5790918776ed2112b3d",
+    "size": [
+     128,
+     128
+    ]
+   },
+   {
+    "alpha_bbox": [
+     39,
+     17,
+     89,
+     122
+    ],
+    "distinct_color_count": 65,
+    "opaque_pixel_count": 3064,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\north-east\\frame_02.png",
+    "sha256": "d7d0757551e556091e5e6270995938a42ac37248f967190014facbc61c7c3bf0",
+    "size": [
+     128,
+     128
+    ]
+   },
+   {
+    "alpha_bbox": [
+     39,
+     15,
+     88,
+     120
+    ],
+    "distinct_color_count": 65,
+    "opaque_pixel_count": 3034,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\north-east\\frame_03.png",
+    "sha256": "d0d5edf967499c940c200abed4f33f193b1e90a38915311146250faec5a255b7",
+    "size": [
+     128,
+     128
+    ]
+   },
+   {
+    "alpha_bbox": [
+     39,
+     13,
+     87,
+     116
+    ],
+    "distinct_color_count": 64,
+    "opaque_pixel_count": 2973,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\north-east\\frame_04.png",
+    "sha256": "1860b3e05e8049282c77adfb5d30df97a2902cea43e19d1254054cd897606468",
+    "size": [
+     128,
+     128
+    ]
+   },
+   {
+    "alpha_bbox": [
+     37,
+     15,
+     86,
+     118
+    ],
+    "distinct_color_count": 63,
+    "opaque_pixel_count": 3056,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\north-east\\frame_05.png",
+    "sha256": "feeb8234bfecbd1ca2b8cccdab954eb028948aead5bc52dde310231880820480",
+    "size": [
+     128,
+     128
+    ]
+   }
+  ],
+  "has_outliers": true,
+  "loop": true,
+  "thresholds": {
+   "baseline_jump_pixels": 3,
+   "bbox_width_pixels": 8,
+   "opaque_change_percent": 15.0
+  }
+ },
+ "east": {
+  "deltas": [
+   {
+    "bbox_bottom_change": 0,
+    "bbox_width_change": 0,
+    "flags": [],
+    "from": 0,
+    "loop_seam": false,
+    "opaque_change_percent": 6.404122193595878,
+    "to": 1
+   },
+   {
+    "bbox_bottom_change": -4,
+    "bbox_width_change": 0,
+    "flags": [
+     "baseline_jump"
+    ],
+    "from": 1,
+    "loop_seam": false,
+    "opaque_change_percent": -6.918021445866482,
+    "to": 2
+   },
+   {
+    "bbox_bottom_change": -1,
+    "bbox_width_change": 2,
+    "flags": [],
+    "from": 2,
+    "loop_seam": false,
+    "opaque_change_percent": -4.830917874396135,
+    "to": 3
+   },
+   {
+    "bbox_bottom_change": 1,
+    "bbox_width_change": -3,
+    "flags": [],
+    "from": 3,
+    "loop_seam": false,
+    "opaque_change_percent": 8.004685669660288,
+    "to": 4
+   },
+   {
+    "bbox_bottom_change": 3,
+    "bbox_width_change": 1,
+    "flags": [
+     "baseline_jump"
+    ],
+    "from": 4,
+    "loop_seam": false,
+    "opaque_change_percent": 6.616052060737528,
+    "to": 5
+   },
+   {
+    "bbox_bottom_change": 1,
+    "bbox_width_change": 0,
+    "flags": [],
+    "from": 5,
+    "loop_seam": true,
+    "opaque_change_percent": -7.867073584265853,
+    "to": 0
+   }
+  ],
+  "frames": [
+   {
+    "alpha_bbox": [
+     37,
+     15,
+     91,
+     124
+    ],
+    "distinct_color_count": 65,
+    "opaque_pixel_count": 2717,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\east\\frame_00.png",
+    "sha256": "6b093a34cd044ef9001b7ff0c88884d344b144df441ea0ed0b3daa53d4f3a6f3",
+    "size": [
+     128,
+     128
+    ]
+   },
+   {
+    "alpha_bbox": [
+     36,
+     15,
+     90,
+     124
+    ],
+    "distinct_color_count": 65,
+    "opaque_pixel_count": 2891,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\east\\frame_01.png",
+    "sha256": "0f1d63685e8604aeb17816ccecf5b84e6dd6ef8031b3189ea3a762a2a8d97ced",
+    "size": [
+     128,
+     128
+    ]
+   },
+   {
+    "alpha_bbox": [
+     37,
+     17,
+     91,
+     120
+    ],
+    "distinct_color_count": 65,
+    "opaque_pixel_count": 2691,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\east\\frame_02.png",
+    "sha256": "45d9a16c655c4eeadba19909884131345c3eea3df7feadeb0c4e09a77951ead5",
+    "size": [
+     128,
+     128
+    ]
+   },
+   {
+    "alpha_bbox": [
+     36,
+     13,
+     92,
+     119
+    ],
+    "distinct_color_count": 65,
+    "opaque_pixel_count": 2561,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\east\\frame_03.png",
+    "sha256": "5dd10a0dfc391522f4bb4094c8d27a72defd2df5f61d7a09c5726e87dec5f4ed",
+    "size": [
+     128,
+     128
+    ]
+   },
+   {
+    "alpha_bbox": [
+     39,
+     13,
+     92,
+     120
+    ],
+    "distinct_color_count": 65,
+    "opaque_pixel_count": 2766,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\east\\frame_04.png",
+    "sha256": "7228f2711cf8e0fb296136837c3dfb77f1fc07418de024a6280151199d3d5c4b",
+    "size": [
+     128,
+     128
+    ]
+   },
+   {
+    "alpha_bbox": [
+     38,
+     15,
+     92,
+     123
+    ],
+    "distinct_color_count": 65,
+    "opaque_pixel_count": 2949,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\east\\frame_05.png",
+    "sha256": "4fc32841eb21f7ee3f88b8ff84c7eebc9c54b141f1180e165718c8997eac9e0a",
+    "size": [
+     128,
+     128
+    ]
+   }
+  ],
+  "has_outliers": true,
+  "loop": true,
+  "thresholds": {
+   "baseline_jump_pixels": 3,
+   "bbox_width_pixels": 8,
+   "opaque_change_percent": 15.0
+  }
+ },
+ "south-east": {
+  "deltas": [
+   {
+    "bbox_bottom_change": -2,
+    "bbox_width_change": 1,
+    "flags": [],
+    "from": 0,
+    "loop_seam": false,
+    "opaque_change_percent": -2.7962250961202377,
+    "to": 1
+   },
+   {
+    "bbox_bottom_change": -1,
+    "bbox_width_change": 0,
+    "flags": [],
+    "from": 1,
+    "loop_seam": false,
+    "opaque_change_percent": -1.5821646889608056,
+    "to": 2
+   },
+   {
+    "bbox_bottom_change": 0,
+    "bbox_width_change": 0,
+    "flags": [],
+    "from": 2,
+    "loop_seam": false,
+    "opaque_change_percent": 5.407380343441724,
+    "to": 3
+   },
+   {
+    "bbox_bottom_change": 4,
+    "bbox_width_change": -1,
+    "flags": [
+     "baseline_jump"
+    ],
+    "from": 3,
+    "loop_seam": false,
+    "opaque_change_percent": 2.461005199306759,
+    "to": 4
+   },
+   {
+    "bbox_bottom_change": 3,
+    "bbox_width_change": 6,
+    "flags": [
+     "baseline_jump"
+    ],
+    "from": 4,
+    "loop_seam": false,
+    "opaque_change_percent": 0.4736129905277402,
+    "to": 5
+   },
+   {
+    "bbox_bottom_change": -4,
+    "bbox_width_change": -6,
+    "flags": [
+     "baseline_jump"
+    ],
+    "from": 5,
+    "loop_seam": true,
+    "opaque_change_percent": -3.67003367003367,
+    "to": 0
+   }
+  ],
+  "frames": [
+   {
+    "alpha_bbox": [
+     41,
+     15,
+     89,
+     122
+    ],
+    "distinct_color_count": 65,
+    "opaque_pixel_count": 2861,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\south-east\\frame_00.png",
+    "sha256": "baa16326d68abe6dafaaf04c0f5d72a64519c438d965df571c6d987e92276ab9",
+    "size": [
+     128,
+     128
+    ]
+   },
+   {
+    "alpha_bbox": [
+     41,
+     17,
+     90,
+     120
+    ],
+    "distinct_color_count": 65,
+    "opaque_pixel_count": 2781,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\south-east\\frame_01.png",
+    "sha256": "024f80dc19108c1673c39871c532d69de777e0bb6050bd45281fc39c5e27923e",
+    "size": [
+     128,
+     128
+    ]
+   },
+   {
+    "alpha_bbox": [
+     42,
+     15,
+     91,
+     119
+    ],
+    "distinct_color_count": 65,
+    "opaque_pixel_count": 2737,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\south-east\\frame_02.png",
+    "sha256": "950d1c73f0628884931609fb28e8316f480d4643824b6e08e854a0076023b847",
+    "size": [
+     128,
+     128
+    ]
+   },
+   {
+    "alpha_bbox": [
+     42,
+     12,
+     91,
+     119
+    ],
+    "distinct_color_count": 65,
+    "opaque_pixel_count": 2885,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\south-east\\frame_03.png",
+    "sha256": "585a124614a5da8e9d4dbcd918f6a2845dabbc751d845ee856bf908e43f2dc15",
+    "size": [
+     128,
+     128
+    ]
+   },
+   {
+    "alpha_bbox": [
+     42,
+     14,
+     90,
+     123
+    ],
+    "distinct_color_count": 65,
+    "opaque_pixel_count": 2956,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\south-east\\frame_04.png",
+    "sha256": "0a483fff1914d9430ac57a6e7e7097a45cfd1a347ca2458867ac41439887016c",
+    "size": [
+     128,
+     128
+    ]
+   },
+   {
+    "alpha_bbox": [
+     39,
+     17,
+     93,
+     126
+    ],
+    "distinct_color_count": 65,
+    "opaque_pixel_count": 2970,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\south-east\\frame_05.png",
+    "sha256": "cbae95d21c8438924e781b69970ebe3b07099c895e99d3e19a6eb8b32fdad745",
+    "size": [
+     128,
+     128
+    ]
+   }
+  ],
+  "has_outliers": true,
+  "loop": true,
+  "thresholds": {
+   "baseline_jump_pixels": 3,
+   "bbox_width_pixels": 8,
+   "opaque_change_percent": 15.0
+  }
+ },
+ "south": {
+  "deltas": [
+   {
+    "bbox_bottom_change": 1,
+    "bbox_width_change": 1,
+    "flags": [],
+    "from": 0,
+    "loop_seam": false,
+    "opaque_change_percent": -0.293446364525595,
+    "to": 1
+   },
+   {
+    "bbox_bottom_change": 2,
+    "bbox_width_change": 0,
+    "flags": [],
+    "from": 1,
+    "loop_seam": false,
+    "opaque_change_percent": 0.6540222367560496,
+    "to": 2
+   },
+   {
+    "bbox_bottom_change": 1,
+    "bbox_width_change": -1,
+    "flags": [],
+    "from": 2,
+    "loop_seam": false,
+    "opaque_change_percent": 1.8518518518518516,
+    "to": 3
+   },
+   {
+    "bbox_bottom_change": -1,
+    "bbox_width_change": 1,
+    "flags": [],
+    "from": 3,
+    "loop_seam": false,
+    "opaque_change_percent": -1.371610845295056,
+    "to": 4
+   },
+   {
+    "bbox_bottom_change": 3,
+    "bbox_width_change": 0,
+    "flags": [
+     "baseline_jump"
+    ],
+    "from": 4,
+    "loop_seam": false,
+    "opaque_change_percent": -2.425614489003881,
+    "to": 5
+   },
+   {
+    "bbox_bottom_change": -6,
+    "bbox_width_change": -1,
+    "flags": [
+     "baseline_jump"
+    ],
+    "from": 5,
+    "loop_seam": true,
+    "opaque_change_percent": 1.6572754391779914,
+    "to": 0
+   }
+  ],
+  "frames": [
+   {
+    "alpha_bbox": [
+     38,
+     12,
+     86,
+     117
+    ],
+    "distinct_color_count": 65,
+    "opaque_pixel_count": 3067,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\south\\frame_00.png",
+    "sha256": "0bb96e73f28fa1a8509625668cb6e9be211027c7f10dae7faf89cc3c9538d082",
+    "size": [
+     128,
+     128
+    ]
+   },
+   {
+    "alpha_bbox": [
+     37,
+     15,
+     86,
+     118
+    ],
+    "distinct_color_count": 65,
+    "opaque_pixel_count": 3058,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\south\\frame_01.png",
+    "sha256": "cdd3aebb90eee8d048eda02b1d7e8aaf6560a90ca6b94baff7d09335076c25ee",
+    "size": [
+     128,
+     128
+    ]
+   },
+   {
+    "alpha_bbox": [
+     38,
+     16,
+     87,
+     120
+    ],
+    "distinct_color_count": 65,
+    "opaque_pixel_count": 3078,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\south\\frame_02.png",
+    "sha256": "fccf0df581d3b4ca7eb6d7e4af2b0c1d4f683b27ba7279c4d4900fb9d2c9b004",
+    "size": [
+     128,
+     128
+    ]
+   },
+   {
+    "alpha_bbox": [
+     40,
+     13,
+     88,
+     121
+    ],
+    "distinct_color_count": 65,
+    "opaque_pixel_count": 3135,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\south\\frame_03.png",
+    "sha256": "a62299b07f7a138e010d2899bd405ccaa94c2499a474f785857258a055c1dc25",
+    "size": [
+     128,
+     128
+    ]
+   },
+   {
+    "alpha_bbox": [
+     42,
+     12,
+     91,
+     120
+    ],
+    "distinct_color_count": 65,
+    "opaque_pixel_count": 3092,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\south\\frame_04.png",
+    "sha256": "f3ecd405e9a4e464ed7e168f2a940a668300b9e6052227a85c257e39f42adc53",
+    "size": [
+     128,
+     128
+    ]
+   },
+   {
+    "alpha_bbox": [
+     43,
+     16,
+     92,
+     123
+    ],
+    "distinct_color_count": 65,
+    "opaque_pixel_count": 3017,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\south\\frame_05.png",
+    "sha256": "eb8413fb6675693672630498939de41b9643361387474ac0b96f047b334b98bc",
+    "size": [
+     128,
+     128
+    ]
+   }
+  ],
+  "has_outliers": true,
+  "loop": true,
+  "thresholds": {
+   "baseline_jump_pixels": 3,
+   "bbox_width_pixels": 8,
+   "opaque_change_percent": 15.0
+  }
+ },
+ "south-west": {
+  "deltas": [
+   {
+    "bbox_bottom_change": 0,
+    "bbox_width_change": 0,
+    "flags": [],
+    "from": 0,
+    "loop_seam": false,
+    "opaque_change_percent": -0.4980434009249377,
+    "to": 1
+   },
+   {
+    "bbox_bottom_change": -2,
+    "bbox_width_change": -1,
+    "flags": [],
+    "from": 1,
+    "loop_seam": false,
+    "opaque_change_percent": -3.7182695745441543,
+    "to": 2
+   },
+   {
+    "bbox_bottom_change": 0,
+    "bbox_width_change": 0,
+    "flags": [],
+    "from": 2,
+    "loop_seam": false,
+    "opaque_change_percent": -0.4827330115113257,
+    "to": 3
+   },
+   {
+    "bbox_bottom_change": 2,
+    "bbox_width_change": 1,
+    "flags": [],
+    "from": 3,
+    "loop_seam": false,
+    "opaque_change_percent": 7.462686567164178,
+    "to": 4
+   },
+   {
+    "bbox_bottom_change": 6,
+    "bbox_width_change": 0,
+    "flags": [
+     "baseline_jump"
+    ],
+    "from": 4,
+    "loop_seam": false,
+    "opaque_change_percent": 3.923611111111111,
+    "to": 5
+   },
+   {
+    "bbox_bottom_change": -6,
+    "bbox_width_change": 0,
+    "flags": [
+     "baseline_jump"
+    ],
+    "from": 5,
+    "loop_seam": true,
+    "opaque_change_percent": -6.080855329101236,
+    "to": 0
+   }
+  ],
+  "frames": [
+   {
+    "alpha_bbox": [
+     38,
+     16,
+     91,
+     120
+    ],
+    "distinct_color_count": 65,
+    "opaque_pixel_count": 2811,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\south-west\\frame_00.png",
+    "sha256": "a93b7fb3faa9f9fa3d25fd47378633f2fd0cbb3080469baf39fa1e87d1cf0607",
+    "size": [
+     128,
+     128
+    ]
+   },
+   {
+    "alpha_bbox": [
+     38,
+     18,
+     91,
+     120
+    ],
+    "distinct_color_count": 65,
+    "opaque_pixel_count": 2797,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\south-west\\frame_01.png",
+    "sha256": "9c05310451776287578f97e790d47759068651b4074358b446aa2e2aab041cfb",
+    "size": [
+     128,
+     128
+    ]
+   },
+   {
+    "alpha_bbox": [
+     37,
+     16,
+     89,
+     118
+    ],
+    "distinct_color_count": 65,
+    "opaque_pixel_count": 2693,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\south-west\\frame_02.png",
+    "sha256": "da8b96a229e6b0a4fe06a61406c2fc74d4c9cf3d9ca22fd997803958a2ae66b4",
+    "size": [
+     128,
+     128
+    ]
+   },
+   {
+    "alpha_bbox": [
+     37,
+     14,
+     89,
+     118
+    ],
+    "distinct_color_count": 65,
+    "opaque_pixel_count": 2680,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\south-west\\frame_03.png",
+    "sha256": "1800300fbb0cdf43ff4ac5787efd10f283edf88fd02deab7b04c8ad37864b004",
+    "size": [
+     128,
+     128
+    ]
+   },
+   {
+    "alpha_bbox": [
+     38,
+     15,
+     91,
+     120
+    ],
+    "distinct_color_count": 65,
+    "opaque_pixel_count": 2880,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\south-west\\frame_04.png",
+    "sha256": "5803ece1842a204f9717ed9598b251374973a19d953c2bb1df42d9a08e95cadd",
+    "size": [
+     128,
+     128
+    ]
+   },
+   {
+    "alpha_bbox": [
+     38,
+     18,
+     91,
+     126
+    ],
+    "distinct_color_count": 65,
+    "opaque_pixel_count": 2993,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\south-west\\frame_05.png",
+    "sha256": "8754e11fef2b7ad4b5b832b50a2939d60ac95dc8b5225afb42560da3ab7cdc93",
+    "size": [
+     128,
+     128
+    ]
+   }
+  ],
+  "has_outliers": true,
+  "loop": true,
+  "thresholds": {
+   "baseline_jump_pixels": 3,
+   "bbox_width_pixels": 8,
+   "opaque_change_percent": 15.0
+  }
+ },
+ "west": {
+  "deltas": [
+   {
+    "bbox_bottom_change": 0,
+    "bbox_width_change": -1,
+    "flags": [],
+    "from": 0,
+    "loop_seam": false,
+    "opaque_change_percent": 4.178994082840236,
+    "to": 1
+   },
+   {
+    "bbox_bottom_change": -5,
+    "bbox_width_change": 1,
+    "flags": [
+     "baseline_jump"
+    ],
+    "from": 1,
+    "loop_seam": false,
+    "opaque_change_percent": -7.135250266240682,
+    "to": 2
+   },
+   {
+    "bbox_bottom_change": 0,
+    "bbox_width_change": 0,
+    "flags": [],
+    "from": 2,
+    "loop_seam": false,
+    "opaque_change_percent": -6.230886850152905,
+    "to": 3
+   },
+   {
+    "bbox_bottom_change": 1,
+    "bbox_width_change": 0,
+    "flags": [],
+    "from": 3,
+    "loop_seam": false,
+    "opaque_change_percent": 8.030982470444354,
+    "to": 4
+   },
+   {
+    "bbox_bottom_change": 4,
+    "bbox_width_change": 0,
+    "flags": [
+     "baseline_jump"
+    ],
+    "from": 4,
+    "loop_seam": false,
+    "opaque_change_percent": 4.188679245283019,
+    "to": 5
+   },
+   {
+    "bbox_bottom_change": 0,
+    "bbox_width_change": 0,
+    "flags": [],
+    "from": 5,
+    "loop_seam": true,
+    "opaque_change_percent": -2.064469395146686,
+    "to": 0
+   }
+  ],
+  "frames": [
+   {
+    "alpha_bbox": [
+     39,
+     14,
+     93,
+     124
+    ],
+    "distinct_color_count": 65,
+    "opaque_pixel_count": 2704,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\west\\frame_00.png",
+    "sha256": "3d015b9bbab37970910056c1c96b272225d37152040a2c3f8fa068c6b6615c3f",
+    "size": [
+     128,
+     128
+    ]
+   },
+   {
+    "alpha_bbox": [
+     40,
+     17,
+     93,
+     124
+    ],
+    "distinct_color_count": 65,
+    "opaque_pixel_count": 2817,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\west\\frame_01.png",
+    "sha256": "654c28fc6e7f757170c8720f6e897990ff59d41b0cea43f0e45aaa5b0f424996",
+    "size": [
+     128,
+     128
+    ]
+   },
+   {
+    "alpha_bbox": [
+     39,
+     20,
+     93,
+     119
+    ],
+    "distinct_color_count": 65,
+    "opaque_pixel_count": 2616,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\west\\frame_02.png",
+    "sha256": "c2c8b2d1183aa3cf19284b047137d8d23161572ca37a5b8f4a9f3f748dd3ac78",
+    "size": [
+     128,
+     128
+    ]
+   },
+   {
+    "alpha_bbox": [
+     39,
+     17,
+     93,
+     119
+    ],
+    "distinct_color_count": 64,
+    "opaque_pixel_count": 2453,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\west\\frame_03.png",
+    "sha256": "14d83b98c4aca30ee9e8db471f94a43dac905275b7820313327fd733399b23f8",
+    "size": [
+     128,
+     128
+    ]
+   },
+   {
+    "alpha_bbox": [
+     39,
+     14,
+     93,
+     120
+    ],
+    "distinct_color_count": 65,
+    "opaque_pixel_count": 2650,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\west\\frame_04.png",
+    "sha256": "d0ba76eb63315e6def70bfee5f14bc4d03f54e6d394efeec1e2f1d3542081b00",
+    "size": [
+     128,
+     128
+    ]
+   },
+   {
+    "alpha_bbox": [
+     39,
+     17,
+     93,
+     124
+    ],
+    "distinct_color_count": 65,
+    "opaque_pixel_count": 2761,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\west\\frame_05.png",
+    "sha256": "809cdb2239d79364a33374ae1ce2a90d689f364453d8144f830841355d6cabb1",
+    "size": [
+     128,
+     128
+    ]
+   }
+  ],
+  "has_outliers": true,
+  "loop": true,
+  "thresholds": {
+   "baseline_jump_pixels": 3,
+   "bbox_width_pixels": 8,
+   "opaque_change_percent": 15.0
+  }
+ },
+ "north-west": {
+  "deltas": [
+   {
+    "bbox_bottom_change": 2,
+    "bbox_width_change": 0,
+    "flags": [],
+    "from": 0,
+    "loop_seam": false,
+    "opaque_change_percent": -0.8589835361488906,
+    "to": 1
+   },
+   {
+    "bbox_bottom_change": -1,
+    "bbox_width_change": 0,
+    "flags": [],
+    "from": 1,
+    "loop_seam": false,
+    "opaque_change_percent": -1.2996389891696751,
+    "to": 2
+   },
+   {
+    "bbox_bottom_change": -4,
+    "bbox_width_change": 0,
+    "flags": [
+     "baseline_jump"
+    ],
+    "from": 2,
+    "loop_seam": false,
+    "opaque_change_percent": 2.3408924652523777,
+    "to": 3
+   },
+   {
+    "bbox_bottom_change": -2,
+    "bbox_width_change": 0,
+    "flags": [],
+    "from": 3,
+    "loop_seam": false,
+    "opaque_change_percent": 6.6118656182987845,
+    "to": 4
+   },
+   {
+    "bbox_bottom_change": 3,
+    "bbox_width_change": 1,
+    "flags": [
+     "baseline_jump"
+    ],
+    "from": 4,
+    "loop_seam": false,
+    "opaque_change_percent": 8.146161582299698,
+    "to": 5
+   },
+   {
+    "bbox_bottom_change": 2,
+    "bbox_width_change": -1,
+    "flags": [],
+    "from": 5,
+    "loop_seam": true,
+    "opaque_change_percent": -13.391196528208308,
+    "to": 0
+   }
+  ],
+  "frames": [
+   {
+    "alpha_bbox": [
+     40,
+     19,
+     88,
+     122
+    ],
+    "distinct_color_count": 65,
+    "opaque_pixel_count": 2794,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\north-west\\frame_00.png",
+    "sha256": "aa0fe588d62f92d44f32563acbebc666e16d200bf46150eaf12f4087dc9c030a",
+    "size": [
+     128,
+     128
+    ]
+   },
+   {
+    "alpha_bbox": [
+     40,
+     21,
+     88,
+     124
+    ],
+    "distinct_color_count": 65,
+    "opaque_pixel_count": 2770,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\north-west\\frame_01.png",
+    "sha256": "1ddbf28d6b1ad96a12b3d40fdf52111be07a39e24a5ee576571013e2012f1de9",
+    "size": [
+     128,
+     128
+    ]
+   },
+   {
+    "alpha_bbox": [
+     41,
+     20,
+     89,
+     123
+    ],
+    "distinct_color_count": 65,
+    "opaque_pixel_count": 2734,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\north-west\\frame_02.png",
+    "sha256": "03c8a9bfdcc23c9704ecf433162b12f2e9f65846e7eedb33093581d9274eb089",
+    "size": [
+     128,
+     128
+    ]
+   },
+   {
+    "alpha_bbox": [
+     41,
+     18,
+     89,
+     119
+    ],
+    "distinct_color_count": 65,
+    "opaque_pixel_count": 2798,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\north-west\\frame_03.png",
+    "sha256": "7fedc5ac40a0d2150df36800375f14248f4caab0d886ed80d9d8cfeba3fb4f52",
+    "size": [
+     128,
+     128
+    ]
+   },
+   {
+    "alpha_bbox": [
+     41,
+     18,
+     89,
+     117
+    ],
+    "distinct_color_count": 65,
+    "opaque_pixel_count": 2983,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\north-west\\frame_04.png",
+    "sha256": "612a0b10d56016f832fafd967987455e7fb88e5168da4935de6c47bcb72df30c",
+    "size": [
+     128,
+     128
+    ]
+   },
+   {
+    "alpha_bbox": [
+     40,
+     20,
+     89,
+     120
+    ],
+    "distinct_color_count": 65,
+    "opaque_pixel_count": 3226,
+    "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\north-west\\frame_05.png",
+    "sha256": "2a65773f55f63888dc38310f954e9db1e5a8f8050f4adcdb5c58ff3742846bd3",
+    "size": [
+     128,
+     128
+    ]
+   }
+  ],
+  "has_outliers": true,
+  "loop": true,
+  "thresholds": {
+   "baseline_jump_pixels": 3,
+   "bbox_width_pixels": 8,
+   "opaque_change_percent": 15.0
+  }
+ }
+}

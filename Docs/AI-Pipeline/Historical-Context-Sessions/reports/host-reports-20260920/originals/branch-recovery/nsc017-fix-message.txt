@@ -1,0 +1,9 @@
+Clear the pending locked-door hit when the door reports broken
+
+Two pursuing enemies can wind up against the same locked door. Only the enemy
+whose hit broke the door cleared its pending door; the other kept the broken
+door until its next Tick, which NSC-017 AC-004 and VAL-004 do not allow.
+Subscribe to DoorInteractable.Broken while a door is pending, so every attacker
+clears in the same frame, and unsubscribe on reset, disable and destroy.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

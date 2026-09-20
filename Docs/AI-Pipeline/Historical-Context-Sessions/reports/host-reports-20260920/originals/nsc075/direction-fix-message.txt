@@ -1,0 +1,7 @@
+NSC-075: map screen up to world -X +Z movement
+
+The camera (30, -45, 0) looks toward world -X +Z, so screen up is Z - X. The classifier used X - Z, which swapped north with south and each north diagonal with its south counterpart. Main's four-direction classifier had the same inversion on the diagonals. Vincent found it by walking the wizards in Unity; the tests could not catch it because they encoded the same inverted mapping.
+
+This flips the vertical axis and corrects the Play Mode expectations and the screen-to-world test helpers. Vincent re-checked all four wizards in eight directions in Unity and approved the result (NSC-075 VAL-005).
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

@@ -1,0 +1,22 @@
+﻿[START] 2026-09-15T14:57:48.3330244-05:00 copy Unity Library from the Codex validation worktree
+
+               Total    Copied   Skipped  Mismatch    FAILED    Extras
+    Dirs :      1304      1304         0         0         0         0
+   Files :     18676     18676         0         0         0         0
+   Bytes :   1.286 g   1.286 g         0         0         0         0
+   Times :   0:01:52   0:00:06                       0:00:00   0:00:00
+
+
+   Speed :           207,392,806 Bytes/sec.
+   Speed :            11,867.111 MegaBytes/min.
+   Ended : Tuesday, September 15, 2026 2:57:55 PM
+
+[STATE] robocopy exit 1
+[START] 2026-09-15T14:57:55.6404207-05:00 PlayMode runner
+Temporary artifacts will be preserved at: C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-b90fd074f5d84b25ab6a0e1284ce9e38
+Safe Unity churn recovery: {"paths": ["ProjectSettings/Packages/com.unity.testtools.codecoverage/Settings.json"], "status": "recovered"}
+Safe Unity churn recovery: {"paths": [], "status": "clean"}
+UNITY FAILURE: Unity exited with code 2.
+XML: C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-b90fd074f5d84b25ab6a0e1284ce9e38\test-results.xml
+Log: C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-b90fd074f5d84b25ab6a0e1284ce9e38\unity.log
+[DONE] 2026-09-15T14:59:27.6157125-05:00 runner exit 20

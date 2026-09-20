@@ -1,0 +1,227 @@
+{
+  "key": "masculine-dark-walk",
+  "character_id": "02f0ec58-164f-428d-8b1b-7d5ad6c1ef6b",
+  "animation_group_id": "23a67b24-e1c9-4cb9-bab8-bc1145267cb9",
+  "animation_name": "wizard_md_walk_128",
+  "recorded_utc": "2026-09-17T21:55:23.850859Z",
+  "download_log": {
+    "south": {
+      "frames_downloaded": 0,
+      "total_expected": 6,
+      "status": "partial"
+    },
+    "south-east": {
+      "frames_downloaded": 0,
+      "total_expected": 6,
+      "status": "partial"
+    },
+    "east": {
+      "frames_downloaded": 0,
+      "total_expected": 6,
+      "status": "partial"
+    },
+    "north-east": {
+      "frames_downloaded": 0,
+      "total_expected": 6,
+      "status": "partial"
+    },
+    "north": {
+      "frames_downloaded": 0,
+      "total_expected": 6,
+      "status": "partial"
+    },
+    "north-west": {
+      "frames_downloaded": 0,
+      "total_expected": 6,
+      "status": "partial"
+    },
+    "west": {
+      "frames_downloaded": 0,
+      "total_expected": 6,
+      "status": "partial"
+    },
+    "south-west": {
+      "frames_downloaded": 0,
+      "total_expected": 6,
+      "status": "partial"
+    }
+  },
+  "frames": [
+    {
+      "group": "standing",
+      "direction": "south",
+      "index": null,
+      "file": "standing_raw/south.png",
+      "source_url": null,
+      "bytes": 4644,
+      "raw_size": [
+        128,
+        128
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        45,
+        11,
+        83,
+        109
+      ],
+      "alpha_bottom_y_from_top": 109,
+      "opaque_pixels": null,
+      "raw_sha256": "8a1e83e81d2a3be36b8f39326faf8139d3bdfe55ae1431846306b6c5c4878ea6"
+    },
+    {
+      "group": "standing",
+      "direction": "south-east",
+      "index": null,
+      "file": "standing_raw/south-east.png",
+      "source_url": null,
+      "bytes": 4227,
+      "raw_size": [
+        128,
+        128
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        46,
+        12,
+        84,
+        114
+      ],
+      "alpha_bottom_y_from_top": 114,
+      "opaque_pixels": null,
+      "raw_sha256": "795db1c6daf273fe04963abcc4e07863dba9ae054bb992dfe09578a9aa470107"
+    },
+    {
+      "group": "standing",
+      "direction": "east",
+      "index": null,
+      "file": "standing_raw/east.png",
+      "source_url": null,
+      "bytes": 3188,
+      "raw_size": [
+        128,
+        128
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        45,
+        16,
+        84,
+        117
+      ],
+      "alpha_bottom_y_from_top": 117,
+      "opaque_pixels": null,
+      "raw_sha256": "ec9f9913fd39a60675a5814f9482e82a9455f79ca77cd921cf6032b17fd69b6c"
+    },
+    {
+      "group": "standing",
+      "direction": "north-east",
+      "index": null,
+      "file": "standing_raw/north-east.png",
+      "source_url": null,
+      "bytes": 3327,
+      "raw_size": [
+        128,
+        128
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        47,
+        12,
+        82,
+        111
+      ],
+      "alpha_bottom_y_from_top": 111,
+      "opaque_pixels": null,
+      "raw_sha256": "ea5965be93e687e5d6423a253cd85a162890dde459d25772c2066aa14f92df81"
+    },
+    {
+      "group": "standing",
+      "direction": "north",
+      "index": null,
+      "file": "standing_raw/north.png",
+      "source_url": null,
+      "bytes": 3161,
+      "raw_size": [
+        128,
+        128
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        46,
+        11,
+        82,
+        109
+      ],
+      "alpha_bottom_y_from_top": 109,
+      "opaque_pixels": null,
+      "raw_sha256": "d41046c8691c098c5f3f932a218a1d8e30615c60a4397279a5d3e5f161b1073b"
+    },
+    {
+      "group": "standing",
+      "direction": "north-west",
+      "index": null,
+      "file": "standing_raw/north-west.png",
+      "source_url": null,
+      "bytes": 3198,
+      "raw_size": [
+        128,
+        128
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        46,
+        12,
+        81,
+        111
+      ],
+      "alpha_bottom_y_from_top": 111,
+      "opaque_pixels": null,
+      "raw_sha256": "c02184a7b5409ab21cdc5a8e7061d55ba4b3232016ca5415d6d65754942c863f"
+    },
+    {
+      "group": "standing",
+      "direction": "west",
+      "index": null,
+      "file": "standing_raw/west.png",
+      "source_url": null,
+      "bytes": 3042,
+      "raw_size": [
+        128,
+        128
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        44,
+        16,
+        83,
+        117
+      ],
+      "alpha_bottom_y_from_top": 117,
+      "opaque_pixels": null,
+      "raw_sha256": "9f4ebb0d39c92f36acf4a44a43e6a7ce60f53af3e209a6d8979a295d24f58a91"
+    },
+    {
+      "group": "standing",
+      "direction": "south-west",
+      "index": null,
+      "file": "standing_raw/south-west.png",
+      "source_url": null,
+      "bytes": 4263,
+      "raw_size": [
+        128,
+        128
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        44,
+        13,
+        82,
+        114
+      ],
+      "alpha_bottom_y_from_top": 114,
+      "opaque_pixels": null,
+      "raw_sha256": "38caf3eb9912228bf04fd244957ef5c5d314831d10d70938e8f5f761a5231974"
+    }
+  ]
+}

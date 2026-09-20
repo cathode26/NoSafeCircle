@@ -1,0 +1,15 @@
+{
+  "delays_centiseconds": [
+    50,
+    40
+  ],
+  "disposal_method": 1,
+  "durations_ms": [
+    500,
+    400
+  ],
+  "frame_count": 2,
+  "loop_forever": true,
+  "palette_color_count": 93,
+  "palette_reduced": false
+}

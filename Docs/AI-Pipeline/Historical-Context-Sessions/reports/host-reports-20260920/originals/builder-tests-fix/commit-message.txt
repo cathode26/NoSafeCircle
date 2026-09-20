@@ -1,0 +1,9 @@
+Update two stale scene builder tests for the Ruined Entry spawn
+
+Since 9a3d22c56 the playable build spawns the wizard at PlayerSpawnPosition (-10, 0, -22), in the Ruined Entry's south-west corner, far from D1. Two DoorPrototypeSceneBuilderTests still assumed the old start and failed on main:
+- Build_PlayerStartsAtCharacterControllerGroundedHeight still expected x = 0 and z = -4. It now compares against the builder's PlayerSpawnPosition, read by reflection like WizardArtIntegrationTests does, so NSC-044 and NSC-049 can place the spawn without editing this test.
+- Build_MainCamera_FramesPlayerAndStartingDoorInView required DoorRoot inside the view. It now requires the player near the viewport center at scene start. D1 wayfinding belongs to the Ruined Entry room review. The name is kept for continuity with recorded evidence.
+
+Test intent decided by the GER Agent on 2026-09-17. No spawn, camera or gameplay change.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

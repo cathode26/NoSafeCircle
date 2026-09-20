@@ -1,0 +1,37 @@
+Merge fix/decompose-all-claude: two Claude positions in one decomposition
+
+decompose --providers claude,claude now reserves two role leases from the
+decomposition session pool, so each Claude position gets its own conversation and
+the independent review stays independent. claude,codex is untouched, argv
+byte-identical to base; codex,codex works symmetrically; same-provider without
+leases still fails closed at all four layers.
+
+This unblocks the Decomposition Agent while Codex is out of quota, which is why
+all-Claude decomposition matters right now.
+
+Verified before merging by the Game Agent at tip ac4a61b1f: test_decomposition
+37 OK, test_decomposition_transport 9 OK, both run as modules. The merge changes
+exactly 8 decomposition files and leaves safe_unity_churn.py, Tasks/NSC-069.yaml
+and authoritative_validation_policy.json identical to main, so nothing newer is
+reverted despite the branch being based on an older commit. Every author and
+committer on the branch is .invalid.
+
+Two things the Pipeline Maintainer flagged that belong in the record:
+- It has never run live. Every test uses a fake pool owner. The first real
+  claude,claude decomposition is the proof: two distinct conversations, correct
+  settlement, and a stranded-lease reclaim on the next run.
+- A launch that dies before the container creates its run directory permanently
+  retires two conversations, which a mistyped compose project would do. That is
+  the safe direction, but it costs sessions, so a broken launch must not be
+  retried in a loop.
+
+Review history: FIX FIRST twice before APPROVE. The first round found the lease
+lifecycle handed back leases that had really been used; the second found the fix
+incomplete plus a regression that left a failing settle stuck in `running`. The
+final reviewer walked every exit and found no path returning a possibly-used
+lease.
+
+Vincent's go, his words: "merge Pipeline Maintainer's all-Claude decompose fix",
+and on sequencing, "merge first then decompose after merge".
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

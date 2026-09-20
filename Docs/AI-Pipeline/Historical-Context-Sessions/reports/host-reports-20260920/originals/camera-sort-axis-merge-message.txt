@@ -1,0 +1,21 @@
+Merge fix/camera-sort-axis-20260918: the runtime camera stops inverting sprite depth
+
+Game maintenance for Vincent's 2026-09-17 report, "The door wizard sorting order is wrong": the D1 door sprite drew over the wizard's upper body. Diagnosed by the GER Agent (board H-20260917-22).
+
+- DoorPrototypeGlobalSceneBuilder.BuildCamera authored the transparency sort axis as (0, 1, 0.26), because Unity draws the larger custom-axis dot product first and this camera sits at -Z, so the Z coefficient must be positive.
+- IsometricCameraFollow is [ExecuteAlways] and its OnEnable reapplied (0, 1, -0.26) on every scene load and Play Mode enter, so the runtime value won and depth ran inverted.
+- The axis is now one shared constant, IsometricCameraFollow.IsometricTransparencySortAxis, at (0, 1, 0.26) normalized. BuildCamera reads it, so the authored and reapplied values cannot drift apart again.
+- Three test sites that still encoded -0.26 now use the positive value: DoorPrototypeSceneBuilderTests, TitleScreenSceneBuilderTests and RuinedEntrySceneTests.
+- New rendered regression guard, IsometricSortingRenderTests.ClosedD1DoorNeverDrawsOverWizardStandingSouthOfIt: it opens the committed scene, stands the wizard half a unit south of closed D1, silences every other renderer, clears the camera to transparent black, and renders door-only, wizard-only and both. Wherever both sprites are opaque, the combined render must match the wizard-only render.
+
+Verification in Unity 6000.1.8f1, Edit Mode, on the candidate:
+- with the fix: 77 tests, 76 passed, 1 explicitly skipped, 0 failed; the guard reports 0 of 219 contested pixels drawn as the door;
+- with the axis flipped back to -0.26 in the worktree: the guard fails with 219 of 219 contested pixels drawn as the door.
+
+Written by a host Claude job; the Game Agent then corrected the guard twice (transparent clear, and isolating the two sprites) and verified both directions.
+
+NSC-075 revision 5 requires this change in its base before dispatch.
+
+Approved for merge by Vincent on 2026-09-18 ("merge the sorting fix").
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

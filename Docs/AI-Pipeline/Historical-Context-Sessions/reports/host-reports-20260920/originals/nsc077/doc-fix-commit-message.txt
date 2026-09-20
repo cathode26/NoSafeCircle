@@ -1,0 +1,5 @@
+Docs: name NSC-077 as the Unity integration owner of the NSC-093 walk source
+
+PIXELLAB_WALK_GENERATION.md still named NSC-094, which NSC-077 superseded on 2026-09-17. This is a one-line status change, supplied by the Art Director Agent (board H-20260917-12) and landed with the NSC-077 merge. No contract change.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

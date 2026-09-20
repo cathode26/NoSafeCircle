@@ -1,0 +1,18 @@
+NSC-095: PixelLab 128x128 wizard art with deterministic importer metas
+
+The Art Director Agent's remake of the four approved wizard identities at game size, staged and verified against VAL-001 before the copy (contract NSC-095, rev 3 on main at commit time).
+
+- 32 standing frames and 192 walk frames, eight facings per identity, as transparent 128x128 PNGs under Art/Wizard/Source/PixelLab128/<key>/selected/.
+- source-inventory.json: per-frame provenance, per-wizard ground line and identity exceptions.
+- The 224 raw PixelLab exports under Docs/Art/Wizard/Raw128, with no .meta, per AC-002 and the NSC-078 precedent.
+- Docs/Art/Wizard/PIXELLAB_128_GENERATION.md: tools, prompts, settings, defects, spend and rejects.
+- One .meta per PixelLab128 PNG, minted with the pipeline's deterministic default TextureImporter template (P34, e1ce889b0), so each imports as a Texture2D instead of the GUID-only stub that imports as a point-light cubemap. Sprite type, pivot and pixels-per-unit belong to NSC-096.
+
+Verification before committing:
+- The Art Director's verify_staged.py re-ran VAL-001's assertions on the staged tree: 224 expected paths, every PNG 128x128 with transparent corners, every file present once in the inventory with a matching selected_sha256, recorded alpha rows equal to the pixels, 224 raw exports, 4 identity exceptions. ALL ASSERTIONS PASSED.
+- AC-003 confirmed after the copy: no 180 px source and not Docs/Art/Wizard/PIXELLAB_GENERATION.md changed.
+- 224 metas, 224 distinct GUIDs, every one carrying the TextureImporter block.
+
+Per-wizard ground lines for NSC-096's pivots, from the inventory: masculine-light 122, masculine-dark 121, feminine-light 120, feminine-dark 121 pixels from the top.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

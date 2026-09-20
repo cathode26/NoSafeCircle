@@ -1,0 +1,351 @@
+{
+  "character_id": "afabd47e-a66e-453d-beee-b90f9856f9e0",
+  "animation_group_id": "07d1e804-5203-4679-b8dd-f85e5bb4d8b1",
+  "animation_name": "wizard_fd_walk_128_ne_r2",
+  "recorded_utc": "2026-09-17T21:55:27.806106Z",
+  "balance_after": null,
+  "frames": [
+    {
+      "file": "frame_00.png",
+      "source_url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/afabd47e-a66e-453d-beee-b90f9856f9e0/animations/d8ccd80a-f45c-4f96-bfbf-8104c984ece3/north-east/0.png?t=1789681788536",
+      "bytes": 4892,
+      "raw_size": [
+        152,
+        152
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        57,
+        21,
+        98,
+        132
+      ],
+      "alpha_bottom_y_from_top": 131,
+      "opaque_pixels": 2921,
+      "raw_sha256": "e728784a4451c4775884c4dadf2ca83fca7aa3e8d4eb1de32287669430d42cc2",
+      "top_8_colors": [
+        [
+          "212e58ff",
+          497
+        ],
+        [
+          "202c51ff",
+          345
+        ],
+        [
+          "030d38ff",
+          334
+        ],
+        [
+          "411710ff",
+          247
+        ],
+        [
+          "040c2eff",
+          169
+        ],
+        [
+          "000105ff",
+          121
+        ],
+        [
+          "000000ff",
+          94
+        ],
+        [
+          "250201ff",
+          93
+        ]
+      ],
+      "pale_pixels_count": 0,
+      "distinct_opaque_colors": 64,
+      "alpha_bbox_touches_edge": false,
+      "alpha_bbox_edge_note": ""
+    },
+    {
+      "file": "frame_01.png",
+      "source_url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/afabd47e-a66e-453d-beee-b90f9856f9e0/animations/d8ccd80a-f45c-4f96-bfbf-8104c984ece3/north-east/1.png?t=1789681788536",
+      "bytes": 4709,
+      "raw_size": [
+        152,
+        152
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        55,
+        24,
+        101,
+        135
+      ],
+      "alpha_bottom_y_from_top": 134,
+      "opaque_pixels": 2956,
+      "raw_sha256": "4f76890b9fee6ba7cae9daedf12c91c702b191bf877e2577fb1249cd27c67573",
+      "top_8_colors": [
+        [
+          "212e58ff",
+          609
+        ],
+        [
+          "030d38ff",
+          411
+        ],
+        [
+          "411710ff",
+          253
+        ],
+        [
+          "202c51ff",
+          220
+        ],
+        [
+          "000000ff",
+          186
+        ],
+        [
+          "000105ff",
+          136
+        ],
+        [
+          "250201ff",
+          102
+        ],
+        [
+          "040c2eff",
+          99
+        ]
+      ],
+      "pale_pixels_count": 2,
+      "distinct_opaque_colors": 64,
+      "alpha_bbox_touches_edge": false,
+      "alpha_bbox_edge_note": ""
+    },
+    {
+      "file": "frame_02.png",
+      "source_url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/afabd47e-a66e-453d-beee-b90f9856f9e0/animations/d8ccd80a-f45c-4f96-bfbf-8104c984ece3/north-east/2.png?t=1789681788536",
+      "bytes": 4936,
+      "raw_size": [
+        152,
+        152
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        57,
+        24,
+        99,
+        137
+      ],
+      "alpha_bottom_y_from_top": 136,
+      "opaque_pixels": 2857,
+      "raw_sha256": "bb552529ee8c5a9686716000f253e4710e8dabb175829ba990e38a4733a93be4",
+      "top_8_colors": [
+        [
+          "212e58ff",
+          486
+        ],
+        [
+          "030d38ff",
+          312
+        ],
+        [
+          "202c51ff",
+          268
+        ],
+        [
+          "411710ff",
+          243
+        ],
+        [
+          "040c2eff",
+          152
+        ],
+        [
+          "000105ff",
+          110
+        ],
+        [
+          "020511ff",
+          98
+        ],
+        [
+          "000000ff",
+          88
+        ]
+      ],
+      "pale_pixels_count": 0,
+      "distinct_opaque_colors": 64,
+      "alpha_bbox_touches_edge": false,
+      "alpha_bbox_edge_note": ""
+    },
+    {
+      "file": "frame_03.png",
+      "source_url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/afabd47e-a66e-453d-beee-b90f9856f9e0/animations/d8ccd80a-f45c-4f96-bfbf-8104c984ece3/north-east/3.png?t=1789681788536",
+      "bytes": 4131,
+      "raw_size": [
+        152,
+        152
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        57,
+        22,
+        96,
+        134
+      ],
+      "alpha_bottom_y_from_top": 133,
+      "opaque_pixels": 2672,
+      "raw_sha256": "ada877b4b94fa5675f62e4d8bbb4ab969e7c4c2567a464da4b5dfc211ce78026",
+      "top_8_colors": [
+        [
+          "212e58ff",
+          584
+        ],
+        [
+          "030d38ff",
+          369
+        ],
+        [
+          "411710ff",
+          263
+        ],
+        [
+          "202c51ff",
+          204
+        ],
+        [
+          "000000ff",
+          185
+        ],
+        [
+          "000105ff",
+          168
+        ],
+        [
+          "250201ff",
+          90
+        ],
+        [
+          "ce967eff",
+          65
+        ]
+      ],
+      "pale_pixels_count": 0,
+      "distinct_opaque_colors": 64,
+      "alpha_bbox_touches_edge": false,
+      "alpha_bbox_edge_note": ""
+    },
+    {
+      "file": "frame_04.png",
+      "source_url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/afabd47e-a66e-453d-beee-b90f9856f9e0/animations/d8ccd80a-f45c-4f96-bfbf-8104c984ece3/north-east/4.png?t=1789681788536",
+      "bytes": 4460,
+      "raw_size": [
+        152,
+        152
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        57,
+        21,
+        96,
+        129
+      ],
+      "alpha_bottom_y_from_top": 128,
+      "opaque_pixels": 2677,
+      "raw_sha256": "24b773d86cb3853078f575a01dbe98eb38063fa58fdbc9dc5a1fc4e4697277fe",
+      "top_8_colors": [
+        [
+          "212e58ff",
+          490
+        ],
+        [
+          "202c51ff",
+          287
+        ],
+        [
+          "030d38ff",
+          258
+        ],
+        [
+          "411710ff",
+          227
+        ],
+        [
+          "040c2eff",
+          130
+        ],
+        [
+          "020511ff",
+          106
+        ],
+        [
+          "000105ff",
+          104
+        ],
+        [
+          "000000ff",
+          99
+        ]
+      ],
+      "pale_pixels_count": 0,
+      "distinct_opaque_colors": 64,
+      "alpha_bbox_touches_edge": false,
+      "alpha_bbox_edge_note": ""
+    },
+    {
+      "file": "frame_05.png",
+      "source_url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/afabd47e-a66e-453d-beee-b90f9856f9e0/animations/d8ccd80a-f45c-4f96-bfbf-8104c984ece3/north-east/5.png?t=1789681788536",
+      "bytes": 4437,
+      "raw_size": [
+        152,
+        152
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        57,
+        24,
+        97,
+        131
+      ],
+      "alpha_bottom_y_from_top": 130,
+      "opaque_pixels": 2755,
+      "raw_sha256": "ddab9b41c719d3e07e6985f618179a8b0f2d1a01e23e5270890181d31c3c03bd",
+      "top_8_colors": [
+        [
+          "212e58ff",
+          493
+        ],
+        [
+          "030d38ff",
+          321
+        ],
+        [
+          "202c51ff",
+          320
+        ],
+        [
+          "411710ff",
+          260
+        ],
+        [
+          "000000ff",
+          151
+        ],
+        [
+          "000105ff",
+          150
+        ],
+        [
+          "250201ff",
+          113
+        ],
+        [
+          "040c2eff",
+          87
+        ]
+      ],
+      "pale_pixels_count": 0,
+      "distinct_opaque_colors": 64,
+      "alpha_bbox_touches_edge": false,
+      "alpha_bbox_edge_note": ""
+    }
+  ]
+}

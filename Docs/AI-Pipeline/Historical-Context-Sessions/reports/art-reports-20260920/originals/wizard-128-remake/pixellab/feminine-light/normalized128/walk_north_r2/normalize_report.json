@@ -1,0 +1,200 @@
+[
+  {
+    "frame": "frame_00.png",
+    "raw_size": [
+      152,
+      152
+    ],
+    "raw_alpha_bbox": [
+      52,
+      21,
+      102,
+      126
+    ],
+    "raw_sha256": "636709e169e414b7b45f0c29484c3e0f8c36bf538e0bbd8ad188c928f8c77298",
+    "canvas": [
+      128,
+      128
+    ],
+    "raw_origin_on_canvas": [
+      -12,
+      -12
+    ],
+    "opaque_pixels_fit": true,
+    "selected_file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\normalized128\\walk_north_r2\\frame_00.png",
+    "selected_alpha_bbox": [
+      40,
+      9,
+      90,
+      114
+    ],
+    "raw_opaque_pixels": 3190,
+    "selected_opaque_pixels": 3190,
+    "selected_sha256": "dafe3051d2183afba63741ec73563e2a01057e65cfef6b3fd1e067c4b8a26f84"
+  },
+  {
+    "frame": "frame_01.png",
+    "raw_size": [
+      152,
+      152
+    ],
+    "raw_alpha_bbox": [
+      52,
+      24,
+      101,
+      129
+    ],
+    "raw_sha256": "8b6c1b62591f516d636a3b559022adb07166b7fa75001d87a156d4fc8a8d96ac",
+    "canvas": [
+      128,
+      128
+    ],
+    "raw_origin_on_canvas": [
+      -12,
+      -12
+    ],
+    "opaque_pixels_fit": true,
+    "selected_file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\normalized128\\walk_north_r2\\frame_01.png",
+    "selected_alpha_bbox": [
+      40,
+      12,
+      89,
+      117
+    ],
+    "raw_opaque_pixels": 3138,
+    "selected_opaque_pixels": 3138,
+    "selected_sha256": "d37e258b7e3da488cbde41a57909f2c0424a409db8d69c5024820fd22246191b"
+  },
+  {
+    "frame": "frame_02.png",
+    "raw_size": [
+      152,
+      152
+    ],
+    "raw_alpha_bbox": [
+      52,
+      25,
+      100,
+      128
+    ],
+    "raw_sha256": "f8fc0f90646ef22cec2b5b1312af6e5bd28394c02985261d9e5e58e4718043d7",
+    "canvas": [
+      128,
+      128
+    ],
+    "raw_origin_on_canvas": [
+      -12,
+      -12
+    ],
+    "opaque_pixels_fit": true,
+    "selected_file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\normalized128\\walk_north_r2\\frame_02.png",
+    "selected_alpha_bbox": [
+      40,
+      13,
+      88,
+      116
+    ],
+    "raw_opaque_pixels": 3061,
+    "selected_opaque_pixels": 3061,
+    "selected_sha256": "26c597e24ff38c3ad691991567fa928710d83760022dddf7a4e0383a108eb37b"
+  },
+  {
+    "frame": "frame_03.png",
+    "raw_size": [
+      152,
+      152
+    ],
+    "raw_alpha_bbox": [
+      52,
+      22,
+      100,
+      123
+    ],
+    "raw_sha256": "a821dd09090f481fa8cc237189494e434e889f3c80ef74f544adbce56e213ec6",
+    "canvas": [
+      128,
+      128
+    ],
+    "raw_origin_on_canvas": [
+      -12,
+      -12
+    ],
+    "opaque_pixels_fit": true,
+    "selected_file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\normalized128\\walk_north_r2\\frame_03.png",
+    "selected_alpha_bbox": [
+      40,
+      10,
+      88,
+      111
+    ],
+    "raw_opaque_pixels": 3062,
+    "selected_opaque_pixels": 3062,
+    "selected_sha256": "341e2691eee2938b38dceae4c4d0cec4f2158ebbec809c6c93c272cb169e9ef0"
+  },
+  {
+    "frame": "frame_04.png",
+    "raw_size": [
+      152,
+      152
+    ],
+    "raw_alpha_bbox": [
+      52,
+      21,
+      105,
+      127
+    ],
+    "raw_sha256": "c3e91903dd32faf8c86fcedef7459efc7c8201306dfa40ac67100d98791d200e",
+    "canvas": [
+      128,
+      128
+    ],
+    "raw_origin_on_canvas": [
+      -12,
+      -12
+    ],
+    "opaque_pixels_fit": true,
+    "selected_file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\normalized128\\walk_north_r2\\frame_04.png",
+    "selected_alpha_bbox": [
+      40,
+      9,
+      93,
+      115
+    ],
+    "raw_opaque_pixels": 3155,
+    "selected_opaque_pixels": 3155,
+    "selected_sha256": "d3361ad448b9e9bf502aa78b264e3670eefb18f678730e388971974b7cc2b331"
+  },
+  {
+    "frame": "frame_05.png",
+    "raw_size": [
+      152,
+      152
+    ],
+    "raw_alpha_bbox": [
+      52,
+      24,
+      107,
+      130
+    ],
+    "raw_sha256": "faac657c63d8029cfe2df4398e0f8ffce2cbd6d415348e55ece326c2feb13f5b",
+    "canvas": [
+      128,
+      128
+    ],
+    "raw_origin_on_canvas": [
+      -12,
+      -12
+    ],
+    "opaque_pixels_fit": true,
+    "selected_file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\normalized128\\walk_north_r2\\frame_05.png",
+    "selected_alpha_bbox": [
+      40,
+      12,
+      95,
+      118
+    ],
+    "raw_opaque_pixels": 3121,
+    "selected_opaque_pixels": 3121,
+    "selected_sha256": "2833a6254bacc8f452cc91c8407390ab786307b05a573e972ef99568998a8752"
+  }
+]

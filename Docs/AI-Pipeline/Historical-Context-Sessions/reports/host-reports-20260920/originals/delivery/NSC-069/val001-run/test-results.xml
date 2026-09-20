@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="26" result="Passed" total="26" passed="26" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-09-18 00:51:16Z" end-time="2026-09-18 00:51:19Z" duration="3.2484979">
+  <test-suite type="TestSuite" id="1000" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="160" result="Passed" start-time="2026-09-18 00:51:16Z" end-time="2026-09-18 00:51:19Z" duration="3.248498" total="26" passed="26" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1186" name="NoSafeCircle.DoorPrototype.Tests.Editor.dll" fullname="C:/nscrev/branch-verify/Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Tests.Editor.dll" runstate="Runnable" testcasecount="160" result="Passed" start-time="2026-09-18 00:51:16Z" end-time="2026-09-18 00:51:19Z" duration="3.214549" total="26" passed="26" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="50800" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="1187" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="160" result="Passed" start-time="2026-09-18 00:51:16Z" end-time="2026-09-18 00:51:19Z" duration="3.201506" total="26" passed="26" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1188" name="DoorPrototype" fullname="NoSafeCircle.DoorPrototype" runstate="Runnable" testcasecount="160" result="Passed" start-time="2026-09-18 00:51:16Z" end-time="2026-09-18 00:51:19Z" duration="3.179112" total="26" passed="26" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1189" name="Tests" fullname="NoSafeCircle.DoorPrototype.Tests" runstate="Runnable" testcasecount="160" result="Passed" start-time="2026-09-18 00:51:16Z" end-time="2026-09-18 00:51:19Z" duration="3.161591" total="26" passed="26" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestSuite" id="1190" name="Editor" fullname="NoSafeCircle.DoorPrototype.Tests.Editor" runstate="Runnable" testcasecount="160" result="Passed" start-time="2026-09-18 00:51:16Z" end-time="2026-09-18 00:51:19Z" duration="3.155857" total="26" passed="26" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-suite type="TestSuite" id="1191" name="World" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.World" runstate="Runnable" testcasecount="28" result="Passed" start-time="2026-09-18 00:51:16Z" end-time="2026-09-18 00:51:19Z" duration="3.148521" total="26" passed="26" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-suite type="TestFixture" id="1111" name="RoomSceneCompositionFoundationTests" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests" classname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests" runstate="Runnable" testcasecount="26" result="Passed" start-time="2026-09-18 00:51:16Z" end-time="2026-09-18 00:51:19Z" duration="3.145939" total="26" passed="26" failed="0" inconclusive="0" skipped="0" asserts="0">
+                  <properties />
+                  <test-case id="1128" name="AreRoomScenesExcludedFromBuild_CatalogRoomPaths_AreNotRegisteredInBuildSettings" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests.AreRoomScenesExcludedFromBuild_CatalogRoomPaths_AreNotRegisteredInBuildSettings" methodname="AreRoomScenesExcludedFromBuild_CatalogRoomPaths_AreNotRegisteredInBuildSettings" classname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests" runstate="Runnable" seed="55326542" result="Passed" start-time="2026-09-18 00:51:16Z" end-time="2026-09-18 00:51:16Z" duration="0.241007" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1134" name="CanonicalDoors_D1ToD4PairAdjoiningRoomsInFixedOrder" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests.CanonicalDoors_D1ToD4PairAdjoiningRoomsInFixedOrder" methodname="CanonicalDoors_D1ToD4PairAdjoiningRoomsInFixedOrder" classname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests" runstate="Runnable" seed="602006625" result="Passed" start-time="2026-09-18 00:51:16Z" end-time="2026-09-18 00:51:16Z" duration="0.157902" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1135" name="CanonicalDoors_D5IsSoleExitMarkerOnFinalRoom" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests.CanonicalDoors_D5IsSoleExitMarkerOnFinalRoom" methodname="CanonicalDoors_D5IsSoleExitMarkerOnFinalRoom" classname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests" runstate="Runnable" seed="1824308594" result="Passed" start-time="2026-09-18 00:51:16Z" end-time="2026-09-18 00:51:16Z" duration="0.118510" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1132" name="CanonicalRooms_MatchFixedFiveRoomOrder" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests.CanonicalRooms_MatchFixedFiveRoomOrder" methodname="CanonicalRooms_MatchFixedFiveRoomOrder" classname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests" runstate="Runnable" seed="1819249746" result="Passed" start-time="2026-09-18 00:51:16Z" end-time="2026-09-18 00:51:17Z" duration="0.107172" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1133" name="CanonicalRooms_RecordDistinctStableScenePaths" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests.CanonicalRooms_RecordDistinctStableScenePaths" methodname="CanonicalRooms_RecordDistinctStableScenePaths" classname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests" runstate="Runnable" seed="671179690" result="Passed" start-time="2026-09-18 00:51:17Z" end-time="2026-09-18 00:51:17Z" duration="0.112691" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1137" name="DoorAnchorMarker_ExposesSerializedFieldsAndDefaultOpeningWidth" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests.DoorAnchorMarker_ExposesSerializedFieldsAndDefaultOpeningWidth" methodname="DoorAnchorMarker_ExposesSerializedFieldsAndDefaultOpeningWidth" classname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests" runstate="Runnable" seed="60175818" result="Passed" start-time="2026-09-18 00:51:17Z" end-time="2026-09-18 00:51:17Z" duration="0.100616" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1136" name="RoomContentMarker_ExposesSerializedRoomIdAndCategory" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests.RoomContentMarker_ExposesSerializedRoomIdAndCategory" methodname="RoomContentMarker_ExposesSerializedRoomIdAndCategory" classname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests" runstate="Runnable" seed="452901859" result="Passed" start-time="2026-09-18 00:51:17Z" end-time="2026-09-18 00:51:17Z" duration="0.127433" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1131" name="TryComposeRoom_InvalidSourceScene_FailsAndLeavesTargetSceneUnmodified" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests.TryComposeRoom_InvalidSourceScene_FailsAndLeavesTargetSceneUnmodified" methodname="TryComposeRoom_InvalidSourceScene_FailsAndLeavesTargetSceneUnmodified" classname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests" runstate="Runnable" seed="510944587" result="Passed" start-time="2026-09-18 00:51:17Z" end-time="2026-09-18 00:51:17Z" duration="0.205487" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1130" name="TryComposeRoom_RunTwice_ReplacesComposedRoomWithoutDuplicating" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests.TryComposeRoom_RunTwice_ReplacesComposedRoomWithoutDuplicating" methodname="TryComposeRoom_RunTwice_ReplacesComposedRoomWithoutDuplicating" classname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests" runstate="Runnable" seed="1276295802" result="Passed" start-time="2026-09-18 00:51:17Z" end-time="2026-09-18 00:51:17Z" duration="0.207980" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1129" name="TryComposeRoom_ValidSourceScene_ClonesContentAndClosesSourceWithoutSaving" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests.TryComposeRoom_ValidSourceScene_ClonesContentAndClosesSourceWithoutSaving" methodname="TryComposeRoom_ValidSourceScene_ClonesContentAndClosesSourceWithoutSaving" classname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests" runstate="Runnable" seed="1882949921" result="Passed" start-time="2026-09-18 00:51:17Z" end-time="2026-09-18 00:51:18Z" duration="0.223107" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1124" name="ValidateAnchorPairing_MismatchedDoorId_Fails" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests.ValidateAnchorPairing_MismatchedDoorId_Fails" methodname="ValidateAnchorPairing_MismatchedDoorId_Fails" classname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests" runstate="Runnable" seed="1472567263" result="Passed" start-time="2026-09-18 00:51:18Z" end-time="2026-09-18 00:51:18Z" duration="0.103122" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1125" name="ValidateAnchorPairing_MismatchedOpeningWidth_Fails" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests.ValidateAnchorPairing_MismatchedOpeningWidth_Fails" methodname="ValidateAnchorPairing_MismatchedOpeningWidth_Fails" classname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests" runstate="Runnable" seed="292180224" result="Passed" start-time="2026-09-18 00:51:18Z" end-time="2026-09-18 00:51:18Z" duration="0.106248" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1122" name="ValidateAnchorPairing_OpposingForwardVectorsAtSharedCenter_Succeeds" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests.ValidateAnchorPairing_OpposingForwardVectorsAtSharedCenter_Succeeds" methodname="ValidateAnchorPairing_OpposingForwardVectorsAtSharedCenter_Succeeds" classname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests" runstate="Runnable" seed="1196604251" result="Passed" start-time="2026-09-18 00:51:18Z" end-time="2026-09-18 00:51:18Z" duration="0.089723" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1123" name="ValidateAnchorPairing_SameDirectionForwardVectors_Fails" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests.ValidateAnchorPairing_SameDirectionForwardVectors_Fails" methodname="ValidateAnchorPairing_SameDirectionForwardVectors_Fails" classname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests" runstate="Runnable" seed="2130147264" result="Passed" start-time="2026-09-18 00:51:18Z" end-time="2026-09-18 00:51:18Z" duration="0.084997" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1127" name="ValidateFixedRoomOrder_OutOfOrderRooms_Fails" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests.ValidateFixedRoomOrder_OutOfOrderRooms_Fails" methodname="ValidateFixedRoomOrder_OutOfOrderRooms_Fails" classname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests" runstate="Runnable" seed="930064335" result="Passed" start-time="2026-09-18 00:51:18Z" end-time="2026-09-18 00:51:18Z" duration="0.091708" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1126" name="ValidateFixedRoomOrder_WrongCount_Fails" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests.ValidateFixedRoomOrder_WrongCount_Fails" methodname="ValidateFixedRoomOrder_WrongCount_Fails" classname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests" runstate="Runnable" seed="717698678" result="Passed" start-time="2026-09-18 00:51:18Z" end-time="2026-09-18 00:51:18Z" duration="0.096124" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1116" name="ValidateOpenRoomScene_DisallowedActiveEnemyRegistryComponent_ReportsError" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests.ValidateOpenRoomScene_DisallowedActiveEnemyRegistryComponent_ReportsError" methodname="ValidateOpenRoomScene_DisallowedActiveEnemyRegistryComponent_ReportsError" classname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests" runstate="Runnable" seed="1681854021" result="Passed" start-time="2026-09-18 00:51:18Z" end-time="2026-09-18 00:51:18Z" duration="0.103426" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1117" name="ValidateOpenRoomScene_DisallowedEncounterAdmissionControllerComponent_ReportsError" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests.ValidateOpenRoomScene_DisallowedEncounterAdmissionControllerComponent_ReportsError" methodname="ValidateOpenRoomScene_DisallowedEncounterAdmissionControllerComponent_ReportsError" classname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests" runstate="Runnable" seed="1382039149" result="Passed" start-time="2026-09-18 00:51:18Z" end-time="2026-09-18 00:51:18Z" duration="0.096761" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1115" name="ValidateOpenRoomScene_DisallowedLightComponent_ReportsError" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests.ValidateOpenRoomScene_DisallowedLightComponent_ReportsError" methodname="ValidateOpenRoomScene_DisallowedLightComponent_ReportsError" classname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests" runstate="Runnable" seed="1167724082" result="Passed" start-time="2026-09-18 00:51:18Z" end-time="2026-09-18 00:51:18Z" duration="0.095693" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1119" name="ValidateOpenRoomScene_DoorAnchorOutsideSharedBoundary_ReportsError" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests.ValidateOpenRoomScene_DoorAnchorOutsideSharedBoundary_ReportsError" methodname="ValidateOpenRoomScene_DoorAnchorOutsideSharedBoundary_ReportsError" classname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests" runstate="Runnable" seed="1414316367" result="Passed" start-time="2026-09-18 00:51:18Z" end-time="2026-09-18 00:51:19Z" duration="0.091792" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1120" name="ValidateOpenRoomScene_DoorAnchorWrongOpeningWidth_ReportsError" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests.ValidateOpenRoomScene_DoorAnchorWrongOpeningWidth_ReportsError" methodname="ValidateOpenRoomScene_DoorAnchorWrongOpeningWidth_ReportsError" classname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests" runstate="Runnable" seed="1128547090" result="Passed" start-time="2026-09-18 00:51:19Z" end-time="2026-09-18 00:51:19Z" duration="0.091911" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1114" name="ValidateOpenRoomScene_MissingCategoryChild_ReportsError" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests.ValidateOpenRoomScene_MissingCategoryChild_ReportsError" methodname="ValidateOpenRoomScene_MissingCategoryChild_ReportsError" classname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests" runstate="Runnable" seed="1487986708" result="Passed" start-time="2026-09-18 00:51:19Z" end-time="2026-09-18 00:51:19Z" duration="0.092729" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1113" name="ValidateOpenRoomScene_NonIdentityRoomRoot_ReportsError" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests.ValidateOpenRoomScene_NonIdentityRoomRoot_ReportsError" methodname="ValidateOpenRoomScene_NonIdentityRoomRoot_ReportsError" classname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests" runstate="Runnable" seed="1017545956" result="Passed" start-time="2026-09-18 00:51:19Z" end-time="2026-09-18 00:51:19Z" duration="0.097232" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1118" name="ValidateOpenRoomScene_PlayerPrefixedComponent_ReportsError" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests.ValidateOpenRoomScene_PlayerPrefixedComponent_ReportsError" methodname="ValidateOpenRoomScene_PlayerPrefixedComponent_ReportsError" classname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests" runstate="Runnable" seed="1859080525" result="Passed" start-time="2026-09-18 00:51:19Z" end-time="2026-09-18 00:51:19Z" duration="0.088332" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1121" name="ValidateOpenRoomScene_ReferenceOutsideSourceScene_ReportsLocalOwnershipError" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests.ValidateOpenRoomScene_ReferenceOutsideSourceScene_ReportsLocalOwnershipError" methodname="ValidateOpenRoomScene_ReferenceOutsideSourceScene_ReportsLocalOwnershipError" classname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests" runstate="Runnable" seed="862344214" result="Passed" start-time="2026-09-18 00:51:19Z" end-time="2026-09-18 00:51:19Z" duration="0.098618" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1112" name="ValidateOpenRoomScene_ValidFixture_IsValidWithNoErrors" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests.ValidateOpenRoomScene_ValidFixture_IsValidWithNoErrors" methodname="ValidateOpenRoomScene_ValidFixture_IsValidWithNoErrors" classname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests" runstate="Runnable" seed="1930963856" result="Passed" start-time="2026-09-18 00:51:19Z" end-time="2026-09-18 00:51:19Z" duration="0.088043" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                    <output><![CDATA[Saving results to: C:/Users/VincentLiguori/AppData/LocalLow/DefaultCompany/NoSafeCircle\TestResults.xml
+]]></output>
+                  </test-case>
+                </test-suite>
+              </test-suite>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

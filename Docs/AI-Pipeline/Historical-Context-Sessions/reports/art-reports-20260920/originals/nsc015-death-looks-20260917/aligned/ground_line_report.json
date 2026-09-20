@@ -1,0 +1,166 @@
+{
+  "canvas": [
+    144,
+    96
+  ],
+  "target_row_inclusive": 92,
+  "pivot_y": 0.03125,
+  "sprites": [
+    {
+      "file": "brute_blasted.png",
+      "row_before": 89,
+      "shift_dy": 3,
+      "row_after": 92,
+      "bbox_after": [
+        1,
+        6,
+        141,
+        93
+      ],
+      "opaque_px": 5773
+    },
+    {
+      "file": "brute_burned.png",
+      "row_before": 87,
+      "shift_dy": 5,
+      "row_after": 92,
+      "bbox_after": [
+        13,
+        10,
+        122,
+        93
+      ],
+      "opaque_px": 4628
+    },
+    {
+      "file": "brute_decapitated_r1.png",
+      "row_before": 90,
+      "shift_dy": 2,
+      "row_after": 92,
+      "bbox_after": [
+        17,
+        11,
+        126,
+        93
+      ],
+      "opaque_px": 4805
+    },
+    {
+      "file": "brute_decapitated_r2.png",
+      "row_before": 86,
+      "shift_dy": 6,
+      "row_after": 92,
+      "bbox_after": [
+        1,
+        21,
+        134,
+        93
+      ],
+      "opaque_px": 5844
+    },
+    {
+      "file": "brute_dismembered_r1.png",
+      "row_before": 93,
+      "shift_dy": -1,
+      "row_after": 92,
+      "bbox_after": [
+        7,
+        4,
+        141,
+        93
+      ],
+      "opaque_px": 5438
+    },
+    {
+      "file": "brute_dismembered_r2.png",
+      "row_before": 83,
+      "shift_dy": 9,
+      "row_after": 92,
+      "bbox_after": [
+        0,
+        21,
+        138,
+        93
+      ],
+      "opaque_px": 5059
+    },
+    {
+      "file": "wraith_dissipated.png",
+      "row_before": 94,
+      "shift_dy": -2,
+      "row_after": 92,
+      "bbox_after": [
+        12,
+        0,
+        129,
+        93
+      ],
+      "opaque_px": 3878
+    },
+    {
+      "file": "wraith_shattered.png",
+      "row_before": 91,
+      "shift_dy": 1,
+      "row_after": 92,
+      "bbox_after": [
+        3,
+        6,
+        139,
+        93
+      ],
+      "opaque_px": 5433
+    },
+    {
+      "file": "wraith_snuffed_r1.png",
+      "row_before": 88,
+      "shift_dy": 4,
+      "row_after": 92,
+      "bbox_after": [
+        7,
+        10,
+        136,
+        93
+      ],
+      "opaque_px": 5204
+    },
+    {
+      "file": "wraith_snuffed_r2.png",
+      "row_before": 90,
+      "shift_dy": 2,
+      "row_after": 92,
+      "bbox_after": [
+        5,
+        6,
+        139,
+        93
+      ],
+      "opaque_px": 6339
+    },
+    {
+      "file": "wraith_unravelled_r1.png",
+      "row_before": 90,
+      "shift_dy": 2,
+      "row_after": 92,
+      "bbox_after": [
+        14,
+        7,
+        116,
+        93
+      ],
+      "opaque_px": 4334
+    },
+    {
+      "file": "wraith_unravelled_r2.png",
+      "row_before": 92,
+      "shift_dy": 0,
+      "row_after": 92,
+      "bbox_after": [
+        3,
+        1,
+        131,
+        93
+      ],
+      "opaque_px": 6308
+    }
+  ]
+}

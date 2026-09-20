@@ -1,0 +1,425 @@
+scanned roots: C:\nscrev, C:\NSC
+  worktrees of canonical : 204  (moving these destroys no commits - but prune afterwards)
+  independent clones     : 211  (these can hold the only copy of something)
+  plain directories      : 573
+
+=== 198 branches in 109 clones exist ONLY there. Fetch before moving. ===
+
+  C:\NSC\AssistantControlViewerRegression-20260913
+      c12f70287bad  assistant/viewer-regression-suite-20260913
+
+  C:\NSC\AstraConvergenceRepair-20260908
+      38c96e205c58  fix/astra-convergence-20260908
+
+  C:\NSC\AstraDecompHarvestCandidate-20260909
+      1df82bf790d9  test/full8-claude-20260909-0650
+
+  C:\NSC\BulkRetirementTests
+      1ce149360492  codex/test-bulk-retirement-filter
+
+  C:\NSC\CandidateGateAbsoluteFifo-20260908
+      7dae2fa5d3a6  fix/candidate-gate-absolute-fifo
+
+  C:\NSC\ClaudeSessionRecovery-20260908
+      49a3e00a8d95  fix/claude-stale-pooled-session-recovery-20260908
+
+  C:\NSC\ClaudeSonnetCodexMcpAudit-20260909
+      23c37bc5d7d3  fix/claude-sonnet-codex-mcp-transport-20260909
+
+  C:\NSC\ClaudeSonnetConvergenceAudit-20260908
+      ea6ca75ef873  audit/claude-sonnet-tls-polluted-seed-20260908
+
+  C:\NSC\ClaudeSonnetDecompAudit-20260909
+      85f44af2854a  audit/claude-sonnet-decomposition-apply-20260909
+
+  C:\NSC\CodexArchitectSessionFix
+      ec738da52f90  codex/architect-quota-handoff
+
+  C:\NSC\CodexLocalBootstrapApplyCheck-20260908
+      cba8f240f8a1  fix/local-codex-bootstrap-20260908
+
+  C:\NSC\CodexLocalBootstrapFix-Archive-20260908
+      cba8f240f8a1  fix/local-codex-bootstrap-20260908
+      273a88a36195  main
+
+  C:\NSC\CodexProviderRestriction
+      110d28337d9f  codex/persist-provider-restrictions
+
+  C:\NSC\CodexRetryRoleModels-20260908
+      8809f51d9513  fix/committed-role-model-retry
+
+  C:\NSC\CrossProviderRetryIntegration-20260905-18c867c
+      1a7b748cb3d6  codex/integrate-cross-provider-retry
+
+  C:\NSC\DurableIntegrationCommitGate-20260906
+      28d428ab99a1  fix/durable-integration-commit-gate
+
+  C:\NSC\FableConvergenceAudit-20260908
+      cbf713c45020  audit/fable-combined-20260908
+      8f61ce22c10e  fable/decompose-design-20260909
+      0b918a9f4829  fable/merge-agent-design-20260909
+      69efedd7499e  fix/fable-local-decomposition-apply-20260909
+      095f1347103b  fix/fable-local-decomposition-hardening-20260909
+      85f44af2854a  probe/rebased-on-tip
+
+  C:\NSC\FixMainlineReintegration-20260905
+      213d3cbed3d4  fix/delivery-review-proposal-defaults
+
+  C:\NSC\FixMergedTaskRecovery-20260905
+      6c97e3fcb703  fix/merged-task-closeout-recovery
+
+  C:\NSC\FourProfileIntegration-20260908
+      83b7e357d021  hotfix/agent-longpaths
+      165cd4fb0a33  hotfix/claude2-longpaths
+      203f68108330  hotfix/codex2-longpaths
+      03d237e02304  integration/recovery-fixes-agent-20260908
+      e77313c2acae  integration/recovery-fixes-claude2-20260908
+      0d5af9cf1d08  integration/recovery-fixes-codex2-20260908
+      cfe9092788a8  integration/singleton-medium-agent-20260908
+      ee4fca83f69b  integration/singleton-medium-claude2-20260908
+      35152eaf4acd  integration/singleton-medium-codex2-20260908
+      135cad593d8e  integration/visualizer-inbox-20260908
+
+  C:\NSC\GateWaiterArchitectBypass-20260907
+      5df5b7575fa8  fix/gate-waiter-deterministic-resume
+
+  C:\NSC\GateWakeControllerFix-20260907
+      58f30d2db4d4  fix/autonomous-gate-wake-contract
+
+  C:\NSC\GauntletCleanupFollowonAudit-20260909
+      eda47e0f4cf6  audit/cleanup-exact-20260909
+      6461ae3dd7ea  audit/cleanup-followon-20260909
+
+  C:\NSC\GauntletCleanupPausedAudit-20260909
+      6461ae3dd7ea  audit/cleanup-followon-20260909
+      7420b448a17e  audit/cleanup-paused-20260909
+
+  C:\NSC\GauntletCodexMcpCandidateAudit-20260909
+      b29a5e607cde  audit/codex-mcp-candidate-20260909
+      b29a5e607cde  fix/claude-sonnet-codex-mcp-transport-20260909
+
+  C:\NSC\GauntletCodexMcpFollowonAudit-20260909
+      e146b13d4571  audit/codex-mcp-followon-20260909
+      e146b13d4571  fix/claude-sonnet-codex-mcp-transport-20260909
+
+  C:\NSC\GauntletCodexRolePromptAudit-20260909
+      23c37bc5d7d3  fix/claude-sonnet-codex-mcp-transport-20260909
+
+  C:\NSC\GauntletDecompositionCandidateAudit-20260909
+      bc3b7c6e6f72  audit/decomposition-candidate-20260909
+      bc3b7c6e6f72  fix/fable-local-decomposition-apply-20260909
+
+  C:\NSC\GauntletDecompositionWet-20260911-2
+      faac76ac524e  gauntlet-replay/decomp-wet-20260911-2
+
+  C:\NSC\GauntletDecompositionWet-20260911-3
+      faac76ac524e  gauntlet-replay/decomp-wet-20260911-2
+      35eddc3549d1  gauntlet-replay/decomp-wet-20260911-3
+
+  C:\NSC\GauntletDecompositionWet-20260911-4
+      21c59bec42fd  codex/authenticated-gdd-rag-decomposition
+      35eddc3549d1  gauntlet-replay/decomp-wet-20260911-3
+      0f49de4f299c  test/decomposition-policy-shape-20260912
+
+  C:\NSC\GauntletDirectLaunchAudit-20260909
+      563bea1e12d8  audit/claude-sonnet-tls-polluted-seed-20260908
+
+  C:\NSC\GauntletDirectLaunchCases-20260909
+      563bea1e12d8  audit/claude-sonnet-tls-polluted-seed-20260908
+      563bea1e12d8  audit/direct-launch-cases-20260909
+
+  C:\NSC\GauntletDirectLaunchParentCases-20260909
+      563bea1e12d8  audit/direct-launch-cases-20260909
+      0daf0d623cff  audit/direct-launch-parent-cases-20260909
+
+  C:\NSC\GauntletFresh1130Run-20260912-1
+      919eb1610b2c  gauntlet-replay/fresh-1130-20260912
+
+  C:\NSC\GauntletFresh1140-20260912-1
+      919eb1610b2c  gauntlet-replay/fresh-1130-20260912
+      bdaaa2d153a0  gauntlet-replay/fresh-1140-20260912
+      62b2af516cdb  gauntlet-replay/fresh-1160-20260913
+      ff5e328be8aa  gauntlet-test/reviewed-async-1160
+      156ad4c70753  gauntlet-test/throughput-e90670d
+      273798a94fcd  gauntlet-trial/fresh-e90670d
+
+  C:\NSC\GauntletFresh1160-FixesRun-20260913
+      a31fcef5914f  gauntlet-test/fixes-ade5bca-1160
+      bf59ffca131b  gauntlet-test/reviewed-async-1160
+
+  C:\NSC\GauntletFresh1160-Reviewed-Standalone
+      22ca5cf073fa  gauntlet-test/reviewed-async-1160
+
+  C:\NSC\GauntletHardeningRecoveryAudit-20260909
+      095f1347103b  fix/fable-local-decomposition-hardening-20260909
+
+  C:\NSC\GauntletPipelineActivity-20260907
+      3dd52b162f5e  gauntlet-pipeline-activity
+
+  C:\NSC\GauntletRecoveryAudit-20260909
+      19bdd704411a  audit/cleanup-context-ownership-20260909
+      eda47e0f4cf6  audit/cleanup-exact-20260909
+      3a97e09e90c4  audit/recovery-combined-20260909
+
+  C:\NSC\GauntletReplayWet-20260911-2
+      b343b11b87fd  gauntlet-replay/wet-20260911
+
+  C:\NSC\GauntletReplayWet-20260911-3
+      04bf5c919ce9  gauntlet-replay/wet-20260911
+      91266cd2e8e5  gauntlet-replay/wet-20260911-3
+
+  C:\NSC\GauntletReplayWet-20260911-4
+      91266cd2e8e5  gauntlet-replay/wet-20260911-3
+      126520360736  gauntlet-replay/wet-20260911-4
+
+  C:\NSC\GauntletReplayWet-20260911-5
+      3b0396676b48  gauntlet-replay/decomp-wet-20260911-1
+      126520360736  gauntlet-replay/wet-20260911-4
+      335389953916  gauntlet-replay/wet-20260911-5
+
+  C:\NSC\GauntletViewCurrentRunIntegration-20260907
+      4a10fb1a2723  fix/gate-eligible-queue-liveness
+
+  C:\NSC\GauntletViewScopeLayout-20260907
+      2ad759aaabfd  fix/gauntlet-display-scope-panels
+
+  C:\NSC\LocalIssueSnapshot-20260908
+      03c9ce8f6162  fix/local-issue-observation-snapshot
+
+  C:\NSC\NSCDemoGauntlet-20260916
+      717d175c4b63  demo/gauntlet-20260916
+
+  C:\NSC\NoSafeCircle-FullGraphViewer
+      570c6bd1d8a4  assistant/full-graph-viewer
+
+  C:\NSC\NoSafeCircle-GraphViewerReviewAlarm-Assistant
+      8916784de5a9  assistant/graph-viewer-youtube-origin-fallback
+
+  C:\NSC\NoSafeCircle-NSC-004-ScopeFix
+      de16840db768  assistant/fix-nsc-004-scope
+
+  C:\NSC\NoSafeCircle-Sorting-Source
+      fedac8dd6da5  assistant/sorting-foundation-revalidation
+
+  C:\NSC\Nsc911DecompositionRecovery-20260905
+      531a14852c2d  fix/fresh-decomposition-main-advance-recovery
+
+  C:\NSC\PreVerificationMergeGate-20260908
+      b30b4f9e6b8a  fix/pre-verification-merge-gate
+
+  C:\NSC\PropagatePrBound-AllClaude-20260908
+      d43f1262dab9  main
+
+  C:\NSC\PropagatePrBound-ClaudeBalanced-20260908
+      29a6e0fe5fff  main
+
+  C:\NSC\PropagatePrBound-CodexBalanced-20260908
+      b5436a16f38b  main
+
+  C:\NSC\ProviderProfilesBalancedRouting-20260907
+      90b2f8dc98c0  fix/provider-profiles-balanced-routing
+
+  C:\NSC\PublicWorkflowRecoveryFix-20260907
+      6462ffb07e29  fix/pending-workflow-consumers
+
+  C:\NSC\RetireAbandonedGateWaiter-20260907
+      a40319dc2cc8  codex/retire-abandoned-gate-waiter
+
+  C:\NSC\ReviewTRA-20260908
+      cb8d4e9b946b  review/taskreviewagent-adversarial-20260908
+
+  C:\NSC\SchedulerObservationFix-20260907
+      11dcd130665d  fix/bounded-close-observation-930
+
+  C:\NSC\SnapshotProductionCorrection-20260905
+      448964e81845  claude/source-admission-snapshot-perf
+      37aa14974602  codex/fix-source-snapshot-production-path
+
+  C:\NSC\SpaceInvaders
+      02dd17e16bf6  Final
+      f7f09483cc2e  main
+
+  C:\NSC\StrandedGateOwnerRecovery-20260908
+      17e13c6d184c  fix/stranded-gate-owner-recovery
+      17e13c6d184c  main
+
+  C:\NSC\SyntheticReintegrationFix-20260905
+      902a24b78c00  fix/synthetic-mainline-reintegration-authority
+
+  C:\NSC\TaskControlCIAuthority-20260907
+      4c06cf6e6794  infra/taskcontrol-ci-authority-20260907
+      4c06cf6e6794  main
+
+  C:\NSC\TaskControlCurrentState-20260907
+      420665fa1be2  taskcontrol-current-state
+
+  C:\NSC\TenTaskEvidence-20260905
+      be21a49128b7  claude/ten-task-run-evidence
+
+  C:\NSC\TenTaskFinalIntegration-20260905
+      48e93f35ba8f  integration/gauntlet-convergence-20260908
+      bcac9fc1701f  integration/local-gauntlet-20260909
+
+  C:\NSC\TenTaskFinalIntegration-20260905-Review
+      48e93f35ba8f  integration/gauntlet-convergence-20260908
+      bcac9fc1701f  integration/local-gauntlet-20260909
+
+  C:\NSC\TenTaskFinalIntegration-DemoCopy
+      4ab9336f5650  demo/run-20260916
+
+  C:\NSC\TenTaskRunnerDriftIntegration-20260906
+      4024531b4f9e  fix/gauntlet-view-github-links
+
+  C:\NSC\ThirdGauntletBaseTest-20260908
+      f376359ba998  integration/codex-gauntlet-fixes-20260908
+
+  C:\NSC\ThirdGauntletBootstrapAudit-20260908
+      6307478758d4  audit/third-bootstrap-20260908
+      3fa7c9b82521  fix/third-immutable-provider-bootstrap-20260908
+      f376359ba998  integration/codex-gauntlet-fixes-20260908
+
+  C:\NSC\ThirdGauntletCrossTest-20260908
+      f376359ba998  integration/codex-gauntlet-fixes-20260908
+
+  C:\NSC\ThirdGauntletLauncherFix-20260908
+      fa8d1fddf7d7  audit/third-launcher-prerequisites-20260908
+
+  C:\NSC\ThirdGauntletLockWait-20260908
+      e2a1931ddbd6  audit/third-gauntlet-convergence-20260908
+      eda5993056e4  fix/third-local-lock-wait-20260908
+
+  C:\NSC\ThirdGauntletReferee-20260908
+      f8fd8e3a7e16  audit/third-gauntlet-convergence-20260908
+      a98a6e3dbcec  fix/third-local-activity-shape-20260908
+      a712383cb8ce  fix/third-local-activity-transport-20260908
+      f376359ba998  integration/codex-gauntlet-fixes-20260908
+
+  C:\NSC\Wizard-073-Repair
+      6e07737a9870  master
+
+  C:\nscrev\base
+      2c25e3095ced  master
+
+  C:\nscrev\basecheck-throughput
+      22cb776b087e  gauntlet-replay/fresh-1130-20260912
+
+  C:\nscrev\cand
+      979c7bc12f32  master
+
+  C:\nscrev\ci-134-fix
+      7165353aea8d  fix/settled-worker-not-underway
+
+  C:\nscrev\cj-churn
+      01865ccc4250  fix/unity-whitespace-churn-policy
+
+  C:\nscrev\cj-decompose
+      4050065c21cc  fix/decompose-all-claude
+
+  C:\nscrev\cj-p3-review
+      949880880121  fix/worker-final-write
+
+  C:\nscrev\cj-quiet
+      e2e80f9e39b4  fix/quiet-spawns-product
+
+  C:\nscrev\codex-revision-review-fixes-20260913
+      0a7ac58609a0  codex/revision-review-accepted-fixes-20260913
+      f941857ab973  throughput/decomposition-revision-review-integration
+
+  C:\nscrev\decomp-fix
+      d8509ae5aead  throughput/background-decomposition
+
+  C:\nscrev\decomp-snapshot
+      65b8377decc6  fix/decompose-on-a-snapshot
+
+  C:\nscrev\excludefix
+      2ef2cac3bd56  fix/launcher-empty-exclude-task-id
+
+  C:\nscrev\fixrepo
+      74fcc900e4c0  integration/local-gauntlet-20260909
+      c07a0ef98cae  integration/prod-main-20260909
+
+  C:\nscrev\g1160-reg
+      a31fcef5914f  gauntlet-test/fixes-ade5bca-1160
+      18e69a254278  gauntlet-test/regression-1160
+
+  C:\nscrev\histfix
+      9333b6b48bcc  integration/local-rehearsal-taskcontrol
+
+  C:\nscrev\nsc035-d1c-probe-20260914
+      417698049908  main
+
+  C:\nscrev\realdecomp-probe-src
+      be5d4e4b67bb  realdecomp/probe-3a06453-canonical-27e1ae9
+      e386b76914a6  realdecomp/probe-3a06453-canonical-3a56510
+      44ec8b9ae103  realdecomp/probe-3a06453-canonical-main
+
+  C:\nscrev\realdecomp-r5-src
+      f761c05bc291  realdecomp/run5-e70b2fe4f0a4-3a56510
+
+  C:\nscrev\realdecomp-r6-src
+      ccb933e434f0  realdecomp/run6-c6f7981a2e3a-6ba9304
+
+  C:\nscrev\realdecomp-r7-src
+      c433148c9a6e  realdecomp/run7-c6f7981a-40a596c
+
+  C:\nscrev\realdecomp-run2-src
+      fbdcd4338b54  realdecomp/combined-3a0645350f52
+      8da6ec4c131d  realdecomp/combined-616ca980f642
+      80a7537befae  realdecomp/combined-9dee4a6bd308
+
+  C:\nscrev\squashprobe
+      e741c4d0a5c5  integration/local-rehearsal-taskcontrol
+
+  C:\nscrev\tcbase
+      e8cff3d753de  integration/local-rehearsal-taskcontrol
+      21085c4748c9  prebuild
+      fd4a624c2d66  probe-no-policy
+      66099b475936  rebuild
+      30c30c299644  review2
+
+  C:\nscrev\throughput
+      126a41b5b31d  codex/recursive-decomposition-20260914
+      0419f853eb58  codex/total-provider-calls-20260914
+      5e23243b11d4  fix/exact-repin-replay-diff
+      9dee4a6bd308  live/run1-20260913
+      0babb8294e90  realdecomp/combined-20260913
+      fbdcd4338b54  realdecomp/combined-3a0645350f52
+      8da6ec4c131d  realdecomp/combined-616ca980f642
+      80a7537befae  realdecomp/combined-9dee4a6bd308
+      be5d4e4b67bb  realdecomp/probe-3a06453-canonical-27e1ae9
+      e386b76914a6  realdecomp/probe-3a06453-canonical-3a56510
+      44ec8b9ae103  realdecomp/probe-3a06453-canonical-main
+      f761c05bc291  realdecomp/run5-e70b2fe4f0a4-3a56510
+      ccb933e434f0  realdecomp/run6-c6f7981a2e3a-6ba9304
+      c433148c9a6e  realdecomp/run7-c6f7981a-40a596c
+      322dfeb31af0  review/revision-review-mid2-20260913
+      37899ac36423  throughput/background-decomposition
+      e7d2b788f175  throughput/decomposition-ac-consumer
+      13618d8ca80e  throughput/decomposition-author-guidance
+      4dce423b36b2  throughput/decomposition-d1c-consumer
+      3c64631f6553  throughput/decomposition-evidence-context
+      c958824b7123  throughput/decomposition-fixture-partition
+      eb3beb75eeb8  throughput/decomposition-needs-human-fix
+      9e7116ffb799  throughput/decomposition-revision-review
+      f941857ab973  throughput/decomposition-revision-review-integration
+      c245deba804f  throughput/decomposition-slow-triage
+      b42d5197d006  throughput/gauntlet-trial-fixes
+      25ab5fd69e78  throughput/harvest-gate-fix
+      7d0d3584cf90  throughput/replay-authority-fix
+      37899ac36423  throughput/staffing-repair
+      aac2555c5b1a  throughput/worker-recovery-fix
+
+  C:\nscrev\tmp-ga
+      dd975db1a9a6  master
+
+  C:\nscrev\viewer-fix
+      7a2c0d1bdb33  main
+
+  C:\nscrev\viewer-stage-detail
+      501523659420  fix/viewer-execution-crew-stage-detail
+
+  C:\nscrev\worker-final-write-fix
+      3b8b443e29d4  fix/worker-final-write
+
+  Rescue command shape (run in canonical, creates refs only, touches no branch):
+      git -C "C:\NSC\NSC\NoSafeCircle" fetch "<clone>" "<ref>:archive/<clone-name>-<ref>"

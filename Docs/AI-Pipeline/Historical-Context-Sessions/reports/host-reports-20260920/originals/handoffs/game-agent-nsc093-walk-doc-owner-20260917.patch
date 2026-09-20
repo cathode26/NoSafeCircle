@@ -1,0 +1,12 @@
+diff --git a/Docs/Art/Enemies/PIXELLAB_WALK_GENERATION.md b/Docs/Art/Enemies/PIXELLAB_WALK_GENERATION.md
+index cb18b5516..e721fbbaf 100644
+--- a/Docs/Art/Enemies/PIXELLAB_WALK_GENERATION.md
++++ b/Docs/Art/Enemies/PIXELLAB_WALK_GENERATION.md
+@@ -1,6 +1,6 @@
+ # NSC-093 — PixelLab enemy walk source
+ 
+-Status: **provisional source candidate for Vincent's visual review**. The 96 selected walk PNGs are in `Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/`. This task does not import them into Unity, change the stationary NSC-063 images, create clips or prefabs, or add movement or combat. NSC-094 may use the frames only after Vincent approves this exact candidate.
++Status: **provisional source candidate for Vincent's visual review**. The 96 selected walk PNGs are in `Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/`. This task does not import them into Unity, change the stationary NSC-063 images, create clips or prefabs, or add movement or combat. NSC-077 may integrate the frames into Unity only after Vincent approves this exact candidate. (NSC-094, the earlier integration task, was superseded by NSC-077 on 2026-09-17.)
+ 
+ ## Source identities and generation
+ 

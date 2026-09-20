@@ -1,0 +1,20 @@
+Fix: persistent melee pursuit and clear three fixed enemy spawns
+
+DoorPrototypeGlobalSceneBuilder.BuildChaseEnemy no longer calls
+EnemyTargetKnowledge.SetMaximumPursuitDistanceFromStart(5). That demo leash
+made a pursuing MeleeEnemy give up and walk back to its spawn point the
+moment it strayed 5 units from it, even with the wizard still well inside
+Lose Target Distance - the "walks toward and then away" bug from Vincent's
+2026-09-17 playtest. The GDD's Enemy Detection, Pursuit, and Target Loss
+rules only end pursuit at Lose Target Distance, so pursuit is now
+unconstrained (0 = unlimited, already the default EnemyTargetKnowledge and
+its tests treat as normal).
+
+Also moves the three fixed spawns that sat inside room colliders onto clear
+floor, and re-verifies every other fixed spawn against the same rule:
+- Bone Archive MeleeEnemy (-6, 0, 10) -> (-3, 0, 10): was inside Shelf A.
+- Chapel of Ash LanternWraith (-9, 0, 27) -> (-9, 0, 31): was inside Column1.
+- Lower Vault MeleeEnemy (-7, 0, 53) -> (-2, 0, 53): was inside LV-W1.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+

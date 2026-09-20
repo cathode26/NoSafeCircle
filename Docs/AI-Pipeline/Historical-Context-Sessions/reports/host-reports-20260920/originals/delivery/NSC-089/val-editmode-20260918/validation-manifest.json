@@ -1,0 +1,45 @@
+{
+    "schema_version":  "1.1",
+    "manifest_type":  "unity_test_validation",
+    "status":  "passed",
+    "validated_state":  {
+                            "commit":  "2559514826e919bea243e1bf6fda4ad73462ac62",
+                            "tree":  "7ddb061ebe28e54eac6988b665c6b5fc6c5162fc",
+                            "post_commit":  "2559514826e919bea243e1bf6fda4ad73462ac62",
+                            "post_tree":  "7ddb061ebe28e54eac6988b665c6b5fc6c5162fc",
+                            "repository_clean_before":  true,
+                            "repository_clean_after":  true
+                        },
+    "unity":  {
+                  "version":  "6000.1.8f1",
+                  "executable":  "C:\\Program Files\\Unity\\Hub\\Editor\\6000.1.8f1\\Editor\\Unity.exe",
+                  "exit_code":  0,
+                  "test_platform":  "EditMode",
+                  "test_filter":  "NoSafeCircle.DoorPrototype.Tests.Editor.NavMeshAgentConfigurationTests"
+              },
+    "test_run":  {
+                     "result":  "Passed",
+                     "total":  2,
+                     "passed":  2,
+                     "failed":  0,
+                     "skipped":  0
+                 },
+    "artifacts":  {
+                      "xml":  {
+                                  "relative_path":  "test-results.xml",
+                                  "sha256":  "739165c11e7aea65d6c957678e5dd0ce0165cefdb72997f499ef59c7b2cb4088",
+                                  "size_bytes":  5558
+                              },
+                      "log":  {
+                                  "relative_path":  "unity.log",
+                                  "sha256":  "cf859efc7d165ac55a0128fd2a6475037df9f453f9ce211e527abd2c79491693",
+                                  "size_bytes":  81495
+                              }
+                  },
+    "runner":  {
+                   "path":  "Pipeline/Testing/run_unity_tests_clean.ps1",
+                   "sha256":  "b4658ca6c63d85ff2ae7950288d4a459ec90eb54251bca9ced33cfeeae1e77f8",
+                   "source_commit":  "2559514826e919bea243e1bf6fda4ad73462ac62",
+                   "source_tree":  "7ddb061ebe28e54eac6988b665c6b5fc6c5162fc"
+               }
+}

@@ -1,0 +1,69 @@
+tasks to attempt: 35
+NSC-003: C:/NSC/SuccessfullTasks/NSC-003 already exists; left untouched
+NSC-011: C:/NSC/SuccessfullTasks/NSC-011 already exists; left untouched
+NSC-013: SKIPPED - NSC-013 is not conformant: NSC-013 — Enemy Status-Effect and Forced Displacement
+NSC-017: SKIPPED - NSC-017 is not conformant: NSC-017 — Enemy Locked-Door Attack, Breach, and Pursuit Resume
+NSC-028: C:/NSC/SuccessfullTasks/NSC-028 already exists; left untouched
+NSC-029: SKIPPED - NSC-029: no selected delivery record in state output: NSC-029 — Five-Room Floor Content Authoring
+NSC-042: C:/NSC/SuccessfullTasks/NSC-042 already exists; left untouched
+NSC-044: SKIPPED - NSC-044 is not conformant: NSC-044 — Ruined Entry Spatial Blockout
+NSC-046: SKIPPED - NSC-046 is not conformant: NSC-046 — Chapel of Ash Tilemap Blockout and Cover Routes
+NSC-047: SKIPPED - NSC-047 is not conformant: NSC-047 — Lower Vault Blockout Colliders, Wall Tilemaps, and Catalog Rebase
+NSC-048: SKIPPED - NSC-048 is not conformant: NSC-048 — Final Room Layout, Floor and Wall Tilemaps, and Catalog Update
+NSC-049: SKIPPED - NSC-049 is not conformant: NSC-049 — Five-Room Continuity and Door Sequence Integration
+NSC-050: SKIPPED - NSC-050 is not conformant: NSC-050 — DoorInteractable Auto-Lock, Durability, Breaking, and Floor Reset
+NSC-052: SKIPPED - NSC-052 is not conformant: NSC-052 — Door Breach Feedback: Banging, Shaking, Cracks, and Durability Indicator
+NSC-053: SKIPPED - NSC-053 is not conformant: NSC-053 — Ranged Enemy Keep-Distance Movement and Frost Speed Response
+NSC-057: SKIPPED - NSC-057 is not conformant: NSC-057 — Preferred Unity Tooling Library Integration
+NSC-058: SKIPPED - NSC-058 is not conformant: NSC-058 — Shared Hierarchy Fader Foundation
+NSC-060: SKIPPED - NSC-060 is not conformant: NSC-060 — Player Resource Feedback Modernization
+NSC-061: SKIPPED - NSC-061 is not conformant: NSC-061 — PixelLab Wizard Art Direction and Selection
+NSC-062: SKIPPED - NSC-062 is not conformant: NSC-062 — Animated Wizard Unity Integration
+NSC-063: C:/NSC/SuccessfullTasks/NSC-063 already exists; left untouched
+NSC-065: SKIPPED - NSC-065 is not conformant: NSC-065 — PixelLab Sealed Door Art Direction and Selection
+NSC-068: SKIPPED - NSC-068 is not conformant: NSC-068 — Selected Wizard World Placement and Gameplay Entry
+NSC-069: SKIPPED - NSC-069 is not conformant: NSC-069 — Independent Room Scene Authoring and Deterministic World Composition Foundation
+NSC-070: SKIPPED - NSC-070 is not conformant: NSC-070 — Four-Wizard Directional Animation State Repair
+NSC-071: SKIPPED - NSC-071 is not conformant: NSC-071 — Bone Archive Navigation Lane Validation
+NSC-073: SKIPPED - NSC-073 is not conformant: NSC-073 — White Female Wizard Hat Frame Correction
+NSC-074: SKIPPED - NSC-074 is not conformant: NSC-074 — PixelLab Cardinal Wizard Walk Source Art
+NSC-075: SKIPPED - NSC-075 is not conformant: NSC-075 — Unity Eight-Direction Wizard Locomotion Integration
+NSC-077: SKIPPED - NSC-077 is not conformant: NSC-077 — Enemy Art Integration for the Existing Moving Enemies
+NSC-089: SKIPPED - NSC-089 is not conformant: NSC-089 — DoorPrototype NavMesh Surface and Enemy Agent Configuration
+NSC-090: SKIPPED - NSC-090 is not conformant: NSC-090 — Door State to Enemy NavMesh Passability Component
+NSC-091: SKIPPED - NSC-091 is not conformant: NSC-091 — Enemy Target Detection, Last-Known Position, and Search State
+NSC-092: SKIPPED - NSC-092 is not conformant: NSC-092 — Enemy NavMesh Pursuit, Search Movement, Door Traversal, and Reset
+NSC-093: C:/NSC/SuccessfullTasks/NSC-093 already exists; left untouched
+
+archived now: 0 -> none
+already there: 6
+not archived: 29
+  NSC-013: NSC-013 is not conformant: NSC-013 — Enemy Status-Effect and Forced Displacement
+  NSC-017: NSC-017 is not conformant: NSC-017 — Enemy Locked-Door Attack, Breach, and Pursuit Resume
+  NSC-029: NSC-029: no selected delivery record in state output: NSC-029 — Five-Room Floor Content Authoring
+  NSC-044: NSC-044 is not conformant: NSC-044 — Ruined Entry Spatial Blockout
+  NSC-046: NSC-046 is not conformant: NSC-046 — Chapel of Ash Tilemap Blockout and Cover Routes
+  NSC-047: NSC-047 is not conformant: NSC-047 — Lower Vault Blockout Colliders, Wall Tilemaps, and Catalog Rebase
+  NSC-048: NSC-048 is not conformant: NSC-048 — Final Room Layout, Floor and Wall Tilemaps, and Catalog Update
+  NSC-049: NSC-049 is not conformant: NSC-049 — Five-Room Continuity and Door Sequence Integration
+  NSC-050: NSC-050 is not conformant: NSC-050 — DoorInteractable Auto-Lock, Durability, Breaking, and Floor Reset
+  NSC-052: NSC-052 is not conformant: NSC-052 — Door Breach Feedback: Banging, Shaking, Cracks, and Durability Indicator
+  NSC-053: NSC-053 is not conformant: NSC-053 — Ranged Enemy Keep-Distance Movement and Frost Speed Response
+  NSC-057: NSC-057 is not conformant: NSC-057 — Preferred Unity Tooling Library Integration
+  NSC-058: NSC-058 is not conformant: NSC-058 — Shared Hierarchy Fader Foundation
+  NSC-060: NSC-060 is not conformant: NSC-060 — Player Resource Feedback Modernization
+  NSC-061: NSC-061 is not conformant: NSC-061 — PixelLab Wizard Art Direction and Selection
+  NSC-062: NSC-062 is not conformant: NSC-062 — Animated Wizard Unity Integration
+  NSC-065: NSC-065 is not conformant: NSC-065 — PixelLab Sealed Door Art Direction and Selection
+  NSC-068: NSC-068 is not conformant: NSC-068 — Selected Wizard World Placement and Gameplay Entry
+  NSC-069: NSC-069 is not conformant: NSC-069 — Independent Room Scene Authoring and Deterministic World Composition Foundation
+  NSC-070: NSC-070 is not conformant: NSC-070 — Four-Wizard Directional Animation State Repair
+  NSC-071: NSC-071 is not conformant: NSC-071 — Bone Archive Navigation Lane Validation
+  NSC-073: NSC-073 is not conformant: NSC-073 — White Female Wizard Hat Frame Correction
+  NSC-074: NSC-074 is not conformant: NSC-074 — PixelLab Cardinal Wizard Walk Source Art
+  NSC-075: NSC-075 is not conformant: NSC-075 — Unity Eight-Direction Wizard Locomotion Integration
+  NSC-077: NSC-077 is not conformant: NSC-077 — Enemy Art Integration for the Existing Moving Enemies
+  NSC-089: NSC-089 is not conformant: NSC-089 — DoorPrototype NavMesh Surface and Enemy Agent Configuration
+  NSC-090: NSC-090 is not conformant: NSC-090 — Door State to Enemy NavMesh Passability Component
+  NSC-091: NSC-091 is not conformant: NSC-091 — Enemy Target Detection, Last-Known Position, and Search State
+  NSC-092: NSC-092 is not conformant: NSC-092 — Enemy NavMesh Pursuit, Search Movement, Door Traversal, and Reset

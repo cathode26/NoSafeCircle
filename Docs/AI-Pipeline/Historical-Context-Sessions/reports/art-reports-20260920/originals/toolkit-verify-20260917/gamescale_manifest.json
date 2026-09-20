@@ -1,0 +1,41 @@
+{
+  "resolution": "1080p",
+  "panel_width": 240,
+  "panel_height": 240,
+  "grid": true,
+  "footer": "toolkit verification 2026-09-17",
+  "sprites": [
+    {
+      "path": "C:\\NSC\\NSC\\NoSafeCircle\\Assets\\NoSafeCircle\\DoorPrototype\\Art\\Wizard\\Source\\PixelLab\\masculine-light\\selected\\walk\\south-east\\frame_000.png",
+      "label": "In game today",
+      "mode": "world-plane",
+      "ppu": 180,
+      "local_scale": [
+        1,
+        2
+      ],
+      "sampling": "point"
+    },
+    {
+      "path": "C:\\NSC\\NSC\\NoSafeCircle\\Assets\\NoSafeCircle\\DoorPrototype\\Art\\Wizard\\Source\\PixelLab\\masculine-light\\selected\\walk\\south-east\\frame_000.png",
+      "label": "Now 180 point",
+      "mode": "camera-facing",
+      "box_units": 2,
+      "sampling": "point"
+    },
+    {
+      "path": "C:\\NSC\\NSC\\NoSafeCircle\\Assets\\NoSafeCircle\\DoorPrototype\\Art\\Wizard\\Source\\PixelLab\\masculine-light\\selected\\walk\\south-east\\frame_000.png",
+      "label": "A smooth",
+      "mode": "camera-facing",
+      "box_units": 2,
+      "sampling": "smooth"
+    },
+    {
+      "path": "C:\\nscrev\\reports\\art-director\\density-trial-20260916\\pixellab\\3c_walk_se_128\\frame_01.png",
+      "label": "B 128 point",
+      "mode": "camera-facing",
+      "box_units": 2,
+      "sampling": "point"
+    }
+  ]
+}

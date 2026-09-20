@@ -1,0 +1,210 @@
+diff --git a/Pipeline/AssistantControl/__main__.py b/Pipeline/AssistantControl/__main__.py
+index c9ca542..4ecde3f 100644
+--- a/Pipeline/AssistantControl/__main__.py
++++ b/Pipeline/AssistantControl/__main__.py
+@@ -104,6 +104,17 @@ def main(argv=None) -> int:
+     settlement = commands.add_parser("settle-worker", help="Release ended worker capacity after verified process/container exit")
+     settlement.add_argument("task")
+     settlement.add_argument("--run-id", required=True)
++    recovery = commands.add_parser(
++        "recover-worker-result",
++        help=(
++            "Record the authenticated crew result that survived its dead worker host; "
++            "never runs a provider, re-runs the crew, approves or integrates"
++        ),
++    )
++    recovery.add_argument("task")
++    recovery.add_argument("--run-id", required=True, help="Exact assistant worker run")
++    recovery.add_argument("--crew-run-id", required=True,
++                          help="Exact ExecutionCrew run named by the persisted execution receipt")
+     revision = commands.add_parser("revise", help="Reopen an explicitly rejected candidate without discarding its work")
+     revision.add_argument("task")
+     revision.add_argument("--candidate-commit", required=True)
+@@ -426,6 +437,10 @@ def main(argv=None) -> int:
+             elif args.command == "settle-worker":
+                 from Pipeline.AssistantControl.worker_settlement import settle_completed
+                 result = settle_completed(manager, args.task, run_id=args.run_id)
++            elif args.command == "recover-worker-result":
++                from Pipeline.AssistantControl.worker_recovery import recover_result
++                result = recover_result(manager, args.task, run_id=args.run_id,
++                                        crew_run_id=args.crew_run_id)
+             elif args.command == "revise":
+                 from Pipeline.AssistantControl.revisions import begin_revision
+                 result = begin_revision(manager, args.task, expected_candidate=args.candidate_commit)
+diff --git a/Pipeline/AssistantControl/crew_worker.py b/Pipeline/AssistantControl/crew_worker.py
+index 0a3aa04..7325290 100644
+--- a/Pipeline/AssistantControl/crew_worker.py
++++ b/Pipeline/AssistantControl/crew_worker.py
+@@ -4,6 +4,7 @@ from __future__ import annotations
+ import hashlib
+ import json
+ import os
++import time
+ from collections.abc import Mapping
+ from datetime import datetime, timezone
+ from pathlib import Path
+@@ -15,6 +16,7 @@ from Pipeline.TaskReviewAgent.execution_bridge import (
+     ExecutionCrewReceipt,
+ )
+ from Pipeline.TaskReviewAgent.execution_session_pool import _exclusive_file_lock
++from Pipeline.AssistantControl.background_jobs import _pre_mutation_lock, stamped_lock_contention
+ from Pipeline.AssistantControl.process_identity import identify
+ from Pipeline.AssistantControl.runtime_config import compose_environment
+ 
+@@ -30,6 +32,56 @@ class CrewWorkerError(ValueError):
+ 
+ BridgeFactory = Callable[..., Any]
+ 
++# How the worker's final terminal write waits for `checkouts.lock`. Its
++# legitimate holders are slow (a post-crew child registers a candidate in about
++# 9 s, a foreground `sync_candidate` takes 13-16 s), and one lost 10 s wait used
++# to escape `run_worker` after a successful crew: the launcher recorded
++# `child_failed`, the record stayed `running` without its receipt, and the graph
++# controller waited on it forever (NSC-1163, 2026-09-13). Nothing durable
++# precedes that acquisition and the crew outcome is already fixed, so a lost
++# wait that `_pre_mutation_lock` stamped is retried: up to this many attempts,
++# each waiting this long, with this pause between them. Past the bound the last
++# `TimeoutError` is raised unchanged. Tests shorten all three.
++TERMINAL_WRITE_LOCK_ATTEMPTS = 6
++TERMINAL_WRITE_LOCK_TIMEOUT_SECONDS = 10.0
++TERMINAL_WRITE_RETRY_PAUSE_SECONDS = 2.0
++
++
++def _terminal_write_pause(seconds: float) -> None:
++    """Pause between two lost terminal-write lock waits (a test seam)."""
++    time.sleep(seconds)
++
++
++def locked_record_write(checkouts: Checkouts, write: Callable[[], Any]) -> Any:
++    """Run ``write`` under this root's `checkouts.lock`, retrying only a lost first wait.
++
++    ``write`` runs entirely inside the lock and must re-read everything it
++    decides from. An attempt is retried only when its acquisition timed out
++    before the lock was held (``_pre_mutation_lock`` stamps exactly that timeout,
++    for exactly this lock path) and ``write`` never started, so a retried attempt
++    provably wrote nothing. Any other exception, a timeout raised inside
++    ``write`` included, propagates on its first occurrence. After
++    TERMINAL_WRITE_LOCK_ATTEMPTS lost waits the last one is raised as it was.
++    """
++    lock_path = checkouts.records / "checkouts.lock"
++    attempts = TERMINAL_WRITE_LOCK_ATTEMPTS
++    timeout_seconds = TERMINAL_WRITE_LOCK_TIMEOUT_SECONDS
++    pause_seconds = TERMINAL_WRITE_RETRY_PAUSE_SECONDS
++    if type(attempts) is not int or attempts < 1:
++        raise ValueError("terminal write lock attempts must be a positive integer")
++    attempt = 1
++    while True:
++        entered = False
++        try:
++            with _pre_mutation_lock(lock_path, timeout_seconds=timeout_seconds):
++                entered = True
++                return write()
++        except TimeoutError as exc:
++            if entered or attempt >= attempts or not stamped_lock_contention(exc, lock_path):
++                raise
++        attempt += 1
++        _terminal_write_pause(pause_seconds)
++
+ 
+ def _now() -> str:
+     return datetime.now(timezone.utc).isoformat()
+@@ -252,11 +304,16 @@ def run_worker(
+         else:
+             os.environ["NSC_RUN_STOP_REQUEST_PATH"] = previous_stop_env
+ 
+-    with _exclusive_file_lock(checkouts.records / "checkouts.lock", timeout_seconds=10):
++    def persist_terminal() -> dict[str, Any]:
++        # Every attempt re-reads the record inside the lock. The outcome above
++        # (status, error, receipt) was decided once; the crew and bridge are
++        # never invoked again.
+         latest = json.loads(record_path.read_text(encoding="utf-8"))
+         if receipt is not None:
+             latest.setdefault("worker", {})["crew_run_id"] = receipt.run_id
+-        result = _write_terminal(record_path, latest, status=status, error=error, receipt=receipt)
++        return _write_terminal(record_path, latest, status=status, error=error, receipt=receipt)
++
++    result = locked_record_write(checkouts, persist_terminal)
+     if interrupted is not None:
+         raise interrupted
+     return result
+diff --git a/Pipeline/AssistantControl/graph_controller.py b/Pipeline/AssistantControl/graph_controller.py
+index 50ba89d..0c73dd7 100644
+--- a/Pipeline/AssistantControl/graph_controller.py
++++ b/Pipeline/AssistantControl/graph_controller.py
+@@ -990,12 +990,7 @@ class GraphController:
+             if isinstance(worker, Mapping):
+                 worker_status = worker.get("status")
+                 if worker.get("capacity_released") is not True:
+-                    if worker_status in _WORKER_TERMINAL:
+-                        actions.append({"kind": "settle_worker", "task_id": task_id,
+-                                        "run_id": worker.get("run_id")})
+-                    else:
+-                        actions.append({"kind": "wait_worker", "task_id": task_id,
+-                                        "run_id": worker.get("run_id")})
++                    actions.append(self._unreleased_worker_action(task_id, worker))
+                     continue
+                 if worker_status == "succeeded":
+                     actions.append({"kind": "post_crew", "task_id": task_id,
+@@ -1876,9 +1871,59 @@ class GraphController:
+                 or worker.get("lease_id") != reservation.get("lease_id")
+                 or worker.get("capacity_released") is True):
+             return None
+-        kind = ("settle_worker" if worker.get("status") in _WORKER_TERMINAL
+-                else "wait_worker")
+-        return {"kind": kind, "task_id": owner, "run_id": worker.get("run_id")}
++        return self._unreleased_worker_action(owner, worker)
++
++    def _unreleased_worker_action(
++        self, task_id: str, worker: Mapping[str, Any],
++    ) -> dict[str, Any]:
++        """Settle or wait on one worker whose capacity is still held.
++
++        The planner and the reservation-owner path both decide here, so they
++        cannot disagree. A terminal worker is settled, as always. A non-terminal
++        worker whose exit is proven (:meth:`_worker_exit_confirmed`) is settled
++        too: its host can no longer write a terminal status, so a wait would only
++        return `worker_exited` and be planned again, forever (NSC-1163).
++        `settle_completed` records that attempt exactly as it always has (failed
++        "Exited without a completed worker result", or stopped when a stop was
++        requested) and re-checks the host and tree under the lock itself.
++        Anything short of that proof keeps waiting.
++        """
++        settle = (worker.get("status") in _WORKER_TERMINAL
++                  or self._worker_exit_confirmed(task_id, worker))
++        return {"kind": "settle_worker" if settle else "wait_worker",
++                "task_id": task_id, "run_id": worker.get("run_id")}
++
++    def _worker_exit_confirmed(self, task_id: str, worker: Mapping[str, Any]) -> bool:
++        """Read-only: are this non-terminal worker's host and contained tree provably gone?
++
++        Proof needs all of: `worker_control.status` reporting
++        `host_identity_alive is False` (it re-reads the record once behind a
++        confirmed exit, so a terminal write that has just landed is not misread);
++        that observation still naming this run with a non-terminal status (a
++        terminal one is settled by the next plan through the terminal path); and,
++        when the worker records a Job Object, zero active processes in it. A live
++        host is answered by the same identity check `status` makes, without the
++        full observation. An unverifiable identity, a live tree or any error is
++        not proof: the task keeps `wait_worker`, whose wait still refuses an
++        unverifiable identity exactly as before. Nothing here writes, so
++        read-only callers of :meth:`plan` stay read-only.
++        """
++        from Pipeline.AssistantControl import windows_job, worker_control
++
++        try:
++            identity = worker.get("process_identity")
++            if isinstance(identity, dict) and worker_control.matches(identity):
++                return False
++            observed = worker_control.status(self.manager, task_id)
++            current = observed.get("worker") or {}
++            if (observed.get("host_identity_alive") is not False
++                    or current.get("run_id") != worker.get("run_id")
++                    or current.get("status") in _WORKER_TERMINAL):
++                return False
++            job_name = current.get("job_name")
++            return not job_name or windows_job.active_count(str(job_name)) == 0
++        except (OSError, RuntimeError, ValueError, TypeError, KeyError):
++            return False
+ 
+     def _resource_overlap_action(
+         self, action: Mapping[str, Any], *,

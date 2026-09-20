@@ -1,0 +1,2663 @@
+{
+ "source": "main",
+ "rows": [
+  {
+   "variant": "masculine-light",
+   "dir": "south",
+   "kind": "standing",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 155,
+   "top": 12
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "south",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 160,
+   "top": 15
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "south",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 162,
+   "top": 19
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "south",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 159,
+   "top": 15
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "south",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 157,
+   "top": 13
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "south",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 163,
+   "top": 15
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "south",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 163,
+   "top": 19
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "south-east",
+   "kind": "standing",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 159,
+   "top": 13
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "south-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 159,
+   "top": 12
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "south-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 153,
+   "top": 11
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "south-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 152,
+   "top": 11
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "south-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 159,
+   "top": 12
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "south-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 159,
+   "top": 11
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "south-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 159,
+   "top": 11
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "east",
+   "kind": "standing",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 159,
+   "top": 14
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 159,
+   "top": 14
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 160,
+   "top": 18
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 158,
+   "top": 19
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 160,
+   "top": 16
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 156,
+   "top": 13
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 159,
+   "top": 18
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "north-east",
+   "kind": "standing",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 157,
+   "top": 14
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "north-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 159,
+   "top": 14
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "north-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 163,
+   "top": 12
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "north-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 166,
+   "top": 11
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "north-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 159,
+   "top": 14
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "north-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 158,
+   "top": 13
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "north-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 157,
+   "top": 13
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "north",
+   "kind": "standing",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 156,
+   "top": 13
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "north",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 162,
+   "top": 12
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "north",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 162,
+   "top": 10
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "north",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 160,
+   "top": 11
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "north",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 159,
+   "top": 13
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "north",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 163,
+   "top": 15
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "north",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 163,
+   "top": 14
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "north-west",
+   "kind": "standing",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 157,
+   "top": 13
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "north-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 157,
+   "top": 14
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "north-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 155,
+   "top": 11
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "north-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 157,
+   "top": 12
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "north-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 157,
+   "top": 13
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "north-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 160,
+   "top": 11
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "north-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 158,
+   "top": 11
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "west",
+   "kind": "standing",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 160,
+   "top": 14
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 160,
+   "top": 16
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 160,
+   "top": 20
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 158,
+   "top": 17
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 155,
+   "top": 13
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 158,
+   "top": 16
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 160,
+   "top": 20
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "south-west",
+   "kind": "standing",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 159,
+   "top": 13
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "south-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 159,
+   "top": 12
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "south-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 160,
+   "top": 12
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "south-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 159,
+   "top": 12
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "south-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 160,
+   "top": 11
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "south-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 155,
+   "top": 11
+  },
+  {
+   "variant": "masculine-light",
+   "dir": "south-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 158,
+   "top": 11
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "south",
+   "kind": "standing",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 153,
+   "top": 15
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "south",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 153,
+   "top": 15
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "south",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 156,
+   "top": 18
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "south",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 161,
+   "top": 19
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "south",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 164,
+   "top": 20
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "south",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 163,
+   "top": 18
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "south",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 161,
+   "top": 16
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "south-east",
+   "kind": "standing",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 158,
+   "top": 19
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "south-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 158,
+   "top": 18
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "south-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 153,
+   "top": 18
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "south-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 153,
+   "top": 17
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "south-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 154,
+   "top": 17
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "south-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 157,
+   "top": 17
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "south-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 157,
+   "top": 17
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "east",
+   "kind": "standing",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 158,
+   "top": 19
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 158,
+   "top": 18
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 159,
+   "top": 23
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 156,
+   "top": 24
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 155,
+   "top": 19
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 153,
+   "top": 18
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 158,
+   "top": 23
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "north-east",
+   "kind": "standing",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 156,
+   "top": 16
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "north-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 157,
+   "top": 16
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "north-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 163,
+   "top": 18
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "north-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 160,
+   "top": 19
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "north-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 157,
+   "top": 15
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "north-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 154,
+   "top": 15
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "north-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 157,
+   "top": 15
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "north",
+   "kind": "standing",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 155,
+   "top": 14
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "north",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 158,
+   "top": 13
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "north",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 159,
+   "top": 13
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "north",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 159,
+   "top": 16
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "north",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 159,
+   "top": 14
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "north",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 155,
+   "top": 13
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "north",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 157,
+   "top": 14
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "north-west",
+   "kind": "standing",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 158,
+   "top": 19
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "north-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 156,
+   "top": 17
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "north-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 159,
+   "top": 19
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "north-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 155,
+   "top": 18
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "north-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 158,
+   "top": 16
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "north-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 160,
+   "top": 17
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "north-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 160,
+   "top": 17
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "west",
+   "kind": "standing",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 158,
+   "top": 16
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 157,
+   "top": 17
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 158,
+   "top": 21
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 158,
+   "top": 19
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 158,
+   "top": 16
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 157,
+   "top": 16
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 158,
+   "top": 20
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "south-west",
+   "kind": "standing",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 158,
+   "top": 19
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "south-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 160,
+   "top": 19
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "south-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 156,
+   "top": 18
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "south-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 156,
+   "top": 17
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "south-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 160,
+   "top": 18
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "south-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 155,
+   "top": 18
+  },
+  {
+   "variant": "masculine-dark",
+   "dir": "south-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 155,
+   "top": 18
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "south",
+   "kind": "standing",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 158,
+   "top": 10
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "south",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 161,
+   "top": 9
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "south",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 170,
+   "top": 13
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "south",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 167,
+   "top": 15
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "south",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 163,
+   "top": 13
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "south",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 166,
+   "top": 12
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "south",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 172,
+   "top": 16
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "south-east",
+   "kind": "standing",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 160,
+   "top": 10
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "south-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 159,
+   "top": 13
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "south-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 160,
+   "top": 12
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "south-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 160,
+   "top": 12
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "south-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 159,
+   "top": 11
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "south-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 158,
+   "top": 13
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "south-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 160,
+   "top": 13
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "east",
+   "kind": "standing",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 160,
+   "top": 12
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 160,
+   "top": 12
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 160,
+   "top": 16
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 158,
+   "top": 16
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 158,
+   "top": 12
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 156,
+   "top": 12
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 160,
+   "top": 16
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "north-east",
+   "kind": "standing",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 158,
+   "top": 11
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "north-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 159,
+   "top": 11
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "north-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 161,
+   "top": 12
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "north-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 161,
+   "top": 12
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "north-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 159,
+   "top": 10
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "north-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 159,
+   "top": 11
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "north-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 156,
+   "top": 13
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "north",
+   "kind": "standing",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 156,
+   "top": 11
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "north",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 156,
+   "top": 9
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "north",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 159,
+   "top": 14
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "north",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 159,
+   "top": 12
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "north",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 159,
+   "top": 8
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "north",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 157,
+   "top": 9
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "north",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 157,
+   "top": 13
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "north-west",
+   "kind": "standing",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 158,
+   "top": 11
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "north-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 155,
+   "top": 11
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "north-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 153,
+   "top": 10
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "north-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 153,
+   "top": 8
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "north-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 158,
+   "top": 11
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "north-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 158,
+   "top": 14
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "north-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 158,
+   "top": 14
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "west",
+   "kind": "standing",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 160,
+   "top": 12
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 160,
+   "top": 12
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 160,
+   "top": 18
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 160,
+   "top": 15
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 159,
+   "top": 11
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 158,
+   "top": 12
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 160,
+   "top": 18
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "south-west",
+   "kind": "standing",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 160,
+   "top": 12
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "south-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 160,
+   "top": 14
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "south-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 158,
+   "top": 11
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "south-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 159,
+   "top": 11
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "south-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 157,
+   "top": 12
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "south-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 152,
+   "top": 12
+  },
+  {
+   "variant": "feminine-light",
+   "dir": "south-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 152,
+   "top": 12
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "south",
+   "kind": "standing",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 163,
+   "top": 10
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "south",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 164,
+   "top": 9
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "south",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 164,
+   "top": 10
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "south",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 165,
+   "top": 13
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "south",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 166,
+   "top": 17
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "south",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 169,
+   "top": 17
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "south",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 169,
+   "top": 14
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "south-east",
+   "kind": "standing",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 166,
+   "top": 13
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "south-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 165,
+   "top": 14
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "south-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 164,
+   "top": 15
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "south-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 165,
+   "top": 16
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "south-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 167,
+   "top": 13
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "south-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 159,
+   "top": 12
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "south-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 167,
+   "top": 12
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "east",
+   "kind": "standing",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 164,
+   "top": 13
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 164,
+   "top": 13
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 164,
+   "top": 17
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 164,
+   "top": 16
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 164,
+   "top": 13
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 162,
+   "top": 13
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 164,
+   "top": 16
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "north-east",
+   "kind": "standing",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 164,
+   "top": 12
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "north-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 162,
+   "top": 12
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "north-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 161,
+   "top": 14
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "north-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 165,
+   "top": 14
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "north-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 164,
+   "top": 11
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "north-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 163,
+   "top": 8
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "north-east",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 162,
+   "top": 11
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "north",
+   "kind": "standing",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 162,
+   "top": 11
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "north",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 164,
+   "top": 11
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "north",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 168,
+   "top": 14
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "north",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 163,
+   "top": 12
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "north",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 162,
+   "top": 9
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "north",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 162,
+   "top": 12
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "north",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 165,
+   "top": 15
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "north-west",
+   "kind": "standing",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 164,
+   "top": 13
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "north-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 166,
+   "top": 10
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "north-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 161,
+   "top": 10
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "north-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 159,
+   "top": 10
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "north-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 160,
+   "top": 13
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "north-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 162,
+   "top": 11
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "north-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 159,
+   "top": 12
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "west",
+   "kind": "standing",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 163,
+   "top": 13
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 163,
+   "top": 14
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 163,
+   "top": 17
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 163,
+   "top": 16
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 163,
+   "top": 12
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 163,
+   "top": 13
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 163,
+   "top": 16
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "south-west",
+   "kind": "standing",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 165,
+   "top": 12
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "south-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 166,
+   "top": 13
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "south-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 162,
+   "top": 13
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "south-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 162,
+   "top": 13
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "south-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 161,
+   "top": 12
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "south-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 156,
+   "top": 12
+  },
+  {
+   "variant": "feminine-dark",
+   "dir": "south-west",
+   "kind": "walk",
+   "size": [
+    180,
+    180
+   ],
+   "bottom": 157,
+   "top": 12
+  }
+ ],
+ "summary": {
+  "masculine-light/south": {
+   "standing_bottom": 155,
+   "walk_bottom_min": 157,
+   "walk_bottom_max": 163,
+   "rows_below_standing_feet": 25
+  },
+  "masculine-light/south-east": {
+   "standing_bottom": 159,
+   "walk_bottom_min": 152,
+   "walk_bottom_max": 159,
+   "rows_below_standing_feet": 21
+  },
+  "masculine-light/east": {
+   "standing_bottom": 159,
+   "walk_bottom_min": 156,
+   "walk_bottom_max": 160,
+   "rows_below_standing_feet": 21
+  },
+  "masculine-light/north-east": {
+   "standing_bottom": 157,
+   "walk_bottom_min": 157,
+   "walk_bottom_max": 166,
+   "rows_below_standing_feet": 23
+  },
+  "masculine-light/north": {
+   "standing_bottom": 156,
+   "walk_bottom_min": 159,
+   "walk_bottom_max": 163,
+   "rows_below_standing_feet": 24
+  },
+  "masculine-light/north-west": {
+   "standing_bottom": 157,
+   "walk_bottom_min": 155,
+   "walk_bottom_max": 160,
+   "rows_below_standing_feet": 23
+  },
+  "masculine-light/west": {
+   "standing_bottom": 160,
+   "walk_bottom_min": 155,
+   "walk_bottom_max": 160,
+   "rows_below_standing_feet": 20
+  },
+  "masculine-light/south-west": {
+   "standing_bottom": 159,
+   "walk_bottom_min": 155,
+   "walk_bottom_max": 160,
+   "rows_below_standing_feet": 21
+  },
+  "masculine-dark/south": {
+   "standing_bottom": 153,
+   "walk_bottom_min": 153,
+   "walk_bottom_max": 164,
+   "rows_below_standing_feet": 27
+  },
+  "masculine-dark/south-east": {
+   "standing_bottom": 158,
+   "walk_bottom_min": 153,
+   "walk_bottom_max": 158,
+   "rows_below_standing_feet": 22
+  },
+  "masculine-dark/east": {
+   "standing_bottom": 158,
+   "walk_bottom_min": 153,
+   "walk_bottom_max": 159,
+   "rows_below_standing_feet": 22
+  },
+  "masculine-dark/north-east": {
+   "standing_bottom": 156,
+   "walk_bottom_min": 154,
+   "walk_bottom_max": 163,
+   "rows_below_standing_feet": 24
+  },
+  "masculine-dark/north": {
+   "standing_bottom": 155,
+   "walk_bottom_min": 155,
+   "walk_bottom_max": 159,
+   "rows_below_standing_feet": 25
+  },
+  "masculine-dark/north-west": {
+   "standing_bottom": 158,
+   "walk_bottom_min": 155,
+   "walk_bottom_max": 160,
+   "rows_below_standing_feet": 22
+  },
+  "masculine-dark/west": {
+   "standing_bottom": 158,
+   "walk_bottom_min": 157,
+   "walk_bottom_max": 158,
+   "rows_below_standing_feet": 22
+  },
+  "masculine-dark/south-west": {
+   "standing_bottom": 158,
+   "walk_bottom_min": 155,
+   "walk_bottom_max": 160,
+   "rows_below_standing_feet": 22
+  },
+  "feminine-light/south": {
+   "standing_bottom": 158,
+   "walk_bottom_min": 161,
+   "walk_bottom_max": 172,
+   "rows_below_standing_feet": 22
+  },
+  "feminine-light/south-east": {
+   "standing_bottom": 160,
+   "walk_bottom_min": 158,
+   "walk_bottom_max": 160,
+   "rows_below_standing_feet": 20
+  },
+  "feminine-light/east": {
+   "standing_bottom": 160,
+   "walk_bottom_min": 156,
+   "walk_bottom_max": 160,
+   "rows_below_standing_feet": 20
+  },
+  "feminine-light/north-east": {
+   "standing_bottom": 158,
+   "walk_bottom_min": 156,
+   "walk_bottom_max": 161,
+   "rows_below_standing_feet": 22
+  },
+  "feminine-light/north": {
+   "standing_bottom": 156,
+   "walk_bottom_min": 156,
+   "walk_bottom_max": 159,
+   "rows_below_standing_feet": 24
+  },
+  "feminine-light/north-west": {
+   "standing_bottom": 158,
+   "walk_bottom_min": 153,
+   "walk_bottom_max": 158,
+   "rows_below_standing_feet": 22
+  },
+  "feminine-light/west": {
+   "standing_bottom": 160,
+   "walk_bottom_min": 158,
+   "walk_bottom_max": 160,
+   "rows_below_standing_feet": 20
+  },
+  "feminine-light/south-west": {
+   "standing_bottom": 160,
+   "walk_bottom_min": 152,
+   "walk_bottom_max": 160,
+   "rows_below_standing_feet": 20
+  },
+  "feminine-dark/south": {
+   "standing_bottom": 163,
+   "walk_bottom_min": 164,
+   "walk_bottom_max": 169,
+   "rows_below_standing_feet": 17
+  },
+  "feminine-dark/south-east": {
+   "standing_bottom": 166,
+   "walk_bottom_min": 159,
+   "walk_bottom_max": 167,
+   "rows_below_standing_feet": 14
+  },
+  "feminine-dark/east": {
+   "standing_bottom": 164,
+   "walk_bottom_min": 162,
+   "walk_bottom_max": 164,
+   "rows_below_standing_feet": 16
+  },
+  "feminine-dark/north-east": {
+   "standing_bottom": 164,
+   "walk_bottom_min": 161,
+   "walk_bottom_max": 165,
+   "rows_below_standing_feet": 16
+  },
+  "feminine-dark/north": {
+   "standing_bottom": 162,
+   "walk_bottom_min": 162,
+   "walk_bottom_max": 168,
+   "rows_below_standing_feet": 18
+  },
+  "feminine-dark/north-west": {
+   "standing_bottom": 164,
+   "walk_bottom_min": 159,
+   "walk_bottom_max": 166,
+   "rows_below_standing_feet": 16
+  },
+  "feminine-dark/west": {
+   "standing_bottom": 163,
+   "walk_bottom_min": 163,
+   "walk_bottom_max": 163,
+   "rows_below_standing_feet": 17
+  },
+  "feminine-dark/south-west": {
+   "standing_bottom": 165,
+   "walk_bottom_min": 156,
+   "walk_bottom_max": 166,
+   "rows_below_standing_feet": 15
+  }
+ }
+}

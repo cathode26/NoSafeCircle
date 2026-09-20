@@ -1,0 +1,14 @@
+{
+  "existing_implementation_paths": [
+    "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "Assets/Scenes/DoorPrototype.unity"
+  ],
+  "new_implementation_paths": [
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorStateSpriteBinder.cs"
+  ],
+  "existing_test_paths": [],
+  "new_test_paths": [
+    "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorwayOpeningSealTests.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Tests/DoorwayTraversalPlayModeTests.cs"
+  ]
+}

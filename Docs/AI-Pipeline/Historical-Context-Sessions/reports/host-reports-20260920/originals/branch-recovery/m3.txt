@@ -1,0 +1,6 @@
+Merge codex/nsc089-managed-recovery
+
+Adds the NSC-089 managed-Issue recovery script and its tests, and limits the
+empty migration identity to blocked preimplementation tasks.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

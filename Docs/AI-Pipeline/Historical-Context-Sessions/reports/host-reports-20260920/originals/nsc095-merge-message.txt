@@ -1,0 +1,20 @@
+Merge nsc095-wizard-128-art: the 128x128 wizard art at game size
+
+The Art Director Agent's remake of the four approved wizard identities at
+128x128, with deterministic TextureImporter metas, the raw PixelLab exports, the
+generation record and Unity's folder metas. 724 files, additions only, all under
+Assets/NoSafeCircle/DoorPrototype/Art/Wizard, Docs/Art/Wizard/Raw128 and
+Docs/Art/Wizard/PIXELLAB_128_GENERATION.md.
+
+Verified before merging: every author and committer on the branch is .invalid;
+the merge adds files and modifies or deletes nothing; VAL-001's assertions were
+re-run on the staged tree before the art was committed; the 224 PNG metas carry
+the P34 deterministic template, so none import as the point-light cubemap a
+GUID-only stub produces.
+
+Vincent's go, his words relayed through the Documentation Agent: "Merge it, and
+then have the Art Director fix the walk drift so we have that for later." The
+walk drift is a separate commit the Art Director Agent is doing next; sprite
+type, pivot and pixels-per-unit belong to NSC-096, which this unblocks.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

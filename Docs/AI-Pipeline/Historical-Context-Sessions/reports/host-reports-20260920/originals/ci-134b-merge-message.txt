@@ -1,0 +1,17 @@
+Merge fix/ci-134b: drop the retired contract locality auditor from three CI tests
+
+Release-blocking CI fix for PR #134, built by the Pipeline Maintainer. Test files only: pooled_run_crew_smoke_test, quota_failover_smoke_test and production_end_to_end_smoke_test.
+
+Same cause as fix/ci-134: commit 6e718ece2 retired contract_locality_auditor, and these tests still expected it, so pooled_run_crew_smoke_test crashed with "unsupported ExecutionCrew pool role".
+
+No assertion was loosened. The auditor-only early-termination test now proves the same pool property through the lean profile's skipped Test Author: the untouched lease is quarantined, a later lease starts a new session instead of resuming it, and the invoked roles check back in idle.
+
+Verification:
+- Pipeline Maintainer at the tip: pooled_run_crew PASS, quota_failover PASS, production_end_to_end PASS, session_pool PASS, provider_profiles 41/41, compileall and diff --check clean.
+- Host Claude Opus pipeline-reviewer (Gmail account): APPROVE, having reproduced the failure at base and judged the rewritten test real rather than circular.
+- Game Agent re-ran the three changed tests at the tip: pooled_run_crew PASS, quota_failover 7 passed, production_end_to_end PASS.
+- No Codex round: Codex is out of quota and Vincent asked for all-Claude work until 2026-09-19.
+
+Vincent approved the merge on 2026-09-17 ("go and the Game Agent merges", and "yes, merge both" to the Release Agent).
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

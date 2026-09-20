@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "event_id": "register-20260920-020952",
+  "event_type": "register",
+  "recorded_at_utc": "2026-09-20T07:11:13.8424219Z",
+  "workspace_id": "undo-comparison-20260920-020952",
+  "absolute_path": "C:\\nscrev\\work\\undo-comparison\\20260920-020952",
+  "owner_role": "Codex undo comparison",
+  "parent_run_id": "20260920-020952",
+  "purpose": "User-authorized disposable task DBOS versus existing-controller-pattern comparison",
+  "supersedes_event_id": null,
+  "details": {
+    "children": "synthetic local-only repos under fixtures; retained children registered at closeout",
+    "next_checkpoint": "post-run closeout",
+    "allowed_root": "C:/nscrev/work/undo-comparison",
+    "creation_method": "local synthetic fixture suite, no canonical clone",
+    "intended_git_kind": "bounded synthetic test sandbox",
+    "authority_reference": "User explicitly requested executing the four-scenario comparison",
+    "outputs": "C:\\Users\\VincentLiguori\\Downloads\\NoSafeCircleOutput\\Undo-Comparison\\20260920-020952",
+    "source_oid": "2559514826e919bea243e1bf6fda4ad73462ac62",
+    "source_path": "synthetic fixtures plus exact helper copies with provenance",
+    "fixture_command": "run_comparison.py"
+  }
+}

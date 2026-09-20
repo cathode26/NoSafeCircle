@@ -1,0 +1,27 @@
+NSC-063 deterministic source inventory check (independently re-run)
+Validated commit: b05a06ee10cf0f760e99d8085a05d008061b3af1
+Contract: Tasks/NSC-063.yaml revision 2, gates VAL-001/VAL-002
+
+Selected idle PNG count: 16 (expected 16)
+Parsed 16 expected rows from Docs/Art/Enemies/inventory.md 'current' table.
+enemy_melee_e_idle_00.png: mode=RGBA size=128x128 alpha_min=0 sha256=23ac1bc0940d63f4... vs expected 23ac1bc0940d63f4... -> OK
+enemy_melee_n_idle_00.png: mode=RGBA size=128x128 alpha_min=0 sha256=7c3e9594e149a4da... vs expected 7c3e9594e149a4da... -> OK
+enemy_melee_ne_idle_00.png: mode=RGBA size=128x128 alpha_min=0 sha256=e714d5e5d4222982... vs expected e714d5e5d4222982... -> OK
+enemy_melee_nw_idle_00.png: mode=RGBA size=128x128 alpha_min=0 sha256=11428ed589e90671... vs expected 11428ed589e90671... -> OK
+enemy_melee_s_idle_00.png: mode=RGBA size=128x128 alpha_min=0 sha256=394c2ab9b7b24003... vs expected 394c2ab9b7b24003... -> OK
+enemy_melee_se_idle_00.png: mode=RGBA size=128x128 alpha_min=0 sha256=5d2b83a5628b8add... vs expected 5d2b83a5628b8add... -> OK
+enemy_melee_sw_idle_00.png: mode=RGBA size=128x128 alpha_min=0 sha256=e5f2083fb77bf409... vs expected e5f2083fb77bf409... -> OK
+enemy_melee_w_idle_00.png: mode=RGBA size=128x128 alpha_min=0 sha256=695eb819b4c3f35c... vs expected 695eb819b4c3f35c... -> OK
+enemy_ranged_e_idle_00.png: mode=RGBA size=128x128 alpha_min=0 sha256=04730f5b718bff80... vs expected 04730f5b718bff80... -> OK
+enemy_ranged_n_idle_00.png: mode=RGBA size=128x128 alpha_min=0 sha256=ad18696ab24c35d5... vs expected ad18696ab24c35d5... -> OK
+enemy_ranged_ne_idle_00.png: mode=RGBA size=128x128 alpha_min=0 sha256=313c9ceaf3942377... vs expected 313c9ceaf3942377... -> OK
+enemy_ranged_nw_idle_00.png: mode=RGBA size=128x128 alpha_min=0 sha256=1c94e8c8733d8f83... vs expected 1c94e8c8733d8f83... -> OK
+enemy_ranged_s_idle_00.png: mode=RGBA size=128x128 alpha_min=0 sha256=13ac0b0cc28a4f52... vs expected 13ac0b0cc28a4f52... -> OK
+enemy_ranged_se_idle_00.png: mode=RGBA size=128x128 alpha_min=0 sha256=33a6bb9dba7c8d67... vs expected 33a6bb9dba7c8d67... -> OK
+enemy_ranged_sw_idle_00.png: mode=RGBA size=128x128 alpha_min=0 sha256=14feaf1a2751a8e6... vs expected 14feaf1a2751a8e6... -> OK
+enemy_ranged_w_idle_00.png: mode=RGBA size=128x128 alpha_min=0 sha256=31d909b5a98d2a75... vs expected 31d909b5a98d2a75... -> OK
+Archetype x facing coverage: 16/16 unique pairs present.
+.meta files checked: 17 (16 PNG .meta + 1 folder .meta); unique GUIDs: 17; GUID drift vs base 31e13ba51e6b: 0 finding(s).
+
+Completeness: both archetypes present, all eight facings each, 16/16 PNGs RGBA with documented size and fully-transparent minimum alpha (0), every SHA-256 matches Docs/Art/Enemies/inventory.md's current table (including the corrected north-east idle), 17/17 .meta GUIDs identical to the prior conformant record's validated commit 31e13ba51e6b. No duplicate or ambiguous filenames.
+Result: PASS for task completion gate VAL-001.

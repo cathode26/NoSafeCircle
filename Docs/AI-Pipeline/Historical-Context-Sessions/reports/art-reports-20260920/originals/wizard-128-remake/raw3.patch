@@ -1,0 +1,58 @@
+diff --git a/genrec_committed.md b/genrec_new.md
+index edd6de7..4d1b519 100644
+--- a/genrec_committed.md
++++ b/genrec_new.md
+@@ -99,6 +99,39 @@ first, then rebuild") and all three failed:
+ The tool keeps its byte-exactness guarantee outside a mask, but will not draw a recognisable object in a mask as
+ small as 13x19 at 128x128. The rebuild is a reject.
+ 
++## Call log (NSC-095 rev 3's cap basis)
++
++Rev 3 counts this task's own recorded PixelLab calls, with the balance readings beside them. Twenty-one
++generation calls were made; read-only calls (`get_balance`, `list_jobs`, `get_character`, `get_image`, the
++character archive downloads) cost nothing and are not listed.
++
++| # | Call | Target | Printed | Running |
++|---|---|---|---|---|
++| 1 | `animate_character` v3 | masculine-light walk: south, south-east, east, north-east | 8 | 8 |
++| 2 | `animate_character` v3 | masculine-light walk: north, north-west, west, south-west | 8 | 16 |
++| 3 | `image_to_pixelart` | masculine-dark south | 1 | 17 |
++| 4 | `image_to_pixelart` | feminine-light south | 1 | 18 |
++| 5 | `image_to_pixelart` | feminine-dark south | 1 | 19 |
++| 6 | `create_character` v3 | masculine-dark, 8 rotations | 2 | 21 |
++| 7 | `create_character` v3 | feminine-light, 8 rotations | 2 | 23 |
++| 8 | `create_character` v3 | feminine-dark, 8 rotations | 2 | 25 |
++| 9 | `animate_character` v3 | feminine-light walk: south, south-east, east, north-east | 8 | 33 |
++| 10 | `animate_character` v3 | feminine-light walk: north, north-west, west, south-west | 8 | 41 |
++| 11 | `animate_character` v3 | feminine-light north re-roll (white sock) | 2 | 43 |
++| 12 | `animate_character` v3 | feminine-dark walk: south, south-east, east, north-east | 8 | 51 |
++| 13 | `animate_character` v3 | feminine-dark walk: north, north-west, west, south-west | 8 | 59 |
++| 14 | `inpaint_image_pro_flash` | masculine-dark belt book, attempt 1 | 6 | 65 |
++| 15 | `inpaint_image_pro_flash` | masculine-dark belt book, attempt 2 | 6 | 71 |
++| 16 | `create_character` v3 | masculine-dark rebuild naming the book (reject) | 2 | 73 |
++| 17 | `animate_character` v3 | feminine-dark north-east re-roll (washout) | 2 | 75 |
++| 18 | `animate_character` v3 | masculine-dark walk: south, south-east, east, north-east | 8 | 83 |
++| 19 | `animate_character` v3 | masculine-dark walk: north, north-west, west, south-west | 8 | 91 |
++| 20 | `animate_character` v3 | masculine-dark south re-roll (8 px body drop) | 2 | 93 |
++| 21 | `animate_character` v3 | masculine-light south re-roll (10 px loop seam) | 2 | 95 |
++
++**Printed total: 95.** Of that, 21 went on masculine-dark's belt book across the two inpaints and the rebuild,
++and 8 on the four single-direction defect re-rolls.
++
+ ## Spend
+ 
+ | Measure | Value |
+@@ -106,10 +139,10 @@ small as 13x19 at 128x128. The rebuild is a reject.
+ | `get_balance` before the first call | 4669 remaining, 331 used |
+ | `get_balance` after the last call, queue empty | 4539 remaining, 461 used |
+ | **Measured spend for the run** | **130 generations** |
+-| Sum of the per-call costs the tools printed | 93 |
+-| Cap | 140 (Vincent: "raise it 40"), AC-001's guard is stop-and-ask |
++| Sum of the per-call costs the tools printed (see the call log) | 95 |
++| Cap | NSC-095 rev 3: **200**, counted from this call log with the balance readings beside it. Vincent raised it in steps: "raise it 40" (140, the number this run worked to), then 150, then "Then it needs more like 200". AC-001's guard is stop-and-ask, which triggered once at 96 |
+ 
+-**The meter is the budget, not the printed costs.** They under-reported by 37% over this run, and the meter also
++**The printed costs under-report.** The meter moved 130 against 95 printed, about 37% more, over this run, and the meter also
+ lags behind completed jobs, so a number only counts with the queue empty. The per-tool split of the difference is
+ not established and no per-call price should be quoted from this run.
+ 

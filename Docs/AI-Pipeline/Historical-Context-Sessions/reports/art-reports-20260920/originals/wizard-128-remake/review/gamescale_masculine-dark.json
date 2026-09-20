@@ -1,0 +1,74 @@
+{
+ "resolution": "1080p",
+ "panel_width": 200,
+ "panel_height": 220,
+ "gap": 10,
+ "background": "#18161c",
+ "footer": "masculine-dark: 128 px source, 2x2-unit camera-facing box, true 1080p scale",
+ "sprites": [
+  {
+   "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab/masculine-dark/aligned\\standing\\north.png",
+   "label": "north",
+   "mode": "camera-facing",
+   "sampling": "point",
+   "box_units": 2,
+   "pivot": "bottom-center"
+  },
+  {
+   "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab/masculine-dark/aligned\\standing\\north-east.png",
+   "label": "north-east",
+   "mode": "camera-facing",
+   "sampling": "point",
+   "box_units": 2,
+   "pivot": "bottom-center"
+  },
+  {
+   "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab/masculine-dark/aligned\\standing\\east.png",
+   "label": "east",
+   "mode": "camera-facing",
+   "sampling": "point",
+   "box_units": 2,
+   "pivot": "bottom-center"
+  },
+  {
+   "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab/masculine-dark/aligned\\standing\\south-east.png",
+   "label": "south-east",
+   "mode": "camera-facing",
+   "sampling": "point",
+   "box_units": 2,
+   "pivot": "bottom-center"
+  },
+  {
+   "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab/masculine-dark/aligned\\standing\\south.png",
+   "label": "south",
+   "mode": "camera-facing",
+   "sampling": "point",
+   "box_units": 2,
+   "pivot": "bottom-center"
+  },
+  {
+   "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab/masculine-dark/aligned\\standing\\south-west.png",
+   "label": "south-west",
+   "mode": "camera-facing",
+   "sampling": "point",
+   "box_units": 2,
+   "pivot": "bottom-center"
+  },
+  {
+   "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab/masculine-dark/aligned\\standing\\west.png",
+   "label": "west",
+   "mode": "camera-facing",
+   "sampling": "point",
+   "box_units": 2,
+   "pivot": "bottom-center"
+  },
+  {
+   "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab/masculine-dark/aligned\\standing\\north-west.png",
+   "label": "north-west",
+   "mode": "camera-facing",
+   "sampling": "point",
+   "box_units": 2,
+   "pivot": "bottom-center"
+  }
+ ]
+}

@@ -1,0 +1,1018 @@
+[Licensing::Module] Trying to connect to existing licensing client channel...
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-VincentLiguori" at "2026-09-18T00:04:23.2280487Z"
+[Licensing::Client] Code 10 while verifying Licensing Client signature (process Id: 20808, path: "C:/Program Files/Unity Hub/UnityLicensingClient_V1/Unity.Licensing.Client.exe")
+[Licensing::Module] LicensingClient has failed validation; ignoring
+[Licensing::Client] Handshaking with LicensingClient:
+  Version:                 1.18.3+d7ffd15
+  Session Id:              afe66552e37e43c3a979ea7e28385841
+  Correlation Id:          caba55aecec506a970a81821478170bd
+  External correlation Id: 8481580187994398998
+  Machine Id:              HxO4LzPDSZi5N+Qj55f7MhdwfeY=
+[Licensing::Module] Successfully connected to LicensingClient on channel: "LicenseClient-VincentLiguori" (connect: 0.00s, validation: 0.01s, handshake: 0.06s)
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-VincentLiguori-notifications" at "2026-09-18T00:04:23.3025217Z"
+[Licensing::Module] Error: Access token is unavailable; failed to update
+[Licensing::Client] Successfully resolved entitlement details
+[Licensing::Module] Serial number assigned to: "37203-UnityPersXXXX"
+[Licensing::Client] Successfully updated license, isAync: True, time: 0.01
+Built from '6000.1/staging' branch; Version is '6000.1.8f1 (2a5b1522e5ab) revision 2775829'; Using compiler version '194234433'; Build Type 'Release'
+OS: 'Windows 11  (10.0.26200) 64bit Professional' Language: 'en' Physical Memory: 64969 MB
+[Licensing::Client] Successfully resolved entitlement details
+BatchMode: 1, IsHumanControllingUs: 0, StartBugReporterOnCrash: 0, Is64bit: 1, IsPro: 0
+Date: 2026-09-18T00:04:23Z
+
+COMMAND LINE ARGUMENTS:
+C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Unity.exe
+-batchmode
+-quit
+-nographics
+-projectPath
+C:\nscrev\branch-verify
+-executeMethod
+NscDiag.SortingLayerProbe.Run
+-probeOut
+C:\nscrev\reports\nav-coverage-probe\sorting-probe.txt
+-logFile
+C:\nscrev\reports\nav-coverage-probe\sorting-probe.log
+Successfully changed project path to: C:\nscrev\branch-verify
+C:/nscrev/branch-verify
+[UnityMemory] Configuration Parameters - Can be set up in boot.config
+    "memorysetup-allocator-temp-initial-block-size-main=262144"
+    "memorysetup-allocator-temp-initial-block-size-worker=262144"
+    "memorysetup-bucket-allocator-granularity=16"
+    "memorysetup-bucket-allocator-bucket-count=8"
+    "memorysetup-bucket-allocator-block-size=33554432"
+    "memorysetup-bucket-allocator-block-count=8"
+    "memorysetup-main-allocator-block-size=16777216"
+    "memorysetup-thread-allocator-block-size=16777216"
+    "memorysetup-gfx-main-allocator-block-size=16777216"
+    "memorysetup-gfx-thread-allocator-block-size=16777216"
+    "memorysetup-cache-allocator-block-size=4194304"
+    "memorysetup-typetree-allocator-block-size=2097152"
+    "memorysetup-profiler-bucket-allocator-granularity=16"
+    "memorysetup-profiler-bucket-allocator-bucket-count=8"
+    "memorysetup-profiler-bucket-allocator-block-size=33554432"
+    "memorysetup-profiler-bucket-allocator-block-count=8"
+    "memorysetup-profiler-allocator-block-size=16777216"
+    "memorysetup-profiler-editor-allocator-block-size=1048576"
+    "memorysetup-temp-allocator-size-main=16777216"
+    "memorysetup-job-temp-allocator-block-size=2097152"
+    "memorysetup-job-temp-allocator-block-size-background=1048576"
+    "memorysetup-job-temp-allocator-reduction-small-platforms=262144"
+    "memorysetup-temp-allocator-size-background-worker=32768"
+    "memorysetup-temp-allocator-size-job-worker=262144"
+    "memorysetup-temp-allocator-size-preload-manager=33554432"
+    "memorysetup-temp-allocator-size-nav-mesh-worker=65536"
+    "memorysetup-temp-allocator-size-audio-worker=65536"
+    "memorysetup-temp-allocator-size-cloud-worker=32768"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gfx=262144"
+Player connection [47984]  Target information:
+
+Player connection [47984]  * "[IP] 172.28.64.1 [Port] 55504 [Flags] 2 [Guid] 2565185377 [EditorId] 2565185377 [Version] 1048832 [Id] WindowsEditor(7,DESKTOP-6LMNLCK) [Debug] 1 [PackageName] WindowsEditor [ProjectName] Editor" 
+
+Player connection [47984]  * "[IP] 192.168.1.196 [Port] 55504 [Flags] 2 [Guid] 2565185377 [EditorId] 2565185377 [Version] 1048832 [Id] WindowsEditor(7,DESKTOP-6LMNLCK) [Debug] 1 [PackageName] WindowsEditor [ProjectName] Editor" 
+
+Player connection [47984] Host joined multi-casting on [225.0.0.222:54997]...
+Player connection [47984] Host joined alternative multi-casting on [225.0.0.222:34997]...
+Input System module state changed to: Initialized.
+[Physics::Module] Initialized fallback backend.
+[Physics::Module] Id: 0xdecafbad
+[Package Manager] Connected to IPC stream "Upm-6984" after 0.3 seconds.
+Library Redirect Path: Library/
+[Package Manager] Restoring resolved packages state from cache
+[Licensing::Client] Successfully resolved entitlement details
+[Package Manager] Registered 56 packages:
+  Packages from [https://packages.unity.com]:
+    com.unity.ai.navigation@2.0.14 (location: C:\nscrev\branch-verify\Library\PackageCache\com.unity.ai.navigation@134dd6a3b97b)
+    com.unity.collab-proxy@2.13.5 (location: C:\nscrev\branch-verify\Library\PackageCache\com.unity.collab-proxy@120d77864ebc)
+    com.unity.inputsystem@1.14.0 (location: C:\nscrev\branch-verify\Library\PackageCache\com.unity.inputsystem@7fe8299111a7)
+    com.unity.timeline@1.8.7 (location: C:\nscrev\branch-verify\Library\PackageCache\com.unity.timeline@c58b4ee65782)
+    com.unity.visualscripting@1.9.7 (location: C:\nscrev\branch-verify\Library\PackageCache\com.unity.visualscripting@6279e2b7c485)
+    com.unity.ide.visualstudio@2.0.23 (location: C:\nscrev\branch-verify\Library\PackageCache\com.unity.ide.visualstudio@198cdf337d13)
+    com.unity.ide.rider@3.0.36 (location: C:\nscrev\branch-verify\Library\PackageCache\com.unity.ide.rider@4d374c7eb6db)
+    com.unity.editorcoroutines@1.0.0 (location: C:\nscrev\branch-verify\Library\PackageCache\com.unity.editorcoroutines@7d48783e7b8c)
+    com.unity.performance.profile-analyzer@1.2.3 (location: C:\nscrev\branch-verify\Library\PackageCache\com.unity.performance.profile-analyzer@a68e7bc84997)
+    com.unity.testtools.codecoverage@1.2.6 (location: C:\nscrev\branch-verify\Library\PackageCache\com.unity.testtools.codecoverage@205a02cbcb39)
+    com.unity.collections@2.6.8 (location: C:\nscrev\branch-verify\Library\PackageCache\com.unity.collections@84e8eb3fc12e)
+    com.unity.settings-manager@2.1.0 (location: C:\nscrev\branch-verify\Library\PackageCache\com.unity.settings-manager@41738c275190)
+    com.unity.burst@1.8.29 (location: C:\nscrev\branch-verify\Library\PackageCache\com.unity.burst@6bb9aca3ef38)
+    com.unity.mathematics@1.3.2 (location: C:\nscrev\branch-verify\Library\PackageCache\com.unity.mathematics@8017b507cc74)
+    com.unity.nuget.mono-cecil@1.11.6 (location: C:\nscrev\branch-verify\Library\PackageCache\com.unity.nuget.mono-cecil@ecb9724e46ff)
+    com.unity.test-framework.performance@3.1.0 (location: C:\nscrev\branch-verify\Library\PackageCache\com.unity.test-framework.performance@92d1d09a72ed)
+  Built-in packages:
+    com.unity.2d.tilemap@1.0.0 (location: C:\nscrev\branch-verify\Library\PackageCache\com.unity.2d.tilemap@855769f9baae)
+    com.unity.feature.development@1.0.2 (location: C:\nscrev\branch-verify\Library\PackageCache\com.unity.feature.development@767aadbc6eb7)
+    com.unity.multiplayer.center@1.0.0 (location: C:\nscrev\branch-verify\Library\PackageCache\com.unity.multiplayer.center@f3fb577b3546)
+    com.unity.ugui@2.0.0 (location: C:\nscrev\branch-verify\Library\PackageCache\com.unity.ugui@57cef44123c7)
+    com.unity.modules.accessibility@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.accessibility)
+    com.unity.modules.ai@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.ai)
+    com.unity.modules.androidjni@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.androidjni)
+    com.unity.modules.animation@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.animation)
+    com.unity.modules.assetbundle@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.assetbundle)
+    com.unity.modules.audio@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.audio)
+    com.unity.modules.cloth@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.cloth)
+    com.unity.modules.director@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.director)
+    com.unity.modules.imageconversion@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.imageconversion)
+    com.unity.modules.imgui@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.imgui)
+    com.unity.modules.jsonserialize@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.jsonserialize)
+    com.unity.modules.particlesystem@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.particlesystem)
+    com.unity.modules.physics@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.physics)
+    com.unity.modules.physics2d@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.physics2d)
+    com.unity.modules.screencapture@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.screencapture)
+    com.unity.modules.terrain@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.terrain)
+    com.unity.modules.terrainphysics@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.terrainphysics)
+    com.unity.modules.tilemap@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.tilemap)
+    com.unity.modules.ui@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.ui)
+    com.unity.modules.uielements@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.uielements)
+    com.unity.modules.umbra@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.umbra)
+    com.unity.modules.unityanalytics@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.unityanalytics)
+    com.unity.modules.unitywebrequest@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.unitywebrequest)
+    com.unity.modules.unitywebrequestassetbundle@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.unitywebrequestassetbundle)
+    com.unity.modules.unitywebrequestaudio@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.unitywebrequestaudio)
+    com.unity.modules.unitywebrequesttexture@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.unitywebrequesttexture)
+    com.unity.modules.unitywebrequestwww@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.unitywebrequestwww)
+    com.unity.modules.vehicles@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.vehicles)
+    com.unity.modules.video@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.video)
+    com.unity.modules.vr@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.vr)
+    com.unity.modules.wind@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.wind)
+    com.unity.modules.xr@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.xr)
+    com.unity.modules.subsystems@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.subsystems)
+    com.unity.modules.hierarchycore@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.hierarchycore)
+    com.unity.test-framework@1.5.1 (location: C:\nscrev\branch-verify\Library\PackageCache\com.unity.test-framework@7056e7f856e9)
+    com.unity.ext.nunit@2.0.5 (location: C:\nscrev\branch-verify\Library\PackageCache\com.unity.ext.nunit@031a54704bff)
+[Physics::Module] Selected backend.
+[Physics::Module] Name: PhysX
+[Physics::Module] Id: 0xf2b8ea05
+[Physics::Module] SDK Version: 4.1.2
+[Physics::Module] Integration Version: 1.0.0
+[Physics::Module] Threading Mode: Multi-Threaded
+[Subsystems] No new subsystems found in resolved package list.
+Package Manager log level set to [2]
+[Package Manager] Done registering packages in 0.11 seconds
+Refreshing native plugins compatible for Editor in 31.23 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Initialize engine version: 6000.1.8f1 (2a5b1522e5ab)
+[Subsystems] Discovering subsystems at path C:/Program Files/Unity/Hub/Editor/6000.1.8f1/Editor/Data/Resources/UnitySubsystems
+[Subsystems] Discovering subsystems at path C:/nscrev/branch-verify/Assets
+Forcing GfxDevice: Null
+GfxDevice: creating device client; kGfxThreadingModeNonThreaded
+NullGfxDevice:
+    Version:  NULL 1.0 [1.0]
+    Renderer: Null Device
+    Vendor:   Unity Technologies
+[Licensing::Client] Successfully resolved entitlement details
+Initialize mono
+Mono path[0] = 'C:/Program Files/Unity/Hub/Editor/6000.1.8f1/Editor/Data/Managed'
+Mono path[1] = 'C:/Program Files/Unity/Hub/Editor/6000.1.8f1/Editor/Data/MonoBleedingEdge/lib/mono/unityjit-win32'
+Mono config path = 'C:/Program Files/Unity/Hub/Editor/6000.1.8f1/Editor/Data/MonoBleedingEdge/etc'
+Using monoOptions --debugger-agent=transport=dt_socket,embedding=1,server=y,suspend=n,address=127.0.0.1:56984
+Using cacheserver namespaces - metadata:defaultmetadata, artifacts:defaultartifacts
+Using cacheserver namespaces - metadata:defaultmetadata, artifacts:defaultartifacts
+ImportWorker Server TCP listen port: 0
+AcceleratorClientConnectionCallback - disconnected - :0
+Begin MonoManager ReloadAssembly
+Registering precompiled unity dll's ...
+Register platform support module: C:/Program Files/Unity/Hub/Editor/6000.1.8f1/Editor/Data/PlaybackEngines/WebGLSupport/UnityEditor.WebGL.Extensions.dll
+Register platform support module: C:/Program Files/Unity/Hub/Editor/6000.1.8f1/Editor/Data/PlaybackEngines/WindowsStandaloneSupport/UnityEditor.WindowsStandalone.Extensions.dll
+Registered in 0.006059 seconds.
+- Loaded All Assemblies, in  0.595 seconds
+Native extension for WindowsStandalone target not found
+Native extension for WebGL target not found
+Mono: successfully reloaded assembly
+- Finished resetting the current domain, in  0.427 seconds
+Domain Reload Profiling: 1020ms
+	BeginReloadAssembly (180ms)
+		ExecutionOrderSort (0ms)
+		DisableScriptedObjects (0ms)
+		BackupInstance (0ms)
+		ReleaseScriptingObjects (0ms)
+		CreateAndSetChildDomain (1ms)
+	RebuildCommonClasses (56ms)
+	RebuildNativeTypeToScriptingClass (16ms)
+	initialDomainReloadingComplete (97ms)
+	LoadAllAssembliesAndSetupDomain (242ms)
+		LoadAssemblies (178ms)
+		RebuildTransferFunctionScriptingTraits (0ms)
+		AnalyzeDomain (236ms)
+			TypeCache.Refresh (234ms)
+				TypeCache.ScanAssembly (217ms)
+			BuildScriptInfoCaches (0ms)
+			ResolveRequiredComponents (1ms)
+	FinalizeReload (428ms)
+		ReleaseScriptCaches (0ms)
+		RebuildScriptCaches (0ms)
+		SetupLoadedEditorAssemblies (385ms)
+			LogAssemblyErrors (0ms)
+			InitializePlatformSupportModulesInManaged (74ms)
+			SetLoadedEditorAssemblies (6ms)
+			BeforeProcessingInitializeOnLoad (68ms)
+			ProcessInitializeOnLoadAttributes (167ms)
+			ProcessInitializeOnLoadMethodAttributes (71ms)
+			AfterProcessingInitializeOnLoad (0ms)
+			EditorAssembliesLoaded (0ms)
+		ExecutionOrderSort2 (0ms)
+		AwakeInstancesAfterBackupRestoration (0ms)
+[Licensing::Client] Successfully resolved entitlement details
+Application.AssetDatabase Initial Refresh Start
+[ScriptCompilation] Requested script compilation because: Assetdatabase observed changes in script compilation related files
+Starting: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\bee_backend.exe --ipc --defer-dag-verification --dagfile="Library/Bee/1900b0aEDbg.dag" --continue-on-failure --profile="Library/Bee/backend1.traceevents" ScriptAssemblies
+WorkingDir: C:/nscrev/branch-verify
+DisplayProgressbar: Compiling Scripts
+Starting: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Tools\netcorerun\netcorerun.exe "C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Tools\BuildPipeline\ScriptCompilationBuildProgram.exe" "Library/Bee/1900b0aEDbg.dag.json" "Library/Bee/1900b0aEDbg-inputdata.json" "Library\Bee\buildprogram0.traceevents"
+WorkingDir: C:/nscrev/branch-verify
+ExitCode: 4 Duration: 2s153ms
+Rebuilding DAG because FileSignature timestamp changed: Library/Bee/1900b0aEDbg-inputdata.json
+[573/728    0s] ILPP-Configuration Library/ilpp-configuration.nevergeneratedoutput
+[574/728    1s] Csc Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.Editor.dll (+2 others)
+Assets\NoSafeCircle\DoorPrototype\Editor\DoorPrototypeSceneBuilder.cs(11,7): warning CS0105: The using directive for 'NoSafeCircle.DoorPrototype.World' appeared previously in this namespace
+
+Assets\NoSafeCircle\DoorPrototype\Editor\Rooms\ChapelOfAshSceneBuilder.cs(58,19): warning CS0219: The variable 'roomWidth' is assigned but its value is never used
+[575/728    1s] Csc Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.Tests.dll (+2 others)
+*** Tundra requires additional run (2.11 seconds), 3 items updated, 572 evaluated
+ExitCode: 0 Duration: 0s708ms
+Starting: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\bee_backend.exe --ipc --defer-dag-verification --dagfile="Library/Bee/1900b0aEDbg.dag" --continue-on-failure --dagfilejson="Library\Bee\1900b0aEDbg.dag.json" --profile="Library/Bee/backend2.traceevents" ScriptAssemblies
+WorkingDir: C:/nscrev/branch-verify
+ExitCode: 0 Duration: 2s272ms
+Finished compiling graph: 741 nodes, 12135 flattened edges (10035 ToBuild, 114 ToUse), maximum node priority 777
+[411/738    0s] WriteText Library/Bee/artifacts/1900b0aEDbg.dag/Assembly-CSharp-Editor.dll.mvfrm.rsp
+[412/738    0s] WriteResponseFile Library/Bee/artifacts/rsp/12244479590358847285.rsp
+[413/738    0s] WriteText Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.Tests.Editor.rsp
+[414/738    0s] WriteText Library/Bee/artifacts/1900b0aEDbg.dag/Assembly-CSharp-Editor.UnityAdditionalFile.txt
+[415/738    0s] WriteText Library/Bee/artifacts/1900b0aEDbg.dag/Assembly-CSharp-Editor.rsp2
+[416/738    0s] WriteText Library/Bee/artifacts/1900b0aEDbg.dag/Assembly-CSharp-Editor.rsp
+[580/738    0s] ILPP-Configuration Library/ilpp-configuration.nevergeneratedoutput
+[719/738    0s] MovedFromExtractor-Combine Library/Bee/artifacts/1900b0aEDbg.dag/Assembly-CSharp-Editor.dll.mvfrm
+[720/738    0s] ILPostProcess Library/Bee/artifacts/1900b0aEDbg.dag/post-processed/NoSafeCircle.DoorPrototype.Editor.dll (+pdb)
+Processing assembly Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.Editor.dll, with 128 defines and 270 references
+
+processors: Unity.Jobs.CodeGen.JobsILPostProcessor, zzzUnity.Burst.CodeGen.BurstILPostProcessor
+
+running Unity.Jobs.CodeGen.JobsILPostProcessor
+
+running zzzUnity.Burst.CodeGen.BurstILPostProcessor
+[721/738    0s] ILPostProcess Library/Bee/artifacts/1900b0aEDbg.dag/post-processed/NoSafeCircle.DoorPrototype.Tests.dll (+pdb)
+Processing assembly Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.Tests.dll, with 130 defines and 247 references
+
+processors: Unity.Jobs.CodeGen.JobsILPostProcessor, zzzUnity.Burst.CodeGen.BurstILPostProcessor
+
+running Unity.Jobs.CodeGen.JobsILPostProcessor
+
+running zzzUnity.Burst.CodeGen.BurstILPostProcessor
+[722/738    0s] CopyFiles Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Editor.dll
+[723/738    0s] CopyFiles Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Editor.pdb
+[724/738    0s] CopyFiles Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Tests.pdb
+[725/738    0s] CopyFiles Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Tests.dll
+[726/738    0s] Csc Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.Tests.Editor.dll (+2 others)
+[727/738    0s] ILPostProcess Library/Bee/artifacts/1900b0aEDbg.dag/post-processed/NoSafeCircle.DoorPrototype.Tests.Editor.dll (+pdb)
+Processing assembly Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.Tests.Editor.dll, with 128 defines and 257 references
+
+processors: Unity.Jobs.CodeGen.JobsILPostProcessor, zzzUnity.Burst.CodeGen.BurstILPostProcessor
+
+running Unity.Jobs.CodeGen.JobsILPostProcessor
+
+running zzzUnity.Burst.CodeGen.BurstILPostProcessor
+[728/738    0s] CopyFiles Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Tests.Editor.dll
+[729/738    0s] CopyFiles Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Tests.Editor.pdb
+[730/738    0s] Csc Library/Bee/artifacts/1900b0aEDbg.dag/Assembly-CSharp-firstpass.dll (+2 others)
+[731/738    0s] Csc Library/Bee/artifacts/1900b0aEDbg.dag/Assembly-CSharp-Editor.dll (+2 others)
+[732/738    0s] ILPostProcess Library/Bee/artifacts/1900b0aEDbg.dag/post-processed/Assembly-CSharp-Editor.dll (+pdb)
+Processing assembly Library/Bee/artifacts/1900b0aEDbg.dag/Assembly-CSharp-Editor.dll, with 128 defines and 311 references
+
+processors: Unity.Jobs.CodeGen.JobsILPostProcessor, zzzUnity.Burst.CodeGen.BurstILPostProcessor
+
+running Unity.Jobs.CodeGen.JobsILPostProcessor
+
+running zzzUnity.Burst.CodeGen.BurstILPostProcessor
+[733/738    0s] ILPostProcess Library/Bee/artifacts/1900b0aEDbg.dag/post-processed/Assembly-CSharp-firstpass.dll (+pdb)
+Processing assembly Library/Bee/artifacts/1900b0aEDbg.dag/Assembly-CSharp-firstpass.dll, with 130 defines and 288 references
+
+processors: Unity.Jobs.CodeGen.JobsILPostProcessor, zzzUnity.Burst.CodeGen.BurstILPostProcessor
+
+running Unity.Jobs.CodeGen.JobsILPostProcessor
+
+running zzzUnity.Burst.CodeGen.BurstILPostProcessor
+[734/738    0s] CopyFiles Library/ScriptAssemblies/Assembly-CSharp-firstpass.dll
+[735/738    0s] CopyFiles Library/ScriptAssemblies/Assembly-CSharp-firstpass.pdb
+[736/738    0s] CopyFiles Library/ScriptAssemblies/Assembly-CSharp-Editor.pdb
+[737/738    0s] CopyFiles Library/ScriptAssemblies/Assembly-CSharp-Editor.dll
+*** Tundra build success (2.24 seconds), 26 items updated, 738 evaluated
+AssetDatabase: script compilation time: 5.820081s
+Begin MonoManager ReloadAssembly
+- Loaded All Assemblies, in  1.332 seconds
+Start importing Assets/Editor using Guid(f284e9fddc378cd4895472ed74828f53) (DefaultImporter) -> (artifact id: 'ccc8a3adcb32efc44903b1dc63e5017f') in 0.01982 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128 using Guid(2f0eaf9eeffea474fa08db5ad28b3d80) (DefaultImporter) -> (artifact id: '39da8227c999afd5cefca39928aa8e5e') in 0.0013216 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light using Guid(a382029c43af691408fc62843606ee75) (DefaultImporter) -> (artifact id: '232f174306e230cfdd87e1d8de86d4d1') in 0.0006799 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light using Guid(489eecabd78c3dd4c95876597582ae7d) (DefaultImporter) -> (artifact id: 'e5cebbd6d22a4ff1b9f6213f9f2d0737') in 0.0006002 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark using Guid(9a65f6402c100874fbed4395db9d7050) (DefaultImporter) -> (artifact id: '58e8a2043ca03cb8870174b6f51f4b86') in 0.0005534 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark using Guid(da19852388255f04596ed5b7559f7df8) (DefaultImporter) -> (artifact id: 'a881634154e5d531ac9f932249107def') in 0.0005989 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected using Guid(b00774e3aa8ab02468f8c52f0054f187) (DefaultImporter) -> (artifact id: 'd589868dfd3983eeef8c6c6407bcbd8f') in 0.0007904 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected using Guid(c809634c77eebae4fbbdf63c87922b8a) (DefaultImporter) -> (artifact id: 'c6afa0ce283d147755a667864694df27') in 0.0010498 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected using Guid(cae35ee6b723319499f489916504692d) (DefaultImporter) -> (artifact id: 'e1022f8067d8367e31db627221990fda') in 0.0008584 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected using Guid(da1bf3506614d5c498de0d0584a2dafd) (DefaultImporter) -> (artifact id: 'e183b2c3d68ad453755263834a164ec3') in 0.000608 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk using Guid(e0c396aa6573dbc4e85b828df51d7f91) (DefaultImporter) -> (artifact id: 'da151bcbe63c987c61c6b84f69968200') in 0.0005638 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk using Guid(b34700c1a464f6741bcd3e249e37ab36) (DefaultImporter) -> (artifact id: 'ff03aa7088c4443608e0085e4ee60e71') in 0.0006208 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk using Guid(2434742e6cb19c64aa7b1808efc3fc4a) (DefaultImporter) -> (artifact id: '3dd6d64030d14dfafab01446176af1f7') in 0.0005828 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/standing using Guid(c5c2995acbb6d3042b61423a1eb697f6) (DefaultImporter) -> (artifact id: '6391b7c86f6e2f68bc9e7e066036b9ce') in 0.0006249 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/standing using Guid(170ad4519cdccf346a09718905d4d115) (DefaultImporter) -> (artifact id: 'e18b48a03193feb19da8a88de8a9515a') in 0.0007078 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk using Guid(0a601a198ae6a644c92872d3f0da9f91) (DefaultImporter) -> (artifact id: 'a35a0a7c94f8dc448a2463c1d827324c') in 0.0006313 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/standing using Guid(6b1b382c3bfdf3b4184f0da7097bd1cb) (DefaultImporter) -> (artifact id: 'e1ec8a8d464a043d9e52a74178a86c8b') in 0.0007271 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/standing using Guid(cda661cffcf7d4643bfe3858345edbf0) (DefaultImporter) -> (artifact id: '5b9969ad4539abdadbb9c1406d462bf2') in 0.0007782 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/north-east using Guid(30218b59f82c7ce409b2a2cda037f8c1) (DefaultImporter) -> (artifact id: '4bcdbd8360a0bec8f35c5359354b2bc3') in 0.0007475 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/north using Guid(30bc9130eb90956408317c58a9173533) (DefaultImporter) -> (artifact id: '303766d59ec3582cc08af6b512ee2357') in 0.0008141 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/east using Guid(5035a935d38f34044b433ea075c44ab2) (DefaultImporter) -> (artifact id: 'efb430816e955a196d00b7ba8d429d41') in 0.0009218 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/south-west using Guid(c14785669dd1fea4cbf7174032be2c73) (DefaultImporter) -> (artifact id: 'e22d06c549f645d7defbbada749dc025') in 0.0011289 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/west using Guid(02cec502f51a6994bbf7eb3337925800) (DefaultImporter) -> (artifact id: '3777128d8d5344dffaa0965c820b746b') in 0.0008299 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/north-west using Guid(72704f53ce51225468173dec8331a692) (DefaultImporter) -> (artifact id: '484fb6f91175402625a2505c532e1d57') in 0.0005584 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/south-west using Guid(e2944d774c4a31d43bba653e601f5754) (DefaultImporter) -> (artifact id: 'ec69a7d0f773c98f15496255f40f6cb5') in 0.0007854 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/south-east using Guid(24b7365581c1a714597446344f3150cb) (DefaultImporter) -> (artifact id: '7016efcb05567875a986255232a1dd2d') in 0.0007235 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/west using Guid(748d7f30901af4a47a45fdef08ad2bbb) (DefaultImporter) -> (artifact id: '0931d0545496197e0242f4853e9d0551') in 0.0006343 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/south-east using Guid(a44c45c36a91e464896a5c5164f90900) (DefaultImporter) -> (artifact id: 'e59cf16602806a1dfacca1b46bc8035c') in 0.0005747 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/east using Guid(f5296564c81c7254eaad347794aac842) (DefaultImporter) -> (artifact id: 'daa68a62cf3d38e59221a4adad438eb9') in 0.0006003 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/east using Guid(96ca492fce26846479e83a585112654e) (DefaultImporter) -> (artifact id: 'ef162f60b1e407bbe19440adc2f3a51e') in 0.0005757 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/west using Guid(e60ffbfaba94c004eab748770f0055bb) (DefaultImporter) -> (artifact id: 'bd2834267055835e656aef65b76f9766') in 0.0007589 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/north using Guid(372ce787285337b4883a8acae1ec5984) (DefaultImporter) -> (artifact id: 'fc49c566798a44f59a35a601489dccff') in 0.0010896 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/north using Guid(68175ac6579413e489619236335d7797) (DefaultImporter) -> (artifact id: '97176119ec82583c6f5728bca40ba1af') in 0.0012786 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/south-west using Guid(790bf8bd4c4ca2d44a96c72b3bad6a49) (DefaultImporter) -> (artifact id: '8a1e349f95a01795efdba475f2ef5f69') in 0.0007708 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/north-east using Guid(c981a2d07f01f65419b57d7df609ba0f) (DefaultImporter) -> (artifact id: 'c2304d45de17fe9279f64714ef1d8473') in 0.0006141 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/south using Guid(e95d2a64397e01f4ea7ed1ec4c3dc228) (DefaultImporter) -> (artifact id: '1c28e18f73ba6acb3fd698236a297f81') in 0.0010733 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/north using Guid(f9f139c7a5b91574681e0ec1b6197a57) (DefaultImporter) -> (artifact id: 'e985cc12e179a7e04f9533b6f2e03810') in 0.0008249 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/north-east using Guid(8a94a53d60df3f7419fdfe1a36e9c90a) (DefaultImporter) -> (artifact id: '7e1acc43760969cb60531a9b04f3812f') in 0.0006275 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/west using Guid(ba7fd69b3e61be449837be40b08e1af4) (DefaultImporter) -> (artifact id: 'ffd15549098a098f6569cb2af30c0291') in 0.0006219 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/north-west using Guid(faa59f3225ddddd419f05f61932c037a) (DefaultImporter) -> (artifact id: 'de88eaa6719647a083eb2cef52c61a62') in 0.0007658 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/south using Guid(1b4d675770add5847a8ab1a67a387088) (DefaultImporter) -> (artifact id: '04d9dafd3f0ff1901a8e303917e7e7ba') in 0.0006021 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/east using Guid(db6f739c55d32254bbc39afa96097efc) (DefaultImporter) -> (artifact id: 'ae7e152d4ceac42befced0ebc44db828') in 0.0005591 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/south-east using Guid(6dc19d145524c8a4d83e1894f6871026) (DefaultImporter) -> (artifact id: '4711aab1741eba91ae6acf8ad90045e8') in 0.0005513 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/north-east using Guid(7da7d5090f62d7849b827ce276a7a28f) (DefaultImporter) -> (artifact id: '595524beb45a41f02f572a741c190f79') in 0.0005744 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/north-west using Guid(fd3560cbf4f0d834f94b2b84b64f38cf) (DefaultImporter) -> (artifact id: '31343db0ae28b5db13777ec2efb951d5') in 0.0005425 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/south-west using Guid(0e074a94656d763478d042730f0885dc) (DefaultImporter) -> (artifact id: 'ab359d31e3757e59ca4f61a31b79dff8') in 0.0005008 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/south using Guid(0e9726baa1d42ce449a2cacf691ebe1f) (DefaultImporter) -> (artifact id: '976aec9ab627177e985a395a1fe16396') in 0.0005042 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/south using Guid(9e2f43fbbf231584ba281f38f1438f16) (DefaultImporter) -> (artifact id: 'a4d3ee4edbc353e60c2e6b35bbe82aac') in 0.0005422 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/north-west using Guid(be4070bcfc407d24780c1c0b73452f81) (DefaultImporter) -> (artifact id: 'd8f8b53129faaba35b49a9496a04deb8') in 0.0005483 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/south-east using Guid(3f85b6379bf4d5c4bac4cc80546a4c1e) (DefaultImporter) -> (artifact id: '40d40e9219e993baf06a057bbfc049ce') in 0.0006175 seconds
+Refreshing native plugins compatible for Editor in 2.80 ms, found 4 plugins.
+Native extension for WindowsStandalone target not found
+Native extension for WebGL target not found
+Refreshing native plugins compatible for Editor in 2.76 ms, found 4 plugins.
+Mono: successfully reloaded assembly
+- Finished resetting the current domain, in  5.740 seconds
+Domain Reload Profiling: 7064ms
+	BeginReloadAssembly (364ms)
+		ExecutionOrderSort (0ms)
+		DisableScriptedObjects (17ms)
+		BackupInstance (0ms)
+		ReleaseScriptingObjects (0ms)
+		CreateAndSetChildDomain (158ms)
+	RebuildCommonClasses (42ms)
+	RebuildNativeTypeToScriptingClass (14ms)
+	initialDomainReloadingComplete (37ms)
+	LoadAllAssembliesAndSetupDomain (866ms)
+		LoadAssemblies (711ms)
+		RebuildTransferFunctionScriptingTraits (0ms)
+		AnalyzeDomain (293ms)
+			TypeCache.Refresh (234ms)
+				TypeCache.ScanAssembly (218ms)
+			BuildScriptInfoCaches (45ms)
+			ResolveRequiredComponents (7ms)
+	FinalizeReload (5741ms)
+		ReleaseScriptCaches (0ms)
+		RebuildScriptCaches (0ms)
+		SetupLoadedEditorAssemblies (5494ms)
+			LogAssemblyErrors (0ms)
+			InitializePlatformSupportModulesInManaged (38ms)
+			SetLoadedEditorAssemblies (6ms)
+			BeforeProcessingInitializeOnLoad (242ms)
+			ProcessInitializeOnLoadAttributes (5108ms)
+			ProcessInitializeOnLoadMethodAttributes (67ms)
+			AfterProcessingInitializeOnLoad (33ms)
+			EditorAssembliesLoaded (1ms)
+		ExecutionOrderSort2 (0ms)
+		AwakeInstancesAfterBackupRestoration (13ms)
+Start importing Assets/Scenes/DoorPrototype.unity using Guid(92dbd0a3e6c18e245896a66c5120379d) (DefaultImporter) -> (artifact id: '7e9a4ef6621cbd2e9a373d7fd10bbed0') in 0.0014754 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/east/frame_005.png using Guid(0030e0610a2494d96df6524e44539bee) (TextureImporter) -> (artifact id: '5614a480de0a4d86982f68e4d6459c63') in 0.0093351 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_e_walk_03.png using Guid(006730da4ca7ca84da0efb0b1071b8e8) (TextureImporter) -> (artifact id: 'bf82df7949b4cbee575c928feb422291') in 0.0056034 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/east/frame_003.png using Guid(109978b9253d08d0e8f75c8045608ba8) (TextureImporter) -> (artifact id: '6bff7c82279d4150b0e7d1a056a5782c') in 0.0046419 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/standing/south-west.png using Guid(104c354f0bcf30b4b5a0be30fb2b595b) (TextureImporter) -> (artifact id: 'e1b3deeee84c901086694512731e0d56') in 0.0055193 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/south-east/frame_001.png using Guid(20711c7aeb00176be04c038a23823925) (TextureImporter) -> (artifact id: 'f742c2f3ec3e6a57c10978bc753339fe') in 0.0040002 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/east/frame_005.png using Guid(3045dbbcc801dc63d16eb6a3833be6be) (TextureImporter) -> (artifact id: 'bb5529e75b7766dce5e46a3e3cdc33d2') in 0.0058356 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/south/frame_003.png using Guid(40028884d90fcca5f8c7e3c3da0a2eb1) (TextureImporter) -> (artifact id: 'cfd001481d30f9de4c0522e57b2ed1f8') in 0.0056129 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/south-east/frame_005.png using Guid(4072167d90735cdaf9dff28af3216038) (TextureImporter) -> (artifact id: 'df296c61096d7a56de0b7193aa1a650f') in 0.0037028 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/west/frame_000.png using Guid(406a33f1039036d8f903542c3ff0931d) (TextureImporter) -> (artifact id: '96d0e0130959fc430ae4cf0161bffb5e') in 0.0057945 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/south-west/frame_000.png using Guid(409c9c580d7f4089d2ea0787ea27260a) (TextureImporter) -> (artifact id: '34d5b172bc28072745f21b3ace82520e') in 0.0058549 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_ne_walk_02.png using Guid(506afcd6a7f71f8428919d27316338a6) (TextureImporter) -> (artifact id: 'b1037930e08b6f1c6bcfaf13bf689937') in 0.0061635 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/south/frame_000.png using Guid(501b73d8dd45af768a2da0bffe8beb5f) (TextureImporter) -> (artifact id: 'f0e402282921ab2441fa1b5630836d55') in 0.0069169 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/south/frame_005.png using Guid(50cbf2857b24fe11f963b2b35be72f8c) (TextureImporter) -> (artifact id: 'a4364063924e7ace7ded97bac7c87401') in 0.0066984 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/east/frame_000.png using Guid(6069960264c23934f8d892fb7347e894) (TextureImporter) -> (artifact id: '1d7d90280374516ba5fb7f0894d8e3d0') in 0.0065092 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/south/frame_002.png using Guid(70e0014e2281d87deeee65a9edb9eb93) (TextureImporter) -> (artifact id: '4d269e2e857935195efb59bdb1b5065d') in 0.0049122 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/north-west/frame_000.png using Guid(705e2f4c85cab9f2a3803b6cc9583706) (TextureImporter) -> (artifact id: 'c383c2ce6fa70944b5e86254e6d447e6') in 0.0060281 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_s_walk_05.png using Guid(809a02a648ddbf1499de18af29c43e08) (TextureImporter) -> (artifact id: '029e714c7ee5e4bbe7017a9ab95db4e1') in 0.0067832 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_sw_walk_00.png using Guid(9016307339bf8014399d16d2311658eb) (TextureImporter) -> (artifact id: '323ef75b81e00c1db811b36a925b214b') in 0.0062111 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_ne_walk_00.png using Guid(a06fa2155e42ba9488b82a03a5b8b70b) (TextureImporter) -> (artifact id: 'f51c2b67d0e4c99e255ca7dc6e66c2a3') in 0.0070641 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/west/frame_001.png using Guid(c0c81357b05d21eb347e22a32cdffa20) (TextureImporter) -> (artifact id: 'd3dc1e9cbe84bfa8000a630b27e7ab53') in 0.0064773 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/west/frame_000.png using Guid(c08a2ca86a7880e693b66f46a1e3a6dc) (TextureImporter) -> (artifact id: 'a45a0e7eb2b491b866f9d361457bb8c4') in 0.0063773 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/north/frame_001.png using Guid(c08ef40db6e548deab5eab1893177399) (TextureImporter) -> (artifact id: '1d88e7b64a65ff0a90be0f1cf1961050') in 0.0058851 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/east/frame_000.png using Guid(e032482fb845e8214b0ec24666111a70) (TextureImporter) -> (artifact id: '59a64b1731fb751d34292b12bb0cf3cf') in 0.0063931 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_nw_walk_02.png using Guid(f083b6211f7a48942a050d0f40eebffe) (TextureImporter) -> (artifact id: '5f5f8f96ecf7b067f962499abd58e5f1') in 0.0062021 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/south-east/frame_000.png using Guid(f02c8b42b10e2d6dee6830173953d60b) (TextureImporter) -> (artifact id: '89a0e5f943627c5bb6cf9aadd38821b1') in 0.0057206 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_ranged_ne_idle_00.png using Guid(2111542209294994d9e7192824c75fa8) (TextureImporter) -> (artifact id: 'd585ec2bb4216acaa652fe67b66a7a15') in 0.0057362 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_nw_walk_00.png using Guid(21ff82006b8c05140b1296f38797143d) (TextureImporter) -> (artifact id: '7fc9e32bc263acb1da1e365bd8e97fc9') in 0.0054244 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_se_walk_01.png using Guid(4124ff9f59371ed4aa800a9015bc716d) (TextureImporter) -> (artifact id: '199e2217e36a6867979795e6f12b5829') in 0.0065227 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/south-east/frame_004.png using Guid(5114bd4f98945abddec8d7ebfebed1df) (TextureImporter) -> (artifact id: '4bc914886302911fa1e80940fe4c528a') in 0.0053946 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/north-west/frame_002.png using Guid(5127e7a5797ce01c7063ae76fb646e99) (TextureImporter) -> (artifact id: '15f86c42ec311a2f33d706e3990e096a') in 0.0052051 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/north/frame_000.png using Guid(511c6f3ffbb2f73f8e921a93f4b9bb12) (TextureImporter) -> (artifact id: 'd8c4548927a577fbf62692f7c688a622') in 0.0036076 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/west/frame_001.png using Guid(61d628b74b6ab475974f9263f9c72b1a) (TextureImporter) -> (artifact id: 'b3601952cd35bfff5061707fcaa44159') in 0.0060931 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/standing/north-east.png using Guid(616be59fe455027e4d3f177320e90962) (TextureImporter) -> (artifact id: '5943fa4d3b140685005a6469cba773f2') in 0.0051323 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/west/frame_002.png using Guid(610c0ce4bb33582a32ff09768acb0653) (TextureImporter) -> (artifact id: 'a6f6febb4f09497e1170631b3d679d38') in 0.0058848 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/standing/north.png using Guid(618c59dc065a2fe464bee0cb67c1d339) (TextureImporter) -> (artifact id: '9555523667e8198cfdc2c6000e5a93a7') in 0.0067794 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_se_walk_05.png using Guid(81e0829f94e525548bef73ad7974241e) (TextureImporter) -> (artifact id: '94f44e9f98727ed34a40a53b12424445') in 0.007234 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/standing/south-east.png using Guid(81bd79687db884b84d4e6a9f4e6940f9) (TextureImporter) -> (artifact id: 'f24f65f8572501f04b6570ea6e5b3376') in 0.0052112 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/north/frame_003.png using Guid(814f4efe65a0f3297d05b53affaa6cf6) (TextureImporter) -> (artifact id: '67974f75359a9662e526e757a61b97cf') in 0.0046577 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/south-west/frame_003.png using Guid(918a675d8dfb71e2665301ffbc0751fa) (TextureImporter) -> (artifact id: 'a050eafd6db4e618d4b034189dea9a61') in 0.0050048 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/south-west/frame_001.png using Guid(91fdfe8f84a7bbf8b865f44e8af02a9c) (TextureImporter) -> (artifact id: 'c7b4db7d85f4bf32dfa6bda24780536c') in 0.0056117 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/north-east/frame_000.png using Guid(911fe0885abb8d3cc53ccbf09d9826a3) (TextureImporter) -> (artifact id: '0389a09e13fee03da48ef71da72f2b39') in 0.0046077 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/west/frame_000.png using Guid(a155a750be4b7550293476c4cf5368b4) (TextureImporter) -> (artifact id: 'd41a945c99ef12437c07c142f88dda33') in 0.0039404 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/south/frame_002.png using Guid(a1cb13cd419e4ba982b5d89a633fa9e1) (TextureImporter) -> (artifact id: '0ae25a47c82ea95bf88c946070618412') in 0.0071523 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/north-west/frame_003.png using Guid(b130ba45e3e5191c5ff4329bead9e1f9) (TextureImporter) -> (artifact id: 'cc545667db30ca3ad3f69fc26072941b') in 0.0073796 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/south-west/frame_001.png using Guid(c1adc7d5273607fd1f4f019ad2871ef1) (TextureImporter) -> (artifact id: '89d111c9ec4517acfe051da78c72bb92') in 0.0053808 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/west/frame_001.png using Guid(d1b15f425e0cc73926dc586e168bbb7f) (TextureImporter) -> (artifact id: '22c042c43894189320239d1f7816b348') in 0.0071921 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_nw_walk_00.png using Guid(d1434f5317889a64f949dac3c7b9d0e0) (TextureImporter) -> (artifact id: '99e2a2ee9d46cb188a897e66f6c7c9c1') in 0.0087983 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/north/frame_005.png using Guid(d11f41b338ca90ee7952ba16dc3c003d) (TextureImporter) -> (artifact id: '2c774b3948a716336658b5472ce17339') in 0.0052965 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/west/frame_001.png using Guid(e19a72f5dc58d02c35a833eb49b127d2) (TextureImporter) -> (artifact id: 'b14dd06b28fba3c3b25bb86b34efd6de') in 0.0067078 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/west/frame_002.png using Guid(e1dd527a80e24ad9759346349b15e1ce) (TextureImporter) -> (artifact id: 'eb94234d281dfe3d598b472ef60a961b') in 0.0038607 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_ne_walk_03.png using Guid(f12ff253cbb5d66458db95b1a79685f8) (TextureImporter) -> (artifact id: '6627a550741fb4db6d1a570980e96391') in 0.0052464 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/north/frame_003.png using Guid(02e12c8f74873f61039431fdc4e94713) (TextureImporter) -> (artifact id: '5f060515e281766b861f689737596ecb') in 0.0048807 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_melee_n_idle_00.png using Guid(02ed6521632172d458526e95c370f4a0) (TextureImporter) -> (artifact id: 'ca3c81005cb42856ae23671dc2579109') in 0.0057459 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_s_walk_01.png using Guid(12ada92f01ce5a548b5351598264ff5c) (TextureImporter) -> (artifact id: 'f01bc55c2ad0be6dfc413e33fe373faa') in 0.0064974 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/standing/south-west.png using Guid(328af62c038ac9c7473eadb31dbd8435) (TextureImporter) -> (artifact id: '62e84d0739581c22168414da1cffc925') in 0.0047517 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/south/frame_005.png using Guid(42d05ae0dc6742866147eae4e6954a54) (TextureImporter) -> (artifact id: 'da502d4f6338e7e63496dad74584931c') in 0.0043401 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/south/frame_004.png using Guid(423f9c171d501af6add5e42bbc4f650f) (TextureImporter) -> (artifact id: 'afabb26b478ccc631008773cfc4f42c9') in 0.0050509 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_s_walk_03.png using Guid(5260af7e95ed65f43ba4865fee07c20b) (TextureImporter) -> (artifact id: '32d776fb1a1f461b723b5eeec4ea3594') in 0.0067339 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_ne_walk_01.png using Guid(625243ddce3c30447b6be6e642ef5e64) (TextureImporter) -> (artifact id: '2c583504510813fc6f3637fa2b8b52ed') in 0.0083536 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/south-west/frame_004.png using Guid(62cb70dfec502555df3af7cce59db91e) (TextureImporter) -> (artifact id: '0e4bb121f64cc158f01abc0f73ecdbb0') in 0.0048334 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/south/frame_002.png using Guid(722e69b856c4ed5d7882a0ef6bc4d929) (TextureImporter) -> (artifact id: '7d940e5f8adb5f765a9b38e2bd77ca41') in 0.0047033 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/south-east/frame_002.png using Guid(8218793f29be20a753fa22f72d528e61) (TextureImporter) -> (artifact id: '770dd07f4cf25e6a8bae0be467b22074') in 0.0049956 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/north-east/frame_005.png using Guid(927068733df664a1fbb059199849d5aa) (TextureImporter) -> (artifact id: '9323932a64d7e01ef980e5786969d5a1') in 0.0053944 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/south-west/frame_002.png using Guid(924bf3ab278939e9b5f6518357d6e7f2) (TextureImporter) -> (artifact id: '948ba54a9b0980fa844e5c301e74af47') in 0.0110397 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/north-west/frame_005.png using Guid(92add7ed2b6a74ebbf25e7da9099b4f3) (TextureImporter) -> (artifact id: '03ce6f826fbe0d496c9b4993eb64ccd4') in 0.0051457 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/north/frame_001.png using Guid(a25b70e1ad42df3c47e21e8d25748f94) (TextureImporter) -> (artifact id: '3aa133b9c624b08c21df4d5540d2583a') in 0.0045243 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/north-west/frame_004.png using Guid(b25472a8e22c7673cb3b0b756875fd06) (TextureImporter) -> (artifact id: '01766e28e50425a30488f27496296086') in 0.0048451 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/south-west/frame_003.png using Guid(c2c05e8d6a123ebb2be7ebe587666a0f) (TextureImporter) -> (artifact id: '730ccc1d7b720e5f004fb2ed61b1e572') in 0.0054497 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_se_walk_00.png using Guid(c23d7a194d869cf4a90dae387f2475c8) (TextureImporter) -> (artifact id: '2b61cce68f840850f97c5598acb7ba7a') in 0.005562 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_e_walk_02.png using Guid(d20304b4112f8db4fb75af2b96899b33) (TextureImporter) -> (artifact id: '9c3478dac5f431df6aa3df08cd24c529') in 0.0056396 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/standing/south.png using Guid(f241a14c3166c2def8f6ca21bbd6e2c7) (TextureImporter) -> (artifact id: 'f3c7ab433e46535312733690ba60cbcd') in 0.0116427 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_sw_walk_04.png using Guid(038128a7c8777a0458d7450e177256ef) (TextureImporter) -> (artifact id: '8dd1fc5c0e06d66ed290380a381bc1a4') in 0.0067495 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_nw_walk_04.png using Guid(03041bfc9da5a6542978f9a56f72045e) (TextureImporter) -> (artifact id: '50236585964a0e852d45f36bb8fde1c5') in 0.0052804 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/north-west/frame_002.png using Guid(03573d3829fe8ac56ce7eedd0424e774) (TextureImporter) -> (artifact id: '34e415fa62f728e5a5af695fa9c2150f') in 0.0042472 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/north/frame_003.png using Guid(1309b5a52bc3aeafb472d5ee8aa189e3) (TextureImporter) -> (artifact id: '1476b7c3568840c56e0e1d6a5786770c') in 0.0065236 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/east/frame_004.png using Guid(13dc2d8e253e9fae0d02c0e50596d4c3) (TextureImporter) -> (artifact id: '98053682c13d2044e2bf21d647ae98f4') in 0.0067647 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/south-east/frame_005.png using Guid(13af1e2d9ff8930b46fbb139c887aaa3) (TextureImporter) -> (artifact id: 'f827e73c73fecc4c8185b2cf515c63f7') in 0.0060887 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_ne_walk_01.png using Guid(23d9c6ce6e08f6c45b85a0aadc8245f1) (TextureImporter) -> (artifact id: '83dd27d0e01e685b996baeec5e62332f') in 0.0056069 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/south/frame_001.png using Guid(230f16d2029fb92f384fbbc1c3f21b9e) (TextureImporter) -> (artifact id: 'c4c38519a45e107262a159e8806c0ba4') in 0.0061002 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/south/frame_003.png using Guid(3320b02af2c0f0e0111cc9e00357f894) (TextureImporter) -> (artifact id: '734320bc1cc297c09eddc7ce7da95fd8') in 0.0063358 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_w_walk_00.png using Guid(33f0e811d069ee14898821c06de8640e) (TextureImporter) -> (artifact id: 'f5fc753a1887d6ca94ec504c68925483') in 0.0060776 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_s_walk_01.png using Guid(330635d3725850c43af439c0913929b8) (TextureImporter) -> (artifact id: '56c4d7036f52756f2fe4e95989644401') in 0.0062141 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_ranged_n_idle_00.png using Guid(33c70e326c5c8a74599ad6f0d4c26a44) (TextureImporter) -> (artifact id: 'b7b8bdc0e0dfb6993909f3ff6ff318e9') in 0.0061778 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/south/frame_005.png using Guid(43c84ced9ef3323832c5241d579c236a) (TextureImporter) -> (artifact id: '2351ccf881c03aac47de8a79bdf6c614') in 0.0042505 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/south-west/frame_005.png using Guid(438f087a7db36d3023f973829cfa13c7) (TextureImporter) -> (artifact id: '9d86609a5250ea8e136d4b95f5fbcfed') in 0.0042819 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/east/frame_001.png using Guid(632e0f62e13c18590b49441cc7938ae7) (TextureImporter) -> (artifact id: '030889c35416960585ae143785e036a0') in 0.0058913 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_nw_walk_03.png using Guid(630f06737f1aedb4085e2ca956a04316) (TextureImporter) -> (artifact id: '0c01e8dbea7530ef25ebfafea992cbef') in 0.0056636 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_s_walk_02.png using Guid(73c14008bfc43594b847cfccec14b653) (TextureImporter) -> (artifact id: '57730f532a0a24c7005407d2420d0f46') in 0.0052986 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/standing/north-west.png using Guid(7397de4987f49b3dbd9d586b85b3bb78) (TextureImporter) -> (artifact id: '4dbcfe38d40cd3bf8b3f6b24aed3d835') in 0.0048356 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/north/frame_002.png using Guid(83b12d49a4d6e13ae37c0823cdf6a6c4) (TextureImporter) -> (artifact id: '32f8640fe1cd57f9b7c31b0517c046e0') in 0.0056 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_n_walk_00.png using Guid(83c42a2839f6823419ffa91bfae75a10) (TextureImporter) -> (artifact id: '3a22199c6e913565f3ee63ac474a044d') in 0.0056106 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/south-east/frame_001.png using Guid(93f1bca4f97a00626bf423c671971ef4) (TextureImporter) -> (artifact id: 'aff446af4a2aebc4885db5f2d173fd4d') in 0.0048483 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/north/frame_004.png using Guid(9373deb7810e826bb15177e7d51a8d2c) (TextureImporter) -> (artifact id: '8bc6da18574173a44bbd3f0fab5a581f') in 0.0061711 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/standing/west.png using Guid(b3a1163529b8884f5d1de7fbfea90507) (TextureImporter) -> (artifact id: '522310ef62aad862c199a207cfa2f00a') in 0.0046772 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_e_walk_05.png using Guid(b39b96d40f02a974f81906d8d0f9bcf4) (TextureImporter) -> (artifact id: '9df02fc1ce52c1249cf6fed336dedfb9') in 0.0060405 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/east/frame_003.png using Guid(c3b7319eee3d6a50c41bc61c98290421) (TextureImporter) -> (artifact id: '91c3fd58abba2d6a6a45ecefc11d514a') in 0.006877 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/north-west/frame_001.png using Guid(c3fb82b5708097976ace500934674be7) (TextureImporter) -> (artifact id: '1697c51c4ee18c68d06266cf8e2af754') in 0.0051484 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/north/frame_005.png using Guid(d36459cb14d5b8a4e7c4b911970373a2) (TextureImporter) -> (artifact id: '07ef2f4f2bb1c1ea99595610f9c96161') in 0.0059881 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/north-east/frame_001.png using Guid(d358f0f4231e8cfae670f5951afd0db8) (TextureImporter) -> (artifact id: 'c000e47a8fa2f55685c28b98f5f8ade5') in 0.0045272 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/south/frame_002.png using Guid(d34c027d35a30a988f3e1d6e15c8c6e2) (TextureImporter) -> (artifact id: '1b4f88645c1f63783b88ba2579703bfd') in 0.007501 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_w_walk_02.png using Guid(e3e2aa78e82c24940ad0b9e3ef947580) (TextureImporter) -> (artifact id: 'e24a1f884b6fd7af6c23d7fed625cc94') in 0.0061446 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/standing/east.png using Guid(e337a6bb62adc8cb046c1f3ce3888741) (TextureImporter) -> (artifact id: 'dba848e1904b3077d05468a8fe50f478') in 0.0066502 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/north/frame_004.png using Guid(f3c577446d42836378d190699df09d6c) (TextureImporter) -> (artifact id: '2c1aaaa65d849e6b80950da584248059') in 0.005638 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/west/frame_001.png using Guid(f3a905c7af3e07d08214762b00f61c3f) (TextureImporter) -> (artifact id: 'cee80729593b963bb302aedd3b030234') in 0.0059473 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_w_walk_00.png using Guid(04970fb9b0075404292bfcda609ac655) (TextureImporter) -> (artifact id: '51377f1c2ddb71d19480d5466de74ccb') in 0.0061648 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/standing/north-west.png using Guid(04491e7b8cbe400fe5b24097ca3ea497) (TextureImporter) -> (artifact id: '5ad2a4f5a015dfde2883d716c764490b') in 0.00551 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/south-east/frame_002.png using Guid(046b6a1c9f4cfe843b7414b554a03fdd) (TextureImporter) -> (artifact id: '68b1866892fa4e3e49623cdafac2f664') in 0.0053626 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/north-west/frame_000.png using Guid(2400fa4b890c65b641eabb620c1415fe) (TextureImporter) -> (artifact id: '43d7702a6e4117c3d561edeeef96ff83') in 0.0049531 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/east/frame_000.png using Guid(3463b566e314abdb58429e9a227a8cbc) (TextureImporter) -> (artifact id: '8151fd02e0202a7bdd90a74c9c576cb5') in 0.0068301 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/north-east/frame_003.png using Guid(44ced2e28466d7b27907c5ad42a69694) (TextureImporter) -> (artifact id: 'b98fb59b276b2864b6360b01c9528295') in 0.0040721 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_n_walk_02.png using Guid(543628641b4da1b4b89a17840c92dcee) (TextureImporter) -> (artifact id: 'b2181d54158faa1285d61fa2bb086b87') in 0.0055829 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/west/frame_002.png using Guid(645d422b88d88415f16c75822081ef2d) (TextureImporter) -> (artifact id: 'eba33f3c465cfe1267da0c861dd36e24') in 0.0070058 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/standing/south-east.png using Guid(74155d78c50f84670f6a0298789811e0) (TextureImporter) -> (artifact id: '9a5969eacbfc6fb0dda2e4a0d898c8a0') in 0.0045943 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_melee_w_idle_00.png using Guid(84b3c910148830447a7531c2d053eed0) (TextureImporter) -> (artifact id: '3e27cb3c165d7050d77de6c34b9973b3') in 0.0050239 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/north/frame_003.png using Guid(9433017af23746d908f0e4a8f10426c2) (TextureImporter) -> (artifact id: 'c585cb66693b13957983e12c3f4b4da4') in 0.0063563 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/south-west/frame_005.png using Guid(941593e0044a2d1a1c6a1ba369c207ad) (TextureImporter) -> (artifact id: '297648c9f2e761df48b8862ee8e1afdf') in 0.0060932 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/east/frame_004.png using Guid(b449f990b84026fef386128f140df1bc) (TextureImporter) -> (artifact id: '5db8b8b19100ca61d1a8f829af57d055') in 0.0061788 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_n_walk_04.png using Guid(b48fa2e56eb2d4843bf0df1dd254169d) (TextureImporter) -> (artifact id: 'f36be6772b4c1c4aa252f2dfafa9f952') in 0.0064806 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/south/frame_000.png using Guid(e460031589239c24b88cbe765d425ba7) (TextureImporter) -> (artifact id: '254c2226f9c172cde10100848003b910') in 0.0063811 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/standing/south-west.png using Guid(e40124142e152610c920028d1497a92b) (TextureImporter) -> (artifact id: '84b2881f9fe5fb598493c3c28bd1e41c') in 0.0041589 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/north-west/frame_001.png using Guid(e4e4604f180556e3dd62131c710467e9) (TextureImporter) -> (artifact id: 'af6266db2d189c049c49484c3a7f72d5') in 0.004063 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/south/frame_000.png using Guid(e4dc0e709e3ffd266861d7462d5925e5) (TextureImporter) -> (artifact id: '7a6174908c699096427f2d7d6090a18d') in 0.0044644 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/west/frame_003.png using Guid(e41f248459d4ae59975cc78239f7b20c) (TextureImporter) -> (artifact id: '87004d31a09694b7d1148225c4881991') in 0.0066413 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_ne_walk_04.png using Guid(f4b3b5a6ac3c8c04bbacd17e77f9e1a1) (TextureImporter) -> (artifact id: 'cbca0cac0c70224216406c7ca8f1a4cb') in 0.0052569 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_ranged_s_idle_00.png using Guid(0543a0d6b30a5834d9128348df3d8250) (TextureImporter) -> (artifact id: 'a32f2d70e260c06292a77cb3b2c669c5') in 0.0062863 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/north/frame_004.png using Guid(05c9444eb0a0adbeb28ab2586795d502) (TextureImporter) -> (artifact id: 'a8166b499e2561102560b5bfc2a310de') in 0.0033744 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/south/frame_000.png using Guid(154ef5a66b7ca93e316ded9add3bad38) (TextureImporter) -> (artifact id: '2768b093ccb57895425e061cbcbc5c9c') in 0.0031525 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/west/frame_002.png using Guid(15cebd780f294290758e202739728ec9) (TextureImporter) -> (artifact id: '3bc1eeb2a518f20a4e4f3153fd150e9b') in 0.0068495 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/west/frame_003.png using Guid(150fa2eef9161aad547e1996eb6d5d35) (TextureImporter) -> (artifact id: '87abc23346e239e56652d17fd936039c') in 0.0048617 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/south/frame_005.png using Guid(35b9c6e957612454b7446ee4d28e1895) (TextureImporter) -> (artifact id: 'eaf4fb3a3249298f7b742da16a1d64b4') in 0.0053266 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/south/frame_005.png using Guid(35bb6ad1765b89ea385d354345652a0b) (TextureImporter) -> (artifact id: '2de70de2793da8d0957ba4fe40a9c3ca') in 0.0058586 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_w_walk_03.png using Guid(35cb3735d498e7040bd91d17789e722f) (TextureImporter) -> (artifact id: '5f2b4a384f5654fe5e99975968cac8d7') in 0.0054204 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/north-west/frame_000.png using Guid(653b389077fdb9b0adfa7ac9de554c34) (TextureImporter) -> (artifact id: '11a7841821fa4ac35c246d7fecd5bc9c') in 0.0047055 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/west/frame_000.png using Guid(7571d66acdceaee0b80636ce62822bdd) (TextureImporter) -> (artifact id: '8d2fbe8578434d607c482cc9f9d37471') in 0.0059933 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/east/frame_003.png using Guid(754639718611e7a62c979efb305c5a11) (TextureImporter) -> (artifact id: '7973e81e9b0df6652c274fd3c22e1a60') in 0.0065998 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/north/frame_001.png using Guid(95705046e869e5860fba582291172320) (TextureImporter) -> (artifact id: '850b30c364c52bdc4e1249d6b6345d3e') in 0.0059649 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_se_walk_01.png using Guid(95b8e9a63fd752c46af2e6074c908bee) (TextureImporter) -> (artifact id: '590777bfe645b5e2b6d0b8feb4856318') in 0.0058147 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_w_walk_02.png using Guid(a593b530d627a6e4ebcff249c0e35be9) (TextureImporter) -> (artifact id: '8acefd879acd67c26f1377258f0fd0aa') in 0.0050677 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/east/frame_005.png using Guid(b5e827319400f39bfca8531b9f07093b) (TextureImporter) -> (artifact id: '522ed6671ae15ec5e9b15a14f1652bb1') in 0.0060439 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_nw_walk_01.png using Guid(c53008d6d73cb5545bf1e6b8afdd0a38) (TextureImporter) -> (artifact id: '65ed3c53da770dba8def965648b0326b') in 0.0061193 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_n_walk_05.png using Guid(c5dde6a5e5f90b0489cd408fa77bb73c) (TextureImporter) -> (artifact id: '89d0d1bd6bb489ba4b3ac392ed75f48b') in 0.0069264 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/north/frame_000.png using Guid(e59bcc542631ff3313d7329fda4e26ad) (TextureImporter) -> (artifact id: 'bbb097a46e515c2b866f015053a99870') in 0.0040732 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/standing/east.png using Guid(e52f1cfdb7954ebff01873e34c363846) (TextureImporter) -> (artifact id: '7aa194c3a4c74143af59c3989f01b75b') in 0.004587 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/east/frame_004.png using Guid(06fa803395df34bd8ebcd34e4491022b) (TextureImporter) -> (artifact id: '0a5eeeb9d3664278c66b1cfc6919a241') in 0.0050863 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/north-east/frame_004.png using Guid(16298295fdd5fb11c57c6c4ad2838ca5) (TextureImporter) -> (artifact id: 'c6ba06574a37f06aa19899a0bf34eede') in 0.0064535 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/north/frame_003.png using Guid(2602cb7b2885a6fd54c19c4f1fbe2519) (TextureImporter) -> (artifact id: '74b2f81206777713c4fabaef1b670779') in 0.0062828 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/south-east/frame_002.png using Guid(26fc33236b62e42e8f4d1afd26f6a7a8) (TextureImporter) -> (artifact id: '8c34bd340e90e4467fe91d97210914ec') in 0.0061067 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_ranged_nw_idle_00.png using Guid(262de4331824c544f8a3729d6b0f0cbe) (TextureImporter) -> (artifact id: '8944fa98ab3b5995d43d5b18c70f1ecc') in 0.0065132 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/south-east/frame_003.png using Guid(368f518d660274f33a5724d9ed335efb) (TextureImporter) -> (artifact id: '9b0e38ff8a2bf660ae1979539c03466f') in 0.0038998 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_w_walk_04.png using Guid(46b116939018878459c687db918d47d4) (TextureImporter) -> (artifact id: 'ed49ccf26fb3c41d612b9e79b354aefc') in 0.004694 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/north-east/frame_000.png using Guid(565cf7e6e967dbdb337c6189e0266b2a) (TextureImporter) -> (artifact id: '586214f554f6b6a858065129f4bf6911') in 0.0039471 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/west/frame_002.png using Guid(66841e733870a36ca1dfd82001138b35) (TextureImporter) -> (artifact id: '455da915f64960888ccce0dba5c2fa6e') in 0.0041397 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/east/frame_002.png using Guid(7690207c50300d550b62132ae5afaf53) (TextureImporter) -> (artifact id: 'e8d36c0417edef84468d5f57f649041e') in 0.0061414 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/standing/south-east.png using Guid(76b157b12b4a0fc6fa59ec93d877659d) (TextureImporter) -> (artifact id: '2489d8318ae2fd4acf3794b190306102') in 0.0035067 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/west/frame_001.png using Guid(7685e6dc1f2359edfb2b4387cf6b1e04) (TextureImporter) -> (artifact id: '6e2494cb64d7ec089618f035a7836993') in 0.0038696 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_nw_walk_05.png using Guid(76eaf5d9169e4214cb6b4665dccf0a4c) (TextureImporter) -> (artifact id: '63c7f5476830e7cd3e0940f100d0e273') in 0.0058266 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/north/frame_000.png using Guid(766d5f8ddc98df1500b795d20ea0530e) (TextureImporter) -> (artifact id: '6cf527d51260432175df918ef76f3525') in 0.0046203 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/east/frame_000.png using Guid(769e1c0f8d7a23074a724756d7e867de) (TextureImporter) -> (artifact id: '4aea9f4e609e22eb5e699376f60682bd') in 0.0052375 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/north/frame_003.png using Guid(86f14509437d42148f894d215cb54fc1) (TextureImporter) -> (artifact id: '0475bad4eccab28c00e7a7405b79eac3') in 0.0037246 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/south-east/frame_003.png using Guid(86a2264a2052d29b6b5cfb2a0fe35353) (TextureImporter) -> (artifact id: 'cd620491ab48474a68c9bb67eb7e8611') in 0.0040586 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/standing/north-east.png using Guid(b61488a14285fe16ece78252ad2b8104) (TextureImporter) -> (artifact id: '593a2c91f20c2b036436ee160f837f2f') in 0.0046892 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_sw_walk_02.png using Guid(b67484b32f282714da17c8186cd9c25e) (TextureImporter) -> (artifact id: '477b33573e18114cd02e8fd6aa022a68') in 0.0053167 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/standing/north-west.png using Guid(b6c627de9c22671607aa817924e540b9) (TextureImporter) -> (artifact id: '58dcfde729919aad5f81d18eca2fce68') in 0.0039696 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_e_walk_02.png using Guid(b6870002ea525fe4e8b0f57b06c59af7) (TextureImporter) -> (artifact id: 'bf4e72c88445a97b43d8d5c81a7880dc') in 0.0062924 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/east/frame_004.png using Guid(b697c28f66b4351aad6cc4e73bad71db) (TextureImporter) -> (artifact id: '335eaed28197dd300b9f0360a4bf6b6d') in 0.0045011 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/south-west/frame_003.png using Guid(b6e7cedcb70faadadaf9d349aeaebac8) (TextureImporter) -> (artifact id: '1670a2c81081e65431c9319cd13676bd') in 0.0045272 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/north-west/frame_004.png using Guid(d6bc6e9c791b2679abe20387ec28c77a) (TextureImporter) -> (artifact id: 'fe15aaa9e9a1312ed59f83f7ecc6cda4') in 0.0030399 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_w_walk_01.png using Guid(e640a83cd7a837745afae2bf7e02451b) (TextureImporter) -> (artifact id: '987e3a4e3b192954356b1163a9ab7c8a') in 0.0171703 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/north/frame_000.png using Guid(e643b744a35ec73f7f8861db43aa1baa) (TextureImporter) -> (artifact id: '97a39a29430ade1e5e86aaa4032d8c46') in 0.0061787 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/north-east/frame_000.png using Guid(e61a7901804878647fca64d68bca185a) (TextureImporter) -> (artifact id: '17a2cbb0ac914c86a242b01e41408a8c') in 0.0062087 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/south/frame_003.png using Guid(e69a3f403757c844b6d1b7c210204f96) (TextureImporter) -> (artifact id: '5f8c2d57f3e5724de0cf9b03a3e22546') in 0.0063459 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/south-west/frame_001.png using Guid(0732ee2e4401b7bd2dd4a585a5594327) (TextureImporter) -> (artifact id: '16227b8c985ae0dea5427ecb842d84bc') in 0.0050003 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_e_walk_00.png using Guid(07cae9912e13e1f4bb317105c5080479) (TextureImporter) -> (artifact id: '250e5c5e239fc193fdb267f579797ec9') in 0.0068271 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/west/frame_005.png using Guid(17c31d94a7c9c0e6572631b15b71587a) (TextureImporter) -> (artifact id: '1696bb28cca86bb5fb7c3b6d93f50999') in 0.0054747 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/standing/east.png using Guid(174eff789634f1ffe1eb377be854f2b3) (TextureImporter) -> (artifact id: '0a84746b95d1f164199f15195ac16723') in 0.0060755 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/east/frame_000.png using Guid(270880e4f023510773eb505c7776ba8a) (TextureImporter) -> (artifact id: '0baa01b0a08f879f174e1c3967aefe3d') in 0.0067111 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/north/frame_004.png using Guid(37d06f8586efe085d7fe78e1f646065b) (TextureImporter) -> (artifact id: 'c24250a2456084938f0b8a5544ebb313') in 0.0059609 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/east/frame_002.png using Guid(37890bc1d7818d636c266f82778516ed) (TextureImporter) -> (artifact id: 'f525b8bb77cfa9be555067fe37445e27') in 0.0050297 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/west/frame_001.png using Guid(47ff1c1cf8be3011f0d8d8c43d644bfe) (TextureImporter) -> (artifact id: '74e193d3b45c767c751b9857ce82ef58') in 0.004718 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/north-east/frame_002.png using Guid(67d57138cbc4910d5002eb4b95178749) (TextureImporter) -> (artifact id: 'bca14c30c60f5e4e9c69f57db0a5d5c4') in 0.0061494 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/south-east/frame_001.png using Guid(7733e6a8918ef78dbf5fd3ca15696d85) (TextureImporter) -> (artifact id: 'f548f5eadf29ea56542753c77911200d') in 0.0048857 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/north/frame_002.png using Guid(77871f0448f876e87b236c0896909c77) (TextureImporter) -> (artifact id: '4c33d5495ed22059ac24d37ac0e206cb') in 0.0065411 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/north-east/frame_004.png using Guid(8704cfb1ed052fa8ce8bc0fe7ef05eb6) (TextureImporter) -> (artifact id: 'e0eba1181f2998526d63fa3de1b6b14b') in 0.0044656 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/east/frame_001.png using Guid(97b978e93a125fabef39fed1850a407c) (TextureImporter) -> (artifact id: '38718b193c8eea77e139fa040efdfa09') in 0.0069536 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_ne_walk_03.png using Guid(b770e8a95f1e9d14e9ff932783505b4e) (TextureImporter) -> (artifact id: '65102d98f959491c9ded9719afb42cb1') in 0.0055347 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/east/frame_005.png using Guid(b786530118ad410d31d47e1bb25ca065) (TextureImporter) -> (artifact id: '524b902787adb59df379a7471857015a') in 0.0047655 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/north/frame_003.png using Guid(c700285a968833aefabdae2ae49281c5) (TextureImporter) -> (artifact id: '3b4fa1ecf414132af26e7e5d89a072ef') in 0.0035756 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/south-east/frame_003.png using Guid(c7c00ccb8423058cd6fc776632869823) (TextureImporter) -> (artifact id: '186158750d276aa160976c51ea27d5eb') in 0.0034783 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_nw_walk_01.png using Guid(c74db865550fea04fbc352ae7f23380a) (TextureImporter) -> (artifact id: 'b7f31e79394ce666ba4e91fb590db73d') in 0.0096225 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/west/frame_004.png using Guid(d7ac587fea5c81057a262992887c3961) (TextureImporter) -> (artifact id: '0ffbec4e652dded518244cc513ee5ab4') in 0.0060199 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/north-east/frame_003.png using Guid(f701f6ed0c4a3bd7e3e2c83d43cc9c53) (TextureImporter) -> (artifact id: '134da73c1f503f397f1b6d0f3f477e26') in 0.0049621 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/west/frame_004.png using Guid(f7d65c19af6e8b448a0b104caab9ad1c) (TextureImporter) -> (artifact id: '1007442f7de183801bdd6b253c28e531') in 0.0041661 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_w_walk_03.png using Guid(f7974d559950a2148957d30256a08f5d) (TextureImporter) -> (artifact id: 'e07e68f95a66c9d9c1b381888f7cff1f') in 0.0059973 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/south/frame_004.png using Guid(0820813ff9b01f44ad21488c5c8529ab) (TextureImporter) -> (artifact id: 'c58e877328f5dd3b13606fd483fd5e65') in 0.0069369 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/north/frame_002.png using Guid(0831741a5a6c4af16e8da6fbbd132f03) (TextureImporter) -> (artifact id: '483e49e427f5f7869960ddc5b019d81a') in 0.0070465 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_s_walk_04.png using Guid(08a63476bc85f9842ad5d4276efe6662) (TextureImporter) -> (artifact id: 'eb84cacb037b5572fcfb74cff57003b0') in 0.0069388 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_n_walk_03.png using Guid(08ab81e5ee19c7b4893abd8b41ab98fb) (TextureImporter) -> (artifact id: 'd17eb8db7bc3e4852bcb06271a0e415b') in 0.0069218 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_se_walk_02.png using Guid(086cefad28c7a8e4c898265e490a1f9c) (TextureImporter) -> (artifact id: '1cdd414a55a71ad188cb1c06b637a381') in 0.0067247 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/north-east/frame_005.png using Guid(18d17498f429bea9b0c90bb03f6fde22) (TextureImporter) -> (artifact id: '140f1537ae3397cc27d6093a51a96b66') in 0.0040772 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_se_walk_02.png using Guid(28060325fd92f48499a5ab0d43af8a02) (TextureImporter) -> (artifact id: 'c4fa30234217b9d562e646fe2c21636a') in 0.0068522 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_sw_walk_05.png using Guid(28a8cc22f550cd44d8630b1454d2461f) (TextureImporter) -> (artifact id: '07608b1cec82f8e7554db98ad474ddde') in 0.0096643 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_melee_s_idle_00.png using Guid(28ab611fd2b083c479ff4fbbea96ca7a) (TextureImporter) -> (artifact id: 'b3f5f551c27039474c22e42beb9af19d') in 0.0084284 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/north/frame_004.png using Guid(38172d193e0363be0faee65153a02786) (TextureImporter) -> (artifact id: '230bad346dce19470e2831372c7dada6') in 0.0074989 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_s_walk_05.png using Guid(38c8b6dac4780a34fbb1c86d38c01c9d) (TextureImporter) -> (artifact id: '3940474056056c18e4b15546262f13d7') in 0.0079826 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_nw_walk_05.png using Guid(38dfbf60c27e4e242b729621564d99b2) (TextureImporter) -> (artifact id: '621cc9751260f308d88440c9af1c013b') in 0.0069571 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/north/frame_001.png using Guid(4837383bf654fd50d07ae7e503479da0) (TextureImporter) -> (artifact id: '4dca9af480b57b4169fbe9c34c691873') in 0.0050105 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/standing/south.png using Guid(585bb1ecedbeb3b82eadf95630534bf4) (TextureImporter) -> (artifact id: 'f3e3e0d39a785d49e4353b84be8083d1') in 0.0058251 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/north-west/frame_002.png using Guid(68a459c105fe60c2cf64600019bcc9d6) (TextureImporter) -> (artifact id: 'e450c445082c57467a02aa9427cdf145') in 0.0048545 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/south/frame_000.png using Guid(68c50d15156b30c35ad462d7c0101a46) (TextureImporter) -> (artifact id: '1e7e82c1a673d8c1e5b5ee02b0cc38bf') in 0.0045877 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/west/frame_000.png using Guid(68a9f5e18b89d98b132a7387ddb82b8f) (TextureImporter) -> (artifact id: '06451d0ac3fe107add4caf1f403aba36') in 0.0097145 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/east/frame_004.png using Guid(786016adfa0de75b32cf0bbb98af6d14) (TextureImporter) -> (artifact id: '67ece08d4c1e70da3e4e79ca92a7f4af') in 0.0053149 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/south-east/frame_004.png using Guid(78bdec294de0aca194ac8277d9f21d10) (TextureImporter) -> (artifact id: '322d8942a5ffd713a899a94932c911fd') in 0.0043778 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/south/frame_002.png using Guid(88323dab49fbb3a60ab21e993a394084) (TextureImporter) -> (artifact id: 'ba58de49dce4bf10f2c4d02dd9af4131') in 0.0063244 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/south-west/frame_004.png using Guid(88ec46f49b7896c1c5ccd96fbac90bcb) (TextureImporter) -> (artifact id: '7ea9fe575921175270a948443d256dba') in 0.0133309 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/north/frame_000.png using Guid(98d8e569f22ca037eb42b8886741128e) (TextureImporter) -> (artifact id: 'b8cb36abb356f028ead23a4d4b114093') in 0.0052459 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/north/frame_002.png using Guid(982aa2a2246c17185c54c6ccd14233c7) (TextureImporter) -> (artifact id: '6f4bf7c2831639b4230ca167f48dee81') in 0.0038806 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/east/frame_000.png using Guid(98cac6ce3816374db7e764acba0a7c71) (TextureImporter) -> (artifact id: 'a2542ab7a049aebb9c30c58c3161ab5e') in 0.0044125 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/west/frame_001.png using Guid(a88c0d3537007ca6094475cade0c7b6b) (TextureImporter) -> (artifact id: '464ac3f7245e6d6013b33e297dba4fc0') in 0.0075364 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/east/frame_002.png using Guid(b88460a8021b798b01097ae0fe9adea4) (TextureImporter) -> (artifact id: '368a429a06f561799d6e43615caa71a2') in 0.0058084 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/south/frame_003.png using Guid(b8159ccaca67c0797b7e8a51ad4ec9d2) (TextureImporter) -> (artifact id: '0bc592ae52f211bbfec7585343b3b035') in 0.008296 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/standing/south-west.png using Guid(c8a6d885fba2b17bae42a92a35a9c008) (TextureImporter) -> (artifact id: '512566bcef2df577c92d6df9312a404e') in 0.0052694 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/north/frame_003.png using Guid(d8c2cf21cabc006295d8de2f667b51c9) (TextureImporter) -> (artifact id: '8e52935e5ebd67f025443ab8270d54ce') in 0.006558 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/south/frame_001.png using Guid(e8d794bf612ddfd95d6c2dfd4ef41c36) (TextureImporter) -> (artifact id: '531dd53f8f89d0980001a8d9c3ce0155') in 0.0040786 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/east/frame_004.png using Guid(e869c0daf33679eb136e820d0943b065) (TextureImporter) -> (artifact id: '912735476b44171b2a564e84df682133') in 0.0070184 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/north/frame_002.png using Guid(e84e67cebcc50964c22b4a7e487248e6) (TextureImporter) -> (artifact id: 'b99ce1bbdf3089c0a022694ec6373378') in 0.003907 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/west/frame_005.png using Guid(f8334a35d4b88ac9b5883c63f9b3b98a) (TextureImporter) -> (artifact id: '157f5b9a6209fe897229adb680b1969c') in 0.006087 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_e_walk_01.png using Guid(f80a3412123f921488f95687d4707416) (TextureImporter) -> (artifact id: '338b5506f57a8cf3c446efd1b1b5a2da') in 0.005822 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/south/frame_000.png using Guid(098223b733d01b7ec5d1b41bd1e74578) (TextureImporter) -> (artifact id: '34673aecfee1136b7e0ba64e2505c0ae') in 0.0099379 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/south/frame_004.png using Guid(1909c4184b7e0b6767f1b22a200532ef) (TextureImporter) -> (artifact id: '2fbc9d5caf2904322a2cab411a6e12c1') in 0.0054149 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/north/frame_005.png using Guid(1959be72df16a3b18b4095dc33236b5a) (TextureImporter) -> (artifact id: '2cc0935edb32a149896f0c94703c8766') in 0.004868 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/standing/north-east.png using Guid(39c6199ed54ff05f30f70e7b8d4eeeb0) (TextureImporter) -> (artifact id: '517a3a4537e779d6624873ff2b5750d7') in 0.0039872 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_sw_walk_01.png using Guid(3997dcbe8de15fe48819cb20f5e6fd21) (TextureImporter) -> (artifact id: 'cb2d057ff936f3fe7189cc4b7e147978') in 0.0066922 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_nw_walk_02.png using Guid(59f03ff89ea16244783799bf5718c9a3) (TextureImporter) -> (artifact id: '4ce49eccad2a18bdd7f5685e040f5464') in 0.0074745 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_n_walk_05.png using Guid(590361ebb4fdf3141a20b70ce88b795c) (TextureImporter) -> (artifact id: '0bab5300eecf53de144d36ebcf271e12') in 0.0067166 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/west/frame_002.png using Guid(591719d78b23b49dda2139810797b11b) (TextureImporter) -> (artifact id: 'e2241d4a9550ceb9dd627ea34bfa7304') in 0.0080316 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/north-east/frame_003.png using Guid(5939fa8c6cb68df5f82db32e24768eae) (TextureImporter) -> (artifact id: '6c8728e1c3f4f1b148b49148a2a99d10') in 0.0042497 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/south-west/frame_003.png using Guid(6963ae42d275d26ecd72d1ab5121febe) (TextureImporter) -> (artifact id: '3a9ef4af66d51217bd55162832450fad') in 0.0093323 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/north-west/frame_004.png using Guid(69273af1265066458a9f0fd4251da60b) (TextureImporter) -> (artifact id: '3ff784ac7c9f95ff4021d7d05b6597e1') in 0.005387 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_se_walk_03.png using Guid(6999875f9a335dd48a74ba6f7590a5e5) (TextureImporter) -> (artifact id: 'cf03b15ec570c0dcf9186408366fa12a') in 0.0077334 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/south/frame_001.png using Guid(79c674b369610d5566e03942dafdced9) (TextureImporter) -> (artifact id: '81df7b8295bd1b9d1f54c8b5fb4e69f1') in 0.0059371 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/north/frame_005.png using Guid(89093ebef17722e8b90a3ecef584cc22) (TextureImporter) -> (artifact id: 'bf1113c3ed9e6bb55f7dce812760ede0') in 0.0051541 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/east/frame_002.png using Guid(892d23d17cfa226d765f35c217a57b23) (TextureImporter) -> (artifact id: '1b63dd7dcc7410ad7fcefadcca07fd11') in 0.0044124 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/south/frame_003.png using Guid(a980cdb978133b1b486ad984fa9cd23f) (TextureImporter) -> (artifact id: '75a85bcf707280df526ab6ccb2d2e4ef') in 0.0061627 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_ranged_se_idle_00.png using Guid(a9feb66b7aa2c514aa2497645352dc5f) (TextureImporter) -> (artifact id: '769986a20c6b92c85a8132a8ff38496f') in 0.0053609 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/west/frame_004.png using Guid(a9cf0468dba39154f15544c5902ee532) (TextureImporter) -> (artifact id: 'fd8cd73873e6e0eb3eaed1d47746a2f3') in 0.0057135 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/south-west/frame_000.png using Guid(b958de8bf58ba812725ec75eb74d4ec1) (TextureImporter) -> (artifact id: '7e1ea6119c2aabcdaa200aeaba3d9b37') in 0.0061277 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/south/frame_003.png using Guid(c953e3b8e899f68382f74b3eef18d29b) (TextureImporter) -> (artifact id: 'dd895071bb7deaccc91b5ee8efcdb654') in 0.0061497 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_ne_walk_00.png using Guid(d9197702d17f42f46940daa1e299150f) (TextureImporter) -> (artifact id: 'ca2b0e3649859252702101edea6febf1') in 0.006598 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/north-west/frame_001.png using Guid(e94e5fbadce58b0e884273b7dca6f14a) (TextureImporter) -> (artifact id: '4aa417d9f6680b575151504417f4bad7') in 0.0060382 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/east/frame_002.png using Guid(e90fe5bbf32dc2a3eeaa1fb0017055d9) (TextureImporter) -> (artifact id: 'c7eacd17ca47bf656d350aa8b18aece4') in 0.0070375 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/west/frame_003.png using Guid(f9cf3354fa3469425fc6bfadd8a71e9a) (TextureImporter) -> (artifact id: 'e5a28f52f089fed6158de934fc83c204') in 0.0071117 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/east/frame_000.png using Guid(0a6827740383f74169ae3252042981dc) (TextureImporter) -> (artifact id: 'fa190c08d665a1af5335c7277845e2f6') in 0.0069812 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_s_walk_03.png using Guid(0a9c0f88662f21a4daf803f9b7825efc) (TextureImporter) -> (artifact id: 'a715f75262bbf63830d8afa9835b95a7') in 0.0058958 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/south-west/frame_004.png using Guid(1aebb9ae1949c42781c76bc63b288875) (TextureImporter) -> (artifact id: '4a47040001cbae2144bbc01bdf1f9268') in 0.0066084 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/west/frame_004.png using Guid(3a13ba2c4f65ebf469f14987cbf886a4) (TextureImporter) -> (artifact id: '434326a22a4cb05846e51b12f44099fd') in 0.0066596 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/west/frame_004.png using Guid(3a69ff0a640213c3644a40ed60250934) (TextureImporter) -> (artifact id: 'cce21d6344eb9479f023fa72dd4da3ad') in 0.0078216 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/south/frame_002.png using Guid(4a2e18a1f62d541a40fe33d60225f8ef) (TextureImporter) -> (artifact id: 'b4c34ee78cdb7b072c5adf000dc07534') in 0.0070391 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_sw_walk_05.png using Guid(4aae0287db4141741908245206d2f4b9) (TextureImporter) -> (artifact id: '6a592e7a9d22e6ecf45dc9dea46d07fb') in 0.0073926 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_melee_se_idle_00.png using Guid(5a287b591b838974d8516e829e33959f) (TextureImporter) -> (artifact id: '9785a58fedef6fd9e42b136ce3f2b562') in 0.0067164 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_w_walk_05.png using Guid(6af394e74f91ddf4ca14d3ed82c2e412) (TextureImporter) -> (artifact id: 'ce735d4611ac767ee9987ebc26e9cc2f') in 0.0069049 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/standing/north.png using Guid(6a3a872f0d72e035565db8a07f641bef) (TextureImporter) -> (artifact id: '3cb15f462fa320445070ebea36424d28') in 0.0053965 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/north/frame_000.png using Guid(6a3bbb844579377da96602a46b5588a7) (TextureImporter) -> (artifact id: '57da8394de79548823098cc07c8f0126') in 0.0089239 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/south-east/frame_003.png using Guid(6a7d7c3549caefe9e90b647377e9f568) (TextureImporter) -> (artifact id: '0064a18fea3076abaed1100fd882ddc0') in 0.0052084 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/standing/west.png using Guid(6a3eff03d228bd5b82d6a1a3b021cb8f) (TextureImporter) -> (artifact id: 'dba277486d3b7ff66be95bf8d0c6a17a') in 0.0050053 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/west/frame_004.png using Guid(7a1a9d29eb53e33c17c9498195bad446) (TextureImporter) -> (artifact id: '32edfa74e3332afe8231fefae594b500') in 0.007278 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/south/frame_001.png using Guid(8afc64595dd27c9bfbb60547e5274a6a) (TextureImporter) -> (artifact id: 'db2dd03af79d61472087049e4b81565d') in 0.008091 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/west/frame_005.png using Guid(9a5d1644e38fcfc51966cfba42c3797c) (TextureImporter) -> (artifact id: '3a094f299d3da22e5efdf3c6ae3ff003') in 0.0070942 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/north/frame_005.png using Guid(aa82202aaf52b9bcd0c5f8c6b3544edc) (TextureImporter) -> (artifact id: '690bda8eeca68b1d5464a71730c7b952') in 0.0053688 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/north-east/frame_000.png using Guid(ba557bb128406f52db5e106746bb4edf) (TextureImporter) -> (artifact id: 'aa5e9425873e0d25e46ab924baa6ceac') in 0.0089066 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/south/frame_004.png using Guid(baa7f76356a02c1b897ba39c980cb9dd) (TextureImporter) -> (artifact id: 'd5921d184652a1adccf2c100f1ba2fb0') in 0.0051849 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/north/frame_004.png using Guid(baf9d97471fc9ea6e727754ca9bf01fe) (TextureImporter) -> (artifact id: '79db9b0dc3f32d783f5a6876c4e1afec') in 0.0046115 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/north-west/frame_003.png using Guid(ca02ea9d2e3a8e1c862177878f5f3c0e) (TextureImporter) -> (artifact id: 'fd8c98c1feb19ad99d5fcc5836201386') in 0.0052739 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/east/frame_000.png using Guid(caa6394d11b396976d4c6dc79df16c6a) (TextureImporter) -> (artifact id: '5f48e7634db657e2ef1f5d3798df816a') in 0.0069764 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/south/frame_005.png using Guid(ca3d04fe73bf4d95f271161b9d6def20) (TextureImporter) -> (artifact id: 'b2769067539c2c2461099e84ce86fadb') in 0.0057856 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/west/frame_003.png using Guid(da81a5d6653b3d7a08b40fd7bdcad4da) (TextureImporter) -> (artifact id: 'ee062d8703ad0803b9bf0c9c235e0ba5') in 0.0043624 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/south-east/frame_005.png using Guid(da83061b2bd9a8b9e889743240d1893d) (TextureImporter) -> (artifact id: 'ee18aacc47ecc0c6c61eae6a5859df8c') in 0.0048074 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_s_walk_02.png using Guid(da78ceb5f2c42cb439c729debee2a3ef) (TextureImporter) -> (artifact id: 'c1c38c6a24afa80652521eaa5ce64727') in 0.0071001 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/west/frame_003.png using Guid(daa82697d89b247fb7fb9cdccb98ac1d) (TextureImporter) -> (artifact id: '5ce001a0647feabb5e603c84dbe560fd') in 0.0079679 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/north/frame_001.png using Guid(da593aa160fcf63e35ae7401b448426c) (TextureImporter) -> (artifact id: '4d2d4cca6e2bce5512d90beb240323c8') in 0.0072512 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/south/frame_001.png using Guid(dadb506027776a559d64cf3aef526436) (TextureImporter) -> (artifact id: '365655799863d31cf6f809d1b78082a5') in 0.0037132 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/east/frame_004.png using Guid(da2dab534367ea648fbbc35eb30fa0a1) (TextureImporter) -> (artifact id: '30ffe6c6f0ac90c375976981ced0487c') in 0.0038767 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/south-west/frame_002.png using Guid(da2e46ac5de09e775d22ca28d2627b99) (TextureImporter) -> (artifact id: '34ad07fbcb66009cbf0d7bcfd49756ae') in 0.0058824 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/west/frame_002.png using Guid(ea318c8b2dff6b8a617acf818405af52) (TextureImporter) -> (artifact id: 'd96431d7e6f2a38f680a42079ec84d7b') in 0.0042895 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/north-east/frame_003.png using Guid(eaa8c94307248feb32a617f6af8f2163) (TextureImporter) -> (artifact id: 'f4dda3fa06edb78f8af7aef2c49b103e') in 0.0064207 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/east/frame_005.png using Guid(ea4aaa9d2ada0820cd94fe760195dbd7) (TextureImporter) -> (artifact id: 'ede35b4586b789544fd2363eafde04f9') in 0.007062 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_melee_e_idle_00.png using Guid(ea5e7b274096c0644926cb40df94c345) (TextureImporter) -> (artifact id: '7a125d2e25997810f6463c033469c4a8') in 0.0039242 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/west/frame_004.png using Guid(eadf7956539eedbcb50b748d4a30f310) (TextureImporter) -> (artifact id: 'd2bc797c31562d04c9e64dcb370ceafb') in 0.0056536 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/south-east/frame_005.png using Guid(fae0f219d5ee8dcae3e910857b98a3e6) (TextureImporter) -> (artifact id: '26c6733d3189bca1d02d0dc28744ff52') in 0.0044801 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/north-west/frame_003.png using Guid(fa632606668e9ef87ac877ab44ba7d55) (TextureImporter) -> (artifact id: 'a6ba1e15ea2f99536c5113b630e86ef0') in 0.004183 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/north/frame_002.png using Guid(fa27da1e6ff9824b1586dad70b13064f) (TextureImporter) -> (artifact id: '5ed43c56cddf3b40de8ff814dfe56ede') in 0.0042477 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/north-east/frame_005.png using Guid(1bd50669af468361f1e16fa940d85d7a) (TextureImporter) -> (artifact id: 'eeda8c9389c82e2be5ba0bbd3fd6a61b') in 0.0054964 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/east/frame_003.png using Guid(1b6c3d3c60769d92b11f3f1fb3585586) (TextureImporter) -> (artifact id: 'f345368f8313ce7600861eb2466dac03') in 0.0046479 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/south/frame_003.png using Guid(1b0ff1660e930c0b34ccdab93264aaf2) (TextureImporter) -> (artifact id: 'c26de52aecc2007a6c5158dd6a22f015') in 0.0068253 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/east/frame_002.png using Guid(2bc3dd707e09a111ede8cd435711fd77) (TextureImporter) -> (artifact id: '0fecc81784da185e276876092450419a') in 0.0041237 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/south-west/frame_005.png using Guid(3b7d4c65fe20ea206b63ee417642c4d4) (TextureImporter) -> (artifact id: 'd77f5974ec354495f48e4a2b454c82a3') in 0.0044313 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/north/frame_002.png using Guid(4be1834258c82b62a4598171a4744683) (TextureImporter) -> (artifact id: 'f3e2234ccb7dd4fe41e2761ecbe92651') in 0.0075895 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_e_walk_04.png using Guid(4b87f17801193be43934f9506e316a01) (TextureImporter) -> (artifact id: '1ff9d0ade31f070cb7f78913fa37fc30') in 0.0068003 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/north-west/frame_001.png using Guid(4b3a24c00d63a4ec864b4c11d8cd10a4) (TextureImporter) -> (artifact id: '1f03a7e9e17f51348d8ded61869330dd') in 0.0035934 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_sw_walk_03.png using Guid(5be17647aba0cb441a3b73146c8cac22) (TextureImporter) -> (artifact id: '9fdc5e1ce52b708454a34a2ee0b6d1b8') in 0.0055168 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_se_walk_03.png using Guid(6b01819ad63744141ac59f7c4e0d4a57) (TextureImporter) -> (artifact id: '68c8215dec1f7907ea96b829aa25af6b') in 0.0055773 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/east/frame_002.png using Guid(6b35729f5df238e5b12c1bea369c29cc) (TextureImporter) -> (artifact id: '0ea8ad244ac5cae8028754f438fe58a6') in 0.0054475 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_n_walk_04.png using Guid(7b3f78f44e5c5474b89caab4d3212909) (TextureImporter) -> (artifact id: '80c848abde1c724b737df2ebbb0ee6c2') in 0.0060384 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/west/frame_003.png using Guid(8b533ac876eafe0564e04832d1159dcd) (TextureImporter) -> (artifact id: '70655d9e33c70e1543039dcc9e99b31c') in 0.0036176 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/south-west/frame_000.png using Guid(8bda8a3d559dc1243f207f0820117b91) (TextureImporter) -> (artifact id: '12b440dcb78fb5609064aa73feede25d') in 0.0039253 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/south-west/frame_004.png using Guid(9b36ead690c6b158da3ecc58249b69c1) (TextureImporter) -> (artifact id: '18f1d81752edda910573748c8851661d') in 0.0043817 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/standing/north.png using Guid(ab70a7a271daef038ba714a75ad3c901) (TextureImporter) -> (artifact id: '3ef1300fc2c0852870807493b2deb007') in 0.0045061 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_ne_walk_05.png using Guid(abc24b5068748854bab8633f16b8979f) (TextureImporter) -> (artifact id: '029dfd8ccace69ef6bd7e23279fa3d1a') in 0.0058828 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_e_walk_03.png using Guid(bbe1faee4aae15846b2bec621089d937) (TextureImporter) -> (artifact id: 'd427527ea0e53c9cc8d8446fe8b731ea') in 0.0055171 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/south/frame_002.png using Guid(bb0f3092dc032c1a4658d2251721ca3b) (TextureImporter) -> (artifact id: 'd6bc1c258f380a0ae5ffb9944af40197') in 0.0043703 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/east/frame_003.png using Guid(cb02cfafb49fe3d83478ecb0521de5a0) (TextureImporter) -> (artifact id: 'c8c0bddbd123bbb23b7cb051d72394b6') in 0.0057218 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/east/frame_005.png using Guid(cb82f9c5354cd6d45c22cc7dfc3779ef) (TextureImporter) -> (artifact id: '643140fd1f3ce980565a782731ebbbbe') in 0.0040936 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/standing/south.png using Guid(cb48b03a35883991ada5940473d1af42) (TextureImporter) -> (artifact id: '2524fa0abf1b2af99cb2bd4b5bf834fa') in 0.0047471 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_ranged_e_idle_00.png using Guid(cbd89030b5fa6064eb0d32cc4a84adb7) (TextureImporter) -> (artifact id: '7109497f58f6b6531dae1e27265d5bb2') in 0.0051663 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_sw_walk_00.png using Guid(dbf16f3630017d74abc68bd3385c10e0) (TextureImporter) -> (artifact id: 'b1153a61e0170659d3f8c9735352032b') in 0.006132 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/north-east/frame_005.png using Guid(db2ddf151a6a43585061a2fec82d1694) (TextureImporter) -> (artifact id: '2eb260b9667d06e7f76e3b608826b99d') in 0.003388 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_sw_walk_01.png using Guid(eb9776bc29a6fdc4fa6e5109e03f52bc) (TextureImporter) -> (artifact id: '58763edb2703538526b887a946d0f2f2') in 0.0055146 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/south-east/frame_000.png using Guid(ebccaa2ecc3664584f1d123a65e000a4) (TextureImporter) -> (artifact id: '84f1091e180d41a75c619f997b20b2c5') in 0.0034838 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_e_walk_00.png using Guid(fb9bd9a74c07f1b43a9ff07b57a39fe5) (TextureImporter) -> (artifact id: 'd42bcdd0eba834dd24618a061055ad33') in 0.0050178 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/south/frame_004.png using Guid(fb5d15fc5481b6d083f8c0a022de423e) (TextureImporter) -> (artifact id: '1d01809a304d46026269ccfe51f7773d') in 0.0054853 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/east/frame_001.png using Guid(0c6887552c141a3498876fcacb316ace) (TextureImporter) -> (artifact id: '5f70b5cb03687bd213b5494980243fa8') in 0.0056443 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/south-east/frame_000.png using Guid(0cbdd597a22cfe2a3a03cf1071168e50) (TextureImporter) -> (artifact id: 'f9a97ad532cbc4f9a5a12405e4985b22') in 0.0036538 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/south-west/frame_001.png using Guid(0cae4657168a5eec1bbd3881c5122ef8) (TextureImporter) -> (artifact id: 'cd640e675017d2011c510a013afdaa07') in 0.0046832 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/north/frame_002.png using Guid(1c2272d93a608693e04f3b094fd144cc) (TextureImporter) -> (artifact id: '428b99156488c6a10d58edab8def6f41') in 0.0050652 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_nw_walk_04.png using Guid(1ca8123d6a29f5e4485d8362113a8365) (TextureImporter) -> (artifact id: 'ecda1f27a067a07268df163db910c785') in 0.0058554 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/north-west/frame_004.png using Guid(2c4038e7066e7124c73dd423954e4254) (TextureImporter) -> (artifact id: 'fb13be9fb75a33375405d95e14c551d1') in 0.0057454 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/west/frame_005.png using Guid(2c9fde5e464f475c6767c5f356b67671) (TextureImporter) -> (artifact id: '1048d11eda53e839585ba6acc0232bbf') in 0.0047822 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/north/frame_004.png using Guid(3c901ffac57c6436c2027daf1f33727d) (TextureImporter) -> (artifact id: '7fdb07f2417f2f47d892756ec4c46bef') in 0.0048512 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/south/frame_001.png using Guid(3cc54bcb32ceb70fdfe3d97b2ed85928) (TextureImporter) -> (artifact id: '75da14fa3de69c44541c58243a085952') in 0.0058311 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/north-west/frame_003.png using Guid(4c816a265c2764978a84af7f4280d01e) (TextureImporter) -> (artifact id: '7eea1eb6addd647b226c39bb409fe226') in 0.003706 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/south/frame_004.png using Guid(4c66f14eccf23e2c1cced70538d32e27) (TextureImporter) -> (artifact id: '46346e6a6bacbbaf4ad6e5c48dfd0b72') in 0.0044515 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/south-east/frame_004.png using Guid(4cda1cda4992a1797c93e5974fa9810c) (TextureImporter) -> (artifact id: '9fc4125e262207fa63e705f00712c784') in 0.0044562 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_n_walk_01.png using Guid(4c0b102347e29234a86a1dab8c5a50b0) (TextureImporter) -> (artifact id: '9d18c0435191eb72ed570922ff48f9de') in 0.0055561 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/north/frame_000.png using Guid(5c6239b09a01ecae426d1622ae9b4750) (TextureImporter) -> (artifact id: '4502f224e713f39fc1a5251918dd3276') in 0.0081224 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/north/frame_001.png using Guid(5c49559a87b50be50a7f345f4c08c036) (TextureImporter) -> (artifact id: '39049382fb3bf298a64a502462cd3500') in 0.0060148 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/east/frame_004.png using Guid(5c4b5c93863ead4e2116cb6d49f60fcb) (TextureImporter) -> (artifact id: '6140313b15efe666431bdacb5c8a5642') in 0.0065962 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/north-east/frame_001.png using Guid(6ca9e5cf5f27bbadfbcf1147d3173470) (TextureImporter) -> (artifact id: '7638a5e5ffa6e216450daeea742a491c') in 0.0040834 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/south/frame_005.png using Guid(6c4dac0978d28f8794494008cdcfab4c) (TextureImporter) -> (artifact id: 'a416602547c49aaa7e1ce9efa0767027') in 0.0035636 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_nw_walk_03.png using Guid(6c2fc517b72c6c74fa88335f33139d71) (TextureImporter) -> (artifact id: '4b0b7ba7625f5745df4ab25c1a204104') in 0.0068902 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_ranged_w_idle_00.png using Guid(7cd289da7e4ed8e4d8e31aab3ca938e8) (TextureImporter) -> (artifact id: '89522763d07cbed838e83de493d3461a') in 0.004613 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/north/frame_001.png using Guid(7ccbdc5a0bb5aee56c09d9c5724bbb76) (TextureImporter) -> (artifact id: 'ca270c27b045133c3a9d908aa9fb109c') in 0.0064049 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/east/frame_001.png using Guid(8c0bcd33f25f8996ef7591c2935217d2) (TextureImporter) -> (artifact id: '2225d95ac50788859a2c0b3ab01521ba') in 0.0054318 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/south-east/frame_001.png using Guid(9c8e3365928b01cb3c0f338326da5fd9) (TextureImporter) -> (artifact id: '1cce33ed4e63ce345838d57684871e48') in 0.005855 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_se_walk_05.png using Guid(9c9e8c98fb6adc448961649c8f75e60c) (TextureImporter) -> (artifact id: '606552405a6f622d53bbc1fc75e7de8b') in 0.0066765 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_sw_walk_03.png using Guid(ac154ec684875ef48af325da77c65e56) (TextureImporter) -> (artifact id: 'dfa789718e46db1a83d15649aa1fa511') in 0.0047782 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_e_walk_04.png using Guid(ac17f28dae647c744aea4aacab9ebb42) (TextureImporter) -> (artifact id: 'b2e57a66c4fe00b06f158a7503059fff') in 0.0052372 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/south/frame_001.png using Guid(bc518d530cc4cc07206c4011ce58287d) (TextureImporter) -> (artifact id: '775457d7e93581e62698459ecb63306e') in 0.0041467 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/south/frame_005.png using Guid(bc239217fcd40e881ab17aac539c8b2f) (TextureImporter) -> (artifact id: '3075b3f2297d845c547de01ee7c3aade') in 0.0034869 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/west/frame_003.png using Guid(bcd4996b3ae50a7ba168cfef1c98d117) (TextureImporter) -> (artifact id: '562904c1e3b30c92a7887235478ff5ad') in 0.0038265 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_sw_walk_04.png using Guid(bc6c21c60d6e35a4780d8d047a11113d) (TextureImporter) -> (artifact id: '88cd8ed6314a8b4173359a8959224c27') in 0.0061099 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/west/frame_000.png using Guid(bcff7eab2ac8e507c43b4639d51f6b83) (TextureImporter) -> (artifact id: 'fb123fdf7d7a25385fb694992b9850af') in 0.0044364 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_s_walk_00.png using Guid(cc409ce5e13654d428fe9390fc093058) (TextureImporter) -> (artifact id: '20c8270bca2a46ba5e68b7c086941015') in 0.0050368 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/standing/south.png using Guid(ccdeaf1aa93b231cae2f8cb0641b1e5b) (TextureImporter) -> (artifact id: '2772d53a71e0329e718e2c7f5bb5369e') in 0.003636 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_ne_walk_05.png using Guid(dc13016712cd0c748ba68b9a6b33a281) (TextureImporter) -> (artifact id: '5c4ae405b5e0e022c7a26045e7369b9d') in 0.0058859 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/north-east/frame_004.png using Guid(fc364f0da5222c406c58baaf215bcb32) (TextureImporter) -> (artifact id: 'c7660002facd0a4fce7d31d7c645c908') in 0.0046601 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_se_walk_04.png using Guid(0db2d93c482a0b042a240b88efd128f8) (TextureImporter) -> (artifact id: '6be258bcb7b1aa7ad39dadf304f9840b') in 0.0061038 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/east/frame_003.png using Guid(0d64c69a559adac245696dd53ef6428a) (TextureImporter) -> (artifact id: 'ce935a1d4dd1245cb692101cd2936a5e') in 0.0049303 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/north/frame_004.png using Guid(0da4efe3719251f96e4f957ff0dc2a5f) (TextureImporter) -> (artifact id: 'd2df03a154c1a72871b189cbb9daea7b') in 0.0052237 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/north-east/frame_001.png using Guid(0d2c18460059dafcbd11b1b3023fa893) (TextureImporter) -> (artifact id: '6050e59ed7370b375e46fe98f39e053d') in 0.0037528 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/west/frame_005.png using Guid(1d41b3d8a54d98c2ccf774330619ea4d) (TextureImporter) -> (artifact id: 'be18359201d96b6de32f39c92f26bae0') in 0.0044437 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/south-east/frame_004.png using Guid(1db8b9a8bd244391e79a1f7a8f7eb68d) (TextureImporter) -> (artifact id: '8157d8cd113c921f9685f74e814e92a7') in 0.0054972 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/south-west/frame_002.png using Guid(1d3ce8a0b13c152912840443fa227152) (TextureImporter) -> (artifact id: '129f608af8a770e07735d4d0eaa42cf7') in 0.004725 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/west/frame_002.png using Guid(3dbb7e5a45ee3dded30f73cc578f2738) (TextureImporter) -> (artifact id: 'e32c3d47f1f776172c8a3e2977f921a9') in 0.006683 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/north-east/frame_002.png using Guid(4dd3b5ab717e5e03a20a59b806308c6b) (TextureImporter) -> (artifact id: '96867234893e84686762530dfa834e54') in 0.0053978 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/east/frame_001.png using Guid(4d6ddaaed73e9eab8dad485791426c7a) (TextureImporter) -> (artifact id: '84a2eab3aefafa214bb058e8f5777d59') in 0.0040102 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_e_walk_01.png using Guid(6d95f379928cdf4458aa28c59094e22e) (TextureImporter) -> (artifact id: '401c3bcacbb91e2374b8fdedd425bb54') in 0.0057134 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_se_walk_00.png using Guid(6db88d6803c957242a20d484087ac773) (TextureImporter) -> (artifact id: 'b83c1b6e2e21e0f7cd31efcc902dca1e') in 0.0081212 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_e_walk_05.png using Guid(6dae8ec0cb97de344974ffc8239825c8) (TextureImporter) -> (artifact id: 'c84aed51f35a7715bc767e73a273212c') in 0.0047653 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_melee_nw_idle_00.png using Guid(7d41860e93767fb45a56edd6d49eba6f) (TextureImporter) -> (artifact id: '15882bcba41358786e5f87a1742a3453') in 0.0058529 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/north-west/frame_005.png using Guid(8dad4cc0bf5a9073910733b49ced1a1f) (TextureImporter) -> (artifact id: '0cf0151c90851ed27fdd25c4b488ac80') in 0.0058391 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/south-west/frame_002.png using Guid(9d104f41d308b2194d7b3b5d44d559e7) (TextureImporter) -> (artifact id: '6e320b37c979b583fdaab336d4362df2') in 0.0056334 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_w_walk_01.png using Guid(9d826f18ed4043c448e95616e87b9683) (TextureImporter) -> (artifact id: 'e4e4e531fd817bb7d9ce5ff3b3516f8c') in 0.0054263 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_n_walk_00.png using Guid(ad616952ce92fca4ebc9c39ded6908ea) (TextureImporter) -> (artifact id: 'b1a9657cfaf78ebf3ee006921b0e7a38') in 0.006621 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/south-west/frame_000.png using Guid(ada4d5453c5aa0379037d2bf3b81eca1) (TextureImporter) -> (artifact id: '10e5077a60c3e80cbb408ff0f4c37cc4') in 0.0046127 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/south-west/frame_005.png using Guid(bd62717608fed0926b58d68ad5646a17) (TextureImporter) -> (artifact id: 'bd9d809e4c967cf8cac9116279091dd4') in 0.0038684 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/west/frame_005.png using Guid(bd75edd953e1b1e9fb73641d6b40322b) (TextureImporter) -> (artifact id: '29e0fd68ee7ae0b9a76ea5cd5e0c32ef') in 0.0040013 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/north-west/frame_002.png using Guid(bd6cdc689cc8da50b7ba06f8a1b4e202) (TextureImporter) -> (artifact id: '9d273b3b42d25036b58f11772c87ae13') in 0.0035569 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_melee_sw_idle_00.png using Guid(cda27dd0fb2184d49b8a166a0458d4ff) (TextureImporter) -> (artifact id: 'baf711879879db46551592a8707225de') in 0.0054227 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/west/frame_000.png using Guid(dde2c9389f06a021031c4e693c6f20b3) (TextureImporter) -> (artifact id: '1fbce643438b2c535c87010a0dac108a') in 0.0039715 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/north/frame_005.png using Guid(ed7c1809715724cdc20135e3e668f23d) (TextureImporter) -> (artifact id: '92c62f9b2c1e8ac590745ea4d718f966') in 0.0053175 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/north/frame_005.png using Guid(fdb46698409cb4e0bd71f5deb4f20ab7) (TextureImporter) -> (artifact id: '5a568e42e36a14a826ded9ae4c87086e') in 0.0053815 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/north-east/frame_002.png using Guid(fdcf7956b45ef23a0354cb3c0794aa22) (TextureImporter) -> (artifact id: 'cbbf16859cd73f0d5691eaf318218c03') in 0.004032 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_ne_walk_02.png using Guid(0e736d1fecf10c945a4868842878134e) (TextureImporter) -> (artifact id: 'ac4e08630c4fc1008b526a86ccb57c42') in 0.0059803 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/west/frame_005.png using Guid(1e715a12d09c89ca196de094f426b0c5) (TextureImporter) -> (artifact id: '67aacf5bcf6afb7bd479f67a593f97f2') in 0.0066913 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/south-east/frame_000.png using Guid(1e7bed0c49f407275f630889e2d2bbb0) (TextureImporter) -> (artifact id: '8f2f41d57581094e9299d49912af9973') in 0.0040286 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/south/frame_000.png using Guid(2e7e3884040ecbeb6353a78b14185e16) (TextureImporter) -> (artifact id: '9546f45ad1a391718d7ec5686410208f') in 0.0066375 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/east/frame_001.png using Guid(3e40021c5ef41539ab7399d3ecc7c74d) (TextureImporter) -> (artifact id: '446166958301488f6350def899aa3472') in 0.0036828 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/north-west/frame_005.png using Guid(3e219e0179f6055db9c1981673cba9f2) (TextureImporter) -> (artifact id: '4ef48d3e3a8e4a646860db7a3b9da23b') in 0.0032533 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_n_walk_03.png using Guid(7e077273db9ae1d41ac7bdacafc5cd18) (TextureImporter) -> (artifact id: 'a1c7da7180ce9c6eab2c7bce6fdcc895') in 0.006051 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/north-west/frame_005.png using Guid(7e0f69a31854169e1e5850e1c7958c13) (TextureImporter) -> (artifact id: 'ff9d5e476415b3962010d0c0d2edc81e') in 0.0042791 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_melee_ne_idle_00.png using Guid(9e05e08a75c2cc04cba7162d7e122cd5) (TextureImporter) -> (artifact id: '1fea326ef6258ee039c87a5c2e7abc04') in 0.0043069 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/north-east/frame_002.png using Guid(aee66244e62ff51ebf6cb869bbb62934) (TextureImporter) -> (artifact id: '3c9068b0b64c23916a87c4d77c716763') in 0.005137 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/north-west/frame_000.png using Guid(ae79a2551b39f38df4e78311d53dfe3b) (TextureImporter) -> (artifact id: '9a5f23b48d34b11d7794f0402cdb4dd2') in 0.0037264 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/west/frame_003.png using Guid(aefb1e58d69235d6bbaec31785164132) (TextureImporter) -> (artifact id: 'acc86beefe94453535ac87f19cf275e0') in 0.0041873 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/standing/east.png using Guid(be45b6d4c1e1d6d61b9148145fc4a275) (TextureImporter) -> (artifact id: '89fcc7eaa6ab46e8f92318b3cf186a48') in 0.0036317 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_ranged_sw_idle_00.png using Guid(beab39f1029e29645b510ff3ebaa8071) (TextureImporter) -> (artifact id: '916e50178e767aab34c7e60ebfe6809c') in 0.0059448 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/east/frame_005.png using Guid(ce537dca91d71212b88d2d51f046ff0b) (TextureImporter) -> (artifact id: 'db16eef97fa47d7d8f5a26632e390f21') in 0.0047303 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/south/frame_002.png using Guid(ce65773fea7b972fb2b2d7cec9bfc64a) (TextureImporter) -> (artifact id: '0cd0727877618a9ed9db81c003776463') in 0.0064068 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/standing/north.png using Guid(ce4882436e37ceebc699c5e8ab07bd4d) (TextureImporter) -> (artifact id: '20d1f7f9cf30d17f032f18a962d0757d') in 0.0037802 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/north-east/frame_004.png using Guid(cea8dc9e23e5985b240afccc9b1a140d) (TextureImporter) -> (artifact id: '7c446dd4bf39f9f94658e4f993d39c39') in 0.0042055 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/north/frame_001.png using Guid(dec4aa06b0292e5225d3e32ee0394c29) (TextureImporter) -> (artifact id: '9858a5e06c8473f4150fdcab0455c1f2') in 0.0060968 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_se_walk_04.png using Guid(de0dc78182a366340a9ecea3d5318019) (TextureImporter) -> (artifact id: 'f9ca7c095ae1fc571f28497d09bf4f84') in 0.0061743 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/east/frame_001.png using Guid(eecb1542390e0e97a12677a8902b3318) (TextureImporter) -> (artifact id: 'c6a12a5abd77e7f5261d17b0697bf830') in 0.0063849 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/standing/west.png using Guid(fed2ce9b0b7909901e63c627f8235558) (TextureImporter) -> (artifact id: '2b7a6a2aade185cca33428d7bfeee12c') in 0.0041829 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/south/frame_004.png using Guid(fe6dd92acc59c495c707e4cafdeb07b2) (TextureImporter) -> (artifact id: 'bb0a3f79b5cee3799c874be787c55ac1') in 0.0046966 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/south/frame_003.png using Guid(0f23aeea1e4744e7cb3249de8bccc536) (TextureImporter) -> (artifact id: '3dad7655fa7d9fdb8e9699f3446aa0c8') in 0.0051086 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/standing/north-east.png using Guid(0f9585b344ce87df8dc58d227995666e) (TextureImporter) -> (artifact id: 'dbc37f28403b230fd8396d5689831372') in 0.0039314 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/west/frame_005.png using Guid(1f15844ac48192cc77a6759f789cf408) (TextureImporter) -> (artifact id: '2d0585db1c7904ab262e186820f18dfb') in 0.0058441 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/north-east/frame_001.png using Guid(1fab594493b3bef8a41cd0a67ddca53f) (TextureImporter) -> (artifact id: '05e736ee3667c9532db2636c389c1747') in 0.0044272 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_sw_walk_02.png using Guid(2f85974a8d7f7b942ba6c0f8e17e6563) (TextureImporter) -> (artifact id: '9c207292f16617f46c115ec6a5dceef6') in 0.0069254 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_s_walk_00.png using Guid(2f2fb9446dbc68a47a1d2000b0931e9d) (TextureImporter) -> (artifact id: 'fd701e575d3556e3f3cf5b94b7c6f716') in 0.0070203 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/standing/north-west.png using Guid(3f348aa2a9f15f6a4c43b9de0122f6e2) (TextureImporter) -> (artifact id: 'fd2e5a614f8a2f695a409b3c61beb21d') in 0.0040939 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/west/frame_000.png using Guid(4fd2c0dfac118cc8400303774debd427) (TextureImporter) -> (artifact id: 'd640a8684cc3c5ea0b8a20ba1ee02cee') in 0.0036222 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/walk/east/frame_003.png using Guid(4fa7395599dfa87873d60ff1b1f34805) (TextureImporter) -> (artifact id: '5d09ad629040a6b1a86f7de3cb312e92') in 0.0055374 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_s_walk_04.png using Guid(5f5c8afeaffb59f499f7066fffcf2441) (TextureImporter) -> (artifact id: '2a011f36866e1ee7dffc3c9fb999c722') in 0.0066724 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/east/frame_005.png using Guid(5ffc0e6d610a53c770f68c70a07ef9b2) (TextureImporter) -> (artifact id: '49193da0659a21c1df8fedfde1d8d7aa') in 0.0069827 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/south-east/frame_002.png using Guid(6f96aef8157709e59e94befafb3c774d) (TextureImporter) -> (artifact id: '91a6bfd72af6d80c12419c8e68bced2a') in 0.0048612 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/west/frame_004.png using Guid(6fa672c59b1befba681726a2e8ed7dfb) (TextureImporter) -> (artifact id: 'f89f54733cec2658a3a88d1521176be4') in 0.0042914 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/east/frame_001.png using Guid(7f64c7a4d4737e80a1f30a7ff0b204c3) (TextureImporter) -> (artifact id: '11dd0fe16061b84af9a9faed587e9a0e') in 0.0064333 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_n_walk_02.png using Guid(7f6ec39d99f31984f90db36df13b2df5) (TextureImporter) -> (artifact id: '8407c958d477c14b88c9c9ace168df3c') in 0.00738 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/north/frame_000.png using Guid(8f56513754d165c53a842e08cafb77e6) (TextureImporter) -> (artifact id: 'cb16e456ecbe0e4c4826edc3c40b618a') in 0.0057986 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_w_walk_04.png using Guid(8f68cfc2d8dd0bd479592138c2c2d2e7) (TextureImporter) -> (artifact id: 'ad3b5126474049a4d2d069beb8442a4b') in 0.0054823 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_ne_walk_04.png using Guid(8f0dd5db48abcec499de014c1d5105db) (TextureImporter) -> (artifact id: '511070781bc13de63eea83bb8d8dc98c') in 0.0054461 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk/south/frame_000.png using Guid(afc6f4e7f67b883b07029d64adbfb6cc) (TextureImporter) -> (artifact id: '6cbd61f5cf79d7502fafd864e02eda49') in 0.0040736 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/south/frame_004.png using Guid(bf21332aedec8bc2bdf449fc1ca1538c) (TextureImporter) -> (artifact id: '35d6b6d32bfb8a1d1c72064366a0b780') in 0.0070323 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/standing/south-east.png using Guid(bfd4d6b54153784cfe1f336f06573ef5) (TextureImporter) -> (artifact id: 'dab3fbd061c99da630ec4dc55ec8ed80') in 0.004766 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/walk/east/frame_003.png using Guid(bf8981609f450feaa798607a0f271ee1) (TextureImporter) -> (artifact id: '3ee8e0c2613f9ccbaf8103aa60f7e86b') in 0.0046063 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/east/frame_002.png using Guid(bfeb63adea4ec5ea230708fceebde858) (TextureImporter) -> (artifact id: 'ca3d59cb8dac460ea50de651a6439366') in 0.0058843 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/standing/west.png using Guid(cfa735ff967d295e30b23cfb334e719a) (TextureImporter) -> (artifact id: '0ef018f1071d79ef7b4e7d8644059223') in 0.0042161 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_n_walk_01.png using Guid(dfe9e48df57f812479bb951374ae147d) (TextureImporter) -> (artifact id: 'd1e1ae5e0ae4879a2f7c47cf82a1bf79') in 0.0060684 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_w_walk_05.png using Guid(df8e55ee2ac3480438bcbab96bcc7c3a) (TextureImporter) -> (artifact id: '92c2f19d6c4e1975061397490d4f6997') in 0.0055692 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/north/frame_005.png using Guid(ff7984ab1e399b9c62eadb536de94164) (TextureImporter) -> (artifact id: '85b6cc87723dfc7658ab2f7810b3750a') in 0.0063127 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/south/frame_001.png using Guid(ff3ed084d9da877b58b01ba834ae97ce) (TextureImporter) -> (artifact id: 'e5a059209205169ac84d91d3f0020e3c') in 0.0060672 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_White_walk_south-west.anim using Guid(30506471e884bf54fa863b663748012e) (NativeFormatImporter) -> (artifact id: '416893c1fa06a7113513fab00f5f0605') in 0.0046589 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_idle_south.anim using Guid(3092ef60e861f9547880b6ecce7f2692) (NativeFormatImporter) -> (artifact id: '951963b3c3b8ef03f9b8ff90ac3d1c1d') in 0.0033057 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_White_walk_north-east.anim using Guid(8082b591b68e5ef4a89905d20d9d0c4c) (NativeFormatImporter) -> (artifact id: 'db9e15e65cfaef57e48d7f340cae395d') in 0.0025717 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_Black_walk_south.anim using Guid(f0ec46e2d5b59ff40a7dcdca73eee7cc) (NativeFormatImporter) -> (artifact id: '5044b070708e69ae5d52da13bbd19a95') in 0.0024018 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_White_idle_north.anim using Guid(216d2ed55c73b3d44be8c802857d0ad4) (NativeFormatImporter) -> (artifact id: '5cd16e3085ff5e0eaad53bfb631ca7e5') in 0.0055708 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_walk_east.anim using Guid(61db5196130371e4781e5d1e72c88d25) (NativeFormatImporter) -> (artifact id: '2947ad6e7237913d10bdbebee53be338') in 0.0029091 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_White_walk_east.anim using Guid(5256882748978af49933c0816bea7bbf) (NativeFormatImporter) -> (artifact id: '957a223d9336b7f2b5a66c21e9194516') in 0.0030703 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_Black_walk_north-west.anim using Guid(72332a3000f552f4f91ad3412153d01c) (NativeFormatImporter) -> (artifact id: '43b45ab0e2eefb2832131109fefa5ba2') in 0.0052824 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_Black_walk_south-west.anim using Guid(72ae457a93eb234459c3362196a53f69) (NativeFormatImporter) -> (artifact id: 'e2b7624449087424a50998e096900d69') in 0.0051903 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_Black_idle_south-west.anim using Guid(c25f1674d3647dc48af767d514f21035) (NativeFormatImporter) -> (artifact id: '8c31fffbeeb715a2379eb575fc551859') in 0.0036233 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_Black_walk_north.anim using Guid(631dafa328e2a9c4dbfc13279528c926) (NativeFormatImporter) -> (artifact id: 'b52a5ea30737a5c3766ea360b7422567') in 0.0039396 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_walk_south.anim using Guid(7332b1018697aa74287f7f5d99b1ec72) (NativeFormatImporter) -> (artifact id: '7004abecbcb1adcf2602334f79a98a63') in 0.0035331 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_White_idle_east.anim using Guid(9349e3fc966a2e14ab81806b744a95ec) (NativeFormatImporter) -> (artifact id: 'c3b8db6dfd9cb8d1ce2ab3ea78fc09ac') in 0.0040454 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_Black_idle_north-west.anim using Guid(f361f02204528d1409ed0bb8ba3a11cf) (NativeFormatImporter) -> (artifact id: 'abb48686b9f877bfbb83f4eda8530846') in 0.0026272 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_Black_walk_north-east.anim using Guid(1431d10fec45c5641a6381d12aa09fd5) (NativeFormatImporter) -> (artifact id: '3b6e72cbf7525107fe5d9b98640ca409') in 0.0033652 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_Black_walk_south-west.anim using Guid(14b171285160a5e4f8a497ce88dac2e5) (NativeFormatImporter) -> (artifact id: '601bcc6a24053d7b04a8dd23d004a9f2') in 0.0031922 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_Black_idle_east.anim using Guid(3490ebaa585fab94abcb613e7bf186a4) (NativeFormatImporter) -> (artifact id: '97a7dc996018e50b3e51df93b5bf632e') in 0.002878 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_walk_south-west.anim using Guid(645856c61cfe67d40b6ab50d500d23f9) (NativeFormatImporter) -> (artifact id: '4c36d9cfe6e06ce4d7660089b15829bf') in 0.0034545 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_walk_north.anim using Guid(c4a2b9a6869d50e459270e0909f84043) (NativeFormatImporter) -> (artifact id: '742423da177f92bf0926e159c5deb9f1') in 0.0029181 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_Black_idle_west.anim using Guid(c45b838879a92644c8ea0eca25129aaf) (NativeFormatImporter) -> (artifact id: 'b1d572fd35f022f91a43b4e2c3834993') in 0.00271 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_idle_east.anim using Guid(d49446a38b9d490438130b9cb55ff50b) (NativeFormatImporter) -> (artifact id: '71826eb367cd9d73e8ad397f5f6f405e') in 0.0035111 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_White_idle_north-east.anim using Guid(e42d5fa15071bc84c9a2bc0955fc584b) (NativeFormatImporter) -> (artifact id: '260b9de38186044d25f0dc0c9dceb3d8') in 0.0030903 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_White_walk_south-east.anim using Guid(f54a6762bb01e2b4694a7bdbb61dd759) (NativeFormatImporter) -> (artifact id: '903f11dd86bc821b78a0c5b99617a62e') in 0.0027655 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_idle_south-west.anim using Guid(2638b01ee92e4664a91f95d645a33b8d) (NativeFormatImporter) -> (artifact id: '750c63641a32aa0d93a3bf816e70e258') in 0.0031873 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_idle_south.anim using Guid(362f17f4e032f2140918b3e61403f82e) (NativeFormatImporter) -> (artifact id: '4abcce52734272b74106ce138debd0d8') in 0.0031743 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_Black_walk_south-east.anim using Guid(468e8b10a6a848c4f9dfa20eb126eb05) (NativeFormatImporter) -> (artifact id: '28794b7035dc13f1a49c5afc91609044') in 0.0026047 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_Black_idle_north.anim using Guid(56390b93606113148b6b0b6f3bc4580a) (NativeFormatImporter) -> (artifact id: '914acbf67202678f40c4b1c0bdb926fe') in 0.0035312 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_White_idle_north-west.anim using Guid(7652da59edab6324ea7b4b4a155a0f23) (NativeFormatImporter) -> (artifact id: 'e075ab36e0f071604e0e7c21fb613fdd') in 0.003586 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_Black_walk_north.anim using Guid(764f615fcec13bd438625b0e2b4d8fed) (NativeFormatImporter) -> (artifact id: 'c0fa6e6f6b7ea51c174d294e3b4c70ca') in 0.0034143 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_White_idle_north-east.anim using Guid(b6d115ade9e83434da82a9731846674f) (NativeFormatImporter) -> (artifact id: '67f2aefddbac610a89591c03946a134e') in 0.0039001 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_White_idle_south.anim using Guid(e6940e8055c98c64588eead07458811b) (NativeFormatImporter) -> (artifact id: '800a77b550b24085b5c3d00cc0770085') in 0.0028416 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_White_walk_west.anim using Guid(f619379b3c32ae44bb2ec1b657a31f99) (NativeFormatImporter) -> (artifact id: 'a6608a4e7b9e09e919acd904cf9c2961') in 0.0026073 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_walk_south-east.anim using Guid(07d3783d9afbeac44a757e07dbcab145) (NativeFormatImporter) -> (artifact id: '0c0dbb1ac3d6e9e252380e8b925da189') in 0.0023424 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_idle_west.anim using Guid(37a693f1465c6f54b8955bd46b50974a) (NativeFormatImporter) -> (artifact id: '23d809b9cf4b7985a8cb8a9eb146b7ad') in 0.002537 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_walk_north-west.anim using Guid(77b1c2bb675820040a9fa66a27a6d8dc) (NativeFormatImporter) -> (artifact id: '33873d3b27864dce030f6819d586f8e8') in 0.0033355 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_walk_north-east.anim using Guid(a736572cbeac9f34b89ed2f9484df1ad) (NativeFormatImporter) -> (artifact id: '953494d39cc59dd8b5a6c9450d5ae5b9') in 0.0029666 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_White_walk_north.anim using Guid(0885cfca7928f8c48b184792d5156e07) (NativeFormatImporter) -> (artifact id: '524c98f8364d3e688903ea7f2868d0d2') in 0.0027128 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_Black_walk_west.anim using Guid(48dfce476ebe0834c9251f773ef241fb) (NativeFormatImporter) -> (artifact id: '52d616d98a6537524771852c8677e5ac') in 0.0024095 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_Black_walk_east.anim using Guid(68483bd57b0276240a8d985f9286a2c7) (NativeFormatImporter) -> (artifact id: 'e1dc2d1f194f83d6b2bc4f714f8d2f14') in 0.0027139 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_Black_idle_north.anim using Guid(683bbd32ba5874a4f9b06b392297e801) (NativeFormatImporter) -> (artifact id: 'fa0b205879f73efbbabae09f4160269d') in 0.0027782 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_Black_idle_west.anim using Guid(78cf5e541bb26c54e80172835e0b0f72) (NativeFormatImporter) -> (artifact id: '075f52f6ac19629829b7ddeb074c24cd') in 0.0038267 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_Black_walk_west.anim using Guid(9848f7bbcb30c0f45a5809ebcaef580a) (NativeFormatImporter) -> (artifact id: '0e61ff51aa64c9000d1a095e6ff466ff') in 0.003147 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_idle_north-west.anim using Guid(c813f5355fe46c242905baef8ad25d27) (NativeFormatImporter) -> (artifact id: '117aeb26e5f23fcbd585000c0b27690d') in 0.0022877 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_Black_idle_north-west.anim using Guid(d8d7214b5b33c7d45b473512f6a6b552) (NativeFormatImporter) -> (artifact id: '449ecb2195f8d69d263e38a062d578fb') in 0.0031301 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_idle_north.anim using Guid(d87c72a12ecbe9348aff309321f4b9ee) (NativeFormatImporter) -> (artifact id: '21250fd8845801d3d11592936871d9ed') in 0.0038277 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_idle_west.anim using Guid(39938f6f3a7a4ea40a4a39d82164bfa3) (NativeFormatImporter) -> (artifact id: '90150b4b0fecd3d82ce810f7e7945bdc') in 0.0035321 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_Black_walk_east.anim using Guid(696c85db90968bf4da1bd53e32e01832) (NativeFormatImporter) -> (artifact id: 'be203a1e607458bc8517dd49980d2b0a') in 0.0031527 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_White_idle_west.anim using Guid(898376da8b2862d40abdf3312a9d0b7d) (NativeFormatImporter) -> (artifact id: 'aaf9d73ae16dc2d6c11a3b126263651b') in 0.0032076 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_White_idle_south-west.anim using Guid(b90d4c633bbf42942b6a77f242096ff0) (NativeFormatImporter) -> (artifact id: '5ff8966cc00a9aeeddc69984b9de0cd1') in 0.0033169 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_Black_idle_east.anim using Guid(c9c0dcf08d9389145948d37bd041600e) (NativeFormatImporter) -> (artifact id: '1296b680487242fe0fa737a2e700532f') in 0.0038434 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_walk_north-east.anim using Guid(d9a7785ba6ca6a7458acaa2bf57fe94e) (NativeFormatImporter) -> (artifact id: 'b088b887f048a1883f85cef4527f6252') in 0.003576 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_idle_south-west.anim using Guid(d92c6f4502e1b8b4b9a1a8d3a2394bcf) (NativeFormatImporter) -> (artifact id: 'd33287eb244f811625bd2eab7a7a2f98') in 0.0026016 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_White_walk_south.anim using Guid(f905ead907e56374db43be94602d741f) (NativeFormatImporter) -> (artifact id: '356c465ec63b4327b554bb755e6e7500') in 0.002476 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_White_idle_south.anim using Guid(0ac68c20cc00783419e1458e5ce7f6fc) (NativeFormatImporter) -> (artifact id: '074dbf497d95ea83d6cb1b40d4c13b7a') in 0.0062788 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_walk_north.anim using Guid(1a94ef37500ac4449853fb19086a606e) (NativeFormatImporter) -> (artifact id: '3834f627ca5b7a5dd2da6a11933d8bc2') in 0.002956 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_White_walk_north-west.anim using Guid(1afdb32c71b21e843a556eec21a17728) (NativeFormatImporter) -> (artifact id: '2d6903c6f3c975f6c270cbba018e0ad2') in 0.003617 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_Black_walk_north-east.anim using Guid(2a7e815becc7a98438a2be5a2def5b1f) (NativeFormatImporter) -> (artifact id: '0be081764047e74d813351406058b07a') in 0.0037934 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_Black_walk_south.anim using Guid(4a7ea61968d7a3f4e8b596ddf55152b0) (NativeFormatImporter) -> (artifact id: '0fcb1a593f05d4076766302f8bf67514') in 0.0038977 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_walk_west.anim using Guid(eac6f1aa722d155429cf53ad1cd218d3) (NativeFormatImporter) -> (artifact id: '5f9cfe070d4a05eb4e803fc42560a946') in 0.0038349 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_White_idle_south-west.anim using Guid(fa2edab4ad57a644397eccafb9507c05) (NativeFormatImporter) -> (artifact id: '3d61fed19063daa6938b8a1ca8c8c341') in 0.0135143 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_idle_north-east.anim using Guid(0b73de9e5c6ec984a9b14208796555a1) (NativeFormatImporter) -> (artifact id: 'db25fd9f795b034ecee112855ff4ccf0') in 0.0031816 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_White_walk_south-east.anim using Guid(0b68bfc7a44c82e4b848f1456189e6aa) (NativeFormatImporter) -> (artifact id: 'f8e469078e49f010a433117801956da2') in 0.002826 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_walk_north-west.anim using Guid(8b4469de01614934ea567fd996e787d8) (NativeFormatImporter) -> (artifact id: '43decd6ac31cc8e5130dc7b6e06ef2ac') in 0.0034233 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_White_idle_south-east.anim using Guid(bbda5a9de6368bb45a82e03ca9d6d1db) (NativeFormatImporter) -> (artifact id: '73370712b4cfda53df102c16131b1465') in 0.0043927 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_White_idle_east.anim using Guid(fb77f2f728e731e4eaa594b8adc9e1a5) (NativeFormatImporter) -> (artifact id: 'd9598c9a03ca825543a3e407c1c57e3e') in 0.0032412 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_walk_west.anim using Guid(2cf1af3c7ee823b49a1d39889919db87) (NativeFormatImporter) -> (artifact id: 'd0c5d560b4864ccab25580c15d97a077') in 0.0034953 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_idle_south-east.anim using Guid(2cb3461c344838d419c9f807e6e5642d) (NativeFormatImporter) -> (artifact id: '0c71e02c327a65b876c4cd8f6824c583') in 0.0032818 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_White_walk_west.anim using Guid(2c593440929c9da4690ea44feb838fa5) (NativeFormatImporter) -> (artifact id: '69593802e791b57f7c578815263a649c') in 0.0025742 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_walk_south-east.anim using Guid(3c8b8ca1cc0af724494c7d7ab49a8217) (NativeFormatImporter) -> (artifact id: '6ccd393d95a3689d08fa247c900f7330') in 0.002261 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_idle_north-east.anim using Guid(4c5c2e90821144d4891384190d8da234) (NativeFormatImporter) -> (artifact id: '3bee76649f8962f23f7d981185cac521') in 0.004285 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_White_idle_north-west.anim using Guid(6c175dc876e9f6c4ca6b4fbdc4e17bb4) (NativeFormatImporter) -> (artifact id: 'df1064b8e38022796b829c74f4261505') in 0.0039701 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_White_walk_south.anim using Guid(fc7c6813f2493914695d19e37ce4b9f8) (NativeFormatImporter) -> (artifact id: '51bb4853241fdff31b2139d3b9213579') in 0.0030014 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_Black_idle_south-east.anim using Guid(0dd27da7f0277cd4a8bd40abecd08b59) (NativeFormatImporter) -> (artifact id: 'aac8861a3adf965fdf3e3d23253aa6af') in 0.0024343 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_Black_idle_south-east.anim using Guid(0d5325e7f66e52449aaf29755541897e) (NativeFormatImporter) -> (artifact id: '3dfe93c1a38f6d2429ed1fdf25f1cc77') in 0.0030348 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_walk_east.anim using Guid(0d0bb295acff87d4c9d9130cb3230d13) (NativeFormatImporter) -> (artifact id: '2a4070032c7f8b9473e13cad48eb0aa6') in 0.0030971 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_walk_south-west.anim using Guid(1d3945de3c7b8764abae1f202882c7f8) (NativeFormatImporter) -> (artifact id: '1b06af0757a06b0b513066348da6ed66') in 0.002958 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_idle_north-west.anim using Guid(1d99b523b60ca8b45acf91df42dceba3) (NativeFormatImporter) -> (artifact id: '8aa2acb5d695f7f1c6513b72b03bfa70') in 0.0024153 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_idle_east.anim using Guid(5dea4d670846a6c4a8581907314436e6) (NativeFormatImporter) -> (artifact id: '7fdaaa4b8077b5ad86fc460c254801d3') in 0.0023728 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_Black_idle_south.anim using Guid(8d71b76561a4c8344b95246b8bc3a810) (NativeFormatImporter) -> (artifact id: '8468172af8fc49327c86300726afd40c') in 0.0037328 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_Black_walk_south-east.anim using Guid(ed25b7f324d907c43bae3068122da65f) (NativeFormatImporter) -> (artifact id: 'f292f35364512579c4746dae13596512') in 0.0031982 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_White_walk_north-east.anim using Guid(edec638159a30d14d89e481308982594) (NativeFormatImporter) -> (artifact id: 'd7e16c86bb3555c5a55c90aa2760e3b1') in 0.0031383 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_Black_idle_north-east.anim using Guid(6e96856c748dc8749a34e5d581109c72) (NativeFormatImporter) -> (artifact id: '013a209a22e9835ec05f58dfc32d5415') in 0.002647 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_White_idle_west.anim using Guid(8e6f13d0786b5f348a17c782398048f1) (NativeFormatImporter) -> (artifact id: '088b346637fecee29e65fcbdbe1dc052') in 0.0031554 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_White_walk_north-west.anim using Guid(9e420108d6d789c42829311a3496c981) (NativeFormatImporter) -> (artifact id: '30ec0a83067c3b68e61836bbb613432c') in 0.0038384 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_White_walk_south-west.anim using Guid(ce4f2cf7f6f25e9418c755199a0badd5) (NativeFormatImporter) -> (artifact id: 'eaa8d369b3827567771c53fd000dbd81') in 0.0038828 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_Black_idle_north-east.anim using Guid(ee4ee09f1862ff143b0c7acc9bc465fb) (NativeFormatImporter) -> (artifact id: 'a29de9204de742fa9b0e706225e5750a') in 0.0038883 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_idle_south-east.anim using Guid(1f6368795d8e7a94e89c7feaad3652c5) (NativeFormatImporter) -> (artifact id: '809f5892d2a4b9575205cc0be6a76c7c') in 0.0030459 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_White_walk_east.anim using Guid(1f3d82e87f8c22d4094052bb1a9997ca) (NativeFormatImporter) -> (artifact id: '39fe369133c49f48b3802bcd66b22948') in 0.0033146 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_Black_idle_south.anim using Guid(2f791514911e0e84bae351af8dc1dd24) (NativeFormatImporter) -> (artifact id: '70157be1749e123dfe5368f8ceb513ad') in 0.0036498 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_idle_north.anim using Guid(6f3131a94ada68f468fce39fcf4a4a45) (NativeFormatImporter) -> (artifact id: 'eb653a43d74e4170a00ede9c44c70b3d') in 0.0026258 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_White_idle_south-east.anim using Guid(7f5e5cd45c65ffc4faa8d0f76ea96f2b) (NativeFormatImporter) -> (artifact id: '728369d3db9737e80498b7f1f93fb7a5') in 0.0043254 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_White_idle_north.anim using Guid(8f679078579149b48a2128104bb7663f) (NativeFormatImporter) -> (artifact id: '4c49f3c99c176d012c8b44b419c9cd27') in 0.0038895 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_Black_idle_south-west.anim using Guid(bf261637b1d7d8d4ab5e51947309c429) (NativeFormatImporter) -> (artifact id: 'c5a3acbbd6e027cb775102fa1fd90e1b') in 0.0026745 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_walk_south.anim using Guid(dfb0714d2c37d0e46b93c69d85c6c7cd) (NativeFormatImporter) -> (artifact id: '148ee5df0feb7782f8e9dd5a76a186d1') in 0.0026473 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_White_walk_north.anim using Guid(efae5caf1424ae34491d1750174eb78d) (NativeFormatImporter) -> (artifact id: 'ec149df267a17e5fccddb3f414b434b9') in 0.0033965 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_Black_walk_north-west.anim using Guid(ffa34882f71fcbf4b8faf50c3d8281e4) (NativeFormatImporter) -> (artifact id: 'fea57c4336216f0a423a38de4eb8a7df') in 0.0040602 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraithAnimator.controller using Guid(0180b5ae94034f64d8f4afb61bd8e6f2) (NativeFormatImporter) -> (artifact id: '84ab39d1bdfcca2e959592ddd23e9d2c') in 0.004448 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/WizardAnimator.controller using Guid(f3086ed4e66bdda44ae036148ba6f2e5) (NativeFormatImporter) -> (artifact id: '0480e5ea1bc2a59887133efe547ae539') in 0.0043714 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemyAnimator.controller using Guid(c63b4880dbeec4d46b0a88ad77276fe0) (NativeFormatImporter) -> (artifact id: '5b7cf5fdb4b1b1c3e45215800a7c7e04') in 0.0038502 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/source-inventory.json using Guid(2802ff8218a454240a9ccb6488910a29) (TextScriptImporter) -> (artifact id: '3691d94d5dd3f339a6bc9383d9beac7d') in 0.0031217 seconds
+Refreshing native plugins compatible for Editor in 3.40 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=abc56d5f2cb880f4bb9fff102eb218ae): Total: 17.618 seconds - Initiated by InitialRefreshV2(ForceSynchronousImport)
+	Summary:
+		Imports: total=583 (actual=583, local cache=0, cache server=0)
+		Asset DB Process Time: managed=158 ms, native=9625 ms
+		Asset DB Callback time: managed=542 ms, native=28 ms
+		Scripting: domain reloads=1, domain reload time=1332 ms, compile time=5823 ms, other=107 ms
+		Project Asset Count: scripts=1053, non-scripts=1886
+		Asset File Changes: new=276, changed=586, moved=0, deleted=1
+		Scan Filter Count: 0
+	InvokeCustomDependenciesCallbacks: 0.001ms
+	InvokePackagesCallback: 2.762ms
+	ApplyChangesToAssetFolders: 0.725ms
+	Scan: 456.287ms
+	OnSourceAssetsModified: 2.258ms
+	CategorizeAssetsWithTransientArtifact: 78.621ms
+	ProcessAssetsWithTransientArtifactChanges: 69.507ms
+	UnregisterDeletedAssets: 0.002ms
+	CategorizeAssets: 34.737ms
+	ImportOutOfDateAssets: 8887.363ms (-66.497ms without children)
+		ImportManagerImport: 3129.405ms (39.336ms without children)
+			ImportInProcess: 3087.134ms
+			UpdateCategorizedAssets: 2.935ms
+		CompileScripts: 5822.542ms
+		ReloadNativeAssets: 0.001ms
+		UnloadImportedAssets: 0.547ms
+		ReloadImportedAssets: 0.065ms
+		EnsureUptoDateAssetsAreRegisteredWithGuidPM: 0.697ms
+		InitializingProgressBar: 0.009ms
+		PostProcessAllAssetNotificationsAddChangedAssets: 0.001ms
+		OnDemandSchedulerStart: 0.594ms
+	PostProcessAllAssets: 561.674ms
+	Hotreload: 7.493ms
+	GatherAllCurrentPrimaryArtifactRevisions: 0.001ms
+	UnloadStreamsBegin: 0.550ms
+	PersistCurrentRevisions: 2.301ms
+	UnloadStreamsEnd: 0.002ms
+	GenerateScriptTypeHashes: 2.278ms
+	Untracked: 7513.459ms
+
+Application.AssetDatabase Initial Refresh End
+Scanning for USB devices : 46.505ms
+Initializing Unity extensions:
+[Licensing::Client] Successfully resolved entitlement details
+[MODES] ModeService[none].Initialize
+[MODES] ModeService[none].LoadModes
+[MODES] Loading mode Default (0) for mode-current-id-NoSafeCircle
+Unloading 3 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 5042 unused Assets / (0.8 MB). Loaded Objects now: 5544.
+Memory consumption went from 145.0 MB to 144.1 MB.
+Total: 15.746000 ms (FindLiveObjects: 0.709600 ms CreateObjectMapping: 0.510600 ms MarkObjects: 12.167600 ms  DeleteObjects: 2.355500 ms)
+
+Invalid layer id. Please use the unique id of the layer (which is not the same as its index in the list).
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.Renderer:set_sortingLayerID (int)
+NscDiag.SortingLayerProbe:Run () (at Assets/Editor/SortingLayerProbe.cs:37)
+
+[Assets/Editor/SortingLayerProbe.cs line 37]
+
+SORTING LAYER PROBE
+defined sorting layers: Default(id 0)
+as created            : name='Default' id=0
+after name='WorldSprites' : name='Default' id=0
+after name='NotARealLayer': name='Default' id=0
+after id=12345            : name='Default' id=0
+
+RESULT: a renderer CANNOT be moved off Default - the sorting check cannot fail, and the negative test is not writable.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+NscDiag.SortingLayerProbe:Run () (at Assets/Editor/SortingLayerProbe.cs:52)
+
+(Filename: Assets/Editor/SortingLayerProbe.cs Line: 52)
+
+Batchmode quit successfully invoked - shutting down!
+Curl error 42: Callback aborted
+[Physics::Module] Cleanup current backned.
+[Physics::Module] Id: 0xf2b8ea05
+Input System module state changed to: ShutdownInProgress.
+Input System polling thread exited.
+Input System module state changed to: Shutdown.
+[Licensing::IpcConnector] LicenseClient-VincentLiguori-notifications channel disconnected successfully.
+[Licensing::IpcConnector] LicenseClient-VincentLiguori channel disconnected successfully.
+AcceleratorClientConnectionCallback - disconnected - :0
+Cleanup mono
+Exiting batchmode successfully now!
+Exiting without the bug reporter. Application will terminate with return code 0

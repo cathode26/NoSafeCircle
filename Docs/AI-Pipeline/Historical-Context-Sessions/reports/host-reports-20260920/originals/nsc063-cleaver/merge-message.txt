@@ -1,0 +1,10 @@
+Merge NSC-063/NSC-093 melee north-east single-cleaver correction
+
+Fixes the duplicate cleaver on the melee enemy facing north-east.
+- NSC-063: the north-east idle takes the PixelLab inpaint candidate Vincent approved.
+- NSC-093: the six north-east walk frames are regenerated with PixelLab animate_character v3, starting from that approved idle (animation 96bfd2b5-e7e5-4ebc-9329-05cd18e738fa, 2 generations).
+- Asset paths and .meta GUIDs are unchanged. inventory.json and the generation docs record the new hashes and provenance.
+
+Vincent approved the idle and the walk frames on 2026-09-16.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

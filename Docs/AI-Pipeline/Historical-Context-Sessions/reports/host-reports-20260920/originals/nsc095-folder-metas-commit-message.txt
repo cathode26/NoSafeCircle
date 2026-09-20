@@ -1,0 +1,7 @@
+NSC-095: Unity's folder metas for the PixelLab128 wizard art
+
+Unity 6000.1.8f1 minted these 50 folder metas when it imported the new art in C:\nscrev\branch-verify. Committing them keeps the next import from producing untracked files that a clean-tree gate would refuse.
+
+Same import also confirms AC-002: Unity rewrote none of the 224 deterministic PNG metas from the previous commit, so the pipeline's default TextureImporter template is byte-identical to what Unity writes here, and none of the PNGs import as the point-light cubemap the GUID-only stub produced (P34).
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

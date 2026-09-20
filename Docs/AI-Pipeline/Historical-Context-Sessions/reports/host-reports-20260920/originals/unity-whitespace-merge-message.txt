@@ -1,0 +1,28 @@
+Merge fix/unity-whitespace-churn-policy: make the Unity clean-tree runner work again
+
+run_unity_tests_clean.ps1 has been failing every Unity validation run with exit
+40, "Post-run Git checks could not complete", which reads like a dirty-tree
+refusal and was diagnosed as whitespace churn all day. It was not. P18
+(576807669) added an absolute `Pipeline.` import at module scope in
+safe_unity_churn.py, and the wrapper invokes that script by path, so Python put
+the script's own folder on sys.path and never the repository root. The import
+could not resolve, the policy crashed before it ran, and the wrapper reported the
+traceback as a repository-check failure.
+
+This adds the sys.path bootstrap so the script runs by path as well as by module,
+and widens the churn policy to accept trailing-whitespace-only churn in
+Unity-serialized files under Assets/, ProjectSettings/ and Packages/, proved per
+file with --ignore-space-at-eol.
+
+Verified before merging by the Game Agent at the branch tip: safe_unity_churn
+smoke tests 14/14, refresh_identical_churn smoke tests 12/12, both on Windows.
+The suite now includes test_the_script_runs_when_it_is_invoked_by_path, the
+regression for this defect. The Pipeline Maintainer reported that its first
+version of that test passed against the broken code because the child process
+inherited PYTHONPATH, which the PowerShell wrapper does not have; the test now
+strips it, and removing the bootstrap makes the suite fail as it should.
+
+Every author and committer on the branch is .invalid. Two files, additions only
+to the policy's behaviour: anything previously refused is still refused.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

@@ -1,0 +1,2834 @@
+{
+  "schema_version": "assistant-graph-controller/v1",
+  "status": "awaiting_human",
+  "source": "C:\\NSC\\NSCDemoGauntlet-20260916",
+  "source_commit": "717d175c4b63d5677a3cf27fa65c7b5a57685816",
+  "target_branch": "demo/gauntlet-20260916",
+  "targets": [
+    "NSC-200",
+    "NSC-201",
+    "NSC-1101",
+    "NSC-1103",
+    "NSC-1104",
+    "NSC-1105",
+    "NSC-1107",
+    "NSC-1108",
+    "NSC-1110"
+  ],
+  "in_scope": [
+    "NSC-200",
+    "NSC-201",
+    "NSC-1101",
+    "NSC-1103",
+    "NSC-1104",
+    "NSC-1105",
+    "NSC-1107",
+    "NSC-1108",
+    "NSC-1110"
+  ],
+  "next_actions": [],
+  "held": [],
+  "complete": [
+    "NSC-1101"
+  ],
+  "waiting_human": [
+    {
+      "task_id": "NSC-200",
+      "candidate_commit": "a751a188556f58c9dbe2ebc21e3f6338a731d6db",
+      "checkout": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\NSC-200"
+    },
+    {
+      "task_id": "NSC-1103",
+      "candidate_commit": "7cc06f5a8df43202d4c284e81148593b1fa9e21a",
+      "checkout": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\NSC-1103"
+    },
+    {
+      "task_id": "NSC-1104",
+      "candidate_commit": "136511342ba9ff06078841e2a7b360320ba8dd8f",
+      "checkout": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\NSC-1104"
+    },
+    {
+      "task_id": "NSC-1105",
+      "candidate_commit": "957d1d27717f583fb7c18649a4ee135d5ec3e94c",
+      "checkout": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\NSC-1105"
+    }
+  ],
+  "blocked": [
+    {
+      "task_id": "NSC-201",
+      "reason": "decomposition_failed",
+      "error": ": 15s [2026-09-16T06:14:00Z] D1B.2 round 2 still running: 30s [2026-09-16T06:14:15Z] D1B.2 round 2 still running: 45s [2026-09-16T06:14:30Z] D1B.2 round 2 still running: 60s [2026-09-16T06:14:45Z] D1B.2 round 2 still running: 75s [2026-09-16T06:15:00Z] D1B.2 round 2 still running: 90s [2026-09-16T06:15:15Z] D1B.2 round 2 still running: 105s [2026-09-16T06:15:30Z] D1B.2 round 2 still running: 120s [2026-09-16T06:15:45Z] D1B.2 round 2 still running: 135s [2026-09-16T06:16:00Z] D1B.2 round 2 still running: 150s [2026-09-16T06:16:15Z] D1B.2 round 2 still running: 165s [2026-09-16T06:16:30Z] D1B.2 round 2 still running: 180s [2026-09-16T06:16:45Z] D1B.2 round 2 still running: 195.1s [2026-09-16T06:17:00Z] D1B.2 round 2 still running: 210.1s [2026-09-16T06:17:15Z] D1B.2 round 2 still running: 225.1s [2026-09-16T06:17:30Z] D1B.2 round 2 still running: 240.1s [2026-09-16T06:17:45Z] D1B.2 round 2 still running: 255.1s [2026-09-16T06:18:00Z] D1B.2 round 2 still running: 270.1s [2026-09-16T06:18:15Z] D1B.2 round 2 still running: 285.1s [2026-09-16T06:18:30Z] D1B.2 round 2 still running: 300.1s [2026-09-16T06:18:45Z] D1B.2 round 2 still running: 315.1s [2026-09-16T06:19:00Z] D1B.2 round 2 still running: 330.1s [2026-09-16T06:19:15Z] D1B.2 round 2 still running: 345.1s [2026-09-16T06:19:30Z] D1B.2 round 2 still running: 360.1s [2026-09-16T06:19:45Z] D1B.2 round 2 still running: 375.2s [2026-09-16T06:20:00Z] D1B.2 round 2 still running: 390.2s [2026-09-16T06:20:14Z] D1B.2 round 2 decomposition_reviewer completed [2026-09-16T06:20:52Z] D1B.2 round-robin decomposition completed: rejected"
+    },
+    {
+      "task_id": "NSC-1107",
+      "reason": "decomposition_failed",
+      "error": "6-09-16T06:22:51Z] D1B.2 round 1 still running: 45s [2026-09-16T06:23:06Z] D1B.2 round 1 still running: 60s [2026-09-16T06:23:21Z] D1B.2 round 1 still running: 75s [2026-09-16T06:23:36Z] D1B.2 round 1 still running: 90s [2026-09-16T06:23:47Z] D1B.2 round 1 task_decomposer completed [2026-09-16T06:24:05Z] D1B.2 round 1 candidate failed deterministic validation; requesting one bounded task_decomposer correction from claude [2026-09-16T06:24:05Z] D1B.2 round 1 correction task_decomposer started with claude [2026-09-16T06:24:20Z] D1B.2 round 1 correction still running: 15s [2026-09-16T06:24:35Z] D1B.2 round 1 correction still running: 30s [2026-09-16T06:24:50Z] D1B.2 round 1 correction still running: 45s [2026-09-16T06:25:05Z] D1B.2 round 1 correction still running: 60s [2026-09-16T06:25:20Z] D1B.2 round 1 correction still running: 75s [2026-09-16T06:25:35Z] D1B.2 round 1 correction still running: 90s [2026-09-16T06:25:49Z] D1B.2 round 1 correction task_decomposer completed [2026-09-16T06:26:10Z] D1B.2 round 1 bounded task_decomposer correction completed: correction_candidate_valid [2026-09-16T06:26:10Z] D1B.2 round 2 decomposition_reviewer started with codex [2026-09-16T06:26:25Z] D1B.2 round 2 still running: 15s [2026-09-16T06:26:40Z] D1B.2 round 2 still running: 30s [2026-09-16T06:26:55Z] D1B.2 round 2 still running: 45s [2026-09-16T06:27:10Z] D1B.2 round 2 still running: 60s [2026-09-16T06:27:25Z] D1B.2 round 2 still running: 75s [2026-09-16T06:27:40Z] D1B.2 round 2 decomposition_reviewer completed [2026-09-16T06:28:14Z] D1B.2 round-robin decomposition completed: rejected"
+    },
+    {
+      "task_id": "NSC-1108",
+      "reason": "dependencies",
+      "dependencies": [
+        "NSC-1107"
+      ]
+    },
+    {
+      "task_id": "NSC-1110",
+      "reason": "dependencies",
+      "dependencies": [
+        "NSC-1108"
+      ]
+    }
+  ],
+  "background_jobs": [
+    {
+      "task_id": "NSC-200",
+      "kind": "post_crew",
+      "job_id": "6c1cea7dc8aabb2560d801e9bf115bcae9ee6871d57f14190622239783e7ea5f",
+      "attempt": 1,
+      "status": "completed",
+      "identity": {
+        "candidate_commit": null,
+        "crew_run_id": "nsc-200-20260916t060727z",
+        "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+        "task_contract_sha256": "b6509bfdcc7e07b210ec147e394ad02ef1d4d4e590a2fc580b9754f082259c94"
+      },
+      "invocation_id": "af31d49d6b234958b94699a53660c992",
+      "launched_at_utc": "2026-09-16T06:14:31.618925+00:00",
+      "pid": 20972,
+      "process_identity": {
+        "pid": 20972,
+        "created_ticks": 134340128716266984,
+        "image": "c:\\python313\\python.exe"
+      },
+      "job_name": "assistant-job-1836e5d760c0f473117f8d8b6e74c8abaf7057d55f3e880bd7dee5fa0d420b8f",
+      "provider_container": null,
+      "provider_container_cleanup": null,
+      "authentication": null,
+      "reconciliation": null,
+      "stop": null,
+      "result_status": "awaiting_human",
+      "error": null,
+      "completed_at_utc": "2026-09-16T06:15:39.568266+00:00",
+      "harvested_at_utc": "2026-09-16T06:15:40.522689+00:00",
+      "harvest_invocation_id": "af31d49d6b234958b94699a53660c992",
+      "run_root": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\background-jobs\\NSC-200\\6c1cea7dc8aabb2560d801e9bf115bcae9ee6871d57f14190622239783e7ea5f"
+    },
+    {
+      "task_id": "NSC-201",
+      "kind": "decompose",
+      "job_id": "704a49cf6d9d8190f0d7902947eb833ebdd41a6d0b8c9c98f95c0cb3a919161f",
+      "attempt": 1,
+      "status": "completed",
+      "identity": {
+        "compose_project": "nosafecircle",
+        "providers": [
+          "claude",
+          "codex"
+        ],
+        "run_id": "assistant-nsc-201-decompose-2a77d09672bd",
+        "source_branch": "demo/gauntlet-20260916",
+        "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+        "task_contract_sha256": "8b19f409dc8a36d53fd8304878032fe56b6797621f1b48b6d6bcda4f46708b0a"
+      },
+      "invocation_id": "af31d49d6b234958b94699a53660c992",
+      "launched_at_utc": "2026-09-16T06:04:34.507484+00:00",
+      "pid": 48772,
+      "process_identity": {
+        "pid": 48772,
+        "created_ticks": 134340122745157003,
+        "image": "c:\\python313\\python.exe"
+      },
+      "job_name": "assistant-job-08da4970d021042d49259ce31b2dadda616125795d736f2f6bde4cf14ab6c6c8",
+      "provider_container": {
+        "name": "nsc-decompose-704a49cf6d9d8190f0d79029",
+        "compose_project": "nosafecircle",
+        "labels": {
+          "com.nosafecircle.assistant.job": "704a49cf6d9d8190f0d7902947eb833ebdd41a6d0b8c9c98f95c0cb3a919161f",
+          "com.nosafecircle.assistant.checkout": "d651977fc4e52db5ec5c3515fca73802f57c2ba35ea89e679f445e7bd74b67ac"
+        }
+      },
+      "provider_container_cleanup": {
+        "status": "verified_absent",
+        "generation": 1,
+        "attempt": 1,
+        "container_name": "nsc-decompose-704a49cf6d9d8190f0d79029",
+        "compose_project": "nosafecircle",
+        "started_at_utc": "2026-09-16T06:20:52.778104+00:00",
+        "tombstone_until_utc": null,
+        "tombstone_seconds": 0.0,
+        "final_recheck_at_utc": null,
+        "container_sighted": false,
+        "previous_status": null,
+        "previous_error": null,
+        "removed": [],
+        "owner": {
+          "pid": 23256,
+          "process_identity": {
+            "pid": 23256,
+            "created_ticks": 134340122716095234,
+            "image": "c:\\python313\\python.exe"
+          },
+          "since_utc": "2026-09-16T06:20:52.778278+00:00"
+        },
+        "took_over_from": null,
+        "observations": [
+          {
+            "at": 0.182,
+            "present": false
+          }
+        ],
+        "settle_seconds": 0.0,
+        "window_seconds": 0.0,
+        "watched_seconds": 0.182,
+        "verified_at_utc": "2026-09-16T06:20:52.961477+00:00",
+        "finished_at_utc": "2026-09-16T06:20:52.962342+00:00"
+      },
+      "authentication": null,
+      "reconciliation": null,
+      "stop": null,
+      "result_status": "failed",
+      "error": null,
+      "completed_at_utc": "2026-09-16T06:20:52.621520+00:00",
+      "harvested_at_utc": "2026-09-16T06:20:52.776505+00:00",
+      "harvest_invocation_id": "af31d49d6b234958b94699a53660c992",
+      "run_root": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\background-jobs\\NSC-201\\704a49cf6d9d8190f0d7902947eb833ebdd41a6d0b8c9c98f95c0cb3a919161f"
+    },
+    {
+      "task_id": "NSC-1101",
+      "kind": "post_crew",
+      "job_id": "78f3ba8c90b1f473b4a2fa32f54c895ee33ab1067f487686a94f8dbb042292ab",
+      "attempt": 1,
+      "status": "completed",
+      "identity": {
+        "candidate_commit": null,
+        "crew_run_id": "nsc-1101-20260916t060727z",
+        "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+        "task_contract_sha256": "0172b43fd3d6ef0817643f404989ecc9b2f30576dc408fb5f65089127b732f8d"
+      },
+      "invocation_id": "af31d49d6b234958b94699a53660c992",
+      "launched_at_utc": "2026-09-16T06:10:36.540402+00:00",
+      "pid": 25420,
+      "process_identity": {
+        "pid": 25420,
+        "created_ticks": 134340126365501825,
+        "image": "c:\\python313\\python.exe"
+      },
+      "job_name": "assistant-job-39da1e296c8cd93a444669520ffaf7e0f4a82569aef3c464587dde4a73ebe691",
+      "provider_container": null,
+      "provider_container_cleanup": null,
+      "authentication": null,
+      "reconciliation": null,
+      "stop": null,
+      "result_status": "awaiting_human",
+      "error": null,
+      "completed_at_utc": "2026-09-16T06:12:43.544757+00:00",
+      "harvested_at_utc": "2026-09-16T06:12:44.317742+00:00",
+      "harvest_invocation_id": "af31d49d6b234958b94699a53660c992",
+      "run_root": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\background-jobs\\NSC-1101\\78f3ba8c90b1f473b4a2fa32f54c895ee33ab1067f487686a94f8dbb042292ab"
+    },
+    {
+      "task_id": "NSC-1103",
+      "kind": "post_crew",
+      "job_id": "b43754b3b80e6c1d8597ba9d5b57f2bd568770b3b77b0d1ce03681e223b79c23",
+      "attempt": 1,
+      "status": "completed",
+      "identity": {
+        "candidate_commit": null,
+        "crew_run_id": "nsc-1103-20260916t060727z",
+        "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+        "task_contract_sha256": "28de027fb95e782e68dbc3027f2b9a4f9901a1cf74fcc1cc25f077f7d6b2f59f"
+      },
+      "invocation_id": "af31d49d6b234958b94699a53660c992",
+      "launched_at_utc": "2026-09-16T06:12:44.604872+00:00",
+      "pid": 44172,
+      "process_identity": {
+        "pid": 44172,
+        "created_ticks": 134340127646154738,
+        "image": "c:\\python313\\python.exe"
+      },
+      "job_name": "assistant-job-90d974190e5c5ffe403dddfead09ffab042b7cbc5b63ee6c2b400ff6a4e5d666",
+      "provider_container": null,
+      "provider_container_cleanup": null,
+      "authentication": null,
+      "reconciliation": null,
+      "stop": null,
+      "result_status": "awaiting_human",
+      "error": null,
+      "completed_at_utc": "2026-09-16T06:14:31.227898+00:00",
+      "harvested_at_utc": "2026-09-16T06:14:31.401264+00:00",
+      "harvest_invocation_id": "af31d49d6b234958b94699a53660c992",
+      "run_root": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\background-jobs\\NSC-1103\\b43754b3b80e6c1d8597ba9d5b57f2bd568770b3b77b0d1ce03681e223b79c23"
+    },
+    {
+      "task_id": "NSC-1104",
+      "kind": "post_crew",
+      "job_id": "b6df087e0eee8aceeedbea8e8bcbd88c433b9a03bdf3dabbb5cc6b7aaa1116a9",
+      "attempt": 1,
+      "status": "completed",
+      "identity": {
+        "candidate_commit": null,
+        "crew_run_id": "nsc-1104-20260916t060727z",
+        "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+        "task_contract_sha256": "9b4f7641b592900d7489ea97fb8953f50318cfef147ee72d61c363195323f805"
+      },
+      "invocation_id": "af31d49d6b234958b94699a53660c992",
+      "launched_at_utc": "2026-09-16T06:15:40.771403+00:00",
+      "pid": 50632,
+      "process_identity": {
+        "pid": 50632,
+        "created_ticks": 134340129407789747,
+        "image": "c:\\python313\\python.exe"
+      },
+      "job_name": "assistant-job-b6d60ba6ae428ddeb1b78c16415790e5834852abe413d05784f3b7a853f81dac",
+      "provider_container": null,
+      "provider_container_cleanup": null,
+      "authentication": null,
+      "reconciliation": null,
+      "stop": null,
+      "result_status": "awaiting_human",
+      "error": null,
+      "completed_at_utc": "2026-09-16T06:17:23.936864+00:00",
+      "harvested_at_utc": "2026-09-16T06:17:24.724306+00:00",
+      "harvest_invocation_id": "af31d49d6b234958b94699a53660c992",
+      "run_root": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\background-jobs\\NSC-1104\\b6df087e0eee8aceeedbea8e8bcbd88c433b9a03bdf3dabbb5cc6b7aaa1116a9"
+    },
+    {
+      "task_id": "NSC-1105",
+      "kind": "post_crew",
+      "job_id": "411902b7d59e21923b3e18eafa99fee94d1b77ab26f97abe562aa33b08598b90",
+      "attempt": 1,
+      "status": "completed",
+      "identity": {
+        "candidate_commit": null,
+        "crew_run_id": "nsc-1105-20260916t060727z",
+        "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+        "task_contract_sha256": "cc08d9aeba75da0afd48aee189bdfee72e3acc0bfdea699f93ccdcff3d0fc5c6"
+      },
+      "invocation_id": "af31d49d6b234958b94699a53660c992",
+      "launched_at_utc": "2026-09-16T06:17:25.017155+00:00",
+      "pid": 18068,
+      "process_identity": {
+        "pid": 18068,
+        "created_ticks": 134340130454283869,
+        "image": "c:\\python313\\python.exe"
+      },
+      "job_name": "assistant-job-4421d6c7b73b00e52b8569a39218962443c7abe63c05076874fe789e648da936",
+      "provider_container": null,
+      "provider_container_cleanup": null,
+      "authentication": null,
+      "reconciliation": null,
+      "stop": null,
+      "result_status": "awaiting_human",
+      "error": null,
+      "completed_at_utc": "2026-09-16T06:19:13.890979+00:00",
+      "harvested_at_utc": "2026-09-16T06:19:14.443200+00:00",
+      "harvest_invocation_id": "af31d49d6b234958b94699a53660c992",
+      "run_root": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\background-jobs\\NSC-1105\\411902b7d59e21923b3e18eafa99fee94d1b77ab26f97abe562aa33b08598b90"
+    },
+    {
+      "task_id": "NSC-1107",
+      "kind": "decompose",
+      "job_id": "1ac78b24462929849ff79a1c9802a74cfc21a624daeffd4b5bae80753ee57045",
+      "attempt": 1,
+      "status": "completed",
+      "identity": {
+        "compose_project": "nosafecircle",
+        "providers": [
+          "claude",
+          "codex"
+        ],
+        "run_id": "assistant-nsc-1107-decompose-717d175c4b63",
+        "source_branch": "demo/gauntlet-20260916",
+        "source_commit": "717d175c4b63d5677a3cf27fa65c7b5a57685816",
+        "task_contract_sha256": "02c1a721ce6174a0a360618a18b2279adfa51dc747d85fa032e7d5e5b02e6312"
+      },
+      "invocation_id": "af31d49d6b234958b94699a53660c992",
+      "launched_at_utc": "2026-09-16T06:20:57.103693+00:00",
+      "pid": 9176,
+      "process_identity": {
+        "pid": 9176,
+        "created_ticks": 134340132571120555,
+        "image": "c:\\python313\\python.exe"
+      },
+      "job_name": "assistant-job-beb0ac80878fb96d1884c6e0677c518c5aa4ba3d762a06cfc4ddbf93a05448c1",
+      "provider_container": {
+        "name": "nsc-decompose-1ac78b24462929849ff79a1c",
+        "compose_project": "nosafecircle",
+        "labels": {
+          "com.nosafecircle.assistant.job": "1ac78b24462929849ff79a1c9802a74cfc21a624daeffd4b5bae80753ee57045",
+          "com.nosafecircle.assistant.checkout": "d651977fc4e52db5ec5c3515fca73802f57c2ba35ea89e679f445e7bd74b67ac"
+        }
+      },
+      "provider_container_cleanup": {
+        "status": "verified_absent",
+        "generation": 1,
+        "attempt": 1,
+        "container_name": "nsc-decompose-1ac78b24462929849ff79a1c",
+        "compose_project": "nosafecircle",
+        "started_at_utc": "2026-09-16T06:28:16.304308+00:00",
+        "tombstone_until_utc": null,
+        "tombstone_seconds": 0.0,
+        "final_recheck_at_utc": null,
+        "container_sighted": false,
+        "previous_status": null,
+        "previous_error": null,
+        "removed": [],
+        "owner": {
+          "pid": 23256,
+          "process_identity": {
+            "pid": 23256,
+            "created_ticks": 134340122716095234,
+            "image": "c:\\python313\\python.exe"
+          },
+          "since_utc": "2026-09-16T06:28:16.304501+00:00"
+        },
+        "took_over_from": null,
+        "observations": [
+          {
+            "at": 0.397,
+            "present": false
+          }
+        ],
+        "settle_seconds": 0.0,
+        "window_seconds": 0.0,
+        "watched_seconds": 0.397,
+        "verified_at_utc": "2026-09-16T06:28:16.703385+00:00",
+        "finished_at_utc": "2026-09-16T06:28:16.704285+00:00"
+      },
+      "authentication": null,
+      "reconciliation": null,
+      "stop": null,
+      "result_status": "failed",
+      "error": null,
+      "completed_at_utc": "2026-09-16T06:28:15.478425+00:00",
+      "harvested_at_utc": "2026-09-16T06:28:16.302247+00:00",
+      "harvest_invocation_id": "af31d49d6b234958b94699a53660c992",
+      "run_root": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\background-jobs\\NSC-1107\\1ac78b24462929849ff79a1c9802a74cfc21a624daeffd4b5bae80753ee57045"
+    }
+  ],
+  "provider_spend_authorized": true,
+  "mutations_performed": true,
+  "completed_actions": [
+    {
+      "action": {
+        "kind": "decompose",
+        "task_id": "NSC-201"
+      },
+      "result": {
+        "status": "launched",
+        "task_id": "NSC-201",
+        "kind": "decompose",
+        "job_id": "704a49cf6d9d8190f0d7902947eb833ebdd41a6d0b8c9c98f95c0cb3a919161f",
+        "attempt": 1,
+        "identity": {
+          "compose_project": "nosafecircle",
+          "providers": [
+            "claude",
+            "codex"
+          ],
+          "run_id": "assistant-nsc-201-decompose-2a77d09672bd",
+          "source_branch": "demo/gauntlet-20260916",
+          "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+          "task_contract_sha256": "8b19f409dc8a36d53fd8304878032fe56b6797621f1b48b6d6bcda4f46708b0a"
+        },
+        "pid": 48772,
+        "process_identity": {
+          "pid": 48772,
+          "created_ticks": 134340122745157003,
+          "image": "c:\\python313\\python.exe"
+        },
+        "run_root": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\background-jobs\\NSC-201\\704a49cf6d9d8190f0d7902947eb833ebdd41a6d0b8c9c98f95c0cb3a919161f"
+      }
+    },
+    {
+      "action": {
+        "kind": "prepare",
+        "task_id": "NSC-200",
+        "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82"
+      },
+      "result": {
+        "schema_version": "assistant-checkout/v1",
+        "task_id": "NSC-200",
+        "source": "C:\\NSC\\NSCDemoGauntlet-20260916",
+        "checkout": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\NSC-200",
+        "staging": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.NSC-200-c3d417db269e42ecad7510572ab16667",
+        "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+        "task_contract_sha256": "b6509bfdcc7e07b210ec147e394ad02ef1d4d4e590a2fc580b9754f082259c94",
+        "branch": "assistant/NSC-200",
+        "status": "prepared",
+        "approval": null,
+        "worker": null,
+        "current_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+        "current_branch": "assistant/NSC-200",
+        "local_changes": [],
+        "execution_authorized": false
+      }
+    },
+    {
+      "action": {
+        "kind": "scope",
+        "task_id": "NSC-200",
+        "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82"
+      },
+      "result": {
+        "accepted": true,
+        "plan_id": "scope-5d414bda0e6a24a69220524ca1aa002626e2fac7fa6443dac7dd60783ff2b1f9",
+        "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+        "source_head": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+        "task_contract_sha256": "b6509bfdcc7e07b210ec147e394ad02ef1d4d4e590a2fc580b9754f082259c94",
+        "lease_id": "assistant-nsc-200-a71df3c33b764998-lease",
+        "plan": {
+          "existing_implementation_paths": [
+            "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+            "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/WallTile.asset",
+            "Assets/Scenes/DoorPrototype.unity"
+          ],
+          "new_implementation_paths": [],
+          "existing_test_paths": [
+            "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs"
+          ],
+          "new_test_paths": []
+        },
+        "execution_authorized": false
+      }
+    },
+    {
+      "action": {
+        "kind": "prepare",
+        "task_id": "NSC-1101",
+        "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82"
+      },
+      "result": {
+        "schema_version": "assistant-checkout/v1",
+        "task_id": "NSC-1101",
+        "source": "C:\\NSC\\NSCDemoGauntlet-20260916",
+        "checkout": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\NSC-1101",
+        "staging": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.NSC-1101-370dc154299441b1b6704b4f48005d2f",
+        "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+        "task_contract_sha256": "0172b43fd3d6ef0817643f404989ecc9b2f30576dc408fb5f65089127b732f8d",
+        "branch": "assistant/NSC-1101",
+        "status": "prepared",
+        "approval": null,
+        "worker": null,
+        "current_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+        "current_branch": "assistant/NSC-1101",
+        "local_changes": [],
+        "execution_authorized": false
+      }
+    },
+    {
+      "action": {
+        "kind": "scope",
+        "task_id": "NSC-1101",
+        "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82"
+      },
+      "result": {
+        "accepted": true,
+        "plan_id": "scope-401495915d99d33524471e1ab60e2e750307099e71434774307881b76deb6ff6",
+        "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+        "source_head": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+        "task_contract_sha256": "0172b43fd3d6ef0817643f404989ecc9b2f30576dc408fb5f65089127b732f8d",
+        "lease_id": "assistant-nsc-1101-00a9e276d1054f96-lease",
+        "plan": {
+          "existing_implementation_paths": [],
+          "new_implementation_paths": [
+            "Assets/NoSafeCircle/DoorPrototype/Scripts/Gauntlet1101.cs"
+          ],
+          "existing_test_paths": [
+            "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1101Tests.cs"
+          ],
+          "new_test_paths": []
+        },
+        "execution_authorized": false
+      }
+    },
+    {
+      "action": {
+        "kind": "prepare",
+        "task_id": "NSC-1103",
+        "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82"
+      },
+      "result": {
+        "schema_version": "assistant-checkout/v1",
+        "task_id": "NSC-1103",
+        "source": "C:\\NSC\\NSCDemoGauntlet-20260916",
+        "checkout": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\NSC-1103",
+        "staging": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.NSC-1103-db3f345c2fbe4a179cac4e4e560f7b77",
+        "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+        "task_contract_sha256": "28de027fb95e782e68dbc3027f2b9a4f9901a1cf74fcc1cc25f077f7d6b2f59f",
+        "branch": "assistant/NSC-1103",
+        "status": "prepared",
+        "approval": null,
+        "worker": null,
+        "current_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+        "current_branch": "assistant/NSC-1103",
+        "local_changes": [],
+        "execution_authorized": false
+      }
+    },
+    {
+      "action": {
+        "kind": "scope",
+        "task_id": "NSC-1103",
+        "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82"
+      },
+      "result": {
+        "accepted": true,
+        "plan_id": "scope-10865001ad75773efe4a8b6de99fdf251ba6dc6dc91f742fb565caac008b9ea1",
+        "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+        "source_head": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+        "task_contract_sha256": "28de027fb95e782e68dbc3027f2b9a4f9901a1cf74fcc1cc25f077f7d6b2f59f",
+        "lease_id": "assistant-nsc-1103-b0c840cef7f24fba-lease",
+        "plan": {
+          "existing_implementation_paths": [],
+          "new_implementation_paths": [
+            "Assets/NoSafeCircle/DoorPrototype/Scripts/Gauntlet1103.cs"
+          ],
+          "existing_test_paths": [
+            "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1103Tests.cs"
+          ],
+          "new_test_paths": []
+        },
+        "execution_authorized": false
+      }
+    },
+    {
+      "action": {
+        "kind": "prepare",
+        "task_id": "NSC-1104",
+        "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82"
+      },
+      "result": {
+        "schema_version": "assistant-checkout/v1",
+        "task_id": "NSC-1104",
+        "source": "C:\\NSC\\NSCDemoGauntlet-20260916",
+        "checkout": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\NSC-1104",
+        "staging": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.NSC-1104-9a2626efce7a457cad7ba462486e4a8f",
+        "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+        "task_contract_sha256": "9b4f7641b592900d7489ea97fb8953f50318cfef147ee72d61c363195323f805",
+        "branch": "assistant/NSC-1104",
+        "status": "prepared",
+        "approval": null,
+        "worker": null,
+        "current_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+        "current_branch": "assistant/NSC-1104",
+        "local_changes": [],
+        "execution_authorized": false
+      }
+    },
+    {
+      "action": {
+        "kind": "scope",
+        "task_id": "NSC-1104",
+        "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82"
+      },
+      "result": {
+        "accepted": true,
+        "plan_id": "scope-bc703ffe77c18eb4d97a4c9d1e7f2e35e156f7cc7765a407238e7e8bc8faa956",
+        "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+        "source_head": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+        "task_contract_sha256": "9b4f7641b592900d7489ea97fb8953f50318cfef147ee72d61c363195323f805",
+        "lease_id": "assistant-nsc-1104-7108485a6a2841e7-lease",
+        "plan": {
+          "existing_implementation_paths": [],
+          "new_implementation_paths": [
+            "Assets/NoSafeCircle/DoorPrototype/Scripts/Gauntlet1104.cs"
+          ],
+          "existing_test_paths": [
+            "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1104Tests.cs"
+          ],
+          "new_test_paths": []
+        },
+        "execution_authorized": false
+      }
+    },
+    {
+      "action": {
+        "kind": "prepare",
+        "task_id": "NSC-1105",
+        "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82"
+      },
+      "result": {
+        "schema_version": "assistant-checkout/v1",
+        "task_id": "NSC-1105",
+        "source": "C:\\NSC\\NSCDemoGauntlet-20260916",
+        "checkout": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\NSC-1105",
+        "staging": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.NSC-1105-126b3fc8e0564975930ac318c8c1abc3",
+        "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+        "task_contract_sha256": "cc08d9aeba75da0afd48aee189bdfee72e3acc0bfdea699f93ccdcff3d0fc5c6",
+        "branch": "assistant/NSC-1105",
+        "status": "prepared",
+        "approval": null,
+        "worker": null,
+        "current_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+        "current_branch": "assistant/NSC-1105",
+        "local_changes": [],
+        "execution_authorized": false
+      }
+    },
+    {
+      "action": {
+        "kind": "scope",
+        "task_id": "NSC-1105",
+        "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82"
+      },
+      "result": {
+        "accepted": true,
+        "plan_id": "scope-92a10ef071e83ccd4de3dfecf949583a35b41c1270b8afc783cc9948d2c25f65",
+        "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+        "source_head": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+        "task_contract_sha256": "cc08d9aeba75da0afd48aee189bdfee72e3acc0bfdea699f93ccdcff3d0fc5c6",
+        "lease_id": "assistant-nsc-1105-8f933b330831432e-lease",
+        "plan": {
+          "existing_implementation_paths": [],
+          "new_implementation_paths": [
+            "Assets/NoSafeCircle/DoorPrototype/Scripts/Gauntlet1105.cs"
+          ],
+          "existing_test_paths": [
+            "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1105Tests.cs"
+          ],
+          "new_test_paths": []
+        },
+        "execution_authorized": false
+      }
+    },
+    {
+      "action": {
+        "kind": "reserve",
+        "task_id": "NSC-200",
+        "run_id": "assistant-nsc-200-60783ff2b1f9"
+      },
+      "result": {
+        "schema_version": "assistant-admission/v1",
+        "status": "active",
+        "source": "C:\\NSC\\NSCDemoGauntlet-20260916",
+        "task_id": "NSC-200",
+        "run_id": "assistant-nsc-200-60783ff2b1f9",
+        "lease_id": "assistant-nsc-200-a71df3c33b764998-lease",
+        "checkout_root": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts",
+        "checkout": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\NSC-200",
+        "source_head": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+        "task_contract_sha256": "b6509bfdcc7e07b210ec147e394ad02ef1d4d4e590a2fc580b9754f082259c94",
+        "plan_id": "scope-5d414bda0e6a24a69220524ca1aa002626e2fac7fa6443dac7dd60783ff2b1f9",
+        "plan": {
+          "existing_implementation_paths": [
+            "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+            "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/WallTile.asset",
+            "Assets/Scenes/DoorPrototype.unity"
+          ],
+          "new_implementation_paths": [],
+          "existing_test_paths": [
+            "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs"
+          ],
+          "new_test_paths": []
+        },
+        "resources": [
+          "assets/nosafecircle/doorprototype/editor/doorprototypescenebuilder.cs",
+          "assets/nosafecircle/doorprototype/generated/architecturaltiles/walltile.asset",
+          "assets/nosafecircle/doorprototype/tests/editor/doorprototypescenebuildertests.cs",
+          "assets/scenes/doorprototype.unity"
+        ],
+        "dependency_inspection": {
+          "task_id": "NSC-200",
+          "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+          "contract_sha256": "b6509bfdcc7e07b210ec147e394ad02ef1d4d4e590a2fc580b9754f082259c94",
+          "task_state": {
+            "task_id": "NSC-200",
+            "title": "Seamless Scalable Wall Tiling for Long Isometric Walls",
+            "state": "not_delivered",
+            "head_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+            "head_tree": "4e041d0ea8628ed89d101000d7bfd8be7db6722a",
+            "selected_record_id": null,
+            "findings": [
+              {
+                "code": "no_committed_evidence",
+                "message": "No committed delivery, baseline, or revalidation record exists.",
+                "record_id": null
+              }
+            ],
+            "dirty_worktree": false,
+            "total_tokens_used": null,
+            "token_usage_complete": null,
+            "token_usage_status": "unavailable",
+            "token_usage_scope": null
+          },
+          "dependencies": [],
+          "blocked_dependencies": [],
+          "approved_local_dependencies": {},
+          "source_unchanged_during_read": true,
+          "dependencies_satisfied": true,
+          "execution_authorized": false,
+          "remaining_checks": [
+            "worker capacity",
+            "active resource ownership",
+            "execution scope"
+          ]
+        },
+        "resource_overlap_authorized": false,
+        "overlap_with": [],
+        "admitted": true,
+        "execution_authorized": false
+      }
+    },
+    {
+      "action": {
+        "kind": "start_worker",
+        "task_id": "NSC-200",
+        "run_id": "assistant-nsc-200-60783ff2b1f9",
+        "lease_id": "assistant-nsc-200-a71df3c33b764998-lease"
+      },
+      "result": {
+        "started": true,
+        "task_id": "NSC-200",
+        "run_id": "assistant-nsc-200-60783ff2b1f9",
+        "lease_id": "assistant-nsc-200-a71df3c33b764998-lease",
+        "pid": 53324,
+        "process_identity": {
+          "pid": 53324,
+          "created_ticks": 134340123375126726,
+          "image": "c:\\python313\\python.exe"
+        },
+        "run_root": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\worker-runs\\NSC-200\\e05394d19cd2fd54c47f81d99d532d5da4b9c411241b097c45cc08c885dcba08",
+        "request": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\worker-runs\\NSC-200\\e05394d19cd2fd54c47f81d99d532d5da4b9c411241b097c45cc08c885dcba08\\launch.request.json",
+        "ready_receipt": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\worker-runs\\NSC-200\\e05394d19cd2fd54c47f81d99d532d5da4b9c411241b097c45cc08c885dcba08\\ready.receipt.json",
+        "stdout": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\worker-runs\\NSC-200\\e05394d19cd2fd54c47f81d99d532d5da4b9c411241b097c45cc08c885dcba08\\stdout.log",
+        "stderr": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\worker-runs\\NSC-200\\e05394d19cd2fd54c47f81d99d532d5da4b9c411241b097c45cc08c885dcba08\\stderr.log",
+        "execution_authorized": true
+      }
+    },
+    {
+      "action": {
+        "kind": "reserve",
+        "task_id": "NSC-1101",
+        "run_id": "assistant-nsc-1101-81b76deb6ff6"
+      },
+      "result": {
+        "schema_version": "assistant-admission/v1",
+        "status": "active",
+        "source": "C:\\NSC\\NSCDemoGauntlet-20260916",
+        "task_id": "NSC-1101",
+        "run_id": "assistant-nsc-1101-81b76deb6ff6",
+        "lease_id": "assistant-nsc-1101-00a9e276d1054f96-lease",
+        "checkout_root": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts",
+        "checkout": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\NSC-1101",
+        "source_head": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+        "task_contract_sha256": "0172b43fd3d6ef0817643f404989ecc9b2f30576dc408fb5f65089127b732f8d",
+        "plan_id": "scope-401495915d99d33524471e1ab60e2e750307099e71434774307881b76deb6ff6",
+        "plan": {
+          "existing_implementation_paths": [],
+          "new_implementation_paths": [
+            "Assets/NoSafeCircle/DoorPrototype/Scripts/Gauntlet1101.cs"
+          ],
+          "existing_test_paths": [
+            "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1101Tests.cs"
+          ],
+          "new_test_paths": []
+        },
+        "resources": [
+          "assets/nosafecircle/doorprototype/scripts/gauntlet1101.cs",
+          "assets/nosafecircle/doorprototype/scripts/gauntlet1101.cs.meta",
+          "assets/nosafecircle/doorprototype/tests/editor/gauntletreplay1101tests.cs",
+          "assets/nosafecircle/doorprototype/tests/editor/gauntletreplay1101tests.cs.meta"
+        ],
+        "dependency_inspection": {
+          "task_id": "NSC-1101",
+          "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+          "contract_sha256": "0172b43fd3d6ef0817643f404989ecc9b2f30576dc408fb5f65089127b732f8d",
+          "task_state": {
+            "task_id": "NSC-1101",
+            "title": "Gauntlet 1101: Publish Its Isolated Value",
+            "state": "not_delivered",
+            "head_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+            "head_tree": "4e041d0ea8628ed89d101000d7bfd8be7db6722a",
+            "selected_record_id": null,
+            "findings": [
+              {
+                "code": "no_committed_evidence",
+                "message": "No committed delivery, baseline, or revalidation record exists.",
+                "record_id": null
+              }
+            ],
+            "dirty_worktree": false,
+            "total_tokens_used": null,
+            "token_usage_complete": null,
+            "token_usage_status": "unavailable",
+            "token_usage_scope": null
+          },
+          "dependencies": [],
+          "blocked_dependencies": [],
+          "approved_local_dependencies": {},
+          "source_unchanged_during_read": true,
+          "dependencies_satisfied": true,
+          "execution_authorized": false,
+          "remaining_checks": [
+            "worker capacity",
+            "active resource ownership",
+            "execution scope"
+          ]
+        },
+        "resource_overlap_authorized": false,
+        "overlap_with": [],
+        "admitted": true,
+        "execution_authorized": false
+      }
+    },
+    {
+      "action": {
+        "kind": "start_worker",
+        "task_id": "NSC-1101",
+        "run_id": "assistant-nsc-1101-81b76deb6ff6",
+        "lease_id": "assistant-nsc-1101-00a9e276d1054f96-lease"
+      },
+      "result": {
+        "started": true,
+        "task_id": "NSC-1101",
+        "run_id": "assistant-nsc-1101-81b76deb6ff6",
+        "lease_id": "assistant-nsc-1101-00a9e276d1054f96-lease",
+        "pid": 22852,
+        "process_identity": {
+          "pid": 22852,
+          "created_ticks": 134340123531314917,
+          "image": "c:\\python313\\python.exe"
+        },
+        "run_root": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\worker-runs\\NSC-1101\\951d29fd4b5560113f6e48940c44065635728495dbb1454568b30c53634e0c10",
+        "request": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\worker-runs\\NSC-1101\\951d29fd4b5560113f6e48940c44065635728495dbb1454568b30c53634e0c10\\launch.request.json",
+        "ready_receipt": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\worker-runs\\NSC-1101\\951d29fd4b5560113f6e48940c44065635728495dbb1454568b30c53634e0c10\\ready.receipt.json",
+        "stdout": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\worker-runs\\NSC-1101\\951d29fd4b5560113f6e48940c44065635728495dbb1454568b30c53634e0c10\\stdout.log",
+        "stderr": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\worker-runs\\NSC-1101\\951d29fd4b5560113f6e48940c44065635728495dbb1454568b30c53634e0c10\\stderr.log",
+        "execution_authorized": true
+      }
+    },
+    {
+      "action": {
+        "kind": "reserve",
+        "task_id": "NSC-1103",
+        "run_id": "assistant-nsc-1103-caac008b9ea1"
+      },
+      "result": {
+        "schema_version": "assistant-admission/v1",
+        "status": "active",
+        "source": "C:\\NSC\\NSCDemoGauntlet-20260916",
+        "task_id": "NSC-1103",
+        "run_id": "assistant-nsc-1103-caac008b9ea1",
+        "lease_id": "assistant-nsc-1103-b0c840cef7f24fba-lease",
+        "checkout_root": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts",
+        "checkout": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\NSC-1103",
+        "source_head": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+        "task_contract_sha256": "28de027fb95e782e68dbc3027f2b9a4f9901a1cf74fcc1cc25f077f7d6b2f59f",
+        "plan_id": "scope-10865001ad75773efe4a8b6de99fdf251ba6dc6dc91f742fb565caac008b9ea1",
+        "plan": {
+          "existing_implementation_paths": [],
+          "new_implementation_paths": [
+            "Assets/NoSafeCircle/DoorPrototype/Scripts/Gauntlet1103.cs"
+          ],
+          "existing_test_paths": [
+            "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1103Tests.cs"
+          ],
+          "new_test_paths": []
+        },
+        "resources": [
+          "assets/nosafecircle/doorprototype/scripts/gauntlet1103.cs",
+          "assets/nosafecircle/doorprototype/scripts/gauntlet1103.cs.meta",
+          "assets/nosafecircle/doorprototype/tests/editor/gauntletreplay1103tests.cs",
+          "assets/nosafecircle/doorprototype/tests/editor/gauntletreplay1103tests.cs.meta"
+        ],
+        "dependency_inspection": {
+          "task_id": "NSC-1103",
+          "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+          "contract_sha256": "28de027fb95e782e68dbc3027f2b9a4f9901a1cf74fcc1cc25f077f7d6b2f59f",
+          "task_state": {
+            "task_id": "NSC-1103",
+            "title": "Gauntlet 1103: Publish Its Isolated Value",
+            "state": "not_delivered",
+            "head_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+            "head_tree": "4e041d0ea8628ed89d101000d7bfd8be7db6722a",
+            "selected_record_id": null,
+            "findings": [
+              {
+                "code": "no_committed_evidence",
+                "message": "No committed delivery, baseline, or revalidation record exists.",
+                "record_id": null
+              }
+            ],
+            "dirty_worktree": false,
+            "total_tokens_used": null,
+            "token_usage_complete": null,
+            "token_usage_status": "unavailable",
+            "token_usage_scope": null
+          },
+          "dependencies": [],
+          "blocked_dependencies": [],
+          "approved_local_dependencies": {},
+          "source_unchanged_during_read": true,
+          "dependencies_satisfied": true,
+          "execution_authorized": false,
+          "remaining_checks": [
+            "worker capacity",
+            "active resource ownership",
+            "execution scope"
+          ]
+        },
+        "resource_overlap_authorized": false,
+        "overlap_with": [],
+        "admitted": true,
+        "execution_authorized": false
+      }
+    },
+    {
+      "action": {
+        "kind": "start_worker",
+        "task_id": "NSC-1103",
+        "run_id": "assistant-nsc-1103-caac008b9ea1",
+        "lease_id": "assistant-nsc-1103-b0c840cef7f24fba-lease"
+      },
+      "result": {
+        "started": true,
+        "task_id": "NSC-1103",
+        "run_id": "assistant-nsc-1103-caac008b9ea1",
+        "lease_id": "assistant-nsc-1103-b0c840cef7f24fba-lease",
+        "pid": 44296,
+        "process_identity": {
+          "pid": 44296,
+          "created_ticks": 134340123597274320,
+          "image": "c:\\python313\\python.exe"
+        },
+        "run_root": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\worker-runs\\NSC-1103\\38c9e691d74617098bc804d9d17db1c023b04fa8e3f14504aa347a6434299fcd",
+        "request": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\worker-runs\\NSC-1103\\38c9e691d74617098bc804d9d17db1c023b04fa8e3f14504aa347a6434299fcd\\launch.request.json",
+        "ready_receipt": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\worker-runs\\NSC-1103\\38c9e691d74617098bc804d9d17db1c023b04fa8e3f14504aa347a6434299fcd\\ready.receipt.json",
+        "stdout": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\worker-runs\\NSC-1103\\38c9e691d74617098bc804d9d17db1c023b04fa8e3f14504aa347a6434299fcd\\stdout.log",
+        "stderr": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\worker-runs\\NSC-1103\\38c9e691d74617098bc804d9d17db1c023b04fa8e3f14504aa347a6434299fcd\\stderr.log",
+        "execution_authorized": true
+      }
+    },
+    {
+      "action": {
+        "kind": "reserve",
+        "task_id": "NSC-1104",
+        "run_id": "assistant-nsc-1104-7e8bc8faa956"
+      },
+      "result": {
+        "schema_version": "assistant-admission/v1",
+        "status": "active",
+        "source": "C:\\NSC\\NSCDemoGauntlet-20260916",
+        "task_id": "NSC-1104",
+        "run_id": "assistant-nsc-1104-7e8bc8faa956",
+        "lease_id": "assistant-nsc-1104-7108485a6a2841e7-lease",
+        "checkout_root": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts",
+        "checkout": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\NSC-1104",
+        "source_head": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+        "task_contract_sha256": "9b4f7641b592900d7489ea97fb8953f50318cfef147ee72d61c363195323f805",
+        "plan_id": "scope-bc703ffe77c18eb4d97a4c9d1e7f2e35e156f7cc7765a407238e7e8bc8faa956",
+        "plan": {
+          "existing_implementation_paths": [],
+          "new_implementation_paths": [
+            "Assets/NoSafeCircle/DoorPrototype/Scripts/Gauntlet1104.cs"
+          ],
+          "existing_test_paths": [
+            "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1104Tests.cs"
+          ],
+          "new_test_paths": []
+        },
+        "resources": [
+          "assets/nosafecircle/doorprototype/scripts/gauntlet1104.cs",
+          "assets/nosafecircle/doorprototype/scripts/gauntlet1104.cs.meta",
+          "assets/nosafecircle/doorprototype/tests/editor/gauntletreplay1104tests.cs",
+          "assets/nosafecircle/doorprototype/tests/editor/gauntletreplay1104tests.cs.meta"
+        ],
+        "dependency_inspection": {
+          "task_id": "NSC-1104",
+          "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+          "contract_sha256": "9b4f7641b592900d7489ea97fb8953f50318cfef147ee72d61c363195323f805",
+          "task_state": {
+            "task_id": "NSC-1104",
+            "title": "Gauntlet 1104: Publish Its Isolated Value",
+            "state": "not_delivered",
+            "head_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+            "head_tree": "4e041d0ea8628ed89d101000d7bfd8be7db6722a",
+            "selected_record_id": null,
+            "findings": [
+              {
+                "code": "no_committed_evidence",
+                "message": "No committed delivery, baseline, or revalidation record exists.",
+                "record_id": null
+              }
+            ],
+            "dirty_worktree": false,
+            "total_tokens_used": null,
+            "token_usage_complete": null,
+            "token_usage_status": "unavailable",
+            "token_usage_scope": null
+          },
+          "dependencies": [],
+          "blocked_dependencies": [],
+          "approved_local_dependencies": {},
+          "source_unchanged_during_read": true,
+          "dependencies_satisfied": true,
+          "execution_authorized": false,
+          "remaining_checks": [
+            "worker capacity",
+            "active resource ownership",
+            "execution scope"
+          ]
+        },
+        "resource_overlap_authorized": false,
+        "overlap_with": [],
+        "admitted": true,
+        "execution_authorized": false
+      }
+    },
+    {
+      "action": {
+        "kind": "start_worker",
+        "task_id": "NSC-1104",
+        "run_id": "assistant-nsc-1104-7e8bc8faa956",
+        "lease_id": "assistant-nsc-1104-7108485a6a2841e7-lease"
+      },
+      "result": {
+        "started": true,
+        "task_id": "NSC-1104",
+        "run_id": "assistant-nsc-1104-7e8bc8faa956",
+        "lease_id": "assistant-nsc-1104-7108485a6a2841e7-lease",
+        "pid": 43604,
+        "process_identity": {
+          "pid": 43604,
+          "created_ticks": 134340123658104750,
+          "image": "c:\\python313\\python.exe"
+        },
+        "run_root": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\worker-runs\\NSC-1104\\768560be63866fbb85c757217e8d2dd40780a4c45a3ffdb9ff2a195eb84dc576",
+        "request": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\worker-runs\\NSC-1104\\768560be63866fbb85c757217e8d2dd40780a4c45a3ffdb9ff2a195eb84dc576\\launch.request.json",
+        "ready_receipt": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\worker-runs\\NSC-1104\\768560be63866fbb85c757217e8d2dd40780a4c45a3ffdb9ff2a195eb84dc576\\ready.receipt.json",
+        "stdout": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\worker-runs\\NSC-1104\\768560be63866fbb85c757217e8d2dd40780a4c45a3ffdb9ff2a195eb84dc576\\stdout.log",
+        "stderr": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\worker-runs\\NSC-1104\\768560be63866fbb85c757217e8d2dd40780a4c45a3ffdb9ff2a195eb84dc576\\stderr.log",
+        "execution_authorized": true
+      }
+    },
+    {
+      "action": {
+        "kind": "reserve",
+        "task_id": "NSC-1105",
+        "run_id": "assistant-nsc-1105-9948d2c25f65"
+      },
+      "result": {
+        "schema_version": "assistant-admission/v1",
+        "status": "active",
+        "source": "C:\\NSC\\NSCDemoGauntlet-20260916",
+        "task_id": "NSC-1105",
+        "run_id": "assistant-nsc-1105-9948d2c25f65",
+        "lease_id": "assistant-nsc-1105-8f933b330831432e-lease",
+        "checkout_root": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts",
+        "checkout": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\NSC-1105",
+        "source_head": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+        "task_contract_sha256": "cc08d9aeba75da0afd48aee189bdfee72e3acc0bfdea699f93ccdcff3d0fc5c6",
+        "plan_id": "scope-92a10ef071e83ccd4de3dfecf949583a35b41c1270b8afc783cc9948d2c25f65",
+        "plan": {
+          "existing_implementation_paths": [],
+          "new_implementation_paths": [
+            "Assets/NoSafeCircle/DoorPrototype/Scripts/Gauntlet1105.cs"
+          ],
+          "existing_test_paths": [
+            "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1105Tests.cs"
+          ],
+          "new_test_paths": []
+        },
+        "resources": [
+          "assets/nosafecircle/doorprototype/scripts/gauntlet1105.cs",
+          "assets/nosafecircle/doorprototype/scripts/gauntlet1105.cs.meta",
+          "assets/nosafecircle/doorprototype/tests/editor/gauntletreplay1105tests.cs",
+          "assets/nosafecircle/doorprototype/tests/editor/gauntletreplay1105tests.cs.meta"
+        ],
+        "dependency_inspection": {
+          "task_id": "NSC-1105",
+          "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+          "contract_sha256": "cc08d9aeba75da0afd48aee189bdfee72e3acc0bfdea699f93ccdcff3d0fc5c6",
+          "task_state": {
+            "task_id": "NSC-1105",
+            "title": "Gauntlet 1105: Publish Its Isolated Value",
+            "state": "not_delivered",
+            "head_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+            "head_tree": "4e041d0ea8628ed89d101000d7bfd8be7db6722a",
+            "selected_record_id": null,
+            "findings": [
+              {
+                "code": "no_committed_evidence",
+                "message": "No committed delivery, baseline, or revalidation record exists.",
+                "record_id": null
+              }
+            ],
+            "dirty_worktree": false,
+            "total_tokens_used": null,
+            "token_usage_complete": null,
+            "token_usage_status": "unavailable",
+            "token_usage_scope": null
+          },
+          "dependencies": [],
+          "blocked_dependencies": [],
+          "approved_local_dependencies": {},
+          "source_unchanged_during_read": true,
+          "dependencies_satisfied": true,
+          "execution_authorized": false,
+          "remaining_checks": [
+            "worker capacity",
+            "active resource ownership",
+            "execution scope"
+          ]
+        },
+        "resource_overlap_authorized": false,
+        "overlap_with": [],
+        "admitted": true,
+        "execution_authorized": false
+      }
+    },
+    {
+      "action": {
+        "kind": "start_worker",
+        "task_id": "NSC-1105",
+        "run_id": "assistant-nsc-1105-9948d2c25f65",
+        "lease_id": "assistant-nsc-1105-8f933b330831432e-lease"
+      },
+      "result": {
+        "started": true,
+        "task_id": "NSC-1105",
+        "run_id": "assistant-nsc-1105-9948d2c25f65",
+        "lease_id": "assistant-nsc-1105-8f933b330831432e-lease",
+        "pid": 48740,
+        "process_identity": {
+          "pid": 48740,
+          "created_ticks": 134340123710729276,
+          "image": "c:\\python313\\python.exe"
+        },
+        "run_root": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\worker-runs\\NSC-1105\\402096321399372e118724797f2eac7655a5344d770a009e7e8830e41a85220c",
+        "request": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\worker-runs\\NSC-1105\\402096321399372e118724797f2eac7655a5344d770a009e7e8830e41a85220c\\launch.request.json",
+        "ready_receipt": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\worker-runs\\NSC-1105\\402096321399372e118724797f2eac7655a5344d770a009e7e8830e41a85220c\\ready.receipt.json",
+        "stdout": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\worker-runs\\NSC-1105\\402096321399372e118724797f2eac7655a5344d770a009e7e8830e41a85220c\\stdout.log",
+        "stderr": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\worker-runs\\NSC-1105\\402096321399372e118724797f2eac7655a5344d770a009e7e8830e41a85220c\\stderr.log",
+        "execution_authorized": true
+      }
+    },
+    {
+      "action": {
+        "kind": "wait_worker",
+        "task_id": "NSC-200",
+        "run_id": "assistant-nsc-200-60783ff2b1f9"
+      },
+      "result": {
+        "task_id": "NSC-1101",
+        "worker": {
+          "status": "succeeded",
+          "pid": 22852,
+          "run_id": "assistant-nsc-1101-81b76deb6ff6",
+          "process_identity": {
+            "pid": 22852,
+            "created_ticks": 134340123531314917,
+            "image": "c:\\python313\\python.exe"
+          },
+          "task_id": "NSC-1101",
+          "lease_id": "assistant-nsc-1101-00a9e276d1054f96-lease",
+          "plan_id": "scope-401495915d99d33524471e1ab60e2e750307099e71434774307881b76deb6ff6",
+          "source_head": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+          "task_contract_sha256": "0172b43fd3d6ef0817643f404989ecc9b2f30576dc408fb5f65089127b732f8d",
+          "started_at": "2026-09-16T06:05:56.016989+00:00",
+          "config": {
+            "provider": "claude",
+            "execution_model": "claude-haiku-4-5-20251001",
+            "credential_volume": "nosafecircle_claude-config",
+            "crew_profile": "lean",
+            "validation_profile": "targeted",
+            "timeout_seconds": 900,
+            "provider_allowlist": [
+              "claude"
+            ],
+            "enable_session_pool": false,
+            "execution_authorized": true
+          },
+          "compose_project": "assistant-crew-951d29fd4b5560113f6e",
+          "stop_request_path": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\worker-runs\\NSC-1101\\951d29fd4b5560113f6e48940c44065635728495dbb1454568b30c53634e0c10\\stop.request",
+          "job_name": "assistant-job-f7ca1dc68f76453f394e96e892289e7a27c1715d623a0b9001ddf88f9c58728a",
+          "crew_run_id": "nsc-1101-20260916t060727z",
+          "finished_at": "2026-09-16T06:10:28.667081+00:00",
+          "docker_cleanup": "not_confirmed_by_host_worker",
+          "receipt": {
+            "schema_version": "1.0",
+            "run_id": "nsc-1101-20260916t060727z",
+            "task_id": "NSC-1101",
+            "lease_id": "assistant-nsc-1101-00a9e276d1054f96-lease",
+            "plan_id": "scope-401495915d99d33524471e1ab60e2e750307099e71434774307881b76deb6ff6",
+            "provider": "claude",
+            "execution_model": "claude-haiku-4-5-20251001",
+            "execution_reasoning_effort": null,
+            "crew_profile": "lean",
+            "validation_profile": "targeted",
+            "source_head": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+            "task_contract_sha256": "0172b43fd3d6ef0817643f404989ecc9b2f30576dc408fb5f65089127b732f8d",
+            "crew_status": "review_ready",
+            "result_path": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\NSC-1101\\Pipeline\\ExecutionCrew\\outputs\\nsc-1101-20260916t060727z\\crew_result.json",
+            "result_sha256": "5361ec7b9c56198ef09c595da4fd1f306b7695dad9f0f4ede986a19fc04b831a",
+            "candidate_path": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\NSC-1101\\Pipeline\\ExecutionCrew\\outputs\\nsc-1101-20260916t060727z\\candidate.patch",
+            "candidate_sha256": "c004ad1d45307fe751bade4e6de76518c7b2b4854b38991ba113cec28520863f",
+            "final_actual_changed_paths": [
+              "Assets/NoSafeCircle/DoorPrototype/Scripts/Gauntlet1101.cs",
+              "Assets/NoSafeCircle/DoorPrototype/Scripts/Gauntlet1101.cs.meta"
+            ],
+            "returncode": 0,
+            "rejection_reasons": []
+          }
+        },
+        "host_identity_alive": false,
+        "identity_error": null,
+        "stop_requested": false,
+        "capacity_released": false,
+        "limitation": "Host process identity does not prove Docker children have exited.",
+        "status": "progress",
+        "progress": "worker_exited"
+      }
+    },
+    {
+      "action": {
+        "kind": "settle_worker",
+        "task_id": "NSC-1101",
+        "run_id": "assistant-nsc-1101-81b76deb6ff6"
+      },
+      "result": {
+        "task_id": "NSC-1101",
+        "run_id": "assistant-nsc-1101-81b76deb6ff6",
+        "capacity_released": true,
+        "approval_granted": false,
+        "integration_performed": false
+      }
+    },
+    {
+      "action": {
+        "kind": "settle_worker",
+        "task_id": "NSC-1104",
+        "run_id": "assistant-nsc-1104-7e8bc8faa956"
+      },
+      "result": {
+        "task_id": "NSC-1104",
+        "run_id": "assistant-nsc-1104-7e8bc8faa956",
+        "capacity_released": true,
+        "approval_granted": false,
+        "integration_performed": false
+      }
+    },
+    {
+      "action": {
+        "kind": "settle_worker",
+        "task_id": "NSC-1105",
+        "run_id": "assistant-nsc-1105-9948d2c25f65"
+      },
+      "result": {
+        "task_id": "NSC-1105",
+        "run_id": "assistant-nsc-1105-9948d2c25f65",
+        "capacity_released": true,
+        "approval_granted": false,
+        "integration_performed": false
+      }
+    },
+    {
+      "action": {
+        "kind": "post_crew",
+        "task_id": "NSC-1101",
+        "crew_run_id": "nsc-1101-20260916t060727z"
+      },
+      "result": {
+        "status": "launched",
+        "task_id": "NSC-1101",
+        "kind": "post_crew",
+        "job_id": "78f3ba8c90b1f473b4a2fa32f54c895ee33ab1067f487686a94f8dbb042292ab",
+        "attempt": 1,
+        "identity": {
+          "candidate_commit": null,
+          "crew_run_id": "nsc-1101-20260916t060727z",
+          "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+          "task_contract_sha256": "0172b43fd3d6ef0817643f404989ecc9b2f30576dc408fb5f65089127b732f8d"
+        },
+        "pid": 25420,
+        "process_identity": {
+          "pid": 25420,
+          "created_ticks": 134340126365501825,
+          "image": "c:\\python313\\python.exe"
+        },
+        "run_root": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\background-jobs\\NSC-1101\\78f3ba8c90b1f473b4a2fa32f54c895ee33ab1067f487686a94f8dbb042292ab"
+      }
+    },
+    {
+      "action": {
+        "kind": "wait_worker",
+        "task_id": "NSC-200",
+        "run_id": "assistant-nsc-200-60783ff2b1f9"
+      },
+      "result": {
+        "task_id": "NSC-1103",
+        "worker": {
+          "status": "succeeded",
+          "pid": 44296,
+          "run_id": "assistant-nsc-1103-caac008b9ea1",
+          "process_identity": {
+            "pid": 44296,
+            "created_ticks": 134340123597274320,
+            "image": "c:\\python313\\python.exe"
+          },
+          "task_id": "NSC-1103",
+          "lease_id": "assistant-nsc-1103-b0c840cef7f24fba-lease",
+          "plan_id": "scope-10865001ad75773efe4a8b6de99fdf251ba6dc6dc91f742fb565caac008b9ea1",
+          "source_head": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+          "task_contract_sha256": "28de027fb95e782e68dbc3027f2b9a4f9901a1cf74fcc1cc25f077f7d6b2f59f",
+          "started_at": "2026-09-16T06:06:02.492460+00:00",
+          "config": {
+            "provider": "claude",
+            "execution_model": "claude-haiku-4-5-20251001",
+            "credential_volume": "nosafecircle_claude-config",
+            "crew_profile": "lean",
+            "validation_profile": "targeted",
+            "timeout_seconds": 900,
+            "provider_allowlist": [
+              "claude"
+            ],
+            "enable_session_pool": false,
+            "execution_authorized": true
+          },
+          "compose_project": "assistant-crew-38c9e691d74617098bc8",
+          "stop_request_path": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\worker-runs\\NSC-1103\\38c9e691d74617098bc804d9d17db1c023b04fa8e3f14504aa347a6434299fcd\\stop.request",
+          "job_name": "assistant-job-39021ac270b882c53eaa99b16b227acc6adb77a9ed47447058023b8aedfdbc90",
+          "crew_run_id": "nsc-1103-20260916t060727z",
+          "finished_at": "2026-09-16T06:10:45.623974+00:00",
+          "docker_cleanup": "not_confirmed_by_host_worker",
+          "receipt": {
+            "schema_version": "1.0",
+            "run_id": "nsc-1103-20260916t060727z",
+            "task_id": "NSC-1103",
+            "lease_id": "assistant-nsc-1103-b0c840cef7f24fba-lease",
+            "plan_id": "scope-10865001ad75773efe4a8b6de99fdf251ba6dc6dc91f742fb565caac008b9ea1",
+            "provider": "claude",
+            "execution_model": "claude-haiku-4-5-20251001",
+            "execution_reasoning_effort": null,
+            "crew_profile": "lean",
+            "validation_profile": "targeted",
+            "source_head": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+            "task_contract_sha256": "28de027fb95e782e68dbc3027f2b9a4f9901a1cf74fcc1cc25f077f7d6b2f59f",
+            "crew_status": "review_ready",
+            "result_path": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\NSC-1103\\Pipeline\\ExecutionCrew\\outputs\\nsc-1103-20260916t060727z\\crew_result.json",
+            "result_sha256": "541c70b48124bbc4c020bc14835d3a7bfa2b742e49d0d1373cbc2432e855557e",
+            "candidate_path": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\NSC-1103\\Pipeline\\ExecutionCrew\\outputs\\nsc-1103-20260916t060727z\\candidate.patch",
+            "candidate_sha256": "39e13c614057dabb0fde33b3c62e09cc63c55aa56c8ed5be356b5a046c39b144",
+            "final_actual_changed_paths": [
+              "Assets/NoSafeCircle/DoorPrototype/Scripts/Gauntlet1103.cs",
+              "Assets/NoSafeCircle/DoorPrototype/Scripts/Gauntlet1103.cs.meta"
+            ],
+            "returncode": 0,
+            "rejection_reasons": []
+          }
+        },
+        "host_identity_alive": false,
+        "identity_error": null,
+        "stop_requested": false,
+        "capacity_released": false,
+        "limitation": "Host process identity does not prove Docker children have exited.",
+        "status": "progress",
+        "progress": "worker_exited"
+      }
+    },
+    {
+      "action": {
+        "kind": "settle_worker",
+        "task_id": "NSC-1103",
+        "run_id": "assistant-nsc-1103-caac008b9ea1"
+      },
+      "result": {
+        "task_id": "NSC-1103",
+        "run_id": "assistant-nsc-1103-caac008b9ea1",
+        "capacity_released": true,
+        "approval_granted": false,
+        "integration_performed": false
+      }
+    },
+    {
+      "action": {
+        "kind": "wait_worker",
+        "task_id": "NSC-200",
+        "run_id": "assistant-nsc-200-60783ff2b1f9"
+      },
+      "result": {
+        "status": "progress",
+        "progress": "job_ended",
+        "task_id": "NSC-1101",
+        "job_id": "78f3ba8c90b1f473b4a2fa32f54c895ee33ab1067f487686a94f8dbb042292ab",
+        "job_kind": "post_crew",
+        "job_status": "completed"
+      }
+    },
+    {
+      "action": {
+        "kind": "post_crew",
+        "task_id": "NSC-1103",
+        "crew_run_id": "nsc-1103-20260916t060727z"
+      },
+      "result": {
+        "status": "launched",
+        "task_id": "NSC-1103",
+        "kind": "post_crew",
+        "job_id": "b43754b3b80e6c1d8597ba9d5b57f2bd568770b3b77b0d1ce03681e223b79c23",
+        "attempt": 1,
+        "identity": {
+          "candidate_commit": null,
+          "crew_run_id": "nsc-1103-20260916t060727z",
+          "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+          "task_contract_sha256": "28de027fb95e782e68dbc3027f2b9a4f9901a1cf74fcc1cc25f077f7d6b2f59f"
+        },
+        "pid": 44172,
+        "process_identity": {
+          "pid": 44172,
+          "created_ticks": 134340127646154738,
+          "image": "c:\\python313\\python.exe"
+        },
+        "run_root": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\background-jobs\\NSC-1103\\b43754b3b80e6c1d8597ba9d5b57f2bd568770b3b77b0d1ce03681e223b79c23"
+      }
+    },
+    {
+      "action": {
+        "kind": "wait_worker",
+        "task_id": "NSC-200",
+        "run_id": "assistant-nsc-200-60783ff2b1f9"
+      },
+      "result": {
+        "task_id": "NSC-200",
+        "worker": {
+          "status": "succeeded",
+          "pid": 53324,
+          "run_id": "assistant-nsc-200-60783ff2b1f9",
+          "process_identity": {
+            "pid": 53324,
+            "created_ticks": 134340123375126726,
+            "image": "c:\\python313\\python.exe"
+          },
+          "task_id": "NSC-200",
+          "lease_id": "assistant-nsc-200-a71df3c33b764998-lease",
+          "plan_id": "scope-5d414bda0e6a24a69220524ca1aa002626e2fac7fa6443dac7dd60783ff2b1f9",
+          "source_head": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+          "task_contract_sha256": "b6509bfdcc7e07b210ec147e394ad02ef1d4d4e590a2fc580b9754f082259c94",
+          "started_at": "2026-09-16T06:05:43.254591+00:00",
+          "config": {
+            "provider": "claude",
+            "execution_model": "claude-haiku-4-5-20251001",
+            "credential_volume": "nosafecircle_claude-config",
+            "crew_profile": "lean",
+            "validation_profile": "targeted",
+            "timeout_seconds": 900,
+            "provider_allowlist": [
+              "claude"
+            ],
+            "enable_session_pool": false,
+            "execution_authorized": true
+          },
+          "compose_project": "assistant-crew-e05394d19cd2fd54c47f",
+          "stop_request_path": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\worker-runs\\NSC-200\\e05394d19cd2fd54c47f81d99d532d5da4b9c411241b097c45cc08c885dcba08\\stop.request",
+          "job_name": "assistant-job-a25c2b542d8d59b1625ce021155e433a9cb8f1713c14a5a3b0fb72ec25696876",
+          "crew_run_id": "nsc-200-20260916t060727z",
+          "finished_at": "2026-09-16T06:13:41.707387+00:00",
+          "docker_cleanup": "not_confirmed_by_host_worker",
+          "receipt": {
+            "schema_version": "1.0",
+            "run_id": "nsc-200-20260916t060727z",
+            "task_id": "NSC-200",
+            "lease_id": "assistant-nsc-200-a71df3c33b764998-lease",
+            "plan_id": "scope-5d414bda0e6a24a69220524ca1aa002626e2fac7fa6443dac7dd60783ff2b1f9",
+            "provider": "claude",
+            "execution_model": "claude-haiku-4-5-20251001",
+            "execution_reasoning_effort": null,
+            "crew_profile": "lean",
+            "validation_profile": "targeted",
+            "source_head": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+            "task_contract_sha256": "b6509bfdcc7e07b210ec147e394ad02ef1d4d4e590a2fc580b9754f082259c94",
+            "crew_status": "review_ready",
+            "result_path": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\NSC-200\\Pipeline\\ExecutionCrew\\outputs\\nsc-200-20260916t060727z\\crew_result.json",
+            "result_sha256": "5ca5e9ac28a0b9ab6bebba85ab3cdd20c172bb630f2d927c3871a09a5bd74b12",
+            "candidate_path": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\NSC-200\\Pipeline\\ExecutionCrew\\outputs\\nsc-200-20260916t060727z\\candidate.patch",
+            "candidate_sha256": "490dbc440fab70746266173e5d6f262bfd24400310c2b8516a985d9246ddd791",
+            "final_actual_changed_paths": [
+              "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs"
+            ],
+            "returncode": 0,
+            "rejection_reasons": []
+          }
+        },
+        "host_identity_alive": false,
+        "identity_error": null,
+        "stop_requested": false,
+        "capacity_released": false,
+        "limitation": "Host process identity does not prove Docker children have exited.",
+        "status": "progress",
+        "progress": "worker_exited"
+      }
+    },
+    {
+      "action": {
+        "kind": "settle_worker",
+        "task_id": "NSC-200",
+        "run_id": "assistant-nsc-200-60783ff2b1f9"
+      },
+      "result": {
+        "task_id": "NSC-200",
+        "run_id": "assistant-nsc-200-60783ff2b1f9",
+        "capacity_released": true,
+        "approval_granted": false,
+        "integration_performed": false
+      }
+    },
+    {
+      "action": {
+        "kind": "wait_job",
+        "task_id": "NSC-201",
+        "job_id": "704a49cf6d9d8190f0d7902947eb833ebdd41a6d0b8c9c98f95c0cb3a919161f",
+        "job_kind": "decompose"
+      },
+      "result": {
+        "status": "progress",
+        "progress": "job_ended",
+        "task_id": "NSC-1103",
+        "job_id": "b43754b3b80e6c1d8597ba9d5b57f2bd568770b3b77b0d1ce03681e223b79c23",
+        "job_kind": "post_crew",
+        "job_status": "completed"
+      }
+    },
+    {
+      "action": {
+        "kind": "post_crew",
+        "task_id": "NSC-200",
+        "crew_run_id": "nsc-200-20260916t060727z"
+      },
+      "result": {
+        "status": "launched",
+        "task_id": "NSC-200",
+        "kind": "post_crew",
+        "job_id": "6c1cea7dc8aabb2560d801e9bf115bcae9ee6871d57f14190622239783e7ea5f",
+        "attempt": 1,
+        "identity": {
+          "candidate_commit": null,
+          "crew_run_id": "nsc-200-20260916t060727z",
+          "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+          "task_contract_sha256": "b6509bfdcc7e07b210ec147e394ad02ef1d4d4e590a2fc580b9754f082259c94"
+        },
+        "pid": 20972,
+        "process_identity": {
+          "pid": 20972,
+          "created_ticks": 134340128716266984,
+          "image": "c:\\python313\\python.exe"
+        },
+        "run_root": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\background-jobs\\NSC-200\\6c1cea7dc8aabb2560d801e9bf115bcae9ee6871d57f14190622239783e7ea5f"
+      }
+    },
+    {
+      "action": {
+        "kind": "wait_job",
+        "task_id": "NSC-200",
+        "job_id": "6c1cea7dc8aabb2560d801e9bf115bcae9ee6871d57f14190622239783e7ea5f",
+        "job_kind": "post_crew"
+      },
+      "result": {
+        "status": "progress",
+        "progress": "job_ended",
+        "task_id": "NSC-200",
+        "job_id": "6c1cea7dc8aabb2560d801e9bf115bcae9ee6871d57f14190622239783e7ea5f",
+        "job_kind": "post_crew",
+        "job_status": "completed"
+      }
+    },
+    {
+      "action": {
+        "kind": "post_crew",
+        "task_id": "NSC-1104",
+        "crew_run_id": "nsc-1104-20260916t060727z"
+      },
+      "result": {
+        "status": "launched",
+        "task_id": "NSC-1104",
+        "kind": "post_crew",
+        "job_id": "b6df087e0eee8aceeedbea8e8bcbd88c433b9a03bdf3dabbb5cc6b7aaa1116a9",
+        "attempt": 1,
+        "identity": {
+          "candidate_commit": null,
+          "crew_run_id": "nsc-1104-20260916t060727z",
+          "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+          "task_contract_sha256": "9b4f7641b592900d7489ea97fb8953f50318cfef147ee72d61c363195323f805"
+        },
+        "pid": 50632,
+        "process_identity": {
+          "pid": 50632,
+          "created_ticks": 134340129407789747,
+          "image": "c:\\python313\\python.exe"
+        },
+        "run_root": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\background-jobs\\NSC-1104\\b6df087e0eee8aceeedbea8e8bcbd88c433b9a03bdf3dabbb5cc6b7aaa1116a9"
+      }
+    },
+    {
+      "action": {
+        "kind": "wait_job",
+        "task_id": "NSC-201",
+        "job_id": "704a49cf6d9d8190f0d7902947eb833ebdd41a6d0b8c9c98f95c0cb3a919161f",
+        "job_kind": "decompose"
+      },
+      "result": {
+        "status": "progress",
+        "progress": "job_ended",
+        "task_id": "NSC-1104",
+        "job_id": "b6df087e0eee8aceeedbea8e8bcbd88c433b9a03bdf3dabbb5cc6b7aaa1116a9",
+        "job_kind": "post_crew",
+        "job_status": "completed"
+      }
+    },
+    {
+      "action": {
+        "kind": "post_crew",
+        "task_id": "NSC-1105",
+        "crew_run_id": "nsc-1105-20260916t060727z"
+      },
+      "result": {
+        "status": "launched",
+        "task_id": "NSC-1105",
+        "kind": "post_crew",
+        "job_id": "411902b7d59e21923b3e18eafa99fee94d1b77ab26f97abe562aa33b08598b90",
+        "attempt": 1,
+        "identity": {
+          "candidate_commit": null,
+          "crew_run_id": "nsc-1105-20260916t060727z",
+          "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+          "task_contract_sha256": "cc08d9aeba75da0afd48aee189bdfee72e3acc0bfdea699f93ccdcff3d0fc5c6"
+        },
+        "pid": 18068,
+        "process_identity": {
+          "pid": 18068,
+          "created_ticks": 134340130454283869,
+          "image": "c:\\python313\\python.exe"
+        },
+        "run_root": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\background-jobs\\NSC-1105\\411902b7d59e21923b3e18eafa99fee94d1b77ab26f97abe562aa33b08598b90"
+      }
+    },
+    {
+      "action": {
+        "kind": "wait_job",
+        "task_id": "NSC-201",
+        "job_id": "704a49cf6d9d8190f0d7902947eb833ebdd41a6d0b8c9c98f95c0cb3a919161f",
+        "job_kind": "decompose"
+      },
+      "result": {
+        "status": "progress",
+        "progress": "job_ended",
+        "task_id": "NSC-1105",
+        "job_id": "411902b7d59e21923b3e18eafa99fee94d1b77ab26f97abe562aa33b08598b90",
+        "job_kind": "post_crew",
+        "job_status": "completed"
+      }
+    },
+    {
+      "action": {
+        "kind": "wait_job",
+        "task_id": "NSC-201",
+        "job_id": "704a49cf6d9d8190f0d7902947eb833ebdd41a6d0b8c9c98f95c0cb3a919161f",
+        "job_kind": "decompose"
+      },
+      "result": {
+        "status": "progress",
+        "progress": "job_ended",
+        "task_id": "NSC-201",
+        "job_id": "704a49cf6d9d8190f0d7902947eb833ebdd41a6d0b8c9c98f95c0cb3a919161f",
+        "job_kind": "decompose",
+        "job_status": "completed"
+      }
+    },
+    {
+      "action": {
+        "kind": "integrate",
+        "task_id": "NSC-1101",
+        "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+        "target_branch": "demo/gauntlet-20260916"
+      },
+      "result": {
+        "schema_version": "assistant-checkout/v1",
+        "task_id": "NSC-1101",
+        "source": "C:\\NSC\\NSCDemoGauntlet-20260916",
+        "checkout": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\NSC-1101",
+        "staging": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.NSC-1101-370dc154299441b1b6704b4f48005d2f",
+        "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+        "task_contract_sha256": "0172b43fd3d6ef0817643f404989ecc9b2f30576dc408fb5f65089127b732f8d",
+        "branch": "assistant/NSC-1101",
+        "status": "integrated",
+        "approval": {
+          "commit": "717d175c4b63d5677a3cf27fa65c7b5a57685816",
+          "decision": "approve",
+          "message": "Vincent approved during the live demo run: Gauntlet1101.cs and its .meta match the contract's required value and GUID.",
+          "recorded_at": "2026-09-16T06:12:56.967469+00:00"
+        },
+        "worker": {
+          "status": "succeeded",
+          "pid": 22852,
+          "run_id": "assistant-nsc-1101-81b76deb6ff6",
+          "process_identity": {
+            "pid": 22852,
+            "created_ticks": 134340123531314917,
+            "image": "c:\\python313\\python.exe"
+          },
+          "task_id": "NSC-1101",
+          "lease_id": "assistant-nsc-1101-00a9e276d1054f96-lease",
+          "plan_id": "scope-401495915d99d33524471e1ab60e2e750307099e71434774307881b76deb6ff6",
+          "source_head": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+          "task_contract_sha256": "0172b43fd3d6ef0817643f404989ecc9b2f30576dc408fb5f65089127b732f8d",
+          "started_at": "2026-09-16T06:05:56.016989+00:00",
+          "config": {
+            "provider": "claude",
+            "execution_model": "claude-haiku-4-5-20251001",
+            "credential_volume": "nosafecircle_claude-config",
+            "crew_profile": "lean",
+            "validation_profile": "targeted",
+            "timeout_seconds": 900,
+            "provider_allowlist": [
+              "claude"
+            ],
+            "enable_session_pool": false,
+            "execution_authorized": true
+          },
+          "compose_project": "assistant-crew-951d29fd4b5560113f6e",
+          "stop_request_path": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\worker-runs\\NSC-1101\\951d29fd4b5560113f6e48940c44065635728495dbb1454568b30c53634e0c10\\stop.request",
+          "job_name": "assistant-job-f7ca1dc68f76453f394e96e892289e7a27c1715d623a0b9001ddf88f9c58728a",
+          "crew_run_id": "nsc-1101-20260916t060727z",
+          "finished_at": "2026-09-16T06:10:28.667081+00:00",
+          "docker_cleanup": "not_confirmed_by_host_worker",
+          "receipt": {
+            "schema_version": "1.0",
+            "run_id": "nsc-1101-20260916t060727z",
+            "task_id": "NSC-1101",
+            "lease_id": "assistant-nsc-1101-00a9e276d1054f96-lease",
+            "plan_id": "scope-401495915d99d33524471e1ab60e2e750307099e71434774307881b76deb6ff6",
+            "provider": "claude",
+            "execution_model": "claude-haiku-4-5-20251001",
+            "execution_reasoning_effort": null,
+            "crew_profile": "lean",
+            "validation_profile": "targeted",
+            "source_head": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+            "task_contract_sha256": "0172b43fd3d6ef0817643f404989ecc9b2f30576dc408fb5f65089127b732f8d",
+            "crew_status": "review_ready",
+            "result_path": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\NSC-1101\\Pipeline\\ExecutionCrew\\outputs\\nsc-1101-20260916t060727z\\crew_result.json",
+            "result_sha256": "5361ec7b9c56198ef09c595da4fd1f306b7695dad9f0f4ede986a19fc04b831a",
+            "candidate_path": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\NSC-1101\\Pipeline\\ExecutionCrew\\outputs\\nsc-1101-20260916t060727z\\candidate.patch",
+            "candidate_sha256": "c004ad1d45307fe751bade4e6de76518c7b2b4854b38991ba113cec28520863f",
+            "final_actual_changed_paths": [
+              "Assets/NoSafeCircle/DoorPrototype/Scripts/Gauntlet1101.cs",
+              "Assets/NoSafeCircle/DoorPrototype/Scripts/Gauntlet1101.cs.meta"
+            ],
+            "returncode": 0,
+            "rejection_reasons": []
+          },
+          "capacity_released": true,
+          "settled_at": "2026-09-16T06:10:32.083420+00:00"
+        },
+        "scope": {
+          "schema_version": "1.0",
+          "plan_id": "scope-401495915d99d33524471e1ab60e2e750307099e71434774307881b76deb6ff6",
+          "task_id": "NSC-1101",
+          "lease_id": "assistant-nsc-1101-00a9e276d1054f96-lease",
+          "source_head": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+          "task_contract_sha256": "0172b43fd3d6ef0817643f404989ecc9b2f30576dc408fb5f65089127b732f8d",
+          "plan": {
+            "existing_implementation_paths": [],
+            "new_implementation_paths": [
+              "Assets/NoSafeCircle/DoorPrototype/Scripts/Gauntlet1101.cs"
+            ],
+            "existing_test_paths": [
+              "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1101Tests.cs"
+            ],
+            "new_test_paths": []
+          }
+        },
+        "launch": {
+          "status": "ready_pending",
+          "task_id": "NSC-1101",
+          "run_id": "assistant-nsc-1101-81b76deb6ff6",
+          "lease_id": "assistant-nsc-1101-00a9e276d1054f96-lease",
+          "stop_request_path": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\worker-runs\\NSC-1101\\951d29fd4b5560113f6e48940c44065635728495dbb1454568b30c53634e0c10\\stop.request",
+          "job_name": "assistant-job-f7ca1dc68f76453f394e96e892289e7a27c1715d623a0b9001ddf88f9c58728a",
+          "pid": 22852,
+          "process_identity": {
+            "pid": 22852,
+            "created_ticks": 134340123531314917,
+            "image": "c:\\python313\\python.exe"
+          }
+        },
+        "candidate": {
+          "commit": "717d175c4b63d5677a3cf27fa65c7b5a57685816",
+          "tree": "aaa75c69f20d4b9bf214ea33aef6a95a9e8cfaa3",
+          "parent": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+          "run_id": "nsc-1101-20260916t060727z",
+          "lease_id": "assistant-nsc-1101-00a9e276d1054f96-lease",
+          "plan_id": "scope-401495915d99d33524471e1ab60e2e750307099e71434774307881b76deb6ff6",
+          "receipt": {
+            "schema": "nsc-local-candidate-commit/v1",
+            "task_id": "NSC-1101",
+            "lease_id": "assistant-nsc-1101-00a9e276d1054f96-lease",
+            "plan_id": "scope-401495915d99d33524471e1ab60e2e750307099e71434774307881b76deb6ff6",
+            "run_id": "nsc-1101-20260916t060727z",
+            "source_base": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+            "candidate_commit": "717d175c4b63d5677a3cf27fa65c7b5a57685816",
+            "candidate_tree": "aaa75c69f20d4b9bf214ea33aef6a95a9e8cfaa3",
+            "candidate_parent": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+            "task_contract_sha256": "0172b43fd3d6ef0817643f404989ecc9b2f30576dc408fb5f65089127b732f8d",
+            "execution_result_sha256": "5361ec7b9c56198ef09c595da4fd1f306b7695dad9f0f4ede986a19fc04b831a",
+            "candidate_patch_sha256": "c004ad1d45307fe751bade4e6de76518c7b2b4854b38991ba113cec28520863f",
+            "changed_paths": [
+              "Assets/NoSafeCircle/DoorPrototype/Scripts/Gauntlet1101.cs",
+              "Assets/NoSafeCircle/DoorPrototype/Scripts/Gauntlet1101.cs.meta"
+            ],
+            "validation_sha256": "5946010936136d958ff84317283ac4da6419d40f00625f33b04cae30344caebc",
+            "receipt_sha256": "3dc87a24449fa85fc1b24d0d87661b920e6066bf3c052046c87aa5ed44345601"
+          },
+          "authoritative_validations": [
+            {
+              "test_platform": "EditMode",
+              "test_filter": "NoSafeCircle.DoorPrototype.Tests.Editor.GauntletReplay1101Tests.Gauntlet1101HasExpectedValue",
+              "commit": "717d175c4b63d5677a3cf27fa65c7b5a57685816",
+              "tree": "aaa75c69f20d4b9bf214ea33aef6a95a9e8cfaa3",
+              "manifest_relative_path": "outputs/NSC-1101/candidate-717d175c4b63/post-candidate-validation/EditMode-bded8a9e02fe/validation-manifest.json",
+              "policy_sha256": "8b6397e285491ca0d7bd233af2e2381b2bbdeafb67834c22b48b4a9f219cbf80",
+              "total": 1,
+              "passed": 1,
+              "manifest_sha256": "bd2bb8b246908a0b4590d46de078115369e8e2e474d676f547f001412ac38780",
+              "xml_sha256": "e8dbd38d8087a425e114f3f6243f70f7ae8e7b10576c15b1d6f889c22e7f7d67",
+              "log_sha256": "ce67a2b71eacc30a636780617a30983223a10bc141bf9dca84b9febc14240489"
+            }
+          ]
+        },
+        "review_history": [
+          {
+            "commit": "717d175c4b63d5677a3cf27fa65c7b5a57685816",
+            "decision": "approve",
+            "message": "Vincent approved during the live demo run: Gauntlet1101.cs and its .meta match the contract's required value and GUID.",
+            "recorded_at": "2026-09-16T06:12:56.967469+00:00"
+          }
+        ],
+        "human_review": {
+          "commit": "717d175c4b63d5677a3cf27fa65c7b5a57685816",
+          "decision": "approve",
+          "message": "Vincent approved during the live demo run: Gauntlet1101.cs and its .meta match the contract's required value and GUID.",
+          "recorded_at": "2026-09-16T06:12:56.967469+00:00"
+        },
+        "integration": {
+          "source_before": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+          "candidate": "717d175c4b63d5677a3cf27fa65c7b5a57685816",
+          "branch": "demo/gauntlet-20260916",
+          "started_at": "2026-09-16T06:20:54.864200+00:00",
+          "preserved_worktree": {
+            "status_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "paths": []
+          },
+          "completed_at": "2026-09-16T06:20:55.240855+00:00"
+        }
+      }
+    },
+    {
+      "action": {
+        "kind": "decompose",
+        "task_id": "NSC-1107"
+      },
+      "result": {
+        "status": "launched",
+        "task_id": "NSC-1107",
+        "kind": "decompose",
+        "job_id": "1ac78b24462929849ff79a1c9802a74cfc21a624daeffd4b5bae80753ee57045",
+        "attempt": 1,
+        "identity": {
+          "compose_project": "nosafecircle",
+          "providers": [
+            "claude",
+            "codex"
+          ],
+          "run_id": "assistant-nsc-1107-decompose-717d175c4b63",
+          "source_branch": "demo/gauntlet-20260916",
+          "source_commit": "717d175c4b63d5677a3cf27fa65c7b5a57685816",
+          "task_contract_sha256": "02c1a721ce6174a0a360618a18b2279adfa51dc747d85fa032e7d5e5b02e6312"
+        },
+        "pid": 9176,
+        "process_identity": {
+          "pid": 9176,
+          "created_ticks": 134340132571120555,
+          "image": "c:\\python313\\python.exe"
+        },
+        "run_root": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\background-jobs\\NSC-1107\\1ac78b24462929849ff79a1c9802a74cfc21a624daeffd4b5bae80753ee57045"
+      }
+    },
+    {
+      "action": {
+        "kind": "wait_job",
+        "task_id": "NSC-1107",
+        "job_id": "1ac78b24462929849ff79a1c9802a74cfc21a624daeffd4b5bae80753ee57045",
+        "job_kind": "decompose"
+      },
+      "result": {
+        "status": "progress",
+        "progress": "job_ended",
+        "task_id": "NSC-1107",
+        "job_id": "1ac78b24462929849ff79a1c9802a74cfc21a624daeffd4b5bae80753ee57045",
+        "job_kind": "decompose",
+        "job_status": "completed"
+      }
+    },
+    {
+      "action": {
+        "kind": "sync_candidate",
+        "task_id": "NSC-1103",
+        "candidate_commit": "29d570753257988ac88b92d76f60d685ae4c06cc",
+        "source_commit": "717d175c4b63d5677a3cf27fa65c7b5a57685816"
+      },
+      "result": {
+        "schema_version": "assistant-checkout/v1",
+        "task_id": "NSC-1103",
+        "source": "C:\\NSC\\NSCDemoGauntlet-20260916",
+        "checkout": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\NSC-1103",
+        "staging": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.NSC-1103-db3f345c2fbe4a179cac4e4e560f7b77",
+        "source_commit": "717d175c4b63d5677a3cf27fa65c7b5a57685816",
+        "task_contract_sha256": "28de027fb95e782e68dbc3027f2b9a4f9901a1cf74fcc1cc25f077f7d6b2f59f",
+        "branch": "assistant/NSC-1103",
+        "status": "awaiting_human",
+        "approval": null,
+        "candidate": {
+          "kind": "source_synchronized",
+          "commit": "7cc06f5a8df43202d4c284e81148593b1fa9e21a",
+          "crew_review": false,
+          "source_candidate_crew_review": true,
+          "tree": "da114e2c45ebadc85225ab75fb9501c0a2cccad3",
+          "parent": "29d570753257988ac88b92d76f60d685ae4c06cc",
+          "source_commit": "717d175c4b63d5677a3cf27fa65c7b5a57685816",
+          "original_candidate": {
+            "commit": "29d570753257988ac88b92d76f60d685ae4c06cc",
+            "tree": "8e2235092a7cceef402c2846c1211c40ad2dc4f4",
+            "parent": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+            "run_id": "nsc-1103-20260916t060727z",
+            "lease_id": "assistant-nsc-1103-b0c840cef7f24fba-lease",
+            "plan_id": "scope-10865001ad75773efe4a8b6de99fdf251ba6dc6dc91f742fb565caac008b9ea1",
+            "receipt": {
+              "schema": "nsc-local-candidate-commit/v1",
+              "task_id": "NSC-1103",
+              "lease_id": "assistant-nsc-1103-b0c840cef7f24fba-lease",
+              "plan_id": "scope-10865001ad75773efe4a8b6de99fdf251ba6dc6dc91f742fb565caac008b9ea1",
+              "run_id": "nsc-1103-20260916t060727z",
+              "source_base": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+              "candidate_commit": "29d570753257988ac88b92d76f60d685ae4c06cc",
+              "candidate_tree": "8e2235092a7cceef402c2846c1211c40ad2dc4f4",
+              "candidate_parent": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+              "task_contract_sha256": "28de027fb95e782e68dbc3027f2b9a4f9901a1cf74fcc1cc25f077f7d6b2f59f",
+              "execution_result_sha256": "541c70b48124bbc4c020bc14835d3a7bfa2b742e49d0d1373cbc2432e855557e",
+              "candidate_patch_sha256": "39e13c614057dabb0fde33b3c62e09cc63c55aa56c8ed5be356b5a046c39b144",
+              "changed_paths": [
+                "Assets/NoSafeCircle/DoorPrototype/Scripts/Gauntlet1103.cs",
+                "Assets/NoSafeCircle/DoorPrototype/Scripts/Gauntlet1103.cs.meta"
+              ],
+              "validation_sha256": "5946010936136d958ff84317283ac4da6419d40f00625f33b04cae30344caebc",
+              "receipt_sha256": "7f76d7b3bb1843eb5a378b4de4104c0b42d6a149fea918eb835e5f2a287826f6"
+            },
+            "authoritative_validations": [
+              {
+                "test_platform": "EditMode",
+                "test_filter": "NoSafeCircle.DoorPrototype.Tests.Editor.GauntletReplay1103Tests.Gauntlet1103HasExpectedValue",
+                "commit": "29d570753257988ac88b92d76f60d685ae4c06cc",
+                "tree": "8e2235092a7cceef402c2846c1211c40ad2dc4f4",
+                "manifest_relative_path": "outputs/NSC-1103/candidate-29d570753257/post-candidate-validation/EditMode-d3a0b8793ece/validation-manifest.json",
+                "policy_sha256": "5d83d8bc4bdac5da4748ac8cc2a3e04ef8459c695eafbc91e457a7e21f5fff90",
+                "total": 1,
+                "passed": 1,
+                "manifest_sha256": "04a9271de272112985cc65b5718fbd02e547252d355eacccef5dcf2f5ac7fd85",
+                "xml_sha256": "f1e5e2cd087f49d5301e393d026860f4cf34bcfa2565ccb21a3ad3d37c290745",
+                "log_sha256": "00ffaf24e6e9099dfde29c0e3f31473cf224a4e2941073034cf1adf35309d1a5"
+              }
+            ]
+          },
+          "original_scope": {
+            "schema_version": "1.0",
+            "plan_id": "scope-10865001ad75773efe4a8b6de99fdf251ba6dc6dc91f742fb565caac008b9ea1",
+            "task_id": "NSC-1103",
+            "lease_id": "assistant-nsc-1103-b0c840cef7f24fba-lease",
+            "source_head": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+            "task_contract_sha256": "28de027fb95e782e68dbc3027f2b9a4f9901a1cf74fcc1cc25f077f7d6b2f59f",
+            "plan": {
+              "existing_implementation_paths": [],
+              "new_implementation_paths": [
+                "Assets/NoSafeCircle/DoorPrototype/Scripts/Gauntlet1103.cs"
+              ],
+              "existing_test_paths": [
+                "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1103Tests.cs"
+              ],
+              "new_test_paths": []
+            }
+          },
+          "mechanical_merge": {
+            "schema_version": "assistant-candidate-sync/v1",
+            "phase": "post_ff",
+            "task_id": "NSC-1103",
+            "operation": "2c6817ac4e0c44b0abc10fb0dfdbd024",
+            "staging": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\.sync-NSC-1103-2c6817ac4e0c",
+            "old_candidate_commit": "29d570753257988ac88b92d76f60d685ae4c06cc",
+            "source_commit": "717d175c4b63d5677a3cf27fa65c7b5a57685816",
+            "source_tree": "aaa75c69f20d4b9bf214ea33aef6a95a9e8cfaa3",
+            "source_branch": "demo/gauntlet-20260916",
+            "sync_commit": "7cc06f5a8df43202d4c284e81148593b1fa9e21a",
+            "sync_tree": "da114e2c45ebadc85225ab75fb9501c0a2cccad3",
+            "merge_tree": "da114e2c45ebadc85225ab75fb9501c0a2cccad3",
+            "prior_review_state": "approved",
+            "task_contract_sha256": "28de027fb95e782e68dbc3027f2b9a4f9901a1cf74fcc1cc25f077f7d6b2f59f",
+            "created_at": "2026-09-16T06:28:27.934246+00:00",
+            "published_at": "2026-09-16T06:28:29.137835+00:00"
+          }
+        },
+        "review_history": [
+          {
+            "commit": "29d570753257988ac88b92d76f60d685ae4c06cc",
+            "decision": "approve",
+            "message": "Vincent approved during the live demo run: the value file and its .meta match the contract.",
+            "recorded_at": "2026-09-16T06:22:27.123188+00:00"
+          }
+        ],
+        "human_review": null,
+        "candidate_lineage": [
+          {
+            "kind": "crew_reviewed",
+            "candidate": {
+              "commit": "29d570753257988ac88b92d76f60d685ae4c06cc",
+              "tree": "8e2235092a7cceef402c2846c1211c40ad2dc4f4",
+              "parent": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+              "run_id": "nsc-1103-20260916t060727z",
+              "lease_id": "assistant-nsc-1103-b0c840cef7f24fba-lease",
+              "plan_id": "scope-10865001ad75773efe4a8b6de99fdf251ba6dc6dc91f742fb565caac008b9ea1",
+              "receipt": {
+                "schema": "nsc-local-candidate-commit/v1",
+                "task_id": "NSC-1103",
+                "lease_id": "assistant-nsc-1103-b0c840cef7f24fba-lease",
+                "plan_id": "scope-10865001ad75773efe4a8b6de99fdf251ba6dc6dc91f742fb565caac008b9ea1",
+                "run_id": "nsc-1103-20260916t060727z",
+                "source_base": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+                "candidate_commit": "29d570753257988ac88b92d76f60d685ae4c06cc",
+                "candidate_tree": "8e2235092a7cceef402c2846c1211c40ad2dc4f4",
+                "candidate_parent": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+                "task_contract_sha256": "28de027fb95e782e68dbc3027f2b9a4f9901a1cf74fcc1cc25f077f7d6b2f59f",
+                "execution_result_sha256": "541c70b48124bbc4c020bc14835d3a7bfa2b742e49d0d1373cbc2432e855557e",
+                "candidate_patch_sha256": "39e13c614057dabb0fde33b3c62e09cc63c55aa56c8ed5be356b5a046c39b144",
+                "changed_paths": [
+                  "Assets/NoSafeCircle/DoorPrototype/Scripts/Gauntlet1103.cs",
+                  "Assets/NoSafeCircle/DoorPrototype/Scripts/Gauntlet1103.cs.meta"
+                ],
+                "validation_sha256": "5946010936136d958ff84317283ac4da6419d40f00625f33b04cae30344caebc",
+                "receipt_sha256": "7f76d7b3bb1843eb5a378b4de4104c0b42d6a149fea918eb835e5f2a287826f6"
+              },
+              "authoritative_validations": [
+                {
+                  "test_platform": "EditMode",
+                  "test_filter": "NoSafeCircle.DoorPrototype.Tests.Editor.GauntletReplay1103Tests.Gauntlet1103HasExpectedValue",
+                  "commit": "29d570753257988ac88b92d76f60d685ae4c06cc",
+                  "tree": "8e2235092a7cceef402c2846c1211c40ad2dc4f4",
+                  "manifest_relative_path": "outputs/NSC-1103/candidate-29d570753257/post-candidate-validation/EditMode-d3a0b8793ece/validation-manifest.json",
+                  "policy_sha256": "5d83d8bc4bdac5da4748ac8cc2a3e04ef8459c695eafbc91e457a7e21f5fff90",
+                  "total": 1,
+                  "passed": 1,
+                  "manifest_sha256": "04a9271de272112985cc65b5718fbd02e547252d355eacccef5dcf2f5ac7fd85",
+                  "xml_sha256": "f1e5e2cd087f49d5301e393d026860f4cf34bcfa2565ccb21a3ad3d37c290745",
+                  "log_sha256": "00ffaf24e6e9099dfde29c0e3f31473cf224a4e2941073034cf1adf35309d1a5"
+                }
+              ]
+            },
+            "approval": {
+              "commit": "29d570753257988ac88b92d76f60d685ae4c06cc",
+              "decision": "approve",
+              "message": "Vincent approved during the live demo run: the value file and its .meta match the contract.",
+              "recorded_at": "2026-09-16T06:22:27.123188+00:00"
+            },
+            "human_review": {
+              "commit": "29d570753257988ac88b92d76f60d685ae4c06cc",
+              "decision": "approve",
+              "message": "Vincent approved during the live demo run: the value file and its .meta match the contract.",
+              "recorded_at": "2026-09-16T06:22:27.123188+00:00"
+            },
+            "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82"
+          }
+        ]
+      }
+    },
+    {
+      "action": {
+        "kind": "sync_candidate",
+        "task_id": "NSC-1104",
+        "candidate_commit": "71c75d29577d009ccfb4222e20380216398907db",
+        "source_commit": "717d175c4b63d5677a3cf27fa65c7b5a57685816"
+      },
+      "result": {
+        "schema_version": "assistant-checkout/v1",
+        "task_id": "NSC-1104",
+        "source": "C:\\NSC\\NSCDemoGauntlet-20260916",
+        "checkout": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\NSC-1104",
+        "staging": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.NSC-1104-9a2626efce7a457cad7ba462486e4a8f",
+        "source_commit": "717d175c4b63d5677a3cf27fa65c7b5a57685816",
+        "task_contract_sha256": "9b4f7641b592900d7489ea97fb8953f50318cfef147ee72d61c363195323f805",
+        "branch": "assistant/NSC-1104",
+        "status": "awaiting_human",
+        "approval": null,
+        "candidate": {
+          "kind": "source_synchronized",
+          "commit": "136511342ba9ff06078841e2a7b360320ba8dd8f",
+          "crew_review": false,
+          "source_candidate_crew_review": true,
+          "tree": "8ff600233531540b55961ea32e9bee70b09e205c",
+          "parent": "71c75d29577d009ccfb4222e20380216398907db",
+          "source_commit": "717d175c4b63d5677a3cf27fa65c7b5a57685816",
+          "original_candidate": {
+            "commit": "71c75d29577d009ccfb4222e20380216398907db",
+            "tree": "f6f312bb37515737ab025850b924b178fb1fd050",
+            "parent": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+            "run_id": "nsc-1104-20260916t060727z",
+            "lease_id": "assistant-nsc-1104-7108485a6a2841e7-lease",
+            "plan_id": "scope-bc703ffe77c18eb4d97a4c9d1e7f2e35e156f7cc7765a407238e7e8bc8faa956",
+            "receipt": {
+              "schema": "nsc-local-candidate-commit/v1",
+              "task_id": "NSC-1104",
+              "lease_id": "assistant-nsc-1104-7108485a6a2841e7-lease",
+              "plan_id": "scope-bc703ffe77c18eb4d97a4c9d1e7f2e35e156f7cc7765a407238e7e8bc8faa956",
+              "run_id": "nsc-1104-20260916t060727z",
+              "source_base": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+              "candidate_commit": "71c75d29577d009ccfb4222e20380216398907db",
+              "candidate_tree": "f6f312bb37515737ab025850b924b178fb1fd050",
+              "candidate_parent": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+              "task_contract_sha256": "9b4f7641b592900d7489ea97fb8953f50318cfef147ee72d61c363195323f805",
+              "execution_result_sha256": "7a31ab35c00074d6da4fca64fc39c2d53e50e58fc17c0c066d2a3a571d786eed",
+              "candidate_patch_sha256": "4083b33099b3129659a1fecbdd6ff083f8fe5c9473f4c16d884c04816c375737",
+              "changed_paths": [
+                "Assets/NoSafeCircle/DoorPrototype/Scripts/Gauntlet1104.cs",
+                "Assets/NoSafeCircle/DoorPrototype/Scripts/Gauntlet1104.cs.meta"
+              ],
+              "validation_sha256": "5946010936136d958ff84317283ac4da6419d40f00625f33b04cae30344caebc",
+              "receipt_sha256": "32f791b0ebe54e8fd601ab2a9c4b29512627c5adc239b1a450da541538c4faf9"
+            },
+            "authoritative_validations": [
+              {
+                "test_platform": "EditMode",
+                "test_filter": "NoSafeCircle.DoorPrototype.Tests.Editor.GauntletReplay1104Tests.Gauntlet1104HasExpectedValue",
+                "commit": "71c75d29577d009ccfb4222e20380216398907db",
+                "tree": "f6f312bb37515737ab025850b924b178fb1fd050",
+                "manifest_relative_path": "outputs/NSC-1104/candidate-71c75d29577d/post-candidate-validation/EditMode-299efc8289eb/validation-manifest.json",
+                "policy_sha256": "000588612571f92fc3c4066a7a295887095a3de5a934692a98f3bb005271efdb",
+                "total": 1,
+                "passed": 1,
+                "manifest_sha256": "6cb27be29a00d3e09f5b0940ed56d7396fd1be814c6f78de11104cecdf424b3a",
+                "xml_sha256": "974ce235c498301f78cda3ef2d95fad3835897c391ce17ff6878acdd553fec9b",
+                "log_sha256": "37df3de6cb3e9705161c8c34d453745fbf97c850b07a38e4ce0683dbd4edd8db"
+              }
+            ]
+          },
+          "original_scope": {
+            "schema_version": "1.0",
+            "plan_id": "scope-bc703ffe77c18eb4d97a4c9d1e7f2e35e156f7cc7765a407238e7e8bc8faa956",
+            "task_id": "NSC-1104",
+            "lease_id": "assistant-nsc-1104-7108485a6a2841e7-lease",
+            "source_head": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+            "task_contract_sha256": "9b4f7641b592900d7489ea97fb8953f50318cfef147ee72d61c363195323f805",
+            "plan": {
+              "existing_implementation_paths": [],
+              "new_implementation_paths": [
+                "Assets/NoSafeCircle/DoorPrototype/Scripts/Gauntlet1104.cs"
+              ],
+              "existing_test_paths": [
+                "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1104Tests.cs"
+              ],
+              "new_test_paths": []
+            }
+          },
+          "mechanical_merge": {
+            "schema_version": "assistant-candidate-sync/v1",
+            "phase": "post_ff",
+            "task_id": "NSC-1104",
+            "operation": "03623a69fa274d11a1a8746394fd7431",
+            "staging": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\.sync-NSC-1104-03623a69fa27",
+            "old_candidate_commit": "71c75d29577d009ccfb4222e20380216398907db",
+            "source_commit": "717d175c4b63d5677a3cf27fa65c7b5a57685816",
+            "source_tree": "aaa75c69f20d4b9bf214ea33aef6a95a9e8cfaa3",
+            "source_branch": "demo/gauntlet-20260916",
+            "sync_commit": "136511342ba9ff06078841e2a7b360320ba8dd8f",
+            "sync_tree": "8ff600233531540b55961ea32e9bee70b09e205c",
+            "merge_tree": "8ff600233531540b55961ea32e9bee70b09e205c",
+            "prior_review_state": "approved",
+            "task_contract_sha256": "9b4f7641b592900d7489ea97fb8953f50318cfef147ee72d61c363195323f805",
+            "created_at": "2026-09-16T06:28:37.489511+00:00",
+            "published_at": "2026-09-16T06:28:39.034325+00:00"
+          }
+        },
+        "review_history": [
+          {
+            "commit": "71c75d29577d009ccfb4222e20380216398907db",
+            "decision": "approve",
+            "message": "Vincent approved during the live demo run: the value file and its .meta match the contract.",
+            "recorded_at": "2026-09-16T06:22:28.121167+00:00"
+          }
+        ],
+        "human_review": null,
+        "candidate_lineage": [
+          {
+            "kind": "crew_reviewed",
+            "candidate": {
+              "commit": "71c75d29577d009ccfb4222e20380216398907db",
+              "tree": "f6f312bb37515737ab025850b924b178fb1fd050",
+              "parent": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+              "run_id": "nsc-1104-20260916t060727z",
+              "lease_id": "assistant-nsc-1104-7108485a6a2841e7-lease",
+              "plan_id": "scope-bc703ffe77c18eb4d97a4c9d1e7f2e35e156f7cc7765a407238e7e8bc8faa956",
+              "receipt": {
+                "schema": "nsc-local-candidate-commit/v1",
+                "task_id": "NSC-1104",
+                "lease_id": "assistant-nsc-1104-7108485a6a2841e7-lease",
+                "plan_id": "scope-bc703ffe77c18eb4d97a4c9d1e7f2e35e156f7cc7765a407238e7e8bc8faa956",
+                "run_id": "nsc-1104-20260916t060727z",
+                "source_base": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+                "candidate_commit": "71c75d29577d009ccfb4222e20380216398907db",
+                "candidate_tree": "f6f312bb37515737ab025850b924b178fb1fd050",
+                "candidate_parent": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+                "task_contract_sha256": "9b4f7641b592900d7489ea97fb8953f50318cfef147ee72d61c363195323f805",
+                "execution_result_sha256": "7a31ab35c00074d6da4fca64fc39c2d53e50e58fc17c0c066d2a3a571d786eed",
+                "candidate_patch_sha256": "4083b33099b3129659a1fecbdd6ff083f8fe5c9473f4c16d884c04816c375737",
+                "changed_paths": [
+                  "Assets/NoSafeCircle/DoorPrototype/Scripts/Gauntlet1104.cs",
+                  "Assets/NoSafeCircle/DoorPrototype/Scripts/Gauntlet1104.cs.meta"
+                ],
+                "validation_sha256": "5946010936136d958ff84317283ac4da6419d40f00625f33b04cae30344caebc",
+                "receipt_sha256": "32f791b0ebe54e8fd601ab2a9c4b29512627c5adc239b1a450da541538c4faf9"
+              },
+              "authoritative_validations": [
+                {
+                  "test_platform": "EditMode",
+                  "test_filter": "NoSafeCircle.DoorPrototype.Tests.Editor.GauntletReplay1104Tests.Gauntlet1104HasExpectedValue",
+                  "commit": "71c75d29577d009ccfb4222e20380216398907db",
+                  "tree": "f6f312bb37515737ab025850b924b178fb1fd050",
+                  "manifest_relative_path": "outputs/NSC-1104/candidate-71c75d29577d/post-candidate-validation/EditMode-299efc8289eb/validation-manifest.json",
+                  "policy_sha256": "000588612571f92fc3c4066a7a295887095a3de5a934692a98f3bb005271efdb",
+                  "total": 1,
+                  "passed": 1,
+                  "manifest_sha256": "6cb27be29a00d3e09f5b0940ed56d7396fd1be814c6f78de11104cecdf424b3a",
+                  "xml_sha256": "974ce235c498301f78cda3ef2d95fad3835897c391ce17ff6878acdd553fec9b",
+                  "log_sha256": "37df3de6cb3e9705161c8c34d453745fbf97c850b07a38e4ce0683dbd4edd8db"
+                }
+              ]
+            },
+            "approval": {
+              "commit": "71c75d29577d009ccfb4222e20380216398907db",
+              "decision": "approve",
+              "message": "Vincent approved during the live demo run: the value file and its .meta match the contract.",
+              "recorded_at": "2026-09-16T06:22:28.121167+00:00"
+            },
+            "human_review": {
+              "commit": "71c75d29577d009ccfb4222e20380216398907db",
+              "decision": "approve",
+              "message": "Vincent approved during the live demo run: the value file and its .meta match the contract.",
+              "recorded_at": "2026-09-16T06:22:28.121167+00:00"
+            },
+            "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82"
+          }
+        ]
+      }
+    },
+    {
+      "action": {
+        "kind": "sync_candidate",
+        "task_id": "NSC-1105",
+        "candidate_commit": "702a37a74a4ab1ba5e0c0b5df2408bfba04e7b70",
+        "source_commit": "717d175c4b63d5677a3cf27fa65c7b5a57685816"
+      },
+      "result": {
+        "schema_version": "assistant-checkout/v1",
+        "task_id": "NSC-1105",
+        "source": "C:\\NSC\\NSCDemoGauntlet-20260916",
+        "checkout": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\NSC-1105",
+        "staging": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.NSC-1105-126b3fc8e0564975930ac318c8c1abc3",
+        "source_commit": "717d175c4b63d5677a3cf27fa65c7b5a57685816",
+        "task_contract_sha256": "cc08d9aeba75da0afd48aee189bdfee72e3acc0bfdea699f93ccdcff3d0fc5c6",
+        "branch": "assistant/NSC-1105",
+        "status": "awaiting_human",
+        "approval": null,
+        "candidate": {
+          "kind": "source_synchronized",
+          "commit": "957d1d27717f583fb7c18649a4ee135d5ec3e94c",
+          "crew_review": false,
+          "source_candidate_crew_review": true,
+          "tree": "61d869f2bf3a7e03da6c7a24e0ae9a5b186f37db",
+          "parent": "702a37a74a4ab1ba5e0c0b5df2408bfba04e7b70",
+          "source_commit": "717d175c4b63d5677a3cf27fa65c7b5a57685816",
+          "original_candidate": {
+            "commit": "702a37a74a4ab1ba5e0c0b5df2408bfba04e7b70",
+            "tree": "f3cbc2c6aec77674f29fa546f2abd83be8a58cde",
+            "parent": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+            "run_id": "nsc-1105-20260916t060727z",
+            "lease_id": "assistant-nsc-1105-8f933b330831432e-lease",
+            "plan_id": "scope-92a10ef071e83ccd4de3dfecf949583a35b41c1270b8afc783cc9948d2c25f65",
+            "receipt": {
+              "schema": "nsc-local-candidate-commit/v1",
+              "task_id": "NSC-1105",
+              "lease_id": "assistant-nsc-1105-8f933b330831432e-lease",
+              "plan_id": "scope-92a10ef071e83ccd4de3dfecf949583a35b41c1270b8afc783cc9948d2c25f65",
+              "run_id": "nsc-1105-20260916t060727z",
+              "source_base": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+              "candidate_commit": "702a37a74a4ab1ba5e0c0b5df2408bfba04e7b70",
+              "candidate_tree": "f3cbc2c6aec77674f29fa546f2abd83be8a58cde",
+              "candidate_parent": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+              "task_contract_sha256": "cc08d9aeba75da0afd48aee189bdfee72e3acc0bfdea699f93ccdcff3d0fc5c6",
+              "execution_result_sha256": "08fa8a346abfcdb73096aa851fae4333c86a4155a01b09c7b3c6c7598b253ad6",
+              "candidate_patch_sha256": "82eb00323d7d8bd856c513953eb84be5814f1a8fb4fbb98bfa2c32d6825951b5",
+              "changed_paths": [
+                "Assets/NoSafeCircle/DoorPrototype/Scripts/Gauntlet1105.cs",
+                "Assets/NoSafeCircle/DoorPrototype/Scripts/Gauntlet1105.cs.meta"
+              ],
+              "validation_sha256": "5946010936136d958ff84317283ac4da6419d40f00625f33b04cae30344caebc",
+              "receipt_sha256": "f218aefa218dd0feb2476cf60454aa6b7e542c8b7823267cfcd7eaead9ad99fd"
+            },
+            "authoritative_validations": [
+              {
+                "test_platform": "EditMode",
+                "test_filter": "NoSafeCircle.DoorPrototype.Tests.Editor.GauntletReplay1105Tests.Gauntlet1105HasExpectedValue",
+                "commit": "702a37a74a4ab1ba5e0c0b5df2408bfba04e7b70",
+                "tree": "f3cbc2c6aec77674f29fa546f2abd83be8a58cde",
+                "manifest_relative_path": "outputs/NSC-1105/candidate-702a37a74a4a/post-candidate-validation/EditMode-929fd5a77ae8/validation-manifest.json",
+                "policy_sha256": "6250c3d817f29050bdf60bb20fa94932f89e79c385ab0564950b682b788ba48a",
+                "total": 1,
+                "passed": 1,
+                "manifest_sha256": "9a3f614cf5ca6d598a7a813ce647b63e29cd81ff783e24605df64e3b7eabc2bf",
+                "xml_sha256": "0ea7f2ec2842c14f129c6f36ee0e61e6c8ef86ddfa84e00bba3a04dfd86dcf3d",
+                "log_sha256": "b8c7c9d022e8dd9806c0f11f878d831a858fdca5da64e9b35e2e1df548828c8a"
+              }
+            ]
+          },
+          "original_scope": {
+            "schema_version": "1.0",
+            "plan_id": "scope-92a10ef071e83ccd4de3dfecf949583a35b41c1270b8afc783cc9948d2c25f65",
+            "task_id": "NSC-1105",
+            "lease_id": "assistant-nsc-1105-8f933b330831432e-lease",
+            "source_head": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+            "task_contract_sha256": "cc08d9aeba75da0afd48aee189bdfee72e3acc0bfdea699f93ccdcff3d0fc5c6",
+            "plan": {
+              "existing_implementation_paths": [],
+              "new_implementation_paths": [
+                "Assets/NoSafeCircle/DoorPrototype/Scripts/Gauntlet1105.cs"
+              ],
+              "existing_test_paths": [
+                "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1105Tests.cs"
+              ],
+              "new_test_paths": []
+            }
+          },
+          "mechanical_merge": {
+            "schema_version": "assistant-candidate-sync/v1",
+            "phase": "post_ff",
+            "task_id": "NSC-1105",
+            "operation": "3397bb040b9b4823b0e45aa4e1cbe389",
+            "staging": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\.sync-NSC-1105-3397bb040b9b",
+            "old_candidate_commit": "702a37a74a4ab1ba5e0c0b5df2408bfba04e7b70",
+            "source_commit": "717d175c4b63d5677a3cf27fa65c7b5a57685816",
+            "source_tree": "aaa75c69f20d4b9bf214ea33aef6a95a9e8cfaa3",
+            "source_branch": "demo/gauntlet-20260916",
+            "sync_commit": "957d1d27717f583fb7c18649a4ee135d5ec3e94c",
+            "sync_tree": "61d869f2bf3a7e03da6c7a24e0ae9a5b186f37db",
+            "merge_tree": "61d869f2bf3a7e03da6c7a24e0ae9a5b186f37db",
+            "prior_review_state": "approved",
+            "task_contract_sha256": "cc08d9aeba75da0afd48aee189bdfee72e3acc0bfdea699f93ccdcff3d0fc5c6",
+            "created_at": "2026-09-16T06:28:48.019627+00:00",
+            "published_at": "2026-09-16T06:28:49.576860+00:00"
+          }
+        },
+        "review_history": [
+          {
+            "commit": "702a37a74a4ab1ba5e0c0b5df2408bfba04e7b70",
+            "decision": "approve",
+            "message": "Vincent approved during the live demo run: the value file and its .meta match the contract.",
+            "recorded_at": "2026-09-16T06:22:29.538275+00:00"
+          }
+        ],
+        "human_review": null,
+        "candidate_lineage": [
+          {
+            "kind": "crew_reviewed",
+            "candidate": {
+              "commit": "702a37a74a4ab1ba5e0c0b5df2408bfba04e7b70",
+              "tree": "f3cbc2c6aec77674f29fa546f2abd83be8a58cde",
+              "parent": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+              "run_id": "nsc-1105-20260916t060727z",
+              "lease_id": "assistant-nsc-1105-8f933b330831432e-lease",
+              "plan_id": "scope-92a10ef071e83ccd4de3dfecf949583a35b41c1270b8afc783cc9948d2c25f65",
+              "receipt": {
+                "schema": "nsc-local-candidate-commit/v1",
+                "task_id": "NSC-1105",
+                "lease_id": "assistant-nsc-1105-8f933b330831432e-lease",
+                "plan_id": "scope-92a10ef071e83ccd4de3dfecf949583a35b41c1270b8afc783cc9948d2c25f65",
+                "run_id": "nsc-1105-20260916t060727z",
+                "source_base": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+                "candidate_commit": "702a37a74a4ab1ba5e0c0b5df2408bfba04e7b70",
+                "candidate_tree": "f3cbc2c6aec77674f29fa546f2abd83be8a58cde",
+                "candidate_parent": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+                "task_contract_sha256": "cc08d9aeba75da0afd48aee189bdfee72e3acc0bfdea699f93ccdcff3d0fc5c6",
+                "execution_result_sha256": "08fa8a346abfcdb73096aa851fae4333c86a4155a01b09c7b3c6c7598b253ad6",
+                "candidate_patch_sha256": "82eb00323d7d8bd856c513953eb84be5814f1a8fb4fbb98bfa2c32d6825951b5",
+                "changed_paths": [
+                  "Assets/NoSafeCircle/DoorPrototype/Scripts/Gauntlet1105.cs",
+                  "Assets/NoSafeCircle/DoorPrototype/Scripts/Gauntlet1105.cs.meta"
+                ],
+                "validation_sha256": "5946010936136d958ff84317283ac4da6419d40f00625f33b04cae30344caebc",
+                "receipt_sha256": "f218aefa218dd0feb2476cf60454aa6b7e542c8b7823267cfcd7eaead9ad99fd"
+              },
+              "authoritative_validations": [
+                {
+                  "test_platform": "EditMode",
+                  "test_filter": "NoSafeCircle.DoorPrototype.Tests.Editor.GauntletReplay1105Tests.Gauntlet1105HasExpectedValue",
+                  "commit": "702a37a74a4ab1ba5e0c0b5df2408bfba04e7b70",
+                  "tree": "f3cbc2c6aec77674f29fa546f2abd83be8a58cde",
+                  "manifest_relative_path": "outputs/NSC-1105/candidate-702a37a74a4a/post-candidate-validation/EditMode-929fd5a77ae8/validation-manifest.json",
+                  "policy_sha256": "6250c3d817f29050bdf60bb20fa94932f89e79c385ab0564950b682b788ba48a",
+                  "total": 1,
+                  "passed": 1,
+                  "manifest_sha256": "9a3f614cf5ca6d598a7a813ce647b63e29cd81ff783e24605df64e3b7eabc2bf",
+                  "xml_sha256": "0ea7f2ec2842c14f129c6f36ee0e61e6c8ef86ddfa84e00bba3a04dfd86dcf3d",
+                  "log_sha256": "b8c7c9d022e8dd9806c0f11f878d831a858fdca5da64e9b35e2e1df548828c8a"
+                }
+              ]
+            },
+            "approval": {
+              "commit": "702a37a74a4ab1ba5e0c0b5df2408bfba04e7b70",
+              "decision": "approve",
+              "message": "Vincent approved during the live demo run: the value file and its .meta match the contract.",
+              "recorded_at": "2026-09-16T06:22:29.538275+00:00"
+            },
+            "human_review": {
+              "commit": "702a37a74a4ab1ba5e0c0b5df2408bfba04e7b70",
+              "decision": "approve",
+              "message": "Vincent approved during the live demo run: the value file and its .meta match the contract.",
+              "recorded_at": "2026-09-16T06:22:29.538275+00:00"
+            },
+            "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82"
+          }
+        ]
+      }
+    }
+  ],
+  "harvested_jobs": [
+    {
+      "task_id": "NSC-1101",
+      "kind": "post_crew",
+      "job_id": "78f3ba8c90b1f473b4a2fa32f54c895ee33ab1067f487686a94f8dbb042292ab",
+      "attempt": 1,
+      "status": "completed",
+      "identity": {
+        "candidate_commit": null,
+        "crew_run_id": "nsc-1101-20260916t060727z",
+        "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+        "task_contract_sha256": "0172b43fd3d6ef0817643f404989ecc9b2f30576dc408fb5f65089127b732f8d"
+      },
+      "invocation_id": "af31d49d6b234958b94699a53660c992",
+      "launched_at_utc": "2026-09-16T06:10:36.540402+00:00",
+      "pid": 25420,
+      "process_identity": {
+        "pid": 25420,
+        "created_ticks": 134340126365501825,
+        "image": "c:\\python313\\python.exe"
+      },
+      "job_name": "assistant-job-39da1e296c8cd93a444669520ffaf7e0f4a82569aef3c464587dde4a73ebe691",
+      "provider_container": null,
+      "provider_container_cleanup": null,
+      "authentication": null,
+      "reconciliation": null,
+      "stop": null,
+      "result_status": "awaiting_human",
+      "error": null,
+      "completed_at_utc": "2026-09-16T06:12:43.544757+00:00",
+      "harvested_at_utc": "2026-09-16T06:12:44.317742+00:00",
+      "harvest_invocation_id": "af31d49d6b234958b94699a53660c992",
+      "run_root": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\background-jobs\\NSC-1101\\78f3ba8c90b1f473b4a2fa32f54c895ee33ab1067f487686a94f8dbb042292ab"
+    },
+    {
+      "task_id": "NSC-1103",
+      "kind": "post_crew",
+      "job_id": "b43754b3b80e6c1d8597ba9d5b57f2bd568770b3b77b0d1ce03681e223b79c23",
+      "attempt": 1,
+      "status": "completed",
+      "identity": {
+        "candidate_commit": null,
+        "crew_run_id": "nsc-1103-20260916t060727z",
+        "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+        "task_contract_sha256": "28de027fb95e782e68dbc3027f2b9a4f9901a1cf74fcc1cc25f077f7d6b2f59f"
+      },
+      "invocation_id": "af31d49d6b234958b94699a53660c992",
+      "launched_at_utc": "2026-09-16T06:12:44.604872+00:00",
+      "pid": 44172,
+      "process_identity": {
+        "pid": 44172,
+        "created_ticks": 134340127646154738,
+        "image": "c:\\python313\\python.exe"
+      },
+      "job_name": "assistant-job-90d974190e5c5ffe403dddfead09ffab042b7cbc5b63ee6c2b400ff6a4e5d666",
+      "provider_container": null,
+      "provider_container_cleanup": null,
+      "authentication": null,
+      "reconciliation": null,
+      "stop": null,
+      "result_status": "awaiting_human",
+      "error": null,
+      "completed_at_utc": "2026-09-16T06:14:31.227898+00:00",
+      "harvested_at_utc": "2026-09-16T06:14:31.401264+00:00",
+      "harvest_invocation_id": "af31d49d6b234958b94699a53660c992",
+      "run_root": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\background-jobs\\NSC-1103\\b43754b3b80e6c1d8597ba9d5b57f2bd568770b3b77b0d1ce03681e223b79c23"
+    },
+    {
+      "task_id": "NSC-200",
+      "kind": "post_crew",
+      "job_id": "6c1cea7dc8aabb2560d801e9bf115bcae9ee6871d57f14190622239783e7ea5f",
+      "attempt": 1,
+      "status": "completed",
+      "identity": {
+        "candidate_commit": null,
+        "crew_run_id": "nsc-200-20260916t060727z",
+        "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+        "task_contract_sha256": "b6509bfdcc7e07b210ec147e394ad02ef1d4d4e590a2fc580b9754f082259c94"
+      },
+      "invocation_id": "af31d49d6b234958b94699a53660c992",
+      "launched_at_utc": "2026-09-16T06:14:31.618925+00:00",
+      "pid": 20972,
+      "process_identity": {
+        "pid": 20972,
+        "created_ticks": 134340128716266984,
+        "image": "c:\\python313\\python.exe"
+      },
+      "job_name": "assistant-job-1836e5d760c0f473117f8d8b6e74c8abaf7057d55f3e880bd7dee5fa0d420b8f",
+      "provider_container": null,
+      "provider_container_cleanup": null,
+      "authentication": null,
+      "reconciliation": null,
+      "stop": null,
+      "result_status": "awaiting_human",
+      "error": null,
+      "completed_at_utc": "2026-09-16T06:15:39.568266+00:00",
+      "harvested_at_utc": "2026-09-16T06:15:40.522689+00:00",
+      "harvest_invocation_id": "af31d49d6b234958b94699a53660c992",
+      "run_root": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\background-jobs\\NSC-200\\6c1cea7dc8aabb2560d801e9bf115bcae9ee6871d57f14190622239783e7ea5f"
+    },
+    {
+      "task_id": "NSC-1104",
+      "kind": "post_crew",
+      "job_id": "b6df087e0eee8aceeedbea8e8bcbd88c433b9a03bdf3dabbb5cc6b7aaa1116a9",
+      "attempt": 1,
+      "status": "completed",
+      "identity": {
+        "candidate_commit": null,
+        "crew_run_id": "nsc-1104-20260916t060727z",
+        "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+        "task_contract_sha256": "9b4f7641b592900d7489ea97fb8953f50318cfef147ee72d61c363195323f805"
+      },
+      "invocation_id": "af31d49d6b234958b94699a53660c992",
+      "launched_at_utc": "2026-09-16T06:15:40.771403+00:00",
+      "pid": 50632,
+      "process_identity": {
+        "pid": 50632,
+        "created_ticks": 134340129407789747,
+        "image": "c:\\python313\\python.exe"
+      },
+      "job_name": "assistant-job-b6d60ba6ae428ddeb1b78c16415790e5834852abe413d05784f3b7a853f81dac",
+      "provider_container": null,
+      "provider_container_cleanup": null,
+      "authentication": null,
+      "reconciliation": null,
+      "stop": null,
+      "result_status": "awaiting_human",
+      "error": null,
+      "completed_at_utc": "2026-09-16T06:17:23.936864+00:00",
+      "harvested_at_utc": "2026-09-16T06:17:24.724306+00:00",
+      "harvest_invocation_id": "af31d49d6b234958b94699a53660c992",
+      "run_root": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\background-jobs\\NSC-1104\\b6df087e0eee8aceeedbea8e8bcbd88c433b9a03bdf3dabbb5cc6b7aaa1116a9"
+    },
+    {
+      "task_id": "NSC-1105",
+      "kind": "post_crew",
+      "job_id": "411902b7d59e21923b3e18eafa99fee94d1b77ab26f97abe562aa33b08598b90",
+      "attempt": 1,
+      "status": "completed",
+      "identity": {
+        "candidate_commit": null,
+        "crew_run_id": "nsc-1105-20260916t060727z",
+        "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+        "task_contract_sha256": "cc08d9aeba75da0afd48aee189bdfee72e3acc0bfdea699f93ccdcff3d0fc5c6"
+      },
+      "invocation_id": "af31d49d6b234958b94699a53660c992",
+      "launched_at_utc": "2026-09-16T06:17:25.017155+00:00",
+      "pid": 18068,
+      "process_identity": {
+        "pid": 18068,
+        "created_ticks": 134340130454283869,
+        "image": "c:\\python313\\python.exe"
+      },
+      "job_name": "assistant-job-4421d6c7b73b00e52b8569a39218962443c7abe63c05076874fe789e648da936",
+      "provider_container": null,
+      "provider_container_cleanup": null,
+      "authentication": null,
+      "reconciliation": null,
+      "stop": null,
+      "result_status": "awaiting_human",
+      "error": null,
+      "completed_at_utc": "2026-09-16T06:19:13.890979+00:00",
+      "harvested_at_utc": "2026-09-16T06:19:14.443200+00:00",
+      "harvest_invocation_id": "af31d49d6b234958b94699a53660c992",
+      "run_root": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\background-jobs\\NSC-1105\\411902b7d59e21923b3e18eafa99fee94d1b77ab26f97abe562aa33b08598b90"
+    },
+    {
+      "task_id": "NSC-201",
+      "kind": "decompose",
+      "job_id": "704a49cf6d9d8190f0d7902947eb833ebdd41a6d0b8c9c98f95c0cb3a919161f",
+      "attempt": 1,
+      "status": "completed",
+      "identity": {
+        "compose_project": "nosafecircle",
+        "providers": [
+          "claude",
+          "codex"
+        ],
+        "run_id": "assistant-nsc-201-decompose-2a77d09672bd",
+        "source_branch": "demo/gauntlet-20260916",
+        "source_commit": "2a77d09672bd5f9eb89f4b462ebd13a81b1c5b82",
+        "task_contract_sha256": "8b19f409dc8a36d53fd8304878032fe56b6797621f1b48b6d6bcda4f46708b0a"
+      },
+      "invocation_id": "af31d49d6b234958b94699a53660c992",
+      "launched_at_utc": "2026-09-16T06:04:34.507484+00:00",
+      "pid": 48772,
+      "process_identity": {
+        "pid": 48772,
+        "created_ticks": 134340122745157003,
+        "image": "c:\\python313\\python.exe"
+      },
+      "job_name": "assistant-job-08da4970d021042d49259ce31b2dadda616125795d736f2f6bde4cf14ab6c6c8",
+      "provider_container": {
+        "name": "nsc-decompose-704a49cf6d9d8190f0d79029",
+        "compose_project": "nosafecircle",
+        "labels": {
+          "com.nosafecircle.assistant.job": "704a49cf6d9d8190f0d7902947eb833ebdd41a6d0b8c9c98f95c0cb3a919161f",
+          "com.nosafecircle.assistant.checkout": "d651977fc4e52db5ec5c3515fca73802f57c2ba35ea89e679f445e7bd74b67ac"
+        }
+      },
+      "provider_container_cleanup": {
+        "status": "verified_absent",
+        "generation": 1,
+        "attempt": 1,
+        "container_name": "nsc-decompose-704a49cf6d9d8190f0d79029",
+        "compose_project": "nosafecircle",
+        "started_at_utc": "2026-09-16T06:20:52.778104+00:00",
+        "tombstone_until_utc": null,
+        "tombstone_seconds": 0.0,
+        "final_recheck_at_utc": null,
+        "container_sighted": false,
+        "previous_status": null,
+        "previous_error": null,
+        "removed": [],
+        "owner": {
+          "pid": 23256,
+          "process_identity": {
+            "pid": 23256,
+            "created_ticks": 134340122716095234,
+            "image": "c:\\python313\\python.exe"
+          },
+          "since_utc": "2026-09-16T06:20:52.778278+00:00"
+        },
+        "took_over_from": null,
+        "observations": [
+          {
+            "at": 0.182,
+            "present": false
+          }
+        ],
+        "settle_seconds": 0.0,
+        "window_seconds": 0.0,
+        "watched_seconds": 0.182,
+        "verified_at_utc": "2026-09-16T06:20:52.961477+00:00",
+        "finished_at_utc": "2026-09-16T06:20:52.962342+00:00"
+      },
+      "authentication": null,
+      "reconciliation": null,
+      "stop": null,
+      "result_status": "failed",
+      "error": null,
+      "completed_at_utc": "2026-09-16T06:20:52.621520+00:00",
+      "harvested_at_utc": "2026-09-16T06:20:52.776505+00:00",
+      "harvest_invocation_id": "af31d49d6b234958b94699a53660c992",
+      "run_root": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\background-jobs\\NSC-201\\704a49cf6d9d8190f0d7902947eb833ebdd41a6d0b8c9c98f95c0cb3a919161f"
+    },
+    {
+      "task_id": "NSC-1107",
+      "kind": "decompose",
+      "job_id": "1ac78b24462929849ff79a1c9802a74cfc21a624daeffd4b5bae80753ee57045",
+      "attempt": 1,
+      "status": "completed",
+      "identity": {
+        "compose_project": "nosafecircle",
+        "providers": [
+          "claude",
+          "codex"
+        ],
+        "run_id": "assistant-nsc-1107-decompose-717d175c4b63",
+        "source_branch": "demo/gauntlet-20260916",
+        "source_commit": "717d175c4b63d5677a3cf27fa65c7b5a57685816",
+        "task_contract_sha256": "02c1a721ce6174a0a360618a18b2279adfa51dc747d85fa032e7d5e5b02e6312"
+      },
+      "invocation_id": "af31d49d6b234958b94699a53660c992",
+      "launched_at_utc": "2026-09-16T06:20:57.103693+00:00",
+      "pid": 9176,
+      "process_identity": {
+        "pid": 9176,
+        "created_ticks": 134340132571120555,
+        "image": "c:\\python313\\python.exe"
+      },
+      "job_name": "assistant-job-beb0ac80878fb96d1884c6e0677c518c5aa4ba3d762a06cfc4ddbf93a05448c1",
+      "provider_container": {
+        "name": "nsc-decompose-1ac78b24462929849ff79a1c",
+        "compose_project": "nosafecircle",
+        "labels": {
+          "com.nosafecircle.assistant.job": "1ac78b24462929849ff79a1c9802a74cfc21a624daeffd4b5bae80753ee57045",
+          "com.nosafecircle.assistant.checkout": "d651977fc4e52db5ec5c3515fca73802f57c2ba35ea89e679f445e7bd74b67ac"
+        }
+      },
+      "provider_container_cleanup": {
+        "status": "verified_absent",
+        "generation": 1,
+        "attempt": 1,
+        "container_name": "nsc-decompose-1ac78b24462929849ff79a1c",
+        "compose_project": "nosafecircle",
+        "started_at_utc": "2026-09-16T06:28:16.304308+00:00",
+        "tombstone_until_utc": null,
+        "tombstone_seconds": 0.0,
+        "final_recheck_at_utc": null,
+        "container_sighted": false,
+        "previous_status": null,
+        "previous_error": null,
+        "removed": [],
+        "owner": {
+          "pid": 23256,
+          "process_identity": {
+            "pid": 23256,
+            "created_ticks": 134340122716095234,
+            "image": "c:\\python313\\python.exe"
+          },
+          "since_utc": "2026-09-16T06:28:16.304501+00:00"
+        },
+        "took_over_from": null,
+        "observations": [
+          {
+            "at": 0.397,
+            "present": false
+          }
+        ],
+        "settle_seconds": 0.0,
+        "window_seconds": 0.0,
+        "watched_seconds": 0.397,
+        "verified_at_utc": "2026-09-16T06:28:16.703385+00:00",
+        "finished_at_utc": "2026-09-16T06:28:16.704285+00:00"
+      },
+      "authentication": null,
+      "reconciliation": null,
+      "stop": null,
+      "result_status": "failed",
+      "error": null,
+      "completed_at_utc": "2026-09-16T06:28:15.478425+00:00",
+      "harvested_at_utc": "2026-09-16T06:28:16.302247+00:00",
+      "harvest_invocation_id": "af31d49d6b234958b94699a53660c992",
+      "run_root": "C:\\NSC\\NSCDemoGauntlet-20260916-Checkouts\\.assistant-control\\background-jobs\\NSC-1107\\1ac78b24462929849ff79a1c9802a74cfc21a624daeffd4b5bae80753ee57045"
+    }
+  ],
+  "lock_deferrals": []
+}

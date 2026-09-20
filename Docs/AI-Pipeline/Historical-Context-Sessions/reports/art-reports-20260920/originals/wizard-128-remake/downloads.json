@@ -1,0 +1,705 @@
+[
+  {
+    "downloaded_utc": "2026-09-17T21:12:56+00:00",
+    "url": "https://api.pixellab.ai/mcp/images/c7ba1b8f-8fe6-4b0b-942a-11be1a907fed/download",
+    "file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-dark\\pixelart_south_128.png",
+    "bytes": 4701,
+    "sha256": "425088f4908d01cf43ff7c17c7c78bd204eff89ef6d3ea29970f26f2f348f8d8",
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      0,
+      0,
+      128,
+      128
+    ],
+    "opaque_pixels": 16384
+  },
+  {
+    "downloaded_utc": "2026-09-17T21:12:57+00:00",
+    "url": "https://api.pixellab.ai/mcp/images/e0b19178-3425-4197-9af7-ea0e737a9c85/download",
+    "file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\pixelart_south_128.png",
+    "bytes": 5002,
+    "sha256": "1ac58faff28a0acf2f858c84ccc6bbd07c0ac03760e85b0b6b5e691f442217b2",
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      0,
+      0,
+      128,
+      128
+    ],
+    "opaque_pixels": 16384
+  },
+  {
+    "downloaded_utc": "2026-09-17T21:12:58+00:00",
+    "url": "https://api.pixellab.ai/mcp/images/158d6bd2-5f36-404e-9ce1-514d7520c580/download",
+    "file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-dark\\pixelart_south_128.png",
+    "bytes": 6144,
+    "sha256": "2602a083634852a2daed8c1d850b147d0a11a04ee2f436d49e28776b60eb4ad6",
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      0,
+      0,
+      128,
+      128
+    ],
+    "opaque_pixels": 16384
+  },
+  {
+    "downloaded_utc": "2026-09-17T21:15:20+00:00",
+    "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/02f0ec58-164f-428d-8b1b-7d5ad6c1ef6b/rotations/south.png?t=1789679691",
+    "file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-dark\\standing_raw\\south.png",
+    "bytes": 4644,
+    "sha256": "8a1e83e81d2a3be36b8f39326faf8139d3bdfe55ae1431846306b6c5c4878ea6",
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      45,
+      11,
+      83,
+      109
+    ],
+    "opaque_pixels": 2459
+  },
+  {
+    "downloaded_utc": "2026-09-17T21:15:20+00:00",
+    "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/02f0ec58-164f-428d-8b1b-7d5ad6c1ef6b/rotations/south-east.png?t=1789679691",
+    "file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-dark\\standing_raw\\south-east.png",
+    "bytes": 4227,
+    "sha256": "795db1c6daf273fe04963abcc4e07863dba9ae054bb992dfe09578a9aa470107",
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      46,
+      12,
+      84,
+      114
+    ],
+    "opaque_pixels": 2217
+  },
+  {
+    "downloaded_utc": "2026-09-17T21:15:21+00:00",
+    "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/02f0ec58-164f-428d-8b1b-7d5ad6c1ef6b/rotations/east.png?t=1789679691",
+    "file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-dark\\standing_raw\\east.png",
+    "bytes": 3188,
+    "sha256": "ec9f9913fd39a60675a5814f9482e82a9455f79ca77cd921cf6032b17fd69b6c",
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      45,
+      16,
+      84,
+      117
+    ],
+    "opaque_pixels": 1825
+  },
+  {
+    "downloaded_utc": "2026-09-17T21:15:21+00:00",
+    "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/02f0ec58-164f-428d-8b1b-7d5ad6c1ef6b/rotations/north-east.png?t=1789679691",
+    "file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-dark\\standing_raw\\north-east.png",
+    "bytes": 3327,
+    "sha256": "ea5965be93e687e5d6423a253cd85a162890dde459d25772c2066aa14f92df81",
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      47,
+      12,
+      82,
+      111
+    ],
+    "opaque_pixels": 2287
+  },
+  {
+    "downloaded_utc": "2026-09-17T21:15:22+00:00",
+    "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/02f0ec58-164f-428d-8b1b-7d5ad6c1ef6b/rotations/north.png?t=1789679691",
+    "file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-dark\\standing_raw\\north.png",
+    "bytes": 3161,
+    "sha256": "d41046c8691c098c5f3f932a218a1d8e30615c60a4397279a5d3e5f161b1073b",
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      46,
+      11,
+      82,
+      109
+    ],
+    "opaque_pixels": 2452
+  },
+  {
+    "downloaded_utc": "2026-09-17T21:15:22+00:00",
+    "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/02f0ec58-164f-428d-8b1b-7d5ad6c1ef6b/rotations/north-west.png?t=1789679691",
+    "file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-dark\\standing_raw\\north-west.png",
+    "bytes": 3198,
+    "sha256": "c02184a7b5409ab21cdc5a8e7061d55ba4b3232016ca5415d6d65754942c863f",
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      46,
+      12,
+      81,
+      111
+    ],
+    "opaque_pixels": 2165
+  },
+  {
+    "downloaded_utc": "2026-09-17T21:15:23+00:00",
+    "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/02f0ec58-164f-428d-8b1b-7d5ad6c1ef6b/rotations/west.png?t=1789679691",
+    "file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-dark\\standing_raw\\west.png",
+    "bytes": 3042,
+    "sha256": "9f4ebb0d39c92f36acf4a44a43e6a7ce60f53af3e209a6d8979a295d24f58a91",
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      44,
+      16,
+      83,
+      117
+    ],
+    "opaque_pixels": 1824
+  },
+  {
+    "downloaded_utc": "2026-09-17T21:15:24+00:00",
+    "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/02f0ec58-164f-428d-8b1b-7d5ad6c1ef6b/rotations/south-west.png?t=1789679691",
+    "file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-dark\\standing_raw\\south-west.png",
+    "bytes": 4263,
+    "sha256": "38caf3eb9912228bf04fd244957ef5c5d314831d10d70938e8f5f761a5231974",
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      44,
+      13,
+      82,
+      114
+    ],
+    "opaque_pixels": 2236
+  },
+  {
+    "downloaded_utc": "2026-09-17T21:15:24+00:00",
+    "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/53aebb62-452d-4228-bda3-3a873a42f9eb/rotations/south.png?t=1789679694",
+    "file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\standing_raw\\south.png",
+    "bytes": 4790,
+    "sha256": "57806ca97910d90e879e65b0fce1e8edd2cd3c1a0397807bceabb1fdb1dda118",
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      40,
+      7,
+      88,
+      112
+    ],
+    "opaque_pixels": 3116
+  },
+  {
+    "downloaded_utc": "2026-09-17T21:15:25+00:00",
+    "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/53aebb62-452d-4228-bda3-3a873a42f9eb/rotations/south-east.png?t=1789679694",
+    "file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\standing_raw\\south-east.png",
+    "bytes": 4941,
+    "sha256": "0396a76d89b117060a770bb60d2639986cdd057f0b94de65d31725c9589bfd1d",
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      41,
+      9,
+      89,
+      118
+    ],
+    "opaque_pixels": 2972
+  },
+  {
+    "downloaded_utc": "2026-09-17T21:15:25+00:00",
+    "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/53aebb62-452d-4228-bda3-3a873a42f9eb/rotations/east.png?t=1789679694",
+    "file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\standing_raw\\east.png",
+    "bytes": 3868,
+    "sha256": "a4fb7f7e7f6027611d74a5ecbc8ea0eb5ef30fa36d278f226e22d28b38ee496b",
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      36,
+      13,
+      90,
+      120
+    ],
+    "opaque_pixels": 2507
+  },
+  {
+    "downloaded_utc": "2026-09-17T21:15:26+00:00",
+    "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/53aebb62-452d-4228-bda3-3a873a42f9eb/rotations/north-east.png?t=1789679694",
+    "file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\standing_raw\\north-east.png",
+    "bytes": 3373,
+    "sha256": "8afd75302ac6927fd32dfd8ec998fd2748217542cf1af8139edb07775b52db34",
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      40,
+      11,
+      88,
+      114
+    ],
+    "opaque_pixels": 2953
+  },
+  {
+    "downloaded_utc": "2026-09-17T21:15:27+00:00",
+    "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/53aebb62-452d-4228-bda3-3a873a42f9eb/rotations/north.png?t=1789679694",
+    "file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\standing_raw\\north.png",
+    "bytes": 3091,
+    "sha256": "0dfef703723cb817fc102cc137273c05bd9f925853f479418c64c7a693d880db",
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      40,
+      11,
+      89,
+      111
+    ],
+    "opaque_pixels": 3192
+  },
+  {
+    "downloaded_utc": "2026-09-17T21:15:27+00:00",
+    "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/53aebb62-452d-4228-bda3-3a873a42f9eb/rotations/north-west.png?t=1789679694",
+    "file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\standing_raw\\north-west.png",
+    "bytes": 3386,
+    "sha256": "ac45b8fd2fbf79b5ce4885d4ffe723c3a7b72d09cbad69e1aa3ca80f6e75f589",
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      40,
+      12,
+      88,
+      115
+    ],
+    "opaque_pixels": 3001
+  },
+  {
+    "downloaded_utc": "2026-09-17T21:15:28+00:00",
+    "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/53aebb62-452d-4228-bda3-3a873a42f9eb/rotations/west.png?t=1789679694",
+    "file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\standing_raw\\west.png",
+    "bytes": 3236,
+    "sha256": "fb725c2ee3204c057366d129c21e5d023ddecb6611595c52b47614f6c4264c81",
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      39,
+      13,
+      92,
+      120
+    ],
+    "opaque_pixels": 2463
+  },
+  {
+    "downloaded_utc": "2026-09-17T21:15:28+00:00",
+    "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/53aebb62-452d-4228-bda3-3a873a42f9eb/rotations/south-west.png?t=1789679694",
+    "file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\standing_raw\\south-west.png",
+    "bytes": 4863,
+    "sha256": "3dc458c649a0ee24b09c5aa38ad2291073c596439939c2e4fe8e25ec7375bfec",
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      38,
+      9,
+      89,
+      117
+    ],
+    "opaque_pixels": 2843
+  },
+  {
+    "downloaded_utc": "2026-09-17T21:19:17+00:00",
+    "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/afabd47e-a66e-453d-beee-b90f9856f9e0/rotations/south.png?t=1789679799",
+    "file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-dark\\standing_raw\\south.png",
+    "bytes": 5053,
+    "sha256": "d97e8d4e2841e9e0193837f6448ad0ae1c450e19356ba2a3417e2d22396859c6",
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      40,
+      7,
+      88,
+      116
+    ],
+    "opaque_pixels": 3077
+  },
+  {
+    "downloaded_utc": "2026-09-17T21:19:17+00:00",
+    "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/afabd47e-a66e-453d-beee-b90f9856f9e0/rotations/south-east.png?t=1789679799",
+    "file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-dark\\standing_raw\\south-east.png",
+    "bytes": 5443,
+    "sha256": "9c9e7489de788ef3bf9b2447019e5639ed53e6cf1c327a3875416e5f516ba27f",
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      42,
+      9,
+      87,
+      120
+    ],
+    "opaque_pixels": 2916
+  },
+  {
+    "downloaded_utc": "2026-09-17T21:19:18+00:00",
+    "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/afabd47e-a66e-453d-beee-b90f9856f9e0/rotations/east.png?t=1789679799",
+    "file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-dark\\standing_raw\\east.png",
+    "bytes": 4089,
+    "sha256": "6865594fb128447167ed062ad93f5cbd1ed5df72944fbf3b84af73afc6978860",
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      40,
+      10,
+      87,
+      120
+    ],
+    "opaque_pixels": 2384
+  },
+  {
+    "downloaded_utc": "2026-09-17T21:19:19+00:00",
+    "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/afabd47e-a66e-453d-beee-b90f9856f9e0/rotations/north-east.png?t=1789679799",
+    "file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-dark\\standing_raw\\north-east.png",
+    "bytes": 4401,
+    "sha256": "3c130ed49ef4937d046a8536c2a8792ede91c2c2735005705b98903986605947",
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      45,
+      10,
+      84,
+      118
+    ],
+    "opaque_pixels": 2844
+  },
+  {
+    "downloaded_utc": "2026-09-17T21:19:24+00:00",
+    "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/afabd47e-a66e-453d-beee-b90f9856f9e0/rotations/north.png?t=1789679799",
+    "file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-dark\\standing_raw\\north.png",
+    "bytes": 4103,
+    "sha256": "4e529ff39dc143a1858d53a020cc87b085a40dc821aefe5a6e4d95fbc711641e",
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      43,
+      11,
+      85,
+      117
+    ],
+    "opaque_pixels": 3090
+  },
+  {
+    "downloaded_utc": "2026-09-17T21:19:25+00:00",
+    "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/afabd47e-a66e-453d-beee-b90f9856f9e0/rotations/north-west.png?t=1789679799",
+    "file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-dark\\standing_raw\\north-west.png",
+    "bytes": 4306,
+    "sha256": "e6a6970cf3e19ff9b65054f0f0b54774c1492f2cc93544663270883074f5019e",
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      45,
+      10,
+      84,
+      118
+    ],
+    "opaque_pixels": 2792
+  },
+  {
+    "downloaded_utc": "2026-09-17T21:19:25+00:00",
+    "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/afabd47e-a66e-453d-beee-b90f9856f9e0/rotations/west.png?t=1789679799",
+    "file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-dark\\standing_raw\\west.png",
+    "bytes": 3906,
+    "sha256": "3c5928c006adedda31378123995c8ad36c500ecc76f101d94511f81c46408d04",
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      42,
+      10,
+      89,
+      120
+    ],
+    "opaque_pixels": 2376
+  },
+  {
+    "downloaded_utc": "2026-09-17T21:19:26+00:00",
+    "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/afabd47e-a66e-453d-beee-b90f9856f9e0/rotations/south-west.png?t=1789679799",
+    "file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-dark\\standing_raw\\south-west.png",
+    "bytes": 5443,
+    "sha256": "822c0af654bab319bc8a12fb4ee3ecb7bd716cf4cfe9709b33e0b0c6911060cd",
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      40,
+      8,
+      87,
+      120
+    ],
+    "opaque_pixels": 2937
+  },
+  {
+    "downloaded_utc": "2026-09-17T21:36:12+00:00",
+    "url": "https://api.pixellab.ai/mcp/images/551870c7-e429-4d6a-a94d-812e44d85c8d/download",
+    "file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-dark\\south_repaired_128.png",
+    "bytes": 4774,
+    "sha256": "f4fbe81153b2e66eac67c1d42468c46f2659c3b7194d16ff3725de26f10684af",
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      45,
+      11,
+      83,
+      109
+    ],
+    "opaque_pixels": 2459
+  },
+  {
+    "downloaded_utc": "2026-09-17T21:41:06+00:00",
+    "url": "https://api.pixellab.ai/mcp/images/fd71620b-c092-41c4-9788-017f49b60acd/download",
+    "file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-dark\\south_repaired2_128.png",
+    "bytes": 4780,
+    "sha256": "477e83f1529fb47ab2c2cb63d2f469bfae637f1a302c64a1bb19fdcee27a57c4",
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      45,
+      11,
+      83,
+      109
+    ],
+    "opaque_pixels": 2459
+  },
+  {
+    "downloaded_utc": "2026-09-17T21:49:06+00:00",
+    "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/2a83863a-7286-4f6c-85a5-7d85c82475d8/rotations/south.png?t=1789681728",
+    "file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-dark\\standing_raw_r2\\south.png",
+    "bytes": 4641,
+    "sha256": "5822ebcc246961455dc083ea8862f6dfb06d2f9c01090641cb2fad6f703f8357",
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      45,
+      11,
+      83,
+      109
+    ],
+    "opaque_pixels": 2458
+  },
+  {
+    "downloaded_utc": "2026-09-17T21:49:07+00:00",
+    "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/2a83863a-7286-4f6c-85a5-7d85c82475d8/rotations/south-east.png?t=1789681728",
+    "file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-dark\\standing_raw_r2\\south-east.png",
+    "bytes": 4305,
+    "sha256": "e325f6fba1cd5be5ba57d7dfd038772d4a3ab0adb659f3e0a67a792e51f2c6c4",
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      48,
+      11,
+      84,
+      112
+    ],
+    "opaque_pixels": 2144
+  },
+  {
+    "downloaded_utc": "2026-09-17T21:49:07+00:00",
+    "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/2a83863a-7286-4f6c-85a5-7d85c82475d8/rotations/east.png?t=1789681728",
+    "file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-dark\\standing_raw_r2\\east.png",
+    "bytes": 3537,
+    "sha256": "477f142517a10ee8dd365bf6d629b26d614443337a3ef17b9c51c573bc9bdb72",
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      44,
+      13,
+      84,
+      114
+    ],
+    "opaque_pixels": 1919
+  },
+  {
+    "downloaded_utc": "2026-09-17T21:49:08+00:00",
+    "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/2a83863a-7286-4f6c-85a5-7d85c82475d8/rotations/north-east.png?t=1789681728",
+    "file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-dark\\standing_raw_r2\\north-east.png",
+    "bytes": 3293,
+    "sha256": "b521f6072803842300cfd647266ea7bb37857c02321676cc37d1ae6f1ab4e6fe",
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      45,
+      12,
+      81,
+      110
+    ],
+    "opaque_pixels": 2225
+  },
+  {
+    "downloaded_utc": "2026-09-17T21:49:09+00:00",
+    "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/2a83863a-7286-4f6c-85a5-7d85c82475d8/rotations/north.png?t=1789681728",
+    "file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-dark\\standing_raw_r2\\north.png",
+    "bytes": 3105,
+    "sha256": "b41d413c3562ffd355b9128dc0e620c3f2bcc47afc0f90cbbad3bd7c78d69589",
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      46,
+      11,
+      82,
+      108
+    ],
+    "opaque_pixels": 2473
+  },
+  {
+    "downloaded_utc": "2026-09-17T21:49:09+00:00",
+    "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/2a83863a-7286-4f6c-85a5-7d85c82475d8/rotations/north-west.png?t=1789681728",
+    "file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-dark\\standing_raw_r2\\north-west.png",
+    "bytes": 3345,
+    "sha256": "9a77324e9775dff4a96ada0ea40460280899260f499e5552006be4f196a8a9e5",
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      47,
+      12,
+      79,
+      110
+    ],
+    "opaque_pixels": 2112
+  },
+  {
+    "downloaded_utc": "2026-09-17T21:49:10+00:00",
+    "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/2a83863a-7286-4f6c-85a5-7d85c82475d8/rotations/west.png?t=1789681728",
+    "file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-dark\\standing_raw_r2\\west.png",
+    "bytes": 3453,
+    "sha256": "5fe16a66e150e9e385e07dbb0641a57f2fa6574fb1cbc7c4a3bd1a8ba874b81c",
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      44,
+      13,
+      84,
+      114
+    ],
+    "opaque_pixels": 1923
+  },
+  {
+    "downloaded_utc": "2026-09-17T21:49:10+00:00",
+    "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/2a83863a-7286-4f6c-85a5-7d85c82475d8/rotations/south-west.png?t=1789681728",
+    "file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-dark\\standing_raw_r2\\south-west.png",
+    "bytes": 4440,
+    "sha256": "3bbe4a97a4d6d5b46ec40d82d77ada9b5131d606c9a4e0597a12cb273df6c357",
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      44,
+      12,
+      83,
+      112
+    ],
+    "opaque_pixels": 2180
+  }
+]

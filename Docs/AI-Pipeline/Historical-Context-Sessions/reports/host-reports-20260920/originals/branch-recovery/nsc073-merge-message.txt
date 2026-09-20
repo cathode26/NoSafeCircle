@@ -1,0 +1,7 @@
+Merge NSC-073 hat fix for the light female north-east walk
+
+Replaces feminine-light north-east walk frames 004 and 005. On main those two frames dropped the hat and turned her toward the camera. The replacements are PixelLab frames of the same character, taken from the 2026-09-14 alternate on codex/nsc073-reuse-alt-20260914: frame 004 is generated index 1 and frame 005 is generated index 6. The earlier index-5 frame 005 turned too far toward a rear view; index 6 returns toward the north-east view before the loop restarts.
+
+Both frame paths and their .meta GUIDs are unchanged, so the generated walk clip keeps its six sprite references. Vincent chose this version on 2026-09-16; his in-Unity walk check (VAL-002) follows the local merge.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

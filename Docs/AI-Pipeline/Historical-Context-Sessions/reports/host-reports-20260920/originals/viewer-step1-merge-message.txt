@@ -1,0 +1,16 @@
+Merge fix/viewer-step1: viewer regression suite and viewer fixes
+
+Pipeline Maintainer work. A fresh pipeline-reviewer approved every round, and a Codex adversarial review approved tip 389f119f3 with no findings.
+- V18: repairs the AssistantControl viewer regression fixtures. test_viewer passes 83/83.
+- V1 (partial): approved and integrating candidates, and an untargeted queued automatic review, show integration_queued instead of active.
+- V13: run-detail rows start hidden and are unhidden on each render, instead of reading Unavailable.
+- V14: the page title is neutral, with no mode detection.
+- V9: the GER marker CLI gains hold and unhold.
+  - Every marker action except unhold validates task IDs against the checkout root's recorded Source (project.json, or its task records), so a held ID the viewer would reject can't be written.
+  - finish validates its parent.
+  - unhold still removes an unknown ID, as the repair path.
+  - nsc_viewer.py's call shape still works.
+
+GauntletView smoke 151, run-details DOM binding 1, approval 10 and display-scope 16 all pass. Pipeline only; no game or Unity files.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

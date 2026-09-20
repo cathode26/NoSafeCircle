@@ -1,0 +1,154 @@
+scanned roots: C:/nscrev
+  worktrees of canonical : 48  (moving these destroys no commits - but prune afterwards)
+  independent clones     : 90  (these can hold the only copy of something)
+  plain directories      : 62
+
+=== 81 branches in 32 clones exist ONLY there. Fetch before moving. ===
+
+  C:/nscrev\audit-20260918
+      671be7e8a62d  fix/crew-resume-interrupted-role
+
+  C:/nscrev\base
+      2c25e3095ced  master
+
+  C:/nscrev\basecheck-throughput
+      22cb776b087e  gauntlet-replay/fresh-1130-20260912
+
+  C:/nscrev\cand
+      979c7bc12f32  master
+
+  C:/nscrev\ci-134-fix
+      671be7e8a62d  fix/crew-resume-interrupted-role
+      221e59cdb5e8  fix/decompose-on-a-snapshot
+      59d41bf9a5e3  fix/partition-defect-names-itself
+      9eed241228ea  fix/quiet-spawns-product
+      d6f3edd014fb  fix/retire-archives-one-shape
+      ca13f7511a06  fix/retired-auditor-test-debt
+      7165353aea8d  fix/settled-worker-not-underway
+      a7d2fbc7bb98  fix/validator-wall-budget
+
+  C:/nscrev\ci-fix-executioncrew-coverage
+      346ec4cac8a8  ci/add-executioncrew-coverage
+      ca13f7511a06  retired-auditor-test-debt
+
+  C:/nscrev\cj-churn
+      01865ccc4250  fix/unity-whitespace-churn-policy
+
+  C:/nscrev\cj-decompose
+      4050065c21cc  fix/decompose-all-claude
+      5a40be041287  fix/decompose-on-a-snapshot
+
+  C:/nscrev\cj-p3-review
+      949880880121  fix/worker-final-write
+
+  C:/nscrev\cj-quiet
+      e2e80f9e39b4  fix/quiet-spawns-product
+
+  C:/nscrev\codex-revision-review-fixes-20260913
+      0a7ac58609a0  codex/revision-review-accepted-fixes-20260913
+      f941857ab973  throughput/decomposition-revision-review-integration
+
+  C:/nscrev\decomp-fix
+      d8509ae5aead  throughput/background-decomposition
+
+  C:/nscrev\decomp-snapshot
+      65b8377decc6  fix/decompose-on-a-snapshot
+
+  C:/nscrev\design-20260918
+      671be7e8a62d  fix/crew-resume-interrupted-role
+
+  C:/nscrev\excludefix
+      2ef2cac3bd56  fix/launcher-empty-exclude-task-id
+
+  C:/nscrev\fixrepo
+      74fcc900e4c0  integration/local-gauntlet-20260909
+      c07a0ef98cae  integration/prod-main-20260909
+
+  C:/nscrev\g1160-reg
+      a31fcef5914f  gauntlet-test/fixes-ade5bca-1160
+      18e69a254278  gauntlet-test/regression-1160
+
+  C:/nscrev\histfix
+      9333b6b48bcc  integration/local-rehearsal-taskcontrol
+
+  C:/nscrev\mixed-provider-env
+      d79bc26a9b9c  fix/mixed-provider-model-env
+
+  C:/nscrev\nsc035-d1c-probe-20260914
+      417698049908  main
+
+  C:/nscrev\realdecomp-probe-src
+      be5d4e4b67bb  realdecomp/probe-3a06453-canonical-27e1ae9
+      e386b76914a6  realdecomp/probe-3a06453-canonical-3a56510
+      44ec8b9ae103  realdecomp/probe-3a06453-canonical-main
+
+  C:/nscrev\realdecomp-r5-src
+      f761c05bc291  realdecomp/run5-e70b2fe4f0a4-3a56510
+
+  C:/nscrev\realdecomp-r6-src
+      ccb933e434f0  realdecomp/run6-c6f7981a2e3a-6ba9304
+
+  C:/nscrev\realdecomp-r7-src
+      c433148c9a6e  realdecomp/run7-c6f7981a-40a596c
+
+  C:/nscrev\realdecomp-run2-src
+      fbdcd4338b54  realdecomp/combined-3a0645350f52
+      8da6ec4c131d  realdecomp/combined-616ca980f642
+      80a7537befae  realdecomp/combined-9dee4a6bd308
+
+  C:/nscrev\squashprobe
+      e741c4d0a5c5  integration/local-rehearsal-taskcontrol
+
+  C:/nscrev\tcbase
+      e8cff3d753de  integration/local-rehearsal-taskcontrol
+      21085c4748c9  prebuild
+      fd4a624c2d66  probe-no-policy
+      66099b475936  rebuild
+      30c30c299644  review2
+
+  C:/nscrev\throughput
+      126a41b5b31d  codex/recursive-decomposition-20260914
+      0419f853eb58  codex/total-provider-calls-20260914
+      5e23243b11d4  fix/exact-repin-replay-diff
+      9dee4a6bd308  live/run1-20260913
+      0babb8294e90  realdecomp/combined-20260913
+      fbdcd4338b54  realdecomp/combined-3a0645350f52
+      8da6ec4c131d  realdecomp/combined-616ca980f642
+      80a7537befae  realdecomp/combined-9dee4a6bd308
+      be5d4e4b67bb  realdecomp/probe-3a06453-canonical-27e1ae9
+      e386b76914a6  realdecomp/probe-3a06453-canonical-3a56510
+      44ec8b9ae103  realdecomp/probe-3a06453-canonical-main
+      f761c05bc291  realdecomp/run5-e70b2fe4f0a4-3a56510
+      ccb933e434f0  realdecomp/run6-c6f7981a2e3a-6ba9304
+      c433148c9a6e  realdecomp/run7-c6f7981a-40a596c
+      322dfeb31af0  review/revision-review-mid2-20260913
+      37899ac36423  throughput/background-decomposition
+      e7d2b788f175  throughput/decomposition-ac-consumer
+      13618d8ca80e  throughput/decomposition-author-guidance
+      4dce423b36b2  throughput/decomposition-d1c-consumer
+      3c64631f6553  throughput/decomposition-evidence-context
+      c958824b7123  throughput/decomposition-fixture-partition
+      eb3beb75eeb8  throughput/decomposition-needs-human-fix
+      9e7116ffb799  throughput/decomposition-revision-review
+      f941857ab973  throughput/decomposition-revision-review-integration
+      c245deba804f  throughput/decomposition-slow-triage
+      b42d5197d006  throughput/gauntlet-trial-fixes
+      25ab5fd69e78  throughput/harvest-gate-fix
+      7d0d3584cf90  throughput/replay-authority-fix
+      37899ac36423  throughput/staffing-repair
+      aac2555c5b1a  throughput/worker-recovery-fix
+
+  C:/nscrev\tmp-ga
+      dd975db1a9a6  master
+
+  C:/nscrev\viewer-fix
+      7a2c0d1bdb33  main
+
+  C:/nscrev\viewer-stage-detail
+      501523659420  fix/viewer-execution-crew-stage-detail
+
+  C:/nscrev\worker-final-write-fix
+      3b8b443e29d4  fix/worker-final-write
+
+  Rescue command shape (run in canonical, creates refs only, touches no branch):
+      git -C "C:\NSC\NSC\NoSafeCircle" fetch "<clone>" "<ref>:archive/<clone-name>-<ref>"

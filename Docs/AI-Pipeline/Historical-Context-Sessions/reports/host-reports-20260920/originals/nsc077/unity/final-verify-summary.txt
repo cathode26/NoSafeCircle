@@ -1,0 +1,11 @@
+[06:42:58Z] candidate 6b0d255dcb07a8dfd0ad4be7612acf30315341a0 base 7698abac0
+[06:43:39Z] build 1 exit 0 compile errors 0
+restored EOL-only: 36; remaining paths: 186
+[06:44:34Z] build 2 exit 0 compile errors 0
+restored EOL-only: 36; remaining paths: 186
+[06:44:51Z] VAL-007: 185 non-scene generated files byte-identical across builds
+[06:44:52Z] materialize commit 74c1923e89befaae86846b28a8f8165e94fccaa1 (184 paths)
+[06:51:29Z] EditMode exit 0: total 65 passed 65 failed 0 | failures: none | empty fixtures: none
+[06:53:10Z] PlayMode exit 0: total 107 passed 107 failed 0 | failures: none | empty fixtures: none
+[06:54:52Z] PlayMode exit 0: total 107 passed 107 failed 0 | failures: none | empty fixtures: none
+[06:54:53Z] final tree: 0 dirty paths; HEAD 74c1923e8

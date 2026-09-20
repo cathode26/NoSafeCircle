@@ -1,0 +1,157 @@
+=== root 'World' ===
+
+=== root 'Directional Light' ===
+
+=== root 'DoorRoot' ===
+  DoorRoot/DoorVisual/DoorSprite
+    Animator            : none
+    sprite              : DoorSprite
+    texture px          : 128x128
+    pixelsPerUnit       : 128
+    world size (units)  : 1 x 1
+    lossyScale          : (2, 2.5, 1)
+
+=== root 'D2' ===
+  D2/DoorVisual/DoorSprite
+    Animator            : none
+    sprite              : DoorSprite
+    texture px          : 128x128
+    pixelsPerUnit       : 128
+    world size (units)  : 1 x 1
+    lossyScale          : (2, 2.5, 1)
+
+=== root 'D3' ===
+  D3/DoorVisual/DoorSprite
+    Animator            : none
+    sprite              : DoorSprite
+    texture px          : 128x128
+    pixelsPerUnit       : 128
+    world size (units)  : 1 x 1
+    lossyScale          : (2, 2.5, 1)
+
+=== root 'D4' ===
+  D4/DoorVisual/DoorSprite
+    Animator            : none
+    sprite              : DoorSprite
+    texture px          : 128x128
+    pixelsPerUnit       : 128
+    world size (units)  : 1 x 1
+    lossyScale          : (2, 2.5, 1)
+
+=== root 'D5' ===
+  D5/DoorVisual/DoorSprite
+    Animator            : none
+    sprite              : DoorSprite
+    texture px          : 128x128
+    pixelsPerUnit       : 128
+    world size (units)  : 1 x 1
+    lossyScale          : (2, 2.5, 1)
+
+=== root 'GameplayNavigation' ===
+
+=== root 'Player' ===
+  Player
+    Animator controller : WizardAnimator
+  Player/Visual
+    Animator            : none
+    sprite              : south-east
+    texture px          : 180x180
+    pixelsPerUnit       : 180
+    world size (units)  : 1 x 1
+    lossyScale          : (1, 2, 1)
+
+=== root 'PlayerSpawn' ===
+
+=== root 'Enemies' ===
+  Enemies/MeleeEnemy
+    Animator controller : MeleeEnemyAnimator
+  Enemies/MeleeEnemy/Visual
+    Animator            : none
+    sprite              : enemy_melee_s_idle_00
+    texture px          : 128x128
+    pixelsPerUnit       : 64
+    world size (units)  : 2 x 2
+    lossyScale          : (1, 1, 1)
+  Enemies/MeleeEnemy
+    Animator controller : MeleeEnemyAnimator
+  Enemies/MeleeEnemy/Visual
+    Animator            : none
+    sprite              : enemy_melee_s_idle_00
+    texture px          : 128x128
+    pixelsPerUnit       : 64
+    world size (units)  : 2 x 2
+    lossyScale          : (1, 1, 1)
+  Enemies/MeleeEnemy
+    Animator controller : MeleeEnemyAnimator
+  Enemies/MeleeEnemy/Visual
+    Animator            : none
+    sprite              : enemy_melee_s_idle_00
+    texture px          : 128x128
+    pixelsPerUnit       : 64
+    world size (units)  : 2 x 2
+    lossyScale          : (1, 1, 1)
+  Enemies/MeleeEnemy
+    Animator controller : MeleeEnemyAnimator
+  Enemies/MeleeEnemy/Visual
+    Animator            : none
+    sprite              : enemy_melee_s_idle_00
+    texture px          : 128x128
+    pixelsPerUnit       : 64
+    world size (units)  : 2 x 2
+    lossyScale          : (1, 1, 1)
+  Enemies/MeleeEnemy
+    Animator controller : MeleeEnemyAnimator
+  Enemies/MeleeEnemy/Visual
+    Animator            : none
+    sprite              : enemy_melee_s_idle_00
+    texture px          : 128x128
+    pixelsPerUnit       : 64
+    world size (units)  : 2 x 2
+    lossyScale          : (1, 1, 1)
+  Enemies/LanternWraith
+    Animator controller : LanternWraithAnimator
+  Enemies/LanternWraith/Visual
+    Animator            : none
+    sprite              : enemy_ranged_s_idle_00
+    texture px          : 128x128
+    pixelsPerUnit       : 64
+    world size (units)  : 2 x 2
+    lossyScale          : (1, 1, 1)
+  Enemies/LanternWraith
+    Animator controller : LanternWraithAnimator
+  Enemies/LanternWraith/Visual
+    Animator            : none
+    sprite              : enemy_ranged_s_idle_00
+    texture px          : 128x128
+    pixelsPerUnit       : 64
+    world size (units)  : 2 x 2
+    lossyScale          : (1, 1, 1)
+  Enemies/LanternWraith
+    Animator controller : LanternWraithAnimator
+  Enemies/LanternWraith/Visual
+    Animator            : none
+    sprite              : enemy_ranged_s_idle_00
+    texture px          : 128x128
+    pixelsPerUnit       : 64
+    world size (units)  : 2 x 2
+    lossyScale          : (1, 1, 1)
+  Enemies/LanternWraith
+    Animator controller : LanternWraithAnimator
+  Enemies/LanternWraith/Visual
+    Animator            : none
+    sprite              : enemy_ranged_s_idle_00
+    texture px          : 128x128
+    pixelsPerUnit       : 64
+    world size (units)  : 2 x 2
+    lossyScale          : (1, 1, 1)
+
+=== root 'DemoRunFlow' ===
+
+=== root 'FloorRunRestartController' ===
+
+=== root 'Main Camera' ===
+
+=== root 'Canvas' ===
+
+=== root 'EventSystem' ===
+

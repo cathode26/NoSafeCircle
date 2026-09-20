@@ -1,0 +1,10 @@
+Materialize the scene without the pursuit leash and with clear spawns
+
+Output of DoorPrototypeSceneBuilder.Build on this branch. The leash value and
+the three old spawn positions were baked into the committed scene at save time,
+so the C# change alone left Vincent's playtested build unchanged and both new
+tests inspecting the committed artifact would have failed for the wrong reason
+(review finding, 2026-09-18).
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+

@@ -1,0 +1,11 @@
+NSC-077: materialize the enemy Animators, import settings and scene
+
+Output of running DoorPrototypeSceneBuilder.Build on the NSC-077 candidate:
+- import settings on the enemy idle still and walk frame .meta files (64 pixels per unit, Point filter, no mipmaps, ground-line pivots);
+- the generated MeleeEnemy and LanternWraith Animator controllers and their idle and walk clips, with .meta files;
+- LanternWraithSprite in place of FireCasterEnemySprite;
+- a rebuilt Assets/Scenes/DoorPrototype.unity.
+
+Line-ending-only churn is not included.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

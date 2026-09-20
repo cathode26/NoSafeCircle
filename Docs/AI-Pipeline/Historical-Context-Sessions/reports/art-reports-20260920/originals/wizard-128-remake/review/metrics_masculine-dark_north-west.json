@@ -1,0 +1,165 @@
+{
+  "deltas": [
+    {
+      "bbox_bottom_change": 2,
+      "bbox_width_change": 3,
+      "flags": [],
+      "from": 0,
+      "loop_seam": false,
+      "opaque_change_percent": 1.5828677839851024,
+      "to": 1
+    },
+    {
+      "bbox_bottom_change": -1,
+      "bbox_width_change": -1,
+      "flags": [],
+      "from": 1,
+      "loop_seam": false,
+      "opaque_change_percent": -1.008249312557287,
+      "to": 2
+    },
+    {
+      "bbox_bottom_change": -2,
+      "bbox_width_change": -3,
+      "flags": [],
+      "from": 2,
+      "loop_seam": false,
+      "opaque_change_percent": 0.32407407407407407,
+      "to": 3
+    },
+    {
+      "bbox_bottom_change": -2,
+      "bbox_width_change": -1,
+      "flags": [],
+      "from": 3,
+      "loop_seam": false,
+      "opaque_change_percent": -1.1536686663590217,
+      "to": 4
+    },
+    {
+      "bbox_bottom_change": 3,
+      "bbox_width_change": 1,
+      "flags": [
+        "baseline_jump"
+      ],
+      "from": 4,
+      "loop_seam": false,
+      "opaque_change_percent": -1.7740429505135387,
+      "to": 5
+    },
+    {
+      "bbox_bottom_change": 0,
+      "bbox_width_change": 1,
+      "flags": [],
+      "from": 5,
+      "loop_seam": true,
+      "opaque_change_percent": 2.091254752851711,
+      "to": 0
+    }
+  ],
+  "frames": [
+    {
+      "alpha_bbox": [
+        45,
+        22,
+        82,
+        121
+      ],
+      "distinct_color_count": 43,
+      "opaque_pixel_count": 2148,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-dark\\aligned\\walk\\north-west\\frame_000.png",
+      "sha256": "35bdf9bbce20e9257d0d29006c35bbdde940082f34db76f619f4fd02c39bbbd1",
+      "size": [
+        128,
+        128
+      ]
+    },
+    {
+      "alpha_bbox": [
+        42,
+        23,
+        82,
+        123
+      ],
+      "distinct_color_count": 35,
+      "opaque_pixel_count": 2182,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-dark\\aligned\\walk\\north-west\\frame_001.png",
+      "sha256": "1b8789e5beb41c19f5b0e6e39ff576e23eb3462d7eb77118b8b885c7b80f8bf1",
+      "size": [
+        128,
+        128
+      ]
+    },
+    {
+      "alpha_bbox": [
+        43,
+        22,
+        82,
+        122
+      ],
+      "distinct_color_count": 44,
+      "opaque_pixel_count": 2160,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-dark\\aligned\\walk\\north-west\\frame_002.png",
+      "sha256": "78796eb9d46e2b933e57628b71317395e340e4964cae62149b5aa5d71c274445",
+      "size": [
+        128,
+        128
+      ]
+    },
+    {
+      "alpha_bbox": [
+        46,
+        19,
+        82,
+        120
+      ],
+      "distinct_color_count": 33,
+      "opaque_pixel_count": 2167,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-dark\\aligned\\walk\\north-west\\frame_003.png",
+      "sha256": "60dfaa211bcf1d34909ae12d8c8d0aba1d06c27e29844efc1d33ad4616e9310a",
+      "size": [
+        128,
+        128
+      ]
+    },
+    {
+      "alpha_bbox": [
+        47,
+        21,
+        82,
+        118
+      ],
+      "distinct_color_count": 40,
+      "opaque_pixel_count": 2142,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-dark\\aligned\\walk\\north-west\\frame_004.png",
+      "sha256": "0ebf740a35d72b1f54aeff18698f519d528aa1649dd58b31f10ef12c8ca3ecf9",
+      "size": [
+        128,
+        128
+      ]
+    },
+    {
+      "alpha_bbox": [
+        46,
+        24,
+        82,
+        121
+      ],
+      "distinct_color_count": 37,
+      "opaque_pixel_count": 2104,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-dark\\aligned\\walk\\north-west\\frame_005.png",
+      "sha256": "8d3c70b646bfa453e9f3fa5c0896700db4844ab5fa3c4974e5b38661fc2b95c9",
+      "size": [
+        128,
+        128
+      ]
+    }
+  ],
+  "has_outliers": true,
+  "loop": true,
+  "thresholds": {
+    "baseline_jump_pixels": 3,
+    "bbox_width_pixels": 8,
+    "opaque_change_percent": 15.0
+  }
+}

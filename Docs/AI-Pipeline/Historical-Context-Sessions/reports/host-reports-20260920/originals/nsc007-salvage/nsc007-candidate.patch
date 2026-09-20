@@ -1,0 +1,2553 @@
+diff --git a/Assets/InputSystem_Actions.inputactions b/Assets/InputSystem_Actions.inputactions
+index ff22ae4..bb258b6 100644
+--- a/Assets/InputSystem_Actions.inputactions
++++ b/Assets/InputSystem_Actions.inputactions
+@@ -103,6 +103,15 @@
+                     "processors": "",
+                     "interactions": "",
+                     "initialStateCheck": false
++                },
++                {
++                    "name": "Fireball",
++                    "type": "Button",
++                    "id": "1f2a3b4c-5d6e-47f8-9a0b-1c2d3e4f5a6b",
++                    "expectedControlType": "Button",
++                    "processors": "",
++                    "interactions": "",
++                    "initialStateCheck": false
+                 }
+             ],
+             "bindings": [
+@@ -512,6 +521,17 @@
+                     "action": "MoveToCursor",
+                     "isComposite": false,
+                     "isPartOfComposite": false
++                },
++                {
++                    "name": "",
++                    "id": "2a3b4c5d-6e7f-48a9-b0c1-2d3e4f5a6b7c",
++                    "path": "<Mouse>/rightButton",
++                    "interactions": "",
++                    "processors": "",
++                    "groups": "Keyboard&Mouse",
++                    "action": "Fireball",
++                    "isComposite": false,
++                    "isPartOfComposite": false
+                 }
+             ]
+         },
+diff --git a/Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs b/Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs
+index 42fc3c2..61729b0 100644
+--- a/Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs
++++ b/Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs
+@@ -181,6 +181,7 @@ namespace NoSafeCircle.DoorPrototype.Editor
+                 out var mana,
+                 out var debugManaControl,
+                 out var wizardAnimationController,
++                out var fireball,
+                 out Transform playerSpawn,
+                 architecturalTileAssetFolder);
+ 
+@@ -210,6 +211,7 @@ namespace NoSafeCircle.DoorPrototype.Editor
+                 movement,
+                 interactionController,
+                 wizardAnimationController,
++                fireball,
+                 playerSpawn);
+         }
+ 
+diff --git a/Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs b/Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs
+index e979dac..760d5e2 100644
+--- a/Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs
++++ b/Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs
+@@ -241,6 +241,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
+             out PlayerMana mana,
+             out DebugManaSpendControl debugManaControl,
+             out WizardAnimationController wizardAnimationController,
++            out Fireball fireball,
+             out Transform playerSpawn,
+             string architecturalTileAssetFolder)
+         {
+@@ -325,6 +326,13 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
+                     $"'{InputActionsAssetPath}'; PlayerMovement will have no input actions asset assigned.");
+             }
+             SetPrivateField(movement, "inputActions", inputActions);
++
++            fireball = player.AddComponent<Fireball>();
++            SetPrivateField(fireball, "playerMovement", movement);
++            SetPrivateField(fireball, "playerMana", mana);
++            SetPrivateField(fireball, "playerHealth", health);
++            SetPrivateField(fireball, "inputActions", inputActions);
++
+             playerSpawn = BuildPlayerSpawn(movement.transform).transform;
+         }
+ 
+@@ -656,7 +664,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
+         internal static void BuildUI(DoorInteractable door, DebugDamageControl debugControl,
+             PlayerHealth health, PlayerMana mana, DebugManaSpendControl debugManaControl,
+             PlayerMovement movement, PlayerInteractionController interactionController,
+-            WizardAnimationController wizardAnimationController, Transform playerSpawn)
++            WizardAnimationController wizardAnimationController, Fireball fireball, Transform playerSpawn)
+         {
+             var canvasObject = new GameObject("Canvas");
+             var canvas = canvasObject.AddComponent<Canvas>();
+@@ -753,6 +761,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
+                 canvasObject,
+                 movement,
+                 interactionController,
++                fireball,
+                 debugControl,
+                 debugManaControl,
+                 out GameObject titlePanel);
+@@ -766,13 +775,14 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
+                 wizardAnimationController,
+                 movement,
+                 interactionController,
++                fireball,
+                 playerSpawn,
+                 titlePanel,
+                 selectionPanel);
+         }
+ 
+         private static TitleScreenController BuildTitleScreen(GameObject canvasObject, PlayerMovement movement,
+-            PlayerInteractionController interactionController, DebugDamageControl debugControl,
++            PlayerInteractionController interactionController, Fireball fireball, DebugDamageControl debugControl,
+             DebugManaSpendControl debugManaControl, out GameObject titlePanel)
+         {
+             titlePanel = new GameObject(
+@@ -916,6 +926,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
+             SetPrivateField(controller, "startGameButton", startButton);
+             SetPrivateField(controller, "playerMovement", movement);
+             SetPrivateField(controller, "playerInteractionController", interactionController);
++            SetPrivateField(controller, "fireball", fireball);
+             SetPrivateObjectArray(controller, "gameplayInputBehaviours", debugControl, debugManaControl);
+ 
+             UnityEventTools.AddPersistentListener(startButton.onClick, controller.StartGame);
+@@ -1046,6 +1057,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
+             WizardAnimationController wizardAnimationController,
+             PlayerMovement movement,
+             PlayerInteractionController interactionController,
++            Fireball fireball,
+             Transform playerSpawn,
+             GameObject titlePanel,
+             GameObject selectionPanel)
+@@ -1057,6 +1069,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
+             SetPrivateField(controller, "worldSpawn", playerSpawn);
+             SetPrivateField(controller, "playerMovement", movement);
+             SetPrivateField(controller, "playerInteractionController", interactionController);
++            SetPrivateField(controller, "fireball", fireball);
+             SetPrivateObjectArray(controller, "menuUiRoots", titlePanel, selectionPanel);
+         }
+ 
+diff --git a/Assets/NoSafeCircle/DoorPrototype/Scripts/DemoRunFlow.cs b/Assets/NoSafeCircle/DoorPrototype/Scripts/DemoRunFlow.cs
+index 69d5c6f..1c18f49 100644
+--- a/Assets/NoSafeCircle/DoorPrototype/Scripts/DemoRunFlow.cs
++++ b/Assets/NoSafeCircle/DoorPrototype/Scripts/DemoRunFlow.cs
+@@ -1,12 +1,12 @@
+-using System.Collections.Generic;
+ using UnityEngine;
+ using UnityEngine.InputSystem;
+ 
+ namespace NoSafeCircle.DoorPrototype
+ {
+-    /// Playable-build run flow: enemy contact damage, a cursor-aimed fireball that costs mana,
+-    /// enemy health bars, and the win/loss end states the run needs. Deliberately self-contained
+-    /// and IMGUI-driven so a build has a visible ending without depending on unbuilt UI tasks.
++    /// Playable-build run flow: enemy contact damage, enemy health bars, and the win/loss end
++    /// states the run needs. Deliberately self-contained and IMGUI-driven so a build has a
++    /// visible ending without depending on unbuilt UI tasks. Fireball itself (input, charge,
++    /// projectile, damage) is owned by the Fireball component, not this class.
+     public sealed class DemoRunFlow : MonoBehaviour
+     {
+         [SerializeField] private PlayerHealth playerHealth;
+@@ -17,30 +17,14 @@ namespace NoSafeCircle.DoorPrototype
+         [SerializeField] private float enemyDamagePerHit = 12f;
+         [SerializeField] private float enemyAttackInterval = 1.0f;
+ 
+-        [SerializeField] private float fireballSpeed = 12f;
+-        [SerializeField] private float fireballLifetime = 3f;
+-        [SerializeField] private float fireballHitRadius = 0.9f;
+-        [SerializeField] private float fireballDamage = 25f;
+-        [SerializeField] private float fireballManaCost = 20f;
+-        [SerializeField] private float fireballCooldown = 0.5f;
+-
+         [SerializeField] private float healthBarWidth = 46f;
+         [SerializeField] private float healthBarHeight = 6f;
+         [SerializeField] private float healthBarHeightAboveEnemy = 2.2f;
+ 
+-        private readonly List<Fireball> fireballs = new List<Fireball>();
+         private float attackCooldown;
+-        private float castCooldown;
+         private bool won;
+         private bool lost;
+ 
+-        private struct Fireball
+-        {
+-            public GameObject Visual;
+-            public Vector3 Direction;
+-            public float RemainingLifetime;
+-        }
+-
+         private void Start()
+         {
+             if (player == null)
+@@ -82,100 +66,9 @@ namespace NoSafeCircle.DoorPrototype
+         {
+             if (won || lost) return;
+ 
+-            if (castCooldown > 0f) castCooldown -= Time.deltaTime;
+-
+-            AdvanceFireballs(Time.deltaTime);
+-            TryFireAtCursor();
+             ApplyEnemyContactDamage(Time.deltaTime);
+         }
+ 
+-        private void TryFireAtCursor()
+-        {
+-            Mouse mouse = Mouse.current;
+-            if (mouse == null || player == null || !mouse.rightButton.wasPressedThisFrame) return;
+-            if (castCooldown > 0f) return;
+-
+-            // Mana gates casting exactly as it does for the enemy caster, so a wizard that
+-            // regenerates faster genuinely sustains more fire.
+-            if (playerMana != null && !playerMana.Spend(fireballManaCost)) return;
+-
+-            Camera camera = Camera.main;
+-            if (camera == null) return;
+-
+-            // Aim across the gameplay plane at the wizard's own height.
+-            var plane = new Plane(Vector3.up, new Vector3(0f, player.position.y, 0f));
+-            Ray ray = camera.ScreenPointToRay(mouse.position.ReadValue());
+-            if (!plane.Raycast(ray, out float distance)) return;
+-
+-            Vector3 target = ray.GetPoint(distance);
+-            Vector3 direction = target - player.position;
+-            direction.y = 0f;
+-            if (direction.sqrMagnitude < 0.0001f) return;
+-
+-            var visual = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+-            visual.name = "Fireball";
+-            Destroy(visual.GetComponent<Collider>());
+-            visual.transform.localScale = Vector3.one * 0.5f;
+-            visual.transform.position = player.position + Vector3.up + direction.normalized;
+-
+-            Renderer renderer = visual.GetComponent<Renderer>();
+-            if (renderer != null) renderer.material.color = new Color(1f, 0.45f, 0.1f);
+-
+-            fireballs.Add(new Fireball
+-            {
+-                Visual = visual,
+-                Direction = direction.normalized,
+-                RemainingLifetime = fireballLifetime,
+-            });
+-
+-            castCooldown = fireballCooldown;
+-        }
+-
+-        private void AdvanceFireballs(float deltaTime)
+-        {
+-            for (int index = fireballs.Count - 1; index >= 0; index--)
+-            {
+-                Fireball fireball = fireballs[index];
+-                if (fireball.Visual == null)
+-                {
+-                    fireballs.RemoveAt(index);
+-                    continue;
+-                }
+-
+-                fireball.Visual.transform.position += fireball.Direction * (fireballSpeed * deltaTime);
+-                fireball.RemainingLifetime -= deltaTime;
+-
+-                bool consumed = false;
+-                foreach (EnemyHealth enemy in FindObjectsByType<EnemyHealth>(FindObjectsSortMode.None))
+-                {
+-                    if (enemy.IsDefeated) continue;
+-
+-                    float hitDistance = Vector3.Distance(
+-                        new Vector3(enemy.transform.position.x, 0f, enemy.transform.position.z),
+-                        new Vector3(fireball.Visual.transform.position.x, 0f, fireball.Visual.transform.position.z));
+-                    if (hitDistance > fireballHitRadius) continue;
+-
+-                    enemy.TakeDamage(fireballDamage);
+-
+-                    // EnemyHealth reports defeat but never removes the GameObject, so a defeated
+-                    // enemy would keep pursuing and keep dealing contact damage without this.
+-                    if (enemy.IsDefeated) Destroy(enemy.gameObject);
+-
+-                    consumed = true;
+-                    break;
+-                }
+-
+-                if (consumed || fireball.RemainingLifetime <= 0f)
+-                {
+-                    Destroy(fireball.Visual);
+-                    fireballs.RemoveAt(index);
+-                    continue;
+-                }
+-
+-                fireballs[index] = fireball;
+-            }
+-        }
+-
+         private void ApplyEnemyContactDamage(float deltaTime)
+         {
+             if (player == null || playerHealth == null) return;
+diff --git a/Assets/NoSafeCircle/DoorPrototype/Scripts/Fireball.cs b/Assets/NoSafeCircle/DoorPrototype/Scripts/Fireball.cs
+new file mode 100644
+index 0000000..0b622f9
+--- /dev/null
++++ b/Assets/NoSafeCircle/DoorPrototype/Scripts/Fireball.cs
+@@ -0,0 +1,368 @@
++using System.Collections.Generic;
++using UnityEngine;
++using UnityEngine.InputSystem;
++
++namespace NoSafeCircle.DoorPrototype
++{
++    /// Owns tap/charge/cast state and every FireballProjectile it creates. Tap is a quick
++    /// press-and-release before tapHoldThreshold; holding past it charges a more expensive,
++    /// wider-area shot up to fullChargeDuration, capped by whatever PlayerMana.CurrentMana can
++    /// currently afford. Configured cost/damage/area scale linearly between the tap and full
++    /// values so they increase monotonically with charge progress (AC-002).
++    public sealed class Fireball : MonoBehaviour
++    {
++        private static readonly Color PlaceholderProjectileColor = new Color(1f, 0.45f, 0.1f);
++
++        [SerializeField] private PlayerMovement playerMovement;
++        [SerializeField] private PlayerMana playerMana;
++        [SerializeField] private PlayerHealth playerHealth;
++        [SerializeField] private InputActionAsset inputActions;
++
++        // Tap tier: matches the retired DemoRunFlow fireball's tuned values so first-playable
++        // feel does not regress (AC-002).
++        [SerializeField, Min(0.01f)] private float tapManaCost = 20f;
++        [SerializeField, Min(0.01f)] private float tapDamage = 25f;
++        [SerializeField, Min(0.01f)] private float tapContactRadius = 0.9f;
++        [SerializeField, Min(0.01f)] private float projectileSpeed = 12f;
++        [SerializeField, Min(0.01f)] private float projectileLifetime = 3f;
++        [SerializeField, Min(0f)] private float castCooldown = 0.5f;
++
++        [SerializeField, Min(0.01f)] private float tapHoldThreshold = 0.25f;
++        [SerializeField, Min(0.01f)] private float fullChargeDuration = 1.5f;
++        [SerializeField, Min(0.01f)] private float fullManaCost = 40f;
++        [SerializeField, Min(0.01f)] private float fullDamage = 65f;
++        [SerializeField, Min(0.01f)] private float fullAreaRadius = 2.5f;
++
++        private readonly List<FireballProjectile> ownedProjectiles = new List<FireballProjectile>();
++
++        private InputAction fireballAction;
++        private CharacterController wizardController;
++
++        private bool isSuspended;
++        private bool wasFireballPressed;
++        private bool isAttemptActive;
++        private bool isCharging;
++        private bool ownsMovementRestriction;
++        private float holdDuration;
++        private float cooldownRemaining;
++
++        public bool IsCharging => isCharging;
++        public float ChargeProgress { get; private set; }
++
++        private void Awake()
++        {
++            wizardController = GetComponent<CharacterController>();
++
++            var playerMap = inputActions != null ? inputActions.FindActionMap("Player", false) : null;
++            if (playerMap == null)
++            {
++                Debug.LogWarning("Fireball has no 'Player' action map assigned/found; Fireball input " +
++                    "will be unavailable.");
++                return;
++            }
++
++            fireballAction = playerMap.FindAction("Fireball", false);
++            if (fireballAction == null)
++            {
++                Debug.LogWarning("Fireball could not find the 'Fireball' action on the Player action map.");
++            }
++        }
++
++        private void OnEnable()
++        {
++            fireballAction?.Enable();
++            if (playerHealth != null) playerHealth.Damaged += HandlePlayerDamaged;
++        }
++
++        private void OnDisable()
++        {
++            fireballAction?.Disable();
++            if (playerHealth != null) playerHealth.Damaged -= HandlePlayerDamaged;
++
++            CancelActiveAttempt();
++            RemoveAllOwnedProjectiles();
++        }
++
++        private void OnDestroy()
++        {
++            CancelActiveAttempt();
++            RemoveAllOwnedProjectiles();
++        }
++
++        private void Update()
++        {
++            Tick(Time.deltaTime);
++        }
++
++        /// Advances cooldown, owned-projectile flight, and press/hold/release state by
++        /// deltaTime. Public so Play Mode tests can drive it deterministically (AC-002),
++        /// mirroring PlayerMovement.Tick/PlayerMana.Tick/DoorInteractable.Tick.
++        public void Tick(float deltaTime)
++        {
++            AdvanceOwnedProjectiles(deltaTime);
++
++            if (isSuspended) return;
++            if (fireballAction == null || playerMovement == null || playerMana == null) return;
++
++            if (cooldownRemaining > 0f)
++            {
++                cooldownRemaining = Mathf.Max(0f, cooldownRemaining - deltaTime);
++            }
++
++            HandleFireballInput(deltaTime);
++        }
++
++        private void HandleFireballInput(float deltaTime)
++        {
++            bool isPressed = fireballAction.IsPressed();
++            bool isFreshPress = isPressed && !wasFireballPressed;
++            bool isFreshRelease = !isPressed && wasFireballPressed;
++            wasFireballPressed = isPressed;
++
++            if (isFreshPress)
++            {
++                BeginPressAttempt();
++            }
++
++            if (isAttemptActive && isPressed)
++            {
++                holdDuration += deltaTime;
++                UpdateChargeState();
++            }
++
++            if (isFreshRelease && isAttemptActive)
++            {
++                ReleaseCast();
++            }
++        }
++
++        /// AC-006: a charge only starts if the tap cost is currently affordable; otherwise the
++        /// press itself spends nothing but raises PlayerMana.CastDenied through Spend's own
++        /// refusal path. AC-004/VAL-001: a press during the cast cooldown does neither.
++        private void BeginPressAttempt()
++        {
++            holdDuration = 0f;
++            isCharging = false;
++            ChargeProgress = 0f;
++
++            if (cooldownRemaining > 0f)
++            {
++                isAttemptActive = false;
++                return;
++            }
++
++            if (playerMana.CurrentMana < tapManaCost)
++            {
++                playerMana.Spend(tapManaCost);
++                isAttemptActive = false;
++                return;
++            }
++
++            isAttemptActive = true;
++        }
++
++        /// AC-005: requests Fireball's one movement restriction exactly once, the moment a hold
++        /// crosses tapHoldThreshold. AC-003: without a valid pointer target at that moment, the
++        /// pending attempt is cleared instead of starting a restricted charge.
++        private void UpdateChargeState()
++        {
++            if (!isAttemptActive) return;
++
++            if (!isCharging && holdDuration >= tapHoldThreshold)
++            {
++                if (playerMovement == null || !playerMovement.HasPointerWorldTarget)
++                {
++                    isAttemptActive = false;
++                    return;
++                }
++
++                isCharging = true;
++                RequestRestrictionIfNeeded();
++            }
++
++            if (isCharging)
++            {
++                ChargeProgress = ComputeCappedChargeProgress();
++            }
++        }
++
++        /// AC-006: charge growth is capped by the highest tier PlayerMana.CurrentMana can
++        /// currently pay, in addition to the natural hold-time progress toward fullChargeDuration.
++        private float ComputeCappedChargeProgress()
++        {
++            float naturalProgress = fullChargeDuration > tapHoldThreshold
++                ? Mathf.Clamp01((holdDuration - tapHoldThreshold) / (fullChargeDuration - tapHoldThreshold))
++                : 1f;
++
++            float manaCapProgress = fullManaCost > tapManaCost
++                ? Mathf.Clamp01((playerMana.CurrentMana - tapManaCost) / (fullManaCost - tapManaCost))
++                : 1f;
++
++            return Mathf.Min(naturalProgress, manaCapProgress);
++        }
++
++        private void ReleaseCast()
++        {
++            bool wasCharging = isCharging;
++            isAttemptActive = false;
++            isCharging = false;
++
++            if (!wasCharging)
++            {
++                Fire(tapManaCost, tapDamage, tapContactRadius, hasAreaDamage: false);
++                return;
++            }
++
++            float finalProgress = ComputeCappedChargeProgress();
++            ChargeProgress = 0f;
++
++            float cost = Mathf.Lerp(tapManaCost, fullManaCost, finalProgress);
++            float damage = Mathf.Lerp(tapDamage, fullDamage, finalProgress);
++            float radius = Mathf.Lerp(tapContactRadius, fullAreaRadius, finalProgress);
++
++            Fire(cost, damage, radius, hasAreaDamage: true);
++        }
++
++        /// AC-003/AC-005/AC-006: the single fire path shared by tap and charged casts. Every
++        /// early-return releases any owned restriction so it is never released twice and never
++        /// leaked.
++        private void Fire(float manaCost, float damage, float radius, bool hasAreaDamage)
++        {
++            if (playerMovement == null || !playerMovement.HasPointerWorldTarget)
++            {
++                ReleaseRestrictionIfNeeded();
++                return;
++            }
++
++            Vector3 origin = transform.position;
++            Vector3 direction = playerMovement.PointerWorldTarget - origin;
++            direction.y = 0f;
++
++            if (direction.sqrMagnitude < 0.0001f)
++            {
++                ReleaseRestrictionIfNeeded();
++                return;
++            }
++
++            direction.Normalize();
++
++            if (!playerMana.Spend(manaCost))
++            {
++                ReleaseRestrictionIfNeeded();
++                return;
++            }
++
++            ReleaseRestrictionIfNeeded();
++            SpawnProjectile(origin, direction, damage, radius, hasAreaDamage);
++            cooldownRemaining = castCooldown;
++        }
++
++        private void SpawnProjectile(Vector3 origin, Vector3 direction, float damage, float radius, bool hasAreaDamage)
++        {
++            var projectileObject = new GameObject("FireballProjectile");
++            projectileObject.transform.position = origin + Vector3.up;
++
++            var projectile = projectileObject.AddComponent<FireballProjectile>();
++            projectile.Initialize(
++                direction,
++                projectileSpeed,
++                projectileLifetime,
++                damage,
++                radius,
++                hasAreaDamage,
++                wizardController,
++                PlaceholderProjectileColor);
++
++            ownedProjectiles.Add(projectile);
++        }
++
++        private void AdvanceOwnedProjectiles(float deltaTime)
++        {
++            for (int index = ownedProjectiles.Count - 1; index >= 0; index--)
++            {
++                FireballProjectile projectile = ownedProjectiles[index];
++                if (projectile == null)
++                {
++                    ownedProjectiles.RemoveAt(index);
++                    continue;
++                }
++
++                projectile.Tick(deltaTime);
++
++                if (projectile.IsFinished)
++                {
++                    ownedProjectiles.RemoveAt(index);
++                }
++            }
++        }
++
++        private void RemoveAllOwnedProjectiles()
++        {
++            for (int index = ownedProjectiles.Count - 1; index >= 0; index--)
++            {
++                FireballProjectile projectile = ownedProjectiles[index];
++                if (projectile != null) projectile.Finish();
++            }
++
++            ownedProjectiles.Clear();
++        }
++
++        private void RequestRestrictionIfNeeded()
++        {
++            if (ownsMovementRestriction || playerMovement == null) return;
++
++            playerMovement.RequestMovementRestriction();
++            ownsMovementRestriction = true;
++        }
++
++        private void ReleaseRestrictionIfNeeded()
++        {
++            if (!ownsMovementRestriction) return;
++
++            playerMovement?.ReleaseMovementRestriction();
++            ownsMovementRestriction = false;
++        }
++
++        /// AC-005: PlayerHealth.Damaged cancels an active charge only - a still-pending tap
++        /// attempt (not yet past tapHoldThreshold) is untouched.
++        private void HandlePlayerDamaged(float amount)
++        {
++            if (!isCharging) return;
++
++            CancelActiveAttempt();
++        }
++
++        private void CancelActiveAttempt()
++        {
++            isAttemptActive = false;
++            isCharging = false;
++            ChargeProgress = 0f;
++            ReleaseRestrictionIfNeeded();
++        }
++
++        /// AC-008: clears charge/cast state, releases any owned restriction, removes every
++        /// owned projectile, and re-enables input.
++        public void ResetFireball()
++        {
++            CancelActiveAttempt();
++            RemoveAllOwnedProjectiles();
++            holdDuration = 0f;
++            cooldownRemaining = 0f;
++            isSuspended = false;
++        }
++
++        /// AC-008: same active-operation cleanup as ResetFireball, but stays suspended until
++        /// EnableGameplayInput()/ResetFireball() re-enables input.
++        public void SuspendGameplayInput()
++        {
++            CancelActiveAttempt();
++            RemoveAllOwnedProjectiles();
++            isSuspended = true;
++        }
++
++        public void EnableGameplayInput()
++        {
++            isSuspended = false;
++        }
++    }
++}
+diff --git a/Assets/NoSafeCircle/DoorPrototype/Scripts/Fireball.cs.meta b/Assets/NoSafeCircle/DoorPrototype/Scripts/Fireball.cs.meta
+new file mode 100644
+index 0000000..5beb7be
+--- /dev/null
++++ b/Assets/NoSafeCircle/DoorPrototype/Scripts/Fireball.cs.meta
+@@ -0,0 +1,2 @@
++fileFormatVersion: 2
++guid: 32d0de7cb76d28284573d3683c184dda
+diff --git a/Assets/NoSafeCircle/DoorPrototype/Scripts/FireballProjectile.cs b/Assets/NoSafeCircle/DoorPrototype/Scripts/FireballProjectile.cs
+new file mode 100644
+index 0000000..58519f7
+--- /dev/null
++++ b/Assets/NoSafeCircle/DoorPrototype/Scripts/FireballProjectile.cs
+@@ -0,0 +1,215 @@
++using UnityEngine;
++
++namespace NoSafeCircle.DoorPrototype
++{
++    /// One runtime-created in-flight shot, owned and Tick-driven entirely by the Fireball that
++    /// spawned it (AC-001). Flies in a straight line at chest height until it detonates on
++    /// contact (AC-007) or reaches its lifetime, at which point it fizzles in place with no
++    /// damage. Owns its own placeholder visual/material.
++    public sealed class FireballProjectile : MonoBehaviour
++    {
++        private Vector3 direction;
++        private float speed;
++        private float remainingLifetime;
++        private float damage;
++        private float impactRadius;
++        private bool hasAreaDamage;
++        private CharacterController wizardController;
++        private Material ownedMaterial;
++
++        public bool IsFinished { get; private set; }
++
++        public void Initialize(
++            Vector3 direction,
++            float speed,
++            float lifetime,
++            float damage,
++            float impactRadius,
++            bool hasAreaDamage,
++            CharacterController wizardController,
++            Color placeholderColor)
++        {
++            this.direction = direction;
++            this.speed = speed;
++            remainingLifetime = lifetime;
++            this.damage = damage;
++            this.impactRadius = impactRadius;
++            this.hasAreaDamage = hasAreaDamage;
++            this.wizardController = wizardController;
++
++            CreateVisual(placeholderColor);
++        }
++
++        private void CreateVisual(Color placeholderColor)
++        {
++            var visual = GameObject.CreatePrimitive(PrimitiveType.Sphere);
++            visual.name = "Visual";
++            Destroy(visual.GetComponent<Collider>());
++            visual.transform.SetParent(transform, false);
++            visual.transform.localScale = Vector3.one * 0.5f;
++
++            Renderer renderer = visual.GetComponent<Renderer>();
++            if (renderer == null) return;
++
++            ownedMaterial = renderer.material;
++            ownedMaterial.color = placeholderColor;
++        }
++
++        /// Advances flight by deltaTime. Called from the owning Fireball's own Tick so tests can
++        /// drive projectile flight deterministically instead of waiting on real frames.
++        public void Tick(float deltaTime)
++        {
++            if (IsFinished) return;
++
++            Vector3 previousPosition = transform.position;
++            Vector3 nextPosition = previousPosition + direction * (speed * deltaTime);
++
++            if (IsBlockedByCollider(previousPosition, nextPosition, out Vector3 blockedContactPoint))
++            {
++                DetonateOnCollider(blockedContactPoint);
++                return;
++            }
++
++            transform.position = nextPosition;
++            remainingLifetime -= deltaTime;
++
++            EnemyHealth hitEnemy = FindContactEnemy(nextPosition);
++            if (hitEnemy != null)
++            {
++                DetonateOnEnemy(nextPosition, hitEnemy);
++                return;
++            }
++
++            if (remainingLifetime <= 0f)
++            {
++                Finish();
++            }
++        }
++
++        private void DetonateOnEnemy(Vector3 detonationPoint, EnemyHealth hitEnemy)
++        {
++            hitEnemy.TakeDamage(damage);
++
++            if (hasAreaDamage)
++            {
++                ApplyAreaDamage(detonationPoint, hitEnemy);
++            }
++
++            Finish();
++        }
++
++        /// AC-007: a detonation against a blocking collider (wall/door) still splashes every
++        /// unobstructed enemy within impactRadius exactly like a direct enemy hit, just with no
++        /// directly-hit enemy to exclude.
++        private void DetonateOnCollider(Vector3 detonationPoint)
++        {
++            if (hasAreaDamage)
++            {
++                ApplyAreaDamage(detonationPoint, excludedEnemy: null);
++            }
++
++            Finish();
++        }
++
++        /// AC-007: every other active, non-defeated enemy within impactRadius of the detonation
++        /// point that has an unobstructed line takes damage once; the already-hit enemy is
++        /// excluded so it is never damaged twice by the same cast.
++        private void ApplyAreaDamage(Vector3 detonationPoint, EnemyHealth excludedEnemy)
++        {
++            foreach (EnemyHealth enemy in FindObjectsByType<EnemyHealth>(FindObjectsSortMode.None))
++            {
++                if (enemy == null || enemy == excludedEnemy || enemy.IsDefeated) continue;
++
++                if (FlatDistance(enemy.transform.position, detonationPoint) > impactRadius) continue;
++                if (!HasUnobstructedLine(detonationPoint, enemy.transform.position)) continue;
++
++                enemy.TakeDamage(damage);
++            }
++        }
++
++        private EnemyHealth FindContactEnemy(Vector3 position)
++        {
++            EnemyHealth closest = null;
++            float closestDistance = float.MaxValue;
++
++            foreach (EnemyHealth enemy in FindObjectsByType<EnemyHealth>(FindObjectsSortMode.None))
++            {
++                if (enemy == null || enemy.IsDefeated) continue;
++
++                float distance = FlatDistance(enemy.transform.position, position);
++                if (distance > impactRadius || distance >= closestDistance) continue;
++
++                closestDistance = distance;
++                closest = enemy;
++            }
++
++            return closest;
++        }
++
++        private static float FlatDistance(Vector3 a, Vector3 b)
++        {
++            Vector3 offset = a - b;
++            offset.y = 0f;
++            return offset.magnitude;
++        }
++
++        /// AC-007: chest-height raycast against non-trigger colliders on the default layer mask,
++        /// the same query EnemyLanternWispCaster.HasUnobstructedViewOfWizard already uses, ignoring
++        /// the wizard's own CharacterController and this projectile's own (collider-free) visual.
++        private bool IsBlockedByCollider(Vector3 from, Vector3 to, out Vector3 contactPoint)
++        {
++            contactPoint = to;
++
++            Vector3 offset = to - from;
++            float distance = offset.magnitude;
++            if (distance <= 0f) return false;
++
++            if (!Physics.Raycast(from, offset / distance, out RaycastHit hit, distance,
++                    Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
++            {
++                return false;
++            }
++
++            if (IsIgnoredCollider(hit.transform)) return false;
++
++            contactPoint = hit.point;
++            return true;
++        }
++
++        private bool HasUnobstructedLine(Vector3 detonationPoint, Vector3 enemyPosition)
++        {
++            Vector3 eyeTarget = enemyPosition + Vector3.up;
++            Vector3 offset = eyeTarget - detonationPoint;
++            float distance = offset.magnitude;
++            if (distance <= 0.01f) return true;
++
++            if (!Physics.Raycast(detonationPoint, offset / distance, out RaycastHit hit, distance,
++                    Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
++            {
++                return true;
++            }
++
++            return IsIgnoredCollider(hit.transform);
++        }
++
++        private bool IsIgnoredCollider(Transform hitTransform)
++        {
++            if (hitTransform == transform || hitTransform.IsChildOf(transform)) return true;
++
++            return wizardController != null &&
++                (hitTransform == wizardController.transform || hitTransform.IsChildOf(wizardController.transform));
++        }
++
++        /// Owner-invoked cleanup (contact, lifetime expiry, wall block, or forced removal by
++        /// Fireball on reset/suspend/disable/destroy). Idempotent so it is safe to call once more
++        /// from an owner that no longer needs to track this instance.
++        public void Finish()
++        {
++            if (IsFinished) return;
++
++            IsFinished = true;
++            if (ownedMaterial != null) Destroy(ownedMaterial);
++            Destroy(gameObject);
++        }
++    }
++}
+diff --git a/Assets/NoSafeCircle/DoorPrototype/Scripts/FireballProjectile.cs.meta b/Assets/NoSafeCircle/DoorPrototype/Scripts/FireballProjectile.cs.meta
+new file mode 100644
+index 0000000..422661e
+--- /dev/null
++++ b/Assets/NoSafeCircle/DoorPrototype/Scripts/FireballProjectile.cs.meta
+@@ -0,0 +1,2 @@
++fileFormatVersion: 2
++guid: d20eaebb1c843f544c44bb1b75372f4a
+diff --git a/Assets/NoSafeCircle/DoorPrototype/Scripts/TitleScreenController.cs b/Assets/NoSafeCircle/DoorPrototype/Scripts/TitleScreenController.cs
+index 5a80e9a..7814ef4 100644
+--- a/Assets/NoSafeCircle/DoorPrototype/Scripts/TitleScreenController.cs
++++ b/Assets/NoSafeCircle/DoorPrototype/Scripts/TitleScreenController.cs
+@@ -10,6 +10,7 @@ namespace NoSafeCircle.DoorPrototype
+         [SerializeField] private Button startGameButton;
+         [SerializeField] private PlayerMovement playerMovement;
+         [SerializeField] private PlayerInteractionController playerInteractionController;
++        [SerializeField] private Fireball fireball;
+         [SerializeField] private Behaviour[] gameplayInputBehaviours;
+ 
+         public bool HasRequestedWizardSelection { get; private set; }
+@@ -60,6 +61,7 @@ namespace NoSafeCircle.DoorPrototype
+         {
+             playerMovement?.SuspendGameplayInput();
+             playerInteractionController?.SuspendGameplayInput();
++            fireball?.SuspendGameplayInput();
+ 
+             if (gameplayInputBehaviours == null) return;
+ 
+diff --git a/Assets/NoSafeCircle/DoorPrototype/Scripts/WizardGameEntryController.cs b/Assets/NoSafeCircle/DoorPrototype/Scripts/WizardGameEntryController.cs
+index a1290b5..fa1f670 100644
+--- a/Assets/NoSafeCircle/DoorPrototype/Scripts/WizardGameEntryController.cs
++++ b/Assets/NoSafeCircle/DoorPrototype/Scripts/WizardGameEntryController.cs
+@@ -13,6 +13,7 @@ namespace NoSafeCircle.DoorPrototype
+         [SerializeField] private Transform worldSpawn;
+         [SerializeField] private PlayerMovement playerMovement;
+         [SerializeField] private PlayerInteractionController playerInteractionController;
++        [SerializeField] private Fireball fireball;
+         [SerializeField] private GameObject[] menuUiRoots;
+ 
+         private bool isSubscribed;
+@@ -82,6 +83,7 @@ namespace NoSafeCircle.DoorPrototype
+ 
+             playerMovement.EnableGameplayInput();
+             playerInteractionController.EnableGameplayInput();
++            fireball?.EnableGameplayInput();
+         }
+ 
+         private bool HasValidReferences()
+diff --git a/Assets/NoSafeCircle/DoorPrototype/Tests/Editor/FireballCommittedSceneConformanceTests.cs b/Assets/NoSafeCircle/DoorPrototype/Tests/Editor/FireballCommittedSceneConformanceTests.cs
+new file mode 100644
+index 0000000..b4cc15b
+--- /dev/null
++++ b/Assets/NoSafeCircle/DoorPrototype/Tests/Editor/FireballCommittedSceneConformanceTests.cs
+@@ -0,0 +1,318 @@
++using System;
++using System.Collections.Generic;
++using System.IO;
++using System.Reflection;
++using NUnit.Framework;
++using UnityEditor;
++using UnityEditor.SceneManagement;
++using UnityEngine;
++using UnityEngine.InputSystem;
++using UnityEngine.SceneManagement;
++using Object = UnityEngine.Object;
++
++namespace NoSafeCircle.DoorPrototype.Tests.Editor
++{
++    // VAL-005/VAL-007/AC-009/AC-010: committed-scene and committed-asset conformance. Every test
++    // that opens Assets/Scenes/DoorPrototype.unity does so additively, scopes lookup to that
++    // scene, closes it without saving, and asserts the scene's bytes are unchanged. The
++    // InputSystem_Actions tests below load the committed asset directly and touch no scene.
++    public sealed class FireballCommittedSceneConformanceTests
++    {
++        private const string CanonicalScenePath = "Assets/Scenes/DoorPrototype.unity";
++        private const string InputActionsAssetPath = "Assets/InputSystem_Actions.inputactions";
++        private const string DemoRunFlowSourcePath = "Assets/NoSafeCircle/DoorPrototype/Scripts/DemoRunFlow.cs";
++
++        [SetUp]
++        public void SetUp()
++        {
++            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
++        }
++
++        [TearDown]
++        public void TearDown()
++        {
++            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
++        }
++
++        // AC-009: the committed scene's Player has a Fireball wired to its own PlayerMovement,
++        // PlayerMana, PlayerHealth, and the committed InputActionAsset.
++        [Test]
++        public void CommittedScene_PlayerFireball_ReferencesMovementManaHealthAndCommittedInputActions()
++        {
++            WithCommittedSceneOpen(scene =>
++            {
++                GameObject player = FindInSceneRoots(scene, "Player");
++                Assert.IsNotNull(player, "Expected a Player in the committed scene.");
++
++                Fireball fireball = player.GetComponent<Fireball>();
++                Assert.IsNotNull(fireball, "Expected a Fireball component on the committed scene's Player.");
++
++                var serializedFireball = new SerializedObject(fireball);
++                Assert.AreSame(player.GetComponent<PlayerMovement>(),
++                    serializedFireball.FindProperty("playerMovement").objectReferenceValue,
++                    "Fireball must reference the Player's own PlayerMovement.");
++                Assert.AreSame(player.GetComponent<PlayerMana>(),
++                    serializedFireball.FindProperty("playerMana").objectReferenceValue,
++                    "Fireball must reference the Player's own PlayerMana.");
++                Assert.AreSame(player.GetComponent<PlayerHealth>(),
++                    serializedFireball.FindProperty("playerHealth").objectReferenceValue,
++                    "Fireball must reference the Player's own PlayerHealth.");
++
++                var committedInputActions = AssetDatabase.LoadAssetAtPath<InputActionAsset>(InputActionsAssetPath);
++                Assert.IsNotNull(committedInputActions, "Expected the committed InputSystem_Actions asset to load.");
++                Assert.AreSame(committedInputActions,
++                    serializedFireball.FindProperty("inputActions").objectReferenceValue,
++                    "Fireball must reference the committed InputActionAsset.");
++            });
++        }
++
++        // AC-010: TitleScreenController and WizardGameEntryController each have their optional
++        // Fireball reference assigned to the Player's Fireball component.
++        [Test]
++        public void CommittedScene_TitleScreenAndEntryControllers_ReferenceThePlayersFireball()
++        {
++            WithCommittedSceneOpen(scene =>
++            {
++                GameObject player = FindInSceneRoots(scene, "Player");
++                GameObject canvas = FindInSceneRoots(scene, "Canvas");
++                Assert.IsNotNull(player, "Expected a Player in the committed scene.");
++                Assert.IsNotNull(canvas, "Expected a Canvas in the committed scene.");
++
++                Fireball fireball = player.GetComponent<Fireball>();
++                Assert.IsNotNull(fireball);
++
++                TitleScreenController titleController = canvas.GetComponent<TitleScreenController>();
++                WizardGameEntryController entryController = canvas.GetComponent<WizardGameEntryController>();
++                Assert.IsNotNull(titleController, "Expected a TitleScreenController on the committed scene's Canvas.");
++                Assert.IsNotNull(entryController, "Expected a WizardGameEntryController on the committed scene's Canvas.");
++
++                Assert.AreSame(fireball,
++                    new SerializedObject(titleController).FindProperty("fireball").objectReferenceValue,
++                    "TitleScreenController's optional Fireball reference must be assigned to the Player's Fireball.");
++                Assert.AreSame(fireball,
++                    new SerializedObject(entryController).FindProperty("fireball").objectReferenceValue,
++                    "WizardGameEntryController's optional Fireball reference must be assigned to the Player's Fireball.");
++            });
++        }
++
++        // AC-004/AC-010: Fireball is never added to TitleScreenController's gameplayInputBehaviours
++        // array, which still holds exactly its two debug controls.
++        [Test]
++        public void CommittedScene_TitleScreenGameplayInputBehaviours_DoesNotContainFireball_AndHoldsExactlyTheTwoDebugControls()
++        {
++            WithCommittedSceneOpen(scene =>
++            {
++                GameObject canvas = FindInSceneRoots(scene, "Canvas");
++                Assert.IsNotNull(canvas, "Expected a Canvas in the committed scene.");
++                TitleScreenController titleController = canvas.GetComponent<TitleScreenController>();
++                Assert.IsNotNull(titleController);
++
++                SerializedProperty behaviours =
++                    new SerializedObject(titleController).FindProperty("gameplayInputBehaviours");
++                Assert.AreEqual(2, behaviours.arraySize,
++                    "Expected TitleScreenController.gameplayInputBehaviours to hold exactly its two debug controls.");
++
++                var actualTypeNames = new List<string>();
++                for (int index = 0; index < behaviours.arraySize; index++)
++                {
++                    Object behaviour = behaviours.GetArrayElementAtIndex(index).objectReferenceValue;
++                    Assert.IsNotNull(behaviour, $"Expected gameplayInputBehaviours[{index}] to be assigned.");
++                    Assert.IsNotInstanceOf<Fireball>(behaviour,
++                        "Fireball must never be added to TitleScreenController's gameplayInputBehaviours array.");
++                    actualTypeNames.Add(behaviour.GetType().Name);
++                }
++
++                CollectionAssert.AreEquivalent(
++                    new[] { nameof(DebugDamageControl), nameof(DebugManaSpendControl) },
++                    actualTypeNames,
++                    "Expected exactly DebugDamageControl and DebugManaSpendControl in gameplayInputBehaviours.");
++            });
++        }
++
++        // VAL-007: exactly one Fireball implementation is wired into the committed scene.
++        [Test]
++        public void CommittedScene_ContainsExactlyOneFireballComponent()
++        {
++            WithCommittedSceneOpen(scene =>
++            {
++                int count = 0;
++                foreach (GameObject root in scene.GetRootGameObjects())
++                {
++                    count += root.GetComponentsInChildren<Fireball>(true).Length;
++                }
++
++                Assert.AreEqual(1, count, "Expected exactly one Fireball component in the committed scene.");
++            });
++        }
++
++        // AC-004/VAL-005: the committed physical binding - Button type, sole <Mouse>/rightButton
++        // binding, Keyboard&Mouse-only group, no gamepad/joystick/touch/XR binding.
++        [Test]
++        public void CommittedInputActions_FireballAction_IsButtonWithSoleRightMouseBindingInKeyboardMouseGroup()
++        {
++            InputActionAsset asset = AssetDatabase.LoadAssetAtPath<InputActionAsset>(InputActionsAssetPath);
++            Assert.IsNotNull(asset, "Expected the committed InputSystem_Actions asset to load.");
++
++            InputActionMap playerMap = asset.FindActionMap("Player", true);
++            InputAction fireballAction = playerMap.FindAction("Fireball", true);
++
++            Assert.AreEqual(InputActionType.Button, fireballAction.type,
++                "Expected the committed Fireball action to be Button-type.");
++
++            var bindings = fireballAction.bindings;
++            Assert.AreEqual(1, bindings.Count, "Expected the Fireball action to have exactly one binding.");
++            Assert.AreEqual("<Mouse>/rightButton", bindings[0].path);
++
++            string[] groups = SplitGroups(bindings[0].groups);
++            CollectionAssert.AreEqual(new[] { "Keyboard&Mouse" }, groups,
++                "Expected the Fireball binding's groups to contain only Keyboard&Mouse.");
++
++            foreach (InputBinding binding in bindings)
++            {
++                string[] bindingGroups = SplitGroups(binding.groups);
++                Assert.IsFalse(Array.Exists(bindingGroups,
++                        group => group == "Gamepad" || group == "Joystick" || group == "Touch" || group == "XR"),
++                    "The Fireball action must have no gamepad, joystick, touch, or XR binding.");
++            }
++        }
++
++        // AC-004: no other Player action (MoveToCursor, Interact, Attack, Jump, or any other)
++        // also binds <Mouse>/rightButton.
++        [Test]
++        public void CommittedInputActions_RightMouseButton_IsNotBoundByAnyOtherPlayerAction()
++        {
++            InputActionAsset asset = AssetDatabase.LoadAssetAtPath<InputActionAsset>(InputActionsAssetPath);
++            InputActionMap playerMap = asset.FindActionMap("Player", true);
++
++            foreach (InputAction action in playerMap.actions)
++            {
++                if (action.name == "Fireball") continue;
++
++                foreach (InputBinding binding in action.bindings)
++                {
++                    Assert.AreNotEqual("<Mouse>/rightButton", binding.path,
++                        $"Expected no other Player action ('{action.name}') to also bind <Mouse>/rightButton.");
++                }
++            }
++        }
++
++        // AC-004: the stock Attack action is left untouched.
++        [Test]
++        public void CommittedInputActions_AttackAction_StillHasExactlyItsSixBaseBindings()
++        {
++            InputActionAsset asset = AssetDatabase.LoadAssetAtPath<InputActionAsset>(InputActionsAssetPath);
++            InputActionMap playerMap = asset.FindActionMap("Player", true);
++            InputAction attackAction = playerMap.FindAction("Attack", true);
++
++            var actual = new List<(string path, string groups)>();
++            foreach (InputBinding binding in attackAction.bindings)
++            {
++                actual.Add((binding.path, binding.groups));
++            }
++
++            var expected = new[]
++            {
++                ("<Gamepad>/buttonWest", ";Gamepad"),
++                ("<Mouse>/leftButton", ";Keyboard&Mouse"),
++                ("<Touchscreen>/primaryTouch/tap", ";Touch"),
++                ("<Joystick>/trigger", "Joystick"),
++                ("<XRController>/{PrimaryAction}", "XR"),
++                ("<Keyboard>/enter", "Keyboard&Mouse"),
++            };
++
++            Assert.AreEqual(expected.Length, actual.Count, "Expected Attack to still have exactly six bindings.");
++            for (int index = 0; index < expected.Length; index++)
++            {
++                Assert.AreEqual(expected[index].path, actual[index].path,
++                    $"Expected Attack binding {index} to keep its committed path.");
++                Assert.AreEqual(expected[index].groups, actual[index].groups,
++                    $"Expected Attack binding {index} to keep its committed groups.");
++            }
++        }
++
++        // VAL-007: DemoRunFlow's embedded legacy fireball (fields, methods, nested type) is gone.
++        [Test]
++        public void DemoRunFlow_NoLongerDeclaresLegacyFireballMembers()
++        {
++            Type demoRunFlowType = typeof(DemoRunFlow);
++            const BindingFlags allDeclared = BindingFlags.Public | BindingFlags.NonPublic |
++                BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly;
++
++            MethodInfo[] methods = demoRunFlowType.GetMethods(allDeclared);
++            Assert.IsFalse(Array.Exists(methods, method => method.Name == "TryFireAtCursor"),
++                "Expected DemoRunFlow to no longer declare TryFireAtCursor.");
++            Assert.IsFalse(Array.Exists(methods, method => method.Name == "AdvanceFireballs"),
++                "Expected DemoRunFlow to no longer declare AdvanceFireballs.");
++
++            Type[] nestedTypes = demoRunFlowType.GetNestedTypes(allDeclared);
++            Assert.IsFalse(Array.Exists(nestedTypes, nested => nested.Name == "Fireball"),
++                "Expected DemoRunFlow to no longer declare a nested Fireball type.");
++
++            FieldInfo[] fields = demoRunFlowType.GetFields(allDeclared);
++            string[] removedFieldNames =
++            {
++                "fireballSpeed", "fireballLifetime", "fireballHitRadius",
++                "fireballDamage", "fireballManaCost", "fireballCooldown",
++                "fireballs", "castCooldown"
++            };
++            foreach (string removedFieldName in removedFieldNames)
++            {
++                Assert.IsFalse(Array.Exists(fields, field => field.Name == removedFieldName),
++                    $"Expected DemoRunFlow to no longer declare a '{removedFieldName}' field.");
++            }
++        }
++
++        // VAL-007: DemoRunFlow no longer polls Mouse.current directly.
++        [Test]
++        public void DemoRunFlowSource_ContainsNoMouseCurrentUsage()
++        {
++            string source = File.ReadAllText(DemoRunFlowSourcePath);
++            StringAssert.DoesNotContain("Mouse.current", source,
++                "Expected DemoRunFlow.cs to contain no direct Mouse.current polling.");
++        }
++
++        private static void WithCommittedSceneOpen(Action<Scene> body)
++        {
++            byte[] bytesBefore = File.ReadAllBytes(CanonicalScenePath);
++            Scene openedScene = default;
++
++            try
++            {
++                openedScene = EditorSceneManager.OpenScene(CanonicalScenePath, OpenSceneMode.Additive);
++                body(openedScene);
++            }
++            finally
++            {
++                if (openedScene.IsValid() && openedScene.isLoaded)
++                {
++                    EditorSceneManager.CloseScene(openedScene, true);
++                }
++
++                CollectionAssert.AreEqual(bytesBefore, File.ReadAllBytes(CanonicalScenePath),
++                    "Committed-scene conformance inspection must not change canonical scene bytes.");
++            }
++        }
++
++        private static GameObject FindInSceneRoots(Scene scene, string objectName)
++        {
++            foreach (GameObject root in scene.GetRootGameObjects())
++            {
++                if (root.name == objectName) return root;
++
++                foreach (Transform candidate in root.GetComponentsInChildren<Transform>(true))
++                {
++                    if (candidate.name == objectName) return candidate.gameObject;
++                }
++            }
++
++            return null;
++        }
++
++        private static string[] SplitGroups(string groups)
++        {
++            return string.IsNullOrEmpty(groups)
++                ? Array.Empty<string>()
++                : groups.Split(';', StringSplitOptions.RemoveEmptyEntries);
++        }
++    }
++}
+diff --git a/Assets/NoSafeCircle/DoorPrototype/Tests/Editor/FireballCommittedSceneConformanceTests.cs.meta b/Assets/NoSafeCircle/DoorPrototype/Tests/Editor/FireballCommittedSceneConformanceTests.cs.meta
+new file mode 100644
+index 0000000..8c16e33
+--- /dev/null
++++ b/Assets/NoSafeCircle/DoorPrototype/Tests/Editor/FireballCommittedSceneConformanceTests.cs.meta
+@@ -0,0 +1,2 @@
++fileFormatVersion: 2
++guid: 87bd6d5bd9b1e5f0740f75d973596a1a
+diff --git a/Assets/NoSafeCircle/DoorPrototype/Tests/FireballPlayModeTests.cs b/Assets/NoSafeCircle/DoorPrototype/Tests/FireballPlayModeTests.cs
+new file mode 100644
+index 0000000..e563836
+--- /dev/null
++++ b/Assets/NoSafeCircle/DoorPrototype/Tests/FireballPlayModeTests.cs
+@@ -0,0 +1,1262 @@
++using System.Collections;
++using System.Collections.Generic;
++using System.Reflection;
++using NoSafeCircle.DoorPrototype.Enemies;
++using NUnit.Framework;
++using UnityEngine;
++using UnityEngine.InputSystem;
++using UnityEngine.InputSystem.LowLevel;
++using UnityEngine.TestTools;
++
++namespace NoSafeCircle.DoorPrototype.Tests
++{
++    internal static class FireballTestSupport
++    {
++        public static InputActionAsset BuildInputActions(Mouse mouseDevice)
++        {
++            var asset = ScriptableObject.CreateInstance<InputActionAsset>();
++            var playerMap = asset.AddActionMap("Player");
++            playerMap.AddAction(
++                "PointerPosition",
++                InputActionType.Value,
++                "<Mouse>/position",
++                expectedControlLayout: "Vector2");
++            playerMap.AddAction("MoveToCursor", InputActionType.Button, "<Mouse>/leftButton");
++            playerMap.AddAction("Fireball", InputActionType.Button, "<Mouse>/rightButton");
++            playerMap.devices = new InputDevice[] { mouseDevice };
++            return asset;
++        }
++
++        public static void SetPrivateField(object target, string fieldName, object value)
++        {
++            FieldInfo field = target.GetType().GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Instance);
++            Assert.IsNotNull(field, $"Expected a private field named '{fieldName}' on {target.GetType().Name}.");
++            field.SetValue(target, value);
++        }
++
++        public static T GetPrivateField<T>(object target, string fieldName)
++        {
++            FieldInfo field = target.GetType().GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Instance);
++            Assert.IsNotNull(field, $"Expected a private field named '{fieldName}' on {target.GetType().Name}.");
++            return (T)field.GetValue(target);
++        }
++
++        public static void InvokePrivate(object target, string methodName, params object[] args)
++        {
++            MethodInfo method = target.GetType().GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Instance);
++            Assert.IsNotNull(method, $"Expected a private method named '{methodName}' on {target.GetType().Name}.");
++            method.Invoke(target, args);
++        }
++
++        public static void SetMouse(Mouse mouseDevice, Vector2 screenPosition, bool rightButtonPressed)
++        {
++            InputSystem.QueueStateEvent(mouseDevice, new MouseState
++            {
++                position = screenPosition,
++                buttons = rightButtonPressed ? (ushort)(1 << (int)MouseButton.Right) : (ushort)0
++            });
++            InputSystem.Update();
++        }
++
++        public static void AdvanceTime(System.Action<float> tick, float totalSeconds, float step)
++        {
++            var elapsed = 0f;
++            while (elapsed < totalSeconds)
++            {
++                float dt = Mathf.Min(step, totalSeconds - elapsed);
++                tick(dt);
++                elapsed += dt;
++            }
++        }
++
++        public static float FlatDistance(Vector3 a, Vector3 b)
++        {
++            Vector3 offset = a - b;
++            offset.y = 0f;
++            return offset.magnitude;
++        }
++    }
++
++    /// Shared harness for every Fireball behavior fixture below: a real Player (CharacterController,
++    /// PlayerHealth, PlayerMana, PlayerMovement, PlayerInteractionController, Fireball) driven
++    /// through a temporary in-memory InputActionAsset whose Player map carries PointerPosition,
++    /// MoveToCursor, and a Button-type Fireball action bound to <Mouse>/rightButton (VAL-001).
++    /// Tick(float) always advances PlayerMovement before Fireball, since Fireball only reads the
++    /// pointer target PlayerMovement's own Tick computes and never advances movement itself.
++    public abstract class FireballPlayModeTestBase : InputTestFixture
++    {
++        protected readonly List<GameObject> spawnedObjects = new List<GameObject>();
++
++        protected GameObject playerObject;
++        protected GameObject cameraObject;
++        protected Camera testCamera;
++        protected RenderTexture testRenderTexture;
++        protected InputActionAsset testInputActions;
++        protected Mouse mouseDevice;
++
++        protected CharacterController characterController;
++        protected PlayerHealth playerHealth;
++        protected PlayerMana playerMana;
++        protected PlayerMovement playerMovement;
++        protected PlayerInteractionController interactionController;
++        protected Fireball fireball;
++
++        public override void Setup()
++        {
++            base.Setup();
++
++            mouseDevice = InputSystem.AddDevice<Mouse>();
++
++            cameraObject = new GameObject("TestCamera");
++            cameraObject.tag = "MainCamera";
++            testCamera = cameraObject.AddComponent<Camera>();
++            testCamera.transform.SetPositionAndRotation(new Vector3(0f, 10f, -10f), Quaternion.identity);
++            testCamera.transform.LookAt(Vector3.zero);
++
++            // Batch mode has no interactive Game View; give the camera a fixed pixel surface so
++            // WorldToScreenPoint/ScreenPointToRay are deterministic here too.
++            testRenderTexture = new RenderTexture(800, 600, 24);
++            testRenderTexture.Create();
++            testCamera.targetTexture = testRenderTexture;
++
++            testInputActions = FireballTestSupport.BuildInputActions(mouseDevice);
++
++            playerObject = new GameObject("TestPlayer");
++            playerObject.SetActive(false);
++
++            playerObject.transform.position = Vector3.zero;
++            characterController = playerObject.AddComponent<CharacterController>();
++            playerHealth = playerObject.AddComponent<PlayerHealth>();
++            playerMana = playerObject.AddComponent<PlayerMana>();
++            interactionController = playerObject.AddComponent<PlayerInteractionController>();
++            playerMovement = playerObject.AddComponent<PlayerMovement>();
++            FireballTestSupport.SetPrivateField(playerMovement, "inputActions", testInputActions);
++            FireballTestSupport.SetPrivateField(playerMovement, "interactionController", interactionController);
++
++            fireball = playerObject.AddComponent<Fireball>();
++            FireballTestSupport.SetPrivateField(fireball, "playerMovement", playerMovement);
++            FireballTestSupport.SetPrivateField(fireball, "playerMana", playerMana);
++            FireballTestSupport.SetPrivateField(fireball, "playerHealth", playerHealth);
++            FireballTestSupport.SetPrivateField(fireball, "inputActions", testInputActions);
++
++            playerObject.SetActive(true);
++        }
++
++        public override void TearDown()
++        {
++            foreach (FireballProjectile projectile in
++                Object.FindObjectsByType<FireballProjectile>(FindObjectsSortMode.None))
++            {
++                if (projectile != null) Object.DestroyImmediate(projectile.gameObject);
++            }
++
++            for (int index = spawnedObjects.Count - 1; index >= 0; index--)
++            {
++                if (spawnedObjects[index] != null) Object.DestroyImmediate(spawnedObjects[index]);
++            }
++            spawnedObjects.Clear();
++
++            if (playerObject != null) Object.Destroy(playerObject);
++            if (cameraObject != null) Object.Destroy(cameraObject);
++
++            if (testInputActions != null)
++            {
++                testInputActions.Disable();
++                Object.Destroy(testInputActions);
++            }
++
++            if (testRenderTexture != null)
++            {
++                testRenderTexture.Release();
++                Object.Destroy(testRenderTexture);
++            }
++
++            playerObject = null;
++            cameraObject = null;
++            testInputActions = null;
++            testRenderTexture = null;
++            mouseDevice = null;
++
++            base.TearDown();
++        }
++
++        /// Advances PlayerMovement (so its shared pointer-target projection is current) and then
++        /// Fireball by the same deltaTime. Tests must always advance time through this method
++        /// rather than calling fireball.Tick directly, since Fireball never advances movement itself.
++        protected void Tick(float deltaTime)
++        {
++            playerMovement.Tick(deltaTime);
++            fireball.Tick(deltaTime);
++        }
++
++        protected void PressFireball(Vector3 pointerWorldTarget)
++        {
++            FireballTestSupport.SetMouse(mouseDevice, testCamera.WorldToScreenPoint(pointerWorldTarget), true);
++        }
++
++        protected void ReleaseFireball(Vector3 pointerWorldTarget)
++        {
++            FireballTestSupport.SetMouse(mouseDevice, testCamera.WorldToScreenPoint(pointerWorldTarget), false);
++        }
++
++        /// A quick press-and-release well inside the default 0.25s tap/hold threshold.
++        protected void Tap(Vector3 pointerWorldTarget)
++        {
++            PressFireball(pointerWorldTarget);
++            Tick(0.02f);
++            ReleaseFireball(pointerWorldTarget);
++            Tick(0.02f);
++        }
++
++        protected void HoldAndRelease(Vector3 pointerWorldTarget, float holdSeconds, float step = 0.02f)
++        {
++            PressFireball(pointerWorldTarget);
++            FireballTestSupport.AdvanceTime(Tick, holdSeconds, step);
++            ReleaseFireball(pointerWorldTarget);
++            Tick(step);
++        }
++
++        protected EnemyHealth CreateEnemy(Vector3 position)
++        {
++            return CreateEnemy(position, null);
++        }
++
++        protected EnemyHealth CreateEnemy(Vector3 position, float? maxHealth)
++        {
++            var enemyObject = new GameObject("TestEnemy");
++            enemyObject.SetActive(false);
++            enemyObject.transform.position = position;
++            EnemyHealth health = enemyObject.AddComponent<EnemyHealth>();
++            if (maxHealth.HasValue)
++            {
++                FireballTestSupport.SetPrivateField(health, "maxHealth", maxHealth.Value);
++            }
++            enemyObject.SetActive(true);
++            spawnedObjects.Add(enemyObject);
++            return health;
++        }
++
++        protected static int ActiveProjectileCount()
++        {
++            return Object.FindObjectsByType<FireballProjectile>(FindObjectsSortMode.None).Length;
++        }
++    }
++
++    // VAL-001: the tap tier's tuned values (mana cost, no restriction, projectile speed/lifetime/
++    // contact radius) and the cast cooldown.
++    public sealed class FireballTapAndCooldownPlayModeTests : FireballPlayModeTestBase
++    {
++        private static readonly Vector3 FarTarget = new Vector3(500f, 0f, 0f);
++
++        [UnityTest]
++        public IEnumerator Tap_SpendsTapManaCost_AndRequestsNoMovementRestriction()
++        {
++            float? spentAmount = null;
++            playerMana.ManaSpent += amount => spentAmount = amount;
++
++            Tap(FarTarget);
++
++            yield return null;
++
++            Assert.IsTrue(spentAmount.HasValue, "Expected a tap cast to spend mana.");
++            Assert.AreEqual(20f, spentAmount.Value, 0.001f);
++            Assert.IsFalse(playerMovement.IsMovementRestricted,
++                "A tap cast must never request/retain a movement restriction.");
++            Assert.AreEqual(1, ActiveProjectileCount(), "Expected exactly one projectile from the tap cast.");
++        }
++
++        [UnityTest]
++        public IEnumerator Tap_Projectile_AdvancesAtConfiguredSpeed_AimedFromTheSharedPointerTarget()
++        {
++            Tap(FarTarget);
++            Assert.AreEqual(1, ActiveProjectileCount());
++
++            FireballProjectile projectile = Object.FindObjectsByType<FireballProjectile>(FindObjectsSortMode.None)[0];
++            Vector3 positionBefore = projectile.transform.position;
++
++            Tick(1f);
++
++            yield return null;
++
++            float traveled = FireballTestSupport.FlatDistance(projectile.transform.position, positionBefore);
++            Assert.AreEqual(12f, traveled, 0.05f, "Expected the tap projectile to advance at 12 units per second.");
++        }
++
++        [UnityTest]
++        public IEnumerator Tap_Projectile_FizzlesAfterLifetimeExpiry_WithNoContact_AndDealsNoDamage()
++        {
++            Tap(FarTarget);
++            Assert.AreEqual(1, ActiveProjectileCount());
++
++            FireballTestSupport.AdvanceTime(Tick, 3.2f, 0.05f);
++
++            yield return null;
++
++            Assert.AreEqual(0, ActiveProjectileCount(),
++                "Expected the projectile to fizzle after its configured maximum lifetime with no contact.");
++        }
++
++        // Tick steps here never move the projectile more than 0.05 units (12 units/second * 0.004s
++        // step ~= 0.048), matching the contract's precision requirement for the contact-radius edge.
++        [UnityTest]
++        public IEnumerator Tap_DamagesEnemyAt085Units_ButNotAt095Units_AgainstA09ContactRadius()
++        {
++            EnemyHealth insideRadius = CreateEnemy(new Vector3(5f, 0f, 0.85f));
++            EnemyHealth outsideRadius = CreateEnemy(new Vector3(5f, 0f, -0.95f));
++
++            Tap(FarTarget);
++            FireballTestSupport.AdvanceTime(Tick, 0.6f, 0.004f);
++
++            yield return null;
++
++            Assert.AreEqual(25f, insideRadius.MaxHealth - insideRadius.CurrentHealth, 0.01f,
++                "A target 0.85 units from the straight projectile path (inside the 0.9 contact radius) must " +
++                "be damaged by 25.");
++            Assert.AreEqual(outsideRadius.MaxHealth, outsideRadius.CurrentHealth, 0.01f,
++                "A target 0.95 units from the straight projectile path (outside the 0.9 contact radius) must " +
++                "not be damaged.");
++        }
++
++        [UnityTest]
++        public IEnumerator SecondTap_WithinCooldown_SpendsNoManaAndCreatesNoProjectile_ThenCastsNormallyAfterCooldown()
++        {
++            var manaSpentCount = 0;
++            var castDeniedCount = 0;
++            playerMana.ManaSpent += _ => manaSpentCount++;
++            playerMana.CastDenied += _ => castDeniedCount++;
++
++            Tap(FarTarget);
++            Assert.AreEqual(1, manaSpentCount);
++            Assert.AreEqual(1, ActiveProjectileCount());
++
++            Tap(FarTarget);
++
++            yield return null;
++
++            Assert.AreEqual(1, manaSpentCount, "A second tap within the 0.5s cooldown must spend no mana.");
++            Assert.AreEqual(0, castDeniedCount, "A cooldown refusal must not raise CastDenied.");
++            Assert.AreEqual(1, ActiveProjectileCount(), "A second tap within cooldown must create no additional projectile.");
++
++            FireballTestSupport.AdvanceTime(Tick, 0.6f, 0.02f);
++            Tap(FarTarget);
++
++            yield return null;
++
++            Assert.AreEqual(2, manaSpentCount, "A tap after the cooldown elapses must cast normally.");
++            Assert.AreEqual(2, ActiveProjectileCount());
++        }
++    }
++
++    // VAL-002: monotonic tap/partial/full scaling, mana-capped charge growth, and
++    // PlayerMana.ManaSpent/CastDenied event-count proof.
++    public sealed class FireballChargeTierPlayModeTests : FireballPlayModeTestBase
++    {
++        private static readonly Vector3 FarTarget = new Vector3(500f, 0f, 0f);
++
++        [Test]
++        public void ChargeTiers_ManaCostDamageAndAreaRadius_IncreaseMonotonically_FromTapToFullCharge()
++        {
++            float tapCost = CaptureManaSpent(() => Tap(FarTarget));
++            FireballProjectile tapProjectile = LatestProjectile();
++            float tapDamage = FireballTestSupport.GetPrivateField<float>(tapProjectile, "damage");
++            float tapRadius = FireballTestSupport.GetPrivateField<float>(tapProjectile, "impactRadius");
++            bool tapHasArea = FireballTestSupport.GetPrivateField<bool>(tapProjectile, "hasAreaDamage");
++            Object.DestroyImmediate(tapProjectile.gameObject);
++
++            float partialCost = CaptureManaSpent(() => HoldAndRelease(FarTarget, 0.9f));
++            FireballProjectile partialProjectile = LatestProjectile();
++            float partialDamage = FireballTestSupport.GetPrivateField<float>(partialProjectile, "damage");
++            float partialRadius = FireballTestSupport.GetPrivateField<float>(partialProjectile, "impactRadius");
++            Object.DestroyImmediate(partialProjectile.gameObject);
++
++            float fullCost = CaptureManaSpent(() => HoldAndRelease(FarTarget, 1.6f));
++            FireballProjectile fullProjectile = LatestProjectile();
++            float fullDamage = FireballTestSupport.GetPrivateField<float>(fullProjectile, "damage");
++            float fullRadius = FireballTestSupport.GetPrivateField<float>(fullProjectile, "impactRadius");
++            bool fullHasArea = FireballTestSupport.GetPrivateField<bool>(fullProjectile, "hasAreaDamage");
++            Object.DestroyImmediate(fullProjectile.gameObject);
++
++            Assert.IsFalse(tapHasArea, "A tap cast must not deal area damage.");
++            Assert.IsTrue(fullHasArea, "A full charge must deal area damage so it can damage clustered enemies.");
++
++            Assert.Less(tapCost, partialCost, "Mana cost must increase from tap to partial charge.");
++            Assert.Less(partialCost, fullCost, "Mana cost must increase from partial to full charge.");
++            Assert.Less(tapDamage, partialDamage, "Damage must increase from tap to partial charge.");
++            Assert.Less(partialDamage, fullDamage, "Damage must increase from partial to full charge.");
++            Assert.Less(tapRadius, partialRadius, "Impact area must increase from tap to partial charge.");
++            Assert.Less(partialRadius, fullRadius, "Impact area must increase from partial to full charge.");
++
++            Assert.AreEqual(20f, tapCost, 0.01f);
++            Assert.AreEqual(25f, tapDamage, 0.01f);
++            Assert.AreEqual(0.9f, tapRadius, 0.01f);
++            Assert.AreEqual(40f, fullCost, 0.01f);
++            Assert.AreEqual(65f, fullDamage, 0.01f);
++            Assert.AreEqual(2.5f, fullRadius, 0.01f);
++        }
++
++        [UnityTest]
++        public IEnumerator FullCharge_DamagesAtLeastTwoClusteredEnemies_AndAnEnemyWithMultipleCollidersOnce()
++        {
++            EnemyHealth directHit = CreateEnemy(new Vector3(5f, 0f, 0f), maxHealth: 200f);
++            EnemyHealth clustered = CreateEnemy(new Vector3(5f, 0f, 1.5f), maxHealth: 200f);
++
++            var multiColliderObject = new GameObject("MultiColliderEnemy");
++            multiColliderObject.SetActive(false);
++            multiColliderObject.transform.position = new Vector3(5.2f, 0f, -1.5f);
++            multiColliderObject.AddComponent<BoxCollider>();
++            multiColliderObject.AddComponent<BoxCollider>();
++            EnemyHealth multiCollider = multiColliderObject.AddComponent<EnemyHealth>();
++            FireballTestSupport.SetPrivateField(multiCollider, "maxHealth", 200f);
++            multiColliderObject.SetActive(true);
++            spawnedObjects.Add(multiColliderObject);
++
++            HoldAndRelease(FarTarget, 1.6f);
++            // A coarser step here is deliberate: contact is checked only at each sampled position
++            // (AC-007's discrete-time flat-distance model), so a coarse step leaves the detonation
++            // point close enough to the whole enemy cluster for the area-radius checks below to
++            // land as intended, instead of detonating precisely at the on-path enemy's own position.
++            FireballTestSupport.AdvanceTime(Tick, 1f, 0.3f);
++
++            yield return null;
++
++            Assert.AreEqual(200f - 65f, directHit.CurrentHealth, 0.01f, "Expected the directly-contacted enemy to take the full-charge damage.");
++            Assert.AreEqual(200f - 65f, clustered.CurrentHealth, 0.01f, "Expected a clustered enemy within the area radius to also take damage.");
++            Assert.AreEqual(200f - 65f, multiCollider.CurrentHealth, 0.01f,
++                "An enemy with multiple colliders must be damaged exactly once per cast, not once per collider.");
++        }
++
++        [UnityTest]
++        public IEnumerator PressBelowTapCost_RaisesCastDeniedExactlyOnce_AndStartsNoChargeRestrictionOrProjectile()
++        {
++            playerMana.Spend(playerMana.CurrentMana - 10f); // leave 10 mana, below the 20 tap cost
++            var deniedCount = 0;
++            var spentCount = 0;
++            playerMana.CastDenied += _ => deniedCount++;
++            playerMana.ManaSpent += _ => spentCount++;
++
++            PressFireball(FarTarget);
++            Tick(0.02f);
++
++            yield return null;
++
++            Assert.AreEqual(1, deniedCount);
++            Assert.AreEqual(0, spentCount);
++            Assert.IsFalse(fireball.IsCharging);
++            Assert.IsFalse(playerMovement.IsMovementRestricted);
++            Assert.AreEqual(0, ActiveProjectileCount());
++
++            ReleaseFireball(FarTarget);
++            Tick(0.02f);
++        }
++
++        [UnityTest]
++        public IEnumerator HoldingWithLimitedMana_ChargeProgressCapsAtHighestAffordableTier()
++        {
++            playerMana.Spend(playerMana.CurrentMana - 30f); // leave exactly 30, midway between 20 and 40
++
++            PressFireball(FarTarget);
++            FireballTestSupport.AdvanceTime(Tick, 1.6f, 0.02f); // past the 1.5s full-charge duration
++
++            yield return null;
++
++            const float expectedManaCapProgress = (30f - 20f) / (40f - 20f); // 0.5
++            Assert.AreEqual(expectedManaCapProgress, fireball.ChargeProgress, 0.02f,
++                "Charge growth must stop at the highest tier CurrentMana can currently pay.");
++
++            ReleaseFireball(FarTarget);
++            Tick(0.02f);
++        }
++
++        [UnityTest]
++        public IEnumerator ManaFallingBelowTapCostMidCharge_DeniesCastAtRelease_WithNoProjectile_AndReleasesRestriction()
++        {
++            PressFireball(FarTarget);
++            FireballTestSupport.AdvanceTime(Tick, 0.3f, 0.02f);
++
++            Assert.IsTrue(fireball.IsCharging);
++            Assert.IsTrue(playerMovement.IsMovementRestricted);
++
++            playerMana.Spend(playerMana.CurrentMana - 10f); // drop below the 20 tap cost mid-charge
++
++            var deniedCount = 0;
++            var spentCount = 0;
++            playerMana.CastDenied += _ => deniedCount++;
++            playerMana.ManaSpent += _ => spentCount++;
++
++            ReleaseFireball(FarTarget);
++            Tick(0.02f);
++
++            yield return null;
++
++            Assert.AreEqual(1, deniedCount);
++            Assert.AreEqual(0, spentCount);
++            Assert.AreEqual(0, ActiveProjectileCount());
++            Assert.IsFalse(playerMovement.IsMovementRestricted,
++                "The owned restriction must be released when the reached-tier Spend call is refused.");
++        }
++
++        [UnityTest]
++        public IEnumerator NormalRelease_RaisesManaSpentExactlyOnce_ForTheReachedTiersCost()
++        {
++            var spentAmounts = new List<float>();
++            playerMana.ManaSpent += amount => spentAmounts.Add(amount);
++
++            HoldAndRelease(FarTarget, 0.9f);
++
++            yield return null;
++
++            Assert.AreEqual(1, spentAmounts.Count, "A normal release must raise ManaSpent exactly once.");
++            float expectedProgress = (0.9f - 0.25f) / (1.5f - 0.25f);
++            float expectedCost = Mathf.Lerp(20f, 40f, expectedProgress);
++            Assert.AreEqual(expectedCost, spentAmounts[0], 0.05f);
++        }
++
++        private float CaptureManaSpent(System.Action action)
++        {
++            float? spent = null;
++            void Handler(float amount) => spent = amount;
++            playerMana.ManaSpent += Handler;
++            action();
++            playerMana.ManaSpent -= Handler;
++            Assert.IsTrue(spent.HasValue, "Expected ManaSpent to fire.");
++            return spent.Value;
++        }
++
++        private static FireballProjectile LatestProjectile()
++        {
++            FireballProjectile[] projectiles = Object.FindObjectsByType<FireballProjectile>(FindObjectsSortMode.None);
++            Assert.AreEqual(1, projectiles.Length, "Expected exactly one live projectile.");
++            return projectiles[0];
++        }
++    }
++
++    // VAL-003: refused mana, missing pointer target, ResetFireball/SuspendGameplayInput/disable/
++    // destroy cleanup (including with a projectile in flight), the PlayerHealth-damage
++    // cancellation (with the exactly-once-release proof), and the title/entry suspend-then-enable
++    // sequence (AC-005, AC-006, AC-008, AC-010).
++    public sealed class FireballCancellationAndSuspensionPlayModeTests : FireballPlayModeTestBase
++    {
++        private static readonly Vector3 FarTarget = new Vector3(500f, 0f, 0f);
++
++        [UnityTest]
++        public IEnumerator MissingPointerTarget_AtChargeStart_ClearsPendingAttempt_WithNoRestrictionOrProjectile()
++        {
++            PointCameraAwayFromGameplayPlane();
++
++            PressFireball(Vector3.zero);
++            FireballTestSupport.AdvanceTime(Tick, 0.3f, 0.02f);
++
++            yield return null;
++
++            Assert.IsFalse(playerMovement.HasPointerWorldTarget,
++                "Test setup must produce no valid pointer target for this scenario.");
++            Assert.IsFalse(fireball.IsCharging);
++            Assert.IsFalse(playerMovement.IsMovementRestricted);
++
++            ReleaseFireball(Vector3.zero);
++            Tick(0.02f);
++
++            yield return null;
++
++            Assert.AreEqual(0, ActiveProjectileCount());
++        }
++
++        [UnityTest]
++        public IEnumerator MissingPointerTarget_AtReleaseTime_ReleasesRestriction_SpendsNoManaAndCreatesNoProjectile()
++        {
++            PressFireball(FarTarget);
++            FireballTestSupport.AdvanceTime(Tick, 0.3f, 0.02f);
++
++            Assert.IsTrue(fireball.IsCharging);
++            Assert.IsTrue(playerMovement.IsMovementRestricted);
++
++            PointCameraAwayFromGameplayPlane();
++
++            var deniedCount = 0;
++            var spentCount = 0;
++            playerMana.CastDenied += _ => deniedCount++;
++            playerMana.ManaSpent += _ => spentCount++;
++
++            ReleaseFireball(FarTarget);
++            Tick(0.02f);
++
++            yield return null;
++
++            Assert.IsFalse(playerMovement.HasPointerWorldTarget);
++            Assert.AreEqual(0, spentCount, "No mana may be spent when the pointer target is lost by release time.");
++            Assert.AreEqual(0, deniedCount, "Losing the pointer target is a distinct no-target path, not a mana denial.");
++            Assert.AreEqual(0, ActiveProjectileCount());
++            Assert.IsFalse(playerMovement.IsMovementRestricted,
++                "The owned restriction must be released when no target is available at release.");
++        }
++
++        [UnityTest]
++        public IEnumerator ResetFireball_WhileCharging_ReleasesRestrictionAndClearsChargeState()
++        {
++            PressFireball(FarTarget);
++            FireballTestSupport.AdvanceTime(Tick, 0.3f, 0.02f);
++            Assert.IsTrue(fireball.IsCharging);
++            Assert.IsTrue(playerMovement.IsMovementRestricted);
++
++            fireball.ResetFireball();
++
++            yield return null;
++
++            Assert.IsFalse(fireball.IsCharging);
++            Assert.AreEqual(0f, fireball.ChargeProgress, 0.001f);
++            Assert.IsFalse(playerMovement.IsMovementRestricted);
++
++            ReleaseFireball(FarTarget);
++            Tick(0.02f);
++        }
++
++        [UnityTest]
++        public IEnumerator ResetFireball_WithProjectileInFlight_RemovesItAndFurtherTicksCauseNoDamage()
++        {
++            EnemyHealth enemy = CreateEnemy(new Vector3(5f, 0f, 0f));
++            Tap(FarTarget);
++            Assert.AreEqual(1, ActiveProjectileCount());
++
++            fireball.ResetFireball();
++
++            yield return null;
++
++            Assert.AreEqual(0, ActiveProjectileCount(),
++                "Expected the in-flight projectile to be removed by ResetFireball.");
++
++            FireballTestSupport.AdvanceTime(Tick, 1f, 0.02f);
++
++            yield return null;
++
++            Assert.AreEqual(enemy.MaxHealth, enemy.CurrentHealth, 0.001f,
++                "Further Tick calls after removal must cause no delayed damage.");
++        }
++
++        [UnityTest]
++        public IEnumerator SuspendGameplayInput_WhileCharging_ReleasesRestriction_AndRejectsInputUntilReEnabled()
++        {
++            PressFireball(FarTarget);
++            FireballTestSupport.AdvanceTime(Tick, 0.3f, 0.02f);
++            Assert.IsTrue(fireball.IsCharging);
++
++            fireball.SuspendGameplayInput();
++
++            yield return null;
++
++            Assert.IsFalse(fireball.IsCharging);
++            Assert.IsFalse(playerMovement.IsMovementRestricted);
++
++            ReleaseFireball(FarTarget);
++            Tick(0.02f);
++
++            PressFireball(FarTarget);
++            FireballTestSupport.AdvanceTime(Tick, 0.3f, 0.02f);
++
++            yield return null;
++
++            Assert.IsFalse(fireball.IsCharging, "New input must be rejected while suspended.");
++
++            ReleaseFireball(FarTarget);
++            Tick(0.02f);
++
++            yield return null;
++
++            Assert.AreEqual(0, ActiveProjectileCount(), "Rejected input while suspended must create no projectile.");
++
++            fireball.EnableGameplayInput();
++            Tap(FarTarget);
++
++            yield return null;
++
++            Assert.AreEqual(1, ActiveProjectileCount(), "Expected casting to work normally once re-enabled.");
++        }
++
++        [UnityTest]
++        public IEnumerator SuspendGameplayInput_WithProjectileInFlight_RemovesItAndFurtherTicksCauseNoDamage()
++        {
++            EnemyHealth enemy = CreateEnemy(new Vector3(5f, 0f, 0f));
++            Tap(FarTarget);
++            Assert.AreEqual(1, ActiveProjectileCount());
++
++            fireball.SuspendGameplayInput();
++
++            yield return null;
++
++            Assert.AreEqual(0, ActiveProjectileCount());
++
++            FireballTestSupport.AdvanceTime(Tick, 1f, 0.02f);
++
++            yield return null;
++
++            Assert.AreEqual(enemy.MaxHealth, enemy.CurrentHealth, 0.001f);
++
++            fireball.EnableGameplayInput();
++        }
++
++        [UnityTest]
++        public IEnumerator DisablingFireball_WhileCharging_ReleasesRestriction()
++        {
++            PressFireball(FarTarget);
++            FireballTestSupport.AdvanceTime(Tick, 0.3f, 0.02f);
++            Assert.IsTrue(fireball.IsCharging);
++            Assert.IsTrue(playerMovement.IsMovementRestricted);
++
++            fireball.enabled = false;
++
++            yield return null;
++
++            Assert.IsFalse(playerMovement.IsMovementRestricted);
++
++            ReleaseFireball(FarTarget);
++            fireball.enabled = true;
++        }
++
++        [UnityTest]
++        public IEnumerator DisablingFireball_WithProjectileInFlight_RemovesItAndFurtherTicksCauseNoDamage()
++        {
++            EnemyHealth enemy = CreateEnemy(new Vector3(5f, 0f, 0f));
++            Tap(FarTarget);
++            Assert.AreEqual(1, ActiveProjectileCount());
++
++            fireball.enabled = false;
++
++            yield return null;
++
++            Assert.AreEqual(0, ActiveProjectileCount());
++
++            // The projectile is already removed; only PlayerMovement needs advancing here, since a
++            // disabled Fireball's Tick is no longer part of the production per-frame path.
++            FireballTestSupport.AdvanceTime(playerMovement.Tick, 1f, 0.02f);
++
++            yield return null;
++
++            Assert.AreEqual(enemy.MaxHealth, enemy.CurrentHealth, 0.001f);
++        }
++
++        [UnityTest]
++        public IEnumerator DestroyingFireball_WhileCharging_ReleasesRestriction()
++        {
++            PressFireball(FarTarget);
++            FireballTestSupport.AdvanceTime(Tick, 0.3f, 0.02f);
++            Assert.IsTrue(fireball.IsCharging);
++            Assert.IsTrue(playerMovement.IsMovementRestricted);
++
++            Object.Destroy(fireball);
++
++            yield return null;
++
++            Assert.IsFalse(playerMovement.IsMovementRestricted);
++        }
++
++        [UnityTest]
++        public IEnumerator DestroyingFireball_WithProjectileInFlight_RemovesItAndCausesNoFurtherDamage()
++        {
++            EnemyHealth enemy = CreateEnemy(new Vector3(5f, 0f, 0f));
++            Tap(FarTarget);
++            Assert.AreEqual(1, ActiveProjectileCount());
++
++            Object.Destroy(fireball);
++
++            yield return null;
++
++            Assert.AreEqual(0, ActiveProjectileCount(),
++                "Expected the in-flight projectile to be removed when its owning Fireball is destroyed.");
++            Assert.AreEqual(enemy.MaxHealth, enemy.CurrentHealth, 0.001f,
++                "No delayed damage may occur after the owning Fireball and its projectiles are gone.");
++        }
++
++        [UnityTest]
++        public IEnumerator PlayerHealthDamageDuringCharge_CancelsImmediately_WithZeroManaSpentAndZeroProjectiles()
++        {
++            var spentCount = 0;
++            playerMana.ManaSpent += _ => spentCount++;
++
++            PressFireball(FarTarget);
++            FireballTestSupport.AdvanceTime(Tick, 0.3f, 0.02f);
++            Assert.IsTrue(fireball.IsCharging);
++
++            playerHealth.TakeDamage(10f);
++
++            yield return null;
++
++            Assert.IsFalse(fireball.IsCharging, "PlayerHealth.Damaged must cancel an active charge immediately.");
++            Assert.AreEqual(0, spentCount, "A charge cancelled by damage must spend no mana.");
++            Assert.AreEqual(0, ActiveProjectileCount());
++
++            ReleaseFireball(FarTarget);
++            Tick(0.02f);
++        }
++
++        // Proves the owned restriction is released exactly once (not zero, not more than once):
++        // the test holds its own outstanding restriction so PlayerMovement.IsMovementRestricted
++        // stays true purely on the test's own count until the test itself releases it.
++        [UnityTest]
++        public IEnumerator PlayerHealthDamageDuringCharge_ReleasesOwnedRestrictionExactlyOnce_ProvenByTestHeldRestriction()
++        {
++            playerMovement.RequestMovementRestriction();
++
++            PressFireball(FarTarget);
++            FireballTestSupport.AdvanceTime(Tick, 0.3f, 0.02f);
++            Assert.IsTrue(fireball.IsCharging);
++            Assert.IsTrue(playerMovement.IsMovementRestricted);
++
++            playerHealth.TakeDamage(10f);
++
++            yield return null;
++
++            Assert.IsTrue(playerMovement.IsMovementRestricted,
++                "The test's own outstanding restriction must remain active; Fireball must release only its own.");
++
++            playerMovement.ReleaseMovementRestriction();
++
++            yield return null;
++
++            Assert.IsFalse(playerMovement.IsMovementRestricted,
++                "Releasing the test's own restriction must fully clear it, proving Fireball released its own " +
++                "restriction exactly once.");
++
++            ReleaseFireball(FarTarget);
++            Tick(0.02f);
++        }
++
++        [UnityTest]
++        public IEnumerator PlayerHealthDamageDuringCharge_WithoutTestHeldRestriction_LeavesMovementUnrestrictedImmediately()
++        {
++            PressFireball(FarTarget);
++            FireballTestSupport.AdvanceTime(Tick, 0.3f, 0.02f);
++            Assert.IsTrue(fireball.IsCharging);
++
++            playerHealth.TakeDamage(10f);
++
++            yield return null;
++
++            Assert.IsFalse(playerMovement.IsMovementRestricted);
++
++            ReleaseFireball(FarTarget);
++            Tick(0.02f);
++        }
++
++        // AC-010: real TitleScreenController/WizardGameEntryController, built the same way
++        // WizardGameEntryPlayModeTests constructs its production objects, prove Fireball spends
++        // no mana while the title/selection flow is active and casts normally once
++        // WizardGameEntryController.EnterWorld completes.
++        [UnityTest]
++        public IEnumerator TitleAndEntryFlow_SuspendsFireballDuringTitle_AndCastsNormallyAfterEnterWorld()
++        {
++            var animator = playerObject.AddComponent<Animator>();
++            var wizardAnimationController = playerObject.AddComponent<WizardAnimationController>();
++            Assert.IsNotNull(animator);
++
++            // Never activated: avoids WizardSelectionController's own catalog-validation error log
++            // while still providing a real, non-null reference for WizardGameEntryController.
++            var selectionObject = new GameObject("TestSelection");
++            selectionObject.SetActive(false);
++            var selectionController = selectionObject.AddComponent<WizardSelectionController>();
++            spawnedObjects.Add(selectionObject);
++
++            var canvasObject = new GameObject("TestCanvas");
++            canvasObject.SetActive(false);
++            var titleController = canvasObject.AddComponent<TitleScreenController>();
++            FireballTestSupport.SetPrivateField(titleController, "playerMovement", playerMovement);
++            FireballTestSupport.SetPrivateField(titleController, "playerInteractionController", interactionController);
++            FireballTestSupport.SetPrivateField(titleController, "fireball", fireball);
++            spawnedObjects.Add(canvasObject);
++
++            var worldSpawnObject = new GameObject("TestWorldSpawn");
++            worldSpawnObject.transform.position = new Vector3(3f, 0f, 3f);
++            spawnedObjects.Add(worldSpawnObject);
++
++            var menuRoot = new GameObject("TestMenuRoot");
++            spawnedObjects.Add(menuRoot);
++
++            var entryObject = new GameObject("TestEntry");
++            entryObject.SetActive(false);
++            var entryController = entryObject.AddComponent<WizardGameEntryController>();
++            FireballTestSupport.SetPrivateField(entryController, "wizardSelectionController", selectionController);
++            FireballTestSupport.SetPrivateField(entryController, "wizardAnimationController", wizardAnimationController);
++            FireballTestSupport.SetPrivateField(entryController, "player", playerObject.transform);
++            FireballTestSupport.SetPrivateField(entryController, "worldSpawn", worldSpawnObject.transform);
++            FireballTestSupport.SetPrivateField(entryController, "playerMovement", playerMovement);
++            FireballTestSupport.SetPrivateField(entryController, "playerInteractionController", interactionController);
++            FireballTestSupport.SetPrivateField(entryController, "fireball", fireball);
++            FireballTestSupport.SetPrivateField(entryController, "menuUiRoots", new[] { menuRoot });
++            entryObject.SetActive(true);
++            spawnedObjects.Add(entryObject);
++
++            // Title screen Awake runs now, suspending Fireball input (TitleScreenController's own
++            // production behavior), matching the pre-EnterWorld state of a real run.
++            canvasObject.SetActive(true);
++
++            var spentCount = 0;
++            playerMana.ManaSpent += _ => spentCount++;
++
++            Tap(FarTarget);
++
++            yield return null;
++
++            Assert.AreEqual(0, spentCount, "Fireball must spend no mana while the title/selection flow is active.");
++            Assert.IsFalse(fireball.IsCharging);
++            Assert.AreEqual(0, ActiveProjectileCount());
++
++            entryController.EnterWorld(new ConfirmedWizardSelection(WizardPresentation.Masculine, WizardSkin.White));
++
++            Assert.IsTrue(entryController.HasEnteredGameplay);
++
++            Tap(FarTarget);
++
++            yield return null;
++
++            Assert.AreEqual(1, spentCount, "Fireball must cast normally once WizardGameEntryController.EnterWorld completes.");
++            Assert.AreEqual(1, ActiveProjectileCount());
++        }
++
++        // AC-010: a missing optional Fireball reference must not make
++        // WizardGameEntryController.HasValidReferences() fail, and EnterWorld must still complete.
++        [UnityTest]
++        public IEnumerator EntryController_WithNoFireballReferenceAssigned_StillCompletesEnterWorld()
++        {
++            playerObject.AddComponent<Animator>();
++            var wizardAnimationController = playerObject.AddComponent<WizardAnimationController>();
++
++            var selectionObject = new GameObject("TestSelection");
++            selectionObject.SetActive(false);
++            var selectionController = selectionObject.AddComponent<WizardSelectionController>();
++            spawnedObjects.Add(selectionObject);
++
++            var worldSpawnObject = new GameObject("TestWorldSpawn");
++            worldSpawnObject.transform.position = new Vector3(1f, 0f, 1f);
++            spawnedObjects.Add(worldSpawnObject);
++
++            var menuRoot = new GameObject("TestMenuRoot");
++            spawnedObjects.Add(menuRoot);
++
++            var entryObject = new GameObject("TestEntry");
++            entryObject.SetActive(false);
++            var entryController = entryObject.AddComponent<WizardGameEntryController>();
++            FireballTestSupport.SetPrivateField(entryController, "wizardSelectionController", selectionController);
++            FireballTestSupport.SetPrivateField(entryController, "wizardAnimationController", wizardAnimationController);
++            FireballTestSupport.SetPrivateField(entryController, "player", playerObject.transform);
++            FireballTestSupport.SetPrivateField(entryController, "worldSpawn", worldSpawnObject.transform);
++            FireballTestSupport.SetPrivateField(entryController, "playerMovement", playerMovement);
++            FireballTestSupport.SetPrivateField(entryController, "playerInteractionController", interactionController);
++            // fireball intentionally left unassigned (null).
++            FireballTestSupport.SetPrivateField(entryController, "menuUiRoots", new[] { menuRoot });
++            entryObject.SetActive(true);
++            spawnedObjects.Add(entryObject);
++
++            entryController.EnterWorld(new ConfirmedWizardSelection(WizardPresentation.Feminine, WizardSkin.Black));
++
++            yield return null;
++
++            Assert.IsTrue(entryController.HasEnteredGameplay,
++                "A missing optional Fireball reference must not make HasValidReferences() fail.");
++            Assert.AreEqual(1, entryController.GameplayEntryCount);
++        }
++
++        // A camera looking straight up from above the gameplay plane never intersects it in front
++        // of the ray origin, so PlayerMovement.HasPointerWorldTarget is reliably false regardless
++        // of cursor position - without touching PlayerMovement/Fireball production code.
++        private void PointCameraAwayFromGameplayPlane()
++        {
++            testCamera.transform.SetPositionAndRotation(new Vector3(0f, 5f, 0f), Quaternion.Euler(-90f, 0f, 0f));
++        }
++    }
++
++    // VAL-004: collision with walls/doors, wizard immunity, lifetime fizzle, charged-tier area
++    // damage, ranged-enemy-caster validity, and flat horizontal (height-independent) contact/area
++    // checks.
++    public sealed class FireballCollisionPlayModeTests : FireballPlayModeTestBase
++    {
++        private static readonly Vector3 FarTarget = new Vector3(500f, 0f, 0f);
++
++        [UnityTest]
++        public IEnumerator Tap_BlockedByWallCollider_DealsNoDamageThroughOrAfterIt()
++        {
++            EnemyHealth behindWall = CreateEnemy(new Vector3(10f, 0f, 0f));
++            GameObject wall = GameObject.CreatePrimitive(PrimitiveType.Cube);
++            wall.name = "TestWall";
++            wall.transform.position = new Vector3(5f, 1f, 0f);
++            wall.transform.localScale = new Vector3(1f, 3f, 3f);
++            spawnedObjects.Add(wall);
++            Physics.SyncTransforms();
++
++            Tap(FarTarget);
++            FireballTestSupport.AdvanceTime(Tick, 1f, 0.01f);
++
++            yield return null;
++
++            Assert.AreEqual(0, ActiveProjectileCount(),
++                "Expected the projectile to detonate against the wall instead of continuing to fly.");
++            Assert.AreEqual(behindWall.MaxHealth, behindWall.CurrentHealth, 0.001f,
++                "Nothing behind a wall may be damaged.");
++        }
++
++        // AC-007/VAL-004: "the projectile detonates" is one unified rule for contact with either
++        // an enemy or a blocking collider - a charged detonation against a wall/door must still
++        // splash every other unobstructed active enemy within its area radius exactly like a
++        // direct enemy hit does.
++        [UnityTest]
++        public IEnumerator FullCharge_DetonatingAgainstAWall_StillSplashesNearbyUnobstructedEnemies()
++        {
++            EnemyHealth nearWall = CreateEnemy(new Vector3(4f, 0f, 1.5f), maxHealth: 200f);
++            GameObject wall = GameObject.CreatePrimitive(PrimitiveType.Cube);
++            wall.name = "TestWall";
++            wall.transform.position = new Vector3(5f, 1f, 0f);
++            wall.transform.localScale = new Vector3(1f, 3f, 3f);
++            spawnedObjects.Add(wall);
++            Physics.SyncTransforms();
++
++            HoldAndRelease(FarTarget, 1.6f);
++            FireballTestSupport.AdvanceTime(Tick, 1f, 0.01f);
++
++            yield return null;
++
++            Assert.AreEqual(0, ActiveProjectileCount(),
++                "Expected the charged projectile to detonate against the wall instead of continuing to fly.");
++            Assert.AreEqual(200f - 65f, nearWall.CurrentHealth, 0.01f,
++                "A charged detonation against a blocking collider must still splash a nearby unobstructed " +
++                "enemy within its area radius, exactly like a direct enemy-hit detonation.");
++        }
++
++        [UnityTest]
++        public IEnumerator Tap_NeverBlockedByOrDamagesTheCastingWizardsOwnCollider()
++        {
++            Tap(FarTarget);
++            FireballTestSupport.AdvanceTime(Tick, 0.3f, 0.01f);
++
++            yield return null;
++
++            Assert.AreEqual(1, ActiveProjectileCount(),
++                "The wizard's own CharacterController must never block its own Fireball projectile.");
++            Assert.AreEqual(playerHealth.MaxHealth, playerHealth.CurrentHealth, 0.001f,
++                "The wizard who cast the Fireball must never take damage from it.");
++        }
++
++        [UnityTest]
++        public IEnumerator SealedLockedAndBrokenDoors_BlockTheProjectile_ButAnUncrossedOpenDoorDoesNot()
++        {
++            // Sealed: default doorway blocker state, never interacted with. The "behind" enemy is
++            // placed further out along the exact same ray from the wizard through the door, so a
++            // failure to block would otherwise damage it.
++            DoorInteractable sealedDoor = BuildDoor(new Vector3(4f, 0f, 4f), out _);
++            EnemyHealth behindSealed = CreateEnemy(new Vector3(6f, 0f, 6f));
++            FireProjectileToward(new Vector3(4f, 0f, 4f));
++            FireballTestSupport.AdvanceTime(Tick, 1f, 0.01f);
++            yield return null;
++            Assert.AreEqual(behindSealed.MaxHealth, behindSealed.CurrentHealth, 0.001f,
++                "A sealed door's doorway blocker must stop the projectile.");
++            Assert.IsFalse(sealedDoor.IsOpen, "Test setup must keep this door sealed for this scenario.");
++            fireball.ResetFireball();
++
++            // Locked: opened, then the wizard crosses forward, auto-closing and locking it.
++            DoorInteractable lockedDoor = BuildDoor(new Vector3(4f, 0f, -4f), out _);
++            EnemyHealth behindLocked = CreateEnemy(new Vector3(6f, 0f, -6f));
++            lockedDoor.StartInteraction();
++            AdvanceDoorTime(lockedDoor, lockedDoor.Duration + 0.1f);
++            FireballTestSupport.InvokePrivate(lockedDoor, "HandleForwardCrossingTriggerEnter", characterController);
++            Assert.IsTrue(lockedDoor.IsLocked, "Test setup must actually lock the door before this assertion.");
++            FireProjectileToward(new Vector3(4f, 0f, -4f));
++            FireballTestSupport.AdvanceTime(Tick, 1f, 0.01f);
++            yield return null;
++            Assert.AreEqual(behindLocked.MaxHealth, behindLocked.CurrentHealth, 0.001f,
++                "A locked door's doorway blocker must stop the projectile.");
++            fireball.ResetFireball();
++
++            // Broken: same as locked, then damaged to zero durability.
++            DoorInteractable brokenDoor = BuildDoor(new Vector3(-4f, 0f, 4f), out _);
++            EnemyHealth behindBroken = CreateEnemy(new Vector3(-6f, 0f, 6f));
++            brokenDoor.StartInteraction();
++            AdvanceDoorTime(brokenDoor, brokenDoor.Duration + 0.1f);
++            FireballTestSupport.InvokePrivate(brokenDoor, "HandleForwardCrossingTriggerEnter", characterController);
++            brokenDoor.TakeDamage(brokenDoor.MaxDurability + 10f);
++            Assert.IsTrue(brokenDoor.IsBroken, "Test setup must actually break the door before this assertion.");
++            FireProjectileToward(new Vector3(-4f, 0f, 4f));
++            FireballTestSupport.AdvanceTime(Tick, 1f, 0.01f);
++            yield return null;
++            Assert.AreEqual(behindBroken.MaxHealth, behindBroken.CurrentHealth, 0.001f,
++                "A broken door keeps its one-way player blocker by design and must still stop the projectile.");
++            fireball.ResetFireball();
++
++            // Open, not yet crossed: the blocker is disabled and does not block.
++            DoorInteractable openDoor = BuildDoor(new Vector3(-4f, 0f, -4f), out _);
++            EnemyHealth behindOpen = CreateEnemy(new Vector3(-6f, 0f, -6f));
++            openDoor.StartInteraction();
++            AdvanceDoorTime(openDoor, openDoor.Duration + 0.1f);
++            Assert.IsTrue(openDoor.IsOpen);
++            Assert.IsFalse(openDoor.IsLocked);
++            FireProjectileToward(new Vector3(-4f, 0f, -4f));
++            FireballTestSupport.AdvanceTime(Tick, 1f, 0.01f);
++            yield return null;
++            Assert.Less(behindOpen.CurrentHealth, behindOpen.MaxHealth,
++                "An open door the wizard has not yet crossed must not block the projectile.");
++        }
++
++        [UnityTest]
++        public IEnumerator FullCharge_DamagesEveryUnobstructedEnemyWithinAreaRadiusExactlyOnce()
++        {
++            EnemyHealth direct = CreateEnemy(new Vector3(5f, 0f, 0f), maxHealth: 200f);
++            EnemyHealth clustered = CreateEnemy(new Vector3(5f, 0f, 1.5f), maxHealth: 200f);
++
++            HoldAndRelease(FarTarget, 1.6f);
++            // See the comment on the equivalent VAL-002 test for why a coarser step is used here.
++            FireballTestSupport.AdvanceTime(Tick, 1f, 0.3f);
++
++            yield return null;
++
++            Assert.AreEqual(200f - 65f, direct.CurrentHealth, 0.01f);
++            Assert.AreEqual(200f - 65f, clustered.CurrentHealth, 0.01f);
++        }
++
++        [UnityTest]
++        public IEnumerator RangedEnemyCaster_IsDamagedThroughFireballLikeAnyOtherEnemy()
++        {
++            var casterObject = new GameObject("LanternWraith");
++            casterObject.SetActive(false);
++            casterObject.transform.position = new Vector3(5f, 0f, 0f);
++            var caster = casterObject.AddComponent<EnemyLanternWispCaster>();
++            var casterHealth = casterObject.AddComponent<EnemyHealth>();
++            casterObject.SetActive(true);
++            caster.Initialize(playerObject.transform);
++            spawnedObjects.Add(casterObject);
++
++            Tap(FarTarget);
++            FireballTestSupport.AdvanceTime(Tick, 1f, 0.01f);
++
++            yield return null;
++
++            Assert.Less(casterHealth.CurrentHealth, casterHealth.MaxHealth,
++                "A ranged enemy caster must take Fireball damage exactly like any other enemy.");
++        }
++
++        [UnityTest]
++        public IEnumerator Tap_Contact_IsAFlatHorizontalTest_DamagingAnEnemyOffsetVerticallyBy15Units()
++        {
++            EnemyHealth elevated = CreateEnemy(new Vector3(5f, 1.5f, 0f));
++
++            Tap(FarTarget);
++            FireballTestSupport.AdvanceTime(Tick, 1f, 0.01f);
++
++            yield return null;
++
++            Assert.AreEqual(25f, elevated.MaxHealth - elevated.CurrentHealth, 0.01f,
++                "Contact must be a flat horizontal distance test independent of vertical offset.");
++        }
++
++        [UnityTest]
++        public IEnumerator FullCharge_AreaDamage_IsAFlatHorizontalTest_DamagingAnEnemyOffsetVerticallyBy15Units()
++        {
++            EnemyHealth direct = CreateEnemy(new Vector3(5f, 0f, 0f), maxHealth: 200f);
++            EnemyHealth elevated = CreateEnemy(new Vector3(5f, 1.5f, 1.5f), maxHealth: 200f);
++
++            HoldAndRelease(FarTarget, 1.6f);
++            // See the comment on the equivalent VAL-002 test for why a coarser step is used here.
++            FireballTestSupport.AdvanceTime(Tick, 1f, 0.3f);
++
++            yield return null;
++
++            Assert.AreEqual(200f - 65f, direct.CurrentHealth, 0.01f);
++            Assert.AreEqual(200f - 65f, elevated.CurrentHealth, 0.01f,
++                "Area damage must be a flat horizontal distance test independent of vertical offset.");
++        }
++
++        private void FireProjectileToward(Vector3 target)
++        {
++            Vector3 direction = target - playerObject.transform.position;
++            direction.y = 0f;
++            Tap(playerObject.transform.position + direction.normalized * 500f);
++        }
++
++        private DoorInteractable BuildDoor(Vector3 position, out Collider doorwayBlocker)
++        {
++            var doorObject = new GameObject("TestDoor");
++            doorObject.transform.position = position;
++            DoorInteractable door = doorObject.AddComponent<DoorInteractable>();
++            GameObject doorVisual = GameObject.CreatePrimitive(PrimitiveType.Cube);
++            doorVisual.transform.position = position;
++            doorwayBlocker = doorVisual.GetComponent<Collider>();
++            FireballTestSupport.SetPrivateField(door, "doorVisual", doorVisual);
++            FireballTestSupport.SetPrivateField(door, "doorwayBlocker", doorwayBlocker);
++            spawnedObjects.Add(doorObject);
++            spawnedObjects.Add(doorVisual);
++            Physics.SyncTransforms();
++            return door;
++        }
++
++        private static void AdvanceDoorTime(DoorInteractable target, float totalSeconds)
++        {
++            FireballTestSupport.AdvanceTime(target.Tick, totalSeconds, 0.05f);
++        }
++    }
++
++    // VAL-006: casting or charging Fireball during a real door-opening attempt never resets or
++    // interferes with that attempt.
++    public sealed class FireballDoorInteractionPlayModeTests : FireballPlayModeTestBase
++    {
++        private static readonly Vector3 FarTarget = new Vector3(500f, 0f, 0f);
++
++        private DoorInteractable door;
++
++        [SetUp]
++        public void ExtraSetUp()
++        {
++            var doorObject = new GameObject("TestDoor");
++            doorObject.transform.position = new Vector3(3f, 0f, 0f);
++            door = doorObject.AddComponent<DoorInteractable>();
++            spawnedObjects.Add(doorObject);
++
++            interactionController.NotifyDoorInRange(door);
++            interactionController.BeginInteraction();
++        }
++
++        [UnityTest]
++        public IEnumerator TapCast_DuringDoorOpeningAttempt_DoesNotInterfereWithTheAttempt()
++        {
++            AdvanceDoorTime(door, door.Duration * 0.3f);
++            float progressBeforeCast = door.Progress;
++            Assert.Greater(progressBeforeCast, 0f, "Test setup must actually advance the door's opening timer.");
++
++            Tap(FarTarget);
++
++            yield return null;
++
++            Assert.IsTrue(interactionController.IsInteracting);
++            Assert.AreSame(door, interactionController.PendingDoor);
++            Assert.GreaterOrEqual(door.Progress, progressBeforeCast);
++
++            AdvanceDoorTime(door, door.Duration * 0.3f);
++
++            Assert.IsTrue(interactionController.IsInteracting);
++            Assert.AreSame(door, interactionController.PendingDoor);
++            Assert.Greater(door.Progress, progressBeforeCast,
++                "The door's opening timer must keep advancing after a tap cast during the attempt.");
++        }
++
++        [UnityTest]
++        public IEnumerator ChargedCastAndRelease_DuringDoorOpeningAttempt_DoesNotInterfereWithTheAttempt()
++        {
++            AdvanceDoorTime(door, door.Duration * 0.3f);
++            float progressBeforeCharge = door.Progress;
++            Assert.Greater(progressBeforeCharge, 0f, "Test setup must actually advance the door's opening timer.");
++
++            HoldAndRelease(FarTarget, 0.9f);
++
++            yield return null;
++
++            Assert.IsTrue(interactionController.IsInteracting);
++            Assert.AreSame(door, interactionController.PendingDoor);
++            Assert.GreaterOrEqual(door.Progress, progressBeforeCharge);
++
++            AdvanceDoorTime(door, door.Duration * 0.3f);
++
++            Assert.IsTrue(interactionController.IsInteracting);
++            Assert.AreSame(door, interactionController.PendingDoor);
++            Assert.Greater(door.Progress, progressBeforeCharge,
++                "The door's opening timer must keep advancing after a charge and release during the attempt.");
++        }
++
++        private static void AdvanceDoorTime(DoorInteractable target, float totalSeconds)
++        {
++            FireballTestSupport.AdvanceTime(target.Tick, totalSeconds, 0.05f);
++        }
++    }
++}
+diff --git a/Assets/NoSafeCircle/DoorPrototype/Tests/FireballPlayModeTests.cs.meta b/Assets/NoSafeCircle/DoorPrototype/Tests/FireballPlayModeTests.cs.meta
+new file mode 100644
+index 0000000..6edc63b
+--- /dev/null
++++ b/Assets/NoSafeCircle/DoorPrototype/Tests/FireballPlayModeTests.cs.meta
+@@ -0,0 +1,2 @@
++fileFormatVersion: 2
++guid: 757261c7ada0de9f69b02ee2926db5b7

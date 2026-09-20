@@ -1,0 +1,1160 @@
+{
+  "task": "NSC-098",
+  "recorded_utc": "2026-09-18",
+  "family": "fireball",
+  "pixels_per_unit": 64,
+  "filter_mode": "Point",
+  "palette": {
+    "colours": 48,
+    "note": "every frame except scorch uses only these 48 colours; scorch has its own 32. The 18 charge and projectile frames were quantized together in one reduce_colors call and the 9 impact frames were locked to that palette, so the union is exactly 48 and the impact set is a strict subset - verified."
+  },
+  "spend": {
+    "before": {
+      "remaining": 4408,
+      "used": 591
+    },
+    "after": {
+      "remaining": 4381,
+      "used": 618
+    },
+    "metered": 27,
+    "cap": 100,
+    "note": "618 - 591 = 27 and 4408 - 4381 = 27; both columns agree. Queue empty at both readings."
+  },
+  "authority": "Vincent 2026-09-17: \"Tell it to make me some fireball art with out a task right now, make the task after when we can.\" Cap: \"100 for the fireball, they wont need that much.\" NSC-098 revision 2 is that task.",
+  "byte_warning": "selected_sha256 is the sha256 of THESE files. Copy them verbatim into the repo; a re-export or any re-encode changes every hash and fails the AC-001 audit.",
+  "frames": [
+    {
+      "key": "fireball",
+      "group": "still",
+      "frame_index": null,
+      "object_id": "54bfd8ab-ba92-4a8d-a5c4-a4231cde2987",
+      "animation_group_id": null,
+      "prompt": "a charged fireball orb hanging in mid-air: a compact spinning ball of fire with a white-hot core, saffron inner flame and deep crimson outer tongues, three or four short flame tongues curling off the top and sides, radially symmetric so it reads the same from any heading, no hands, no wizard, no staff, no stick. [self-lit VFX clause]",
+      "settings": {
+        "call": "create_object_pro_flash",
+        "mode": "v3",
+        "canvas": [
+          48,
+          48
+        ],
+        "view": "low top-down",
+        "seed": 30001,
+        "keep_first_frame": null
+      },
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/core_still.png",
+      "canvas": [
+        48,
+        48
+      ],
+      "alpha_bbox": [
+        5,
+        3,
+        41,
+        41
+      ],
+      "alpha_bottom_y_from_top": 40,
+      "selected_sha256": "5098d97f2295685e14e5b0d15b1648f85df532cbf0dd60f05ec1304815ab6712",
+      "bytes": 2296,
+      "colours": 43,
+      "pixels_per_unit": 64,
+      "filter_mode": "Point",
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "key": "fireball",
+      "group": "charge_gather",
+      "frame_index": 0,
+      "object_id": "b5eaf332-4d08-4412-9956-366235d6a8ee",
+      "animation_group_id": "0bad33ad-29da-4f5c-941d-015bc8efdd80",
+      "prompt": "a spell charging up: the ember mote pulses and grows brighter, small sparks spiral inward toward it and are swallowed, the flame flickers upward. the mote stays centred and does not travel",
+      "settings": {
+        "call": "animate_object v3",
+        "mode": "v3",
+        "canvas": [
+          48,
+          48
+        ],
+        "view": "low top-down",
+        "seed": null,
+        "keep_first_frame": false
+      },
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/gather_0.png",
+      "canvas": [
+        48,
+        48
+      ],
+      "alpha_bbox": [
+        11,
+        9,
+        34,
+        36
+      ],
+      "alpha_bottom_y_from_top": 35,
+      "selected_sha256": "09612770a561c43221d9e56810320819a23ac63f7225b248eeda5ee6c2294f33",
+      "bytes": 1013,
+      "colours": 36,
+      "pixels_per_unit": 64,
+      "filter_mode": "Point",
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "key": "fireball",
+      "group": "charge_gather",
+      "frame_index": 1,
+      "object_id": "b5eaf332-4d08-4412-9956-366235d6a8ee",
+      "animation_group_id": "0bad33ad-29da-4f5c-941d-015bc8efdd80",
+      "prompt": "a spell charging up: the ember mote pulses and grows brighter, small sparks spiral inward toward it and are swallowed, the flame flickers upward. the mote stays centred and does not travel",
+      "settings": {
+        "call": "animate_object v3",
+        "mode": "v3",
+        "canvas": [
+          48,
+          48
+        ],
+        "view": "low top-down",
+        "seed": null,
+        "keep_first_frame": false
+      },
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/gather_1.png",
+      "canvas": [
+        48,
+        48
+      ],
+      "alpha_bbox": [
+        11,
+        10,
+        34,
+        36
+      ],
+      "alpha_bottom_y_from_top": 35,
+      "selected_sha256": "fed69dc76b7492715cd78d46fbb2c3e88e21251187fce8fd1274a0d99caaf954",
+      "bytes": 873,
+      "colours": 25,
+      "pixels_per_unit": 64,
+      "filter_mode": "Point",
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "key": "fireball",
+      "group": "charge_gather",
+      "frame_index": 2,
+      "object_id": "b5eaf332-4d08-4412-9956-366235d6a8ee",
+      "animation_group_id": "0bad33ad-29da-4f5c-941d-015bc8efdd80",
+      "prompt": "a spell charging up: the ember mote pulses and grows brighter, small sparks spiral inward toward it and are swallowed, the flame flickers upward. the mote stays centred and does not travel",
+      "settings": {
+        "call": "animate_object v3",
+        "mode": "v3",
+        "canvas": [
+          48,
+          48
+        ],
+        "view": "low top-down",
+        "seed": null,
+        "keep_first_frame": false
+      },
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/gather_2.png",
+      "canvas": [
+        48,
+        48
+      ],
+      "alpha_bbox": [
+        11,
+        14,
+        35,
+        36
+      ],
+      "alpha_bottom_y_from_top": 35,
+      "selected_sha256": "ef217cd4c3a88a664997c76dd1847b17930f8f2b53f96ef0492ca821e4b067d8",
+      "bytes": 937,
+      "colours": 26,
+      "pixels_per_unit": 64,
+      "filter_mode": "Point",
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "key": "fireball",
+      "group": "charge_gather",
+      "frame_index": 3,
+      "object_id": "b5eaf332-4d08-4412-9956-366235d6a8ee",
+      "animation_group_id": "0bad33ad-29da-4f5c-941d-015bc8efdd80",
+      "prompt": "a spell charging up: the ember mote pulses and grows brighter, small sparks spiral inward toward it and are swallowed, the flame flickers upward. the mote stays centred and does not travel",
+      "settings": {
+        "call": "animate_object v3",
+        "mode": "v3",
+        "canvas": [
+          48,
+          48
+        ],
+        "view": "low top-down",
+        "seed": null,
+        "keep_first_frame": false
+      },
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/gather_3.png",
+      "canvas": [
+        48,
+        48
+      ],
+      "alpha_bbox": [
+        10,
+        14,
+        36,
+        36
+      ],
+      "alpha_bottom_y_from_top": 35,
+      "selected_sha256": "4ab2c2cda905f591f2ef588d866a9cf56195eb13eaac230d4811cb1d7a0c9a9c",
+      "bytes": 898,
+      "colours": 26,
+      "pixels_per_unit": 64,
+      "filter_mode": "Point",
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "key": "fireball",
+      "group": "charge_gather",
+      "frame_index": 4,
+      "object_id": "b5eaf332-4d08-4412-9956-366235d6a8ee",
+      "animation_group_id": "0bad33ad-29da-4f5c-941d-015bc8efdd80",
+      "prompt": "a spell charging up: the ember mote pulses and grows brighter, small sparks spiral inward toward it and are swallowed, the flame flickers upward. the mote stays centred and does not travel",
+      "settings": {
+        "call": "animate_object v3",
+        "mode": "v3",
+        "canvas": [
+          48,
+          48
+        ],
+        "view": "low top-down",
+        "seed": null,
+        "keep_first_frame": false
+      },
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/gather_4.png",
+      "canvas": [
+        48,
+        48
+      ],
+      "alpha_bbox": [
+        12,
+        14,
+        36,
+        36
+      ],
+      "alpha_bottom_y_from_top": 35,
+      "selected_sha256": "952cfa3c791972ccfef27db075725c58fd6f3172c75f52c8dca6cd1e76b93aa6",
+      "bytes": 905,
+      "colours": 34,
+      "pixels_per_unit": 64,
+      "filter_mode": "Point",
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "key": "fireball",
+      "group": "charge_gather",
+      "frame_index": 5,
+      "object_id": "b5eaf332-4d08-4412-9956-366235d6a8ee",
+      "animation_group_id": "0bad33ad-29da-4f5c-941d-015bc8efdd80",
+      "prompt": "a spell charging up: the ember mote pulses and grows brighter, small sparks spiral inward toward it and are swallowed, the flame flickers upward. the mote stays centred and does not travel",
+      "settings": {
+        "call": "animate_object v3",
+        "mode": "v3",
+        "canvas": [
+          48,
+          48
+        ],
+        "view": "low top-down",
+        "seed": null,
+        "keep_first_frame": false
+      },
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/gather_5.png",
+      "canvas": [
+        48,
+        48
+      ],
+      "alpha_bbox": [
+        12,
+        11,
+        35,
+        36
+      ],
+      "alpha_bottom_y_from_top": 35,
+      "selected_sha256": "ab2faba1acc20c6af007d5bbcad72bd162f5dbd18e7d64ca4db12f4460cf1040",
+      "bytes": 970,
+      "colours": 32,
+      "pixels_per_unit": 64,
+      "filter_mode": "Point",
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "key": "fireball",
+      "group": "charge_hold",
+      "frame_index": 0,
+      "object_id": "54bfd8ab-ba92-4a8d-a5c4-a4231cde2987",
+      "animation_group_id": "9d3b9c1f-8e30-452b-b077-8aafa34a3e74",
+      "prompt": "a fully charged fireball held ready: the ball hovers in place and swells very slightly as the white-hot core pulses, flame tongues lick upward and curl back, a few embers rise off the top. it stays centred and does not travel",
+      "settings": {
+        "call": "animate_object v3",
+        "mode": "v3",
+        "canvas": [
+          48,
+          48
+        ],
+        "view": "low top-down",
+        "seed": null,
+        "keep_first_frame": false
+      },
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/hold_0.png",
+      "canvas": [
+        48,
+        48
+      ],
+      "alpha_bbox": [
+        5,
+        4,
+        41,
+        41
+      ],
+      "alpha_bottom_y_from_top": 40,
+      "selected_sha256": "cb34b8f949f094790a142aae92d22ac0da4315d7efc11395941db5aefba44d9d",
+      "bytes": 2044,
+      "colours": 37,
+      "pixels_per_unit": 64,
+      "filter_mode": "Point",
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "key": "fireball",
+      "group": "charge_hold",
+      "frame_index": 1,
+      "object_id": "54bfd8ab-ba92-4a8d-a5c4-a4231cde2987",
+      "animation_group_id": "9d3b9c1f-8e30-452b-b077-8aafa34a3e74",
+      "prompt": "a fully charged fireball held ready: the ball hovers in place and swells very slightly as the white-hot core pulses, flame tongues lick upward and curl back, a few embers rise off the top. it stays centred and does not travel",
+      "settings": {
+        "call": "animate_object v3",
+        "mode": "v3",
+        "canvas": [
+          48,
+          48
+        ],
+        "view": "low top-down",
+        "seed": null,
+        "keep_first_frame": false
+      },
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/hold_1.png",
+      "canvas": [
+        48,
+        48
+      ],
+      "alpha_bbox": [
+        6,
+        4,
+        40,
+        41
+      ],
+      "alpha_bottom_y_from_top": 40,
+      "selected_sha256": "c0941df239f80a1b679849265046b85e754490735603de34ed45cbcae60f6399",
+      "bytes": 1658,
+      "colours": 35,
+      "pixels_per_unit": 64,
+      "filter_mode": "Point",
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "key": "fireball",
+      "group": "charge_hold",
+      "frame_index": 2,
+      "object_id": "54bfd8ab-ba92-4a8d-a5c4-a4231cde2987",
+      "animation_group_id": "9d3b9c1f-8e30-452b-b077-8aafa34a3e74",
+      "prompt": "a fully charged fireball held ready: the ball hovers in place and swells very slightly as the white-hot core pulses, flame tongues lick upward and curl back, a few embers rise off the top. it stays centred and does not travel",
+      "settings": {
+        "call": "animate_object v3",
+        "mode": "v3",
+        "canvas": [
+          48,
+          48
+        ],
+        "view": "low top-down",
+        "seed": null,
+        "keep_first_frame": false
+      },
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/hold_2.png",
+      "canvas": [
+        48,
+        48
+      ],
+      "alpha_bbox": [
+        6,
+        4,
+        40,
+        41
+      ],
+      "alpha_bottom_y_from_top": 40,
+      "selected_sha256": "5c78bb368ca3c6e6d09f10eb05df05b2710ffed6afa70ed4f0f3e35b98dc33b1",
+      "bytes": 1559,
+      "colours": 37,
+      "pixels_per_unit": 64,
+      "filter_mode": "Point",
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "key": "fireball",
+      "group": "charge_hold",
+      "frame_index": 3,
+      "object_id": "54bfd8ab-ba92-4a8d-a5c4-a4231cde2987",
+      "animation_group_id": "9d3b9c1f-8e30-452b-b077-8aafa34a3e74",
+      "prompt": "a fully charged fireball held ready: the ball hovers in place and swells very slightly as the white-hot core pulses, flame tongues lick upward and curl back, a few embers rise off the top. it stays centred and does not travel",
+      "settings": {
+        "call": "animate_object v3",
+        "mode": "v3",
+        "canvas": [
+          48,
+          48
+        ],
+        "view": "low top-down",
+        "seed": null,
+        "keep_first_frame": false
+      },
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/hold_3.png",
+      "canvas": [
+        48,
+        48
+      ],
+      "alpha_bbox": [
+        7,
+        6,
+        39,
+        41
+      ],
+      "alpha_bottom_y_from_top": 40,
+      "selected_sha256": "3d9d9fef4085126c2b401a6aa52f7a3e068db5e3eb37bba4936f46720acd8c12",
+      "bytes": 1536,
+      "colours": 38,
+      "pixels_per_unit": 64,
+      "filter_mode": "Point",
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "key": "fireball",
+      "group": "charge_hold",
+      "frame_index": 4,
+      "object_id": "54bfd8ab-ba92-4a8d-a5c4-a4231cde2987",
+      "animation_group_id": "9d3b9c1f-8e30-452b-b077-8aafa34a3e74",
+      "prompt": "a fully charged fireball held ready: the ball hovers in place and swells very slightly as the white-hot core pulses, flame tongues lick upward and curl back, a few embers rise off the top. it stays centred and does not travel",
+      "settings": {
+        "call": "animate_object v3",
+        "mode": "v3",
+        "canvas": [
+          48,
+          48
+        ],
+        "view": "low top-down",
+        "seed": null,
+        "keep_first_frame": false
+      },
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/hold_4.png",
+      "canvas": [
+        48,
+        48
+      ],
+      "alpha_bbox": [
+        8,
+        5,
+        38,
+        41
+      ],
+      "alpha_bottom_y_from_top": 40,
+      "selected_sha256": "ae0358bf0ff81d99819e39f272dfe636ca6216c961978c1a1d57592378aa3b0e",
+      "bytes": 1639,
+      "colours": 37,
+      "pixels_per_unit": 64,
+      "filter_mode": "Point",
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "key": "fireball",
+      "group": "charge_hold",
+      "frame_index": 5,
+      "object_id": "54bfd8ab-ba92-4a8d-a5c4-a4231cde2987",
+      "animation_group_id": "9d3b9c1f-8e30-452b-b077-8aafa34a3e74",
+      "prompt": "a fully charged fireball held ready: the ball hovers in place and swells very slightly as the white-hot core pulses, flame tongues lick upward and curl back, a few embers rise off the top. it stays centred and does not travel",
+      "settings": {
+        "call": "animate_object v3",
+        "mode": "v3",
+        "canvas": [
+          48,
+          48
+        ],
+        "view": "low top-down",
+        "seed": null,
+        "keep_first_frame": false
+      },
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/hold_5.png",
+      "canvas": [
+        48,
+        48
+      ],
+      "alpha_bbox": [
+        7,
+        7,
+        39,
+        41
+      ],
+      "alpha_bottom_y_from_top": 40,
+      "selected_sha256": "28a06abb2b602933d14cd501d5333de13600cc7688668434c3e57df9b02eaa84",
+      "bytes": 1670,
+      "colours": 36,
+      "pixels_per_unit": 64,
+      "filter_mode": "Point",
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "key": "fireball",
+      "group": "impact_burst",
+      "frame_index": 0,
+      "object_id": "d3b8f8cf-ea03-4bfb-a2af-9a7c93647e5b",
+      "animation_group_id": "711eb02a-8868-481f-91a1-3f956323d5c5",
+      "prompt": "a fireball impact playing out once: the flame bursts up and outward at its widest and brightest, then the lobes roll down and shrink while the smoke curls drift upward and thin, ending as low guttering flame. the burst stays centred on the point of impact",
+      "settings": {
+        "call": "animate_object v3",
+        "mode": "v3",
+        "canvas": [
+          96,
+          96
+        ],
+        "view": "low top-down",
+        "seed": null,
+        "keep_first_frame": false
+      },
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/impact_0.png",
+      "canvas": [
+        96,
+        96
+      ],
+      "alpha_bbox": [
+        3,
+        10,
+        94,
+        83
+      ],
+      "alpha_bottom_y_from_top": 82,
+      "selected_sha256": "199f51a1d1145d0109372562a22d7d8f0fd7b3fac725ae0b4cefc30077e24d88",
+      "bytes": 6851,
+      "colours": 30,
+      "pixels_per_unit": 64,
+      "filter_mode": "Point",
+      "pivot": [
+        0.5,
+        0.15625
+      ]
+    },
+    {
+      "key": "fireball",
+      "group": "impact_burst",
+      "frame_index": 1,
+      "object_id": "d3b8f8cf-ea03-4bfb-a2af-9a7c93647e5b",
+      "animation_group_id": "711eb02a-8868-481f-91a1-3f956323d5c5",
+      "prompt": "a fireball impact playing out once: the flame bursts up and outward at its widest and brightest, then the lobes roll down and shrink while the smoke curls drift upward and thin, ending as low guttering flame. the burst stays centred on the point of impact",
+      "settings": {
+        "call": "animate_object v3",
+        "mode": "v3",
+        "canvas": [
+          96,
+          96
+        ],
+        "view": "low top-down",
+        "seed": null,
+        "keep_first_frame": false
+      },
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/impact_1.png",
+      "canvas": [
+        96,
+        96
+      ],
+      "alpha_bbox": [
+        6,
+        10,
+        87,
+        82
+      ],
+      "alpha_bottom_y_from_top": 81,
+      "selected_sha256": "7f5bd2f8162c84824ae5fb4fa992ccbc8b8bd17f6f894b96dd2fe99071750a50",
+      "bytes": 5172,
+      "colours": 30,
+      "pixels_per_unit": 64,
+      "filter_mode": "Point",
+      "pivot": [
+        0.5,
+        0.15625
+      ]
+    },
+    {
+      "key": "fireball",
+      "group": "impact_burst",
+      "frame_index": 2,
+      "object_id": "d3b8f8cf-ea03-4bfb-a2af-9a7c93647e5b",
+      "animation_group_id": "711eb02a-8868-481f-91a1-3f956323d5c5",
+      "prompt": "a fireball impact playing out once: the flame bursts up and outward at its widest and brightest, then the lobes roll down and shrink while the smoke curls drift upward and thin, ending as low guttering flame. the burst stays centred on the point of impact",
+      "settings": {
+        "call": "animate_object v3",
+        "mode": "v3",
+        "canvas": [
+          96,
+          96
+        ],
+        "view": "low top-down",
+        "seed": null,
+        "keep_first_frame": false
+      },
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/impact_2.png",
+      "canvas": [
+        96,
+        96
+      ],
+      "alpha_bbox": [
+        8,
+        12,
+        85,
+        81
+      ],
+      "alpha_bottom_y_from_top": 80,
+      "selected_sha256": "8868ee8cc2ad5bf9f6660de07944504c360e4f6da01cc272623c67b4f5a3fd46",
+      "bytes": 4438,
+      "colours": 30,
+      "pixels_per_unit": 64,
+      "filter_mode": "Point",
+      "pivot": [
+        0.5,
+        0.15625
+      ]
+    },
+    {
+      "key": "fireball",
+      "group": "impact_burst",
+      "frame_index": 3,
+      "object_id": "d3b8f8cf-ea03-4bfb-a2af-9a7c93647e5b",
+      "animation_group_id": "711eb02a-8868-481f-91a1-3f956323d5c5",
+      "prompt": "a fireball impact playing out once: the flame bursts up and outward at its widest and brightest, then the lobes roll down and shrink while the smoke curls drift upward and thin, ending as low guttering flame. the burst stays centred on the point of impact",
+      "settings": {
+        "call": "animate_object v3",
+        "mode": "v3",
+        "canvas": [
+          96,
+          96
+        ],
+        "view": "low top-down",
+        "seed": null,
+        "keep_first_frame": false
+      },
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/impact_3.png",
+      "canvas": [
+        96,
+        96
+      ],
+      "alpha_bbox": [
+        12,
+        16,
+        79,
+        81
+      ],
+      "alpha_bottom_y_from_top": 80,
+      "selected_sha256": "57f87607505f2be9e2133bd8bad134a902c91ad3f05f1f38dc50c0309c3ff892",
+      "bytes": 2798,
+      "colours": 32,
+      "pixels_per_unit": 64,
+      "filter_mode": "Point",
+      "pivot": [
+        0.5,
+        0.15625
+      ]
+    },
+    {
+      "key": "fireball",
+      "group": "impact_burst",
+      "frame_index": 4,
+      "object_id": "d3b8f8cf-ea03-4bfb-a2af-9a7c93647e5b",
+      "animation_group_id": "711eb02a-8868-481f-91a1-3f956323d5c5",
+      "prompt": "a fireball impact playing out once: the flame bursts up and outward at its widest and brightest, then the lobes roll down and shrink while the smoke curls drift upward and thin, ending as low guttering flame. the burst stays centred on the point of impact",
+      "settings": {
+        "call": "animate_object v3",
+        "mode": "v3",
+        "canvas": [
+          96,
+          96
+        ],
+        "view": "low top-down",
+        "seed": null,
+        "keep_first_frame": false
+      },
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/impact_4.png",
+      "canvas": [
+        96,
+        96
+      ],
+      "alpha_bbox": [
+        25,
+        17,
+        76,
+        81
+      ],
+      "alpha_bottom_y_from_top": 80,
+      "selected_sha256": "c5eaacf7afd432f1b8c40411ac21e8718b33588b8cadc5252ce3720ffca43fee",
+      "bytes": 2322,
+      "colours": 26,
+      "pixels_per_unit": 64,
+      "filter_mode": "Point",
+      "pivot": [
+        0.5,
+        0.15625
+      ]
+    },
+    {
+      "key": "fireball",
+      "group": "impact_burst",
+      "frame_index": 5,
+      "object_id": "d3b8f8cf-ea03-4bfb-a2af-9a7c93647e5b",
+      "animation_group_id": "711eb02a-8868-481f-91a1-3f956323d5c5",
+      "prompt": "a fireball impact playing out once: the flame bursts up and outward at its widest and brightest, then the lobes roll down and shrink while the smoke curls drift upward and thin, ending as low guttering flame. the burst stays centred on the point of impact",
+      "settings": {
+        "call": "animate_object v3",
+        "mode": "v3",
+        "canvas": [
+          96,
+          96
+        ],
+        "view": "low top-down",
+        "seed": null,
+        "keep_first_frame": false
+      },
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/impact_5.png",
+      "canvas": [
+        96,
+        96
+      ],
+      "alpha_bbox": [
+        16,
+        16,
+        75,
+        81
+      ],
+      "alpha_bottom_y_from_top": 80,
+      "selected_sha256": "df0eb18ea48f08977b46078ab4bc468ae4dcbcd4f17050d1350892533584ee4c",
+      "bytes": 1912,
+      "colours": 26,
+      "pixels_per_unit": 64,
+      "filter_mode": "Point",
+      "pivot": [
+        0.5,
+        0.15625
+      ]
+    },
+    {
+      "key": "fireball",
+      "group": "impact_burst",
+      "frame_index": 6,
+      "object_id": "d3b8f8cf-ea03-4bfb-a2af-9a7c93647e5b",
+      "animation_group_id": "711eb02a-8868-481f-91a1-3f956323d5c5",
+      "prompt": "a fireball impact playing out once: the flame bursts up and outward at its widest and brightest, then the lobes roll down and shrink while the smoke curls drift upward and thin, ending as low guttering flame. the burst stays centred on the point of impact",
+      "settings": {
+        "call": "animate_object v3",
+        "mode": "v3",
+        "canvas": [
+          96,
+          96
+        ],
+        "view": "low top-down",
+        "seed": null,
+        "keep_first_frame": false
+      },
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/impact_6.png",
+      "canvas": [
+        96,
+        96
+      ],
+      "alpha_bbox": [
+        25,
+        19,
+        71,
+        81
+      ],
+      "alpha_bottom_y_from_top": 80,
+      "selected_sha256": "aedf434bf80769e3b623de8696582975071b646946f0b51e100a44d10af43581",
+      "bytes": 2101,
+      "colours": 30,
+      "pixels_per_unit": 64,
+      "filter_mode": "Point",
+      "pivot": [
+        0.5,
+        0.15625
+      ]
+    },
+    {
+      "key": "fireball",
+      "group": "impact_burst",
+      "frame_index": 7,
+      "object_id": "d3b8f8cf-ea03-4bfb-a2af-9a7c93647e5b",
+      "animation_group_id": "711eb02a-8868-481f-91a1-3f956323d5c5",
+      "prompt": "a fireball impact playing out once: the flame bursts up and outward at its widest and brightest, then the lobes roll down and shrink while the smoke curls drift upward and thin, ending as low guttering flame. the burst stays centred on the point of impact",
+      "settings": {
+        "call": "animate_object v3",
+        "mode": "v3",
+        "canvas": [
+          96,
+          96
+        ],
+        "view": "low top-down",
+        "seed": null,
+        "keep_first_frame": false
+      },
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/impact_7.png",
+      "canvas": [
+        96,
+        96
+      ],
+      "alpha_bbox": [
+        26,
+        44,
+        65,
+        81
+      ],
+      "alpha_bottom_y_from_top": 80,
+      "selected_sha256": "54818068a675340eba18e7dd7fe21d07869e5debefa655f67ee355693d00d109",
+      "bytes": 1711,
+      "colours": 27,
+      "pixels_per_unit": 64,
+      "filter_mode": "Point",
+      "pivot": [
+        0.5,
+        0.15625
+      ]
+    },
+    {
+      "key": "fireball",
+      "group": "still",
+      "frame_index": null,
+      "object_id": "d3b8f8cf-ea03-4bfb-a2af-9a7c93647e5b",
+      "animation_group_id": null,
+      "prompt": "a fireball impact burst on a dungeon floor: a wide flat explosion of flame spreading outward, a white-hot centre with saffron and orange flame lobes rolling out sideways and a few dark smoke curls above, twice as wide as it is tall so it reads as a burst on the ground seen from a low isometric camera, no crater, no floor, no stones, no wizard. [self-lit VFX clause]",
+      "settings": {
+        "call": "create_object_pro_flash",
+        "mode": "v3",
+        "canvas": [
+          96,
+          96
+        ],
+        "view": "low top-down",
+        "seed": 30003,
+        "keep_first_frame": null
+      },
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/impact_still.png",
+      "canvas": [
+        96,
+        96
+      ],
+      "alpha_bbox": [
+        2,
+        11,
+        93,
+        84
+      ],
+      "alpha_bottom_y_from_top": 83,
+      "selected_sha256": "452361794c1d1ae51ca3dd7366e7b43b64a78614dc09781fcac9b7bc0e5df08f",
+      "bytes": 7920,
+      "colours": 40,
+      "pixels_per_unit": 64,
+      "filter_mode": "Point",
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "key": "fireball",
+      "group": "projectile",
+      "frame_index": 0,
+      "object_id": "54bfd8ab-ba92-4a8d-a5c4-a4231cde2987",
+      "animation_group_id": "76bd3529-7edf-4111-8a75-7bfbd13ce53f",
+      "prompt": "a fireball in flight: the ball of flame stays the same size and in the same place while its flame tongues flicker and curl, the white-hot core pulses brighter and dimmer, and small embers flick outward. the silhouette stays radially symmetric so it reads the same from any heading",
+      "settings": {
+        "call": "animate_object v3",
+        "mode": "v3",
+        "canvas": [
+          48,
+          48
+        ],
+        "view": "low top-down",
+        "seed": null,
+        "keep_first_frame": false
+      },
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/projectile_0.png",
+      "canvas": [
+        48,
+        48
+      ],
+      "alpha_bbox": [
+        5,
+        5,
+        41,
+        41
+      ],
+      "alpha_bottom_y_from_top": 40,
+      "selected_sha256": "b0cbaf20364abea61999ba81d447d8859554d53398b87e60573d994e2cfaf522",
+      "bytes": 1955,
+      "colours": 40,
+      "pixels_per_unit": 64,
+      "filter_mode": "Point",
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "key": "fireball",
+      "group": "projectile",
+      "frame_index": 1,
+      "object_id": "54bfd8ab-ba92-4a8d-a5c4-a4231cde2987",
+      "animation_group_id": "76bd3529-7edf-4111-8a75-7bfbd13ce53f",
+      "prompt": "a fireball in flight: the ball of flame stays the same size and in the same place while its flame tongues flicker and curl, the white-hot core pulses brighter and dimmer, and small embers flick outward. the silhouette stays radially symmetric so it reads the same from any heading",
+      "settings": {
+        "call": "animate_object v3",
+        "mode": "v3",
+        "canvas": [
+          48,
+          48
+        ],
+        "view": "low top-down",
+        "seed": null,
+        "keep_first_frame": false
+      },
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/projectile_1.png",
+      "canvas": [
+        48,
+        48
+      ],
+      "alpha_bbox": [
+        6,
+        6,
+        40,
+        41
+      ],
+      "alpha_bottom_y_from_top": 40,
+      "selected_sha256": "7e3915a8f4dc707ba6a0d226be7e7f8f85b0c4487fdcec93fd9ec06a52f50622",
+      "bytes": 1397,
+      "colours": 35,
+      "pixels_per_unit": 64,
+      "filter_mode": "Point",
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "key": "fireball",
+      "group": "projectile",
+      "frame_index": 2,
+      "object_id": "54bfd8ab-ba92-4a8d-a5c4-a4231cde2987",
+      "animation_group_id": "76bd3529-7edf-4111-8a75-7bfbd13ce53f",
+      "prompt": "a fireball in flight: the ball of flame stays the same size and in the same place while its flame tongues flicker and curl, the white-hot core pulses brighter and dimmer, and small embers flick outward. the silhouette stays radially symmetric so it reads the same from any heading",
+      "settings": {
+        "call": "animate_object v3",
+        "mode": "v3",
+        "canvas": [
+          48,
+          48
+        ],
+        "view": "low top-down",
+        "seed": null,
+        "keep_first_frame": false
+      },
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/projectile_2.png",
+      "canvas": [
+        48,
+        48
+      ],
+      "alpha_bbox": [
+        7,
+        5,
+        39,
+        41
+      ],
+      "alpha_bottom_y_from_top": 40,
+      "selected_sha256": "867726b94081c7eb55e6a8854fb5a08455ebe2a1ae46f86d9e81b47760d82211",
+      "bytes": 1848,
+      "colours": 39,
+      "pixels_per_unit": 64,
+      "filter_mode": "Point",
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "key": "fireball",
+      "group": "projectile",
+      "frame_index": 3,
+      "object_id": "54bfd8ab-ba92-4a8d-a5c4-a4231cde2987",
+      "animation_group_id": "76bd3529-7edf-4111-8a75-7bfbd13ce53f",
+      "prompt": "a fireball in flight: the ball of flame stays the same size and in the same place while its flame tongues flicker and curl, the white-hot core pulses brighter and dimmer, and small embers flick outward. the silhouette stays radially symmetric so it reads the same from any heading",
+      "settings": {
+        "call": "animate_object v3",
+        "mode": "v3",
+        "canvas": [
+          48,
+          48
+        ],
+        "view": "low top-down",
+        "seed": null,
+        "keep_first_frame": false
+      },
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/projectile_3.png",
+      "canvas": [
+        48,
+        48
+      ],
+      "alpha_bbox": [
+        7,
+        1,
+        39,
+        41
+      ],
+      "alpha_bottom_y_from_top": 40,
+      "selected_sha256": "1f3f3c0168bddaddccf0b651815549efb09a855a288226add526717b6484317f",
+      "bytes": 1694,
+      "colours": 36,
+      "pixels_per_unit": 64,
+      "filter_mode": "Point",
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "key": "fireball",
+      "group": "decal",
+      "frame_index": null,
+      "object_id": "3863630f-080b-47f0-89c7-d082996243e7",
+      "animation_group_id": null,
+      "prompt": "a scorch mark burned into a dungeon floor, seen from a low isometric camera so it reads as a flat oval twice as wide as it is tall: charred black centre fading to dark soot grey at the ragged edge, a few small cracked embers still glowing dull orange in it, completely flat on the ground with no height and no flame. [dungeon prop clause]",
+      "settings": {
+        "call": "create_object_pro_flash",
+        "mode": "v3",
+        "canvas": [
+          136,
+          68
+        ],
+        "view": "low top-down",
+        "seed": 30004,
+        "keep_first_frame": null
+      },
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/scorch.png",
+      "canvas": [
+        136,
+        68
+      ],
+      "alpha_bbox": [
+        2,
+        4,
+        131,
+        64
+      ],
+      "alpha_bottom_y_from_top": 63,
+      "selected_sha256": "0069760682956088961ff3c2f8abf259ef0a15b3fbf04f69f1ce3f3edb9425d1",
+      "bytes": 8400,
+      "colours": 32,
+      "pixels_per_unit": 64,
+      "filter_mode": "Point",
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "key": "fireball",
+      "group": "still",
+      "frame_index": null,
+      "object_id": "b5eaf332-4d08-4412-9956-366235d6a8ee",
+      "animation_group_id": null,
+      "prompt": "a tiny ember spark gathering in mid-air: one small bright mote of fire no wider than a third of the canvas, centred, with two or three short sparks flicking off it and nothing else around it, no hands, no wizard, no staff. [self-lit VFX clause]",
+      "settings": {
+        "call": "create_object_pro_flash",
+        "mode": "v3",
+        "canvas": [
+          48,
+          48
+        ],
+        "view": "low top-down",
+        "seed": 30002,
+        "keep_first_frame": null
+      },
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/spark_still.png",
+      "canvas": [
+        48,
+        48
+      ],
+      "alpha_bbox": [
+        12,
+        10,
+        34,
+        36
+      ],
+      "alpha_bottom_y_from_top": 35,
+      "selected_sha256": "4b54ed97b3d5bb3b24b31db6dcaa4a9225a71eb53fec14f11a82bbaf6ccba72d",
+      "bytes": 1061,
+      "colours": 37,
+      "pixels_per_unit": 64,
+      "filter_mode": "Point",
+      "pivot": [
+        0.5,
+        0.5
+      ]
+    }
+  ],
+  "human_visual_approval": {
+    "approved": true,
+    "by": "Vincent",
+    "date": "2026-09-18",
+    "words": "Awesome!!",
+    "shown": "the four looping GIFs (charge gather, charge hold, projectile, impact burst), the scorch still at 3x, and fireball_gamescale_1080p.png - the charged ball at the wizard's hand at 1:1 screen pixels",
+    "not_reviewed_in_engine": "he has not yet seen it playing in Unity; NSC-098 VAL-? asks him to confirm in Play Mode that it reads as fire and that a full charge is obviously bigger than a tap",
+    "flaws_he_was_told_about": [
+      "the gather loop reads as a pulsing ember rather than sparks spiralling inward",
+      "the impact's smoke curls are dark plum rather than grey, a side effect of the palette lock"
+    ]
+  }
+}

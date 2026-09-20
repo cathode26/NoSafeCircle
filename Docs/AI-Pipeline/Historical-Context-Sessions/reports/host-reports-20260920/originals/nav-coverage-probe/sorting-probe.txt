@@ -1,0 +1,7 @@
+defined sorting layers: Default(id 0)
+as created            : name='Default' id=0
+after name='WorldSprites' : name='Default' id=0
+after name='NotARealLayer': name='Default' id=0
+after id=12345            : name='Default' id=0
+
+RESULT: a renderer CANNOT be moved off Default - the sorting check cannot fail, and the negative test is not writable.

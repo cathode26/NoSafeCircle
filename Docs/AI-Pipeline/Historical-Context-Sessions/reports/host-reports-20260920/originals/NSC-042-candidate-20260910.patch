@@ -1,0 +1,239 @@
+diff --git a/Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs b/Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs
+index ada666df81645e1f33c9ab742e4e1e8cc293403a..c79165e79c39c96e235198d3682df6b487c89792 100644
+--- a/Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs
++++ b/Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs
+@@ -534,7 +534,8 @@ namespace NoSafeCircle.DoorPrototype.Editor
+                             textureWidth,
+                             textureHeight,
+                             pixelsPerUnit,
+-                            spritePivot))
++                            spritePivot,
++                            pixels))
+                     {
+                         ReplaceArchitecturalTileVisual(
+                             existing,
+@@ -631,7 +632,8 @@ namespace NoSafeCircle.DoorPrototype.Editor
+             int textureWidth,
+             int textureHeight,
+             float pixelsPerUnit,
+-            Vector2 spritePivot)
++            Vector2 spritePivot,
++            Color32[] expectedPixels)
+         {
+             var sprite = tile.sprite;
+ 
+@@ -644,7 +646,7 @@ namespace NoSafeCircle.DoorPrototype.Editor
+                 textureWidth * spritePivot.x,
+                 textureHeight * spritePivot.y);
+ 
+-            return
++            var geometryMatches =
+                 sprite.texture.width == textureWidth &&
+                 sprite.texture.height == textureHeight &&
+                 Mathf.Approximately(sprite.rect.width, textureWidth) &&
+@@ -653,6 +655,36 @@ namespace NoSafeCircle.DoorPrototype.Editor
+                 Vector2.Distance(
+                     sprite.pivot,
+                     expectedPivotPixels) < 0.01f;
++
++            return geometryMatches && ArchitecturalTilePixelsMatch(sprite.texture, expectedPixels);
++        }
++
++        // Geometry alone (width/height/pixelsPerUnit/pivot) previously stood in for "this
++        // persisted asset is up to date", so a source-authoring change that only edits which
++        // colors a Tile's texture paints (e.g. the NSC-042 seamless wall brick pattern fix)
++        // would silently keep serving the stale on-disk texture on every future Build(). Pixel
++        // content is compared directly so a persisted asset can never drift from the algorithm
++        // that is supposed to own it.
++        private static bool ArchitecturalTilePixelsMatch(Texture2D texture, Color32[] expectedPixels)
++        {
++            var actualPixels = texture.GetPixels32();
++            if (actualPixels.Length != expectedPixels.Length)
++            {
++                return false;
++            }
++
++            for (var i = 0; i < actualPixels.Length; i++)
++            {
++                var actual = actualPixels[i];
++                var expected = expectedPixels[i];
++                if (actual.r != expected.r || actual.g != expected.g ||
++                    actual.b != expected.b || actual.a != expected.a)
++                {
++                    return false;
++                }
++            }
++
++            return true;
+         }
+ 
+         private static void ReplaceArchitecturalTileVisual(
+@@ -744,6 +776,14 @@ namespace NoSafeCircle.DoorPrototype.Editor
+             return pixels;
+         }
+ 
++        // NSC-042 AC-001: a wall of any length is drawn as a row of independently sortable
++        // one-cell Tiles that all reuse this exact same texture (see the wallTilemap.SetTile
++        // loop in BuildIsometricVisualLayer). For that repetition to read as one continuous
++        // wall instead of visibly restarting at every segment boundary, the brick pattern this
++        // texture contains must itself be periodic with a period that evenly divides the
++        // texture's own width - otherwise the course-offset stagger phase resets every time the
++        // same texture starts over on the next tile. blockWidth must therefore stay a divisor
++        // of width (currently 64px == 1 world unit) rather than an arbitrary value.
+         private static Color32[] CreateWallPixels(int width, int height)
+         {
+             var pixels = new Color32[width * height];
+@@ -751,7 +791,7 @@ namespace NoSafeCircle.DoorPrototype.Editor
+             var alternateStone = new Color32(86, 82, 77, 255);
+             var mortar = new Color32(39, 37, 36, 255);
+             const int courseHeight = 32;
+-            const int blockWidth = 48;
++            const int blockWidth = 32;
+ 
+             for (var y = 0; y < height; y++)
+             {
+diff --git a/Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs b/Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs
+index 1cf0b03b3b134147e13864efe88d8d07bab6f1df..a8435961322cafeedd64380d1c69e3b13d063763 100644
+--- a/Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs
++++ b/Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs
+@@ -1614,6 +1614,140 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
+                     $"Expected independently sortable wall segment at {cell}.");
+             }
+         }
++        // NSC-042 AC-001: every wall Tile of any length reuses this exact same texture (see
++        // Build_IsometricVisualLayer_HasFloorWallAndRepeatableArchitectureTilemaps), so the same
++        // finite texture is placed edge-to-edge repeatedly across a wall. This proves that the
++        // color immediately past one tile's own width continues with the same color that tile's
++        // own first column draws - i.e. the brick/mortar pattern's phase does not reset at the
++        // boundary between two placements of the same texture - instead of asserting on any
++        // internal block/course size constant directly.
++        [Test]
++        public void CreateWallPixels_ContinuesBrickPatternPastTextureWidthWithoutPhaseReset()
++        {
++            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
++
++            var wallTilemap = GameObject.Find("IsometricVisualGrid/WallTilemap")?.GetComponent<Tilemap>();
++            var wallSprite = wallTilemap?.GetSprite(Vector3Int.zero);
++            Assert.IsNotNull(wallSprite, "Expected the built wall Tile to resolve to Sprite art.");
++            var texture = wallSprite.texture;
++            Assert.IsNotNull(texture);
++            var width = texture.width;
++            var height = texture.height;
++
++            var createWallPixels = typeof(DoorPrototypeSceneBuilder).GetMethod(
++                "CreateWallPixels", BindingFlags.NonPublic | BindingFlags.Static);
++            Assert.IsNotNull(createWallPixels, "Expected a private static CreateWallPixels(int,int) helper.");
++
++            var oneTileWidth = (Color32[])createWallPixels.Invoke(null, new object[] { width, height });
++            var oneColumnPastOneTileWidth =
++                (Color32[])createWallPixels.Invoke(null, new object[] { width + 1, height });
++
++            for (var y = 0; y < height; y++)
++            {
++                var startOfTileColor = oneTileWidth[y * width];
++                var continuationColor = oneColumnPastOneTileWidth[y * (width + 1) + width];
++
++                Assert.AreEqual(startOfTileColor.r, continuationColor.r, $"Row {y} red channel.");
++                Assert.AreEqual(startOfTileColor.g, continuationColor.g, $"Row {y} green channel.");
++                Assert.AreEqual(startOfTileColor.b, continuationColor.b, $"Row {y} blue channel.");
++                Assert.AreEqual(startOfTileColor.a, continuationColor.a,
++                    $"Row {y}: the brick/mortar pattern immediately past one tile's own width must continue " +
++                    "with the same color the tile's own first column draws, so repeating this exact texture " +
++                    "edge-to-edge reads as one continuous wall instead of visibly restarting its pattern phase " +
++                    "at every segment boundary (AC-001).");
++            }
++        }
++
++        // NSC-042: the pixel-content check added alongside the seamless wall pattern fix exists
++        // so a previously persisted architectural Tile texture whose geometry (size,
++        // pixelsPerUnit, pivot) still matches can never keep silently serving stale on-disk pixel
++        // content once the pattern the algorithm draws changes. Exercised through the WallTile,
++        // the actual asset the NSC-042 fix targeted.
++        [Test]
++        public void Build_PersistedArchitecturalTile_RepaintsStalePixelContentEvenWhenGeometryStillMatches()
++        {
++            DoorPrototypeSceneBuilder.BuildInMemoryForTests(temporaryArchitecturalTileAssetFolder);
++
++            var wallTilePath = temporaryArchitecturalTileAssetFolder + "/WallTile.asset";
++            var wallTile = AssetDatabase.LoadAssetAtPath<Tile>(wallTilePath);
++            Assert.IsNotNull(wallTile);
++            Assert.IsNotNull(wallTile.sprite);
++            var texture = wallTile.sprite.texture;
++            Assert.IsNotNull(texture);
++
++            var expectedPixels = texture.GetPixels32();
++
++            var staleColor = new Color32(255, 0, 255, 255);
++            var stalePixels = new Color32[expectedPixels.Length];
++            for (var i = 0; i < stalePixels.Length; i++) stalePixels[i] = staleColor;
++            texture.SetPixels32(stalePixels);
++            texture.Apply(false, false);
++            EditorUtility.SetDirty(texture);
++            AssetDatabase.SaveAssetIfDirty(texture);
++
++            DoorPrototypeSceneBuilder.BuildInMemoryForTests(temporaryArchitecturalTileAssetFolder);
++
++            var rebuiltTexture = AssetDatabase.LoadAssetAtPath<Tile>(wallTilePath).sprite.texture;
++            var actualPixels = rebuiltTexture.GetPixels32();
++            Assert.AreEqual(expectedPixels.Length, actualPixels.Length);
++            for (var i = 0; i < expectedPixels.Length; i++)
++            {
++                Assert.AreEqual(expectedPixels[i].r, actualPixels[i].r, $"Pixel {i} red channel.");
++                Assert.AreEqual(expectedPixels[i].g, actualPixels[i].g, $"Pixel {i} green channel.");
++                Assert.AreEqual(expectedPixels[i].b, actualPixels[i].b, $"Pixel {i} blue channel.");
++                Assert.AreEqual(expectedPixels[i].a, actualPixels[i].a,
++                    "Rebuilding must repaint a persisted architectural Tile whose on-disk pixel content has " +
++                    "drifted from the current algorithm, even though its texture geometry still matches, so a " +
++                    "stale committed texture can never silently keep serving outdated wall art.");
++            }
++        }
++
++        // NSC-042 AC-003/VAL-001: representative straight walls of at least 3, 10, and 100
++        // visual cells must be assembled by repeating the one existing reusable wall Tile asset
++        // rather than any new per-cell or per-length asset, so asset count does not grow
++        // proportionally with wall length.
++        [TestCase(3)]
++        [TestCase(10)]
++        [TestCase(100)]
++        public void WallTile_TilesAcrossRepresentativeWallLengthsUsingOneReusableAssetWithoutGrowth(
++            int wallCellCount)
++        {
++            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
++
++            var wallTilemap = GameObject.Find("IsometricVisualGrid/WallTilemap")?.GetComponent<Tilemap>();
++            var wallTile = wallTilemap?.GetTile(Vector3Int.zero);
++            Assert.IsNotNull(wallTile, "Expected the builder's existing reusable wall Tile.");
++
++            var scratchGridObject = new GameObject("NSC042_ScratchLongWallGrid");
++            try
++            {
++                var scratchTilemap = scratchGridObject.AddComponent<Tilemap>();
++                scratchGridObject.AddComponent<TilemapRenderer>();
++
++                for (var x = 0; x < wallCellCount; x++)
++                {
++                    scratchTilemap.SetTile(new Vector3Int(x, 0, 0), wallTile);
++                }
++
++                var occupiedCount = 0;
++                foreach (var cell in scratchTilemap.cellBounds.allPositionsWithin)
++                {
++                    if (!scratchTilemap.HasTile(cell)) continue;
++                    occupiedCount++;
++                    Assert.AreSame(wallTile, scratchTilemap.GetTile(cell),
++                        $"Wall cell {cell} must reuse the exact same wall Tile asset instead of any new " +
++                        "per-cell asset.");
++                }
++
++                Assert.AreEqual(wallCellCount, occupiedCount,
++                    $"Expected all {wallCellCount} cells of this representative wall to be painted.");
++            }
++            finally
++            {
++                Object.DestroyImmediate(scratchGridObject);
++            }
++        }
++
+         [Test]
+         public void Build_DoorwayBlocker_IsSeparateBoxColliderWiredToDoorInteractable()
+         {

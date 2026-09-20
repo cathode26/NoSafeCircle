@@ -1,0 +1,14 @@
+Start the forward-crossing volume past the doorway, not on it
+
+The crossing trigger sat at offset (0,0,1) with size (3,3,2), spanning door-local
+Z 0 to 2. Its near face was the doorway plane, so OnTriggerEnter fired while the
+wizard was still in the opening and CloseAndLock immediately re-enabled the
+doorway blocker: the door appeared to slam shut before the player passed through.
+
+The volume now spans Z 1 to 2, which the wizard reaches only once through the
+doorway. The builder assigns both values per door because the fields are
+serialized per instance, so the saved scene carries the fix after a rebuild.
+
+Locking on crossing, the one-way blocker and the health restore are unchanged.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

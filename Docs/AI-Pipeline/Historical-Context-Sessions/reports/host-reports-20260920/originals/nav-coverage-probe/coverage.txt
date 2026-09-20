@@ -1,0 +1,24 @@
+scene Assets/Scenes/DoorPrototype.unity, unity 6000.1.8f1
+navmesh vertices 695, indices 921
+navmesh bounds x [-13.167, 13.167] y [0.083, 2.583] z [-25.167, 85.303]
+GameplayNavigationSurface on GameplayNavigation enabled=True
+  agentTypeID = 0
+  collectObjects = All
+  useGeometry = PhysicsColliders
+  navMeshData = GameplayNavigation (UnityEngine.NavMeshData)
+builder type found
+EnemySpawnPositions (-3, 10): on mesh (dist 0.083); nearest within 5 = (-3, 0.083, 10) dist 0.083
+EnemySpawnPositions (7, 31): on mesh (dist 0.083); nearest within 5 = (7, 0.083, 31) dist 0.083
+EnemySpawnPositions (-2, 53): on mesh (dist 0.083); nearest within 5 = (-2, 0.083, 53) dist 0.083
+EnemySpawnPositions (8, 74): NOT on mesh within 0.1; nearest within 5 = (8, 0.136, 74) dist 0.136
+EnemySpawnPositions (-8, 77): NOT on mesh within 0.1; nearest within 5 = (-8, 0.117, 77) dist 0.117
+LanternWraithSpawnPositions (7, 13): on mesh (dist 0.083); nearest within 5 = (7, 0.083, 13) dist 0.083
+LanternWraithSpawnPositions (-9, 31): on mesh (dist 0.083); nearest within 5 = (-9, 0.083, 31) dist 0.083
+LanternWraithSpawnPositions (8, 57): on mesh (dist 0.083); nearest within 5 = (8, 0.083, 57) dist 0.083
+LanternWraithSpawnPositions (0, 70): on mesh (dist 0.083); nearest within 5 = (0, 0.083, 70) dist 0.083
+PlayerSpawnPosition (-10, -22): on mesh (dist 0.083); nearest within 5 = (-10, 0.083, -22) dist 0.083
+RuinedEntryLayout centre (0, -13): on mesh (dist 0.083); nearest within 5 = (0, 0.083, -13) dist 0.083
+BoneArchiveLayout: no RoomBounds
+ChapelOfAshLayout: no RoomBounds
+LowerVaultLayout: no RoomBounds
+FinalRoomLayout centre (0, 75): NOT on mesh within 0.1; nearest within 5 = (0, 2.083, 75) dist 2.083

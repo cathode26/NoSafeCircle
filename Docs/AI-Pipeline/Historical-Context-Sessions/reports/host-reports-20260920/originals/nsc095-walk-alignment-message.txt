@@ -1,0 +1,33 @@
+NSC-095: plant the wizard walk frames on the enemy per-frame ground rule
+
+The approved walks drifted: aligned per group, the feet wandered 6-8 px through
+the cycle with a 6-8 px pop at the loop seam. The NSC-077 enemy walks align per
+frame instead - alpha bottom on the same row in every frame, spread 0, seam 0 -
+and NSC-095 revision 4 makes that the contract's rule.
+
+The Art Director re-aligned the existing frames with whole-pixel shifts rather
+than regenerating: foot spread and loop seam are now 0 in all 32 directions, head
+spread 2-7, and in every largest-shift frame the lowest pixel is a boot rather
+than a coat hem, so no correction table is needed. No PixelLab spend.
+
+132 of the 192 walk PNGs changed; the other 60 already sat on the correct row.
+source-inventory.json gains plant_dy per walk frame, dip_below_ground_line 0 and
+walk_alignment. Each wizard's ground_line_y_from_top and pivot are unchanged, so
+NSC-096 is unaffected.
+
+PIXELLAB_128_GENERATION.md is rebuilt from the committed version rather than from
+the older staged copy, so the call-log itemisation survives, and it now records
+the settled spend: 97 printed against 132 metered, about 36%, derived from the
+recorded balance readings 331 -> 463 across 22 calls. Earlier figures of 130/93,
+130/95 and 133/97 are named in a Derivation row as hand-arithmetic slips rather
+than quietly replaced.
+
+Verified before committing by the Game Agent against the merged art at
+9215873ec: 450 staged files, 316 byte-identical, 134 differing - exactly the 132
+walk frames, the inventory and the record. The 224 raw exports and 32 standing
+frames are untouched, and the record is 2,565 bytes longer than the committed
+version, which is the direction that means a real change rather than a revert.
+
+Vincent approved the planted walks as the art that ships (NSC-095 VAL-002).
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

@@ -1,0 +1,13 @@
+﻿Temporary artifacts will be preserved at: C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-d3d4d0d3d5b74919b82846fb50fd1cdd
+Safe Unity churn recovery: {"paths": ["ProjectSettings/EditorBuildSettings.asset", "ProjectSettings/Packages/com.unity.testtools.codecoverage/Settings.json"], "status": "recovered"}
+Safe Unity churn recovery: {"paths": [], "status": "clean"}
+powershell.exe : UNITY FAILURE: Unity exited with code 2.
+At line:1 char:1476
++ ... TEXITCODE"; & powershell.exe -NoProfile -ExecutionPolicy Bypass -File ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (UNITY FAILURE: Unity exited with code 2.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+XML: 
+C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-d3d4d0d3d5b74919b82846fb50fd1cdd\test-results.xml
+Log: C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-d3d4d0d3d5b74919b82846fb50fd1cdd\unity.log

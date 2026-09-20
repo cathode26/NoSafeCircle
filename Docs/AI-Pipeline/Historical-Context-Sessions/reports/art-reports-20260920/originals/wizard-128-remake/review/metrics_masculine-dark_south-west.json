@@ -1,0 +1,169 @@
+{
+  "deltas": [
+    {
+      "bbox_bottom_change": 0,
+      "bbox_width_change": 2,
+      "flags": [],
+      "from": 0,
+      "loop_seam": false,
+      "opaque_change_percent": 0.14018691588785046,
+      "to": 1
+    },
+    {
+      "bbox_bottom_change": 0,
+      "bbox_width_change": -4,
+      "flags": [],
+      "from": 1,
+      "loop_seam": false,
+      "opaque_change_percent": 0.9332711152589827,
+      "to": 2
+    },
+    {
+      "bbox_bottom_change": -2,
+      "bbox_width_change": 0,
+      "flags": [],
+      "from": 2,
+      "loop_seam": false,
+      "opaque_change_percent": 8.645399907535829,
+      "to": 3
+    },
+    {
+      "bbox_bottom_change": 4,
+      "bbox_width_change": 3,
+      "flags": [
+        "baseline_jump"
+      ],
+      "from": 3,
+      "loop_seam": false,
+      "opaque_change_percent": -1.9574468085106382,
+      "to": 4
+    },
+    {
+      "bbox_bottom_change": 3,
+      "bbox_width_change": 7,
+      "flags": [
+        "baseline_jump"
+      ],
+      "from": 4,
+      "loop_seam": false,
+      "opaque_change_percent": 3.8194444444444446,
+      "to": 5
+    },
+    {
+      "bbox_bottom_change": -5,
+      "bbox_width_change": -8,
+      "flags": [
+        "baseline_jump"
+      ],
+      "from": 5,
+      "loop_seam": true,
+      "opaque_change_percent": -10.535117056856187,
+      "to": 0
+    }
+  ],
+  "frames": [
+    {
+      "alpha_bbox": [
+        42,
+        23,
+        83,
+        121
+      ],
+      "distinct_color_count": 60,
+      "opaque_pixel_count": 2140,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-dark\\aligned\\walk\\south-west\\frame_000.png",
+      "sha256": "b60c7287996a5c023433559bb46d3d4a56995820b16b32aa28b6612f1e2b3ffa",
+      "size": [
+        128,
+        128
+      ]
+    },
+    {
+      "alpha_bbox": [
+        40,
+        25,
+        83,
+        121
+      ],
+      "distinct_color_count": 59,
+      "opaque_pixel_count": 2143,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-dark\\aligned\\walk\\south-west\\frame_001.png",
+      "sha256": "0d8f220f11f28b55b1017742d9d2c34d64cee02d12fd94b95faeca8faedb22bc",
+      "size": [
+        128,
+        128
+      ]
+    },
+    {
+      "alpha_bbox": [
+        43,
+        22,
+        82,
+        121
+      ],
+      "distinct_color_count": 64,
+      "opaque_pixel_count": 2163,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-dark\\aligned\\walk\\south-west\\frame_002.png",
+      "sha256": "93a354e820939984c58c3cd62c55f0232630ef78ff0a748d34ab7c3191efd9e8",
+      "size": [
+        128,
+        128
+      ]
+    },
+    {
+      "alpha_bbox": [
+        43,
+        20,
+        82,
+        119
+      ],
+      "distinct_color_count": 59,
+      "opaque_pixel_count": 2350,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-dark\\aligned\\walk\\south-west\\frame_003.png",
+      "sha256": "988c281206304e20f92e2202b77d9890f7778189bbdfef0f07200fa5719ca486",
+      "size": [
+        128,
+        128
+      ]
+    },
+    {
+      "alpha_bbox": [
+        43,
+        22,
+        85,
+        123
+      ],
+      "distinct_color_count": 60,
+      "opaque_pixel_count": 2304,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-dark\\aligned\\walk\\south-west\\frame_004.png",
+      "sha256": "96dff1ea04a662e12ac257ae2f8900bb9bd66d39798fae063a192e51652ba926",
+      "size": [
+        128,
+        128
+      ]
+    },
+    {
+      "alpha_bbox": [
+        39,
+        24,
+        88,
+        126
+      ],
+      "distinct_color_count": 55,
+      "opaque_pixel_count": 2392,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-dark\\aligned\\walk\\south-west\\frame_005.png",
+      "sha256": "dd44e6473cdefaa735ebf90ab69334889a76d82971a557c83822b14c25cb8103",
+      "size": [
+        128,
+        128
+      ]
+    }
+  ],
+  "has_outliers": true,
+  "loop": true,
+  "thresholds": {
+    "baseline_jump_pixels": 3,
+    "bbox_width_pixels": 8,
+    "opaque_change_percent": 15.0
+  }
+}

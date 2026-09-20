@@ -1,0 +1,122 @@
+scene Assets/Scenes/DoorPrototype.unity, doors found 5
+
+=== DoorRoot at (0, 0, 0) ===
+  blocker enabled  : True
+  blocker bounds   : center (0, 1.25, 0) size (2, 2.5, 0.3)
+  blocker x span   : [-1, 1]
+  chest-height sightline across the doorway (ray + Vector3.up):
+    x offset     -2 : SouthWallWestCollision
+    x offset  -1.75 : SouthWallWestCollision
+    x offset   -1.5 : SouthWallWestCollision
+    x offset  -1.25 : NOTHING - sightline is OPEN
+    x offset     -1 : DoorVisual
+    x offset  -0.75 : DoorVisual
+    x offset   -0.5 : DoorVisual
+    x offset  -0.25 : DoorVisual
+    x offset      0 : DoorVisual
+    x offset   0.25 : DoorVisual
+    x offset    0.5 : DoorVisual
+    x offset   0.75 : DoorVisual
+    x offset      1 : DoorVisual
+    x offset   1.25 : NOTHING - sightline is OPEN
+    x offset    1.5 : SouthWallEastCollision
+    x offset   1.75 : SouthWallEastCollision
+    x offset      2 : SouthWallEastCollision
+  RESULT: OPEN at x offsets -1.25, 1.25 - the crack is real
+
+=== D2 at (6, 0, 20) ===
+  blocker enabled  : True
+  blocker bounds   : center (6, 1.25, 20) size (2, 2.5, 0.3)
+  blocker x span   : [5, 7]
+  chest-height sightline across the doorway (ray + Vector3.up):
+    x offset     -2 : NorthWallWestCollision
+    x offset  -1.75 : NorthWallWestCollision
+    x offset   -1.5 : NorthWallWestCollision
+    x offset  -1.25 : NOTHING - sightline is OPEN
+    x offset     -1 : DoorVisual
+    x offset  -0.75 : DoorVisual
+    x offset   -0.5 : DoorVisual
+    x offset  -0.25 : DoorVisual
+    x offset      0 : DoorVisual
+    x offset   0.25 : DoorVisual
+    x offset    0.5 : DoorVisual
+    x offset   0.75 : DoorVisual
+    x offset      1 : DoorVisual
+    x offset   1.25 : NOTHING - sightline is OPEN
+    x offset    1.5 : NorthWallEastCollision
+    x offset   1.75 : NorthWallEastCollision
+    x offset      2 : NorthWallEastCollision
+  RESULT: OPEN at x offsets -1.25, 1.25 - the crack is real
+
+=== D3 at (-6, 0, 42) ===
+  blocker enabled  : True
+  blocker bounds   : center (-6, 1.25, 42) size (2, 2.5, 0.3)
+  blocker x span   : [-7, -5]
+  chest-height sightline across the doorway (ray + Vector3.up):
+    x offset     -2 : NorthWallWestCollision
+    x offset  -1.75 : NorthWallWestCollision
+    x offset   -1.5 : NorthWallWestCollision
+    x offset  -1.25 : NOTHING - sightline is OPEN
+    x offset     -1 : DoorVisual
+    x offset  -0.75 : DoorVisual
+    x offset   -0.5 : DoorVisual
+    x offset  -0.25 : DoorVisual
+    x offset      0 : DoorVisual
+    x offset   0.25 : DoorVisual
+    x offset    0.5 : DoorVisual
+    x offset   0.75 : DoorVisual
+    x offset      1 : DoorVisual
+    x offset   1.25 : NOTHING - sightline is OPEN
+    x offset    1.5 : NorthWallEastCollision
+    x offset   1.75 : NorthWallEastCollision
+    x offset      2 : NorthWallEastCollision
+  RESULT: OPEN at x offsets -1.25, 1.25 - the crack is real
+
+=== D4 at (4, 0, 64) ===
+  blocker enabled  : True
+  blocker bounds   : center (4, 1.25, 64) size (2, 2.5, 0.3)
+  blocker x span   : [3, 5]
+  chest-height sightline across the doorway (ray + Vector3.up):
+    x offset     -2 : SouthWallWestCollision
+    x offset  -1.75 : SouthWallWestCollision
+    x offset   -1.5 : SouthWallWestCollision
+    x offset  -1.25 : NOTHING - sightline is OPEN
+    x offset     -1 : DoorVisual
+    x offset  -0.75 : DoorVisual
+    x offset   -0.5 : DoorVisual
+    x offset  -0.25 : DoorVisual
+    x offset      0 : DoorVisual
+    x offset   0.25 : DoorVisual
+    x offset    0.5 : DoorVisual
+    x offset   0.75 : DoorVisual
+    x offset      1 : DoorVisual
+    x offset   1.25 : NOTHING - sightline is OPEN
+    x offset    1.5 : SouthWallEastCollision
+    x offset   1.75 : SouthWallEastCollision
+    x offset      2 : SouthWallEastCollision
+  RESULT: OPEN at x offsets -1.25, 1.25 - the crack is real
+
+=== D5 at (0, 0, 86) ===
+  blocker enabled  : True
+  blocker bounds   : center (0, 1.25, 86) size (2, 2.5, 0.3)
+  blocker x span   : [-1, 1]
+  chest-height sightline across the doorway (ray + Vector3.up):
+    x offset     -2 : NorthWallWestCollision
+    x offset  -1.75 : NorthWallWestCollision
+    x offset   -1.5 : NorthWallWestCollision
+    x offset  -1.25 : NOTHING - sightline is OPEN
+    x offset     -1 : DoorVisual
+    x offset  -0.75 : DoorVisual
+    x offset   -0.5 : DoorVisual
+    x offset  -0.25 : DoorVisual
+    x offset      0 : DoorVisual
+    x offset   0.25 : DoorVisual
+    x offset    0.5 : DoorVisual
+    x offset   0.75 : DoorVisual
+    x offset      1 : DoorVisual
+    x offset   1.25 : NOTHING - sightline is OPEN
+    x offset    1.5 : NorthWallEastCollision
+    x offset   1.75 : NorthWallEastCollision
+    x offset      2 : NorthWallEastCollision
+  RESULT: OPEN at x offsets -1.25, 1.25 - the crack is real
+

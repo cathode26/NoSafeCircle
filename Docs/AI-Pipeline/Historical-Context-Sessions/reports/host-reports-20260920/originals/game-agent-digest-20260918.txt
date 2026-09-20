@@ -1,0 +1,3 @@
+﻿digest: C:\nscrev\reports\agent-recovery\game-agent-20260918-0358-bcf148aa.md
+source: Game Agent | local_5494af13-b16a-49c4-b2c5-f6ca0ab77d2a | 2d4e1970/d7a55dba | last 2026-09-18 08:58 UTC
+size: 100827 characters (about 25206 tokens)

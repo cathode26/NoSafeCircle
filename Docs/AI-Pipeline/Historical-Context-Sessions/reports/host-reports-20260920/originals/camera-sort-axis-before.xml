@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="1" result="Failed(Child)" total="1" passed="0" failed="1" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-09-17 21:33:53Z" end-time="2026-09-17 21:33:53Z" duration="0.6955846">
+  <test-suite type="TestSuite" id="1000" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="160" result="Failed" site="Child" start-time="2026-09-17 21:33:53Z" end-time="2026-09-17 21:33:53Z" duration="0.695585" total="1" passed="0" failed="1" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <failure>
+      <message><![CDATA[One or more child tests had errors]]></message>
+    </failure>
+    <test-suite type="Assembly" id="1186" name="NoSafeCircle.DoorPrototype.Tests.Editor.dll" fullname="C:/nscrev/branch-verify/Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Tests.Editor.dll" runstate="Runnable" testcasecount="160" result="Failed" site="Child" start-time="2026-09-17 21:33:53Z" end-time="2026-09-17 21:33:53Z" duration="0.685224" total="1" passed="0" failed="1" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="25676" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <failure>
+        <message><![CDATA[One or more child tests had errors]]></message>
+      </failure>
+      <test-suite type="TestSuite" id="1187" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="160" result="Failed" site="Child" start-time="2026-09-17 21:33:53Z" end-time="2026-09-17 21:33:53Z" duration="0.680964" total="1" passed="0" failed="1" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <failure>
+          <message><![CDATA[One or more child tests had errors]]></message>
+        </failure>
+        <test-suite type="TestSuite" id="1188" name="DoorPrototype" fullname="NoSafeCircle.DoorPrototype" runstate="Runnable" testcasecount="160" result="Failed" site="Child" start-time="2026-09-17 21:33:53Z" end-time="2026-09-17 21:33:53Z" duration="0.677160" total="1" passed="0" failed="1" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <failure>
+            <message><![CDATA[One or more child tests had errors]]></message>
+          </failure>
+          <test-suite type="TestSuite" id="1189" name="Tests" fullname="NoSafeCircle.DoorPrototype.Tests" runstate="Runnable" testcasecount="160" result="Failed" site="Child" start-time="2026-09-17 21:33:53Z" end-time="2026-09-17 21:33:53Z" duration="0.673143" total="1" passed="0" failed="1" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <failure>
+              <message><![CDATA[One or more child tests had errors]]></message>
+            </failure>
+            <test-suite type="TestSuite" id="1190" name="Editor" fullname="NoSafeCircle.DoorPrototype.Tests.Editor" runstate="Runnable" testcasecount="160" result="Failed" site="Child" start-time="2026-09-17 21:33:53Z" end-time="2026-09-17 21:33:53Z" duration="0.669145" total="1" passed="0" failed="1" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <failure>
+                <message><![CDATA[One or more child tests had errors]]></message>
+              </failure>
+              <test-suite type="TestFixture" id="1073" name="IsometricSortingRenderTests" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.IsometricSortingRenderTests" classname="NoSafeCircle.DoorPrototype.Tests.Editor.IsometricSortingRenderTests" runstate="Runnable" testcasecount="1" result="Failed" site="Child" start-time="2026-09-17 21:33:53Z" end-time="2026-09-17 21:33:53Z" duration="0.658972" total="1" passed="0" failed="1" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <failure>
+                  <message><![CDATA[One or more child tests had errors]]></message>
+                </failure>
+                <test-case id="1074" name="ClosedD1DoorNeverDrawsOverWizardStandingSouthOfIt" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.IsometricSortingRenderTests.ClosedD1DoorNeverDrawsOverWizardStandingSouthOfIt" methodname="ClosedD1DoorNeverDrawsOverWizardStandingSouthOfIt" classname="NoSafeCircle.DoorPrototype.Tests.Editor.IsometricSortingRenderTests" runstate="Runnable" seed="1415085762" result="Failed" start-time="2026-09-17 21:33:53Z" end-time="2026-09-17 21:33:53Z" duration="0.639925" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                  <failure>
+                    <message><![CDATA[  219 of 219 contested pixels rendered as the door instead of the wizard standing in front of it (transparencySortAxis regression).
+  Expected: 0
+  But was:  219
+]]></message>
+                    <stack-trace><![CDATA[at NoSafeCircle.DoorPrototype.Tests.Editor.IsometricSortingRenderTests.ClosedD1DoorNeverDrawsOverWizardStandingSouthOfIt () [0x003e3] in C:\nscrev\branch-verify\Assets\NoSafeCircle\DoorPrototype\Tests\Editor\IsometricSortingRenderTests.cs:178
+]]></stack-trace>
+                  </failure>
+                  <output><![CDATA[Saving results to: C:/Users/VincentLiguori/AppData/LocalLow/DefaultCompany/NoSafeCircle\TestResults.xml
+]]></output>
+                </test-case>
+              </test-suite>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

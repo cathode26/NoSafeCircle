@@ -1,0 +1,13 @@
+Temporary artifacts will be preserved at: C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-e83f923663bd4717b85b693c9bb9bef4
+Safe Unity churn recovery: {"paths": ["ProjectSettings/Packages/com.unity.testtools.codecoverage/Settings.json"], "status": "recovered"}
+Safe Unity churn recovery: {"paths": [], "status": "clean"}
+Git HEAD: 1147fce3fb2adb8297b32edd2aceb21fc267f160
+Git tree: 2106a205f03bca815d7d5ecda666a53548a7bd20
+Post-run tree: 2106a205f03bca815d7d5ecda666a53548a7bd20
+Unity version: 6000.1.8f1
+Unity executable: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Unity.exe
+Unity exit code: 0
+Result: Passed (total=0 passed=0 failed=0 skipped=0)
+XML: C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-e83f923663bd4717b85b693c9bb9bef4\test-results.xml
+Log: C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-e83f923663bd4717b85b693c9bb9bef4\unity.log
+RESULT FAILURE: Unity discovered zero tests for platform 'PlayMode' and filter 'NoSafeCircle.DoorPrototype.Tests.EnemyLockedDoorAttackPlayModeTests,NoSafeCircle.DoorPrototype.Tests.EnemyPursuitPlayModeTests,NoSafeCircle.DoorPrototype.Tests.EnemyPursuitDoorCrossingPlayModeTests,NoSafeCircle.DoorPrototype.Tests.RangedEnemyKeepDistanceMovementPlayModeTests'.

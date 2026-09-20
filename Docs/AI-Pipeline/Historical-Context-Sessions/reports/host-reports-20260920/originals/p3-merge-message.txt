@@ -1,0 +1,12 @@
+Merge fix/worker-final-write: retry the worker's terminal write and add manual result recovery
+
+Pipeline Maintainer fix P3, approved by two independent pipeline-reviewers.
+
+This ports aac2555c:
+- a bounded retry of the crew worker's terminal record write;
+- dead-worker routing: when a worker's final write is lost, the controller settles it as failed (blocked, worker_failed) and preserves its receipt instead of leaving it "running";
+- the `recover-worker-result TASK --run-id --crew-run-id` CLI, which records the surviving result. Recovery is manual, not automatic.
+
+The throughput stack's JOB_HARVEST_PENDING code is not included.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

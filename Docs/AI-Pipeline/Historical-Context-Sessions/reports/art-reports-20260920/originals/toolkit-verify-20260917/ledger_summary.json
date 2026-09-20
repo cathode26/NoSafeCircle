@@ -1,0 +1,23 @@
+{
+  "balance_change": {
+    "by_generations_used": 20,
+    "by_remaining": 20
+  },
+  "cap": null,
+  "cap_status": "no_cap",
+  "job": "density+wisp 2026-09-16",
+  "per_tool": {
+    "animate_character_v3": 2.0,
+    "animate_image": 2.0,
+    "create_character_v3": 2.0,
+    "create_image_pixen": 1.0,
+    "create_image_pixflux": 5.0,
+    "image_to_pixelart": 1.0,
+    "inpaint_image_pro_flash": 6.0
+  },
+  "provisional_total": 0.0,
+  "spend": 20.0,
+  "tool_reported_total": 19.0,
+  "unattributed_difference": 1.0,
+  "warning": "PixelLab account balances are shared; balance changes can include other sessions."
+}

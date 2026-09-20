@@ -1,0 +1,7 @@
+Merge release/public-policy-scope-731
+
+The public synthetic policy assertion demanded exactly NSC-020 and NSC-042,
+so it failed once the policy legitimately grew to fourteen tasks. Assert the
+subset instead.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

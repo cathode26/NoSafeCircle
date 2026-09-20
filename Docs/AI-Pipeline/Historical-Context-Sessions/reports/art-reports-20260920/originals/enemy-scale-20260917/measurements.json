@@ -1,0 +1,132 @@
+[
+  {
+    "label": "enemy melee idle",
+    "files": 8,
+    "canvases": [
+      [
+        128,
+        128
+      ]
+    ],
+    "ground_rows": [
+      107,
+      110
+    ],
+    "ground_spread": 3,
+    "drawn_h": [
+      86,
+      89
+    ],
+    "drawn_h_median": 88,
+    "drawn_w": [
+      70,
+      83
+    ],
+    "world_h_at_64ppu": 1.375,
+    "world_h_at_88ppu": 1.0
+  },
+  {
+    "label": "enemy melee walk",
+    "files": 48,
+    "canvases": [
+      [
+        176,
+        176
+      ]
+    ],
+    "ground_rows": [
+      131,
+      131
+    ],
+    "ground_spread": 0,
+    "drawn_h": [
+      82,
+      91
+    ],
+    "drawn_h_median": 87,
+    "drawn_w": [
+      70,
+      105
+    ],
+    "world_h_at_64ppu": 1.359,
+    "world_h_at_88ppu": 0.989
+  },
+  {
+    "label": "enemy ranged idle",
+    "files": 8,
+    "canvases": [
+      [
+        128,
+        128
+      ]
+    ],
+    "ground_rows": [
+      108,
+      113
+    ],
+    "ground_spread": 5,
+    "drawn_h": [
+      94,
+      107
+    ],
+    "drawn_h_median": 99,
+    "drawn_w": [
+      48,
+      86
+    ],
+    "world_h_at_64ppu": 1.547,
+    "world_h_at_88ppu": 1.125
+  },
+  {
+    "label": "enemy ranged walk",
+    "files": 48,
+    "canvases": [
+      [
+        176,
+        176
+      ]
+    ],
+    "ground_rows": [
+      131,
+      131
+    ],
+    "ground_spread": 0,
+    "drawn_h": [
+      92,
+      107
+    ],
+    "drawn_h_median": 96,
+    "drawn_w": [
+      53,
+      103
+    ],
+    "world_h_at_64ppu": 1.5,
+    "world_h_at_88ppu": 1.091
+  },
+  {
+    "label": "wizard 128 standing (committed)",
+    "files": 12,
+    "canvases": [
+      [
+        128,
+        128
+      ]
+    ],
+    "ground_rows": [
+      119,
+      121
+    ],
+    "ground_spread": 2,
+    "drawn_h": [
+      98,
+      111
+    ],
+    "drawn_h_median": 105,
+    "drawn_w": [
+      38,
+      54
+    ],
+    "world_h_at_64ppu": 1.641,
+    "world_h_at_88ppu": 1.193
+  }
+]

@@ -1,0 +1,11 @@
+THE MOVE: SOUND, as long as the junctions stay in place. Do not remove them yet.
+COMMIT READINESS: FIX FIRST. It needs a root `.gitattributes` with `* -text` and a `tools\.gitignore`, and `linked\` has to stay out of the first commit.
+ask_astra FIX: APPROVE. The shape is right and the guard is not weakened, but there is no regression test for the default path, and the README still says the log and answers sit beside the tool.
+Blocking findings: 2
+
+- **B1 (reproduced):** Tracking content through a junction loses data. `git checkout -- <file>`, `reset --hard`, `stash` and `switch` delete the real file through the junction and then fail with "unable to create file … File exists". In the `reset --hard` test an uncommitted edit was lost for good. `C:\NSC\tools` holds real directories, so it is safe. The proposed `C:\NSC\linked\` junctions and any repo rooted at `C:\nscrev` are not.
+- **B2 (reproduced):** With this machine's `core.autocrlf=true`, a default clone changed the bytes of 128 of 176 tool files. The `primer.md` hash no longer matched the one pinned in `thread.json`. With `* -text` in `.gitattributes` the clone differed in 0 files.
+
+The report also covers two junction-removal breakages outside the brief's list of 13, `new_task_commit.py:32` and `policy_entry_commit.py:24`. It has the full file:line classification of the hardcoded paths and the junction/git test results. I did not run the astra mutation harness, because it rewrites the live `ask_astra.py` under `C:\NSC`. The 13/13 result is therefore unconfirmed by me.
+
+Report: `C:\nscrev\reports\tools-move-review-20260919.md`

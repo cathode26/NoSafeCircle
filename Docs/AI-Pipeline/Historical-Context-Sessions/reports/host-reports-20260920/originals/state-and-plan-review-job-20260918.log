@@ -1,0 +1,13 @@
+STATE VERDICT: FIX FIRST
+PLAN VERDICT: FIX FIRST
+Blocking findings: 7 (state 4, plan 3)
+
+The report is at `C:\nscrev\reports\state-and-plan-review-20260918.md`. The main points:
+
+- **Restore works but doesn't log:** `RESTORE.ps1` moved the test folder correctly, then crashed at line 95 before writing to `RESTORES.md` (reproduced). `RESTORES.md` therefore stays empty however many restores happen. The test folder `nscarch_work` is back in the history folder, byte-identical.
+- **Astra is broken:** `ask_astra.py` refuses every command since the tools move (exit 3, reproduced), while its 62 unit tests still pass.
+- **Pending cleanup scripts are unrestorable:** `MOVE-NSC-FOLDERS.ps1` and `MOVE-NSCREV.ps1` would write manifest entries `RESTORE.ps1` cannot find. `MOVE-NSC-FOLDERS.ps1` also writes the manifest with a BOM again. Neither has been applied yet; don't run either with `-Apply` until this is fixed.
+- **Review-date deletion would lose work:** 19 of the 28 quarantined clones hold branch tips the main game repo doesn't have, and three were moved dirty. Six top-level `.bundle` files on the cleanup list also hold commits found nowhere else on this machine.
+- **Plan is stale against the tools move:** the v2 backup lists name the old tool folders, so once the junctions are removed the tools would drop out of the backup while its status stays green.
+- **Topology document missing:** `repo-topology-20260918.md` was never written; its job log is 0 bytes.
+- **OneDrive bundle still not done:** no `.bundle` file exists anywhere under OneDrive. That remains the one thing to do tomorrow.

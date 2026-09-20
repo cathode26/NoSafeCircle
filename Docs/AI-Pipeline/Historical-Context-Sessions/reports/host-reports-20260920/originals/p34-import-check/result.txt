@@ -1,0 +1,7 @@
+meta_unchanged_after_import=True
+texture_importer=True
+texture_shape=Texture2D
+texture_type=Default
+texture2d_loads=True
+sprite_loads_after_reimport=True
+failures=0

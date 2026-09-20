@@ -1,0 +1,7 @@
+Merge codex/nsc017-locked-door-attack-20260914 (NSC-017)
+
+Adds EnemyLockedDoorAttack and its Play Mode tests, and extends
+EnemyPursuitMovement with the blocking locked-door route, approach point and
+reset behaviour NSC-017 revision 4 requires.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

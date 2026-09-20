@@ -1,0 +1,200 @@
+[
+  {
+    "frame": "frame_00.png",
+    "raw_size": [
+      152,
+      152
+    ],
+    "raw_alpha_bbox": [
+      56,
+      21,
+      97,
+      128
+    ],
+    "raw_sha256": "3447207c6b10951ee6d393057732a982632e5eaa48f1e6a1883eb8172670f5f9",
+    "canvas": [
+      128,
+      128
+    ],
+    "raw_origin_on_canvas": [
+      -12,
+      -12
+    ],
+    "opaque_pixels_fit": true,
+    "selected_file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-light\\normalized128\\walk\\north\\frame_00.png",
+    "selected_alpha_bbox": [
+      44,
+      9,
+      85,
+      116
+    ],
+    "raw_opaque_pixels": 2685,
+    "selected_opaque_pixels": 2685,
+    "selected_sha256": "15995de15ef015d9ec427c138417bb13dbcb39d7af7a5107e4bfc26e9ce71b8f"
+  },
+  {
+    "frame": "frame_01.png",
+    "raw_size": [
+      152,
+      152
+    ],
+    "raw_alpha_bbox": [
+      56,
+      23,
+      97,
+      126
+    ],
+    "raw_sha256": "273ec521ee407b759d8987f3faacba776b397766f1dae8d992df8e12cf3b582c",
+    "canvas": [
+      128,
+      128
+    ],
+    "raw_origin_on_canvas": [
+      -12,
+      -12
+    ],
+    "opaque_pixels_fit": true,
+    "selected_file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-light\\normalized128\\walk\\north\\frame_01.png",
+    "selected_alpha_bbox": [
+      44,
+      11,
+      85,
+      114
+    ],
+    "raw_opaque_pixels": 2669,
+    "selected_opaque_pixels": 2669,
+    "selected_sha256": "37c556b3dbe9b33afa8667ec3822a65800385f0de170aa49099324d7ce91242d"
+  },
+  {
+    "frame": "frame_02.png",
+    "raw_size": [
+      152,
+      152
+    ],
+    "raw_alpha_bbox": [
+      57,
+      25,
+      98,
+      129
+    ],
+    "raw_sha256": "5bd7b1041733e139ce44be7debc7c82cc983927a7f1b915ae0269619314ac789",
+    "canvas": [
+      128,
+      128
+    ],
+    "raw_origin_on_canvas": [
+      -12,
+      -12
+    ],
+    "opaque_pixels_fit": true,
+    "selected_file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-light\\normalized128\\walk\\north\\frame_02.png",
+    "selected_alpha_bbox": [
+      45,
+      13,
+      86,
+      117
+    ],
+    "raw_opaque_pixels": 2579,
+    "selected_opaque_pixels": 2579,
+    "selected_sha256": "a92ef6233e7e60ea4d332827c63d4216f08d5ebd2ca624d7f41c26f1037ff860"
+  },
+  {
+    "frame": "frame_03.png",
+    "raw_size": [
+      152,
+      152
+    ],
+    "raw_alpha_bbox": [
+      56,
+      23,
+      98,
+      127
+    ],
+    "raw_sha256": "52270e117d35256425941ff07066525eb5e9473d18de1631d3a6d7ea4732afd5",
+    "canvas": [
+      128,
+      128
+    ],
+    "raw_origin_on_canvas": [
+      -12,
+      -12
+    ],
+    "opaque_pixels_fit": true,
+    "selected_file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-light\\normalized128\\walk\\north\\frame_03.png",
+    "selected_alpha_bbox": [
+      44,
+      11,
+      86,
+      115
+    ],
+    "raw_opaque_pixels": 2651,
+    "selected_opaque_pixels": 2651,
+    "selected_sha256": "b103ee5452af4510f4b6d3701dddd7014540a3ff30308f25ca4842896d6f7c18"
+  },
+  {
+    "frame": "frame_04.png",
+    "raw_size": [
+      152,
+      152
+    ],
+    "raw_alpha_bbox": [
+      55,
+      21,
+      96,
+      125
+    ],
+    "raw_sha256": "edd152d8ec9e54d5a4d926f1a89a7e4ab1bea828c6a6935fa86b591bb08e86b7",
+    "canvas": [
+      128,
+      128
+    ],
+    "raw_origin_on_canvas": [
+      -12,
+      -12
+    ],
+    "opaque_pixels_fit": true,
+    "selected_file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-light\\normalized128\\walk\\north\\frame_04.png",
+    "selected_alpha_bbox": [
+      43,
+      9,
+      84,
+      113
+    ],
+    "raw_opaque_pixels": 2710,
+    "selected_opaque_pixels": 2710,
+    "selected_sha256": "a065573259bd31f4e231eb2711d86ae6d0ef2309bb6dba064f3c0fc1f8b570f4"
+  },
+  {
+    "frame": "frame_05.png",
+    "raw_size": [
+      152,
+      152
+    ],
+    "raw_alpha_bbox": [
+      52,
+      23,
+      96,
+      128
+    ],
+    "raw_sha256": "c26f16f22292ae011edce636444cf8706f60deb6202ce059488ca76651f8f41a",
+    "canvas": [
+      128,
+      128
+    ],
+    "raw_origin_on_canvas": [
+      -12,
+      -12
+    ],
+    "opaque_pixels_fit": true,
+    "selected_file": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-light\\normalized128\\walk\\north\\frame_05.png",
+    "selected_alpha_bbox": [
+      40,
+      11,
+      84,
+      116
+    ],
+    "raw_opaque_pixels": 2694,
+    "selected_opaque_pixels": 2694,
+    "selected_sha256": "52058fc895c9768e59accb9c58e4c6c4e39779968cee32147934123eb72f742b"
+  }
+]

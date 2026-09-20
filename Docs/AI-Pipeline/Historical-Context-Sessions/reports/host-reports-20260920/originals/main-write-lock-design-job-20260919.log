@@ -1,0 +1,32 @@
+The design is written; no code was changed anywhere. All four defects in `main_write.py` are confirmed against the source, and I found three more:
+
+1. Each caller's HEAD check runs before `start()`, outside the protocol.
+2. HEAD is never re-checked before `git commit`, even though `taskcontrol validate` runs in that window.
+3. The contract tools never take the lock the pipeline's integration paths already hold, so a contract commit can land in the middle of a pipeline fast-forward today.
+
+**You need to decide two things before anyone builds this:**
+- **R1, validate inside or outside the lock.** Once the contract tools hold the lock across `taskcontrol validate`, a pipeline integration that waits more than 10 seconds will raise `TimeoutError`. Today it silently races instead. I have not measured how long validate takes or how the pipeline call sites surface that error.
+- **R3, where the code lands.** The contract tools live outside git in `C:\NSC\tools\ger`, so there is no branch to review unless they move into the repo first.
+
+**Mechanism.**
+- **Lock:** take the pipeline's existing integration lock (`.git/assistant-control-integration.lock`) and hold it from `start()` to `end()`.
+- **Dead versus slow:** Windows releases the lock when the holder dies and keeps it while the holder is alive, so no timeout is needed.
+- **Holder identity:** a small record beside the lock names the holder by operation ID, so two runs of the same role conflict.
+- **Journal:** it stays as a log only.
+- **HEAD checks:** `expected_head` is checked at `start()`, again just before the commit, and proven in `end()`.
+- **Caller change:** each of the three callers changes by about four lines.
+
+**Parallel build: the core cannot be split, and section 8 says so plainly.**
+- **The core** is about 250 lines resting on one ordering argument, and the race tests have to be debugged by the same author.
+- **What can run in parallel:** a Windows spike and the R1 measurement alongside the core work, plus the two reviews at the same time.
+- **Saving:** about one hour out of roughly fifteen.
+- **Other splits:** the doc edits go to the Documentation Agent on day one. Three helpers for the three caller edits would cost more time than they save.
+- **Docker helpers** cannot prove anything about a Windows lock.
+
+**Not covered by the lock:**
+- bare `git` run in the canonical checkout, which is detected afterwards but not prevented;
+- manual sessions spread over several commands;
+- writers inside containers;
+- repos in a synced folder.
+
+The document is at `C:\nscrev\reports\main-write-lock-design-20260919.md`.

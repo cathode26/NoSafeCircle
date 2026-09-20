@@ -1,0 +1,35 @@
+Tests: validate spawn placement by floor underfoot, not a 0.1 sample radius
+
+EnemySpawnPlacementTests rejected the two Final Room guards at (8, 0, 74) and
+(-8, 0, 77) - spawns this fix never moved. Probing the committed scene in Unity
+6000.1.8f1 showed why: Room_FinalRoom/GameplayGeometry/FloorCollision sits
+directly under both, and the nearest navigable point is (8, 0.136, 74) and
+(-8, 0.117, 77): zero horizontal displacement, only a vertical offset above the
+test's 0.1 radius. The bake's sampled surface rises from 0.083 on that room's
+centre line to 0.156 beside its benches, while every other room is flat at
+0.083, so 0.1 was smaller than the bake's own vertical error there. The scene
+does carry live baked NavMeshData, so the assertion was measuring something
+real - just measuring it the wrong way.
+
+The check now states what the design requires, navigable floor underfoot: a 0.5
+vertical allowance, which the sample radius enforces, plus a 0.05 horizontal one
+in DescribeHorizontalDisplacement. Both halves are proven rather than trusted,
+each where it actually lives:
+
+- PlacementCheck_RejectsAProbeStandingInARoomWall, on the real scene, that a
+  point on the Final Room's west wall centre line is rejected by the check. The
+  bake carves the wall, so what rejects it is the sample radius.
+- HorizontalRule_AcceptsTheMeasuredFinalRoomOffset_AndRejectsADisplacedSample,
+  on the rule directly, that a sample 0.136 above and exactly underfoot is
+  accepted while the same offset displaced 0.4 sideways is not. No authored point
+  in this scene sits beside a gap narrow enough to exercise that half through the
+  bake, so proving it through the bake is not possible.
+
+The 0.5 allowance is deliberately not larger: the benches are 0.7 tall with
+walkable polygons on top at 0.48, so a wider allowance would start admitting
+spawns buried in props, leaving only the capsule overlap check to catch them.
+
+Measurements, raw probe output and the limits of both halves:
+C:\nscrev\reports\nav-coverage-probe\FINDING.md
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

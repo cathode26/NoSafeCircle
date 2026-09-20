@@ -1,0 +1,222 @@
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_e_walk_00.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_e_walk_01.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_e_walk_02.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_e_walk_03.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_e_walk_04.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_e_walk_05.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_n_walk_00.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_n_walk_01.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_n_walk_02.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_n_walk_03.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_n_walk_04.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_n_walk_05.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_ne_walk_00.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_ne_walk_01.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_ne_walk_02.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_ne_walk_03.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_ne_walk_04.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_ne_walk_05.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_nw_walk_00.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_nw_walk_01.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_nw_walk_02.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_nw_walk_03.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_nw_walk_04.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_nw_walk_05.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_s_walk_00.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_s_walk_01.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_s_walk_02.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_s_walk_03.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_s_walk_04.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_s_walk_05.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_se_walk_00.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_se_walk_01.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_se_walk_02.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_se_walk_03.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_se_walk_04.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_se_walk_05.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_sw_walk_00.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_sw_walk_01.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_sw_walk_02.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_sw_walk_03.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_sw_walk_04.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_sw_walk_05.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_w_walk_00.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_w_walk_01.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_w_walk_02.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_w_walk_03.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_w_walk_04.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_melee_w_walk_05.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_e_walk_00.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_e_walk_01.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_e_walk_02.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_e_walk_03.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_e_walk_04.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_e_walk_05.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_n_walk_00.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_n_walk_01.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_n_walk_02.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_n_walk_03.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_n_walk_04.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_n_walk_05.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_ne_walk_00.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_ne_walk_01.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_ne_walk_02.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_ne_walk_03.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_ne_walk_04.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_ne_walk_05.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_nw_walk_00.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_nw_walk_01.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_nw_walk_02.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_nw_walk_03.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_nw_walk_04.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_nw_walk_05.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_s_walk_00.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_s_walk_01.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_s_walk_02.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_s_walk_03.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_s_walk_04.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_s_walk_05.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_se_walk_00.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_se_walk_01.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_se_walk_02.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_se_walk_03.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_se_walk_04.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_se_walk_05.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_sw_walk_00.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_sw_walk_01.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_sw_walk_02.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_sw_walk_03.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_sw_walk_04.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_sw_walk_05.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_w_walk_00.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_w_walk_01.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_w_walk_02.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_w_walk_03.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_w_walk_04.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/enemy_ranged_w_walk_05.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_melee_e_idle_00.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_melee_n_idle_00.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_melee_ne_idle_00.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_melee_nw_idle_00.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_melee_s_idle_00.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_melee_se_idle_00.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_melee_sw_idle_00.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_melee_w_idle_00.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_ranged_e_idle_00.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_ranged_n_idle_00.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_ranged_ne_idle_00.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_ranged_nw_idle_00.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_ranged_s_idle_00.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_ranged_se_idle_00.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_ranged_sw_idle_00.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_ranged_w_idle_00.png.meta
+ M Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_Black_idle_north-east.anim
+ M Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_Black_idle_north-west.anim
+ M Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_Black_idle_south-east.anim
+ M Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_Black_idle_south-west.anim
+ M Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_Black_walk_north-east.anim
+ M Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_Black_walk_north-west.anim
+ M Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_Black_walk_south-east.anim
+ M Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_Black_walk_south-west.anim
+ M Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_White_idle_north-east.anim
+ M Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_White_idle_north-west.anim
+ M Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_White_idle_south-east.anim
+ M Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_White_idle_south-west.anim
+ M Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_White_walk_north-east.anim
+ M Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_White_walk_north-west.anim
+ M Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_White_walk_south-east.anim
+ M Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Feminine_White_walk_south-west.anim
+ M Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_Black_idle_north-east.anim
+ M Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_Black_idle_north-west.anim
+ M Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_Black_idle_south-east.anim
+ M Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_Black_idle_south-west.anim
+ M Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_Black_walk_north-east.anim
+ M Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_Black_walk_north-west.anim
+ M Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_Black_walk_south-east.anim
+ M Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_Black_walk_south-west.anim
+ M Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_White_idle_north-east.anim
+ M Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_White_idle_north-west.anim
+ M Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_White_idle_south-east.anim
+ M Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_White_idle_south-west.anim
+ M Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_White_walk_north-east.anim
+ M Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_White_walk_north-west.anim
+ M Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_White_walk_south-east.anim
+ M Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/Wizard_Masculine_White_walk_south-west.anim
+ M Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/ArchitecturalBorderTile.asset
+ D Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/FireCasterEnemySprite.asset
+ D Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/FireCasterEnemySprite.asset.meta
+ M Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/FloorTile.asset
+ M Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/WallTile.asset
+ M Assets/Scenes/DoorPrototype.unity
+ M ProjectSettings/Packages/com.unity.testtools.codecoverage/Settings.json
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated.meta
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraithAnimator.controller
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraithAnimator.controller.meta
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_idle_east.anim
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_idle_east.anim.meta
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_idle_north-east.anim
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_idle_north-east.anim.meta
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_idle_north-west.anim
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_idle_north-west.anim.meta
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_idle_north.anim
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_idle_north.anim.meta
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_idle_south-east.anim
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_idle_south-east.anim.meta
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_idle_south-west.anim
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_idle_south-west.anim.meta
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_idle_south.anim
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_idle_south.anim.meta
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_idle_west.anim
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_idle_west.anim.meta
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_walk_east.anim
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_walk_east.anim.meta
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_walk_north-east.anim
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_walk_north-east.anim.meta
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_walk_north-west.anim
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_walk_north-west.anim.meta
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_walk_north.anim
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_walk_north.anim.meta
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_walk_south-east.anim
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_walk_south-east.anim.meta
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_walk_south-west.anim
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_walk_south-west.anim.meta
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_walk_south.anim
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_walk_south.anim.meta
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_walk_west.anim
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraith_walk_west.anim.meta
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemyAnimator.controller
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemyAnimator.controller.meta
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_idle_east.anim
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_idle_east.anim.meta
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_idle_north-east.anim
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_idle_north-east.anim.meta
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_idle_north-west.anim
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_idle_north-west.anim.meta
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_idle_north.anim
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_idle_north.anim.meta
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_idle_south-east.anim
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_idle_south-east.anim.meta
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_idle_south-west.anim
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_idle_south-west.anim.meta
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_idle_south.anim
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_idle_south.anim.meta
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_idle_west.anim
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_idle_west.anim.meta
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_walk_east.anim
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_walk_east.anim.meta
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_walk_north-east.anim
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_walk_north-east.anim.meta
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_walk_north-west.anim
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_walk_north-west.anim.meta
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_walk_north.anim
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_walk_north.anim.meta
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_walk_south-east.anim
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_walk_south-east.anim.meta
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_walk_south-west.anim
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_walk_south-west.anim.meta
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_walk_south.anim
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_walk_south.anim.meta
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_walk_west.anim
+?? Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemy_walk_west.anim.meta
+?? Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/LanternWraithSprite.asset
+?? Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/LanternWraithSprite.asset.meta

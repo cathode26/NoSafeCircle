@@ -1,0 +1,12 @@
+Temporary artifacts will be preserved at: C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-36681be49ef0414db036f1cc47a58b8b
+Safe Unity churn recovery: {"paths": [], "status": "clean"}
+Safe Unity churn recovery: {"paths": [], "status": "clean"}
+Git HEAD: dd1d8b13021826298a717a47906f7c4121dce0ba
+Git tree: 39c480d2fa74bead8f4b5266dcb5bc4763eb23bf
+Post-run tree: 39c480d2fa74bead8f4b5266dcb5bc4763eb23bf
+Unity version: 6000.1.8f1
+Unity executable: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Unity.exe
+Unity exit code: 0
+Result: Passed (total=0 passed=0 failed=0 skipped=0)
+XML: C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-36681be49ef0414db036f1cc47a58b8b\test-results.xml
+Log: C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-36681be49ef0414db036f1cc47a58b8b\unity.log

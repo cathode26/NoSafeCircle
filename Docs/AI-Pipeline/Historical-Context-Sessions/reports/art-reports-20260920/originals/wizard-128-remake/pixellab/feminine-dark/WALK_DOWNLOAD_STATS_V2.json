@@ -1,0 +1,42 @@
+{
+  "south": {
+    "downloaded": 6,
+    "failed": 0,
+    "attempts": 6
+  },
+  "south-east": {
+    "downloaded": 6,
+    "failed": 0,
+    "attempts": 6
+  },
+  "east": {
+    "downloaded": 6,
+    "failed": 0,
+    "attempts": 6
+  },
+  "north-east": {
+    "downloaded": 6,
+    "failed": 0,
+    "attempts": 6
+  },
+  "north": {
+    "downloaded": 6,
+    "failed": 0,
+    "attempts": 6
+  },
+  "north-west": {
+    "downloaded": 6,
+    "failed": 0,
+    "attempts": 6
+  },
+  "west": {
+    "downloaded": 6,
+    "failed": 0,
+    "attempts": 6
+  },
+  "south-west": {
+    "downloaded": 6,
+    "failed": 0,
+    "attempts": 6
+  }
+}

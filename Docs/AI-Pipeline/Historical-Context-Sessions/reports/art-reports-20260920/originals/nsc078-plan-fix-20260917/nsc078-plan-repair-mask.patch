@@ -1,0 +1,31 @@
+diff --git a/Docs/Art/Environment/NSC-078_ART_PLAN.md b/Docs/Art/Environment/NSC-078_ART_PLAN.md
+index 4e95046..3f1d96e 100644
+--- a/Docs/Art/Environment/NSC-078_ART_PLAN.md
++++ b/Docs/Art/Environment/NSC-078_ART_PLAN.md
+@@ -11,6 +11,8 @@ It follows `NSC-078_DECISIONS.md` (2026-09-17): D-2 gives NSC-078 every independ
+ 
+ **Planning only:** this file authorizes no PixelLab spend. Vincent's spend go is separate.
+ 
++**Precedence:** where this plan and the committed `Tasks/NSC-078.yaml` differ, the contract wins. Follow the contract's acceptance criteria and gates, and treat the difference as a defect in this plan: report it to the Art Director Agent, which amends the plan.
++
+ Sources:
+ - `Docs/Art/Environment/DUNGEON_ART_DIRECTION.md` (canon);
+ - the Art Director bible (`art-director.md` in Vincent's Claude agent folder);
+@@ -188,7 +190,7 @@ Docs/Art/Environment/Props/Raw/<family>/<id>.png
+ 
+ - **Raw exports go under `Docs/`, not `Assets/`** (a change from the wizard precedent, which keeps `raw/` under `Assets`). Under `Assets` every raw PNG becomes a second imported texture, and with a GUID-only stub `.meta` it imports as a cubemap in Unity 6000.1.8f1. Under `Docs` they need no `.meta` at all.
+ - **Commit a raw file for every selected PNG,** even when it is byte-identical (`create_object_pro_flash` renders the exact canvas, so crop/pad should be rare). That keeps the file list exact for the scope validator. The inventory records `raw_sha256`, `selected_sha256` and any lossless crop/pad offset.
+-- **Masked repairs:** when a selected PNG was repaired with a PixelLab masked inpaint, keep the exact binary mask (white = regenerated, black = kept) as a PNG next to its raw export. The validator proves that pixels outside the mask are unchanged against the raw file. The contract names the mask file.
++- **Masked repairs:** when a selected PNG was repaired with a PixelLab masked inpaint, record the repaired area as `repair_mask` in the family inventory: a list of axis-aligned rectangles (x, y, width, height) in selected-image pixels whose union covers every repaired pixel (AC-001, AC-004). No mask PNG is committed, because the contract claims no such resource. The validator decodes both PNGs and proves that every selected pixel outside the recorded rectangles equals the raw pixel at the recorded `crop_pad_offset_px`. Keep each rectangle tight: an oversized rectangle weakens the proof.
+ - **Rejected candidates live on a separate local branch**, never in the task's candidate commit.
+   - Commit them from a clone of `main`, with an `.invalid` identity, on the branch `art-rejects/NSC-078`, as `Docs/Art/Environment/Candidates/NSC-078/<id>__rNN.png` (attempt number, no provider IDs).
+   - The Game Agent fetches that branch into the canonical repository.
+@@ -344,7 +346,7 @@ dark-but-cute horror-comedy dungeon prop, chunky readable proportions, low top-d
+ - **Lower Vault (D-3).** Hazard and route art is decorative. It never implies walkable ground, safe islands, crossings or elevation beyond the committed NSC-047 revision 4 geometry. Lava, chasm and horn trim stay FutureExpansion vocabulary.
+ - **Processing (D-4).**
+   - Only lossless crop/pad, recorded against the committed raw export.
+-  - Repairs go through PixelLab only: masked inpaint, preferably `inpaint_image_pro_flash` (byte-exact outside the mask, about 6 generations), with the mask kept next to the raw file; PixelLab's own `reduce_colors`; or regeneration.
++  - Repairs go through PixelLab only: masked inpaint, preferably `inpaint_image_pro_flash` (byte-exact outside the mask, about 6 generations), with the repaired area recorded as `repair_mask` rectangles in the family inventory; PixelLab's own `reduce_colors`; or regeneration.
+   - No local pixel edits, scripted palette reduction or seam repair. Post-and-panel segments need no seams.
+ - **Style inputs (AC-001).** The pilot uses text prompts only. Family acquisition may pass `style_image`/`color_image` only from Vincent-approved pilot sources, recorded by SHA-256. R01-R17 and any franchise art are never PixelLab inputs.
+ - **Wizard proxy (AC-003).** See section 3.

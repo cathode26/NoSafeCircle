@@ -1,0 +1,167 @@
+{
+  "deltas": [
+    {
+      "bbox_bottom_change": 0,
+      "bbox_width_change": -1,
+      "flags": [],
+      "from": 0,
+      "loop_seam": false,
+      "opaque_change_percent": 4.178994082840236,
+      "to": 1
+    },
+    {
+      "bbox_bottom_change": -5,
+      "bbox_width_change": 1,
+      "flags": [
+        "baseline_jump"
+      ],
+      "from": 1,
+      "loop_seam": false,
+      "opaque_change_percent": -7.135250266240682,
+      "to": 2
+    },
+    {
+      "bbox_bottom_change": 0,
+      "bbox_width_change": 0,
+      "flags": [],
+      "from": 2,
+      "loop_seam": false,
+      "opaque_change_percent": -6.230886850152905,
+      "to": 3
+    },
+    {
+      "bbox_bottom_change": 1,
+      "bbox_width_change": 0,
+      "flags": [],
+      "from": 3,
+      "loop_seam": false,
+      "opaque_change_percent": 8.030982470444354,
+      "to": 4
+    },
+    {
+      "bbox_bottom_change": 4,
+      "bbox_width_change": 0,
+      "flags": [
+        "baseline_jump"
+      ],
+      "from": 4,
+      "loop_seam": false,
+      "opaque_change_percent": 4.188679245283019,
+      "to": 5
+    },
+    {
+      "bbox_bottom_change": 0,
+      "bbox_width_change": 0,
+      "flags": [],
+      "from": 5,
+      "loop_seam": true,
+      "opaque_change_percent": -2.064469395146686,
+      "to": 0
+    }
+  ],
+  "frames": [
+    {
+      "alpha_bbox": [
+        39,
+        14,
+        93,
+        124
+      ],
+      "distinct_color_count": 65,
+      "opaque_pixel_count": 2704,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\west\\frame_00.png",
+      "sha256": "3d015b9bbab37970910056c1c96b272225d37152040a2c3f8fa068c6b6615c3f",
+      "size": [
+        128,
+        128
+      ]
+    },
+    {
+      "alpha_bbox": [
+        40,
+        17,
+        93,
+        124
+      ],
+      "distinct_color_count": 65,
+      "opaque_pixel_count": 2817,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\west\\frame_01.png",
+      "sha256": "654c28fc6e7f757170c8720f6e897990ff59d41b0cea43f0e45aaa5b0f424996",
+      "size": [
+        128,
+        128
+      ]
+    },
+    {
+      "alpha_bbox": [
+        39,
+        20,
+        93,
+        119
+      ],
+      "distinct_color_count": 65,
+      "opaque_pixel_count": 2616,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\west\\frame_02.png",
+      "sha256": "c2c8b2d1183aa3cf19284b047137d8d23161572ca37a5b8f4a9f3f748dd3ac78",
+      "size": [
+        128,
+        128
+      ]
+    },
+    {
+      "alpha_bbox": [
+        39,
+        17,
+        93,
+        119
+      ],
+      "distinct_color_count": 64,
+      "opaque_pixel_count": 2453,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\west\\frame_03.png",
+      "sha256": "14d83b98c4aca30ee9e8db471f94a43dac905275b7820313327fd733399b23f8",
+      "size": [
+        128,
+        128
+      ]
+    },
+    {
+      "alpha_bbox": [
+        39,
+        14,
+        93,
+        120
+      ],
+      "distinct_color_count": 65,
+      "opaque_pixel_count": 2650,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\west\\frame_04.png",
+      "sha256": "d0ba76eb63315e6def70bfee5f14bc4d03f54e6d394efeec1e2f1d3542081b00",
+      "size": [
+        128,
+        128
+      ]
+    },
+    {
+      "alpha_bbox": [
+        39,
+        17,
+        93,
+        124
+      ],
+      "distinct_color_count": 65,
+      "opaque_pixel_count": 2761,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\feminine-light\\aligned_v2\\walk\\west\\frame_05.png",
+      "sha256": "809cdb2239d79364a33374ae1ce2a90d689f364453d8144f830841355d6cabb1",
+      "size": [
+        128,
+        128
+      ]
+    }
+  ],
+  "has_outliers": true,
+  "loop": true,
+  "thresholds": {
+    "baseline_jump_pixels": 3,
+    "bbox_width_pixels": 8,
+    "opaque_change_percent": 15.0
+  }
+}

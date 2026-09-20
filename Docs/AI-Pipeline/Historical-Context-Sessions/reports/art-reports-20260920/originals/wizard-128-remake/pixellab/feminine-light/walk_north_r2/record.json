@@ -1,0 +1,129 @@
+{
+  "character_id": "53aebb62-452d-4228-bda3-3a873a42f9eb",
+  "animation_group_id": "660311ba-196b-4dd6-b709-8217e0cf2b0c",
+  "animation_name": "wizard_fl_walk_128_north_r2",
+  "recorded_utc": "2026-09-17T21:31:43.252111Z",
+  "balance_after": {
+    "credits": "$30.00",
+    "generations_remaining": 4609,
+    "generations_used": 391,
+    "generations_total": 5000,
+    "subscription": "active (Tier 2: Pixel Artisan)"
+  },
+  "frames": [
+    {
+      "file": "frame_00.png",
+      "source_url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/53aebb62-452d-4228-bda3-3a873a42f9eb/animations/3a8d10f0-4d9c-4eec-93fb-ef9bddef6e8b/north/0.png",
+      "bytes": 4034,
+      "raw_size": [
+        152,
+        152
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        52,
+        21,
+        102,
+        126
+      ],
+      "alpha_bottom_y_from_top": 126,
+      "opaque_pixels": 3190,
+      "raw_sha256": "636709e169e414b7b45f0c29484c3e0f8c36bf538e0bbd8ad188c928f8c77298"
+    },
+    {
+      "file": "frame_01.png",
+      "source_url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/53aebb62-452d-4228-bda3-3a873a42f9eb/animations/3a8d10f0-4d9c-4eec-93fb-ef9bddef6e8b/north/1.png",
+      "bytes": 3282,
+      "raw_size": [
+        152,
+        152
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        52,
+        24,
+        101,
+        129
+      ],
+      "alpha_bottom_y_from_top": 129,
+      "opaque_pixels": 3138,
+      "raw_sha256": "8b6c1b62591f516d636a3b559022adb07166b7fa75001d87a156d4fc8a8d96ac"
+    },
+    {
+      "file": "frame_02.png",
+      "source_url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/53aebb62-452d-4228-bda3-3a873a42f9eb/animations/3a8d10f0-4d9c-4eec-93fb-ef9bddef6e8b/north/2.png",
+      "bytes": 3757,
+      "raw_size": [
+        152,
+        152
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        52,
+        25,
+        100,
+        128
+      ],
+      "alpha_bottom_y_from_top": 128,
+      "opaque_pixels": 3061,
+      "raw_sha256": "f8fc0f90646ef22cec2b5b1312af6e5bd28394c02985261d9e5e58e4718043d7"
+    },
+    {
+      "file": "frame_03.png",
+      "source_url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/53aebb62-452d-4228-bda3-3a873a42f9eb/animations/3a8d10f0-4d9c-4eec-93fb-ef9bddef6e8b/north/3.png",
+      "bytes": 3494,
+      "raw_size": [
+        152,
+        152
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        52,
+        22,
+        100,
+        123
+      ],
+      "alpha_bottom_y_from_top": 123,
+      "opaque_pixels": 3062,
+      "raw_sha256": "a821dd09090f481fa8cc237189494e434e889f3c80ef74f544adbce56e213ec6"
+    },
+    {
+      "file": "frame_04.png",
+      "source_url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/53aebb62-452d-4228-bda3-3a873a42f9eb/animations/3a8d10f0-4d9c-4eec-93fb-ef9bddef6e8b/north/4.png",
+      "bytes": 4058,
+      "raw_size": [
+        152,
+        152
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        52,
+        21,
+        105,
+        127
+      ],
+      "alpha_bottom_y_from_top": 127,
+      "opaque_pixels": 3155,
+      "raw_sha256": "c3e91903dd32faf8c86fcedef7459efc7c8201306dfa40ac67100d98791d200e"
+    },
+    {
+      "file": "frame_05.png",
+      "source_url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/53aebb62-452d-4228-bda3-3a873a42f9eb/animations/3a8d10f0-4d9c-4eec-93fb-ef9bddef6e8b/north/5.png",
+      "bytes": 3410,
+      "raw_size": [
+        152,
+        152
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        52,
+        24,
+        107,
+        130
+      ],
+      "alpha_bottom_y_from_top": 130,
+      "opaque_pixels": 3121,
+      "raw_sha256": "faac657c63d8029cfe2df4398e0f8ffce2cbd6d415348e55ece326c2feb13f5b"
+    }
+  ]
+}

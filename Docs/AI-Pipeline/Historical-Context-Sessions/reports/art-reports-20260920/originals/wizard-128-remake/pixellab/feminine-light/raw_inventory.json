@@ -1,0 +1,1249 @@
+{
+  "key": "feminine-light",
+  "character_id": "53aebb62-452d-4228-bda3-3a873a42f9eb",
+  "animation_group_id": "c92aa47d-7836-423f-a587-cac44dd24f20",
+  "animation_name": "wizard_fl_walk_128",
+  "recorded_utc": "2026-09-17T21:24:38.741021Z",
+  "balance_before": {
+    "generations_remaining": 4612,
+    "generations_used": 388
+  },
+  "balance_after": {
+    "generations_remaining": 4612,
+    "generations_used": 388
+  },
+  "frames": [
+    {
+      "group": "standing",
+      "direction": "south",
+      "index": null,
+      "file": "standing_raw\\south.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 4790,
+      "raw_size": [
+        128,
+        128
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        40,
+        7,
+        88,
+        112
+      ],
+      "alpha_bottom_y_from_top": 112,
+      "opaque_pixels": 3116,
+      "raw_sha256": "57806ca97910d90e879e65b0fce1e8edd2cd3c1a0397807bceabb1fdb1dda118"
+    },
+    {
+      "group": "standing",
+      "direction": "south-east",
+      "index": null,
+      "file": "standing_raw\\south-east.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 4941,
+      "raw_size": [
+        128,
+        128
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        41,
+        9,
+        89,
+        118
+      ],
+      "alpha_bottom_y_from_top": 118,
+      "opaque_pixels": 2972,
+      "raw_sha256": "0396a76d89b117060a770bb60d2639986cdd057f0b94de65d31725c9589bfd1d"
+    },
+    {
+      "group": "standing",
+      "direction": "east",
+      "index": null,
+      "file": "standing_raw\\east.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 3868,
+      "raw_size": [
+        128,
+        128
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        36,
+        13,
+        90,
+        120
+      ],
+      "alpha_bottom_y_from_top": 120,
+      "opaque_pixels": 2507,
+      "raw_sha256": "a4fb7f7e7f6027611d74a5ecbc8ea0eb5ef30fa36d278f226e22d28b38ee496b"
+    },
+    {
+      "group": "standing",
+      "direction": "north-east",
+      "index": null,
+      "file": "standing_raw\\north-east.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 3373,
+      "raw_size": [
+        128,
+        128
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        40,
+        11,
+        88,
+        114
+      ],
+      "alpha_bottom_y_from_top": 114,
+      "opaque_pixels": 2953,
+      "raw_sha256": "8afd75302ac6927fd32dfd8ec998fd2748217542cf1af8139edb07775b52db34"
+    },
+    {
+      "group": "standing",
+      "direction": "north",
+      "index": null,
+      "file": "standing_raw\\north.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 3091,
+      "raw_size": [
+        128,
+        128
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        40,
+        11,
+        89,
+        111
+      ],
+      "alpha_bottom_y_from_top": 111,
+      "opaque_pixels": 3192,
+      "raw_sha256": "0dfef703723cb817fc102cc137273c05bd9f925853f479418c64c7a693d880db"
+    },
+    {
+      "group": "standing",
+      "direction": "north-west",
+      "index": null,
+      "file": "standing_raw\\north-west.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 3386,
+      "raw_size": [
+        128,
+        128
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        40,
+        12,
+        88,
+        115
+      ],
+      "alpha_bottom_y_from_top": 115,
+      "opaque_pixels": 3001,
+      "raw_sha256": "ac45b8fd2fbf79b5ce4885d4ffe723c3a7b72d09cbad69e1aa3ca80f6e75f589"
+    },
+    {
+      "group": "standing",
+      "direction": "west",
+      "index": null,
+      "file": "standing_raw\\west.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 3236,
+      "raw_size": [
+        128,
+        128
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        39,
+        13,
+        92,
+        120
+      ],
+      "alpha_bottom_y_from_top": 120,
+      "opaque_pixels": 2463,
+      "raw_sha256": "fb725c2ee3204c057366d129c21e5d023ddecb6611595c52b47614f6c4264c81"
+    },
+    {
+      "group": "standing",
+      "direction": "south-west",
+      "index": null,
+      "file": "standing_raw\\south-west.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 4863,
+      "raw_size": [
+        128,
+        128
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        38,
+        9,
+        89,
+        117
+      ],
+      "alpha_bottom_y_from_top": 117,
+      "opaque_pixels": 2843,
+      "raw_sha256": "3dc458c649a0ee24b09c5aa38ad2291073c596439939c2e4fe8e25ec7375bfec"
+    },
+    {
+      "group": "walk",
+      "direction": "south",
+      "index": 0,
+      "file": "walk\\south\\frame_00.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 5315,
+      "raw_size": [
+        160,
+        160
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        54,
+        23,
+        102,
+        128
+      ],
+      "alpha_bottom_y_from_top": 128,
+      "opaque_pixels": 3067,
+      "raw_sha256": "a60a31d7fba4508ddf5da668a8903fc1229be7a715b4aa68ab645d5940a776f8"
+    },
+    {
+      "group": "walk",
+      "direction": "south",
+      "index": 1,
+      "file": "walk\\south\\frame_01.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 5132,
+      "raw_size": [
+        160,
+        160
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        53,
+        26,
+        102,
+        129
+      ],
+      "alpha_bottom_y_from_top": 129,
+      "opaque_pixels": 3058,
+      "raw_sha256": "03d97e2ecc3afec135c5bbbe4f920a6ec68828a07b461780bdb64fd82726404f"
+    },
+    {
+      "group": "walk",
+      "direction": "south",
+      "index": 2,
+      "file": "walk\\south\\frame_02.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 5542,
+      "raw_size": [
+        160,
+        160
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        54,
+        27,
+        103,
+        131
+      ],
+      "alpha_bottom_y_from_top": 131,
+      "opaque_pixels": 3078,
+      "raw_sha256": "5873c197e14bb537933e0514fedfbfe627c0f584c4351f14b6e6b3abd6096a6a"
+    },
+    {
+      "group": "walk",
+      "direction": "south",
+      "index": 3,
+      "file": "walk\\south\\frame_03.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 5125,
+      "raw_size": [
+        160,
+        160
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        56,
+        24,
+        104,
+        132
+      ],
+      "alpha_bottom_y_from_top": 132,
+      "opaque_pixels": 3135,
+      "raw_sha256": "81830cc5dbd327a5cedc22b6a582e3c6c178a918f33e7ae196515378f9390338"
+    },
+    {
+      "group": "walk",
+      "direction": "south",
+      "index": 4,
+      "file": "walk\\south\\frame_04.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 5337,
+      "raw_size": [
+        160,
+        160
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        58,
+        23,
+        107,
+        131
+      ],
+      "alpha_bottom_y_from_top": 131,
+      "opaque_pixels": 3092,
+      "raw_sha256": "f83f3a1057f362d04813cc003cdfffe9e29eff325430c2f2d7ab5ae3e5434eac"
+    },
+    {
+      "group": "walk",
+      "direction": "south",
+      "index": 5,
+      "file": "walk\\south\\frame_05.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 4865,
+      "raw_size": [
+        160,
+        160
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        59,
+        27,
+        108,
+        134
+      ],
+      "alpha_bottom_y_from_top": 134,
+      "opaque_pixels": 3017,
+      "raw_sha256": "ba9ba497fbcfe398248ccd9e16c1687f855a68c1dbb092abadf920141af9d71a"
+    },
+    {
+      "group": "walk",
+      "direction": "south-east",
+      "index": 0,
+      "file": "walk\\south-east\\frame_00.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 5296,
+      "raw_size": [
+        156,
+        156
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        55,
+        25,
+        103,
+        132
+      ],
+      "alpha_bottom_y_from_top": 132,
+      "opaque_pixels": 2861,
+      "raw_sha256": "0f0b5b7e575bb639fc545f792af2506e2ab8e049495f7fda7b29f50a2cb91d6a"
+    },
+    {
+      "group": "walk",
+      "direction": "south-east",
+      "index": 1,
+      "file": "walk\\south-east\\frame_01.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 4831,
+      "raw_size": [
+        156,
+        156
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        55,
+        27,
+        104,
+        130
+      ],
+      "alpha_bottom_y_from_top": 130,
+      "opaque_pixels": 2781,
+      "raw_sha256": "2a1c3bf7d393bcc5e080e28dd0f6420034056385074d89088e36b32d28178960"
+    },
+    {
+      "group": "walk",
+      "direction": "south-east",
+      "index": 2,
+      "file": "walk\\south-east\\frame_02.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 5033,
+      "raw_size": [
+        156,
+        156
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        56,
+        25,
+        105,
+        129
+      ],
+      "alpha_bottom_y_from_top": 129,
+      "opaque_pixels": 2737,
+      "raw_sha256": "f5e5b3408a8db7782fd45aafb0f560166e2d206baa9eac8e693e9704f6ecc1d5"
+    },
+    {
+      "group": "walk",
+      "direction": "south-east",
+      "index": 3,
+      "file": "walk\\south-east\\frame_03.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 4659,
+      "raw_size": [
+        156,
+        156
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        56,
+        22,
+        105,
+        129
+      ],
+      "alpha_bottom_y_from_top": 129,
+      "opaque_pixels": 2885,
+      "raw_sha256": "08bcae8382ab5bd39b8ad8e68e8803a2a44bfeac558aab97c888ff4e1d507612"
+    },
+    {
+      "group": "walk",
+      "direction": "south-east",
+      "index": 4,
+      "file": "walk\\south-east\\frame_04.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 5398,
+      "raw_size": [
+        156,
+        156
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        56,
+        24,
+        104,
+        133
+      ],
+      "alpha_bottom_y_from_top": 133,
+      "opaque_pixels": 2956,
+      "raw_sha256": "c5b8ed6213869bede56bc2f01c8fa0e059c9d8d2e1601ddbfdbc5afc85a6a640"
+    },
+    {
+      "group": "walk",
+      "direction": "south-east",
+      "index": 5,
+      "file": "walk\\south-east\\frame_05.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 5234,
+      "raw_size": [
+        156,
+        156
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        53,
+        27,
+        107,
+        136
+      ],
+      "alpha_bottom_y_from_top": 136,
+      "opaque_pixels": 2970,
+      "raw_sha256": "015c4df347292c22ddd33df643d44b5def23f57aff98b79ec407246e2287cf27"
+    },
+    {
+      "group": "walk",
+      "direction": "east",
+      "index": 0,
+      "file": "walk\\east\\frame_00.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 5012,
+      "raw_size": [
+        160,
+        160
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        53,
+        27,
+        107,
+        136
+      ],
+      "alpha_bottom_y_from_top": 136,
+      "opaque_pixels": 2717,
+      "raw_sha256": "96054ae3e4b53136aa4bbbce92b6cde59246b07062b3cd1f78b55a7e3edcae7e"
+    },
+    {
+      "group": "walk",
+      "direction": "east",
+      "index": 1,
+      "file": "walk\\east\\frame_01.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 5023,
+      "raw_size": [
+        160,
+        160
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        52,
+        27,
+        106,
+        136
+      ],
+      "alpha_bottom_y_from_top": 136,
+      "opaque_pixels": 2891,
+      "raw_sha256": "ea95270081a3d3452b1f9e7bb60b4cd446469db5d27301799e8e88320218329c"
+    },
+    {
+      "group": "walk",
+      "direction": "east",
+      "index": 2,
+      "file": "walk\\east\\frame_02.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 4797,
+      "raw_size": [
+        160,
+        160
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        53,
+        29,
+        107,
+        132
+      ],
+      "alpha_bottom_y_from_top": 132,
+      "opaque_pixels": 2691,
+      "raw_sha256": "2a6c5d0bd2d9fcbe23be68ca39452f83290b65f09137f6177ca41ab7a4d19882"
+    },
+    {
+      "group": "walk",
+      "direction": "east",
+      "index": 3,
+      "file": "walk\\east\\frame_03.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 4296,
+      "raw_size": [
+        160,
+        160
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        52,
+        25,
+        108,
+        131
+      ],
+      "alpha_bottom_y_from_top": 131,
+      "opaque_pixels": 2561,
+      "raw_sha256": "3036f71af8c8be5bebcf41633dbfef7200781469504a92c27f0248e197809995"
+    },
+    {
+      "group": "walk",
+      "direction": "east",
+      "index": 4,
+      "file": "walk\\east\\frame_04.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 4829,
+      "raw_size": [
+        160,
+        160
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        55,
+        25,
+        108,
+        132
+      ],
+      "alpha_bottom_y_from_top": 132,
+      "opaque_pixels": 2766,
+      "raw_sha256": "eac640ef44211e15c54cad506b2bc99c2672a33ab79b00fb01b665bd262ac169"
+    },
+    {
+      "group": "walk",
+      "direction": "east",
+      "index": 5,
+      "file": "walk\\east\\frame_05.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 4979,
+      "raw_size": [
+        160,
+        160
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        54,
+        27,
+        108,
+        135
+      ],
+      "alpha_bottom_y_from_top": 135,
+      "opaque_pixels": 2949,
+      "raw_sha256": "7607ad480b2cca508f8b1327c500ecf6dbb0a6f8b2d49d6db16e2eaba86efa10"
+    },
+    {
+      "group": "walk",
+      "direction": "north-east",
+      "index": 0,
+      "file": "walk\\north-east\\frame_00.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 3871,
+      "raw_size": [
+        152,
+        152
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        52,
+        21,
+        101,
+        129
+      ],
+      "alpha_bottom_y_from_top": 129,
+      "opaque_pixels": 3089,
+      "raw_sha256": "d762d99f7b5ad5fcafa4e35fa4b3773a84a6bd5ff2a7028b36a6903193efe83a"
+    },
+    {
+      "group": "walk",
+      "direction": "north-east",
+      "index": 1,
+      "file": "walk\\north-east\\frame_01.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 4212,
+      "raw_size": [
+        152,
+        152
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        52,
+        23,
+        103,
+        130
+      ],
+      "alpha_bottom_y_from_top": 130,
+      "opaque_pixels": 3161,
+      "raw_sha256": "bc35343769c492056acaa249b1c6f78a5abd91d1496872ba19a1e4ff995ad432"
+    },
+    {
+      "group": "walk",
+      "direction": "north-east",
+      "index": 2,
+      "file": "walk\\north-east\\frame_02.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 4218,
+      "raw_size": [
+        152,
+        152
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        51,
+        25,
+        101,
+        130
+      ],
+      "alpha_bottom_y_from_top": 130,
+      "opaque_pixels": 3064,
+      "raw_sha256": "51d9f60ef142a095e074ab05e91d50e11ba381c0a0bfc3158fc79e27ecc7af9c"
+    },
+    {
+      "group": "walk",
+      "direction": "north-east",
+      "index": 3,
+      "file": "walk\\north-east\\frame_03.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 3540,
+      "raw_size": [
+        152,
+        152
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        51,
+        23,
+        100,
+        128
+      ],
+      "alpha_bottom_y_from_top": 128,
+      "opaque_pixels": 3034,
+      "raw_sha256": "ccc9c3b751be3f32480da6cb9f732a02a8d1060c89df775fc6391e57a35d3020"
+    },
+    {
+      "group": "walk",
+      "direction": "north-east",
+      "index": 4,
+      "file": "walk\\north-east\\frame_04.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 3701,
+      "raw_size": [
+        152,
+        152
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        51,
+        21,
+        99,
+        124
+      ],
+      "alpha_bottom_y_from_top": 124,
+      "opaque_pixels": 2973,
+      "raw_sha256": "494828be2033d7bb65f5441767450ca47363842914710623a3165f15ab168efd"
+    },
+    {
+      "group": "walk",
+      "direction": "north-east",
+      "index": 5,
+      "file": "walk\\north-east\\frame_05.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 3774,
+      "raw_size": [
+        152,
+        152
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        49,
+        23,
+        98,
+        126
+      ],
+      "alpha_bottom_y_from_top": 126,
+      "opaque_pixels": 3056,
+      "raw_sha256": "2dba9853fcd8ea7d95b82cbe43aa87d2b40e87715dc37bef1b51b76a52ae24ea"
+    },
+    {
+      "group": "walk",
+      "direction": "north",
+      "index": 0,
+      "file": "walk\\north\\frame_00.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 3689,
+      "raw_size": [
+        152,
+        152
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        52,
+        22,
+        101,
+        125
+      ],
+      "alpha_bottom_y_from_top": 125,
+      "opaque_pixels": 3055,
+      "raw_sha256": "77c384ddaba615e56e3e6981e1752c11f811304804b8ab6c81d35750e6e5ab31"
+    },
+    {
+      "group": "walk",
+      "direction": "north",
+      "index": 1,
+      "file": "walk\\north\\frame_01.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 3094,
+      "raw_size": [
+        152,
+        152
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        52,
+        25,
+        101,
+        127
+      ],
+      "alpha_bottom_y_from_top": 127,
+      "opaque_pixels": 2862,
+      "raw_sha256": "86b4d2215a66ccdfe4e78e1ad1c34d5c87da47d183e1b93ab5e5e6cd3382b416"
+    },
+    {
+      "group": "walk",
+      "direction": "north",
+      "index": 2,
+      "file": "walk\\north\\frame_02.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 3555,
+      "raw_size": [
+        152,
+        152
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        52,
+        25,
+        101,
+        127
+      ],
+      "alpha_bottom_y_from_top": 127,
+      "opaque_pixels": 2964,
+      "raw_sha256": "77d83305fc19304d5606f188663e596e8dffc322e80a45a0fd93508e09303290"
+    },
+    {
+      "group": "walk",
+      "direction": "north",
+      "index": 3,
+      "file": "walk\\north\\frame_03.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 3318,
+      "raw_size": [
+        152,
+        152
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        52,
+        22,
+        101,
+        124
+      ],
+      "alpha_bottom_y_from_top": 124,
+      "opaque_pixels": 3170,
+      "raw_sha256": "ae5a29b5048624002c436f1bbd8134c8c6990f522497361addfc62aab2a66971"
+    },
+    {
+      "group": "walk",
+      "direction": "north",
+      "index": 4,
+      "file": "walk\\north\\frame_04.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 3776,
+      "raw_size": [
+        152,
+        152
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        52,
+        22,
+        100,
+        126
+      ],
+      "alpha_bottom_y_from_top": 126,
+      "opaque_pixels": 3082,
+      "raw_sha256": "60be47c5f70cc785ce4805475859da31fce85d53b1e43b0c56366830b3710f02"
+    },
+    {
+      "group": "walk",
+      "direction": "north",
+      "index": 5,
+      "file": "walk\\north\\frame_05.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 3186,
+      "raw_size": [
+        152,
+        152
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        51,
+        25,
+        100,
+        127
+      ],
+      "alpha_bottom_y_from_top": 127,
+      "opaque_pixels": 3034,
+      "raw_sha256": "2978dfbbcff664a1062aed37d376f05f832b033c096e5094618b0f092c333f7d"
+    },
+    {
+      "group": "walk",
+      "direction": "north-west",
+      "index": 0,
+      "file": "walk\\north-west\\frame_00.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 3607,
+      "raw_size": [
+        148,
+        148
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        50,
+        23,
+        98,
+        126
+      ],
+      "alpha_bottom_y_from_top": 126,
+      "opaque_pixels": 2794,
+      "raw_sha256": "f244691019b1f271e042beccb7e5b88b82c2f7fba3eda0e2360e89d0cc00ffec"
+    },
+    {
+      "group": "walk",
+      "direction": "north-west",
+      "index": 1,
+      "file": "walk\\north-west\\frame_01.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 3397,
+      "raw_size": [
+        148,
+        148
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        50,
+        25,
+        98,
+        128
+      ],
+      "alpha_bottom_y_from_top": 128,
+      "opaque_pixels": 2770,
+      "raw_sha256": "b5cbd88b275ab778733579274a68e7574133649af2cac7f6cdfb5572c30037d9"
+    },
+    {
+      "group": "walk",
+      "direction": "north-west",
+      "index": 2,
+      "file": "walk\\north-west\\frame_02.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 3828,
+      "raw_size": [
+        148,
+        148
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        51,
+        24,
+        99,
+        127
+      ],
+      "alpha_bottom_y_from_top": 127,
+      "opaque_pixels": 2734,
+      "raw_sha256": "ecdf4f71b5ce079c244c12df1328fb91bd2cc105cbda84c5f800377581473251"
+    },
+    {
+      "group": "walk",
+      "direction": "north-west",
+      "index": 3,
+      "file": "walk\\north-west\\frame_03.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 3371,
+      "raw_size": [
+        148,
+        148
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        51,
+        22,
+        99,
+        123
+      ],
+      "alpha_bottom_y_from_top": 123,
+      "opaque_pixels": 2798,
+      "raw_sha256": "af7627efb8a3f13b6fdabb4203e262e600d4710f5fc9246ec81f010aae69d12b"
+    },
+    {
+      "group": "walk",
+      "direction": "north-west",
+      "index": 4,
+      "file": "walk\\north-west\\frame_04.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 3729,
+      "raw_size": [
+        148,
+        148
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        51,
+        22,
+        99,
+        121
+      ],
+      "alpha_bottom_y_from_top": 121,
+      "opaque_pixels": 2983,
+      "raw_sha256": "a22552d0941fed3821f010f5162b7280f9fb8307eab121a1414f1b0fa83f3083"
+    },
+    {
+      "group": "walk",
+      "direction": "north-west",
+      "index": 5,
+      "file": "walk\\north-west\\frame_05.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 3861,
+      "raw_size": [
+        148,
+        148
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        50,
+        24,
+        99,
+        124
+      ],
+      "alpha_bottom_y_from_top": 124,
+      "opaque_pixels": 3226,
+      "raw_sha256": "17bae9d75ffef1e0f30145e5d9ca24512a45c28083661ba8356e4f29fed452f0"
+    },
+    {
+      "group": "walk",
+      "direction": "west",
+      "index": 0,
+      "file": "walk\\west\\frame_00.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 4248,
+      "raw_size": [
+        160,
+        160
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        55,
+        26,
+        109,
+        136
+      ],
+      "alpha_bottom_y_from_top": 136,
+      "opaque_pixels": 2704,
+      "raw_sha256": "9f35ae6f5773ed460f02f3f2e4155954dead4e5db71fc5eba2ad05d8852fd0bd"
+    },
+    {
+      "group": "walk",
+      "direction": "west",
+      "index": 1,
+      "file": "walk\\west\\frame_01.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 4153,
+      "raw_size": [
+        160,
+        160
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        56,
+        29,
+        109,
+        136
+      ],
+      "alpha_bottom_y_from_top": 136,
+      "opaque_pixels": 2817,
+      "raw_sha256": "3415bcba2512cb5590e84a028cfca0db064189e0a86f03fcf852d0089e3b444c"
+    },
+    {
+      "group": "walk",
+      "direction": "west",
+      "index": 2,
+      "file": "walk\\west\\frame_02.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 4210,
+      "raw_size": [
+        160,
+        160
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        55,
+        32,
+        109,
+        131
+      ],
+      "alpha_bottom_y_from_top": 131,
+      "opaque_pixels": 2616,
+      "raw_sha256": "495672a9bfda8f816a28ae30269da96a93ec0e01b3402664136a542841927001"
+    },
+    {
+      "group": "walk",
+      "direction": "west",
+      "index": 3,
+      "file": "walk\\west\\frame_03.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 3425,
+      "raw_size": [
+        160,
+        160
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        55,
+        29,
+        109,
+        131
+      ],
+      "alpha_bottom_y_from_top": 131,
+      "opaque_pixels": 2453,
+      "raw_sha256": "f1791e03846516393662b1617a10a877164ab109d44915d1dd02581e12d41af9"
+    },
+    {
+      "group": "walk",
+      "direction": "west",
+      "index": 4,
+      "file": "walk\\west\\frame_04.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 4329,
+      "raw_size": [
+        160,
+        160
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        55,
+        26,
+        109,
+        132
+      ],
+      "alpha_bottom_y_from_top": 132,
+      "opaque_pixels": 2650,
+      "raw_sha256": "6099ec377a8f62b3d9e669b321b9aec01d912b98079fbdf3f507b91015265dbf"
+    },
+    {
+      "group": "walk",
+      "direction": "west",
+      "index": 5,
+      "file": "walk\\west\\frame_05.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 4084,
+      "raw_size": [
+        160,
+        160
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        55,
+        29,
+        109,
+        136
+      ],
+      "alpha_bottom_y_from_top": 136,
+      "opaque_pixels": 2761,
+      "raw_sha256": "76d4195a7d2a2945e63690a118e82103f584713fd998efc1ab31c439b3615cac"
+    },
+    {
+      "group": "walk",
+      "direction": "south-west",
+      "index": 0,
+      "file": "walk\\south-west\\frame_00.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 5192,
+      "raw_size": [
+        156,
+        156
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        52,
+        25,
+        105,
+        129
+      ],
+      "alpha_bottom_y_from_top": 129,
+      "opaque_pixels": 2811,
+      "raw_sha256": "6336db267dfeaa3a9a3e281668f5d3878cb8d10cf923504257c30445d0a0c99c"
+    },
+    {
+      "group": "walk",
+      "direction": "south-west",
+      "index": 1,
+      "file": "walk\\south-west\\frame_01.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 5041,
+      "raw_size": [
+        156,
+        156
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        52,
+        27,
+        105,
+        129
+      ],
+      "alpha_bottom_y_from_top": 129,
+      "opaque_pixels": 2797,
+      "raw_sha256": "970d1bd75d571c6a5963814cd635824ddecea9b4308e80c56a2e60222a0ad17f"
+    },
+    {
+      "group": "walk",
+      "direction": "south-west",
+      "index": 2,
+      "file": "walk\\south-west\\frame_02.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 5008,
+      "raw_size": [
+        156,
+        156
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        51,
+        25,
+        103,
+        127
+      ],
+      "alpha_bottom_y_from_top": 127,
+      "opaque_pixels": 2693,
+      "raw_sha256": "fbf4b646eaf0809246f0bc47678052d353bd8247902085e0dca39e633b650d0d"
+    },
+    {
+      "group": "walk",
+      "direction": "south-west",
+      "index": 3,
+      "file": "walk\\south-west\\frame_03.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 4794,
+      "raw_size": [
+        156,
+        156
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        51,
+        23,
+        103,
+        127
+      ],
+      "alpha_bottom_y_from_top": 127,
+      "opaque_pixels": 2680,
+      "raw_sha256": "d4eb4092abe1f0f56527ef888e205b049f478c035bc53a14ef8f94b0137fc67e"
+    },
+    {
+      "group": "walk",
+      "direction": "south-west",
+      "index": 4,
+      "file": "walk\\south-west\\frame_04.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 5292,
+      "raw_size": [
+        156,
+        156
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        52,
+        24,
+        105,
+        129
+      ],
+      "alpha_bottom_y_from_top": 129,
+      "opaque_pixels": 2880,
+      "raw_sha256": "1cfe12d66261e462d88e420290e017882286590b2f05d98d8954da7570c0ddc5"
+    },
+    {
+      "group": "walk",
+      "direction": "south-west",
+      "index": 5,
+      "file": "walk\\south-west\\frame_05.png",
+      "source_url": "already downloaded 2026-09-17",
+      "bytes": 5348,
+      "raw_size": [
+        156,
+        156
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        52,
+        27,
+        105,
+        135
+      ],
+      "alpha_bottom_y_from_top": 135,
+      "opaque_pixels": 2993,
+      "raw_sha256": "0133b750ba88ff3f0a8ae68cc4b1fa4033800a8ceb91c027cc337788344692a4"
+    }
+  ]
+}

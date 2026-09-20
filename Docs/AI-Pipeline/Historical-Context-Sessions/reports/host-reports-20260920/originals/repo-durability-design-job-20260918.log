@@ -1,0 +1,5 @@
+The design document is written to `C:\nscrev\reports\repo-durability-and-reset-design-20260918.md`. `exposure-facts.md` was empty, so I used the brief's size estimates and said so in the document.
+
+- **Recommended shape:** the tools move into the game repo. The `C:\NSC` doc set and `C:\nscrev\reports` each become a private archive repo, and a private backup remote holds the 133 local-only branches. `.assistant-control` gets snapshot backups instead of git. Only the game repo ever takes part in a reset.
+- **Worst-case loss window:** 15 minutes of committed work, 1 hour of task records, 24 hours of run logs, plus whatever run is in flight (up to 60 minutes of provider spend).
+- **Cheapest first step:** on Vincent's go, run `git bundle create --all` on the game repo and on each review clone with an unmerged fix branch, saving the bundles to the OneDrive folder already on this machine. It takes minutes and needs no push or new GitHub repo.

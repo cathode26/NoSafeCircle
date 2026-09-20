@@ -1,0 +1,11 @@
+NSC-075: materialize the eight-direction wizard Animator and scene
+
+Output of running DoorPrototypeSceneBuilder.Build on the NSC-075 merge:
+- 32 cardinal idle and walk clips with their .meta files, added alongside the existing 32 diagonal clips;
+- the matching states in WizardAnimator.controller;
+- sprite import settings in the 96 cardinal walk frame .meta files;
+- a rebuilt Assets/Scenes/DoorPrototype.unity.
+
+Line-ending-only churn on the diagonal clips and architectural tiles is not included.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

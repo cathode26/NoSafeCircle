@@ -1,0 +1,8 @@
+Merge codex/nsc053-keep-distance-20260914 (NSC-053)
+
+Adds RangedEnemyKeepDistanceMovement and its Play Mode tests from the
+recovered Codex branch. The branch's two diagnostic commits are reverted
+within it, so the merge adds only the component, its tests and their
+.meta files.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

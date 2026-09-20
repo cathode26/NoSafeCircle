@@ -1,0 +1,1366 @@
+{
+  "entries": {
+    "nscarch": {
+      "name": "nscarch",
+      "branches": [
+        [
+          "fix/architect-cost",
+          "a2436e8f9718d67703f84d528f6685a2d7f04e42"
+        ],
+        [
+          "fix/cache-key-resolution",
+          "8579d4d2bc33e1128d5ed9eb8aeb0efbe5e16c1f"
+        ],
+        [
+          "main",
+          "a2436e8f9718d67703f84d528f6685a2d7f04e42"
+        ]
+      ],
+      "status": [],
+      "toplevel": [],
+      "nested": [],
+      "type": "clone",
+      "size": "41997077",
+      "newest": "1788670280.8514632000 nscarch/.git/refs/heads/fix/cache-key-resolution",
+      "head": "fix/cache-key-resolution",
+      "stash": "0",
+      "remote": "https://github.com/cathode26/NoSafeCircle-Homework-Rehearsal.git",
+      "unique_branches": [
+        [
+          "fix/architect-cost",
+          "a2436e8f9718d67703f84d528f6685a2d7f04e42",
+          "NOT_ANCESTOR"
+        ],
+        [
+          "fix/cache-key-resolution",
+          "8579d4d2bc33e1128d5ed9eb8aeb0efbe5e16c1f",
+          "NOT_IN_CANON"
+        ],
+        [
+          "main",
+          "a2436e8f9718d67703f84d528f6685a2d7f04e42",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "nonnoise_status": []
+    },
+    "nscarch_work": {
+      "name": "nscarch_work",
+      "branches": [],
+      "status": [],
+      "toplevel": [
+        "analyze_architect_requests.py",
+        "evidence",
+        "pycache",
+        "tmp"
+      ],
+      "nested": [],
+      "type": "plain",
+      "size": "1484139",
+      "newest": "1788670263.0376500000 nscarch_work/pycache/nscarch/Pipeline/TaskGraph/graph_apply_smoke_test.cpython-313.pyc",
+      "filecount": "51",
+      "unique_branches": [],
+      "nonnoise_status": []
+    },
+    "nscaudit": {
+      "name": "nscaudit",
+      "branches": [
+        [
+          "main",
+          "e9f68b0c137ca5e47cab26a89ea15ac59765a498"
+        ]
+      ],
+      "status": [],
+      "toplevel": [],
+      "nested": [],
+      "type": "clone",
+      "size": "49037003",
+      "newest": "1789780108.8802585000 nscaudit/.git/worktrees/nscaudit_main/index",
+      "head": "main",
+      "stash": "0",
+      "remote": "https://github.com/cathode26/NoSafeCircle-Homework-Rehearsal.git",
+      "unique_branches": [
+        [
+          "main",
+          "e9f68b0c137ca5e47cab26a89ea15ac59765a498",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "nonnoise_status": []
+    },
+    "nscaudit_main": {
+      "name": "nscaudit_main",
+      "branches": [
+        [
+          "main",
+          "e9f68b0c137ca5e47cab26a89ea15ac59765a498"
+        ]
+      ],
+      "status": [],
+      "toplevel": [],
+      "nested": [],
+      "type": "worktree",
+      "size": "31787891",
+      "newest": "1788662400.0284727000 nscaudit_main/verifier_24_turn_floor/parallel_verification_crew.py",
+      "head": "HEAD",
+      "stash": "0",
+      "remote": "https://github.com/cathode26/NoSafeCircle-Homework-Rehearsal.git",
+      "gitdir_pointer": "gitdir: C:/nscaudit/.git/worktrees/nscaudit_main",
+      "unique_branches": [
+        [
+          "main",
+          "e9f68b0c137ca5e47cab26a89ea15ac59765a498",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "nonnoise_status": []
+    },
+    "nscconc": {
+      "name": "nscconc",
+      "branches": [
+        [
+          "fix/concurrent-readmission",
+          "02188777db27a4f2f906900e5bf538a1490631ac"
+        ],
+        [
+          "main",
+          "02188777db27a4f2f906900e5bf538a1490631ac"
+        ]
+      ],
+      "status": [],
+      "toplevel": [],
+      "nested": [],
+      "type": "clone",
+      "size": "46400066",
+      "newest": "1788678575.9199040000 nscconc/Pipeline/TaskReviewAgent/__pycache__/prepare_synthetic_gauntlet.cpython-313.pyc",
+      "head": "fix/concurrent-readmission",
+      "stash": "0",
+      "remote": "https://github.com/cathode26/NoSafeCircle-Homework-Rehearsal.git",
+      "unique_branches": [
+        [
+          "fix/concurrent-readmission",
+          "02188777db27a4f2f906900e5bf538a1490631ac",
+          "NOT_ANCESTOR"
+        ],
+        [
+          "main",
+          "02188777db27a4f2f906900e5bf538a1490631ac",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "nonnoise_status": []
+    },
+    "nscconc_work": {
+      "name": "nscconc_work",
+      "branches": [],
+      "status": [],
+      "toplevel": [
+        "evidence",
+        "temp",
+        "temp-group-b-evidence-timeline-7f71f7af",
+        "test-tmp-root",
+        "verify-group-a-listener-trace-20260906"
+      ],
+      "nested": [],
+      "type": "plain",
+      "size": "7529582",
+      "newest": "1788676845.9432394000 nscconc_work/evidence/outputs/NSC-917/scheduler-nsc-917-a0336a254b0b4ba0/run_result.json",
+      "filecount": "417",
+      "unique_branches": [],
+      "nonnoise_status": []
+    },
+    "nscdel": {
+      "name": "nscdel",
+      "branches": [
+        [
+          "fix/cache-key-resolution",
+          "8579d4d2bc33e1128d5ed9eb8aeb0efbe5e16c1f"
+        ],
+        [
+          "fix/delete-invalidated-decomposition-template",
+          "8579d4d2bc33e1128d5ed9eb8aeb0efbe5e16c1f"
+        ]
+      ],
+      "status": [],
+      "toplevel": [],
+      "nested": [],
+      "type": "clone",
+      "size": "41213682",
+      "newest": "1789780109.9379136000 nscdel/.git/index",
+      "head": "fix/delete-invalidated-decomposition-template",
+      "stash": "0",
+      "remote": "file:///C:/nscarch",
+      "unique_branches": [
+        [
+          "fix/cache-key-resolution",
+          "8579d4d2bc33e1128d5ed9eb8aeb0efbe5e16c1f",
+          "NOT_IN_CANON"
+        ],
+        [
+          "fix/delete-invalidated-decomposition-template",
+          "8579d4d2bc33e1128d5ed9eb8aeb0efbe5e16c1f",
+          "NOT_IN_CANON"
+        ]
+      ],
+      "nonnoise_status": []
+    },
+    "nscdel_work": {
+      "name": "nscdel_work",
+      "branches": [],
+      "status": [],
+      "toplevel": [
+        "pycache",
+        "tmp"
+      ],
+      "nested": [],
+      "type": "plain",
+      "size": "6872547",
+      "newest": "1788673230.6579007000 nscdel_work/pycache/nscdel/Pipeline/TaskReviewAgent/tests/decomposition_policy_audit_smoke_test.cpython-313.pyc",
+      "filecount": "318",
+      "unique_branches": [],
+      "nonnoise_status": []
+    },
+    "nscfixeol": {
+      "name": "nscfixeol",
+      "branches": [
+        [
+          "fix/canonical-line-ending-comparison",
+          "0bc3a950a193ae7ed1d09aa7cc73587d8b5dce89"
+        ],
+        [
+          "fix/d1c-materialization-rollback",
+          "5b30406263a432e1a10705b455a98fc05e6bdbaa"
+        ]
+      ],
+      "status": [],
+      "toplevel": [],
+      "nested": [],
+      "type": "clone",
+      "size": "43537105",
+      "newest": "1788663084.8135339000 nscfixeol/Pipeline/TaskGraph/__pycache__/graph_apply_materialize_smoke_test.cpython-313.pyc",
+      "head": "fix/canonical-line-ending-comparison",
+      "stash": "0",
+      "remote": "file:///C:/nscfixroll",
+      "unique_branches": [
+        [
+          "fix/canonical-line-ending-comparison",
+          "0bc3a950a193ae7ed1d09aa7cc73587d8b5dce89",
+          "NOT_IN_CANON"
+        ],
+        [
+          "fix/d1c-materialization-rollback",
+          "5b30406263a432e1a10705b455a98fc05e6bdbaa",
+          "NOT_IN_CANON"
+        ]
+      ],
+      "nonnoise_status": []
+    },
+    "nscfixperf": {
+      "name": "nscfixperf",
+      "branches": [
+        [
+          "fix/git-process-storm",
+          "eb2eda584d36ed0ce40ffa2f5e93c1c171cb360e"
+        ],
+        [
+          "main",
+          "e9f68b0c137ca5e47cab26a89ea15ac59765a498"
+        ]
+      ],
+      "status": [],
+      "toplevel": [],
+      "nested": [],
+      "type": "clone",
+      "size": "48669122",
+      "newest": "1788662984.0105428000 nscfixperf/.git/index",
+      "head": "fix/git-process-storm",
+      "stash": "0",
+      "remote": "https://github.com/cathode26/NoSafeCircle-Homework-Rehearsal.git",
+      "unique_branches": [
+        [
+          "fix/git-process-storm",
+          "eb2eda584d36ed0ce40ffa2f5e93c1c171cb360e",
+          "NOT_IN_CANON"
+        ],
+        [
+          "main",
+          "e9f68b0c137ca5e47cab26a89ea15ac59765a498",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "nonnoise_status": []
+    },
+    "nscfixperf_work": {
+      "name": "nscfixperf_work",
+      "branches": [],
+      "status": [],
+      "toplevel": [
+        "__pycache__",
+        "after.jsonl",
+        "after_states.json",
+        "after_states_t.json",
+        "an.py",
+        "base.jsonl",
+        "base_states.json",
+        "before_states.json",
+        "before_states_t.json",
+        "clean_after.json",
+        "clean_after.jsonl",
+        "clean_before.json",
+        "clean_before.jsonl",
+        "conformance_records.NEW.py",
+        "e2e.txt",
+        "equiv.py",
+        "newtest_after.txt",
+        "newtest_before.txt",
+        "run_state.py",
+        "run_states.py",
+        "run_states_at.py",
+        "sitecustomize.py",
+        "state912_after.json",
+        "state912_before.json",
+        "state_after.json",
+        "state_after.jsonl",
+        "state_before.json",
+        "state_before.jsonl"
+      ],
+      "nested": [],
+      "type": "plain",
+      "size": "1212468",
+      "newest": "1788662826.3972644000 nscfixperf_work/e2e.txt",
+      "filecount": "28",
+      "unique_branches": [],
+      "nonnoise_status": []
+    },
+    "nscfixpush": {
+      "name": "nscfixpush",
+      "branches": [
+        [
+          "fix/d1c-push-race-discriminator",
+          "ee9288b2ffb2c7152163a4bb6aa479bbb1b4c6ba"
+        ],
+        [
+          "main",
+          "e9f68b0c137ca5e47cab26a89ea15ac59765a498"
+        ]
+      ],
+      "status": [],
+      "toplevel": [],
+      "nested": [],
+      "type": "clone",
+      "size": "44588133",
+      "newest": "1788661521.3669379000 nscfixpush/.git/logs/refs/heads/fix/d1c-push-race-discriminator",
+      "head": "fix/d1c-push-race-discriminator",
+      "stash": "0",
+      "remote": "https://github.com/cathode26/NoSafeCircle-Homework-Rehearsal.git",
+      "unique_branches": [
+        [
+          "fix/d1c-push-race-discriminator",
+          "ee9288b2ffb2c7152163a4bb6aa479bbb1b4c6ba",
+          "NOT_IN_CANON"
+        ],
+        [
+          "main",
+          "e9f68b0c137ca5e47cab26a89ea15ac59765a498",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "nonnoise_status": []
+    },
+    "nscfixrace": {
+      "name": "nscfixrace",
+      "branches": [
+        [
+          "fix/coherent-snapshot-apply-race",
+          "45cc192492dc76603978481da0c915ba7882214b"
+        ],
+        [
+          "main",
+          "e9f68b0c137ca5e47cab26a89ea15ac59765a498"
+        ]
+      ],
+      "status": [],
+      "toplevel": [],
+      "nested": [],
+      "type": "clone",
+      "size": "40946030",
+      "newest": "1788667325.7886126000 nscfixrace/.git/index",
+      "head": "fix/coherent-snapshot-apply-race",
+      "stash": "0",
+      "remote": "https://github.com/cathode26/NoSafeCircle-Homework-Rehearsal.git",
+      "unique_branches": [
+        [
+          "fix/coherent-snapshot-apply-race",
+          "45cc192492dc76603978481da0c915ba7882214b",
+          "NOT_IN_CANON"
+        ],
+        [
+          "main",
+          "e9f68b0c137ca5e47cab26a89ea15ac59765a498",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "nonnoise_status": []
+    },
+    "nscfixroll": {
+      "name": "nscfixroll",
+      "branches": [
+        [
+          "fix/d1c-materialization-rollback",
+          "5b30406263a432e1a10705b455a98fc05e6bdbaa"
+        ],
+        [
+          "main",
+          "e9f68b0c137ca5e47cab26a89ea15ac59765a498"
+        ]
+      ],
+      "status": [],
+      "toplevel": [],
+      "nested": [],
+      "type": "clone",
+      "size": "41567616",
+      "newest": "1788661465.8452656000 nscfixroll/.git/index",
+      "head": "fix/d1c-materialization-rollback",
+      "stash": "0",
+      "remote": "https://github.com/cathode26/NoSafeCircle-Homework-Rehearsal.git",
+      "unique_branches": [
+        [
+          "fix/d1c-materialization-rollback",
+          "5b30406263a432e1a10705b455a98fc05e6bdbaa",
+          "NOT_IN_CANON"
+        ],
+        [
+          "main",
+          "e9f68b0c137ca5e47cab26a89ea15ac59765a498",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "nonnoise_status": []
+    },
+    "nscfixsnap": {
+      "name": "nscfixsnap",
+      "branches": [
+        [
+          "fix/coherent-snapshot-apply-race",
+          "45cc192492dc76603978481da0c915ba7882214b"
+        ],
+        [
+          "fix/snapshot-refresh-amplification",
+          "9c9f9bf7734237383f121728fe7ac9f1a6c1629e"
+        ]
+      ],
+      "status": [],
+      "toplevel": [],
+      "nested": [],
+      "type": "clone",
+      "size": "45271597",
+      "newest": "1788665044.7159961000 nscfixsnap/Pipeline/TaskReviewAgent/tests/__pycache__/production_graph_snapshot_smoke_test.cpython-313.pyc",
+      "head": "fix/snapshot-refresh-amplification",
+      "stash": "0",
+      "remote": "file:///C:/nscfixrace",
+      "unique_branches": [
+        [
+          "fix/coherent-snapshot-apply-race",
+          "45cc192492dc76603978481da0c915ba7882214b",
+          "NOT_IN_CANON"
+        ],
+        [
+          "fix/snapshot-refresh-amplification",
+          "9c9f9bf7734237383f121728fe7ac9f1a6c1629e",
+          "NOT_IN_CANON"
+        ]
+      ],
+      "nonnoise_status": []
+    },
+    "nscfixtmpl": {
+      "name": "nscfixtmpl",
+      "branches": [
+        [
+          "fix/stale-dependent-decomposition-template",
+          "4d2394610b0cb8b1b29dfef16b183b19f1baa325"
+        ],
+        [
+          "main",
+          "e9f68b0c137ca5e47cab26a89ea15ac59765a498"
+        ]
+      ],
+      "status": [],
+      "toplevel": [],
+      "nested": [],
+      "type": "clone",
+      "size": "40959174",
+      "newest": "1788663923.2001175000 nscfixtmpl/Pipeline/TaskGraph/__pycache__/scene_path_policy.cpython-313.pyc",
+      "head": "fix/stale-dependent-decomposition-template",
+      "stash": "0",
+      "remote": "https://github.com/cathode26/NoSafeCircle-Homework-Rehearsal.git",
+      "unique_branches": [
+        [
+          "fix/stale-dependent-decomposition-template",
+          "4d2394610b0cb8b1b29dfef16b183b19f1baa325",
+          "NOT_IN_CANON"
+        ],
+        [
+          "main",
+          "e9f68b0c137ca5e47cab26a89ea15ac59765a498",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "nonnoise_status": []
+    },
+    "nscfixtrav": {
+      "name": "nscfixtrav",
+      "branches": [
+        [
+          "fix/downstream-manifest-traversal-guard",
+          "728c5c03fd0505402cce12912dfba7e8b1a45816"
+        ],
+        [
+          "main",
+          "2cb418a93823d05c0ae332c79bc89803f3599b82"
+        ]
+      ],
+      "status": [],
+      "toplevel": [],
+      "nested": [],
+      "type": "clone",
+      "size": "41471926",
+      "newest": "1788665711.0572759000 nscfixtrav/.git/logs/refs/heads/fix/downstream-manifest-traversal-guard",
+      "head": "fix/downstream-manifest-traversal-guard",
+      "stash": "0",
+      "remote": "https://github.com/cathode26/NoSafeCircle-Homework-Rehearsal.git",
+      "unique_branches": [
+        [
+          "fix/downstream-manifest-traversal-guard",
+          "728c5c03fd0505402cce12912dfba7e8b1a45816",
+          "NOT_IN_CANON"
+        ],
+        [
+          "main",
+          "2cb418a93823d05c0ae332c79bc89803f3599b82",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "nonnoise_status": []
+    },
+    "nscfixtrav_work": {
+      "name": "nscfixtrav_work",
+      "branches": [],
+      "status": [],
+      "toplevel": [
+        "pycache"
+      ],
+      "nested": [],
+      "type": "plain",
+      "size": "177866",
+      "newest": "1788666024.1259258000 nscfixtrav_work/pycache/nscfixtrav/Pipeline/Testing/validation_manifest_smoke_test.cpython-313.pyc",
+      "filecount": "4",
+      "unique_branches": [],
+      "nonnoise_status": []
+    },
+    "nscilpp": {
+      "name": "nscilpp",
+      "branches": [
+        [
+          "investigate/unity-ilpp-failure",
+          "02188777db27a4f2f906900e5bf538a1490631ac"
+        ],
+        [
+          "main",
+          "02188777db27a4f2f906900e5bf538a1490631ac"
+        ]
+      ],
+      "status": [],
+      "toplevel": [],
+      "nested": [],
+      "type": "clone",
+      "size": "42201033",
+      "newest": "1788679240.4003595000 nscilpp/.git/FETCH_HEAD",
+      "head": "investigate/unity-ilpp-failure",
+      "stash": "0",
+      "remote": "https://github.com/cathode26/NoSafeCircle-Homework-Rehearsal.git",
+      "unique_branches": [
+        [
+          "investigate/unity-ilpp-failure",
+          "02188777db27a4f2f906900e5bf538a1490631ac",
+          "NOT_ANCESTOR"
+        ],
+        [
+          "main",
+          "02188777db27a4f2f906900e5bf538a1490631ac",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "nonnoise_status": []
+    },
+    "nscilpp_work": {
+      "name": "nscilpp_work",
+      "branches": [],
+      "status": [],
+      "toplevel": [
+        "checkout-evidence",
+        "preserved-unity-runs",
+        "repro-artifacts",
+        "repro-killer",
+        "repro-victim"
+      ],
+      "nested": [],
+      "type": "plain",
+      "size": "3070584984",
+      "newest": "1788678951.7079198000 nscilpp_work/repro-artifacts/stale-pid-cross-project-kill/killer-unity.log",
+      "filecount": "42644",
+      "unique_branches": [],
+      "nonnoise_status": []
+    },
+    "nscint": {
+      "name": "nscint",
+      "branches": [
+        [
+          "integ3",
+          "1a7f0a66434433d719ee5eef10bcc7425afffdbd"
+        ],
+        [
+          "main",
+          "a2436e8f9718d67703f84d528f6685a2d7f04e42"
+        ],
+        [
+          "mergeobs",
+          "11719ce6741d2d57ac161ecb8d06bb996d44a2eb"
+        ],
+        [
+          "p2",
+          "a2436e8f9718d67703f84d528f6685a2d7f04e42"
+        ]
+      ],
+      "status": [
+        "?? Pipeline/TaskReviewAgent/tests/zz_probe_thousand.py"
+      ],
+      "toplevel": [],
+      "nested": [],
+      "type": "clone",
+      "size": "53934175",
+      "newest": "1788750511.7369380000 nscint/Pipeline/TaskReviewAgent/__pycache__/openai_pipeline.cpython-313.pyc",
+      "head": "HEAD",
+      "stash": "0",
+      "remote": "https://github.com/cathode26/NoSafeCircle-Homework-Rehearsal.git",
+      "unique_branches": [
+        [
+          "integ3",
+          "1a7f0a66434433d719ee5eef10bcc7425afffdbd",
+          "NOT_ANCESTOR"
+        ],
+        [
+          "main",
+          "a2436e8f9718d67703f84d528f6685a2d7f04e42",
+          "NOT_ANCESTOR"
+        ],
+        [
+          "mergeobs",
+          "11719ce6741d2d57ac161ecb8d06bb996d44a2eb",
+          "NOT_ANCESTOR"
+        ],
+        [
+          "p2",
+          "a2436e8f9718d67703f84d528f6685a2d7f04e42",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "nonnoise_status": [
+        "?? Pipeline/TaskReviewAgent/tests/zz_probe_thousand.py"
+      ]
+    },
+    "nsclat": {
+      "name": "nsclat",
+      "branches": [
+        [
+          "fix/scheduler-poll-latency",
+          "7aed774d59bafb20c425efe99040a4cc3ca9f7cf"
+        ],
+        [
+          "main",
+          "7aed774d59bafb20c425efe99040a4cc3ca9f7cf"
+        ]
+      ],
+      "status": [],
+      "toplevel": [],
+      "nested": [],
+      "type": "clone",
+      "size": "46332731",
+      "newest": "1788676382.1860187000 nsclat/.git/FETCH_HEAD",
+      "head": "fix/scheduler-poll-latency",
+      "stash": "0",
+      "remote": "https://github.com/cathode26/NoSafeCircle-Homework-Rehearsal.git",
+      "unique_branches": [
+        [
+          "fix/scheduler-poll-latency",
+          "7aed774d59bafb20c425efe99040a4cc3ca9f7cf",
+          "NOT_ANCESTOR"
+        ],
+        [
+          "main",
+          "7aed774d59bafb20c425efe99040a4cc3ca9f7cf",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "nonnoise_status": []
+    },
+    "nsclat_work": {
+      "name": "nsclat_work",
+      "branches": [],
+      "status": [],
+      "toplevel": [
+        "bench5min-20260906-0530-evidence",
+        "pycache",
+        "test-temp"
+      ],
+      "nested": [],
+      "type": "plain",
+      "size": "1582096",
+      "newest": "1788676382.9884763000 nsclat_work/pycache/nsclat/Pipeline/TaskReviewAgent/autonomous_graph_run.cpython-313.pyc",
+      "filecount": "55",
+      "unique_branches": [],
+      "nonnoise_status": []
+    },
+    "nscloop": {
+      "name": "nscloop",
+      "branches": [
+        [
+          "fix/task-convergence-loop",
+          "a2436e8f9718d67703f84d528f6685a2d7f04e42"
+        ],
+        [
+          "fix/validation-authority-change-loop",
+          "db14335eb73908cc8fc800f4deb9158678fa8cff"
+        ],
+        [
+          "main",
+          "a2436e8f9718d67703f84d528f6685a2d7f04e42"
+        ]
+      ],
+      "status": [],
+      "toplevel": [],
+      "nested": [],
+      "type": "clone",
+      "size": "44283611",
+      "newest": "1788672679.1160391000 nscloop/.git/index",
+      "head": "fix/validation-authority-change-loop",
+      "stash": "0",
+      "remote": "https://github.com/cathode26/NoSafeCircle-Homework-Rehearsal.git",
+      "unique_branches": [
+        [
+          "fix/task-convergence-loop",
+          "a2436e8f9718d67703f84d528f6685a2d7f04e42",
+          "NOT_ANCESTOR"
+        ],
+        [
+          "fix/validation-authority-change-loop",
+          "db14335eb73908cc8fc800f4deb9158678fa8cff",
+          "NOT_IN_CANON"
+        ],
+        [
+          "main",
+          "a2436e8f9718d67703f84d528f6685a2d7f04e42",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "nonnoise_status": []
+    },
+    "nscloop_work": {
+      "name": "nscloop_work",
+      "branches": [],
+      "status": [],
+      "toplevel": [
+        "NSC-915",
+        "bench1-20260906-0400",
+        "validation-authority-loop-evidence-20260906-01"
+      ],
+      "nested": [],
+      "type": "plain",
+      "size": "7574204",
+      "newest": "1788669377.0283222000 nscloop_work/validation-authority-loop-evidence-20260906-01/bench1-20260906-0400/events.jsonl",
+      "filecount": "475",
+      "unique_branches": [],
+      "nonnoise_status": []
+    },
+    "nscmerge": {
+      "name": "nscmerge",
+      "branches": [
+        [
+          "integration/verify-20260905",
+          "51faeb1d0a466e689079a5e72089cdb4ac4c3246"
+        ],
+        [
+          "integration/verify-20260905-on-cd72913",
+          "fe823f36c2a78efcb6fd753b3f4a795a0448ed42"
+        ],
+        [
+          "main",
+          "2cb418a93823d05c0ae332c79bc89803f3599b82"
+        ]
+      ],
+      "status": [],
+      "toplevel": [],
+      "nested": [],
+      "type": "clone",
+      "size": "43647607",
+      "newest": "1788667362.8348196000 nscmerge/.git/logs/HEAD",
+      "head": "integration/verify-20260905",
+      "stash": "0",
+      "remote": "https://github.com/cathode26/NoSafeCircle-Homework-Rehearsal.git",
+      "unique_branches": [
+        [
+          "integration/verify-20260905",
+          "51faeb1d0a466e689079a5e72089cdb4ac4c3246",
+          "NOT_IN_CANON"
+        ],
+        [
+          "integration/verify-20260905-on-cd72913",
+          "fe823f36c2a78efcb6fd753b3f4a795a0448ed42",
+          "NOT_ANCESTOR"
+        ],
+        [
+          "main",
+          "2cb418a93823d05c0ae332c79bc89803f3599b82",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "nonnoise_status": []
+    },
+    "nscobs": {
+      "name": "nscobs",
+      "branches": [
+        [
+          "feat/resume-hint-observability",
+          "11719ce6741d2d57ac161ecb8d06bb996d44a2eb"
+        ],
+        [
+          "main",
+          "02188777db27a4f2f906900e5bf538a1490631ac"
+        ]
+      ],
+      "status": [],
+      "toplevel": [],
+      "nested": [],
+      "type": "clone",
+      "head": "feat/resume-hint-observability",
+      "stash": "0",
+      "unique_branches": [
+        [
+          "feat/resume-hint-observability",
+          "11719ce6741d2d57ac161ecb8d06bb996d44a2eb",
+          "NOT_ANCESTOR"
+        ],
+        [
+          "main",
+          "02188777db27a4f2f906900e5bf538a1490631ac",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "nonnoise_status": []
+    },
+    "nscobs_work": {
+      "name": "nscobs_work",
+      "branches": [],
+      "status": [],
+      "toplevel": [
+        "rehearsal-evidence"
+      ],
+      "nested": [],
+      "type": "plain",
+      "unique_branches": [],
+      "nonnoise_status": []
+    },
+    "nscperf": {
+      "name": "nscperf",
+      "branches": [
+        [
+          "main",
+          "c589ca37fbf7331e317b0acde79e198b170d2c39"
+        ]
+      ],
+      "status": [],
+      "toplevel": [],
+      "nested": [],
+      "type": "clone",
+      "head": "main",
+      "stash": "0",
+      "unique_branches": [
+        [
+          "main",
+          "c589ca37fbf7331e317b0acde79e198b170d2c39",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "nonnoise_status": []
+    },
+    "nscprobe": {
+      "name": "nscprobe",
+      "branches": [],
+      "status": [],
+      "toplevel": [
+        "probe.py"
+      ],
+      "nested": [],
+      "type": "plain",
+      "unique_branches": [],
+      "nonnoise_status": []
+    },
+    "nscrev911": {
+      "name": "nscrev911",
+      "branches": [
+        [
+          "main",
+          "de6083fd8b9f785535b8df38e1cfd3a6a0de6b61"
+        ]
+      ],
+      "status": [
+        " M Pipeline/TaskGraph/RESOURCE_GROUPS.yaml",
+        " M Pipeline/TaskGraph/WORK_ID_MAP.json",
+        " M Tasks/NSC-911.yaml",
+        " M Tasks/NSC-921.yaml",
+        " M Tasks/NSC-922.yaml",
+        "?? Tasks/NSC-991.yaml",
+        "?? Tasks/NSC-992.yaml"
+      ],
+      "toplevel": [],
+      "nested": [],
+      "type": "clone",
+      "head": "main",
+      "stash": "0",
+      "unique_branches": [
+        [
+          "main",
+          "de6083fd8b9f785535b8df38e1cfd3a6a0de6b61",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "nonnoise_status": [
+        " M Pipeline/TaskGraph/RESOURCE_GROUPS.yaml",
+        " M Pipeline/TaskGraph/WORK_ID_MAP.json",
+        " M Tasks/NSC-911.yaml",
+        " M Tasks/NSC-921.yaml",
+        " M Tasks/NSC-922.yaml",
+        "?? Tasks/NSC-991.yaml",
+        "?? Tasks/NSC-992.yaml"
+      ]
+    },
+    "nscrev911_work": {
+      "name": "nscrev911_work",
+      "branches": [],
+      "status": [],
+      "toplevel": [
+        "DIAGNOSIS.md",
+        "FIX_REVIEW.md",
+        "HANDOFF.md",
+        "OFFLINE_HANDOFF.md",
+        "PERF_FINDINGS.md",
+        "UNMERGED_AUDIT.md",
+        "bench3job.log",
+        "bench5min.log",
+        "bench5min_evidence.json",
+        "bench5min_evidence.md",
+        "benchA.log",
+        "crlf_probe.py",
+        "crlf_probe2.py",
+        "deliverable_materialize.py",
+        "issues.json",
+        "issues_snapshot.json",
+        "main_sha.txt",
+        "nettest.sh",
+        "patched_materialize.py",
+        "phases.log",
+        "phasewatch.sh",
+        "repro.py",
+        "repro2.py",
+        "repro3.py",
+        "repro_c.py",
+        "rg.head",
+        "run.log",
+        "run2.log",
+        "run_suites.sh",
+        "run_suites2.sh",
+        "status.sh",
+        "stop_clean.sh",
+        "supervisor.sh",
+        "supervisor_run.log.1",
+        "supervisor_status.txt",
+        "watch.sh",
+        "wedge-backup"
+      ],
+      "nested": [],
+      "type": "plain",
+      "unique_branches": [],
+      "nonnoise_status": []
+    },
+    "nscrev911b": {
+      "name": "nscrev911b",
+      "branches": [
+        [
+          "main",
+          "72d584a3df74154b8b8664c5b417cb1d469ac5dc"
+        ]
+      ],
+      "status": [],
+      "toplevel": [],
+      "nested": [],
+      "type": "clone",
+      "head": "main",
+      "stash": "0",
+      "unique_branches": [
+        [
+          "main",
+          "72d584a3df74154b8b8664c5b417cb1d469ac5dc",
+          "NOT_IN_CANON"
+        ]
+      ],
+      "nonnoise_status": []
+    },
+    "nscrev911c": {
+      "name": "nscrev911c",
+      "branches": [
+        [
+          "claude/fix-nsc911-decomposition-resume",
+          "2c08bb3f9850453a41f93983107ef2923ad260c7"
+        ],
+        [
+          "main",
+          "2c08bb3f9850453a41f93983107ef2923ad260c7"
+        ]
+      ],
+      "status": [
+        " M Pipeline/TaskGraph/RESOURCE_GROUPS.yaml",
+        " M Pipeline/TaskGraph/WORK_ID_MAP.json",
+        " M Tasks/NSC-911.yaml",
+        " M Tasks/NSC-921.yaml",
+        " M Tasks/NSC-922.yaml",
+        "?? Tasks/NSC-991.yaml",
+        "?? Tasks/NSC-992.yaml"
+      ],
+      "toplevel": [],
+      "nested": [],
+      "type": "clone",
+      "head": "main",
+      "stash": "0",
+      "unique_branches": [
+        [
+          "claude/fix-nsc911-decomposition-resume",
+          "2c08bb3f9850453a41f93983107ef2923ad260c7",
+          "NOT_ANCESTOR"
+        ],
+        [
+          "main",
+          "2c08bb3f9850453a41f93983107ef2923ad260c7",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "nonnoise_status": [
+        " M Pipeline/TaskGraph/RESOURCE_GROUPS.yaml",
+        " M Pipeline/TaskGraph/WORK_ID_MAP.json",
+        " M Tasks/NSC-911.yaml",
+        " M Tasks/NSC-921.yaml",
+        " M Tasks/NSC-922.yaml",
+        "?? Tasks/NSC-991.yaml",
+        "?? Tasks/NSC-992.yaml"
+      ]
+    },
+    "nscreview": {
+      "name": "nscreview",
+      "branches": [
+        [
+          "main",
+          "c589ca37fbf7331e317b0acde79e198b170d2c39"
+        ]
+      ],
+      "status": [],
+      "toplevel": [],
+      "nested": [],
+      "type": "clone",
+      "head": "main",
+      "stash": "0",
+      "unique_branches": [
+        [
+          "main",
+          "c589ca37fbf7331e317b0acde79e198b170d2c39",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "nonnoise_status": []
+    },
+    "nsctmplverify": {
+      "name": "nsctmplverify",
+      "branches": [
+        [
+          "fix/stale-dependent-decomposition-template",
+          "4d2394610b0cb8b1b29dfef16b183b19f1baa325"
+        ]
+      ],
+      "status": [],
+      "toplevel": [],
+      "nested": [],
+      "type": "clone",
+      "head": "fix/stale-dependent-decomposition-template",
+      "stash": "0",
+      "unique_branches": [
+        [
+          "fix/stale-dependent-decomposition-template",
+          "4d2394610b0cb8b1b29dfef16b183b19f1baa325",
+          "NOT_IN_CANON"
+        ]
+      ],
+      "nonnoise_status": []
+    },
+    "nsctmplverify_work": {
+      "name": "nsctmplverify_work",
+      "branches": [],
+      "status": [],
+      "toplevel": [
+        "TEMPLATE_FIX_REVIEW.md",
+        "forge_probe.py",
+        "head_runs",
+        "run_suites.sh"
+      ],
+      "nested": [],
+      "type": "plain",
+      "unique_branches": [],
+      "nonnoise_status": []
+    },
+    "nsctred": {
+      "name": "nsctred",
+      "branches": [
+        [
+          "fix/stale-dependent-decomposition-template",
+          "4d2394610b0cb8b1b29dfef16b183b19f1baa325"
+        ]
+      ],
+      "status": [],
+      "toplevel": [],
+      "nested": [],
+      "type": "clone",
+      "head": "fix/stale-dependent-decomposition-template",
+      "stash": "0",
+      "unique_branches": [
+        [
+          "fix/stale-dependent-decomposition-template",
+          "4d2394610b0cb8b1b29dfef16b183b19f1baa325",
+          "NOT_IN_CANON"
+        ]
+      ],
+      "nonnoise_status": []
+    },
+    "nscunity": {
+      "name": "nscunity",
+      "branches": [
+        [
+          "fix/reuse-validated-unity-evidence",
+          "02188777db27a4f2f906900e5bf538a1490631ac"
+        ],
+        [
+          "main",
+          "02188777db27a4f2f906900e5bf538a1490631ac"
+        ]
+      ],
+      "status": [],
+      "toplevel": [],
+      "nested": [],
+      "type": "clone",
+      "head": "fix/reuse-validated-unity-evidence",
+      "stash": "0",
+      "unique_branches": [
+        [
+          "fix/reuse-validated-unity-evidence",
+          "02188777db27a4f2f906900e5bf538a1490631ac",
+          "NOT_ANCESTOR"
+        ],
+        [
+          "main",
+          "02188777db27a4f2f906900e5bf538a1490631ac",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "nonnoise_status": []
+    },
+    "nscunity_work": {
+      "name": "nscunity_work",
+      "branches": [],
+      "status": [],
+      "toplevel": [
+        "bench5min-20260906-0530-evidence",
+        "phase0-test-temp"
+      ],
+      "nested": [],
+      "type": "plain",
+      "unique_branches": [],
+      "nonnoise_status": []
+    },
+    "nscverify_work": {
+      "name": "nscverify_work",
+      "branches": [],
+      "status": [],
+      "toplevel": [
+        ".task-review-agent",
+        "A_green.txt",
+        "A_red.txt",
+        "BASE_suites.txt",
+        "B_green_apply.txt",
+        "B_green_mat.txt",
+        "B_red_apply.txt",
+        "B_red_mat.txt",
+        "C_green_autonomous_graph_run_smoke_test.py.txt",
+        "C_green_coherent_snapshot_apply_race_smoke_test.py.txt",
+        "C_green_polling_orchestrator_smoke_test.py.txt",
+        "C_green_post_poll_synthetic_pump_smoke_test.py.txt",
+        "C_green_production_graph_snapshot_smoke_test.py.txt",
+        "C_green_transition_settle_wait_smoke_test.py.txt",
+        "C_red_autonomous_graph_run_smoke_test.py.txt",
+        "C_red_coherent_snapshot_apply_race_smoke_test.py.txt",
+        "C_red_polling_orchestrator_smoke_test.py.txt",
+        "C_red_post_poll_synthetic_pump_smoke_test.py.txt",
+        "C_red_production_graph_snapshot_smoke_test.py.txt",
+        "C_red_transition_settle_wait_smoke_test.py.txt",
+        "D_green.txt",
+        "D_red.txt",
+        "E_green.txt",
+        "E_red.txt",
+        "INTEGRATION_VERIFICATION.md",
+        "INT_suites.txt",
+        "changed_files.txt",
+        "conformance_records.orig.py",
+        "int_table.txt",
+        "measure.py",
+        "measure_base.json",
+        "measure_int.json",
+        "part1_matrix.py",
+        "part1_round2.py",
+        "redbefore.sh",
+        "runsuites.py",
+        "shim",
+        "suiteout",
+        "trace.log",
+        "trace_BASE_0.log",
+        "trace_BASE_1.log",
+        "trace_BASE_2.log",
+        "trace_INT_0.log",
+        "trace_INT_1.log",
+        "trace_INT_2.log",
+        "wtBASE",
+        "wtINT"
+      ],
+      "nested": [],
+      "type": "plain",
+      "unique_branches": [],
+      "nonnoise_status": []
+    },
+    "nscviz": {
+      "name": "nscviz",
+      "branches": [
+        [
+          "claude/gauntlet-graph-view",
+          "f62def993f0eed332b76359b344f5a0292581761"
+        ],
+        [
+          "claude/test-fixture-isolation",
+          "3f674309acf0901a79bef2dbf713e3a1f7584205"
+        ],
+        [
+          "main",
+          "11719ce6741d2d57ac161ecb8d06bb996d44a2eb"
+        ]
+      ],
+      "status": [],
+      "toplevel": [],
+      "nested": [],
+      "type": "clone",
+      "head": "claude/gauntlet-graph-view",
+      "stash": "0",
+      "unique_branches": [
+        [
+          "claude/gauntlet-graph-view",
+          "f62def993f0eed332b76359b344f5a0292581761",
+          "NOT_ANCESTOR"
+        ],
+        [
+          "claude/test-fixture-isolation",
+          "3f674309acf0901a79bef2dbf713e3a1f7584205",
+          "NOT_ANCESTOR"
+        ],
+        [
+          "main",
+          "11719ce6741d2d57ac161ecb8d06bb996d44a2eb",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "nonnoise_status": []
+    },
+    "nscwarm": {
+      "name": "nscwarm",
+      "branches": [
+        [
+          "fix/ilpp-pid-minimal",
+          "63b571238618c0a39c221a499de69bb1838f7778"
+        ],
+        [
+          "fix/warm-unity-library",
+          "3f92ff40f5aa2f2002e3758661e124f667d6d3ea"
+        ],
+        [
+          "main",
+          "02188777db27a4f2f906900e5bf538a1490631ac"
+        ]
+      ],
+      "status": [],
+      "toplevel": [],
+      "nested": [],
+      "type": "clone",
+      "head": "fix/ilpp-pid-minimal",
+      "stash": "0",
+      "unique_branches": [
+        [
+          "fix/ilpp-pid-minimal",
+          "63b571238618c0a39c221a499de69bb1838f7778",
+          "NOT_IN_CANON"
+        ],
+        [
+          "fix/warm-unity-library",
+          "3f92ff40f5aa2f2002e3758661e124f667d6d3ea",
+          "NOT_IN_CANON"
+        ],
+        [
+          "main",
+          "02188777db27a4f2f906900e5bf538a1490631ac",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "nonnoise_status": []
+    },
+    "nscwarm_work": {
+      "name": "nscwarm_work",
+      "branches": [],
+      "status": [],
+      "toplevel": [
+        "added-meta-asmdef",
+        "artifacts",
+        "c1-absence",
+        "c1-absence-evidence",
+        "c1-absence-evidence-2",
+        "c1-poison-concurrency-evidence",
+        "c1-poison-killer",
+        "c1-read-order-evidence",
+        "concurrent-a",
+        "concurrent-b",
+        "deleted",
+        "evidence",
+        "minimal-c1-poison-evidence",
+        "negative",
+        "ownership-probe",
+        "pycache",
+        "template-project",
+        "tmp",
+        "warm-seeded"
+      ],
+      "nested": [],
+      "type": "plain",
+      "unique_branches": [],
+      "nonnoise_status": []
+    }
+  },
+  "nested_nscmin": {}
+}

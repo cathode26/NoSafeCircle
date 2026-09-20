@@ -1,0 +1,17 @@
+Merge fix/ci-134: align two crew-role tests with the removed contract locality auditor
+
+Release-blocking CI fix for PR #134, built by the Pipeline Maintainer. Test files only.
+
+Commit 6e718ece2 removed contract_locality_auditor from CREW_SESSION_ROLES and from the crew, but two tests still expected it:
+- session_pool_smoke_test now pins the three current roles;
+- provider_profiles_test now asserts that the routed crew roles are exactly {implementer, test_author, validator, lead_developer} and that the pooled leases match them with distinct record_ids, instead of the old count of 5. That is stricter than the count it replaces: a silently dropped role now fails.
+
+Verification:
+- A host Claude pipeline-reviewer on the Gmail account returned APPROVE, having reproduced both failures at the base commit.
+- The Pipeline Maintainer ran the CI step locally at the tip: provider_profiles_test 41/41, session_pool_smoke_test PASS, 90 tests OK.
+- The Game Agent re-ran session_pool_smoke_test and the CI "focused orchestration checks" modules at the tip.
+- No Codex round: Codex is out of quota and Vincent asked for all-Claude work until 2026-09-19.
+
+Merged during Vincent's pause under his release exception: a paused agent does the work the Release Agent asks for. The two stale ViewerTests ids and the whitespace failures belong to the Release Agent's workflow file.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

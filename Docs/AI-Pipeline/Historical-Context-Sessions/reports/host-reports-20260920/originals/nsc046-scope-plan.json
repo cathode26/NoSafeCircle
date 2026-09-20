@@ -1,0 +1,17 @@
+{
+  "existing_implementation_paths": [
+    "Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/ChapelOfAshSceneBuilder.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/ChapelOfAshLayout.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneCatalog.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Generated/World/RoomSceneCatalog.asset",
+    "Assets/Scenes/Rooms/ChapelOfAsh.unity"
+  ],
+  "new_implementation_paths": [
+    "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/ChapelOfAshFarWallTile.asset",
+    "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/ChapelOfAshCutawayWallTile.asset"
+  ],
+  "existing_test_paths": [
+    "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/ChapelOfAshSceneTests.cs"
+  ],
+  "new_test_paths": []
+}

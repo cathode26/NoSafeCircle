@@ -1,0 +1,9 @@
+NSC-095: itemise the PixelLab call log in the generation record
+
+NSC-095 rev 3 counts spend from this task's own call log rather than the shared account meter, so the generation record now lists all 21 generation calls in order with tool, target, printed cost and running total, and notes that read-only calls cost nothing. It also records that 21 generations went on masculine-dark's belt book and 8 on the four defect re-rolls.
+
+The itemisation corrects the printed total from 93 to 95: the Art Director's hand tally had missed a single-direction re-roll. The measured 130 is unchanged, so the under-report stays about 37%. The cap row now carries rev 3's 200 with Vincent's quotes, and notes that stop-and-ask fired once at 96.
+
+Supplied by the Art Director Agent, who flagged the correction rather than leaving it to be found later.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

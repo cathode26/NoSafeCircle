@@ -1,0 +1,12 @@
+[
+  "Assets/InputSystem_Actions.inputactions",
+  "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+  "Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs",
+  "Assets/NoSafeCircle/DoorPrototype/Scripts/DemoRunFlow.cs",
+  "Assets/NoSafeCircle/DoorPrototype/Scripts/Fireball.cs",
+  "Assets/NoSafeCircle/DoorPrototype/Scripts/FireballProjectile.cs",
+  "Assets/NoSafeCircle/DoorPrototype/Scripts/TitleScreenController.cs",
+  "Assets/NoSafeCircle/DoorPrototype/Scripts/WizardGameEntryController.cs",
+  "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/FireballCommittedSceneConformanceTests.cs",
+  "Assets/NoSafeCircle/DoorPrototype/Tests/FireballPlayModeTests.cs"
+]

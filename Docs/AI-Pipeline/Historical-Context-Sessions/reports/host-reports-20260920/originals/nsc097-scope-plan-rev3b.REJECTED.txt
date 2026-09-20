@@ -1,0 +1,12 @@
+nsc097-scope-plan-rev3b.json was REJECTED by the pipeline on 2026-09-18.
+
+scope refused it with:
+  invalid execution scope plan: existing_implementation_paths must not grant
+  model write authority to .meta
+
+It adds the four door_bonestone_*.png.meta files. A crew can NEVER be given write
+authority on .meta sidecars - they are pipeline-owned by design. Use -rev3.json.
+
+This matters because Validator 2 of NSC-097 run 2 required exactly that fix
+(reimport the four door PNGs as Sprite/64 PPU; they are textureType 0 at 100 PPU).
+No crew can do it. It needs a Unity reimport outside the crew, then a commit.

@@ -1,0 +1,853 @@
+{
+  "rows": [
+    {
+      "name": "nscarch",
+      "type": "clone",
+      "size": 41997077,
+      "head": "fix/cache-key-resolution",
+      "remote": "https://github.com/cathode26/NoSafeCircle-Homework-Rehearsal.git",
+      "unique_branches": [
+        [
+          "fix/architect-cost",
+          "a2436e8f9718d67703f84d528f6685a2d7f04e42",
+          "NOT_ANCESTOR"
+        ],
+        [
+          "fix/cache-key-resolution",
+          "8579d4d2bc33e1128d5ed9eb8aeb0efbe5e16c1f",
+          "NOT_IN_CANON"
+        ],
+        [
+          "main",
+          "a2436e8f9718d67703f84d528f6685a2d7f04e42",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "dirty": [],
+      "stash": "0",
+      "newest": "1788670280.8514632000 nscarch/.git/refs/heads/fix/cache-key-resolution"
+    },
+    {
+      "name": "nscarch_work",
+      "type": "plain",
+      "size": 1484139,
+      "head": "",
+      "remote": "",
+      "unique_branches": [],
+      "dirty": [],
+      "stash": "0",
+      "newest": "1788670263.0376500000 nscarch_work/pycache/nscarch/Pipeline/TaskGraph/graph_apply_smoke_test.cpython-313.pyc"
+    },
+    {
+      "name": "nscaudit",
+      "type": "clone",
+      "size": 49037003,
+      "head": "main",
+      "remote": "https://github.com/cathode26/NoSafeCircle-Homework-Rehearsal.git",
+      "unique_branches": [
+        [
+          "main",
+          "e9f68b0c137ca5e47cab26a89ea15ac59765a498",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "dirty": [],
+      "stash": "0",
+      "newest": "1789780108.8802585000 nscaudit/.git/worktrees/nscaudit_main/index"
+    },
+    {
+      "name": "nscaudit_main",
+      "type": "worktree",
+      "size": 31787891,
+      "head": "HEAD",
+      "remote": "https://github.com/cathode26/NoSafeCircle-Homework-Rehearsal.git",
+      "unique_branches": [
+        [
+          "main",
+          "e9f68b0c137ca5e47cab26a89ea15ac59765a498",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "dirty": [],
+      "stash": "0",
+      "newest": "1788662400.0284727000 nscaudit_main/verifier_24_turn_floor/parallel_verification_crew.py"
+    },
+    {
+      "name": "nscconc",
+      "type": "clone",
+      "size": 46400066,
+      "head": "fix/concurrent-readmission",
+      "remote": "https://github.com/cathode26/NoSafeCircle-Homework-Rehearsal.git",
+      "unique_branches": [
+        [
+          "fix/concurrent-readmission",
+          "02188777db27a4f2f906900e5bf538a1490631ac",
+          "NOT_ANCESTOR"
+        ],
+        [
+          "main",
+          "02188777db27a4f2f906900e5bf538a1490631ac",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "dirty": [],
+      "stash": "0",
+      "newest": "1788678575.9199040000 nscconc/Pipeline/TaskReviewAgent/__pycache__/prepare_synthetic_gauntlet.cpython-313.pyc"
+    },
+    {
+      "name": "nscconc_work",
+      "type": "plain",
+      "size": 7529582,
+      "head": "",
+      "remote": "",
+      "unique_branches": [],
+      "dirty": [],
+      "stash": "0",
+      "newest": "1788676845.9432394000 nscconc_work/evidence/outputs/NSC-917/scheduler-nsc-917-a0336a254b0b4ba0/run_result.json"
+    },
+    {
+      "name": "nscdel",
+      "type": "clone",
+      "size": 41213682,
+      "head": "fix/delete-invalidated-decomposition-template",
+      "remote": "file:///C:/nscarch",
+      "unique_branches": [
+        [
+          "fix/cache-key-resolution",
+          "8579d4d2bc33e1128d5ed9eb8aeb0efbe5e16c1f",
+          "NOT_IN_CANON"
+        ],
+        [
+          "fix/delete-invalidated-decomposition-template",
+          "8579d4d2bc33e1128d5ed9eb8aeb0efbe5e16c1f",
+          "NOT_IN_CANON"
+        ]
+      ],
+      "dirty": [],
+      "stash": "0",
+      "newest": "1789780109.9379136000 nscdel/.git/index"
+    },
+    {
+      "name": "nscdel_work",
+      "type": "plain",
+      "size": 6872547,
+      "head": "",
+      "remote": "",
+      "unique_branches": [],
+      "dirty": [],
+      "stash": "0",
+      "newest": "1788673230.6579007000 nscdel_work/pycache/nscdel/Pipeline/TaskReviewAgent/tests/decomposition_policy_audit_smoke_test.cpython-313.pyc"
+    },
+    {
+      "name": "nscfixeol",
+      "type": "clone",
+      "size": 43537105,
+      "head": "fix/canonical-line-ending-comparison",
+      "remote": "file:///C:/nscfixroll",
+      "unique_branches": [
+        [
+          "fix/canonical-line-ending-comparison",
+          "0bc3a950a193ae7ed1d09aa7cc73587d8b5dce89",
+          "NOT_IN_CANON"
+        ],
+        [
+          "fix/d1c-materialization-rollback",
+          "5b30406263a432e1a10705b455a98fc05e6bdbaa",
+          "NOT_IN_CANON"
+        ]
+      ],
+      "dirty": [],
+      "stash": "0",
+      "newest": "1788663084.8135339000 nscfixeol/Pipeline/TaskGraph/__pycache__/graph_apply_materialize_smoke_test.cpython-313.pyc"
+    },
+    {
+      "name": "nscfixperf",
+      "type": "clone",
+      "size": 48669122,
+      "head": "fix/git-process-storm",
+      "remote": "https://github.com/cathode26/NoSafeCircle-Homework-Rehearsal.git",
+      "unique_branches": [
+        [
+          "fix/git-process-storm",
+          "eb2eda584d36ed0ce40ffa2f5e93c1c171cb360e",
+          "NOT_IN_CANON"
+        ],
+        [
+          "main",
+          "e9f68b0c137ca5e47cab26a89ea15ac59765a498",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "dirty": [],
+      "stash": "0",
+      "newest": "1788662984.0105428000 nscfixperf/.git/index"
+    },
+    {
+      "name": "nscfixperf_work",
+      "type": "plain",
+      "size": 1212468,
+      "head": "",
+      "remote": "",
+      "unique_branches": [],
+      "dirty": [],
+      "stash": "0",
+      "newest": "1788662826.3972644000 nscfixperf_work/e2e.txt"
+    },
+    {
+      "name": "nscfixpush",
+      "type": "clone",
+      "size": 44588133,
+      "head": "fix/d1c-push-race-discriminator",
+      "remote": "https://github.com/cathode26/NoSafeCircle-Homework-Rehearsal.git",
+      "unique_branches": [
+        [
+          "fix/d1c-push-race-discriminator",
+          "ee9288b2ffb2c7152163a4bb6aa479bbb1b4c6ba",
+          "NOT_IN_CANON"
+        ],
+        [
+          "main",
+          "e9f68b0c137ca5e47cab26a89ea15ac59765a498",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "dirty": [],
+      "stash": "0",
+      "newest": "1788661521.3669379000 nscfixpush/.git/logs/refs/heads/fix/d1c-push-race-discriminator"
+    },
+    {
+      "name": "nscfixrace",
+      "type": "clone",
+      "size": 40946030,
+      "head": "fix/coherent-snapshot-apply-race",
+      "remote": "https://github.com/cathode26/NoSafeCircle-Homework-Rehearsal.git",
+      "unique_branches": [
+        [
+          "fix/coherent-snapshot-apply-race",
+          "45cc192492dc76603978481da0c915ba7882214b",
+          "NOT_IN_CANON"
+        ],
+        [
+          "main",
+          "e9f68b0c137ca5e47cab26a89ea15ac59765a498",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "dirty": [],
+      "stash": "0",
+      "newest": "1788667325.7886126000 nscfixrace/.git/index"
+    },
+    {
+      "name": "nscfixroll",
+      "type": "clone",
+      "size": 41567616,
+      "head": "fix/d1c-materialization-rollback",
+      "remote": "https://github.com/cathode26/NoSafeCircle-Homework-Rehearsal.git",
+      "unique_branches": [
+        [
+          "fix/d1c-materialization-rollback",
+          "5b30406263a432e1a10705b455a98fc05e6bdbaa",
+          "NOT_IN_CANON"
+        ],
+        [
+          "main",
+          "e9f68b0c137ca5e47cab26a89ea15ac59765a498",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "dirty": [],
+      "stash": "0",
+      "newest": "1788661465.8452656000 nscfixroll/.git/index"
+    },
+    {
+      "name": "nscfixsnap",
+      "type": "clone",
+      "size": 45271597,
+      "head": "fix/snapshot-refresh-amplification",
+      "remote": "file:///C:/nscfixrace",
+      "unique_branches": [
+        [
+          "fix/coherent-snapshot-apply-race",
+          "45cc192492dc76603978481da0c915ba7882214b",
+          "NOT_IN_CANON"
+        ],
+        [
+          "fix/snapshot-refresh-amplification",
+          "9c9f9bf7734237383f121728fe7ac9f1a6c1629e",
+          "NOT_IN_CANON"
+        ]
+      ],
+      "dirty": [],
+      "stash": "0",
+      "newest": "1788665044.7159961000 nscfixsnap/Pipeline/TaskReviewAgent/tests/__pycache__/production_graph_snapshot_smoke_test.cpython-313.pyc"
+    },
+    {
+      "name": "nscfixtmpl",
+      "type": "clone",
+      "size": 40959174,
+      "head": "fix/stale-dependent-decomposition-template",
+      "remote": "https://github.com/cathode26/NoSafeCircle-Homework-Rehearsal.git",
+      "unique_branches": [
+        [
+          "fix/stale-dependent-decomposition-template",
+          "4d2394610b0cb8b1b29dfef16b183b19f1baa325",
+          "NOT_IN_CANON"
+        ],
+        [
+          "main",
+          "e9f68b0c137ca5e47cab26a89ea15ac59765a498",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "dirty": [],
+      "stash": "0",
+      "newest": "1788663923.2001175000 nscfixtmpl/Pipeline/TaskGraph/__pycache__/scene_path_policy.cpython-313.pyc"
+    },
+    {
+      "name": "nscfixtrav",
+      "type": "clone",
+      "size": 41471926,
+      "head": "fix/downstream-manifest-traversal-guard",
+      "remote": "https://github.com/cathode26/NoSafeCircle-Homework-Rehearsal.git",
+      "unique_branches": [
+        [
+          "fix/downstream-manifest-traversal-guard",
+          "728c5c03fd0505402cce12912dfba7e8b1a45816",
+          "NOT_IN_CANON"
+        ],
+        [
+          "main",
+          "2cb418a93823d05c0ae332c79bc89803f3599b82",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "dirty": [],
+      "stash": "0",
+      "newest": "1788665711.0572759000 nscfixtrav/.git/logs/refs/heads/fix/downstream-manifest-traversal-guard"
+    },
+    {
+      "name": "nscfixtrav_work",
+      "type": "plain",
+      "size": 177866,
+      "head": "",
+      "remote": "",
+      "unique_branches": [],
+      "dirty": [],
+      "stash": "0",
+      "newest": "1788666024.1259258000 nscfixtrav_work/pycache/nscfixtrav/Pipeline/Testing/validation_manifest_smoke_test.cpython-313.pyc"
+    },
+    {
+      "name": "nscilpp",
+      "type": "clone",
+      "size": 42201033,
+      "head": "investigate/unity-ilpp-failure",
+      "remote": "https://github.com/cathode26/NoSafeCircle-Homework-Rehearsal.git",
+      "unique_branches": [
+        [
+          "investigate/unity-ilpp-failure",
+          "02188777db27a4f2f906900e5bf538a1490631ac",
+          "NOT_ANCESTOR"
+        ],
+        [
+          "main",
+          "02188777db27a4f2f906900e5bf538a1490631ac",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "dirty": [],
+      "stash": "0",
+      "newest": "1788679240.4003595000 nscilpp/.git/FETCH_HEAD"
+    },
+    {
+      "name": "nscilpp_work",
+      "type": "plain",
+      "size": 3070584984,
+      "head": "",
+      "remote": "",
+      "unique_branches": [],
+      "dirty": [],
+      "stash": "0",
+      "newest": "1788678951.7079198000 nscilpp_work/repro-artifacts/stale-pid-cross-project-kill/killer-unity.log"
+    },
+    {
+      "name": "nscint",
+      "type": "clone",
+      "size": 53934175,
+      "head": "HEAD",
+      "remote": "https://github.com/cathode26/NoSafeCircle-Homework-Rehearsal.git",
+      "unique_branches": [
+        [
+          "integ3",
+          "1a7f0a66434433d719ee5eef10bcc7425afffdbd",
+          "NOT_ANCESTOR"
+        ],
+        [
+          "main",
+          "a2436e8f9718d67703f84d528f6685a2d7f04e42",
+          "NOT_ANCESTOR"
+        ],
+        [
+          "mergeobs",
+          "11719ce6741d2d57ac161ecb8d06bb996d44a2eb",
+          "NOT_ANCESTOR"
+        ],
+        [
+          "p2",
+          "a2436e8f9718d67703f84d528f6685a2d7f04e42",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "dirty": [
+        "?? Pipeline/TaskReviewAgent/tests/zz_probe_thousand.py"
+      ],
+      "stash": "0",
+      "newest": "1788750511.7369380000 nscint/Pipeline/TaskReviewAgent/__pycache__/openai_pipeline.cpython-313.pyc"
+    },
+    {
+      "name": "nsclat",
+      "type": "clone",
+      "size": 46332731,
+      "head": "fix/scheduler-poll-latency",
+      "remote": "https://github.com/cathode26/NoSafeCircle-Homework-Rehearsal.git",
+      "unique_branches": [
+        [
+          "fix/scheduler-poll-latency",
+          "7aed774d59bafb20c425efe99040a4cc3ca9f7cf",
+          "NOT_ANCESTOR"
+        ],
+        [
+          "main",
+          "7aed774d59bafb20c425efe99040a4cc3ca9f7cf",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "dirty": [],
+      "stash": "0",
+      "newest": "1788676382.1860187000 nsclat/.git/FETCH_HEAD"
+    },
+    {
+      "name": "nsclat_work",
+      "type": "plain",
+      "size": 1582096,
+      "head": "",
+      "remote": "",
+      "unique_branches": [],
+      "dirty": [],
+      "stash": "0",
+      "newest": "1788676382.9884763000 nsclat_work/pycache/nsclat/Pipeline/TaskReviewAgent/autonomous_graph_run.cpython-313.pyc"
+    },
+    {
+      "name": "nscloop",
+      "type": "clone",
+      "size": 44283611,
+      "head": "fix/validation-authority-change-loop",
+      "remote": "https://github.com/cathode26/NoSafeCircle-Homework-Rehearsal.git",
+      "unique_branches": [
+        [
+          "fix/task-convergence-loop",
+          "a2436e8f9718d67703f84d528f6685a2d7f04e42",
+          "NOT_ANCESTOR"
+        ],
+        [
+          "fix/validation-authority-change-loop",
+          "db14335eb73908cc8fc800f4deb9158678fa8cff",
+          "NOT_IN_CANON"
+        ],
+        [
+          "main",
+          "a2436e8f9718d67703f84d528f6685a2d7f04e42",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "dirty": [],
+      "stash": "0",
+      "newest": "1788672679.1160391000 nscloop/.git/index"
+    },
+    {
+      "name": "nscloop_work",
+      "type": "plain",
+      "size": 7574204,
+      "head": "",
+      "remote": "",
+      "unique_branches": [],
+      "dirty": [],
+      "stash": "0",
+      "newest": "1788669377.0283222000 nscloop_work/validation-authority-loop-evidence-20260906-01/bench1-20260906-0400/events.jsonl"
+    },
+    {
+      "name": "nscmerge",
+      "type": "clone",
+      "size": 43647607,
+      "head": "integration/verify-20260905",
+      "remote": "https://github.com/cathode26/NoSafeCircle-Homework-Rehearsal.git",
+      "unique_branches": [
+        [
+          "integration/verify-20260905",
+          "51faeb1d0a466e689079a5e72089cdb4ac4c3246",
+          "NOT_IN_CANON"
+        ],
+        [
+          "integration/verify-20260905-on-cd72913",
+          "fe823f36c2a78efcb6fd753b3f4a795a0448ed42",
+          "NOT_ANCESTOR"
+        ],
+        [
+          "main",
+          "2cb418a93823d05c0ae332c79bc89803f3599b82",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "dirty": [],
+      "stash": "0",
+      "newest": "1788667362.8348196000 nscmerge/.git/logs/HEAD"
+    },
+    {
+      "name": "nscobs",
+      "type": "clone",
+      "size": 43414945,
+      "head": "feat/resume-hint-observability",
+      "remote": "",
+      "unique_branches": [
+        [
+          "feat/resume-hint-observability",
+          "11719ce6741d2d57ac161ecb8d06bb996d44a2eb",
+          "NOT_ANCESTOR"
+        ],
+        [
+          "main",
+          "02188777db27a4f2f906900e5bf538a1490631ac",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "dirty": [],
+      "stash": "0",
+      "newest": ""
+    },
+    {
+      "name": "nscobs_work",
+      "type": "plain",
+      "size": 7262472,
+      "head": "",
+      "remote": "",
+      "unique_branches": [],
+      "dirty": [],
+      "stash": "0",
+      "newest": ""
+    },
+    {
+      "name": "nscperf",
+      "type": "clone",
+      "size": 40809337,
+      "head": "main",
+      "remote": "",
+      "unique_branches": [
+        [
+          "main",
+          "c589ca37fbf7331e317b0acde79e198b170d2c39",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "dirty": [],
+      "stash": "0",
+      "newest": ""
+    },
+    {
+      "name": "nscprobe",
+      "type": "plain",
+      "size": 22541,
+      "head": "",
+      "remote": "",
+      "unique_branches": [],
+      "dirty": [],
+      "stash": "0",
+      "newest": ""
+    },
+    {
+      "name": "nscrev911",
+      "type": "clone",
+      "size": 42747870,
+      "head": "main",
+      "remote": "",
+      "unique_branches": [
+        [
+          "main",
+          "de6083fd8b9f785535b8df38e1cfd3a6a0de6b61",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "dirty": [
+        " M Pipeline/TaskGraph/RESOURCE_GROUPS.yaml",
+        " M Pipeline/TaskGraph/WORK_ID_MAP.json",
+        " M Tasks/NSC-911.yaml",
+        " M Tasks/NSC-921.yaml",
+        " M Tasks/NSC-922.yaml",
+        "?? Tasks/NSC-991.yaml",
+        "?? Tasks/NSC-992.yaml"
+      ],
+      "stash": "0",
+      "newest": ""
+    },
+    {
+      "name": "nscrev911_work",
+      "type": "plain",
+      "size": 3340817,
+      "head": "",
+      "remote": "",
+      "unique_branches": [],
+      "dirty": [],
+      "stash": "0",
+      "newest": ""
+    },
+    {
+      "name": "nscrev911b",
+      "type": "clone",
+      "size": 42780637,
+      "head": "main",
+      "remote": "",
+      "unique_branches": [
+        [
+          "main",
+          "72d584a3df74154b8b8664c5b417cb1d469ac5dc",
+          "NOT_IN_CANON"
+        ]
+      ],
+      "dirty": [],
+      "stash": "0",
+      "newest": ""
+    },
+    {
+      "name": "nscrev911c",
+      "type": "clone",
+      "size": 42893839,
+      "head": "main",
+      "remote": "",
+      "unique_branches": [
+        [
+          "claude/fix-nsc911-decomposition-resume",
+          "2c08bb3f9850453a41f93983107ef2923ad260c7",
+          "NOT_ANCESTOR"
+        ],
+        [
+          "main",
+          "2c08bb3f9850453a41f93983107ef2923ad260c7",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "dirty": [
+        " M Pipeline/TaskGraph/RESOURCE_GROUPS.yaml",
+        " M Pipeline/TaskGraph/WORK_ID_MAP.json",
+        " M Tasks/NSC-911.yaml",
+        " M Tasks/NSC-921.yaml",
+        " M Tasks/NSC-922.yaml",
+        "?? Tasks/NSC-991.yaml",
+        "?? Tasks/NSC-992.yaml"
+      ],
+      "stash": "0",
+      "newest": ""
+    },
+    {
+      "name": "nscreview",
+      "type": "clone",
+      "size": 43473803,
+      "head": "main",
+      "remote": "",
+      "unique_branches": [
+        [
+          "main",
+          "c589ca37fbf7331e317b0acde79e198b170d2c39",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "dirty": [],
+      "stash": "0",
+      "newest": ""
+    },
+    {
+      "name": "nsctmplverify",
+      "type": "clone",
+      "size": 43753666,
+      "head": "fix/stale-dependent-decomposition-template",
+      "remote": "",
+      "unique_branches": [
+        [
+          "fix/stale-dependent-decomposition-template",
+          "4d2394610b0cb8b1b29dfef16b183b19f1baa325",
+          "NOT_IN_CANON"
+        ]
+      ],
+      "dirty": [],
+      "stash": "0",
+      "newest": ""
+    },
+    {
+      "name": "nsctmplverify_work",
+      "type": "plain",
+      "size": 49427,
+      "head": "",
+      "remote": "",
+      "unique_branches": [],
+      "dirty": [],
+      "stash": "0",
+      "newest": ""
+    },
+    {
+      "name": "nsctred",
+      "type": "clone",
+      "size": 43493408,
+      "head": "fix/stale-dependent-decomposition-template",
+      "remote": "",
+      "unique_branches": [
+        [
+          "fix/stale-dependent-decomposition-template",
+          "4d2394610b0cb8b1b29dfef16b183b19f1baa325",
+          "NOT_IN_CANON"
+        ]
+      ],
+      "dirty": [],
+      "stash": "0",
+      "newest": ""
+    },
+    {
+      "name": "nscunity",
+      "type": "clone",
+      "size": 42201045,
+      "head": "fix/reuse-validated-unity-evidence",
+      "remote": "",
+      "unique_branches": [
+        [
+          "fix/reuse-validated-unity-evidence",
+          "02188777db27a4f2f906900e5bf538a1490631ac",
+          "NOT_ANCESTOR"
+        ],
+        [
+          "main",
+          "02188777db27a4f2f906900e5bf538a1490631ac",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "dirty": [],
+      "stash": "0",
+      "newest": ""
+    },
+    {
+      "name": "nscunity_work",
+      "type": "plain",
+      "size": 300064,
+      "head": "",
+      "remote": "",
+      "unique_branches": [],
+      "dirty": [],
+      "stash": "0",
+      "newest": ""
+    },
+    {
+      "name": "nscverify_work",
+      "type": "plain",
+      "size": 74112059,
+      "head": "",
+      "remote": "",
+      "unique_branches": [],
+      "dirty": [],
+      "stash": "0",
+      "newest": ""
+    },
+    {
+      "name": "nscviz",
+      "type": "clone",
+      "size": 45954887,
+      "head": "claude/gauntlet-graph-view",
+      "remote": "",
+      "unique_branches": [
+        [
+          "claude/gauntlet-graph-view",
+          "f62def993f0eed332b76359b344f5a0292581761",
+          "NOT_ANCESTOR"
+        ],
+        [
+          "claude/test-fixture-isolation",
+          "3f674309acf0901a79bef2dbf713e3a1f7584205",
+          "NOT_ANCESTOR"
+        ],
+        [
+          "main",
+          "11719ce6741d2d57ac161ecb8d06bb996d44a2eb",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "dirty": [],
+      "stash": "0",
+      "newest": ""
+    },
+    {
+      "name": "nscwarm",
+      "type": "clone",
+      "size": 45408720,
+      "head": "fix/ilpp-pid-minimal",
+      "remote": "",
+      "unique_branches": [
+        [
+          "fix/ilpp-pid-minimal",
+          "63b571238618c0a39c221a499de69bb1838f7778",
+          "NOT_IN_CANON"
+        ],
+        [
+          "fix/warm-unity-library",
+          "3f92ff40f5aa2f2002e3758661e124f667d6d3ea",
+          "NOT_IN_CANON"
+        ],
+        [
+          "main",
+          "02188777db27a4f2f906900e5bf538a1490631ac",
+          "NOT_ANCESTOR"
+        ]
+      ],
+      "dirty": [],
+      "stash": "0",
+      "newest": ""
+    },
+    {
+      "name": "nscwarm_work",
+      "type": "plain",
+      "size": null,
+      "head": "",
+      "remote": "",
+      "unique_branches": [],
+      "dirty": [],
+      "stash": "0",
+      "newest": ""
+    }
+  ],
+  "nscmin_row": {
+    "name": "nscmin_work",
+    "type": "plain (4 nested full git clones, each with a Unity Library/)",
+    "size": 5560282078,
+    "nested": [
+      [
+        "killer",
+        "fix/ilpp-pid-minimal",
+        "850fafb",
+        "clean"
+      ],
+      [
+        "missing",
+        "fix/ilpp-pid-minimal",
+        "11719ce",
+        "clean"
+      ],
+      [
+        "negative",
+        "fix/ilpp-pid-minimal",
+        "0073f51",
+        "clean"
+      ],
+      [
+        "victim",
+        "fix/ilpp-pid-minimal",
+        "e006c23",
+        "clean"
+      ]
+    ]
+  },
+  "total_bytes": 10007165080,
+  "unique_count": 29
+}

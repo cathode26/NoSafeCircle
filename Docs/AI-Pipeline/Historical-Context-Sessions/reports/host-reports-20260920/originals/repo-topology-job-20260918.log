@@ -1,0 +1,3 @@
+Topology: keep the game repo exactly as it is and add one new working repo, `nsc-fleet` (docs, `agent-state`, `C:\NSC\tools`, agent definitions, memory), plus two job-fed archives, `nsc-reports` and `nsc-control`. Nothing moves and no `.git` appears in `C:\NSC`. Putting agent definitions and memory in `nsc-fleet` depends on git following junctions, which is untested here; the fallback is v2's `nsc-home`.
+Repos: 4 (two you work in, two archives), down from v2's 5.
+First: tonight, do the still-undone OneDrive bundle and zip (v2 steps 1–2). Add `reports` and the GER drafts (not the two `scratch` clones) to the zip, zip `C:\NSC\tools` by its real path only, and confirm OneDrive shows each file as synced.

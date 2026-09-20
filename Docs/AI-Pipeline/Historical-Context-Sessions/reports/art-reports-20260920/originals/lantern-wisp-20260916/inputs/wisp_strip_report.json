@@ -1,0 +1,38 @@
+{
+  "strip": "inputs/wisp_strip_96x48.png",
+  "size": [
+    96,
+    48
+  ],
+  "cells": [
+    {
+      "variant": "A",
+      "source": "pixellab/wisp_A2_still.png",
+      "offset_in_strip": [
+        0,
+        8
+      ],
+      "opaque": 284
+    },
+    {
+      "variant": "B",
+      "source": "pixellab/wisp_B2_still.png",
+      "offset_in_strip": [
+        32,
+        8
+      ],
+      "opaque": 325
+    },
+    {
+      "variant": "C",
+      "source": "pixellab/wisp_C2_still.png",
+      "offset_in_strip": [
+        64,
+        8
+      ],
+      "opaque": 237
+    }
+  ],
+  "opaque_total": 846,
+  "sha256": "f16d8a762204fe897f737c7c010a1e9ef5868419e69dcfb83d80d64605a39626"
+}

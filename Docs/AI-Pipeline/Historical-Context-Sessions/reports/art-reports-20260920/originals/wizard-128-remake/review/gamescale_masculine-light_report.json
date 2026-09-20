@@ -1,0 +1,97 @@
+{
+  "output": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\review\\gamescale_masculine-light.png",
+  "size": [
+    1690,
+    254
+  ],
+  "sprites": [
+    {
+      "alpha_bbox": [
+        78,
+        65,
+        121,
+        170
+      ],
+      "label": "north",
+      "opaque_pixel_count": 2970,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-light\\aligned_v2\\standing\\north.png"
+    },
+    {
+      "alpha_bbox": [
+        78,
+        62,
+        122,
+        170
+      ],
+      "label": "north-east",
+      "opaque_pixel_count": 2756,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-light\\aligned_v2\\standing\\north-east.png"
+    },
+    {
+      "alpha_bbox": [
+        80,
+        60,
+        124,
+        170
+      ],
+      "label": "east",
+      "opaque_pixel_count": 2196,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-light\\aligned_v2\\standing\\east.png"
+    },
+    {
+      "alpha_bbox": [
+        77,
+        61,
+        124,
+        170
+      ],
+      "label": "south-east",
+      "opaque_pixel_count": 2715,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-light\\aligned_v2\\standing\\south-east.png"
+    },
+    {
+      "alpha_bbox": [
+        78,
+        62,
+        122,
+        170
+      ],
+      "label": "south",
+      "opaque_pixel_count": 2943,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-light\\aligned_v2\\standing\\south.png"
+    },
+    {
+      "alpha_bbox": [
+        76,
+        59,
+        122,
+        170
+      ],
+      "label": "south-west",
+      "opaque_pixel_count": 2639,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-light\\aligned_v2\\standing\\south-west.png"
+    },
+    {
+      "alpha_bbox": [
+        75,
+        59,
+        120,
+        170
+      ],
+      "label": "west",
+      "opaque_pixel_count": 2252,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-light\\aligned_v2\\standing\\west.png"
+    },
+    {
+      "alpha_bbox": [
+        78,
+        63,
+        121,
+        170
+      ],
+      "label": "north-west",
+      "opaque_pixel_count": 2846,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab\\masculine-light\\aligned_v2\\standing\\north-west.png"
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+    "schema_version":  "1.1",
+    "manifest_type":  "unity_test_validation",
+    "status":  "passed",
+    "validated_state":  {
+                            "commit":  "0a6e8e1bf2356402344d02c4e8772dfb2eeb0a8a",
+                            "tree":  "9f90bae68bc951612de7baee34b9059bcf3119e8",
+                            "post_commit":  "0a6e8e1bf2356402344d02c4e8772dfb2eeb0a8a",
+                            "post_tree":  "9f90bae68bc951612de7baee34b9059bcf3119e8",
+                            "repository_clean_before":  true,
+                            "repository_clean_after":  true
+                        },
+    "unity":  {
+                  "version":  "6000.1.8f1",
+                  "executable":  "C:\\Program Files\\Unity\\Hub\\Editor\\6000.1.8f1\\Editor\\Unity.exe",
+                  "exit_code":  0,
+                  "test_platform":  "PlayMode",
+                  "test_filter":  "NoSafeCircle.DoorPrototype.Tests.EnemyAnimationPlayModeTests;NoSafeCircle.DoorPrototype.Tests.EnemyLanternWispCasterPlayModeTests;NoSafeCircle.DoorPrototype.Tests.EnemyPursuitPlayModeTests;NoSafeCircle.DoorPrototype.Tests.EnemyPursuitDoorCrossingPlayModeTests;NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests;NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests;NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests;NoSafeCircle.DoorPrototype.Tests.EnemyLockedDoorAttackPlayModeTests;NoSafeCircle.DoorPrototype.Tests.DoorEnemyPassabilityPlayModeTests;NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests"
+              },
+    "test_run":  {
+                     "result":  "Passed",
+                     "total":  107,
+                     "passed":  107,
+                     "failed":  0,
+                     "skipped":  0
+                 },
+    "artifacts":  {
+                      "xml":  {
+                                  "relative_path":  "test-results.xml",
+                                  "sha256":  "8a9a12bbfe689fcf0d6518f415551b5ba507ed3d43774b0b2408c4219aa98884",
+                                  "size_bytes":  93266
+                              },
+                      "log":  {
+                                  "relative_path":  "unity.log",
+                                  "sha256":  "70a25754a49042a7ea2fc8ae0fa098c9d94ee85fb3dca379f3173e7ce18759be",
+                                  "size_bytes":  59528
+                              }
+                  },
+    "runner":  {
+                   "path":  "Pipeline/Testing/run_unity_tests_clean.ps1",
+                   "sha256":  "b4658ca6c63d85ff2ae7950288d4a459ec90eb54251bca9ced33cfeeae1e77f8",
+                   "source_commit":  "0a6e8e1bf2356402344d02c4e8772dfb2eeb0a8a",
+                   "source_tree":  "9f90bae68bc951612de7baee34b9059bcf3119e8"
+               }
+}

@@ -1,0 +1,9 @@
+﻿Temporary artifacts will be preserved at: C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-4e2f94f92a5b454899525db84495ea92
+powershell.exe : REPOSITORY CHECK FAILURE: Post-run Git checks could not complete: Safe Unity churn recovery refused 
+the worktree: SAFE UNITY CHURN: ERROR: repository contains post-Unity changes outside the exact safe-churn policy
+At line:1 char:586
++ ... ceneTests"; & powershell.exe -NoProfile -ExecutionPolicy Bypass -File ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (REPOSITORY CHEC...fe-churn policy:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 

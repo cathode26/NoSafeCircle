@@ -1,0 +1,53 @@
+{
+  "output": "C:\\nscrev\\reports\\art-director\\toolkit-verify-20260917\\gamescale.png",
+  "size": [
+    1000,
+    274
+  ],
+  "sprites": [
+    {
+      "alpha_bbox": [
+        112,
+        81,
+        128,
+        178
+      ],
+      "label": "In game today",
+      "opaque_pixel_count": 782,
+      "path": "C:\\NSC\\NSC\\NoSafeCircle\\Assets\\NoSafeCircle\\DoorPrototype\\Art\\Wizard\\Source\\PixelLab\\masculine-light\\selected\\walk\\south-east\\frame_000.png"
+    },
+    {
+      "alpha_bbox": [
+        98,
+        66,
+        142,
+        176
+      ],
+      "label": "Now 180 point",
+      "opaque_pixel_count": 2577,
+      "path": "C:\\NSC\\NSC\\NoSafeCircle\\Assets\\NoSafeCircle\\DoorPrototype\\Art\\Wizard\\Source\\PixelLab\\masculine-light\\selected\\walk\\south-east\\frame_000.png"
+    },
+    {
+      "alpha_bbox": [
+        98,
+        65,
+        142,
+        177
+      ],
+      "label": "A smooth",
+      "opaque_pixel_count": 2822,
+      "path": "C:\\NSC\\NSC\\NoSafeCircle\\Assets\\NoSafeCircle\\DoorPrototype\\Art\\Wizard\\Source\\PixelLab\\masculine-light\\selected\\walk\\south-east\\frame_000.png"
+    },
+    {
+      "alpha_bbox": [
+        97,
+        70,
+        144,
+        175
+      ],
+      "label": "B 128 point",
+      "opaque_pixel_count": 2583,
+      "path": "C:\\nscrev\\reports\\art-director\\density-trial-20260916\\pixellab\\3c_walk_se_128\\frame_01.png"
+    }
+  ]
+}

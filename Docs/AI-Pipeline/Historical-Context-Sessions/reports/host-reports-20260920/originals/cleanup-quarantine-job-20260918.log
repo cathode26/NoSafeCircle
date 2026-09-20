@@ -1,0 +1,12 @@
+All three deliverables are done, but the situation changed under me mid-job: **the move had already happened** (someone ran it directly while I was scanning), so this is a reconciliation report, not a forward plan.
+
+**Status:** 45/45 `C:\nsc*` directories are already in `C:\NSC-History-20260918` (44 via the tracked script + `nscmin_work` via a manual robocopy fallback, already reconciled in `MANIFEST.json` before I even got there). Nothing is left at `C:\` matching `nsc*` except the two exclusions (`nscrev`, `NSC`). I found and fixed two gaps the brief requires — missing `README.md` and `MANIFEST.md` — now written into the history folder from the live manifest.
+
+**One thing worth knowing:** `nscmin_work`'s first move attempt failed ("insufficient access rights"), most likely because my own read-only scan (`du`/`find` on its 4 nested Unity clones) was holding file handles on it at that exact moment. It was recovered via robocopy with no data loss, but it's a real collision between "scan inline" and "someone moves things concurrently" worth flagging.
+
+**Deliverables:**
+1. Report: `C:\nscrev\reports\cleanup-quarantine-plan-20260918.md` — full 45-row inventory (sizes, branches not ancestor of canonical `main`, dirty/stash state), nested-Unity-clone note (18 nested clones inside 4 `_work` folders, ~20GB+ of regenerable cache), gaps found, numbers.
+2. Move script: `C:\nscrev\reports\NSC-History-20260918-move.ps1` (couldn't write to `C:\` root — permission denied — so it's here per the brief's fallback). Dry-run tested: correctly reports nothing left to move.
+3. Restore: `C:\NSC-History-20260918\RESTORE.ps1` already existed and checks out — reviewed, no changes needed.
+
+Nothing needs your decision before 2026-10-09 unless you want `nscwarm_work`'s exact size (its `du` timed out twice — it's got 10 nested Unity clones and I didn't force a multi-minute run). Full detail in the report.

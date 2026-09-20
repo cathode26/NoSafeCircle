@@ -1,0 +1,11 @@
+Tests: read the Enemies root name from the builder by reflection
+
+Review minor: the fixture duplicated the literal "Enemies" instead of the
+builder's own constant, so a rename would leave it hunting a root that no longer
+exists. The reviewer suggested referencing the const directly, but
+DoorPrototypeGlobalSceneBuilder is internal, so that does not compile from the
+test assembly (error CS0122, caught by a Unity build). It comes through the same
+reflection path as the spawn arrays instead.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+

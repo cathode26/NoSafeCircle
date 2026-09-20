@@ -1,0 +1,23 @@
+NSC-078: read the generation estimate in meter terms, not printed costs
+
+The NSC-095 wizard run measured the PixelLab account meter moving 130
+generations against 93 of printed per-call costs, about 37% more, with no other
+PixelLab work on the account to explain the gap. Section 4d's table was written
+in printed costs, so approving against it would have set the props budget about
+a third too low: the 5-source pilot is about 95 rather than 68, and all 45
+entries about 800 rather than 581.
+
+This adds that caveat at the head of section 4d, and the rule that follows from
+it: count a task's own recorded calls for its cap, read get_balance with the
+queue empty as the cross-check, and treat a printed-versus-meter gap of about a
+third as expected rather than a defect.
+
+Supplied by the Art Director Agent. One hunk, one file, +1/-0. The GER Agent's
+NSC-078 revision 6 is gated on this landing: it refuses to run until the plan
+blob hashes to 5a68a8fd6e10ca9fd7760a6c10418a00cc1bd91037181bed970086aa4c696229,
+then rebinds VAL-001 and adds the pilot-only generation cap in one commit.
+
+Vincent gave the prop pilot its go: "Ok prop pilot so I can look at it and
+approve".
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

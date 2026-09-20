@@ -1,0 +1,19 @@
+NSC-095: the rejected wizard candidates, off the task branch
+
+AC-002 requires the rejected candidates to live only on a local art-rejects
+branch and never on the task branch, and nothing had staged them yet. The Art
+Director Agent staged the tree; this lands it unchanged.
+
+- 34 PNGs under Docs/Art/Wizard/Candidates/NSC-095/, with no .meta files: nothing
+  here is ever imported, so there is no importer contract to pin.
+- masculine-dark's rebuild rotations (8) and its two belt-book inpaints.
+- The four superseded walk directions, 6 frames each: masculine-light south
+  (10 px loop seam), masculine-dark south (8 px body drop), feminine-light north
+  (white sock), feminine-dark north-east (pale-blue washout).
+- REJECTS.md records each group's reason, the replacement group id and per-file
+  SHA-256 prefixes.
+
+Local only, off main, never to be merged or pushed. Built with git plumbing
+against a temporary index, so no checkout was disturbed.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

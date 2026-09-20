@@ -1,0 +1,113 @@
+{
+  "group_id": "dcc94c61-1c26-460e-8b30-c17df68895fa",
+  "states": [
+    {
+      "character": {
+        "id": "02f0ec58-164f-428d-8b1b-7d5ad6c1ef6b",
+        "name": "Idle",
+        "prompt": "dark-haired wizard in a wide-brim pointed hat with a band, long dark coat over a shirt, belt with a buckle and a small book at the hip, boots, no staff",
+        "size": {
+          "width": 128,
+          "height": 128
+        },
+        "template_id": "mannequin",
+        "directions": 8,
+        "view": "low top-down",
+        "created_at": "2026-09-17T21:13:13.249821+00:00"
+      },
+      "folder": "Idle",
+      "frames": {
+        "rotations": {
+          "south": "Idle/rotations/south.png",
+          "south-east": "Idle/rotations/south-east.png",
+          "east": "Idle/rotations/east.png",
+          "north-east": "Idle/rotations/north-east.png",
+          "north": "Idle/rotations/north.png",
+          "north-west": "Idle/rotations/north-west.png",
+          "west": "Idle/rotations/west.png",
+          "south-west": "Idle/rotations/south-west.png"
+        },
+        "animations": {
+          "wizard_md_walk_128": {
+            "north-west": [
+              "Idle/animations/wizard_md_walk_128/north-west/frame_000.png",
+              "Idle/animations/wizard_md_walk_128/north-west/frame_001.png",
+              "Idle/animations/wizard_md_walk_128/north-west/frame_002.png",
+              "Idle/animations/wizard_md_walk_128/north-west/frame_003.png",
+              "Idle/animations/wizard_md_walk_128/north-west/frame_004.png",
+              "Idle/animations/wizard_md_walk_128/north-west/frame_005.png"
+            ],
+            "north": [
+              "Idle/animations/wizard_md_walk_128/north/frame_000.png",
+              "Idle/animations/wizard_md_walk_128/north/frame_001.png",
+              "Idle/animations/wizard_md_walk_128/north/frame_002.png",
+              "Idle/animations/wizard_md_walk_128/north/frame_003.png",
+              "Idle/animations/wizard_md_walk_128/north/frame_004.png",
+              "Idle/animations/wizard_md_walk_128/north/frame_005.png"
+            ],
+            "south-west": [
+              "Idle/animations/wizard_md_walk_128/south-west/frame_000.png",
+              "Idle/animations/wizard_md_walk_128/south-west/frame_001.png",
+              "Idle/animations/wizard_md_walk_128/south-west/frame_002.png",
+              "Idle/animations/wizard_md_walk_128/south-west/frame_003.png",
+              "Idle/animations/wizard_md_walk_128/south-west/frame_004.png",
+              "Idle/animations/wizard_md_walk_128/south-west/frame_005.png"
+            ],
+            "west": [
+              "Idle/animations/wizard_md_walk_128/west/frame_000.png",
+              "Idle/animations/wizard_md_walk_128/west/frame_001.png",
+              "Idle/animations/wizard_md_walk_128/west/frame_002.png",
+              "Idle/animations/wizard_md_walk_128/west/frame_003.png",
+              "Idle/animations/wizard_md_walk_128/west/frame_004.png",
+              "Idle/animations/wizard_md_walk_128/west/frame_005.png"
+            ],
+            "south-east": [
+              "Idle/animations/wizard_md_walk_128/south-east/frame_000.png",
+              "Idle/animations/wizard_md_walk_128/south-east/frame_001.png",
+              "Idle/animations/wizard_md_walk_128/south-east/frame_002.png",
+              "Idle/animations/wizard_md_walk_128/south-east/frame_003.png",
+              "Idle/animations/wizard_md_walk_128/south-east/frame_004.png",
+              "Idle/animations/wizard_md_walk_128/south-east/frame_005.png"
+            ],
+            "east": [
+              "Idle/animations/wizard_md_walk_128/east/frame_000.png",
+              "Idle/animations/wizard_md_walk_128/east/frame_001.png",
+              "Idle/animations/wizard_md_walk_128/east/frame_002.png",
+              "Idle/animations/wizard_md_walk_128/east/frame_003.png",
+              "Idle/animations/wizard_md_walk_128/east/frame_004.png",
+              "Idle/animations/wizard_md_walk_128/east/frame_005.png"
+            ],
+            "south": [
+              "Idle/animations/wizard_md_walk_128/south/frame_000.png",
+              "Idle/animations/wizard_md_walk_128/south/frame_001.png",
+              "Idle/animations/wizard_md_walk_128/south/frame_002.png",
+              "Idle/animations/wizard_md_walk_128/south/frame_003.png",
+              "Idle/animations/wizard_md_walk_128/south/frame_004.png",
+              "Idle/animations/wizard_md_walk_128/south/frame_005.png"
+            ],
+            "north-east": [
+              "Idle/animations/wizard_md_walk_128/north-east/frame_000.png",
+              "Idle/animations/wizard_md_walk_128/north-east/frame_001.png",
+              "Idle/animations/wizard_md_walk_128/north-east/frame_002.png",
+              "Idle/animations/wizard_md_walk_128/north-east/frame_003.png",
+              "Idle/animations/wizard_md_walk_128/north-east/frame_004.png",
+              "Idle/animations/wizard_md_walk_128/north-east/frame_005.png"
+            ]
+          },
+          "wizard_md_walk_128_south_r2": {
+            "south": [
+              "Idle/animations/wizard_md_walk_128_south_r2/south/frame_000.png",
+              "Idle/animations/wizard_md_walk_128_south_r2/south/frame_001.png",
+              "Idle/animations/wizard_md_walk_128_south_r2/south/frame_002.png",
+              "Idle/animations/wizard_md_walk_128_south_r2/south/frame_003.png",
+              "Idle/animations/wizard_md_walk_128_south_r2/south/frame_004.png",
+              "Idle/animations/wizard_md_walk_128_south_r2/south/frame_005.png"
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "export_version": "3.1",
+  "export_date": "2026-09-17T21:59:05.127051"
+}

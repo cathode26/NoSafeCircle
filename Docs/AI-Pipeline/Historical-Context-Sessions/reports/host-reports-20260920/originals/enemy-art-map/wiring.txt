@@ -1,0 +1,85 @@
+=== root 'World' ===
+
+=== root 'Enemies' ===
+  Enemies/MeleeEnemy
+    Animator controller : MeleeEnemyAnimator
+  Enemies/MeleeEnemy/Visual
+    Animator            : none
+    sprite              : enemy_melee_s_idle_00
+    texture px          : 128x128
+    pixelsPerUnit       : 64
+    world size (units)  : 2 x 2
+    lossyScale          : (1, 1, 1)
+  Enemies/MeleeEnemy
+    Animator controller : MeleeEnemyAnimator
+  Enemies/MeleeEnemy/Visual
+    Animator            : none
+    sprite              : enemy_melee_s_idle_00
+    texture px          : 128x128
+    pixelsPerUnit       : 64
+    world size (units)  : 2 x 2
+    lossyScale          : (1, 1, 1)
+  Enemies/MeleeEnemy
+    Animator controller : MeleeEnemyAnimator
+  Enemies/MeleeEnemy/Visual
+    Animator            : none
+    sprite              : enemy_melee_s_idle_00
+    texture px          : 128x128
+    pixelsPerUnit       : 64
+    world size (units)  : 2 x 2
+    lossyScale          : (1, 1, 1)
+  Enemies/MeleeEnemy
+    Animator controller : MeleeEnemyAnimator
+  Enemies/MeleeEnemy/Visual
+    Animator            : none
+    sprite              : enemy_melee_s_idle_00
+    texture px          : 128x128
+    pixelsPerUnit       : 64
+    world size (units)  : 2 x 2
+    lossyScale          : (1, 1, 1)
+  Enemies/MeleeEnemy
+    Animator controller : MeleeEnemyAnimator
+  Enemies/MeleeEnemy/Visual
+    Animator            : none
+    sprite              : enemy_melee_s_idle_00
+    texture px          : 128x128
+    pixelsPerUnit       : 64
+    world size (units)  : 2 x 2
+    lossyScale          : (1, 1, 1)
+  Enemies/LanternWraith
+    Animator controller : LanternWraithAnimator
+  Enemies/LanternWraith/Visual
+    Animator            : none
+    sprite              : enemy_ranged_s_idle_00
+    texture px          : 128x128
+    pixelsPerUnit       : 64
+    world size (units)  : 2 x 2
+    lossyScale          : (1, 1, 1)
+  Enemies/LanternWraith
+    Animator controller : LanternWraithAnimator
+  Enemies/LanternWraith/Visual
+    Animator            : none
+    sprite              : enemy_ranged_s_idle_00
+    texture px          : 128x128
+    pixelsPerUnit       : 64
+    world size (units)  : 2 x 2
+    lossyScale          : (1, 1, 1)
+  Enemies/LanternWraith
+    Animator controller : LanternWraithAnimator
+  Enemies/LanternWraith/Visual
+    Animator            : none
+    sprite              : enemy_ranged_s_idle_00
+    texture px          : 128x128
+    pixelsPerUnit       : 64
+    world size (units)  : 2 x 2
+    lossyScale          : (1, 1, 1)
+  Enemies/LanternWraith
+    Animator controller : LanternWraithAnimator
+  Enemies/LanternWraith/Visual
+    Animator            : none
+    sprite              : enemy_ranged_s_idle_00
+    texture px          : 128x128
+    pixelsPerUnit       : 64
+    world size (units)  : 2 x 2
+    lossyScale          : (1, 1, 1)
+

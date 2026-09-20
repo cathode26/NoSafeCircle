@@ -1,0 +1,193 @@
+{
+  "key": "feminine-dark",
+  "character_id": "afabd47e-a66e-453d-beee-b90f9856f9e0",
+  "animation_group_id": "9114df33-56f0-4db8-bac8-66032b078374",
+  "animation_name": "wizard_fd_walk_128",
+  "recorded_utc": "2026-09-17T21:38:46.805831Z",
+  "balance_before": {
+    "generations_remaining": 4573,
+    "generations_used": 427
+  },
+  "balance_after": {
+    "generations_remaining": 4573,
+    "generations_used": 427
+  },
+  "frames": [
+    {
+      "group": "standing",
+      "direction": "south",
+      "index": null,
+      "file": "standing_raw\\south.png",
+      "bytes": 5053,
+      "raw_size": [
+        128,
+        128
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        40,
+        7,
+        88,
+        116
+      ],
+      "alpha_bottom_y_from_top": 116,
+      "opaque_pixels": 3077,
+      "raw_sha256": "d97e8d4e2841e9e0193837f6448ad0ae1c450e19356ba2a3417e2d22396859c6",
+      "source_url": "already downloaded 2026-09-17"
+    },
+    {
+      "group": "standing",
+      "direction": "east",
+      "index": null,
+      "file": "standing_raw\\east.png",
+      "bytes": 4089,
+      "raw_size": [
+        128,
+        128
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        40,
+        10,
+        87,
+        120
+      ],
+      "alpha_bottom_y_from_top": 120,
+      "opaque_pixels": 2384,
+      "raw_sha256": "6865594fb128447167ed062ad93f5cbd1ed5df72944fbf3b84af73afc6978860",
+      "source_url": "already downloaded 2026-09-17"
+    },
+    {
+      "group": "standing",
+      "direction": "north",
+      "index": null,
+      "file": "standing_raw\\north.png",
+      "bytes": 4103,
+      "raw_size": [
+        128,
+        128
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        43,
+        11,
+        85,
+        117
+      ],
+      "alpha_bottom_y_from_top": 117,
+      "opaque_pixels": 3090,
+      "raw_sha256": "4e529ff39dc143a1858d53a020cc87b085a40dc821aefe5a6e4d95fbc711641e",
+      "source_url": "already downloaded 2026-09-17"
+    },
+    {
+      "group": "standing",
+      "direction": "west",
+      "index": null,
+      "file": "standing_raw\\west.png",
+      "bytes": 3906,
+      "raw_size": [
+        128,
+        128
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        42,
+        10,
+        89,
+        120
+      ],
+      "alpha_bottom_y_from_top": 120,
+      "opaque_pixels": 2376,
+      "raw_sha256": "3c5928c006adedda31378123995c8ad36c500ecc76f101d94511f81c46408d04",
+      "source_url": "already downloaded 2026-09-17"
+    },
+    {
+      "group": "standing",
+      "direction": "south-east",
+      "index": null,
+      "file": "standing_raw\\south-east.png",
+      "bytes": 5443,
+      "raw_size": [
+        128,
+        128
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        42,
+        9,
+        87,
+        120
+      ],
+      "alpha_bottom_y_from_top": 120,
+      "opaque_pixels": 2916,
+      "raw_sha256": "9c9e7489de788ef3bf9b2447019e5639ed53e6cf1c327a3875416e5f516ba27f",
+      "source_url": "already downloaded 2026-09-17"
+    },
+    {
+      "group": "standing",
+      "direction": "north-east",
+      "index": null,
+      "file": "standing_raw\\north-east.png",
+      "bytes": 4401,
+      "raw_size": [
+        128,
+        128
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        45,
+        10,
+        84,
+        118
+      ],
+      "alpha_bottom_y_from_top": 118,
+      "opaque_pixels": 2844,
+      "raw_sha256": "3c130ed49ef4937d046a8536c2a8792ede91c2c2735005705b98903986605947",
+      "source_url": "already downloaded 2026-09-17"
+    },
+    {
+      "group": "standing",
+      "direction": "north-west",
+      "index": null,
+      "file": "standing_raw\\north-west.png",
+      "bytes": 4306,
+      "raw_size": [
+        128,
+        128
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        45,
+        10,
+        84,
+        118
+      ],
+      "alpha_bottom_y_from_top": 118,
+      "opaque_pixels": 2792,
+      "raw_sha256": "e6a6970cf3e19ff9b65054f0f0b54774c1492f2cc93544663270883074f5019e",
+      "source_url": "already downloaded 2026-09-17"
+    },
+    {
+      "group": "standing",
+      "direction": "south-west",
+      "index": null,
+      "file": "standing_raw\\south-west.png",
+      "bytes": 5443,
+      "raw_size": [
+        128,
+        128
+      ],
+      "mode": "RGBA",
+      "raw_alpha_bbox": [
+        40,
+        8,
+        87,
+        120
+      ],
+      "alpha_bottom_y_from_top": 120,
+      "opaque_pixels": 2937,
+      "raw_sha256": "822c0af654bab319bc8a12fb4ee3ecb7bd716cf4cfe9709b33e0b0c6911060cd",
+      "source_url": "already downloaded 2026-09-17"
+    }
+  ]
+}

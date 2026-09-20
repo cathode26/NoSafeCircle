@@ -1,0 +1,7 @@
+Merge nsc089-checkout-recovery
+
+Adds stale task-checkout recovery to ResumableTaskCheckoutManager, with smoke
+coverage for clean unleased checkouts and for a checkout that goes stale after
+lease acquisition.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

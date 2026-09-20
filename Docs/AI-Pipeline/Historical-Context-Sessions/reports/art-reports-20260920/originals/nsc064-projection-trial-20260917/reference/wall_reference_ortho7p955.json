@@ -1,0 +1,203 @@
+{
+ "purpose": "expected appearance of a correct camera-facing 8-cell wall run",
+ "camera": {
+  "rotation_euler": [
+   30,
+   -45,
+   0
+  ],
+  "orthographic_size": 7.955,
+  "position": [
+   10.0,
+   10.0,
+   -10.0
+  ],
+  "resolution": [
+   1920,
+   1080
+  ],
+  "pixels_per_world_unit": 67.88183532369578
+ },
+ "basis": {
+  "right": [
+   0.7071067811865476,
+   0.0,
+   0.7071067811865476
+  ],
+  "up": [
+   -0.3535533905932738,
+   0.8660254037844387,
+   0.3535533905932738
+  ],
+  "forward": [
+   -0.61237,
+   -0.5,
+   0.61237
+  ]
+ },
+ "grid": {
+  "cell_size": [
+   1,
+   0.5,
+   1
+  ],
+  "tile_anchor": [
+   0,
+   0,
+   0
+  ],
+  "run_axis": "+X",
+  "cells": 8
+ },
+ "art": {
+  "kit_piece_file": "ancient_dark_dungeon_stone_brick_wall_blocks_deep_1.png",
+  "piece_index": 1,
+  "role": "sides: N",
+  "native_size": [
+   154,
+   173
+  ],
+  "scaling": "none - native pixels"
+ },
+ "placement_rule": "piece canvas centre at the cell's projected screen position, rounded to whole pixels; cells drawn in ascending x",
+ "origin_on_screen": [
+  960.0,
+  647.877
+ ],
+ "content_bbox": [
+  941,
+  575,
+  1344,
+  873
+ ],
+ "placements": [
+  {
+   "cell": 0,
+   "world": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "projected_px": [
+    960.0,
+    647.877
+   ],
+   "blit_top_left": [
+    883,
+    561
+   ]
+  },
+  {
+   "cell": 1,
+   "world": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "projected_px": [
+    1008.0,
+    671.877
+   ],
+   "blit_top_left": [
+    931,
+    585
+   ]
+  },
+  {
+   "cell": 2,
+   "world": [
+    2.0,
+    0.0,
+    0.0
+   ],
+   "projected_px": [
+    1055.999,
+    695.877
+   ],
+   "blit_top_left": [
+    979,
+    609
+   ]
+  },
+  {
+   "cell": 3,
+   "world": [
+    3.0,
+    0.0,
+    0.0
+   ],
+   "projected_px": [
+    1103.999,
+    719.876
+   ],
+   "blit_top_left": [
+    1027,
+    633
+   ]
+  },
+  {
+   "cell": 4,
+   "world": [
+    4.0,
+    0.0,
+    0.0
+   ],
+   "projected_px": [
+    1151.999,
+    743.876
+   ],
+   "blit_top_left": [
+    1075,
+    657
+   ]
+  },
+  {
+   "cell": 5,
+   "world": [
+    5.0,
+    0.0,
+    0.0
+   ],
+   "projected_px": [
+    1199.999,
+    767.876
+   ],
+   "blit_top_left": [
+    1123,
+    681
+   ]
+  },
+  {
+   "cell": 6,
+   "world": [
+    6.0,
+    0.0,
+    0.0
+   ],
+   "projected_px": [
+    1247.998,
+    791.876
+   ],
+   "blit_top_left": [
+    1171,
+    705
+   ]
+  },
+  {
+   "cell": 7,
+   "world": [
+    7.0,
+    0.0,
+    0.0
+   ],
+   "projected_px": [
+    1295.998,
+    815.876
+   ],
+   "blit_top_left": [
+    1219,
+    729
+   ]
+  }
+ ]
+}

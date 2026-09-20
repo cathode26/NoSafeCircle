@@ -1,0 +1,32 @@
+Merge fix/retire-settled-worker: let a finished run release its task
+
+A crew that failed or was cancelled took its task out of circulation
+permanently. settle-worker released capacity but left the worker entry in the
+record, and both scope._worker_underway and prepared_refresh._forbidden test
+only `record.get("worker") is not None` - terminality never enters it, so a
+settled worker is indistinguishable from a live one. Every route refused:
+refresh-prepared, scope, reserve, start-worker, and reset-task requires
+'integrated'. Three tasks were stuck tonight: NSC-007 from its role-budget
+timeout, NSC-046 and NSC-097 from cancels Vincent asked for.
+
+Adds retire-worker, which archives the worker into worker_history with a
+retired_at stamp and leaves status: prepared with no worker - the state a fresh
+preparation produces - so scope, reserve and start-worker pass again.
+settle-worker is untouched: settling is about capacity, and rewriting the record
+as well would be two jobs in one command.
+
+It refuses everything that is not a finished run, each with its own test: an
+unsettled worker, a live host identity, a live worker job, a succeeded worker
+(that output belongs to the review path), any record carrying a candidate,
+approval, integration or revision, a mismatched run id, a non-prepared record,
+and a run already in worker_history. One test asserts the gate that blocked us
+now passes on a retired record, so the fix is tied to the symptom rather than to
+its description.
+
+Verified before merging by the Game Agent at tip fee7f98cb: 10/10 tests on
+Windows, three files, author and committer .invalid, and the merge changes
+exactly those three despite the branch's base.
+
+Vincent's go, his words: "merge the retire-worker fix".
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

@@ -1,0 +1,14 @@
+Merge fix/stub-meta-texture: crew-staged textures get Unity's default importer meta
+
+Pipeline Maintainer fix P34, after four Codex adversarial review rounds and fresh pipeline-reviewer passes.
+
+- unity_meta_bytes now writes Unity's default TextureImporter meta for texture files, keeping the same deterministic GUID. Before, it wrote a GUID-only stub, which Unity 6000.1 imported as a point-light cubemap cookie. The template bytes are pinned in unity_meta_bytes_test. Non-texture metas are unchanged.
+- Retries follow the current meta contract:
+  - an applied candidate patch refreshes stale pipeline-owned texture sidecars;
+  - an already-present candidate whose committed sidecars are stale stops with CrewBlocked, names the diverging sidecars, and writes nothing. Refreshing tracked metas there would break local_candidate_commit and load_retry_context. Once the operator commits the conformant meta, the retry resumes.
+- The Game Agent's Unity 6000.1.8f1 import check of the unchanged template passed: byte-identical meta, Texture2D shape, loads as a Texture2D, and Sprite after reimport.
+- Codex's final adversarial review of the trial merge returned APPROVE (codex-review-p34-final-20260917).
+
+Approved for merge by Vincent on 2026-09-17 ("Merge both").
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

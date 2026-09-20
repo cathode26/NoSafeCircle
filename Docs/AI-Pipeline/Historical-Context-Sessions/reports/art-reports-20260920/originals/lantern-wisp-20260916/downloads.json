@@ -1,0 +1,325 @@
+[
+  {
+    "downloaded_utc": "2026-09-17T04:27:24+00:00",
+    "url": "https://api.pixellab.ai/mcp/images/d0c65268-6ea9-41bf-aa0d-ad7dc9bf2a28/download",
+    "file": "pixellab\\wisp_A_still.png",
+    "bytes": 292,
+    "sha256": "32781656d51d92d1ea88dd558067defa8dec5dbfbdf19685572d535d672c3f1f",
+    "size": [
+      32,
+      32
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      8,
+      9,
+      24,
+      23
+    ],
+    "opaque_pixels": 161
+  },
+  {
+    "downloaded_utc": "2026-09-17T04:27:24+00:00",
+    "url": "https://api.pixellab.ai/mcp/images/5ac6baf1-2396-4efe-9f8e-40c3a557bdbf/download",
+    "file": "pixellab\\wisp_B_still.png",
+    "bytes": 446,
+    "sha256": "8814f96ea1d03c460896d4a0a1e376afff8107d9e767c072dfb74e064893b2dd",
+    "size": [
+      32,
+      32
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      5,
+      7,
+      27,
+      26
+    ],
+    "opaque_pixels": 236
+  },
+  {
+    "downloaded_utc": "2026-09-17T04:27:25+00:00",
+    "url": "https://api.pixellab.ai/mcp/images/f2180612-395e-4e01-adcb-ecace1ad7752/download",
+    "file": "pixellab\\wisp_C_still.png",
+    "bytes": 397,
+    "sha256": "6eb354d282914254d3c9d77cf700e3bc4a1d9381a2e2562bc17ad98475e27457",
+    "size": [
+      32,
+      32
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      7,
+      7,
+      25,
+      25
+    ],
+    "opaque_pixels": 258
+  },
+  {
+    "downloaded_utc": "2026-09-17T04:28:33+00:00",
+    "url": "https://api.pixellab.ai/mcp/images/ebe47446-60c2-4db4-b178-e0783b75142d/download",
+    "file": "pixellab\\windup_se_128.png",
+    "bytes": 5090,
+    "sha256": "9ee59351380322afdb79fc8f961fcd4f634cc952fef21c5d1e08e2474eafdd8d",
+    "size": [
+      128,
+      128
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      29,
+      11,
+      118,
+      114
+    ],
+    "opaque_pixels": 4129
+  },
+  {
+    "downloaded_utc": "2026-09-17T04:31:06+00:00",
+    "url": "https://api.pixellab.ai/mcp/images/53d87d74-31f7-4760-9e78-600a21ca8ce5/download",
+    "file": "pixellab\\wisp_A2_still.png",
+    "bytes": 435,
+    "sha256": "2ecdfe8abba1d0e82b98c06b2c49088614c932e4bb15f4bb9281f935ccc19c7c",
+    "size": [
+      32,
+      32
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      8,
+      2,
+      24,
+      29
+    ],
+    "opaque_pixels": 284
+  },
+  {
+    "downloaded_utc": "2026-09-17T04:31:07+00:00",
+    "url": "https://api.pixellab.ai/mcp/images/1f854150-ab7d-4e70-931f-b275f2680cab/download",
+    "file": "pixellab\\wisp_B2_still.png",
+    "bytes": 1128,
+    "sha256": "f6c5ecd2545be3637d5e7a80806b0e27cf4f40979e2c84389e34903cf0cc2a82",
+    "size": [
+      32,
+      32
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      3,
+      4,
+      26,
+      28
+    ],
+    "opaque_pixels": 325
+  },
+  {
+    "downloaded_utc": "2026-09-17T04:32:16+00:00",
+    "url": "https://api.pixellab.ai/mcp/images/e1e9efad-63f9-4b08-bf84-014391c0656e/download",
+    "file": "pixellab\\wisp_C2_still.png",
+    "bytes": 347,
+    "sha256": "a6555e5bb89b14330b9b01d50c95da79089dc647aeef11b020904a48220a7c53",
+    "size": [
+      32,
+      32
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      8,
+      2,
+      24,
+      29
+    ],
+    "opaque_pixels": 237
+  },
+  {
+    "downloaded_utc": "2026-09-17T04:33:14+00:00",
+    "url": "https://api.pixellab.ai/mcp/images/27041bc9-1a9c-42c0-b400-2016819de1f1/download?index=0",
+    "file": "pixellab\\hit_B2\\frame_0.png",
+    "bytes": 1142,
+    "sha256": "0be80657a244a62238551b763c9928a468e4717f193e9e12013a49603cc78bdd",
+    "size": [
+      32,
+      32
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      3,
+      4,
+      26,
+      28
+    ],
+    "opaque_pixels": 325
+  },
+  {
+    "downloaded_utc": "2026-09-17T04:33:15+00:00",
+    "url": "https://api.pixellab.ai/mcp/images/27041bc9-1a9c-42c0-b400-2016819de1f1/download?index=1",
+    "file": "pixellab\\hit_B2\\frame_1.png",
+    "bytes": 926,
+    "sha256": "d7500fdf890c35b021a005974a9a85bddc351d9ff910fbd13af3b6b99eda67d7",
+    "size": [
+      32,
+      32
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      4,
+      5,
+      26,
+      27
+    ],
+    "opaque_pixels": 266
+  },
+  {
+    "downloaded_utc": "2026-09-17T04:33:15+00:00",
+    "url": "https://api.pixellab.ai/mcp/images/27041bc9-1a9c-42c0-b400-2016819de1f1/download?index=2",
+    "file": "pixellab\\hit_B2\\frame_2.png",
+    "bytes": 851,
+    "sha256": "6e786e9f4a769934506940a679f6683f230602255fd57ebca1636c21ce0770a0",
+    "size": [
+      32,
+      32
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      5,
+      5,
+      27,
+      28
+    ],
+    "opaque_pixels": 227
+  },
+  {
+    "downloaded_utc": "2026-09-17T04:33:16+00:00",
+    "url": "https://api.pixellab.ai/mcp/images/27041bc9-1a9c-42c0-b400-2016819de1f1/download?index=3",
+    "file": "pixellab\\hit_B2\\frame_3.png",
+    "bytes": 791,
+    "sha256": "670379168f31e4ba4ea5416b7b3f0c42ec6e24f25af9496a6c2e415014f5aa47",
+    "size": [
+      32,
+      32
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      7,
+      7,
+      27,
+      28
+    ],
+    "opaque_pixels": 206
+  },
+  {
+    "downloaded_utc": "2026-09-17T04:33:16+00:00",
+    "url": "https://api.pixellab.ai/mcp/images/27041bc9-1a9c-42c0-b400-2016819de1f1/download?index=4",
+    "file": "pixellab\\hit_B2\\frame_4.png",
+    "bytes": 783,
+    "sha256": "a692e410b5c206dda3a1b5046650073b86154392a1204414427cb4af1e6ab384",
+    "size": [
+      32,
+      32
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      6,
+      6,
+      27,
+      27
+    ],
+    "opaque_pixels": 209
+  },
+  {
+    "downloaded_utc": "2026-09-17T04:34:33+00:00",
+    "url": "https://api.pixellab.ai/mcp/images/1795a439-4047-4e22-9269-99a7d6c27f0f/download?index=0",
+    "file": "pixellab\\hit_C2\\frame_0.png",
+    "bytes": 349,
+    "sha256": "0b0916d9e436097af0239c7aef109b21942dbc240c6f584216246bba48b59e11",
+    "size": [
+      32,
+      32
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      8,
+      2,
+      24,
+      29
+    ],
+    "opaque_pixels": 237
+  },
+  {
+    "downloaded_utc": "2026-09-17T04:34:34+00:00",
+    "url": "https://api.pixellab.ai/mcp/images/1795a439-4047-4e22-9269-99a7d6c27f0f/download?index=1",
+    "file": "pixellab\\hit_C2\\frame_1.png",
+    "bytes": 363,
+    "sha256": "c1281ac368b8814bac5273aca58ef4e8995946105f96205aaee7a1d7fdae20d5",
+    "size": [
+      32,
+      32
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      7,
+      3,
+      25,
+      28
+    ],
+    "opaque_pixels": 199
+  },
+  {
+    "downloaded_utc": "2026-09-17T04:34:34+00:00",
+    "url": "https://api.pixellab.ai/mcp/images/1795a439-4047-4e22-9269-99a7d6c27f0f/download?index=2",
+    "file": "pixellab\\hit_C2\\frame_2.png",
+    "bytes": 328,
+    "sha256": "8b6c5d88a21ea43a8fe269a736a8422c2e1f737714f858dae99dd7f45ae37d5f",
+    "size": [
+      32,
+      32
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      6,
+      9,
+      26,
+      28
+    ],
+    "opaque_pixels": 122
+  },
+  {
+    "downloaded_utc": "2026-09-17T04:34:35+00:00",
+    "url": "https://api.pixellab.ai/mcp/images/1795a439-4047-4e22-9269-99a7d6c27f0f/download?index=3",
+    "file": "pixellab\\hit_C2\\frame_3.png",
+    "bytes": 266,
+    "sha256": "9b18ac4babebb0b2c30bfb3d79f987c1c89e41c018bcf4432429e5dec8788990",
+    "size": [
+      32,
+      32
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      6,
+      14,
+      26,
+      28
+    ],
+    "opaque_pixels": 52
+  },
+  {
+    "downloaded_utc": "2026-09-17T04:34:35+00:00",
+    "url": "https://api.pixellab.ai/mcp/images/1795a439-4047-4e22-9269-99a7d6c27f0f/download?index=4",
+    "file": "pixellab\\hit_C2\\frame_4.png",
+    "bytes": 179,
+    "sha256": "cfac435fa99a8d199202377690033308cce221e76792ed6dfe67bbb8805c2864",
+    "size": [
+      32,
+      32
+    ],
+    "mode": "RGBA",
+    "alpha_bbox": [
+      14,
+      13,
+      25,
+      22
+    ],
+    "opaque_pixels": 10
+  }
+]

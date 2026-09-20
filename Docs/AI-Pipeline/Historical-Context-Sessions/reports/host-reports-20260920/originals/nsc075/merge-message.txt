@@ -1,0 +1,10 @@
+Merge NSC-075 eight-direction wizard locomotion source and tests
+
+Brings in codex/nsc075-eight-direction-20260916:
+- The 2026-09-13 NSC-075 preparation: an eight-sector direction classifier with deterministic ties and hysteresis, and the builder's walk directions extended to all eight.
+- Codex's 2026-09-16 audits of all 64 Animator states, clips, source frames and importer settings.
+- A Play Mode path that enters the lobby with each wizard and walks all eight directions.
+
+This merge covers source and focused tests only. The next commit adds the generated Animator assets, the cardinal frame import settings and the scene, all produced by DoorPrototypeSceneBuilder.Build.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

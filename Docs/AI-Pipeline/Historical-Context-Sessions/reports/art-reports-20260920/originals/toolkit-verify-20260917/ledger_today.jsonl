@@ -1,0 +1,14 @@
+{"cap":null,"job":"density+wisp 2026-09-16","remaining":4689,"timestamp_utc":"2026-09-17T06:31:31.088975+00:00","type":"init","used":311}
+{"note":null,"pixellab_id":"d7ff0f49","provisional":false,"reported_cost":1.0,"timestamp_utc":"2026-09-17T06:31:31.090799+00:00","tool":"image_to_pixelart","type":"entry"}
+{"note":null,"pixellab_id":"1d1cd21e","provisional":false,"reported_cost":2.0,"timestamp_utc":"2026-09-17T06:31:31.092974+00:00","tool":"create_character_v3","type":"entry"}
+{"note":null,"pixellab_id":"2e1ec5da","provisional":false,"reported_cost":2.0,"timestamp_utc":"2026-09-17T06:31:31.096544+00:00","tool":"animate_character_v3","type":"entry"}
+{"note":null,"pixellab_id":"ebe47446","provisional":false,"reported_cost":6.0,"timestamp_utc":"2026-09-17T06:31:31.098398+00:00","tool":"inpaint_image_pro_flash","type":"entry"}
+{"note":null,"pixellab_id":"d0c65268","provisional":false,"reported_cost":1.0,"timestamp_utc":"2026-09-17T06:31:31.100057+00:00","tool":"create_image_pixflux","type":"entry"}
+{"note":null,"pixellab_id":"5ac6baf1","provisional":false,"reported_cost":1.0,"timestamp_utc":"2026-09-17T06:31:31.102024+00:00","tool":"create_image_pixflux","type":"entry"}
+{"note":null,"pixellab_id":"f2180612","provisional":false,"reported_cost":1.0,"timestamp_utc":"2026-09-17T06:31:31.103723+00:00","tool":"create_image_pixflux","type":"entry"}
+{"note":null,"pixellab_id":"53d87d74","provisional":false,"reported_cost":1.0,"timestamp_utc":"2026-09-17T06:31:31.105385+00:00","tool":"create_image_pixflux","type":"entry"}
+{"note":null,"pixellab_id":"1f854150","provisional":false,"reported_cost":1.0,"timestamp_utc":"2026-09-17T06:31:31.107605+00:00","tool":"create_image_pixen","type":"entry"}
+{"note":null,"pixellab_id":"e1e9efad","provisional":false,"reported_cost":1.0,"timestamp_utc":"2026-09-17T06:31:31.109736+00:00","tool":"create_image_pixflux","type":"entry"}
+{"note":null,"pixellab_id":"27041bc9","provisional":false,"reported_cost":1.0,"timestamp_utc":"2026-09-17T06:31:31.112555+00:00","tool":"animate_image","type":"entry"}
+{"note":null,"pixellab_id":"1795a439","provisional":false,"reported_cost":1.0,"timestamp_utc":"2026-09-17T06:31:31.114770+00:00","tool":"animate_image","type":"entry"}
+{"label":"after both jobs","remaining":4669,"timestamp_utc":"2026-09-17T06:31:31.116573+00:00","type":"balance","used":331}

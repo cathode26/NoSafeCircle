@@ -1,0 +1,34 @@
+[
+  {
+    "source": "pixellab/wisp_B2_still.png",
+    "padded": "inputs/wisp_B2_still_pad48.png",
+    "offset": [
+      8,
+      8
+    ],
+    "canvas": [
+      48,
+      48
+    ],
+    "opaque_source": 325,
+    "opaque_padded": 325,
+    "sha256": "79c79630b3cc77992b4b97ec7af7ab3177108694cc01a55719dfd7518d1aa218",
+    "base64_len": 1500
+  },
+  {
+    "source": "pixellab/wisp_C2_still.png",
+    "padded": "inputs/wisp_C2_still_pad48.png",
+    "offset": [
+      8,
+      8
+    ],
+    "canvas": [
+      48,
+      48
+    ],
+    "opaque_source": 237,
+    "opaque_padded": 237,
+    "sha256": "4a12afcd04baf7daf8aad66fde3712cdb9d33c21e9a5ad7841e31f0bee9bb0e7",
+    "base64_len": 528
+  }
+]

@@ -1,0 +1,18 @@
+diff --git a/base.md b/new.md
+index 560b471..555f574 100644
+--- a/base.md
++++ b/new.md
+@@ -61,7 +61,12 @@ playful, or endearing detail.
+ - **Chapel of Ash:** pews, altar or ritual focus, candles, ash accents, sigils,
+   gothic vertical shapes, and selective symmetry.
+ - **Lower Vault:** water or slime channels, bridges or raised routes, barrels and
+-  crates, rails, cliffs, platforms, and an alternate route.
++  crates, rails, cliffs, platforms, and an alternate route. **This art is
++  decorative.** It never implies walkable ground, a safe island, a crossing or a
++  change of elevation beyond the geometry committed in NSC-047 revision 4: a
++  painted bridge is scenery, a painted platform is scenery, and the ground a
++  player can stand on is whatever that room's layout defines. Lava, chasms and
++  horn trim stay FutureExpansion vocabulary until a task owns them.
+ - **Final Room:** dramatic focal structure, recognizable benches and furniture,
+   ritual details, candles, bounded hazard framing, and an open encounter area.
+ 

@@ -1,0 +1,21 @@
+diff --git a/Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs b/Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs
+index ada666df81645e1f33c9ab742e4e1e8cc293403a..cff148ccd9374075c03742c93a2b023bbc8b153b 100644
+--- a/Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs
++++ b/Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs
+@@ -751,7 +751,15 @@ namespace NoSafeCircle.DoorPrototype.Editor
+             var alternateStone = new Color32(86, 82, 77, 255);
+             var mortar = new Color32(39, 37, 36, 255);
+             const int courseHeight = 32;
+-            const int blockWidth = 48;
++
++            // AC-001: every wall segment renders this exact same texture edge-to-edge (see the
++            // wallOffset loop in BuildIsometricVisualLayer), so the brick coursing this method
++            // paints must already be seamlessly periodic across the texture's own width. A block
++            // width that does not evenly divide the texture width (the previous 48px block in a
++            // 64px-wide texture) leaves a partial brick sliver at the right edge that repeats at
++            // every segment boundary, reading as a seam/pattern-phase reset instead of one
++            // continuous coursed wall. 32 evenly divides the 64px texture width used below.
++            const int blockWidth = 32;
+ 
+             for (var y = 0; y < height; y++)
+             {

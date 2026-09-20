@@ -1,0 +1,77 @@
+[
+  {
+    "source": "C:\\NSC\\nsc-cleanup-agent-guide.md",
+    "backup": "C:\\nscrev\\reports\\cleanup-role-before-20260919\\nsc-cleanup-agent-guide.md",
+    "sha256": "562FB2794C101AB4B85CB39BC2E5E2A9B559FA09673555FE21BA07CE25D93758"
+  },
+  {
+    "source": "C:\\NSC\\nsc-agent-roster.md",
+    "backup": "C:\\nscrev\\reports\\cleanup-role-before-20260919\\nsc-agent-roster.md",
+    "sha256": "F183C9EA6381A572E16E4A299AC81FC1E1886BD34B880612276D03EA2AD96086"
+  },
+  {
+    "source": "C:\\NSC\\nsc-agent-launch-prompts.md",
+    "backup": "C:\\nscrev\\reports\\cleanup-role-before-20260919\\nsc-agent-launch-prompts.md",
+    "sha256": "F6EC71AA9BCF34820AF1A3C2448C7762EAED8E487B7FCE57975F8DEC59D33A41"
+  },
+  {
+    "source": "C:\\NSC\\nsc-agent-directory.md",
+    "backup": "C:\\nscrev\\reports\\cleanup-role-before-20260919\\nsc-agent-directory.md",
+    "sha256": "4A59351606E882559E464A76BBB86FD5B36705F7EFAD55DDE85C7E0F84FDA700"
+  },
+  {
+    "source": "C:\\NSC\\CLAUDE.md",
+    "backup": "C:\\nscrev\\reports\\cleanup-role-before-20260919\\CLAUDE.md",
+    "sha256": "F5A828EF0210792598B273275158F8AD3E58BC6DE04901DC7BF9454CAB81D39F"
+  },
+  {
+    "source": "C:\\NSC\\nsc-pipeline-runbook.md",
+    "backup": "C:\\nscrev\\reports\\cleanup-role-before-20260919\\nsc-pipeline-runbook.md",
+    "sha256": "2B2CB7834200AF7E955A147BB15167FE668D6D12529449CB0153868F864239BA"
+  },
+  {
+    "source": "C:\\NSC\\agent-state\\cleanup-agent-todo.md",
+    "backup": "C:\\nscrev\\reports\\cleanup-role-before-20260919\\cleanup-agent-todo.md",
+    "sha256": "13CA5423D8F51882026FE68147CD41DA72342E64680472BE6D9CED6314986412"
+  },
+  {
+    "source": "C:\\NSC\\agent-state\\cleanup-agent.md",
+    "backup": "C:\\nscrev\\reports\\cleanup-role-before-20260919\\cleanup-agent.md",
+    "sha256": "BAA8ED844B8E10CFFF480829C5DE79EC0F413511DD1CC61DE0F47479EC2E6635"
+  },
+  {
+    "source": "C:\\Users\\VincentLiguori\\.claude\\agents\\merge-verifier.md",
+    "backup": "C:\\nscrev\\reports\\cleanup-role-before-20260919\\merge-verifier.md",
+    "sha256": "E1C458F81160973EFB8058A41FEE23755BE76D097DF69BBD45BB004A1745979D"
+  },
+  {
+    "source": "C:\\Users\\VincentLiguori\\.claude\\agents\\test-runner.md",
+    "backup": "C:\\nscrev\\reports\\cleanup-role-before-20260919\\test-runner.md",
+    "sha256": "C463E6753642B31391AD4966EC140865DAA402A84089A12D5C4F6537F04106A9"
+  },
+  {
+    "source": "C:\\Users\\VincentLiguori\\.claude\\agents\\ger-drafter.md",
+    "backup": "C:\\nscrev\\reports\\cleanup-role-before-20260919\\ger-drafter.md",
+    "sha256": "64D1CA3F4751333171CD3911587F5A82B97169086D0A3A26867E2FBD9CC597F1"
+  },
+  {
+    "source": "C:\\Users\\VincentLiguori\\.claude\\agents\\pipeline-reviewer.md",
+    "backup": "C:\\nscrev\\reports\\cleanup-role-before-20260919\\pipeline-reviewer.md",
+    "sha256": "EAA0F4032CF2CB07E9D696AC157E70E125AB1F13907B3FC920C4062C36964AA2"
+  },
+  {
+    "source": "C:\\nscrev\\reports\\nsc-team-execution-plan-20260919.md",
+    "backup": "C:\\nscrev\\reports\\cleanup-role-before-20260919\\nsc-team-execution-plan-20260919.md",
+    "sha256": "9255DA1F1F463216A6E916FE1E7699D4D34F755CB91EE384562F763EC69B8534"
+  },
+  {
+    "source": "C:\\nscrev\\reports\\astra-team-execution-prompt-20260919.md",
+    "backup": "C:\\nscrev\\reports\\cleanup-role-before-20260919\\astra-team-execution-prompt-20260919.md",
+    "sha256": "2C7454C9484CC99B0ACFC3B9C3C75A648820EC173F5D3DB96E821F44ABD43AB8"
+  },
+  {
+    "source": "C:\\Users\\VincentLiguori\\.claude\\projects\\C--NSC\\memory\\nsc-cleanup-agent.md",
+    "backup": "C:\\nscrev\\reports\\cleanup-role-before-20260919\\memory-nsc-cleanup-agent.md",
+    "sha256": "4BE7A457E84C10DDAD00DF98DDC4C703AF97DC235ACA6928FC0B1E6C0851BBA0"
+  }
+]

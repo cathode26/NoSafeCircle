@@ -1,0 +1,169 @@
+diff --git a/Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs b/Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs
+index ada666df81645e1f33c9ab742e4e1e8cc293403a..37e613a33e9bb687d6310e57900ba62a98e175e0 100644
+--- a/Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs
++++ b/Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs
+@@ -64,6 +64,18 @@ namespace NoSafeCircle.DoorPrototype.Editor
+         private const int WorldSpriteTextureSize = 128;
+         private const int WorldSpriteBorderThicknessPx = 6;
+ 
++        // NSC-042 AC-001: one reusable one-cell wall texture, repeated verbatim across every
++        // wall Tilemap cell. Its masonry block/course dimensions (see CreateWallPixels) must
++        // each evenly divide these texture dimensions so the identical procedural pattern
++        // tiles seamlessly - otherwise a block gets truncated at the texture edge, and that
++        // same truncated cut recurs at every wall-segment boundary, making each one-cell
++        // sorting segment read as a separate piece of wall instead of one continuous wall.
++        private const int WallTileTextureWidth = 128;
++        private const int WallTileTextureHeight = 320;
++        // Equal to WallTileTextureWidth so the wall Tile stays exactly one world unit wide
++        // (matching one Tilemap cell), with WallTileTextureHeight yielding its 2.5-unit height.
++        private const float WallTilePixelsPerUnit = WallTileTextureWidth;
++
+         // Subfolder name only, not an absolute path: the shared world-sprite Prefab asset is
+         // always saved under whichever AssetDatabase folder the caller owns (the real
+         // ArchitecturalTileAssetFolder for Build(), or a caller-owned temporary folder for
+@@ -472,11 +484,11 @@ namespace NoSafeCircle.DoorPrototype.Editor
+                     assetFolder,
+                     "WallTile.asset",
+                     "WallTile",
+-                    64,
+-                    160,
+-                    64f,
++                    WallTileTextureWidth,
++                    WallTileTextureHeight,
++                    WallTilePixelsPerUnit,
+                     new Vector2(0.5f, 0f),
+-                    CreateWallPixels(64, 160)),
++                    CreateWallPixels(WallTileTextureWidth, WallTileTextureHeight)),
+                 LoadOrCreateArchitecturalTile(
+                     assetFolder,
+                     "ArchitecturalBorderTile.asset",
+@@ -744,23 +756,29 @@ namespace NoSafeCircle.DoorPrototype.Editor
+             return pixels;
+         }
+ 
++        // AC-001: courseHeight and blockWidth must each evenly divide height/width. This same
++        // texture repeats verbatim across every wall Tilemap cell, so the running-bond block
++        // pattern only tiles seamlessly (continues as one flowing course instead of a
++        // truncated block recurring at every segment boundary) when the texture's edges land
++        // exactly on a block/course boundary.
+         private static Color32[] CreateWallPixels(int width, int height)
+         {
+             var pixels = new Color32[width * height];
+             var stone = new Color32(74, 71, 68, 255);
+             var alternateStone = new Color32(86, 82, 77, 255);
+             var mortar = new Color32(39, 37, 36, 255);
+-            const int courseHeight = 32;
+-            const int blockWidth = 48;
++            const int courseHeight = 64;
++            const int blockWidth = 32;
++            const int mortarThicknessPx = 4;
+ 
+             for (var y = 0; y < height; y++)
+             {
+                 var course = y / courseHeight;
+-                var horizontalMortar = y % courseHeight < 2;
++                var horizontalMortar = y % courseHeight < mortarThicknessPx;
+                 for (var x = 0; x < width; x++)
+                 {
+                     var staggeredX = x + (course % 2) * (blockWidth / 2);
+-                    var verticalMortar = staggeredX % blockWidth < 2;
++                    var verticalMortar = staggeredX % blockWidth < mortarThicknessPx;
+                     pixels[y * width + x] = horizontalMortar || verticalMortar
+                         ? mortar
+                         : ((staggeredX / blockWidth + course) % 2 == 0 ? stone : alternateStone);
+diff --git a/Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs b/Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs
+index 1cf0b03b3b134147e13864efe88d8d07bab6f1df..9f3247c32e73b1430455ca56127de2e66f7dd703 100644
+--- a/Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs
++++ b/Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs
+@@ -1614,6 +1614,91 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
+                     $"Expected independently sortable wall segment at {cell}.");
+             }
+         }
++
++        // NSC-042 AC-001: Individual Tilemap sorting paints the exact same WallTile texture
++        // verbatim at every wall cell, so a repeated wall only reads as one continuous wall -
++        // rather than each one-cell sorting segment visibly restarting at a border seam - if
++        // this masonry pattern is genuinely periodic across the texture's own width. Proven by
++        // comparing two side-by-side copies of the actual persisted texture against an
++        // independently generated doubled-width texture built from the same procedural pattern:
++        // that doubled-width image is what a genuinely continuous (non-seamed) wall texture of
++        // twice the width would look like, so any block truncated at the tile edge shows up as
++        // a pixel mismatch at the seam.
++        [Test]
++        public void Build_WallTileTexture_MasonryPatternTilesSeamlesslyAcrossRepeatedWallCells()
++        {
++            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
++
++            var wallTilemap = GameObject.Find("IsometricVisualGrid/WallTilemap")?.GetComponent<Tilemap>();
++            Assert.IsNotNull(wallTilemap);
++            var wallTile = wallTilemap.GetTile<Tile>(Vector3Int.zero);
++            Assert.IsNotNull(wallTile, "Expected a WallTile painted at the origin wall cell.");
++            var wallTexture = wallTile.sprite.texture;
++            Assert.IsNotNull(wallTexture);
++
++            var width = wallTexture.width;
++            var height = wallTexture.height;
++            var singleTilePixels = wallTexture.GetPixels32();
++
++            var createWallPixels = typeof(DoorPrototypeSceneBuilder).GetMethod(
++                "CreateWallPixels", BindingFlags.NonPublic | BindingFlags.Static);
++            Assert.IsNotNull(createWallPixels, "Expected a private static CreateWallPixels(width, height) helper.");
++
++            var continuousDoubleWidthPixels =
++                (Color32[])createWallPixels.Invoke(null, new object[] { width * 2, height });
++
++            for (var y = 0; y < height; y++)
++            {
++                for (var x = 0; x < width * 2; x++)
++                {
++                    var sideBySideTiledPixel = singleTilePixels[y * width + (x % width)];
++                    var continuousPixel = continuousDoubleWidthPixels[y * (width * 2) + x];
++
++                    Assert.AreEqual(continuousPixel, sideBySideTiledPixel,
++                        "AC-001: placing two copies of the persisted WallTile texture side by side must " +
++                        "exactly reproduce the same masonry pattern as one genuinely continuous " +
++                        $"doubled-width wall texture at pixel ({x}, {y}); a mismatch means the pattern is " +
++                        "truncated/reset at each wall-segment boundary instead of tiling seamlessly.");
++                }
++            }
++        }
++
++        // NSC-042 AC-003/VAL-001: scaling a straight wall to roughly 100 visual cells must reuse
++        // the same persisted WallTile asset rather than requiring a Tile/Sprite/Texture asset
++        // count that grows with wall length.
++        [Test]
++        public void Build_WallTileReusedAcrossApproximatelyOneHundredCells_DoesNotGrowArchitecturalAssetCount()
++        {
++            DoorPrototypeSceneBuilder.BuildInMemoryForTests(temporaryArchitecturalTileAssetFolder);
++
++            var wallTilemap = GameObject.Find("IsometricVisualGrid/WallTilemap")?.GetComponent<Tilemap>();
++            Assert.IsNotNull(wallTilemap);
++            var wallTile = wallTilemap.GetTile<Tile>(Vector3Int.zero);
++            Assert.IsNotNull(wallTile, "Expected a persisted WallTile painted at the origin wall cell.");
++
++            var assetCountBeforeLongWall =
++                AssetDatabase.FindAssets(string.Empty, new[] { temporaryArchitecturalTileAssetFolder }).Length;
++
++            const int longWallCellCount = 100;
++            for (var i = 0; i < longWallCellCount; i++)
++            {
++                wallTilemap.SetTile(new Vector3Int(50 + i, 0, 0), wallTile);
++            }
++
++            var assetCountAfterLongWall =
++                AssetDatabase.FindAssets(string.Empty, new[] { temporaryArchitecturalTileAssetFolder }).Length;
++
++            Assert.AreEqual(assetCountBeforeLongWall, assetCountAfterLongWall,
++                "Scaling a straight wall to roughly 100 visual cells must reuse the existing WallTile asset " +
++                "instead of requiring additional Tile/Sprite/Texture assets proportional to wall length.");
++
++            for (var i = 0; i < longWallCellCount; i++)
++            {
++                Assert.AreSame(wallTile, wallTilemap.GetTile(new Vector3Int(50 + i, 0, 0)),
++                    $"Wall cell {50 + i} must reuse the exact same WallTile asset rather than a uniquely " +
++                    "authored one.");
++            }
++        }
+         [Test]
+         public void Build_DoorwayBlocker_IsSeparateBoxColliderWiredToDoorInteractable()
+         {

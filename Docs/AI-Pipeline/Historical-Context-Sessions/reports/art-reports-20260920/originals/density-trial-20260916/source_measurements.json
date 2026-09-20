@@ -1,0 +1,182 @@
+[
+  {
+    "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/standing/south.png",
+    "mode": "RGBA",
+    "size": [
+      180,
+      180
+    ],
+    "alpha_bbox": [
+      60,
+      12,
+      120,
+      155
+    ],
+    "bbox_size": [
+      60,
+      143
+    ],
+    "opaque_pixels": 5126,
+    "sha256": "38c4f378898a0ae57bb495a4d8d5ca68482c1deda911f38f8181bd0896405116"
+  },
+  {
+    "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/standing/south-east.png",
+    "mode": "RGBA",
+    "size": [
+      180,
+      180
+    ],
+    "alpha_bbox": [
+      60,
+      13,
+      118,
+      159
+    ],
+    "bbox_size": [
+      58,
+      146
+    ],
+    "opaque_pixels": 4600,
+    "sha256": "89258c88260bfa1a62ac3d393a3c98ba61067c08b2bf7d805b0cf2d76d6df301"
+  },
+  {
+    "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/south-east/frame_000.png",
+    "mode": "RGBA",
+    "size": [
+      180,
+      180
+    ],
+    "alpha_bbox": [
+      61,
+      12,
+      119,
+      159
+    ],
+    "bbox_size": [
+      58,
+      147
+    ],
+    "opaque_pixels": 4556,
+    "sha256": "7e69bb86f003bceff5f6dfd3e885fee2ed2630d4ccb80e577ab4bff876e1015c"
+  },
+  {
+    "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/south-east/frame_001.png",
+    "mode": "RGBA",
+    "size": [
+      180,
+      180
+    ],
+    "alpha_bbox": [
+      61,
+      11,
+      121,
+      153
+    ],
+    "bbox_size": [
+      60,
+      142
+    ],
+    "opaque_pixels": 4676,
+    "sha256": "8d17eaa8b070cf605a723b79f46776a8f4801acee8e51f9928f9602d686773d6"
+  },
+  {
+    "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/south-east/frame_002.png",
+    "mode": "RGBA",
+    "size": [
+      180,
+      180
+    ],
+    "alpha_bbox": [
+      60,
+      11,
+      118,
+      152
+    ],
+    "bbox_size": [
+      58,
+      141
+    ],
+    "opaque_pixels": 4530,
+    "sha256": "377fb9f357a62bada541a9dad3c735f843b55e04f253a80dbf1faed9a7722930"
+  },
+  {
+    "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/south-east/frame_003.png",
+    "mode": "RGBA",
+    "size": [
+      180,
+      180
+    ],
+    "alpha_bbox": [
+      59,
+      12,
+      117,
+      159
+    ],
+    "bbox_size": [
+      58,
+      147
+    ],
+    "opaque_pixels": 4657,
+    "sha256": "64fc316233178008aaedc55583512f012fd045e5c83202e5d3953a361a1240b7"
+  },
+  {
+    "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/south-east/frame_004.png",
+    "mode": "RGBA",
+    "size": [
+      180,
+      180
+    ],
+    "alpha_bbox": [
+      60,
+      11,
+      121,
+      159
+    ],
+    "bbox_size": [
+      61,
+      148
+    ],
+    "opaque_pixels": 5067,
+    "sha256": "2c5942a62c2ddb6ebd8d3aed3101578dad69279a5e2274954f42007c704ce94a"
+  },
+  {
+    "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/south-east/frame_005.png",
+    "mode": "RGBA",
+    "size": [
+      180,
+      180
+    ],
+    "alpha_bbox": [
+      61,
+      11,
+      118,
+      159
+    ],
+    "bbox_size": [
+      57,
+      148
+    ],
+    "opaque_pixels": 4820,
+    "sha256": "bec335bbf2c557cceb90ed8967be12da539bea2913e5f502dc66525b3f8d38f5"
+  },
+  {
+    "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/enemy_ranged_se_idle_00.png",
+    "mode": "RGBA",
+    "size": [
+      128,
+      128
+    ],
+    "alpha_bbox": [
+      29,
+      11,
+      110,
+      114
+    ],
+    "bbox_size": [
+      81,
+      103
+    ],
+    "opaque_pixels": 3913,
+    "sha256": "33a6bb9dba7c8d678c0c82e20aa0b9bd51235643ba113c6db63650b41d7d209d"
+  }
+]

@@ -1,0 +1,394 @@
+{
+  "key": "masculine-light-trial",
+  "canvas": [
+    128,
+    128
+  ],
+  "ground_line_row_inclusive": 120,
+  "ground_line_y_from_top": 121,
+  "pivot": {
+    "x": 0.5,
+    "y": 0.0546875
+  },
+  "top_margin": 0,
+  "bottom_margin": 2,
+  "max_dip": 6,
+  "max_dip_observed": 5,
+  "max_dip_binding": [
+    "south-east:walk"
+  ],
+  "bounds": {
+    "g_min": 104,
+    "g_max": 120,
+    "g_min_binding": [
+      "standing:south-west",
+      "standing:west"
+    ],
+    "g_max_binding": [
+      "walk:south-east:frame_06.png"
+    ]
+  },
+  "directions": {
+    "south": {
+      "still": {
+        "reference_row": 109,
+        "dy": 11,
+        "deepest_row_before": 109,
+        "deepest_row_after": 120,
+        "dip_below_ground_line": 0,
+        "deepest_frames": [
+          "south.png"
+        ]
+      }
+    },
+    "south-east": {
+      "still": {
+        "reference_row": 113,
+        "dy": 7,
+        "deepest_row_before": 113,
+        "deepest_row_after": 120,
+        "dip_below_ground_line": 0,
+        "deepest_frames": [
+          "south-east.png"
+        ]
+      },
+      "walk": {
+        "reference_row": 112,
+        "dy": 8,
+        "frames": 7,
+        "deepest_row_before": 117,
+        "deepest_row_after": 125,
+        "dip_below_ground_line": 5,
+        "deepest_frames": [
+          "frame_06.png"
+        ]
+      }
+    },
+    "east": {
+      "still": {
+        "reference_row": 116,
+        "dy": 4,
+        "deepest_row_before": 116,
+        "deepest_row_after": 120,
+        "dip_below_ground_line": 0,
+        "deepest_frames": [
+          "east.png"
+        ]
+      }
+    },
+    "north-east": {
+      "still": {
+        "reference_row": 112,
+        "dy": 8,
+        "deepest_row_before": 112,
+        "deepest_row_after": 120,
+        "dip_below_ground_line": 0,
+        "deepest_frames": [
+          "north-east.png"
+        ]
+      }
+    },
+    "north": {
+      "still": {
+        "reference_row": 108,
+        "dy": 12,
+        "deepest_row_before": 108,
+        "deepest_row_after": 120,
+        "dip_below_ground_line": 0,
+        "deepest_frames": [
+          "north.png"
+        ]
+      }
+    },
+    "north-west": {
+      "still": {
+        "reference_row": 112,
+        "dy": 8,
+        "deepest_row_before": 112,
+        "deepest_row_after": 120,
+        "dip_below_ground_line": 0,
+        "deepest_frames": [
+          "north-west.png"
+        ]
+      }
+    },
+    "west": {
+      "still": {
+        "reference_row": 116,
+        "dy": 4,
+        "deepest_row_before": 116,
+        "deepest_row_after": 120,
+        "dip_below_ground_line": 0,
+        "deepest_frames": [
+          "west.png"
+        ]
+      }
+    },
+    "south-west": {
+      "still": {
+        "reference_row": 113,
+        "dy": 7,
+        "deepest_row_before": 113,
+        "deepest_row_after": 120,
+        "dip_below_ground_line": 0,
+        "deepest_frames": [
+          "south-west.png"
+        ]
+      }
+    }
+  },
+  "missing_directions": {
+    "standing": [],
+    "walk": [
+      "south",
+      "east",
+      "north-east",
+      "north",
+      "north-west",
+      "west",
+      "south-west"
+    ]
+  },
+  "frames": [
+    {
+      "group": "standing",
+      "direction": "east",
+      "name": "east.png",
+      "src": "C:\\nscrev\\reports\\art-director\\density-trial-20260916\\pixellab\\3b_rotations_final\\east.png",
+      "src_sha256": "7e8ec80b881c9cb44cc29e5fca871a02c23dab58d5e1916e1110e6c6fa10971e",
+      "dst": "C:\\nscrev\\reports\\art-director\\wizard-ground-line-20260917\\trial-normalized\\standing\\east.png",
+      "dst_sha256": "058cdc3132250a68b647a97fedf43d1440793fbe2d7a3d37f918c4bdc7e43d1b",
+      "feet_row_before": 116,
+      "feet_row_after": 120,
+      "alpha_bottom_y_from_top_after": 121,
+      "head_row_before": 13,
+      "head_row_after": 17,
+      "dy": 4,
+      "opaque_pixels": 1993
+    },
+    {
+      "group": "standing",
+      "direction": "north-east",
+      "name": "north-east.png",
+      "src": "C:\\nscrev\\reports\\art-director\\density-trial-20260916\\pixellab\\3b_rotations_final\\north-east.png",
+      "src_sha256": "850d84bf618d4ec3fa1e50ff78d27c9559ba07d96b566ba118385a222cc106af",
+      "dst": "C:\\nscrev\\reports\\art-director\\wizard-ground-line-20260917\\trial-normalized\\standing\\north-east.png",
+      "dst_sha256": "dc0cb29dba4faf62158a6566a2459505396b757e1c63de26d11db484aebc9a81",
+      "feet_row_before": 112,
+      "feet_row_after": 120,
+      "alpha_bottom_y_from_top_after": 121,
+      "head_row_before": 11,
+      "head_row_after": 19,
+      "dy": 8,
+      "opaque_pixels": 2451
+    },
+    {
+      "group": "standing",
+      "direction": "north-west",
+      "name": "north-west.png",
+      "src": "C:\\nscrev\\reports\\art-director\\density-trial-20260916\\pixellab\\3b_rotations_final\\north-west.png",
+      "src_sha256": "7e05c313520fae9df7cd489f90b8ed0c176e41cbdfdf250a37a836873d969d4e",
+      "dst": "C:\\nscrev\\reports\\art-director\\wizard-ground-line-20260917\\trial-normalized\\standing\\north-west.png",
+      "dst_sha256": "89337be4fde267f6a946931c559eb6f4a9af6d98ba3e5ff8b4fd8eb102e4321a",
+      "feet_row_before": 112,
+      "feet_row_after": 120,
+      "alpha_bottom_y_from_top_after": 121,
+      "head_row_before": 12,
+      "head_row_after": 20,
+      "dy": 8,
+      "opaque_pixels": 2523
+    },
+    {
+      "group": "standing",
+      "direction": "north",
+      "name": "north.png",
+      "src": "C:\\nscrev\\reports\\art-director\\density-trial-20260916\\pixellab\\3b_rotations_final\\north.png",
+      "src_sha256": "62f9fa18327bd887a4129f4d66ef96075a0ca4cd678a44132ee5013c2266984f",
+      "dst": "C:\\nscrev\\reports\\art-director\\wizard-ground-line-20260917\\trial-normalized\\standing\\north.png",
+      "dst_sha256": "d8f159cf5e61d467551e8067aeb6ab0632df70eb1160a415167b632fec6b2916",
+      "feet_row_before": 108,
+      "feet_row_after": 120,
+      "alpha_bottom_y_from_top_after": 121,
+      "head_row_before": 10,
+      "head_row_after": 22,
+      "dy": 12,
+      "opaque_pixels": 2644
+    },
+    {
+      "group": "standing",
+      "direction": "south-east",
+      "name": "south-east.png",
+      "src": "C:\\nscrev\\reports\\art-director\\density-trial-20260916\\pixellab\\3b_rotations_final\\south-east.png",
+      "src_sha256": "2ec4872fddd7df235fdd559b54f3c7503a77b2e141805e1526d7ccb277033614",
+      "dst": "C:\\nscrev\\reports\\art-director\\wizard-ground-line-20260917\\trial-normalized\\standing\\south-east.png",
+      "dst_sha256": "0aa8ded2db8f2a931ed9e232ca609d8ecd2e4f7005e6c1eacfc0e36b5f682ebb",
+      "feet_row_before": 113,
+      "feet_row_after": 120,
+      "alpha_bottom_y_from_top_after": 121,
+      "head_row_before": 11,
+      "head_row_after": 18,
+      "dy": 7,
+      "opaque_pixels": 2395
+    },
+    {
+      "group": "standing",
+      "direction": "south-west",
+      "name": "south-west.png",
+      "src": "C:\\nscrev\\reports\\art-director\\density-trial-20260916\\pixellab\\3b_rotations_final\\south-west.png",
+      "src_sha256": "8e6fe2fe08ad8044761040ae5e88cb81dd21960169d7a9193077fb4db984b6ed",
+      "dst": "C:\\nscrev\\reports\\art-director\\wizard-ground-line-20260917\\trial-normalized\\standing\\south-west.png",
+      "dst_sha256": "9d221fdc3c37bda2e506ef9f418f1e00fdf8c72d4f4c5606c2aff21694a540d1",
+      "feet_row_before": 113,
+      "feet_row_after": 120,
+      "alpha_bottom_y_from_top_after": 121,
+      "head_row_before": 9,
+      "head_row_after": 16,
+      "dy": 7,
+      "opaque_pixels": 2345
+    },
+    {
+      "group": "standing",
+      "direction": "south",
+      "name": "south.png",
+      "src": "C:\\nscrev\\reports\\art-director\\density-trial-20260916\\pixellab\\3b_rotations_final\\south.png",
+      "src_sha256": "dffbac8f175126f1a334916c0ecdd29c4a719d5ab7a3610f2c4c8f24d0b6766a",
+      "dst": "C:\\nscrev\\reports\\art-director\\wizard-ground-line-20260917\\trial-normalized\\standing\\south.png",
+      "dst_sha256": "276414eccdb695054befff2daa756d481b7876a48e76ebb3eef9e74943b0ee54",
+      "feet_row_before": 109,
+      "feet_row_after": 120,
+      "alpha_bottom_y_from_top_after": 121,
+      "head_row_before": 8,
+      "head_row_after": 19,
+      "dy": 11,
+      "opaque_pixels": 2609
+    },
+    {
+      "group": "standing",
+      "direction": "west",
+      "name": "west.png",
+      "src": "C:\\nscrev\\reports\\art-director\\density-trial-20260916\\pixellab\\3b_rotations_final\\west.png",
+      "src_sha256": "f46df36a182bb8c0ebff7dbedabb4ea50150e2cd62367d79e23d77992d813e6d",
+      "dst": "C:\\nscrev\\reports\\art-director\\wizard-ground-line-20260917\\trial-normalized\\standing\\west.png",
+      "dst_sha256": "2538e7d76c877a44c0c4e936e32d532518270f40cef5401ed2d4476e4ab4b718",
+      "feet_row_before": 116,
+      "feet_row_after": 120,
+      "alpha_bottom_y_from_top_after": 121,
+      "head_row_before": 12,
+      "head_row_after": 16,
+      "dy": 4,
+      "opaque_pixels": 2018
+    },
+    {
+      "group": "walk",
+      "direction": "south-east",
+      "name": "frame_00.png",
+      "src": "C:\\nscrev\\reports\\art-director\\density-trial-20260916\\pixellab\\3c_walk_se_128\\frame_00.png",
+      "src_sha256": "762e62e2824ae34e3a3a059fc87bbc538d059b24c5d216823efc44fe5753b5e5",
+      "dst": "C:\\nscrev\\reports\\art-director\\wizard-ground-line-20260917\\trial-normalized\\walk\\south-east\\frame_00.png",
+      "dst_sha256": "d0e22e56b0513f258ae2cd27602782800b6be30c977000c36ab05601373ee092",
+      "feet_row_before": 113,
+      "feet_row_after": 121,
+      "alpha_bottom_y_from_top_after": 122,
+      "head_row_before": 11,
+      "head_row_after": 19,
+      "dy": 8,
+      "opaque_pixels": 2395
+    },
+    {
+      "group": "walk",
+      "direction": "south-east",
+      "name": "frame_01.png",
+      "src": "C:\\nscrev\\reports\\art-director\\density-trial-20260916\\pixellab\\3c_walk_se_128\\frame_01.png",
+      "src_sha256": "79ee0b41731bc7c33f84d792de0c0968490a85918a0244f18153aa0062d23c2e",
+      "dst": "C:\\nscrev\\reports\\art-director\\wizard-ground-line-20260917\\trial-normalized\\walk\\south-east\\frame_01.png",
+      "dst_sha256": "1bb837e10ab8f9e740d3f1b17d3b56a3359074aec00f5efe9184318b7fde25b4",
+      "feet_row_before": 111,
+      "feet_row_after": 119,
+      "alpha_bottom_y_from_top_after": 120,
+      "head_row_before": 12,
+      "head_row_after": 20,
+      "dy": 8,
+      "opaque_pixels": 2289
+    },
+    {
+      "group": "walk",
+      "direction": "south-east",
+      "name": "frame_02.png",
+      "src": "C:\\nscrev\\reports\\art-director\\density-trial-20260916\\pixellab\\3c_walk_se_128\\frame_02.png",
+      "src_sha256": "b887d3be229c53a71f636e2660303e6666ed129383025274f355ba2b83cf001c",
+      "dst": "C:\\nscrev\\reports\\art-director\\wizard-ground-line-20260917\\trial-normalized\\walk\\south-east\\frame_02.png",
+      "dst_sha256": "9003c491ee81a4c0824f7d96f0c229e637f27fae188f7364a6462277ef89ec81",
+      "feet_row_before": 112,
+      "feet_row_after": 120,
+      "alpha_bottom_y_from_top_after": 121,
+      "head_row_before": 14,
+      "head_row_after": 22,
+      "dy": 8,
+      "opaque_pixels": 2274
+    },
+    {
+      "group": "walk",
+      "direction": "south-east",
+      "name": "frame_03.png",
+      "src": "C:\\nscrev\\reports\\art-director\\density-trial-20260916\\pixellab\\3c_walk_se_128\\frame_03.png",
+      "src_sha256": "611b180599ac287d07492bc9b6cd464497a84b412bc556f4c895563fc6a9ffcb",
+      "dst": "C:\\nscrev\\reports\\art-director\\wizard-ground-line-20260917\\trial-normalized\\walk\\south-east\\frame_03.png",
+      "dst_sha256": "0f7fa38c5e2d56180ba0d563c752c2af22d07eab652a6154d4f31aa2880e0468",
+      "feet_row_before": 110,
+      "feet_row_after": 118,
+      "alpha_bottom_y_from_top_after": 119,
+      "head_row_before": 12,
+      "head_row_after": 20,
+      "dy": 8,
+      "opaque_pixels": 2351
+    },
+    {
+      "group": "walk",
+      "direction": "south-east",
+      "name": "frame_04.png",
+      "src": "C:\\nscrev\\reports\\art-director\\density-trial-20260916\\pixellab\\3c_walk_se_128\\frame_04.png",
+      "src_sha256": "34886f57536742b6791858abff29ea1cc4f8d70ac65e1e639672233ca4154be3",
+      "dst": "C:\\nscrev\\reports\\art-director\\wizard-ground-line-20260917\\trial-normalized\\walk\\south-east\\frame_04.png",
+      "dst_sha256": "c060529aee1459d8bc05d0f76723772166a1b833e4928382fe91a29d49594674",
+      "feet_row_before": 112,
+      "feet_row_after": 120,
+      "alpha_bottom_y_from_top_after": 121,
+      "head_row_before": 11,
+      "head_row_after": 19,
+      "dy": 8,
+      "opaque_pixels": 2442
+    },
+    {
+      "group": "walk",
+      "direction": "south-east",
+      "name": "frame_05.png",
+      "src": "C:\\nscrev\\reports\\art-director\\density-trial-20260916\\pixellab\\3c_walk_se_128\\frame_05.png",
+      "src_sha256": "137b00a90ba79fb73363d55f744fcc395f21e902037534faf6d4ef24ff9a84bc",
+      "dst": "C:\\nscrev\\reports\\art-director\\wizard-ground-line-20260917\\trial-normalized\\walk\\south-east\\frame_05.png",
+      "dst_sha256": "29ae470a3b7cc80861608fa4bc3f3622a66536939725c270691ff8501f57b97b",
+      "feet_row_before": 112,
+      "feet_row_after": 120,
+      "alpha_bottom_y_from_top_after": 121,
+      "head_row_before": 11,
+      "head_row_after": 19,
+      "dy": 8,
+      "opaque_pixels": 2541
+    },
+    {
+      "group": "walk",
+      "direction": "south-east",
+      "name": "frame_06.png",
+      "src": "C:\\nscrev\\reports\\art-director\\density-trial-20260916\\pixellab\\3c_walk_se_128\\frame_06.png",
+      "src_sha256": "49a2224553015de44f6cdbfa4f50af0c31c5ed0307aed6b169ba2bb84c486890",
+      "dst": "C:\\nscrev\\reports\\art-director\\wizard-ground-line-20260917\\trial-normalized\\walk\\south-east\\frame_06.png",
+      "dst_sha256": "d9f1e214ae642a6c74cfd1810e033657cb094abd77bc76f09da1e0b64c8c4f03",
+      "feet_row_before": 117,
+      "feet_row_after": 125,
+      "alpha_bottom_y_from_top_after": 126,
+      "head_row_before": 14,
+      "head_row_after": 22,
+      "dy": 8,
+      "opaque_pixels": 2528
+    }
+  ]
+}

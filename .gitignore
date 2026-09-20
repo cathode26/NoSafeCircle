@@ -118,3 +118,7 @@ __pycache__/
 
 # Explicitly retained historical project evidence; live output/cache rules remain above.
 !/Docs/AI-Pipeline/Historical-Context-Sessions/reports/untracked-project-outputs-20260920/**/*.log
+
+# Dated report evidence selected by the 2026-09-20 authored-guides import.
+!/Docs/AI-Pipeline/Historical-Context-Sessions/reports/host-reports-20260920/originals/**/*.log
+!/Docs/AI-Pipeline/Historical-Context-Sessions/reports/art-reports-20260920/originals/**/*.log

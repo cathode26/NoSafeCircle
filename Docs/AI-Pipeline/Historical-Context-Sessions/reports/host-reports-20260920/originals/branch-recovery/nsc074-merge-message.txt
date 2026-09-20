@@ -1,0 +1,13 @@
+Merge NSC-074 cardinal wizard walk source art
+
+Adds six-frame PixelLab walk cycles facing north, east, south and west for all four wizards. The merge brings in:
+- 96 PNGs, each with a GUID-only .meta, plus 16 direction-folder metas;
+- the cardinal_walk_extension record in source-inventory.json;
+- the NSC-074 section of PIXELLAB_GENERATION.md;
+- the WizardCardinalSourceAuditTests Edit Mode audit.
+
+This is source art for NSC-075's eight-direction integration. The wizard animator still selects only the four diagonals, so gameplay does not change, and NSC-074 VAL-002 (Vincent watching every variant walk each cardinal direction) waits for that integration.
+
+The NSC-073 hat fix and this branch both appended to source-inventory.json and PIXELLAB_GENERATION.md. The conflicts are resolved by keeping both sides, and NSC-074's serialization note and doc paragraph now record that reconciliation. Vincent approved merging this after the hat fix on 2026-09-16.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

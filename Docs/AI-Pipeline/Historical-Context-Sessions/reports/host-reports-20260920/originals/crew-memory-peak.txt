@@ -1,0 +1,2 @@
+sample 37: peak 381MB (assistant-crew-52446f3b0f1cebc282b6-claude-exec-run-92c905d82e33)
+PEAK 381MB on assistant-crew-52446f3b0f1cebc282b6-claude-exec-run-92c905d82e33; crew container gone at 22:19:02 after 37 samples

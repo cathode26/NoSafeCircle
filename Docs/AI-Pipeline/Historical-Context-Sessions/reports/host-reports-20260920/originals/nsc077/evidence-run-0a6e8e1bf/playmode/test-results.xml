@@ -1,0 +1,730 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="107" result="Passed" total="107" passed="107" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-09-17 07:19:06Z" end-time="2026-09-17 07:19:46Z" duration="40.2503551">
+  <test-suite type="TestSuite" id="1301" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="256" result="Passed" start-time="2026-09-17 07:19:06Z" end-time="2026-09-17 07:19:46Z" duration="40.250355" total="107" passed="107" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="PlayMode" />
+    </properties>
+    <test-suite type="Assembly" id="1287" name="NoSafeCircle.DoorPrototype.Tests.dll" fullname="C:/nscrev/branch-verify/Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Tests.dll" runstate="Runnable" testcasecount="252" result="Passed" start-time="2026-09-17 07:19:06Z" end-time="2026-09-17 07:19:46Z" duration="40.231639" total="107" passed="107" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="41932" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="PlayMode" />
+        <property name="EditorOnly" value="False" />
+      </properties>
+      <test-suite type="TestSuite" id="1288" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="252" result="Passed" start-time="2026-09-17 07:19:06Z" end-time="2026-09-17 07:19:46Z" duration="40.226493" total="107" passed="107" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1289" name="DoorPrototype" fullname="NoSafeCircle.DoorPrototype" runstate="Runnable" testcasecount="252" result="Passed" start-time="2026-09-17 07:19:06Z" end-time="2026-09-17 07:19:46Z" duration="40.221103" total="107" passed="107" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1290" name="Tests" fullname="NoSafeCircle.DoorPrototype.Tests" runstate="Runnable" testcasecount="252" result="Passed" start-time="2026-09-17 07:19:06Z" end-time="2026-09-17 07:19:46Z" duration="40.215982" total="107" passed="107" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestFixture" id="1001" name="ActiveEnemyRegistryPlayModeTests" fullname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests" classname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests" runstate="Runnable" testcasecount="14" result="Passed" start-time="2026-09-17 07:19:06Z" end-time="2026-09-17 07:19:06Z" duration="0.059218" total="14" passed="14" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1002" name="InitialState_ActiveCountIsZero_AndRemainingCapacityIsFifteen" fullname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests.InitialState_ActiveCountIsZero_AndRemainingCapacityIsFifteen" methodname="InitialState_ActiveCountIsZero_AndRemainingCapacityIsFifteen" classname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests" runstate="Runnable" seed="227247817" result="Passed" start-time="2026-09-17 07:19:06Z" end-time="2026-09-17 07:19:06Z" duration="0.016888" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1007" name="Register_SameEnemyTwice_DoesNotDoubleCount" fullname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests.Register_SameEnemyTwice_DoesNotDoubleCount" methodname="Register_SameEnemyTwice_DoesNotDoubleCount" classname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests" runstate="Runnable" seed="759982995" result="Passed" start-time="2026-09-17 07:19:06Z" end-time="2026-09-17 07:19:06Z" duration="0.001445" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1006" name="Register_SingleEnemy_AddsToActiveSetOnce" fullname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests.Register_SingleEnemy_AddsToActiveSetOnce" methodname="Register_SingleEnemy_AddsToActiveSetOnce" classname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests" runstate="Runnable" seed="1645354187" result="Passed" start-time="2026-09-17 07:19:06Z" end-time="2026-09-17 07:19:06Z" duration="0.000471" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1003" name="Register_UpToFifteenEnemies_ReportsExactCountAndZeroRemainingCapacity" fullname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests.Register_UpToFifteenEnemies_ReportsExactCountAndZeroRemainingCapacity" methodname="Register_UpToFifteenEnemies_ReportsExactCountAndZeroRemainingCapacity" classname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests" runstate="Runnable" seed="908963899" result="Passed" start-time="2026-09-17 07:19:06Z" end-time="2026-09-17 07:19:06Z" duration="0.000661" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1011" name="RegisterAndUnregister_NullEnemy_DoesNotAlterActiveCount" fullname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests.RegisterAndUnregister_NullEnemy_DoesNotAlterActiveCount" methodname="RegisterAndUnregister_NullEnemy_DoesNotAlterActiveCount" classname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests" runstate="Runnable" seed="986678189" result="Passed" start-time="2026-09-17 07:19:06Z" end-time="2026-09-17 07:19:06Z" duration="0.000395" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1012" name="RegisteredEnemy_RemainsCountedWithoutExplicitUnregisterOrReset" fullname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests.RegisteredEnemy_RemainsCountedWithoutExplicitUnregisterOrReset" methodname="RegisteredEnemy_RemainsCountedWithoutExplicitUnregisterOrReset" classname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests" runstate="Runnable" seed="1599952852" result="Passed" start-time="2026-09-17 07:19:06Z" end-time="2026-09-17 07:19:06Z" duration="0.000434" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1013" name="ResetRegistry_ReturnsActiveCountToZero_AndRemainingCapacityToFifteen" fullname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests.ResetRegistry_ReturnsActiveCountToZero_AndRemainingCapacityToFifteen" methodname="ResetRegistry_ReturnsActiveCountToZero_AndRemainingCapacityToFifteen" classname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests" runstate="Runnable" seed="570119929" result="Passed" start-time="2026-09-17 07:19:06Z" end-time="2026-09-17 07:19:06Z" duration="0.000577" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1014" name="ResetRegistry_ThenReRegisterSameEnemies_ReflectsExactlyReRegisteredSet" fullname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests.ResetRegistry_ThenReRegisterSameEnemies_ReflectsExactlyReRegisteredSet" methodname="ResetRegistry_ThenReRegisterSameEnemies_ReflectsExactlyReRegisteredSet" classname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests" runstate="Runnable" seed="304108291" result="Passed" start-time="2026-09-17 07:19:06Z" end-time="2026-09-17 07:19:06Z" duration="0.000520" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1015" name="ResetRegistry_ThenReRegisterSubset_DoesNotReflectPreResetCount" fullname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests.ResetRegistry_ThenReRegisterSubset_DoesNotReflectPreResetCount" methodname="ResetRegistry_ThenReRegisterSubset_DoesNotReflectPreResetCount" classname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests" runstate="Runnable" seed="1025205580" result="Passed" start-time="2026-09-17 07:19:06Z" end-time="2026-09-17 07:19:06Z" duration="0.000524" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1005" name="Unregister_MultipleEnemies_RestoresMatchingCapacity" fullname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests.Unregister_MultipleEnemies_RestoresMatchingCapacity" methodname="Unregister_MultipleEnemies_RestoresMatchingCapacity" classname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests" runstate="Runnable" seed="1729244889" result="Passed" start-time="2026-09-17 07:19:06Z" end-time="2026-09-17 07:19:06Z" duration="0.000602" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1004" name="Unregister_OneOfFifteen_RestoresOneUnitOfCapacity" fullname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests.Unregister_OneOfFifteen_RestoresOneUnitOfCapacity" methodname="Unregister_OneOfFifteen_RestoresOneUnitOfCapacity" classname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests" runstate="Runnable" seed="806980469" result="Passed" start-time="2026-09-17 07:19:06Z" end-time="2026-09-17 07:19:06Z" duration="0.000565" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1008" name="Unregister_RegisteredEnemy_RemovesFromActiveSet" fullname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests.Unregister_RegisteredEnemy_RemovesFromActiveSet" methodname="Unregister_RegisteredEnemy_RemovesFromActiveSet" classname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests" runstate="Runnable" seed="1958845857" result="Passed" start-time="2026-09-17 07:19:06Z" end-time="2026-09-17 07:19:06Z" duration="0.000364" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1009" name="Unregister_SameEnemyTwice_DoesNotCorruptCount" fullname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests.Unregister_SameEnemyTwice_DoesNotCorruptCount" methodname="Unregister_SameEnemyTwice_DoesNotCorruptCount" classname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests" runstate="Runnable" seed="2057953265" result="Passed" start-time="2026-09-17 07:19:06Z" end-time="2026-09-17 07:19:06Z" duration="0.000332" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1010" name="Unregister_UnknownEnemy_DoesNotAlterActiveCount" fullname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests.Unregister_UnknownEnemy_DoesNotAlterActiveCount" methodname="Unregister_UnknownEnemy_DoesNotAlterActiveCount" classname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests" runstate="Runnable" seed="1931300030" result="Passed" start-time="2026-09-17 07:19:06Z" end-time="2026-09-17 07:19:06Z" duration="0.000339" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1023" name="DoorEnemyPassabilityPlayModeTests" fullname="NoSafeCircle.DoorPrototype.Tests.DoorEnemyPassabilityPlayModeTests" classname="NoSafeCircle.DoorPrototype.Tests.DoorEnemyPassabilityPlayModeTests" runstate="Runnable" testcasecount="5" result="Passed" start-time="2026-09-17 07:19:06Z" end-time="2026-09-17 07:19:08Z" duration="1.636915" total="5" passed="5" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1028" name="SetDoorState_AcrossAllFourStatesInSequence_MatchesEachExpectedPassability" fullname="NoSafeCircle.DoorPrototype.Tests.DoorEnemyPassabilityPlayModeTests.SetDoorState_AcrossAllFourStatesInSequence_MatchesEachExpectedPassability" methodname="SetDoorState_AcrossAllFourStatesInSequence_MatchesEachExpectedPassability" classname="NoSafeCircle.DoorPrototype.Tests.DoorEnemyPassabilityPlayModeTests" runstate="Runnable" seed="1799954591" result="Passed" start-time="2026-09-17 07:19:06Z" end-time="2026-09-17 07:19:07Z" duration="0.830846" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1027" name="SetDoorState_Broken_AllowsCompletePath" fullname="NoSafeCircle.DoorPrototype.Tests.DoorEnemyPassabilityPlayModeTests.SetDoorState_Broken_AllowsCompletePath" methodname="SetDoorState_Broken_AllowsCompletePath" classname="NoSafeCircle.DoorPrototype.Tests.DoorEnemyPassabilityPlayModeTests" runstate="Runnable" seed="303626094" result="Passed" start-time="2026-09-17 07:19:07Z" end-time="2026-09-17 07:19:07Z" duration="0.196845" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1025" name="SetDoorState_Locked_BlocksCompletePath" fullname="NoSafeCircle.DoorPrototype.Tests.DoorEnemyPassabilityPlayModeTests.SetDoorState_Locked_BlocksCompletePath" methodname="SetDoorState_Locked_BlocksCompletePath" classname="NoSafeCircle.DoorPrototype.Tests.DoorEnemyPassabilityPlayModeTests" runstate="Runnable" seed="1273626197" result="Passed" start-time="2026-09-17 07:19:07Z" end-time="2026-09-17 07:19:07Z" duration="0.199701" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1026" name="SetDoorState_Open_AllowsCompletePath" fullname="NoSafeCircle.DoorPrototype.Tests.DoorEnemyPassabilityPlayModeTests.SetDoorState_Open_AllowsCompletePath" methodname="SetDoorState_Open_AllowsCompletePath" classname="NoSafeCircle.DoorPrototype.Tests.DoorEnemyPassabilityPlayModeTests" runstate="Runnable" seed="312916769" result="Passed" start-time="2026-09-17 07:19:07Z" end-time="2026-09-17 07:19:08Z" duration="0.199363" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1024" name="SetDoorState_Sealed_BlocksCompletePath" fullname="NoSafeCircle.DoorPrototype.Tests.DoorEnemyPassabilityPlayModeTests.SetDoorState_Sealed_BlocksCompletePath" methodname="SetDoorState_Sealed_BlocksCompletePath" classname="NoSafeCircle.DoorPrototype.Tests.DoorEnemyPassabilityPlayModeTests" runstate="Runnable" seed="702702937" result="Passed" start-time="2026-09-17 07:19:08Z" end-time="2026-09-17 07:19:08Z" duration="0.200049" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1089" name="EnemyAnimationPlayModeTests" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyAnimationPlayModeTests" classname="NoSafeCircle.DoorPrototype.Tests.EnemyAnimationPlayModeTests" runstate="Runnable" testcasecount="11" result="Passed" start-time="2026-09-17 07:19:08Z" end-time="2026-09-17 07:19:09Z" duration="1.245846" total="11" passed="11" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1094" name="OnEnable_ClearsCachedStateBeforeReapplyingTheRetainedFacing" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyAnimationPlayModeTests.OnEnable_ClearsCachedStateBeforeReapplyingTheRetainedFacing" methodname="OnEnable_ClearsCachedStateBeforeReapplyingTheRetainedFacing" classname="NoSafeCircle.DoorPrototype.Tests.EnemyAnimationPlayModeTests" runstate="Runnable" seed="1082653275" result="Passed" start-time="2026-09-17 07:19:08Z" end-time="2026-09-17 07:19:08Z" duration="0.007842" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1100" name="SavedSceneEnemiesUseProductionAnimationAndLanternWisp" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyAnimationPlayModeTests.SavedSceneEnemiesUseProductionAnimationAndLanternWisp" methodname="SavedSceneEnemiesUseProductionAnimationAndLanternWisp" classname="NoSafeCircle.DoorPrototype.Tests.EnemyAnimationPlayModeTests" runstate="Runnable" seed="911063373" result="Passed" start-time="2026-09-17 07:19:08Z" end-time="2026-09-17 07:19:09Z" duration="1.216593" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1095" name="Tick_FacingMatchesWizardForTheSameDisplacements" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyAnimationPlayModeTests.Tick_FacingMatchesWizardForTheSameDisplacements" methodname="Tick_FacingMatchesWizardForTheSameDisplacements" classname="NoSafeCircle.DoorPrototype.Tests.EnemyAnimationPlayModeTests" runstate="Runnable" seed="1447053235" result="Passed" start-time="2026-09-17 07:19:09Z" end-time="2026-09-17 07:19:09Z" duration="0.003564" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1091" name="Tick_HeldBoundaryNoiseDoesNotChangeFacingForEitherEnemyType" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyAnimationPlayModeTests.Tick_HeldBoundaryNoiseDoesNotChangeFacingForEitherEnemyType" methodname="Tick_HeldBoundaryNoiseDoesNotChangeFacingForEitherEnemyType" classname="NoSafeCircle.DoorPrototype.Tests.EnemyAnimationPlayModeTests" runstate="Runnable" seed="385426267" result="Passed" start-time="2026-09-17 07:19:09Z" end-time="2026-09-17 07:19:09Z" duration="0.003446" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1096" name="Tick_RestoresCameraFacingVisualAfterEnemyRootRotates" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyAnimationPlayModeTests.Tick_RestoresCameraFacingVisualAfterEnemyRootRotates" methodname="Tick_RestoresCameraFacingVisualAfterEnemyRootRotates" classname="NoSafeCircle.DoorPrototype.Tests.EnemyAnimationPlayModeTests" runstate="Runnable" seed="1800426528" result="Passed" start-time="2026-09-17 07:19:09Z" end-time="2026-09-17 07:19:09Z" duration="0.001506" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1090" name="Tick_SelectsAllEightWalkDirectionsForBothEnemyTypes" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyAnimationPlayModeTests.Tick_SelectsAllEightWalkDirectionsForBothEnemyTypes" methodname="Tick_SelectsAllEightWalkDirectionsForBothEnemyTypes" classname="NoSafeCircle.DoorPrototype.Tests.EnemyAnimationPlayModeTests" runstate="Runnable" seed="947586313" result="Passed" start-time="2026-09-17 07:19:09Z" end-time="2026-09-17 07:19:09Z" duration="0.002122" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1092" name="Tick_SpeedHysteresisDoesNotAlternateIdleAndWalk" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyAnimationPlayModeTests.Tick_SpeedHysteresisDoesNotAlternateIdleAndWalk" methodname="Tick_SpeedHysteresisDoesNotAlternateIdleAndWalk" classname="NoSafeCircle.DoorPrototype.Tests.EnemyAnimationPlayModeTests" runstate="Runnable" seed="958807814" result="Passed" start-time="2026-09-17 07:19:09Z" end-time="2026-09-17 07:19:09Z" duration="0.000938" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1097" name="Tick_StoppedMeleeFacesCurrentTargetAndRetainsFacingWithoutTarget" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyAnimationPlayModeTests.Tick_StoppedMeleeFacesCurrentTargetAndRetainsFacingWithoutTarget" methodname="Tick_StoppedMeleeFacesCurrentTargetAndRetainsFacingWithoutTarget" classname="NoSafeCircle.DoorPrototype.Tests.EnemyAnimationPlayModeTests" runstate="Runnable" seed="683475895" result="Passed" start-time="2026-09-17 07:19:09Z" end-time="2026-09-17 07:19:09Z" duration="0.000677" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1099" name="Tick_StoppedWraithFacesOnlyWizardInRangeWithClearView" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyAnimationPlayModeTests.Tick_StoppedWraithFacesOnlyWizardInRangeWithClearView" methodname="Tick_StoppedWraithFacesOnlyWizardInRangeWithClearView" classname="NoSafeCircle.DoorPrototype.Tests.EnemyAnimationPlayModeTests" runstate="Runnable" seed="2068291126" result="Passed" start-time="2026-09-17 07:19:09Z" end-time="2026-09-17 07:19:09Z" duration="0.001569" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1093" name="Tick_StoppingRetainsFacingAndFrameTimeDoesNotChangeState" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyAnimationPlayModeTests.Tick_StoppingRetainsFacingAndFrameTimeDoesNotChangeState" methodname="Tick_StoppingRetainsFacingAndFrameTimeDoesNotChangeState" classname="NoSafeCircle.DoorPrototype.Tests.EnemyAnimationPlayModeTests" runstate="Runnable" seed="575202292" result="Passed" start-time="2026-09-17 07:19:09Z" end-time="2026-09-17 07:19:09Z" duration="0.000853" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1098" name="Tick_WalkingMeleeFacesMovementInsteadOfCurrentTarget" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyAnimationPlayModeTests.Tick_WalkingMeleeFacesMovementInsteadOfCurrentTarget" methodname="Tick_WalkingMeleeFacesMovementInsteadOfCurrentTarget" classname="NoSafeCircle.DoorPrototype.Tests.EnemyAnimationPlayModeTests" runstate="Runnable" seed="821478044" result="Passed" start-time="2026-09-17 07:19:09Z" end-time="2026-09-17 07:19:09Z" duration="0.000589" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1101" name="EnemyHealthPlayModeTests" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests" classname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests" runstate="Runnable" testcasecount="15" result="Passed" start-time="2026-09-17 07:19:09Z" end-time="2026-09-17 07:19:09Z" duration="0.028517" total="15" passed="15" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1102" name="InitialState_CurrentHealthEqualsMaxHealth_AndNotDefeated" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests.InitialState_CurrentHealthEqualsMaxHealth_AndNotDefeated" methodname="InitialState_CurrentHealthEqualsMaxHealth_AndNotDefeated" classname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests" runstate="Runnable" seed="303235578" result="Passed" start-time="2026-09-17 07:19:09Z" end-time="2026-09-17 07:19:09Z" duration="0.002244" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1115" name="ResetHealth_AfterDefeat_RestoresFullHealth_AndClearsDefeatState" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests.ResetHealth_AfterDefeat_RestoresFullHealth_AndClearsDefeatState" methodname="ResetHealth_AfterDefeat_RestoresFullHealth_AndClearsDefeatState" classname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests" runstate="Runnable" seed="163750586" result="Passed" start-time="2026-09-17 07:19:09Z" end-time="2026-09-17 07:19:09Z" duration="0.000639" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1114" name="ResetHealth_AfterPartialDamage_RestoresFullHealth" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests.ResetHealth_AfterPartialDamage_RestoresFullHealth" methodname="ResetHealth_AfterPartialDamage_RestoresFullHealth" classname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests" runstate="Runnable" seed="1349441646" result="Passed" start-time="2026-09-17 07:19:09Z" end-time="2026-09-17 07:19:09Z" duration="0.000405" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1116" name="ResetHealth_ThenTakeDamage_CanReachDefeatTransitionAgain" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests.ResetHealth_ThenTakeDamage_CanReachDefeatTransitionAgain" methodname="ResetHealth_ThenTakeDamage_CanReachDefeatTransitionAgain" classname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests" runstate="Runnable" seed="313830237" result="Passed" start-time="2026-09-17 07:19:09Z" end-time="2026-09-17 07:19:09Z" duration="0.000508" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1110" name="TakeDamage_AfterDefeat_DoesNotRaiseDamagedEvent" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests.TakeDamage_AfterDefeat_DoesNotRaiseDamagedEvent" methodname="TakeDamage_AfterDefeat_DoesNotRaiseDamagedEvent" classname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests" runstate="Runnable" seed="1909279695" result="Passed" start-time="2026-09-17 07:19:09Z" end-time="2026-09-17 07:19:09Z" duration="0.000456" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1109" name="TakeDamage_AfterDefeat_DoesNotRaiseDefeatedAgain_AndHealthStaysAtZero" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests.TakeDamage_AfterDefeat_DoesNotRaiseDefeatedAgain_AndHealthStaysAtZero" methodname="TakeDamage_AfterDefeat_DoesNotRaiseDefeatedAgain_AndHealthStaysAtZero" classname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests" runstate="Runnable" seed="1415701109" result="Passed" start-time="2026-09-17 07:19:09Z" end-time="2026-09-17 07:19:09Z" duration="0.000418" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1112" name="TakeDamage_AfterDefeat_DoesNotUnregisterFromRegistryAgain" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests.TakeDamage_AfterDefeat_DoesNotUnregisterFromRegistryAgain" methodname="TakeDamage_AfterDefeat_DoesNotUnregisterFromRegistryAgain" classname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests" runstate="Runnable" seed="817556671" result="Passed" start-time="2026-09-17 07:19:09Z" end-time="2026-09-17 07:19:09Z" duration="0.000504" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1106" name="TakeDamage_ExceedingCurrentHealth_ClampsCurrentHealthToZero" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests.TakeDamage_ExceedingCurrentHealth_ClampsCurrentHealthToZero" methodname="TakeDamage_ExceedingCurrentHealth_ClampsCurrentHealthToZero" classname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests" runstate="Runnable" seed="968752384" result="Passed" start-time="2026-09-17 07:19:09Z" end-time="2026-09-17 07:19:09Z" duration="0.000499" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1103" name="TakeDamage_PartialAmount_ReducesCurrentHealthByThatAmount" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests.TakeDamage_PartialAmount_ReducesCurrentHealthByThatAmount" methodname="TakeDamage_PartialAmount_ReducesCurrentHealthByThatAmount" classname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests" runstate="Runnable" seed="342335413" result="Passed" start-time="2026-09-17 07:19:09Z" end-time="2026-09-17 07:19:09Z" duration="0.000636" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1104" name="TakeDamage_PositiveAmount_RaisesDamagedEventWithThatAmount" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests.TakeDamage_PositiveAmount_RaisesDamagedEventWithThatAmount" methodname="TakeDamage_PositiveAmount_RaisesDamagedEventWithThatAmount" classname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests" runstate="Runnable" seed="759439431" result="Passed" start-time="2026-09-17 07:19:09Z" end-time="2026-09-17 07:19:09Z" duration="0.000603" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1108" name="TakeDamage_ReducingHealthToZero_RaisesDefeatedEventExactlyOnce" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests.TakeDamage_ReducingHealthToZero_RaisesDefeatedEventExactlyOnce" methodname="TakeDamage_ReducingHealthToZero_RaisesDefeatedEventExactlyOnce" classname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests" runstate="Runnable" seed="56153806" result="Passed" start-time="2026-09-17 07:19:09Z" end-time="2026-09-17 07:19:09Z" duration="0.000527" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1107" name="TakeDamage_ReducingHealthToZero_TriggersDefeatTransition" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests.TakeDamage_ReducingHealthToZero_TriggersDefeatTransition" methodname="TakeDamage_ReducingHealthToZero_TriggersDefeatTransition" classname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests" runstate="Runnable" seed="18416257" result="Passed" start-time="2026-09-17 07:19:09Z" end-time="2026-09-17 07:19:09Z" duration="0.000419" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1111" name="TakeDamage_ReducingHealthToZero_UnregistersFromActiveEnemyRegistry" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests.TakeDamage_ReducingHealthToZero_UnregistersFromActiveEnemyRegistry" methodname="TakeDamage_ReducingHealthToZero_UnregistersFromActiveEnemyRegistry" classname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests" runstate="Runnable" seed="219026870" result="Passed" start-time="2026-09-17 07:19:09Z" end-time="2026-09-17 07:19:09Z" duration="0.000352" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1113" name="TakeDamage_ReducingHealthToZero_WithoutRegistryWired_StillDefeatsLocally" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests.TakeDamage_ReducingHealthToZero_WithoutRegistryWired_StillDefeatsLocally" methodname="TakeDamage_ReducingHealthToZero_WithoutRegistryWired_StillDefeatsLocally" classname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests" runstate="Runnable" seed="1526541028" result="Passed" start-time="2026-09-17 07:19:09Z" end-time="2026-09-17 07:19:09Z" duration="0.001122" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1105" name="TakeDamage_ZeroOrNegativeAmount_DoesNotChangeHealthOrRaiseEvent" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests.TakeDamage_ZeroOrNegativeAmount_DoesNotChangeHealthOrRaiseEvent" methodname="TakeDamage_ZeroOrNegativeAmount_DoesNotChangeHealthOrRaiseEvent" classname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests" runstate="Runnable" seed="265997641" result="Passed" start-time="2026-09-17 07:19:09Z" end-time="2026-09-17 07:19:09Z" duration="0.000370" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1117" name="EnemyLanternWispCasterPlayModeTests" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyLanternWispCasterPlayModeTests" classname="NoSafeCircle.DoorPrototype.Tests.EnemyLanternWispCasterPlayModeTests" runstate="Runnable" testcasecount="6" result="Passed" start-time="2026-09-17 07:19:09Z" end-time="2026-09-17 07:19:09Z" duration="0.013447" total="6" passed="6" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1123" name="LanternWisp_DoesNotHitOutsidePointEightUnits" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyLanternWispCasterPlayModeTests.LanternWisp_DoesNotHitOutsidePointEightUnits" methodname="LanternWisp_DoesNotHitOutsidePointEightUnits" classname="NoSafeCircle.DoorPrototype.Tests.EnemyLanternWispCasterPlayModeTests" runstate="Runnable" seed="259553642" result="Passed" start-time="2026-09-17 07:19:09Z" end-time="2026-09-17 07:19:09Z" duration="0.001518" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1121" name="LanternWisp_HasTealLookMovesEightUnitsPerSecondAndExpiresAtFourSeconds" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyLanternWispCasterPlayModeTests.LanternWisp_HasTealLookMovesEightUnitsPerSecondAndExpiresAtFourSeconds" methodname="LanternWisp_HasTealLookMovesEightUnitsPerSecondAndExpiresAtFourSeconds" classname="NoSafeCircle.DoorPrototype.Tests.EnemyLanternWispCasterPlayModeTests" runstate="Runnable" seed="2080783380" result="Passed" start-time="2026-09-17 07:19:09Z" end-time="2026-09-17 07:19:09Z" duration="0.003898" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1122" name="LanternWisp_HitsWithinPointEightUnitsAndDealsFiveDamage" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyLanternWispCasterPlayModeTests.LanternWisp_HitsWithinPointEightUnitsAndDealsFiveDamage" methodname="LanternWisp_HitsWithinPointEightUnitsAndDealsFiveDamage" classname="NoSafeCircle.DoorPrototype.Tests.EnemyLanternWispCasterPlayModeTests" runstate="Runnable" seed="1695167323" result="Passed" start-time="2026-09-17 07:19:09Z" end-time="2026-09-17 07:19:09Z" duration="0.000969" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1118" name="Tick_CastsImmediatelyOnlyWithinRangeAndClearView" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyLanternWispCasterPlayModeTests.Tick_CastsImmediatelyOnlyWithinRangeAndClearView" methodname="Tick_CastsImmediatelyOnlyWithinRangeAndClearView" classname="NoSafeCircle.DoorPrototype.Tests.EnemyLanternWispCasterPlayModeTests" runstate="Runnable" seed="1255764311" result="Passed" start-time="2026-09-17 07:19:09Z" end-time="2026-09-17 07:19:09Z" duration="0.000939" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1120" name="Tick_CastsOncePerSecondAndStopsAfterSixCasts" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyLanternWispCasterPlayModeTests.Tick_CastsOncePerSecondAndStopsAfterSixCasts" methodname="Tick_CastsOncePerSecondAndStopsAfterSixCasts" classname="NoSafeCircle.DoorPrototype.Tests.EnemyLanternWispCasterPlayModeTests" runstate="Runnable" seed="759449894" result="Passed" start-time="2026-09-17 07:19:09Z" end-time="2026-09-17 07:19:09Z" duration="0.001291" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1119" name="Tick_WallBlocksCastingAndFacingTarget" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyLanternWispCasterPlayModeTests.Tick_WallBlocksCastingAndFacingTarget" methodname="Tick_WallBlocksCastingAndFacingTarget" classname="NoSafeCircle.DoorPrototype.Tests.EnemyLanternWispCasterPlayModeTests" runstate="Runnable" seed="1169191505" result="Passed" start-time="2026-09-17 07:19:09Z" end-time="2026-09-17 07:19:09Z" duration="0.000683" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1124" name="EnemyLockedDoorAttackPlayModeTests" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyLockedDoorAttackPlayModeTests" classname="NoSafeCircle.DoorPrototype.Tests.EnemyLockedDoorAttackPlayModeTests" runstate="Runnable" testcasecount="9" result="Passed" start-time="2026-09-17 07:19:09Z" end-time="2026-09-17 07:19:23Z" duration="14.212796" total="9" passed="9" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1130" name="DistantSecondEnemy_DoesNotContributeUntilItsOwnFullInReachInterval" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyLockedDoorAttackPlayModeTests.DistantSecondEnemy_DoesNotContributeUntilItsOwnFullInReachInterval" methodname="DistantSecondEnemy_DoesNotContributeUntilItsOwnFullInReachInterval" classname="NoSafeCircle.DoorPrototype.Tests.EnemyLockedDoorAttackPlayModeTests" runstate="Runnable" seed="117845408" result="Passed" start-time="2026-09-17 07:19:09Z" end-time="2026-09-17 07:19:11Z" duration="1.441036" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1133" name="DoorAttack_DrivesBoundBreachFeedback_OnlyWhileInReach" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyLockedDoorAttackPlayModeTests.DoorAttack_DrivesBoundBreachFeedback_OnlyWhileInReach" methodname="DoorAttack_DrivesBoundBreachFeedback_OnlyWhileInReach" classname="NoSafeCircle.DoorPrototype.Tests.EnemyLockedDoorAttackPlayModeTests" runstate="Runnable" seed="1887102917" result="Passed" start-time="2026-09-17 07:19:11Z" end-time="2026-09-17 07:19:11Z" duration="0.203394" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1128" name="ForcedDisplacement_CancelsHitAndPursuitReturnsForFullNewInterval" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyLockedDoorAttackPlayModeTests.ForcedDisplacement_CancelsHitAndPursuitReturnsForFullNewInterval" methodname="ForcedDisplacement_CancelsHitAndPursuitReturnsForFullNewInterval" classname="NoSafeCircle.DoorPrototype.Tests.EnemyLockedDoorAttackPlayModeTests" runstate="Runnable" seed="297982296" result="Passed" start-time="2026-09-17 07:19:11Z" end-time="2026-09-17 07:19:13Z" duration="2.234706" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1125" name="LockedDoor_RoutesToApproach_HitsBreaksAndResumesPursuit" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyLockedDoorAttackPlayModeTests.LockedDoor_RoutesToApproach_HitsBreaksAndResumesPursuit" methodname="LockedDoor_RoutesToApproach_HitsBreaksAndResumesPursuit" classname="NoSafeCircle.DoorPrototype.Tests.EnemyLockedDoorAttackPlayModeTests" runstate="Runnable" seed="1242698283" result="Passed" start-time="2026-09-17 07:19:13Z" end-time="2026-09-17 07:19:18Z" duration="5.339993" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1131" name="LosingTargetAndResettingEnemy_CancelPendingDoorHit" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyLockedDoorAttackPlayModeTests.LosingTargetAndResettingEnemy_CancelPendingDoorHit" methodname="LosingTargetAndResettingEnemy_CancelPendingDoorHit" classname="NoSafeCircle.DoorPrototype.Tests.EnemyLockedDoorAttackPlayModeTests" runstate="Runnable" seed="127843798" result="Passed" start-time="2026-09-17 07:19:18Z" end-time="2026-09-17 07:19:20Z" duration="1.319425" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1126" name="SameRoomTargetAndOpenOrBrokenDoor_DoNotProduceAnAttackTarget" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyLockedDoorAttackPlayModeTests.SameRoomTargetAndOpenOrBrokenDoor_DoNotProduceAnAttackTarget" methodname="SameRoomTargetAndOpenOrBrokenDoor_DoNotProduceAnAttackTarget" classname="NoSafeCircle.DoorPrototype.Tests.EnemyLockedDoorAttackPlayModeTests" runstate="Runnable" seed="1362307381" result="Passed" start-time="2026-09-17 07:19:20Z" end-time="2026-09-17 07:19:20Z" duration="0.399791" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1132" name="SearchArrivalAndExpiry_NearLockedDoorNeverCauseDamage" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyLockedDoorAttackPlayModeTests.SearchArrivalAndExpiry_NearLockedDoorNeverCauseDamage" methodname="SearchArrivalAndExpiry_NearLockedDoorNeverCauseDamage" classname="NoSafeCircle.DoorPrototype.Tests.EnemyLockedDoorAttackPlayModeTests" runstate="Runnable" seed="1214996866" result="Passed" start-time="2026-09-17 07:19:20Z" end-time="2026-09-17 07:19:22Z" duration="2.039756" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1129" name="TwoInReachEnemies_ContributeIndependentHitsAndBothCrossAfterBreak" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyLockedDoorAttackPlayModeTests.TwoInReachEnemies_ContributeIndependentHitsAndBothCrossAfterBreak" methodname="TwoInReachEnemies_ContributeIndependentHitsAndBothCrossAfterBreak" classname="NoSafeCircle.DoorPrototype.Tests.EnemyLockedDoorAttackPlayModeTests" runstate="Runnable" seed="1410992802" result="Passed" start-time="2026-09-17 07:19:22Z" end-time="2026-09-17 07:19:23Z" duration="1.019617" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1127" name="UnreachableDoorApproach_DoesNotSelectNearbyLockedDoor" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyLockedDoorAttackPlayModeTests.UnreachableDoorApproach_DoesNotSelectNearbyLockedDoor" methodname="UnreachableDoorApproach_DoesNotSelectNearbyLockedDoor" classname="NoSafeCircle.DoorPrototype.Tests.EnemyLockedDoorAttackPlayModeTests" runstate="Runnable" seed="1887673779" result="Passed" start-time="2026-09-17 07:19:23Z" end-time="2026-09-17 07:19:23Z" duration="0.200378" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1134" name="EnemyPursuitDoorCrossingPlayModeTests" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyPursuitDoorCrossingPlayModeTests" classname="NoSafeCircle.DoorPrototype.Tests.EnemyPursuitDoorCrossingPlayModeTests" runstate="Runnable" testcasecount="3" result="Passed" start-time="2026-09-17 07:19:23Z" end-time="2026-09-17 07:19:31Z" duration="7.552356" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1136" name="SetDoorState_Broken_PursuingEnemyCrossesDoorway_WithoutLosingTarget" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyPursuitDoorCrossingPlayModeTests.SetDoorState_Broken_PursuingEnemyCrossesDoorway_WithoutLosingTarget" methodname="SetDoorState_Broken_PursuingEnemyCrossesDoorway_WithoutLosingTarget" classname="NoSafeCircle.DoorPrototype.Tests.EnemyPursuitDoorCrossingPlayModeTests" runstate="Runnable" seed="438581167" result="Passed" start-time="2026-09-17 07:19:23Z" end-time="2026-09-17 07:19:26Z" duration="2.508965" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1135" name="SetDoorState_Open_PursuingEnemyCrossesDoorway_WithoutLosingTarget" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyPursuitDoorCrossingPlayModeTests.SetDoorState_Open_PursuingEnemyCrossesDoorway_WithoutLosingTarget" methodname="SetDoorState_Open_PursuingEnemyCrossesDoorway_WithoutLosingTarget" classname="NoSafeCircle.DoorPrototype.Tests.EnemyPursuitDoorCrossingPlayModeTests" runstate="Runnable" seed="350254339" result="Passed" start-time="2026-09-17 07:19:26Z" end-time="2026-09-17 07:19:28Z" duration="2.507231" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1137" name="SetDoorState_Open_SearchingEnemyCrossesDoorwayTowardLastKnownPosition_WithoutLosingTarget" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyPursuitDoorCrossingPlayModeTests.SetDoorState_Open_SearchingEnemyCrossesDoorwayTowardLastKnownPosition_WithoutLosingTarget" methodname="SetDoorState_Open_SearchingEnemyCrossesDoorwayTowardLastKnownPosition_WithoutLosingTarget" classname="NoSafeCircle.DoorPrototype.Tests.EnemyPursuitDoorCrossingPlayModeTests" runstate="Runnable" seed="1320869893" result="Passed" start-time="2026-09-17 07:19:28Z" end-time="2026-09-17 07:19:31Z" duration="2.531142" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1138" name="EnemyPursuitPlayModeTests" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyPursuitPlayModeTests" classname="NoSafeCircle.DoorPrototype.Tests.EnemyPursuitPlayModeTests" runstate="Runnable" testcasecount="7" result="Passed" start-time="2026-09-17 07:19:31Z" end-time="2026-09-17 07:19:41Z" duration="10.289032" total="7" passed="7" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1139" name="Pursuing_AcquiredTarget_SetsAgentDestinationTowardTarget_AndAgentMovesCloser" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyPursuitPlayModeTests.Pursuing_AcquiredTarget_SetsAgentDestinationTowardTarget_AndAgentMovesCloser" methodname="Pursuing_AcquiredTarget_SetsAgentDestinationTowardTarget_AndAgentMovesCloser" classname="NoSafeCircle.DoorPrototype.Tests.EnemyPursuitPlayModeTests" runstate="Runnable" seed="973287490" result="Passed" start-time="2026-09-17 07:19:31Z" end-time="2026-09-17 07:19:31Z" duration="0.357732" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1145" name="ResetPursuit_ThenWizardReentersDetectionDistance_CanPursueAgain" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyPursuitPlayModeTests.ResetPursuit_ThenWizardReentersDetectionDistance_CanPursueAgain" methodname="ResetPursuit_ThenWizardReentersDetectionDistance_CanPursueAgain" classname="NoSafeCircle.DoorPrototype.Tests.EnemyPursuitPlayModeTests" runstate="Runnable" seed="31744755" result="Passed" start-time="2026-09-17 07:19:31Z" end-time="2026-09-17 07:19:31Z" duration="0.003264" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1144" name="ResetPursuit_WhilePursuing_ClearsKnowledgeStopsAgentAndReturnsToSpawnPosition" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyPursuitPlayModeTests.ResetPursuit_WhilePursuing_ClearsKnowledgeStopsAgentAndReturnsToSpawnPosition" methodname="ResetPursuit_WhilePursuing_ClearsKnowledgeStopsAgentAndReturnsToSpawnPosition" classname="NoSafeCircle.DoorPrototype.Tests.EnemyPursuitPlayModeTests" runstate="Runnable" seed="1755933675" result="Passed" start-time="2026-09-17 07:19:31Z" end-time="2026-09-17 07:19:32Z" duration="0.357624" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1143" name="SearchExpiresWithoutReacquisition_ClearsTargetAndStopsAgentPath" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyPursuitPlayModeTests.SearchExpiresWithoutReacquisition_ClearsTargetAndStopsAgentPath" methodname="SearchExpiresWithoutReacquisition_ClearsTargetAndStopsAgentPath" classname="NoSafeCircle.DoorPrototype.Tests.EnemyPursuitPlayModeTests" runstate="Runnable" seed="807902414" result="Passed" start-time="2026-09-17 07:19:32Z" end-time="2026-09-17 07:19:34Z" duration="2.391324" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1140" name="SearchingLastKnownPosition_ReachesRecordedPosition_ReportsArrival_AndEntersWanderingWithValidNavMeshPoint" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyPursuitPlayModeTests.SearchingLastKnownPosition_ReachesRecordedPosition_ReportsArrival_AndEntersWanderingWithValidNavMeshPoint" methodname="SearchingLastKnownPosition_ReachesRecordedPosition_ReportsArrival_AndEntersWanderingWithValidNavMeshPoint" classname="NoSafeCircle.DoorPrototype.Tests.EnemyPursuitPlayModeTests" runstate="Runnable" seed="203602560" result="Passed" start-time="2026-09-17 07:19:34Z" end-time="2026-09-17 07:19:36Z" duration="2.389619" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1141" name="Wandering_AfterReachingChosenPoint_SelectsANewBoundedNavMeshPoint" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyPursuitPlayModeTests.Wandering_AfterReachingChosenPoint_SelectsANewBoundedNavMeshPoint" methodname="Wandering_AfterReachingChosenPoint_SelectsANewBoundedNavMeshPoint" classname="NoSafeCircle.DoorPrototype.Tests.EnemyPursuitPlayModeTests" runstate="Runnable" seed="1741409709" result="Passed" start-time="2026-09-17 07:19:36Z" end-time="2026-09-17 07:19:39Z" duration="2.391265" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1142" name="Wandering_WizardReentersDetectionDistance_ReacquiresAndResumesPursuing" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyPursuitPlayModeTests.Wandering_WizardReentersDetectionDistance_ReacquiresAndResumesPursuing" methodname="Wandering_WizardReentersDetectionDistance_ReacquiresAndResumesPursuing" classname="NoSafeCircle.DoorPrototype.Tests.EnemyPursuitPlayModeTests" runstate="Runnable" seed="1348945639" result="Passed" start-time="2026-09-17 07:19:39Z" end-time="2026-09-17 07:19:41Z" duration="2.389958" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1160" name="EnemyTargetKnowledgePlayModeTests" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests" classname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests" runstate="Runnable" testcasecount="22" result="Passed" start-time="2026-09-17 07:19:41Z" end-time="2026-09-17 07:19:41Z" duration="0.030457" total="22" passed="22" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1163" name="ConfigureDistances_DetectionDistanceEqualToLoseTargetDistance_ThrowsArgumentException" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests.ConfigureDistances_DetectionDistanceEqualToLoseTargetDistance_ThrowsArgumentException" methodname="ConfigureDistances_DetectionDistanceEqualToLoseTargetDistance_ThrowsArgumentException" classname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests" runstate="Runnable" seed="1907754303" result="Passed" start-time="2026-09-17 07:19:41Z" end-time="2026-09-17 07:19:41Z" duration="0.001684" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1164" name="ConfigureDistances_DetectionDistanceGreaterThanLoseTargetDistance_ThrowsArgumentException" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests.ConfigureDistances_DetectionDistanceGreaterThanLoseTargetDistance_ThrowsArgumentException" methodname="ConfigureDistances_DetectionDistanceGreaterThanLoseTargetDistance_ThrowsArgumentException" classname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests" runstate="Runnable" seed="1373048368" result="Passed" start-time="2026-09-17 07:19:41Z" end-time="2026-09-17 07:19:41Z" duration="0.000418" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1162" name="ConfigureDistances_DetectionDistanceStrictlySmaller_UpdatesBothValues" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests.ConfigureDistances_DetectionDistanceStrictlySmaller_UpdatesBothValues" methodname="ConfigureDistances_DetectionDistanceStrictlySmaller_UpdatesBothValues" classname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests" runstate="Runnable" seed="1767419531" result="Passed" start-time="2026-09-17 07:19:41Z" end-time="2026-09-17 07:19:41Z" duration="0.000398" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1178" name="FullTargetLossAndExpiryCycle_DoesNotDestroyOrReplaceEnemyGameObject_AndAllowsReacquisitionLater" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests.FullTargetLossAndExpiryCycle_DoesNotDestroyOrReplaceEnemyGameObject_AndAllowsReacquisitionLater" methodname="FullTargetLossAndExpiryCycle_DoesNotDestroyOrReplaceEnemyGameObject_AndAllowsReacquisitionLater" classname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests" runstate="Runnable" seed="471170110" result="Passed" start-time="2026-09-17 07:19:41Z" end-time="2026-09-17 07:19:41Z" duration="0.000578" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1161" name="InitialState_IsIdleWithoutTarget" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests.InitialState_IsIdleWithoutTarget" methodname="InitialState_IsIdleWithoutTarget" classname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests" runstate="Runnable" seed="828221521" result="Passed" start-time="2026-09-17 07:19:41Z" end-time="2026-09-17 07:19:41Z" duration="0.000436" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1172" name="ReportArrivedAtLastKnownPosition_WhileIdle_DoesNotChangeState" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests.ReportArrivedAtLastKnownPosition_WhileIdle_DoesNotChangeState" methodname="ReportArrivedAtLastKnownPosition_WhileIdle_DoesNotChangeState" classname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests" runstate="Runnable" seed="138102944" result="Passed" start-time="2026-09-17 07:19:41Z" end-time="2026-09-17 07:19:41Z" duration="0.000371" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1171" name="ReportArrivedAtLastKnownPosition_WhileSearching_EntersWanderingWithFullSearchDuration" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests.ReportArrivedAtLastKnownPosition_WhileSearching_EntersWanderingWithFullSearchDuration" methodname="ReportArrivedAtLastKnownPosition_WhileSearching_EntersWanderingWithFullSearchDuration" classname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests" runstate="Runnable" seed="1243345270" result="Passed" start-time="2026-09-17 07:19:41Z" end-time="2026-09-17 07:19:41Z" duration="0.000385" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1181" name="ResetTargetKnowledge_ThenWizardReentersDetectionDistance_CanAcquireAgain" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests.ResetTargetKnowledge_ThenWizardReentersDetectionDistance_CanAcquireAgain" methodname="ResetTargetKnowledge_ThenWizardReentersDetectionDistance_CanAcquireAgain" classname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests" runstate="Runnable" seed="1005488043" result="Passed" start-time="2026-09-17 07:19:41Z" end-time="2026-09-17 07:19:41Z" duration="0.000405" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1179" name="ResetTargetKnowledge_WhilePursuing_ClearsTargetAndReturnsToIdle" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests.ResetTargetKnowledge_WhilePursuing_ClearsTargetAndReturnsToIdle" methodname="ResetTargetKnowledge_WhilePursuing_ClearsTargetAndReturnsToIdle" classname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests" runstate="Runnable" seed="405832882" result="Passed" start-time="2026-09-17 07:19:41Z" end-time="2026-09-17 07:19:41Z" duration="0.000416" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1180" name="ResetTargetKnowledge_WhileWandering_ClearsLastKnownPositionAndSearchTimer" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests.ResetTargetKnowledge_WhileWandering_ClearsLastKnownPositionAndSearchTimer" methodname="ResetTargetKnowledge_WhileWandering_ClearsLastKnownPositionAndSearchTimer" classname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests" runstate="Runnable" seed="1087402397" result="Passed" start-time="2026-09-17 07:19:41Z" end-time="2026-09-17 07:19:41Z" duration="0.000601" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1170" name="UpdateTargetKnowledge_PursuingWizardExactlyAtLoseTargetDistance_StaysPursuing" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests.UpdateTargetKnowledge_PursuingWizardExactlyAtLoseTargetDistance_StaysPursuing" methodname="UpdateTargetKnowledge_PursuingWizardExactlyAtLoseTargetDistance_StaysPursuing" classname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests" runstate="Runnable" seed="816931416" result="Passed" start-time="2026-09-17 07:19:41Z" end-time="2026-09-17 07:19:41Z" duration="0.000348" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1169" name="UpdateTargetKnowledge_PursuingWizardExceedsLoseTargetDistance_TransitionsToSearchingAndRecordsLastKnownPosition" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests.UpdateTargetKnowledge_PursuingWizardExceedsLoseTargetDistance_TransitionsToSearchingAndRecordsLastKnownPosition" methodname="UpdateTargetKnowledge_PursuingWizardExceedsLoseTargetDistance_TransitionsToSearchingAndRecordsLastKnownPosition" classname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests" runstate="Runnable" seed="718908241" result="Passed" start-time="2026-09-17 07:19:41Z" end-time="2026-09-17 07:19:41Z" duration="0.000422" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1176" name="UpdateTargetKnowledge_WanderingDurationFullyElapsesWithoutReacquisition_ClearsTargetAndReturnsToIdle" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests.UpdateTargetKnowledge_WanderingDurationFullyElapsesWithoutReacquisition_ClearsTargetAndReturnsToIdle" methodname="UpdateTargetKnowledge_WanderingDurationFullyElapsesWithoutReacquisition_ClearsTargetAndReturnsToIdle" classname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests" runstate="Runnable" seed="1507319284" result="Passed" start-time="2026-09-17 07:19:41Z" end-time="2026-09-17 07:19:41Z" duration="0.000344" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1173" name="UpdateTargetKnowledge_WhileWanderingBeforeDurationElapses_StaysWandering" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests.UpdateTargetKnowledge_WhileWanderingBeforeDurationElapses_StaysWandering" methodname="UpdateTargetKnowledge_WhileWanderingBeforeDurationElapses_StaysWandering" classname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests" runstate="Runnable" seed="153261301" result="Passed" start-time="2026-09-17 07:19:41Z" end-time="2026-09-17 07:19:41Z" duration="0.000319" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1182" name="UpdateTargetKnowledge_WithoutWizardWired_DoesNotThrowAndStaysIdle" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests.UpdateTargetKnowledge_WithoutWizardWired_DoesNotThrowAndStaysIdle" methodname="UpdateTargetKnowledge_WithoutWizardWired_DoesNotThrowAndStaysIdle" classname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests" runstate="Runnable" seed="425892036" result="Passed" start-time="2026-09-17 07:19:41Z" end-time="2026-09-17 07:19:41Z" duration="0.000583" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1177" name="UpdateTargetKnowledge_WizardDestroyedWhileWandering_StillExpiresAndClearsTarget" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests.UpdateTargetKnowledge_WizardDestroyedWhileWandering_StillExpiresAndClearsTarget" methodname="UpdateTargetKnowledge_WizardDestroyedWhileWandering_StillExpiresAndClearsTarget" classname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests" runstate="Runnable" seed="1213954977" result="Passed" start-time="2026-09-17 07:19:41Z" end-time="2026-09-17 07:19:41Z" duration="0.000370" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1166" name="UpdateTargetKnowledge_WizardExactlyAtDetectionDistance_Acquires" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests.UpdateTargetKnowledge_WizardExactlyAtDetectionDistance_Acquires" methodname="UpdateTargetKnowledge_WizardExactlyAtDetectionDistance_Acquires" classname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests" runstate="Runnable" seed="42009423" result="Passed" start-time="2026-09-17 07:19:41Z" end-time="2026-09-17 07:19:41Z" duration="0.000319" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1165" name="UpdateTargetKnowledge_WizardInsideDetectionDistance_AcquiresTargetAndEntersPursuing" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests.UpdateTargetKnowledge_WizardInsideDetectionDistance_AcquiresTargetAndEntersPursuing" methodname="UpdateTargetKnowledge_WizardInsideDetectionDistance_AcquiresTargetAndEntersPursuing" classname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests" runstate="Runnable" seed="1527304887" result="Passed" start-time="2026-09-17 07:19:41Z" end-time="2026-09-17 07:19:41Z" duration="0.000377" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1167" name="UpdateTargetKnowledge_WizardOutsideDetectionDistance_StaysIdle" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests.UpdateTargetKnowledge_WizardOutsideDetectionDistance_StaysIdle" methodname="UpdateTargetKnowledge_WizardOutsideDetectionDistance_StaysIdle" classname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests" runstate="Runnable" seed="1152966469" result="Passed" start-time="2026-09-17 07:19:41Z" end-time="2026-09-17 07:19:41Z" duration="0.000330" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1168" name="UpdateTargetKnowledge_WizardPositionChangeWithinLoseTargetDistance_RetainsPursuit" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests.UpdateTargetKnowledge_WizardPositionChangeWithinLoseTargetDistance_RetainsPursuit" methodname="UpdateTargetKnowledge_WizardPositionChangeWithinLoseTargetDistance_RetainsPursuit" classname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests" runstate="Runnable" seed="1293372544" result="Passed" start-time="2026-09-17 07:19:41Z" end-time="2026-09-17 07:19:41Z" duration="0.000358" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1175" name="UpdateTargetKnowledge_WizardReentersDetectionDistanceWhileSearchingBeforeArrival_ReacquiresAndReturnsToPursuing" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests.UpdateTargetKnowledge_WizardReentersDetectionDistanceWhileSearchingBeforeArrival_ReacquiresAndReturnsToPursuing" methodname="UpdateTargetKnowledge_WizardReentersDetectionDistanceWhileSearchingBeforeArrival_ReacquiresAndReturnsToPursuing" classname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests" runstate="Runnable" seed="580924410" result="Passed" start-time="2026-09-17 07:19:41Z" end-time="2026-09-17 07:19:41Z" duration="0.000331" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1174" name="UpdateTargetKnowledge_WizardReentersDetectionDistanceWhileWandering_ReacquiresAndReturnsToPursuing" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests.UpdateTargetKnowledge_WizardReentersDetectionDistanceWhileWandering_ReacquiresAndReturnsToPursuing" methodname="UpdateTargetKnowledge_WizardReentersDetectionDistanceWhileWandering_ReacquiresAndReturnsToPursuing" classname="NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests" runstate="Runnable" seed="964457759" result="Passed" start-time="2026-09-17 07:19:41Z" end-time="2026-09-17 07:19:41Z" duration="0.000374" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1260" name="WizardAnimationPlayModeTests" fullname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests" classname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests" runstate="Runnable" testcasecount="15" result="Passed" start-time="2026-09-17 07:19:41Z" end-time="2026-09-17 07:19:46Z" duration="5.056374" total="15" passed="15" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1263" name="ApplyPresentation_InvalidChoiceIsRejectedAtomically" fullname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests.ApplyPresentation_InvalidChoiceIsRejectedAtomically" methodname="ApplyPresentation_InvalidChoiceIsRejectedAtomically" classname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests" runstate="Runnable" seed="526858054" result="Passed" start-time="2026-09-17 07:19:41Z" end-time="2026-09-17 07:19:41Z" duration="0.287822" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1262" name="ApplyPresentation_RefreshesSelectedIdleWithoutChangingPlayerGameplayState" fullname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests.ApplyPresentation_RefreshesSelectedIdleWithoutChangingPlayerGameplayState" methodname="ApplyPresentation_RefreshesSelectedIdleWithoutChangingPlayerGameplayState" classname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests" runstate="Runnable" seed="1441085679" result="Passed" start-time="2026-09-17 07:19:41Z" end-time="2026-09-17 07:19:42Z" duration="0.257815" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-suite type="ParameterizedMethod" id="1272" name="DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections" fullname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests.DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections" classname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests" runstate="Runnable" testcasecount="8" result="Passed" start-time="2026-09-17 07:19:42Z" end-time="2026-09-17 07:19:44Z" duration="2.046475" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1264" name="DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections(1.0f,0.0f,&quot;south-east&quot;)" fullname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests.DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections(1.0f,0.0f,&quot;south-east&quot;)" methodname="DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections" classname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests" runstate="Runnable" seed="555019318" result="Passed" start-time="2026-09-17 07:19:42Z" end-time="2026-09-17 07:19:42Z" duration="0.270387" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1265" name="DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections(0.0f,1.0f,&quot;north-east&quot;)" fullname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests.DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections(0.0f,1.0f,&quot;north-east&quot;)" methodname="DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections" classname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests" runstate="Runnable" seed="1341390166" result="Passed" start-time="2026-09-17 07:19:42Z" end-time="2026-09-17 07:19:42Z" duration="0.247202" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1266" name="DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections(-1.0f,0.0f,&quot;north-west&quot;)" fullname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests.DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections(-1.0f,0.0f,&quot;north-west&quot;)" methodname="DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections" classname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests" runstate="Runnable" seed="1577217411" result="Passed" start-time="2026-09-17 07:19:42Z" end-time="2026-09-17 07:19:43Z" duration="0.281731" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1267" name="DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections(0.0f,-1.0f,&quot;south-west&quot;)" fullname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests.DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections(0.0f,-1.0f,&quot;south-west&quot;)" methodname="DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections" classname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests" runstate="Runnable" seed="1619356126" result="Passed" start-time="2026-09-17 07:19:43Z" end-time="2026-09-17 07:19:43Z" duration="0.255190" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1268" name="DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections(1.0f,1.0f,&quot;east&quot;)" fullname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests.DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections(1.0f,1.0f,&quot;east&quot;)" methodname="DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections" classname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests" runstate="Runnable" seed="1981352684" result="Passed" start-time="2026-09-17 07:19:43Z" end-time="2026-09-17 07:19:43Z" duration="0.252697" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1269" name="DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections(1.0f,-1.0f,&quot;south&quot;)" fullname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests.DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections(1.0f,-1.0f,&quot;south&quot;)" methodname="DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections" classname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests" runstate="Runnable" seed="1040036401" result="Passed" start-time="2026-09-17 07:19:43Z" end-time="2026-09-17 07:19:43Z" duration="0.234035" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1270" name="DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections(-1.0f,1.0f,&quot;north&quot;)" fullname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests.DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections(-1.0f,1.0f,&quot;north&quot;)" methodname="DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections" classname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests" runstate="Runnable" seed="1475990436" result="Passed" start-time="2026-09-17 07:19:43Z" end-time="2026-09-17 07:19:44Z" duration="0.245854" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1271" name="DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections(-1.0f,-1.0f,&quot;west&quot;)" fullname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests.DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections(-1.0f,-1.0f,&quot;west&quot;)" methodname="DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections" classname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests" runstate="Runnable" seed="810797754" result="Passed" start-time="2026-09-17 07:19:44Z" end-time="2026-09-17 07:19:44Z" duration="0.242407" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+              </test-suite>
+              <test-case id="1273" name="DirectionFor_ResolvesEveryExactSectorBoundaryDeterministically" fullname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests.DirectionFor_ResolvesEveryExactSectorBoundaryDeterministically" methodname="DirectionFor_ResolvesEveryExactSectorBoundaryDeterministically" classname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests" runstate="Runnable" seed="654234809" result="Passed" start-time="2026-09-17 07:19:44Z" end-time="2026-09-17 07:19:44Z" duration="0.241991" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1275" name="DirectionFor_RetainsPriorDirectionAtEverySectorBoundary" fullname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests.DirectionFor_RetainsPriorDirectionAtEverySectorBoundary" methodname="DirectionFor_RetainsPriorDirectionAtEverySectorBoundary" classname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests" runstate="Runnable" seed="1537803849" result="Passed" start-time="2026-09-17 07:19:44Z" end-time="2026-09-17 07:19:44Z" duration="0.252458" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1274" name="EachConfirmedWizard_LobbyEntrySupportsStableEightDirectionAnimationAndMouseInput" fullname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests.EachConfirmedWizard_LobbyEntrySupportsStableEightDirectionAnimationAndMouseInput" methodname="EachConfirmedWizard_LobbyEntrySupportsStableEightDirectionAnimationAndMouseInput" classname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests" runstate="Runnable" seed="680082346" result="Passed" start-time="2026-09-17 07:19:44Z" end-time="2026-09-17 07:19:46Z" duration="1.460023" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1276" name="HeldBoundaryMovementDoesNotRestartAndIdleRetainsFacing" fullname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests.HeldBoundaryMovementDoesNotRestartAndIdleRetainsFacing" methodname="HeldBoundaryMovementDoesNotRestartAndIdleRetainsFacing" classname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests" runstate="Runnable" seed="1580402403" result="Passed" start-time="2026-09-17 07:19:46Z" end-time="2026-09-17 07:19:46Z" duration="0.245373" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1261" name="PlayerVisualHasOneWizardAnimationDriverAndRetainsGroundContact" fullname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests.PlayerVisualHasOneWizardAnimationDriverAndRetainsGroundContact" methodname="PlayerVisualHasOneWizardAnimationDriverAndRetainsGroundContact" classname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests" runstate="Runnable" seed="1360315717" result="Passed" start-time="2026-09-17 07:19:46Z" end-time="2026-09-17 07:19:46Z" duration="0.245687" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[Saving results to: C:/Users/VincentLiguori/AppData/LocalLow/DefaultCompany/NoSafeCircle\TestResults.xml
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

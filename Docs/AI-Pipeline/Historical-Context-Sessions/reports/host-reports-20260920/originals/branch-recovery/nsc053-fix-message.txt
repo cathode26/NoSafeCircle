@@ -1,0 +1,9 @@
+Apply the component's own complete path when repositioning
+
+EnemyPursuitMovement requests a targetward path every Update while Pursuing.
+Re-requesting the keep-distance destination only queued a second request, so
+the NavMeshAgent still reported the pursuit destination at the end of the
+frame, which NSC-053 VAL-003 samples. Assign the complete path the component
+has already calculated for that destination instead; it applies immediately.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

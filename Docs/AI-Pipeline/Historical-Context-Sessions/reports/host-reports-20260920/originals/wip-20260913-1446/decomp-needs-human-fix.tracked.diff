@@ -1,0 +1,328 @@
+diff --git a/Pipeline/AssistantControl/decomposition.py b/Pipeline/AssistantControl/decomposition.py
+index 9c06d29..96fc1f9 100644
+--- a/Pipeline/AssistantControl/decomposition.py
++++ b/Pipeline/AssistantControl/decomposition.py
+@@ -3,6 +3,8 @@
+ The provider phase receives Source read-only and can only publish review artifacts.
+ The apply phase rechecks the exact source, contract, candidate, independent review,
+ and deterministic graph plan before creating the canonical local D1C commit.
++A run that stops at the D1B.2 human authority boundary is retained as
++`needs_human` with the reasons it states; it has nothing to apply and is never applied.
+ Nothing in this module pushes or contacts GitHub.
+ """
+ from __future__ import annotations
+@@ -16,7 +18,7 @@ import sys
+ from dataclasses import asdict
+ from datetime import datetime, timezone
+ from pathlib import Path
+-from typing import Any, Mapping
++from typing import Any, Mapping, NamedTuple
+ 
+ from Pipeline.AssistantControl.checkouts import Checkouts, write_record
+ from Pipeline.AssistantControl.inspect_project import changes, git
+@@ -34,6 +36,7 @@ for module_root in (ROOT, ROOT / "Pipeline", TASK_GRAPH_ROOT):
+         sys.path.insert(0, str(module_root))
+ 
+ from TaskDecomposition.contracts import DecompositionResult  # noqa: E402
++from TaskDecomposition.review_contracts import ReviewFinding  # noqa: E402
+ from TaskDecomposition.round_robin_decomposition import candidate_sha256  # noqa: E402
+ from apply_graph_delta import apply_graph_delta  # noqa: E402
+ from graph_apply_plan import plan_graph_apply  # noqa: E402
+@@ -142,7 +145,28 @@ def _artifact_paths(record: dict[str, Any]) -> tuple[Path, Path, Path]:
+     )
+ 
+ 
+-def _verify_review(manager: Checkouts, record: dict[str, Any]) -> dict[str, Any]:
++class _AuthenticatedRun(NamedTuple):
++    """One retained run result, authenticated before its run status is believed."""
++
++    head: str
++    tree: str
++    source_advancement: dict[str, Any]
++    result_path: Path
++    graph_path: Path
++    run_result: dict[str, Any]
++    run_bytes: bytes
++    task: dict[str, Any]
++
++
++def _authenticated_run_result(manager: Checkouts, record: dict[str, Any]) -> _AuthenticatedRun:
++    """Authenticate the retained run result for every run status. Read-only.
++
++    Whatever the run concluded, it must be this record's exact run, provider
++    pair, independence and authority, bound to the exact Source line and parent
++    contract the record names. Only then does a caller decide what its
++    ``run_status`` proves. Nothing here requires the proposal artifacts, which
++    only an independently passed run publishes.
++    """
+     head, tree, branch = _require_clean_source(manager)
+     if branch != record.get("source_branch"):
+         raise ValueError("Source branch changed after the decomposition proposal")
+@@ -156,10 +180,6 @@ def _verify_review(manager: Checkouts, record: dict[str, Any]) -> dict[str, Any]
+ 
+     run_path, result_path, graph_path = _artifact_paths(record)
+     run_result, run_bytes = _load_object(run_path, "Decomposition run result")
+-    result_payload, result_bytes = _load_object(result_path, "Decomposition result")
+-    graph_payload, graph_bytes = _load_object(graph_path, "Graph delta")
+-    decomposition = DecompositionResult.from_dict(result_payload)
+-    plan = GraphDeltaPlan.from_payload(graph_payload)
+     task = load_committed_task(
+         manager.source,
+         record["task_id"],
+@@ -174,9 +194,6 @@ def _verify_review(manager: Checkouts, record: dict[str, Any]) -> dict[str, Any]
+         "task_id": record["task_id"],
+         "provider_order": record["providers"],
+         "max_calls": 2,
+-        "calls_used": 2,
+-        "run_status": "review_ready",
+-        "decision": "decomposed",
+         "review_independence": "cross_provider",
+         "authority": "review_only_not_applied",
+     }
+@@ -185,8 +202,6 @@ def _verify_review(manager: Checkouts, record: dict[str, Any]) -> dict[str, Any]
+             raise ValueError(
+                 f"Decomposition review {field} is {run_result.get(field)!r}, expected {wanted!r}"
+             )
+-    if run_result.get("unresolved_findings") != [] or run_result.get("rejection_reasons") != []:
+-        raise ValueError("Decomposition review carries unresolved findings or rejections")
+     identity = run_result.get("source_identity") or {}
+     if (identity.get("head_commit") != record.get("source_commit")
+             or identity.get("head_tree") != record.get("source_tree")):
+@@ -195,6 +210,121 @@ def _verify_review(manager: Checkouts, record: dict[str, Any]) -> dict[str, Any]
+     if (contract.get("sha256") != task["task_contract_sha256"]
+             or contract.get("revision") != task.get("contract_revision")):
+         raise ValueError("Decomposition run used another parent contract")
++    return _AuthenticatedRun(head, tree, source_advancement, result_path, graph_path,
++                             run_result, run_bytes, task)
++
++
++def _verify_review(manager: Checkouts, record: dict[str, Any]) -> dict[str, Any]:
++    """Prove the retained run is the exact independently passed plan that may be applied."""
++    return _review_ready_proof(manager, record, _authenticated_run_result(manager, record))
++
++
++def _verify_needs_human(manager: Checkouts, record: dict[str, Any]) -> dict[str, Any]:
++    """Re-derive the bounded facts of a retained run that stopped for a person. Read-only."""
++    return _needs_human_proof(_authenticated_run_result(manager, record))
++
++
++# A needs_human record keeps only these fields of the latest candidate: enough to
++# name the exact candidate a person reviews, nothing that could be applied.
++_CANDIDATE_IDENTITY_FIELDS = ("version", "author_provider", "sha256", "decision", "graph_delta_plan_id")
++
++
++def _needs_human_proof(authenticated: _AuthenticatedRun) -> dict[str, Any]:
++    """The bounded facts of an authenticated run that stopped at the human authority boundary.
++
++    A D1B.2 ``needs_human`` run publishes no proposal artifacts and names none,
++    uses no call beyond its limit, and states at least one unresolved finding
++    or rejection reason; a run that states none is invalid. Only its stated
++    reasons, the next human step, its counts and the latest candidate's
++    identity are retained; the run result stays the authority for the rest.
++    """
++    run_result = authenticated.run_result
++    if run_result.get("run_status") != "needs_human":
++        raise ValueError(
++            f"Decomposition review run_status is {run_result.get('run_status')!r}, expected 'needs_human'"
++        )
++    for field in ("decomposition_result_path", "graph_delta_path"):
++        if field not in run_result or run_result[field] is not None:
++            raise ValueError(
++                f"Decomposition needs_human run names a proposal artifact: {field} is "
++                f"{run_result.get(field)!r}"
++            )
++    # Exact integers only: a JSON boolean is an int to Python and is refused.
++    calls_used = run_result.get("calls_used")
++    if type(calls_used) is not int or not 0 <= calls_used <= run_result["max_calls"]:
++        raise ValueError(
++            f"Decomposition needs_human calls_used is {calls_used!r}, not a count within max_calls"
++        )
++    corrections = run_result.get("author_corrections_used")
++    if corrections is not None and not (type(corrections) is int and corrections in (0, 1)):
++        raise ValueError(
++            f"Decomposition needs_human author_corrections_used is {corrections!r}, not 0 or 1"
++        )
++    reasons = run_result.get("rejection_reasons")
++    if not isinstance(reasons, list) or not all(
++            isinstance(reason, str) and reason.strip() for reason in reasons):
++        raise ValueError("Decomposition needs_human rejection_reasons are not stated reasons")
++    raw_findings = run_result.get("unresolved_findings")
++    if not isinstance(raw_findings, list):
++        raise ValueError("Decomposition needs_human unresolved_findings is not a list")
++    # The producer's own finding contract: a retained finding is exactly one the
++    # D1B.2 circuit could have written, with no field it does not define.
++    findings = [
++        ReviewFinding.from_dict(
++            finding, f"Decomposition needs_human unresolved_findings[{index}]",
++        ).to_dict()
++        for index, finding in enumerate(raw_findings)
++    ]
++    if not findings and not reasons:
++        raise ValueError(
++            "Decomposition needs_human run states no unresolved finding or rejection reason"
++        )
++    next_step = run_result.get("human_next_step")
++    if next_step is not None and not isinstance(next_step, str):
++        raise ValueError("Decomposition needs_human human_next_step is not text")
++    candidate = run_result.get("latest_candidate")
++    if candidate is not None:
++        if not isinstance(candidate, Mapping):
++            raise ValueError("Decomposition needs_human latest_candidate is not an object")
++        candidate = {field: candidate.get(field) for field in _CANDIDATE_IDENTITY_FIELDS}
++        if not all(value is None or type(value) in (str, int) for value in candidate.values()):
++            raise ValueError("Decomposition needs_human latest_candidate identity is not scalar")
++    return {
++        "rejection_reasons": list(reasons),
++        "unresolved_findings": findings,
++        "human_next_step": next_step,
++        "calls_used": calls_used,
++        "author_corrections_used": corrections,
++        "latest_candidate": candidate,
++    }
++
++
++def _review_ready_proof(
++    manager: Checkouts, record: dict[str, Any], authenticated: _AuthenticatedRun,
++) -> dict[str, Any]:
++    """Every review_ready proof beyond the shared authentication, unchanged."""
++    head, tree, source_advancement = (
++        authenticated.head, authenticated.tree, authenticated.source_advancement,
++    )
++    run_result, run_bytes, task = (
++        authenticated.run_result, authenticated.run_bytes, authenticated.task,
++    )
++    expected = {
++        "calls_used": 2,
++        "run_status": "review_ready",
++        "decision": "decomposed",
++    }
++    for field, wanted in expected.items():
++        if run_result.get(field) != wanted:
++            raise ValueError(
++                f"Decomposition review {field} is {run_result.get(field)!r}, expected {wanted!r}"
++            )
++    if run_result.get("unresolved_findings") != [] or run_result.get("rejection_reasons") != []:
++        raise ValueError("Decomposition review carries unresolved findings or rejections")
++    result_payload, result_bytes = _load_object(authenticated.result_path, "Decomposition result")
++    graph_payload, graph_bytes = _load_object(authenticated.graph_path, "Graph delta")
++    decomposition = DecompositionResult.from_dict(result_payload)
++    plan = GraphDeltaPlan.from_payload(graph_payload)
+     if (decomposition.parent_task.task_id != record["task_id"]
+             or decomposition.parent_task.contract_revision != task.get("contract_revision")):
+         raise ValueError("Decomposition result names another parent task")
+@@ -430,7 +560,19 @@ def run(
+                           error=" ".join(detail.split()))
+             write_record(path, record)
+             return record
+-        review = _verify_review(manager, record)
++        authenticated = _authenticated_run_result(manager, record)
++        if authenticated.run_result.get("run_status") == "needs_human":
++            # The bounded independent review stopped at its human authority
++            # boundary. That completes the proposal: it published no proposal
++            # artifacts, it is never applied, and it waits for a person with the
++            # reasons it states. Every other status must prove review_ready
++            # below or fails exactly as before.
++            needs_human = _needs_human_proof(authenticated)
++            record.update(needs_human=needs_human, status="needs_human",
++                          completed_at_utc=_now(), exit_code=0)
++            write_record(path, record)
++            return record
++        review = _review_ready_proof(manager, record, authenticated)
+         record.update(review=review, status="review_ready", completed_at_utc=_now(), exit_code=0)
+         write_record(path, record)
+         return record
+@@ -445,6 +587,12 @@ def inspect(manager: Checkouts, task_id: str) -> dict[str, Any]:
+     if record.get("status") == "review_ready":
+         review = _verify_review(manager, record)
+         return {**record, "review": review}
++    if record.get("status") == "needs_human":
++        # Re-derived from the exact run result, never trusted from the record.
++        needs_human = _verify_needs_human(manager, record)
++        if record.get("needs_human") != needs_human:
++            raise ValueError("Retained needs_human facts differ from the decomposition run result")
++        return {**record, "needs_human": needs_human}
+     return record
+ 
+ 
+diff --git a/Pipeline/AssistantControl/graph_controller.py b/Pipeline/AssistantControl/graph_controller.py
+index 50ba89d..342188a 100644
+--- a/Pipeline/AssistantControl/graph_controller.py
++++ b/Pipeline/AssistantControl/graph_controller.py
+@@ -902,6 +902,14 @@ class GraphController:
+                     actions.append({"kind": "apply_decomposition", "task_id": task_id,
+                                     "run_id": receipt.get("run_id"),
+                                     "source_commit": head})
++                elif status == "needs_human":
++                    # The bounded independent review stopped at its human
++                    # authority boundary: there is no plan to apply and nothing
++                    # to retry. The parent waits for a person; every other task
++                    # keeps moving.
++                    waiting_human.append({"task_id": task_id, "reason": "decomposition_needs_human",
++                                          "run_id": receipt.get("run_id"),
++                                          "artifact_root": receipt.get("artifact_root")})
+                 elif status == "running":
+                     blocked.append({"task_id": task_id, "reason": "decomposition_already_running"})
+                 elif status == "failed":
+diff --git a/Pipeline/AssistantControl/viewer.py b/Pipeline/AssistantControl/viewer.py
+index 108418f..2ef800d 100644
+--- a/Pipeline/AssistantControl/viewer.py
++++ b/Pipeline/AssistantControl/viewer.py
+@@ -31,6 +31,27 @@ def _epoch_seconds(value: Any) -> float | None:
+         return None
+ 
+ 
++def _needs_human_reason(facts: Any) -> str:
++    """Why a needs_human decomposition waits for a person; a record that states no reason is refused."""
++    facts = facts if isinstance(facts, Mapping) else {}
++    raw_reasons = facts.get("rejection_reasons")
++    raw_findings = facts.get("unresolved_findings")
++    reasons = ([item for item in raw_reasons if isinstance(item, str) and item]
++               if isinstance(raw_reasons, list) else [])
++    finding_ids = ([item["finding_id"] for item in raw_findings
++                    if isinstance(item, Mapping) and isinstance(item.get("finding_id"), str)
++                    and item["finding_id"]]
++                   if isinstance(raw_findings, list) else [])
++    if not reasons and not finding_ids:
++        raise ValueError("needs_human decomposition record states no reason")
++    parts = []
++    if reasons:
++        parts.append("Rejection reasons: " + "; ".join(reasons) + ".")
++    if finding_ids:
++        parts.append("Unresolved findings: " + ", ".join(finding_ids) + ".")
++    return " ".join(parts)
++
++
+ class ExclusiveListenerError(OSError):
+     """Another process already owns this viewer's requested port."""
+ 
+@@ -422,8 +443,11 @@ class AssistantSnapshot:
+                 and phase == "checkout_needs_attention"
+             )
+             automatic_review = False
++            # A decomposition that stopped at its human authority boundary is
++            # never automated, so it is never shown as automatic validation.
+             if (row.get("state") == "human_action" and auto_approve
+-                    and task_id != "NSC-042" and isinstance(source_commit, str)):
++                    and task_id != "NSC-042" and isinstance(source_commit, str)
++                    and phase != "decomposition_needs_human"):
+                 try:
+                     automatic_review = is_synthetic_gauntlet(
+                         self.source, str(task_id), source_commit,
+@@ -662,6 +686,17 @@ class AssistantSnapshot:
+                         "phase": "decomposition_review_ready",
+                         "transition_context": "Independent review passed; the exact graph plan is ready for local application.",
+                     }
++                elif status == "needs_human":
++                    reason = _needs_human_reason(decomposition.get("needs_human"))
++                    row["state"] = "human_action"
++                    row["progress"] = {
++                        "phase": "decomposition_needs_human",
++                        "human_reason": reason,
++                        "transition_context": (
++                            "Independent review stopped at a human authority boundary; "
++                            "no children were applied. " + reason
++                        ),
++                    }
+                 elif status == "failed":
+                     row["state"] = "blocked"
+                     row["progress"] = {

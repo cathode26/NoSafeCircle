@@ -1,0 +1,139 @@
+[
+  {
+    "check": "mask-diff counts",
+    "pass": true,
+    "detail": {
+      "exit": 0,
+      "inside": 1312,
+      "outside": 0,
+      "seconds": 3.57
+    }
+  },
+  {
+    "check": "mask-diff introduced colors = 84",
+    "pass": true,
+    "detail": {
+      "introduced": 84,
+      "keys": [
+        "changed_inside",
+        "changed_outside",
+        "introduced_colors",
+        "sha256"
+      ]
+    }
+  },
+  {
+    "check": "frame-metrics ran",
+    "pass": true,
+    "detail": {
+      "exit": 0,
+      "seconds": 0.26,
+      "keys": [
+        "deltas",
+        "frames",
+        "has_outliers",
+        "loop",
+        "thresholds"
+      ]
+    }
+  },
+  {
+    "check": "frame-metrics reports seam and 5-6 px baseline jumps",
+    "pass": true,
+    "detail": {
+      "excerpt": "{\"deltas\": [{\"bbox_bottom_change\": 1, \"bbox_width_change\": 0, \"flags\": [], \"from\": 0, \"loop_seam\": false, \"opaque_change_percent\": -0.655307994757536, \"to\": 1}, {\"bbox_bottom_change\": -2, \"bbox_width_change\": 0, \"flags\": [], \"from\": 1, \"loop_seam\": false, \"opaque_change_percent\": 3.386103781882146, \"to\": 2}, {\"bbox_bottom_change\": 2, \"bbox_width_change\": 0, \"flags\": [], \"from\": 2, \"loop_seam\": false, \"opaque_change_percent\": 3.8706933219906423, \"to\": 3}, {\"bbox_bottom_change\": 0, \"bbox_width_change\": 0, \"flags\": [], \"from\": 3, \"loop_seam\": false, \"opaque_change_percent\": 4.054054054054054, \"to"
+    }
+  },
+  {
+    "check": "normalize matches earlier crop pixel-for-pixel",
+    "pass": true,
+    "detail": {
+      "exit": 0,
+      "per_frame_equal": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "seconds": 0.48
+    }
+  },
+  {
+    "check": "gamescale ran",
+    "pass": true,
+    "detail": {
+      "exit": 0,
+      "seconds": 2.42,
+      "report": "{\"output\": \"C:\\\\nscrev\\\\reports\\\\art-director\\\\toolkit-verify-20260917\\\\gamescale.png\", \"size\": [1000, 274], \"sprites\": [{\"alpha_bbox\": [112, 81, 128, 178], \"label\": \"In game today\", \"opaque_pixel_count\": 782, \"path\": \"C:\\\\NSC\\\\NSC\\\\NoSafeCircle\\\\Assets\\\\NoSafeCircle\\\\DoorPrototype\\\\Art\\\\Wizard\\\\Source\\\\PixelLab\\\\masculine-light\\\\selected\\\\walk\\\\south-east\\\\frame_000.png\"}, {\"alpha_bbox\": [98, 66, 142, 176], \"label\": \"Now 180 point\", \"opaque_pixel_count\": 2577, \"path\": \"C:\\\\NSC\\\\NSC\\\\NoSafeCircle\\\\Assets\\\\NoSafeCircle\\\\DoorPrototype\\\\Art\\\\Wizard\\\\Source\\\\PixelLab\\\\masculine-light\\\\selected\\\\walk\\\\south-east\\\\frame_000.png\"}, {\"alpha_bbox\": [98, 65, 142, 177], \"label\": \"A smooth\", \"opaque_pix"
+    }
+  },
+  {
+    "check": "ledger reproduces 19 reported / 20 used / 1 unattributed",
+    "pass": true,
+    "detail": {
+      "summary": {
+        "balance_change": {
+          "by_generations_used": 20,
+          "by_remaining": 20
+        },
+        "cap": null,
+        "cap_status": "no_cap",
+        "job": "density+wisp 2026-09-16",
+        "per_tool": {
+          "animate_character_v3": 2.0,
+          "animate_image": 2.0,
+          "create_character_v3": 2.0,
+          "create_image_pixen": 1.0,
+          "create_image_pixflux": 5.0,
+          "image_to_pixelart": 1.0,
+          "inpaint_image_pro_flash": 6.0
+        },
+        "provisional_total": 0.0,
+        "spend": 20.0,
+        "tool_reported_total": 19.0,
+        "unattributed_difference": 1.0,
+        "warning": "PixelLab account balances are shared; balance changes can include other sessions."
+      }
+    }
+  },
+  {
+    "check": "hue-scan finds no warm pixels",
+    "pass": true,
+    "detail": {
+      "exit": 0,
+      "report": "{\"files\": [{\"example_colors\": [], \"matching_pixel_count\": 0, \"path\": \"C:\\\\nscrev\\\\reports\\\\art-director\\\\lantern-wisp-20260916\\\\pixellab\\\\wisp_A2_still.png\", \"total_nontransparent_pixels\": 284}, {\"example_colors\": [], \"matching_pixel_count\": 0, \"path\": \"C:\\\\nscrev\\\\reports\\\\art-director\\\\lantern-wis"
+    }
+  },
+  {
+    "check": "gif readable by Pillow with 500/400 ms",
+    "pass": true,
+    "detail": {
+      "exit": 0,
+      "frames": 2,
+      "durations": [
+        500,
+        400
+      ],
+      "size": [
+        256,
+        256
+      ],
+      "seconds": 0.55
+    }
+  },
+  {
+    "check": "contact-sheet ran",
+    "pass": true,
+    "detail": {
+      "exit": 0,
+      "size": [
+        416,
+        154
+      ],
+      "seconds": 0.24
+    }
+  }
+]

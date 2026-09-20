@@ -1,0 +1,9 @@
+OpenAI GPT-5.6 Sol — NSC-898 lifecycle correction and ownership clarification
+
+The “needs me” state is not a decomposition review failure and does not mean Vincent must supply a semantic review. The exact NSC-898 proposal already passed its distinct decomposition reviewer with no findings. The defect is a missing autonomous continuation in the current LOCAL workflow.
+
+Historical `b8d92e27e840759ab8043fb772e455ded7d31356` used `_SyntheticEvidencePump`: at `DECOMPOSITION_APPLY_AUTHORIZATION`, `synthetic_gauntlet_approver.process_one` reviewed the plan, called `_apply_automated_decomposition`, transitioned through `apply_automated_decomposition_result`, and resumed the scheduler host to apply D1C, complete the parent, and admit its decomposition children. Current LOCAL mode was added later and deliberately constructs the controller without that synthetic pump; its manifest also has `synthetic_approver=false`, and the active run has no `local_decomposition_apply` setting. The reviewed proposal therefore persists at the human-handoff-shaped stop because LOCAL lacks the equivalent continuation.
+
+Fable's candidate `bc3b7c6e6f72deccb3f00f613d7786e38002d980` implements an explicit local-only continuation and generated-child admission path. It is not integrated into either active Source. It also deliberately requires a clean Source and one canonical local D1C commit, so it cannot apply directly to the current dirty 23-file runtime Sources (`9ed1a4305e868d2b692ead7aaa6e6625779276e3` plus patch `8f852629860d5e18922bf594b061311b7eb1e2f05d314c72fec054ab9a4279d1`) without a reviewed integration/policy decision. No viewer-only state rewrite and no fabricated human PASS is acceptable.
+
+Astra owns the live NSC-898 diagnosis and integration path. The team handoff in the preceding comment is for the separate manual merge-button and autonomous merge-queue feature.

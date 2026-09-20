@@ -1,0 +1,56 @@
+{
+  "shared_bone_pile_a": {
+    "opaque_px": 4057,
+    "saturated_px": 3335,
+    "warm_pct": 55.0,
+    "red_pct": 10.2,
+    "violet_pct": 6.3,
+    "mean_sat": 0.484,
+    "brightest_value": 1.0
+  },
+  "ba_collapsed_reading_table_z": {
+    "opaque_px": 8911,
+    "saturated_px": 8094,
+    "warm_pct": 13.6,
+    "red_pct": 33.6,
+    "violet_pct": 5.6,
+    "mean_sat": 0.603,
+    "brightest_value": 0.988
+  },
+  "ca_candelabra_tall": {
+    "opaque_px": 2647,
+    "saturated_px": 2006,
+    "warm_pct": 17.2,
+    "red_pct": 7.6,
+    "violet_pct": 17.7,
+    "mean_sat": 0.598,
+    "brightest_value": 0.996
+  },
+  "re_broken_masonry_blocks": {
+    "opaque_px": 6284,
+    "saturated_px": 5154,
+    "warm_pct": 1.8,
+    "red_pct": 5.1,
+    "violet_pct": 56.2,
+    "mean_sat": 0.246,
+    "brightest_value": 0.933
+  },
+  "lv_iron_rail_x": {
+    "opaque_px": 2753,
+    "saturated_px": 2205,
+    "warm_pct": 21.8,
+    "red_pct": 17.1,
+    "violet_pct": 14.0,
+    "mean_sat": 0.425,
+    "brightest_value": 1.0
+  },
+  "wizard_se_128 (approved, for reference)": {
+    "opaque_px": 2395,
+    "saturated_px": 2252,
+    "warm_pct": 29.4,
+    "red_pct": 4.9,
+    "violet_pct": 43.7,
+    "mean_sat": 0.489,
+    "brightest_value": 0.992
+  }
+}

@@ -1,0 +1,45 @@
+{
+    "schema_version":  "1.1",
+    "manifest_type":  "unity_test_validation",
+    "status":  "passed",
+    "validated_state":  {
+                            "commit":  "161982676b2cafbfd48c9aae1eba9d92e9fec55f",
+                            "tree":  "c83562cf735d1d7a4d6828bd880ee0f72c21c8ff",
+                            "post_commit":  "161982676b2cafbfd48c9aae1eba9d92e9fec55f",
+                            "post_tree":  "c83562cf735d1d7a4d6828bd880ee0f72c21c8ff",
+                            "repository_clean_before":  true,
+                            "repository_clean_after":  true
+                        },
+    "unity":  {
+                  "version":  "6000.1.8f1",
+                  "executable":  "C:\\Program Files\\Unity\\Hub\\Editor\\6000.1.8f1\\Editor\\Unity.exe",
+                  "exit_code":  0,
+                  "test_platform":  "PlayMode",
+                  "test_filter":  "NoSafeCircle.DoorPrototype.Tests.EnemyPursuitPlayModeTests;NoSafeCircle.DoorPrototype.Tests.EnemyPursuitDoorCrossingPlayModeTests"
+              },
+    "test_run":  {
+                     "result":  "Passed",
+                     "total":  10,
+                     "passed":  10,
+                     "failed":  0,
+                     "skipped":  0
+                 },
+    "artifacts":  {
+                      "xml":  {
+                                  "relative_path":  "test-results.xml",
+                                  "sha256":  "08471d2bab0d7993f9ff06486f00bbc96161cbf6fa66c8f0b9dd9f6cd222a848",
+                                  "size_bytes":  12474
+                              },
+                      "log":  {
+                                  "relative_path":  "unity.log",
+                                  "sha256":  "fc5e18a58a97489e44fd8393f4f3f47cd43e87b9c788d60c9f429b0390080add",
+                                  "size_bytes":  38078
+                              }
+                  },
+    "runner":  {
+                   "path":  "Pipeline/Testing/run_unity_tests_clean.ps1",
+                   "sha256":  "b4658ca6c63d85ff2ae7950288d4a459ec90eb54251bca9ced33cfeeae1e77f8",
+                   "source_commit":  "161982676b2cafbfd48c9aae1eba9d92e9fec55f",
+                   "source_tree":  "c83562cf735d1d7a4d6828bd880ee0f72c21c8ff"
+               }
+}

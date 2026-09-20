@@ -1,0 +1,12 @@
+Docs: NSC-078 art plan matches the contract's rectangle repair masks
+
+The committed plan told the crew to commit a binary mask PNG beside each raw export, but NSC-078's AC-001 and AC-004 define repair_mask as a list of axis-aligned rectangles (x, y, width, height) in selected-image pixels, recorded in the family inventory, with byte-exactness proven outside their union. Following the plan would have committed files the task does not own.
+
+- The two masked-repair lines now use the rectangle form.
+- A precedence line near the top says the committed contract wins where the plan differs, and that such a difference is a plan defect to report back to the Art Director.
+
+Found by the GER Agent's NSC-078 revision 4 closure review, patch supplied by the Art Director Agent (board H-20260917-29). Docs only. The GER Agent rebinds NSC-078's plan hash gate right after this commit.
+
+Approved for merge by Vincent on 2026-09-18 ("go doc patch").
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

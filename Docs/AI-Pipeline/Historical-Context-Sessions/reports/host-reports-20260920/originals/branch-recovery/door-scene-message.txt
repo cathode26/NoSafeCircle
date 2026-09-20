@@ -1,0 +1,7 @@
+Rebuild the door prototype scene with the corrected crossing volume
+
+Regenerated through No Safe Circle/Build Door Prototype Scene so each saved door
+carries the crossing volume that starts past the doorway rather than on it.
+Scene content only: same serialized size, five door instances updated.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

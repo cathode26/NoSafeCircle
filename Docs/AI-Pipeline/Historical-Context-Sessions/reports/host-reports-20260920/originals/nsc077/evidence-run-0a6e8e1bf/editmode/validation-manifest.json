@@ -1,0 +1,45 @@
+{
+    "schema_version":  "1.1",
+    "manifest_type":  "unity_test_validation",
+    "status":  "passed",
+    "validated_state":  {
+                            "commit":  "0a6e8e1bf2356402344d02c4e8772dfb2eeb0a8a",
+                            "tree":  "9f90bae68bc951612de7baee34b9059bcf3119e8",
+                            "post_commit":  "0a6e8e1bf2356402344d02c4e8772dfb2eeb0a8a",
+                            "post_tree":  "9f90bae68bc951612de7baee34b9059bcf3119e8",
+                            "repository_clean_before":  true,
+                            "repository_clean_after":  true
+                        },
+    "unity":  {
+                  "version":  "6000.1.8f1",
+                  "executable":  "C:\\Program Files\\Unity\\Hub\\Editor\\6000.1.8f1\\Editor\\Unity.exe",
+                  "exit_code":  0,
+                  "test_platform":  "EditMode",
+                  "test_filter":  "NoSafeCircle.DoorPrototype.Tests.Editor.EnemyArtIntegrationTests;NoSafeCircle.DoorPrototype.Tests.Editor.WizardArtIntegrationTests;NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests"
+              },
+    "test_run":  {
+                     "result":  "Passed",
+                     "total":  65,
+                     "passed":  65,
+                     "failed":  0,
+                     "skipped":  0
+                 },
+    "artifacts":  {
+                      "xml":  {
+                                  "relative_path":  "test-results.xml",
+                                  "sha256":  "4ac12072539bec782117c4a83bd0d983ee1f0e17d080efc7e5085758d08573fa",
+                                  "size_bytes":  57568
+                              },
+                      "log":  {
+                                  "relative_path":  "unity.log",
+                                  "sha256":  "cf316165534bf37cba17115c6ce7139102e3d4af14287b1f758895ac3675c95f",
+                                  "size_bytes":  6372925
+                              }
+                  },
+    "runner":  {
+                   "path":  "Pipeline/Testing/run_unity_tests_clean.ps1",
+                   "sha256":  "b4658ca6c63d85ff2ae7950288d4a459ec90eb54251bca9ced33cfeeae1e77f8",
+                   "source_commit":  "0a6e8e1bf2356402344d02c4e8772dfb2eeb0a8a",
+                   "source_tree":  "9f90bae68bc951612de7baee34b9059bcf3119e8"
+               }
+}

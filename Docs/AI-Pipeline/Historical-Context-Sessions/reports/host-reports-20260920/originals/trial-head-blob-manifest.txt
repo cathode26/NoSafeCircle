@@ -1,0 +1,86 @@
+# Blob equivalence manifest: 14776a8 (1140 trial head) vs 027e787 (throughput/gauntlet-trial head)
+# Generated 2026-09-13T01:35:56Z in C:\NSC\GauntletFresh1140-20260912-1 (both objects present after fetch)
+# Format: <status>  <path>  blob@027e787  blob@14776a8  (status '=' identical, '!' differs)
+=  Pipeline/AssistantControl/checkouts.py  36ae392d933badb4014fad698231843bd606b863  36ae392d933badb4014fad698231843bd606b863
+=  Pipeline/AssistantControl/source_update.py  a8f0c85690a5126a10f78f5a586848a6d55c94e9  a8f0c85690a5126a10f78f5a586848a6d55c94e9
+=  Pipeline/AssistantControl/background_jobs.py  c4b31435dfd5c0b589e88750cad9322e9cc0c506  c4b31435dfd5c0b589e88750cad9322e9cc0c506
+=  Pipeline/AssistantControl/decomposition.py  9c06d296b0cc716f71e58fcbf0922c30f7d620b3  9c06d296b0cc716f71e58fcbf0922c30f7d620b3
+=  Pipeline/AssistantControl/graph_controller.py  56c4dd7ffae36c3e6baa336e1036ca763f891bdb  56c4dd7ffae36c3e6baa336e1036ca763f891bdb
+=  Pipeline/AssistantControl/prepared_refresh.py  6ac1f21bb1dd135a77fffbbedff7a433a48ee73e  6ac1f21bb1dd135a77fffbbedff7a433a48ee73e
+=  Pipeline/AssistantControl/review.py  c5485b00e69d90e2e3a6740f73cb710071266ccc  c5485b00e69d90e2e3a6740f73cb710071266ccc
+=  Pipeline/AssistantControl/admission.py  742dfad527bb7ade7ad7dba06adcccf36f1c89bb  742dfad527bb7ade7ad7dba06adcccf36f1c89bb
+=  Pipeline/AssistantControl/test_background_jobs.py  a956cfb1015603780068ea8a3bffe9fb5164b83c  a956cfb1015603780068ea8a3bffe9fb5164b83c
+=  Pipeline/AssistantControl/test_decomposition.py  15b85a55e09736567c5a686365c9e4467a6779d3  15b85a55e09736567c5a686365c9e4467a6779d3
+!  Pipeline/AssistantControl/viewer.py  108418f1ab97d2f7744e57eb18e62d90a23155ae  16250a8894a1b4f4ade6e168f9b3d5c855a05c44
+!  Pipeline/AssistantControl/__main__.py  c9ca542dd974695e552c9c2813010f73db805b2c  046f85f77cbd876e09659f46067a594ec7f3080e
+=  Pipeline/TaskReviewAgent/authoritative_candidate_validation.py  91f1b37e00abf264bb0262b0b282e0bee8382872  91f1b37e00abf264bb0262b0b282e0bee8382872
+=  Pipeline/TaskReviewAgent/provider_budget.py  2e21420e4e704abe119dacb21e768cb53737494f  2e21420e4e704abe119dacb21e768cb53737494f
+=  Pipeline/TaskDecomposition/context_builder.py  0fb2f2d5c04d22256f3096ba58ed47537d6b116e  0fb2f2d5c04d22256f3096ba58ed47537d6b116e
+=  Pipeline/TaskDecomposition/round_robin_decomposition.py  8f128fe9653892e1b7d395a556ad84c2404112c3  8f128fe9653892e1b7d395a556ad84c2404112c3
+=  Pipeline/TaskDecomposition/prompts.py  c620177afdc49e3c474281e04cb62f47d1380e08  c620177afdc49e3c474281e04cb62f47d1380e08
+=  Pipeline/Testing/run_unity_tests_clean.ps1  c0450f0ee10d877fe773818998393deb439ff588  c0450f0ee10d877fe773818998393deb439ff588
+=  compose.yaml  b4086893c8bf9b97f29148cb8df1b1c4e11bb032  b4086893c8bf9b97f29148cb8df1b1c4e11bb032
+# Whole-tree diff 027e787..14776a8 (paths that differ anywhere):
+#   D	Assets/NoSafeCircle/DoorPrototype/Scripts/Gauntlet1131.cs
+#   D	Assets/NoSafeCircle/DoorPrototype/Scripts/Gauntlet1131.cs.meta
+#   D	Assets/NoSafeCircle/DoorPrototype/Scripts/Gauntlet1132.cs
+#   D	Assets/NoSafeCircle/DoorPrototype/Scripts/Gauntlet1132.cs.meta
+#   D	Assets/NoSafeCircle/DoorPrototype/Scripts/Gauntlet1133.cs
+#   D	Assets/NoSafeCircle/DoorPrototype/Scripts/Gauntlet1133.cs.meta
+#   D	Assets/NoSafeCircle/DoorPrototype/Scripts/Gauntlet1134.cs
+#   D	Assets/NoSafeCircle/DoorPrototype/Scripts/Gauntlet1134.cs.meta
+#   D	Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1130AlphaTests.cs.meta
+#   D	Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1130BetaTests.cs.meta
+#   D	Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1131Tests.cs.meta
+#   D	Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1132Tests.cs.meta
+#   D	Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1133Tests.cs.meta
+#   D	Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1134Tests.cs.meta
+#   D	Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1135AlphaTests.cs
+#   D	Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1135AlphaTests.cs.meta
+#   D	Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1135BetaTests.cs
+#   D	Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1135BetaTests.cs.meta
+#   D	Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1136AlphaTests.cs
+#   D	Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1136AlphaTests.cs.meta
+#   D	Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1136BetaTests.cs
+#   D	Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1136BetaTests.cs.meta
+#   D	Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1137Tests.cs
+#   D	Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1137Tests.cs.meta
+#   R082	Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1130AlphaTests.cs	Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1140AlphaTests.cs
+#   A	Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1140AlphaTests.cs.meta
+#   R082	Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1130BetaTests.cs	Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1140BetaTests.cs
+#   A	Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1140BetaTests.cs.meta
+#   R083	Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1133Tests.cs	Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1141Tests.cs
+#   A	Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1141Tests.cs.meta
+#   R083	Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1134Tests.cs	Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1142Tests.cs
+#   A	Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1142Tests.cs.meta
+#   R083	Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1131Tests.cs	Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1143Tests.cs
+#   A	Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1143Tests.cs.meta
+#   R083	Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1132Tests.cs	Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1144Tests.cs
+#   A	Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1144Tests.cs.meta
+#   A	Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1145AlphaTests.cs
+#   A	Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1145AlphaTests.cs.meta
+#   A	Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1145BetaTests.cs
+#   A	Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1145BetaTests.cs.meta
+#   A	Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1146AlphaTests.cs
+#   A	Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1146AlphaTests.cs.meta
+#   A	Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1146BetaTests.cs
+#   A	Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1146BetaTests.cs.meta
+#   A	Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1147Tests.cs
+#   A	Assets/NoSafeCircle/DoorPrototype/Tests/Editor/GauntletReplay1147Tests.cs.meta
+#   M	Pipeline/AssistantControl/__main__.py
+#   M	Pipeline/AssistantControl/test_viewer.py
+#   M	Pipeline/AssistantControl/viewer.py
+#   M	Pipeline/TaskGraph/WORK_ID_MAP.json
+#   M	Pipeline/TaskReviewAgent/GauntletView/index.html
+#   M	Pipeline/TaskReviewAgent/authoritative_validation_policy.json
+#   D	Tasks/NSC-1130.yaml
+#   D	Tasks/NSC-1138.yaml
+#   D	Tasks/NSC-1139.yaml
+#   A	Tasks/NSC-1140.yaml
+#   R070	Tasks/NSC-1131.yaml	Tasks/NSC-1141.yaml
+#   R070	Tasks/NSC-1132.yaml	Tasks/NSC-1142.yaml
+#   R070	Tasks/NSC-1133.yaml	Tasks/NSC-1143.yaml
+#   R070	Tasks/NSC-1134.yaml	Tasks/NSC-1144.yaml
+#   R067	Tasks/NSC-1135.yaml	Tasks/NSC-1145.yaml
+#   R065	Tasks/NSC-1136.yaml	Tasks/NSC-1146.yaml
+#   R064	Tasks/NSC-1137.yaml	Tasks/NSC-1147.yaml

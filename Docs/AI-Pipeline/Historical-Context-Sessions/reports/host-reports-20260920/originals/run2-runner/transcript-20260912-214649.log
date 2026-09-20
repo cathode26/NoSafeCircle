@@ -1,0 +1,78 @@
+[PASS] Controller 799907e03959626323f74e2662378931e734234a
+[PASS] Source gauntlet-replay/fresh-1160-20260913 at 799907e03959626323f74e2662378931e734234a
+[STATE] Previous controller: controller_released (invocation dce6aae6d73a4319811d4326600c99d5)
+[STATE] Graph status before this run: blocked; last error: TimeoutError: [Errno 10060] timed out after 10s waiting for exclusive file lock: 'C:\\NSC\\GauntletFresh1140-20260912-1-Checkouts-6\\.assistant-control\\checkouts.lock'
+
+[RUN 1] 21:46:50 run-graph starting; output C:\NSC\GauntletFresh1140-20260912-1-Checkouts-6\operator-logs\run-graph-20260912-214650.json
+[RUN 1] exit 1; status command_failed; actions 0; harvested 0; source 
+    error: [Errno 10060] timed out after 10s waiting for exclusive file lock: 'C:\\NSC\\GauntletFresh1140-20260912-1-Checkouts-6\\.assistant-control\\checkouts.lock'
+[RECOVER 1/5] checkouts.lock contention; the controller released cleanly and every background receipt is retained. Resuming in 25 s.
+
+[RUN 2] 21:51:12 run-graph starting; output C:\NSC\GauntletFresh1140-20260912-1-Checkouts-6\operator-logs\run-graph-20260912-215112.json
+[RUN 2] exit 1; status command_failed; actions 0; harvested 0; source 
+    error: [Errno 10060] timed out after 10s waiting for exclusive file lock: 'C:\\NSC\\GauntletFresh1140-20260912-1-Checkouts-6\\.assistant-control\\checkouts.lock'
+[RECOVER 2/5] checkouts.lock contention; the controller released cleanly and every background receipt is retained. Resuming in 25 s.
+
+[RUN 3] 21:51:57 run-graph starting; output C:\NSC\GauntletFresh1140-20260912-1-Checkouts-6\operator-logs\run-graph-20260912-215157.json
+[RUN 3] exit 1; status command_failed; actions 0; harvested 0; source 
+    error: [Errno 10060] timed out after 10s waiting for exclusive file lock: 'C:\\NSC\\GauntletFresh1140-20260912-1-Checkouts-6\\.assistant-control\\checkouts.lock'
+[RECOVER 3/5] checkouts.lock contention; the controller released cleanly and every background receipt is retained. Resuming in 25 s.
+
+[RUN 4] 22:00:06 run-graph starting; output C:\NSC\GauntletFresh1140-20260912-1-Checkouts-6\operator-logs\run-graph-20260912-220006.json
+[RUN 4] exit 1; status command_failed; actions 0; harvested 0; source 
+    error: [Errno 10060] timed out after 10s waiting for exclusive file lock: 'C:\\NSC\\GauntletFresh1140-20260912-1-Checkouts-6\\.assistant-control\\checkouts.lock'
+[RECOVER 4/5] checkouts.lock contention; the controller released cleanly and every background receipt is retained. Resuming in 25 s.
+
+[RUN 5] 22:05:58 run-graph starting; output C:\NSC\GauntletFresh1140-20260912-1-Checkouts-6\operator-logs\run-graph-20260912-220558.json
+[RUN 5] exit 1; status blocked; actions 24; harvested 10; source 06c8f91c41bf64bc82d1a853ed8c549a86bf8bd9
+    auto_approve NSC-1170 -> approved
+    integrate NSC-1170 -> integrated
+    sync_candidate NSC-1171 -> awaiting_human
+    post_crew NSC-1171 -> launched
+    sync_candidate NSC-1172 -> awaiting_human
+    post_crew NSC-1172 -> launched
+    wait_job NSC-1169 -> progress
+    sync_candidate NSC-1169 -> awaiting_human
+    post_crew NSC-1169 -> launched
+    wait_job NSC-1169 -> progress
+    auto_approve NSC-1171 -> approved
+    integrate NSC-1171 -> integrated
+    sync_candidate NSC-1172 -> awaiting_human
+    post_crew NSC-1172 -> launched
+    sync_candidate NSC-1169 -> awaiting_human
+    post_crew NSC-1169 -> launched
+    wait_job NSC-1169 -> progress
+    auto_approve NSC-1172 -> approved
+    integrate NSC-1172 -> integrated
+    sync_candidate NSC-1169 -> awaiting_human
+    post_crew NSC-1169 -> launched
+    wait_job NSC-1169 -> progress
+    auto_approve NSC-1169 -> approved
+    integrate NSC-1169 -> integrated
+    job decompose NSC-1160: completed
+    job post_crew NSC-1161: completed
+    job post_crew NSC-1162: completed
+    job post_crew NSC-1163: completed
+    job post_crew NSC-1164: failed
+    job decompose NSC-1165: completed
+    job decompose NSC-1166: completed
+    job post_crew NSC-1168: completed
+    job post_crew NSC-1169: completed
+    job post_crew NSC-1170: completed
+    job post_crew NSC-1171: completed
+    job post_crew NSC-1172: completed
+    job post_crew NSC-1173: failed
+    blocked NSC-1164: background_job_failed
+    blocked NSC-1166: aggregate_children_incomplete
+    blocked NSC-1167: dependencies
+    blocked NSC-1173: background_job_failed
+[STOP] Non-zero exit. Escalate.
+
+============================================================
+[DONE] Operator loop ended with status: blocked
+[DONE] checkouts.lock recoveries used: 4/5
+============================================================
+[STATE] Last result JSON: C:\NSC\GauntletFresh1140-20260912-1-Checkouts-6\operator-logs\run-graph-20260912-220558.json
+[STATE] Records: C:\NSC\GauntletFresh1140-20260912-1-Checkouts-6\.assistant-control
+[STATE] Journal: C:\NSC\GauntletFresh1140-20260912-1-Checkouts-6\.assistant-control\graph-controller-events.jsonl
+[NEXT] complete -> tell Vincent. awaiting_human -> tell Vincent the waiting_human list. Anything else -> send the escalation to the reviewer and stop.

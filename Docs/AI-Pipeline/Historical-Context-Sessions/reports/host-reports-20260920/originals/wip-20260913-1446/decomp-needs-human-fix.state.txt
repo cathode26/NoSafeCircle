@@ -1,0 +1,8 @@
+worktree: /c/nscrev/decomp-needs-human-fix
+branch: throughput/decomposition-needs-human-fix
+head: 86068e6490c33bb71b025cbe1b6de204859a24af
+snapshot_utc: 2026-09-13T14:47:04Z
+ M Pipeline/AssistantControl/decomposition.py
+ M Pipeline/AssistantControl/graph_controller.py
+ M Pipeline/AssistantControl/viewer.py
+?? Pipeline/AssistantControl/test_decomposition_needs_human.py

@@ -1,0 +1,97 @@
+{
+  "output": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\review\\gamescale_feminine-dark.png",
+  "size": [
+    1690,
+    254
+  ],
+  "sprites": [
+    {
+      "alpha_bbox": [
+        78,
+        57,
+        122,
+        169
+      ],
+      "label": "north",
+      "opaque_pixel_count": 3448,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab/feminine-dark/aligned_v2\\standing\\north.png"
+    },
+    {
+      "alpha_bbox": [
+        80,
+        55,
+        121,
+        169
+      ],
+      "label": "north-east",
+      "opaque_pixel_count": 3210,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab/feminine-dark/aligned_v2\\standing\\north-east.png"
+    },
+    {
+      "alpha_bbox": [
+        75,
+        53,
+        124,
+        169
+      ],
+      "label": "east",
+      "opaque_pixel_count": 2666,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab/feminine-dark/aligned_v2\\standing\\east.png"
+    },
+    {
+      "alpha_bbox": [
+        77,
+        52,
+        124,
+        169
+      ],
+      "label": "south-east",
+      "opaque_pixel_count": 3286,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab/feminine-dark/aligned_v2\\standing\\south-east.png"
+    },
+    {
+      "alpha_bbox": [
+        75,
+        54,
+        125,
+        169
+      ],
+      "label": "south",
+      "opaque_pixel_count": 3431,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab/feminine-dark/aligned_v2\\standing\\south.png"
+    },
+    {
+      "alpha_bbox": [
+        75,
+        50,
+        124,
+        169
+      ],
+      "label": "south-west",
+      "opaque_pixel_count": 3318,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab/feminine-dark/aligned_v2\\standing\\south-west.png"
+    },
+    {
+      "alpha_bbox": [
+        77,
+        53,
+        126,
+        169
+      ],
+      "label": "west",
+      "opaque_pixel_count": 2644,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab/feminine-dark/aligned_v2\\standing\\west.png"
+    },
+    {
+      "alpha_bbox": [
+        80,
+        55,
+        121,
+        169
+      ],
+      "label": "north-west",
+      "opaque_pixel_count": 3146,
+      "path": "C:\\nscrev\\reports\\art-director\\wizard-128-remake\\pixellab/feminine-dark/aligned_v2\\standing\\north-west.png"
+    }
+  ]
+}

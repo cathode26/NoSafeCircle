@@ -1,0 +1,35 @@
+Merge fix/refresh-accepts-finished-history: refuse live work, not evidence of it
+
+A task prepared before a main write could not be dispatched after it. reserve
+requires the scope and checkout at current HEAD, refresh-prepared is the only
+command that re-pins a prepared checkout, and its _forbidden gate refused on the
+mere presence of a launch entry - and on worker_history too, so archiving the
+launch would only have moved the refusal to the archive. That made
+refresh-prepared the critical path for every re-dispatch, and one no task with a
+finished run could pass.
+
+The gate now asks whether work is live rather than whether evidence exists:
+- a worker blocks only when unfinished, finished being failed or stopped with
+  capacity_released and settled_at, which settle writes only after verifying the
+  host process and containers are gone;
+- a launch blocks only when nothing proves its run is over - either its own
+  status, or a run_id matching a finished worker in worker or worker_history.
+  source_update._require_settled_worker already treated a settled worker as the
+  authoritative proof for a launch sharing its run id, because a launch keeps
+  whatever status the launcher wrote;
+- worker_history stops being a refusal reason, being history by definition;
+- candidate, revision, revision_history, candidate_lineage, integration,
+  human_review, approval and a succeeded worker all still refuse, so nothing
+  carrying real output or a human decision can be refreshed over.
+
+Verified before merging by the Game Agent at tip b7be8f6ad: test_prepared_refresh
+11/11 and test_retire_settled_worker green on Windows, three files, author and
+committer .invalid, and the merge changes exactly those three.
+
+Found by cancelling two runs and timing out a third on 2026-09-17: NSC-007,
+NSC-046 and NSC-097 were each un-dispatchable, and every earlier fix revealed the
+next gate rather than the last one.
+
+Vincent's go: "yes".
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

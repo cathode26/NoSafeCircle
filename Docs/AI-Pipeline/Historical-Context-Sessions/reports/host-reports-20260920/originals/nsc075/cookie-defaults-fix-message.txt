@@ -1,0 +1,5 @@
+NSC-075: reset cookie import defaults on wizard sprites
+
+The GUID-only cardinal frame metas also import with point-light cookie defaults: applyGammaDecoding 1 and cookieLightType 2. None of the committed wizard sources carry those values, and in this Linear color-space project gamma decoding could silently change sprite colors. Reset both through the importer's serialized properties so the 96 cardinal frames import exactly like the diagonal and standing sources. A missing property throws instead of being skipped.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

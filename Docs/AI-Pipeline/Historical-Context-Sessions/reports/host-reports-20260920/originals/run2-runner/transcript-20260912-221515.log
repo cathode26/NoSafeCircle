@@ -1,0 +1,49 @@
+[PASS] Controller 06c8f91c41bf64bc82d1a853ed8c549a86bf8bd9
+[PASS] Source gauntlet-replay/fresh-1160-20260913 at 06c8f91c41bf64bc82d1a853ed8c549a86bf8bd9
+[STATE] Previous controller: controller_released (invocation c1d43a3956fc493ab7a78c36808c43b3)
+[STATE] Graph status before this run: blocked; last error: 
+
+[RUN 1] 22:15:16 run-graph starting; output C:\NSC\GauntletFresh1140-20260912-1-Checkouts-6\operator-logs\run-graph-20260912-221516.json
+[RUN 1] exit 1; status blocked; actions 16; harvested 3; source 62b2af516cdb849942023879e039c3355c6c40c8
+    sync_candidate NSC-1164 -> awaiting_human
+    post_crew NSC-1164 -> launched
+    sync_candidate NSC-1173 -> awaiting_human
+    post_crew NSC-1173 -> launched
+    wait_job NSC-1164 -> progress
+    wait_job NSC-1173 -> progress
+    auto_approve NSC-1173 -> approved
+    integrate NSC-1173 -> integrated
+    prepare NSC-1167 -> prepared
+    scope NSC-1167 -> 
+    reserve NSC-1167 -> active
+    start_worker NSC-1167 -> 
+    wait_worker NSC-1167 -> progress
+    settle_worker NSC-1167 -> 
+    post_crew NSC-1167 -> launched
+    wait_job NSC-1167 -> progress
+    job decompose NSC-1160: completed
+    job post_crew NSC-1161: completed
+    job post_crew NSC-1162: completed
+    job post_crew NSC-1163: completed
+    job post_crew NSC-1164: completed
+    job decompose NSC-1165: completed
+    job decompose NSC-1166: completed
+    job post_crew NSC-1167: completed
+    job post_crew NSC-1168: completed
+    job post_crew NSC-1169: completed
+    job post_crew NSC-1170: completed
+    job post_crew NSC-1171: completed
+    job post_crew NSC-1172: completed
+    job post_crew NSC-1173: completed
+    blocked NSC-1164: validation_failed
+    blocked NSC-1167: validation_failed
+[STOP] Non-zero exit. Escalate.
+
+============================================================
+[DONE] Operator loop ended with status: blocked
+[DONE] checkouts.lock recoveries used: 0/20
+============================================================
+[STATE] Last result JSON: C:\NSC\GauntletFresh1140-20260912-1-Checkouts-6\operator-logs\run-graph-20260912-221516.json
+[STATE] Records: C:\NSC\GauntletFresh1140-20260912-1-Checkouts-6\.assistant-control
+[STATE] Journal: C:\NSC\GauntletFresh1140-20260912-1-Checkouts-6\.assistant-control\graph-controller-events.jsonl
+[NEXT] complete -> tell Vincent. awaiting_human -> tell Vincent the waiting_human list. Anything else -> send the escalation to the reviewer and stop.

@@ -1,0 +1,53 @@
+You are working in the No Safe Circle Unity repository, mounted at /workspace. Read CLAUDE.md and Docs/Engineering/UNITY_TESTING_POLICY.md before you begin.
+
+HARD RULES, in force for every task below:
+- NEVER push. NEVER run `git push` for any reason.
+- NEVER commit to `main`, and never move `main`. A branch `wizard-art/codex-20260915` has been created for you at the current main commit 03804a785. Check it out and commit only there.
+- NEVER delete a branch, a worktree, or a tag.
+- Do not edit generated animation assets, scene files, or any Unity serialization by hand.
+- Commit as: user.name "No Safe Circle Codex Worker", user.email "codex-worker@nosafecircle.invalid"
+- Stage exact paths with `git add -- <path>`. Never `git add .` or `git add -A`: this checkout reports ~36 generated art files as modified because of line-ending normalization, and they must never enter a commit.
+- Stop and report instead of guessing whenever reality contradicts these instructions.
+
+BACKGROUND, already verified, do not re-derive:
+- The light female wizard's north-east walk cycle is broken on main: frames 000 and 003 show her wearing the witch hat, but frames 004 and 005 show her bare-headed with orange hair. The hat pops off for the last two frames of every north-east loop.
+- The branch `assistant/NSC-073-current` contains corrected 004 and 005 frames wearing the hat, and its 000 and 003 are byte-identical to main.
+- Main has walk cycles for the four DIAGONAL directions only (north-east, north-west, south-east, south-west), for all four wizard identities. The four CARDINAL directions (north, east, south, west) are missing from main and exist on NSC-074 branches: 4 identities x 4 directions x 6 frames, each with a .meta file.
+
+TASK 1 - Identify the correct NSC-073 branch. Report only; merge nothing yet.
+Candidate branches:
+  codex/nsc073-main-validation-20260914
+  codex/nsc073-ne-alternate-20260914
+  codex/nsc073-visual-stage-20260914
+  codex/nsc073-reuse-alt-20260914
+  codex/nsc073-alt-current-stage-20260914
+  assistant/NSC-073-current
+  assistant/nsc-073-pixellab
+For each branch that exists, report:
+  a) what merging it into main would add, using `git merge-tree --write-tree main <branch>` and then diffing that tree against main;
+  b) the git blob hashes of Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/north-east/frame_004.png and frame_005.png;
+  c) whether it touches anything outside Art/Wizard/Source.
+Group branches whose frame_004 and frame_005 hashes are identical. State which single branch is the smallest correct fix, and which branches are duplicates or supersets of it.
+
+TASK 2 - Merge the hat fix onto your branch.
+Merge ONLY the branch you identified, and only if its entire diff against main is those two PNGs plus their .meta files. If the winner changes anything else, STOP and report instead.
+After merging, run the Edit Mode fixture WizardArtIntegrationTests using Pipeline/Testing/run_unity_tests_clean.ps1 if a Unity executable is reachable from this container; if Unity is not reachable, say so plainly and do not claim the tests passed. Report the commit SHA.
+
+TASK 3 - Inventory the NSC-074 cardinal walk art. Report only; merge nothing.
+Candidate branches:
+  codex/nsc074-current-review-20260914
+  codex/nsc074-exact-unity-20260914
+  assistant/NSC-074-current
+  codex/nsc073-074-current-review-20260914
+  assistant/nsc-074-cardinal-art
+For each, report whether it carries a COMPLETE cardinal set (4 identities x north/east/south/west x frame_000..frame_005, each with a .meta), whether the sets are byte-identical between branches, and whether the branch touches anything outside Art/Wizard/Source. Note: assistant/nsc-074-cardinal-art was already checked and contains NO cardinal frames despite its name, so verify rather than trusting branch names. Recommend one branch.
+
+TASK 4 - Report what an 8-direction wizard actually requires. Report only; change nothing.
+Assets/NoSafeCircle/DoorPrototype/Scripts/WizardAnimationController.cs hard-codes four diagonals and uses "south-east" as its canonical initial direction. Tasks/NSC-070.yaml fixes the count at 32 states: 4 wizards x 4 diagonal directions x idle/walk.
+Identify and list every place the 4-direction assumption is encoded, including at minimum: WizardAnimationController.cs, the generated clips under Art/Wizard/Generated, WizardAnimator.controller, DoorPrototypeGlobalSceneBuilder.cs, WizardArtIntegrationTests.cs, and WizardAnimationPlayModeTests.cs.
+Also state exactly what generates the animation clips and the animator controller, and whether a Unity menu command rebuilds them.
+Finish with a short estimate of what an 8-direction change would require, including which task contracts would need revision.
+
+TASK 5 - Stop. Do not implement 8 directions. That needs an NSC-070 contract revision that Vincent will decide on after reading your Task 4 report.
+
+FINAL OUTPUT: a concise report with one section per task, every commit SHA you created, and an explicit list of anything you could not verify. Say plainly what you did not do.

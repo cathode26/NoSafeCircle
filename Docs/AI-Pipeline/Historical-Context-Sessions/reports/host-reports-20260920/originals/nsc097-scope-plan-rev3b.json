@@ -1,0 +1,18 @@
+{
+  "existing_implementation_paths": [
+    "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "Assets/Scenes/DoorPrototype.unity",
+    "Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source/door_bonestone_sealed_S_000.png.meta",
+    "Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source/door_bonestone_locked_S_000.png.meta",
+    "Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source/door_bonestone_open_S_000.png.meta",
+    "Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source/door_bonestone_final_S_000.png.meta"
+  ],
+  "new_implementation_paths": [
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorStateSpriteBinder.cs"
+  ],
+  "existing_test_paths": [],
+  "new_test_paths": [
+    "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorwayOpeningSealTests.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Tests/DoorwayTraversalPlayModeTests.cs"
+  ]
+}

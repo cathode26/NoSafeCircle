@@ -1,0 +1,15 @@
+Temporary artifacts will be preserved at: C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-8ce120b27b7d42789d77ddf7e414f652
+Safe Unity churn recovery: {"paths": ["ProjectSettings/EditorBuildSettings.asset", "ProjectSettings/Packages/com.unity.testtools.codecoverage/Settings.json"], "status": "recovered"}
+Safe Unity churn recovery: {"paths": [], "status": "clean"}
+Git HEAD: 74c1923e89befaae86846b28a8f8165e94fccaa1
+Git tree: 73d39a5a16d1b10e1e5911155df989377a7c6750
+Post-run tree: 73d39a5a16d1b10e1e5911155df989377a7c6750
+Unity version: 6000.1.8f1
+Unity executable: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Unity.exe
+Unity exit code: 0
+Result: Passed (total=107 passed=107 failed=0 skipped=0)
+XML: C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-8ce120b27b7d42789d77ddf7e414f652\test-results.xml
+Log: C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-8ce120b27b7d42789d77ddf7e414f652\unity.log
+Unity log hygiene: normalized (changed lines: 5)
+Validation manifest: C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-8ce120b27b7d42789d77ddf7e414f652\validation-manifest.json
+VALIDATION PASSED: assertions passed and the repository remained clean.
