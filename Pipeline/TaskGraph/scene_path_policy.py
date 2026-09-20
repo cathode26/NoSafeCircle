@@ -51,7 +51,14 @@ _TOP_LEVEL_TEXT_FILES = frozenset(
 )
 _LIVE_ROOTS = ("Assets/", "Docs/", "Packages/", "Pipeline/", "ProjectSettings/")
 _IMMUTABLE_OR_GENERATED_PREFIXES = (
-    "Docs/AI-Pipeline/Historical-Context-Sessions/raw/",
+    # The whole Historical-Context-Sessions tree is imported, immutable history, not live
+    # content. This was "…/raw/" until 2026-09-20, when the preservation imports landed under
+    # "…/reports/" instead and broke `taskcontrol validate` on main for every role - 84
+    # noncanonical-reference findings plus a hard ScenePathPolicyError, from c90a1ec22 onward.
+    # Most of those 84 are copies of Pipeline/ExecutionCrew/outputs/ files, which are already
+    # exempt at their original path: the same bytes were live or historical depending only on
+    # which folder they sat in.
+    "Docs/AI-Pipeline/Historical-Context-Sessions/",
     "Pipeline/ArchitectureReview/outputs/",
     "Pipeline/ExecutionCrew/outputs/",
     "Pipeline/GDDRAG/knowledge_base/",
@@ -71,6 +78,11 @@ _HISTORICAL_REFERENCE_ALLOWLIST = frozenset(
         ),
     }
 )
+# scene_path_policy_test.py deliberately does NOT appear above. Its fixtures assemble
+# noncanonical scene paths from fragments at runtime instead of spelling them out, so
+# the guard has nothing to flag. Allowlisting a test's invented paths would mean adding
+# an entry here for every future fixture - and each entry is itself a literal in this
+# file, which then needs its own entry. That recursion is the reason for the rule.
 
 
 class ScenePathPolicyError(RuntimeError):
@@ -141,6 +153,12 @@ def inspect_scene_path_policy(root: Path | str | None = None) -> dict[str, Any]:
 
     tracked_scene_assets = _tracked_paths(repository, "*.unity", "*.unity.meta")
     for path in tracked_scene_assets:
+        # Preserved evidence can legitimately contain a .unity file (a delivery record, a
+        # captured scene build). It is not a live scene and must not be judged as one. This
+        # check does NOT go through _is_live_text_path, so widening the prefix list alone
+        # would have left this finding standing - NSC-069/scene-build2.unity did exactly that.
+        if any(path.startswith(prefix) for prefix in _IMMUTABLE_OR_GENERATED_PREFIXES):
+            continue
         if not path.startswith(CANONICAL_SCENE_ROOT):
             findings.append(
                 f"tracked Unity scene asset is outside {CANONICAL_SCENE_ROOT}: {path}"
