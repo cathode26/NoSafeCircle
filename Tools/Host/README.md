@@ -1,8 +1,15 @@
-# Host tool source snapshots
+# Host tool source
 
-These files preserve the current authored host tooling in the main repository.
-The original deployment folders remain in place. This import does not deploy,
-synchronize, start, approve, repair, or change the behavior of any tool.
+**`Tools/Host/<family>/` is the source of record for host tooling. Edit here first.**
+`C:/NSC/tools/<family>/` and the `C:/nscrev/<family>-tools` junctions are **deployments**, not
+masters — see [maintained-locations.md](../../Docs/AI-Pipeline/Agent-Operations/maintained-locations.md).
+When you change a tool, change the tracked source, then deploy, and record the source revision you
+deployed from.
+
+**That rule is the intent; the files below arrived as snapshots and some have not caught up yet.**
+The original deployment folders remain in place. The import itself did not deploy, synchronize,
+start, approve, repair, or change the behavior of any tool, so **a tracked file here is not
+automatically the version a caller runs** — check before assuming.
 
 The copied files retain their original bytes and family-relative paths. The
 local `.gitattributes` disables line-ending normalization for these snapshots.
@@ -20,6 +27,31 @@ copy is also retained under
 | `jobs/templates/` | `C:/nscrev/claude-jobs/templates/` | Authored job prompt templates used by the job workflow |
 | `session/` | `C:/NSC/tools/session/` | Session digest utility and operating documentation |
 | `viewer/` | `C:/NSC/tools/viewer/` | Viewer process, overlay and evidence-inspection helpers |
+| `ger-contract-revisions-20260916/` | `C:/nscrev/ger-contract-revisions-20260916/` | GER contract committers and helpers (`bbfca9253`, 2026-09-20). **Two of these are tracked at an older revision than their live copies** — see the warning below |
+| `codex-jobs/` | `C:/nscrev/codex-jobs/` | Codex job runners and prompt templates (`c6f9c8e3b`, 2026-09-20) |
+
+> **`source-map.json` does not index the two families above, and must not be edited to.** It is a
+> **receipt of the single 2026-09-20 02:37 import run** — its `destination_root` names that run's
+> staging folder and every record carries that run's SHA-256 pair. Hand-adding later families would
+> falsify a receipt. **This table is the index for readers;** a living source-to-deployment map, if
+> one is wanted, is a separate artifact needing its own generator.
+
+> **Preserved is not current — and the GER family is the worked example of catching it.** On
+> 2026-09-20 the tracked `new_task_commit.py` and `policy_entry_commit.py` were older than their
+> live copies: the tracked ones hardcoded `C:\nscrev\ger-tools` while the live ones had gained a
+> preference block selecting `C:/NSC/tools/ger` first. **Reconciled in `9c8f91fa8`** — all three
+> committers now hash-match their live copies, and the previously untracked
+> `followups-20260917/`, `encounters/polish_rev4.py`, `briefs/encounters-030.md` and
+> `cascade-015-017/decisions-applied.md` are tracked too. **Re-check before quoting this; the gap
+> reappears the moment someone edits a deployed copy instead of the source.**
+
+> **A snapshot does not retire its source, and neither folder is retirable yet.**
+> `ger-contract-revisions-20260916/scratch/` **is its own Git repository, on `main`, with 53 dirty
+> paths** — not a disposable cache, and not covered by anything here. Of `C:/nscrev/codex-jobs`,
+> **20 files are tracked against 329 at the host top level**; the remainder is job evidence whose
+> disposition nobody has decided. Deciding it is a separate inventory, not a consequence of this
+> index — and recursive deletes at depth 1 or 2 from `C:\` are Vincent's to execute
+> (`nsc-pipeline-runbook.md` rule 26).
 
 Historical `C:/nscrev/art-tools`, `astra`, `ger-tools`, `job-tools`,
 `session-tools` and `viewer-tools` paths may be deployment junctions. Existing

@@ -4,7 +4,9 @@ This repository is the maintained source for the guidance and utility source ind
 
 ## Current scope
 
-This landing tracks source only. It does not authorize cleanup, deletion, provider calls, task execution, publication by a launcher, or changes to running task records. Existing host files and runtime paths remain in place. The task undo feature is not implemented by this import.
+**Read [maintained-locations.md](maintained-locations.md) first: it says where new authored work starts.** As of 2026-09-20 this landing is no longer only an archive — `Guides/` here is the maintained location for current role guidance, and new guides are authored here rather than in the loose host doc set. **What stays archival is `originals/` and the other imported snapshots below: they are immutable history, they are not the guides to edit, and old instructions do not become current because they were copied.**
+
+This landing still does not authorize cleanup, deletion, provider calls, task execution, publication by a launcher, or changes to running task records. Existing host files and runtime paths remain in place. The task undo feature is not implemented by this import.
 
 Use the root [AGENTS.md](../../../AGENTS.md) and the current [graph-team startup](../GRAPH_TEAM_STARTUP.md), [AssistantControl documentation](../../../Pipeline/AssistantControl/README.md), and [operator handoff rules](../OPERATOR_FILE_HANDOFF_AND_DOWNLOADS.md) for current work. Session instructions and explicit user authorization control the work being performed.
 
