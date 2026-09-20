@@ -51,7 +51,14 @@ class VersionOrdering(unittest.TestCase):
         self.assertEqual(version_key("1.2")[:3], (1, 2, 0))
 
 
-class Discovery(unittest.TestCase):
+class Fixture(unittest.TestCase):
+    """Temp bin root, saved environment, and EXE_NAME pointed at the fake.
+
+    Deliberately holds no tests of its own. When it did, every class that
+    reused it re-ran them: two added classes turned 21 real tests into a
+    reported 37.
+    """
+
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp(prefix="rescodex-"))
         self.addCleanup(self._clean)
@@ -71,6 +78,9 @@ class Discovery(unittest.TestCase):
                 os.environ[k] = v
         import resolve_codex
         resolve_codex.EXE_NAME = os.environ.get("NSC_CODEX_EXE_NAME", "codex.exe")
+
+class Discovery(Fixture):
+    """Trap 1 and trap 2, the two the 20260920-143913 audit reproduced."""
 
     def test_a_folder_without_the_binary_is_skipped(self):
         """Trap 1: at least one real hash folder on this host has no codex.exe."""
@@ -115,6 +125,67 @@ class Discovery(unittest.TestCase):
         os.environ["NSC_CODEX_EXE"] = str(self.tmp / "nope.exe")
         with self.assertRaises(NoCodex):
             resolve(self.tmp)
+
+
+class AFailedProbeIsNotAVersion(Fixture):
+    """Main-Commit-Review 20260920-180652, finding 1, reproduced."""
+
+    def broken_codex(self, folder, version, code):
+        """A fake that prints a convincing version and then exits nonzero."""
+        folder.mkdir(parents=True, exist_ok=True)
+        exe = folder / "codex.exe.py"
+        exe.write_text(
+            'import sys' + chr(10) +
+            'print("codex-cli ' + version + '")' + chr(10) +
+            'sys.exit(' + str(code) + ')' + chr(10),
+            encoding="utf-8")
+        return exe
+
+    def test_a_higher_version_that_exits_nonzero_does_not_win(self):
+        fake_codex(self.tmp / "healthy", "0.155.0")
+        self.broken_codex(self.tmp / "liar", "0.999.0", 7)
+        self.assertEqual(resolve(self.tmp).parent.name, "healthy")
+
+    def test_it_is_not_even_a_candidate(self):
+        self.broken_codex(self.tmp / "liar", "0.999.0", 7)
+        with self.assertRaises(NoCodex):
+            resolve(self.tmp)
+
+    def test_a_probe_that_exits_zero_is_still_accepted(self):
+        """The guard must reject failure, not output on stderr or oddity."""
+        fake_codex(self.tmp / "fine", "0.155.0")
+        self.assertEqual(resolve(self.tmp).parent.name, "fine")
+
+
+class AnExplicitOverrideIsHeldToTheSameProbe(Fixture):
+    def test_a_plain_text_file_named_like_the_binary_is_refused(self):
+        bogus = self.tmp / "codex.exe.py"
+        bogus.write_text("this is not a program", encoding="utf-8")
+        os.environ["NSC_CODEX_EXE"] = str(bogus)
+        with self.assertRaises(NoCodex) as caught:
+            resolve(self.tmp)
+        self.assertIn("--version", str(caught.exception))
+
+    def test_an_override_that_exits_nonzero_is_refused(self):
+        folder = self.tmp / "ovr"
+        folder.mkdir(parents=True, exist_ok=True)
+        exe = folder / "codex.exe.py"
+        exe.write_text('import sys' + chr(10) + 'print("codex-cli 9.9.9")' + chr(10)
+                       + 'sys.exit(3)' + chr(10), encoding="utf-8")
+        os.environ["NSC_CODEX_EXE"] = str(exe)
+        with self.assertRaises(NoCodex):
+            resolve(self.tmp)
+
+    def test_a_working_override_is_still_returned(self):
+        exe = fake_codex(self.tmp / "ovr", "0.155.0")
+        os.environ["NSC_CODEX_EXE"] = str(exe)
+        self.assertEqual(resolve(self.tmp), exe)
+
+    def test_it_works_when_the_discovery_root_does_not_exist(self):
+        """A valid override must not depend on discovery succeeding."""
+        exe = fake_codex(self.tmp / "ovr", "0.155.0")
+        os.environ["NSC_CODEX_EXE"] = str(exe)
+        self.assertEqual(resolve(self.tmp / "absent-root"), exe)
 
 
 if __name__ == "__main__":

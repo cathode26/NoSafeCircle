@@ -65,11 +65,21 @@ def version_key(version: str) -> tuple:
 
 
 def _run_version(exe: Path) -> str:
-    """`<exe> --version`, or "" if it cannot be asked."""
+    """`<exe> --version`, or "" when the probe did not succeed.
+
+    A NONZERO EXIT MEANS NO VERSION, however convincing the output looks. The
+    2026-09-20 main-commit review reproduced a candidate that printed 0.999.0 and
+    exited 7 being selected over a healthy 0.155.0, with the resolver exiting 0:
+    reading stdout without reading the status is the same class of mistake as
+    treating a delegated job's exit 0 as evidence. A binary that cannot answer
+    --version successfully is not one to hand a contract review to.
+    """
     cmd = [sys.executable, "-B", str(exe)] if str(exe).lower().endswith(".py") else [str(exe)]
     try:
         proc = subprocess.run(cmd + ["--version"], capture_output=True, timeout=30)
     except (OSError, subprocess.SubprocessError):
+        return ""
+    if proc.returncode != 0:
         return ""
     out = (proc.stdout or proc.stderr or b"").decode(errors="replace").strip()
     return out.splitlines()[0] if out else ""
@@ -106,6 +116,14 @@ def resolve(bin_root: Path | None = None) -> Path:
         path = Path(override)
         if not path.is_file():
             raise NoCodex(f"NSC_CODEX_EXE is set but not a file: {path}")
+        # Existing is not the same as runnable: a plain text file named codex.exe
+        # satisfied is_file() and was handed straight back. Hold an explicit
+        # override to the same probe every discovered candidate must pass.
+        if not _version_text(_run_version(path)):
+            raise NoCodex(
+                f"NSC_CODEX_EXE is set to {path}, which did not answer --version "
+                "successfully. Point it at a real Codex binary, or unset it to "
+                "discover one.")
         return path
     found = candidates(bin_root)
     if not found:
@@ -124,8 +142,16 @@ def main(argv: list[str] | None = None) -> int:
     root = Path(args.bin_root) if args.bin_root else None
     try:
         if args.verbose:
-            for key, version, exe in sorted(candidates(root)):
-                print(f"{version:24} {key}  {exe}", file=sys.stderr)
+            # Listing candidates is a diagnostic and must not change the outcome.
+            # It used to run before the override was consulted, so --verbose alone
+            # made a perfectly good NSC_CODEX_EXE fail when the discovery root was
+            # absent - the flag you reach for when something is wrong was breaking
+            # the case you were debugging.
+            try:
+                for key, version, exe in sorted(candidates(root)):
+                    print(f"{version:24} {key}  {exe}", file=sys.stderr)
+            except NoCodex as exc:
+                print(f"(no candidates to list: {exc})", file=sys.stderr)
         print(resolve(root))
         return 0
     except NoCodex as e:
