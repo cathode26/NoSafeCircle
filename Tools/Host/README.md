@@ -27,7 +27,7 @@ copy is also retained under
 | `jobs/templates/` | `C:/nscrev/claude-jobs/templates/` | Authored job prompt templates used by the job workflow |
 | `session/` | `C:/NSC/tools/session/` | Session digest utility and operating documentation |
 | `viewer/` | `C:/NSC/tools/viewer/` | Viewer process, overlay and evidence-inspection helpers |
-| `ger-contract-revisions-20260916/` | `C:/nscrev/ger-contract-revisions-20260916/` | GER contract committers and helpers (`bbfca9253`, 2026-09-20). **Two of these are tracked at an older revision than their live copies** — see the warning below |
+| `ger-contract-revisions-20260916/` | `C:/nscrev/ger-contract-revisions-20260916/` | GER contract committers and helpers (`bbfca9253`, 2026-09-20). **Reconciled with their live copies in `9c8f91fa8`** — see the note below for what that drift was and why it is worth re-checking |
 | `codex-jobs/` | `C:/nscrev/codex-jobs/` | Codex job runners and prompt templates (`c6f9c8e3b`, 2026-09-20) |
 
 > **`source-map.json` does not index the two families above, and must not be edited to.** It is a

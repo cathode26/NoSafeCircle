@@ -55,7 +55,7 @@ cleanup targets, and the tracked copy is still the source of record for editing.
 | Path | Why it is required | Source of record |
 |---|---|---|
 | `C:/nscrev/codex-jobs/` | The closure-review runners resolve job clones, prompts and logs beneath it, and `make_closure_prompt.py` writes beside itself — so the tracked generator and runner would disagree about where the prompt goes if run from the repo | `Tools/Host/codex-jobs/` |
-| `C:/nscrev/ger-tools/` (junction) | `validate_in_memory.py` still resolves helpers through it | `Tools/Host/ger-contract-revisions-20260916/` |
+| `C:/nscrev/ger-tools/` (junction → `C:/NSC/tools/ger`) | `validate_in_memory.py` inserts this path and imports `apply_contract` through it | **`Tools/Host/ger/`** — *(corrected 2026-09-20: this row first named `Tools/Host/ger-contract-revisions-20260916/`, which is the **caller**, not the source. The helper it reaches, `apply_contract.py`, is maintained under `Tools/Host/ger/`.)* |
 | `C:/NSC/tools/<family>/` | Every deployed host tool runs from here; six junctions under `C:/nscrev` point into it | `Tools/Host/<family>/` |
 
 **Recording a path as required is not approval to keep editing it.** Edit the tracked source, then
@@ -69,28 +69,52 @@ exists, this is the manual check** — compare each tracked file against its dep
 ignoring line endings:
 
 ```bash
-R=C:/NSC/NSC/NoSafeCircle; fam=astra; dep=C:/NSC/tools/astra
-while IFS= read -r p; do
-  live="$dep/${p#Tools/Host/$fam/}"
-  [ -f "$live" ] || { echo "no deployed copy: $p"; continue; }
-  t=$(git -C "$R" show "main:$p" | tr -d '\r' | sha256sum | cut -c1-16)
-  l=$(tr -d '\r' < "$live" | sha256sum | cut -c1-16)
-  [ "$t" = "$l" ] || echo "DRIFT $p  tracked=$t deployed=$l"
-done < <(git -C "$R" ls-tree -r --name-only main -- "Tools/Host/$fam")
+# drift.sh <family> <deployed-root> [min-expected-files]
+# exit 0 in step | 1 drift or unclassified missing | 2 inventory empty or unreadable
+R=${NSC_REPO:-C:/NSC/NSC/NoSafeCircle}; fam=$1; dep=$2; min=${3:-1}
+
+git -C "$R" rev-parse --verify -q main >/dev/null || { echo "FAIL: no repo or no main at $R"; exit 2; }
+mapfile -t files < <(git -C "$R" ls-tree -r --name-only main -- "Tools/Host/$fam")
+[ "${#files[@]}" -ge "$min" ] || { echo "FAIL: inventory for Tools/Host/$fam has ${#files[@]} files, expected >= $min"; exit 2; }
+
+checked=0; drift=0; missing=0
+for p in "${files[@]}"; do
+  rel=${p#Tools/Host/$fam/}
+  case "$rel" in */*) sub=${rel%%/*};; *) sub="";; esac
+  [ -n "$NSC_SKIP_SUBTREE" ] && [ "$sub" = "$NSC_SKIP_SUBTREE" ] && continue   # subtree with its own root
+  live="$dep/$rel"
+  [ -f "$live" ] || { echo "  MISSING (unclassified) $rel"; missing=$((missing+1)); continue; }
+  t=$(git -C "$R" show "main:$p" | tr -d '\r' | sha256sum | cut -c1-16) || { echo "FAIL: cannot read main:$p"; exit 2; }
+  l=$(tr -d '\r' < "$live" | sha256sum | cut -c1-16) || { echo "FAIL: cannot read $live"; exit 2; }
+  checked=$((checked+1))
+  [ "$t" = "$l" ] || { echo "  DRIFT $rel tracked=$t deployed=$l"; drift=$((drift+1)); }
+done
+[ "$checked" -gt 0 ] || { echo "FAIL: compared 0 files"; exit 2; }
+echo "$fam: compared $checked, drift $drift, unclassified missing $missing"
+[ $((drift + missing)) -eq 0 ] || exit 1
 ```
 
-**Take the deployed root from the table in `Tools/Host/README.md`, not from the family name.**
-`jobs/templates/` deploys to `C:/nscrev/claude-jobs/templates/`, not under `C:/NSC/tools/jobs/`;
-pointing the check at the wrong root reported six false drifts on 2026-09-20 before the table was
-consulted.
+**Why it is this defensive, and not shorter.** The first version of this check **exited 0 having
+compared nothing** — a misspelled family or an unreadable repository produced silence that read as
+"no drift". That is runbook rule 25's false green, in the tool written to catch drift. It now
+**validates the repository, requires a non-empty inventory, propagates read failures, and prints
+the count it actually compared.** A drift check that cannot say how many files it checked has not
+told you anything.
+
+**Take the deployed root from the table in `Tools/Host/README.md`, not from the family name,** and
+**exclude any subtree with its own root** (`NSC_SKIP_SUBTREE=templates` for `jobs`), then check that
+subtree separately against its own. `jobs/templates/` deploys to `C:/nscrev/claude-jobs/templates/`;
+running `jobs` against one root reported six false missing files on 2026-09-20.
 
 **Three outcomes, and conflating them is what makes a drift check noisy:**
 
 | Outcome | Meaning | Action |
 |---|---|---|
 | Hashes differ | **Real drift.** Someone edited one side only | Reconcile, then edit the tracked source from now on |
-| No deployed copy | Either **authored in the repo** (a README with no deployment) or a **deliberately retired** deployment, e.g. `main_write.py.removed-20260920` | Usually nothing. Confirm which before acting |
+| No deployed copy | **Unclassified — it is a finding, not a category.** It *may* be authored-in-repo, or a deliberately retired deployment such as `main_write.py.removed-20260920`, but **the check cannot tell and neither can you until you look** | Investigate and record which. **Never classify an unknown as deliberate retirement** — that is how a missing deployment becomes invisible |
 | Hashes match | In step | Nothing |
+
+Only the first is a defect; the second is an open question the check is right to raise.
 
 **Found by this check on the day it was written:** `Tools/Host/astra/README.md` was tracked as
 *"the live smoke test has not been run"* while its deployed copy recorded the round trip passing on
