@@ -16,3 +16,8 @@ Docs/AI-Pipeline/Agent-Operations/host-guides/originals/** -text -whitespace
 Docs/AI-Pipeline/Agent-Operations/host-documents-20260920/originals/** -text -whitespace
 Docs/AI-Pipeline/Historical-Context-Sessions/reports/host-reports-20260920/originals/** -text -whitespace
 Docs/AI-Pipeline/Historical-Context-Sessions/reports/art-reports-20260920/originals/** -text -whitespace
+
+# Unity serializes empty YAML fields as "key: " with a trailing space and rewrites it on every project open,
+# so these .meta files are not normalized. Exempt only the trailing-space check, and only for .meta files.
+Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128.meta whitespace=-blank-at-eol
+Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/**/*.meta whitespace=-blank-at-eol
