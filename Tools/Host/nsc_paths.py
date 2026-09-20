@@ -48,6 +48,7 @@ there.
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
 __all__ = ["workspace", "canonical", "work", "containing_repo", "describe",
@@ -214,6 +215,35 @@ def require(*names: str) -> dict[str, Path]:
     return resolved
 
 
-if __name__ == "__main__":
+def _main(argv: list[str]) -> int:
+    """`--get <root>` for shell callers, otherwise the full description as JSON.
+
+    --get prints forward slashes because its only consumers are bash scripts on
+    Windows, where that is the spelling they already use.
+    """
     import json
+    getters = {"workspace": workspace, "canonical": canonical, "work": work,
+               "containing_repo": containing_repo}
+    if len(argv) >= 2 and argv[0] == "--get":
+        name = argv[1]
+        if name not in getters:
+            print(f"unknown root {name!r}; known: {', '.join(sorted(getters))}",
+                  file=sys.stderr)
+            return 2
+        root = getters[name]()
+        if root is None:
+            print(f"{name} is not available here (not inside a checkout)",
+                  file=sys.stderr)
+            return 3
+        print(str(root.path).replace("\\", "/"))
+        return 0
+    if argv:
+        print(f"usage: nsc_paths.py [--get "
+              f"{{{'|'.join(sorted(getters))}}}]", file=sys.stderr)
+        return 2
     print(json.dumps(describe(), indent=2))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(_main(sys.argv[1:]))
