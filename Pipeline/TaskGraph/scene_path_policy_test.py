@@ -16,6 +16,9 @@ Run:  python -B scene_path_policy_test.py
 from __future__ import annotations
 
 import json
+import os
+import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -53,8 +56,28 @@ class PolicyRepo(unittest.TestCase):
         git(self.repo, "config", "user.name", "Scene Policy Test")
 
     def _clean(self):
-        import shutil
-        shutil.rmtree(self.repo, ignore_errors=True)
+        """Remove the fixture repo, clearing the read-only bits git sets.
+
+        This used to pass ignore_errors=True. On Windows git marks
+        .git/objects read-only, so rmtree failed on every fixture and nine
+        passing tests left their temporary repositories on disk. Suppressing
+        the error did not make the mess absent, only unreportable - the same
+        shape as a suite that exits 0 having run nothing. Flagged by
+        Main-Commit-Review 20260920-180652.
+        """
+        def clear_readonly(func, path, _exc):
+            os.chmod(path, stat.S_IWRITE)
+            func(path)
+
+        if not self.repo.exists():
+            return
+        try:
+            shutil.rmtree(self.repo, onexc=clear_readonly)
+        except TypeError:  # onexc is 3.12+; older Pythons spell it onerror
+            shutil.rmtree(self.repo, onerror=clear_readonly)
+        if self.repo.exists():
+            raise AssertionError(
+                f'fixture repository survived cleanup: {self.repo}')
 
     def write(self, rel: str, content: str | bytes) -> None:
         p = self.repo / rel
