@@ -16,7 +16,9 @@
 #   3. The inline awk version key reduced 0.155.0-alpha.2.6 and 0.155.0-alpha.9.2 to the same
 #      value and broke the tie by filesystem order. The resolver orders prereleases properly.
 #
-# Exit: 0 success; 2 setup refused; 3 no report; 4 provider failed; 5 stale report; 6 empty report.
+# Exit: 0 success; 2 setup refused; 3 no report; 4 provider failed; 5 stale report;
+#       6 empty report; 7 the report is fresh and non-empty but is not a finished
+#       closure review (no contract identity, or no final recommendation).
 set -u
 
 JOB="$1"; TASK="$2"; COMMIT="$3"; PREV="$4"; shift 4
@@ -80,5 +82,23 @@ status=$?
 if [ "$status" -ne 0 ]; then
   echo "[FAILED] $JOB - last lines of the log:" >&2
   tail -5 "$ROOT/$JOB.log" >&2
+  exit "$status"
 fi
-exit "$status"
+
+# The generic checker answers whether this run produced a fresh artifact, and it
+# answers correctly. It does not know what a CLOSURE review has to contain, and
+# should not - its contract is deliberately narrower. So a fresh, non-empty report
+# reading "I could not review this task. Please retry later." satisfied every check
+# above and this script called it a success. Reproduced by Main-Commit-Review
+# 20260920-180652, finding 2.
+#
+# A `revise` recommendation still exits 0: the review ran and reached a negative
+# conclusion. Treating a rejection as a failed run is how a verdict gets retried
+# like a timeout.
+python -B "$HELPERS/check_closure_report.py" --report "$REPORT"
+closure=$?
+if [ "$closure" -ne 0 ]; then
+  echo "[INCOMPLETE] $JOB - the provider succeeded but did not finish the review" >&2
+  exit "$closure"
+fi
+exit 0
