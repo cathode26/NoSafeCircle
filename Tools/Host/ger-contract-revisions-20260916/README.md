@@ -12,50 +12,64 @@ The folder they came from is 271 MB, but almost all of that is `followups-202609
 
 A secret scan over every file found nothing. `origin` is public; that check was not optional.
 
-## Known defect — read before restoring any of this
+## Correction — the first version of this file claimed a defect that does not exist
 
-**`main_write.py` in this folder is STALE and actively breaks the two contract committers.**
+**The first commit of this README asserted that `new_task_commit.py` and `policy_entry_commit.py`
+were broken. They are not. Both work.** The GER Agent disproved it within the hour and the
+correction is recorded here rather than quietly edited away, because the wrong version was
+committed and someone may have read it.
 
-The real, maintained module is `Tools/Host/ger/main_write.py` (114 lines). This copy is an older
-58-line version that hardcodes the journal path and whose functions take no `journal=` argument:
+What I claimed: that the stale 58-line `main_write.py` in this set shadows the maintained module
+on `sys.path`, so both committers fail at `main_write.default_journal()`.
 
-| | `Tools/Host/ger/main_write.py` | this stale copy |
-|---|---|---|
-| `default_journal(repo)` | present | **missing** |
-| `start(...)` | `start(operation, expected_head, *, journal)` | `start(operation, expected_head)` |
-| journal path | passed in by the caller | hardcoded `C:\NSC\...` |
-
-`new_task_commit.py:194` and `policy_entry_commit.py:80` both call
-`main_write.default_journal(ac.REPO)` and then pass `journal=` — that is, they are written against
-the **maintained** module. But Python puts a script's own directory first on `sys.path`, so running
-either of them from this folder loads the stale copy and fails with:
+Why it was wrong: **I measured a bare `import main_write`, which is not the code path either
+script takes.** Both explicitly prepend the maintained helpers *after* interpreter startup has
+placed the script directory, so the good copy wins:
 
 ```
-AttributeError: module 'main_write' has no attribute 'default_journal'
+new_task_commit.py:31-32   sys.path.insert(0, <own dir>)
+                           sys.path.insert(0, r"C:\nscrev\ger-tools")   # "installed G15b helpers win"
+policy_entry_commit.py:24  sys.path.insert(0, r"C:\nscrev\ger-tools")
 ```
 
-Measured 2026-09-20: importing `main_write` from that folder resolves to the stale file,
-`hasattr(main_write, "default_journal")` is `False`, and `start` has no `journal` parameter.
+Replicating that real setup, `main_write` resolves to `C:\nscrev\ger-tools\main_write.py` with
+`default_journal` present and `start(operation, expected_head, *, journal)`. Measured 2026-09-20.
 
-**The fix is a deletion, not a merge** — remove the stale `main_write.py` from the working
-directory so `Tools/Host/ger/main_write.py` is the one that loads. It is kept here only so the
-history is legible and the diagnosis can be re-checked. **Do not restore it onto `sys.path`.**
+`C:\nscrev\ger-tools` is a **directory junction to `C:\NSC\tools\ger`**, so the committers are
+already using the maintained module — and that is why the two copies are byte-identical
+(`8f2da4f9…`). There is no version skew to fix.
 
-The only file that genuinely needs the old no-`journal` API is
-`runbook_contract_commit.retired-20260917.py`, which is retired and should not be run.
+The lesson worth keeping: *testing the module in isolation is not testing the path the program
+takes.* A bare import exercised none of the setup that makes these scripts correct.
+
+## The real risk, which the GER Agent identified
+
+Both committers **hardcode the absolute path `C:\nscrev\ger-tools`** — a junction, at depth 2,
+inside the tree a cleanup pass walks. If that junction is ever removed, both break hard, and the
+maintained copy at `C:\NSC\tools\ger` will not rescue them: nothing else puts it on `sys.path`
+(`PYTHONPATH` is unset and no `.pth` adds it).
+
+That is a genuine fragility and it is being fixed by repointing both at `C:\NSC\tools\ger` with a
+fallback. It is also a correction to my own tool-verification report of the same morning, which
+said "only 4 lines in 3 live tools are genuinely junction-dependent" — that count was scoped to
+`C:\NSC\tools` and missed these. **Second time in two sessions that a sweep of `C:\NSC\tools`
+which skipped `C:\nscrev` produced an undercount.**
+
+The stale `main_write.py` is still worth removing from the working directory — it is a real trap
+for anyone who does a bare import — but that is tidying, not a fix for a live failure.
 
 ## Contents
 
 | file | lines | status |
 |---|---|---|
-| `new_task_commit.py` | 253 | live — creates a new task contract; **blocked by the defect above** |
-| `policy_entry_commit.py` | 119 | live — commits a validation-policy entry; **blocked by the defect above** |
+| `new_task_commit.py` | 253 | live — creates a new task contract; **works** |
+| `policy_entry_commit.py` | 119 | live — commits a validation-policy entry; **works** |
 | `verify_filter.py` | 170 | live |
 | `build_supersede_cascade.py` | 141 | live |
 | `validate_in_memory.py` | 52 | helper — imports `persistent_work_graph`, `work_graph_validate` |
 | `quiet.py` | 24 | helper |
-| `main_write.py` | 58 | **STALE — see above** |
-| `runbook_contract_commit.retired-20260917.py` | 249 | retired 2026-09-17 |
+| `main_write.py` | 58 | stale copy; harmless to these scripts, a trap for a bare import |
+| `runbook_contract_commit.retired-20260917.py` | 249 | retired 2026-09-17; the only file wanting the old no-`journal` API |
 | `runbook_contract_commit.before-policy.bak.py` | 149 | backup |
 
 `new_task_commit.py`, `policy_entry_commit.py` and `validate_in_memory.py` also import
@@ -64,5 +78,5 @@ version is `Tools/Host/ger/apply_contract.py`.
 
 ## Owner
 
-The GER Agent owns these tools and the decision about what to do with them. This commit only stops
+The GER Agent owns these tools and the decision about what happens to them. This commit only stops
 them being unrecoverable; it does not adopt, fix or deploy them.
