@@ -39,6 +39,7 @@ REPO = HOST.parent.parent                   # <repo>
 # family -> (suite path relative to repo, cwd relative to repo, extra sys.path)
 ART = HOST / "art" / "ArtReview"
 SUITES: list[tuple[str, Path, Path, Path | None]] = [
+    ("paths", HOST / "tests" / "test_nsc_paths.py", HOST / "tests", None),
     ("art", ART / "tests" / "test_analysis_ledger_sheets.py", ART, ART),
     ("art", ART / "tests" / "test_cli.py", ART, ART),
     ("art", ART / "tests" / "test_fix2.py", ART, ART),
