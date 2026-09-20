@@ -2,11 +2,16 @@
 """Unit tests for run_job.py.
 
 No network, no provider, no Docker, no Unity. Every external executable is a
-fake written by this file into C:/nscrev/tmp/run-job/, and every path the tool
+fake written by this file into a temporary directory, and every path the tool
 touches is redirected there with the NSC_RUN_JOB_* environment overrides.
+No fixed drive letter appears in this suite, so it runs from any checkout on
+any drive - including the F: validation checkout.
 
 Run:
-    C:/Python313/python.exe -B C:/nscrev/job-tools/tests/test_run_job.py
+    python -B test_run_job.py
+
+Set NSC_RUN_JOB_TEST_SCRATCH to keep the fixtures somewhere inspectable after
+a failure; otherwise they land under the OS temp directory.
 """
 
 from __future__ import annotations
@@ -17,14 +22,21 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import unittest
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 TOOL = HERE.parent / "run_job.py"
-SCRATCH = Path(r"C:\nscrev\tmp\run-job") / "tests"
-PYTHON = r"C:\Python313\python.exe"
+# Fixtures go to the OS temp directory rather than a fixed C: path, so this suite
+# runs from any checkout on any drive. NSC_RUN_JOB_TEST_SCRATCH overrides it when
+# you want the fixtures left somewhere inspectable.
+SCRATCH = Path(os.environ.get("NSC_RUN_JOB_TEST_SCRATCH")
+               or Path(tempfile.gettempdir()) / "nsc-run-job-tests")
+# The interpreter actually running this suite, never a pinned install: on the
+# validation checkout there is no C:/Python313.
+PYTHON = sys.executable
 
 sys.path.insert(0, str(HERE.parent))
 import run_job  # noqa: E402  (imported for its pure functions)
@@ -725,7 +737,10 @@ class TestTelemetry(Base):
         self.assertEqual(row["model"], "claude-sonnet-5")
         self.assertEqual(row["where"], "docker:claude-exec")
         self.assertEqual(row["service"], "claude-exec")
-        self.assertEqual(row["clone"], clone.as_posix())
+        # Resolve both sides: a fixture root can carry an 8.3 short name while
+        # the tool records the long form. The claim is which directory, not which
+        # of its spellings.
+        self.assertEqual(Path(row["clone"]).resolve(), clone.resolve())
         self.assertGreaterEqual(row["duration_s"], 0.0)
         self.assertEqual(row["tokens"], {"input": 90, "output": 210,
                                          "cache_read": 4000, "cache_creation": 300})
@@ -735,10 +750,13 @@ class TestTelemetry(Base):
         self.assertEqual(row["num_turns"], 4)
         self.assertEqual(row["max_turns"], 80)
         self.assertEqual(row["permission_denials"], [])
-        self.assertEqual(row["paths"]["json"], (self.fx.jobs / "j.json").as_posix())
-        self.assertEqual(row["paths"]["log"], (self.fx.jobs / "j.log").as_posix())
-        self.assertEqual(row["paths"]["out"], (self.fx.jobs / "j").as_posix())
-        self.assertEqual(row["paths"]["brief"], brief.as_posix())
+        self.assertEqual(Path(row["paths"]["json"]).resolve(),
+                         (self.fx.jobs / "j.json").resolve())
+        self.assertEqual(Path(row["paths"]["log"]).resolve(),
+                         (self.fx.jobs / "j.log").resolve())
+        self.assertEqual(Path(row["paths"]["out"]).resolve(),
+                         (self.fx.jobs / "j").resolve())
+        self.assertEqual(Path(row["paths"]["brief"]).resolve(), brief.resolve())
         self.assertRegex(row["ts"], r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 
     def test_appends_and_never_rewrites(self):
