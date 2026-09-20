@@ -7,34 +7,43 @@ in a prompt generator whose tracked and deployed copies then disagreed about
 where the prompt lands, `sys.path.insert(0, r"C:\\nscrev\\ger-tools")` in a
 validator. None of them can run from an F: checkout.
 
-Three roots, and they are genuinely independent - you cannot derive one from
-another:
+    workspace       the NSC home: docs, agent state, the deployed tools
+    canonical       the git checkout
+    work            the scratch area: job clones, reports, job records
+    containing_repo the repository this file is part of, if any
 
-    workspace   the NSC home: docs, agent state, the deployed tools
-    canonical   the git checkout
-    work        the scratch area: job clones, reports, job records
+**Only `work` reads the environment, and that is a deliberate refusal.**
 
-On this machine they are C:/NSC, C:/NSC/NSC/NoSafeCircle and C:/nscrev.
-`work` is a SIBLING of `workspace` with an unrelated name, so no amount of
-walking up from __file__ finds it; it has to be told. `canonical` is searched
-for under the workspace rather than derived from this file, because a tool
-running inside a job clone still needs the REAL checkout - that clone is not it.
-containing_repo() answers the other question, "which repository is this file
-part of", and the two are not interchangeable.
+The obvious design is an NSC_HOME variable for each root. It is wrong here, and
+run_job.py already records why: a review on 2026-09-18 found that a production
+caller could move FORBIDDEN_ROOT and CANONICAL somewhere harmless and then run a
+read-write job against the real canonical checkout. The guards did exactly what
+they were told, about the wrong paths. run_job closed that by ignoring its own
+overrides outside NSC_RUN_JOB_TESTING=1 - which is also precisely why it cannot
+relocate today.
 
-Resolution order: an explicit environment variable first, then whatever that
-root can honestly work out for itself, then the documented default.
+So relocation cannot be bought with an environment variable, because these roots
+are what the guards protect. It is bought by DERIVING them from where the tool
+is installed: a deployed tool at <workspace>/tools/<family>/x.py knows its own
+workspace, and a caller cannot move it without write access to the tool itself -
+at which point the guard was never the barrier. Deploy the tools to F:/NSC/tools
+and they protect F:/NSC, with nothing to configure and nothing to forget.
 
-**This is deployment configuration, not a test hook.** run_job.py's existing
-NSC_RUN_JOB_* overrides are ignored unless NSC_RUN_JOB_TESTING=1, which is
-correct for redirecting fixtures and is exactly why the tool cannot relocate:
-in production its paths stay pinned to C:. These variables are honoured always,
-because "which drive is the project on" is a property of the installation.
+`work` is the exception that proves the rule. It is a SIBLING of the workspace
+with an unrelated name (C:/NSC -> C:/nscrev), so no walk up from __file__ can
+find it; it must be told. It also gates no refusal - it is where job output and
+clones live, and --out already lets a caller choose that. NSC_WORK is therefore
+configuration, not a hole.
 
-Silent misconfiguration is the real hazard here, not a malicious environment -
-anyone who can set NSC_HOME can also pass --out. So every root records HOW it
-was decided, `describe()` exposes that, and `require()` fails loudly rather than
-letting a tool operate on a root that does not exist.
+`canonical` is searched for under the workspace rather than derived from this
+file, because a tool running inside a job clone still needs the REAL checkout -
+that clone is not it. containing_repo() answers the other question, "which
+repository is this file part of", and the two are not interchangeable.
+
+Silent misconfiguration is the remaining hazard, so every root records HOW it
+was decided, describe() exposes that for telemetry, and require() fails loudly
+naming each missing root rather than letting a tool operate on one that is not
+there.
 """
 from __future__ import annotations
 
@@ -44,12 +53,12 @@ from pathlib import Path
 __all__ = ["workspace", "canonical", "work", "containing_repo", "describe",
            "require", "Root"]
 
-# The documented defaults: this machine, so nothing changes until someone sets
-# the environment. Recorded in Tools/Host/README.md's deployment table.
+# The documented defaults: this machine, so nothing changes until the tools are
+# deployed somewhere else. Recorded in Tools/Host/README.md's deployment table.
 DEFAULT_WORKSPACE = Path(r"C:\NSC")
 DEFAULT_WORK = Path(r"C:\nscrev")
 
-_HERE = Path(__file__).resolve().parent  # .../Tools/Host or .../tools
+_HERE = Path(__file__).resolve().parent  # .../Tools/Host, or .../tools deployed
 
 
 class Root:
@@ -80,13 +89,6 @@ class Root:
         return self.path.exists()
 
 
-def _from_env(name: str) -> Root | None:
-    value = os.environ.get(name)
-    if not value or not value.strip():
-        return None
-    return Root(Path(value.strip()), f"environment {name}")
-
-
 def _tracked_repo_root() -> Path | None:
     """<repo> when this file is the tracked copy at <repo>/Tools/Host/nsc_paths.py."""
     if _HERE.name == "Host" and _HERE.parent.name == "Tools":
@@ -102,10 +104,12 @@ def _deployed_workspace() -> Path | None:
 
 
 def workspace() -> Root:
-    """The NSC home: docs, agent state and the deployed tool tree."""
-    found = _from_env("NSC_HOME")
-    if found is not None:
-        return found
+    """The NSC home: docs, agent state and the deployed tool tree.
+
+    Derived from where this file is installed, never from the environment. This
+    is the root run_job.py's FORBIDDEN_ROOT protects, and a caller who can set a
+    variable must not be able to move a guard. See the module docstring.
+    """
     deployed = _deployed_workspace()
     if deployed is not None:
         return Root(deployed, "derived from this file's deployed location")
@@ -115,20 +119,16 @@ def workspace() -> Root:
 def canonical() -> Root:
     """The installation's canonical git checkout.
 
-    Deliberately NOT derived from this file's own location. run_job.py uses
-    this as the source that job clones are cloned FROM, so when it runs out
-    of a clone it still needs the real canonical checkout - "the repo I happen
-    to live in" would quietly make a clone its own source. Use
-    containing_repo() when you do want the repository this file belongs to.
+    Not from the environment, for the same reason as workspace(): run_job.py
+    refuses to use this path as a job clone, so moving it re-permits a
+    read-write job in the live checkout.
 
-    The two known layouts are tried in order: <workspace>/NSC/NoSafeCircle on
-    this machine, and <workspace>/NoSafeCircle, which the F: validation
-    checkout uses. If neither exists the machine's layout is returned so the
-    error names a real path instead of guessing.
+    Not derived from this file either: a tool running inside a job clone still
+    needs the real checkout. The two known layouts are tried in order -
+    <workspace>/NSC/NoSafeCircle on this machine, and <workspace>/NoSafeCircle,
+    which the F: validation checkout uses. If neither exists the machine's
+    layout is returned so an error names a real path instead of guessing.
     """
-    found = _from_env("NSC_CANONICAL")
-    if found is not None:
-        return found
     home = workspace().path
     doubled, flat = home / "NSC" / "NoSafeCircle", home / "NoSafeCircle"
     if doubled.exists():
@@ -142,10 +142,11 @@ def containing_repo() -> Root | None:
     """The repository this file is part of, or None when it is deployed.
 
     The tracked copy lives at <repo>/Tools/Host/nsc_paths.py; a deployed copy
-    lives outside any checkout. For a tool that operates on its own repository
-    - a linter, a test runner - this is the right root, and canonical() is
-    not. Returns None rather than guessing, so a caller has to decide what to
-    do when there is no containing repository.
+    lives outside any checkout. For a tool that operates on its own repository -
+    a linter, a test runner - this is the right root and canonical() is not. It
+    is also worth refusing: a job clone should never be the repository the tool
+    itself is running from. Returns None rather than guessing, so a caller has
+    to decide what to do when there is no containing repository.
     """
     tracked = _tracked_repo_root()
     if tracked is None:
@@ -156,12 +157,14 @@ def containing_repo() -> Root | None:
 def work() -> Root:
     """The scratch area: job clones, reports and job records.
 
-    Never derived. It is a sibling of the workspace with an unrelated name, so
-    an installation that moves must say where it went.
+    The one root that reads the environment (NSC_WORK), because it cannot be
+    derived - it is a sibling of the workspace with an unrelated name - and
+    because it gates no refusal. Never derived, so an installation that moves
+    must say where its scratch area went.
     """
-    found = _from_env("NSC_WORK")
-    if found is not None:
-        return found
+    value = os.environ.get("NSC_WORK")
+    if value and value.strip():
+        return Root(Path(value.strip()), "environment NSC_WORK")
     return Root(DEFAULT_WORK, "documented default")
 
 
@@ -172,10 +175,16 @@ def describe() -> dict[str, dict[str, str]]:
     reason travels with the value.
     """
     out = {}
-    for name, root in (("workspace", workspace()), ("canonical", canonical()),
-                       ("work", work())):
-        out[name] = {"path": str(root.path), "how": root.how,
-                     "exists": str(root.path.exists()).lower()}
+    roots: list[tuple[str, Root | None]] = [
+        ("workspace", workspace()), ("canonical", canonical()),
+        ("work", work()), ("containing_repo", containing_repo()),
+    ]
+    for name, root in roots:
+        if root is None:
+            out[name] = {"path": "", "how": "not inside a checkout", "exists": "false"}
+        else:
+            out[name] = {"path": str(root.path), "how": root.how,
+                         "exists": str(root.path.exists()).lower()}
     return out
 
 
@@ -198,7 +207,9 @@ def require(*names: str) -> dict[str, Path]:
     if missing:
         raise FileNotFoundError(
             "these roots do not exist:\n" + "\n".join(missing) +
-            "\nSet NSC_HOME, NSC_CANONICAL or NSC_WORK to point at this installation."
+            "\nworkspace and canonical follow where the tools are deployed; "
+            "deploy them under the installation root. NSC_WORK sets the "
+            "scratch area."
         )
     return resolved
 
