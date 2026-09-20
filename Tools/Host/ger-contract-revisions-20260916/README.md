@@ -3,14 +3,30 @@
 Source: `C:\nscrev\ger-contract-revisions-20260916` (the GER Agent's live working directory).
 
 These are preserved because **they existed in exactly one place on the machine** and nowhere in
-this repository under any name. Verified 2026-09-20 against `main` at `416bb3605`. Preservation is
-the point: once they are here, deleting the source folder is reversible, which is what makes the
-cleanup safe to run.
+this repository under any name. Verified 2026-09-20 against `main` at `416bb3605`.
 
-The folder they came from is 271 MB, but almost all of that is `followups-20260917` (206 MB) and
-`scratch` (62 MB). The irreplaceable part is the ~40 KB of Python here.
+## What this does NOT establish — corrected 2026-09-20
 
-A secret scan over every file found nothing. `origin` is public; that check was not optional.
+**The first version of this file said preserving these files makes deleting the source folder
+reversible, and called this Python "the irreplaceable part". Both claims were too strong.**
+Audit `Tools-Cleanup-Audit/20260920-143913` found further authored source and evidence in the
+same folder with no blob in `HEAD`. Five of them are now preserved here —
+`followups-20260917/build_followups.py`, `build_decoy_obligations.py`, `encounters/polish_rev4.py`,
+`briefs/encounters-030.md`, `cascade-015-017/decisions-applied.md` — but **that list came from an
+audit, not from an inventory, so it is not known to be complete.**
+
+Also: `scratch/` inside that folder **is itself a git repository**. Its branches and uncommitted
+content have not been certified, and a directory being named `scratch` is not evidence that it is
+disposable.
+
+**So: this commit makes these specific files recoverable. It does not make the folder safe to
+delete.** That needs a bounded inventory of the exact removal target, with a disposition for every
+file — retained, reproducible, still-live, or unresolved — and no live consumer. Do not infer that
+anything called scratch, output or log is discardable, and do not import everything into git to
+avoid deciding.
+
+A secret scan over every file found nothing, and gitleaks 8.30.1 scanned all three commits with
+zero findings. `origin` is public; that check was not optional.
 
 ## Correction — the first version of this file claimed a defect that does not exist
 

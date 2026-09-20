@@ -21,7 +21,20 @@ import pathlib
 import subprocess
 import sys
 
-sys.path.insert(0, r"C:\nscrev\ger-tools")
+# Prefer the maintained location: C:\nscrev\ger-tools is only a junction to it, sits at
+# depth 2 inside the tree the cleanup walks, and if it is ever removed nothing else puts
+# these helpers on sys.path (PYTHONPATH is unset and no .pth adds them). The junction is
+# kept as a fallback in case the move is reversed.
+for _helpers in (r"C:\NSC\tools\ger", r"C:\nscrev\ger-tools"):
+    if os.path.isdir(_helpers):
+        sys.path.insert(0, _helpers)
+        break
+else:  # fail loudly rather than silently importing the stale main_write.py alongside
+    raise SystemExit(
+        "cannot find the GER helper tools at C:\\NSC\\tools\\ger or C:\\nscrev\\ger-tools; "
+        "refusing to run, because the stale main_write.py next to this script would "
+        "otherwise be imported instead."
+    )
 import apply_contract as ac  # noqa: E402
 import main_write  # noqa: E402
 
