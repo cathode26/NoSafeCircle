@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "NoSafeCircleAdversarialReviewVerdict",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["verdict", "summary", "findings", "tests_run", "scope_check"],
+  "properties": {
+    "verdict": {"type": "string", "enum": ["APPROVE", "FIX_FIRST", "REJECT"]},
+    "summary": {"type": "string"},
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["severity", "file", "line", "problem", "failure_scenario", "reproduced"],
+        "properties": {
+          "severity": {"type": "string", "enum": ["blocking", "major", "minor"]},
+          "file": {"type": "string"},
+          "line": {"type": "integer"},
+          "problem": {"type": "string"},
+          "failure_scenario": {"type": "string"},
+          "reproduced": {"type": "boolean"}
+        }
+      }
+    },
+    "tests_run": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["command", "at", "result"],
+        "properties": {
+          "command": {"type": "string"},
+          "at": {"type": "string", "enum": ["base", "head"]},
+          "result": {"type": "string"}
+        }
+      }
+    },
+    "scope_check": {"type": "string"}
+  }
+}
