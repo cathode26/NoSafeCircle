@@ -547,7 +547,33 @@ def test_registered_runner_rejects_widened_delivery_prefix() -> None:
             "registered main must reject a widened delivery prefix through the real fail-safe guard")
 
 
+def test_windows_checkout_workflows_enable_long_paths_before_checkout() -> None:
+    required = (
+        'GIT_CONFIG_COUNT: "1"',
+        "GIT_CONFIG_KEY_0: core.longpaths",
+        'GIT_CONFIG_VALUE_0: "true"',
+    )
+    windows_workflows = [
+        path
+        for path in sorted((ROOT / ".github/workflows").glob("*.yml"))
+        if "runs-on: windows" in path.read_text(encoding="utf-8")
+    ]
+    require(len(windows_workflows) >= 8, f"expected the Windows workflows, found {len(windows_workflows)}")
+    for workflow in windows_workflows:
+        text = workflow.read_text(encoding="utf-8")
+        checkout_index = text.find("uses: actions/checkout@v4")
+        require(checkout_index >= 0, f"{workflow.name} must retain actions/checkout")
+        for entry in required:
+            entry_index = text.find(entry)
+            require(entry_index >= 0, f"{workflow.name} must configure {entry}")
+            require(
+                entry_index < checkout_index,
+                f"{workflow.name} must configure {entry} before actions/checkout",
+            )
+
+
 def main() -> int:
+    test_windows_checkout_workflows_enable_long_paths_before_checkout()
     test_core_workflow_identity_is_preserved()
     test_every_monolith_command_is_still_represented()
     test_supervisor_only_paths_do_not_route_to_delivery()

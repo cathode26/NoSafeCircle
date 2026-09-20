@@ -51,6 +51,14 @@ on:
 permissions:
   contents: read
 
+# actions/checkout inherits these Git configuration entries, so they must be set at
+# workflow level. Tracked paths under Docs/AI-Pipeline/Historical-Context-Sessions/reports/
+# exceed the default Windows Git path limit once the runner's workspace root is prepended.
+env:
+  GIT_CONFIG_COUNT: "1"
+  GIT_CONFIG_KEY_0: core.longpaths
+  GIT_CONFIG_VALUE_0: "true"
+
 jobs:
   windows-smoke:
     runs-on: windows-latest
