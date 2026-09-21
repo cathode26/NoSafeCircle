@@ -79,6 +79,11 @@ import re
 import sys
 from pathlib import Path
 
+# The derived-view marker lives in review_result, beside the renderers that
+# write it, so the guard below and the thing it guards against cannot drift.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+import review_result  # noqa: E402
+
 RECOMMENDATIONS = ("commit_contract", "commit_contract_then_decompose", "revise")
 
 # The field labels. Tolerant of markdown emphasis, strict about the colon: a
@@ -396,7 +401,34 @@ def last_content_line(lines: list[str]) -> int:
 
 def inspect(text: str, expected_sha16: str | None = None) -> dict:
     """What the report contains, and whether that is one verdict worth acting on."""
-    text = (text or "").lstrip("\ufeff")
+    text = (text or "").lstrip(chr(0xFEFF))
+
+    # Derived Markdown is not a decision source, and this is the boundary that
+    # enforces it. Every caller of this function and its CLI passes through here,
+    # so the guard cannot be reached around.
+    #
+    # Astra MJ-P2-01, reproduced through both CLIs: a reviewer declares `revise`
+    # in JSON and writes report_markdown shaped like a finished legacy report
+    # recommending commit_contract. check_closure_report renders that narrative
+    # verbatim - correctly, narrative is opaque - and the generated view then
+    # satisfied this reader as a fresh approval of what the reviewer refused. The
+    # rendered summary's own "Recommendation: revise" line is not a legacy
+    # "Final recommendation:" field, so it did not even contradict it.
+    #
+    # The fix is a format guard, not a prose scan: a file carrying the marker was
+    # generated from a validated result and its verdict already exists, in the
+    # JSON. Read that instead.
+    if review_result.DERIVED_VIEW_MARKER in text:
+        return {
+            "complete": False,
+            "sha16": None,
+            "recommendation": None,
+            "expected_sha16": expected_sha16.lower() if expected_sha16 else None,
+            "missing": ["this is a derived human view rendered from a validated "
+                        "JSON result, not a review; read its RESULT.json through "
+                        "review_result instead"],
+        }
+
     lines = text.splitlines()
     speaking = report_lines(text)
     starts = line_starts(text)

@@ -86,10 +86,6 @@ DECISION_FINAL_MESSAGE = """FINAL MESSAGE (exactly one JSON object, UTF-8, no co
 - If you cannot finish the review, set review_status to "incomplete" and
   recommendation to null, and say why in report_markdown. An unfinished review is
   a legitimate outcome; a guessed one is not."""
-DERIVED_HEADER = (
-    "<!-- Rendered from RESULT.json after validation. This file is the human view "
-    "and is NOT a decision source; no tool may read a verdict out of it. -->"
-)
 
 LEGACY_SNAPSHOT_PATHS = ["AGENTS.md", "Tasks", "Docs", "Pipeline/TaskGraph", "Assets/NoSafeCircle", "Assets/Scenes",
                          "ProjectSettings", "Packages"]
@@ -462,7 +458,7 @@ def render_output(result: review_result.ReviewResult, source: str) -> str:
     """The human view of a validated decision, derived from validated fields only."""
     verdict = result.recommendation if result.is_complete else "INCOMPLETE - no recommendation"
     return "\n".join([
-        DERIVED_HEADER,
+        review_result.DERIVED_VIEW_HEADER,
         "",
         f"# {result.task_id} - {result.review_kind} review",
         "",

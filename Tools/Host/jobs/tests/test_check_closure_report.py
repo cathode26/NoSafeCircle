@@ -168,6 +168,84 @@ class NoFallthroughToLegacy(Base):
                          "without naming it")
 
 
+class TheDerivedViewIsNotAReview(Base):
+    """Astra MJ-P2-01, reproduced and closed.
+
+    The renderer copies report_markdown verbatim, which is correct - narrative is
+    opaque and no tool should scan it. The consequence was that a reviewer could
+    declare `revise` while writing prose shaped like a finished LEGACY report
+    approving the contract, and the generated view satisfied the legacy checker as
+    a fresh approval of what the reviewer had just refused. The rendered summary's
+    own "Recommendation: revise" is not a legacy "Final recommendation:" field, so
+    it did not even register as a contradiction.
+
+    The fix is a format guard, not a prose scan.
+    """
+
+    AFFIRMATIVE_LEGACY_PROSE = (
+        "Revised contract sha256 (first 16 hex): " + DIGEST[:16] + "\n"
+        "Ledger:\n"
+        "- L1: RESOLVED - looks fine to me.\n"
+        "New findings (task-local, most severe first):\n"
+        "- none\n"
+        "Final recommendation: commit_contract"
+    )
+
+    def render_negative_result_with_affirmative_prose(self) -> str:
+        code = self.check(result_json(recommendation="revise",
+                                      report_markdown=self.AFFIRMATIVE_LEGACY_PROSE))
+        self.assertEqual(code, 0, "a declared revise is still a finished review")
+        return self.rendered.read_text(encoding="utf-8")
+
+    def test_the_legacy_reader_refuses_the_derived_view(self):
+        import legacy_closure_markdown
+
+        view = self.render_negative_result_with_affirmative_prose()
+        verdict = legacy_closure_markdown.inspect(view, DIGEST[:16])
+        self.assertFalse(verdict["complete"])
+        self.assertIsNone(verdict["recommendation"])
+        self.assertIn("derived human view", " ".join(verdict["missing"]))
+
+    def test_the_legacy_cli_refuses_the_derived_view(self):
+        import legacy_closure_markdown
+
+        self.render_negative_result_with_affirmative_prose()
+        self.assertEqual(legacy_closure_markdown.main(
+            ["--report", str(self.rendered), "--contract", str(self.contract),
+             "--quiet"]), 7)
+
+    def test_without_the_guard_that_prose_would_have_been_approved(self):
+        # The fixture has to be something the legacy reader genuinely accepts,
+        # or the two tests above prove nothing about the guard.
+        import legacy_closure_markdown
+
+        verdict = legacy_closure_markdown.inspect(
+            self.AFFIRMATIVE_LEGACY_PROSE, DIGEST[:16])
+        self.assertTrue(verdict["complete"], verdict["missing"])
+        self.assertEqual(verdict["recommendation"], "commit_contract")
+
+    def test_genuinely_old_reports_are_still_readable(self):
+        # The guard keys on a marker only the renderer writes, so history is
+        # unaffected. Losing that would be worse than the defect.
+        import legacy_closure_markdown
+
+        verdict = legacy_closure_markdown.inspect(LEGACY_REPORT, DIGEST[:16])
+        self.assertTrue(verdict["complete"], verdict["missing"])
+        self.assertEqual(verdict["recommendation"], "commit_contract")
+
+    def test_the_renderer_uses_the_shared_marker(self):
+        # The first version of this had the header written out separately in the
+        # renderer and in ger_round: two copies of one rule, which is how a guard
+        # and the thing it guards against drift apart.
+        import review_result
+
+        view = self.render_negative_result_with_affirmative_prose()
+        self.assertIn(review_result.DERIVED_VIEW_MARKER, view)
+        source = Path(check_closure_report.__file__).read_text(encoding="utf-8")
+        self.assertNotIn('"<!-- Rendered', source,
+                         "the renderer has its own copy of the header again")
+
+
 class TheRenderedView(Base):
     def test_it_is_written_on_success(self):
         self.assertEqual(self.check(result_json(

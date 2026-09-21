@@ -238,6 +238,14 @@ def legacy_recommendation(packet: pathlib.Path) -> str | None:
     if not output.is_file():
         return None
     text = output.read_text(encoding="utf-8")
+    if review_result.DERIVED_VIEW_MARKER in text:
+        # Unreachable for a v2 packet, which is caught by protocol before it gets
+        # here - but a derived view must not be legible to ANY legacy reader,
+        # wherever that reader lives. Astra MJ-P2-01 was exactly this shape one
+        # module over, and the reason it worked there was that the guard existed
+        # in only one of the two places a rendered view is read.
+        log("04-claude-reaudit/OUTPUT.md is a derived view, not a legacy report")
+        return None
     tail = text[text.lower().rfind("final recommendation"):] if "final recommendation" in text.lower() else text
     # The earliest option named after the heading wins. List order must not decide: a needs_design
     # verdict can go on to say that a later re-audit could recommend commit_contract.

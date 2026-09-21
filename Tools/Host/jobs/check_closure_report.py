@@ -37,23 +37,22 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import review_result  # noqa: E402
 
-RENDERED_HEADER = (
-    "<!-- Rendered from the validated JSON result. This file is a human view and "
-    "is NOT a decision source; no tool may read a verdict out of it. -->"
-)
-
 
 def render(result: review_result.ReviewResult) -> str:
     """The human view, derived from validated fields only.
 
-    Labelled as derived because the handoff requires that rendered Markdown never
-    become usable as a fresh approval through a legacy path. The label is not the
-    enforcement - the enforcement is that no reader parses this file - but a
-    reader who opens it should not have to guess where it came from.
+    It carries `review_result.DERIVED_VIEW_HEADER`, and that marker is load
+    bearing rather than decorative: the legacy Markdown reader refuses any text
+    containing it. Without that, a reviewer could declare `revise` in JSON while
+    writing prose shaped like a finished legacy report approving the contract,
+    and the file rendered here would satisfy the legacy checker as a fresh
+    approval of what the reviewer had just refused (Astra MJ-P2-01, reproduced
+    through both CLIs). The marker is defined once, beside the guard that reads
+    it, so the two cannot drift.
     """
     verdict = result.recommendation if result.is_complete else "INCOMPLETE - no recommendation"
     return "\n".join([
-        RENDERED_HEADER,
+        review_result.DERIVED_VIEW_HEADER,
         "",
         f"# Closure review - {result.task_id}",
         "",
