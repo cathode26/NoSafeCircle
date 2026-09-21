@@ -360,6 +360,55 @@ def fail(round_dir: pathlib.Path | None, message: str, **extra) -> None:
     raise SystemExit(2)
 
 
+def check_run(run: dict, output: pathlib.Path) -> list[str]:
+    """Everything that makes a round non-actionable, as a list of reasons.
+
+    Split out of main so the ordering below it can be tested: these checks must
+    run BEFORE METADATA.json is published, because build_prompt treats that file
+    as proof a prior round completed.
+
+    The OUTPUT.md read is guarded. It used to be a bare
+    `output.read_text(encoding="utf-8")` inside the condition, so a provider that
+    wrote bytes which are not UTF-8 raised out of main instead of being recorded
+    as a problem - and at that point METADATA.json had already been written.
+    """
+    problems = []
+    if run["exit_code"] != 0:
+        problems.append(f"exit code {run['exit_code']}")
+    if run.get("is_error"):
+        problems.append("provider reported is_error")
+    if not output.is_file():
+        problems.append("missing OUTPUT.md")
+    else:
+        try:
+            text = output.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as error:
+            problems.append(f"unreadable OUTPUT.md: {error}")
+        else:
+            if not text.strip():
+                problems.append("empty OUTPUT.md")
+    if not run.get("session_id"):
+        problems.append("missing session identity")
+    return problems
+
+
+def publish_metadata(round_dir: pathlib.Path, metadata: dict) -> pathlib.Path:
+    """Publish METADATA.json as ONE atomic operation.
+
+    A direct `write_text` is not atomic: a reader arriving mid-write, or a crash
+    part way through, leaves a truncated file that json refuses - or worse, one
+    that happens to parse. os.replace is atomic on Windows and POSIX alike for a
+    same-directory rename, so METADATA.json either does not exist or is the whole
+    record. The temporary sibling carries the pid so two processes writing the
+    same round cannot corrupt each other's temporary file.
+    """
+    final = round_dir / "METADATA.json"
+    tmp = round_dir / f".METADATA.json.{os.getpid()}.tmp"
+    tmp.write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
+    os.replace(tmp, final)
+    return final
+
+
 def verify_sources(packet: pathlib.Path, snapshot: pathlib.Path) -> tuple[dict, dict]:
     identity = json.loads((packet / "SOURCE_IDENTITY.json").read_text(encoding="utf-8"))
     snapshot_identity = json.loads(
@@ -564,18 +613,14 @@ def main() -> int:
                 "raw_stdout_sha256": sha256_bytes((round_dir / run["raw_stdout"]).read_bytes()),
                 "stderr_sha256": sha256_bytes((round_dir / "STDERR.log").read_bytes()),
                 "output_sha256": sha256_bytes(output.read_bytes()) if output.is_file() else None}
-    (round_dir / "METADATA.json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
-    problems = []
-    if run["exit_code"] != 0:
-        problems.append(f"exit code {run['exit_code']}")
-    if run.get("is_error"):
-        problems.append("provider reported is_error")
-    if not output.is_file() or not output.read_text(encoding="utf-8").strip():
-        problems.append("empty or missing OUTPUT.md")
-    if not run.get("session_id"):
-        problems.append("missing session identity")
+    problems = check_run(run, output)
     if problems:
-        fail(round_dir, "; ".join(problems))
+        # The evidence is preserved, but under a name no reader treats as a
+        # completed round. build_prompt asks for METADATA.json to decide a prior
+        # round finished, so publishing it here would make this failure look
+        # like a success to the next round.
+        fail(round_dir, "; ".join(problems), metadata=metadata)
+    publish_metadata(round_dir, metadata)
     print(json.dumps({"round": args.round, "task_id": identity["task_id"], "provider": provider,
                       "model": run.get("model"), "session_id": run.get("session_id"),
                       "duration_seconds": run["duration_seconds"], "output": str(output),
