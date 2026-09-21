@@ -153,13 +153,36 @@ def safe_rmtree(p: str | os.PathLike, *, apply: bool = False) -> dict:
         # between would change what `given` resolves to without changing `given`.
         # Astra's 2026-09-20 review found that window.
         #
-        # This NARROWS the window to the gap before one syscall and detects a
-        # retarget that happened while the report was assembled. It does not close
-        # it: shutil.rmtree.avoids_symlink_attacks is False on Windows and there is
-        # no dir_fd, so the platform does not offer the primitive that would. The
-        # residue is recorded in the report rather than papered over. Anyone able
-        # to retarget an ancestor inside that gap already holds write access to it
-        # and needs no help from this tool.
+        # What this check is worth, stated accurately, because an earlier version
+        # of this comment was not (Astra round 2, finding 3):
+        #
+        # It catches a retarget that landed while the report was assembled. It
+        # does NOT narrow the window to "the gap before one syscall" - there is no
+        # one syscall. shutil.rmtree takes the non-fd branch here
+        # (avoids_symlink_attacks is False on Windows, os.supports_dir_fd is
+        # empty) and issues one os.rmdir/os.unlink per entry, each resolving from
+        # the drive root through whatever the ancestor points at AT THAT INSTANT.
+        # On a tree the size of C:/nscrev/codex-jobs that runs for minutes. This
+        # check covers the first microseconds of it.
+        #
+        # It is also a STRING comparison, so it is blind to a rename-swap: the
+        # same path re-created as a different directory reads as unchanged.
+        #
+        # And the sentence this comment used to end on - that anyone able to
+        # retarget an ancestor already holds write access and needs no help from
+        # this tool - is a permission argument answering a question nobody asked.
+        # Permission to retarget an ancestor does not imply permission to delete
+        # what it points at. More to the point, rule 26 exists for ACCIDENTS, and
+        # an accident does not do the damage directly - it does it through
+        # whichever tool is mid-operation. Eight concurrent agents, six live
+        # junctions and a scripted recreate drill are enough; no adversary is
+        # required.
+        #
+        # The fix is known and is not this: delete `resolved` rather than `given`,
+        # so every junction is already resolved for the whole operation, and pin a
+        # directory handle across the delete. Design, with nine behavioural tests
+        # and eight mutations:
+        # C:/nscrev/reports/handoffs/fable-safe-delete-toctou-design-20260920.md
         again = check_recursive_delete(given)
         if again != resolved:
             raise Refused(
