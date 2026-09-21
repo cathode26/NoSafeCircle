@@ -34,6 +34,37 @@ def make_junction(link: Path, target: Path) -> None:
         raise unittest.SkipTest(f"could not create junction: {r.stderr.strip()}")
 
 
+def shallow_real_dirs():
+    """A real directory at depth 1 and one of its children at depth 2.
+
+    These tests need genuinely shallow paths that EXIST: one to point a junction
+    at, one to chdir into. A temp directory is always deep, so it cannot serve.
+    This used to hardcode C:/NSC, which is why the suite failed the first time CI
+    ran it - the runner's workspace is D:/a/... and there is no C:/NSC there.
+
+    SystemRoot is the portable answer on Windows: present on every install,
+    always at depth 1. Its child is discovered rather than named, so this does
+    not trade one hardcoded path for another.
+    """
+    root = Path(os.environ.get("SystemRoot") or r"C:\Windows")
+    if not root.is_dir() or depth_from_root(root) != 1:
+        raise unittest.SkipTest(f"no usable depth-1 directory: {root}")
+    child = None
+    try:
+        for candidate in sorted(root.iterdir()):
+            try:
+                if candidate.is_dir() and not is_reparse(candidate):
+                    child = candidate
+                    break
+            except OSError:
+                continue  # unreadable entries are not our business
+    except OSError as exc:
+        raise unittest.SkipTest(f"cannot list {root}: {exc}")
+    if child is None or depth_from_root(child) != 2:
+        raise unittest.SkipTest(f"no usable depth-2 directory under {root}")
+    return root, child
+
+
 class Depth(unittest.TestCase):
     def test_depth_is_counted_from_the_drive_root(self):
         self.assertEqual(depth_from_root(r"C:\\"), 0)
@@ -101,7 +132,8 @@ class JunctionsResolveBeforeTheDepthTest(unittest.TestCase):
         deep = self.tmp / "a" / "b" / "c"
         deep.mkdir(parents=True)
         link = deep / "link_to_root"
-        make_junction(link, Path(r"C:\NSC"))
+        shallow, _ = shallow_real_dirs()   # depth 1, and it exists
+        make_junction(link, shallow)
         self.assertGreaterEqual(depth_from_root(link), 3,
                                 "the link itself must sit at a legal depth for this test")
         with self.assertRaises(Refused) as cm:
@@ -202,11 +234,12 @@ class ActuallyDeletes(unittest.TestCase):
 
 class RelativeAndOddPaths(unittest.TestCase):
     def test_a_relative_path_is_resolved_before_the_check(self):
+        shallow, child = shallow_real_dirs()
         cwd = os.getcwd()
         try:
-            os.chdir(r"C:\NSC")
+            os.chdir(shallow)                      # depth 1
             with self.assertRaises(Refused):
-                check_recursive_delete("tools")   # C:\NSC\tools, depth 2
+                check_recursive_delete(child.name)  # depth 2, refused
         finally:
             os.chdir(cwd)
 
