@@ -96,6 +96,15 @@ class ExitCodes(Base):
     def test_malformed_json_exits_seven(self):
         self.assertEqual(self.check(b"{not json"), 7)
 
+    def test_a_lone_surrogate_exits_seven_instead_of_crashing(self):
+        # Astra MJ-P1-01. This validated and bound, then raised an unhandled
+        # UnicodeEncodeError out of main() when --report-out wrote the view - so
+        # the shell runner got a traceback and an exit code it does not branch on.
+        text = json.dumps({**json.loads(result_json()), "report_markdown": "X"})
+        raw = text.replace('"X"', r'"\ud800"').encode("ascii")
+        self.assertEqual(self.check(raw), 7)
+        self.assertFalse(self.rendered.exists())
+
     def test_the_wrong_task_exits_seven(self):
         self.assertEqual(self.check(result_json(), task="NSC-999"), 7)
 

@@ -18,10 +18,13 @@ a fence in there, an HTML block, an escaped backtick, the literal text
 a string field. There is no second place a verdict can come from, so there is
 nothing to contradict and no contradiction scan to write.
 
-**What a successful decode proves, exactly:** the reviewer emitted one complete,
+**What a successful `load` proves, exactly:** the reviewer emitted one complete,
 structurally valid result for the task, family, artifact kind and artifact bytes
-the HOST selected. It does not prove the review was competent, honest, or that
-its quotations are real. Those remain review defects, and no amount of parsing
+the HOST selected. `decode` alone proves only the first half - that the object is
+well formed. The subject is established by `bind`, and `load` is the pairing of
+the two; saying "decode" where this means "load" is the confusion that makes a
+schema-only bypass look safe. None of them prove the review was competent,
+honest, or that its quotations are real. Those remain review defects, and no amount of parsing
 finds them. Saying so here is not modesty - a checker that claims more is how a
 caller ends up trusting a verdict it should have read.
 
@@ -169,6 +172,19 @@ def _require_str(obj: dict[str, object], field: str) -> str:
     if not isinstance(value, str):
         _reject("wrong_type",
                 f"{field} must be a string, got {type(value).__name__}")
+    # `"\ud800"` is well-formed JSON and decodes to a lone surrogate, which is a
+    # str Python is happy to hold and cannot encode back to UTF-8. Before this
+    # check a result carrying one validated, bound, and reported
+    # is_committable=True - and then crashed check_closure_report with an
+    # unhandled UnicodeEncodeError the moment it wrote the rendered view. A
+    # value that cannot be written back out is not a value we accept. Valid
+    # surrogate PAIRS decode to a real codepoint and are unaffected.
+    try:
+        value.encode("utf-8")                    # type: ignore[union-attr]
+    except UnicodeEncodeError as exc:
+        _reject("lone_surrogate",
+                f"{field} contains an escaped unpaired surrogate, which cannot "
+                f"be encoded as UTF-8: {exc}")
     return value  # type: ignore[return-value]
 
 
@@ -196,10 +212,11 @@ def load(raw: bytes, *, task_id: str, review_kind: str, reviewed_artifact_kind: 
 def decode(raw: bytes) -> ReviewResult:
     """Strictly decode one reviewer result. Structure only - see `bind` for subject.
 
-    Refuses, with these codes: oversize, not_utf8, not_json, not_object,
-    duplicate_key, nonstandard_number, missing_field, unknown_field, wrong_type,
-    unknown_enum, bad_hash_format, empty_report, recommendation_on_incomplete,
-    missing_recommendation, wrong_family_recommendation.
+    Refuses, with these codes: oversize, not_utf8, not_json, parser_limit,
+    not_object, duplicate_key, nonstandard_number, missing_field, unknown_field,
+    wrong_type, lone_surrogate, unknown_enum, bad_hash_format, empty_report,
+    recommendation_on_incomplete, missing_recommendation,
+    wrong_family_recommendation.
 
     It never searches for JSON inside prose and never repairs anything. A fenced
     block around the object, a preamble sentence, or a trailing sign-off are all
@@ -230,6 +247,14 @@ def decode(raw: bytes) -> ReviewResult:
         raise
     except json.JSONDecodeError as exc:
         _reject("not_json", f"not one JSON document: {exc}")
+    except ValueError as exc:
+        # json.loads raises a bare ValueError for a value the parser can decode
+        # syntactically but refuses to build - an integer past CPython's 4300
+        # digit conversion limit is the reachable one. It already failed closed,
+        # by crashing; a refusal with a code is the same answer, said properly.
+        # Deliberately narrow: ValueError only, so a genuine programming error
+        # still surfaces as itself instead of being reported as a bad result.
+        _reject("parser_limit", f"the decoder refused to build this value: {exc}")
 
     if not isinstance(obj, dict):
         _reject("not_object",

@@ -187,15 +187,93 @@ class StrictDecoding(Base):
                 self.refuses("empty_report", raw(report_markdown=value))
 
     def test_one_leading_bom_is_tolerated(self):
-        self.assertEqual(decode("﻿".encode("utf-8") + raw()).task_id, "NSC-001")
+        self.assertEqual(decode(chr(0xFEFF).encode("utf-8") + raw()).task_id, "NSC-001")
 
     def test_a_second_bom_is_content_and_refuses(self):
-        self.refuses("not_json", "﻿﻿".encode("utf-8") + raw())
+        self.refuses("not_json", (chr(0xFEFF) * 2).encode("utf-8") + raw())
 
     def test_decode_takes_bytes_not_text(self):
         # Passing str would skip the UTF-8 and size checks entirely.
         with self.assertRaises(ReviewResultError) as caught:
             decode(json.dumps(GOOD))
+        self.assertEqual(caught.exception.code, "wrong_type")
+
+
+class UnicodeThatCannotBeWrittenBack(Base):
+    """Astra MJ-P1-01: an escaped unpaired surrogate is valid JSON and unencodable.
+
+    `"\\ud800"` is well-formed JSON. It decodes to a lone surrogate, which is a
+    str Python holds happily and cannot encode back to UTF-8. Before this was
+    closed, such a result decoded, bound, and reported is_committable=True - and
+    then crashed `check_closure_report` with an unhandled UnicodeEncodeError the
+    moment it wrote the rendered view. Reproduced independently by Astra and here
+    before the fix.
+    """
+
+    # Assembled from hex digits rather than written as literals. A source file
+    # containing an astral escape is liable to be normalised into the single
+    # real character it denotes by any tool that round-trips it through JSON -
+    # which
+    # happened while writing these tests, and would have quietly turned the
+    # regression guard below into a test of something else.
+    HIGH = "\\u" + "d800"
+    LOW = "\\u" + "dc00"
+    LAST_LOW = "\\u" + "dfff"
+    PAIR = "\\u" + "d83d" + "\\u" + "de00"      # U+1F600, as JSON must escape it
+
+    def escaped(self, field: str, escape: str) -> bytes:
+        """JSON text carrying a literal \\uXXXX escape, never a real codepoint.
+
+        Built by substitution rather than json.dumps, because dumps would encode
+        a real surrogate and the point is the ESCAPE. The ascii encode is the
+        assertion: if `escape` were ever a real character rather than its escape
+        text, this raises instead of silently testing the wrong thing.
+        """
+        text = json.dumps(dict(GOOD, **{field: "PLACEHOLDER"}))
+        return text.replace('"PLACEHOLDER"', '"' + escape + '"').encode("ascii")
+
+    def test_a_lone_high_surrogate_is_refused(self):
+        self.refuses("lone_surrogate", self.escaped("report_markdown", self.HIGH))
+
+    def test_a_lone_low_surrogate_is_refused(self):
+        self.refuses("lone_surrogate", self.escaped("report_markdown", self.LOW))
+
+    def test_a_lone_surrogate_in_any_string_field_is_refused(self):
+        for field in ("task_id", "report_markdown"):
+            with self.subTest(field=field):
+                self.refuses("lone_surrogate", self.escaped(field, self.LAST_LOW))
+
+    def test_a_valid_surrogate_pair_is_still_accepted(self):
+        # The fix must reject unpaired surrogates without rejecting astral
+        # characters, which JSON necessarily escapes AS a surrogate pair.
+        result = decode(self.escaped("report_markdown", self.PAIR))
+        self.assertEqual(len(result.report_markdown), 1)
+        self.assertEqual(len(result.report_markdown.encode("utf-8")), 4)
+
+    def test_an_accepted_result_can_always_be_written_back_out(self):
+        # The property underneath the rule, stated once.
+        result = decode(self.escaped("report_markdown", self.PAIR))
+        for value in (result.report_markdown, result.task_id,
+                      result.reviewed_artifact_sha256):
+            value.encode("utf-8")
+
+
+class DecoderLimits(Base):
+    """Astra MJ-P1-01, second half: json.loads can raise a bare ValueError."""
+
+    def test_an_enormous_integer_is_refused_not_leaked(self):
+        # CPython refuses integer string conversion past 4300 digits, with a
+        # ValueError that is NOT a JSONDecodeError. It failed closed before, by
+        # crashing; this is the same answer said properly.
+        raw = ('{"schema_version": ' + "9" * 6000 + "}").encode("ascii")
+        self.refuses("parser_limit", raw)
+
+    def test_a_real_programming_error_is_not_reported_as_a_bad_result(self):
+        # The ValueError catch is narrow on purpose. If it swallowed everything,
+        # a bug in this module would be reported as the reviewer's fault.
+        broken = object()
+        with self.assertRaises(ReviewResultError) as caught:
+            decode(broken)  # type: ignore[arg-type]
         self.assertEqual(caught.exception.code, "wrong_type")
 
 
