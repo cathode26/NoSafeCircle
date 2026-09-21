@@ -195,6 +195,40 @@ historical-resume feature is planned, and if one is ever wanted it needs its own
 design, because it has to answer what a verdict means when the round that
 produced it never declared one.
 
+## Three ways a post-commit check reaches `apply_contract`, and how to say which
+
+The flags are not interchangeable and none of them is a fallback for another. A
+generated job that fails does NOT become an import by leaving its record out; a
+legacy report is not selected because a JSON parse failed. Say which route this
+evidence took.
+
+**Generated here** - the launcher produced `JOB.result.json`, the derived
+`JOB.report.md` beside it, and `JOB.result.json.metadata.json`:
+
+```text
+--post-commit-check-report <jobs>/JOB.result.json --post-commit-check-commit <SHA>
+```
+
+**Imported JSON** - a person carried a `.result.json` from somewhere this host did
+not run. There is no job record, so the import has to be declared, with who:
+
+```text
+--post-commit-check-report <path>.result.json --post-commit-check-commit <SHA> \
+  --post-commit-check-import "<who carried it>"
+```
+
+**Imported Markdown**, written before the cutover - **both** flags, because it is
+both hand-carried and in the old format:
+
+```text
+--post-commit-check-report <path>.md --post-commit-check-commit <SHA> \
+  --post-commit-check-import "<who carried it>" --post-commit-check-legacy
+```
+
+`--post-commit-check-legacy` alone is refused: nothing in current use produces
+that format, so a legacy report is necessarily hand-carried and the two
+selections stay separate on purpose.
+
 ## Rollback
 
 **GER family:** restore the previous deployed copies. They currently match

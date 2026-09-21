@@ -38,7 +38,12 @@ jobs:
   host-tool-suites:
     name: Host tool suites
     runs-on: windows-latest
-    timeout-minutes: 20
+    # 20 was enough for 330 tests and no mutation step. This branch takes it to
+    # 847 tests plus a harness that re-runs a whole suite per mutation, measured
+    # at 231s and 419s on a developer machine - about eleven minutes together,
+    # and a hosted runner is slower than this machine, not faster. Raised rather
+    # than left to be discovered as a red build whose cause is a clock.
+    timeout-minutes: 40
     steps:
       - name: Check out the exact commit
         uses: actions/checkout@v4
@@ -73,10 +78,11 @@ jobs:
       # requires, and teaching it to print one would weaken the rule that catches
       # a suite running nothing.
       #
-      # Roughly four minutes on a developer machine, and it grows with every
-      # mutation because each one re-runs a whole suite. An earlier version of
-      # this comment said ninety seconds: true when it was written, not when it
-      # was read.
+      # 419 seconds for 45 mutations on a developer machine, and it grows with
+      # every mutation because each one re-runs a whole suite. Two of them run
+      # the shell suite, which is the slow one. An earlier version of this
+      # comment said ninety seconds: true when it was written, not when it was
+      # read, which is the argument for a measured number over a round one.
       - name: Every guard must be provably testable
         run: python -B Tools/Host/jobs/tests/mutation_check.py
 

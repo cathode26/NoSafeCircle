@@ -276,9 +276,12 @@ MUTATIONS = [
      '    if False:',
      'closure', 'test_publishing_a_record_requires_the_expectation'),
 
-    ('apply_contract', 'the single load behind every recorded fact',
-     '    record.update({\n        "verdict": job.result.recommendation,',
-     '    job = closure_record.read_job(report_path, task_id=task_id,\n                                  reviewed_artifact_sha256=contract_sha)\n    record.update({\n        "verdict": job.result.recommendation,',
+    # Reinstates the ORIGINAL shape: decide from a parse taken before the shared
+    # reader, then call the shared reader and keep only its hash. A mutation that
+    # merely read twice was not this bug, and the test that caught it was vacuous.
+    ('apply_contract', 'the verdict coming from the snapshot the reader validated',
+     '    try:\n        job = closure_record.read_job(report_path, task_id=task_id,\n                                      reviewed_artifact_sha256=contract_sha)\n    except (closure_record.RecordError, review_result.ReviewResultError) as failure:\n        # BOTH types. read_job checks the record and then calls\n        # review_result.load, which raises its own error class - so catching only\n        # RecordError let a result that fails the reviewer\'s binding raise out of\n        # this function instead of refusing. That is the third time in this work\n        # that a narrow except missed a second exception type from the same call;\n        # the shape to look for is a helper that delegates to another module.\n        code = getattr(failure, "code", "invalid")\n        error(f"--post-commit-check-report {report_path} is not a finished job "\n              f"({code}): {failure}. If this review was handed over by a person "\n              f"rather than generated here, say so with --post-commit-check-import "\n              f"naming who carried it; a missing or broken job record never "\n              f"becomes an import by itself.")\n    record.update({\n        "verdict": job.result.recommendation,',
+     '    try:\n        early = review_result.load(report_path.read_bytes(), task_id=task_id,\n                                   review_kind="closure",\n                                   reviewed_artifact_kind="contract",\n                                   reviewed_artifact_sha256=contract_sha)\n    except Exception:\n        early = None\n    try:\n        job = closure_record.read_job(report_path, task_id=task_id,\n                                      reviewed_artifact_sha256=contract_sha)\n    except (closure_record.RecordError, review_result.ReviewResultError) as failure:\n        # BOTH types. read_job checks the record and then calls\n        # review_result.load, which raises its own error class - so catching only\n        # RecordError let a result that fails the reviewer\'s binding raise out of\n        # this function instead of refusing. That is the third time in this work\n        # that a narrow except missed a second exception type from the same call;\n        # the shape to look for is a helper that delegates to another module.\n        code = getattr(failure, "code", "invalid")\n        error(f"--post-commit-check-report {report_path} is not a finished job "\n              f"({code}): {failure}. If this review was handed over by a person "\n              f"rather than generated here, say so with --post-commit-check-import "\n              f"naming who carried it; a missing or broken job record never "\n              f"becomes an import by itself.")\n    record.update({\n        "verdict": early.recommendation if early else job.result.recommendation,',
      'contract', 'test_the_verdict_and_the_hash_come_from_one_load'),
 
     ('shell', "the refusal of a previous run's evidence",
@@ -334,6 +337,24 @@ MUTATIONS = [
      'OUT = nsc_paths.work().path / "codex-jobs"',
      'OUT = HERE',
      'shell', 'test_the_prompt_builder_writes_where_the_runner_reads'),
+
+
+    # ---- Fable's re-check of 501551218: three minors.
+
+    ('adapter', 'the two launchers agreeing on what a code means',
+     'CONTRACT_CHANGED = 8',
+     'CONTRACT_CHANGED = 9',
+     'adapter', 'test_the_two_launchers_agree_on_what_each_code_means'),
+
+    ('adapter', 'a moved contract being distinguishable from an ordinary refusal',
+     '        return CONTRACT_CHANGED',
+     '        return SETUP_REFUSED',
+     'adapter', 'test_a_contract_changed_during_the_run_is_refused'),
+
+    ('adapter', 'a refused publication being reported as a refusal',
+     '        print(f"[DONE] {args.job}: {refusal}", file=sys.stderr)\n        return SETUP_REFUSED',
+     '        print(f"[DONE] {args.job}: {refusal}", file=sys.stderr)\n        return OK',
+     'adapter', 'test_a_record_that_appears_mid_run_is_a_refusal_not_a_traceback'),
 
 ]
 

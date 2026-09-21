@@ -198,20 +198,27 @@ def main(argv: list[str] | None = None) -> int:
             print("--provider needs --report-out: the record hashes the view",
                   file=sys.stderr)
             return 2
-        closure_record.publish(Path(args.result), closure_record.build(
-            task_id=args.task,
-            provider=args.provider,
-            reviewed_artifact_sha256=expected,
-            result_bytes=raw,
-            view_bytes=view_bytes,
-            exit_code=args.exit_code,
-            # Codex's transport reports no is_error; saying null is the honest
-            # record, and the reader requires exactly that for this provider.
-            is_error=None if args.provider == "codex" else False,
-            started_at=args.started_at,
-            completed_at=time.time(),
-            review_status=result.review_status,
-            session_id=args.session_id))
+        # Same backstop, same reasoning as the Claude launcher: a refusal to
+        # overwrite a finished record is correct, and dying with a traceback on
+        # an undocumented exit 1 is not how to report it (Fable).
+        try:
+            closure_record.publish(Path(args.result), closure_record.build(
+                task_id=args.task,
+                provider=args.provider,
+                reviewed_artifact_sha256=expected,
+                result_bytes=raw,
+                view_bytes=view_bytes,
+                exit_code=args.exit_code,
+                # Codex's transport reports no is_error; saying null is the honest
+                # record, and the reader requires exactly that for this provider.
+                is_error=None if args.provider == "codex" else False,
+                started_at=args.started_at,
+                completed_at=time.time(),
+                review_status=result.review_status,
+                session_id=args.session_id))
+        except closure_record.RecordError as refusal:
+            print(f"cannot publish the job record: {refusal}", file=sys.stderr)
+            return 2
 
     if not args.quiet:
         print(f"closure review complete: {result.recommendation}, "

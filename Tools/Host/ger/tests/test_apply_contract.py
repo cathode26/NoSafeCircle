@@ -428,35 +428,45 @@ class PostCommitCheck(unittest.TestCase):
     def test_the_verdict_and_the_hash_come_from_one_load(self):
         """Astra MJ-P3-03-D, kept as the counterexample that found it.
 
-        The resolver took its verdict from the import reader and then called the
-        job reader a SECOND time, discarding what it returned. Codex swapped the
-        files between those two reads and got back `commit_contract` alongside a
-        report hash belonging to the `revise` the shared reader had actually
-        validated - two facts about two different snapshots, each true.
+        The resolver took its verdict from an earlier parse and then called the
+        shared reader and discarded what it returned - two facts about two
+        different snapshots, each true on its own.
 
-        One load is the fix, so one load is what this asserts. A second read is
-        the defect whatever it happens to return, and no fixture can be written
-        that catches every way two snapshots might differ.
+        **My first attempt at this test counted `read_job` calls and was
+        vacuous**: the original resolver also called it exactly once. Astra
+        substituted that original function in memory and ran the test against it
+        - zero failures. So this asserts the behaviour instead. The bundle on
+        disk becomes a fully valid `revise` in the instant before the shared
+        reader looks, and both recorded facts have to be that one's. A verdict
+        taken from any earlier read is stale and says `commit_contract`.
         """
-        loads = []
-        real = closure_record.read_job
+        first = self.result()
+        second = self.result(recommendation="revise")
+        path = self.report(first)
+        self.assertIn(b"commit_contract", first)
 
-        def counting(result, **kwargs):
-            loads.append(result)
+        real = closure_record.read_job
+        swaps = []
+
+        def swap_then_read(result, **kwargs):
+            # A complete, self-consistent bundle: raw result, view and record.
+            self.report(second)
+            swaps.append(result)
             return real(result, **kwargs)
 
-        raw = self.result(recommendation="revise")
-        closure_record.read_job = counting
+        closure_record.read_job = swap_then_read
         try:
-            record = self.resolve(raw)
+            record = ac.resolve_post_commit_check(path, self.checked, TASK, refuse)
         finally:
             closure_record.read_job = real
 
-        self.assertEqual(len(loads), 1,
-                         f"the resolver loaded the job {len(loads)} times; every "
-                         f"fact it records must come from one validated snapshot")
-        self.assertEqual(record["verdict"], "revise")
-        self.assertEqual(record["report_sha256"], ac.sha256(raw))
+        self.assertEqual(len(swaps), 1, "the shared reader was never reached")
+        self.assertEqual(record["verdict"], "revise",
+                         "the verdict came from a read taken before the shared "
+                         "reader validated anything")
+        self.assertEqual(record["report_sha256"], ac.sha256(second),
+                         "the recorded hash is not of the bytes whose verdict "
+                         "was recorded")
 
     def test_a_report_with_no_job_record_is_refused(self):
         # Astra MJ-P3-03: this used to be accepted and stamped `imported`, so a

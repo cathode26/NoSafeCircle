@@ -170,6 +170,12 @@ python -B C:\nscrev\ger-tools\apply_contract.py --packet <packet-dir> [--overrid
 - **Task file:** rewrites only `Tasks/<ID>.yaml`, keeping the existing key order and the
   file's own CRLF or LF. `--override-json` applies the re-auditor's quoted minor edits.
   A `provenance.task_design_ger` record is added.
+  **A SUBSTANTIVE `--override-json` after a JSON round-04 review is refused.** The review
+  is bound to the exact bytes it was given, so changing them means the recorded approval
+  is of something else. Either run a new review, or record why a person is overriding it:
+  `--override-human-exception "<why>"`, which is written into the provenance. A change
+  that alters no value - key order, formatting, a re-quoted identical string - is not
+  substantive and needs neither. The comparison is on canonical JSON, not on text.
 - **Resource groups:** keeps `RESOURCE_GROUPS.yaml` in step. A resource claimed by more
   than one task must have a group whose members exactly match the claimants
   (`work_graph_validate.py`). The tool mirrors `graph_delta.py` `_update_resource_groups`
@@ -276,6 +282,18 @@ replacement text for every finding:
    `--override-json` is refused on this path.
 
 A `needs_design` re-audit is never patched; it waits for Vincent's decision.
+
+### Naming how a post-commit check arrived
+
+`--post-commit-check-report` takes three routes and they are not interchangeable.
+A generated job carries its own record (`JOB.result.json` with the derived
+`JOB.report.md` and `JOB.result.json.metadata.json` beside it) and needs no extra
+flag. A review a person carried in needs `--post-commit-check-import "<who>"`,
+because a missing or broken job record never becomes an import by itself. A
+report written before the cutover needs **both** that flag and
+`--post-commit-check-legacy`: it is hand-carried AND in the old format, and
+`--post-commit-check-legacy` on its own is refused. Full examples:
+`Tools/Host/CLOSURE_PROTOCOL_CUTOVER.md`.
 
 ### The recommendation is declared, not parsed
 

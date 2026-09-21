@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import pathlib
 import os
 import shutil
 import subprocess
@@ -410,8 +411,34 @@ class MainWiring(Base):
             return subprocess.CompletedProcess(cmd, 0)
 
         subprocess.run = meddling
-        self.assertEqual(self.run_main(), ccr.SETUP_REFUSED)
+        # 8, not 2. Fable: this file's header promises its codes match
+        # run_closure_review.sh "so a caller can branch the same way whichever
+        # launcher produced the review", and for THIS condition they did not -
+        # a caller branching on 8 to mean "the subject moved" missed every
+        # Claude run and read it as an ordinary setup refusal.
+        self.assertEqual(self.run_main(), ccr.CONTRACT_CHANGED)
         self.assertFalse((self.jobs / "JOB.result.json").exists())
+
+    def test_the_two_launchers_agree_on_what_each_code_means(self):
+        """The header's promise, checked rather than repeated.
+
+        Every code this module defines must carry the meaning the shell script
+        documents for the same number, because callers branch on the number.
+        """
+        shell = (pathlib.Path(ccr.__file__).resolve().parent.parent
+                 / "codex-jobs" / "run_closure_review.sh").read_text(encoding="utf-8")
+        header = shell.split("set -u")[0]
+        for name, code, phrase in (("SETUP_REFUSED", 2, "setup refused"),
+                                   ("USAGE_LIMIT", 3, "no result"),
+                                   ("PROVIDER_FAILED", 4, "provider failed"),
+                                   ("EMPTY_RESULT", 6, "empty result"),
+                                   ("NOT_ACTIONABLE", 7, "not a finished"),
+                                   ("CONTRACT_CHANGED", 8, "contract file changed")):
+            with self.subTest(code=name):
+                self.assertEqual(getattr(ccr, name), code)
+                self.assertIn(f"{code} ", header,
+                              f"the shell header does not document {code}")
+                self.assertIn(phrase, header)
 
     def test_a_nonzero_process_fails_despite_a_valid_wrapper(self):
         # The exact reproduction: exit 9, is_error false, otherwise valid JSON.
@@ -487,6 +514,32 @@ class MainWiring(Base):
         self.assertEqual(
             closure_record.metadata_path(self.jobs / "JOB.result.json").read_bytes(),
             before, "the earlier job's evidence was overwritten")
+
+    def test_a_record_that_appears_mid_run_is_a_refusal_not_a_traceback(self):
+        """The publisher's backstop, reported rather than raised.
+
+        Both launchers check for existing evidence before launching, so this
+        only fires if something appears in between - and an uncaught RecordError
+        exits 1 with a traceback, a code this module does not document (Fable).
+        """
+        result_path = self.jobs / "JOB.result.json"
+        real_build = closure_record.build
+
+        def build_then_plant(**kwargs):
+            record = real_build(**kwargs)
+            closure_record.metadata_path(result_path).write_text(
+                "{}", encoding="utf-8")
+            return record
+
+        self.provider(code=0, wrapper_bytes=wrapper())
+        closure_record.build = build_then_plant
+        try:
+            self.assertEqual(self.run_main(), ccr.SETUP_REFUSED)
+        finally:
+            closure_record.build = real_build
+        self.assertEqual(
+            closure_record.metadata_path(result_path).read_text(encoding="utf-8"),
+            "{}", "the refused publication still replaced the record")
 
 
 if __name__ == "__main__":

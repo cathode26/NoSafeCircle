@@ -54,13 +54,18 @@ FLAGS = {"creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0)}
 GMAIL = "cathode26@gmail.com"
 
 # Exit codes, matching run_closure_review.sh so a caller can branch the same way
-# whichever launcher produced the review.
+# whichever launcher produced the review. Fable, 2026-09-21: that sentence was
+# false for one condition - a contract changed under the provider was 2 here and
+# the new 8 there, so a caller branching on 8 to mean "the subject moved" missed
+# every Claude run, reading it as an ordinary setup refusal. The claim is easier
+# to keep than to qualify, so this path uses 8 as well.
 OK = 0
 SETUP_REFUSED = 2
 PROVIDER_FAILED = 4
 EMPTY_RESULT = 6
 NOT_ACTIONABLE = 7
 USAGE_LIMIT = 3
+CONTRACT_CHANGED = 8
 
 
 def interpret(wrapper: bytes, *, task_id: str, contract: bytes,
@@ -356,10 +361,10 @@ def main(argv: list[str] | None = None) -> int:
     # that edits the fixture during its run must not be able to hand back a
     # review of the bytes it wrote (Astra MJ-P3-03-B).
     if (clone / "REVISED_CONTRACT.json").read_bytes() != contract:
-        print(f"[DONE] {args.job}: REVISED_CONTRACT.json changed while the "
+        print(f"[TAMPERED] {args.job}: REVISED_CONTRACT.json changed while the "
               f"provider ran; nothing it reviewed is the contract this host "
               f"selected", file=sys.stderr)
-        return SETUP_REFUSED
+        return CONTRACT_CHANGED
 
     status, message, result = interpret(wrapper_path.read_bytes(),
                                         task_id=args.task, contract=contract,
@@ -379,20 +384,30 @@ def main(argv: list[str] | None = None) -> int:
     # The job record LAST, after every check and after both files exist. A crash
     # before this leaves no record, and a reader that finds none treats the job
     # as unfinished - which is the safe direction.
-    closure_record.publish(result_path, closure_record.build(
-        task_id=args.task,
-        provider=f"claude-{args.runner}",
-        reviewed_artifact_sha256=hashlib.sha256(contract).hexdigest(),
-        result_bytes=raw_result,
-        view_bytes=(args.jobs / f"{args.job}.report.md").read_bytes(),
-        exit_code=code,
-        # Claude's wrapper carries this explicitly; a missing field is NOT
-        # defaulted to success, which is why interpret refuses it above.
-        is_error=False,
-        started_at=started_at,
-        completed_at=time.time(),
-        review_status=result.review_status,
-        session_id=json.loads(wrapper_path.read_text(encoding="utf-8")).get("session_id")))
+    # `publish` refuses to replace a finished job's record. Both launchers
+    # check for existing evidence before launching, so this can only fire if
+    # something appeared in between - but an uncaught refusal would exit 1 with
+    # a traceback, which is a code this file does not document (Fable). Refusing
+    # is the right answer; saying so as a setup refusal is the right way to say
+    # it, and no record is written either way.
+    try:
+        closure_record.publish(result_path, closure_record.build(
+            task_id=args.task,
+            provider=f"claude-{args.runner}",
+            reviewed_artifact_sha256=hashlib.sha256(contract).hexdigest(),
+            result_bytes=raw_result,
+            view_bytes=(args.jobs / f"{args.job}.report.md").read_bytes(),
+            exit_code=code,
+            # Claude's wrapper carries this explicitly; a missing field is NOT
+            # defaulted to success, which is why interpret refuses it above.
+            is_error=False,
+            started_at=started_at,
+            completed_at=time.time(),
+            review_status=result.review_status,
+            session_id=json.loads(wrapper_path.read_text(encoding="utf-8")).get("session_id")))
+    except closure_record.RecordError as refusal:
+        print(f"[DONE] {args.job}: {refusal}", file=sys.stderr)
+        return SETUP_REFUSED
     return OK
 
 

@@ -141,7 +141,13 @@ def remove_tree(path: Path) -> None:
         os.chmod(target, stat.S_IWRITE)
         func(target)
 
-    shutil.rmtree(path, onexc=clear_readonly)
+    # `onexc` is 3.12+ and `onerror` is deprecated in 3.12. CI pins 3.13, but the
+    # F: rehearsal checkout's interpreter is stated nowhere in Tools/Host (Fable),
+    # and the handler's signature works for both, so neither version is assumed.
+    if sys.version_info >= (3, 12):
+        shutil.rmtree(path, onexc=clear_readonly)
+    else:
+        shutil.rmtree(path, onerror=clear_readonly)
 
 
 def git(repo: Path, *args: str) -> str:
