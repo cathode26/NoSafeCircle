@@ -21,6 +21,14 @@ Why this exists rather than a glob plus `python <file>`:
 3. **The list is explicit, not globbed.** A suite that is deleted or renamed
    should break this file loudly rather than quietly stop being run.
 
+4. **The verdict is unittest's closing summary, not text found in the stream.**
+   Astra round 2 found strict skip mode bypassable: a suite printing
+   `skipped=0` anywhere above its real `OK (skipped=2)` passed, because the
+   first match won. Counts are now read only from the last `Ran N tests` block
+   and the verdict line under it. This file had no tests of its own until that
+   finding - the runner every other suite's result passes through was the one
+   unguarded thing here - so `tests/test_run_tool_tests.py` exists now too.
+
 No network, no provider, no Docker, no Unity, no paid calls. Every suite writes
 its fixtures to a temporary directory.
 """
@@ -40,6 +48,7 @@ REPO = HOST.parent.parent                   # <repo>
 ART = HOST / "art" / "ArtReview"
 SUITES: list[tuple[str, Path, Path, Path | None]] = [
     ("paths", HOST / "tests" / "test_nsc_paths.py", HOST / "tests", None),
+    ("runner", HOST / "tests" / "test_run_tool_tests.py", HOST / "tests", None),
     ("cleanup", HOST / "cleanup" / "tests" / "test_safe_delete.py",
      HOST / "cleanup" / "tests", None),
     ("art", ART / "tests" / "test_analysis_ledger_sheets.py", ART, ART),
@@ -62,14 +71,52 @@ SUITES: list[tuple[str, Path, Path, Path | None]] = [
      HOST / "jobs" / "tests", None),
 ]
 
-RAN = re.compile(r"^Ran (\d+) tests?", re.MULTILINE)
 # unittest reports a skip inside OK, so a suite that has quietly stopped covering
 # something looks identical to one that still does - the false green this runner
-# exists to catch, one layer down. Astra reproduced it: OK (skipped=2) printed as
-# OK (2). NSC_TOOL_TESTS_NO_SKIPS=1 makes any skip a failure, which is what CI
-# sets, because the cases that skip are the guard cases.
-SKIPPED = re.compile(r"\(skipped=(\d+)\)|skipped=(\d+)")
+# exists to catch, one layer down. NSC_TOOL_TESTS_NO_SKIPS=1 makes any skip a
+# failure, which is what CI sets, because the cases that skip are the guard cases.
+#
+# Astra round 2, finding 2: that enforcement was bypassable. It searched the
+# whole stream for "skipped=" and took the FIRST hit, so a suite printing
+# "fixture baseline: skipped=0" anywhere above its real summary satisfied strict
+# mode while unittest had said OK (skipped=2). Same root cause as the closure
+# checker - recognising a fragment rather than reading the result.
+#
+# unittest closes every run with these lines, in this order:
+#
+#     Ran 42 tests in 0.040s
+#
+#     OK (skipped=2)
+#
+# so the verdict is found from the LAST "Ran" line, never from the stream.
+RAN = re.compile(r"^Ran (\d+) tests?", re.MULTILINE)
+VERDICT = re.compile(r"^(OK|FAILED)(?:\s*\((?P<counts>[^)]*)\))?\s*$", re.MULTILINE)
+COUNT = re.compile(r"([a-z]+(?:\s+[a-z]+)*)\s*=\s*(\d+)")
 NO_SKIPS = os.environ.get("NSC_TOOL_TESTS_NO_SKIPS") == "1"
+
+
+def terminal_summary(text: str) -> tuple[int | None, str | None, dict[str, int]]:
+    """unittest's own closing summary: (tests run, OK or FAILED, its counts).
+
+    The LAST one in the stream. A suite that shells out to another suite prints
+    more than one, and only the outermost - the last to finish - is this
+    suite's verdict. Counts come from the verdict line's parenthetical and from
+    nowhere else, which is what makes the masking case above impossible rather
+    than merely unlikely.
+    """
+    runs = list(RAN.finditer(text))
+    if not runs:
+        return None, None, {}
+
+    last = runs[-1]
+    tests = int(last.group(1))
+    verdict = VERDICT.search(text, last.end())
+    if verdict is None:
+        return tests, None, {}
+
+    counts = {name.strip(): int(number)
+              for name, number in COUNT.findall(verdict.group("counts") or "")}
+    return tests, verdict.group(1), counts
 
 
 def run_one(suite: Path, cwd: Path, extra_path: Path | None, timeout: int):
@@ -88,20 +135,27 @@ def run_one(suite: Path, cwd: Path, extra_path: Path | None, timeout: int):
     except subprocess.TimeoutExpired:
         return False, 0, f"timed out after {timeout}s"
 
-    text = (proc.stdout or "") + (proc.stderr or "")
-    match = RAN.search(text)
-    tests = int(match.group(1)) if match else 0
+    # Joined rather than concatenated: unittest writes its summary to stderr, and
+    # a stdout that ends without a newline would otherwise glue the first stderr
+    # line onto it and defeat the line anchors below.
+    text = "\n".join(part for part in (proc.stdout, proc.stderr) if part)
+    tests, verdict, counts = terminal_summary(text)
+    skipped = counts.get("skipped", 0)
 
-    if match is None:
+    if tests is None:
         tail = "\n      ".join(text.strip().split("\n")[-3:]) or "(no output)"
         return False, 0, f"ran no tests (exit {proc.returncode})\n      {tail}"
     if tests == 0:
         return False, 0, f"collected 0 tests (exit {proc.returncode})"
     if proc.returncode != 0:
         fails = "; ".join(re.findall(r"^(?:FAIL|ERROR): (\S+)", text, re.MULTILINE)[:5])
-        return False, tests, f"exit {proc.returncode}: {fails or 'see output'}"
-    found = SKIPPED.search(text)
-    skipped = int(found.group(1) or found.group(2)) if found else 0
+        also = f", {skipped} also skipped" if skipped else ""
+        return False, tests, f"exit {proc.returncode}{also}: {fails or 'see output'}"
+    if verdict is None:
+        return False, tests, ("the suite printed a test count but no OK or FAILED "
+                              "line, so there is no verdict to trust")
+    if verdict != "OK":
+        return False, tests, f"unittest said {verdict} but the process exited 0"
     if skipped and NO_SKIPS:
         return False, tests, (f"{skipped} test(s) skipped, and skips are not "
                               "allowed here; the cases that skip are the guard cases")
