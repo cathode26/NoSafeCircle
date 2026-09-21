@@ -462,69 +462,81 @@ def resolve_post_commit_check(report_arg: pathlib.Path, commit_arg: str, task_id
     if f"Tasks/{task_id}.yaml" not in touched:
         error(f"--post-commit-check-commit {checked_commit} did not change Tasks/{task_id}.yaml")
 
-    record = {"report_path": str(report_path), "report_sha256": sha256(report_bytes),
-              "checked_commit": checked_commit}
+    record = {"report_path": str(report_path), "checked_commit": checked_commit}
 
     blob = git("show", f"{checked_commit}:Tasks/{task_id}.yaml", check=False)
     if blob.returncode != 0:
         error(f"cannot read Tasks/{task_id}.yaml at {checked_commit}")
+    contract_sha = sha256(blob.stdout)
 
-    verdict, protocol, result = read_imported_review(
-        report_bytes,
-        task_id=task_id,
-        review_kind="closure",
-        artifact_kind="contract",
-        reviewed_sha256=sha256(blob.stdout),
-        legacy=legacy,
-        legacy_reader=parse_post_commit_verdict,
-        legacy_requires_identity=False,
-        refuse=lambda message: error(f"--post-commit-check-report {report_path}: {message}"))
-
-    record = {**record, "verdict": verdict, "protocol": protocol}
-    if result is not None:
-        record["reviewed_artifact_sha256"] = result.reviewed_artifact_sha256
-
-    # Astra MJ-P3-03: this stamped `provider_evidence: imported` on everything,
-    # so a result whose own job FAILED acquired provenance it had not earned.
-    # Reproduced at the boundary: check_job_result.judge rejects a run with rc=9,
-    # and this resolver accepted the same result as commit_contract and called it
-    # an import. A missing job record must not silently become one.
-    #
-    # The caller now says which it is. A hand-carried review names who carried
-    # it; anything else must show the record its job published.
+    # Astra MJ-P3-03-D: the dispatch happens BEFORE anything is read for a
+    # verdict. The first version read the report through the import reader, then
+    # called the job reader on a SECOND read and discarded what it returned -
+    # so swapping the files in between produced a recorded approval of a result
+    # that validated as `revise`, with a report hash matching neither. Whichever
+    # branch runs, the verdict, the subject hash and the report hash all come
+    # from the one read that branch performed.
     if import_source:
-        record["provider_evidence"] = "imported"
-        record["imported_from"] = import_source
+        # Hand-carried. The caller names who carried it, and `legacy` selects the
+        # format. Both are explicit; neither is inferred.
+        verdict, protocol, result = read_imported_review(
+            report_bytes,
+            task_id=task_id,
+            review_kind="closure",
+            artifact_kind="contract",
+            reviewed_sha256=contract_sha,
+            legacy=legacy,
+            legacy_reader=parse_post_commit_verdict,
+            legacy_requires_identity=False,
+            refuse=lambda message: error(
+                f"--post-commit-check-report {report_path}: {message}"))
+        record.update({"verdict": verdict, "protocol": protocol,
+                       "report_sha256": sha256(report_bytes),
+                       "provider_evidence": "imported",
+                       "imported_from": import_source})
+        if result is not None:
+            record["reviewed_artifact_sha256"] = result.reviewed_artifact_sha256
         return record
 
     if legacy:
         # A legacy report cannot be a generated job: nothing produces that format
         # any more, so it is necessarily hand-carried and needs the import
         # declaration too. Astra's rule - "a caller selecting a legacy imported
-        # review must select both relevant options explicitly" - and the reason
-        # is that sending a Markdown report through the generated-job reader
-        # would otherwise raise out of this function rather than refusing.
+        # review must select both relevant options explicitly".
         error(f"--post-commit-check-report {report_path} was read as a legacy "
               f"report, which no current job produces, so it can only be "
               f"hand-carried. Name who carried it with --post-commit-check-import "
               f"as well; the two selections are separate on purpose.")
 
-    # A GENERATED review goes through the one closure job reader: readiness, both
-    # file hashes, provider evidence with exact types, and the same
-    # review_result binding to the task and the Git blob this caller selected.
-    # The provisional version here used `.get("exit_code") != 0` and a truthiness
-    # test on is_error, which Astra noted would accept `exit_code: false`.
+    # GENERATED: one read through the shared job reader, which checks readiness,
+    # both file hashes, the provider evidence with exact types, and the reviewer's
+    # own binding to the Git blob this caller selected. Every fact recorded below
+    # comes back from that single load.
     try:
-        closure_record.read_job(report_path, task_id=task_id,
-                                reviewed_artifact_sha256=sha256(blob.stdout))
-    except closure_record.RecordError as failure:
+        job = closure_record.read_job(report_path, task_id=task_id,
+                                      reviewed_artifact_sha256=contract_sha)
+    except (closure_record.RecordError, review_result.ReviewResultError) as failure:
+        # BOTH types. read_job checks the record and then calls
+        # review_result.load, which raises its own error class - so catching only
+        # RecordError let a result that fails the reviewer's binding raise out of
+        # this function instead of refusing. That is the third time in this work
+        # that a narrow except missed a second exception type from the same call;
+        # the shape to look for is a helper that delegates to another module.
+        code = getattr(failure, "code", "invalid")
         error(f"--post-commit-check-report {report_path} is not a finished job "
-              f"({failure.code}): {failure.message}. If this review was handed "
-              f"over by a person rather than generated here, say so with "
-              f"--post-commit-check-import naming who carried it; a missing or "
-              f"broken job record never becomes an import by itself.")
-    record["provider_evidence"] = "generated"
-    record["job_record"] = str(closure_record.metadata_path(report_path))
+              f"({code}): {failure}. If this review was handed over by a person "
+              f"rather than generated here, say so with --post-commit-check-import "
+              f"naming who carried it; a missing or broken job record never "
+              f"becomes an import by itself.")
+    record.update({
+        "verdict": job.result.recommendation,
+        "protocol": "json-v1",
+        "report_sha256": job.result_sha256,
+        "reviewed_artifact_sha256": job.result.reviewed_artifact_sha256,
+        "provider_evidence": "generated",
+        "provider": job.record["provider"],
+        "job_record": str(closure_record.metadata_path(report_path)),
+    })
     return record
 
 

@@ -90,9 +90,15 @@ def main(argv: list[str] | None = None) -> int:
     # after the view is written - so a caller that finds a record knows the whole
     # run succeeded. The shell runner passes its own `$rc` and start time rather
     # than repeating any of these checks in Bash.
-    ap.add_argument("--provider", choices=closure_record.PROVIDERS,
-                    help="publish a job record for this provider; requires "
-                         "--exit-code and --started-at")
+    # Codex only. Astra MJ-P3-03-A: this CLI sees a raw result and a process
+    # exit status, never a Claude wrapper, so it cannot observe is_error and
+    # would have to supply False itself - which is the invented evidence the
+    # record exists to prevent. The Claude launchers publish their own record
+    # from the wrapper they actually received.
+    ap.add_argument("--provider", choices=("codex",),
+                    help="publish a job record for a Codex run; requires "
+                         "--exit-code and --started-at. Claude runs publish "
+                         "through claude_closure_review, which sees the wrapper.")
     ap.add_argument("--exit-code", type=int,
                     help="the provider process's own exit status")
     ap.add_argument("--started-at", type=float,

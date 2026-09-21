@@ -33,11 +33,12 @@ import math
 import os
 import pathlib
 import sys
+from typing import NamedTuple
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 import review_result  # noqa: E402
 
-__all__ = ["RecordError", "metadata_path", "view_path", "build", "publish",
+__all__ = ["Job", "RecordError", "metadata_path", "view_path", "build", "publish",
            "read_job", "PROVIDERS"]
 
 PROTOCOL = "json-v1"
@@ -171,8 +172,12 @@ def check(record: dict, *, result_bytes: bytes, view_bytes: bytes, task_id: str,
     if provider not in PROVIDERS:
         _reject("unknown_provider", f"provider {provider!r} is not one of {list(PROVIDERS)}")
 
+    # `type(x) is int`, not `isinstance` minus bool. Astra MJ-P3-03-E: excluding
+    # bool still let 0.0 and -0.0 through, because they equal 0 - and a float
+    # exit code is not something any process produces, so its presence means the
+    # record was written by something that did not observe one.
     exit_code = record.get("exit_code")
-    if isinstance(exit_code, bool) or exit_code != 0:
+    if type(exit_code) is not int or exit_code != 0:
         _reject("not_ready", f"the record's exit_code is {exit_code!r}, not the "
                              f"integer 0")
 
@@ -209,14 +214,30 @@ def check(record: dict, *, result_bytes: bytes, view_bytes: bytes, task_id: str,
         _reject("tampered", "the human view does not match the hash its record published")
 
 
+class Job(NamedTuple):
+    """One validated snapshot of a finished job: everything from a single read.
+
+    Astra MJ-P3-03-D: the post-commit consumer took its verdict from one read of
+    the report and then called the reader on a SECOND read, discarding what it
+    returned. Swapping the files in between produced a recorded approval of a
+    result that validated as `revise`, with a report hash matching neither. The
+    facts a caller needs therefore come back together, from the same bytes.
+    """
+
+    result: review_result.ReviewResult
+    result_sha256: str
+    record: dict
+
+
 def read_job(result: pathlib.Path, *, task_id: str,
-             reviewed_artifact_sha256: str) -> review_result.ReviewResult:
+             reviewed_artifact_sha256: str) -> Job:
     """THE reader for a generated closure job. Every consumer goes through here.
 
     Checks readiness, both file hashes and the provider evidence, then validates
     the reviewer's result through `review_result.load` bound to the caller's own
-    expectations. Returns the validated result; whether a verdict is an approval
-    or a completed `revise` stays with the caller.
+    expectations. Returns the validated result together with the hash of the
+    exact bytes it validated; whether a verdict is an approval or a completed
+    `revise` stays with the caller.
     """
     ready = metadata_path(result)
     if not ready.is_file():
@@ -241,9 +262,24 @@ def read_job(result: pathlib.Path, *, task_id: str,
     check(record, result_bytes=result_bytes, view_bytes=view.read_bytes(),
           task_id=task_id, reviewed_artifact_sha256=reviewed_artifact_sha256)
 
-    return review_result.load(
+    validated = review_result.load(
         result_bytes,
         task_id=task_id,
         review_kind="closure",
         reviewed_artifact_kind="contract",
         reviewed_artifact_sha256=reviewed_artifact_sha256)
+
+    # Astra MJ-P3-03-E: the record said complete and nothing checked the result
+    # itself, so an incomplete result with matching hashes came back as a ready
+    # job. The record is the host's claim; the result is the reviewer's. They
+    # must agree, and it is the reviewer's that decides.
+    if not validated.is_complete:
+        _reject("not_ready",
+                f"the record claims a complete review but the result declares "
+                f"{validated.review_status!r}")
+    if record["review_status"] != validated.review_status:
+        _reject("tampered",
+                f"the record's review_status is {record['review_status']!r} but "
+                f"the result says {validated.review_status!r}")
+
+    return Job(result=validated, result_sha256=sha256(result_bytes), record=record)

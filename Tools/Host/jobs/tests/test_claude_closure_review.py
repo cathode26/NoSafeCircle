@@ -22,6 +22,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import shutil
 import subprocess
 import tempfile
 import sys
@@ -86,7 +88,7 @@ class ProviderStatusComesFirst(Base):
 
     def test_a_missing_result_key_is_empty_not_a_crash(self):
         status, _message, _result = self.interpret(
-            json.dumps({"is_error": False}).encode("utf-8"))
+            json.dumps({"is_error": False, "subtype": "success"}).encode("utf-8"))
         self.assertEqual(status, ccr.EMPTY_RESULT)
 
     def test_unreadable_wrapper_output_is_a_setup_failure(self):
@@ -185,10 +187,62 @@ class TheTwoRunners(unittest.TestCase):
     def test_the_host_cwd_is_not_a_spelled_out_machine_path(self):
         # Astra MJ-P3-04: it was hardcoded to C:/NSC even when every path
         # argument pointed elsewhere, which breaks a fresh install on F:.
-        chosen = Path("D:/elsewhere/workspace")
-        _cmd, cwd = ccr.command("host", "m", "60", Path("D:/elsewhere/cj-x"),
-                                host_cwd=chosen)
+        #
+        # MJ-P3-05: the account guard is faked here. Calling the real one reaches
+        # an actual `claude auth status` process, so this test passed only on a
+        # machine with that CLI installed and signed in - or with
+        # ALLOW_ANY_CLAUDE_ACCOUNT inherited, which is worse, because then the
+        # guard is bypassed rather than exercised. Deterministic tests must need
+        # no logged-in CLI; the guard has its own tests below, with a fake.
+        real_guard, real_which = ccr.require_gmail_account, shutil.which
+        ccr.require_gmail_account = lambda exe: None
+        shutil.which = lambda name: "C:/fake/claude.exe"
+        try:
+            chosen = Path("D:/elsewhere/workspace")
+            _cmd, cwd = ccr.command("host", "m", "60", Path("D:/elsewhere/cj-x"),
+                                    host_cwd=chosen)
+        finally:
+            ccr.require_gmail_account, shutil.which = real_guard, real_which
         self.assertEqual(cwd, chosen)
+
+
+class TheAccountGuard(unittest.TestCase):
+    """Spend the Gmail account first. Faked subprocess, never a real CLI."""
+
+    def setUp(self):
+        self._real_run = subprocess.run
+        self._flag = os.environ.pop("ALLOW_ANY_CLAUDE_ACCOUNT", None)
+        self.addCleanup(self._restore)
+
+    def _restore(self):
+        subprocess.run = self._real_run
+        if self._flag is not None:
+            os.environ["ALLOW_ANY_CLAUDE_ACCOUNT"] = self._flag
+        else:
+            os.environ.pop("ALLOW_ANY_CLAUDE_ACCOUNT", None)
+
+    def auth_says(self, text: str):
+        subprocess.run = lambda cmd, **kw: subprocess.CompletedProcess(
+            cmd, 0, stdout=text, stderr="")
+
+    def test_the_gmail_account_passes(self):
+        self.auth_says(f"Account: {ccr.GMAIL}\nPlan: max\n")
+        ccr.require_gmail_account("C:/fake/claude.exe")      # must not raise
+
+    def test_another_account_is_refused(self):
+        self.auth_says("Account: someone.else@outlook.com\n")
+        with self.assertRaises(SystemExit) as caught:
+            ccr.require_gmail_account("C:/fake/claude.exe")
+        self.assertIn(ccr.GMAIL, str(caught.exception))
+
+    def test_the_override_short_circuits_before_any_process(self):
+        os.environ["ALLOW_ANY_CLAUDE_ACCOUNT"] = "1"
+
+        def must_not_run(cmd, **kwargs):
+            raise AssertionError("the override must short-circuit before a process")
+
+        subprocess.run = must_not_run
+        ccr.require_gmail_account("C:/fake/claude.exe")
 
 
 class ThePromptEachRunnerGets(unittest.TestCase):
@@ -260,11 +314,45 @@ class MainWiring(Base):
             return subprocess.CompletedProcess(cmd, code)
         subprocess.run = fake_run
 
-    def run_main(self) -> int:
-        return ccr.main(["--runner", "host", "--job", "JOB", "--task", TASK,
+    def run_main(self, runner: str = "host") -> int:
+        return ccr.main(["--runner", runner, "--job", "JOB", "--task", TASK,
                          "--commit", "abc", "--previous", "def",
                          "--repo", str(self.tmp / "repo"),
                          "--jobs", str(self.jobs), "--work", str(self.work)])
+
+    def test_docker_main_round_trips_and_keeps_container_paths(self):
+        # Astra: MainWiring ran host only, and the two runners differ by more
+        # than the command - which is how the Docker path broke once already.
+        # No Docker engine is needed; the subprocess is faked like the host one.
+        self.provider(code=0,
+                      wrapper_bytes=wrapper(result=result_json(recommendation="revise")))
+        self.assertEqual(self.run_main("docker"), ccr.OK)
+
+        prompt = (self.work / "JOB.docker-prompt.md").read_text(encoding="utf-8")
+        self.assertIn("/workspace", prompt)
+        self.assertNotIn(str(self.clone).replace("\\", "/"), prompt,
+                         "the container was handed a host path it cannot resolve")
+
+        job = closure_record.read_job(self.jobs / "JOB.result.json", task_id=TASK,
+                                      reviewed_artifact_sha256=DIGEST)
+        self.assertEqual(job.result.recommendation, "revise")
+        self.assertEqual(job.record["provider"], "claude-docker")
+
+    def test_a_contract_changed_during_the_run_is_refused(self):
+        # Astra MJ-P3-03-B: the contract was read AFTER the provider returned,
+        # so a provider that edited the fixture got an approval of the bytes it
+        # wrote rather than the ones the host selected.
+        changed = b'{"task": "NSC-001", "revision": 8}\n'
+
+        def meddling(cmd, **kwargs):
+            (self.clone / "REVISED_CONTRACT.json").write_bytes(changed)
+            kwargs["stdout"].write(wrapper(result=result_json(
+                reviewed_artifact_sha256=hashlib.sha256(changed).hexdigest())))
+            return subprocess.CompletedProcess(cmd, 0)
+
+        subprocess.run = meddling
+        self.assertEqual(self.run_main(), ccr.SETUP_REFUSED)
+        self.assertFalse((self.jobs / "JOB.result.json").exists())
 
     def test_a_nonzero_process_fails_despite_a_valid_wrapper(self):
         # The exact reproduction: exit 9, is_error false, otherwise valid JSON.
@@ -295,12 +383,15 @@ class MainWiring(Base):
         self.provider(code=0,
                       wrapper_bytes=wrapper(result=result_json(recommendation="revise")))
         self.assertEqual(self.run_main(), ccr.OK)
-        result = closure_record.read_job(
+        job = closure_record.read_job(
             self.jobs / "JOB.result.json", task_id=TASK,
             reviewed_artifact_sha256=DIGEST)
-        self.assertEqual(result.recommendation, "revise")
-        self.assertTrue(result.is_complete)
-        self.assertFalse(result.is_committable)
+        self.assertEqual(job.result.recommendation, "revise")
+        self.assertTrue(job.result.is_complete)
+        self.assertFalse(job.result.is_committable)
+        # The hash comes back from the SAME read that validated it.
+        self.assertEqual(job.result_sha256,
+                         closure_record.sha256((self.jobs / "JOB.result.json").read_bytes()))
 
     def test_an_incomplete_review_publishes_no_record(self):
         self.provider(code=0, wrapper_bytes=wrapper(result=result_json(
@@ -325,14 +416,18 @@ class MainWiring(Base):
         self.assertIs(record["is_error"], False)
         self.assertEqual(record["exit_code"], 0)
 
-    def test_a_repeated_job_is_refused(self):
-        # The existing clone reservation: a retry gets a new job name rather
-        # than overwriting a finished job's evidence.
+    def test_a_repeated_job_is_refused_before_launching(self):
+        # Astra MJ-P3-03-C: the clone reservation protects the working directory,
+        # not the previous job's EVIDENCE. With the result, view and record on
+        # disk but no clone, a fresh run used to start - and on failure left the
+        # old record readable as an approval.
         self.provider(code=0, wrapper_bytes=wrapper())
         self.assertEqual(self.run_main(), ccr.OK)
-        ccr.build_clone = self._real[0]          # the real reservation check
-        with self.assertRaises(SystemExit):
-            self.run_main()
+        before = closure_record.metadata_path(self.jobs / "JOB.result.json").read_bytes()
+        self.assertEqual(self.run_main(), ccr.SETUP_REFUSED)
+        self.assertEqual(
+            closure_record.metadata_path(self.jobs / "JOB.result.json").read_bytes(),
+            before, "the earlier job's evidence was overwritten")
 
 
 if __name__ == "__main__":

@@ -183,9 +183,14 @@ MUTATIONS = [
      "node", "test_a_successful_provider_call_is_never_transient"),
 
     ("record", "the exact-integer check on a job's exit code",
-     "    if isinstance(exit_code, bool) or exit_code != 0:",
+     "    if type(exit_code) is not int or exit_code != 0:",
      "    if exit_code:",
      "job_record", "test_a_false_exit_code_is_not_a_zero_one"),
+
+    ("record", "the agreement between the record and the decoded result",
+     "    if not validated.is_complete:",
+     "    if False:",
+     "job_record", "test_an_incomplete_result_is_not_a_ready_job"),
 
     ("record", "the requirement that a Claude record carries is_error false",
      "        if is_error is not False:",

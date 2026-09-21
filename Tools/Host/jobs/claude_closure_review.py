@@ -89,11 +89,24 @@ def interpret(wrapper: bytes, *, task_id: str, contract: bytes,
     if not isinstance(data, dict):
         return SETUP_REFUSED, "the CLI wrapper output is not an object", None
 
-    # 1. The provider's own account of the run. Nothing below can override it.
-    if data.get("is_error"):
+    # 1. The provider's own account of the run, required EXPLICITLY. Nothing
+    #    below can override it.
+    #
+    #    Astra MJ-P3-03-A: this tested `data.get("is_error")` for truthiness, so
+    #    a wrapper with the field REMOVED passed - and main then published
+    #    `is_error: False` regardless, turning a missing observation into an
+    #    asserted one in the record whose whole purpose is observed evidence.
+    #    The comment here previously claimed this check already covered that. It
+    #    did not. A missing status is not a successful status.
+    is_error = data.get("is_error", "<missing>")
+    if is_error is not False:
         return (PROVIDER_FAILED,
-                f"the provider reported is_error (subtype {data.get('subtype')!r}); "
-                f"no review was produced", None)
+                f"the wrapper does not report success: is_error is {is_error!r}, "
+                f"and only an explicit false counts", None)
+    if data.get("subtype") != "success":
+        return (PROVIDER_FAILED,
+                f"the wrapper's subtype is {data.get('subtype')!r}, not 'success'",
+                None)
 
     raw = data.get("result")
     if not isinstance(raw, str) or not raw.strip():
@@ -280,8 +293,27 @@ def main(argv: list[str] | None = None) -> int:
     if not prompt_path.is_file():
         print(f"missing prompt {prompt_path}", file=sys.stderr)
         return SETUP_REFUSED
+    # Astra MJ-P3-03-C: the clone reservation protects the working directory, not
+    # a previous job's EVIDENCE. With a retained or relocated result, view and
+    # record but no clone, a fresh run started, failed, and left the old record
+    # readable as an approval. A retry gets a new job name; nothing here
+    # overwrites evidence that already exists.
+    result_path = args.jobs / f"{args.job}.result.json"
+    for existing in (result_path, closure_record.view_path(result_path),
+                     closure_record.metadata_path(result_path)):
+        if existing.exists():
+            print(f"{existing} already exists: this job has evidence on disk. Use a "
+                  f"new job name rather than overwriting it.", file=sys.stderr)
+            return SETUP_REFUSED
+
     clone = args.work.parent / f"cj-{args.job}"
     build_clone(args.repo, clone, args.task, args.commit, args.previous, args.extra)
+
+    # Astra MJ-P3-03-B: the contract was read AFTER the provider returned, so a
+    # provider that edited the fixture produced an approval of bytes the host
+    # never selected. The selection happens here, before launch, and the file is
+    # checked afterwards for having changed underneath the run.
+    contract = (clone / "REVISED_CONTRACT.json").read_bytes()
 
     max_turns = os.environ.get("MAX_TURNS", "60")
     model = os.environ.get("MODEL", "claude-sonnet-5")
@@ -299,7 +331,15 @@ def main(argv: list[str] | None = None) -> int:
         code = subprocess.run(cmd, cwd=str(cwd), stdin=stdin, stdout=stdout,
                               stderr=stderr, env=env, **FLAGS).returncode
 
-    contract = (clone / "REVISED_CONTRACT.json").read_bytes()
+    # The contract the host SELECTED, not whatever is on disk now. A provider
+    # that edits the fixture during its run must not be able to hand back a
+    # review of the bytes it wrote (Astra MJ-P3-03-B).
+    if (clone / "REVISED_CONTRACT.json").read_bytes() != contract:
+        print(f"[DONE] {args.job}: REVISED_CONTRACT.json changed while the "
+              f"provider ran; nothing it reviewed is the contract this host "
+              f"selected", file=sys.stderr)
+        return SETUP_REFUSED
+
     status, message, result = interpret(wrapper_path.read_bytes(),
                                         task_id=args.task, contract=contract,
                                         process_code=code)
@@ -311,7 +351,6 @@ def main(argv: list[str] | None = None) -> int:
     # it has validated, and is labelled so no reader treats it as a review. The
     # raw bytes are preserved exactly, BOM included - the reader hashes them.
     raw_result = json.loads(wrapper_path.read_text(encoding="utf-8"))["result"].encode("utf-8")
-    result_path = args.jobs / f"{args.job}.result.json"
     result_path.write_bytes(raw_result)
     view = render(result)
     (args.jobs / f"{args.job}.report.md").write_text(view, encoding="utf-8")

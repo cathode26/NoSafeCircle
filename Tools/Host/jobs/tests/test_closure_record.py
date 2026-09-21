@@ -104,17 +104,17 @@ class TheNamingRule(unittest.TestCase):
 class AFinishedJob(Base):
     def test_it_reads_back_the_validated_result(self):
         self.finish()
-        self.assertEqual(self.read().recommendation, "commit_contract")
+        self.assertEqual(self.read().result.recommendation, "commit_contract")
 
     def test_a_completed_revise_is_a_finished_job(self):
         # The point Astra made explicitly: a negative verdict is a finished
         # review and gets a record and a zero exit, like an approval.
         self.finish(result_bytes(recommendation="revise"))
-        self.assertEqual(self.read().recommendation, "revise")
+        self.assertEqual(self.read().result.recommendation, "revise")
 
     def test_a_claude_record_carries_is_error_false(self):
         self.finish(provider="claude-host")
-        self.assertEqual(self.read().recommendation, "commit_contract")
+        self.assertEqual(self.read().result.recommendation, "commit_contract")
 
     def test_the_record_carries_no_verdict(self):
         record = self.finish()
@@ -225,6 +225,24 @@ class ExactTypes(Base):
     def test_an_incomplete_review_status_refuses(self):
         self.refuses("not_ready", review_status="incomplete")
 
+    def test_an_incomplete_result_is_not_a_ready_job(self):
+        # Astra MJ-P3-03-E: the record said complete and nothing checked the
+        # RESULT, so an incomplete one with matching hashes came back ready.
+        # The record is the host's claim; the result is the reviewer's, and the
+        # reviewer's decides.
+        raw = result_bytes(review_status="incomplete", recommendation=None,
+                           report_markdown="Could not finish.")
+        self.result.write_bytes(raw)
+        closure_record.view_path(self.result).write_bytes(VIEW)
+        closure_record.publish(self.result, closure_record.build(
+            task_id=TASK, provider="codex", reviewed_artifact_sha256=DIGEST,
+            result_bytes=raw, view_bytes=VIEW, exit_code=0, is_error=None,
+            started_at=1.0, completed_at=2.0,
+            review_status="complete"))          # the record lies
+        with self.assertRaises(closure_record.RecordError) as caught:
+            self.read()
+        self.assertEqual(caught.exception.code, "not_ready")
+
 
 class TamperingAndSubject(Base):
     def test_an_edited_result_refuses(self):
@@ -282,14 +300,49 @@ class Publication(Base):
         strays = [p.name for p in self.tmp.iterdir() if p.name.startswith(".")]
         self.assertEqual(strays, [])
 
-    def test_a_crash_before_the_rename_leaves_no_record(self):
-        # Simulated by never calling publish: absence is the whole signal.
+    def test_a_failure_during_publication_leaves_no_final_record(self):
+        # Astra: the previous version of this never called publish() at all, so
+        # it proved only that a file nobody wrote is absent. The failure is
+        # injected INTO the real publication, after the temporary write and at
+        # the rename, which is the only moment that can leave a half-written
+        # record behind.
         self.result.write_bytes(result_bytes())
         closure_record.view_path(self.result).write_bytes(VIEW)
-        self.assertFalse(closure_record.metadata_path(self.result).exists())
+        record = closure_record.build(
+            task_id=TASK, provider="codex", reviewed_artifact_sha256=DIGEST,
+            result_bytes=result_bytes(), view_bytes=VIEW, exit_code=0,
+            is_error=None, started_at=1.0, completed_at=2.0,
+            review_status="complete")
+
+        real_replace = closure_record.os.replace
+        closure_record.os.replace = lambda src, dst: (_ for _ in ()).throw(
+            OSError("disk full at the rename"))
+        try:
+            with self.assertRaises(OSError):
+                closure_record.publish(self.result, record)
+        finally:
+            closure_record.os.replace = real_replace
+
+        self.assertFalse(closure_record.metadata_path(self.result).exists(),
+                         "a final record survived a failed publication")
         with self.assertRaises(closure_record.RecordError) as caught:
             self.read()
         self.assertEqual(caught.exception.code, "no_record")
+
+    def test_the_temporary_file_is_the_only_thing_left_behind(self):
+        # And it is not the published name, so no reader can mistake it for one.
+        self.result.write_bytes(result_bytes())
+        closure_record.view_path(self.result).write_bytes(VIEW)
+        real_replace = closure_record.os.replace
+        closure_record.os.replace = lambda src, dst: (_ for _ in ()).throw(
+            OSError("interrupted"))
+        try:
+            with self.assertRaises(OSError):
+                closure_record.publish(self.result, {"protocol": "json-v1"})
+        finally:
+            closure_record.os.replace = real_replace
+        names = sorted(p.name for p in self.tmp.iterdir())
+        self.assertNotIn(closure_record.metadata_path(self.result).name, names)
 
 
 if __name__ == "__main__":
