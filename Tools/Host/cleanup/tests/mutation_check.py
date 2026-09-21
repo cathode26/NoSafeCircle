@@ -49,8 +49,8 @@ MUTATIONS = [
      "    if False:"),
 
     ("dry run deletes anyway",
-     "    report[\"action\"] = \"recursive delete\"\n    if apply:",
-     "    report[\"action\"] = \"recursive delete\"\n    if True:"),
+     "        getattr(shutil.rmtree, \"avoids_symlink_attacks\", False))\n    if apply:",
+     "        getattr(shutil.rmtree, \"avoids_symlink_attacks\", False))\n    if True:"),
 
     ("a rootless path is given a depth instead of refused",
      '        raise Refused(f"{q} has no drive or share root, so its depth cannot be "\n'

@@ -95,7 +95,11 @@ fi
 # A `revise` recommendation still exits 0: the review ran and reached a negative
 # conclusion. Treating a rejection as a failed run is how a verdict gets retried
 # like a timeout.
-python -B "$HELPERS/check_closure_report.py" --report "$REPORT"
+# --contract binds the verdict to the exact bytes the reviewer was given.
+# Without it any 16 hex characters satisfied the identity line, so a review of a
+# DIFFERENT revision read as a clean pass (Astra release review of 17cf1f4c5).
+python -B "$HELPERS/check_closure_report.py" --report "$REPORT" \
+  --contract "$CLONE/REVISED_CONTRACT.json"
 closure=$?
 if [ "$closure" -ne 0 ]; then
   echo "[INCOMPLETE] $JOB - the provider succeeded but did not finish the review" >&2

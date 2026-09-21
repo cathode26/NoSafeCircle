@@ -63,6 +63,13 @@ SUITES: list[tuple[str, Path, Path, Path | None]] = [
 ]
 
 RAN = re.compile(r"^Ran (\d+) tests?", re.MULTILINE)
+# unittest reports a skip inside OK, so a suite that has quietly stopped covering
+# something looks identical to one that still does - the false green this runner
+# exists to catch, one layer down. Astra reproduced it: OK (skipped=2) printed as
+# OK (2). NSC_TOOL_TESTS_NO_SKIPS=1 makes any skip a failure, which is what CI
+# sets, because the cases that skip are the guard cases.
+SKIPPED = re.compile(r"\(skipped=(\d+)\)|skipped=(\d+)")
+NO_SKIPS = os.environ.get("NSC_TOOL_TESTS_NO_SKIPS") == "1"
 
 
 def run_one(suite: Path, cwd: Path, extra_path: Path | None, timeout: int):
@@ -93,7 +100,12 @@ def run_one(suite: Path, cwd: Path, extra_path: Path | None, timeout: int):
     if proc.returncode != 0:
         fails = "; ".join(re.findall(r"^(?:FAIL|ERROR): (\S+)", text, re.MULTILINE)[:5])
         return False, tests, f"exit {proc.returncode}: {fails or 'see output'}"
-    return True, tests, ""
+    found = SKIPPED.search(text)
+    skipped = int(found.group(1) or found.group(2)) if found else 0
+    if skipped and NO_SKIPS:
+        return False, tests, (f"{skipped} test(s) skipped, and skips are not "
+                              "allowed here; the cases that skip are the guard cases")
+    return True, tests, f"{skipped} skipped" if skipped else ""
 
 
 def main() -> int:
@@ -107,14 +119,16 @@ def main() -> int:
     print(f"{len(selected)} suites, interpreter {sys.executable}")
     print(f"repo {REPO}\n")
 
-    failures, total, started = [], 0, time.time()
+    failures, skipped_in, total, started = [], [], 0, time.time()
     for family, suite, cwd, extra in selected:
         rel = suite.relative_to(REPO).as_posix()
         print(f"  {rel} ... ", end="", flush=True)
         ok, tests, detail = run_one(suite, cwd, extra, timeout=900)
         total += tests
         if ok:
-            print(f"OK ({tests})")
+            print(f"OK ({tests})" + (f" - {detail}" if detail else ""))
+            if detail:
+                skipped_in.append((rel, detail))
         else:
             print(f"FAILED - {detail}")
             failures.append((family, rel, detail))
@@ -126,6 +140,12 @@ def main() -> int:
         for family, rel, detail in failures:
             print(f"  [{family}] {rel}: {detail}")
         return 1
+    if skipped_in:
+        print("")
+        print("suites with skipped tests - coverage is quietly reduced:")
+        for rel, detail in skipped_in:
+            print(f"  {rel}: {detail}")
+        print("  set NSC_TOOL_TESTS_NO_SKIPS=1 to make these a failure")
     print("all suites passed")
     return 0
 

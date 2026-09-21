@@ -145,7 +145,27 @@ def safe_rmtree(p: str | os.PathLike, *, apply: bool = False) -> dict:
         return report
 
     report["action"] = "recursive delete"
+    report["rmtree_avoids_symlink_attacks"] = bool(
+        getattr(shutil.rmtree, "avoids_symlink_attacks", False))
     if apply:
+        # Look again, immediately before the delete. The first check happened
+        # before this report was built, and an ancestor junction retargeted in
+        # between would change what `given` resolves to without changing `given`.
+        # Astra's 2026-09-20 review found that window.
+        #
+        # This NARROWS the window to the gap before one syscall and detects a
+        # retarget that happened while the report was assembled. It does not close
+        # it: shutil.rmtree.avoids_symlink_attacks is False on Windows and there is
+        # no dir_fd, so the platform does not offer the primitive that would. The
+        # residue is recorded in the report rather than papered over. Anyone able
+        # to retarget an ancestor inside that gap already holds write access to it
+        # and needs no help from this tool.
+        again = check_recursive_delete(given)
+        if again != resolved:
+            raise Refused(
+                f"{given} resolved to {resolved} when it was checked and to "
+                f"{again} a moment later. Something re-pointed a link underneath "
+                "this operation; nothing was deleted.")
         shutil.rmtree(given)
         report["applied"] = True
     return report

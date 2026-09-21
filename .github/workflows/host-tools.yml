@@ -54,7 +54,12 @@ jobs:
       # No pytest: this machine class does not have it and the suites are plain
       # unittest. Installing it would hide that they must stay runnable with the
       # interpreter alone, which is what the F: validation checkout gets.
+      # A skipped test is reported by unittest inside OK. The cases that skip here
+      # are the guard cases - they need a real shallow directory - so on a runner
+      # a skip means the guard was not exercised, and that must be a failure.
       - name: Run every host tool suite
+        env:
+          NSC_TOOL_TESTS_NO_SKIPS: "1"
         run: python -B Tools/Host/run_tool_tests.py
 
       # The suites must not depend on this runner's drive letters. Any absolute

@@ -9,6 +9,7 @@ is behaviour that only reproduces against a real Windows reparse point.
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -230,6 +231,80 @@ class ActuallyDeletes(unittest.TestCase):
         # absence must not read as permission
         with self.assertRaises(Refused):
             safe_rmtree(r"C:\this-root-does-not-exist", apply=True)
+
+
+class TheTargetIsCheckedAgainImmediatelyBeforeDeleting(unittest.TestCase):
+    """Astra 2026-09-20, finding 2: validate-then-delete had a window.
+
+    The first check ran before the report was assembled, so an ancestor junction
+    retargeted in between changed what the path resolved to without changing the
+    path. Narrowed, not closed - see the comment in safe_rmtree.
+    """
+
+    def _moving(self, second):
+        """Run safe_rmtree with real_path returning `second` after the first call.
+
+        Returns (exception, deleted) - rmtree is stubbed, so nothing is removed
+        even if a guard fails to fire.
+        """
+        import safe_delete
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: shutil.rmtree(tmp, ignore_errors=True))
+        victim = tmp / "a" / "b" / "c"
+        victim.mkdir(parents=True)
+
+        seen = []
+        original = safe_delete.real_path
+        original_rmtree = safe_delete.shutil.rmtree
+        deleted = []
+
+        def moving_target(p):
+            seen.append(p)
+            return original(p) if len(seen) <= 1 else second(tmp)
+
+        safe_delete.shutil.rmtree = lambda *a, **k: deleted.append(a)
+        try:
+            safe_delete.real_path = moving_target
+            try:
+                safe_delete.safe_rmtree(victim, apply=True)
+                return None, deleted
+            except safe_delete.Refused as exc:
+                return exc, deleted
+        finally:
+            safe_delete.real_path = original
+            safe_delete.shutil.rmtree = original_rmtree
+
+    def test_a_move_to_an_illegal_depth_is_caught_by_the_depth_rule(self):
+        exc, deleted = self._moving(lambda tmp: Path(tmp.anchor) / "NSC")
+        self.assertIsNotNone(exc, "a shallow re-target must be refused")
+        self.assertIn("depth 1", str(exc))
+        self.assertEqual(deleted, [], "nothing may be deleted after a refusal")
+
+    def test_a_move_to_a_DIFFERENT_LEGAL_place_is_caught_by_the_comparison(self):
+        """The case the finding is really about: depth says nothing is wrong."""
+        exc, deleted = self._moving(lambda tmp: tmp / "somewhere" / "else" / "deep")
+        self.assertIsNotNone(exc, "a legal-but-different target must still refuse")
+        self.assertIn("re-pointed", str(exc))
+        self.assertEqual(deleted, [], "nothing may be deleted after a refusal")
+
+    def test_a_stable_target_still_deletes(self):
+        import safe_delete
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: shutil.rmtree(tmp, ignore_errors=True))
+        victim = tmp / "a" / "b" / "c"
+        victim.mkdir(parents=True)
+        report = safe_delete.safe_rmtree(victim, apply=True)
+        self.assertTrue(report["applied"])
+        self.assertFalse(victim.exists())
+
+    def test_the_platform_limitation_is_recorded_not_hidden(self):
+        import safe_delete
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: shutil.rmtree(tmp, ignore_errors=True))
+        victim = tmp / "a" / "b" / "c"
+        victim.mkdir(parents=True)
+        report = safe_delete.safe_rmtree(victim)
+        self.assertIn("rmtree_avoids_symlink_attacks", report)
 
 
 class RelativeAndOddPaths(unittest.TestCase):
