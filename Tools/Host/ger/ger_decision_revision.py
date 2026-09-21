@@ -8,9 +8,21 @@ decisions it applies and a change log, bound by hash to the round-03 and round-0
 contract whose top-level keys differ from the current task file, that changes an invariant field, that
 does not raise contract_revision by exactly one, or that adds task_design_ger records.
 
-recheck writes the immutable 08-claude-recheck round from a fresh Claude reviewer's report. The report
-must name the first 16 hex characters of the revised contract's sha256 and give a final recommendation.
-apply_contract.py commits only when that recommendation is commit_contract or
+recheck writes the immutable 08-claude-recheck round from a fresh Claude reviewer's result. That result
+is one JSON object declaring its verdict, bound to the exact REVISED_CONTRACT.json bytes it reviewed;
+the reviewer no longer names a 16-hex prefix in prose and nothing here reads a verdict out of Markdown.
+The report is stored verbatim as RESULT.json and rendered into OUTPUT.md as a labelled human view.
+
+Round 08 is an IMPORT. The result is handed over by the GER owner rather than produced by a provider run
+here, so it carries no exit code and no session id, and inventing either would be fabricating evidence
+for a run that did not happen. Its record says `provider_evidence: imported` and names the file it came
+from, which is what ger_round.check_record requires of an import before any consumer will read it.
+
+`--legacy` reads a report written before the cutover with the old Markdown parser. It is a declaration
+by the caller and is never inferred from the bytes: a new-format result that fails to validate is
+refused, never retried through the old reader.
+
+apply_contract.py commits only when the recommendation is commit_contract or
 commit_contract_then_decompose. Neither command edits the repository.
 """
 from __future__ import annotations
@@ -23,6 +35,10 @@ import pathlib
 import subprocess
 
 import apply_contract
+# apply_contract puts Tools/Host and Tools/Host/ger on sys.path; these two are
+# named explicitly because this module uses them directly, not through it.
+import ger_round  # noqa: E402
+import review_result  # noqa: E402
 
 BUILD = "07-owner-decision-revision"
 RECHECK = "08-claude-recheck"
@@ -119,22 +135,88 @@ def recheck(args: argparse.Namespace) -> int:
     if sha256((build_dir / "REVISED_CONTRACT.json").read_bytes()) != revised_sha:
         raise SystemExit(f"{BUILD}/REVISED_CONTRACT.json changed after it was built")
     report = args.report.read_bytes()
-    text = report.decode("utf-8")
-    if revised_sha[:16] not in text:
-        raise SystemExit("the reviewer report does not name the reviewed contract (first 16 hex characters of its sha256)")
-    recommendation = apply_contract.final_recommendation(text)
-    if recommendation is None:
-        raise SystemExit("the reviewer report has no final recommendation")
+    task_id = build_meta["task_id"]
+    revised_bytes = (build_dir / "REVISED_CONTRACT.json").read_bytes()
     round_dir = packet / RECHECK
     round_dir.mkdir()  # immutable
-    (round_dir / "OUTPUT.md").write_bytes(report)
-    metadata = {"round": RECHECK, "task_id": build_meta["task_id"], "created_at": utc_now(), "reviewer": args.reviewer,
+
+    # Round 08 is an IMPORT: a fresh reviewer's result, handed over by the GER
+    # owner rather than produced by a provider run here. So it carries no exit
+    # code and no session id, and inventing either would be fabricating evidence
+    # for a run that did not happen. The record says `provider_evidence:
+    # imported` and names where it came from, which is what ger_round.check_record
+    # requires of an import before it will read the decision.
+    if args.legacy:
+        # The explicitly labelled legacy path, for a report written before the
+        # cutover. A declaration by the caller, never inferred from the bytes.
+        #
+        # One exception, and it only ever REFUSES: a new-format result read with
+        # --legacy sails through both old checks by accident. Its
+        # reviewed_artifact_sha256 field contains the 16-hex prefix the identity
+        # check looks for, and the legacy grep finds `commit_contract` inside
+        # `"recommendation": "commit_contract"`. So a mislabelled JSON result
+        # would have its verdict read by a grep, which is precisely the
+        # cross-format confusion this protocol exists to remove. Refusing here is
+        # fail-closed; the forbidden direction is retrying a failed JSON parse as
+        # Markdown, and that remains impossible.
+        text = report.decode("utf-8", errors="replace")
+        try:
+            looks_like_json = isinstance(json.loads(text), dict)
+        except ValueError:
+            looks_like_json = False
+        if looks_like_json:
+            fail(round_dir, "--legacy was given a JSON document; a new-format result "
+                            "must be read as one, not grepped")
+        if revised_sha[:16] not in text:
+            raise SystemExit("the reviewer report does not name the reviewed contract "
+                             "(first 16 hex characters of its sha256)")
+        recommendation = apply_contract.final_recommendation(text)
+        if recommendation is None:
+            raise SystemExit("the reviewer report has no final recommendation")
+        review_status, protocol = "complete", "legacy-markdown"
+        (round_dir / "OUTPUT.md").write_bytes(report)
+        result_sha = None
+    else:
+        try:
+            result = review_result.load(
+                report,
+                task_id=task_id,
+                review_kind="ger",
+                reviewed_artifact_kind="ger_round_output",
+                reviewed_artifact_sha256=sha256(revised_bytes),
+            )
+        except review_result.ReviewResultError as error:
+            fail(round_dir, f"the reviewer result is not valid ({error.code}): {error.message}")
+            raise SystemExit(f"the reviewer result is not valid ({error.code}): {error.message}")
+        if not result.is_complete:
+            fail(round_dir, "the reviewer declared the review incomplete")
+            raise SystemExit("the reviewer declared the review incomplete; there is "
+                             "no verdict to record")
+        recommendation = result.recommendation
+        review_status, protocol = result.review_status, "json-v1"
+        (round_dir / ger_round.RESULT_FILE).write_bytes(report)
+        (round_dir / "OUTPUT.md").write_text(
+            ger_round.render_output(result, f"{BUILD}/REVISED_CONTRACT.json"),
+            encoding="utf-8")
+        result_sha = sha256(report)
+
+    metadata = {"round": RECHECK, "task_id": task_id, "created_at": utc_now(),
+                "reviewer": args.reviewer,
                 "repository_head": repository_head(),
+                "protocol": protocol,
+                "provider_evidence": "imported",
+                "imported_from": str(args.report.resolve()),
+                "review_status": review_status,
                 "input_sha256": {f"{BUILD}/OUTPUT.md": sha256(build_output),
                                  f"{BUILD}/REVISED_CONTRACT.json": revised_sha},
-                "output_sha256": sha256(report), "recommendation": recommendation}
+                "output_sha256": sha256((round_dir / "OUTPUT.md").read_bytes()),
+                "result_file": ger_round.RESULT_FILE if result_sha else None,
+                "result_sha256": result_sha,
+                "reviewed": f"{BUILD}/REVISED_CONTRACT.json",
+                "recommendation": recommendation}
     (round_dir / "METADATA.json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
-    print(json.dumps({"round": RECHECK, "task_id": build_meta["task_id"], "recommendation": recommendation}, indent=2))
+    print(json.dumps({"round": RECHECK, "task_id": task_id, "protocol": protocol,
+                      "recommendation": recommendation}, indent=2))
     return 0
 
 
@@ -150,6 +232,11 @@ def main() -> int:
     recheck_parser.add_argument("--packet", required=True, type=pathlib.Path)
     recheck_parser.add_argument("--report", required=True, type=pathlib.Path)
     recheck_parser.add_argument("--reviewer", required=True)
+    recheck_parser.add_argument("--legacy", action="store_true",
+                                help="the report predates the JSON protocol and is read with "
+                                     "the legacy Markdown parser. A declaration by the caller, "
+                                     "never inferred: a new-format result that fails to "
+                                     "validate is refused, never retried through the old reader.")
     args = parser.parse_args()
     return build(args) if args.command == "build" else recheck(args)
 

@@ -82,6 +82,8 @@ SUITES: list[tuple[str, Path, Path, Path | None]] = [
      HOST / "ger" / "tests", None),
     ("ger", HOST / "ger" / "tests" / "test_apply_contract.py",
      HOST / "ger" / "tests", None),
+    ("ger", HOST / "ger" / "tests" / "test_ger_decision_revision.py",
+     HOST / "ger" / "tests", None),
 ]
 
 # unittest reports a skip inside OK, so a suite that has quietly stopped covering
