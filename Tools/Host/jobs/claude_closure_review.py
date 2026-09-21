@@ -41,8 +41,11 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
+import closure_record  # noqa: E402
 import nsc_paths  # noqa: E402
 import review_result  # noqa: E402
 
@@ -287,6 +290,7 @@ def main(argv: list[str] | None = None) -> int:
     prompt_file = args.work / f"{args.job}.{args.runner}-prompt.md"
     prompt_file.write_text(text, encoding="utf-8")
 
+    started_at = time.time()
     wrapper_path = args.work / f"{args.job}.{args.runner}.json"
     cmd, cwd = command(args.runner, model, max_turns, clone, args.host_cwd)
     env = {**os.environ, "MSYS_NO_PATHCONV": "1"}
@@ -304,10 +308,31 @@ def main(argv: list[str] | None = None) -> int:
         return status
 
     # The raw result is the record; the rendered view is written only now, after
-    # it has validated, and is labelled so no reader treats it as a review.
-    (args.jobs / f"{args.job}.result.json").write_text(
-        json.loads(wrapper_path.read_text(encoding="utf-8"))["result"], encoding="utf-8")
-    (args.jobs / f"{args.job}.report.md").write_text(render(result), encoding="utf-8")
+    # it has validated, and is labelled so no reader treats it as a review. The
+    # raw bytes are preserved exactly, BOM included - the reader hashes them.
+    raw_result = json.loads(wrapper_path.read_text(encoding="utf-8"))["result"].encode("utf-8")
+    result_path = args.jobs / f"{args.job}.result.json"
+    result_path.write_bytes(raw_result)
+    view = render(result)
+    (args.jobs / f"{args.job}.report.md").write_text(view, encoding="utf-8")
+
+    # The job record LAST, after every check and after both files exist. A crash
+    # before this leaves no record, and a reader that finds none treats the job
+    # as unfinished - which is the safe direction.
+    closure_record.publish(result_path, closure_record.build(
+        task_id=args.task,
+        provider=f"claude-{args.runner}",
+        reviewed_artifact_sha256=hashlib.sha256(contract).hexdigest(),
+        result_bytes=raw_result,
+        view_bytes=(args.jobs / f"{args.job}.report.md").read_bytes(),
+        exit_code=code,
+        # Claude's wrapper carries this explicitly; a missing field is NOT
+        # defaulted to success, which is why interpret refuses it above.
+        is_error=False,
+        started_at=started_at,
+        completed_at=time.time(),
+        review_status=result.review_status,
+        session_id=json.loads(wrapper_path.read_text(encoding="utf-8")).get("session_id")))
     return OK
 
 

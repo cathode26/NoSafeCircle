@@ -65,6 +65,7 @@ FILES = {
     "ger_round": Path("ger/ger_round.py"),
     "ger_node": Path("ger/ger_node.py"),
     "apply_contract": Path("ger/apply_contract.py"),
+    "record": Path("jobs/closure_record.py"),
 }
 
 # Suites a mutation can be expected to kill, by key.
@@ -75,11 +76,14 @@ SUITES = {
     "ger": Path("ger/tests/test_ger_round.py"),
     "node": Path("ger/tests/test_ger_node.py"),
     "contract": Path("ger/tests/test_apply_contract.py"),
+    "job_record": Path("jobs/tests/test_closure_record.py"),
 }
 
 # Copied so the suites import and navigate as they do in the tree. Never mutated.
 SUPPORT = [
     Path("jobs/check_closure_report.py"),
+    Path("jobs/claude_closure_review.py"),
+    Path("nsc_paths.py"),
     Path("ger/ger_decision_revision.py"),
     Path("ger/main_write.py"),
     Path("ger/tests/ger_fixtures.py"),
@@ -177,6 +181,26 @@ MUTATIONS = [
      '        if evidence.get("exit_code") == 0 and not evidence.get("is_error"):',
      "        if False:",
      "node", "test_a_successful_provider_call_is_never_transient"),
+
+    ("record", "the exact-integer check on a job's exit code",
+     "    if isinstance(exit_code, bool) or exit_code != 0:",
+     "    if exit_code:",
+     "job_record", "test_a_false_exit_code_is_not_a_zero_one"),
+
+    ("record", "the requirement that a Claude record carries is_error false",
+     "        if is_error is not False:",
+     "        if False:",
+     "job_record", "test_a_claude_record_missing_is_error_refuses"),
+
+    ("record", "the rendered view's hash check in the job record",
+     '    if record["output_sha256"] != sha256(view_bytes):',
+     "    if False:",
+     "job_record", "test_an_edited_view_refuses"),
+
+    ("record", "the record's subject binding",
+     "    if record.get(\"task_id\") != task_id:",
+     "    if False:",
+     "job_record", "test_a_record_about_another_task_refuses"),
 
     ("apply_contract", "the refusal of a substantive override after a JSON review",
      "    if not human_exception:",

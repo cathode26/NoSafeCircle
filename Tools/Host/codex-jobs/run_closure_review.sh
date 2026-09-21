@@ -38,11 +38,18 @@ MODEL="${NSC_CODEX_MODEL:-gpt-6-astra}"
 # silently produced no report for three days.
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" || { echo "cannot locate myself" >&2; exit 2; }
 
-HELPERS=""
-for _h in "$HERE/../jobs" "C:/NSC/tools/jobs" "C:/nscrev/job-tools"; do
-  [ -f "$_h/resolve_codex.py" ] && { HELPERS="$(cd "$_h" && pwd)"; break; }
-done
-[ -n "$HELPERS" ] || { echo "cannot find resolve_codex.py in $HERE/../jobs, C:/NSC/tools/jobs or C:/nscrev/job-tools" >&2; exit 2; }
+# The helpers are the ones beside THIS script, and only those. The two absolute
+# fallbacks that used to follow - C:/NSC/tools/jobs and C:/nscrev/job-tools - are
+# removed: a launcher that reaches a different installation's Python for its
+# checks is exactly the "old-path fallback" the protocol forbids, and under the
+# new record it could pair a new runner with a validator that has never heard of
+# a job record. The matching family or nothing.
+HELPERS="$HERE/../jobs"
+[ -f "$HELPERS/resolve_codex.py" ] || {
+  echo "cannot find resolve_codex.py beside this script at $HELPERS; this launcher" >&2
+  echo "runs only against its own checkout or deployment, never a stale one" >&2
+  exit 2; }
+HELPERS="$(cd "$HELPERS" && pwd)"
 
 # Roots from the shared resolver rather than spelled here. It derives them from where
 # the tools are installed, so deploying under a different root moves them along.
@@ -115,9 +122,15 @@ fi
 # --contract binds the verdict to the exact bytes the reviewer was given.
 # Without it any 16 hex characters satisfied the identity line, so a review of a
 # DIFFERENT revision read as a clean pass (Astra release review of 17cf1f4c5).
+# --provider/--exit-code/--started-at make this the boundary that publishes the
+# job record, LAST, after every check and after the view is written. The record
+# is what a downstream consumer reads to know this job finished; without it,
+# apply_contract refuses the review rather than assuming it was hand-carried.
+# None of those checks is repeated in Bash.
 python -B "$HELPERS/check_closure_report.py" --result "$RESULT" \
   --contract "$CLONE/REVISED_CONTRACT.json" --task "$TASK" \
-  --report-out "$REPORT"
+  --report-out "$REPORT" \
+  --provider codex --exit-code "$rc" --started-at "$STARTED_AT"
 closure=$?
 if [ "$closure" -ne 0 ]; then
   echo "[INCOMPLETE] $JOB - the provider succeeded but did not finish the review" >&2

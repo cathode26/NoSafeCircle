@@ -29,8 +29,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / 'jobs'))
 import apply_contract as ac  # noqa: E402
 import ger_fixtures as fixtures  # noqa: E402
+import closure_record  # noqa: E402
 import ger_round  # noqa: E402
 import review_result  # noqa: E402
 
@@ -355,20 +357,47 @@ class PostCommitCheck(unittest.TestCase):
         ac.REPO = self.repo
         self.addCleanup(lambda: setattr(ac, "REPO", self._real_repo))
 
-    def report(self, raw: bytes, *, job_record: dict | None = ...) -> Path:
-        """The report, and by default the job record proving its job succeeded."""
-        path = self.tmp / "check.report.md"
+    def report(self, raw: bytes, *, job_record: dict | None = ...,
+               view: bytes | None = None) -> Path:
+        """A finished closure job: the raw result, its view, and its record.
+
+        Built through closure_record itself, so the fixture cannot drift from
+        what the producers actually write - the previous version invented a
+        four-field record that the shared reader rightly refuses.
+        """
+        path = self.tmp / "check.result.json"
         path.write_bytes(raw)
-        ready = path.with_suffix(path.suffix + ".metadata.json")
+        view_file = closure_record.view_path(path)
+        view_bytes = view if view is not None else b"rendered view\n"
+        view_file.write_bytes(view_bytes)
+
+        ready = closure_record.metadata_path(path)
         if job_record is ...:
-            job_record = {"protocol": "json-v1", "result_sha256": ac.sha256(raw),
-                          "exit_code": 0, "is_error": None}
+            job_record = closure_record.build(
+                task_id=TASK, provider="codex",
+                reviewed_artifact_sha256=ac.sha256(self.blob),
+                result_bytes=raw, view_bytes=view_bytes,
+                exit_code=0, is_error=None,
+                started_at=1_700_000_000.0, completed_at=1_700_000_042.0,
+                review_status="complete")
         if job_record is None:
             if ready.exists():
                 ready.unlink()
         else:
             ready.write_text(json.dumps(job_record), encoding="utf-8")
         return path
+
+    def record_with(self, raw: bytes, **overrides) -> dict:
+        """A valid record with named fields replaced, for the negative cases."""
+        base = closure_record.build(
+            task_id=TASK, provider="codex",
+            reviewed_artifact_sha256=ac.sha256(self.blob),
+            result_bytes=raw, view_bytes=b"rendered view\n",
+            exit_code=0, is_error=None,
+            started_at=1_700_000_000.0, completed_at=1_700_000_042.0,
+            review_status="complete")
+        base.update(overrides)
+        return base
 
     def result(self, **overrides) -> bytes:
         body = {
@@ -405,22 +434,40 @@ class PostCommitCheck(unittest.TestCase):
 
     def test_a_record_of_a_failed_job_is_refused(self):
         # The exact boundary: check_job_result rejects rc=9, and this must too.
-        for failed in ({"exit_code": 9, "is_error": None},
-                       {"exit_code": 0, "is_error": True}):
+        # `exit_code: false` is in the list because a truthiness test accepts it.
+        raw = self.result()
+        for failed in ({"exit_code": 9}, {"exit_code": False},
+                       {"provider": "claude-host", "is_error": None},
+                       {"provider": "claude-host", "is_error": True}):
             with self.subTest(failed=failed):
-                raw = self.result()
-                record = {"protocol": "json-v1", "result_sha256": ac.sha256(raw), **failed}
-                with self.assertRaises(Refused) as caught:
-                    self.resolve(raw, job_record=record)
-                self.assertIn("failed job", str(caught.exception))
+                with self.assertRaises(Refused):
+                    self.resolve(raw, job_record=self.record_with(raw, **failed))
 
     def test_a_record_for_different_bytes_is_refused(self):
         raw = self.result()
-        record = {"protocol": "json-v1", "result_sha256": "f" * 64,
-                  "exit_code": 0, "is_error": None}
-        with self.assertRaises(Refused) as caught:
-            self.resolve(raw, job_record=record)
-        self.assertIn("recorded result hash", str(caught.exception))
+        for tampered in ({"result_sha256": "f" * 64}, {"output_sha256": "f" * 64}):
+            with self.subTest(tampered=tampered):
+                with self.assertRaises(Refused) as caught:
+                    self.resolve(raw, job_record=self.record_with(raw, **tampered))
+                self.assertIn("does not match the hash", str(caught.exception))
+
+    def test_a_record_about_a_different_subject_is_refused(self):
+        raw = self.result()
+        for wrong in ({"task_id": "NSC-999"},
+                      {"reviewed_artifact_sha256": "a" * 64}):
+            with self.subTest(wrong=wrong):
+                with self.assertRaises(Refused):
+                    self.resolve(raw, job_record=self.record_with(raw, **wrong))
+
+    def test_a_truthy_default_cannot_stand_in_for_evidence(self):
+        # Astra's wording: "false, missing is_error, missing ready status and a
+        # matching raw hash alone do not form a ready job record."
+        raw = self.result()
+        for broken in ({"started_at": True}, {"review_status": "incomplete"},
+                       {"protocol": "json-v9"}, {"provider": "something-else"}):
+            with self.subTest(broken=broken):
+                with self.assertRaises(Refused):
+                    self.resolve(raw, job_record=self.record_with(raw, **broken))
 
     def test_a_hand_carried_review_is_declared_not_assumed(self):
         record = self.resolve(self.result(), job_record=None,
@@ -460,10 +507,20 @@ class PostCommitCheck(unittest.TestCase):
             self.resolve(LEGACY_CLOSURE_REPORT.encode("utf-8"))
         self.assertIn("not valid (not_json)", str(caught.exception))
 
-    def test_a_legacy_report_reads_with_the_flag(self):
-        record = self.resolve(LEGACY_CLOSURE_REPORT.encode("utf-8"), legacy=True)
+    def test_a_legacy_report_needs_both_selections(self):
+        # Astra: legacy is a FORMAT selection and import is a PROVENANCE one.
+        # Nothing produces the legacy format any more, so a legacy report is
+        # necessarily hand-carried and must say so too.
+        with self.assertRaises(Refused) as caught:
+            self.resolve(LEGACY_CLOSURE_REPORT.encode("utf-8"), legacy=True)
+        self.assertIn("--post-commit-check-import", str(caught.exception))
+
+    def test_a_legacy_report_reads_with_both_selections(self):
+        record = self.resolve(LEGACY_CLOSURE_REPORT.encode("utf-8"), legacy=True,
+                              import_source="the GER owner's archive")
         self.assertEqual(record["verdict"], "commit_contract")
         self.assertEqual(record["protocol"], "legacy-markdown")
+        self.assertEqual(record["provider_evidence"], "imported")
 
     def test_the_legacy_flag_does_not_accept_a_broken_v2_result(self):
         # legacy=True selects the old READER; it is not a bypass that accepts

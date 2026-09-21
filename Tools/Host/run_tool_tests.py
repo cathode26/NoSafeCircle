@@ -70,6 +70,8 @@ SUITES: list[tuple[str, Path, Path, Path | None]] = [
      HOST / "jobs" / "tests", None),
     ("jobs", HOST / "jobs" / "tests" / "test_claude_closure_review.py",
      HOST / "jobs" / "tests", None),
+    ("jobs", HOST / "jobs" / "tests" / "test_closure_record.py",
+     HOST / "jobs" / "tests", None),
     ("jobs", HOST / "jobs" / "tests" / "test_legacy_closure_markdown.py",
      HOST / "jobs" / "tests", None),
     ("jobs", HOST / "jobs" / "tests" / "test_propagation_check.py",

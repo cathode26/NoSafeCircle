@@ -54,6 +54,11 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 import ger_round  # noqa: E402
 import review_result  # noqa: E402
 
+# The shared standalone-closure-job record boundary, used by both launchers
+# and by the post-commit consumer below.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "jobs"))
+import closure_record  # noqa: E402
+
 import main_write
 
 REPO = pathlib.Path(r"C:\NSC\NSC\NoSafeCircle")
@@ -492,30 +497,34 @@ def resolve_post_commit_check(report_arg: pathlib.Path, commit_arg: str, task_id
         record["imported_from"] = import_source
         return record
 
-    ready = report_path.with_suffix(report_path.suffix + ".metadata.json")
-    if not ready.is_file():
-        error(f"--post-commit-check-report {report_path} has no job record beside it "
-              f"({ready.name}), so there is no evidence its job succeeded - the "
-              f"generic gate that checks process status, freshness and emptiness "
-              f"runs at the job, not here. If this review was handed over by a "
-              f"person rather than generated, say so with "
-              f"--post-commit-check-import naming who carried it. Refusing rather "
-              f"than assuming either.")
+    if legacy:
+        # A legacy report cannot be a generated job: nothing produces that format
+        # any more, so it is necessarily hand-carried and needs the import
+        # declaration too. Astra's rule - "a caller selecting a legacy imported
+        # review must select both relevant options explicitly" - and the reason
+        # is that sending a Markdown report through the generated-job reader
+        # would otherwise raise out of this function rather than refusing.
+        error(f"--post-commit-check-report {report_path} was read as a legacy "
+              f"report, which no current job produces, so it can only be "
+              f"hand-carried. Name who carried it with --post-commit-check-import "
+              f"as well; the two selections are separate on purpose.")
+
+    # A GENERATED review goes through the one closure job reader: readiness, both
+    # file hashes, provider evidence with exact types, and the same
+    # review_result binding to the task and the Git blob this caller selected.
+    # The provisional version here used `.get("exit_code") != 0` and a truthiness
+    # test on is_error, which Astra noted would accept `exit_code: false`.
     try:
-        job = json.loads(ready.read_text(encoding="utf-8"))
-    except (OSError, ValueError) as failure:
-        error(f"the job record {ready} is unreadable: {failure}")
-    problems = []
-    if job.get("result_sha256") != sha256(report_bytes):
-        problems.append("its recorded result hash does not match the report")
-    if job.get("exit_code") != 0 or job.get("is_error"):
-        problems.append(f"it records a failed job (exit {job.get('exit_code')!r}, "
-                        f"is_error {job.get('is_error')!r})")
-    if problems:
-        error(f"the job record {ready} does not support this review: "
-              + "; ".join(problems))
+        closure_record.read_job(report_path, task_id=task_id,
+                                reviewed_artifact_sha256=sha256(blob.stdout))
+    except closure_record.RecordError as failure:
+        error(f"--post-commit-check-report {report_path} is not a finished job "
+              f"({failure.code}): {failure.message}. If this review was handed "
+              f"over by a person rather than generated here, say so with "
+              f"--post-commit-check-import naming who carried it; a missing or "
+              f"broken job record never becomes an import by itself.")
     record["provider_evidence"] = "generated"
-    record["job_record"] = str(ready)
+    record["job_record"] = str(closure_record.metadata_path(report_path))
     return record
 
 

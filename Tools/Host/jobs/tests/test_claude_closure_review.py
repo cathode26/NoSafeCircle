@@ -31,6 +31,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 import claude_closure_review as ccr  # noqa: E402
+import closure_record  # noqa: E402
 import review_result  # noqa: E402
 
 TASK = "NSC-001"
@@ -286,6 +287,52 @@ class MainWiring(Base):
             encoding="utf-8"))["recommendation"], "revise")
         view = (self.jobs / "JOB.report.md").read_text(encoding="utf-8")
         self.assertIn(review_result.DERIVED_VIEW_MARKER, view)
+
+    def test_a_completed_revise_round_trips_to_the_shared_reader(self):
+        # The end-to-end property: what this launcher writes is what the
+        # consumer's reader accepts, without either side being told about the
+        # other's assumptions.
+        self.provider(code=0,
+                      wrapper_bytes=wrapper(result=result_json(recommendation="revise")))
+        self.assertEqual(self.run_main(), ccr.OK)
+        result = closure_record.read_job(
+            self.jobs / "JOB.result.json", task_id=TASK,
+            reviewed_artifact_sha256=DIGEST)
+        self.assertEqual(result.recommendation, "revise")
+        self.assertTrue(result.is_complete)
+        self.assertFalse(result.is_committable)
+
+    def test_an_incomplete_review_publishes_no_record(self):
+        self.provider(code=0, wrapper_bytes=wrapper(result=result_json(
+            review_status="incomplete", recommendation=None,
+            report_markdown="Ran out of context.")))
+        self.assertEqual(self.run_main(), ccr.NOT_ACTIONABLE)
+        self.assertFalse(closure_record.metadata_path(
+            self.jobs / "JOB.result.json").exists())
+
+    def test_a_failed_process_publishes_no_record(self):
+        self.provider(code=9, wrapper_bytes=wrapper())
+        self.assertEqual(self.run_main(), ccr.PROVIDER_FAILED)
+        self.assertFalse(closure_record.metadata_path(
+            self.jobs / "JOB.result.json").exists())
+
+    def test_the_record_names_this_runner_as_its_provider(self):
+        self.provider(code=0, wrapper_bytes=wrapper())
+        self.run_main()
+        record = json.loads(closure_record.metadata_path(
+            self.jobs / "JOB.result.json").read_text(encoding="utf-8"))
+        self.assertEqual(record["provider"], "claude-host")
+        self.assertIs(record["is_error"], False)
+        self.assertEqual(record["exit_code"], 0)
+
+    def test_a_repeated_job_is_refused(self):
+        # The existing clone reservation: a retry gets a new job name rather
+        # than overwriting a finished job's evidence.
+        self.provider(code=0, wrapper_bytes=wrapper())
+        self.assertEqual(self.run_main(), ccr.OK)
+        ccr.build_clone = self._real[0]          # the real reservation check
+        with self.assertRaises(SystemExit):
+            self.run_main()
 
 
 if __name__ == "__main__":

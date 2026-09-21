@@ -32,10 +32,14 @@ from __future__ import annotations
 import argparse
 import hashlib
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import review_result  # noqa: E402
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import closure_record  # noqa: E402
 
 
 def render(result: review_result.ReviewResult) -> str:
@@ -82,7 +86,23 @@ def main(argv: list[str] | None = None) -> int:
                     help="write the human view of report_markdown here; only "
                          "written when the result validates")
     ap.add_argument("--quiet", action="store_true")
+    # The job record. Given these, this publishes it LAST, after every check and
+    # after the view is written - so a caller that finds a record knows the whole
+    # run succeeded. The shell runner passes its own `$rc` and start time rather
+    # than repeating any of these checks in Bash.
+    ap.add_argument("--provider", choices=closure_record.PROVIDERS,
+                    help="publish a job record for this provider; requires "
+                         "--exit-code and --started-at")
+    ap.add_argument("--exit-code", type=int,
+                    help="the provider process's own exit status")
+    ap.add_argument("--started-at", type=float,
+                    help="Unix seconds captured by the host BEFORE launching")
+    ap.add_argument("--session-id", default=None,
+                    help="a real session id if the transport reported one; never invented")
     args = ap.parse_args(argv)
+
+    if args.provider and (args.exit_code is None or args.started_at is None):
+        ap.error("--provider requires --exit-code and --started-at")
 
     try:
         raw = Path(args.result).read_bytes()
@@ -123,8 +143,38 @@ def main(argv: list[str] | None = None) -> int:
             print(f"      {line}", file=sys.stderr)
         return 7
 
+    if args.provider and args.exit_code != 0:
+        # Checked here as well as by the runner: this is the boundary that
+        # publishes, and it must not publish for a run the process said failed.
+        print(f"closure review NOT ACTIONABLE - the provider exited "
+              f"{args.exit_code}", file=sys.stderr)
+        return 4
+
+    view_bytes = b""
     if args.report_out:
-        Path(args.report_out).write_text(render(result), encoding="utf-8")
+        view = render(result)
+        Path(args.report_out).write_text(view, encoding="utf-8")
+        view_bytes = Path(args.report_out).read_bytes()
+
+    if args.provider:
+        if not args.report_out:
+            print("--provider needs --report-out: the record hashes the view",
+                  file=sys.stderr)
+            return 2
+        closure_record.publish(Path(args.result), closure_record.build(
+            task_id=args.task,
+            provider=args.provider,
+            reviewed_artifact_sha256=expected,
+            result_bytes=raw,
+            view_bytes=view_bytes,
+            exit_code=args.exit_code,
+            # Codex's transport reports no is_error; saying null is the honest
+            # record, and the reader requires exactly that for this provider.
+            is_error=None if args.provider == "codex" else False,
+            started_at=args.started_at,
+            completed_at=time.time(),
+            review_status=result.review_status,
+            session_id=args.session_id))
 
     if not args.quiet:
         print(f"closure review complete: {result.recommendation}, "

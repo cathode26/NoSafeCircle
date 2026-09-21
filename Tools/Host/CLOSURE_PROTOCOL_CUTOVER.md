@@ -38,6 +38,7 @@ JSON validator fails even when every module is present.
 | `Tools/Host/jobs/check_closure_report.py` | `C:/NSC/tools/jobs/` | absent |
 | `Tools/Host/jobs/legacy_closure_markdown.py` | `C:/NSC/tools/jobs/` | absent (new name) |
 | `Tools/Host/jobs/claude_closure_review.py` | `C:/NSC/tools/jobs/` | absent (new) |
+| **`Tools/Host/jobs/closure_record.py`** | `C:/NSC/tools/jobs/` | absent (new) |
 | **`Tools/Host/codex-jobs/templates/contract-closure-review-prompt.md`** | `C:/NSC/tools/codex-jobs/templates/` | directory absent |
 | **`Tools/Host/codex-jobs/make_closure_prompt.py`** | `C:/NSC/tools/codex-jobs/` | directory absent |
 | `Tools/Host/codex-jobs/run_closure_review.sh` | `C:/NSC/tools/codex-jobs/` | directory absent |
@@ -52,6 +53,13 @@ JSON validator fails even when every module is present.
 
 "Bytes match" means the deployed file equals `git show d886ece91:<tracked path>`
 ignoring line endings.
+
+**The job record is part of the set too.** `closure_record.py` defines what a
+finished standalone closure job publishes and how a consumer reads it. Deploying
+a launcher that writes the record without the consumer that requires it leaves
+the record unread; deploying the consumer without the launchers makes every
+generated post-commit check refuse, because no record will exist. Both ends move
+together or the generated route stops working.
 
 **The prompt and the validator are one unit.** The template now asks reviewers
 for a JSON object; `make_closure_prompt.py` fills it. A deployment that moves the
