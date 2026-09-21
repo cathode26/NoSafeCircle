@@ -16,9 +16,16 @@
 #   3. The inline awk version key reduced 0.155.0-alpha.2.6 and 0.155.0-alpha.9.2 to the same
 #      value and broke the tie by filesystem order. The resolver orders prereleases properly.
 #
-# Exit: 0 success; 2 setup refused; 3 no report; 4 provider failed; 5 stale report;
-#       6 empty report; 7 the report is fresh and non-empty but is not a finished
-#       closure review (no contract identity, or no final recommendation).
+# Exit: 0 success; 2 setup refused; 3 no result; 4 provider failed; 5 stale result;
+#       6 empty result; 7 the result is fresh and non-empty but is not a finished
+#       closure review - malformed JSON, a declared incomplete, or a review of a
+#       different task or a different contract than the host supplied.
+#
+# 2026-09-21: the reviewer now declares its verdict in one JSON object rather
+# than in prose. $JOB.result.json is what the provider wrote and the only
+# decision source; $JOB.report.md is derived from it after validation, for
+# people. Nothing falls back to the Markdown recogniser, which lives on as
+# jobs/legacy_closure_markdown.py for reading reports written before today.
 set -u
 
 JOB="$1"; TASK="$2"; COMMIT="$3"; PREV="$4"; shift 4
@@ -44,6 +51,10 @@ PATHS="$HELPERS/../nsc_paths.py"
 ROOT="$(python -B "$PATHS" --get work)/codex-jobs" || { echo "cannot resolve the work root" >&2; exit 2; }
 REPO="$(python -B "$PATHS" --get canonical)" || { echo "cannot resolve the canonical checkout" >&2; exit 2; }
 CLONE="$ROOT/$JOB"; PROMPT="$ROOT/$JOB.prompt.md"; REPORT="$ROOT/$JOB.report.md"
+# The reviewer's own output is now one JSON object, and it is the only decision
+# source. RESULT holds it verbatim. REPORT is DERIVED from it after validation -
+# a human view, written by the checker, that no tool reads a verdict out of.
+RESULT="$ROOT/$JOB.result.json"
 
 CODEX="$(python -B "$HELPERS/resolve_codex.py")" || {
   echo "no usable codex binary; see above" >&2; exit 2; }
@@ -59,10 +70,13 @@ for extra in "$@"; do
   git -C "$REPO" show "$COMMIT:$extra" > "$CLONE/REVISED_$(basename "$extra")" || exit 2
 done
 
-# Move any earlier report aside, so a leftover can never be mistaken for this run's output.
-if [ -e "$REPORT" ]; then
-  mv "$REPORT" "$REPORT.superseded-$(date -u +%Y%m%dT%H%M%SZ)"
-fi
+# Move any earlier output aside, so a leftover can never be mistaken for this
+# run's. Both files: a stale derived REPORT beside a fresh RESULT would be the
+# same trap one level along.
+SUPERSEDED="$(date -u +%Y%m%dT%H%M%SZ)"
+for _stale in "$REPORT" "$RESULT"; do
+  [ -e "$_stale" ] && mv "$_stale" "$_stale.superseded-$SUPERSEDED"
+done
 STARTED_AT="$(python -B -c 'import time; print(time.time())')"
 
 echo "[START] $JOB $(date -u +%FT%TZ) clone at $(git -C "$CLONE" rev-parse --short HEAD), revised $(git -C "$REPO" rev-parse --short "$COMMIT"), previous $(git -C "$REPO" rev-parse --short "$PREV")"
@@ -70,13 +84,16 @@ echo "[CODEX] $CODEX ($("$CODEX" --version 2>&1 | head -1)) model=$MODEL"
 
 "$CODEX" exec --sandbox read-only --cd "$CLONE" --skip-git-repo-check \
   -m "$MODEL" -c model_reasoning_effort=high --color never \
-  --output-last-message "$REPORT" - < "$PROMPT" > "$ROOT/$JOB.log" 2>&1
+  --output-last-message "$RESULT" - < "$PROMPT" > "$ROOT/$JOB.log" 2>&1
 rc=$?
 echo "[DONE] $JOB provider exit $rc $(date -u +%FT%TZ)"
 
+# Guards the RESULT now, not the derived view: provider exit status, freshness
+# and emptiness are properties of what the provider actually wrote. Provider
+# failure still wins even when the bytes happen to be valid JSON.
 python -B "$HELPERS/check_job_result.py" \
-  --rc "$rc" --report "$REPORT" --started-at "$STARTED_AT" \
-  --verdict-grep "Final recommendation"
+  --rc "$rc" --report "$RESULT" --started-at "$STARTED_AT" \
+  --verdict-grep '"recommendation"'
 status=$?
 
 if [ "$status" -ne 0 ]; then
@@ -98,8 +115,9 @@ fi
 # --contract binds the verdict to the exact bytes the reviewer was given.
 # Without it any 16 hex characters satisfied the identity line, so a review of a
 # DIFFERENT revision read as a clean pass (Astra release review of 17cf1f4c5).
-python -B "$HELPERS/check_closure_report.py" --report "$REPORT" \
-  --contract "$CLONE/REVISED_CONTRACT.json"
+python -B "$HELPERS/check_closure_report.py" --result "$RESULT" \
+  --contract "$CLONE/REVISED_CONTRACT.json" --task "$TASK" \
+  --report-out "$REPORT"
 closure=$?
 if [ "$closure" -ne 0 ]; then
   echo "[INCOMPLETE] $JOB - the provider succeeded but did not finish the review" >&2
