@@ -269,5 +269,52 @@ class TheRunnerSpellsNoMachine(unittest.TestCase):
                              f"{spelling} is spelled in the one command CI runs")
 
 
+class StreamOrderIsRealNotReconstructed(Fixture):
+    """Astra round 3, finding 3 - a defect I introduced while fixing round 2.
+
+    Capturing stdout and stderr separately and then concatenating or joining
+    them puts ALL stdout after ALL stderr regardless of when either was
+    written. "The last summary" then means "the last one in the reassembled
+    text", which is not the last thing that happened, so a suite that shells
+    out to another can have the INNER result win.
+
+    The fix was to stop reconstructing order and merge at the pipe. These
+    fixtures write two real files: the inner suite reports on stderr first,
+    the outer prints its own summary to stdout afterwards.
+    """
+
+    def nested_suites(self):
+        inner = self.tmp / "inner_suite.py"
+        inner.write_text(
+            "import unittest\n"
+            "class Inner(unittest.TestCase):\n"
+            "    def test_inner(self):\n"
+            "        pass\n"
+            "unittest.main(exit=False)\n", encoding="utf-8")
+
+        outer = self.tmp / "suite_under_test.py"
+        outer.write_text(
+            "import subprocess, sys\n"
+            f"subprocess.run([sys.executable, '-B', r'{inner}'])\n"
+            "print('-' * 70)\n"
+            "print('Ran 1 test in 0.00s')\n"
+            "print('')\n"
+            "print('OK (skipped=1)')\n", encoding="utf-8")
+        return outer
+
+    def test_the_outer_suites_skip_is_not_lost_behind_an_inner_result(self):
+        run_tool_tests.NO_SKIPS = True
+        ok, tests, detail = self.run_it(self.nested_suites())
+        self.assertFalse(ok, "the outer suite's skip was hidden by the inner suite")
+        self.assertIn("1 test(s) skipped", detail)
+
+    def test_the_same_nesting_passes_when_skips_are_allowed(self):
+        run_tool_tests.NO_SKIPS = False
+        ok, _, detail = self.run_it(self.nested_suites())
+        self.assertTrue(ok, detail)
+        self.assertEqual(detail, "1 skipped",
+                         "the OUTER suite's count is the suite's count")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

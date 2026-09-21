@@ -22,11 +22,20 @@ Exit: 0 every mutation killed by the test that names it; 1 otherwise.
 """
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
+
+# unittest prints "FAIL: test_x (__main__.Class.test_x)" for a failure and
+# "ERROR: ..." for an error. Astra round 3: the earlier check asked whether the
+# intended test's NAME appeared anywhere in the output, and verbose unittest
+# prints PASSING names too - so a mutation killed by some other test was
+# reported as killed by the right one. A substring standing in for a fact, in
+# the harness whose whole job is to prove the tests can fail.
+FAILED_TEST = re.compile(r"^(?:FAIL|ERROR): (\S+)", re.MULTILINE)
 
 HERE = Path(__file__).resolve().parent
 JOBS = HERE.parent
@@ -46,8 +55,8 @@ TOOL_FILE, TEMPLATE_FILE = "tool", "template"
 # two fence/quote cases first passed.
 MUTATIONS = [
     (TOOL_FILE, "block quotes read as the report speaking",
-     "        if QUOTE.match(line):\n            continue",
-     "        if False:\n            continue",
+     "        if QUOTE.match(line):\n            quoting = True\n            continue",
+     "        if False:\n            quoting = True\n            continue",
      "test_a_verdict_inside_a_block_quote_is_an_example_not_a_verdict"),
 
     (TOOL_FILE, "fenced blocks read as the report speaking",
@@ -74,6 +83,27 @@ MUTATIONS = [
      'HEX16 = re.compile(r"^[0-9a-fA-F]{16}$")',
      'HEX16 = re.compile(r"[0-9a-fA-F]{16}")',
      "test_an_overlong_hash_is_not_a_contract_identity"),
+
+    # Round 3: three more example containers and one regression.
+    (TOOL_FILE, "round 3: indented lines read as report fields",
+     "        if INDENTED.match(line):\n            continue",
+     "        if False:\n            continue",
+     "test_an_indented_code_block_is_an_example_not_a_verdict"),
+
+    (TOOL_FILE, "round 3: lazy blockquote continuation read as a field",
+     "        if quoting:\n            continue",
+     "        if False:\n            continue",
+     "test_a_lazy_blockquote_continuation_is_still_inside_the_quote"),
+
+    (TOOL_FILE, "round 3: a blank line no longer ends the quote's paragraph",
+     "            quoting = False          # a blank line ends the quote's paragraph",
+     "            pass                     # a blank line ends the quote's paragraph",
+     "test_a_blank_line_ends_the_lazy_continuation"),
+
+    (TOOL_FILE, "round 3 regression: the recommendation is not lower-cased",
+     "        value = stated_value(rest).lower()",
+     "        value = stated_value(rest)",
+     "test_an_uppercase_recommendation_is_accepted"),
 
     # The template is half the defect: a reviewer echoing it faithfully
     # produced two of Astra's counterexamples. These two prove the binding
@@ -147,12 +177,14 @@ def main() -> int:
             finally:
                 path.write_text(text, encoding="utf-8")
 
+            failed = set(FAILED_TEST.findall(output))
             if code == 0:
                 print(f"SURVIVED     {what}")
                 survivors.append(what)
-            elif must_die not in output:
+            elif must_die not in failed:
                 print(f"WRONG TEST   {what}")
-                print(f"             {must_die} was expected to fail and did not")
+                print(f"             expected {must_die} to fail; what failed was "
+                      f"{', '.join(sorted(failed)) or 'nothing identifiable'}")
                 survivors.append(f"{what} (killed by the wrong test)")
             else:
                 print(f"killed       {what}")

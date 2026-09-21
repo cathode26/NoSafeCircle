@@ -128,17 +128,20 @@ def run_one(suite: Path, cwd: Path, extra_path: Path | None, timeout: int):
         env["PYTHONPATH"] = os.pathsep.join(
             [str(extra_path)] + ([env["PYTHONPATH"]] if env.get("PYTHONPATH") else []))
     try:
+        # Merged at the pipe, not reassembled afterwards. Astra round 3: both
+        # concatenating and joining the two captured streams put ALL stdout
+        # before ALL stderr, which destroys execution order - so a nested
+        # suite's inner summary could appear after the outer one and win the
+        # "last summary" rule below. Ordering has to be real, not inferred.
         proc = subprocess.run(
             [sys.executable, "-B", str(suite)], cwd=str(cwd), env=env,
-            capture_output=True, text=True, timeout=timeout,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, timeout=timeout,
         )
     except subprocess.TimeoutExpired:
         return False, 0, f"timed out after {timeout}s"
 
-    # Joined rather than concatenated: unittest writes its summary to stderr, and
-    # a stdout that ends without a newline would otherwise glue the first stderr
-    # line onto it and defeat the line anchors below.
-    text = "\n".join(part for part in (proc.stdout, proc.stderr) if part)
+    text = proc.stdout or ""
     tests, verdict, counts = terminal_summary(text)
     skipped = counts.get("skipped", 0)
 

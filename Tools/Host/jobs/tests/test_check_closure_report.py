@@ -446,5 +446,98 @@ class TheTemplateAndTheCheckerMustAgree(Base):
                                  "echoing it has not chosen anything")
 
 
+class AstraRound3Counterexamples(Base):
+    """Astra's review of `76ce3aec2`. Round 2's fix was still too narrow.
+
+    Its root cause, for the third time running: the checker "recognizes
+    selected Markdown patterns, rather than establishing whether a field
+    belongs to the actual report". Round 2 excluded fenced blocks and block
+    quotes - two example containers out of at least four.
+
+    The fix does not add the missing two. It inverts the question to one with a
+    closed answer: a field line is where the TEMPLATE puts one - column 0,
+    outside every fence, not in a quote or its lazy continuation. Surveyed
+    before tightening: 126 of 127 field lines in 70 real reports are at column
+    0, and the exception is an indented bullet discussing the format.
+    """
+
+    def test_an_indented_code_block_is_an_example_not_a_verdict(self):
+        """Four-space indentation is a CommonMark code block.
+
+        Asserting only that complete is False would pass for the wrong reason
+        if the rule were removed, so this asserts the report was found to hold
+        NO verdict rather than a misplaced one.
+        """
+        text = ("The review did not run. Example only:\n"
+                "\n"
+                f"    Revised contract sha256 (first 16 hex): {SHA}\n"
+                "    Final recommendation: commit_contract\n")
+        result = inspect(text)
+        self.assertFalse(result["complete"])
+        self.assertIn("no final recommendation", result["missing"])
+        self.assertIn("no contract identity (sha256 first 16 hex)", result["missing"])
+
+    def test_a_single_space_of_indentation_is_already_not_a_field(self):
+        """Fails closed below the four-space threshold.
+
+        One to three spaces is not a code block in CommonMark, but it is not
+        where the template puts a field either, and deciding which it is would
+        be the recognition problem over again.
+        """
+        text = (f" Revised contract sha256 (first 16 hex): {SHA}\n"
+                " Final recommendation: revise\n")
+        result = inspect(text)
+        self.assertFalse(result["complete"])
+        self.assertIn("no final recommendation", result["missing"])
+
+    def test_a_lazy_blockquote_continuation_is_still_inside_the_quote(self):
+        """CommonMark: an unmarked line continues the quote's paragraph.
+
+        The identity here is a REAL field at column 0, so the report cannot be
+        refused for lacking one - which is how my first attempt at this fixture
+        passed for the wrong reason.
+        """
+        text = (f"Revised contract sha256 (first 16 hex): {SHA}\n"
+                "> I could not review this task, so here is the shape only:\n"
+                "Final recommendation: commit_contract\n")
+        result = inspect(text)
+        self.assertFalse(result["complete"])
+        self.assertIn("no final recommendation", result["missing"])
+
+    def test_a_blank_line_ends_the_lazy_continuation(self):
+        """The quote's paragraph ends, so the next line IS the report again."""
+        text = (f"Revised contract sha256 (first 16 hex): {SHA}\n"
+                "> quoting the template here\n"
+                "\n"
+                "Final recommendation: revise\n")
+        result = inspect(text)
+        self.assertTrue(result["complete"], result["missing"])
+        self.assertEqual(result["recommendation"], "revise")
+
+    def test_an_uppercase_recommendation_is_accepted(self):
+        """A regression I introduced: this passed at 08c3ff8ea and broke here.
+
+        Round 2 confirmed case tolerance correct. The round-2 fix compared the
+        value before normalising it, and the existing case test covers the
+        HASH, not the recommendation - so nothing caught it.
+        """
+        text = (f"Revised contract sha256 (first 16 hex): {SHA}\n"
+                "Final recommendation: COMMIT_CONTRACT\n")
+        result = inspect(text)
+        self.assertTrue(result["complete"], result["missing"])
+        self.assertEqual(result["recommendation"], "commit_contract",
+                         "the value is returned normalised, not as written")
+
+    def test_a_mixed_case_recommendation_is_accepted(self):
+        text = (f"Revised contract sha256 (first 16 hex): {SHA}\n"
+                "**Final Recommendation:** Revise\n")
+        self.assertEqual(inspect(text)["recommendation"], "revise")
+
+    def test_the_real_footer_still_passes_at_column_zero(self):
+        """The tightening must not cost the ordinary case."""
+        result = inspect("...the review...\n\n" + GOOD_TAIL)
+        self.assertTrue(result["complete"], result["missing"])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

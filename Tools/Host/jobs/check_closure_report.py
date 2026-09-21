@@ -85,6 +85,7 @@ RECOMMENDATION = re.compile(r"final\s+recommendation\s*\**\s*:", re.IGNORECASE)
 # the safe direction.
 FENCE = re.compile(r"^\s{0,3}(`{3,}|~{3,})\s*(.*)$")
 QUOTE = re.compile(r"^\s{0,3}>")
+INDENTED = re.compile(r"^[ \t]")
 
 HEX16 = re.compile(r"^[0-9a-fA-F]{16}$")
 
@@ -97,17 +98,29 @@ def contract_sha16(data: bytes) -> str:
 def report_lines(text: str) -> dict[int, str]:
     """Line number -> content, for the lines that are the report SPEAKING.
 
-    Fenced blocks and block quotes are where a report shows you something -
-    the template it was given, a bad example, the format it was asked for.
-    Excluding them is the difference between reading a document and searching
-    a string, and it is what makes "a verdict inside an example" stop being a
-    special case that needs its own rule.
+    Astra round 3 rejected the earlier version of this for enumerating example
+    containers: it excluded fenced blocks and block quotes, and an INDENTED
+    code block and a LAZY BLOCKQUOTE CONTINUATION both still delivered
+    actionable verdicts. Adding two more patterns would have been the round-1
+    mistake for the third time, because the set of things that look like an
+    example is open-ended.
+
+    So the question is inverted. Not "is this inside something example-shaped?"
+    but "is this where the template puts a field?" - column 0, outside every
+    fence, not in a block quote or its lazy continuation. That set is closed
+    and it is defined by the format we hand out, not by Markdown trivia.
+
+    Surveyed before tightening: of 127 field lines across 70 real reports, 126
+    are at column 0. The one exception is an indented bullet discussing the
+    format, which this must exclude anyway.
     """
     speaking: dict[int, str] = {}
     fence: tuple[str, int] | None = None
+    quoting = False
 
     for number, line in enumerate(text.splitlines()):
         opener = FENCE.match(line)
+
         if fence is not None:
             if (opener and opener.group(1)[0] == fence[0]
                     and len(opener.group(1)) >= fence[1]
@@ -116,9 +129,20 @@ def report_lines(text: str) -> dict[int, str]:
             continue
         if opener:
             fence = (opener.group(1)[0], len(opener.group(1)))
+            quoting = False
             continue
+
         if QUOTE.match(line):
+            quoting = True
             continue
+        if not line.strip():
+            quoting = False          # a blank line ends the quote's paragraph
+            continue
+        if quoting:
+            continue                 # lazy continuation: still inside the quote
+        if INDENTED.match(line):
+            continue                 # an example, or continuation text - not a field
+
         speaking[number] = line
 
     return speaking
@@ -196,7 +220,11 @@ def inspect(text: str, expected_sha16: str | None = None) -> dict:
                            "times; a verdict is stated once")
     else:
         number, rest = recommendations[0]
-        value = stated_value(rest)
+        # Lower-cased before the comparison. Astra round 2 confirmed case
+        # tolerance correct; round 3 caught that this branch had lost it, so
+        # COMMIT_CONTRACT passed at 08c3ff8ea and failed here. A regression
+        # introduced by the fix, which is what a reviewer is for.
+        value = stated_value(rest).lower()
         if value not in RECOMMENDATIONS:
             missing.append(f"final recommendation {value!r} is not one of "
                            + ", ".join(RECOMMENDATIONS))
