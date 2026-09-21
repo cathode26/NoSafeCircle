@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 """Tests for check_closure_report.py.
 
-Two rounds of findings are pinned here.
+Three rounds of findings are pinned here, and each round found the previous
+round's fix too narrow. That pattern is the reason AstraRound2Counterexamples
+exists as a class rather than as seven scattered cases.
 
 Main-Commit-Review 20260920-180652, finding 2: a fresh, non-empty report saying
 "I could not review this task. Please retry later." passed every generic check
@@ -25,7 +27,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from check_closure_report import contract_sha16, inspect, main  # noqa: E402
+from check_closure_report import (  # noqa: E402
+    RECOMMENDATION, contract_sha16, inspect, main,
+)
 
 SHA = "0123456789abcdef"
 GOOD_TAIL = (f"Revised contract sha256 (first 16 hex): {SHA}\n"
@@ -105,7 +109,13 @@ class OneVerdictOrNone(Base):
 
 
 class TheVerdictMustBeTheEnd(Base):
-    """Astra finding 1b: a refusal after a well-formed footer still passed."""
+    """Astra round 1, finding 1b: a refusal after a well-formed footer passed.
+
+    The round-1 fix allowed the verdict anywhere in the last three non-empty
+    lines, so that a short sign-off would still pass. Round 2 found a one-line
+    retraction sitting in that same window. The window is gone: the verdict is
+    the last line or it is not the verdict.
+    """
 
     def test_a_refusal_after_the_footer_is_not_a_completed_review(self):
         text = (GOOD_TAIL
@@ -116,13 +126,24 @@ class TheVerdictMustBeTheEnd(Base):
                 + "Please re-run the job.\n")
         result = inspect(text)
         self.assertFalse(result["complete"], "trailing text walked the verdict back")
-        self.assertIn("closing lines", " ".join(result["missing"]))
+        self.assertIn("last line", " ".join(result["missing"]))
 
     def test_an_ordinary_report_ending_in_its_footer_is_fine(self):
         self.assertTrue(inspect("...the review...\n\n" + GOOD_TAIL)["complete"])
 
-    def test_a_short_sign_off_after_the_footer_is_tolerated(self):
-        self.assertTrue(inspect("...\n" + GOOD_TAIL + "\nReviewed by Astra.\n")["complete"])
+    def test_even_a_harmless_sign_off_after_the_footer_is_refused(self):
+        """Round 1 tolerated this, and that tolerance was the defect.
+
+        A checker reading text cannot tell a courtesy from a retraction - both
+        are one short line after a well-formed footer. Round 2 walked in
+        through exactly this allowance, so the allowance goes. The cost is
+        real and accepted: a report signed off politely is refused, and the
+        reviewer is told to end at the verdict.
+        """
+        result = inspect("...\n" + GOOD_TAIL + "\nReviewed by Astra.\n")
+        self.assertFalse(result["complete"])
+        self.assertIn("Reviewed by Astra.", " ".join(result["missing"]),
+                      "the refusal must quote what it found after the verdict")
 
 
 class TheIdentityMustBeTheContractUnderReview(Base):
@@ -213,6 +234,18 @@ class HalfFinishedReports(Base):
     def test_a_short_hash_is_not_a_contract_identity(self):
         self.assertFalse(inspect(GOOD_TAIL.replace(SHA, "0123abc"))["complete"])
 
+    def test_an_overlong_hash_is_not_a_contract_identity(self):
+        """Not on Astra's list; found while making the identity exact.
+
+        A 16-of-N match anywhere in the line succeeds on a 17-character hex
+        string - the scan starts one character later and the word boundary
+        lands at the end - so a mistyped identity silently bound to a contract
+        nobody named.
+        """
+        result = inspect(GOOD_TAIL.replace(SHA, SHA + "0"))
+        self.assertFalse(result["complete"])
+        self.assertIn("sixteen hex characters", " ".join(result["missing"]))
+
     def test_an_empty_report_is_incomplete(self):
         self.assertFalse(inspect("")["complete"])
 
@@ -228,6 +261,189 @@ class Tolerance(Base):
 
     def test_an_unreadable_report_exits_2_not_7(self):
         self.assertEqual(main(["--report", str(self.tmp / "absent.md")]), 2)
+
+
+class AstraRound2Counterexamples(Base):
+    """Astra's re-review of `08c3ff8ea`, finding 1 (BLOCKING).
+
+    Every one of these returned complete=True, and each carries the CORRECT
+    contract hash, so none of them is caught by the --contract binding.
+
+    The root cause Astra named is the useful part: both checkers "recognise
+    matching text fragments rather than establishing an unambiguous result".
+    These are therefore not seven new patterns to special-case. They are seven
+    shapes that a structural parse refuses without being told about any of
+    them, and adding a rule per shape here would be the round-1 mistake again.
+    """
+
+    def test_a_one_line_retraction_after_the_footer_is_refused(self):
+        """The case the round-1 regression missed, so it is written first.
+
+        TheVerdictMustBeTheEnd appends FIVE lines, which pushes the verdict out
+        of a three-line window - so it proves the window, not the retraction.
+        One line stays inside the window and passed. A verdict that is not the
+        last word is not the verdict.
+        """
+        text = GOOD_TAIL + "Disregard the recommendation above.\n"
+        result = inspect(text)
+        self.assertFalse(result["complete"], "a one-line retraction walked it back")
+
+    def test_a_two_line_retraction_after_the_footer_is_refused(self):
+        text = GOOD_TAIL + "Disregard the above.\nPlease re-run this job.\n"
+        self.assertFalse(inspect(text)["complete"])
+
+    def test_a_verdict_inside_a_fenced_block_is_an_example_not_a_verdict(self):
+        """Assert the REASON, not just the refusal.
+
+        Asserting complete is False would pass with the fence rule removed:
+        the trailing line makes the verdict non-terminal, so the report is
+        refused either way and the mutation survives. The claim being made
+        here is that the fenced verdict was never SEEN - so the refusal must
+        be "there is no verdict", never "your verdict is misplaced".
+        """
+        text = ("Here is the shape I was asked to produce:\n"
+                "\n"
+                "```\n"
+                f"Revised contract sha256 (first 16 hex): {SHA}\n"
+                "Final recommendation: commit_contract\n"
+                "```\n"
+                "\n"
+                "I could not review this task.\n")
+        result = inspect(text)
+        self.assertFalse(result["complete"], "a fenced example is not a verdict")
+        self.assertIn("no final recommendation", result["missing"])
+        self.assertIn("no contract identity (sha256 first 16 hex)", result["missing"])
+
+    def test_a_verdict_inside_a_block_quote_is_an_example_not_a_verdict(self):
+        """Same claim, same reason: quoted lines are shown, not stated."""
+        text = ("The template asks for:\n"
+                f"> Revised contract sha256 (first 16 hex): {SHA}\n"
+                "> Final recommendation: commit_contract\n"
+                "\n"
+                "I could not review this task.\n")
+        result = inspect(text)
+        self.assertFalse(result["complete"], "a quoted example is not a verdict")
+        self.assertIn("no final recommendation", result["missing"])
+        self.assertIn("no contract identity (sha256 first 16 hex)", result["missing"])
+
+    def test_an_unclosed_fence_swallows_the_rest_and_the_review_is_refused(self):
+        """A truncated report must not be completed by accident.
+
+        Nothing closes the fence, so every later line is inside an example -
+        including the footer. Refusing is the safe direction, and pinning it
+        means a future tolerance for unterminated fences has to argue with a
+        test.
+        """
+        text = ("Here is the shape I was asked to produce:\n"
+                "\n"
+                "```\n"
+                f"Revised contract sha256 (first 16 hex): {SHA}\n"
+                "Final recommendation: commit_contract\n")
+        result = inspect(text)
+        self.assertFalse(result["complete"])
+        self.assertIn("no final recommendation", result["missing"])
+
+    def test_the_echoed_options_line_is_not_a_choice(self):
+        """The template's own line, handed back without choosing from it."""
+        text = (f"Revised contract sha256 (first 16 hex): {SHA}\n"
+                "Final recommendation: commit_contract | "
+                "commit_contract_then_decompose | revise\n")
+        self.assertFalse(inspect(text)["complete"], "listing options is not choosing")
+
+    def test_a_recommendation_name_must_end_where_the_name_ends(self):
+        text = (f"Revised contract sha256 (first 16 hex): {SHA}\n"
+                "Final recommendation: commit_contract2\n")
+        result = inspect(text)
+        self.assertFalse(result["complete"])
+        self.assertIn("commit_contract2", " ".join(result["missing"]),
+                      "the refusal must name the value it read")
+
+    def test_the_same_identity_stated_twice_is_refused(self):
+        """Counted by occurrence, not by distinct value.
+
+        Two lines claiming the same contract are two claims. The round-1 check
+        compared a set, so it only noticed disagreement.
+        """
+        text = (f"Revised contract sha256 (first 16 hex): {SHA}\n"
+                f"Revised contract sha256 (first 16 hex): {SHA}\n"
+                "Final recommendation: revise\n")
+        self.assertFalse(inspect(text)["complete"], "two identity lines are two claims")
+
+    def test_none_of_these_are_caught_by_the_hash_binding(self):
+        """Astra reproduced every counterexample with the RIGHT hash.
+
+        Pinned so a successor does not "fix" these by tightening the binding,
+        which Astra confirmed is already correct.
+        """
+        data = b'{"task": "NSC-001", "revision": 7}'
+        real = contract_sha16(data)
+        text = (f"Revised contract sha256 (first 16 hex): {real}\n"
+                "Final recommendation: commit_contract\n"
+                "Disregard the recommendation above.\n")
+        result = inspect(text, expected_sha16=real)
+        self.assertFalse(result["complete"])
+        self.assertNotIn("different bytes", " ".join(result["missing"]),
+                         "this must fail on structure, not on the hash")
+
+
+class TheTemplateAndTheCheckerMustAgree(Base):
+    """The round-2 defect had a second half: the format the reviewer is GIVEN.
+
+    contract-closure-review-prompt.md ended with a parenthetical AFTER the
+    recommendation and showed all three options ON the recommendation line, so
+    a reviewer echoing it faithfully produced two of Astra's counterexamples.
+    A checker cannot demand a terminal, single-valued verdict while the
+    template it hands out shows neither, and nothing in the repository
+    connected the two files.
+
+    This class is that connection.
+    """
+
+    TEMPLATE = (Path(__file__).resolve().parent.parent.parent
+                / "codex-jobs" / "templates" / "contract-closure-review-prompt.md")
+
+    def final_message(self) -> str:
+        text = self.TEMPLATE.read_text(encoding="utf-8")
+        _, found, block = text.partition("FINAL MESSAGE")
+        self.assertTrue(found, f"no FINAL MESSAGE section in {self.TEMPLATE}")
+        _, _, block = block.partition("\n")
+        self.assertIn("sha256", block, "the FINAL MESSAGE section lost its identity line")
+        return block
+
+    def filled(self) -> str:
+        """The block a compliant reviewer would produce from it."""
+        out = []
+        for line in self.final_message().splitlines():
+            if RECOMMENDATION.search(line):
+                line = "Final recommendation: revise"
+            out.append(line.replace("<16 hex characters>", SHA))
+        return "\n".join(out)
+
+    def test_the_template_is_where_this_test_looks_for_it(self):
+        self.assertTrue(self.TEMPLATE.is_file(), self.TEMPLATE)
+
+    def test_the_documented_final_message_passes_the_checker(self):
+        result = inspect(self.filled())
+        self.assertTrue(result["complete"],
+                        "the template asks reviewers for a report this checker "
+                        f"refuses: {result['missing']}")
+        self.assertEqual(result["recommendation"], "revise")
+        self.assertEqual(result["sha16"], SHA)
+
+    def test_nothing_in_the_template_follows_the_recommendation(self):
+        """The parenthetical that used to sit here is how round 2 got in."""
+        lines = [ln for ln in self.final_message().splitlines() if ln.strip()]
+        self.assertTrue(lines, "empty FINAL MESSAGE section")
+        self.assertTrue(RECOMMENDATION.search(lines[-1]),
+                        f"the template's last line is {lines[-1]!r}, not the verdict")
+
+    def test_the_template_does_not_show_the_options_as_the_value(self):
+        """Echoed verbatim, that line was Astra counterexample 3."""
+        for line in self.final_message().splitlines():
+            if RECOMMENDATION.search(line):
+                self.assertNotIn("|", line,
+                                 "the verdict line must not be a menu; a reviewer "
+                                 "echoing it has not chosen anything")
 
 
 if __name__ == "__main__":

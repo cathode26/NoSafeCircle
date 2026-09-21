@@ -39,7 +39,14 @@ RULES
 - Design decisions recorded in the contract or the decision files are settled; don't recommend a different design.
 - Don't invent game design. Where the GDD is silent, say so.
 
-FINAL MESSAGE (plain markdown, exactly these parts)
+HOW TO END
+- Choose `revise` only if a ledger item is UNRESOLVED as blocking or major, or a new task-local blocking or major finding exists.
+- Name exactly one recommendation, and do not repeat the list of options: a line listing all three is not a choice.
+- The recommendation is the LAST line of your message. Write nothing after it - no sign-off, no caveat, no correction, no re-run request. If you cannot complete the review, say so INSTEAD of giving a recommendation.
+- Do not put the two field lines inside a code fence or a block quote. A verdict shown as an example is not a verdict.
+- State the contract identity once.
+
+FINAL MESSAGE (plain markdown, exactly these parts, in this order)
 Revised contract sha256 (first 16 hex): <16 hex characters>
 Ledger:
 - L1: RESOLVED | UNRESOLVED | TRANSFERRED to <task/field> — <one line>
@@ -47,5 +54,4 @@ New findings (task-local, most severe first):
 - [blocking|major|minor] <field>: <concrete failure>; <why existing gates miss it>; <suggested fix>
 Downstream debt (informational):
 - <receiving task or doc>: <what it must change>
-Final recommendation: commit_contract | commit_contract_then_decompose | revise
-(Use revise only if a ledger item is UNRESOLVED as blocking or major, or a new task-local blocking or major finding exists.)
+Final recommendation: <one of commit_contract, commit_contract_then_decompose, revise>
