@@ -229,32 +229,17 @@ def recommendation(packet: pathlib.Path, task_id: str) -> str | None:
 
 
 def legacy_recommendation(packet: pathlib.Path) -> str | None:
-    """The pre-protocol grep, for packets written before the cutover only.
+    """The pre-protocol read, for packets written before the cutover only.
 
     Reachable solely from the LegacyPacket branch above. Kept because packets on
-    disk still have this shape; not kept as a fallback.
+    disk still have this shape; not kept as a fallback. The grep itself lives in
+    ger_round.legacy_round_recommendation, which apply_contract also calls - it
+    used to be implemented separately in both files.
     """
     output = packet / "04-claude-reaudit" / "OUTPUT.md"
     if not output.is_file():
         return None
-    text = output.read_text(encoding="utf-8")
-    if review_result.DERIVED_VIEW_MARKER in text:
-        # Unreachable for a v2 packet, which is caught by protocol before it gets
-        # here - but a derived view must not be legible to ANY legacy reader,
-        # wherever that reader lives. Astra MJ-P2-01 was exactly this shape one
-        # module over, and the reason it worked there was that the guard existed
-        # in only one of the two places a rendered view is read.
-        log("04-claude-reaudit/OUTPUT.md is a derived view, not a legacy report")
-        return None
-    tail = text[text.lower().rfind("final recommendation"):] if "final recommendation" in text.lower() else text
-    # The earliest option named after the heading wins. List order must not decide: a needs_design
-    # verdict can go on to say that a later re-audit could recommend commit_contract.
-    found = None
-    for word in sorted(RECOMMENDATIONS, key=len, reverse=True):
-        index = tail.find(word)
-        if index >= 0 and (found is None or index < found[0]):
-            found = (index, word)
-    return found[1] if found else None
+    return ger_round.legacy_round_recommendation(output.read_text(encoding="utf-8"))
 
 
 def main() -> int:

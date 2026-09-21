@@ -43,18 +43,26 @@ ROUNDS = {
     "06-claude-recheck": ("claude", ["03-codex-refine", "04-claude-reaudit", "05-owner-patch"]),
 }
 
-# Rounds whose output is a DECISION another tool acts on, mapped to the round
-# whose OUTPUT.md bytes they reviewed. These must declare their verdict as one
-# JSON object; the rest are drafting and refining steps, read by people and by
-# the next prompt, where there is no verdict to misread.
+# Rounds whose output is a DECISION another tool acts on, mapped to the exact
+# artifact they reviewed as (directory, filename). These must declare their
+# verdict as one JSON object; the rest are drafting and refining steps, read by
+# people and by the next prompt, where there is no verdict to misread.
 #
-# The artifact each one is bound to is the handoff's, not a guess: GER04 reviews
-# the exact 03-codex-refine/OUTPUT.md bytes, which contain the candidate, and
-# GER06 the exact 05-owner-patch/OUTPUT.md bytes. Neither of those is itself a
-# decision round, so nothing here rewrites an artifact another round is bound to.
+# Each binding is the handoff's, not a guess. Note round 08 reviews the revised
+# CONTRACT, not a round output - which is why this table carries a filename
+# rather than assuming OUTPUT.md, and why getting that wrong would bind a verdict
+# to the wrong bytes while still looking correct.
+#
+# None of the reviewed artifacts is itself a decision round, so nothing here
+# rewrites an artifact another round is bound to.
+#
+# 08 is listed although ger_round does not RUN it: ger_decision_revision imports
+# that round. The binding is shared knowledge, and a second copy of this table
+# beside the importer is exactly how the two would disagree.
 DECISION_ROUNDS = {
-    "04-claude-reaudit": "03-codex-refine",
-    "06-claude-recheck": "05-owner-patch",
+    "04-claude-reaudit": ("03-codex-refine", "OUTPUT.md"),
+    "06-claude-recheck": ("05-owner-patch", "OUTPUT.md"),
+    "08-claude-recheck": ("07-owner-decision-revision", "REVISED_CONTRACT.json"),
 }
 
 RESULT_FILE = "RESULT.json"
@@ -447,11 +455,12 @@ def check_run(run: dict, output: pathlib.Path) -> list[str]:
 
 def reviewed_artifact(packet: pathlib.Path, round_name: str) -> tuple[str, bytes]:
     """The exact bytes a decision round reviewed, and where they came from."""
-    prior = DECISION_ROUNDS[round_name]
-    path = packet / prior / "OUTPUT.md"
+    directory, filename = DECISION_ROUNDS[round_name]
+    source = f"{directory}/{filename}"
+    path = packet / directory / filename
     if not path.is_file():
-        raise ValueError(f"{round_name} reviews {prior}/OUTPUT.md, which is missing")
-    return f"{prior}/OUTPUT.md", path.read_bytes()
+        raise ValueError(f"{round_name} reviews {source}, which is missing")
+    return source, path.read_bytes()
 
 
 def render_output(result: review_result.ReviewResult, source: str) -> str:
@@ -512,6 +521,43 @@ def record_decision(round_dir: pathlib.Path, packet: pathlib.Path, round_name: s
         "reviewed": source,
         "reviewed_sha256": result.reviewed_artifact_sha256,
     }
+
+
+# The GER round vocabulary, in the order a legacy grep must consider it. Copied
+# from ger_node.RECOMMENDATIONS, which remains its declaration.
+LEGACY_ROUND_VERDICTS = ("commit_contract_then_decompose", "commit_contract",
+                         "needs_design", "blocked_not_design",
+                         "release_without_change")
+
+
+def legacy_round_recommendation(text: str) -> str | None:
+    """The PRE-PROTOCOL grep over a round's OUTPUT.md. For old packets only.
+
+    This existed twice, near-identically: `ger_node.recommendation` and
+    `apply_contract.final_recommendation` each implemented "find the last 'final
+    recommendation' heading, then let the earliest option word after it win".
+    Two copies of one rule is the shape that has produced five findings in this
+    family, so there is one now and both call it.
+
+    It refuses a derived view outright. That is unreachable through the current
+    callers, which check protocol first, but a rendered view must not be legible
+    to any legacy reader - Astra MJ-P2-01 happened precisely because the guard
+    existed in only one of the two places a view was read.
+    """
+    if review_result.DERIVED_VIEW_MARKER in text:
+        return None
+    lower = text.lower()
+    start = lower.rfind("final recommendation")
+    tail = text[start:] if start >= 0 else text
+    # The earliest option named after the heading wins. List order must not
+    # decide: a needs_design verdict can go on to say that a later re-audit could
+    # recommend commit_contract.
+    found = None
+    for word in sorted(LEGACY_ROUND_VERDICTS, key=len, reverse=True):
+        index = tail.find(word)
+        if index >= 0 and (found is None or index < found[0]):
+            found = (index, word)
+    return found[1] if found else None
 
 
 class LegacyPacket(Exception):

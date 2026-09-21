@@ -46,6 +46,14 @@ import re
 import subprocess
 import sys
 
+# ger_round owns the round layout, the decision bindings and the one reader;
+# review_result owns the protocol. Both are reachable in the tracked and the
+# deployed layout alike.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
+import ger_round  # noqa: E402
+import review_result  # noqa: E402
+
 import main_write
 
 REPO = pathlib.Path(r"C:\NSC\NSC\NoSafeCircle")
@@ -226,18 +234,37 @@ def append_created_groups(original: bytes, expected: dict, changes: list[dict], 
 
 
 def final_recommendation(text: str) -> str | None:
-    lower = text.lower()
-    start = lower.rfind("final recommendation")
-    tail = text[start:] if start >= 0 else text
-    # The earliest option named after the heading wins. List order must not decide: a needs_design
-    # verdict can go on to say that a later re-audit could recommend commit_contract.
-    found = None
-    options = COMMITTABLE + ("needs_design", "blocked_not_design", "release_without_change")
-    for word in sorted(options, key=len, reverse=True):
-        index = tail.find(word)
-        if index >= 0 and (found is None or index < found[0]):
-            found = (index, word)
-    return found[1] if found else None
+    """LEGACY. The pre-protocol grep, kept for packets written before the cutover.
+
+    The implementation moved to ger_round.legacy_round_recommendation, because
+    this function and ger_node's were two near-identical copies of one rule - the
+    shape that has produced five findings in this family. The name stays so old
+    callers and tests keep working.
+
+    New packets do not come through here. round_decision below reads the declared
+    verdict, and only a LegacyPacket falls back to this.
+    """
+    return ger_round.legacy_round_recommendation(text)
+
+
+def round_decision(packet: pathlib.Path, round_name: str, task_id: str) -> str | None:
+    """The verdict of a decision round: declared for v2 packets, grepped for old ones.
+
+    Refuses rather than guesses. A v2 packet whose RESULT.json does not validate
+    has NO verdict and must not fall through to the legacy grep - that would make
+    every guarantee the protocol buys available to bypass by emitting something
+    the loader rejects. The caller turns None into its own refusal.
+    """
+    try:
+        return ger_round.read_decision(packet, round_name, task_id).recommendation
+    except ger_round.LegacyPacket:
+        output = packet / round_name / "OUTPUT.md"
+        if not output.is_file():
+            return None
+        return final_recommendation(output.read_text(encoding="utf-8"))
+    except (ValueError, review_result.ReviewResultError) as error:
+        print(f"{round_name} carries no readable decision: {error}", file=sys.stderr)
+        return None
 
 
 POST_COMMIT_VERDICTS = ("commit_contract_then_decompose", "commit_contract", "revise")
@@ -275,20 +302,30 @@ def parse_post_commit_verdict(text: str) -> str | None:
     return found
 
 
-def resolve_post_commit_check(report_arg: pathlib.Path, commit_arg: str, task_id: str, error) -> dict:
+def resolve_post_commit_check(report_arg: pathlib.Path, commit_arg: str, task_id: str, error,
+                              legacy: bool = False) -> dict:
     """Validate --post-commit-check-report/--post-commit-check-commit and return the followup record.
 
     `error(message)` must not return (e.g. an ArgumentParser's bound `.error`); every refusal below
     goes through it, so on a refusal nothing is read further and nothing is written.
+
+    The commit is now resolved BEFORE the verdict is read, because the verdict's
+    binding needs it: a post-commit check reviews the exact Git blob
+    `Tasks/<task>.yaml` at the checked commit, and that is what the result must
+    declare. Reading the verdict first, as this did, meant the report's subject
+    was never checked against the commit it was filed against.
+
+    `legacy=True` selects the pre-cutover Markdown grep, and is the explicitly
+    labelled legacy path the handoff requires. It is a caller's declaration, not
+    something inferred from the bytes: a v2 result that fails to validate must
+    never be retried through the old reader, and sniffing the format is how that
+    rule gets quietly lost.
     """
     report_path = report_arg.resolve()
     if not report_path.is_file():
         error(f"--post-commit-check-report {report_path} does not exist")
     report_bytes = report_path.read_bytes()
-    verdict = parse_post_commit_verdict(report_bytes.decode("utf-8", errors="replace"))
-    if verdict is None:
-        error(f"--post-commit-check-report {report_path} has no 'Final recommendation: "
-              f"{' | '.join(POST_COMMIT_VERDICTS)}' line")
+
     resolved = git("rev-parse", "--verify", f"{commit_arg}^{{commit}}", check=False)
     if resolved.returncode != 0:
         error(f"--post-commit-check-commit {commit_arg!r} does not resolve to a commit in {REPO}")
@@ -298,8 +335,38 @@ def resolve_post_commit_check(report_arg: pathlib.Path, commit_arg: str, task_id
     touched = git("diff-tree", "--no-commit-id", "--name-only", "-r", checked_commit).stdout.decode().splitlines()
     if f"Tasks/{task_id}.yaml" not in touched:
         error(f"--post-commit-check-commit {checked_commit} did not change Tasks/{task_id}.yaml")
-    return {"report_path": str(report_path), "report_sha256": sha256(report_bytes),
-            "verdict": verdict, "checked_commit": checked_commit}
+
+    record = {"report_path": str(report_path), "report_sha256": sha256(report_bytes),
+              "checked_commit": checked_commit}
+
+    if legacy:
+        verdict = parse_post_commit_verdict(report_bytes.decode("utf-8", errors="replace"))
+        if verdict is None:
+            error(f"--post-commit-check-report {report_path} has no 'Final recommendation: "
+                  f"{' | '.join(POST_COMMIT_VERDICTS)}' line")
+        return {**record, "verdict": verdict, "protocol": "legacy-markdown"}
+
+    blob = git("show", f"{checked_commit}:Tasks/{task_id}.yaml", check=False)
+    if blob.returncode != 0:
+        error(f"cannot read Tasks/{task_id}.yaml at {checked_commit}")
+    try:
+        result = review_result.load(
+            report_bytes,
+            task_id=task_id,
+            review_kind="closure",
+            reviewed_artifact_kind="contract",
+            reviewed_artifact_sha256=sha256(blob.stdout),
+        )
+    except review_result.ReviewResultError as failure:
+        error(f"--post-commit-check-report {report_path} is not a valid closure result "
+              f"({failure.code}): {failure.message}")
+    if not result.is_complete:
+        # A declared non-finish is not a verdict. It is also not a refusal to
+        # commit that someone can argue with - the review simply did not happen.
+        error(f"--post-commit-check-report {report_path} declares the review "
+              f"incomplete; there is no verdict to record")
+    return {**record, "verdict": result.recommendation, "protocol": "json-v1",
+            "reviewed_artifact_sha256": result.reviewed_artifact_sha256}
 
 
 def final_contract(text: str) -> dict:
@@ -313,7 +380,8 @@ def final_contract(text: str) -> dict:
     return json.loads(match.group(1))
 
 
-def verify_owner_patch_and_recheck(packet: pathlib.Path, hashes: dict, reaudit_recommendation: str | None) -> dict:
+def verify_owner_patch_and_recheck(packet: pathlib.Path, hashes: dict, reaudit_recommendation: str | None,
+                                   task_id: str) -> dict:
     """An owner patch applies the re-audit's quoted replacements verbatim; a fresh re-check must approve it."""
     if reaudit_recommendation not in COMMITTABLE + ("blocked_not_design",):
         raise SystemExit(f"re-audit recommendation is {reaudit_recommendation!r}; an owner patch cannot resolve it")
@@ -336,7 +404,7 @@ def verify_owner_patch_and_recheck(packet: pathlib.Path, hashes: dict, reaudit_r
     recheck_meta = json.loads((packet / "06-claude-recheck" / "METADATA.json").read_text(encoding="utf-8"))
     if recheck_meta.get("input_sha256", {}).get("05-owner-patch/OUTPUT.md") != hashes["05-owner-patch"]:
         raise SystemExit("the 06 re-check did not review this owner patch")
-    recommendation = final_recommendation((packet / "06-claude-recheck" / "OUTPUT.md").read_text(encoding="utf-8"))
+    recommendation = round_decision(packet, "06-claude-recheck", task_id)
     if recommendation not in COMMITTABLE:
         raise SystemExit(f"re-check recommendation is {recommendation!r}; not committing")
     return {"recheck_recommendation": recommendation, "owner_patch_contract_sha256": sha256(patched)}
@@ -362,7 +430,7 @@ def verify_decision_revision_only(packet: pathlib.Path, hashes: dict) -> dict:
     return {"decision_revision_contract_sha256": sha256(revised)}
 
 
-def verify_decision_revision_and_recheck(packet: pathlib.Path, hashes: dict) -> dict:
+def verify_decision_revision_and_recheck(packet: pathlib.Path, hashes: dict, task_id: str) -> dict:
     """A decision revision applies recorded decisions and the re-audit's required changes; a fresh re-check must approve it."""
     for name in ("07-owner-decision-revision", "08-claude-recheck"):
         directory = packet / name
@@ -387,7 +455,7 @@ def verify_decision_revision_and_recheck(packet: pathlib.Path, hashes: dict) -> 
         raise SystemExit("the 08 re-check did not review this decision revision")
     if hashes["08-claude-recheck"] != recheck_meta.get("output_sha256"):
         raise SystemExit("08-claude-recheck/OUTPUT.md does not match its metadata")
-    recommendation = final_recommendation((packet / "08-claude-recheck" / "OUTPUT.md").read_text(encoding="utf-8"))
+    recommendation = round_decision(packet, "08-claude-recheck", task_id)
     if recommendation not in COMMITTABLE:
         raise SystemExit(f"re-check recommendation is {recommendation!r}; not committing")
     return {"recheck_recommendation": recommendation, "decision_revision_contract_sha256": sha256(revised)}
@@ -424,11 +492,11 @@ def main() -> int:
         if (directory / "FAILED.json").exists() or not (directory / "OUTPUT.md").is_file():
             raise SystemExit(f"round {name} is missing or failed")
         hashes[name] = sha256((directory / "OUTPUT.md").read_bytes())
-    reaudit_recommendation = final_recommendation((packet / "04-claude-reaudit" / "OUTPUT.md").read_text(encoding="utf-8"))
+    reaudit_recommendation = round_decision(packet, "04-claude-reaudit", task_id)
     recheck = None
     decision = None
     if (packet / "08-claude-recheck").exists():
-        decision = verify_decision_revision_and_recheck(packet, hashes)
+        decision = verify_decision_revision_and_recheck(packet, hashes, task_id)
         recommendation = decision["recheck_recommendation"]
     elif (packet / "07-owner-decision-revision").exists() and not (packet / "06-claude-recheck").exists():
         if not args.skip_recheck:
@@ -437,7 +505,7 @@ def main() -> int:
         decision["recheck_skipped"] = args.skip_recheck
         recommendation = "re-check skipped"
     elif (packet / "06-claude-recheck").exists():
-        recheck = verify_owner_patch_and_recheck(packet, hashes, reaudit_recommendation)
+        recheck = verify_owner_patch_and_recheck(packet, hashes, reaudit_recommendation, task_id)
         recommendation = recheck["recheck_recommendation"]
     else:
         recommendation = reaudit_recommendation

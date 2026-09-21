@@ -132,6 +132,11 @@ def main() -> int:
                         "covering a post-commit Codex contract check of an earlier commit; the verdict is "
                         "parsed from the report's own 'Final recommendation:' line")
     parser.add_argument("--post-commit-check-commit", metavar="SHA")
+    parser.add_argument("--post-commit-check-legacy", action="store_true",
+                        help="the report predates the JSON closure protocol and is read "
+                             "with the legacy Markdown parser. A declaration, never "
+                             "inferred: a new-format result that fails to validate is "
+                             "refused, never retried through the old reader.")
     parser.add_argument("--policy-filters-file", type=pathlib.Path,
                         help="JSON object mapping EditMode/PlayMode to a Unity test filter; sets or creates "
                         "the task's authoritative_validation_policy.json entry")
@@ -158,7 +163,8 @@ def main() -> int:
     post_commit_check = None
     if args.post_commit_check_report:
         post_commit_check = ac.resolve_post_commit_check(
-            args.post_commit_check_report, args.post_commit_check_commit, task_id, parser.error)
+            args.post_commit_check_report, args.post_commit_check_commit, task_id, parser.error,
+            legacy=args.post_commit_check_legacy)
     rel = f"Tasks/{task_id}.yaml"
     path = ac.REPO / rel
     extras = []
