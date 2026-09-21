@@ -146,59 +146,30 @@ def recheck(args: argparse.Namespace) -> int:
     # for a run that did not happen. The record says `provider_evidence:
     # imported` and names where it came from, which is what ger_round.check_record
     # requires of an import before it will read the decision.
-    if args.legacy:
-        # The explicitly labelled legacy path, for a report written before the
-        # cutover. A declaration by the caller, never inferred from the bytes.
-        #
-        # One exception, and it only ever REFUSES: a new-format result read with
-        # --legacy sails through both old checks by accident. Its
-        # reviewed_artifact_sha256 field contains the 16-hex prefix the identity
-        # check looks for, and the legacy grep finds `commit_contract` inside
-        # `"recommendation": "commit_contract"`. So a mislabelled JSON result
-        # would have its verdict read by a grep, which is precisely the
-        # cross-format confusion this protocol exists to remove. Refusing here is
-        # fail-closed; the forbidden direction is retrying a failed JSON parse as
-        # Markdown, and that remains impossible.
-        text = report.decode("utf-8", errors="replace")
-        try:
-            looks_like_json = isinstance(json.loads(text), dict)
-        except ValueError:
-            looks_like_json = False
-        if looks_like_json:
-            fail(round_dir, "--legacy was given a JSON document; a new-format result "
-                            "must be read as one, not grepped")
-        if revised_sha[:16] not in text:
-            raise SystemExit("the reviewer report does not name the reviewed contract "
-                             "(first 16 hex characters of its sha256)")
-        recommendation = apply_contract.final_recommendation(text)
-        if recommendation is None:
-            raise SystemExit("the reviewer report has no final recommendation")
-        review_status, protocol = "complete", "legacy-markdown"
+    def refuse(message: str):
+        # Every refusal leaves FAILED.json behind, so the attempt is recorded and
+        # the round directory stays reserved rather than free for a quiet retry.
+        fail(round_dir, message)
+
+    recommendation, protocol, result = apply_contract.read_imported_review(
+        report,
+        task_id=task_id,
+        review_kind="ger",
+        artifact_kind="ger_round_output",
+        reviewed_sha256=sha256(revised_bytes),
+        legacy=args.legacy,
+        legacy_reader=apply_contract.final_recommendation,
+        refuse=refuse)
+
+    if result is None:
+        review_status, result_sha = "complete", None
         (round_dir / "OUTPUT.md").write_bytes(report)
-        result_sha = None
     else:
-        try:
-            result = review_result.load(
-                report,
-                task_id=task_id,
-                review_kind="ger",
-                reviewed_artifact_kind="ger_round_output",
-                reviewed_artifact_sha256=sha256(revised_bytes),
-            )
-        except review_result.ReviewResultError as error:
-            fail(round_dir, f"the reviewer result is not valid ({error.code}): {error.message}")
-            raise SystemExit(f"the reviewer result is not valid ({error.code}): {error.message}")
-        if not result.is_complete:
-            fail(round_dir, "the reviewer declared the review incomplete")
-            raise SystemExit("the reviewer declared the review incomplete; there is "
-                             "no verdict to record")
-        recommendation = result.recommendation
-        review_status, protocol = result.review_status, "json-v1"
+        review_status, result_sha = result.review_status, sha256(report)
         (round_dir / ger_round.RESULT_FILE).write_bytes(report)
         (round_dir / "OUTPUT.md").write_text(
             ger_round.render_output(result, f"{BUILD}/REVISED_CONTRACT.json"),
             encoding="utf-8")
-        result_sha = sha256(report)
 
     metadata = {"round": RECHECK, "task_id": task_id, "created_at": utc_now(),
                 "reviewer": args.reviewer,

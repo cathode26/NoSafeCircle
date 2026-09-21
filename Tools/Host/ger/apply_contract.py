@@ -247,6 +247,65 @@ def final_recommendation(text: str) -> str | None:
     return ger_round.legacy_round_recommendation(text)
 
 
+def read_imported_review(raw: bytes, *, task_id: str, review_kind: str,
+                         artifact_kind: str, reviewed_sha256: str, legacy: bool,
+                         legacy_reader, refuse,
+                         legacy_requires_identity: bool = True) -> tuple[str, str, object | None]:
+    """A review handed over by a person, validated once for every caller.
+
+    Three places take a review the host did not run: ger_decision_revision's
+    round-08 recheck, apply_followup_revision's primary --report, and
+    resolve_post_commit_check. Each had its own version of "the report names the
+    first 16 hex characters somewhere in its prose, then grep it for a verdict",
+    and writing the second one was already a copy. This is the one.
+
+    Returns (verdict, protocol, validated result or None). `refuse(message)` must
+    not return.
+
+    `legacy` is the CALLER's declaration, never inferred - with one exception
+    that only ever refuses: a JSON document read with --legacy sails through both
+    old checks by accident, because its reviewed_artifact_sha256 field contains
+    the 16-hex prefix and the grep finds the verdict word inside
+    `"recommendation": "..."`. A mislabelled result would then have its verdict
+    read by a grep, which is the cross-format confusion the protocol removes. The
+    forbidden direction - retrying a failed JSON parse as Markdown - stays
+    impossible.
+    """
+    if legacy:
+        text = raw.decode("utf-8", errors="replace")
+        try:
+            looks_like_json = isinstance(json.loads(text), dict)
+        except ValueError:
+            looks_like_json = False
+        if looks_like_json:
+            refuse("a JSON document was given with the legacy flag; a new-format "
+                   "result must be read as one, not grepped")
+        # Only where the old format actually demanded it. The round-08 and
+        # followup paths required the reviewer to name the artifact; the
+        # post-commit check never did, and imposing it here retroactively would
+        # refuse genuinely historical reports - which is the one thing the legacy
+        # path exists to avoid. The JSON path binds properly for all three.
+        if legacy_requires_identity and reviewed_sha256[:16] not in text:
+            refuse("the report does not name the reviewed artifact (first 16 hex "
+                   "characters of its sha256)")
+        verdict = legacy_reader(text)
+        if verdict is None:
+            refuse("the report has no final recommendation")
+        return verdict, "legacy-markdown", None
+
+    try:
+        result = review_result.load(
+            raw, task_id=task_id, review_kind=review_kind,
+            reviewed_artifact_kind=artifact_kind,
+            reviewed_artifact_sha256=reviewed_sha256)
+    except review_result.ReviewResultError as error:
+        refuse(f"the reviewer result is not valid ({error.code}): {error.message}")
+    if not result.is_complete:
+        refuse("the reviewer declared the review incomplete; there is no verdict "
+               "to record")
+    return result.recommendation, "json-v1", result
+
+
 def review_override(packet: pathlib.Path, proposed: dict, overrides: dict,
                     human_exception: str | None) -> dict | None:
     """What --override-json would change after round 04, and whether that is allowed.
@@ -384,34 +443,29 @@ def resolve_post_commit_check(report_arg: pathlib.Path, commit_arg: str, task_id
     record = {"report_path": str(report_path), "report_sha256": sha256(report_bytes),
               "checked_commit": checked_commit}
 
-    if legacy:
-        verdict = parse_post_commit_verdict(report_bytes.decode("utf-8", errors="replace"))
-        if verdict is None:
-            error(f"--post-commit-check-report {report_path} has no 'Final recommendation: "
-                  f"{' | '.join(POST_COMMIT_VERDICTS)}' line")
-        return {**record, "verdict": verdict, "protocol": "legacy-markdown"}
-
     blob = git("show", f"{checked_commit}:Tasks/{task_id}.yaml", check=False)
     if blob.returncode != 0:
         error(f"cannot read Tasks/{task_id}.yaml at {checked_commit}")
-    try:
-        result = review_result.load(
-            report_bytes,
-            task_id=task_id,
-            review_kind="closure",
-            reviewed_artifact_kind="contract",
-            reviewed_artifact_sha256=sha256(blob.stdout),
-        )
-    except review_result.ReviewResultError as failure:
-        error(f"--post-commit-check-report {report_path} is not a valid closure result "
-              f"({failure.code}): {failure.message}")
-    if not result.is_complete:
-        # A declared non-finish is not a verdict. It is also not a refusal to
-        # commit that someone can argue with - the review simply did not happen.
-        error(f"--post-commit-check-report {report_path} declares the review "
-              f"incomplete; there is no verdict to record")
-    return {**record, "verdict": result.recommendation, "protocol": "json-v1",
-            "reviewed_artifact_sha256": result.reviewed_artifact_sha256}
+
+    verdict, protocol, result = read_imported_review(
+        report_bytes,
+        task_id=task_id,
+        review_kind="closure",
+        artifact_kind="contract",
+        reviewed_sha256=sha256(blob.stdout),
+        legacy=legacy,
+        legacy_reader=parse_post_commit_verdict,
+        legacy_requires_identity=False,
+        refuse=lambda message: error(f"--post-commit-check-report {report_path}: {message}"))
+
+    record = {**record, "verdict": verdict, "protocol": protocol,
+              # Handed over by a person, like every other imported review. Named
+              # so a consumer never mistakes it for a run this host performed.
+              "provider_evidence": "imported",
+              "imported_from": str(report_path)}
+    if result is not None:
+        record["reviewed_artifact_sha256"] = result.reviewed_artifact_sha256
+    return record
 
 
 def final_contract(text: str) -> dict:
@@ -449,7 +503,7 @@ def verify_owner_patch_and_recheck(packet: pathlib.Path, hashes: dict, reaudit_r
     recheck_meta = json.loads((packet / "06-claude-recheck" / "METADATA.json").read_text(encoding="utf-8"))
     if recheck_meta.get("input_sha256", {}).get("05-owner-patch/OUTPUT.md") != hashes["05-owner-patch"]:
         raise SystemExit("the 06 re-check did not review this owner patch")
-    recommendation = round_decision(packet, "06-claude-recheck", task_id)
+    recommendation = round_decision(packet, "06-claude-recheck", task_id, allow_legacy=args.legacy_rounds)
     if recommendation not in COMMITTABLE:
         raise SystemExit(f"re-check recommendation is {recommendation!r}; not committing")
     return {"recheck_recommendation": recommendation, "owner_patch_contract_sha256": sha256(patched)}
@@ -500,7 +554,7 @@ def verify_decision_revision_and_recheck(packet: pathlib.Path, hashes: dict, tas
         raise SystemExit("the 08 re-check did not review this decision revision")
     if hashes["08-claude-recheck"] != recheck_meta.get("output_sha256"):
         raise SystemExit("08-claude-recheck/OUTPUT.md does not match its metadata")
-    recommendation = round_decision(packet, "08-claude-recheck", task_id)
+    recommendation = round_decision(packet, "08-claude-recheck", task_id, allow_legacy=args.legacy_rounds)
     if recommendation not in COMMITTABLE:
         raise SystemExit(f"re-check recommendation is {recommendation!r}; not committing")
     return {"recheck_recommendation": recommendation, "decision_revision_contract_sha256": sha256(revised)}
@@ -510,6 +564,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--packet", required=True, type=pathlib.Path)
     parser.add_argument("--override-json", type=pathlib.Path)
+    parser.add_argument("--legacy-rounds", action="store_true",
+                        help="this packet predates the JSON protocol, so its decision rounds "
+                             "are read with the legacy Markdown parser. A declaration by the "
+                             "caller: a JSON round that fails to validate is refused, never "
+                             "retried through the old reader.")
     parser.add_argument("--override-human-exception", metavar="WHY",
                         help="a person is deliberately overriding the round-04 reviewer. "
                              "Required with --override-json after a JSON-protocol review, and "
@@ -541,7 +600,7 @@ def main() -> int:
         if (directory / "FAILED.json").exists() or not (directory / "OUTPUT.md").is_file():
             raise SystemExit(f"round {name} is missing or failed")
         hashes[name] = sha256((directory / "OUTPUT.md").read_bytes())
-    reaudit_recommendation = round_decision(packet, "04-claude-reaudit", task_id)
+    reaudit_recommendation = round_decision(packet, "04-claude-reaudit", task_id, allow_legacy=args.legacy_rounds)
     recheck = None
     decision = None
     if (packet / "08-claude-recheck").exists():

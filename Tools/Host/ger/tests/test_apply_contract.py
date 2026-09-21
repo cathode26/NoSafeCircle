@@ -284,7 +284,7 @@ class PostCommitCheck(unittest.TestCase):
         # No sniffing: the caller declares the format or it is not read.
         with self.assertRaises(Refused) as caught:
             self.resolve(LEGACY_CLOSURE_REPORT.encode("utf-8"))
-        self.assertIn("not a valid closure result", str(caught.exception))
+        self.assertIn("not valid (not_json)", str(caught.exception))
 
     def test_a_legacy_report_reads_with_the_flag(self):
         record = self.resolve(LEGACY_CLOSURE_REPORT.encode("utf-8"), legacy=True)

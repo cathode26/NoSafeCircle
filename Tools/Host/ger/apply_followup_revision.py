@@ -61,6 +61,9 @@ def main() -> int:
     parser.add_argument("--report", required=True, type=pathlib.Path)
     parser.add_argument("--reviewer", required=True, help="Who or what produced --report, e.g. "
                         "'independent Claude Opus re-check' or 'Codex buildability check'")
+    parser.add_argument("--legacy-report", action="store_true",
+                        help="--report predates the JSON protocol and is read with the legacy "
+                             "Markdown parser. A declaration by the caller, never inferred.")
     parser.add_argument("--reason", required=True)
     parser.add_argument("--post-commit-check-report", type=pathlib.Path,
                         help="With --post-commit-check-commit, records this revision's provenance as also "
@@ -110,10 +113,22 @@ def main() -> int:
     revised_sha = ac.sha256(revised_bytes)
 
     report_bytes = args.report.read_bytes()
-    report = report_bytes.decode("utf-8")
-    if revised_sha[:16] not in report:
-        raise SystemExit("the reviewer report does not name the revised contract (first 16 hex characters of its sha256)")
-    recommendation = ac.final_recommendation(report)
+
+    def refuse(message: str):
+        raise SystemExit(message)
+
+    # The primary review of this followup revision. Same shared reader as the
+    # round-08 recheck and the post-commit check: JSON bound to the exact revised
+    # bytes by default, the old grep only when the caller declares --legacy-report.
+    recommendation, report_protocol, _result = ac.read_imported_review(
+        report_bytes,
+        task_id=task_id,
+        review_kind="ger",
+        artifact_kind="ger_round_output",
+        reviewed_sha256=revised_sha,
+        legacy=args.legacy_report,
+        legacy_reader=ac.final_recommendation,
+        refuse=refuse)
     if recommendation not in ac.COMMITTABLE:
         raise SystemExit(f"reviewer recommendation is {recommendation!r}; not committing")
 
