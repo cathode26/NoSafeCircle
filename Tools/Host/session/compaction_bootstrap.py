@@ -24,6 +24,13 @@ Contract
   "your identity is your session title"); guessing it here would be a new way to be
   wrong. The injected text names the path shape and lets the session fill it in.
 * Read-only. It runs git plumbing and stats files; it writes nothing.
+* A fact it could not measure is printed as unknown, never as a plausible
+  default. The closing line tells the reader to prefer these numbers over the
+  summary's, and that instruction is only safe for numbers actually measured.
+  (Astra round 6: a failed `git status` was reported as "0 dirty path(s)".)
+* The whole hook shares one deadline, checked BEFORE each git call. Four calls
+  that each time out independently outlive the host's own hook timeout, and a
+  budget checked only at the end cannot print anything once that happens.
 """
 
 import json
@@ -36,15 +43,39 @@ from pathlib import Path
 NSC = Path(os.environ.get("NSC_ROOT", r"C:\NSC"))
 REPO = Path(os.environ.get("NSC_REPO", r"C:\NSC\NSC\NoSafeCircle"))
 STATE = NSC / "agent-state"
-TIMEOUT = 8  # whole-hook budget; a slow hook delays every session start
+TIMEOUT = 8       # whole-hook budget; a slow hook delays every session start
+GIT_CALL_TIMEOUT = 4  # and no single call may spend the whole of it
+
+# Set by main(). A shared deadline rather than a per-call timeout: four calls at
+# GIT_CALL_TIMEOUT each outlast the host's hook timeout (15s in settings.json),
+# and the budget check that used to live at the end of main() could then never
+# run. None means "no deadline installed", which is how the tests and any direct
+# caller of _git() get the plain per-call timeout.
+_deadline = None
+
+
+def _time_left():
+    """Seconds left in the whole-hook budget, or the per-call timeout if unset."""
+    if _deadline is None:
+        return float(GIT_CALL_TIMEOUT)
+    return _deadline - time.monotonic()
 
 
 def _git(*args):
-    """Run git in the canonical repo. Returns stripped stdout, or None."""
+    """Run git in the canonical repo. Returns stripped stdout, or None.
+
+    None means git DID NOT ANSWER. It never means git answered with nothing --
+    callers must keep those apart, because a clean tree and an unavailable git
+    both look empty, and reporting the second as the first is how this hook
+    told an agent that a dirty tree was clean.
+    """
+    left = _time_left()
+    if left <= 0.5:
+        return None  # the budget is gone; spending more cannot help the caller
     try:
         r = subprocess.run(
             ["git", "-C", str(REPO), *args],
-            capture_output=True, text=True, timeout=4,
+            capture_output=True, text=True, timeout=min(GIT_CALL_TIMEOUT, left),
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
         return r.stdout.strip() if r.returncode == 0 else None
@@ -56,18 +87,34 @@ def repo_facts():
     """The facts a compaction summary is most likely to report stale."""
     head = _git("rev-parse", "--short", "HEAD")
     if not head:
-        return "  canonical repo: unavailable (could not run git)"
+        return "  canonical repo: unavailable (git did not answer)"
     branch = _git("rev-parse", "--abbrev-ref", "HEAD") or "?"
+
+    # `dirty is None` is git failing; `dirty == ""` is a genuinely clean tree.
+    # The old code collapsed both to 0 with `if dirty else 0`. An invented clean
+    # is the expensive direction: run_unity_tests_clean.ps1 refuses a dirty tree,
+    # so a session told "0 dirty" can be routed wrongly for its whole life.
     dirty = _git("status", "--porcelain")
-    dirty_n = len([ln for ln in dirty.splitlines() if ln.strip()]) if dirty else 0
+    dirty_known = dirty is not None
+    if dirty_known:
+        dirty_desc = f"{len([ln for ln in dirty.splitlines() if ln.strip()])} dirty path(s)"
+    else:
+        dirty_desc = "dirty paths UNKNOWN (git status did not answer)"
+
     counts = _git("rev-list", "--left-right", "--count", "origin/main...main")
-    if counts and "\t" in counts:
+    rel_known = bool(counts and "\t" in counts)
+    if rel_known:
         behind, ahead = counts.split("\t")[0], counts.split("\t")[1]
         rel = f"{ahead} ahead / {behind} behind origin/main"
     else:
         rel = "position vs origin/main unknown"
-    return (f"  canonical main: {head} on {branch}, {dirty_n} dirty path(s), {rel}\n"
-            f"  (measured by this hook just now -- prefer it over any figure in the summary)")
+
+    if dirty_known and rel_known:
+        tail = "  (measured by this hook just now -- prefer it over any figure in the summary)"
+    else:
+        tail = ("  (measured by this hook just now, EXCEPT the fields marked unknown --\n"
+                "   those were NOT measured, so do not prefer them over anything)")
+    return f"  canonical main: {head} on {branch}, {dirty_desc}, {rel}\n{tail}"
 
 
 def queues():
@@ -121,12 +168,14 @@ def read_event():
 
 
 def main():
-    started = time.time()
+    global _deadline
+    started = time.monotonic()
+    _deadline = started + TIMEOUT
     event = "SessionStart"
     try:
         event = read_event()
         context = build()
-        if time.time() - started > TIMEOUT:
+        if time.monotonic() - started > TIMEOUT:
             context = ("NSC SESSION BOOTSTRAP: re-read C:\\NSC\\agent-state\\<your-role>-todo.md "
                        "at its stable path (runbook rules 20 and 27). Live-fact gathering timed out.")
     except Exception as exc:  # never break a session start
