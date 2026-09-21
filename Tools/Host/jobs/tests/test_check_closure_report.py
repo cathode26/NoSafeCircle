@@ -419,21 +419,41 @@ class TheTemplateAndTheCheckerMustAgree(Base):
     connected the two files.
 
     This class is that connection.
+
+    **It now guards a FROZEN format, not the live template.** The live
+    `contract-closure-review-prompt.md` asks reviewers for one JSON object, so
+    reading it here would assert that the legacy Markdown checker accepts a JSON
+    document, which is neither true nor desirable. The legacy checker's job is to
+    read reports written BEFORE the cutover, and that format can no longer change
+    - so the format it must agree with is pinned here as bytes.
+
+    The live producer/consumer agreement moved with the producer: see
+    `Tools/Host/tests/test_review_result.py::TheLiveTemplateAndTheReaderMustAgree`,
+    which asserts the JSON example in the live template decodes and binds. Losing
+    that pairing entirely is how the round-2 defect got in, so it is replaced
+    rather than deleted.
     """
 
-    TEMPLATE = (Path(__file__).resolve().parent.parent.parent
-                / "codex-jobs" / "templates" / "contract-closure-review-prompt.md")
+    # The legacy FINAL MESSAGE, exactly as the template carried it until the JSON
+    # cutover. Frozen: reports already on disk were written to this shape.
+    LEGACY_FINAL_MESSAGE = (
+        "Revised contract sha256 (first 16 hex): <16 hex characters>\n"
+        "Ledger:\n"
+        "- L1: RESOLVED | UNRESOLVED | TRANSFERRED to <task/field> - <one line>\n"
+        "New findings (task-local, most severe first):\n"
+        "- [blocking|major|minor] <field>: <concrete failure>; <why existing gates "
+        "miss it>; <suggested fix>\n"
+        "Downstream debt (informational):\n"
+        "- <receiving task or doc>: <what it must change>\n"
+        "Final recommendation: <one of commit_contract, commit_contract_then_decompose, "
+        "revise>"
+    )
 
     def final_message(self) -> str:
-        text = self.TEMPLATE.read_text(encoding="utf-8")
-        _, found, block = text.partition("FINAL MESSAGE")
-        self.assertTrue(found, f"no FINAL MESSAGE section in {self.TEMPLATE}")
-        _, _, block = block.partition("\n")
-        self.assertIn("sha256", block, "the FINAL MESSAGE section lost its identity line")
-        return block
+        return self.LEGACY_FINAL_MESSAGE
 
     def filled(self) -> str:
-        """The block a compliant reviewer would produce from it."""
+        """The block a compliant reviewer would have produced from it."""
         out = []
         for line in self.final_message().splitlines():
             if RECOMMENDATION.search(line):
@@ -441,8 +461,9 @@ class TheTemplateAndTheCheckerMustAgree(Base):
             out.append(line.replace("<16 hex characters>", SHA))
         return "\n".join(out)
 
-    def test_the_template_is_where_this_test_looks_for_it(self):
-        self.assertTrue(self.TEMPLATE.is_file(), self.TEMPLATE)
+    def test_the_frozen_block_still_carries_an_identity_line(self):
+        self.assertIn("sha256", self.final_message(),
+                      "the frozen legacy block lost its identity line")
 
     def test_the_documented_final_message_passes_the_checker(self):
         result = inspect(self.filled())

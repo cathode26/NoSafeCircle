@@ -49,6 +49,7 @@ ART = HOST / "art" / "ArtReview"
 SUITES: list[tuple[str, Path, Path, Path | None]] = [
     ("paths", HOST / "tests" / "test_nsc_paths.py", HOST / "tests", None),
     ("runner", HOST / "tests" / "test_run_tool_tests.py", HOST / "tests", None),
+    ("result", HOST / "tests" / "test_review_result.py", HOST / "tests", None),
     ("cleanup", HOST / "cleanup" / "tests" / "test_safe_delete.py",
      HOST / "cleanup" / "tests", None),
     ("art", ART / "tests" / "test_analysis_ledger_sheets.py", ART, ART),

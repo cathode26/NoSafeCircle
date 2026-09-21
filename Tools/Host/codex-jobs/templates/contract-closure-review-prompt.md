@@ -15,7 +15,7 @@ FINDING LEDGER (every blocking or major finding from the previous check, plus an
 <LEDGER: one line each, "L1 [blocking|major] <field>: <finding summary>">
 
 HOW TO REVIEW
-1. Compute the SHA-256 of the exact bytes of `REVISED_CONTRACT.json` and report its first 16 hex characters.
+1. Compute the SHA-256 of the exact bytes of `REVISED_CONTRACT.json`. Report all 64 hex characters, lowercase, in `reviewed_artifact_sha256`. The host hashed the same bytes and refuses a review whose hash does not match, so this is what binds your verdict to the revision you actually read.
 2. **Close the ledger.** For each ledger item, say one of:
    - RESOLVED: quote the changed text that resolves it;
    - UNRESOLVED: say what is still missing;
@@ -41,17 +41,26 @@ RULES
 
 HOW TO END
 - Choose `revise` only if a ledger item is UNRESOLVED as blocking or major, or a new task-local blocking or major finding exists.
-- Name exactly one recommendation, and do not repeat the list of options: a line listing all three is not a choice.
-- The recommendation is the LAST line of your message. Write nothing after it - no sign-off, no caveat, no correction, no re-run request. If you cannot complete the review, say so INSTEAD of giving a recommendation.
-- Do not put the two field lines inside a code fence or a block quote. A verdict shown as an example is not a verdict.
-- State the contract identity once.
+- Name exactly one recommendation. If you cannot finish the review, set `review_status` to `incomplete` and `recommendation` to `null` INSTEAD of guessing a verdict. An unfinished review is a legitimate outcome; a guessed one is not.
+- Your entire final message is ONE JSON object and nothing else: no code fence, no preamble sentence, no sign-off after it. The host parses the message as JSON and refuses anything else, so a fence or a closing remark discards the review.
+- The human review goes inside `report_markdown`, where Markdown is free-form. Nothing written there can select or change a verdict, so you need not avoid fences, quotes, HTML or worked examples inside it.
 
-FINAL MESSAGE (plain markdown, exactly these parts, in this order)
-Revised contract sha256 (first 16 hex): <16 hex characters>
+FINAL MESSAGE (exactly one JSON object, UTF-8, no code fence, nothing before or after)
+{
+  "schema_version": 1,
+  "review_kind": "closure",
+  "task_id": "<TASK_ID>",
+  "reviewed_artifact_kind": "contract",
+  "reviewed_artifact_sha256": "<full 64 lowercase hex SHA-256 of the exact bytes of REVISED_CONTRACT.json>",
+  "review_status": "complete",
+  "recommendation": "<one of commit_contract, commit_contract_then_decompose, revise>",
+  "report_markdown": "<the human review, as Markdown, in this one string>"
+}
+
+What `report_markdown` must contain, as Markdown inside that single string:
 Ledger:
 - L1: RESOLVED | UNRESOLVED | TRANSFERRED to <task/field> — <one line>
 New findings (task-local, most severe first):
 - [blocking|major|minor] <field>: <concrete failure>; <why existing gates miss it>; <suggested fix>
 Downstream debt (informational):
 - <receiving task or doc>: <what it must change>
-Final recommendation: <one of commit_contract, commit_contract_then_decompose, revise>
