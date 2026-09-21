@@ -23,7 +23,14 @@
 #       8 the contract file changed after this script selected it;
 #       9 the provider refused the call - a usage or rate limit. Reserved, not
 #         returned here: only the Claude launcher can observe it, and the number
-#         is held so one code never means two things across the two launchers.
+#         is held so one code never means two things across the two launchers;
+#      10 the review finished but its evidence could not be recorded under this
+#         job name. Also reserved rather than returned: this script refuses
+#         existing evidence before it launches, so it cannot reach the case.
+#
+# 2 carries a promise the other codes do not: NOTHING WAS LAUNCHED. Every site
+# that returns it is above the `codex exec` line, so a caller reading 2 knows the
+# job name is free and nothing was spent. Do not add a 2 below that line.
 #
 # 2026-09-21: the reviewer now declares its verdict in one JSON object rather
 # than in prose. $JOB.result.json is what the provider wrote and the only
@@ -150,6 +157,16 @@ closure=$?
 if [ "$closure" -eq 8 ]; then
   echo "[TAMPERED] $JOB - the contract changed after this script selected it" >&2
   exit 8
+fi
+if [ "$closure" -eq 2 ]; then
+  # The checker refuses an unreadable input, a bad argument combination or an
+  # existing record with 2, which is correct when a person runs it directly. By
+  # the time THIS script calls it the provider has run, and exiting 2 here would
+  # tell a caller nothing was launched and the job name is free - so a retry
+  # would pay for a second call and then collide. Translated, not renumbered:
+  # the checker's own contract is fine.
+  echo "[UNRECORDED] $JOB - the provider ran, but the checker refused its inputs" >&2
+  exit 10
 fi
 if [ "$closure" -ne 0 ]; then
   echo "[INCOMPLETE] $JOB - the provider succeeded but did not finish the review" >&2

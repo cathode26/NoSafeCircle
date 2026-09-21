@@ -72,6 +72,14 @@ CONTRACT_CHANGED = 8
 # agreement. The shell cannot observe this condition today; it reserves the
 # number anyway, so a caller never has to ask which launcher it is reading.
 USAGE_LIMIT = 9
+# 2 promises the caller that NOTHING WAS LAUNCHED - the shell can only reach it
+# before `codex exec`, so the job name is free and no tokens were spent. Fable
+# found three sites here returning it after the provider had run, one of them a
+# fix I had just made. A retry policy keyed on 2 would have paid twice. This is
+# for a finished review whose EVIDENCE cannot be recorded under this job name:
+# the review happened, so it is not a setup problem, and it is not the reviewer's
+# fault either.
+EVIDENCE_UNPUBLISHABLE = 10
 
 
 def interpret(wrapper: bytes, *, task_id: str, contract: bytes,
@@ -96,9 +104,17 @@ def interpret(wrapper: bytes, *, task_id: str, contract: bytes,
     try:
         data = json.loads(wrapper.decode("utf-8"))
     except (ValueError, UnicodeDecodeError) as error:
-        return SETUP_REFUSED, f"the CLI wrapper output is unreadable: {error}", None
+        # NOT 2: reaching here means the process wrote something and exited 0,
+        # so the provider ran and a caller reading 2 would retry and pay again.
+        # 4 rather than 7, which is Fable's mapping and the better one: this is
+        # the wrapper, the provider's own ACCOUNT of the run, not the review. A
+        # garbled account is a failed run, which is already how is_error and a
+        # wrong subtype are treated here - both of them process-exited-0 cases.
+        # 7 is for a sound wrapper carrying a result that is not a finished
+        # review, which is what 7 means in the shell too.
+        return PROVIDER_FAILED, f"the CLI wrapper output is unreadable: {error}", None
     if not isinstance(data, dict):
-        return SETUP_REFUSED, "the CLI wrapper output is not an object", None
+        return PROVIDER_FAILED, "the CLI wrapper output is not an object", None
 
     # 1. The provider's own account of the run, required EXPLICITLY. Nothing
     #    below can override it.
@@ -413,7 +429,7 @@ def main(argv: list[str] | None = None) -> int:
             session_id=json.loads(wrapper_path.read_text(encoding="utf-8")).get("session_id")))
     except closure_record.RecordError as refusal:
         print(f"[DONE] {args.job}: {refusal}", file=sys.stderr)
-        return SETUP_REFUSED
+        return EVIDENCE_UNPUBLISHABLE
     return OK
 
 

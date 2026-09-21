@@ -351,15 +351,25 @@ MUTATIONS = [
      '        return SETUP_REFUSED',
      'adapter', 'test_a_contract_changed_during_the_run_is_refused'),
 
-    ('adapter', 'a refused publication being reported as a refusal',
-     '        print(f"[DONE] {args.job}: {refusal}", file=sys.stderr)\n        return SETUP_REFUSED',
-     '        print(f"[DONE] {args.job}: {refusal}", file=sys.stderr)\n        return OK',
-     'adapter', 'test_a_record_that_appears_mid_run_is_a_refusal_not_a_traceback'),
-
     ('adapter', 'a usage limit having a number of its own',
      'USAGE_LIMIT = 9',
      'USAGE_LIMIT = 3',
      'adapter', 'test_the_two_launchers_agree_on_what_each_code_means'),
+
+    ('adapter', 'the never-launched promise behind code 2',
+     '        return EVIDENCE_UNPUBLISHABLE',
+     '        return SETUP_REFUSED',
+     'adapter', 'test_nothing_returns_the_never_launched_code_after_launching'),
+
+    ('adapter', 'an unusable wrapper not claiming nothing was launched',
+     '        return PROVIDER_FAILED, "the CLI wrapper output is not an object", None',
+     '        return SETUP_REFUSED, "the CLI wrapper output is not an object", None',
+     'adapter', 'test_interpret_is_reached_only_after_the_provider_has_written'),
+
+    ('adapter', 'a refused publication being reported as its own outcome',
+     '        return EVIDENCE_UNPUBLISHABLE\n    return OK',
+     '        return OK\n    return OK',
+     'adapter', 'test_a_record_that_appears_mid_run_is_a_refusal_not_a_traceback'),
 
 ]
 

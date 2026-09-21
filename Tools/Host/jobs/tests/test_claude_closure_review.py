@@ -21,6 +21,7 @@ CLI emits with --output-format json.
 from __future__ import annotations
 
 import hashlib
+import ast
 import json
 import pathlib
 import os
@@ -151,9 +152,18 @@ class ProviderStatusComesFirst(Base):
         self.assertEqual(status, ccr.USAGE_LIMIT)
         self.assertIn("tell Vincent", message)
 
-    def test_unreadable_wrapper_output_is_a_setup_failure(self):
-        self.assertEqual(self.interpret(b"not json at all")[0], ccr.SETUP_REFUSED)
-        self.assertEqual(self.interpret(b'["a list"]')[0], ccr.SETUP_REFUSED)
+    def test_an_unusable_wrapper_is_not_reported_as_a_setup_failure(self):
+        # Fable: 2 promises the caller that NOTHING WAS LAUNCHED. Reaching
+        # `interpret` at all means the process wrote something and exited 0, so
+        # the provider ran and a retry keyed on 2 would pay for a second call.
+        for garbage in (b"not json at all", b'["a list"]', b"", b"   "):
+            with self.subTest(wrapper=garbage[:20]):
+                status = self.interpret(garbage)[0]
+                self.assertNotEqual(status, ccr.SETUP_REFUSED)
+                # 4, not 7: the wrapper is the provider's account of the run,
+                # and a garbled account is a failed run. 7 is for a sound
+                # wrapper whose RESULT is not a finished review.
+                self.assertEqual(status, ccr.PROVIDER_FAILED)
 
 
 class TheProtocolDecides(Base):
@@ -433,7 +443,9 @@ class MainWiring(Base):
                                    ("EMPTY_RESULT", 6, "empty result"),
                                    ("NOT_ACTIONABLE", 7, "not a finished"),
                                    ("CONTRACT_CHANGED", 8, "contract file changed"),
-                                   ("USAGE_LIMIT", 9, "usage or rate limit")):
+                                   ("USAGE_LIMIT", 9, "usage or rate limit"),
+                                   ("EVIDENCE_UNPUBLISHABLE", 10,
+                                    "could not be recorded")):
             with self.subTest(code=name):
                 self.assertEqual(getattr(ccr, name), code)
                 self.assertIn(f"{code} ", header,
@@ -454,6 +466,51 @@ class MainWiring(Base):
         self.assertNotIn(5, mine,
                          "5 is the shell's 'stale result'; this module must not "
                          "give it a second meaning")
+
+    def test_nothing_returns_the_never_launched_code_after_launching(self):
+        """The promise behind code 2, checked against the source.
+
+        Both families label 2 "setup refused", so comparing labels cannot catch
+        a disagreement about WHEN it is reachable - and that is the disagreement
+        that costs money. In the shell every site is above the `codex exec` line,
+        so a caller reading 2 knows the job name is free and nothing was spent.
+
+        Fable found three sites here returning 2 after the provider had run, one
+        of them a fix I had made an hour earlier. Two tables have now been wrong
+        about this - the parity pairs and my own reading of the sites - so this
+        asks the source instead of me.
+        """
+        tree = ast.parse(pathlib.Path(ccr.__file__).read_text(encoding="utf-8"))
+        main = next(node for node in tree.body
+                    if isinstance(node, ast.FunctionDef) and node.name == "main")
+
+        launches = [node.lineno for node in ast.walk(main)
+                    if isinstance(node, ast.Call)
+                    and ast.unparse(node).startswith("subprocess.run(cmd")]
+        self.assertEqual(len(launches), 1,
+                         "could not find exactly one provider launch in main()")
+
+        late = [node.lineno for node in ast.walk(main)
+                if isinstance(node, ast.Return)
+                and isinstance(node.value, ast.Name)
+                and node.value.id == "SETUP_REFUSED"
+                and node.lineno > launches[0]]
+        self.assertEqual(late, [],
+                         f"main() returns SETUP_REFUSED at line(s) {late}, after "
+                         f"the provider launch at line {launches[0]}. 2 tells a "
+                         f"caller nothing was launched; a retry would pay twice.")
+
+    def test_interpret_is_reached_only_after_the_provider_has_written(self):
+        # The companion rule for the module's other half: `interpret` is called
+        # on bytes the provider produced, so nothing it returns may be 2 either.
+        tree = ast.parse(pathlib.Path(ccr.__file__).read_text(encoding="utf-8"))
+        func = next(node for node in tree.body
+                    if isinstance(node, ast.FunctionDef) and node.name == "interpret")
+        refusals = [node.lineno for node in ast.walk(func)
+                    if isinstance(node, ast.Name) and node.id == "SETUP_REFUSED"]
+        self.assertEqual(refusals, [],
+                         f"interpret() names SETUP_REFUSED at line(s) {refusals}; "
+                         f"it only ever sees output the provider wrote")
 
     def test_a_nonzero_process_fails_despite_a_valid_wrapper(self):
         # The exact reproduction: exit 9, is_error false, otherwise valid JSON.
@@ -549,7 +606,9 @@ class MainWiring(Base):
         self.provider(code=0, wrapper_bytes=wrapper())
         closure_record.build = build_then_plant
         try:
-            self.assertEqual(self.run_main(), ccr.SETUP_REFUSED)
+            # Not 2: the review finished and was paid for, and only its
+            # recording failed. 2 would send a caller back to relaunch.
+            self.assertEqual(self.run_main(), ccr.EVIDENCE_UNPUBLISHABLE)
         finally:
             closure_record.build = real_build
         self.assertEqual(
