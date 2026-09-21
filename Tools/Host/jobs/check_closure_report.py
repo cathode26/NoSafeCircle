@@ -110,9 +110,79 @@ INDENTED = re.compile(r"^[ \t]")
 HEX16 = re.compile(r"^[0-9a-fA-F]{16}$")
 
 
+# The leading token of a mention: the first word after the label, undecorated.
+# Round 5: requiring a mention's ENTIRE remainder to be a valid value meant
+# "revise - L1 is unresolved" was thrown away, so attaching a reason to a
+# contradiction made the contradiction disappear. A field must be exact; a
+# mention only has to be legible.
+LEADING_TOKEN = re.compile(r"\s*\**\s*`*\s*([A-Za-z0-9_]+)")
+
+
 def contract_sha16(data: bytes) -> str:
     """The first 16 hex characters of the contract's SHA-256, as the prompt asks."""
     return hashlib.sha256(data).hexdigest()[:16]
+
+
+def code_span_ranges(text: str) -> list[tuple[int, int]]:
+    """Character ranges inside inline code spans, over the WHOLE text.
+
+    A span opens on a run of N backticks and closes on the next run of exactly
+    N. Unclosed backticks are literal.
+
+    This is not line-based, and that is the point. Astra round 5 showed a span
+    opening on one line and closing on the next, with the label between them -
+    so the label sat inside a quotation that every line-by-line rule in rounds
+    1 to 4 was structurally unable to see.
+    """
+    spans: list[tuple[int, int]] = []
+    index, length = 0, len(text)
+
+    while index < length:
+        if text[index] != "`":
+            index += 1
+            continue
+
+        run = 1
+        while index + run < length and text[index + run] == "`":
+            run += 1
+
+        cursor, closed = index + run, False
+        while cursor < length:
+            if text[cursor] == "`":
+                closing = 1
+                while cursor + closing < length and text[cursor + closing] == "`":
+                    closing += 1
+                if closing == run:
+                    spans.append((index, cursor + closing))
+                    index, closed = cursor + closing, True
+                    break
+                cursor += closing
+            else:
+                cursor += 1
+
+        if not closed:
+            index += run
+
+    return spans
+
+
+def line_starts(text: str) -> list[int]:
+    """Absolute offset of each line, so a match can be placed in the document."""
+    offsets, position = [], 0
+    for line in text.splitlines(keepends=True):
+        offsets.append(position)
+        position += len(line)
+    return offsets
+
+
+def inside_span(offset: int, spans: list[tuple[int, int]]) -> bool:
+    return any(start <= offset < end for start, end in spans)
+
+
+def leading_token(rest: str) -> str:
+    """The first word a mention names, lower-cased, or ''."""
+    found = LEADING_TOKEN.match(rest)
+    return found.group(1).lower() if found else ""
 
 
 def report_lines(text: str) -> dict[int, str]:
@@ -170,34 +240,58 @@ def report_lines(text: str) -> dict[int, str]:
     return speaking
 
 
-def field_occurrences(speaking: dict[int, str],
-                      label: re.Pattern[str]) -> list[tuple[int, str]]:
+def field_occurrences(speaking: dict[int, str], label: re.Pattern[str],
+                      starts: list[int],
+                      spans: list[tuple[int, int]]) -> list[tuple[int, str]]:
     """Lines that STATE this field: (line number, rest of line).
 
     Anchored: the label has to begin the line, allowing only markdown
     decoration before it. A label further in is the report talking ABOUT the
-    field, which is `mentions` below, not a statement of it.
+    field, which is `mentions` below, not a statement of it. And a label inside
+    a code span is quoted text wherever it sits, including when the span was
+    opened on an earlier line.
     """
     out = []
     for number, line in sorted(speaking.items()):
         match = label.match(line)
-        if match:
+        if match and not inside_span(starts[number] + match.start(), spans):
             out.append((number, line[match.end():]))
     return out
 
 
-def mentions(speaking: dict[int, str],
-             label: re.Pattern[str]) -> list[tuple[int, str]]:
+def mentions(speaking: dict[int, str], label: re.Pattern[str],
+             starts: list[int],
+             spans: list[tuple[int, int]]) -> list[tuple[int, str]]:
     """Every place the label appears at all, wherever it sits in the line.
 
     Used only to catch a contradiction. Round 1's finding 1a was a report
-    recommending one thing and later, mid-sentence, another; dropping to
-    anchored matching alone would stop seeing that, which is why Astra asked
-    for the two checks to be kept separate rather than merged.
+    recommending one thing and later, mid-sentence, another; anchored matching
+    alone would stop seeing that, which is why Astra asked for the two checks
+    to be kept separate rather than merged.
     """
     return [(number, line[m.end():])
             for number, line in sorted(speaking.items())
-            for m in label.finditer(line)]
+            for m in label.finditer(line)
+            if not inside_span(starts[number] + m.start(), spans)]
+
+
+def contradicted_by(speaking: dict[int, str], label: re.Pattern[str],
+                    starts: list[int], spans: list[tuple[int, int]],
+                    field_line: int, field_value: str, allowed) -> list[str]:
+    """Values named elsewhere that differ from the one the field states.
+
+    Applied to BOTH fields. Round 5: running it on the recommendation alone
+    let a report claim two different contracts and pass, because the losing
+    identity was only ever in prose.
+    """
+    found = set()
+    for number, rest in mentions(speaking, label, starts, spans):
+        if number == field_line:
+            continue
+        token = leading_token(rest)
+        if token and token != field_value and allowed(token):
+            found.add(token)
+    return sorted(found)
 
 
 def stated_value(rest: str) -> str:
@@ -224,12 +318,14 @@ def last_content_line(lines: list[str]) -> int:
 
 def inspect(text: str, expected_sha16: str | None = None) -> dict:
     """What the report contains, and whether that is one verdict worth acting on."""
-    text = (text or "").lstrip("﻿")
+    text = (text or "").lstrip("\ufeff")
     lines = text.splitlines()
     speaking = report_lines(text)
+    starts = line_starts(text)
+    spans = code_span_ranges(text)
 
-    identities = field_occurrences(speaking, IDENTITY_FIELD)
-    recommendations = field_occurrences(speaking, RECOMMENDATION_FIELD)
+    identities = field_occurrences(speaking, IDENTITY_FIELD, starts, spans)
+    recommendations = field_occurrences(speaking, RECOMMENDATION_FIELD, starts, spans)
 
     missing: list[str] = []
 
@@ -248,6 +344,13 @@ def inspect(text: str, expected_sha16: str | None = None) -> dict:
         value = stated_value(identities[0][1])
         if HEX16.match(value):
             sha16 = value.lower()
+            others = contradicted_by(speaking, IDENTITY, starts, spans,
+                                     identities[0][0], sha16,
+                                     lambda token: bool(HEX16.match(token)))
+            if others:
+                missing.append(f"{len(others) + 1} different contract identities "
+                               "reported: " + ", ".join(sorted([sha16] + others)))
+                sha16 = None
         else:
             missing.append(f"the contract identity reads {value!r}, which is not "
                            "sixteen hex characters")
@@ -273,13 +376,9 @@ def inspect(text: str, expected_sha16: str | None = None) -> dict:
             missing.append(f"final recommendation {value!r} is not one of "
                            + ", ".join(RECOMMENDATIONS))
         else:
-            stated_elsewhere = sorted({
-                stated_value(rest).lower()
-                for number_, rest in mentions(speaking, RECOMMENDATION)
-                if number_ != number
-                and stated_value(rest).lower() in RECOMMENDATIONS
-                and stated_value(rest).lower() != value
-            })
+            stated_elsewhere = contradicted_by(
+                speaking, RECOMMENDATION, starts, spans, number, value,
+                lambda token: token in RECOMMENDATIONS)
             if stated_elsewhere:
                 missing.append("contradictory final recommendations: "
                                f"{value} is stated as the verdict, but "

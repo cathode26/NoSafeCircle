@@ -67,7 +67,7 @@ MUTATIONS = [
     (TOOL_FILE, "fenced blocks read as the report speaking",
      "        opener = FENCE.match(line)",
      "        opener = None",
-     "test_a_verdict_inside_a_fenced_block_is_an_example_not_a_verdict"),
+     "test_a_tilde_fence_is_an_example_container_too"),
 
     (TOOL_FILE, "round 1's window: the verdict need not be the last line",
      "            if number != last:",
@@ -114,12 +114,28 @@ MUTATIONS = [
     (TOOL_FILE, "round 4: the field label is matched anywhere in the line again",
      "        match = label.match(line)",
      "        match = label.search(line)",
-     "test_a_quoted_template_line_in_prose_is_not_a_verdict"),
+     "test_the_same_identity_repeated_in_prose_is_not_a_contradiction"),
 
     (TOOL_FILE, "round 4: a heading no longer ends a quote's lazy continuation",
      "        if BLOCK_START.match(line):",
      "        if False:",
      "test_a_heading_after_a_quotation_ends_the_continuation"),
+
+    # Round 5: code spans, and contradiction detection on BOTH fields.
+    (TOOL_FILE, "round 5: code spans are not parsed at all",
+     "    spans = code_span_ranges(text)",
+     "    spans = []",
+     "test_a_code_span_across_lines_is_not_a_verdict"),
+
+    (TOOL_FILE, "round 5: the identity gets no contradiction scan",
+     "            if others:",
+     "            if False:",
+     "test_a_conflicting_identity_in_prose_is_still_a_contradiction"),
+
+    (TOOL_FILE, "round 5: a mention must match a valid value entirely again",
+     "    found = LEADING_TOKEN.match(rest)\n    return found.group(1).lower() if found else \"\"",
+     "    value = stated_value(rest).lower()\n    return value if value in RECOMMENDATIONS else \"\"",
+     "test_an_explanation_does_not_hide_a_conflicting_recommendation"),
 
     # The template is half the defect: a reviewer echoing it faithfully
     # produced two of Astra's counterexamples. These two prove the binding

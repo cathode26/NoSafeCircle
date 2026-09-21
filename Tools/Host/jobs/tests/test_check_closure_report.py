@@ -326,6 +326,27 @@ class AstraRound2Counterexamples(Base):
         self.assertIn("no final recommendation", result["missing"])
         self.assertIn("no contract identity (sha256 first 16 hex)", result["missing"])
 
+    def test_a_tilde_fence_is_an_example_container_too(self):
+        """The one fence case the code-span parser cannot decide.
+
+        A ``` fence is also a run of backticks, so span parsing excludes it
+        independently of the fence machinery - which means the backtick-fence
+        test passes for two reasons and cannot prove the fence rule. Tildes are
+        not backticks, so this case belongs to FENCE alone.
+        """
+        text = ("Here is the shape I was asked to produce:\n"
+                "\n"
+                "~~~\n"
+                f"Revised contract sha256 (first 16 hex): {SHA}\n"
+                "Final recommendation: commit_contract\n"
+                "~~~\n"
+                "\n"
+                "I could not review this task.\n")
+        result = inspect(text)
+        self.assertFalse(result["complete"], "a tilde-fenced example is not a verdict")
+        self.assertIn("no final recommendation", result["missing"])
+        self.assertIn("no contract identity (sha256 first 16 hex)", result["missing"])
+
     def test_an_unclosed_fence_swallows_the_rest_and_the_review_is_refused(self):
         """A truncated report must not be completed by accident.
 
@@ -620,6 +641,85 @@ class AstraRound4Counterexamples(Base):
         result = inspect(text)
         self.assertFalse(result["complete"])
         self.assertIn("no final recommendation", result["missing"])
+
+
+class AstraRound5Counterexamples(Base):
+    """Astra's review of merged main `1da07f017`. Three P1 false approvals.
+
+    Two were regressions from round 4. Anchoring field recognition to the start
+    of a line was right; the contradiction scan I added to compensate for it
+    was then narrowed twice, and each narrowing discarded exactly what the scan
+    existed to keep - it ran on the recommendation only, and it counted a
+    mention only when the mention's entire remainder was a valid value.
+
+    The third was not a regression and is the one that mattered: a Markdown
+    code span can cross a line boundary, so a label alone on a line can sit
+    inside a span opened on the line before. No line-by-line rule can see that,
+    which is why four rounds of line-by-line rules kept finding another way in.
+    """
+
+    def real(self):
+        return contract_sha16(b'{"task": "NSC-042", "revision": 7}')
+
+    def test_a_conflicting_identity_in_prose_is_still_a_contradiction(self):
+        """Two contracts claimed. The correct hash does not make that one.
+
+        Round 4 anchored identity recognition and I did not give the identity a
+        contradiction scan, so the losing claim became invisible.
+        """
+        real = self.real()
+        text = ("I reviewed sha256 (first 16 hex): 0000000000000000\n"
+                f"Revised contract sha256 (first 16 hex): {real}\n"
+                "Final recommendation: commit_contract\n")
+        result = inspect(text, expected_sha16=real)
+        self.assertFalse(result["complete"], "two identities read as one")
+        self.assertIn("different contract identities", " ".join(result["missing"]))
+        self.assertIsNone(result["sha16"], "an ambiguous identity is not an identity")
+
+    def test_an_explanation_does_not_hide_a_conflicting_recommendation(self):
+        """`revise - L1 is unresolved` is a verdict with a reason attached.
+
+        The scan required a mention's WHOLE remainder to be a valid value, so
+        attaching the reason deleted the contradiction.
+        """
+        real = self.real()
+        text = (f"Revised contract sha256 (first 16 hex): {real}\n"
+                "On reflection, Final recommendation: revise - L1 is unresolved.\n"
+                "Final recommendation: commit_contract\n")
+        result = inspect(text, expected_sha16=real)
+        self.assertFalse(result["complete"])
+        self.assertIn("contradictory", " ".join(result["missing"]))
+        self.assertIsNone(result["recommendation"])
+
+    def test_a_code_span_across_lines_is_not_a_verdict(self):
+        """The span opens on one line and closes on the next."""
+        real = self.real()
+        text = (f"Revised contract sha256 (first 16 hex): {real}\n"
+                "I did not complete the review. Example only:\n"
+                "`The template ends with\n"
+                "Final recommendation: commit_contract`\n")
+        result = inspect(text, expected_sha16=real)
+        self.assertFalse(result["complete"], "a quoted example became the verdict")
+        self.assertIn("no final recommendation", result["missing"])
+
+    def test_the_same_identity_repeated_in_prose_is_not_a_contradiction(self):
+        """Astra round 3 confirmed this must keep passing."""
+        real = self.real()
+        text = (f"I reviewed sha256 (first 16 hex): {real}, as instructed.\n"
+                f"Revised contract sha256 (first 16 hex): {real}\n"
+                "Final recommendation: revise\n")
+        result = inspect(text, expected_sha16=real)
+        self.assertTrue(result["complete"], result["missing"])
+        self.assertEqual(result["sha16"], real)
+
+    def test_an_unclosed_backtick_is_literal_not_an_open_span(self):
+        """Otherwise one stray backtick would swallow the rest of the report."""
+        real = self.real()
+        text = (f"Revised contract sha256 (first 16 hex): {real}\n"
+                "The reviewer's note used a stray ` character.\n"
+                "Final recommendation: revise\n")
+        result = inspect(text, expected_sha16=real)
+        self.assertTrue(result["complete"], result["missing"])
 
 
 if __name__ == "__main__":
