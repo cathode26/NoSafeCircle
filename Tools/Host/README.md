@@ -29,6 +29,7 @@ copy is also retained under
 | `viewer/` | `C:/NSC/tools/viewer/` | Viewer process, overlay and evidence-inspection helpers |
 | `ger-contract-revisions-20260916/` | `C:/nscrev/ger-contract-revisions-20260916/` | GER contract committers and helpers (`bbfca9253`, 2026-09-20). **Reconciled with their live copies in `9c8f91fa8`** — see the note below for what that drift was and why it is worth re-checking |
 | `codex-jobs/` | `C:/nscrev/codex-jobs/` | Codex job runners and prompt templates (`c6f9c8e3b`, 2026-09-20) |
+| `cleanup/` | `C:/NSC/tools/cleanup/` | Recursive-delete depth guard (runbook rule 26), its tests, and the only-copy sweep scripts. Tracked 2026-09-20 after the family was found to exist only at the deployment root |
 
 > **`source-map.json` does not index the two families above, and must not be edited to.** It is a
 > **receipt of the single 2026-09-20 02:37 import run** — its `destination_root` names that run's
