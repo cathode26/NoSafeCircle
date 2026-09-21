@@ -43,6 +43,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
+import nsc_paths  # noqa: E402
 import review_result  # noqa: E402
 
 FLAGS = {"creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0)}
@@ -59,13 +60,25 @@ NOT_ACTIONABLE = 7
 USAGE_LIMIT = 3
 
 
-def interpret(wrapper: bytes, *, task_id: str, contract: bytes) -> tuple[int, str, object | None]:
+def interpret(wrapper: bytes, *, task_id: str, contract: bytes,
+              process_code: int = 0) -> tuple[int, str, object | None]:
     """Did a review happen, and what did it declare? (exit code, message, result).
 
     The order is the whole point. Process status, then emptiness, then the
     protocol - so a well-formed result can never excuse a failed run, and a
     failed run is never read for content.
+
+    `process_code` is the CLI's own exit status, and it is checked first. Astra
+    MJ-P3-01: main() captured it and used it only in the printed message, so a
+    run that exited 9 with an otherwise valid wrapper returned 0 and published -
+    printing "cli exit 9, closure review complete: commit_contract". The
+    is_error field inside the wrapper cannot cover that, because a process that
+    died may not have written an honest wrapper at all.
     """
+    if process_code != 0:
+        return (PROVIDER_FAILED,
+                f"the CLI exited {process_code}; nothing it wrote is trustworthy",
+                None)
     try:
         data = json.loads(wrapper.decode("utf-8"))
     except (ValueError, UnicodeDecodeError) as error:
@@ -162,25 +175,52 @@ def build_clone(repo: pathlib.Path, clone: pathlib.Path, task: str, commit: str,
             git("-C", str(repo), "show", f"{commit}:{extra}"))
 
 
-def localise_prompt(text: str, clone: pathlib.Path, max_turns: str) -> str:
+def review_root(runner: str, clone: pathlib.Path) -> str:
+    """The review directory AS THE REVIEWER SEES IT.
+
+    Astra MJ-P3-02, and the reason consolidating two files needs care: they
+    differed by more than the command. Docker mounts the clone at `/workspace`,
+    so the container must be given container paths; the host CLI runs beside the
+    clone and must be given host paths. My first version replaced `/workspace`
+    with the host clone path for BOTH, handing the container
+    `C:/nscrev/cj-JOB/REVISED_CONTRACT.json`, which is not a path it has.
+    """
+    return "/workspace" if runner == "docker" else str(clone).replace("\\", "/")
+
+
+def localise_prompt(text: str, clone: pathlib.Path, max_turns: str, runner: str) -> str:
     """Copy the files the prompt names into the clone and point it at them."""
+    root = review_root(runner, clone)
     inputs = clone / "_review_inputs"
     inputs.mkdir(exist_ok=True)
     for raw in sorted(set(re.findall(r"C:[/\\]nscrev[/\\][^\s;,)`'\"]+", text))):
         source = pathlib.Path(raw.rstrip("."))
         if source.is_file():
             shutil.copyfile(source, inputs / source.name)
-            text = text.replace(raw.rstrip("."), str(inputs / source.name).replace("\\", "/"))
-    workspace = str(clone).replace("\\", "/")
-    text = text.replace("/workspace", workspace)
+            text = text.replace(raw.rstrip("."), f"{root}/_review_inputs/{source.name}")
+    # A no-op for Docker, where root IS /workspace; the rewrite exists for the
+    # host run, whose review directory is the clone's real path.
+    text = text.replace("/workspace", root)
+
+    if runner == "docker":
+        where = ("You run in Docker with /workspace mounted read-only: it is a clone of "
+                 "the repository at the commit before the revision, plus "
+                 "REVISED_CONTRACT.json, PREVIOUS_CONTRACT.json and _review_inputs/. If "
+                 "git refuses to run, first run `git config --global --add safe.directory "
+                 "/workspace`. Treat everything as read-only: never edit, commit, push or "
+                 "run any paid tool, and never touch anything outside /workspace.")
+    else:
+        where = (f"You review a contract revision on this machine. The review directory is "
+                 f"{root}: a clone of the repository at the commit before the revision, plus "
+                 "REVISED_CONTRACT.json, PREVIOUS_CONTRACT.json and _review_inputs/. Every "
+                 "path in this prompt is absolute; your own working directory is elsewhere, "
+                 "so address files by those absolute paths and run git as "
+                 f"`git -C {root} ...`. Treat everything as read-only: never edit, commit, "
+                 "push or run any paid tool, and never touch anything outside that review "
+                 "directory.")
+
     return (
-        f"You review a contract revision on this machine. The review directory is "
-        f"{workspace}: a clone of the repository at the commit before the revision, plus "
-        "REVISED_CONTRACT.json, PREVIOUS_CONTRACT.json and _review_inputs/. Every path in "
-        "this prompt is absolute; your own working directory is elsewhere, so address files "
-        f"by those absolute paths and run git as `git -C {workspace} ...`. Treat everything "
-        "as read-only: never edit, commit, push or run any paid tool, and never touch "
-        "anything outside that review directory.\n\n"
+        where + "\n\n"
         f"You have at most {max_turns} turns. Work efficiently: diff the contracts first, "
         "use `grep -n` with context instead of reading large files whole, decide each "
         "ledger item and changed requirement once, and stop exploring early enough to "
@@ -194,15 +234,21 @@ READ_ONLY_BASH = ["Bash(git:*)", "Bash(grep:*)", "Bash(rg:*)", "Bash(sed:*)", "B
                   "Bash(pwd)", "Bash(jq:*)"]
 
 
-def command(runner: str, model: str, max_turns: str, clone: pathlib.Path) -> tuple[list[str], pathlib.Path]:
-    """The one thing the two adapters actually differed by."""
+def command(runner: str, model: str, max_turns: str, clone: pathlib.Path,
+            host_cwd: pathlib.Path | None = None) -> tuple[list[str], pathlib.Path]:
+    """The command each runner needs, and the directory it runs in."""
     if runner == "host":
         exe = shutil.which("claude") or r"C:\Users\VincentLiguori\.local\bin\claude.exe"
         require_gmail_account(exe)
+        # Astra MJ-P3-04: this was hardcoded to C:/NSC even when --repo, --jobs
+        # and --work all pointed somewhere else, so a fresh install on another
+        # drive ran the CLI in a directory belonging to this machine. The
+        # workspace is derived by the shared resolver, which is what deploying
+        # the tools elsewhere is supposed to move.
         return ([exe, "-p", "--model", model, "--max-turns", max_turns,
                  "--permission-mode", "dontAsk", "--allowedTools", "Read", "Glob", "Grep",
                  *READ_ONLY_BASH, "--output-format", "json"],
-                pathlib.Path(r"C:\NSC"))
+                host_cwd or nsc_paths.workspace().path)
     return (["docker", "compose", "-p", "nosafecircle", "run", "--rm", "-T", "--no-deps",
              "claude-exec", "claude", "-p", "--model", model, "--max-turns", max_turns,
              "--permission-mode", "dontAsk", "--allowedTools", "Read", "Glob", "Grep",
@@ -222,6 +268,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--repo", type=pathlib.Path, default=pathlib.Path(r"C:\NSC\NSC\NoSafeCircle"))
     ap.add_argument("--jobs", type=pathlib.Path, default=pathlib.Path(r"C:\nscrev\codex-jobs"))
     ap.add_argument("--work", type=pathlib.Path, default=pathlib.Path(r"C:\nscrev\claude-jobs"))
+    ap.add_argument("--host-cwd", type=pathlib.Path, default=None,
+                    help="working directory for the host CLI; defaults to the workspace "
+                         "the shared resolver derives, never a spelled-out machine path")
     args = ap.parse_args(argv)
 
     prompt_path = args.jobs / f"{args.job}.prompt.md"
@@ -233,12 +282,13 @@ def main(argv: list[str] | None = None) -> int:
 
     max_turns = os.environ.get("MAX_TURNS", "60")
     model = os.environ.get("MODEL", "claude-sonnet-5")
-    text = localise_prompt(prompt_path.read_text(encoding="utf-8"), clone, max_turns)
+    text = localise_prompt(prompt_path.read_text(encoding="utf-8"), clone, max_turns,
+                           args.runner)
     prompt_file = args.work / f"{args.job}.{args.runner}-prompt.md"
     prompt_file.write_text(text, encoding="utf-8")
 
     wrapper_path = args.work / f"{args.job}.{args.runner}.json"
-    cmd, cwd = command(args.runner, model, max_turns, clone)
+    cmd, cwd = command(args.runner, model, max_turns, clone, args.host_cwd)
     env = {**os.environ, "MSYS_NO_PATHCONV": "1"}
     with open(prompt_file, "rb") as stdin, open(wrapper_path, "wb") as stdout, \
             open(args.work / f"{args.job}.{args.runner}.log", "wb") as stderr:
@@ -247,7 +297,8 @@ def main(argv: list[str] | None = None) -> int:
 
     contract = (clone / "REVISED_CONTRACT.json").read_bytes()
     status, message, result = interpret(wrapper_path.read_bytes(),
-                                        task_id=args.task, contract=contract)
+                                        task_id=args.task, contract=contract,
+                                        process_code=code)
     print(f"[DONE] {args.job}: cli exit {code}, {message}")
     if status != OK:
         return status

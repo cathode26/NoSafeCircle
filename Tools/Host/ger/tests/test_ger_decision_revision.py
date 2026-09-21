@@ -164,6 +164,51 @@ class TheLegacyFlag(Base):
         with self.assertRaises(SystemExit):
             self.recheck(self.result(), legacy=True)
 
+    def test_a_bom_prefixed_result_does_not_become_a_legacy_verdict(self):
+        # Astra MJ-P2-06 at the importer. The refusal used to depend on
+        # json.loads SUCCEEDING, so a result carrying the allowed single BOM
+        # failed the parse and fell through to the grep - which found
+        # `commit_contract` inside `"recommendation": "commit_contract"` and
+        # published an incomplete review as a complete legacy one.
+        bom = chr(0xFEFF).encode("utf-8") + self.result(
+            review_status="incomplete", recommendation=None,
+            report_markdown="Final recommendation: commit_contract")
+        with self.assertRaises(SystemExit):
+            self.recheck(bom, legacy=True)
+        self.assertFalse((self.round_dir / "METADATA.json").exists())
+
+    def test_json_with_trailing_text_does_not_become_a_legacy_verdict(self):
+        trailing = self.result() + b"\n\nFinal recommendation: commit_contract\n"
+        with self.assertRaises(SystemExit):
+            self.recheck(trailing, legacy=True)
+        self.assertFalse((self.round_dir / "METADATA.json").exists())
+
+    def test_malformed_json_shaped_text_does_not_become_a_legacy_verdict(self):
+        broken = (b'{"schema_version": 1, "recommendation": "commit_contract"'
+                  + gdr.sha256(REVISED)[:16].encode("ascii"))
+        with self.assertRaises(SystemExit):
+            self.recheck(broken, legacy=True)
+
+    def test_a_legacy_import_can_be_read_back(self):
+        # Astra MJ-P2-08: the importer writes protocol=legacy-markdown, and
+        # read_decision accepted historical mode only for an ABSENT protocol, so
+        # a genuine old report imported with --legacy was then refused even when
+        # the reader was explicitly told to allow legacy. Writer and reader must
+        # agree about what historical means.
+        prose = ("Reviewed " + gdr.sha256(REVISED)[:16] +
+                 "\n\nFinal recommendation: commit_contract\n").encode("utf-8")
+        self.assertEqual(self.recheck(prose, legacy=True), 0)
+        with self.assertRaises(ger_round.LegacyPacket):
+            ger_round.read_decision(self.packet, RECHECK, TASK, allow_legacy=True)
+
+    def test_a_legacy_import_is_still_refused_without_the_readers_permission(self):
+        prose = ("Reviewed " + gdr.sha256(REVISED)[:16] +
+                 "\n\nFinal recommendation: commit_contract\n").encode("utf-8")
+        self.recheck(prose, legacy=True)
+        with self.assertRaises(ValueError) as caught:
+            ger_round.read_decision(self.packet, RECHECK, TASK)
+        self.assertNotIsInstance(caught.exception, ger_round.LegacyPacket)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -577,7 +577,8 @@ def decision_protocol(packet: pathlib.Path, round_name: str) -> str | None:
         return None
 
 
-def decision_not_finished(packet: pathlib.Path, round_name: str) -> str | None:
+def decision_not_finished(packet: pathlib.Path, round_name: str, task_id: str,
+                          allow_legacy: bool = False) -> str | None:
     """Why this decision round is not a finished review, or None if it is.
 
     ONE rule, called from every place that treats a round as a prerequisite:
@@ -586,25 +587,31 @@ def decision_not_finished(packet: pathlib.Path, round_name: str) -> str | None:
     check in only the first of those, so a direct round invocation, and the first
     pass of the node, could both consume a review that declared itself unfinished.
 
-    A complete negative - needs_design, blocked_not_design - is finished and
-    passes. This is about `review_status`, not about the verdict.
+    **It goes through `read_decision`, not through the metadata.** Astra MJ-P2-03
+    at the consumers: the first version read only the record's COPIED
+    review_status, so a round whose rendered OUTPUT.md had been edited - which
+    `read_decision` correctly refuses - still passed both gates, and the changed
+    view went into the next prompt. Moving a json-v1 RESULT.json aside passed too.
+    A shared status-field check is not the shared record reader the design asks
+    for; this is.
+
+    A complete negative - needs_design, blocked_not_design - is a finished review
+    and passes. This is about whether a review happened, not about its verdict.
     """
     if round_name not in DECISION_ROUNDS:
         return None
-    metadata_path = packet / round_name / "METADATA.json"
-    if not metadata_path.is_file():
+    if not (packet / round_name / "METADATA.json").is_file():
         return None                 # absence is the caller's own existing check
     try:
-        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-    except (OSError, ValueError) as error:
-        return f"its METADATA.json could not be read: {error}"
-    if metadata.get("protocol") != "json-v1":
-        return None                 # a legacy round; its own path judges it
-    status = metadata.get("review_status")
-    if status != "complete":
-        return (f"the reviewer declared the review {status!r} and reached no "
-                f"conclusion; its evidence is kept, but it is not a completed "
-                f"review and a fresh packet is needed")
+        result = read_decision(packet, round_name, task_id, allow_legacy=allow_legacy)
+    except LegacyPacket:
+        return None                 # a historical round; its own path judges it
+    except (ValueError, OSError, review_result.ReviewResultError) as error:
+        return f"its record does not validate: {error}"
+    if not result.is_complete:
+        return (f"the reviewer declared the review {result.review_status!r} and "
+                f"reached no conclusion; its evidence is kept, but it is not a "
+                f"completed review and a fresh packet is needed")
     return None
 
 
@@ -834,7 +841,7 @@ def build_prompt(round_name: str, packet: pathlib.Path, snapshot: pathlib.Path, 
             raise ValueError(f"required prior round is missing or incomplete: {prior}")
         if (packet / prior / "FAILED.json").exists():
             raise ValueError(f"required prior round failed: {prior}")
-        unfinished = decision_not_finished(packet, prior)
+        unfinished = decision_not_finished(packet, prior, identity["task_id"])
         if unfinished:
             # Astra MJ-P2-04, path 2: a direct round invocation bypasses the
             # node's check entirely, and this is the last gate before a provider

@@ -116,7 +116,10 @@ def build(args: argparse.Namespace) -> int:
                 "repository_head": repository_head(), "input_sha256": inputs,
                 "revised_contract_sha256": sha256(contract_bytes), "output_sha256": sha256(output),
                 "changed_fields": changed}
-    (round_dir / "METADATA.json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
+    # One atomic publication, as every ger_round round uses: a temporary
+    # sibling renamed into place, so METADATA.json is absent or whole. A
+    # direct write can leave a truncated actionable record (Astra MJ-P2-09).
+    ger_round.publish_metadata(round_dir, metadata)
     print(json.dumps({"round": BUILD, "task_id": task_id, "revised_contract_sha256": sha256(contract_bytes),
                       "changed_fields": changed}, indent=2))
     return 0
@@ -185,7 +188,10 @@ def recheck(args: argparse.Namespace) -> int:
                 "result_sha256": result_sha,
                 "reviewed": f"{BUILD}/REVISED_CONTRACT.json",
                 "recommendation": recommendation}
-    (round_dir / "METADATA.json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
+    # One atomic publication, as every ger_round round uses: a temporary
+    # sibling renamed into place, so METADATA.json is absent or whole. A
+    # direct write can leave a truncated actionable record (Astra MJ-P2-09).
+    ger_round.publish_metadata(round_dir, metadata)
     print(json.dumps({"round": RECHECK, "task_id": task_id, "protocol": protocol,
                       "recommendation": recommendation}, indent=2))
     return 0

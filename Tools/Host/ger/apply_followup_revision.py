@@ -70,6 +70,11 @@ def main() -> int:
                         "covering a post-commit Codex contract check of an earlier commit; the verdict is "
                         "parsed from the report's own 'Final recommendation:' line")
     parser.add_argument("--post-commit-check-commit", metavar="SHA")
+    parser.add_argument("--post-commit-check-import", metavar="WHO",
+                        help="the report was handed over by a person rather than produced "
+                             "by a job here; names who carried it, and is recorded as "
+                             "import provenance. Without it the report must have its job "
+                             "record beside it.")
     parser.add_argument("--post-commit-check-legacy", action="store_true",
                         help="the report predates the JSON closure protocol and is read "
                              "with the legacy Markdown parser. A declaration, never "
@@ -99,7 +104,8 @@ def main() -> int:
     if args.post_commit_check_report:
         post_commit_check = ac.resolve_post_commit_check(
             args.post_commit_check_report, args.post_commit_check_commit, task_id, parser.error,
-            legacy=args.post_commit_check_legacy)
+            legacy=args.post_commit_check_legacy,
+            import_source=args.post_commit_check_import)
     rel = f"Tasks/{task_id}.yaml"
     path = ac.REPO / rel
 

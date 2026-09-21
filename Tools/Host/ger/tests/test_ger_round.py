@@ -390,6 +390,30 @@ class UnfinishedReviewsAreNotPrerequisites(DecisionRounds):
             ger_round.CONTEXT_PRESETS[CONTEXT])
         self.assertIn("04-claude-reaudit/OUTPUT.md", prompt)
 
+    def test_a_tampered_view_is_not_a_finished_prerequisite(self):
+        # Astra MJ-P2-03 at the consumers: the gate read the record's COPIED
+        # review_status and never invoked the reader, so a round whose rendered
+        # OUTPUT.md had been edited - which read_decision refuses - still passed
+        # as a finished prerequisite, and the changed view went into the next
+        # prompt. A shared status-field check is not the shared record reader.
+        self.provider(output=self.result())
+        self.assertEqual(self.run_round(DECISION), 0)
+        self.assertIsNone(ger_round.decision_not_finished(
+            self.packet, DECISION, "NSC-001"))
+
+        (self.packet / DECISION / "OUTPUT.md").write_text(
+            "a different account of the review", encoding="utf-8")
+        problem = ger_round.decision_not_finished(self.packet, DECISION, "NSC-001")
+        self.assertIsNotNone(problem, "an edited view passed the prerequisite gate")
+        self.assertIn("does not validate", problem)
+
+    def test_a_missing_result_is_not_a_finished_prerequisite(self):
+        self.provider(output=self.result())
+        self.assertEqual(self.run_round(DECISION), 0)
+        (self.packet / DECISION / ger_round.RESULT_FILE).unlink()
+        problem = ger_round.decision_not_finished(self.packet, DECISION, "NSC-001")
+        self.assertIsNotNone(problem)
+
     def test_a_protocol_failure_is_labelled_as_one(self):
         # So the node's transient check cannot read it as a transport refusal.
         self.provider(output=b"Final recommendation: commit_contract\n")

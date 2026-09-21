@@ -181,6 +181,38 @@ class OverridesAfterReview(PacketBase):
         self.assertIsNone(ac.review_override(
             self.packet, dict(self.PROPOSED), {"acceptance": "something else"}, None))
 
+    def test_a_change_python_equality_calls_equal_is_still_a_change(self):
+        # Astra MJ-P2-07, second half. `proposed.get(key) != value` classified
+        # three real changes as no-ops: `.get` returns None for an absent key, so
+        # adding one whose value is null looked unchanged; and `True == 1` in
+        # Python, so 1 -> true looked unchanged, nested inside a dict too. Each
+        # produced a changed contract with no provenance record of the override.
+        self.v2()
+        cases = [
+            ("an absent key set to null", {"notes": None}),
+            ("an int changed to a bool", {"contract_revision": True}),
+            ("the same change nested in a dict", {"gates": {"unity": True}}),
+        ]
+        proposed = dict(self.PROPOSED, contract_revision=1, gates={"unity": 1})
+        for label, override in cases:
+            with self.subTest(label=label):
+                with self.assertRaises(SystemExit):
+                    ac.review_override(self.packet, dict(proposed), override, None)
+
+    def test_a_genuinely_unchanged_override_is_still_a_no_op(self):
+        # The guard must not become "refuse every override".
+        self.v2()
+        proposed = dict(self.PROPOSED, gates={"unity": 1}, notes=None)
+        self.assertIsNone(ac.review_override(
+            self.packet, dict(proposed),
+            {"gates": {"unity": 1}, "notes": None, "acceptance": "as reviewed"}, None))
+
+    def test_key_order_inside_a_value_is_not_a_change(self):
+        self.v2()
+        proposed = dict(self.PROPOSED, gates={"a": 1, "b": 2})
+        self.assertIsNone(ac.review_override(
+            self.packet, dict(proposed), {"gates": {"b": 2, "a": 1}}, None))
+
     def test_every_changed_key_is_named(self):
         self.v2()
         with self.assertRaises(SystemExit) as caught:
@@ -188,6 +220,103 @@ class OverridesAfterReview(PacketBase):
                                {"acceptance": "x", "contract_revision": 9}, None)
         self.assertIn("acceptance", str(caught.exception))
         self.assertIn("contract_revision", str(caught.exception))
+
+
+class TheRecheckVerifiers(PacketBase):
+    """MJ-P2-10: the two functions my NameError hid in, exercised end to end.
+
+    I tested `round_decision` in isolation and never called the verifiers that
+    use it, so `allow_legacy=args.legacy_rounds` inside functions with no `args`
+    raised NameError on both otherwise-valid paths. These drive each verifier
+    with records that reach and pass the decision read.
+    """
+
+    PATCHED = b'{"id": "NSC-001", "contract_revision": 2}\n'
+    REVISED = b'{"id": "NSC-001", "contract_revision": 2}\n'
+
+    def plain_round(self, name: str, text: bytes, **metadata) -> bytes:
+        directory = self.packet / name
+        directory.mkdir(parents=True, exist_ok=True)
+        (directory / "OUTPUT.md").write_bytes(text)
+        (directory / "METADATA.json").write_text(
+            json.dumps({"round": name, "output_sha256": ac.sha256(text), **metadata}),
+            encoding="utf-8")
+        return text
+
+    def test_the_owner_patch_verifier_reads_a_json_recheck(self):
+        hashes = {"03-codex-refine": ac.sha256(CANDIDATE)}
+        reaudit = self.plain_round("04-claude-reaudit", b"re-audit output\n")
+        hashes["04-claude-reaudit"] = ac.sha256(reaudit)
+
+        patch_out = b"owner patch output\n"
+        self.plain_round("05-owner-patch", patch_out,
+                         patched_contract_sha256=ac.sha256(self.PATCHED),
+                         input_sha256={"03-codex-refine/OUTPUT.md": hashes["03-codex-refine"],
+                                       "04-claude-reaudit/OUTPUT.md": hashes["04-claude-reaudit"]})
+        (self.packet / "05-owner-patch" / "PATCHED_CONTRACT.json").write_bytes(self.PATCHED)
+
+        fixtures.decision(
+            self.packet,
+            fixtures.result_bytes(artifact=patch_out, recommendation="commit_contract"),
+            round_name="06-claude-recheck",
+            input_sha256={"05-owner-patch/OUTPUT.md": ac.sha256(patch_out)})
+
+        record = ac.verify_owner_patch_and_recheck(
+            self.packet, hashes, "blocked_not_design", TASK)
+        self.assertEqual(record["recheck_recommendation"], "commit_contract")
+
+    def test_the_decision_revision_verifier_reads_a_json_recheck(self):
+        hashes = {"03-codex-refine": ac.sha256(CANDIDATE)}
+        reaudit = self.plain_round("04-claude-reaudit", b"re-audit output\n")
+        hashes["04-claude-reaudit"] = ac.sha256(reaudit)
+
+        build_out = b"decision revision output\n"
+        self.plain_round("07-owner-decision-revision", build_out,
+                         revised_contract_sha256=ac.sha256(self.REVISED),
+                         input_sha256={"03-codex-refine/OUTPUT.md": hashes["03-codex-refine"],
+                                       "04-claude-reaudit/OUTPUT.md": hashes["04-claude-reaudit"]})
+        (self.packet / "07-owner-decision-revision" / "REVISED_CONTRACT.json").write_bytes(
+            self.REVISED)
+
+        fixtures.decision(
+            self.packet,
+            fixtures.result_bytes(artifact=self.REVISED,
+                                  recommendation="commit_contract_then_decompose"),
+            round_name="08-claude-recheck",
+            provider_evidence="imported",
+            imported_from="the GER owner's reviewer report",
+            exit_code=None, session_id=None,
+            input_sha256={
+                "07-owner-decision-revision/OUTPUT.md": ac.sha256(build_out),
+                "07-owner-decision-revision/REVISED_CONTRACT.json": ac.sha256(self.REVISED)})
+
+        record = ac.verify_decision_revision_and_recheck(self.packet, hashes, TASK)
+        self.assertEqual(record["recheck_recommendation"],
+                         "commit_contract_then_decompose")
+
+    def test_neither_verifier_references_a_module_global_args(self):
+        # The shape of the defect, not just the instance: any `args.` outside
+        # main() is a NameError waiting for the path that reaches it.
+        import ast
+
+        tree = ast.parse(Path(ac.__file__).read_text(encoding="utf-8"))
+        offenders = []
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.FunctionDef) or node.name == "main":
+                continue
+            spec = node.args
+            names = {a.arg for a in spec.args} | {a.arg for a in spec.kwonlyargs}
+            # *args and **kwargs bind the name too - `def git(*args)` is fine.
+            for extra in (spec.vararg, spec.kwarg):
+                if extra is not None:
+                    names.add(extra.arg)
+            if "args" in names:
+                continue
+            for inner in ast.walk(node):
+                if isinstance(inner, ast.Name) and inner.id == "args":
+                    offenders.append(f"{node.name}:{inner.lineno}")
+        self.assertEqual(offenders, [],
+                         "these functions read `args` without receiving it")
 
 
 class PostCommitCheck(unittest.TestCase):
@@ -226,9 +355,19 @@ class PostCommitCheck(unittest.TestCase):
         ac.REPO = self.repo
         self.addCleanup(lambda: setattr(ac, "REPO", self._real_repo))
 
-    def report(self, raw: bytes) -> Path:
+    def report(self, raw: bytes, *, job_record: dict | None = ...) -> Path:
+        """The report, and by default the job record proving its job succeeded."""
         path = self.tmp / "check.report.md"
         path.write_bytes(raw)
+        ready = path.with_suffix(path.suffix + ".metadata.json")
+        if job_record is ...:
+            job_record = {"protocol": "json-v1", "result_sha256": ac.sha256(raw),
+                          "exit_code": 0, "is_error": None}
+        if job_record is None:
+            if ready.exists():
+                ready.unlink()
+        else:
+            ready.write_text(json.dumps(job_record), encoding="utf-8")
         return path
 
     def result(self, **overrides) -> bytes:
@@ -245,9 +384,9 @@ class PostCommitCheck(unittest.TestCase):
         body.update(overrides)
         return json.dumps(body).encode("utf-8")
 
-    def resolve(self, raw: bytes, **kwargs):
+    def resolve(self, raw: bytes, *, job_record=..., **kwargs):
         return ac.resolve_post_commit_check(
-            self.report(raw), self.checked, TASK, refuse, **kwargs)
+            self.report(raw, job_record=job_record), self.checked, TASK, refuse, **kwargs)
 
     def test_a_bound_result_is_accepted(self):
         record = self.resolve(self.result())
@@ -255,6 +394,41 @@ class PostCommitCheck(unittest.TestCase):
         self.assertEqual(record["protocol"], "json-v1")
         self.assertEqual(record["checked_commit"], self.checked)
         self.assertEqual(record["reviewed_artifact_sha256"], ac.sha256(self.blob))
+        self.assertEqual(record["provider_evidence"], "generated")
+
+    def test_a_report_with_no_job_record_is_refused(self):
+        # Astra MJ-P3-03: this used to be accepted and stamped `imported`, so a
+        # result whose own job FAILED acquired provenance it had not earned.
+        with self.assertRaises(Refused) as caught:
+            self.resolve(self.result(), job_record=None)
+        self.assertIn("no job record beside it", str(caught.exception))
+
+    def test_a_record_of_a_failed_job_is_refused(self):
+        # The exact boundary: check_job_result rejects rc=9, and this must too.
+        for failed in ({"exit_code": 9, "is_error": None},
+                       {"exit_code": 0, "is_error": True}):
+            with self.subTest(failed=failed):
+                raw = self.result()
+                record = {"protocol": "json-v1", "result_sha256": ac.sha256(raw), **failed}
+                with self.assertRaises(Refused) as caught:
+                    self.resolve(raw, job_record=record)
+                self.assertIn("failed job", str(caught.exception))
+
+    def test_a_record_for_different_bytes_is_refused(self):
+        raw = self.result()
+        record = {"protocol": "json-v1", "result_sha256": "f" * 64,
+                  "exit_code": 0, "is_error": None}
+        with self.assertRaises(Refused) as caught:
+            self.resolve(raw, job_record=record)
+        self.assertIn("recorded result hash", str(caught.exception))
+
+    def test_a_hand_carried_review_is_declared_not_assumed(self):
+        record = self.resolve(self.result(), job_record=None,
+                              import_source="the GER owner carried this from Astra")
+        self.assertEqual(record["provider_evidence"], "imported")
+        self.assertEqual(record["imported_from"],
+                         "the GER owner carried this from Astra")
+        self.assertEqual(record["verdict"], "commit_contract")
 
     def test_a_negative_verdict_is_recorded_not_refused(self):
         self.assertEqual(self.resolve(self.result(recommendation="revise"))["verdict"],

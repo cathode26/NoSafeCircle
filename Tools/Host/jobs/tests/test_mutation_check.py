@@ -94,6 +94,50 @@ class Scoring(unittest.TestCase):
         self.assertIn(TARGET, reason)
         self.assertIn("test_an_unrelated_guard", reason)
 
+    def test_a_run_cut_off_after_the_count_is_not_a_kill(self):
+        # Astra MJ-MUT-01. unittest prints "Ran N tests" BEFORE its terminal
+        # verdict, so a run interrupted between the two showed a named FAIL and a
+        # count and scored as a kill. score(-9, truncated, target) returned True.
+        truncated = (f"FAIL: {TARGET} (__main__.Suite.{TARGET})\n"
+                     + "-" * 70 + "\nRan 65 tests in 0.010s\n")
+        killed, reason = mutation_check.score(-9, truncated, TARGET)
+        self.assertFalse(killed)
+        self.assertIn("interrupted", reason)
+
+    def test_aggregate_errors_in_the_summary_disqualify_the_run(self):
+        # Even with no ERROR: block parsed - the terminal count is authoritative.
+        text = output(failures=[TARGET]).replace("FAILED (failures=1)",
+                                                 "FAILED (failures=1, errors=2)")
+        killed, reason = mutation_check.score(1, text, TARGET)
+        self.assertFalse(killed)
+        self.assertIn("ERRORS", reason)
+
+    def test_a_summary_reporting_no_failures_is_not_a_kill(self):
+        text = output(failures=[TARGET]).replace("FAILED (failures=1)",
+                                                 "FAILED (errors=0)")
+        killed, reason = mutation_check.score(1, text, TARGET)
+        self.assertFalse(killed)
+        self.assertIn("no failures", reason)
+
+    def test_a_shortened_collection_is_not_a_kill(self):
+        # Astra MJ-MUT-02: the mutation broke collection, so one test ran and
+        # failed. What ran proves nothing about what the suite detects.
+        short = output(ran=1, failures=[TARGET])
+        killed, reason = mutation_check.score(1, short, TARGET, expected_tests=65)
+        self.assertFalse(killed)
+        self.assertIn("baseline collected 65", reason)
+
+    def test_the_expected_count_matching_is_a_kill(self):
+        killed, reason = mutation_check.score(
+            1, output(ran=65, failures=[TARGET]), TARGET, expected_tests=65)
+        self.assertTrue(killed, reason)
+
+    def test_the_count_is_only_checked_when_a_baseline_is_given(self):
+        # score() is also called in tests without one; that must not become a
+        # silent pass-everything path.
+        killed, _ = mutation_check.score(1, output(ran=3, failures=[TARGET]), TARGET)
+        self.assertTrue(killed)
+
     def test_the_last_summary_decides(self):
         # A suite that shells out to another prints more than one summary, and
         # only the outermost - the last to finish - is this suite's.

@@ -273,13 +273,15 @@ def read_imported_review(raw: bytes, *, task_id: str, review_kind: str,
     """
     if legacy:
         text = raw.decode("utf-8", errors="replace")
-        try:
-            looks_like_json = isinstance(json.loads(text), dict)
-        except ValueError:
-            looks_like_json = False
-        if looks_like_json:
-            refuse("a JSON document was given with the legacy flag; a new-format "
-                   "result must be read as one, not grepped")
+        # Structural, not a parse. Astra MJ-P2-06 reproduced three holes in the
+        # parse-based version: a BOM-prefixed result, a valid object followed by
+        # trailing text, and anything JSON-shaped but malformed all failed
+        # json.loads and fell through to the grep, which then read a verdict out
+        # of `"recommendation": "..."`.
+        if review_result.looks_like_result(text):
+            refuse("a JSON-shaped document was given with the legacy flag; a "
+                   "new-format result must be read as one, not grepped, and a "
+                   "malformed one is refused rather than retried as Markdown")
         # Only where the old format actually demanded it. The round-08 and
         # followup paths required the reviewer to name the artifact; the
         # post-commit check never did, and imposing it here retroactively would
@@ -326,8 +328,22 @@ def review_override(packet: pathlib.Path, proposed: dict, overrides: dict,
     bound to anything, so there is no binding for an override to contradict.
     Returns the provenance record, or None when there is nothing to record.
     """
-    changed = sorted(key for key, value in overrides.items()
-                     if proposed.get(key) != value)
+    # Astra MJ-P2-07, second half: `proposed.get(key) != value` classified three
+    # real changes as no-ops. `.get` returns None for an absent key, so adding a
+    # key whose value is null looked unchanged; and Python's `==` makes
+    # `True == 1` and `1 == True` true, so changing 1 to true - including nested
+    # inside a dict - looked unchanged too. Each produced a changed contract with
+    # no provenance record of the override.
+    #
+    # Presence is tested separately from value, and values are compared by their
+    # canonical JSON text, which distinguishes 1 from true and orders nested keys.
+    changed = []
+    for key, value in overrides.items():
+        if key not in proposed:
+            changed.append(key)
+        elif json.dumps(proposed[key], sort_keys=True) != json.dumps(value, sort_keys=True):
+            changed.append(key)
+    changed.sort()
     if not changed:
         return None
     if ger_round.decision_protocol(packet, "04-claude-reaudit") != "json-v1":
@@ -407,7 +423,8 @@ def parse_post_commit_verdict(text: str) -> str | None:
 
 
 def resolve_post_commit_check(report_arg: pathlib.Path, commit_arg: str, task_id: str, error,
-                              legacy: bool = False) -> dict:
+                              legacy: bool = False,
+                              import_source: str | None = None) -> dict:
     """Validate --post-commit-check-report/--post-commit-check-commit and return the followup record.
 
     `error(message)` must not return (e.g. an ArgumentParser's bound `.error`); every refusal below
@@ -458,13 +475,47 @@ def resolve_post_commit_check(report_arg: pathlib.Path, commit_arg: str, task_id
         legacy_requires_identity=False,
         refuse=lambda message: error(f"--post-commit-check-report {report_path}: {message}"))
 
-    record = {**record, "verdict": verdict, "protocol": protocol,
-              # Handed over by a person, like every other imported review. Named
-              # so a consumer never mistakes it for a run this host performed.
-              "provider_evidence": "imported",
-              "imported_from": str(report_path)}
+    record = {**record, "verdict": verdict, "protocol": protocol}
     if result is not None:
         record["reviewed_artifact_sha256"] = result.reviewed_artifact_sha256
+
+    # Astra MJ-P3-03: this stamped `provider_evidence: imported` on everything,
+    # so a result whose own job FAILED acquired provenance it had not earned.
+    # Reproduced at the boundary: check_job_result.judge rejects a run with rc=9,
+    # and this resolver accepted the same result as commit_contract and called it
+    # an import. A missing job record must not silently become one.
+    #
+    # The caller now says which it is. A hand-carried review names who carried
+    # it; anything else must show the record its job published.
+    if import_source:
+        record["provider_evidence"] = "imported"
+        record["imported_from"] = import_source
+        return record
+
+    ready = report_path.with_suffix(report_path.suffix + ".metadata.json")
+    if not ready.is_file():
+        error(f"--post-commit-check-report {report_path} has no job record beside it "
+              f"({ready.name}), so there is no evidence its job succeeded - the "
+              f"generic gate that checks process status, freshness and emptiness "
+              f"runs at the job, not here. If this review was handed over by a "
+              f"person rather than generated, say so with "
+              f"--post-commit-check-import naming who carried it. Refusing rather "
+              f"than assuming either.")
+    try:
+        job = json.loads(ready.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as failure:
+        error(f"the job record {ready} is unreadable: {failure}")
+    problems = []
+    if job.get("result_sha256") != sha256(report_bytes):
+        problems.append("its recorded result hash does not match the report")
+    if job.get("exit_code") != 0 or job.get("is_error"):
+        problems.append(f"it records a failed job (exit {job.get('exit_code')!r}, "
+                        f"is_error {job.get('is_error')!r})")
+    if problems:
+        error(f"the job record {ready} does not support this review: "
+              + "; ".join(problems))
+    record["provider_evidence"] = "generated"
+    record["job_record"] = str(ready)
     return record
 
 
@@ -480,7 +531,7 @@ def final_contract(text: str) -> dict:
 
 
 def verify_owner_patch_and_recheck(packet: pathlib.Path, hashes: dict, reaudit_recommendation: str | None,
-                                   task_id: str) -> dict:
+                                   task_id: str, allow_legacy: bool = False) -> dict:
     """An owner patch applies the re-audit's quoted replacements verbatim; a fresh re-check must approve it."""
     if reaudit_recommendation not in COMMITTABLE + ("blocked_not_design",):
         raise SystemExit(f"re-audit recommendation is {reaudit_recommendation!r}; an owner patch cannot resolve it")
@@ -503,7 +554,7 @@ def verify_owner_patch_and_recheck(packet: pathlib.Path, hashes: dict, reaudit_r
     recheck_meta = json.loads((packet / "06-claude-recheck" / "METADATA.json").read_text(encoding="utf-8"))
     if recheck_meta.get("input_sha256", {}).get("05-owner-patch/OUTPUT.md") != hashes["05-owner-patch"]:
         raise SystemExit("the 06 re-check did not review this owner patch")
-    recommendation = round_decision(packet, "06-claude-recheck", task_id, allow_legacy=args.legacy_rounds)
+    recommendation = round_decision(packet, "06-claude-recheck", task_id, allow_legacy=allow_legacy)
     if recommendation not in COMMITTABLE:
         raise SystemExit(f"re-check recommendation is {recommendation!r}; not committing")
     return {"recheck_recommendation": recommendation, "owner_patch_contract_sha256": sha256(patched)}
@@ -529,7 +580,8 @@ def verify_decision_revision_only(packet: pathlib.Path, hashes: dict) -> dict:
     return {"decision_revision_contract_sha256": sha256(revised)}
 
 
-def verify_decision_revision_and_recheck(packet: pathlib.Path, hashes: dict, task_id: str) -> dict:
+def verify_decision_revision_and_recheck(packet: pathlib.Path, hashes: dict, task_id: str,
+                                         allow_legacy: bool = False) -> dict:
     """A decision revision applies recorded decisions and the re-audit's required changes; a fresh re-check must approve it."""
     for name in ("07-owner-decision-revision", "08-claude-recheck"):
         directory = packet / name
@@ -554,7 +606,7 @@ def verify_decision_revision_and_recheck(packet: pathlib.Path, hashes: dict, tas
         raise SystemExit("the 08 re-check did not review this decision revision")
     if hashes["08-claude-recheck"] != recheck_meta.get("output_sha256"):
         raise SystemExit("08-claude-recheck/OUTPUT.md does not match its metadata")
-    recommendation = round_decision(packet, "08-claude-recheck", task_id, allow_legacy=args.legacy_rounds)
+    recommendation = round_decision(packet, "08-claude-recheck", task_id, allow_legacy=allow_legacy)
     if recommendation not in COMMITTABLE:
         raise SystemExit(f"re-check recommendation is {recommendation!r}; not committing")
     return {"recheck_recommendation": recommendation, "decision_revision_contract_sha256": sha256(revised)}
@@ -604,7 +656,8 @@ def main() -> int:
     recheck = None
     decision = None
     if (packet / "08-claude-recheck").exists():
-        decision = verify_decision_revision_and_recheck(packet, hashes, task_id)
+        decision = verify_decision_revision_and_recheck(packet, hashes, task_id,
+                                                       allow_legacy=args.legacy_rounds)
         recommendation = decision["recheck_recommendation"]
     elif (packet / "07-owner-decision-revision").exists() and not (packet / "06-claude-recheck").exists():
         if not args.skip_recheck:
@@ -613,7 +666,8 @@ def main() -> int:
         decision["recheck_skipped"] = args.skip_recheck
         recommendation = "re-check skipped"
     elif (packet / "06-claude-recheck").exists():
-        recheck = verify_owner_patch_and_recheck(packet, hashes, reaudit_recommendation, task_id)
+        recheck = verify_owner_patch_and_recheck(packet, hashes, reaudit_recommendation, task_id,
+                                                 allow_legacy=args.legacy_rounds)
         recommendation = recheck["recheck_recommendation"]
     else:
         recommendation = reaudit_recommendation

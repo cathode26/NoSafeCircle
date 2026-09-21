@@ -208,7 +208,7 @@ def transient_failure(directory: pathlib.Path) -> bool:
     return any(marker in blob for marker in TRANSIENT_FAILURE_MARKERS)
 
 
-def round_complete(packet: pathlib.Path, name: str) -> bool:
+def round_complete(packet: pathlib.Path, name: str, task_id: str) -> bool:
     directory = packet / name
     if not directory.exists():
         return False
@@ -238,7 +238,7 @@ def round_complete(packet: pathlib.Path, name: str) -> bool:
     #
     # A complete negative - needs_design, blocked_not_design - is NOT this. Those
     # are finished reviews that reached a negative conclusion, and they pass.
-    unfinished = ger_round.decision_not_finished(packet, name)
+    unfinished = ger_round.decision_not_finished(packet, name, task_id)
     if unfinished:
         raise RuntimeError(f"round {name} ran, but {unfinished}: {directory}")
     return True
@@ -342,7 +342,7 @@ def main() -> int:
         status.update(context)
         marker("start", task_id)
         for name in ROUNDS:
-            if round_complete(packet, name):
+            if round_complete(packet, name, task_id):
                 log(f"{task_id}: {name} already complete")
                 continue
             log(f"{task_id}: {name} starting")
@@ -359,7 +359,7 @@ def main() -> int:
             # launch meant the first pass could mark the node rounds_complete
             # with an unfinished re-audit, while merely resuming the same packet
             # hit the refusal. The same rule now runs on both sides of the launch.
-            unfinished = ger_round.decision_not_finished(packet, name)
+            unfinished = ger_round.decision_not_finished(packet, name, task_id)
             if unfinished:
                 raise RuntimeError(f"{name} ran, but {unfinished}")
         status["status"] = "rounds_complete"

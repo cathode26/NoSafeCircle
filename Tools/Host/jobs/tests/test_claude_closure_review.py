@@ -22,6 +22,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import subprocess
+import tempfile
 import sys
 import unittest
 from pathlib import Path
@@ -164,7 +166,7 @@ class TheRenderedView(Base):
 
 
 class TheTwoRunners(unittest.TestCase):
-    """They differ by one command, and by nothing else."""
+    """They differ by more than one command, which is what caught me out."""
 
     def test_docker_runs_in_the_clone_and_host_does_not(self):
         clone = Path("C:/nscrev/cj-example")
@@ -178,6 +180,112 @@ class TheTwoRunners(unittest.TestCase):
         for forbidden in ("Edit", "Write", "NotebookEdit"):
             self.assertNotIn(forbidden, docker_cmd)
         self.assertIn("json", docker_cmd)
+
+    def test_the_host_cwd_is_not_a_spelled_out_machine_path(self):
+        # Astra MJ-P3-04: it was hardcoded to C:/NSC even when every path
+        # argument pointed elsewhere, which breaks a fresh install on F:.
+        chosen = Path("D:/elsewhere/workspace")
+        _cmd, cwd = ccr.command("host", "m", "60", Path("D:/elsewhere/cj-x"),
+                                host_cwd=chosen)
+        self.assertEqual(cwd, chosen)
+
+
+class ThePromptEachRunnerGets(unittest.TestCase):
+    """Astra MJ-P3-02: Docker sees /workspace; the host sees the clone's real path."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.clone = Path(self._tmp.name) / "cj-job"
+        self.clone.mkdir()
+
+    def test_docker_keeps_container_paths(self):
+        prompt = ccr.localise_prompt("Review /workspace/REVISED_CONTRACT.json\n",
+                                     self.clone, "60", "docker")
+        self.assertIn("/workspace/REVISED_CONTRACT.json", prompt)
+        self.assertNotIn(str(self.clone).replace("\\", "/"), prompt,
+                         "the container was handed a host path it cannot resolve")
+
+    def test_the_host_gets_the_clone_path(self):
+        prompt = ccr.localise_prompt("Review /workspace/REVISED_CONTRACT.json\n",
+                                     self.clone, "60", "host")
+        root = str(self.clone).replace("\\", "/")
+        self.assertIn(f"{root}/REVISED_CONTRACT.json", prompt)
+
+    def test_copied_inputs_use_each_runners_own_root(self):
+        source = Path(self._tmp.name) / "nscrev-ish.md"
+        source.write_text("prior findings", encoding="utf-8")
+        # localise_prompt only rewrites paths under C:/nscrev, so drive the
+        # copy through a path shaped like one by pointing at the real file.
+        for runner, expected in (("docker", "/workspace/_review_inputs/"),
+                                 ("host", str(self.clone).replace("\\", "/")
+                                  + "/_review_inputs/")):
+            with self.subTest(runner=runner):
+                prompt = ccr.localise_prompt("see /workspace/_review_inputs/x.md\n",
+                                             self.clone, "60", runner)
+                self.assertIn(expected, prompt)
+
+
+class MainWiring(Base):
+    """Astra MJ-P3-01: the rules are only real if main() actually applies them."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.tmp = Path(self._tmp.name)
+        self.jobs = self.tmp / "codex-jobs"
+        self.work = self.tmp / "claude-jobs"
+        for d in (self.jobs, self.work):
+            d.mkdir()
+        (self.jobs / "JOB.prompt.md").write_text("review it\n", encoding="utf-8")
+
+        self.clone = self.tmp / "cj-JOB"
+        self._real = (ccr.build_clone, ccr.command, subprocess.run)
+
+        def fake_clone(repo, clone, task, commit, previous, extras):
+            clone.mkdir(parents=True)
+            (clone / "REVISED_CONTRACT.json").write_bytes(CONTRACT)
+
+        ccr.build_clone = fake_clone
+        ccr.command = lambda *a, **k: (["fake-cli"], self.tmp)
+        self.addCleanup(self._restore)
+
+    def _restore(self):
+        ccr.build_clone, ccr.command, subprocess.run = self._real
+
+    def provider(self, *, code: int, wrapper_bytes: bytes):
+        def fake_run(cmd, **kwargs):
+            kwargs["stdout"].write(wrapper_bytes)
+            return subprocess.CompletedProcess(cmd, code)
+        subprocess.run = fake_run
+
+    def run_main(self) -> int:
+        return ccr.main(["--runner", "host", "--job", "JOB", "--task", TASK,
+                         "--commit", "abc", "--previous", "def",
+                         "--repo", str(self.tmp / "repo"),
+                         "--jobs", str(self.jobs), "--work", str(self.work)])
+
+    def test_a_nonzero_process_fails_despite_a_valid_wrapper(self):
+        # The exact reproduction: exit 9, is_error false, otherwise valid JSON.
+        self.provider(code=9, wrapper_bytes=wrapper())
+        self.assertEqual(self.run_main(), ccr.PROVIDER_FAILED)
+        self.assertFalse((self.jobs / "JOB.result.json").exists(),
+                         "actionable evidence was published for a failed process")
+        self.assertFalse((self.jobs / "JOB.report.md").exists())
+
+    def test_a_wrapper_error_with_a_zero_exit_also_fails(self):
+        self.provider(code=0, wrapper_bytes=wrapper(is_error=True))
+        self.assertEqual(self.run_main(), ccr.PROVIDER_FAILED)
+        self.assertFalse((self.jobs / "JOB.result.json").exists())
+
+    def test_a_complete_negative_succeeds_and_publishes(self):
+        self.provider(code=0,
+                      wrapper_bytes=wrapper(result=result_json(recommendation="revise")))
+        self.assertEqual(self.run_main(), ccr.OK)
+        self.assertEqual(json.loads((self.jobs / "JOB.result.json").read_text(
+            encoding="utf-8"))["recommendation"], "revise")
+        view = (self.jobs / "JOB.report.md").read_text(encoding="utf-8")
+        self.assertIn(review_result.DERIVED_VIEW_MARKER, view)
 
 
 if __name__ == "__main__":

@@ -53,6 +53,11 @@ RAN = re.compile(r"^Ran (\d+) tests?", re.MULTILINE)
 HERE = Path(__file__).resolve().parent
 HOST = HERE.parent.parent
 
+# The same tested interpretation every suite verdict goes through, rather than a
+# second slightly different summary parser living here (Astra, message 8).
+sys.path.insert(0, str(HOST))
+from run_tool_tests import terminal_summary  # noqa: E402
+
 # Mutated files, by key, relative to Tools/Host.
 FILES = {
     "result": Path("review_result.py"),
@@ -159,9 +164,14 @@ MUTATIONS = [
      "ger", "test_an_edited_human_view_is_refused"),
 
     ("ger_round", "the unfinished-review prerequisite check",
-     "        unfinished = decision_not_finished(packet, prior)",
+     '        unfinished = decision_not_finished(packet, prior, identity["task_id"])',
      "        unfinished = None",
      "ger", "test_build_prompt_refuses_an_unfinished_prior_decision"),
+
+    ("ger_round", "a failed record validation blocking a prerequisite",
+     '        return f"its record does not validate: {error}"',
+     "        return None",
+     "ger", "test_a_tampered_view_is_not_a_finished_prerequisite"),
 
     ("ger_node", "the retry gate on a successful provider call",
      '        if evidence.get("exit_code") == 0 and not evidence.get("is_error"):',
@@ -218,26 +228,51 @@ def run(suite: Path) -> tuple[int, str]:
     return proc.returncode, proc.stdout + proc.stderr
 
 
-def score(code: int, output: str, must_die: str) -> tuple[bool, str]:
+def score(code: int, output: str, must_die: str,
+          expected_tests: int | None = None) -> tuple[bool, str]:
     """Was this mutation KILLED - detected by the named test failing an assertion?
 
     Pure, so it can be tested without running a suite. Returns (killed, reason);
-    the reason is what gets printed for a survivor, and it names which of the
-    five conditions was not met rather than saying only "survived".
+    the reason names which condition was not met rather than saying only
+    "survived".
+
+    The summary is read by `run_tool_tests.terminal_summary`, the same tested
+    interpretation every suite's own verdict goes through, rather than a second
+    slightly different parser living here.
+
+    Two conditions come from Astra's MJ-MUT findings:
+
+    - **A `Ran N tests` line is not proof the reporter finished.** unittest prints
+      it BEFORE its terminal verdict, so a run interrupted in between showed a
+      named FAIL and a count and scored as a kill. `score(-9, truncated, target)`
+      returned True. The terminal `FAILED` summary is now required.
+    - **The collected count must match the baseline's.** A mutated run that
+      collected one test - because the mutation broke collection - was accepted
+      against a baseline of 65. `expected_tests` is the baseline count and is
+      compared, not assumed.
     """
-    runs = RAN.findall(output)
-    if not runs:
+    tests, verdict, counts = terminal_summary(output)
+    if tests is None:
         return False, "the suite printed no 'Ran N tests' summary; it did not complete"
-    collected = int(runs[-1])
-    if collected == 0:
+    if verdict is None:
+        return False, (f"the suite printed 'Ran {tests} tests' but never reached its "
+                       f"terminal summary; it was interrupted, not conclusive")
+    if tests == 0:
         return False, "the suite collected zero tests, so it detected nothing"
+    if expected_tests is not None and tests != expected_tests:
+        return False, (f"the suite collected {tests} tests but its baseline collected "
+                       f"{expected_tests}; the mutation changed what runs, so what "
+                       f"ran proves nothing about what it detects")
 
     errors = sorted(set(ERROR.findall(output)))
-    if errors:
+    if errors or counts.get("errors"):
+        named = ", ".join(errors[:4]) or f"{counts.get('errors')} in the summary"
         return False, ("the mutation caused execution ERRORS, which is breakage, "
-                       "not detection: " + ", ".join(errors[:4]))
-    if code == 0:
+                       "not detection: " + named)
+    if code == 0 or verdict != "FAILED":
         return False, "the suite stayed green"
+    if not counts.get("failures"):
+        return False, "the terminal summary reports no failures"
 
     failures = set(FAILURE.findall(output))
     if must_die not in failures:
@@ -258,14 +293,31 @@ def main() -> int:
         files, suites = stage(Path(tmpdir))
         pristine = {key: path.read_text(encoding="utf-8") for key, path in files.items()}
 
+        # Each baseline must itself be a COMPLETED, green, non-empty run, and its
+        # collected count is kept. Astra MJ-MUT-02: a baseline exit of 0 alone
+        # also accepts a run that collected nothing, and without the count a
+        # mutated run collecting one test scored as a kill against a baseline of
+        # sixty-five.
+        expected: dict[str, int] = {}
         for key, suite in suites.items():
             code, output = run(suite)
-            if code != 0:
-                print(f"the unmutated {key} suite is not green - fix that before mutating",
-                      file=sys.stderr)
+            tests, verdict, counts = terminal_summary(output)
+            problem = None
+            if code != 0 or verdict != "OK":
+                problem = "it is not green"
+            elif tests is None:
+                problem = "it printed no terminal summary"
+            elif tests == 0:
+                problem = "it collected zero tests"
+            elif counts.get("errors") or counts.get("failures"):
+                problem = "its summary reports failures or errors"
+            if problem:
+                print(f"the unmutated {key} suite cannot be a baseline: {problem}. "
+                      f"Fix that before mutating.", file=sys.stderr)
                 print(output[-2000:], file=sys.stderr)
                 return 1
-            print(f"baseline {key}: {output.strip().splitlines()[-1]}")
+            expected[key] = tests
+            print(f"baseline {key}: {tests} tests, {verdict}")
         print()
 
         survivors: list[str] = []
@@ -282,7 +334,7 @@ def main() -> int:
             finally:
                 path.write_text(text, encoding="utf-8")
 
-            killed, reason = score(code, output, must_die)
+            killed, reason = score(code, output, must_die, expected[suite_key])
             if killed:
                 print(f"killed       {what}")
             else:

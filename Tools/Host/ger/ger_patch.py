@@ -18,6 +18,13 @@ import hashlib
 import json
 import pathlib
 import re
+import sys
+
+# ger_round owns the atomic record publisher. Inserted explicitly because running
+# this as a script puts ger/ on sys.path but importing it as a module does not.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
+import ger_round  # noqa: E402
 
 ROUND = "05-owner-patch"
 ID_KEYS = {"acceptance_criteria": "criterion_id", "completion_gates": "gate_id",
@@ -156,7 +163,10 @@ def main() -> int:
                                      "replacements": sha256(spec_bytes)},
                     "replacement_count": len(log), "patched_contract_sha256": sha256(patched),
                     "output_sha256": sha256((round_dir / "OUTPUT.md").read_bytes())}
-        (round_dir / "METADATA.json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
+        # One atomic publication, as every ger_round round uses: a temporary
+        # sibling renamed into place, so METADATA.json is absent or whole. A
+        # direct write can leave a truncated actionable record (Astra MJ-P2-09).
+        ger_round.publish_metadata(round_dir, metadata)
     except (ValueError, KeyError, OSError) as error:
         (round_dir / "FAILED.json").write_text(json.dumps({"failed_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
                                                           "reason": str(error)}, indent=2) + "\n", encoding="utf-8")
