@@ -54,10 +54,15 @@ TOOL_FILE, TEMPLATE_FILE = "tool", "template"
 # means the fixture is refused for a second reason, which is exactly how the
 # two fence/quote cases first passed.
 MUTATIONS = [
+    # Named for the lazy-continuation test on purpose. Since round 4 anchored
+    # the field patterns and `>` is not in DECORATION, a quoted line cannot
+    # match a field regardless of this branch - so the branch's live job is the
+    # continuation flag, and the block-quote test now passes for a second
+    # reason as well as its own.
     (TOOL_FILE, "block quotes read as the report speaking",
      "        if QUOTE.match(line):\n            quoting = True\n            continue",
      "        if False:\n            quoting = True\n            continue",
-     "test_a_verdict_inside_a_block_quote_is_an_example_not_a_verdict"),
+     "test_a_lazy_blockquote_continuation_is_still_inside_the_quote"),
 
     (TOOL_FILE, "fenced blocks read as the report speaking",
      "        opener = FENCE.match(line)",
@@ -104,6 +109,17 @@ MUTATIONS = [
      "        value = stated_value(rest).lower()",
      "        value = stated_value(rest)",
      "test_an_uppercase_recommendation_is_accepted"),
+
+    # Round 4: stating a field versus talking about one.
+    (TOOL_FILE, "round 4: the field label is matched anywhere in the line again",
+     "        match = label.match(line)",
+     "        match = label.search(line)",
+     "test_a_quoted_template_line_in_prose_is_not_a_verdict"),
+
+    (TOOL_FILE, "round 4: a heading no longer ends a quote's lazy continuation",
+     "        if BLOCK_START.match(line):",
+     "        if False:",
+     "test_a_heading_after_a_quotation_ends_the_continuation"),
 
     # The template is half the defect: a reviewer echoing it faithfully
     # produced two of Astra's counterexamples. These two prove the binding

@@ -133,8 +133,14 @@ def run_one(suite: Path, cwd: Path, extra_path: Path | None, timeout: int):
         # before ALL stderr, which destroys execution order - so a nested
         # suite's inner summary could appear after the outer one and win the
         # "last summary" rule below. Ordering has to be real, not inferred.
+        # -u as well as merging: Python block-buffers stdout when it is a pipe
+        # but keeps stderr line-buffered, so a suite that prints a captured
+        # child result during a test has that text flushed at EXIT - after its
+        # own summary. Merging the streams made the order real only for stderr.
+        # Astra round 4 reproduced the outer suite's skip vanishing behind an
+        # inner "OK". Unbuffered, arrival order is execution order.
         proc = subprocess.run(
-            [sys.executable, "-B", str(suite)], cwd=str(cwd), env=env,
+            [sys.executable, "-B", "-u", str(suite)], cwd=str(cwd), env=env,
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
             text=True, timeout=timeout,
         )

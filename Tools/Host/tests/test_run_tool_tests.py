@@ -316,5 +316,53 @@ class StreamOrderIsRealNotReconstructed(Fixture):
                          "the OUTER suite's count is the suite's count")
 
 
+class BufferingCannotReorderTheVerdict(Fixture):
+    """Astra round 4, finding 2. Merging the streams was necessary, not enough.
+
+    Python block-buffers stdout when it is a pipe and keeps stderr
+    line-buffered. A suite that prints a captured child result during a test
+    therefore has that text flushed at EXIT - after its own summary on stderr -
+    so "the last summary" was the INNER one and the outer suite's skip vanished.
+
+    `-u` on the child makes arrival order equal execution order.
+    """
+
+    def suite_that_reports_a_child(self):
+        inner = self.tmp / "inner_suite.py"
+        inner.write_text(
+            "import unittest\n"
+            "class Inner(unittest.TestCase):\n"
+            "    def test_inner(self):\n"
+            "        pass\n"
+            "unittest.main(exit=False)\n", encoding="utf-8")
+
+        outer = self.tmp / "suite_under_test.py"
+        outer.write_text(
+            "import subprocess, sys, unittest\n"
+            "class Outer(unittest.TestCase):\n"
+            "    def test_runs_and_reports_a_child(self):\n"
+            f"        done = subprocess.run([sys.executable, '-B', r'{inner}'],\n"
+            "                              capture_output=True, text=True)\n"
+            "        print(done.stdout + done.stderr)\n"
+            "    @unittest.skip('a guard case this machine cannot run')\n"
+            "    def test_skipped(self):\n"
+            "        pass\n"
+            "unittest.main()\n", encoding="utf-8")
+        return outer
+
+    def test_the_outer_skip_is_not_hidden_by_a_buffered_child_result(self):
+        run_tool_tests.NO_SKIPS = True
+        ok, tests, detail = self.run_it(self.suite_that_reports_a_child())
+        self.assertEqual(tests, 2, "the inner suite's count was taken as the outer's")
+        self.assertFalse(ok)
+        self.assertIn("1 test(s) skipped", detail)
+
+    def test_the_same_suite_reports_two_tests_when_skips_are_allowed(self):
+        run_tool_tests.NO_SKIPS = False
+        ok, tests, detail = self.run_it(self.suite_that_reports_a_child())
+        self.assertTrue(ok, detail)
+        self.assertEqual((tests, detail), (2, "1 skipped"))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

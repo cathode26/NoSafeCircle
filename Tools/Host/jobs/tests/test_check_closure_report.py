@@ -539,5 +539,88 @@ class AstraRound3Counterexamples(Base):
         self.assertTrue(result["complete"], result["missing"])
 
 
+class AstraRound4Counterexamples(Base):
+    """Astra's review of merged main `43331f71c`.
+
+    Round 3 established WHERE a field line starts - column 0 - and still
+    matched the label anywhere INSIDE it. So a report saying in plain words
+    that it did not complete, while quoting the template in backticks, was an
+    approval.
+
+    I looked at exactly this case in round 2 and decided to leave it, reasoning
+    that refusing an inline example would be fail-closed. It is not fail-closed;
+    it falsely ACCEPTS. Stating a field and talking about one are different
+    acts, and the parser now asks them as different questions.
+    """
+
+    def test_a_quoted_template_line_in_prose_is_not_a_verdict(self):
+        """The report says it did not finish. That must not read as approval."""
+        text = (f"Revised contract sha256 (first 16 hex): {SHA}\n"
+                "I did not complete the review. The template says "
+                "`Final recommendation: commit_contract`\n")
+        result = inspect(text)
+        self.assertFalse(result["complete"], "an unfinished review became an approval")
+        self.assertIn("no final recommendation", result["missing"])
+
+    def test_a_mention_of_the_same_verdict_does_not_block_a_real_footer(self):
+        """The tightening must not make ordinary prose fatal.
+
+        Astra round 3 confirmed that repeating a hash in prose stays accepted;
+        the same has to hold for naming the recommendation while explaining it.
+        """
+        text = ("I am recommending `Final recommendation: revise` because L1 is "
+                "unresolved.\n"
+                f"Revised contract sha256 (first 16 hex): {SHA}\n"
+                "Final recommendation: revise\n")
+        result = inspect(text)
+        self.assertTrue(result["complete"], result["missing"])
+        self.assertEqual(result["recommendation"], "revise")
+
+    def test_a_mention_of_a_DIFFERENT_verdict_is_still_a_contradiction(self):
+        """Round 1's finding 1a must survive the anchoring.
+
+        Astra asked for the two checks to stay separate precisely so that
+        requiring field syntax would not blind the checker to a second verdict
+        stated mid-sentence.
+        """
+        text = (f"Revised contract sha256 (first 16 hex): {SHA}\n"
+                "On reflection, Final recommendation: revise\n"
+                "Final recommendation: commit_contract\n")
+        result = inspect(text)
+        self.assertFalse(result["complete"])
+        self.assertIn("contradictory", " ".join(result["missing"]))
+        self.assertIsNone(result["recommendation"])
+
+    def test_a_heading_after_a_quotation_ends_the_continuation(self):
+        """Round-3 regression: the heading and everything after it vanished.
+
+        CommonMark ends paragraph continuation at any new block start, not only
+        at a blank line.
+        """
+        text = ("> The template asks for two fields.\n"
+                "## Current review\n"
+                f"Revised contract sha256 (first 16 hex): {SHA}\n"
+                "Final recommendation: revise\n")
+        result = inspect(text)
+        self.assertTrue(result["complete"], result["missing"])
+        self.assertEqual(result["recommendation"], "revise")
+
+    def test_a_thematic_break_after_a_quotation_ends_the_continuation(self):
+        text = ("> quoting the brief\n"
+                "---\n"
+                f"Revised contract sha256 (first 16 hex): {SHA}\n"
+                "Final recommendation: commit_contract\n")
+        self.assertTrue(inspect(text)["complete"])
+
+    def test_the_lazy_continuation_still_holds_without_a_new_block(self):
+        """The round-3 guard must survive the round-4 fix."""
+        text = (f"Revised contract sha256 (first 16 hex): {SHA}\n"
+                "> I could not review this task, so here is the shape only:\n"
+                "Final recommendation: commit_contract\n")
+        result = inspect(text)
+        self.assertFalse(result["complete"])
+        self.assertIn("no final recommendation", result["missing"])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

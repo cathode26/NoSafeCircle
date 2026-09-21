@@ -79,6 +79,26 @@ IDENTITY = re.compile(
     re.IGNORECASE)
 RECOMMENDATION = re.compile(r"final\s+recommendation\s*\**\s*:", re.IGNORECASE)
 
+# A FIELD begins its line. A MENTION is anywhere in one. Astra round 4: the
+# column-0 rule said where a field line starts, but the label was still matched
+# anywhere inside it, so "The template says `Final recommendation:
+# commit_contract`" turned an explicit "I did not complete the review" into an
+# approval. Requiring the syntax and detecting contradictions are two different
+# questions; conflating them is what produced that hole.
+# No leading caret: these patterns are used only through
+# field_occurrences, which calls .match(), and .match() anchors at
+# position 0 already. Having both meant neither could be mutation-tested,
+# because each one covered for the other.
+DECORATION = r"[*_#+\-]*\s*\**\s*"
+IDENTITY_FIELD = re.compile(DECORATION + IDENTITY.pattern, re.IGNORECASE)
+RECOMMENDATION_FIELD = re.compile(DECORATION + RECOMMENDATION.pattern, re.IGNORECASE)
+
+# CommonMark ends a paragraph - and so a block quote's lazy continuation - at
+# any new block start, not only at a blank line. Round 3 missed headings and
+# thematic breaks, so a heading straight after a quotation swallowed the footer.
+BLOCK_START = re.compile(r"^\s{0,3}(?:#{1,6}(?:\s|$)"
+                         r"|(?:\*\s*){3,}$|(?:-\s*){3,}$|(?:_\s*){3,}$)")
+
 # Block-level structure. An opening fence is closed only by the same character,
 # at least as long, alone on its line; an unclosed fence therefore swallows the
 # rest of the report, and the review is refused for having no verdict. That is
@@ -138,6 +158,8 @@ def report_lines(text: str) -> dict[int, str]:
         if not line.strip():
             quoting = False          # a blank line ends the quote's paragraph
             continue
+        if BLOCK_START.match(line):
+            quoting = False          # so does a heading or a thematic break
         if quoting:
             continue                 # lazy continuation: still inside the quote
         if INDENTED.match(line):
@@ -150,7 +172,29 @@ def report_lines(text: str) -> dict[int, str]:
 
 def field_occurrences(speaking: dict[int, str],
                       label: re.Pattern[str]) -> list[tuple[int, str]]:
-    """Every place the report states this field: (line number, rest of line)."""
+    """Lines that STATE this field: (line number, rest of line).
+
+    Anchored: the label has to begin the line, allowing only markdown
+    decoration before it. A label further in is the report talking ABOUT the
+    field, which is `mentions` below, not a statement of it.
+    """
+    out = []
+    for number, line in sorted(speaking.items()):
+        match = label.match(line)
+        if match:
+            out.append((number, line[match.end():]))
+    return out
+
+
+def mentions(speaking: dict[int, str],
+             label: re.Pattern[str]) -> list[tuple[int, str]]:
+    """Every place the label appears at all, wherever it sits in the line.
+
+    Used only to catch a contradiction. Round 1's finding 1a was a report
+    recommending one thing and later, mid-sentence, another; dropping to
+    anchored matching alone would stop seeing that, which is why Astra asked
+    for the two checks to be kept separate rather than merged.
+    """
     return [(number, line[m.end():])
             for number, line in sorted(speaking.items())
             for m in label.finditer(line)]
@@ -184,8 +228,8 @@ def inspect(text: str, expected_sha16: str | None = None) -> dict:
     lines = text.splitlines()
     speaking = report_lines(text)
 
-    identities = field_occurrences(speaking, IDENTITY)
-    recommendations = field_occurrences(speaking, RECOMMENDATION)
+    identities = field_occurrences(speaking, IDENTITY_FIELD)
+    recommendations = field_occurrences(speaking, RECOMMENDATION_FIELD)
 
     missing: list[str] = []
 
@@ -229,11 +273,25 @@ def inspect(text: str, expected_sha16: str | None = None) -> dict:
             missing.append(f"final recommendation {value!r} is not one of "
                            + ", ".join(RECOMMENDATIONS))
         else:
-            recommendation = value
-            last = last_content_line(lines)
-            if number != last:
-                missing.append("the final recommendation is not the last line of the "
-                               f"report; it is followed by {lines[last].strip()!r}")
+            stated_elsewhere = sorted({
+                stated_value(rest).lower()
+                for number_, rest in mentions(speaking, RECOMMENDATION)
+                if number_ != number
+                and stated_value(rest).lower() in RECOMMENDATIONS
+                and stated_value(rest).lower() != value
+            })
+            if stated_elsewhere:
+                missing.append("contradictory final recommendations: "
+                               f"{value} is stated as the verdict, but "
+                               + ", ".join(stated_elsewhere)
+                               + " appears elsewhere in the report")
+            else:
+                recommendation = value
+                last = last_content_line(lines)
+                if number != last:
+                    missing.append("the final recommendation is not the last line "
+                                   f"of the report; it is followed by "
+                                   f"{lines[last].strip()!r}")
 
     if expected_sha16 and sha16 and sha16 != expected_sha16.lower():
         missing.append(f"the report reviewed contract {sha16}, but the contract under "
