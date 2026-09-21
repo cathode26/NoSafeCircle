@@ -106,8 +106,8 @@ MUTATIONS = [
      "test_a_blank_line_ends_the_lazy_continuation"),
 
     (TOOL_FILE, "round 3 regression: the recommendation is not lower-cased",
-     "        value = stated_value(rest).lower()",
-     "        value = stated_value(rest)",
+     "    return value.rstrip(\".;,\").strip().lower()",
+     "    return value.rstrip(\".;,\").strip()",
      "test_an_uppercase_recommendation_is_accepted"),
 
     # Round 4: stating a field versus talking about one.
@@ -133,9 +133,20 @@ MUTATIONS = [
      "test_a_conflicting_identity_in_prose_is_still_a_contradiction"),
 
     (TOOL_FILE, "round 5: a mention must match a valid value entirely again",
-     "    found = LEADING_TOKEN.match(rest)\n    return found.group(1).lower() if found else \"\"",
-     "    value = stated_value(rest).lower()\n    return value if value in RECOMMENDATIONS else \"\"",
+     "    return normalise(found.group(1)) if found else \"\"",
+     "    return normalise(rest) if normalise(rest) in RECOMMENDATIONS else \"\"",
      "test_an_explanation_does_not_hide_a_conflicting_recommendation"),
+
+    # Round 6: block boundaries, and one normaliser for both paths.
+    (TOOL_FILE, "round 6: code spans pair across the whole document again",
+     "    for segment_start, segment_end in inline_segments(text):",
+     "    for segment_start, segment_end in [(0, len(text))]:",
+     "test_a_backtick_in_a_fenced_example_does_not_reach_across_the_report"),
+
+    (TOOL_FILE, "round 6: the mention path stops undecorating values",
+     "    return normalise(found.group(1)) if found else \"\"",
+     "    return found.group(1).lower() if found else \"\"",
+     "test_emphasis_on_a_mention_does_not_hide_a_contradiction"),
 
     # The template is half the defect: a reviewer echoing it faithfully
     # produced two of Astra's counterexamples. These two prove the binding

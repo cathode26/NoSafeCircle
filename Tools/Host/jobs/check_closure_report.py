@@ -123,6 +123,51 @@ def contract_sha16(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()[:16]
 
 
+def inline_segments(text: str) -> list[tuple[int, int]]:
+    """Offset ranges where inline parsing applies at all.
+
+    A segment is a run of consecutive non-blank lines outside every fenced
+    block. Two CommonMark facts make this the right unit: a code span cannot
+    contain a blank line, and the contents of a fenced block are not
+    inline-parsed. Astra round 6 paired a literal backtick inside a `~~~`
+    example with one eight lines below, and the recommendation between them
+    disappeared into the resulting "span".
+    """
+    segments: list[tuple[int, int]] = []
+    fence: tuple[str, int] | None = None
+    start: int | None = None
+    position = 0
+
+    for line in text.splitlines(keepends=True):
+        stripped = line.rstrip("\r\n")
+        opener = FENCE.match(stripped)
+        eligible = True
+
+        if fence is not None:
+            if (opener and opener.group(1)[0] == fence[0]
+                    and len(opener.group(1)) >= fence[1]
+                    and not opener.group(2).strip()):
+                fence = None
+            eligible = False
+        elif opener:
+            fence = (opener.group(1)[0], len(opener.group(1)))
+            eligible = False
+        elif not stripped.strip():
+            eligible = False
+
+        if eligible:
+            if start is None:
+                start = position
+        elif start is not None:
+            segments.append((start, position))
+            start = None
+        position += len(line)
+
+    if start is not None:
+        segments.append((start, position))
+    return segments
+
+
 def code_span_ranges(text: str) -> list[tuple[int, int]]:
     """Character ranges inside inline code spans, over the WHOLE text.
 
@@ -135,7 +180,15 @@ def code_span_ranges(text: str) -> list[tuple[int, int]]:
     1 to 4 was structurally unable to see.
     """
     spans: list[tuple[int, int]] = []
-    index, length = 0, len(text)
+    for segment_start, segment_end in inline_segments(text):
+        spans.extend(_spans_within(text, segment_start, segment_end))
+    return spans
+
+
+def _spans_within(text: str, begin: int, length: int) -> list[tuple[int, int]]:
+    """Backtick pairing inside one segment, never across its edges."""
+    spans: list[tuple[int, int]] = []
+    index = begin
 
     while index < length:
         if text[index] != "`":
@@ -179,10 +232,22 @@ def inside_span(offset: int, spans: list[tuple[int, int]]) -> bool:
     return any(start <= offset < end for start, end in spans)
 
 
+def normalise(value: str) -> str:
+    """Undecorate a stated value. ONE implementation, called by BOTH paths.
+
+    Astra round 6's root cause was that there were two: the field path stripped
+    emphasis and the mention path did not, so `_revise_` was `revise` in the
+    footer and `_revise_` in prose, and a contradiction between them could not
+    be seen. Any future tolerance belongs here and nowhere else.
+    """
+    value = value.strip().strip("*_`").strip()
+    return value.rstrip(".;,").strip().lower()
+
+
 def leading_token(rest: str) -> str:
-    """The first word a mention names, lower-cased, or ''."""
+    """The first word a mention names, normalised, or ''."""
     found = LEADING_TOKEN.match(rest)
-    return found.group(1).lower() if found else ""
+    return normalise(found.group(1)) if found else ""
 
 
 def report_lines(text: str) -> dict[int, str]:
@@ -304,8 +369,7 @@ def stated_value(rest: str) -> str:
     a choice and `commit_contract2` read as `commit_contract`. A value with a
     space in it is not one value, and saying so is the whole point.
     """
-    value = rest.strip().strip("*_`").strip()
-    return value.rstrip(".;,").strip()
+    return normalise(rest)
 
 
 def last_content_line(lines: list[str]) -> int:
@@ -333,7 +397,7 @@ def inspect(text: str, expected_sha16: str | None = None) -> dict:
     if not identities:
         missing.append("no contract identity (sha256 first 16 hex)")
     elif len(identities) > 1:
-        values = sorted({stated_value(rest).lower() for _, rest in identities})
+        values = sorted({stated_value(rest) for _, rest in identities})
         if len(values) > 1:
             missing.append(f"{len(identities)} different contract identities reported: "
                            + ", ".join(values))
@@ -343,7 +407,7 @@ def inspect(text: str, expected_sha16: str | None = None) -> dict:
     else:
         value = stated_value(identities[0][1])
         if HEX16.match(value):
-            sha16 = value.lower()
+            sha16 = value
             others = contradicted_by(speaking, IDENTITY, starts, spans,
                                      identities[0][0], sha16,
                                      lambda token: bool(HEX16.match(token)))
@@ -371,7 +435,7 @@ def inspect(text: str, expected_sha16: str | None = None) -> dict:
         # tolerance correct; round 3 caught that this branch had lost it, so
         # COMMIT_CONTRACT passed at 08c3ff8ea and failed here. A regression
         # introduced by the fix, which is what a reviewer is for.
-        value = stated_value(rest).lower()
+        value = stated_value(rest)          # normalise() lower-cases
         if value not in RECOMMENDATIONS:
             missing.append(f"final recommendation {value!r} is not one of "
                            + ", ".join(RECOMMENDATIONS))

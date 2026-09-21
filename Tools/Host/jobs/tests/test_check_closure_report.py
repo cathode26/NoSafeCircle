@@ -28,7 +28,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from check_closure_report import (  # noqa: E402
-    RECOMMENDATION, contract_sha16, inspect, main,
+    RECOMMENDATION, contract_sha16, inspect, leading_token, main,
+    normalise,
 )
 
 SHA = "0123456789abcdef"
@@ -720,6 +721,64 @@ class AstraRound5Counterexamples(Base):
                 "Final recommendation: revise\n")
         result = inspect(text, expected_sha16=real)
         self.assertTrue(result["complete"], result["missing"])
+
+
+class AstraRound6Counterexamples(Base):
+    """Astra's review of merged main `8427b08ba`. Two P1 false approvals.
+
+    Both are the same shape as round 5's, one level down: a parsing decision
+    made in one place and not the other. Spans were paired across the whole
+    document rather than within a block, and values were undecorated on the
+    field path but not the mention path.
+    """
+
+    def test_a_backtick_in_a_fenced_example_does_not_reach_across_the_report(self):
+        """CommonMark: fenced content is not inline-parsed, and a span cannot
+        contain a blank line. Pairing across both hid a real contradiction."""
+        text = (f"Revised contract sha256 (first 16 hex): {SHA}\n"
+                "~~~text\n"
+                "A literal ` character.\n"
+                "~~~\n"
+                "\n"
+                "On reflection, Final recommendation: revise\n"
+                "The failed test was `L1`.\n"
+                "Final recommendation: commit_contract\n")
+        result = inspect(text)
+        self.assertFalse(result["complete"], "a stray backtick swallowed the contradiction")
+        self.assertIn("contradictory", " ".join(result["missing"]))
+
+    def test_a_span_cannot_cross_a_blank_line(self):
+        """The narrower rule on its own, without a fence involved."""
+        text = (f"Revised contract sha256 (first 16 hex): {SHA}\n"
+                "An opening ` here.\n"
+                "\n"
+                "On reflection, Final recommendation: revise\n"
+                "and a closing ` there.\n"
+                "Final recommendation: commit_contract\n")
+        result = inspect(text)
+        self.assertFalse(result["complete"])
+        self.assertIn("contradictory", " ".join(result["missing"]))
+
+    def test_emphasis_on_a_mention_does_not_hide_a_contradiction(self):
+        """The field path undecorated the value and the mention path did not."""
+        text = (f"Revised contract sha256 (first 16 hex): {SHA}\n"
+                "On reflection, Final recommendation: _revise_\n"
+                "Final recommendation: commit_contract\n")
+        result = inspect(text)
+        self.assertFalse(result["complete"])
+        self.assertIn("contradictory", " ".join(result["missing"]))
+
+    def test_both_paths_undecorate_a_value_identically(self):
+        """The property, stated directly, rather than one instance of it."""
+        for written in ("revise", "_revise_", "**revise**", "`revise`", "Revise."):
+            self.assertEqual(normalise(written), "revise", written)
+            self.assertEqual(leading_token(f" {written}"), "revise", written)
+
+    def test_an_emphasised_footer_is_still_accepted(self):
+        """Tolerance kept - it just has to be the same tolerance everywhere."""
+        text = (f"Revised contract sha256 (first 16 hex): {SHA}\n"
+                "Final recommendation: _revise_\n")
+        self.assertEqual(inspect(text)["recommendation"], "revise")
 
 
 if __name__ == "__main__":
