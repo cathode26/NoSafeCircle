@@ -80,6 +80,42 @@ class ProviderStatusComesFirst(Base):
         self.assertIn("is_error", message)
         self.assertIsNone(result)
 
+    def test_a_wrapper_with_no_is_error_is_not_a_success(self):
+        """Astra MJ-P3-03-A's fix, which Fable found nothing was pinning.
+
+        I changed the check, wrote the reasoning in the comment above it, told
+        Codex it was closed - and left the only is_error cases in this file as
+        `is_error=True`. Both `if is_error:` and `if is_error is True:` kept the
+        suite green. A fix with no failing test behind it is a claim.
+        """
+        body = json.loads(wrapper())
+        del body["is_error"]
+        status, message, result = self.interpret(json.dumps(body).encode("utf-8"))
+        self.assertEqual(status, ccr.PROVIDER_FAILED)
+        self.assertIn("missing", message)
+        self.assertIsNone(result)
+
+    def test_only_an_explicit_false_counts_as_success(self):
+        # Every falsy value that is not False. `0 is False` is False in CPython,
+        # so identity is what separates them and truthiness does not.
+        for value in (None, 0, 0.0, "", [], {}, "false"):
+            with self.subTest(is_error=repr(value)):
+                status, _message, _result = self.interpret(wrapper(is_error=value))
+                self.assertEqual(status, ccr.PROVIDER_FAILED)
+
+    def test_a_subtype_other_than_success_fails(self):
+        for subtype in ("error_during_execution", "error_max_turns", "Success", None):
+            with self.subTest(subtype=repr(subtype)):
+                status, message, _result = self.interpret(wrapper(subtype=subtype))
+                self.assertEqual(status, ccr.PROVIDER_FAILED)
+                self.assertIn("subtype", message)
+
+    def test_a_missing_subtype_fails(self):
+        body = json.loads(wrapper())
+        del body["subtype"]
+        self.assertEqual(self.interpret(json.dumps(body).encode("utf-8"))[0],
+                         ccr.PROVIDER_FAILED)
+
     def test_an_empty_result_fails_even_when_the_run_reported_success(self):
         for empty in (None, "", "   \n\t"):
             with self.subTest(empty=repr(empty)):
@@ -90,6 +126,29 @@ class ProviderStatusComesFirst(Base):
         status, _message, _result = self.interpret(
             json.dumps({"is_error": False, "subtype": "success"}).encode("utf-8"))
         self.assertEqual(status, ccr.EMPTY_RESULT)
+
+    def test_a_valid_result_that_mentions_a_rate_limit_is_still_a_review(self):
+        """Fable: the usage-limit check had its own idea of "JSON-shaped".
+
+        `lstrip().startswith("{")` does not skip a BOM. A perfectly good result
+        that arrived with one, whose report happens to discuss rate limits,
+        was therefore reported as a transport refusal telling the operator to
+        stop jobs - a review turned into an incident by an invisible byte.
+        """
+        discusses = result_json(
+            report_markdown="The task's retry path handles a rate limit poorly.")
+        status, _message, result = self.interpret(
+            wrapper(result=chr(0xFEFF) + discusses))
+        self.assertEqual(status, 0)
+        self.assertIsNotNone(result)
+        self.assertEqual(result.recommendation, "commit_contract")
+
+    def test_a_genuine_usage_limit_is_still_reported(self):
+        # The control. Prose, no result object, so the refusal must survive.
+        status, message, _result = self.interpret(
+            wrapper(result="You have hit your usage limit. Try again later."))
+        self.assertEqual(status, ccr.USAGE_LIMIT)
+        self.assertIn("tell Vincent", message)
 
     def test_unreadable_wrapper_output_is_a_setup_failure(self):
         self.assertEqual(self.interpret(b"not json at all")[0], ccr.SETUP_REFUSED)

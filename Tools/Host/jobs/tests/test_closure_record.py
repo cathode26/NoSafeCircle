@@ -172,6 +172,18 @@ class ExactTypes(Base):
     def test_a_false_exit_code_is_not_a_zero_one(self):
         self.refuses("not_ready", exit_code=False)
 
+    def test_a_float_zero_exit_code_is_not_a_zero_one(self):
+        # Astra MJ-P3-03-E's counterexample, kept as its own case. Excluding
+        # bool still admits floats: `0.0 == 0` is true, so a check that only
+        # said "not a bool and equal to zero" accepted a process status no
+        # process ever produces - which is the shape of a fabricated record.
+        self.refuses("not_ready", exit_code=0.0)
+
+    def test_a_negative_float_zero_exit_code_is_not_a_zero_one(self):
+        # -0.0 == 0.0 == 0, and `-0.0 is not 0.0`, so it slips past both a
+        # truthiness test and an identity one.
+        self.refuses("not_ready", exit_code=-0.0)
+
     def test_a_nonzero_exit_code_refuses(self):
         self.refuses("not_ready", exit_code=9)
 
@@ -343,6 +355,53 @@ class Publication(Base):
             closure_record.os.replace = real_replace
         names = sorted(p.name for p in self.tmp.iterdir())
         self.assertNotIn(closure_record.metadata_path(self.result).name, names)
+
+
+class ExistingEvidence(Base):
+    """Astra MJ-P3-03-C: a finished job's files are evidence, not scratch space."""
+
+    def test_existing_evidence_names_every_file_that_is_there(self):
+        self.finish()
+        found = closure_record.existing_evidence(self.result)
+        self.assertEqual(found, [self.result,
+                                 closure_record.view_path(self.result),
+                                 closure_record.metadata_path(self.result)])
+
+    def test_existing_evidence_is_empty_for_an_untouched_job(self):
+        fresh = self.result.with_name("NEVER-RUN.result.json")
+        self.assertEqual(closure_record.existing_evidence(fresh), [])
+
+    def test_existing_evidence_notices_a_lone_leftover(self):
+        # The partial cases matter more than the complete one: a result with no
+        # record is exactly what a crashed run leaves, and starting again on top
+        # of it is how the next run's record ends up describing the wrong bytes.
+        fresh = self.result.with_name("PARTIAL.result.json")
+        fresh.write_bytes(b"{}")
+        self.assertEqual(closure_record.existing_evidence(fresh), [fresh])
+
+    def test_publishing_over_a_finished_record_is_refused(self):
+        """The backstop for a producer that does not check first.
+
+        `os.replace` is atomic, so an overwrite here is invisible rather than
+        partial: Codex reproduced a completed `revise` being replaced by a
+        `commit_contract` under the same job name with nothing recording it.
+        """
+        record = self.finish()
+        before = closure_record.metadata_path(self.result).read_bytes()
+        with self.assertRaises(Exception) as caught:
+            closure_record.publish(self.result, record)
+        self.assertIsInstance(caught.exception, closure_record.RecordError)
+        self.assertEqual(caught.exception.code, "record_exists")
+        self.assertEqual(closure_record.metadata_path(self.result).read_bytes(),
+                         before, "the refused publication still changed the record")
+
+    def test_the_refusal_leaves_no_temporary_file(self):
+        record = self.finish()
+        with self.assertRaises(Exception):
+            closure_record.publish(self.result, record)
+        strays = [p.name for p in self.result.parent.iterdir()
+                  if p.name.startswith(".") and p.name.endswith(".tmp")]
+        self.assertEqual(strays, [])
 
 
 if __name__ == "__main__":

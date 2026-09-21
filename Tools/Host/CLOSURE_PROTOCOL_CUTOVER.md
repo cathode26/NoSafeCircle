@@ -67,6 +67,48 @@ validators but leaves an old template produces reviews the new readers refuse,
 and a deployment that moves the template but not the validators produces JSON
 nothing reads. Move the routing that selects them at the same time.
 
+### Where the closure family must land, and why it is not where the docs say
+
+**Fable, 2026-09-21, measured.** The launcher now resolves its helpers relatively
+- `$HERE/../jobs` - and refuses rather than reaching for an absolute fallback.
+That makes the deployed LOCATION load-bearing, and the two constraints on it did
+not agree:
+
+- Every doc that names this family puts it at `C:/nscrev/codex-jobs/`
+  (`Tools/Host/README.md`, `Docs/AI-Pipeline/Agent-Operations/maintained-locations.md`,
+  and the command line in `C:/NSC/nsc-ger-orchestrator-guide.md`). Deployed
+  there, `$HERE/../jobs` is `C:/nscrev/jobs`, **which does not exist** - verified.
+  Exit 2 on every run.
+- Deployed to `C:/NSC/tools/codex-jobs/` instead, the table above is satisfied but
+  `make_closure_prompt.py` used to write the prompt beside ITSELF while the runner
+  reads `<work root>/codex-jobs/<job>.prompt.md`. Exit 2, "missing prompt".
+
+Either reading gave a dead closure path. **The writer is fixed rather than the
+document**: `make_closure_prompt.py` now writes to the work root through the same
+`nsc_paths` resolver the runner uses, so where the prompt goes is one rule in one
+place. The templates stay beside the script, because they are part of the tool.
+
+**So: deploy this family to `C:/NSC/tools/codex-jobs/` and `C:/NSC/tools/jobs/`**,
+siblings, as the table says - and treat every doc that says `C:/nscrev/codex-jobs/`
+as needing the same edit in the same window. Those docs are the Documentation
+Agent's and the GER Agent's; this branch does not touch them.
+
+**Two helpers were missing from the table and are added below**, because the
+launcher refuses without them:
+
+| Tracked source | Deployed path | Observed 2026-09-21 |
+| --- | --- | --- |
+| `Tools/Host/jobs/resolve_codex.py` | `C:/NSC/tools/jobs/` | deployed, **OLDER than tracked** |
+| `Tools/Host/jobs/check_job_result.py` | `C:/NSC/tools/jobs/` | deployed, bytes match |
+
+The deployed `resolve_codex.py` predates two fixes that are on `main` already, not
+on this branch: a candidate whose `--version` exits non-zero is no longer accepted
+on the strength of its stdout, and an explicit `NSC_CODEX_EXE` is now held to the
+same probe as a discovered one. The launcher hands it contract reviews. **Refresh
+it in the same window** - the drift is not this branch's doing and is this branch's
+problem, because relative resolution means whatever is beside the launcher is what
+runs.
+
 `C:/nscrev/ger-tools` resolves to `C:\NSC\tools\ger` (measured with
 `Path.resolve()`), so it is that deployment under another name, not a second copy.
 

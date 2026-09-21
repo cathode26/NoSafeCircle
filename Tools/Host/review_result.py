@@ -318,6 +318,17 @@ def decode(raw: bytes) -> ReviewResult:
                          parse_constant=_no_constants)
     except ReviewResultError:
         raise
+    except RecursionError as exc:
+        # Fable, 2026-09-21: ~200k nested lists inside a field, well under
+        # MAX_BYTES, exhausted the interpreter stack. RecursionError is a
+        # RuntimeError, so the ValueError branch below never saw it and the
+        # decoder CRASHED rather than refusing - and ger_round's caller catches
+        # only (ValueError, OSError), so the round wrote neither FAILED.json nor
+        # METADATA.json and looked to the node like it was still running.
+        # A limit the decoder cannot get past is a parser limit, same as the
+        # integer one. The size check cannot stand in for it: depth is not
+        # length, and 400 KB of brackets is small.
+        _reject("parser_limit", f"the decoder ran out of stack: {exc}")
     except json.JSONDecodeError as exc:
         _reject("not_json", f"not one JSON document: {exc}")
     except ValueError as exc:

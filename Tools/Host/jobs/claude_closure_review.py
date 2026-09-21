@@ -114,9 +114,16 @@ def interpret(wrapper: bytes, *, task_id: str, contract: bytes,
 
     # 2. A usage limit is a transport refusal, not a review. Checked before the
     #    protocol so it is reported as itself rather than as malformed JSON.
+    #    The "is it JSON-shaped" test is the shared one. Fable, 2026-09-21:
+    #    the hand-rolled `lstrip().startswith("{")` here does not skip a BOM,
+    #    which `looks_like_result` exists to handle - so a valid BOM-prefixed
+    #    result whose report merely MENTIONS a rate limit was reported as a
+    #    transport refusal telling the operator to stop jobs. One rule, one
+    #    implementation; the hand-rolled copy is the ninth instance of this
+    #    shape in this branch.
     lowered = raw.lower()
     if "usage limit" in lowered or "rate limit" in lowered:
-        if not raw.lstrip().startswith("{"):
+        if not review_result.looks_like_result(raw):
             return (USAGE_LIMIT,
                     "the job reported a usage or rate limit: stop jobs and tell Vincent",
                     None)
@@ -254,7 +261,16 @@ def command(runner: str, model: str, max_turns: str, clone: pathlib.Path,
             host_cwd: pathlib.Path | None = None) -> tuple[list[str], pathlib.Path]:
     """The command each runner needs, and the directory it runs in."""
     if runner == "host":
-        exe = shutil.which("claude") or r"C:\Users\VincentLiguori\.local\bin\claude.exe"
+        # No spelled-out home directory fallback. It was copied in from the live
+        # adapter, and it is the same shape as MJ-P3-04: a machine-specific
+        # literal with no override, in a repository whose commits use .invalid
+        # identities on purpose. NSC_CLAUDE_EXE is the override; absent that,
+        # refusing beats reaching for one person's install.
+        exe = os.environ.get("NSC_CLAUDE_EXE") or shutil.which("claude")
+        if not exe:
+            raise SystemExit(
+                "no `claude` on PATH. Set NSC_CLAUDE_EXE to the executable if it "
+                "is installed somewhere this shell cannot see.")
         require_gmail_account(exe)
         # Astra MJ-P3-04: this was hardcoded to C:/NSC even when --repo, --jobs
         # and --work all pointed somewhere else, so a fresh install on another
@@ -299,12 +315,17 @@ def main(argv: list[str] | None = None) -> int:
     # readable as an approval. A retry gets a new job name; nothing here
     # overwrites evidence that already exists.
     result_path = args.jobs / f"{args.job}.result.json"
-    for existing in (result_path, closure_record.view_path(result_path),
-                     closure_record.metadata_path(result_path)):
-        if existing.exists():
-            print(f"{existing} already exists: this job has evidence on disk. Use a "
-                  f"new job name rather than overwriting it.", file=sys.stderr)
-            return SETUP_REFUSED
+    # The three paths are named once, in closure_record. This check and the
+    # shell's used to be two implementations of one rule and only one of them
+    # refused; that is the eighth time in this branch that one rule living in
+    # several places produced a defect in the copy nobody was looking at.
+    found = closure_record.existing_evidence(result_path)
+    if found:
+        for existing in found:
+            print(f"{existing} already exists", file=sys.stderr)
+        print("this job has evidence on disk. Use a new job name rather than "
+              "overwriting it.", file=sys.stderr)
+        return SETUP_REFUSED
 
     clone = args.work.parent / f"cj-{args.job}"
     build_clone(args.repo, clone, args.task, args.commit, args.previous, args.extra)

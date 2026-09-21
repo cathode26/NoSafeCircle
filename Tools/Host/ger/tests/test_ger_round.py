@@ -561,15 +561,56 @@ class ReadDecision(DecisionRounds):
         self.assertEqual(self.read().recommendation, "commit_contract")
 
     def test_a_record_of_provider_failure_is_refused(self):
+        # The record is restored between subtests. Fable found this loop
+        # accumulating its edits, so after the first subtest every later one was
+        # refused by the leftover `exit_code: 9` rather than by the field it
+        # names - three subtests, one of them meaningful.
         self.completed()
         meta_path = self.packet / DECISION / "METADATA.json"
+        original = meta_path.read_bytes()
         for weakened in ({"exit_code": 9}, {"is_error": True}, {"session_id": None}):
             with self.subTest(weakened=weakened):
-                meta = json.loads(meta_path.read_text(encoding="utf-8"))
+                meta_path.write_bytes(original)
+                self.assertEqual(self.read().recommendation, "commit_contract",
+                                 "the restored record must read cleanly, or the "
+                                 "refusal below is not caused by this subtest")
+                meta = json.loads(original.decode("utf-8"))
                 meta.update(weakened)
                 meta_path.write_text(json.dumps(meta), encoding="utf-8")
                 with self.assertRaises(ValueError):
                     self.read()
+        meta_path.write_bytes(original)
+
+    def test_a_record_whose_copied_verdict_was_edited_is_reported(self):
+        """Fable: `check_record_matches` was exercised by nothing at all.
+
+        The copied fields are a tamper check, never an authority - the validated
+        JSON owns the decision - so editing one changes no outcome and is easy
+        to leave untested. What it does say is that the record was edited, and
+        that is worth knowing; a check whose docstring cites a finding and whose
+        mutant survives is not a check.
+        """
+        self.completed()
+        meta_path = self.packet / DECISION / "METADATA.json"
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        result = self.read()
+        self.assertEqual(ger_round.check_record_matches(meta, result), [])
+
+        meta["recommendation"] = "revise"
+        problems = ger_round.check_record_matches(meta, result)
+        self.assertEqual(len(problems), 1, problems)
+        self.assertIn("recommendation", problems[0])
+        self.assertIn("revise", problems[0])
+
+        meta["review_status"] = "incomplete"
+        self.assertEqual(len(ger_round.check_record_matches(meta, result)), 2)
+
+    def test_a_record_missing_the_copied_fields_reports_nothing(self):
+        # Absent is not disagreeing: the fields are optional copies, and the
+        # validated result is the authority either way.
+        self.completed()
+        result = self.read()
+        self.assertEqual(ger_round.check_record_matches({}, result), [])
 
     def test_a_failed_round_carries_no_decision(self):
         self.provider(exit_code=1, output=self.result())

@@ -23,9 +23,13 @@ Exit codes, unchanged from the Markdown checker so callers keep working:
     0   a complete review, whatever it recommends. `revise` exits 0: the review
         ran and reached a negative conclusion, and treating a rejection as a
         failed run is how a verdict gets retried like a timeout.
-    2   an input could not be read.
+    2   an input could not be read, or an argument combination was refused.
+    4   the provider process itself failed; nothing it wrote is actionable.
     7   the result is not an actionable review - malformed, incomplete, or about
         something other than what the host supplied.
+    8   the contract file changed after the host selected it. New, and the one
+        code a caller must not treat as a review outcome: it says the run's
+        SUBJECT moved underneath it, so the verdict is about bytes nobody chose.
 """
 from __future__ import annotations
 
@@ -80,6 +84,15 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--contract", required=True,
                     help="the exact REVISED_CONTRACT.json the review was given; "
                          "its sha256 must equal the one the result declares")
+    # Astra MJ-P3-03-B, reproduced on the Codex shell path after I fixed the
+    # Claude one: the contract was read only AFTER the provider returned, so a
+    # provider that edited the fixture got an approval of the bytes it had just
+    # written - self-consistent and worthless. The host hashes what it selected
+    # BEFORE launching and passes it here. Required with --provider, so the
+    # publishing boundary cannot be reached without a pre-launch expectation.
+    ap.add_argument("--contract-sha256", default=None,
+                    help="the sha256 the host computed BEFORE launching the "
+                         "provider; the contract file must still match it")
     ap.add_argument("--task", required=True,
                     help="the task the host asked about, e.g. NSC-001")
     ap.add_argument("--report-out", default=None,
@@ -109,6 +122,13 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.provider and (args.exit_code is None or args.started_at is None):
         ap.error("--provider requires --exit-code and --started-at")
+    if args.provider and not args.contract_sha256:
+        ap.error("--provider requires --contract-sha256: a record must not be "
+                 "published without the host's pre-launch expectation")
+    if args.contract_sha256 is not None and (
+            len(args.contract_sha256) != 64
+            or set(args.contract_sha256) - set("0123456789abcdef")):
+        ap.error("--contract-sha256 must be 64 lowercase hex characters")
 
     try:
         raw = Path(args.result).read_bytes()
@@ -123,6 +143,17 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     expected = hashlib.sha256(contract).hexdigest()
+
+    if args.contract_sha256 is not None and args.contract_sha256 != expected:
+        # Refused, not substituted. Binding the verdict to the saved hash would
+        # make the result fail its own check and read as a bad review; the truth
+        # is that the run is untrustworthy, not that the reviewer was wrong.
+        print(f"closure review NOT ACTIONABLE - the contract changed under the run",
+              file=sys.stderr)
+        print(f"  - the host selected {args.contract_sha256[:16]} before launching",
+              file=sys.stderr)
+        print(f"  - {args.contract} now hashes to {expected[:16]}", file=sys.stderr)
+        return 8
 
     try:
         result = review_result.load(

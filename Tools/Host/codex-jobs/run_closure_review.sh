@@ -19,7 +19,8 @@
 # Exit: 0 success; 2 setup refused; 3 no result; 4 provider failed; 5 stale result;
 #       6 empty result; 7 the result is fresh and non-empty but is not a finished
 #       closure review - malformed JSON, a declared incomplete, or a review of a
-#       different task or a different contract than the host supplied.
+#       different task or a different contract than the host supplied;
+#       8 the contract file changed after this script selected it.
 #
 # 2026-09-21: the reviewer now declares its verdict in one JSON object rather
 # than in prose. $JOB.result.json is what the provider wrote and the only
@@ -69,21 +70,32 @@ CODEX="$(python -B "$HELPERS/resolve_codex.py")" || {
 [ -f "$PROMPT" ] || { echo "missing prompt $PROMPT" >&2; exit 2; }
 [ -e "$CLONE" ] && { echo "clone exists $CLONE" >&2; exit 2; }
 
+# The clone check above reserves the working DIRECTORY. It says nothing about the
+# previous run's evidence, and this script used to `mv` a stale result and report
+# aside and then let the checker overwrite the record - so a second run on the
+# same job name replaced a completed `revise` with a `commit_contract` and left
+# nothing saying it had happened (Astra MJ-P3-03-C, reproduced here against the
+# unedited script). Refuse instead, before anything is created, through the same
+# function the Claude launcher uses rather than a second implementation in Bash.
+python -B "$HELPERS/closure_record.py" --refuse-existing "$RESULT" || exit 2
+
 git clone -q -c core.autocrlf=true -c core.filemode=false -c core.longpaths=true "$REPO" "$CLONE" || exit 2
 git -C "$CLONE" checkout -q --detach "$COMMIT^" || exit 2
 git -C "$REPO" show "$COMMIT:Tasks/$TASK.yaml" > "$CLONE/REVISED_CONTRACT.json" || exit 2
 git -C "$REPO" show "$PREV:Tasks/$TASK.yaml" > "$CLONE/PREVIOUS_CONTRACT.json" || exit 2
+
+# The bytes THIS script chose, hashed before any provider can see them. Without
+# it the checker hashed whatever was on disk afterwards, so a provider that
+# rewrote the fixture and reviewed its own version produced a self-consistent
+# approval of a contract nobody selected (Astra MJ-P3-03-B). Hashed by the same
+# helper the record uses, so there is one implementation of "the sha256 of these
+# exact bytes" rather than a shell version beside it.
+CONTRACT_SHA="$(python -B "$HELPERS/closure_record.py" --sha256 "$CLONE/REVISED_CONTRACT.json")" \
+  || { echo "cannot hash the selected contract" >&2; exit 2; }
 for extra in "$@"; do
   git -C "$REPO" show "$COMMIT:$extra" > "$CLONE/REVISED_$(basename "$extra")" || exit 2
 done
 
-# Move any earlier output aside, so a leftover can never be mistaken for this
-# run's. Both files: a stale derived REPORT beside a fresh RESULT would be the
-# same trap one level along.
-SUPERSEDED="$(date -u +%Y%m%dT%H%M%SZ)"
-for _stale in "$REPORT" "$RESULT"; do
-  [ -e "$_stale" ] && mv "$_stale" "$_stale.superseded-$SUPERSEDED"
-done
 STARTED_AT="$(python -B -c 'import time; print(time.time())')"
 
 echo "[START] $JOB $(date -u +%FT%TZ) clone at $(git -C "$CLONE" rev-parse --short HEAD), revised $(git -C "$REPO" rev-parse --short "$COMMIT"), previous $(git -C "$REPO" rev-parse --short "$PREV")"
@@ -128,10 +140,14 @@ fi
 # apply_contract refuses the review rather than assuming it was hand-carried.
 # None of those checks is repeated in Bash.
 python -B "$HELPERS/check_closure_report.py" --result "$RESULT" \
-  --contract "$CLONE/REVISED_CONTRACT.json" --task "$TASK" \
-  --report-out "$REPORT" \
+  --contract "$CLONE/REVISED_CONTRACT.json" --contract-sha256 "$CONTRACT_SHA" \
+  --task "$TASK" --report-out "$REPORT" \
   --provider codex --exit-code "$rc" --started-at "$STARTED_AT"
 closure=$?
+if [ "$closure" -eq 8 ]; then
+  echo "[TAMPERED] $JOB - the contract changed after this script selected it" >&2
+  exit 8
+fi
 if [ "$closure" -ne 0 ]; then
   echo "[INCOMPLETE] $JOB - the provider succeeded but did not finish the review" >&2
   exit "$closure"

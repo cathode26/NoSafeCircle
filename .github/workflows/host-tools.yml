@@ -71,7 +71,12 @@ jobs:
       # It runs here rather than through run_tool_tests.py because it is not a
       # unittest suite: it prints no "Ran N tests" line, which that runner
       # requires, and teaching it to print one would weaken the rule that catches
-      # a suite running nothing. About 90 seconds on a developer machine.
+      # a suite running nothing.
+      #
+      # Roughly four minutes on a developer machine, and it grows with every
+      # mutation because each one re-runs a whole suite. An earlier version of
+      # this comment said ninety seconds: true when it was written, not when it
+      # was read.
       - name: Every guard must be provably testable
         run: python -B Tools/Host/jobs/tests/mutation_check.py
 

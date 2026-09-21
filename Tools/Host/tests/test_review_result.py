@@ -81,6 +81,25 @@ class StrictDecoding(Base):
         self.assertTrue(result.is_complete)
         self.assertTrue(result.is_committable)
 
+    def test_a_deeply_nested_value_refuses_rather_than_crashing(self):
+        """Fable: 200k nested lists, ~400 KB, well under MAX_BYTES.
+
+        RecursionError is a RuntimeError, so the ValueError branch never saw it
+        and the decoder crashed. ger_round's caller catches (ValueError, OSError)
+        only, so the round wrote neither FAILED.json nor METADATA.json and looked
+        to the node like it was still running - a crash that presents as a hang.
+
+        The size limit cannot stand in for this one: depth is not length.
+        """
+        deep = '{"schema_version": ' + "[" * 200_000 + "]" * 200_000 + "}"
+        self.assertLess(len(deep), review_result.MAX_BYTES * 1,
+                        "the fixture must be under the size limit or it proves "
+                        "nothing about depth")
+        with self.assertRaises(Exception) as caught:
+            review_result.decode(deep.encode("utf-8"))
+        self.assertIsInstance(caught.exception, review_result.ReviewResultError)
+        self.assertEqual(caught.exception.code, "parser_limit")
+
     def test_oversize_refuses_before_parsing(self):
         big = raw(report_markdown="x" * (review_result.MAX_BYTES + 1))
         self.assertGreater(len(big), review_result.MAX_BYTES)

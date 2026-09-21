@@ -277,12 +277,25 @@ replacement text for every finding:
 
 A `needs_design` re-audit is never patched; it waits for Vincent's decision.
 
-### Recommendation parsing
+### The recommendation is declared, not parsed
 
-A re-audit can say `needs_design` and then add that a later re-audit could recommend
-`commit_contract`. The parsers in `ger_node.py` and `apply_contract.py` therefore return the
-earliest option named after the final-recommendation heading, never the first option in a fixed
-list. The GER owner still reads every re-audit before acting on it.
+A reviewer states its verdict in the `recommendation` field of one JSON result, validated by
+`Tools/Host/review_result.py` and bound to the sha256 of the exact bytes it was given. There is
+no parsing step and no heading to find.
+
+This replaced a recogniser that read the verdict out of the report's prose. A re-audit can say
+`needs_design` and then observe that a LATER re-audit could recommend `commit_contract`, and the
+old parser's job was to decide which of those two mentions was the verdict - from text where
+intent is never marked. It was reviewed eight times and the defect space never closed, because
+Markdown's ways of displaying text without asserting it are not a closed set.
+
+Old reports stay readable through explicitly named legacy consumers
+(`--legacy-report`, `--legacy-rounds`, `--post-commit-check-legacy`, `ger_decision_revision
+--legacy`). None is ever selected automatically, and a failed JSON parse never retries as
+Markdown. An in-flight packet cannot cross the cutover: see
+`Tools/Host/CLOSURE_PROTOCOL_CUTOVER.md`.
+
+The GER owner still reads every re-audit before acting on it.
 
 ### Coordination with Codex (GitHub issue #127)
 

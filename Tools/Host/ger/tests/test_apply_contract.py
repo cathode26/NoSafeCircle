@@ -425,6 +425,39 @@ class PostCommitCheck(unittest.TestCase):
         self.assertEqual(record["reviewed_artifact_sha256"], ac.sha256(self.blob))
         self.assertEqual(record["provider_evidence"], "generated")
 
+    def test_the_verdict_and_the_hash_come_from_one_load(self):
+        """Astra MJ-P3-03-D, kept as the counterexample that found it.
+
+        The resolver took its verdict from the import reader and then called the
+        job reader a SECOND time, discarding what it returned. Codex swapped the
+        files between those two reads and got back `commit_contract` alongside a
+        report hash belonging to the `revise` the shared reader had actually
+        validated - two facts about two different snapshots, each true.
+
+        One load is the fix, so one load is what this asserts. A second read is
+        the defect whatever it happens to return, and no fixture can be written
+        that catches every way two snapshots might differ.
+        """
+        loads = []
+        real = closure_record.read_job
+
+        def counting(result, **kwargs):
+            loads.append(result)
+            return real(result, **kwargs)
+
+        raw = self.result(recommendation="revise")
+        closure_record.read_job = counting
+        try:
+            record = self.resolve(raw)
+        finally:
+            closure_record.read_job = real
+
+        self.assertEqual(len(loads), 1,
+                         f"the resolver loaded the job {len(loads)} times; every "
+                         f"fact it records must come from one validated snapshot")
+        self.assertEqual(record["verdict"], "revise")
+        self.assertEqual(record["report_sha256"], ac.sha256(raw))
+
     def test_a_report_with_no_job_record_is_refused(self):
         # Astra MJ-P3-03: this used to be accepted and stamped `imported`, so a
         # result whose own job FAILED acquired provenance it had not earned.

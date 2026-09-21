@@ -66,6 +66,13 @@ FILES = {
     "ger_node": Path("ger/ger_node.py"),
     "apply_contract": Path("ger/apply_contract.py"),
     "record": Path("jobs/closure_record.py"),
+    "checker": Path("jobs/check_closure_report.py"),
+    # Bash is not exempt. Two of the defects Codex reproduced on 2026-09-21 were
+    # in this file, and both had been "fixed" on the Python path beside it - the
+    # shell kept its own older behaviour because nothing ever broke it on purpose.
+    "shell": Path("codex-jobs/run_closure_review.sh"),
+    "adapter": Path("jobs/claude_closure_review.py"),
+    "prompt": Path("codex-jobs/make_closure_prompt.py"),
 }
 
 # Suites a mutation can be expected to kill, by key.
@@ -77,12 +84,17 @@ SUITES = {
     "node": Path("ger/tests/test_ger_node.py"),
     "contract": Path("ger/tests/test_apply_contract.py"),
     "job_record": Path("jobs/tests/test_closure_record.py"),
+    "shell": Path("codex-jobs/tests/test_run_closure_review.py"),
+    "adapter": Path("jobs/tests/test_claude_closure_review.py"),
 }
 
 # Copied so the suites import and navigate as they do in the tree. Never mutated.
 SUPPORT = [
-    Path("jobs/check_closure_report.py"),
-    Path("jobs/claude_closure_review.py"),
+    # What the shell suite's own deployment step copies. Without these it builds
+    # a workspace missing its helpers and every case fails at setup, which is a
+    # crash and not a kill.
+    Path("jobs/resolve_codex.py"),
+    Path("jobs/check_job_result.py"),
     Path("nsc_paths.py"),
     Path("ger/ger_decision_revision.py"),
     Path("ger/main_write.py"),
@@ -236,6 +248,93 @@ MUTATIONS = [
      "    problems = check_run(run, output)",
      "    problems = []",
      "ger", "test_a_nonzero_exit_does_not_publish_metadata"),
+
+    # ---- Astra message 16: the guards added after the Codex-path reproduction.
+
+    ('record', 'the refusal of a float that equals zero as an exit code',
+     '    if type(exit_code) is not int or exit_code != 0:',
+     '    if isinstance(exit_code, bool) or exit_code != 0:',
+     'job_record', 'test_a_float_zero_exit_code_is_not_a_zero_one'),
+
+    ('record', "the refusal to publish over a finished job's record",
+     '    if final.exists():',
+     '    if False:',
+     'job_record', 'test_publishing_over_a_finished_record_is_refused'),
+
+    ('record', 'the shared answer to what evidence already exists',
+     '    return [p for p in (result, view_path(result), metadata_path(result)) if p.exists()]',
+     '    return []',
+     'job_record', 'test_existing_evidence_names_every_file_that_is_there'),
+
+    ('checker', "the host's pre-launch expectation about the contract",
+     '    if args.contract_sha256 is not None and args.contract_sha256 != expected:',
+     '    if False:',
+     'closure', 'test_a_contract_that_changed_under_the_run_is_exit_8'),
+
+    ('checker', 'the requirement that publication carries an expectation',
+     '    if args.provider and not args.contract_sha256:',
+     '    if False:',
+     'closure', 'test_publishing_a_record_requires_the_expectation'),
+
+    ('apply_contract', 'the single load behind every recorded fact',
+     '    record.update({\n        "verdict": job.result.recommendation,',
+     '    job = closure_record.read_job(report_path, task_id=task_id,\n                                  reviewed_artifact_sha256=contract_sha)\n    record.update({\n        "verdict": job.result.recommendation,',
+     'contract', 'test_the_verdict_and_the_hash_come_from_one_load'),
+
+    ('shell', "the refusal of a previous run's evidence",
+     'python -B "$HELPERS/closure_record.py" --refuse-existing "$RESULT" || exit 2',
+     'true',
+     'shell', 'test_evidence_from_an_earlier_run_is_refused_before_launch'),
+
+    ('shell', 'hashing the contract BEFORE the provider can see it',
+     '--contract-sha256 "$CONTRACT_SHA"',
+     '--contract-sha256 "$(python -B "$HELPERS/closure_record.py" --sha256 "$CLONE/REVISED_CONTRACT.json")"',
+     'shell', 'test_a_provider_that_rewrites_the_contract_is_refused'),
+
+
+    # ---- Fable's review: guards that no test was pinning.
+
+    ('adapter', 'the sentinel that makes a MISSING is_error visible',
+     '    is_error = data.get("is_error", "<missing>")',
+     '    is_error = data.get("is_error", False)',
+     'adapter', 'test_a_wrapper_with_no_is_error_is_not_a_success'),
+
+    ('adapter', 'the requirement that a wrapper says is_error false EXPLICITLY',
+     '    if is_error is not False:',
+     '    if is_error:',
+     'adapter', 'test_only_an_explicit_false_counts_as_success'),
+
+    ('adapter', 'the success-subtype requirement',
+     '    if data.get("subtype") != "success":',
+     '    if False:',
+     'adapter', 'test_a_subtype_other_than_success_fails'),
+
+    ('adapter', 'the shared JSON-shape test in the usage-limit check',
+     '        if not review_result.looks_like_result(raw):',
+     '        if not raw.lstrip().startswith("{"):',
+     'adapter', 'test_a_valid_result_that_mentions_a_rate_limit_is_still_a_review'),
+
+    ('result', 'the nesting limit becoming a refusal instead of a crash',
+     '    except RecursionError as exc:',
+     '    except ZeroDivisionError as exc:',
+     'result', 'test_a_deeply_nested_value_refuses_rather_than_crashing'),
+
+    ('ger_node', 'the protocol-failure gate on retries',
+     '        if record.get("kind") == "protocol":',
+     '        if False:',
+     'node', 'test_a_protocol_failure_is_never_transient'),
+
+    ('ger_round', "the tamper check on a record's copied verdict",
+     '        if field in metadata and metadata[field] != value:',
+     '        if False:',
+     'ger', 'test_a_record_whose_copied_verdict_was_edited_is_reported'),
+
+
+    ('prompt', 'the prompt landing where the runner reads it',
+     'OUT = nsc_paths.work().path / "codex-jobs"',
+     'OUT = HERE',
+     'shell', 'test_the_prompt_builder_writes_where_the_runner_reads'),
+
 ]
 
 
@@ -252,9 +351,17 @@ def stage(tmp: Path) -> tuple[dict[str, Path], dict[str, Path]]:
 
 
 def run(suite: Path) -> tuple[int, str]:
+    # One stream, not two concatenated. unittest writes its summary to stderr
+    # and a suite's own prints go to stdout, so `stdout + stderr` puts them in
+    # an order neither stream had - which is the defect run_tool_tests.py
+    # documents and fixes for ITSELF, while this file handed the reassembled
+    # text to that same tested interpretation (Fable, 2026-09-21). Harmless for
+    # today's suites and wrong on the day one of them prints something that
+    # looks like a summary.
     proc = subprocess.run([sys.executable, "-B", "-u", str(suite)],
-                          capture_output=True, text=True, cwd=str(suite.parent))
-    return proc.returncode, proc.stdout + proc.stderr
+                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                          text=True, cwd=str(suite.parent))
+    return proc.returncode, proc.stdout
 
 
 def score(code: int, output: str, must_die: str,

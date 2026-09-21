@@ -3,12 +3,25 @@
     python -B make_closure_prompt.py <job> <TASK> <reason-file> <decisions-text> <report-path|none> [<older report> ...]
 
 The ledger lists every [blocking] and [major] finding line from the given previous reports (newest first).
+
+The prompt is written to the WORK ROOT's codex-jobs directory, which is where
+`run_closure_review.sh` looks for it. It used to be written beside this script,
+so the two agreed only when the tools were deployed inside the work root - and
+the launcher requires `jobs/` as its own sibling, which the work root has not
+got. Fable, 2026-09-21: every deployment that satisfied one of those broke the
+other, and the launcher exits 2 either way. The templates stay beside the script,
+because they are part of the tool; the output belongs to the job.
 """
 import pathlib
 import re
 import sys
 
-ROOT = pathlib.Path(__file__).resolve().parent
+HERE = pathlib.Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE.parent))
+import nsc_paths  # noqa: E402
+
+ROOT = HERE
+OUT = nsc_paths.work().path / "codex-jobs"
 job, task, reason_file, decisions = sys.argv[1:5]
 reports = [r for r in sys.argv[5:] if r.lower() != "none"]
 template = (ROOT / "templates" / "contract-closure-review-prompt.md").read_text(encoding="utf-8")
@@ -28,5 +41,7 @@ body = (template
         .replace("<DECISION_FILES_OR_NONE>", decisions)
         .replace("<LEDGER: one line each, \"L1 [blocking|major] <field>: <finding summary>\">",
                  "\n".join(ledger) if ledger else "none (first check of this contract; review the whole contract once, with the same task-local versus downstream-debt discipline)"))
-(ROOT / f"{job}.prompt.md").write_text(body, encoding="utf-8")
-print(f"{job}: {len(ledger)} ledger items")
+OUT.mkdir(parents=True, exist_ok=True)
+prompt = OUT / f"{job}.prompt.md"
+prompt.write_text(body, encoding="utf-8")
+print(f"{job}: {len(ledger)} ledger items -> {prompt}")

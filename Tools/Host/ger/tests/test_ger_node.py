@@ -191,9 +191,21 @@ class RetryEligibility(Base):
         return directory
 
     def test_a_protocol_failure_is_never_transient(self):
+        # exit_code 1, deliberately. Fable found this case written with
+        # exit_code 0, where the SECOND gate ("the provider call succeeded")
+        # refuses it on its own - so the test named for the protocol gate never
+        # exercised the protocol gate, and a mutant of it survived. A failed
+        # process plus a protocol label isolates the rule under test.
         directory = self.failed(kind="protocol", reason=self.RATE_LIMIT_PROSE,
-                                metadata={"exit_code": 0})
+                                metadata={"exit_code": 1, "is_error": True})
         self.assertFalse(ger_node.transient_failure(directory))
+
+    def test_the_same_failure_without_the_protocol_label_is_transient(self):
+        # The control that makes the case above mean something: identical
+        # evidence, no `kind`, and the rate-limit prose now qualifies.
+        directory = self.failed(reason=self.RATE_LIMIT_PROSE,
+                                metadata={"exit_code": 1, "is_error": True})
+        self.assertTrue(ger_node.transient_failure(directory))
 
     def test_a_successful_provider_call_is_never_transient(self):
         # No `kind`, so this is the general rule rather than the label: the

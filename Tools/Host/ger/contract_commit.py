@@ -129,8 +129,10 @@ def main() -> int:
     parser.add_argument("--reason", required=True)
     parser.add_argument("--post-commit-check-report", type=pathlib.Path,
                         help="With --post-commit-check-commit, records this revision's provenance as also "
-                        "covering a post-commit Codex contract check of an earlier commit; the verdict is "
-                        "parsed from the report's own 'Final recommendation:' line")
+                        "covering a post-commit Codex contract check of an earlier commit. Pass the "
+                        "reviewer's .result.json, which must have its job record beside it; "
+                        "the verdict is the recommendation that result DECLARES. A .report.md "
+                        "is a rendered view and is refused.")
     parser.add_argument("--post-commit-check-commit", metavar="SHA")
     parser.add_argument("--post-commit-check-import", metavar="WHO",
                         help="the report was handed over by a person rather than produced "

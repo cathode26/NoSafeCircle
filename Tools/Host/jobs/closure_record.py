@@ -38,8 +38,8 @@ from typing import NamedTuple
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 import review_result  # noqa: E402
 
-__all__ = ["Job", "RecordError", "metadata_path", "view_path", "build", "publish",
-           "read_job", "PROVIDERS"]
+__all__ = ["Job", "RecordError", "metadata_path", "view_path", "existing_evidence",
+           "build", "publish", "read_job", "sha256", "PROVIDERS"]
 
 PROTOCOL = "json-v1"
 PROVIDERS = ("codex", "claude-host", "claude-docker")
@@ -74,6 +74,23 @@ def view_path(result: pathlib.Path) -> pathlib.Path:
             name = name[: -len(suffix)]
             break
     return result.with_name(name + ".report.md")
+
+
+def existing_evidence(result: pathlib.Path) -> list[pathlib.Path]:
+    """Which of this job's three files are already on disk.
+
+    Astra MJ-P3-03-C: a clone reservation protects the working DIRECTORY, not the
+    previous run's evidence. Both producers ask this one question instead of each
+    spelling the three paths out, because that rule had two homes with two
+    different behaviours - the Claude launcher refused, the shell moved the files
+    aside and then overwrote the record - and the shell's version is how C
+    survived a round after I reported it fixed.
+
+    The caller decides what to do with a non-empty answer. Every caller so far
+    refuses: a finished job's evidence is not scratch space, and a retry is free
+    because it only needs a different job name.
+    """
+    return [p for p in (result, view_path(result), metadata_path(result)) if p.exists()]
 
 
 def sha256(data: bytes) -> str:
@@ -132,6 +149,15 @@ def publish(result: pathlib.Path, record: dict) -> pathlib.Path:
     did not finish, and that is exactly what a reader should conclude.
     """
     final = metadata_path(result)
+    # The backstop for any producer that forgets to check first. `os.replace` is
+    # atomic, which makes an overwrite invisible rather than partial - so without
+    # this, a second run on the same job name silently replaces a completed
+    # `revise` with a `commit_contract` and nothing on disk records that it
+    # happened (Astra MJ-P3-03-C, reproduced through the shell).
+    if final.exists():
+        _reject("record_exists",
+                f"{final.name} already exists: that job finished and its record is "
+                f"evidence, not scratch space. Use a new job name.")
     tmp = final.with_name(f".{final.name}.{os.getpid()}.tmp")
     tmp.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
     os.replace(tmp, final)
@@ -273,13 +299,59 @@ def read_job(result: pathlib.Path, *, task_id: str,
     # itself, so an incomplete result with matching hashes came back as a ready
     # job. The record is the host's claim; the result is the reviewer's. They
     # must agree, and it is the reviewer's that decides.
+    # `check` above has already required the RECORD's review_status to be
+    # exactly "complete", so once both have passed there is one value left and
+    # they cannot disagree. An equality check between them used to sit here as
+    # well; Fable found it unreachable, and a guard that cannot fire is worse
+    # than none - it reads as a defence and its mutant survives silently.
     if not validated.is_complete:
         _reject("not_ready",
                 f"the record claims a complete review but the result declares "
                 f"{validated.review_status!r}")
-    if record["review_status"] != validated.review_status:
-        _reject("tampered",
-                f"the record's review_status is {record['review_status']!r} but "
-                f"the result says {validated.review_status!r}")
 
     return Job(result=validated, result_sha256=sha256(result_bytes), record=record)
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Two questions Bash would otherwise answer for itself, answered here.
+
+    `run_closure_review.sh` used to move stale output aside with `mv` and hash
+    nothing; both of those were its own implementations of rules that already
+    existed in Python, and both were wrong in ways the Python ones were not.
+    Shelling out to this keeps one implementation per rule.
+    """
+    import argparse
+
+    ap = argparse.ArgumentParser(description="Job-record helpers for shell runners.")
+    ap.add_argument("--refuse-existing", metavar="RESULT",
+                    help="exit 2 if this job's result, view or record already "
+                         "exists, naming what was found")
+    ap.add_argument("--sha256", metavar="FILE",
+                    help="print the sha256 of a file's exact bytes")
+    args = ap.parse_args(argv)
+
+    if not args.refuse_existing and not args.sha256:
+        ap.error("nothing to do: pass --refuse-existing or --sha256")
+
+    if args.sha256:
+        try:
+            print(sha256(pathlib.Path(args.sha256).read_bytes()))
+        except OSError as error:
+            print(f"cannot read {args.sha256}: {error}", file=sys.stderr)
+            return 2
+
+    if args.refuse_existing:
+        found = existing_evidence(pathlib.Path(args.refuse_existing))
+        if found:
+            print(f"this job already has evidence on disk:", file=sys.stderr)
+            for path in found:
+                print(f"  {path}", file=sys.stderr)
+            print("a finished job's evidence is never overwritten; use a new job "
+                  "name.", file=sys.stderr)
+            return 2
+
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

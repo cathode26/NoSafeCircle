@@ -279,5 +279,70 @@ class TheRenderedView(Base):
         self.assertIn("- Recommendation: revise", text)
 
 
+class ThePreLaunchExpectation(unittest.TestCase):
+    """Astra MJ-P3-03-B: the host says which bytes it chose, before launching."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.tmp = Path(self._tmp.name)
+        self.contract = self.tmp / "REVISED_CONTRACT.json"
+        self.contract.write_bytes(CONTRACT)
+        self.result = self.tmp / "JOB.result.json"
+        self.result.write_bytes(self.result_bytes())
+
+    def result_bytes(self, contract: bytes = None, **overrides) -> bytes:
+        body = {
+            "schema_version": 1, "review_kind": "closure", "task_id": "NSC-001",
+            "reviewed_artifact_kind": "contract",
+            "reviewed_artifact_sha256": hashlib.sha256(
+                CONTRACT if contract is None else contract).hexdigest(),
+            "review_status": "complete", "recommendation": "commit_contract",
+            "report_markdown": "Ledger:\n- L1: RESOLVED.",
+        }
+        body.update(overrides)
+        return json.dumps(body).encode("utf-8")
+
+    def check(self, *extra: str) -> int:
+        return check_closure_report.main(
+            ["--result", str(self.result), "--contract", str(self.contract),
+             "--task", "NSC-001", "--quiet", *extra])
+
+    def test_a_matching_expectation_passes(self):
+        expected = hashlib.sha256(CONTRACT).hexdigest()
+        self.assertEqual(self.check("--contract-sha256", expected), 0)
+
+    def test_a_contract_that_changed_under_the_run_is_exit_8(self):
+        # The provider rewrote the fixture and reviewed its own version, so the
+        # result, the file and the hash all agree with each other and none of
+        # them is what the host selected.
+        changed = b'{"id": "NSC-001", "contract_revision": 99}\n'
+        selected = hashlib.sha256(CONTRACT).hexdigest()
+        self.contract.write_bytes(changed)
+        self.result.write_bytes(self.result_bytes(contract=changed))
+        self.assertEqual(self.check("--contract-sha256", selected), 8)
+
+    def test_it_is_refused_rather_than_substituted(self):
+        # Binding to the saved hash instead would make the result fail its own
+        # check and read as a bad REVIEW. The run is what is untrustworthy.
+        changed = b'{"id": "NSC-001", "contract_revision": 99}\n'
+        selected = hashlib.sha256(CONTRACT).hexdigest()
+        self.contract.write_bytes(changed)
+        self.result.write_bytes(self.result_bytes(contract=changed))
+        self.assertNotEqual(self.check("--contract-sha256", selected), 7)
+
+    def test_publishing_a_record_requires_the_expectation(self):
+        with self.assertRaises(SystemExit) as caught:
+            self.check("--provider", "codex", "--exit-code", "0",
+                       "--started-at", "1700000000",
+                       "--report-out", str(self.tmp / "JOB.report.md"))
+        self.assertEqual(caught.exception.code, 2)
+
+    def test_a_malformed_expectation_is_refused(self):
+        with self.assertRaises(SystemExit) as caught:
+            self.check("--contract-sha256", "not-a-hash")
+        self.assertEqual(caught.exception.code, 2)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
