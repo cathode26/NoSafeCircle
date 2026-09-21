@@ -28,6 +28,11 @@ import subprocess
 import sys
 import time
 
+# review_result sits one directory up in both layouts: <repo>/Tools/Host for the
+# tracked copy, <workspace>/tools for a deployment.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
+import review_result  # noqa: E402
+
 CANONICAL = pathlib.Path(r"C:\NSC\NSC\NoSafeCircle")
 CODEX_REASONING_EFFORT = "high"  # Vincent, 2026-09-14: run GER Codex rounds at high, not the xhigh default
 ROUNDS = {
@@ -37,6 +42,54 @@ ROUNDS = {
     "04-claude-reaudit": ("claude", ["01-codex-generate", "02-claude-evaluate", "03-codex-refine"]),
     "06-claude-recheck": ("claude", ["03-codex-refine", "04-claude-reaudit", "05-owner-patch"]),
 }
+
+# Rounds whose output is a DECISION another tool acts on, mapped to the round
+# whose OUTPUT.md bytes they reviewed. These must declare their verdict as one
+# JSON object; the rest are drafting and refining steps, read by people and by
+# the next prompt, where there is no verdict to misread.
+#
+# The artifact each one is bound to is the handoff's, not a guess: GER04 reviews
+# the exact 03-codex-refine/OUTPUT.md bytes, which contain the candidate, and
+# GER06 the exact 05-owner-patch/OUTPUT.md bytes. Neither of those is itself a
+# decision round, so nothing here rewrites an artifact another round is bound to.
+DECISION_ROUNDS = {
+    "04-claude-reaudit": "03-codex-refine",
+    "06-claude-recheck": "05-owner-patch",
+}
+
+RESULT_FILE = "RESULT.json"
+
+# ONE copy, referenced by every decision round's prompt through the
+# {DECISION_FORMAT} placeholder. Five separate guards in the closure checker
+# turned out to be implemented twice, each copy hiding the other from mutation
+# testing; a format spelled out once per prompt would be the same mistake in a
+# place where the two copies drift silently and only a live provider notices.
+DECISION_FINAL_MESSAGE = """FINAL MESSAGE (exactly one JSON object, UTF-8, no code fence, nothing before or after)
+{
+  "schema_version": 1,
+  "review_kind": "ger",
+  "task_id": "{TASK_ID}",
+  "reviewed_artifact_kind": "ger_round_output",
+  "reviewed_artifact_sha256": "{REVIEWED_SHA256}",
+  "review_status": "complete",
+  "recommendation": "<one of commit_contract, commit_contract_then_decompose, needs_design, blocked_not_design>",
+  "report_markdown": "<items 1-6 above, as Markdown, in this one string>"
+}
+
+- The host parses your final message as JSON and refuses anything else, so a code
+  fence, a preamble sentence or a sign-off after it discards the review.
+- reviewed_artifact_sha256 is given above; copy it exactly. It binds your verdict
+  to the bytes you were shown.
+- Everything you would have written as prose goes inside report_markdown, where
+  Markdown is free-form. Nothing written there can select or change the verdict,
+  so you need not avoid fences, quotes or worked examples inside it.
+- If you cannot finish the review, set review_status to "incomplete" and
+  recommendation to null, and say why in report_markdown. An unfinished review is
+  a legitimate outcome; a guessed one is not."""
+DERIVED_HEADER = (
+    "<!-- Rendered from RESULT.json after validation. This file is the human view "
+    "and is NOT a decision source; no tool may read a verdict out of it. -->"
+)
 
 LEGACY_SNAPSHOT_PATHS = ["AGENTS.md", "Tasks", "Docs", "Pipeline/TaskGraph", "Assets/NoSafeCircle", "Assets/Scenes",
                          "ProjectSettings", "Packages"]
@@ -289,6 +342,8 @@ Output ONE markdown document:
    - blocked_not_design: blocking non-design problems remain; list them.
 6. Decisions that genuinely need Vincent.
 
+{DECISION_FORMAT}
+
 {INPUTS}""",
     "06-claude-recheck": """You are a FRESH Claude RE-CHECKER in a Task Design GER cycle for No Safe Circle task {TASK_ID}.
 You are a new conversation: not the author, not the evaluator and not the round-04 re-auditor. The round-04
@@ -322,6 +377,8 @@ Output ONE markdown document:
      remains; list them.
    - needs_design: list the exact decisions Vincent must make; do not commit.
 6. Decisions that genuinely need Vincent.
+
+{DECISION_FORMAT}
 
 {INPUTS}""",
 }
@@ -390,6 +447,125 @@ def check_run(run: dict, output: pathlib.Path) -> list[str]:
     if not run.get("session_id"):
         problems.append("missing session identity")
     return problems
+
+
+def reviewed_artifact(packet: pathlib.Path, round_name: str) -> tuple[str, bytes]:
+    """The exact bytes a decision round reviewed, and where they came from."""
+    prior = DECISION_ROUNDS[round_name]
+    path = packet / prior / "OUTPUT.md"
+    if not path.is_file():
+        raise ValueError(f"{round_name} reviews {prior}/OUTPUT.md, which is missing")
+    return f"{prior}/OUTPUT.md", path.read_bytes()
+
+
+def render_output(result: review_result.ReviewResult, source: str) -> str:
+    """The human view of a validated decision, derived from validated fields only."""
+    verdict = result.recommendation if result.is_complete else "INCOMPLETE - no recommendation"
+    return "\n".join([
+        DERIVED_HEADER,
+        "",
+        f"# {result.task_id} - {result.review_kind} review",
+        "",
+        f"- Review status: {result.review_status}",
+        f"- Recommendation: {verdict}",
+        f"- Reviewed: {source}",
+        f"- Reviewed sha256: {result.reviewed_artifact_sha256}",
+        "",
+        "---",
+        "",
+        result.report_markdown.rstrip(),
+        "",
+    ])
+
+
+def record_decision(round_dir: pathlib.Path, packet: pathlib.Path, round_name: str,
+                    task_id: str) -> tuple[review_result.ReviewResult, dict]:
+    """Validate a decision round's output, then split it into record and view.
+
+    The provider's last message IS the JSON object, and ger_round has already
+    written it to OUTPUT.md. So: keep those exact bytes as RESULT.json, validate
+    them bound to the artifact the round was supposed to review, and only then
+    replace OUTPUT.md with the rendered view. Raises ValueError on any refusal,
+    which main turns into an ordinary round failure - an unreadable decision is
+    not a completed round.
+    """
+    raw = (round_dir / "OUTPUT.md").read_bytes()
+    source, artifact = reviewed_artifact(packet, round_name)
+    try:
+        result = review_result.load(
+            raw,
+            task_id=task_id,
+            review_kind="ger",
+            reviewed_artifact_kind="ger_round_output",
+            reviewed_artifact_sha256=sha256_bytes(artifact),
+        )
+    except review_result.ReviewResultError as error:
+        raise ValueError(f"{round_name} did not declare a readable decision "
+                         f"({error.code}): {error.message}") from error
+
+    # RESULT.json first and verbatim: it is the record, and it must exist before
+    # the only other copy of those bytes is overwritten.
+    (round_dir / RESULT_FILE).write_bytes(raw)
+    (round_dir / "OUTPUT.md").write_text(render_output(result, source), encoding="utf-8")
+    return result, {
+        "protocol": "json-v1",
+        "review_status": result.review_status,
+        "recommendation": result.recommendation,
+        "result_file": RESULT_FILE,
+        "result_sha256": sha256_bytes(raw),
+        "reviewed": source,
+        "reviewed_sha256": result.reviewed_artifact_sha256,
+    }
+
+
+class LegacyPacket(Exception):
+    """This round predates the JSON protocol, so there is no RESULT.json to read.
+
+    Distinct from a validation failure on purpose. A legacy packet may be read by
+    the legacy path; a v2 packet whose RESULT.json does not validate may NOT -
+    "never retry a failed new JSON parse through the old Markdown parser". A
+    single exception type for both would erase that line, and the caller would
+    have to guess which case it was in.
+    """
+
+
+def read_decision(packet: pathlib.Path, round_name: str, task_id: str
+                  ) -> review_result.ReviewResult:
+    """THE interpretation of a decision round. Every consumer calls this one.
+
+    Re-validates rather than trusting what was recorded at write time, and
+    re-hashes the reviewed artifact from disk as it is NOW. "Read once" means one
+    interpretation implemented at the boundary, not one decision cached forever
+    after its evidence has changed - if the artifact the review was bound to has
+    been edited since, this refuses, which is the entire point of binding.
+
+    Raises LegacyPacket for a pre-protocol round, ReviewResultError for a v2
+    round that does not validate, and ValueError for a round that never finished.
+    """
+    if round_name not in DECISION_ROUNDS:
+        raise ValueError(f"{round_name} is not a decision round")
+    round_dir = packet / round_name
+    if (round_dir / "FAILED.json").exists():
+        raise ValueError(f"{round_name} failed; it carries no decision")
+    metadata_path = round_dir / "METADATA.json"
+    if not metadata_path.is_file():
+        # No published record means the round did not complete. Absence is not a
+        # verdict, and it is certainly not approval.
+        raise ValueError(f"{round_name} has no METADATA.json; it did not complete")
+
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    result_path = round_dir / RESULT_FILE
+    if metadata.get("protocol") != "json-v1" or not result_path.is_file():
+        raise LegacyPacket(f"{round_name} was produced before the JSON protocol")
+
+    source, artifact = reviewed_artifact(packet, round_name)
+    return review_result.load(
+        result_path.read_bytes(),
+        task_id=task_id,
+        review_kind="ger",
+        reviewed_artifact_kind="ger_round_output",
+        reviewed_artifact_sha256=sha256_bytes(artifact),
+    )
 
 
 def publish_metadata(round_dir: pathlib.Path, metadata: dict) -> pathlib.Path:
@@ -466,6 +642,14 @@ def build_prompt(round_name: str, packet: pathlib.Path, snapshot: pathlib.Path, 
         "{SOURCE_HEAD}": identity["source_head"],
         "{SNAPSHOT_DIR}": str(snapshot),
         "{SNAPSHOT_CONTENTS}": snapshot_contents(snapshot),
+        # Empty for a non-decision round: those have no verdict to declare, and
+        # handing one a JSON format would invite it to invent a decision.
+        # DECISION_FINAL_MESSAGE itself contains {TASK_ID} and {REVIEWED_SHA256},
+        # which is what the two-pass loop below exists for.
+        "{DECISION_FORMAT}": (DECISION_FINAL_MESSAGE
+                              if round_name in DECISION_ROUNDS else ""),
+        "{REVIEWED_SHA256}": (sha256_bytes(reviewed_artifact(packet, round_name)[1])
+                              if round_name in DECISION_ROUNDS else ""),
     }
     prompt = PROMPTS[round_name]
     for _ in range(2):
@@ -620,6 +804,26 @@ def main() -> int:
         # round finished, so publishing it here would make this failure look
         # like a success to the next round.
         fail(round_dir, "; ".join(problems), metadata=metadata)
+
+    if args.round in DECISION_ROUNDS:
+        try:
+            _, decision = record_decision(round_dir, packet, args.round, identity["task_id"])
+        except (ValueError, OSError) as error:
+            # A decision round that did not declare a readable decision has not
+            # finished, whatever its exit code said. Same treatment as any other
+            # problem: evidence kept, nothing actionable published.
+            fail(round_dir, str(error), metadata=metadata)
+        metadata.update(decision)
+        # OUTPUT.md is now the rendered view, so the hash recorded for it must be
+        # of what is actually on disk. The provider's own bytes are in
+        # result_sha256, which record_decision set.
+        metadata["output_sha256"] = sha256_bytes(output.read_bytes())
+    else:
+        # Named rather than absent, so a reader never has to infer from a missing
+        # key whether this round was meant to carry a decision.
+        metadata["protocol"] = "none"
+        metadata["review_status"] = "not-a-decision-round"
+
     publish_metadata(round_dir, metadata)
     print(json.dumps({"round": args.round, "task_id": identity["task_id"], "provider": provider,
                       "model": run.get("model"), "session_id": run.get("session_id"),

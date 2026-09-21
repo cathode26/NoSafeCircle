@@ -31,6 +31,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import ger_round  # noqa: E402
+import review_result  # noqa: E402
 
 ROUND = "01-codex-generate"          # no prior rounds, so the fixture stays small
 CONTEXT = "planning"                 # the smallest context preset
@@ -102,35 +103,51 @@ class Base(unittest.TestCase):
         # fixture repo is enough; nothing here touches the real checkout.
         self._real_canonical = ger_round.CANONICAL
         ger_round.CANONICAL = self.repo
-        self._real_run_codex = ger_round.run_codex
+        self._real_providers = (ger_round.run_codex, ger_round.run_claude)
         self.addCleanup(self._restore)
 
         self.round_dir = self.packet / ROUND
 
     def _restore(self):
         ger_round.CANONICAL = self._real_canonical
-        ger_round.run_codex = self._real_run_codex
+        ger_round.run_codex, ger_round.run_claude = self._real_providers
+
+    def complete_prior(self, name: str, text: bytes = b"Prior round output.\n") -> bytes:
+        """A prior round that finished: OUTPUT.md, METADATA.json, no FAILED.json."""
+        prior = self.packet / name
+        prior.mkdir(parents=True, exist_ok=True)
+        (prior / "OUTPUT.md").write_bytes(text)
+        (prior / "METADATA.json").write_text(
+            json.dumps({"round": name, "exit_code": 0}), encoding="utf-8")
+        return text
 
     def provider(self, *, exit_code=0, session_id="session-1", output=b"A review.",
                  is_error=None):
         """Install a fake provider. No process is started and nothing is paid for."""
-        def fake(round_dir, snapshot, prompt, images, timeout):
+        def fake(round_dir, snapshot, prompt, *rest):
             (round_dir / "RAW_EVENTS.jsonl").write_bytes(b'{"fixture": true}\n')
             (round_dir / "STDERR.log").write_bytes(b"")
             if output is not None:
                 (round_dir / "OUTPUT.md").write_bytes(output)
-            run = {"provider": "codex", "cli": "fake", "cli_version": "fixture",
+            run = {"provider": "fixture", "cli": "fake", "cli_version": "fixture",
                    "command": ["fake"], "exit_code": exit_code,
                    "duration_seconds": 0.0, "session_id": session_id,
                    "model": "fixture-model", "raw_stdout": "RAW_EVENTS.jsonl"}
             if is_error is not None:
                 run["is_error"] = is_error
             return run
-        ger_round.run_codex = fake
+        self.last_prompt: list[str] = []
 
-    def run_round(self) -> int:
+        def capture(round_dir, snapshot, prompt, *rest):
+            self.last_prompt.append(prompt)
+            return fake(round_dir, snapshot, prompt, *rest)
+
+        ger_round.run_codex = capture
+        ger_round.run_claude = capture
+
+    def run_round(self, name: str = ROUND) -> int:
         argv = ["ger_round.py", "--packet", str(self.packet),
-                "--snapshot", str(self.snapshot), "--round", ROUND,
+                "--snapshot", str(self.snapshot), "--round", name,
                 "--context", CONTEXT]
         real_argv, sys.argv = sys.argv, argv
         try:
@@ -174,6 +191,26 @@ class TheHappyPath(Base):
         self.assertEqual(metadata["session_id"], "session-1")
         self.assertFalse((self.round_dir / "FAILED.json").exists())
         self.assertNoTempFiles()
+
+    def test_a_non_decision_round_is_given_no_json_format(self):
+        # Handing a drafting round a verdict format invites it to invent one.
+        self.provider()
+        self.assertEqual(self.run_round(), 0)
+        prompt = self.last_prompt[-1]
+        self.assertNotIn("FINAL MESSAGE (exactly one JSON object", prompt)
+        self.assertNotIn("{DECISION_FORMAT}", prompt)
+        self.assertNotIn("{REVIEWED_SHA256}", prompt)
+        meta = json.loads((self.round_dir / "METADATA.json").read_text(encoding="utf-8"))
+        self.assertEqual(meta["protocol"], "none")
+        self.assertEqual(meta["review_status"], "not-a-decision-round")
+
+    def test_a_non_decision_round_keeps_its_output_verbatim(self):
+        # Only decision rounds have their OUTPUT.md replaced by a rendered view.
+        self.provider(output=b"A draft, written for people.\n")
+        self.run_round()
+        self.assertEqual((self.round_dir / "OUTPUT.md").read_bytes(),
+                         b"A draft, written for people.\n")
+        self.assertFalse((self.round_dir / "RESULT.json").exists())
 
     def test_the_round_directory_is_reserved(self):
         # Unchanged behaviour, asserted so the fix cannot quietly remove it.
@@ -224,6 +261,178 @@ class FailureDoesNotPublish(Base):
         body = json.loads((self.round_dir / "FAILED.json").read_text(encoding="utf-8"))
         for fragment in ("exit code 3", "missing OUTPUT.md", "missing session identity"):
             self.assertIn(fragment, body["reason"])
+
+
+DECISION = "04-claude-reaudit"
+REVIEWED = "03-codex-refine"
+
+
+class DecisionRounds(Base):
+    """A decision round declares its verdict as JSON, or it has not finished."""
+
+    def setUp(self):
+        super().setUp()
+        self.candidate = self.complete_prior(REVIEWED, b"The refined candidate.\n")
+        for name in ("01-codex-generate", "02-claude-evaluate"):
+            self.complete_prior(name)
+        self.decision_dir = self.packet / DECISION
+
+    def result(self, **overrides) -> bytes:
+        body = {
+            "schema_version": 1,
+            "review_kind": "ger",
+            "task_id": "NSC-001",
+            "reviewed_artifact_kind": "ger_round_output",
+            "reviewed_artifact_sha256": ger_round.sha256_bytes(self.candidate),
+            "review_status": "complete",
+            "recommendation": "commit_contract",
+            "report_markdown": "1. Prior findings: all resolved.",
+        }
+        body.update(overrides)
+        return json.dumps(body).encode("utf-8")
+
+    def test_a_valid_decision_is_split_into_record_and_view(self):
+        self.provider(output=self.result())
+        self.assertEqual(self.run_round(DECISION), 0)
+
+        # The record is the provider's bytes, verbatim.
+        self.assertEqual((self.decision_dir / "RESULT.json").read_bytes(), self.result())
+
+        # OUTPUT.md is the human view, and says so.
+        view = (self.decision_dir / "OUTPUT.md").read_text(encoding="utf-8")
+        self.assertIn("NOT a decision source", view)
+        self.assertIn("1. Prior findings: all resolved.", view)
+        self.assertIn("- Recommendation: commit_contract", view)
+
+        meta = json.loads((self.decision_dir / "METADATA.json").read_text(encoding="utf-8"))
+        self.assertEqual(meta["protocol"], "json-v1")
+        self.assertEqual(meta["review_status"], "complete")
+        self.assertEqual(meta["recommendation"], "commit_contract")
+        self.assertEqual(meta["result_sha256"], ger_round.sha256_bytes(self.result()))
+        self.assertEqual(meta["reviewed"], f"{REVIEWED}/OUTPUT.md")
+        # output_sha256 must describe what is ON DISK, which is now the view.
+        self.assertEqual(
+            meta["output_sha256"],
+            ger_round.sha256_bytes((self.decision_dir / "OUTPUT.md").read_bytes()))
+        self.assertNotEqual(meta["output_sha256"], meta["result_sha256"])
+
+    def test_prose_instead_of_json_is_not_a_finished_round(self):
+        self.provider(output=b"Final recommendation: commit_contract\n")
+        with self.assertRaises(SystemExit):
+            self.run_round(DECISION)
+        self.assertFalse((self.decision_dir / "METADATA.json").exists())
+        self.assertFalse((self.decision_dir / "RESULT.json").exists())
+        body = json.loads((self.decision_dir / "FAILED.json").read_text(encoding="utf-8"))
+        self.assertIn("did not declare a readable decision", body["reason"])
+
+    def test_a_review_of_different_bytes_is_refused(self):
+        self.provider(output=self.result(reviewed_artifact_sha256="c" * 64))
+        with self.assertRaises(SystemExit):
+            self.run_round(DECISION)
+        self.assertFalse((self.decision_dir / "METADATA.json").exists())
+        body = json.loads((self.decision_dir / "FAILED.json").read_text(encoding="utf-8"))
+        self.assertIn("artifact_hash_mismatch", body["reason"])
+
+    def test_a_closure_verdict_is_not_a_ger_verdict(self):
+        # "Do not translate revise into needs_design" - the families stay apart.
+        self.provider(output=self.result(recommendation="revise"))
+        with self.assertRaises(SystemExit):
+            self.run_round(DECISION)
+        body = json.loads((self.decision_dir / "FAILED.json").read_text(encoding="utf-8"))
+        self.assertIn("wrong_family_recommendation", body["reason"])
+
+    def test_a_declared_incomplete_does_not_publish_a_decision(self):
+        self.provider(output=self.result(review_status="incomplete", recommendation=None,
+                                         report_markdown="Context ran out."))
+        self.assertEqual(self.run_round(DECISION), 0)
+        meta = json.loads((self.decision_dir / "METADATA.json").read_text(encoding="utf-8"))
+        # The ROUND ran and recorded itself honestly; the DECISION is absent.
+        self.assertEqual(meta["review_status"], "incomplete")
+        self.assertIsNone(meta["recommendation"])
+
+    def test_the_prompt_carries_the_format_and_the_real_hash(self):
+        self.provider(output=self.result())
+        self.run_round(DECISION)
+        prompt = self.last_prompt[-1]
+        self.assertIn("FINAL MESSAGE (exactly one JSON object", prompt)
+        self.assertIn(ger_round.sha256_bytes(self.candidate), prompt,
+                      "the prompt must give the reviewer the exact hash to copy")
+        self.assertNotIn("{REVIEWED_SHA256}", prompt)
+        self.assertNotIn("{DECISION_FORMAT}", prompt)
+        self.assertIn('"task_id": "NSC-001"', prompt)
+
+class ReadDecision(DecisionRounds):
+    """The one interpretation every consumer goes through."""
+
+    def completed(self, **overrides):
+        self.provider(output=self.result(**overrides))
+        self.assertEqual(self.run_round(DECISION), 0)
+
+    def read(self):
+        return ger_round.read_decision(self.packet, DECISION, "NSC-001")
+
+    def test_it_returns_the_declared_decision(self):
+        self.completed()
+        self.assertEqual(self.read().recommendation, "commit_contract")
+
+    def test_narrative_naming_other_verdicts_does_not_change_it(self):
+        # The old reader grepped OUTPUT.md for the earliest verdict word, so a
+        # re-audit merely discussing needs_design in its reasoning outranked its
+        # own verdict. Here the prose is inside a string.
+        self.completed(recommendation="commit_contract",
+                       report_markdown="I considered needs_design and "
+                                       "blocked_not_design before deciding.")
+        self.assertEqual(self.read().recommendation, "commit_contract")
+
+    def test_editing_the_reviewed_artifact_invalidates_the_decision(self):
+        # The point of re-validating instead of trusting METADATA: a decision is
+        # about specific bytes, and those bytes can change underneath it.
+        self.completed()
+        self.assertEqual(self.read().recommendation, "commit_contract")
+        (self.packet / REVIEWED / "OUTPUT.md").write_bytes(b"A DIFFERENT candidate.\n")
+        with self.assertRaises(review_result.ReviewResultError) as caught:
+            self.read()
+        self.assertEqual(caught.exception.code, "artifact_hash_mismatch")
+
+    def test_a_legacy_packet_is_distinguishable_from_a_broken_one(self):
+        # Legacy may use the old path; invalid v2 may not. One exception type for
+        # both would erase that line.
+        self.completed()
+        (self.packet / DECISION / ger_round.RESULT_FILE).unlink()
+        meta_path = self.packet / DECISION / "METADATA.json"
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        del meta["protocol"]
+        meta_path.write_text(json.dumps(meta), encoding="utf-8")
+        with self.assertRaises(ger_round.LegacyPacket):
+            self.read()
+
+    def test_a_v2_packet_with_unreadable_result_is_not_legacy(self):
+        self.completed()
+        (self.packet / DECISION / ger_round.RESULT_FILE).write_bytes(b"not json")
+        with self.assertRaises(review_result.ReviewResultError):
+            self.read()
+
+    def test_a_failed_round_carries_no_decision(self):
+        self.provider(exit_code=1, output=self.result())
+        with self.assertRaises(SystemExit):
+            self.run_round(DECISION)
+        with self.assertRaises(ValueError):
+            self.read()
+
+    def test_an_unfinished_round_carries_no_decision(self):
+        (self.packet / DECISION).mkdir()
+        with self.assertRaises(ValueError):
+            self.read()
+
+    def test_a_non_decision_round_is_refused(self):
+        with self.assertRaises(ValueError):
+            ger_round.read_decision(self.packet, ROUND, "NSC-001")
+
+    def test_the_wrong_task_is_refused(self):
+        self.completed()
+        with self.assertRaises(review_result.ReviewResultError) as caught:
+            ger_round.read_decision(self.packet, DECISION, "NSC-999")
+        self.assertEqual(caught.exception.code, "task_mismatch")
 
 
 class CheckRun(unittest.TestCase):

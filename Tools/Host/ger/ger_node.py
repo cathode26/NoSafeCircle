@@ -28,6 +28,15 @@ import sys
 import tarfile
 import time
 
+# ger_round owns the round layout and the one decision reader; review_result owns
+# the protocol. Both directories are inserted explicitly: running this as a script
+# puts ger/ on sys.path implicitly, but importing it as a module does not, and the
+# deployed layout puts the shared module one level up exactly as the tracked one does.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
+import ger_round  # noqa: E402
+import review_result  # noqa: E402
+
 CANONICAL = pathlib.Path(r"C:\NSC\NSC\NoSafeCircle")
 CHECKOUT_ROOT = pathlib.Path(r"C:\NSC\NoSafeCircle-AssistantCheckouts")
 CONTROL = CHECKOUT_ROOT / ".assistant-control"
@@ -195,7 +204,36 @@ def round_complete(packet: pathlib.Path, name: str) -> bool:
     return True
 
 
-def recommendation(packet: pathlib.Path) -> str | None:
+def recommendation(packet: pathlib.Path, task_id: str) -> str | None:
+    """The re-audit's verdict, read from its declaration.
+
+    This used to grep 04-claude-reaudit/OUTPUT.md for the earliest verdict word
+    after the last "final recommendation" heading. Under the JSON protocol that
+    file is the DERIVED human view, so grepping it would be inferring a decision
+    from rendered prose - the thing the protocol exists to stop. Worse, the view
+    embeds report_markdown verbatim, so a reviewer merely discussing
+    `needs_design` in its reasoning could outrank its own verdict.
+
+    ger_round.read_decision is the one interpretation, and it re-validates.
+    """
+    try:
+        return ger_round.read_decision(packet, "04-claude-reaudit", task_id).recommendation
+    except ger_round.LegacyPacket:
+        return legacy_recommendation(packet)
+    except (ValueError, review_result.ReviewResultError) as error:
+        # A v2 packet that does not validate has no verdict, and must NOT fall
+        # through to the grep below: that would let a reviewer bypass the
+        # protocol by emitting something the loader rejects.
+        log(f"04-claude-reaudit carries no readable decision: {error}")
+        return None
+
+
+def legacy_recommendation(packet: pathlib.Path) -> str | None:
+    """The pre-protocol grep, for packets written before the cutover only.
+
+    Reachable solely from the LegacyPacket branch above. Kept because packets on
+    disk still have this shape; not kept as a fallback.
+    """
     output = packet / "04-claude-reaudit" / "OUTPUT.md"
     if not output.is_file():
         return None
@@ -283,7 +321,7 @@ def main() -> int:
             if result.returncode != 0:
                 raise RuntimeError(f"{name} failed: {result.stderr.strip()[-600:]}")
         status["status"] = "rounds_complete"
-        status["reaudit_recommendation"] = recommendation(packet)
+        status["reaudit_recommendation"] = recommendation(packet, task_id)
         log(f"{task_id}: rounds complete; re-audit recommendation {status['reaudit_recommendation']}")
         return_code = 0
     except (RuntimeError, OSError, ValueError, KeyError) as error:
