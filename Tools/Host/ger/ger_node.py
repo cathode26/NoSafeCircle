@@ -167,7 +167,30 @@ TRANSIENT_FAILURE_MARKERS = ("session limit", "rate limit", "at capacity")
 
 
 def transient_failure(directory: pathlib.Path) -> bool:
-    """True only when the provider refused the call (HTTP 429, a session/usage/rate limit, or capacity)."""
+    """True only when the provider refused the call (HTTP 429, a session/usage/rate limit, or capacity).
+
+    Astra MJ-P2-04, path 3: this searched the provider's own final message for
+    rate-limit and capacity phrases. A review that merely DISCUSSED rate limits,
+    and failed for a protocol reason, therefore qualified for an automatic retry
+    - the reviewer's prose deciding whether to spend another provider call.
+
+    Two gates close that, both before any prose is read. A round that failed for
+    a protocol or review reason is never transient, and neither is one whose
+    provider call SUCCEEDED: if the process exited 0 and reported no error, the
+    transport worked and whatever went wrong afterwards will go wrong again.
+    """
+    failed = directory / "FAILED.json"
+    if failed.is_file():
+        try:
+            record = json.loads(failed.read_text(encoding="utf-8", errors="replace"))
+        except ValueError:
+            record = {}
+        if record.get("kind") == "protocol":
+            return False
+        evidence = record.get("metadata") or {}
+        if evidence.get("exit_code") == 0 and not evidence.get("is_error"):
+            return False
+
     texts = []
     raw = directory / "RAW_RESPONSE.json"
     if raw.is_file():
@@ -215,14 +238,9 @@ def round_complete(packet: pathlib.Path, name: str) -> bool:
     #
     # A complete negative - needs_design, blocked_not_design - is NOT this. Those
     # are finished reviews that reached a negative conclusion, and they pass.
-    if name in ger_round.DECISION_ROUNDS:
-        metadata = json.loads((directory / "METADATA.json").read_text(encoding="utf-8"))
-        if metadata.get("protocol") == "json-v1" and metadata.get("review_status") != "complete":
-            raise RuntimeError(
-                f"round {name} ran, but the reviewer declared the review "
-                f"{metadata.get('review_status')!r} and reached no conclusion; "
-                f"its evidence is kept, but it is not a completed review and a "
-                f"fresh packet is needed: {directory}")
+    unfinished = ger_round.decision_not_finished(packet, name)
+    if unfinished:
+        raise RuntimeError(f"round {name} ran, but {unfinished}: {directory}")
     return True
 
 
@@ -336,6 +354,14 @@ def main() -> int:
             log(f"{task_id}: {name} exit {result.returncode} {result.stdout.strip()[-400:]} {result.stderr.strip()[-400:]}")
             if result.returncode != 0:
                 raise RuntimeError(f"{name} failed: {result.stderr.strip()[-600:]}")
+            # Astra MJ-P2-04, path 1: exit 0 says the ROUND recorded itself, not
+            # that the REVIEW finished. Checking round_complete only before the
+            # launch meant the first pass could mark the node rounds_complete
+            # with an unfinished re-audit, while merely resuming the same packet
+            # hit the refusal. The same rule now runs on both sides of the launch.
+            unfinished = ger_round.decision_not_finished(packet, name)
+            if unfinished:
+                raise RuntimeError(f"{name} ran, but {unfinished}")
         status["status"] = "rounds_complete"
         status["reaudit_recommendation"] = recommendation(packet, task_id)
         log(f"{task_id}: rounds complete; re-audit recommendation {status['reaudit_recommendation']}")

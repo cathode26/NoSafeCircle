@@ -361,6 +361,45 @@ class DecisionRounds(Base):
         self.assertNotIn("{DECISION_FORMAT}", prompt)
         self.assertIn('"task_id": "NSC-001"', prompt)
 
+class UnfinishedReviewsAreNotPrerequisites(DecisionRounds):
+    """Astra MJ-P2-04, path 2: the last gate before a provider sees an input."""
+
+    def test_build_prompt_refuses_an_unfinished_prior_decision(self):
+        self.provider(output=self.result(review_status="incomplete",
+                                         recommendation=None,
+                                         report_markdown="Context ran out."))
+        self.assertEqual(self.run_round(DECISION), 0)   # the ROUND recorded itself
+        self.complete_prior("05-owner-patch")
+        with self.assertRaises(ValueError) as caught:
+            ger_round.build_prompt(
+                "06-claude-recheck", self.packet, self.snapshot,
+                {"task_id": "NSC-001", "source_head": "0" * 40},
+                ger_round.CONTEXT_PRESETS[CONTEXT])
+        self.assertIn("not a completed review", str(caught.exception))
+
+    def test_build_prompt_accepts_a_finished_negative_decision(self):
+        # needs_design is a FINISHED review with a negative conclusion, and the
+        # next round is entitled to read it. Without this the guard above could
+        # be over-applied and block the normal path.
+        self.provider(output=self.result(recommendation="needs_design"))
+        self.assertEqual(self.run_round(DECISION), 0)
+        self.complete_prior("05-owner-patch")
+        prompt, _meta = ger_round.build_prompt(
+            "06-claude-recheck", self.packet, self.snapshot,
+            {"task_id": "NSC-001", "source_head": "0" * 40},
+            ger_round.CONTEXT_PRESETS[CONTEXT])
+        self.assertIn("04-claude-reaudit/OUTPUT.md", prompt)
+
+    def test_a_protocol_failure_is_labelled_as_one(self):
+        # So the node's transient check cannot read it as a transport refusal.
+        self.provider(output=b"Final recommendation: commit_contract\n")
+        with self.assertRaises(SystemExit):
+            self.run_round(DECISION)
+        body = json.loads((self.packet / DECISION / "FAILED.json").read_text(encoding="utf-8"))
+        self.assertEqual(body["kind"], "protocol")
+        self.assertEqual(body["metadata"]["exit_code"], 0)
+
+
 class ReadDecision(DecisionRounds):
     """The one interpretation every consumer goes through."""
 
@@ -421,7 +460,7 @@ class ReadDecision(DecisionRounds):
         with self.assertRaises(ValueError) as caught:
             self.read()
         self.assertNotIsInstance(caught.exception, ger_round.LegacyPacket)
-        self.assertIn("declares no protocol", str(caught.exception))
+        self.assertIn("the caller must say so explicitly", str(caught.exception))
 
     def test_a_declared_json_round_with_no_result_is_broken_not_legacy(self):
         # The exact shape Astra reproduced: move ONE file aside and the verdict
@@ -476,6 +515,26 @@ class ReadDecision(DecisionRounds):
         with self.assertRaises(ValueError) as caught:
             self.read()
         self.assertIn("edited since", str(caught.exception))
+
+    def test_an_edited_human_view_is_refused(self):
+        # Astra MJ-P2-03, second half. The view is what later prompts are fed, so
+        # rewriting a reviewer's reasoning underneath an approval that still
+        # validates is the same defect as editing the verdict.
+        self.completed()
+        self.assertEqual(self.read().recommendation, "commit_contract")
+        (self.packet / DECISION / "OUTPUT.md").write_text(
+            "a different account of the review", encoding="utf-8")
+        with self.assertRaises(ValueError) as caught:
+            self.read()
+        self.assertIn("human view has been edited", str(caught.exception))
+
+    def test_a_bom_prefixed_result_can_be_read_back(self):
+        # Astra MJ-P2-05: the producer accepts one leading BOM and published it,
+        # then the reader's own second decoder rejected the same bytes. Writer
+        # and reader must agree on what valid means.
+        self.provider(output=chr(0xFEFF).encode("utf-8") + self.result())
+        self.assertEqual(self.run_round(DECISION), 0)
+        self.assertEqual(self.read().recommendation, "commit_contract")
 
     def test_a_record_of_provider_failure_is_refused(self):
         self.completed()

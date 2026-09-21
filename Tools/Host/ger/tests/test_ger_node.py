@@ -178,5 +178,53 @@ class TheRecordMustHoldUp(Base):
         self.assertEqual(self.read(), "commit_contract")
 
 
+class RetryEligibility(Base):
+    """Astra MJ-P2-04, path 3: reviewer prose must not buy another provider call."""
+
+    RATE_LIMIT_PROSE = ("The service returned a rate limit error during my "
+                        "investigation, which I note as a finding.")
+
+    def failed(self, **record):
+        directory = self.packet / REAUDIT
+        directory.mkdir(parents=True, exist_ok=True)
+        (directory / "FAILED.json").write_text(json.dumps(record), encoding="utf-8")
+        return directory
+
+    def test_a_protocol_failure_is_never_transient(self):
+        directory = self.failed(kind="protocol", reason=self.RATE_LIMIT_PROSE,
+                                metadata={"exit_code": 0})
+        self.assertFalse(ger_node.transient_failure(directory))
+
+    def test_a_successful_provider_call_is_never_transient(self):
+        # No `kind`, so this is the general rule rather than the label: the
+        # process exited 0 and reported no error, so the transport worked and
+        # whatever failed afterwards will fail again.
+        directory = self.failed(reason=self.RATE_LIMIT_PROSE,
+                                metadata={"exit_code": 0, "is_error": None})
+        self.assertFalse(ger_node.transient_failure(directory))
+
+    def test_a_real_provider_refusal_is_still_transient(self):
+        # The gates must not swallow the case retrying exists for.
+        directory = self.failed(reason="exit code 1", metadata={"exit_code": 1})
+        (directory / "STDERR.log").write_text("HTTP 429 rate limit exceeded",
+                                              encoding="utf-8")
+        self.assertTrue(ger_node.transient_failure(directory),
+                        "a genuine provider refusal must still be retryable")
+
+    def test_prose_alone_no_longer_qualifies(self):
+        # The exact shape: a round that failed with a non-zero exit but whose
+        # only rate-limit wording is the reviewer's own narrative. Kept
+        # retryable, because the provider call did fail - what changed is that a
+        # SUCCESSFUL call can no longer be talked into a retry.
+        directory = self.failed(reason="exit code 2", metadata={"exit_code": 2})
+        (directory / "RAW_RESPONSE.json").write_text(
+            json.dumps({"result": self.RATE_LIMIT_PROSE}), encoding="utf-8")
+        self.assertTrue(ger_node.transient_failure(directory))
+        # ...and the same prose with a successful call is not.
+        directory = self.failed(reason="unreadable decision",
+                                metadata={"exit_code": 0})
+        self.assertFalse(ger_node.transient_failure(directory))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

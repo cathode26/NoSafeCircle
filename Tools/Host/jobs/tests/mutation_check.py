@@ -58,19 +58,25 @@ FILES = {
     "result": Path("review_result.py"),
     "legacy": Path("jobs/legacy_closure_markdown.py"),
     "ger_round": Path("ger/ger_round.py"),
+    "ger_node": Path("ger/ger_node.py"),
+    "apply_contract": Path("ger/apply_contract.py"),
 }
 
 # Suites a mutation can be expected to kill, by key.
 SUITES = {
     "result": Path("tests/test_review_result.py"),
     "closure": Path("jobs/tests/test_check_closure_report.py"),
+    "readers": Path("jobs/tests/test_legacy_readers.py"),
     "ger": Path("ger/tests/test_ger_round.py"),
+    "node": Path("ger/tests/test_ger_node.py"),
+    "contract": Path("ger/tests/test_apply_contract.py"),
 }
 
 # Copied so the suites import and navigate as they do in the tree. Never mutated.
 SUPPORT = [
     Path("jobs/check_closure_report.py"),
-    Path("ger/ger_node.py"),
+    Path("ger/ger_decision_revision.py"),
+    Path("ger/main_write.py"),
     Path("ger/tests/ger_fixtures.py"),
     Path("codex-jobs/templates/contract-closure-review-prompt.md"),
 ]
@@ -137,10 +143,35 @@ MUTATIONS = [
      "    return (lambda r, **_: r)(decode(raw),",
      "result", "test_load_enforces_the_binding"),
 
-    ("legacy", "the derived-view marker guard",
-     "    if review_result.DERIVED_VIEW_MARKER in text:",
+    ("legacy", "the derived-view guard in the closure reader",
+     "    if review_result.is_derived_view(text):",
      "    if False:",
      "closure", "test_the_legacy_reader_refuses_the_derived_view"),
+
+    ("result", "the shared derived-view test itself",
+     "    return DERIVED_VIEW_MARKER in (text or \"\")",
+     "    return False",
+     "readers", "test_each_reader_refuses_the_same_text_marked_as_derived"),
+
+    ("ger_round", "the rendered view's hash check",
+     "    elif recorded_view != sha256_bytes(view.read_bytes()):",
+     "    elif False:",
+     "ger", "test_an_edited_human_view_is_refused"),
+
+    ("ger_round", "the unfinished-review prerequisite check",
+     "        unfinished = decision_not_finished(packet, prior)",
+     "        unfinished = None",
+     "ger", "test_build_prompt_refuses_an_unfinished_prior_decision"),
+
+    ("ger_node", "the retry gate on a successful provider call",
+     '        if evidence.get("exit_code") == 0 and not evidence.get("is_error"):',
+     "        if False:",
+     "node", "test_a_successful_provider_call_is_never_transient"),
+
+    ("apply_contract", "the refusal of a substantive override after a JSON review",
+     "    if not human_exception:",
+     "    if False:",
+     "contract", "test_a_substantive_override_after_a_json_review_is_refused"),
 
     ("ger_round", "the recorded result hash check",
      "    if recorded != actual:",

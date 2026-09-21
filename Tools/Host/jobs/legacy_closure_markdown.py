@@ -418,7 +418,7 @@ def inspect(text: str, expected_sha16: str | None = None) -> dict:
     # The fix is a format guard, not a prose scan: a file carrying the marker was
     # generated from a validated result and its verdict already exists, in the
     # JSON. Read that instead.
-    if review_result.DERIVED_VIEW_MARKER in text:
+    if review_result.is_derived_view(text):
         return {
             "complete": False,
             "sha16": None,

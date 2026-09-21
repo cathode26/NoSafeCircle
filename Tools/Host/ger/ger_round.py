@@ -544,7 +544,7 @@ def legacy_round_recommendation(text: str) -> str | None:
     to any legacy reader - Astra MJ-P2-01 happened precisely because the guard
     existed in only one of the two places a view was read.
     """
-    if review_result.DERIVED_VIEW_MARKER in text:
+    if review_result.is_derived_view(text):
         return None
     lower = text.lower()
     start = lower.rfind("final recommendation")
@@ -558,6 +558,54 @@ def legacy_round_recommendation(text: str) -> str | None:
         if index >= 0 and (found is None or index < found[0]):
             found = (index, word)
     return found[1] if found else None
+
+
+def decision_protocol(packet: pathlib.Path, round_name: str) -> str | None:
+    """Which protocol a round's record declares, or None if it declares nothing.
+
+    Callers use this to tell a NEW-FORMAT approval from a historical one without
+    re-reading the decision. A new-format approval is bound to exact bytes, which
+    is what makes editing those bytes afterwards a different thing from editing
+    them after a Markdown review that was never bound to anything.
+    """
+    metadata_path = packet / round_name / "METADATA.json"
+    if not metadata_path.is_file():
+        return None
+    try:
+        return json.loads(metadata_path.read_text(encoding="utf-8")).get("protocol")
+    except (OSError, ValueError):
+        return None
+
+
+def decision_not_finished(packet: pathlib.Path, round_name: str) -> str | None:
+    """Why this decision round is not a finished review, or None if it is.
+
+    ONE rule, called from every place that treats a round as a prerequisite:
+    `ger_node.round_complete` before and after launching one, and `build_prompt`
+    before feeding a prior round into the next prompt. Astra MJ-P2-04 found the
+    check in only the first of those, so a direct round invocation, and the first
+    pass of the node, could both consume a review that declared itself unfinished.
+
+    A complete negative - needs_design, blocked_not_design - is finished and
+    passes. This is about `review_status`, not about the verdict.
+    """
+    if round_name not in DECISION_ROUNDS:
+        return None
+    metadata_path = packet / round_name / "METADATA.json"
+    if not metadata_path.is_file():
+        return None                 # absence is the caller's own existing check
+    try:
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        return f"its METADATA.json could not be read: {error}"
+    if metadata.get("protocol") != "json-v1":
+        return None                 # a legacy round; its own path judges it
+    status = metadata.get("review_status")
+    if status != "complete":
+        return (f"the reviewer declared the review {status!r} and reached no "
+                f"conclusion; its evidence is kept, but it is not a completed "
+                f"review and a fresh packet is needed")
+    return None
 
 
 class LegacyPacket(Exception):
@@ -593,18 +641,17 @@ def check_record(round_dir: pathlib.Path, metadata: dict, raw: bytes) -> list[st
         problems.append(f"{RESULT_FILE} is {actual[:16]} but the record published "
                         f"{str(recorded)[:16]}; it has been edited since")
 
-    # A copied field disagreeing with the bytes it was copied from means the
-    # record was edited. Not an authority - a tamper check.
-    body = {}
-    try:
-        body = json.loads(raw.decode("utf-8"))
-    except (ValueError, UnicodeDecodeError):
-        pass                                  # review_result reports this properly
-    if isinstance(body, dict):
-        for field in ("review_status", "recommendation"):
-            if field in metadata and metadata[field] != body.get(field):
-                problems.append(f"the record's {field} is {metadata[field]!r} but "
-                                f"{RESULT_FILE} says {body.get(field)!r}")
+    # Astra MJ-P2-03, second half: the rendered view was never checked. Editing
+    # only OUTPUT.md left the recorded output_sha256 stale and the decision still
+    # read - and that view is what later prompts are fed, so a reviewer's
+    # reasoning could be rewritten underneath an approval that still validated.
+    view = round_dir / "OUTPUT.md"
+    recorded_view = metadata.get("output_sha256")
+    if not view.is_file():
+        problems.append("the rendered OUTPUT.md is missing")
+    elif recorded_view != sha256_bytes(view.read_bytes()):
+        problems.append("OUTPUT.md does not match the hash its record published; "
+                        "the human view has been edited since")
 
     if metadata.get("provider_evidence") == "imported":
         # An imported review has no provider run of its own, and inventing exit
@@ -622,6 +669,30 @@ def check_record(round_dir: pathlib.Path, metadata: dict, raw: bytes) -> list[st
 
     if (round_dir / "FAILED.json").exists():
         problems.append("a FAILED.json sits beside the record")
+    return problems
+
+
+def check_record_matches(metadata: dict, result: review_result.ReviewResult) -> list[str]:
+    """Do the record's copied fields agree with the VALIDATED result?
+
+    Astra MJ-P2-05: this used to run its own `json.loads(raw.decode("utf-8"))`,
+    a second decoder with different rules from the shared one. review_result
+    tolerates a single leading BOM; this did not. So a BOM-prefixed result that
+    the producer had validated and published could not be read back by its own
+    round - the writer and the reader disagreed about what valid meant.
+
+    There is one decoder now. The comparison is against the already-validated
+    result, so there is no second interpretation to drift.
+
+    The copied fields are a tamper check, never an authority: the validated JSON
+    owns the decision, and a disagreement means the record was edited.
+    """
+    problems = []
+    for field, value in (("review_status", result.review_status),
+                         ("recommendation", result.recommendation)):
+        if field in metadata and metadata[field] != value:
+            problems.append(f"the record's {field} is {metadata[field]!r} but the "
+                            f"validated result says {value!r}")
     return problems
 
 
@@ -662,13 +733,19 @@ def read_decision(packet: pathlib.Path, round_name: str, task_id: str, *,
     protocol = metadata.get("protocol")
     result_path = round_dir / RESULT_FILE
 
-    if protocol is None:
+    # `None` is an old packet that never declared anything; "legacy-markdown" is
+    # one this pipeline recorded deliberately through an explicit legacy path
+    # (ger_decision_revision --legacy). Both are historical, and both need the
+    # CALLER's permission - but neither is an unknown protocol to refuse outright,
+    # which is what happened to the second one before this branch existed.
+    if protocol is None or protocol == "legacy-markdown":
         if not allow_legacy:
             raise ValueError(
-                f"{round_name} declares no protocol. If this packet predates the "
-                f"JSON cutover, the caller must say so explicitly; a missing "
-                f"declaration is not evidence that Markdown is safe to read")
-        raise LegacyPacket(f"{round_name} was produced before the JSON protocol")
+                f"{round_name} carries no JSON result (protocol {protocol!r}). If "
+                f"this packet predates the cutover, the caller must say so "
+                f"explicitly; a missing declaration is not evidence that Markdown "
+                f"is safe to read")
+        raise LegacyPacket(f"{round_name} was recorded before the JSON protocol")
     if protocol != "json-v1":
         raise ValueError(f"{round_name} declares protocol {protocol!r}, which this "
                          f"reader does not implement; refusing rather than guessing")
@@ -683,13 +760,19 @@ def read_decision(packet: pathlib.Path, round_name: str, task_id: str, *,
                          + "; ".join(problems))
 
     source, artifact = reviewed_artifact(packet, round_name)
-    return review_result.load(
+    result = review_result.load(
         raw,
         task_id=task_id,
         review_kind="ger",
         reviewed_artifact_kind="ger_round_output",
         reviewed_artifact_sha256=sha256_bytes(artifact),
     )
+
+    mismatched = check_record_matches(metadata, result)
+    if mismatched:
+        raise ValueError(f"{round_name}'s record is not trustworthy: "
+                         + "; ".join(mismatched))
+    return result
 
 
 def publish_metadata(round_dir: pathlib.Path, metadata: dict) -> pathlib.Path:
@@ -751,6 +834,13 @@ def build_prompt(round_name: str, packet: pathlib.Path, snapshot: pathlib.Path, 
             raise ValueError(f"required prior round is missing or incomplete: {prior}")
         if (packet / prior / "FAILED.json").exists():
             raise ValueError(f"required prior round failed: {prior}")
+        unfinished = decision_not_finished(packet, prior)
+        if unfinished:
+            # Astra MJ-P2-04, path 2: a direct round invocation bypasses the
+            # node's check entirely, and this is the last gate before a provider
+            # is handed an unfinished review as an input.
+            raise ValueError(f"required prior round {prior} is not a completed "
+                             f"review: {unfinished}")
         inputs[f"{prior}/OUTPUT.md"] = output.read_text(encoding="utf-8")
         hashes[f"{prior}/OUTPUT.md"] = sha256_bytes(output.read_bytes())
     blocks = []
@@ -936,7 +1026,12 @@ def main() -> int:
             # A decision round that did not declare a readable decision has not
             # finished, whatever its exit code said. Same treatment as any other
             # problem: evidence kept, nothing actionable published.
-            fail(round_dir, str(error), metadata=metadata)
+            #
+            # kind="protocol" so the node's transient-failure check cannot read
+            # this as a transport refusal and spend another provider call on it.
+            # The provider answered; what it said was unusable, and asking again
+            # is not a fix.
+            fail(round_dir, str(error), kind="protocol", metadata=metadata)
         metadata.update(decision)
         # OUTPUT.md is now the rendered view, so the hash recorded for it must be
         # of what is actually on disk. The provider's own bytes are in

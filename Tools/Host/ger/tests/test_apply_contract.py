@@ -147,6 +147,49 @@ class RoundDecision(PacketBase):
             "needs_design")
 
 
+class OverridesAfterReview(PacketBase):
+    """Astra MJ-P2-07: an approval is about specific bytes, or it is about nothing."""
+
+    PROPOSED = {"id": TASK, "contract_revision": 2, "acceptance": "as reviewed"}
+
+    def test_a_substantive_override_after_a_json_review_is_refused(self):
+        self.v2()
+        with self.assertRaises(SystemExit) as caught:
+            ac.review_override(self.packet, dict(self.PROPOSED),
+                               {"acceptance": "something else"}, None)
+        self.assertIn("acceptance", str(caught.exception))
+        self.assertIn("must not present changed content", str(caught.exception))
+
+    def test_a_no_op_override_is_not_substantive(self):
+        self.v2()
+        self.assertIsNone(ac.review_override(
+            self.packet, dict(self.PROPOSED), {"acceptance": "as reviewed"}, None))
+
+    def test_a_human_exception_is_allowed_and_recorded(self):
+        self.v2()
+        record = ac.review_override(self.packet, dict(self.PROPOSED),
+                                    {"acceptance": "something else"},
+                                    "Vincent accepted this wording directly")
+        self.assertEqual(record["keys"], ["acceptance"])
+        self.assertEqual(record["human_exception"],
+                         "Vincent accepted this wording directly")
+
+    def test_a_historical_review_is_unaffected(self):
+        # Those reviews were never bound to anything, so there is no binding for
+        # an override to contradict, and refusing here would break the old flow.
+        self.legacy("Final recommendation: commit_contract\n")
+        self.assertIsNone(ac.review_override(
+            self.packet, dict(self.PROPOSED), {"acceptance": "something else"}, None))
+
+    def test_every_changed_key_is_named(self):
+        self.v2()
+        with self.assertRaises(SystemExit) as caught:
+            ac.review_override(self.packet, dict(self.PROPOSED),
+                               {"acceptance": "x", "contract_revision": 9}, None)
+        self.assertIn("acceptance", str(caught.exception))
+        self.assertIn("contract_revision", str(caught.exception))
+
+
 class PostCommitCheck(unittest.TestCase):
     """The closure report filed against a commit that changed the contract."""
 

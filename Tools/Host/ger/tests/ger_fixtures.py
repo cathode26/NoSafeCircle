@@ -81,13 +81,17 @@ def decision(packet: Path, raw: bytes | None = None, *, round_name: str = REAUDI
         pass
     if view is None:
         view = review_result.DERIVED_VIEW_HEADER + "\n\n(rendered human view)\n"
-    (directory / "OUTPUT.md").write_text(view, encoding="utf-8")
+    view_path = directory / "OUTPUT.md"
+    view_path.write_text(view, encoding="utf-8")
 
     metadata = {
         "round": round_name,
         "protocol": "json-v1",
         "result_file": ger_round.RESULT_FILE,
         "result_sha256": ger_round.sha256_bytes(raw),
+        # The rendered view is hashed too: Astra MJ-P2-03's second half was that
+        # editing only OUTPUT.md left this stale and the decision still read.
+        "output_sha256": ger_round.sha256_bytes(view_path.read_bytes()),
         "review_status": body.get("review_status") if isinstance(body, dict) else None,
         "recommendation": body.get("recommendation") if isinstance(body, dict) else None,
         "reviewed": f"{REVIEWED}/OUTPUT.md",

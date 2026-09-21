@@ -247,6 +247,42 @@ def final_recommendation(text: str) -> str | None:
     return ger_round.legacy_round_recommendation(text)
 
 
+def review_override(packet: pathlib.Path, proposed: dict, overrides: dict,
+                    human_exception: str | None) -> dict | None:
+    """What --override-json would change after round 04, and whether that is allowed.
+
+    Astra MJ-P2-07. The owner-patch and decision-revision paths already refuse
+    overrides outright; the direct round-04 path did not, so arbitrary keys could
+    be applied to the proposal AFTER the reviewer approved it, while provenance
+    still recorded that approval as though it covered the result.
+
+    Under the JSON protocol the approval is bound to the exact proposed bytes,
+    which makes editing them afterwards a misrepresentation rather than a
+    judgement call. A no-op override changes nothing and still passes; anything
+    substantive needs a fresh re-check, or a person saying in writing that they
+    are overriding the reviewer - which is then recorded beside the keys it
+    changed, so no reader can mistake the committed bytes for the reviewed ones.
+
+    Historical (non-json-v1) rounds are unaffected: those reviews were never
+    bound to anything, so there is no binding for an override to contradict.
+    Returns the provenance record, or None when there is nothing to record.
+    """
+    changed = sorted(key for key, value in overrides.items()
+                     if proposed.get(key) != value)
+    if not changed:
+        return None
+    if ger_round.decision_protocol(packet, "04-claude-reaudit") != "json-v1":
+        return None
+    if not human_exception:
+        raise SystemExit(
+            "--override-json changes " + ", ".join(changed) + " after a round-04 "
+            "review that was bound to the exact proposal. Route the edit through "
+            "an owner patch and a fresh re-check, or, if a person is deliberately "
+            "overriding the reviewer, say so with --override-human-exception; the "
+            "record must not present changed content as what the reviewer approved")
+    return {"keys": changed, "human_exception": human_exception}
+
+
 def round_decision(packet: pathlib.Path, round_name: str, task_id: str,
                    allow_legacy: bool = False) -> str | None:
     """The verdict of a decision round: declared for v2 packets, grepped for old ones.
@@ -293,6 +329,13 @@ def parse_post_commit_verdict(text: str) -> str | None:
     later') doesn't match. Among qualifying lines, the last one wins. Returns None (never raises) when
     no line qualifies, so the caller can turn that into its own usage error.
     """
+    # Astra MJ-P2-06: this is the THIRD legacy reader, connected after MJ-P2-01
+    # guarded the other two, and it accepted a derived `revise` view as
+    # `commit_contract` through resolve_post_commit_check(legacy=True). Same rule,
+    # third location - so the test now lives in review_result and
+    # jobs/tests/test_legacy_readers.py asserts every reader on that list refuses.
+    if review_result.is_derived_view(text):
+        return None
     found = None
     for line in text.splitlines():
         if "|" in line:
@@ -467,6 +510,10 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--packet", required=True, type=pathlib.Path)
     parser.add_argument("--override-json", type=pathlib.Path)
+    parser.add_argument("--override-human-exception", metavar="WHY",
+                        help="a person is deliberately overriding the round-04 reviewer. "
+                             "Required with --override-json after a JSON-protocol review, and "
+                             "recorded in provenance beside the keys it changed.")
     parser.add_argument("--commit", action="store_true")
     parser.add_argument("--skip-recheck", metavar="REASON",
                         help="Commit a 07 decision revision without an 08 re-check; only when Vincent approved it")
@@ -522,6 +569,7 @@ def main() -> int:
         raise SystemExit(f"{rel} changed since the packet (source {identity['source_head']}); start a new GER cycle")
 
     current = json.loads(original)
+    override_record = None
     if decision is not None:
         if args.override_json:
             raise SystemExit("--override-json is not allowed after a decision revision; route edits through a new revision and re-check")
@@ -534,6 +582,8 @@ def main() -> int:
         proposed = final_contract((packet / "03-codex-refine" / "OUTPUT.md").read_text(encoding="utf-8"))
         if args.override_json:
             overrides = json.loads(args.override_json.read_text(encoding="utf-8"))
+            override_record = review_override(packet, proposed, overrides,
+                                              args.override_human_exception)
             proposed.update(overrides)
     for field in INVARIANT_FIELDS:
         if proposed.get(field) != current.get(field):
@@ -552,6 +602,10 @@ def main() -> int:
     record = {"ger_run_id": packet.name, "packet_source_head": identity["source_head"],
               "previous_contract_revision": current.get("contract_revision"),
               "round_output_sha256": hashes, "reaudit_recommendation": reaudit_recommendation}
+    if override_record is not None:
+        # Named separately from the recommendation so no reader can mistake the
+        # committed bytes for the ones the reviewer saw.
+        record["override_after_review"] = override_record
     if recheck is not None:
         record.update({"owner_patch_contract_sha256": recheck["owner_patch_contract_sha256"],
                        "recheck_recommendation": recommendation})
