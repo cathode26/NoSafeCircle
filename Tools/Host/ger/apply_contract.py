@@ -247,7 +247,8 @@ def final_recommendation(text: str) -> str | None:
     return ger_round.legacy_round_recommendation(text)
 
 
-def round_decision(packet: pathlib.Path, round_name: str, task_id: str) -> str | None:
+def round_decision(packet: pathlib.Path, round_name: str, task_id: str,
+                   allow_legacy: bool = False) -> str | None:
     """The verdict of a decision round: declared for v2 packets, grepped for old ones.
 
     Refuses rather than guesses. A v2 packet whose RESULT.json does not validate
@@ -256,7 +257,8 @@ def round_decision(packet: pathlib.Path, round_name: str, task_id: str) -> str |
     the loader rejects. The caller turns None into its own refusal.
     """
     try:
-        return ger_round.read_decision(packet, round_name, task_id).recommendation
+        return ger_round.read_decision(packet, round_name, task_id,
+                                       allow_legacy=allow_legacy).recommendation
     except ger_round.LegacyPacket:
         output = packet / round_name / "OUTPUT.md"
         if not output.is_file():

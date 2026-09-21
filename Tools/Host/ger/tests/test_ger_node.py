@@ -29,6 +29,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import ger_node  # noqa: E402
+import ger_fixtures as fixtures  # noqa: E402
 import ger_round  # noqa: E402
 
 REAUDIT = "04-claude-reaudit"
@@ -50,32 +51,14 @@ class Base(unittest.TestCase):
         self.addCleanup(lambda: setattr(ger_node, "log", self._real_log))
 
     def v2(self, **overrides):
-        body = {
-            "schema_version": 1,
-            "review_kind": "ger",
-            "task_id": "NSC-001",
-            "reviewed_artifact_kind": "ger_round_output",
-            "reviewed_artifact_sha256": ger_round.sha256_bytes(CANDIDATE),
-            "review_status": "complete",
-            "recommendation": "commit_contract",
-            "report_markdown": "All prior findings resolved.",
-        }
-        body.update(overrides)
-        raw = json.dumps(body).encode("utf-8")
-        (self.packet / REAUDIT / ger_round.RESULT_FILE).write_bytes(raw)
-        (self.packet / REAUDIT / "OUTPUT.md").write_text(
-            "rendered view", encoding="utf-8")
-        (self.packet / REAUDIT / "METADATA.json").write_text(
-            json.dumps({"protocol": "json-v1"}), encoding="utf-8")
-        return raw
+        """A realistic record, not a stub: hashes and provider evidence included."""
+        return fixtures.decision(self.packet, fixtures.result_bytes(**overrides))
 
     def legacy(self, text: str):
-        (self.packet / REAUDIT / "OUTPUT.md").write_text(text, encoding="utf-8")
-        (self.packet / REAUDIT / "METADATA.json").write_text(
-            json.dumps({"round": REAUDIT}), encoding="utf-8")
+        fixtures.legacy(self.packet, text)
 
-    def read(self, task_id="NSC-001"):
-        return ger_node.recommendation(self.packet, task_id)
+    def read(self, task_id="NSC-001", allow_legacy=False):
+        return ger_node.recommendation(self.packet, task_id, allow_legacy=allow_legacy)
 
 
 class V2Packets(Base):
@@ -98,13 +81,24 @@ class V2Packets(Base):
 
 
 class TheLegacyBranch(Base):
-    def test_a_legacy_packet_still_reads(self):
+    """Reading an old packet is a caller's DECISION, not an inference."""
+
+    def test_a_legacy_packet_reads_when_the_caller_says_so(self):
         self.legacy("Final recommendation: commit_contract_then_decompose\n")
-        self.assertEqual(self.read(), "commit_contract_then_decompose")
+        self.assertEqual(self.read(allow_legacy=True),
+                         "commit_contract_then_decompose")
 
     def test_a_legacy_packet_with_no_verdict_returns_none(self):
         self.legacy("No verdict here.\n")
+        self.assertIsNone(self.read(allow_legacy=True))
+
+    def test_a_legacy_packet_is_refused_by_default(self):
+        # Astra MJ-P2-02: historical parsing must be selected explicitly by host
+        # context. A packet that simply declares no protocol is not evidence that
+        # reading its Markdown is safe.
+        self.legacy("Final recommendation: commit_contract\n")
         self.assertIsNone(self.read())
+        self.assertTrue(any("no readable decision" in line for line in self.logged))
 
 
 class NoFallthrough(Base):
@@ -141,6 +135,47 @@ class NoFallthrough(Base):
             "Final recommendation: commit_contract\n", encoding="utf-8")
         self.assertEqual(ger_node.legacy_recommendation(self.packet),
                          "commit_contract")
+
+
+class TheRecordMustHoldUp(Base):
+    """Astra MJ-P2-03: the reader now revalidates the record, not just the JSON."""
+
+    def test_an_edited_result_with_a_stale_hash_is_refused(self):
+        raw = self.v2(recommendation="needs_design")
+        tampered = json.loads(raw.decode("utf-8"))
+        tampered["recommendation"] = "commit_contract"
+        (self.packet / REAUDIT / ger_round.RESULT_FILE).write_bytes(
+            json.dumps(tampered).encode("utf-8"))
+        self.assertIsNone(self.read())
+
+    def test_a_round_that_recorded_provider_failure_is_refused(self):
+        for weakened in ({"exit_code": 9}, {"is_error": True}, {"session_id": None}):
+            with self.subTest(weakened=weakened):
+                fixtures.decision(self.packet, **weakened)
+                self.assertIsNone(self.read())
+
+    def test_an_unknown_protocol_is_refused(self):
+        fixtures.decision(self.packet, protocol="json-v9")
+        self.assertIsNone(self.read())
+
+    def test_a_json_v1_record_with_no_result_file_is_refused(self):
+        self.v2()
+        (self.packet / REAUDIT / ger_round.RESULT_FILE).unlink()
+        (self.packet / REAUDIT / "OUTPUT.md").write_text(
+            "Final recommendation: commit_contract\n", encoding="utf-8")
+        # Not legacy - incomplete. Even with allow_legacy, a declared json-v1
+        # record missing its result is a broken record, not an old one.
+        self.assertIsNone(self.read())
+        self.assertIsNone(self.read(allow_legacy=True))
+
+    def test_an_imported_record_must_name_its_source(self):
+        fixtures.decision(self.packet, provider_evidence="imported",
+                          exit_code=None, session_id=None)
+        self.assertIsNone(self.read())
+        fixtures.decision(self.packet, provider_evidence="imported",
+                          imported_from="round-08 report from the GER owner",
+                          exit_code=None, session_id=None)
+        self.assertEqual(self.read(), "commit_contract")
 
 
 if __name__ == "__main__":

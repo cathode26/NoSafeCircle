@@ -201,10 +201,32 @@ def round_complete(packet: pathlib.Path, name: str) -> bool:
         raise RuntimeError(f"round {name} previously failed; use a fresh packet: {directory}")
     if not ((directory / "METADATA.json").is_file() and (directory / "OUTPUT.md").is_file()):
         raise RuntimeError(f"round {name} exists but is incomplete or still running: {directory}")
+
+    # Astra MJ-P2-04: a round can RUN perfectly and still carry a review that did
+    # not finish. The process succeeded, the record is honest, and every file is
+    # present - so every check above passes - but `review_status: incomplete` is
+    # the reviewer saying it reached no conclusion. Consuming that as a finished
+    # prerequisite is how an unfinished review becomes an input to the next round.
+    #
+    # This RAISES rather than returning False on purpose. False means "not run
+    # yet", which would send the node round again - an automatic provider retry
+    # of a review that explicitly declined to conclude. A declared incomplete
+    # needs a person, not another call.
+    #
+    # A complete negative - needs_design, blocked_not_design - is NOT this. Those
+    # are finished reviews that reached a negative conclusion, and they pass.
+    if name in ger_round.DECISION_ROUNDS:
+        metadata = json.loads((directory / "METADATA.json").read_text(encoding="utf-8"))
+        if metadata.get("protocol") == "json-v1" and metadata.get("review_status") != "complete":
+            raise RuntimeError(
+                f"round {name} ran, but the reviewer declared the review "
+                f"{metadata.get('review_status')!r} and reached no conclusion; "
+                f"its evidence is kept, but it is not a completed review and a "
+                f"fresh packet is needed: {directory}")
     return True
 
 
-def recommendation(packet: pathlib.Path, task_id: str) -> str | None:
+def recommendation(packet: pathlib.Path, task_id: str, allow_legacy: bool = False) -> str | None:
     """The re-audit's verdict, read from its declaration.
 
     This used to grep 04-claude-reaudit/OUTPUT.md for the earliest verdict word
@@ -217,7 +239,8 @@ def recommendation(packet: pathlib.Path, task_id: str) -> str | None:
     ger_round.read_decision is the one interpretation, and it re-validates.
     """
     try:
-        return ger_round.read_decision(packet, "04-claude-reaudit", task_id).recommendation
+        return ger_round.read_decision(packet, "04-claude-reaudit", task_id,
+                                       allow_legacy=allow_legacy).recommendation
     except ger_round.LegacyPacket:
         return legacy_recommendation(packet)
     except (ValueError, review_result.ReviewResultError) as error:

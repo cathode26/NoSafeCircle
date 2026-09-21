@@ -571,8 +571,62 @@ class LegacyPacket(Exception):
     """
 
 
-def read_decision(packet: pathlib.Path, round_name: str, task_id: str
-                  ) -> review_result.ReviewResult:
+def check_record(round_dir: pathlib.Path, metadata: dict, raw: bytes) -> list[str]:
+    """Is the published record itself still trustworthy? Reasons it is not.
+
+    Astra MJ-P2-03: read_decision used to read METADATA.json only to learn the
+    protocol, and checked none of the evidence in it. Two consequences, both
+    reproduced: editing RESULT.json's recommendation while leaving the recorded
+    result_sha256 stale was accepted, and a round whose own record said
+    `exit_code: 9, is_error: true, session_id: null` still yielded a verdict.
+
+    The validated JSON still owns the DECISION. This only establishes that the
+    record is intact and that the round it came from actually succeeded - the
+    same facts check_run required at write time, re-checked at read time,
+    because a file on disk can change after it was written.
+    """
+    problems = []
+
+    recorded = metadata.get("result_sha256")
+    actual = sha256_bytes(raw)
+    if recorded != actual:
+        problems.append(f"{RESULT_FILE} is {actual[:16]} but the record published "
+                        f"{str(recorded)[:16]}; it has been edited since")
+
+    # A copied field disagreeing with the bytes it was copied from means the
+    # record was edited. Not an authority - a tamper check.
+    body = {}
+    try:
+        body = json.loads(raw.decode("utf-8"))
+    except (ValueError, UnicodeDecodeError):
+        pass                                  # review_result reports this properly
+    if isinstance(body, dict):
+        for field in ("review_status", "recommendation"):
+            if field in metadata and metadata[field] != body.get(field):
+                problems.append(f"the record's {field} is {metadata[field]!r} but "
+                                f"{RESULT_FILE} says {body.get(field)!r}")
+
+    if metadata.get("provider_evidence") == "imported":
+        # An imported review has no provider run of its own, and inventing exit
+        # or session evidence for one is explicitly forbidden. It must instead
+        # say where it came from.
+        if not metadata.get("imported_from"):
+            problems.append("labelled an import but names no source")
+    else:
+        if metadata.get("exit_code") != 0:
+            problems.append(f"the round recorded exit code {metadata.get('exit_code')!r}")
+        if metadata.get("is_error"):
+            problems.append("the round recorded provider is_error")
+        if not metadata.get("session_id"):
+            problems.append("the round recorded no session identity")
+
+    if (round_dir / "FAILED.json").exists():
+        problems.append("a FAILED.json sits beside the record")
+    return problems
+
+
+def read_decision(packet: pathlib.Path, round_name: str, task_id: str, *,
+                  allow_legacy: bool = False) -> review_result.ReviewResult:
     """THE interpretation of a decision round. Every consumer calls this one.
 
     Re-validates rather than trusting what was recorded at write time, and
@@ -581,8 +635,17 @@ def read_decision(packet: pathlib.Path, round_name: str, task_id: str
     after its evidence has changed - if the artifact the review was bound to has
     been edited since, this refuses, which is the entire point of binding.
 
-    Raises LegacyPacket for a pre-protocol round, ReviewResultError for a v2
-    round that does not validate, and ValueError for a round that never finished.
+    `allow_legacy` must be set by the CALLER to read a pre-cutover packet. Astra
+    MJ-P2-02: this used to treat "no RESULT.json" as legacy even when the record
+    explicitly declared json-v1, so moving one file aside turned a `needs_design`
+    verdict back into a grep of the derived view - which returned
+    `commit_contract` from the reviewer's own narrative. Historical parsing is
+    now selected by host context, never inferred from missing evidence.
+
+    Raises LegacyPacket only for a packet that declares no protocol AND whose
+    caller allowed legacy; ReviewResultError for a result that does not validate;
+    ValueError for everything else, including an unknown protocol, a json-v1
+    round with no result, and a record whose evidence does not hold up.
     """
     if round_name not in DECISION_ROUNDS:
         raise ValueError(f"{round_name} is not a decision round")
@@ -596,13 +659,32 @@ def read_decision(packet: pathlib.Path, round_name: str, task_id: str
         raise ValueError(f"{round_name} has no METADATA.json; it did not complete")
 
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    protocol = metadata.get("protocol")
     result_path = round_dir / RESULT_FILE
-    if metadata.get("protocol") != "json-v1" or not result_path.is_file():
+
+    if protocol is None:
+        if not allow_legacy:
+            raise ValueError(
+                f"{round_name} declares no protocol. If this packet predates the "
+                f"JSON cutover, the caller must say so explicitly; a missing "
+                f"declaration is not evidence that Markdown is safe to read")
         raise LegacyPacket(f"{round_name} was produced before the JSON protocol")
+    if protocol != "json-v1":
+        raise ValueError(f"{round_name} declares protocol {protocol!r}, which this "
+                         f"reader does not implement; refusing rather than guessing")
+    if not result_path.is_file():
+        raise ValueError(f"{round_name} declares protocol json-v1 but has no "
+                         f"{RESULT_FILE}; the record is incomplete, not legacy")
+
+    raw = result_path.read_bytes()
+    problems = check_record(round_dir, metadata, raw)
+    if problems:
+        raise ValueError(f"{round_name}'s record is not trustworthy: "
+                         + "; ".join(problems))
 
     source, artifact = reviewed_artifact(packet, round_name)
     return review_result.load(
-        result_path.read_bytes(),
+        raw,
         task_id=task_id,
         review_kind="ger",
         reviewed_artifact_kind="ger_round_output",

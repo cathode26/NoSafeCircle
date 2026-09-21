@@ -30,6 +30,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 import apply_contract as ac  # noqa: E402
+import ger_fixtures as fixtures  # noqa: E402
 import ger_round  # noqa: E402
 import review_result  # noqa: E402
 
@@ -63,27 +64,11 @@ class PacketBase(unittest.TestCase):
         (self.packet / REAUDIT).mkdir(parents=True)
 
     def v2(self, **overrides):
-        body = {
-            "schema_version": 1,
-            "review_kind": "ger",
-            "task_id": TASK,
-            "reviewed_artifact_kind": "ger_round_output",
-            "reviewed_artifact_sha256": ger_round.sha256_bytes(CANDIDATE),
-            "review_status": "complete",
-            "recommendation": "commit_contract",
-            "report_markdown": "All resolved.",
-        }
-        body.update(overrides)
-        (self.packet / REAUDIT / ger_round.RESULT_FILE).write_bytes(
-            json.dumps(body).encode("utf-8"))
-        (self.packet / REAUDIT / "OUTPUT.md").write_text("view", encoding="utf-8")
-        (self.packet / REAUDIT / "METADATA.json").write_text(
-            json.dumps({"protocol": "json-v1"}), encoding="utf-8")
+        """A realistic record, not a stub: hashes and provider evidence included."""
+        return fixtures.decision(self.packet, fixtures.result_bytes(**overrides))
 
     def legacy(self, text: str):
-        (self.packet / REAUDIT / "OUTPUT.md").write_text(text, encoding="utf-8")
-        (self.packet / REAUDIT / "METADATA.json").write_text(
-            json.dumps({"round": REAUDIT}), encoding="utf-8")
+        fixtures.legacy(self.packet, text)
 
 
 class RoundDecision(PacketBase):
@@ -97,10 +82,27 @@ class RoundDecision(PacketBase):
         self.assertEqual(ac.round_decision(self.packet, REAUDIT, TASK),
                          "commit_contract")
 
-    def test_a_legacy_packet_still_reads(self):
+    def test_a_legacy_packet_reads_when_the_caller_says_so(self):
         self.legacy("Final recommendation: commit_contract_then_decompose\n")
-        self.assertEqual(ac.round_decision(self.packet, REAUDIT, TASK),
-                         "commit_contract_then_decompose")
+        self.assertEqual(
+            ac.round_decision(self.packet, REAUDIT, TASK, allow_legacy=True),
+            "commit_contract_then_decompose")
+
+    def test_a_legacy_packet_is_refused_by_default(self):
+        self.legacy("Final recommendation: commit_contract\n")
+        self.assertIsNone(ac.round_decision(self.packet, REAUDIT, TASK))
+
+    def test_a_tampered_record_is_refused(self):
+        raw = self.v2(recommendation="needs_design")
+        body = json.loads(raw.decode("utf-8"))
+        body["recommendation"] = "commit_contract"
+        (self.packet / REAUDIT / ger_round.RESULT_FILE).write_bytes(
+            json.dumps(body).encode("utf-8"))
+        self.assertIsNone(ac.round_decision(self.packet, REAUDIT, TASK))
+
+    def test_a_round_that_recorded_provider_failure_is_refused(self):
+        fixtures.decision(self.packet, exit_code=9)
+        self.assertIsNone(ac.round_decision(self.packet, REAUDIT, TASK))
 
     def test_an_invalid_v2_packet_does_not_fall_through(self):
         self.v2()

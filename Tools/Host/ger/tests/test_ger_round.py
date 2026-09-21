@@ -394,23 +394,88 @@ class ReadDecision(DecisionRounds):
             self.read()
         self.assertEqual(caught.exception.code, "artifact_hash_mismatch")
 
+    def strip_protocol(self):
+        """Make a completed round look like a pre-cutover one."""
+        (self.packet / DECISION / ger_round.RESULT_FILE).unlink()
+        meta_path = self.packet / DECISION / "METADATA.json"
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        for key in ("protocol", "result_sha256", "result_file", "review_status",
+                    "recommendation"):
+            meta.pop(key, None)
+        meta_path.write_text(json.dumps(meta), encoding="utf-8")
+
     def test_a_legacy_packet_is_distinguishable_from_a_broken_one(self):
         # Legacy may use the old path; invalid v2 may not. One exception type for
         # both would erase that line.
         self.completed()
+        self.strip_protocol()
+        with self.assertRaises(ger_round.LegacyPacket):
+            ger_round.read_decision(self.packet, DECISION, "NSC-001",
+                                    allow_legacy=True)
+
+    def test_legacy_is_the_callers_choice_not_an_inference(self):
+        # Astra MJ-P2-02. Without the caller saying so, a packet that merely
+        # declares no protocol is refused rather than read as Markdown.
+        self.completed()
+        self.strip_protocol()
+        with self.assertRaises(ValueError) as caught:
+            self.read()
+        self.assertNotIsInstance(caught.exception, ger_round.LegacyPacket)
+        self.assertIn("declares no protocol", str(caught.exception))
+
+    def test_a_declared_json_round_with_no_result_is_broken_not_legacy(self):
+        # The exact shape Astra reproduced: move ONE file aside and the verdict
+        # used to revert to a grep of the derived view.
+        self.completed()
         (self.packet / DECISION / ger_round.RESULT_FILE).unlink()
+        for allow in (False, True):
+            with self.subTest(allow_legacy=allow):
+                with self.assertRaises(ValueError) as caught:
+                    ger_round.read_decision(self.packet, DECISION, "NSC-001",
+                                            allow_legacy=allow)
+                self.assertNotIsInstance(caught.exception, ger_round.LegacyPacket)
+
+    def test_an_unknown_protocol_is_refused(self):
+        self.completed()
         meta_path = self.packet / DECISION / "METADATA.json"
         meta = json.loads(meta_path.read_text(encoding="utf-8"))
-        del meta["protocol"]
+        meta["protocol"] = "json-v9"
         meta_path.write_text(json.dumps(meta), encoding="utf-8")
-        with self.assertRaises(ger_round.LegacyPacket):
+        with self.assertRaises(ValueError) as caught:
             self.read()
+        self.assertIn("json-v9", str(caught.exception))
 
     def test_a_v2_packet_with_unreadable_result_is_not_legacy(self):
         self.completed()
         (self.packet / DECISION / ger_round.RESULT_FILE).write_bytes(b"not json")
-        with self.assertRaises(review_result.ReviewResultError):
+        # Refused as a TAMPERED record, not as bad JSON: the recorded hash no
+        # longer matches the bytes, and that check runs before the parse. Either
+        # way it is a ValueError-or-worse, never a LegacyPacket.
+        with self.assertRaises((ValueError, review_result.ReviewResultError)) as caught:
             self.read()
+        self.assertNotIsInstance(caught.exception, ger_round.LegacyPacket)
+
+    def test_a_tampered_result_is_refused(self):
+        # Astra MJ-P2-03: edit the verdict, leave the recorded hash stale.
+        self.completed(recommendation="needs_design")
+        path = self.packet / DECISION / ger_round.RESULT_FILE
+        body = json.loads(path.read_text(encoding="utf-8"))
+        body["recommendation"] = "commit_contract"
+        path.write_bytes(json.dumps(body).encode("utf-8"))
+        with self.assertRaises(ValueError) as caught:
+            self.read()
+        self.assertIn("edited since", str(caught.exception))
+
+    def test_a_record_of_provider_failure_is_refused(self):
+        self.completed()
+        meta_path = self.packet / DECISION / "METADATA.json"
+        for weakened in ({"exit_code": 9}, {"is_error": True}, {"session_id": None}):
+            with self.subTest(weakened=weakened):
+                meta = json.loads(meta_path.read_text(encoding="utf-8"))
+                meta.update(weakened)
+                meta_path.write_text(json.dumps(meta), encoding="utf-8")
+                with self.assertRaises(ValueError):
+                    self.read()
 
     def test_a_failed_round_carries_no_decision(self):
         self.provider(exit_code=1, output=self.result())
