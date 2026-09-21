@@ -62,6 +62,19 @@ jobs:
           NSC_TOOL_TESTS_NO_SKIPS: "1"
         run: python -B Tools/Host/run_tool_tests.py
 
+      # A guard with green tests proves nothing until you have seen the tests
+      # fail. Two mutation harnesses existed before today and NEITHER ran in any
+      # workflow, so the one instrument that could show a test was vacuous went
+      # unobserved - and it turned out to score a crash as a kill, which put
+      # every count it had ever produced in doubt.
+      #
+      # It runs here rather than through run_tool_tests.py because it is not a
+      # unittest suite: it prints no "Ran N tests" line, which that runner
+      # requires, and teaching it to print one would weaken the rule that catches
+      # a suite running nothing. About 90 seconds on a developer machine.
+      - name: Every guard must be provably testable
+        run: python -B Tools/Host/jobs/tests/mutation_check.py
+
       # The suites must not depend on this runner's drive letters. Any absolute
       # C:/ or F:/ path they leave behind in fixtures is a relocation bug, and
       # a Linux-style path would mean a fixture escaped the temp directory.

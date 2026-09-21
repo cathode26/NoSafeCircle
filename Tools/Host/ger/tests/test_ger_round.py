@@ -426,13 +426,24 @@ class ReadDecision(DecisionRounds):
     def test_a_declared_json_round_with_no_result_is_broken_not_legacy(self):
         # The exact shape Astra reproduced: move ONE file aside and the verdict
         # used to revert to a grep of the derived view.
+        #
+        # Catches Exception, then asserts the TYPE. Catching ValueError directly
+        # looked tighter but was weaker: without the guard the code reaches
+        # read_bytes() and raises FileNotFoundError, which assertRaises(ValueError)
+        # does not catch - so the test ERRORED instead of failing, and the
+        # mutation harness correctly refused to count that as a kill. A crash is
+        # not a refusal, and this test is about which one happens.
         self.completed()
         (self.packet / DECISION / ger_round.RESULT_FILE).unlink()
         for allow in (False, True):
             with self.subTest(allow_legacy=allow):
-                with self.assertRaises(ValueError) as caught:
+                with self.assertRaises(Exception) as caught:
                     ger_round.read_decision(self.packet, DECISION, "NSC-001",
                                             allow_legacy=allow)
+                self.assertIsInstance(
+                    caught.exception, ValueError,
+                    f"a missing result must be a clean refusal, not "
+                    f"{type(caught.exception).__name__}")
                 self.assertNotIsInstance(caught.exception, ger_round.LegacyPacket)
 
     def test_an_unknown_protocol_is_refused(self):

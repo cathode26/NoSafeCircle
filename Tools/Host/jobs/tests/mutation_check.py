@@ -1,21 +1,38 @@
 #!/usr/bin/env python
-"""Break check_closure_report.py on purpose; every break must turn some test red.
+"""Break a guard on purpose; every break must turn the NAMED test red, by failing.
 
-A guard with green tests proves nothing until you have seen the tests fail.
-This mattered here more than usual: the closure checker has now been fixed
-twice, and round 1's fix looked green while five of Astra's counterexamples
-still passed. Green was never the evidence.
+A guard with green tests proves nothing until you have seen the tests fail. That
+mattered here more than usual: this checker family has been fixed nine times, and
+each fix looked green while the next counterexample still passed. Green was never
+the evidence.
 
-It earned its place immediately. Two of the round-2 tests passed for the WRONG
-REASON - their fixtures ended with a trailing line, so removing the
-fence-and-quote rule left them refused for non-terminality instead, and both
-mutations survived. complete=False either way. That is the same defect class
-the file exists to remove, reproduced in the tests written to close it. They
-now assert the refusal's REASON, which is what they were always claiming.
+**What a kill requires, and why each condition is here.**
+
+Astra's round-7 finding 3 was that this harness scored a CRASH as a kill: the
+pattern matched `FAIL:` and `ERROR:` alike, so a mutation that raised NameError
+in the named test - detecting nothing - counted as caught. Every mutation total
+in this file's history was measured with that instrument, which is why none of
+them are quoted as evidence any more. A kill now requires all of:
+
+  1. the suite ran to completion and printed its `Ran N tests` summary;
+  2. N > 0 - a suite that collected nothing cannot have detected anything;
+  3. ZERO errors in the run. An error is the mutation breaking execution, not a
+     test observing a behaviour change;
+  4. the process exited non-zero;
+  5. the test NAMED for this mutation is among the FAILURES.
+
+Condition 5 is not decoration either. A mutation killed by some OTHER test is
+not evidence for the guard you think you are testing - it usually means the
+fixture is refused for a second reason, which is exactly how two round-2
+mutations survived undetected.
+
+**Scope.** The old Markdown recogniser's mutation set is gone with it; its count
+is deliberately not a target. These mutations cover the guards that now carry the
+protocol: the strict decoder, the host binding, the single entry point, the
+derived-view marker, and the record checks on a GER decision.
 
 Works on a COPY in a temp directory - never the tracked files - so killing it
-mid-run cannot leave the checker with a guard disabled. The copy keeps the real
-relative layout, because the suite reaches the prompt template through it.
+mid-run cannot leave a guard disabled.
 
 Run:  python -B tests/mutation_check.py      (from Tools/Host/jobs)
 Exit: 0 every mutation killed by the test that names it; 1 otherwise.
@@ -29,208 +46,218 @@ import sys
 import tempfile
 from pathlib import Path
 
-# unittest prints "FAIL: test_x (__main__.Class.test_x)" for a failure and
-# "ERROR: ..." for an error. Astra round 3: the earlier check asked whether the
-# intended test's NAME appeared anywhere in the output, and verbose unittest
-# prints PASSING names too - so a mutation killed by some other test was
-# reported as killed by the right one. A substring standing in for a fact, in
-# the harness whose whole job is to prove the tests can fail.
-FAILED_TEST = re.compile(r"^(?:FAIL|ERROR): (\S+)", re.MULTILINE)
+FAILURE = re.compile(r"^FAIL: (\S+)", re.MULTILINE)
+ERROR = re.compile(r"^ERROR: (\S+)", re.MULTILINE)
+RAN = re.compile(r"^Ran (\d+) tests?", re.MULTILINE)
 
 HERE = Path(__file__).resolve().parent
-JOBS = HERE.parent
-HOST = JOBS.parent
+HOST = HERE.parent.parent
 
-TOOL = JOBS / "check_closure_report.py"
-TESTS = HERE / "test_check_closure_report.py"
-TEMPLATE = HOST / "codex-jobs" / "templates" / "contract-closure-review-prompt.md"
+# Mutated files, by key, relative to Tools/Host.
+FILES = {
+    "result": Path("review_result.py"),
+    "legacy": Path("jobs/legacy_closure_markdown.py"),
+    "ger_round": Path("ger/ger_round.py"),
+}
 
-TOOL_FILE, TEMPLATE_FILE = "tool", "template"
+# Suites a mutation can be expected to kill, by key.
+SUITES = {
+    "result": Path("tests/test_review_result.py"),
+    "closure": Path("jobs/tests/test_check_closure_report.py"),
+    "ger": Path("ger/tests/test_ger_round.py"),
+}
 
-# (file, what the mutation restores or removes, find, replace, the test that must die)
-#
-# Naming the expected test is not decoration. A mutation killed by some OTHER
-# test is not evidence for the guard you think you are testing - it usually
-# means the fixture is refused for a second reason, which is exactly how the
-# two fence/quote cases first passed.
+# Copied so the suites import and navigate as they do in the tree. Never mutated.
+SUPPORT = [
+    Path("jobs/check_closure_report.py"),
+    Path("ger/ger_node.py"),
+    Path("ger/tests/ger_fixtures.py"),
+    Path("codex-jobs/templates/contract-closure-review-prompt.md"),
+]
+
+# (file key, what the mutation removes, find, replace, suite key, the test that must die)
 MUTATIONS = [
-    # Named for the lazy-continuation test on purpose. Since round 4 anchored
-    # the field patterns and `>` is not in DECORATION, a quoted line cannot
-    # match a field regardless of this branch - so the branch's live job is the
-    # continuation flag, and the block-quote test now passes for a second
-    # reason as well as its own.
-    (TOOL_FILE, "block quotes read as the report speaking",
-     "        if QUOTE.match(line):\n            quoting = True\n            continue",
-     "        if False:\n            quoting = True\n            continue",
-     "test_a_lazy_blockquote_continuation_is_still_inside_the_quote"),
+    ("result", "the oversize limit",
+     "    if len(raw) > MAX_BYTES:",
+     "    if False:",
+     "result", "test_oversize_refuses_before_parsing"),
 
-    (TOOL_FILE, "fenced blocks read as the report speaking",
-     "        opener = FENCE.match(line)",
-     "        opener = None",
-     "test_a_tilde_fence_is_an_example_container_too"),
+    ("result", "duplicate-key detection",
+     "                         object_pairs_hook=_no_duplicate_keys,",
+     "                         object_pairs_hook=dict,",
+     "result", "test_duplicate_keys_refuse"),
 
-    (TOOL_FILE, "round 1's window: the verdict need not be the last line",
-     "            if number != last:",
-     "            if False:",
-     "test_a_one_line_retraction_after_the_footer_is_refused"),
+    ("result", "the refusal of NaN and Infinity",
+     "                         parse_constant=_no_constants)",
+     "                         parse_constant=float)",
+     "result", "test_nan_and_infinity_refuse"),
 
-    (TOOL_FILE, "round 1: a recommendation only has to START with a known name",
-     "        if value not in RECOMMENDATIONS:",
-     "        if not any(value.startswith(r) for r in RECOMMENDATIONS):",
-     "test_the_echoed_options_line_is_not_a_choice"),
+    ("result", "the closed field set",
+     "    unknown = sorted(set(obj) - set(FIELDS))",
+     "    unknown = []",
+     "result", "test_an_unknown_field_refuses"),
 
-    (TOOL_FILE, "round 1: identities counted by distinct value, not occurrence",
-     "    elif len(identities) > 1:",
-     "    elif len({stated_value(r).lower() for _, r in identities}) > 1:",
-     "test_the_same_identity_stated_twice_is_refused"),
+    ("result", "bool being rejected as schema_version",
+     "    if isinstance(version, bool) or not isinstance(version, int):",
+     "    if not isinstance(version, int):",
+     "result", "test_schema_version_true_is_not_one"),
 
-    (TOOL_FILE, "round 1: the identity matched anywhere in the line, not exactly",
-     'HEX16 = re.compile(r"^[0-9a-fA-F]{16}$")',
-     'HEX16 = re.compile(r"[0-9a-fA-F]{16}")',
-     "test_an_overlong_hash_is_not_a_contract_identity"),
+    ("result", "the hash format check",
+     "    if len(digest) != 64 or not set(digest) <= _HEX:",
+     "    if False:",
+     "result", "test_bad_hash_shapes_refuse"),
 
-    # Round 3: three more example containers and one regression.
-    (TOOL_FILE, "round 3: indented lines read as report fields",
-     "        if INDENTED.match(line):\n            continue",
-     "        if False:\n            continue",
-     "test_an_indented_code_block_is_an_example_not_a_verdict"),
+    ("result", "the nonempty report requirement",
+     "    if not report_markdown.strip():",
+     "    if False:",
+     "result", "test_an_empty_report_refuses"),
 
-    (TOOL_FILE, "round 3: lazy blockquote continuation read as a field",
-     "        if quoting:\n            continue",
-     "        if False:\n            continue",
-     "test_a_lazy_blockquote_continuation_is_still_inside_the_quote"),
-
-    (TOOL_FILE, "round 3: a blank line no longer ends the quote's paragraph",
-     "            quoting = False          # a blank line ends the quote's paragraph",
-     "            pass                     # a blank line ends the quote's paragraph",
-     "test_a_blank_line_ends_the_lazy_continuation"),
-
-    (TOOL_FILE, "round 3 regression: the recommendation is not lower-cased",
-     "    return value.rstrip(\".;,\").strip().lower()",
-     "    return value.rstrip(\".;,\").strip()",
-     "test_an_uppercase_recommendation_is_accepted"),
-
-    # Round 4: stating a field versus talking about one.
-    (TOOL_FILE, "round 4: the field label is matched anywhere in the line again",
-     "        match = label.match(line)",
-     "        match = label.search(line)",
-     "test_the_same_identity_repeated_in_prose_is_not_a_contradiction"),
-
-    (TOOL_FILE, "round 4: a heading no longer ends a quote's lazy continuation",
-     "        if BLOCK_START.match(line):",
+    ("result", "the ban on a recommendation in an incomplete review",
+     "        if recommendation is not None:",
      "        if False:",
-     "test_a_heading_after_a_quotation_ends_the_continuation"),
+     "result", "test_incomplete_may_not_carry_a_recommendation"),
 
-    # Round 5: code spans, and contradiction detection on BOTH fields.
-    (TOOL_FILE, "round 5: code spans are not parsed at all",
-     "    spans = code_span_ranges(text)",
-     "    spans = []",
-     "test_a_code_span_across_lines_is_not_a_verdict"),
+    ("result", "the family vocabulary check",
+     "        if recommendation not in allowed:",
+     "        if False:",
+     "result", "test_the_two_vocabularies_do_not_cross"),
 
-    (TOOL_FILE, "round 5: the identity gets no contradiction scan",
-     "            if others:",
-     "            if False:",
-     "test_a_conflicting_identity_in_prose_is_still_a_contradiction"),
+    ("result", "the lone-surrogate check",
+     '        value.encode("utf-8")                    # type: ignore[union-attr]',
+     "        pass",
+     "result", "test_a_lone_high_surrogate_is_refused"),
 
-    (TOOL_FILE, "round 5: a mention must match a valid value entirely again",
-     "    return normalise(found.group(1)) if found else \"\"",
-     "    return normalise(rest) if normalise(rest) in RECOMMENDATIONS else \"\"",
-     "test_an_explanation_does_not_hide_a_conflicting_recommendation"),
+    ("result", "the artifact hash binding",
+     "    if result.reviewed_artifact_sha256 != expected_digest:",
+     "    if False:",
+     "result", "test_changed_reviewed_bytes_refuse"),
 
-    # Round 6: block boundaries, and one normaliser for both paths.
-    (TOOL_FILE, "round 6: code spans pair across the whole document again",
-     "    for segment_start, segment_end in inline_segments(text):",
-     "    for segment_start, segment_end in [(0, len(text))]:",
-     "test_a_backtick_in_a_fenced_example_does_not_reach_across_the_report"),
+    ("result", "load's binding step, leaving a schema-only entry point",
+     "    return bind(decode(raw),",
+     "    return (lambda r, **_: r)(decode(raw),",
+     "result", "test_load_enforces_the_binding"),
 
-    (TOOL_FILE, "round 6: the mention path stops undecorating values",
-     "    return normalise(found.group(1)) if found else \"\"",
-     "    return found.group(1).lower() if found else \"\"",
-     "test_emphasis_on_a_mention_does_not_hide_a_contradiction"),
+    ("legacy", "the derived-view marker guard",
+     "    if review_result.DERIVED_VIEW_MARKER in text:",
+     "    if False:",
+     "closure", "test_the_legacy_reader_refuses_the_derived_view"),
 
-    # The template is half the defect: a reviewer echoing it faithfully
-    # produced two of Astra's counterexamples. These two prove the binding
-    # between the format we hand out and the checker that judges it is live.
-    (TEMPLATE_FILE, "the template trails text after the verdict again",
-     "Final recommendation: <one of commit_contract, commit_contract_then_decompose, revise>",
-     "Final recommendation: <one of commit_contract, commit_contract_then_decompose, revise>\n"
-     "(Use revise only if a ledger item is UNRESOLVED as blocking or major.)",
-     "test_nothing_in_the_template_follows_the_recommendation"),
+    ("ger_round", "the recorded result hash check",
+     "    if recorded != actual:",
+     "    if False:",
+     "ger", "test_a_tampered_result_is_refused"),
 
-    (TEMPLATE_FILE, "the template lists the options as the value again",
-     "Final recommendation: <one of commit_contract, commit_contract_then_decompose, revise>",
-     "Final recommendation: commit_contract | commit_contract_then_decompose | revise",
-     "test_the_template_does_not_show_the_options_as_the_value"),
+    ("ger_round", "the provider-evidence check on a published record",
+     '        if metadata.get("exit_code") != 0:',
+     "        if False:",
+     "ger", "test_a_record_of_provider_failure_is_refused"),
+
+    ("ger_round", "the refusal of an unknown protocol",
+     '    if protocol != "json-v1":',
+     "    if False:",
+     "ger", "test_an_unknown_protocol_is_refused"),
+
+    ("ger_round", "the refusal of a json-v1 record with no result file",
+     "    if not result_path.is_file():",
+     "    if False:",
+     "ger", "test_a_declared_json_round_with_no_result_is_broken_not_legacy"),
+
+    ("ger_round", "checks running before the record is published",
+     "    problems = check_run(run, output)",
+     "    problems = []",
+     "ger", "test_a_nonzero_exit_does_not_publish_metadata"),
 ]
 
 
-def stage(tmp: Path) -> dict[str, Path]:
-    """A copy that keeps the layout the suite navigates by."""
+def stage(tmp: Path) -> tuple[dict[str, Path], dict[str, Path]]:
+    """A copy that keeps the layout the suites navigate by."""
     host = tmp / "Host"
-    (host / "jobs" / "tests").mkdir(parents=True)
-    (host / "codex-jobs" / "templates").mkdir(parents=True)
-
-    staged = {
-        TOOL_FILE: host / "jobs" / TOOL.name,
-        TEMPLATE_FILE: host / "codex-jobs" / "templates" / TEMPLATE.name,
-    }
-    shutil.copy2(TOOL, staged[TOOL_FILE])
-    shutil.copy2(TEMPLATE, staged[TEMPLATE_FILE])
-    shutil.copy2(TESTS, host / "jobs" / "tests" / TESTS.name)
-    return staged
+    every = list(FILES.values()) + list(SUITES.values()) + SUPPORT
+    for relative in every:
+        target = host / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(HOST / relative, target)
+    return ({key: host / rel for key, rel in FILES.items()},
+            {key: host / rel for key, rel in SUITES.items()})
 
 
 def run(suite: Path) -> tuple[int, str]:
-    proc = subprocess.run([sys.executable, "-B", str(suite)],
+    proc = subprocess.run([sys.executable, "-B", "-u", str(suite)],
                           capture_output=True, text=True, cwd=str(suite.parent))
     return proc.returncode, proc.stdout + proc.stderr
 
 
+def score(code: int, output: str, must_die: str) -> tuple[bool, str]:
+    """Was this mutation KILLED - detected by the named test failing an assertion?
+
+    Pure, so it can be tested without running a suite. Returns (killed, reason);
+    the reason is what gets printed for a survivor, and it names which of the
+    five conditions was not met rather than saying only "survived".
+    """
+    runs = RAN.findall(output)
+    if not runs:
+        return False, "the suite printed no 'Ran N tests' summary; it did not complete"
+    collected = int(runs[-1])
+    if collected == 0:
+        return False, "the suite collected zero tests, so it detected nothing"
+
+    errors = sorted(set(ERROR.findall(output)))
+    if errors:
+        return False, ("the mutation caused execution ERRORS, which is breakage, "
+                       "not detection: " + ", ".join(errors[:4]))
+    if code == 0:
+        return False, "the suite stayed green"
+
+    failures = set(FAILURE.findall(output))
+    if must_die not in failures:
+        return False, (f"expected {must_die} to FAIL; what failed was "
+                       + (", ".join(sorted(failures)) or "nothing identifiable"))
+    return True, ""
+
+
 def main() -> int:
-    for required in (TOOL, TESTS, TEMPLATE):
-        if not required.is_file():
-            print(f"missing {required}", file=sys.stderr)
-            return 1
+    missing = [rel for rel in list(FILES.values()) + list(SUITES.values()) + SUPPORT
+               if not (HOST / rel).is_file()]
+    if missing:
+        for rel in missing:
+            print(f"missing {HOST / rel}", file=sys.stderr)
+        return 1
 
-    with tempfile.TemporaryDirectory(prefix="closure-mutation-") as tmpdir:
-        tmp = Path(tmpdir)
-        staged = stage(tmp)
-        suite = tmp / "Host" / "jobs" / "tests" / TESTS.name
-        pristine = {key: path.read_text(encoding="utf-8") for key, path in staged.items()}
+    with tempfile.TemporaryDirectory(prefix="protocol-mutation-") as tmpdir:
+        files, suites = stage(Path(tmpdir))
+        pristine = {key: path.read_text(encoding="utf-8") for key, path in files.items()}
 
-        code, output = run(suite)
-        if code != 0:
-            print("the unmutated suite is not green - fix that before mutating",
-                  file=sys.stderr)
-            print(output[-2000:], file=sys.stderr)
-            return 1
-        print(f"baseline: {output.strip().splitlines()[-1]}\n")
+        for key, suite in suites.items():
+            code, output = run(suite)
+            if code != 0:
+                print(f"the unmutated {key} suite is not green - fix that before mutating",
+                      file=sys.stderr)
+                print(output[-2000:], file=sys.stderr)
+                return 1
+            print(f"baseline {key}: {output.strip().splitlines()[-1]}")
+        print()
 
         survivors: list[str] = []
-        for key, what, old, new, must_die in MUTATIONS:
-            path, text = staged[key], pristine[key]
+        for file_key, what, old, new, suite_key, must_die in MUTATIONS:
+            path, text = files[file_key], pristine[file_key]
             if text.count(old) != 1:
                 print(f"ANCHOR LOST  {what}: matched {text.count(old)}, expected 1")
-                survivors.append(what)
+                survivors.append(f"{what} (anchor lost)")
                 continue
 
             path.write_text(text.replace(old, new), encoding="utf-8")
             try:
-                code, output = run(suite)
+                code, output = run(suites[suite_key])
             finally:
                 path.write_text(text, encoding="utf-8")
 
-            failed = set(FAILED_TEST.findall(output))
-            if code == 0:
-                print(f"SURVIVED     {what}")
-                survivors.append(what)
-            elif must_die not in failed:
-                print(f"WRONG TEST   {what}")
-                print(f"             expected {must_die} to fail; what failed was "
-                      f"{', '.join(sorted(failed)) or 'nothing identifiable'}")
-                survivors.append(f"{what} (killed by the wrong test)")
-            else:
+            killed, reason = score(code, output, must_die)
+            if killed:
                 print(f"killed       {what}")
+            else:
+                print(f"SURVIVED     {what}")
+                print(f"             {reason}")
+                survivors.append(what)
 
         print(f"\n{len(MUTATIONS) - len(survivors)}/{len(MUTATIONS)} mutations killed")
         for survivor in survivors:
