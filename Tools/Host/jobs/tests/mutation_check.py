@@ -356,6 +356,11 @@ MUTATIONS = [
      '        print(f"[DONE] {args.job}: {refusal}", file=sys.stderr)\n        return OK',
      'adapter', 'test_a_record_that_appears_mid_run_is_a_refusal_not_a_traceback'),
 
+    ('adapter', 'a usage limit having a number of its own',
+     'USAGE_LIMIT = 9',
+     'USAGE_LIMIT = 3',
+     'adapter', 'test_the_two_launchers_agree_on_what_each_code_means'),
+
 ]
 
 

@@ -20,7 +20,10 @@
 #       6 empty result; 7 the result is fresh and non-empty but is not a finished
 #       closure review - malformed JSON, a declared incomplete, or a review of a
 #       different task or a different contract than the host supplied;
-#       8 the contract file changed after this script selected it.
+#       8 the contract file changed after this script selected it;
+#       9 the provider refused the call - a usage or rate limit. Reserved, not
+#         returned here: only the Claude launcher can observe it, and the number
+#         is held so one code never means two things across the two launchers.
 #
 # 2026-09-21: the reviewer now declares its verdict in one JSON object rather
 # than in prose. $JOB.result.json is what the provider wrote and the only

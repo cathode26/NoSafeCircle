@@ -429,16 +429,31 @@ class MainWiring(Base):
                  / "codex-jobs" / "run_closure_review.sh").read_text(encoding="utf-8")
         header = shell.split("set -u")[0]
         for name, code, phrase in (("SETUP_REFUSED", 2, "setup refused"),
-                                   ("USAGE_LIMIT", 3, "no result"),
                                    ("PROVIDER_FAILED", 4, "provider failed"),
                                    ("EMPTY_RESULT", 6, "empty result"),
                                    ("NOT_ACTIONABLE", 7, "not a finished"),
-                                   ("CONTRACT_CHANGED", 8, "contract file changed")):
+                                   ("CONTRACT_CHANGED", 8, "contract file changed"),
+                                   ("USAGE_LIMIT", 9, "usage or rate limit")):
             with self.subTest(code=name):
                 self.assertEqual(getattr(ccr, name), code)
                 self.assertIn(f"{code} ", header,
                               f"the shell header does not document {code}")
                 self.assertIn(phrase, header)
+
+        # The first version of this loop paired USAGE_LIMIT with the shell's
+        # "no result" phrase for code 3, which made a collision read as
+        # agreement - the test encoded the defect it was written to prevent
+        # (Fable, on the fix for its own finding). So: no number this module
+        # defines may carry a meaning the shell gives to a different condition.
+        mine = {getattr(ccr, n) for n in ("OK", "SETUP_REFUSED", "PROVIDER_FAILED",
+                                          "EMPTY_RESULT", "NOT_ACTIONABLE",
+                                          "CONTRACT_CHANGED", "USAGE_LIMIT")}
+        self.assertNotIn(3, mine,
+                         "3 is the shell's 'no result'; this module must not "
+                         "give it a second meaning")
+        self.assertNotIn(5, mine,
+                         "5 is the shell's 'stale result'; this module must not "
+                         "give it a second meaning")
 
     def test_a_nonzero_process_fails_despite_a_valid_wrapper(self):
         # The exact reproduction: exit 9, is_error false, otherwise valid JSON.

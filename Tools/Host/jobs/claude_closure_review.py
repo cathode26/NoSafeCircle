@@ -64,8 +64,14 @@ SETUP_REFUSED = 2
 PROVIDER_FAILED = 4
 EMPTY_RESULT = 6
 NOT_ACTIONABLE = 7
-USAGE_LIMIT = 3
 CONTRACT_CHANGED = 8
+# 9, not 3. Fable, on the fix above: 3 is "no result" in the shell, and a usage
+# limit is not that - it means stop launching jobs and tell Vincent. Reusing the
+# number gave one code two meanings across the two launchers, which is the defect
+# the parity test was added to prevent and which that test then encoded as
+# agreement. The shell cannot observe this condition today; it reserves the
+# number anyway, so a caller never has to ask which launcher it is reading.
+USAGE_LIMIT = 9
 
 
 def interpret(wrapper: bytes, *, task_id: str, contract: bytes,
