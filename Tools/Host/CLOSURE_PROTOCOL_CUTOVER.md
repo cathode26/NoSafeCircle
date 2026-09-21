@@ -123,6 +123,36 @@ The rule that holds regardless: never feed JSON evidence to a Markdown reader,
 and never retry a failed JSON parse with the old parser. Both are enforced in
 code, not only here.
 
+## An in-flight packet cannot cross the cutover
+
+The new producer refuses a historical decision prerequisite and has no
+legacy-continuation flag, deliberately: continuing an old packet on new tools
+would mean one of the two things this protocol exists to prevent - inferring a
+verdict from a report that never declared one, or rewriting old evidence into a
+shape the new reader accepts.
+
+So a packet that is part-way through its rounds when the cutover happens has
+exactly two honest outcomes:
+
+- **Pin it.** Finish it on the tool family it started with, kept in place for
+  that packet. The legacy consumers stay supported for exactly this reason.
+- **Start a new packet.** Run the remaining rounds as a new JSON packet, with
+  the old one closed as superseded and its reports left as they are.
+
+**Not an option:** reinterpreting an old report as a new result, back-filling a
+`RESULT.json` from a Markdown report, or passing a historical record through a
+legacy flag to get it accepted by a new consumer. `--legacy-rounds` and the other
+legacy flags read old evidence as old evidence; they are not a migration.
+
+Old reports and old packets remain **readable and applicable** through those
+explicit consumers after the cutover. Nothing already recorded stops working.
+What stops working is mixing the two families inside one packet.
+
+This is a stated limit of this delivery, not a defect to fix later: no
+historical-resume feature is planned, and if one is ever wanted it needs its own
+design, because it has to answer what a verdict means when the round that
+produced it never declared one.
+
 ## Rollback
 
 **GER family:** restore the previous deployed copies. They currently match
