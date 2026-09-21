@@ -139,19 +139,42 @@ class BudgetTests(unittest.TestCase):
         cb._deadline = None
 
     # ---- finding 4 --------------------------------------------------------
+    def _with_time_left(self, seconds, *args):
+        """Drive _git from a fixed remaining budget.
+
+        The budget is stubbed rather than timed, because asserting on elapsed
+        wall clock between two adjacent statements is a flake waiting for a
+        loaded CI runner, and this suite gates a release. `_time_left` reading
+        the real deadline is covered separately, below.
+        """
+        saved = cb._time_left
+        try:
+            cb._time_left = lambda: seconds
+            return cb._git(*args)
+        finally:
+            cb._time_left = saved
+
     def test_git_is_not_called_once_the_budget_is_gone(self):
         """FAILS BEFORE THE FIX: _git always spawned git, whatever the time."""
-        cb._deadline = time.monotonic() - 1.0
-        self.assertIsNone(cb._git("status", "--porcelain"))
+        self.assertIsNone(self._with_time_left(-1.0, "status", "--porcelain"))
         self.assertEqual(self.calls, [], "git was run after the budget expired")
 
     def test_call_timeout_is_clamped_to_the_remaining_budget(self):
         """FAILS BEFORE THE FIX: every call passed timeout=4, ignoring the budget."""
-        cb._deadline = time.monotonic() + 1.5
-        cb._git("status", "--porcelain")
+        self._with_time_left(1.5, "status", "--porcelain")
         self.assertEqual(len(self.calls), 1)
-        self.assertLessEqual(self.calls[0]["timeout"], 1.5)
-        self.assertGreater(self.calls[0]["timeout"], 0)
+        self.assertEqual(self.calls[0]["timeout"], 1.5)
+
+    def test_a_long_budget_never_lengthens_a_single_call(self):
+        """The clamp is a minimum of the two, not a replacement for the per-call cap."""
+        self._with_time_left(999.0, "status", "--porcelain")
+        self.assertEqual(self.calls[0]["timeout"], cb.GIT_CALL_TIMEOUT)
+
+    def test_time_left_reads_the_installed_deadline(self):
+        """The half _with_time_left stubs out: the deadline is a real clock."""
+        cb._deadline = time.monotonic() + 30
+        self.assertGreater(cb._time_left(), 25)
+        self.assertLessEqual(cb._time_left(), 30)
 
     def test_four_calls_cannot_outlive_the_host_hook_timeout(self):
         """The arithmetic behind the finding: 4 x GIT_CALL_TIMEOUT > the 15s host
