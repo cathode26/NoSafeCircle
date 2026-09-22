@@ -192,21 +192,53 @@ def resolve_generated_builder(paths: Sequence[str]) -> tuple[str, str]:
     """Return the single ``(build_method, builder_source_path)`` that owns every path.
 
     Raises when a path is not a registered Unity builder output, or when the
-    given paths span more than one builder; materialization must invoke
-    exactly one exact static entry point per request -- whatever that room
-    names it.
+    given paths genuinely span more than one builder; materialization must
+    invoke exactly one exact static entry point per request -- whatever that
+    room names it.
+
+    A request naming exactly ONE registered room scene absorbs the generated
+    DoorPrototype outputs in the same request, because they are that room
+    build's own products. The registry is keyed by scene path, so a room's
+    generated tiles otherwise fall through to the module default and make a
+    single-room request look like a two-builder one. That blocked NSC-044,
+    NSC-046 and NSC-047 on 2026-09-22, and NSC-044 tripped it with
+    ``new_implementation_paths == []`` from an asset it merely OWNS -- so the
+    trigger was never "the task creates a tile".
+
+    Resolved here rather than by registering each generated path, because the
+    builders declare their output constants in the CANDIDATE:
+    ``ChapelOfAshSceneBuilder`` on main has no tile code at all, and only
+    RuinedEntry's is witnessable today. A static table would have to carry
+    entries main cannot verify or omit the ones it cannot see -- which is the
+    defect this module produced once already.
+
+    Unchanged on purpose: two room scenes still refuse, generated paths with no
+    room scene still use the module default, an unregistered path outside the
+    DoorPrototype root is still refused, and a request naming the composed
+    ``DoorPrototype.unity`` scene still refuses alongside a room, because that
+    scene is the default builder's own output rather than a room's.
     """
-    owners: set[tuple[str, str]] = set()
+    rooms: set[tuple[str, str]] = set()
+    prototype_owned: list[str] = []
     for path in paths:
         room = ROOM_SCENE_BUILDERS.get(path)
         if room is not None:
-            owners.add((room.build_method, room.builder_source_path))
+            rooms.add((room.build_method, room.builder_source_path))
         elif path.startswith(DOOR_PROTOTYPE_ROOT) or path == DOOR_PROTOTYPE_SCENE:
-            owners.add((DOOR_PROTOTYPE_BUILD_METHOD, DOOR_PROTOTYPE_BUILDER))
+            prototype_owned.append(path)
         else:
             raise DoorPrototypeMaterializationError(
                 f"path is not a registered Unity builder output: {path}"
             )
+
+    owners: set[tuple[str, str]] = set(rooms)
+    absorbed_by_room = (
+        len(rooms) == 1 and DOOR_PROTOTYPE_SCENE not in prototype_owned
+    )
+    if prototype_owned and not absorbed_by_room:
+        # With no room, with two rooms, or when the composed prototype scene is
+        # itself in scope, the default builder is a real second builder.
+        owners.add((DOOR_PROTOTYPE_BUILD_METHOD, DOOR_PROTOTYPE_BUILDER))
     if not owners:
         raise DoorPrototypeMaterializationError(
             "no generated paths were given to resolve a Unity builder"

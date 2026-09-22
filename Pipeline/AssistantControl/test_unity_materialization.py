@@ -25,6 +25,7 @@ from Pipeline.TaskReviewAgent.door_prototype_materialization import (
     ROOM_SCENE_BUILDERS,
     DoorPrototypeMaterializationError,
     changed_paths,
+    resolve_generated_builder,
     run_door_prototype_builder,
 )
 from Pipeline.TaskReviewAgent.git_identity_guard import validated_agent_git_identity
@@ -629,6 +630,84 @@ class TheRegistryMatchesTheBuilderSource(unittest.TestCase):
                     f"{scene}: {method}() is not the [MenuItem] entry point. "
                     f"In every room builder the menu-decorated method is the "
                     f"one that builds AND saves.")
+
+
+class ARoomAbsorbsItsOwnGeneratedOutputs(unittest.TestCase):
+    """The registry is keyed by scene path, so a room's tiles fall through.
+
+    Measured 2026-09-22: a request carrying a room scene plus a generated asset
+    under the DoorPrototype root resolved to TWO builders and was refused,
+    blocking NSC-044, NSC-046 and NSC-047. NSC-044 tripped it with
+    `new_implementation_paths == []` -- from an asset it merely OWNS -- so the
+    trigger was never "the task creates a tile".
+
+    These use the real scopes that were blocked, not invented ones.
+    """
+
+    TILES = "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles"
+    NSC044 = ("Assets/Scenes/Rooms/RuinedEntry.unity",
+              TILES + "/RuinedEntryLowWallTile.asset")
+    NSC046 = ("Assets/Scenes/Rooms/ChapelOfAsh.unity",
+              TILES + "/ChapelOfAshFarWallTile.asset",
+              TILES + "/ChapelOfAshCutawayWallTile.asset")
+
+    def test_nsc044_real_scope_resolves_to_one_builder(self):
+        method, source = resolve_generated_builder(list(self.NSC044))
+        self.assertEqual(
+            "NoSafeCircle.DoorPrototype.Editor.Rooms.RuinedEntrySceneBuilder.Build",
+            method)
+        self.assertIn("RuinedEntrySceneBuilder.cs", source)
+
+    def test_nsc046_real_scope_resolves_to_one_builder(self):
+        method, _source = resolve_generated_builder(list(self.NSC046))
+        self.assertEqual(
+            "NoSafeCircle.DoorPrototype.Editor.Rooms.ChapelOfAshSceneBuilder"
+            ".BuildAndSave", method)
+
+    def test_absorption_does_not_depend_on_path_shape(self):
+        """Any DoorPrototype-owned generated output, not just a tile.
+
+        A prefix or filename rule would pass the tile cases and fail this one.
+        The relation being implemented is "one room in scope owns this
+        request", not "the filename looks like the room".
+        """
+        method, _ = resolve_generated_builder([
+            "Assets/Scenes/Rooms/LowerVault.unity",
+            "Assets/NoSafeCircle/DoorPrototype/Generated/Anything/Unrelated.asset",
+        ])
+        self.assertIn("LowerVaultSceneBuilder", method)
+
+    def test_two_rooms_still_refuse(self):
+        with self.assertRaises(DoorPrototypeMaterializationError) as caught:
+            resolve_generated_builder([
+                "Assets/Scenes/Rooms/RuinedEntry.unity",
+                "Assets/Scenes/Rooms/ChapelOfAsh.unity",
+            ])
+        self.assertIn("more than one builder method", str(caught.exception))
+
+    def test_the_composed_prototype_scene_still_refuses_beside_a_room(self):
+        """That scene is the DEFAULT builder's own output, not a room's."""
+        with self.assertRaises(DoorPrototypeMaterializationError):
+            resolve_generated_builder([
+                "Assets/Scenes/Rooms/RuinedEntry.unity",
+                "Assets/Scenes/DoorPrototype.unity",
+            ])
+
+    def test_generated_paths_with_no_room_still_use_the_default(self):
+        method, _ = resolve_generated_builder([
+            self.TILES + "/RuinedEntryLowWallTile.asset"])
+        self.assertEqual(
+            "NoSafeCircle.DoorPrototype.Editor.DoorPrototypeSceneBuilder.Build",
+            method)
+
+    def test_an_unregistered_path_is_still_refused(self):
+        with self.assertRaises(DoorPrototypeMaterializationError) as caught:
+            resolve_generated_builder([
+                "Assets/Scenes/Rooms/RuinedEntry.unity",
+                "Assets/Something/Else.asset",
+            ])
+        self.assertIn("not a registered Unity builder output",
+                      str(caught.exception))
 
 
 if __name__ == "__main__":
