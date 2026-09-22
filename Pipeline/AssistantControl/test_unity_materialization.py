@@ -710,5 +710,125 @@ class ARoomAbsorbsItsOwnGeneratedOutputs(unittest.TestCase):
                       str(caught.exception))
 
 
+class AGeneratedAssetNeedsItsSidecarMeta(unittest.TestCase):
+    """Unity cannot write Foo.asset without Foo.asset.meta.
+
+    Measured 2026-09-22 against NSC-046's and NSC-047's live scope records: the
+    sidecar of the builder's OWN registered generated asset is refused, because
+    graph_controller strips every ".meta" from the ExecutionScopePlan, so the
+    sidecar can never reach ``allowed_generated_paths``. The refusal is retained
+    as ``retryable: False``, which freezes the task permanently.
+
+    This reproduces it at a public entry point so the failure is the real
+    boundary refusal, not an import error for a helper that does not exist yet.
+    """
+
+    TILE = ("Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles"
+            "/ChapelOfAshFarWallTile.asset")
+
+    def setUp(self):
+        test_root = Path.cwd() / ".test-work"
+        test_root.mkdir(exist_ok=True)
+        self.root = test_root / f"assistant-sidecar-{uuid.uuid4().hex}"
+        self.root.mkdir()
+        self.addCleanup(shutil.rmtree, self.root, True)
+        self.checkout = self.root / "checkout"
+        self.checkout.mkdir()
+        self.records = self.root / "records"
+        self.records.mkdir()
+        self.git("init", "-q")
+        name, email = validated_agent_git_identity()
+        self.git("config", "user.name", name)
+        self.git("config", "user.email", email)
+        for relative, content in (
+            (CHAPEL_BUILDER, "class ChapelOfAshSceneBuilder {}\n"),
+            (CHAPEL_SCENE, "old chapel scene\n"),
+        ):
+            target = self.checkout / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content, encoding="utf-8", newline="\n")
+        self.git("add", ".")
+        self.git("commit", "-q", "-m", "fixture")
+        self.unity = self.root / "Unity.exe"
+        self.unity.write_bytes(b"fixture")
+
+    def git(self, *args: str) -> str:
+        result = subprocess.run(
+            ("git", "-C", str(self.checkout), *args), capture_output=True, check=False,
+        )
+        if result.returncode:
+            raise AssertionError(result.stderr.decode(errors="replace"))
+        return result.stdout.decode().strip()
+
+    def runner_writing_the_asset_and_its_meta(self, args, cwd, timeout):
+        """Exactly what Unity does: a new asset is never written alone."""
+        self.assertIn(CHAPEL_BUILD_METHOD, args)
+        (cwd / CHAPEL_SCENE).write_text("generated chapel scene\n", newline="\n")
+        tile = cwd / self.TILE
+        tile.parent.mkdir(parents=True, exist_ok=True)
+        tile.write_text("%YAML 1.1\ngenerated tile\n", newline="\n")
+        (cwd / (self.TILE + ".meta")).write_text(
+            "fileFormatVersion: 2\n"
+            "guid: 0123456789abcdef0123456789abcdef\n"
+            "NativeFormatImporter:\n"
+            "  externalObjects: {}\n"
+            "  mainObjectFileID: 11400000\n"
+            "  userData:\n",
+            newline="\n",
+        )
+        return subprocess.CompletedProcess(args, 0, b"builder complete\n", b"")
+
+    def _materialize(self):
+        """``allowed_generated_roots=()`` is what AssistantControl really passes.
+
+        For a task whose exclusive_resources are all files the roots tuple is
+        EMPTY, not None -- which is why the permissive fallback in permitted(),
+        requiring BOTH to be None, is unreachable for every scoped task.
+        """
+        return run_door_prototype_builder(
+            checkout=self.checkout, task_id="NSC-046",
+            state_root=self.records, initial_changed_paths=(),
+            unity_executable=self.unity,
+            unity_command_runner=self.runner_writing_the_asset_and_its_meta,
+            allowed_generated_paths=tuple(sorted(
+                (CHAPEL_SCENE, self.TILE), key=str.casefold)),
+            allowed_generated_roots=(),
+        )
+
+    def test_a_new_generated_asset_materializes_with_its_sidecar(self):
+        """FAILING-BEFORE: today this raises the boundary refusal for the meta.
+
+        Measured on main at 56a5e019a: the payload is permitted and ONLY its
+        sidecar is refused, so the task is frozen for a file Unity had no
+        choice about writing.
+        """
+        result = self._materialize()
+        self.assertIn(self.TILE, result.builder_paths)
+        self.assertIn(CHAPEL_SCENE, result.builder_paths)
+
+    def test_the_sidecar_is_recorded_separately_from_the_payloads(self):
+        """Astra: companions carry their own evidence field, not silent union.
+
+        A reviewer must be able to see which paths Unity added as companions
+        rather than as builder output.
+        """
+        result = self._materialize()
+        self.assertEqual(
+            (self.TILE + ".meta",),
+            getattr(result, "generated_asset_meta_paths", ()),
+        )
+
+    def test_the_builder_is_resolved_from_payloads_not_companions(self):
+        """The defect Astra caught in my own proposal.
+
+        ``generated`` also SELECTS the builder, so admitting
+        ``Assets/Scenes/Rooms/ChapelOfAsh.unity.meta`` as a payload would fail
+        both is_door_prototype_builder_output() and resolve_generated_builder().
+        Companions must never reach builder resolution.
+        """
+        with self.assertRaises(DoorPrototypeMaterializationError):
+            resolve_generated_builder([CHAPEL_SCENE, CHAPEL_SCENE + ".meta"])
+
+
 if __name__ == "__main__":
     unittest.main()
