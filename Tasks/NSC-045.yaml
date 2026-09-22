@@ -46,7 +46,7 @@
     {
       "gate_id": "VAL-003",
       "reference": "Docs/AI-Pipeline/GAME_TASK_LESSONS_LEARNED.md — generated Unity materialization and bounded evidence loop; GER room decision 4 (2026-09-15)",
-      "requirement": "The Windows Unity controller first records every room and door entry of RoomSceneCatalog.asset at the candidate's parent commit, then runs No Safe Circle/Rooms/Build Bone Archive Authoring Scene and No Safe Circle/World/Build Room Scene Catalog, confirms that Assets/Scenes/Rooms/BoneArchive.unity and Assets/NoSafeCircle/DoorPrototype/Generated/World/RoomSceneCatalog.asset contain the accepted room values, and reports that only the Bone Archive RoomBounds entry changed while the other four room entries and all five door entries, including order and the final-door flag, are unchanged. It then runs both builders a second time and confirms semantic equivalence with no duplicate roots, Tilemaps, anchors, tiles, colliders, or catalog entries. The generated scene and catalog are committed before focused tests run. BoneArchiveSceneTests, ChapelOfAshSceneTests, CommittedRoomSourceSceneConformanceTests, and FiveRoomDoorSequencePlayModeTests must all remain green; no interim-red delivery window is accepted. Independent landing (GER room decision 4, 2026-09-15): Bone Archive keeps Z [0,20], D1 (0,0), and D2 (+6,20), so it moves no shared boundary and lands on main on its own, independently of the batched landing that carries the NSC-046, NSC-047, and NSC-048 catalog edits with NSC-049's narrow refresh. Assets/NoSafeCircle/DoorPrototype/Tests/Editor/World/CommittedRoomSourceSceneConformanceTests.cs belongs to NSC-049; this task cites it only as regression-only evidence and does not edit or claim it. If Unity is unavailable, report NEEDS_MATERIALIZATION with these exact commands and output paths instead of hand-editing serialized Unity data. ChapelOfAshSceneTests, CommittedRoomSourceSceneConformanceTests and FiveRoomDoorSequencePlayModeTests are regression-only evidence owned by NSC-046 and NSC-049 and do not prove an NSC-045 acceptance criterion."
+      "requirement": "The Windows Unity controller first records every room and door entry of RoomSceneCatalog.asset at the candidate's parent commit, then runs No Safe Circle/Rooms/Build Bone Archive Authoring Scene and No Safe Circle/World/Build Room Scene Catalog, confirms that Assets/Scenes/Rooms/BoneArchive.unity and Assets/NoSafeCircle/DoorPrototype/Generated/World/RoomSceneCatalog.asset contain the accepted room values, and reports that NO room or door entry changed: all five room entries and all five door entries, including order and the final-door flag, still hold exactly what NSC-101 wrote. This task does not edit Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneCatalog.cs and does not claim it or the generated asset, so a changed entry here means either the catalog source was edited outside this task's scope or NSC-101's values are not yet on the candidate, and either fails this gate. It then runs both builders a second time and confirms semantic equivalence with no duplicate roots, Tilemaps, anchors, tiles, colliders, or catalog entries. The generated scene and catalog are committed before focused tests run. BoneArchiveSceneTests, ChapelOfAshSceneTests, CommittedRoomSourceSceneConformanceTests, and FiveRoomDoorSequencePlayModeTests must all remain green; no interim-red delivery window is accepted. Independent landing (GER room decision 4, 2026-09-15): Bone Archive keeps Z [0,20], D1 (0,0), and D2 (+6,20), so it moves no shared boundary and lands on main on its own, independently of the batched landing that carries the NSC-046, NSC-047, and NSC-048 catalog edits with NSC-049's narrow refresh. Assets/NoSafeCircle/DoorPrototype/Tests/Editor/World/CommittedRoomSourceSceneConformanceTests.cs belongs to NSC-049; this task cites it only as regression-only evidence and does not edit or claim it. If Unity is unavailable, report NEEDS_MATERIALIZATION with these exact commands and output paths instead of hand-editing serialized Unity data. ChapelOfAshSceneTests, CommittedRoomSourceSceneConformanceTests and FiveRoomDoorSequencePlayModeTests are regression-only evidence owned by NSC-046 and NSC-049 and do not prove an NSC-045 acceptance criterion."
     },
     {
       "gate_id": "VAL-004",
@@ -56,7 +56,7 @@
   ],
   "confidence": "medium",
   "contract_disposition": "active",
-  "contract_revision": 6,
+  "contract_revision": 7,
   "decomposition_reason": "The widened Bone Archive remains one cohesive room-authoring responsibility: layout data, room-local builder, focused tests, saved source scene, and only Bone Archive's authorized shared catalog entry. Bone Archive keeps Z [0,20], D1 at (0,0), and D2 at (+6,20), so it moves no shared boundary and needs no sibling-room coordinate revision. The design decisions it applies are recorded in provenance.design_decisions. Real navigation, final dressing, and canonical composition, including shared-boundary wall exclusion, remain assigned to existing downstream tasks.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -169,6 +169,15 @@
         "previous_contract_revision": 5,
         "base_contract_sha256": "6a702854833b4cd4178ce89e8b7953a1f00a42259d6e57d0b853820c02dda41b",
         "revised_contract_sha256": "805412b0891d8e4a426b1f7263aeaa076bf05133a96db4b328fe2979089af9bc",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      },
+      {
+        "date": "2026-09-22",
+        "reason": "VAL-003 asserted that only the Bone Archive RoomBounds entry changed. NSC-101 now writes every room and door catalog entry, so this task changes none; the gate is rebuilt to assert that.",
+        "source_head": "303630542470d627e082baee0f379134571df06d",
+        "previous_contract_revision": 6,
+        "base_contract_sha256": "0867625a854483a69d2213d5cf1b9d0e36be5fd6077e14cd3caf465d86d05080",
+        "revised_contract_sha256": "1f69009721c6f2d9ddbd2150817d95f8517fdb86e39851b86dbfc6feb99c7224",
         "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
       }
     ]
