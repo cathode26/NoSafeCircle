@@ -398,22 +398,38 @@ def reserve(
 
 def release(checkouts: Checkouts, task_id: str, run_id: str, lease_id: str) -> dict[str, Any]:
     """Release only the exact reservation identity after caller-proven termination."""
+    with _exclusive_file_lock(checkouts.records / "checkouts.lock", timeout_seconds=10):
+        return release_under_checkouts_lock(checkouts, task_id, run_id, lease_id)
+
+
+def release_under_checkouts_lock(checkouts: Checkouts, task_id: str, run_id: str,
+                                 lease_id: str) -> dict[str, Any]:
+    """``release`` for a caller that already holds ``checkouts.lock``.
+
+    A caller that must PROVE something about a run and then release it has to
+    hold one lock across both halves. ``worker_launcher.launch_worker`` verifies
+    its reservation and creates the run directory inside a single hold of
+    ``checkouts.lock``, so evidence gathered outside that lock can be overtaken
+    between the reading and the release -- which would drop a reservation for a
+    run that had just started. Re-entering the file lock from inside it would
+    deadlock, hence this split. ``release`` itself is unchanged: same locks, same
+    order, same refusal.
+    """
     task_id = validate_task_id(task_id)
     if type(run_id) is not str or not run_id.strip() or type(lease_id) is not str or not lease_id.strip():
         raise ValueError("release requires exact run_id and lease_id")
     lock_path, registry_path = _source_registry_paths(checkouts.source)
-    with _exclusive_file_lock(checkouts.records / "checkouts.lock", timeout_seconds=10):
-        with _exclusive_file_lock(lock_path, timeout_seconds=10):
-            registry = _read_registry(registry_path, checkouts.source)
-            matches = [item for item in registry["reservations"]
-                       if item.get("task_id") == task_id and item.get("run_id") == run_id
-                       and item.get("lease_id") == lease_id
-                       and item.get("checkout_root") == str(checkouts.root)]
-            if len(matches) != 1:
-                raise ValueError("exact active admission reservation was not found")
-            registry["reservations"].remove(matches[0])
-            write_record(registry_path, registry)
-            return {"released": True, "task_id": task_id, "run_id": run_id, "lease_id": lease_id}
+    with _exclusive_file_lock(lock_path, timeout_seconds=10):
+        registry = _read_registry(registry_path, checkouts.source)
+        matches = [item for item in registry["reservations"]
+                   if item.get("task_id") == task_id and item.get("run_id") == run_id
+                   and item.get("lease_id") == lease_id
+                   and item.get("checkout_root") == str(checkouts.root)]
+        if len(matches) != 1:
+            raise ValueError("exact active admission reservation was not found")
+        registry["reservations"].remove(matches[0])
+        write_record(registry_path, registry)
+        return {"released": True, "task_id": task_id, "run_id": run_id, "lease_id": lease_id}
 
 
 def require_reservation(checkouts: Checkouts, task_id: str, run_id: str,

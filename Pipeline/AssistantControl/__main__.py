@@ -139,6 +139,18 @@ def main(argv=None) -> int:
     settlement = commands.add_parser("settle-worker", help="Release ended worker capacity after verified process/container exit")
     settlement.add_argument("task")
     settlement.add_argument("--run-id", required=True)
+    reconcile = commands.add_parser(
+        "reconcile-admission",
+        help=(
+            "Dry-run (default) or --apply the release of one admission "
+            "reservation that no worker settlement can reach, after "
+            "proving the run never launched or has ended"
+        ),
+    )
+    reconcile.add_argument("task")
+    reconcile.add_argument("--run-id")
+    reconcile.add_argument("--lease-id")
+    reconcile.add_argument("--apply", action="store_true")
     retire = commands.add_parser(
         "retire-worker",
         help="Archive one settled, dead failed/stopped worker so its task can be dispatched again",
@@ -554,6 +566,12 @@ def main(argv=None) -> int:
             elif args.command == "settle-worker":
                 from Pipeline.AssistantControl.worker_settlement import settle_completed
                 result = settle_completed(manager, args.task, run_id=args.run_id)
+            elif args.command == "reconcile-admission":
+                from Pipeline.AssistantControl.admission_reconciliation import (
+                    reconcile_admission)
+                result = reconcile_admission(
+                    manager, args.task, run_id=args.run_id,
+                    lease_id=args.lease_id, apply=args.apply)
             elif args.command == "retire-worker":
                 from Pipeline.AssistantControl import worker_control as _worker_control
                 result = _worker_control.retire_settled_worker(manager, args.task, run_id=args.run_id)
