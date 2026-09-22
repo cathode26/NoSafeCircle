@@ -66,7 +66,7 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 8,
+  "contract_revision": 9,
   "decomposition_reason": "The Chapel revision is one bounded Unity room-authoring responsibility: one layout source, one deterministic room builder and preview seam, two generated wall Tile assets, one room scene, one focused test fixture, and the Chapel-only catalog update. Sibling room relocation, canonical composition, shared-boundary wall exclusion, real projectile validation, and final dressing remain separate existing tasks.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -87,7 +87,7 @@
     {
       "obligation_id": "INT-003",
       "reference": "NSC-049 AC-001/AC-002 and VAL-001/VAL-002; GER room decision 4 (2026-09-15); re-check C-04 (2026-09-15)",
-      "requirement": "Batched landing (GER room decision 4, 2026-09-15): the NSC-046, NSC-047, and NSC-048 catalog edits land on main together in one batch with NSC-049's narrow refresh, and no part of that batch lands alone. The refresh gates that landing, not the room tasks' own gates, because NSC-049 depends on all three. It recomposes Assets/Scenes/DoorPrototype.unity from the immutable room scenes against the combined catalog and updates Assets/NoSafeCircle/DoorPrototype/Tests/FiveRoomDoorSequencePlayModeTests.cs to expect D3 at (-8,0,54), D4 at (4,0,76), and D5 at (0,0,104), with D1 at (0,0,0) and D2 at (6,0,20) unchanged. Assets/NoSafeCircle/DoorPrototype/Tests/Editor/World/CommittedRoomSourceSceneConformanceTests.cs belongs to NSC-049; this task cites it only as regression-only evidence and does not edit or claim it. Before the batch lands, that fixture, FiveRoomDoorSequencePlayModeTests, and the broader Edit Mode and Play Mode suites must pass on the combined candidate with the refresh and be reported literally. NSC-049 does not move room roots or rewrite room source scenes."
+      "requirement": "Batched landing (GER room decision 4, 2026-09-15): NSC-101's catalog edits - the RoomBounds and door-center changes formerly authored by NSC-046, NSC-047 and NSC-048, consolidated into NSC-101 so the five room tasks no longer touch RoomSceneCatalog.cs - land on main together in one batch with the rebuilt room scenes and NSC-049's narrow refresh, and no part of that batch lands alone. NSC-101's INT-001 states the same requirement from the catalog side. The refresh gates that landing, not the room tasks' own gates, because NSC-049 depends on all three. It recomposes Assets/Scenes/DoorPrototype.unity from the immutable room scenes against the combined catalog and updates Assets/NoSafeCircle/DoorPrototype/Tests/FiveRoomDoorSequencePlayModeTests.cs to expect D3 at (-8,0,54), D4 at (4,0,76), and D5 at (0,0,104), with D1 at (0,0,0) and D2 at (6,0,20) unchanged. Assets/NoSafeCircle/DoorPrototype/Tests/Editor/World/CommittedRoomSourceSceneConformanceTests.cs belongs to NSC-049; this task cites it only as regression-only evidence and does not edit or claim it. Before the batch lands, that fixture, FiveRoomDoorSequencePlayModeTests, and the broader Edit Mode and Play Mode suites must pass on the combined candidate with the refresh and be reported literally. NSC-049 does not move room roots or rewrite room source scenes."
     },
     {
       "obligation_id": "INT-004",
@@ -204,6 +204,15 @@
         "previous_contract_revision": 7,
         "base_contract_sha256": "faeb8f9fd52cdaffa31cce56279f2d9967c2ad9b7b69dd24625d3a07131187eb",
         "revised_contract_sha256": "7c6585eacbf32b50e551e13648e6aa17d3d71487bd305d0b02a0b8f38df01cb2",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      },
+      {
+        "date": "2026-09-22",
+        "reason": "INT-003 named the NSC-046, NSC-047 and NSC-048 catalog edits, which those tasks no longer make after the NSC-101 consolidation. Attribution corrected to NSC-101; the batched-landing requirement itself is unchanged.",
+        "source_head": "eb79df36616dc9b2fa05dd77e1330cf0421151f9",
+        "previous_contract_revision": 8,
+        "base_contract_sha256": "66fe47bc0ce41cf3557161a0d4b6b0dcb4dc0ac5ccbcb47127fea00bef9b73d6",
+        "revised_contract_sha256": "18a4fbaf42ca57ba3d20054f9682a58a5062d371e830c1a1e6a4ba38eb7a0467",
         "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
       }
     ]
