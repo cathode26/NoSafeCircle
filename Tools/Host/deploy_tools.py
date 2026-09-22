@@ -76,10 +76,16 @@ STALE = "stale"
 MODIFIED = "modified"
 ABSENT = "absent"
 EXTRA = "extra"
+# Deployed, undeclared, AND present in the host tree with different bytes.
+# Worse than MODIFIED: a modified declared file is one --apply from correct,
+# and this one is reachable by no command at all, because the manifest never
+# declares it. Kept distinct from EXTRA so a stale tracked file cannot hide
+# among .bak leftovers, which is exactly how three stale test files hid.
+SHADOWED = "shadowed"
 UNRECORDED = "unrecorded"
 
 # Ordered worst-first, so a report reads top-down by how much it matters.
-SEVERITY = [MODIFIED, EXTRA, STALE, UNRECORDED, ABSENT, CURRENT]
+SEVERITY = [SHADOWED, MODIFIED, EXTRA, STALE, UNRECORDED, ABSENT, CURRENT]
 
 
 class DeployError(Exception):
@@ -231,7 +237,16 @@ def compare(host: Path, tools: Path, manifest: dict,
             if "__pycache__" in found.as_posix():
                 continue
             relative = found.relative_to(tools).as_posix()
-            if relative not in declared:
+            if relative in declared:
+                continue
+            # An undeclared file that ALSO exists in the host tree is not
+            # litter: its deployed copy can be stale, and because the manifest
+            # never declares it, no --apply repairs it.
+            counterpart = host / relative
+            if (counterpart.is_file()
+                    and digest(counterpart.read_bytes()) != digest(found.read_bytes())):
+                states[relative] = SHADOWED
+            else:
                 states[relative] = EXTRA
 
     return states, (record or {})
@@ -263,6 +278,11 @@ def report(states: dict[str, str], record: dict, tools: Path,
         if state == CURRENT or not counts.get(state):
             continue
         print(f"\n{state.upper()}:")
+        if state == SHADOWED:
+            print("  Deployed, undeclared, and DIFFERENT from the host tree. No "
+                  "--apply repairs these,")
+            print("  because the manifest never declares them. Running one is "
+                  "running an older copy.")
         for relative in sorted(p for p, s in states.items() if s == state):
             print(f"  {relative}")
 
@@ -371,7 +391,7 @@ def main(argv: list[str] | None = None) -> int:
         states, record = compare(host, tools, manifest, args.family)
         report(states, record, tools, head_commit(Path(repo)), args.quiet)
 
-        bad = {MODIFIED, EXTRA, STALE, UNRECORDED}
+        bad = {SHADOWED, MODIFIED, EXTRA, STALE, UNRECORDED}
         if args.require_complete:
             bad = bad | {ABSENT}
         return 1 if any(state in bad for state in states.values()) else 0
