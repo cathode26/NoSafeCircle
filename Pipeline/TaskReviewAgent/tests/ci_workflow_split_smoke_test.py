@@ -572,6 +572,52 @@ def test_windows_checkout_workflows_enable_long_paths_before_checkout() -> None:
             )
 
 
+def test_core_scope_classifier_checks_its_diff_before_trusting_it() -> None:
+    """An unreadable diff must not be read as "nothing here is Core-relevant".
+
+    Every other test in this file takes $changed as given and asks how a path
+    is classified. None of them model OBTAINING $changed, which is exactly why
+    the missing exit-status check on `git diff --name-only` went unnoticed: an
+    empty $changed classifies as "skip the full suite", and a failed diff and a
+    genuinely empty diff produce the same empty $changed.
+
+    The job does not actually go green on a failed diff -- the runner appends
+    `exit $LASTEXITCODE` to every builtin pwsh script (actions/runner ADR 0277)
+    and nothing below the diff resets it, so the step dies. That protection is
+    implicit and ends the moment a native command is added below the diff, which
+    is precisely what splitting this job into more windows-smoke jobs does.
+
+    This guard is structural: it keeps the explicit branch from being deleted.
+    """
+    core_text = CORE_WORKFLOW.read_text(encoding="utf-8")
+    step = next(
+        part
+        for part in core_text.split("      - name: ")
+        if part.startswith("Determine Core suite relevance\n")
+    )
+    command = 'git diff --name-only "$baseSha...HEAD"'
+    require(
+        step.count(command) == 1,
+        "Core's scope step must read the changed-file list exactly once",
+    )
+    remainder = step.split(command, 1)[1].lstrip()
+    require(
+        remainder.startswith("if ($LASTEXITCODE -ne 0) {"),
+        "Core must check the diff's exit status before classifying its output; "
+        "an unchecked diff makes failure indistinguishable from no changes: "
+        + remainder[:120],
+    )
+    failure_branch = remainder.split("} else {", 1)[0]
+    require(
+        "$runFullCore = $true" in failure_branch,
+        "a diff that could not be read must select the full Core suite",
+    )
+    require(
+        "$runFullCore = $false" not in failure_branch,
+        "the unreadable-diff branch must never clear $runFullCore",
+    )
+
+
 def main() -> int:
     test_windows_checkout_workflows_enable_long_paths_before_checkout()
     test_core_workflow_identity_is_preserved()
@@ -590,6 +636,7 @@ def main() -> int:
     test_rehearsal_reset_remains_registered_in_core()
     test_unknown_task_review_agent_file_routes_to_core()
     test_registered_runner_rejects_widened_delivery_prefix()
+    test_core_scope_classifier_checks_its_diff_before_trusting_it()
     print("ci_workflow_split_smoke_test: PASS")
     return 0
 
