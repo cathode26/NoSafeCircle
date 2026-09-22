@@ -314,7 +314,7 @@
     {
       "id": "ca_altar_ash_bowl_x",
       "source_path": "Docs/Art/Environment/Props/Raw/furnishings/ca_altar_ash_bowl_x.png",
-      "source_owner_task_id": "NSC-078",
+      "source_owner_task_id": "NSC-103",
       "raw_sha256": "308c3eece0c24480a7aac4fea634456ab7bac0d5cbfe270c45366b395b31bfab",
       "selected_sha256": "9799c12e399758615f0b82d5e68376bad73eccbfebaf2fb9500bd7558851e230",
       "crop_pad_offset_px": null,
@@ -358,7 +358,7 @@
     {
       "id": "ca_ash_heap",
       "source_path": "Docs/Art/Environment/Props/Raw/furnishings/ca_ash_heap.png",
-      "source_owner_task_id": "NSC-078",
+      "source_owner_task_id": "NSC-103",
       "raw_sha256": "48f69c4aa6116e57895a821933e9a027de106cdf5f423f83d55871496eb55f05",
       "selected_sha256": "abbb7bd1cbce87e139efd883149e788287db3f3fa865bfbafc352e72a17fd421",
       "crop_pad_offset_px": null,
@@ -446,7 +446,7 @@
     {
       "id": "ca_comedy_offering_plate_sock",
       "source_path": "Docs/Art/Environment/Props/Raw/furnishings/ca_comedy_offering_plate_sock.png",
-      "source_owner_task_id": "NSC-078",
+      "source_owner_task_id": "NSC-103",
       "raw_sha256": "61c267ca81e12e4685e5af0e427aa79e488f543972b5c49eac1dccac21517928",
       "selected_sha256": "454f6cd33d63035e5c26a29a9f49214eb585e8abbbe134a5c7e401e2b22b6a68",
       "crop_pad_offset_px": null,
@@ -975,8 +975,8 @@
       "id": "re_debris_broken_handcart",
       "source_path": "Docs/Art/Environment/Props/Raw/furnishings/re_debris_broken_handcart.png",
       "source_owner_task_id": "NSC-078",
-      "raw_sha256": "993a089729749e917b95734ea579bcdaa3b2c78645a053d63d09fa36712d648c",
-      "selected_sha256": "754f27d98013097f06b16681ea365a44ad24c7f4aed3ad79f6c673c4f712abdc",
+      "raw_sha256": "9c2f5a487dc70e8a61d1f801b28019b6c88d0a814b7a14d21e31688d8b17ea69",
+      "selected_sha256": "cac9d9debfdcbacd92035e2e49c06196a16d61fe27f26b8a86640e5885e441a6",
       "crop_pad_offset_px": null,
       "repair_mask": null,
       "pixel_width": 124,
@@ -1000,11 +1000,11 @@
       "renderer_use": "SpriteRenderer",
       "pivot_normalized": {
         "x": 0.5,
-        "y": 0.107143
+        "y": 0.098214
       },
       "sorting_anchor_normalized": {
         "x": 0.5,
-        "y": 0.107143
+        "y": 0.098214
       },
       "identity_category": "debris_rubble",
       "variant_group": "debris_rubble",
@@ -1154,7 +1154,7 @@
     {
       "id": "shared_candle_cluster_a",
       "source_path": "Docs/Art/Environment/Props/Raw/furnishings/shared_candle_cluster_a.png",
-      "source_owner_task_id": "NSC-078",
+      "source_owner_task_id": "NSC-103",
       "raw_sha256": "606b35e3c2b3b5854b4ed72f1d8410739b71eff9275940a24c95b9403cda8bd5",
       "selected_sha256": "0544c83676404238fc9185dae736c090cea6199a0cdd94dac4155c2293bf6457",
       "crop_pad_offset_px": null,

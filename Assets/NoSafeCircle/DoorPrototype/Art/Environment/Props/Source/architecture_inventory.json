@@ -50,7 +50,7 @@
     {
       "id": "ca_landmark_cracked_bell_frame_x",
       "source_path": "Docs/Art/Environment/Props/Raw/architecture/ca_landmark_cracked_bell_frame_x.png",
-      "source_owner_task_id": "NSC-078",
+      "source_owner_task_id": "NSC-103",
       "raw_sha256": "dfc9212bdf86931d30fafa0e4d911d1a69ab14635736c1e81022fe33d81fc233",
       "selected_sha256": "822ae859648b7f8d6f51ae8f15f2f98d736f8fd724891e0a5ec13a5c4123b5a4",
       "crop_pad_offset_px": null,
@@ -94,7 +94,7 @@
     {
       "id": "ca_sigil_floor_mark",
       "source_path": "Docs/Art/Environment/Props/Raw/architecture/ca_sigil_floor_mark.png",
-      "source_owner_task_id": "NSC-078",
+      "source_owner_task_id": "NSC-103",
       "raw_sha256": "46654f6d511a85961ce3f6e3f6a4e116d8f779bdd71c71aa1ca2278cf9064b4a",
       "selected_sha256": "5bab90e11a80ed99ab68e72d01f13609ac1fb0026869de9613d9510da12f9403",
       "crop_pad_offset_px": null,
@@ -448,7 +448,7 @@
     {
       "id": "shared_stone_column",
       "source_path": "Docs/Art/Environment/Props/Raw/architecture/shared_stone_column.png",
-      "source_owner_task_id": "NSC-078",
+      "source_owner_task_id": "NSC-103",
       "raw_sha256": "e5ef41127b318ddb4019438040f1dc1ed519c2d4f61d7531b815bb46479c0baf",
       "selected_sha256": "24f367d79bceef67cb425746f41516cb49db67d4e0cbb3c2ecda3e0c0c38ccc0",
       "crop_pad_offset_px": null,
