@@ -9,7 +9,7 @@ from typing import Any
 
 from Pipeline.AssistantControl.admission import _read_registry, _source_registry_paths
 from Pipeline.AssistantControl.checkouts import Checkouts, write_record
-from Pipeline.AssistantControl.inspect_project import git
+from Pipeline.AssistantControl.inspect_project import git, unresolvable_commit
 from Pipeline.AssistantControl.review import ReviewGate
 from Pipeline.TaskReviewAgent.contracts import validate_task_id
 from Pipeline.TaskReviewAgent.execution_session_pool import _exclusive_file_lock
@@ -114,15 +114,16 @@ def begin_revision(checkouts: Checkouts, task_id: str, expected_candidate: str) 
             # that as non-ancestry asserts a fact nobody measured. Resolve the
             # objects first so each refusal names its own cause.
             checkout_root = checkouts.root / task_id
-            for label, commit in (("current source HEAD", source_head),
-                                  ("the rejected candidate", expected_candidate)):
-                try:
-                    git(checkout_root, "cat-file", "-e", f"{commit}^{{commit}}")
-                except RuntimeError as exc:
-                    raise RevisionError(
-                        f"{label} {commit} is not present in the task checkout, so its "
-                        "ancestry against the rejected candidate was never determined"
-                    ) from exc
+            missing = unresolvable_commit(
+                checkout_root,
+                ("current source HEAD", source_head),
+                ("the rejected candidate", expected_candidate),
+            )
+            if missing is not None:
+                raise RevisionError(
+                    f"{missing}, so its ancestry against the rejected candidate "
+                    "was never determined"
+                )
             try:
                 git(checkout_root, "merge-base", "--is-ancestor", source_head,
                     expected_candidate)

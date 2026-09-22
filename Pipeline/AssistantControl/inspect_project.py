@@ -91,6 +91,32 @@ def git(source: Path, *args: str, timeout_seconds: float = 30) -> bytes:
     return result.stdout
 
 
+def unresolvable_commit(checkout: Path, *labelled: tuple[str, str]) -> str | None:
+    """Name the first commit that cannot be resolved in `checkout`, else None.
+
+    `git merge-base --is-ancestor` exits 1 for a PROVEN non-ancestor and 128
+    when it cannot resolve an argument at all, and `git()` collapses both into
+    one RuntimeError. A task checkout is created by `prepare` and never fetches
+    later Source commits, so on any task whose Source has moved the check exits
+    128 -- and reporting that as non-ancestry asserts a fact nobody measured.
+
+    Measured on the live NSC-044/NSC-046 checkouts, 2026-09-22:
+
+        git -C <task checkout> merge-base --is-ancestor <main> <candidate>
+        fatal: Not a valid commit name <main>          exit 128
+
+    Callers resolve first and then compare, so each refusal names its own cause.
+    Labels are caller-supplied because the same missing object means different
+    things to a revision and to an admission.
+    """
+    for label, commit in labelled:
+        try:
+            git(checkout, "cat-file", "-e", f"{commit}^{{commit}}")
+        except RuntimeError:
+            return f"{label} {commit} is not present in the task checkout"
+    return None
+
+
 def changes(source: Path) -> list[dict]:
     # -z avoids quoting of spaces, Unicode, tabs and newlines. A rename has
     # two paths: destination first, then original. Preserve both for conflicts.

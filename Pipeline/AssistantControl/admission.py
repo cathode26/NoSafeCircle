@@ -10,7 +10,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any, Callable, Mapping
 
 from Pipeline.AssistantControl.dependencies import inspect_dependencies
-from Pipeline.AssistantControl.inspect_project import git
+from Pipeline.AssistantControl.inspect_project import git, unresolvable_commit
 from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task
 from Pipeline.TaskReviewAgent.contracts import ExecutionScopePlan, validate_task_id
 from Pipeline.TaskReviewAgent.execution_session_pool import _exclusive_file_lock
@@ -277,8 +277,21 @@ def _revision_baseline(checkouts: Checkouts, record: Mapping[str, Any],
         )
     elif mode != "legacy_retry":
         raise ValueError("unsupported revision feedback mode")
+    # Same defect and same precondition as revisions.py: an absent object is not
+    # a proven non-ancestor, and this check also runs in the task checkout.
+    checkout_root = checkouts.root / task_id
+    missing = unresolvable_commit(
+        checkout_root,
+        ("current source HEAD", source_head),
+        ("the revision baseline", baseline),
+    )
+    if missing is not None:
+        raise ValueError(
+            f"{missing}, so whether the revision candidate is based on current "
+            "source HEAD was never determined"
+        )
     try:
-        git(checkouts.root / task_id, "merge-base", "--is-ancestor", source_head, baseline)
+        git(checkout_root, "merge-base", "--is-ancestor", source_head, baseline)
     except RuntimeError as exc:
         raise ValueError("revision candidate is not based on current source HEAD") from exc
     return baseline

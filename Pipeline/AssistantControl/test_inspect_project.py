@@ -3,6 +3,7 @@
 Proves inventory preserves operator edits and reads committed task identity.
 Does not prove Unity conformance, admission, provider behavior or delivery.
 """
+import ast
 import json
 import os
 import subprocess
@@ -11,7 +12,7 @@ import unittest
 from unittest import mock
 from pathlib import Path
 
-from Pipeline.AssistantControl.inspect_project import changes, git, inspect, resource_conflicts
+from Pipeline.AssistantControl.inspect_project import changes, git, inspect, resource_conflicts, unresolvable_commit
 from Pipeline.TaskReviewAgent.git_identity_guard import validated_agent_git_identity
 
 
@@ -124,3 +125,115 @@ class GitProcessTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ResolvableCommitTests(unittest.TestCase):
+    """A commit absent from a checkout is not a proven non-ancestor."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name) / "repo"
+        self.root.mkdir()
+        self.run_git("init")
+        name, email = validated_agent_git_identity()
+        self.run_git("config", "user.name", name)
+        self.run_git("config", "user.email", email)
+        (self.root / "a.txt").write_text("a\n")
+        self.run_git("add", ".")
+        self.run_git("commit", "-m", "base")
+        self.head = self.run_git("rev-parse", "HEAD").decode().strip()
+
+    def run_git(self, *args):
+        return git(self.root, *args)
+
+    def test_a_present_commit_resolves_and_reports_nothing(self):
+        self.assertIsNone(
+            unresolvable_commit(self.root, ("current source HEAD", self.head)))
+
+    def test_an_absent_commit_is_named_with_its_label(self):
+        absent = "0" * 40
+        missing = unresolvable_commit(self.root, ("current source HEAD", absent))
+        self.assertIsNotNone(missing)
+        self.assertIn("current source HEAD", missing)
+        self.assertIn(absent, missing)
+        self.assertIn("not present in the task checkout", missing)
+
+    def test_the_first_absent_commit_wins_so_the_cause_is_the_one_reported(self):
+        """Order is caller-declared; reporting the second would misname the cause."""
+        absent_a, absent_b = "0" * 40, "1" * 40
+        missing = unresolvable_commit(
+            self.root, ("first label", absent_a), ("second label", absent_b))
+        self.assertIn("first label", missing)
+        self.assertNotIn("second label", missing)
+
+    def test_a_tree_or_blob_id_is_not_accepted_as_a_commit(self):
+        """`cat-file -e <sha>` alone passes for any object; the helper pins ^{commit}."""
+        tree = self.run_git("rev-parse", "HEAD^{tree}").decode().strip()
+        missing = unresolvable_commit(self.root, ("the rejected candidate", tree))
+        self.assertIsNotNone(missing, "a tree id was accepted as a commit")
+
+
+class TaskCheckoutAncestryCallersTests(unittest.TestCase):
+    """Every `--is-ancestor` on a TASK CHECKOUT resolves its objects first.
+
+    Same shape as EveryCallerPassesTheRole. Without this the helper is an
+    honour system: a new site can add a bare `--is-ancestor` on a task checkout
+    and silently reintroduce "not an ancestor" for a commit that is merely
+    absent. Sites that run against `checkouts.source` are NOT covered here -
+    canonical holds both objects by construction.
+    """
+
+    @staticmethod
+    def _task_checkout_ancestry_calls(function):
+        """Ancestry calls in this function that run against a TASK CHECKOUT.
+
+        A canonical call reads `checkouts.source`, which holds both objects by
+        construction; only the per-task root can be missing one.
+        """
+        for node in ast.walk(function):
+            if not isinstance(node, ast.Call):
+                continue
+            if not (isinstance(node.func, ast.Name) and node.func.id == "git"):
+                continue
+            literals = [a.value for a in node.args
+                        if isinstance(a, ast.Constant) and type(a.value) is str]
+            if "--is-ancestor" not in literals or not node.args:
+                continue
+            if "source" in ast.unparse(node.args[0]):
+                continue
+            yield node
+
+    def test_both_task_checkout_sites_resolve_before_comparing(self):
+        """Binds per FUNCTION, not per file.
+
+        A file-level substring check would pass while a SECOND bare
+        `--is-ancestor` sat in the same module reintroducing the defect.
+        """
+        root = Path(__file__).resolve().parent
+        checked = 0
+        for name in ("revisions.py", "admission.py"):
+            tree = ast.parse((root / name).read_text(encoding="utf-8"))
+            for function in ast.walk(tree):
+                if not isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    continue
+                calls = list(self._task_checkout_ancestry_calls(function))
+                if not calls:
+                    continue
+                checked += len(calls)
+                resolves = any(
+                    isinstance(node, ast.Call)
+                    and isinstance(node.func, ast.Name)
+                    and node.func.id == "unresolvable_commit"
+                    for node in ast.walk(function)
+                )
+                self.assertTrue(
+                    resolves,
+                    f"{name}:{function.name} compares ancestry on a task checkout "
+                    f"without resolving its objects first",
+                )
+        self.assertEqual(
+            2, checked,
+            "expected exactly two task-checkout ancestry sites; the set changed",
+        )
+
