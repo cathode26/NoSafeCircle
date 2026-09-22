@@ -1,11 +1,14 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using NoSafeCircle.DoorPrototype.Editor.World;
 using NoSafeCircle.DoorPrototype.World;
 using NoSafeCircle.DoorPrototype.World.Rooms;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.Tilemaps;
 using Object = UnityEngine.Object;
 
 namespace NoSafeCircle.DoorPrototype.Editor.Rooms
@@ -15,21 +18,45 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
     {
         public const string ScenePath = "Assets/Scenes/Rooms/LowerVault.unity";
 
-        private static readonly Color FloorColor = new Color(0.055f, 0.045f, 0.08f);
-        private static readonly Color WallColor = new Color(0.09f, 0.06f, 0.13f);
-        private static readonly Color StoneColor = new Color(0.16f, 0.10f, 0.20f);
-        private static readonly Color StorageColor = new Color(0.20f, 0.09f, 0.10f);
-        private static readonly Color AccentColor = new Color(0.45f, 0.10f, 0.20f);
+        private const string ArchitecturalTileFolder =
+            "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles";
+        private const string FloorTilePath = ArchitecturalTileFolder + "/FloorTile.asset";
+        private const string FullWallTilePath = ArchitecturalTileFolder + "/WallTile.asset";
+        private const string WorldSpriteVisualPrefabPath =
+            ArchitecturalTileFolder + "/WorldSprites/WorldSpriteVisual.prefab";
+
+        private const string NearWallStubTileName = "LowerVaultNearWallStubTile";
+        private const string NearWallStubTilePath = ArchitecturalTileFolder + "/" + NearWallStubTileName + ".asset";
+
+        private const string BlockoutProxySpriteName = "LowerVaultBlockoutProxySprite";
+        private const string BlockoutProxySpritePath = ArchitecturalTileFolder + "/" + BlockoutProxySpriteName + ".asset";
+        private const int BlockoutProxyTextureSize = 64;
+        private const float BlockoutProxyPixelsPerUnit = 64f;
+        private static readonly Vector2 BlockoutProxyPivot = new Vector2(0.5f, 0f);
+
+        // RuinedEntrySceneBuilder.WallVisualOffset: every wall Tilemap stands this far inside its
+        // RoomBounds line so its bottom-pivot sprites never extend past the gameplay wall collider.
+        private const float WallVisualOffset = 0.151f;
+
+        private const string WizardReviewSpritePath =
+            "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/standing/south.png";
+
+        private static readonly List<Object> TransientArchitecturalObjects = new List<Object>();
 
         [MenuItem("No Safe Circle/Rooms/Build Lower Vault Authoring Scene")]
         public static void BuildAndSave()
         {
             EnsureFolder(Path.GetDirectoryName(ScenePath)?.Replace('\\', '/'));
+            EnsureFolder(ArchitecturalTileFolder);
             Scene scene = File.Exists(ScenePath)
                 ? EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single)
                 : EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
-            RebuildSceneContents(scene);
+            // Opening the old scene can unload a newly created Tile/Sprite sub-asset. Resolve them
+            // only after the destination scene is active so the references survive materialization.
+            Tile nearWallStubTile = LoadOrCreateNearWallStubTile(ArchitecturalTileFolder);
+            Sprite blockoutProxySprite = LoadOrCreateBlockoutProxySprite(ArchitecturalTileFolder);
+            RebuildSceneContents(scene, nearWallStubTile, blockoutProxySprite);
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene, ScenePath);
             AssetDatabase.SaveAssets();
@@ -38,10 +65,59 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
 
         public static void BuildInMemoryForTests()
         {
-            RebuildSceneContents(SceneManager.GetActiveScene());
+            CleanupTransientArchitecturalObjects();
+
+            Tile nearWallStubTile = AssetDatabase.LoadAssetAtPath<Tile>(NearWallStubTilePath);
+            if (nearWallStubTile == null)
+            {
+                nearWallStubTile = CreateTransientNearWallStubTile();
+            }
+
+            Sprite blockoutProxySprite = LoadPersistedBlockoutProxySprite();
+            if (blockoutProxySprite == null)
+            {
+                blockoutProxySprite = CreateTransientBlockoutProxySprite();
+            }
+
+            RebuildSceneContents(SceneManager.GetActiveScene(), nearWallStubTile, blockoutProxySprite);
         }
 
-        private static void RebuildSceneContents(Scene scene)
+        // AC-005/GAME_TASK_LESSONS_LEARNED: a non-destructive staging tool. It never saves the
+        // untitled staging Scene, never saves LowerVault.unity (opened additively), and never
+        // writes to any tracked asset; closing it afterward leaves the repository untouched.
+        [MenuItem("No Safe Circle/Rooms/Stage Lower Vault Camera Review")]
+        public static void StageCameraReview()
+        {
+            Scene stagingScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Additive);
+            SceneManager.SetActiveScene(stagingScene);
+
+            GameObject standIn = new GameObject("WizardReviewStandIn");
+            SpriteRenderer standInRenderer = standIn.AddComponent<SpriteRenderer>();
+            standInRenderer.sprite = AssetDatabase.LoadAssetAtPath<Sprite>(WizardReviewSpritePath);
+            standInRenderer.sortingLayerName = DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName;
+            standInRenderer.spriteSortPoint = SpriteSortPoint.Pivot;
+
+            DoorPrototypeGlobalSceneBuilder.BuildCamera(standIn.transform);
+
+            CreateReviewMarker("D3ApronMarker", -8f, 57f);
+            CreateReviewMarker("C1LeftLaneMarker", -6f, 62f);
+            CreateReviewMarker("C1RightLaneMarker", 4.5f, 62f);
+            CreateReviewMarker("NorthMergeWestMarker", -2.5f, 66f);
+            CreateReviewMarker("NorthMergeEastMarker", 3.5f, 66f);
+            CreateReviewMarker("WestStoragePocketMarker", -16f, 64f);
+            CreateReviewMarker("EastStoragePocketMarker", 16f, 63f);
+            CreateReviewMarker("PrimaryCrossingMarker", 9.5f, 69f);
+            CreateReviewMarker("D4ApronMarker", 4f, 73f);
+        }
+
+        private static void CreateReviewMarker(string name, float x, float z)
+        {
+            GameObject marker = new GameObject(name);
+            marker.transform.position = new Vector3(x, 0f, z);
+        }
+
+        private static void RebuildSceneContents(Scene scene, Tile nearWallStubTile, Sprite blockoutProxySprite)
         {
             foreach (GameObject root in scene.GetRootGameObjects())
             {
@@ -58,116 +134,237 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             Transform authoringRoot = CreateContentRoot(
                 roomRoot.transform, "Authoring", RoomContentCategory.Authoring);
 
-            BuildVisibleBlockout(visibleRoot);
+            BuildWallsAndFloor(visibleRoot, nearWallStubTile);
+            BuildBlockoutObstacleProxies(visibleRoot, blockoutProxySprite);
             BuildGameplayGeometry(gameplayRoot);
+
             CreateDoorAnchor(
                 anchorsRoot, "D3Opening", DoorId.D3, DoorAnchorRole.Entry,
                 LowerVaultLayout.D3, Quaternion.LookRotation(Vector3.back));
             CreateDoorAnchor(
                 anchorsRoot, "D4Opening", DoorId.D4, DoorAnchorRole.Exit,
                 LowerVaultLayout.D4, Quaternion.LookRotation(Vector3.forward));
-            CreateMarker(authoringRoot, "D3StagingArea", new Vector3(-6f, 0f, 45f));
-            CreateMarker(authoringRoot, "D4StagingArea", new Vector3(4f, 0f, 61f));
+
+            CreateMarker(authoringRoot, "D3StagingArea", LowerVaultLayout.D3Apron.center);
+            CreateMarker(authoringRoot, "D4StagingArea", LowerVaultLayout.D4Apron.center);
+
             SceneManager.SetActiveScene(scene);
         }
 
-        private static void BuildVisibleBlockout(Transform parent)
-        {
-            CreateVisualBox(parent, "VaultFloor", new Vector3(0f, -0.05f, 53f), new Vector3(22f, 0.1f, 22f), FloorColor);
-            CreateShellBoxes(parent, "Visual", CreateVisualBox);
-            CreateVisualObstacle(parent, "LV-C1", LowerVaultLayout.CentralColumnCluster, StoneColor);
-            CreateVisualObstacle(parent, "LV-W1", LowerVaultLayout.WestStoragePile, StorageColor);
-            CreateVisualObstacle(parent, "LV-E1", LowerVaultLayout.EastStoragePile, StorageColor);
-            CreateVisualObstacle(parent, "LV-N1", LowerVaultLayout.NorthWestStorageBar, StorageColor);
+        // ------------------------------------------------------------------
+        // Visuals: IsometricZAsY Grid (floor + four straight-run wall Tilemaps)
+        // ------------------------------------------------------------------
 
-            CreateTrim(parent, new Vector3(-10.65f, 0.08f, 53f), new Vector3(0.12f, 0.08f, 20f));
-            CreateTrim(parent, new Vector3(10.65f, 0.08f, 53f), new Vector3(0.12f, 0.08f, 20f));
-            CreateCrateCluster(parent, new Vector3(-9f, 0f, 47f), 3);
-            CreateCrateCluster(parent, new Vector3(8.8f, 0f, 57f), 2);
-            CreateLantern(parent, new Vector3(-9.2f, 1.7f, 60.5f));
-            CreateLantern(parent, new Vector3(8.8f, 1.7f, 45.2f));
-            CreateVaultMark(parent, new Vector3(0f, 0.04f, 62.5f));
+        private static void BuildWallsAndFloor(Transform parent, Tile nearWallStubTile)
+        {
+            Tile floorTile = AssetDatabase.LoadAssetAtPath<Tile>(FloorTilePath);
+            Tile fullWallTile = AssetDatabase.LoadAssetAtPath<Tile>(FullWallTilePath);
+            if (floorTile == null || fullWallTile == null)
+            {
+                throw new InvalidOperationException("Lower Vault requires the existing FloorTile and WallTile assets.");
+            }
+
+            GameObject gridObject = new GameObject("IsometricZAsY", typeof(Grid));
+            gridObject.transform.SetParent(parent, false);
+            Grid grid = gridObject.GetComponent<Grid>();
+            grid.cellSize = new Vector3(1f, 0.5f, 1f);
+            grid.cellSwizzle = GridLayout.CellSwizzle.XYZ;
+
+            Tilemap floor = CreateVisualTilemap(gridObject.transform, "FloorTilemap",
+                new Vector3(0f, 0.01f, 0f), Quaternion.Euler(-90f, 0f, 0f), -100);
+            PaintFloor(floor, floorTile);
+
+            // North and west walls are full height.
+            Tilemap north = CreateVisualTilemap(gridObject.transform, "NorthFullWallTilemap",
+                new Vector3(0.5f, 0f, LowerVaultLayout.MaximumZ - WallVisualOffset), Quaternion.identity, 0);
+            PaintStraightWallRun(north, fullWallTile, -9, 22); // X [-20,+2]
+            PaintStraightWallRun(north, fullWallTile, 13, 14); // X [+6,+20], leaves the D4 gap X [+2,+6]
+
+            Tilemap west = CreateVisualTilemap(gridObject.transform, "WestFullWallTilemap",
+                new Vector3(LowerVaultLayout.MinimumX + WallVisualOffset, 0f, -0.5f),
+                Quaternion.Euler(0f, 90f, 0f), 0);
+            PaintStraightWallRun(west, fullWallTile, -65, 22); // Z [54,76]
+
+            // South and east walls are cutaway walls that stop at their door opening.
+            Tilemap south = CreateVisualTilemap(gridObject.transform, "SouthLowWallTilemap",
+                new Vector3(0.5f, 0f, LowerVaultLayout.MinimumZ + WallVisualOffset), Quaternion.identity, 0);
+            PaintStraightWallRun(south, nearWallStubTile, -15, 10); // X [-20,-10]
+            PaintStraightWallRun(south, nearWallStubTile, 7, 26);   // X [-6,+20], leaves the D3 gap X [-10,-6]
+
+            Tilemap east = CreateVisualTilemap(gridObject.transform, "EastLowWallTilemap",
+                new Vector3(LowerVaultLayout.MaximumX - WallVisualOffset, 0f, -0.5f),
+                Quaternion.Euler(0f, 90f, 0f), 0);
+            PaintStraightWallRun(east, nearWallStubTile, -65, 22); // Z [54,76]
         }
+
+        private static Tilemap CreateVisualTilemap(
+            Transform parent, string name, Vector3 localPosition, Quaternion localRotation, int sortingOrder)
+        {
+            GameObject tilemapObject = new GameObject(name);
+            tilemapObject.transform.SetParent(parent, false);
+            tilemapObject.transform.localPosition = localPosition;
+            tilemapObject.transform.localRotation = localRotation;
+            Tilemap tilemap = tilemapObject.AddComponent<Tilemap>();
+            tilemap.tileAnchor = Vector3.zero;
+            tilemap.orientation = Tilemap.Orientation.XY;
+
+            TilemapRenderer renderer = tilemapObject.AddComponent<TilemapRenderer>();
+            renderer.mode = TilemapRenderer.Mode.Individual;
+            renderer.sortOrder = TilemapRenderer.SortOrder.TopRight;
+            renderer.sortingLayerName = DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName;
+            renderer.sortingOrder = sortingOrder;
+            return tilemap;
+        }
+
+        // Paints FloorTile in every cell whose GetCellCenterWorld lies inside the wall-collider
+        // inner faces. Bounds are resolved through WorldToCell so the loop range is correct
+        // regardless of the Tilemap's own rotation.
+        private static void PaintFloor(Tilemap tilemap, TileBase floorTile)
+        {
+            float innerMinimumX = LowerVaultLayout.MinimumX + LowerVaultLayout.WallThickness * 0.5f;
+            float innerMaximumX = LowerVaultLayout.MaximumX - LowerVaultLayout.WallThickness * 0.5f;
+            float innerMinimumZ = LowerVaultLayout.MinimumZ + LowerVaultLayout.WallThickness * 0.5f;
+            float innerMaximumZ = LowerVaultLayout.MaximumZ - LowerVaultLayout.WallThickness * 0.5f;
+
+            Vector3Int cornerA = tilemap.WorldToCell(new Vector3(LowerVaultLayout.MinimumX, 0f, LowerVaultLayout.MinimumZ));
+            Vector3Int cornerB = tilemap.WorldToCell(new Vector3(LowerVaultLayout.MaximumX, 0f, LowerVaultLayout.MaximumZ));
+            Vector3Int cornerC = tilemap.WorldToCell(new Vector3(LowerVaultLayout.MinimumX, 0f, LowerVaultLayout.MaximumZ));
+            Vector3Int cornerD = tilemap.WorldToCell(new Vector3(LowerVaultLayout.MaximumX, 0f, LowerVaultLayout.MinimumZ));
+
+            int minCellX = Mathf.Min(Mathf.Min(cornerA.x, cornerB.x), Mathf.Min(cornerC.x, cornerD.x)) - 1;
+            int maxCellX = Mathf.Max(Mathf.Max(cornerA.x, cornerB.x), Mathf.Max(cornerC.x, cornerD.x)) + 1;
+            int minCellY = Mathf.Min(Mathf.Min(cornerA.y, cornerB.y), Mathf.Min(cornerC.y, cornerD.y)) - 1;
+            int maxCellY = Mathf.Max(Mathf.Max(cornerA.y, cornerB.y), Mathf.Max(cornerC.y, cornerD.y)) + 1;
+
+            for (int x = minCellX; x <= maxCellX; x++)
+            {
+                for (int y = minCellY; y <= maxCellY; y++)
+                {
+                    Vector3Int cell = new Vector3Int(x, y, 0);
+                    Vector3 center = tilemap.GetCellCenterWorld(cell);
+                    if (center.x >= innerMinimumX && center.x <= innerMaximumX &&
+                        center.z >= innerMinimumZ && center.z <= innerMaximumZ)
+                    {
+                        tilemap.SetTile(cell, floorTile);
+                    }
+                }
+            }
+        }
+
+        // Behaves exactly like RuinedEntrySceneBuilder.PaintStraightWallRun: the only repeated-
+        // cell loop the walls use, painting cellCount contiguous cells with one shared Tile.
+        public static void PaintStraightWallRun(Tilemap wallTilemap, TileBase wallTile, int centerCell, int cellCount)
+        {
+            if (wallTilemap == null) throw new ArgumentNullException(nameof(wallTilemap));
+            if (wallTile == null) throw new ArgumentNullException(nameof(wallTile));
+            if (cellCount <= 0) throw new ArgumentOutOfRangeException(nameof(cellCount));
+
+            int firstCell = centerCell - cellCount / 2;
+            for (int index = 0; index < cellCount; index++)
+            {
+                wallTilemap.SetTile(new Vector3Int(firstCell + index, 0, 0), wallTile);
+            }
+        }
+
+        // ------------------------------------------------------------------
+        // Visuals: collider-free blockout obstacle proxies
+        // ------------------------------------------------------------------
+
+        private static void BuildBlockoutObstacleProxies(Transform parent, Sprite proxySprite)
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(WorldSpriteVisualPrefabPath);
+            if (prefab == null)
+            {
+                throw new InvalidOperationException("Lower Vault requires the existing WorldSpriteVisual prefab.");
+            }
+
+            GameObject proxiesRoot = new GameObject("BlockoutObstacleProxies");
+            proxiesRoot.transform.SetParent(parent, false);
+
+            CreateBlockoutProxy(proxiesRoot.transform, prefab, "LV-C1Proxy", LowerVaultLayout.CentralColumnCluster, proxySprite);
+            CreateBlockoutProxy(proxiesRoot.transform, prefab, "LV-W1Proxy", LowerVaultLayout.WestStoragePile, proxySprite);
+            CreateBlockoutProxy(proxiesRoot.transform, prefab, "LV-E1Proxy", LowerVaultLayout.EastStoragePile, proxySprite);
+            CreateBlockoutProxy(proxiesRoot.transform, prefab, "LV-N1Proxy", LowerVaultLayout.NorthWestStorageBar, proxySprite);
+            CreateBlockoutProxy(proxiesRoot.transform, prefab, "LV-H1-WestProxy", LowerVaultLayout.HallWestSpan, proxySprite);
+            CreateBlockoutProxy(proxiesRoot.transform, prefab, "LV-H1-CenterProxy", LowerVaultLayout.HallCenterSpan, proxySprite);
+            CreateBlockoutProxy(proxiesRoot.transform, prefab, "LV-H1-EastProxy", LowerVaultLayout.HallEastSpan, proxySprite);
+        }
+
+        private static void CreateBlockoutProxy(
+            Transform parent, GameObject prefab, string name, Bounds footprint, Sprite proxySprite)
+        {
+            GameObject instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+            instance.name = name;
+            instance.transform.SetParent(parent, false);
+            instance.transform.localPosition = new Vector3(footprint.center.x, 0f, footprint.center.z);
+            instance.transform.localRotation = Quaternion.identity;
+            instance.transform.localScale = new Vector3(footprint.size.x, footprint.size.y, 1f);
+
+            SpriteRenderer renderer = instance.GetComponent<SpriteRenderer>();
+            renderer.sprite = proxySprite;
+            renderer.sortingLayerName = DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName;
+            renderer.sortingOrder = 0;
+        }
+
+        // ------------------------------------------------------------------
+        // GameplayGeometry: floor + wall + obstacle colliders
+        // ------------------------------------------------------------------
 
         private static void BuildGameplayGeometry(Transform parent)
         {
-            CreateGameplayBox(parent, "FloorCollision", new Vector3(0f, -0.05f, 53f), new Vector3(22f, 0.1f, 22f), Color.clear);
-            CreateShellBoxes(parent, "Collision", CreateGameplayBox);
+            CreateGameplayBox(parent, "FloorCollision",
+                LowerVaultLayout.RoomBounds.center + Vector3.down * 0.05f,
+                new Vector3(LowerVaultLayout.RoomBounds.size.x, 0.1f, LowerVaultLayout.RoomBounds.size.z));
+
+            CreateShellBoxes(parent);
+
             CreateGameplayObstacle(parent, "LV-C1Collision", LowerVaultLayout.CentralColumnCluster);
             CreateGameplayObstacle(parent, "LV-W1Collision", LowerVaultLayout.WestStoragePile);
             CreateGameplayObstacle(parent, "LV-E1Collision", LowerVaultLayout.EastStoragePile);
             CreateGameplayObstacle(parent, "LV-N1Collision", LowerVaultLayout.NorthWestStorageBar);
+
+            CreateGameplayObstacle(parent, "LV-H1-WestCollision", LowerVaultLayout.HallWestSpan);
+            CreateGameplayObstacle(parent, "LV-H1-CenterCollision", LowerVaultLayout.HallCenterSpan);
+            CreateGameplayObstacle(parent, "LV-H1-EastCollision", LowerVaultLayout.HallEastSpan);
         }
 
-        private static void CreateShellBoxes(Transform parent, string suffix, Action<Transform, string, Vector3, Vector3, Color> createBox)
+        private static void CreateShellBoxes(Transform parent)
         {
             float centerY = LowerVaultLayout.WallHeight * 0.5f;
-            float depth = LowerVaultLayout.MaximumZ - LowerVaultLayout.MinimumZ;
-            createBox(parent, "WestWall" + suffix, new Vector3(-11f, centerY, 53f), new Vector3(0.5f, 2.5f, depth), WallColor);
-            createBox(parent, "EastWall" + suffix, new Vector3(11f, centerY, 53f), new Vector3(0.5f, 2.5f, depth), WallColor);
-            CreateOpeningWall(parent, "SouthWall", suffix, LowerVaultLayout.D3.x, LowerVaultLayout.MinimumZ, createBox);
-            CreateOpeningWall(parent, "NorthWall", suffix, LowerVaultLayout.D4.x, LowerVaultLayout.MaximumZ, createBox);
+            float roomDepth = LowerVaultLayout.MaximumZ - LowerVaultLayout.MinimumZ;
+
+            CreateGameplayBox(parent, "WestWallCollision",
+                new Vector3(LowerVaultLayout.MinimumX, centerY, LowerVaultLayout.RoomBounds.center.z),
+                new Vector3(LowerVaultLayout.WallThickness, LowerVaultLayout.WallHeight, roomDepth));
+            CreateGameplayBox(parent, "EastWallCollision",
+                new Vector3(LowerVaultLayout.MaximumX, centerY, LowerVaultLayout.RoomBounds.center.z),
+                new Vector3(LowerVaultLayout.WallThickness, LowerVaultLayout.WallHeight, roomDepth));
+
+            CreateOpeningWallCollision(parent, "SouthWall", LowerVaultLayout.D3.x, LowerVaultLayout.MinimumZ);
+            CreateOpeningWallCollision(parent, "NorthWall", LowerVaultLayout.D4.x, LowerVaultLayout.MaximumZ);
         }
 
-        private static void CreateOpeningWall(Transform parent, string name, string suffix, float openingCenter, float z, Action<Transform, string, Vector3, Vector3, Color> createBox)
+        private static void CreateOpeningWallCollision(Transform parent, string name, float openingCenter, float z)
         {
             float halfOpening = LowerVaultLayout.DoorWidth * 0.5f;
             float westLength = openingCenter - halfOpening - LowerVaultLayout.MinimumX;
             float eastLength = LowerVaultLayout.MaximumX - openingCenter - halfOpening;
             float centerY = LowerVaultLayout.WallHeight * 0.5f;
-            createBox(parent, name + "West" + suffix, new Vector3(LowerVaultLayout.MinimumX + westLength * 0.5f, centerY, z), new Vector3(westLength, 2.5f, 0.5f), WallColor);
-            createBox(parent, name + "East" + suffix, new Vector3(LowerVaultLayout.MaximumX - eastLength * 0.5f, centerY, z), new Vector3(eastLength, 2.5f, 0.5f), WallColor);
-        }
 
-        private static void CreateVisualObstacle(Transform parent, string name, Bounds bounds, Color color)
-        {
-            CreateVisualBox(parent, name, new Vector3(bounds.center.x, bounds.size.y * 0.5f, bounds.center.z), bounds.size, color);
-            CreateTrim(parent, new Vector3(bounds.center.x, bounds.size.y + 0.04f, bounds.center.z), new Vector3(bounds.size.x * 0.75f, 0.08f, bounds.size.z * 0.75f));
+            CreateGameplayBox(parent, name + "WestCollision",
+                new Vector3(LowerVaultLayout.MinimumX + westLength * 0.5f, centerY, z),
+                new Vector3(westLength, LowerVaultLayout.WallHeight, LowerVaultLayout.WallThickness));
+            CreateGameplayBox(parent, name + "EastCollision",
+                new Vector3(LowerVaultLayout.MaximumX - eastLength * 0.5f, centerY, z),
+                new Vector3(eastLength, LowerVaultLayout.WallHeight, LowerVaultLayout.WallThickness));
         }
 
         private static void CreateGameplayObstacle(Transform parent, string name, Bounds bounds)
         {
-            CreateGameplayBox(parent, name, bounds.center, bounds.size, Color.clear);
+            CreateGameplayBox(parent, name, bounds.center, bounds.size);
         }
 
-        private static void CreateCrateCluster(Transform parent, Vector3 origin, int count)
-        {
-            for (int index = 0; index < count; index++)
-            {
-                float offsetX = (index % 2) * 0.8f;
-                float offsetZ = (index / 2) * 0.7f;
-                CreateVisualBox(parent, "Crate_" + origin.x + "_" + index, origin + new Vector3(offsetX, 0.35f, offsetZ), new Vector3(0.65f, 0.7f, 0.65f), StorageColor);
-            }
-        }
-
-        private static void CreateLantern(Transform parent, Vector3 position)
-        {
-            CreateVisualBox(parent, "LanternGlow", position, new Vector3(0.22f, 0.22f, 0.22f), AccentColor);
-        }
-
-        private static void CreateVaultMark(Transform parent, Vector3 position)
-        {
-            CreateVisualBox(parent, "CuteHorrorVaultMark", position, new Vector3(3f, 0.04f, 0.18f), AccentColor);
-            CreateVisualBox(parent, "CuteHorrorVaultMarkEye", position + new Vector3(0f, 0.02f, -0.35f), new Vector3(0.18f, 0.04f, 0.18f), AccentColor);
-        }
-
-        private static void CreateTrim(Transform parent, Vector3 position, Vector3 size)
-        {
-            CreateVisualBox(parent, "VaultTrim", position, size, AccentColor);
-        }
-
-        private static void CreateVisualBox(Transform parent, string name, Vector3 position, Vector3 size, Color color)
-        {
-            GameObject box = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            box.name = name;
-            box.transform.SetParent(parent, false);
-            box.transform.position = position;
-            box.transform.localScale = size;
-            box.GetComponent<Renderer>().sharedMaterial = CreateMaterial(color);
-            Object.DestroyImmediate(box.GetComponent<Collider>());
-        }
-
-        private static void CreateGameplayBox(Transform parent, string name, Vector3 position, Vector3 size, Color unused)
+        private static void CreateGameplayBox(Transform parent, string name, Vector3 position, Vector3 size)
         {
             GameObject box = new GameObject(name);
             box.transform.SetParent(parent, false);
@@ -175,6 +372,10 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             BoxCollider collider = box.AddComponent<BoxCollider>();
             collider.size = size;
         }
+
+        // ------------------------------------------------------------------
+        // DoorAnchors / Authoring
+        // ------------------------------------------------------------------
 
         private static void CreateMarker(Transform parent, string name, Vector3 position)
         {
@@ -200,15 +401,8 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             serialized.FindProperty("roomId").enumValueIndex = (int)RoomId.LowerVault;
             serialized.FindProperty("doorId").enumValueIndex = (int)doorId;
             serialized.FindProperty("role").enumValueIndex = (int)role;
-            serialized.FindProperty("openingWidth").floatValue = 3f;
+            serialized.FindProperty("openingWidth").floatValue = LowerVaultLayout.DoorWidth;
             serialized.ApplyModifiedPropertiesWithoutUndo();
-        }
-
-        private static Material CreateMaterial(Color color)
-        {
-            Material material = new Material(Shader.Find("Standard"));
-            material.color = color;
-            return material;
         }
 
         private static Transform CreateContentRoot(
@@ -226,6 +420,303 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             serialized.ApplyModifiedPropertiesWithoutUndo();
 
             return child.transform;
+        }
+
+        // ------------------------------------------------------------------
+        // LowerVaultNearWallStubTile.asset: shared 64x32 cutaway wall Tile
+        // ------------------------------------------------------------------
+
+        public static Tile LoadOrCreateNearWallStubTile(string assetFolder)
+        {
+            if (string.IsNullOrWhiteSpace(assetFolder) || !assetFolder.StartsWith("Assets/", StringComparison.Ordinal))
+            {
+                throw new ArgumentException("The near-wall stub Tile asset folder must be under Assets.", nameof(assetFolder));
+            }
+
+            EnsureFolder(assetFolder);
+            string assetPath = assetFolder + "/" + NearWallStubTileName + ".asset";
+            Color32[] pixels = CreateNearWallStubPixels();
+            Tile tile = AssetDatabase.LoadAssetAtPath<Tile>(assetPath);
+            if (tile == null)
+            {
+                tile = ScriptableObject.CreateInstance<Tile>();
+                tile.name = NearWallStubTileName;
+                tile.colliderType = Tile.ColliderType.None;
+                AssetDatabase.CreateAsset(tile, assetPath);
+                ReplaceNearWallStubVisual(tile, pixels);
+            }
+            else if (!NearWallStubVisualMatches(tile, pixels))
+            {
+                ReplaceNearWallStubVisual(tile, pixels);
+            }
+            else if (tile.colliderType != Tile.ColliderType.None)
+            {
+                tile.colliderType = Tile.ColliderType.None;
+                EditorUtility.SetDirty(tile);
+                AssetDatabase.SaveAssetIfDirty(tile);
+            }
+
+            return tile;
+        }
+
+        private static Tile CreateTransientNearWallStubTile()
+        {
+            Tile tile = ScriptableObject.CreateInstance<Tile>();
+            tile.name = NearWallStubTileName;
+            tile.colliderType = Tile.ColliderType.None;
+            tile.hideFlags = HideFlags.HideAndDontSave;
+            Texture2D texture = CreateNearWallStubTexture(CreateNearWallStubPixels());
+            texture.hideFlags = HideFlags.HideAndDontSave;
+            Sprite sprite = Sprite.Create(texture, new Rect(0f, 0f, 64f, 32f), new Vector2(0.5f, 0f), 64f);
+            sprite.name = NearWallStubTileName + "Sprite";
+            sprite.hideFlags = HideFlags.HideAndDontSave;
+            tile.sprite = sprite;
+            TransientArchitecturalObjects.Add(tile);
+            TransientArchitecturalObjects.Add(texture);
+            TransientArchitecturalObjects.Add(sprite);
+            return tile;
+        }
+
+        // Texture repeat period (32) divides the 64px width so the stub reads as one continuous
+        // low wall rather than a row of visibly restarting pieces.
+        private static Color32[] CreateNearWallStubPixels()
+        {
+            const int width = 64;
+            const int height = 32;
+            const int repeatPeriod = 32;
+            Color32[] pixels = new Color32[width * height];
+            Color32 stone = new Color32(70, 78, 76, 255);
+            Color32 alternate = new Color32(82, 90, 86, 255);
+            Color32 mortar = new Color32(34, 40, 38, 255);
+            for (int y = 0; y < height; y++)
+            {
+                int course = y / 16;
+                for (int x = 0; x < width; x++)
+                {
+                    int phase = (x + course * 16) % repeatPeriod;
+                    bool isMortar = y % 16 < 2 || phase < 2;
+                    pixels[y * width + x] = isMortar ? mortar : (course == 0 ? stone : alternate);
+                }
+            }
+            return pixels;
+        }
+
+        private static Texture2D CreateNearWallStubTexture(Color32[] pixels)
+        {
+            Texture2D texture = new Texture2D(64, 32, TextureFormat.RGBA32, false)
+            {
+                name = NearWallStubTileName + "Texture",
+                filterMode = FilterMode.Point,
+                wrapMode = TextureWrapMode.Repeat
+            };
+            texture.SetPixels32(pixels);
+            texture.Apply(false, false);
+            return texture;
+        }
+
+        private static bool NearWallStubVisualMatches(Tile tile, Color32[] pixels)
+        {
+            Sprite sprite = tile.sprite;
+            if (sprite == null || sprite.texture == null || sprite.texture.width != 64 || sprite.texture.height != 32 ||
+                !Mathf.Approximately(sprite.pixelsPerUnit, 64f) ||
+                Vector2.Distance(sprite.pivot, new Vector2(32f, 0f)) > 0.01f)
+            {
+                return false;
+            }
+
+            try
+            {
+                Color32[] persisted = sprite.texture.GetPixels32();
+                if (persisted.Length != pixels.Length) return false;
+                for (int index = 0; index < pixels.Length; index++)
+                {
+                    if (!persisted[index].Equals(pixels[index])) return false;
+                }
+                return true;
+            }
+            catch (UnityException)
+            {
+                return false;
+            }
+        }
+
+        private static void ReplaceNearWallStubVisual(Tile tile, Color32[] pixels)
+        {
+            Sprite previousSprite = tile.sprite;
+            Texture2D previousTexture = previousSprite != null ? previousSprite.texture : null;
+            tile.sprite = null;
+            if (previousSprite != null && AssetDatabase.Contains(previousSprite)) Object.DestroyImmediate(previousSprite, true);
+            if (previousTexture != null && AssetDatabase.Contains(previousTexture)) Object.DestroyImmediate(previousTexture, true);
+
+            Texture2D texture = CreateNearWallStubTexture(pixels);
+            AssetDatabase.AddObjectToAsset(texture, tile);
+            Sprite sprite = Sprite.Create(texture, new Rect(0f, 0f, 64f, 32f), new Vector2(0.5f, 0f), 64f);
+            sprite.name = NearWallStubTileName + "Sprite";
+            AssetDatabase.AddObjectToAsset(sprite, tile);
+            tile.sprite = sprite;
+            tile.colliderType = Tile.ColliderType.None;
+            EditorUtility.SetDirty(texture);
+            EditorUtility.SetDirty(sprite);
+            EditorUtility.SetDirty(tile);
+            AssetDatabase.SaveAssetIfDirty(tile);
+        }
+
+        // ------------------------------------------------------------------
+        // LowerVaultBlockoutProxySprite.asset: shared original proxy Sprite
+        // ------------------------------------------------------------------
+
+        public static Sprite LoadOrCreateBlockoutProxySprite(string assetFolder)
+        {
+            if (string.IsNullOrWhiteSpace(assetFolder) || !assetFolder.StartsWith("Assets/", StringComparison.Ordinal))
+            {
+                throw new ArgumentException("The blockout proxy Sprite asset folder must be under Assets.", nameof(assetFolder));
+            }
+
+            EnsureFolder(assetFolder);
+            string assetPath = assetFolder + "/" + BlockoutProxySpriteName + ".asset";
+            Color32[] pixels = CreateBlockoutProxyPixels();
+
+            Texture2D existingTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(assetPath);
+            if (existingTexture != null)
+            {
+                if (!BlockoutProxyPixelsMatch(existingTexture, pixels))
+                {
+                    ReplaceBlockoutProxyPixels(existingTexture, pixels);
+                }
+
+                foreach (Object subAsset in AssetDatabase.LoadAllAssetsAtPath(assetPath))
+                {
+                    if (subAsset is Sprite existingSprite) return existingSprite;
+                }
+            }
+
+            Texture2D texture = CreateProxyTexture(pixels);
+            AssetDatabase.CreateAsset(texture, assetPath);
+            Sprite sprite = Sprite.Create(
+                texture,
+                new Rect(0f, 0f, BlockoutProxyTextureSize, BlockoutProxyTextureSize),
+                BlockoutProxyPivot,
+                BlockoutProxyPixelsPerUnit);
+            sprite.name = BlockoutProxySpriteName;
+            AssetDatabase.AddObjectToAsset(sprite, texture);
+            EditorUtility.SetDirty(texture);
+            EditorUtility.SetDirty(sprite);
+            AssetDatabase.SaveAssetIfDirty(texture);
+            return sprite;
+        }
+
+        private static Sprite LoadPersistedBlockoutProxySprite()
+        {
+            Texture2D existingTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(BlockoutProxySpritePath);
+            if (existingTexture == null) return null;
+
+            foreach (Object subAsset in AssetDatabase.LoadAllAssetsAtPath(BlockoutProxySpritePath))
+            {
+                if (subAsset is Sprite sprite) return sprite;
+            }
+            return null;
+        }
+
+        private static Sprite CreateTransientBlockoutProxySprite()
+        {
+            Texture2D texture = CreateProxyTexture(CreateBlockoutProxyPixels());
+            texture.hideFlags = HideFlags.HideAndDontSave;
+            Sprite sprite = Sprite.Create(
+                texture,
+                new Rect(0f, 0f, BlockoutProxyTextureSize, BlockoutProxyTextureSize),
+                BlockoutProxyPivot,
+                BlockoutProxyPixelsPerUnit);
+            sprite.name = BlockoutProxySpriteName;
+            sprite.hideFlags = HideFlags.HideAndDontSave;
+            TransientArchitecturalObjects.Add(texture);
+            TransientArchitecturalObjects.Add(sprite);
+            return sprite;
+        }
+
+        private static Texture2D CreateProxyTexture(Color32[] pixels)
+        {
+            Texture2D texture = new Texture2D(BlockoutProxyTextureSize, BlockoutProxyTextureSize, TextureFormat.RGBA32, false)
+            {
+                name = BlockoutProxySpriteName + "Texture",
+                filterMode = FilterMode.Point,
+                wrapMode = TextureWrapMode.Clamp
+            };
+            texture.SetPixels32(pixels);
+            texture.Apply(false, false);
+            return texture;
+        }
+
+        // Original bordered-marker fill; distinct from every other architectural tile's palette
+        // so a blockout proxy is never mistaken for finished dressing.
+        private static Color32[] CreateBlockoutProxyPixels()
+        {
+            const int width = BlockoutProxyTextureSize;
+            const int height = BlockoutProxyTextureSize;
+            const int borderThicknessPx = 4;
+            Color32 fill = new Color32(96, 46, 74, 200);
+            Color32 border = new Color32(198, 132, 165, 230);
+            Color32[] pixels = new Color32[width * height];
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    bool onBorder = x < borderThicknessPx || y < borderThicknessPx ||
+                        x >= width - borderThicknessPx || y >= height - borderThicknessPx;
+                    pixels[y * width + x] = onBorder ? border : fill;
+                }
+            }
+            return pixels;
+        }
+
+        private static bool BlockoutProxyPixelsMatch(Texture2D texture, Color32[] pixels)
+        {
+            if (texture.width != BlockoutProxyTextureSize || texture.height != BlockoutProxyTextureSize)
+            {
+                return false;
+            }
+
+            try
+            {
+                Color32[] persisted = texture.GetPixels32();
+                if (persisted.Length != pixels.Length) return false;
+                for (int index = 0; index < pixels.Length; index++)
+                {
+                    if (!persisted[index].Equals(pixels[index])) return false;
+                }
+                return true;
+            }
+            catch (UnityException)
+            {
+                return false;
+            }
+        }
+
+        private static void ReplaceBlockoutProxyPixels(Texture2D texture, Color32[] pixels)
+        {
+            if (texture.width != BlockoutProxyTextureSize || texture.height != BlockoutProxyTextureSize)
+            {
+                texture.Reinitialize(BlockoutProxyTextureSize, BlockoutProxyTextureSize, TextureFormat.RGBA32, false);
+            }
+            texture.SetPixels32(pixels);
+            texture.Apply(false, false);
+            EditorUtility.SetDirty(texture);
+            AssetDatabase.SaveAssetIfDirty(texture);
+        }
+
+        // ------------------------------------------------------------------
+        // Shared transient-object ownership (parameterless in-memory test seam only)
+        // ------------------------------------------------------------------
+
+        private static void CleanupTransientArchitecturalObjects()
+        {
+            for (int index = TransientArchitecturalObjects.Count - 1; index >= 0; index--)
+            {
+                if (TransientArchitecturalObjects[index] != null)
+                {
+                    Object.DestroyImmediate(TransientArchitecturalObjects[index]);
+                }
+            }
+            TransientArchitecturalObjects.Clear();
         }
 
         private static void EnsureFolder(string folder)
