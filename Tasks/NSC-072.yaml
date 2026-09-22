@@ -2,49 +2,115 @@
   "acceptance_criteria": [
     {
       "criterion_id": "AC-001",
-      "reference": "NSC-029 VAL-002; GDD — Approved Five-Room Spatial Layout Blockout §§7 and 12; NSC-016 projectile-cover clarification",
-      "requirement": "In Play Mode, fire or directly trigger a real Ranged Enemy projectile along a representative path from the opposite half of the chapel toward CA-W or CA-E. Verify that an authored pew or column gameplay collider stops or despawns the projectile and that PlayerHealth.TakeDamage is not called through or after that cover. The enemy does not need a clear pre-fire line of sight for this test."
+      "reference": "NSC-029 VAL-002; GDD - Approved Five-Room Spatial Layout Blockout; NSC-054 INT-001; NSC-046 INT-004",
+      "requirement": "Create Assets/NoSafeCircle/DoorPrototype/Tests/ChapelOfAshProjectileCoverPlayModeTests.cs and Assets/NoSafeCircle/DoorPrototype/Tests/ChapelOfAshProjectileCoverPlayModeTests.cs.meta. Implement NoSafeCircle.DoorPrototype.Tests.ChapelOfAshProjectileCoverPlayModeTests as committed-scene conformance and Unity Editor Play Mode behavior tests. Directly launch a real RangedEnemyProjectile using Launch(Vector3 origin, Vector3 direction, RangedEnemyAttack owner), with a non-null enabled RangedEnemyAttack on a temporary GameObject. Use a temporary PlayerHealth target at the selected CA-W or CA-E pocket, with PlayerHealth on the exact GameObject carrying its enabled non-trigger Collider. Prove interception by a saved Chapel pew or column before player damage, plus an uncovered damage control. No assembled enemy prefab, encounter spawn, pre-fire line of sight, or enemy target acquisition is required. Keep all fixture helpers in this file."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "NSC-046 AC-001, AC-002 and VAL-001; Docs/Engineering/UNITY_TESTING_POLICY.md committed-artifact conformance and non-mutation rules",
+      "requirement": "Inside #if UNITY_EDITOR, load the exact committed Assets/Scenes/Rooms/ChapelOfAsh.unity using UnityEditor.SceneManagement.EditorSceneManager.LoadSceneInPlayMode with new UnityEngine.SceneManagement.LoadSceneParameters(UnityEngine.SceneManagement.LoadSceneMode.Additive). Scope all room lookup to the returned Scene and its Room_ChapelOfAsh root. Do not invoke a builder, reconstruct room geometry, save the scene, or edit ProjectSettings/EditorBuildSettings.asset. Outside the Editor, explicitly ignore the fixture with a reason; a player run cannot satisfy its completion gates. Keep one literal room-revision canary: ChapelOfAshLayout.MaximumZ must equal 54f for this contract revision, otherwise fail with a message naming NSC-046 and requiring inspection of the delivered room revision. Derive the remaining geometry from public layout members and validate the selected saved cover against that data, rather than duplicating the complete NSC-046 room-layout gate. An accepted later room revision requires review of this canary and the probe selection, not automatic adaptation or fixture repair of upstream content."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "NSC-046 AC-001, AC-002, VAL-001 and INT-004; NSC-030 VAL-005; GDD - Approved Five-Room Spatial Layout Blockout",
+      "requirement": "Derive pocket positions, room half, pew rows and column bounds from ChapelOfAshLayout.CoverPocketWest, CoverPocketEast, RoomBounds, PewFootprints, ColumnCenters, ColumnBounds and PewHeight. TWO CASES ARE REQUIRED AND BOTH ARE UNCONDITIONAL. Neither waits on a delivered production WispOrigin height, and there is no height-dependent branch switch: an earlier draft switched branches when the origin height exceeded PewHeight, which is wrong because a sphere at height 1.30 still clips a 1.25 pew top once its 0.08 radius is taken into account, so that switch would have selected the column case and then struck the east pew first. CASE A, low pew cover. Launch at 0.75 above the floor, at the Z of CoverPocketWest, from the central-aisle side of the matching east pew, 0.5 units - NSC-046's probe offset, not a wall constant - from its inner face, targeting CoverPocketWest. Under the approved layout this reproduces the NSC-046 geometric probe and is explicitly not an enemy-occupiable firing position. CASE B, high column cover. Launch at 2.0 above the floor from x = -1.0, z = CoverPocketEast.z, targeting CoverPocketEast, so the path crosses above the east pew row toward the C4 column identified from ColumnCenters and ColumnBounds at that pocket's Z. C4's west face is at x 12.5 (NSC-046 AC-002 places 1.5-unit columns centred at x +/-13.25), so contact occurs after about 13.42 units, inside the budget. AN ORIGIN ON THE WEST PEW'S AISLE SIDE, AT x -3, WOULD NEED ABOUT 15.42 UNITS AND COULD THEREFORE NEVER SATISFY THIS CRITERION under the delivered 15-unit budget; a prior draft specified exactly that and pre-labelled the resulting failure as expected, which is a gate that cannot pass. Together the two cases prove cover for every flight height whose swept sphere stays below the 2.5-unit column top, satisfying NSC-046 INT-004 on both sides of its conditional. OPEN CONTROLS, both through the verified-open Z [35,39] gap between pew rows, both well inside the budget and neither needing any lifetime extension: the low control runs from (3, 0.75, 37) to (-8, 0.75, 37), about 11 units; the high control runs from (-1, 2.0, 37) to (8, 2.0, 37), about 9 units, where the sphere bottom at 1.92 clears the 1.25 pew tops and the columns at Z 28 and Z 40 are clear of Z 37. NSC-046 VAL-001's reachable lateral-opening points are the targets. An earlier draft used the north edge of the next pew row north as the control origin; that path crosses C4's X range at about x 13.3 while reaching its top face, so the control was blocked by construction and needed about 19.8 units besides. Resolve the expected saved BoxCollider under the loaded room's GameplayGeometry by its layout bounds, require a unique enabled non-trigger match, and record its hierarchy path. Do not lower an origin, enlarge a collider, or substitute a different pocket to hide a failing branch. Unavailable cover at the specified height, or contact beyond the unmodified flight budget, is a reported failure. NSC-030 VAL-005 separately validates authored encounter-position linecasts."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "RangedEnemyProjectile serialized fields; RangedEnemyAttackPlayModeTests.SetSerialized; NSC-054 AC-008; NSC-055 AC-004; Docs/Engineering/UNITY_TESTING_POLICY.md",
+      "requirement": "Read speed, lifetimeSeconds, collisionRadius and damage from each temporary RangedEnemyProjectile using System.Reflection.FieldInfo with BindingFlags.NonPublic | BindingFlags.Instance, following RangedEnemyAttackPlayModeTests.SetSerialized. Fail clearly if the expected serialized fields cannot be read. Report all four observed values and their source. The NSC-054 component initializers in the audited snapshot are speed 3, lifetimeSeconds 5, collisionRadius 0.08 and damage 10, giving a 15-unit unobstructed travel budget; derive the executable budget from the observed fields rather than proving configuration by asserting a duplicated constant list. Required blocked shots retain all four observed component values and must reach the predicted cover contact strictly before expiry. For the uncovered control retain the same speed, collision radius, positive damage and player-collider configuration. EVERY CASE, BLOCKED AND OPEN, RETAINS ALL FOUR OBSERVED COMPONENT VALUES UNCHANGED. No reflection write of any kind is permitted before or after Launch. The open controls of AC-003 run about 11 and about 9 units against a 15-unit budget, so no lifetime extension is needed and none is allowed: an earlier draft permitted extending a control's lifetime and labelled the result a range-independent collision control, which was only necessary because that draft's control path was about 19.8 units and blocked by C4. Fixing the geometry removed the need for the special case, and the special case is withdrawn with it. No serialized writes are allowed after Launch. Do not edit RangedEnemyProjectile.cs or RangedEnemyAttack.cs to add accessors or another test seam. If safe testing requires such a change, use the Unity Testing Policy blocker/escalation format and stop the affected proof without changing production files."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "RangedEnemyProjectile.Tick, StopForInitialOverlap, ShouldIgnore and Stop; NSC-046 INT-004; Docs/Engineering/UNITY_TESTING_POLICY.md",
+      "requirement": "Separate the auxiliary geometric oracle from the production observation. After Physics.SyncTransforms, use Physics.OverlapSphere at the launch origin to reject initial qualifying overlap, and Physics.SphereCastAll over the horizontal launch-to-target segment with the observed collisionRadius, all layers and QueryTriggerInteraction.Ignore. Sort by distance and mirror the current ShouldIgnore rules for projectile and owner hierarchies, other projectile or EnemyTargetKnowledge hierarchies, and PlayerHealth-related colliders that do not carry PlayerHealth themselves; do not invoke or alter the private method. For the blocked path require the unique nearest qualifying hit to be the selected saved pew or column. For the control require the nearest qualifying hit to be the temporary target's exact health-bearing collider. Foreign-scene colliders or helpers must not provide the expected obstruction. Report this as a parallel geometric check, never as projectile proof. Then call production Launch and Tick synchronously without yielding between launch and termination, keeping the attack owner enabled. Demonstrate an intermediate IsFlying true position after positive travel and before expected contact. On the Tick that changes IsFlying to false, immediately capture the projectile position before yielding: it must match the oracle's RaycastHit.point projected to the flight height, on the expected collider face within a documented small tolerance. Production stores the surface point, not the swept sphere center. Report expected sweep distance, measured displacement, contact position and elapsed simulated flight time, and distinguish contact from initial overlap, owner cleanup and expiry. Do not write flight state, position after launch, ownership collections, health state or collision results."
+    },
+    {
+      "criterion_id": "AC-006",
+      "reference": "PlayerHealth.Damaged and CurrentHealth; RangedEnemyAttack.ResetAttack; Docs/Engineering/UNITY_TESTING_POLICY.md isolation, repeatability and non-mutation rules",
+      "requirement": "Subscribe to PlayerHealth.Damaged before launch and observe CurrentHealth. The blocked case has zero damage callbacks and unchanged health. The open control has exactly one callback for the observed positive damage and the matching health reduction, using a fresh target with enough health to avoid a clamped reduction. After capturing termination in the same frame, advance normal scene frames for a reported bounded observation interval at least as long as that case's configured projectile lifetime while continuing to observe the target; require destruction of the projectile and no additional damage. Never call Tick or access transform after destruction. Temporary owners must not autonomously launch additional shots. Use failure-safe cleanup that removes only fixture-owned actors and projectiles, unsubscribes events, unloads the loaded scene without saving through SceneManager.UnloadSceneAsync, and restores any changed test-global state. Do not use global deletion of unrelated projectiles or colliders. Compare the committed scene bytes before and after, preserve unexpected changes for inspection, and leave no repository changes. Do not edit an asmdef, project setting, prefab or production component."
     }
   ],
   "basis": "human_approved_room_construction_priority",
   "completion_gates": [
     {
       "gate_id": "VAL-001",
-      "reference": "NSC-029 VAL-002; GDD — Approved Five-Room Spatial Layout Blockout §§7 and 12; NSC-016 projectile-cover clarification",
-      "requirement": "In Play Mode, fire or directly trigger a real Ranged Enemy projectile along a representative path from the opposite half of the chapel toward CA-W or CA-E. Verify that an authored pew or column gameplay collider stops or despawns the projectile and that PlayerHealth.TakeDamage is not called through or after that cover. The enemy does not need a clear pre-fire line of sight for this test."
+      "reference": "AC-001 through AC-006; NSC-029 VAL-002; NSC-046 INT-004; NSC-054 INT-001",
+      "requirement": "This is the required blocked-shot behavioral outcome of the Editor Play Mode fixture execution recorded once by VAL-003. The revised committed room is loaded, the selected height/origin branch is identified, and the real projectile reaches the expected saved pew or column under its unmodified observed configuration strictly before expiry. Require no qualifying initial overlap, a positive expected swept distance greater than the contact tolerance, an observed intermediate moving state, and travelled displacement consistent with the expected surface contact. For the current low probe the expected sphere-center sweep is approximately 6.42 units and the saved surface contact is approximately X -3.5; derive assertions from the loaded collider and layout rather than hardcoding these examples. Record the collider identity, expected and observed contact, travel, configuration, timing, zero Damaged callbacks and unchanged health through interception and subsequent scene frames. Synthetic cover, a geometric query alone, initial-overlap termination, expiry, owner cleanup, an extended-lifetime blocked shot or unchanged health alone cannot pass. Both required cases of AC-003 must pass in the same run; neither alone satisfies this gate. No design decision is outstanding for this task: the range question belongs to NSC-030 VAL-005/VAL-007 and NSC-054 tuning, the height question is dissolved by AC-003 specifying 0.75 and 2.0 unconditionally, and GDD line 379 already permits the validation to choose one representative path. An earlier revision made completion wait on decisions in notes; that gating is withdrawn."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "AC-003 through AC-006; NSC-046 VAL-001; NSC-054 AC-003",
+      "requirement": "This is the required uncovered-control behavioral outcome of the same fixture execution recorded by VAL-003. With every saved room collider unchanged, the production projectile traverses the verified open path, reaches the exact health-bearing target collider before its configured expiry, produces exactly one positive Damaged callback and the matching health decrease, then produces no additional damage during subsequent scene frames. Report equal speed, collision radius, damage and player-collider configuration across cases, and explicitly report any different control lifetime. An extended control is range-independent collision and damage evidence only; it supplies no production-range or enemy-firing-position approval."
+    },
+    {
+      "gate_id": "VAL-003",
+      "reference": "AC-001 through AC-006; VAL-001 and VAL-002; Docs/Engineering/UNITY_TESTING_POLICY.md",
+      "requirement": "On the exact candidate run the Unity Editor Play Mode fixture NoSafeCircle.DoorPrototype.Tests.ChapelOfAshProjectileCoverPlayModeTests, then repeat the fixture to check cleanup and repeatability. Produce one consolidated evidence report containing both executions and the VAL-001/VAL-002 outcomes, not separate runs per behavioral gate. Both required cases must be discovered and executed in each run. Record the actual command and filter, Unity executable/version, candidate commit/tree, exit codes, external XML and log paths, parsed total/passed/failed/skipped/result, selected height and origin source, observed projectile configuration, and repository state before and after. Zero selected tests, ignored or skipped required Editor cases, unexpected errors, changed source-scene bytes, changed HEAD or any tracked or untracked repository mutation fail validation. Preserve failures without resetting or hiding changes. A non-Editor ignored run cannot satisfy this gate. State proof limits explicitly. A change to the prescribed probe, origin, height or expected behaviour still requires a revised contract before a passing completion claim. This gate no longer waits on any outstanding decision: the earlier wording made completion depend on Vincent's decisions being recorded, and every one of those is already settled by existing authority - GDD line 379, the NSC-054 notes, NSC-046 INT-004, and NSC-030 VAL-005/VAL-007."
     }
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 1,
-  "decomposition_reason": "One focused Play Mode test owns one validation responsibility and one exact test file.",
+  "contract_revision": 2,
+  "decomposition_reason": "One focused Play Mode fixture and its Unity metadata cover saved Chapel collision, two open damage controls, and repeatable cleanup. Nothing here needs splitting, and no outstanding design question remains to split around.",
   "decomposition_state": "concrete",
   "depends_on": [
     "NSC-054",
     "NSC-046"
   ],
-  "downstream_integration_obligations": [],
-  "exclusive_resources": [
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/ChapelOfAshProjectileCoverPlayModeTests.cs"
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "NSC-054 projectile ownership; NSC-055 AC-004; NSC-030 VAL-005; NSC-046 INT-004",
+      "requirement": "Hand the measured projectile budget, both selected origins, scene identity, collider contact and control configuration to NSC-054, NSC-055 and NSC-030. At the audited defaults - speed 3 and lifetimeSeconds 5, read from the components rather than assumed - the budget is 15 units: the low geometric probe reaches its pew within that budget, and the high column case at x -1.0 contacts C4's west face after about 13.42 units. NSC-054 owns projectile speed and lifetime as playtesting values, NSC-055 owns WispOrigin, and NSC-030 VAL-005/VAL-007 judge whether authored Lantern Wraith positions and the 15-unit flight budget suit the enlarged Chapel; NSC-072 changes none of them. A PRODUCTION WispOrigin MUST KEEP h + 0.08 BELOW THE 2.5-UNIT COLUMN TOP, or the high case's cover ceases to exist, and NSC-055 should report its delivered value so that can be checked rather than assumed. NSC-072 does not depend on NSC-055 and does not wait for it: both AC-003 cases are unconditional. NSC-030 VAL-005 linecasts do not themselves establish projectile reach, and a geometric probe must never be handed off as proof of assembled-prefab range or actual encounter firing."
+    },
+    {
+      "obligation_id": "INT-002",
+      "reference": "NSC-046; NSC-049 AC-001; NSC-081; NSC-084",
+      "requirement": "Provide the tested saved-scene identity, selected pocket and cover collider, trajectory, height, configuration and results to the room, composition and Chapel-dressing owners. NSC-049 retains enlarged-room boundary and D3 reconciliation; NSC-081 and NSC-084 retain dressing and content-integration checks. This authoring-scene result does not certify the later composed or dressed scene, visual readability, navigation, encounter balance or five-second door survival. Report later configuration or geometry differences to their owners without changing their files or making their future delivery a local NSC-072 gate."
+    }
   ],
-  "execution_reason": "One agent can add the focused Play Mode validation after the authored room and required gameplay system are delivered.",
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/ChapelOfAshProjectileCoverPlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/ChapelOfAshProjectileCoverPlayModeTests.cs.meta"
+  ],
+  "execution_reason": "After the existing dependencies deliver, one Unity programmer can implement the saved-scene direct-launch fixture using existing projectile methods and health events. No production prefab, encounter, dressing or composition write is needed. Both required cases are unconditional, so no part of the work waits on a design answer.",
   "execution_scope": "single_agent",
   "gdd_evidence": [
     {
-      "reference": "NSC-029 VAL-002; GDD — Approved Five-Room Spatial Layout Blockout §§7 and 12; NSC-016 projectile-cover clarification",
-      "requirement": "In Play Mode, fire or directly trigger a real Ranged Enemy projectile along a representative path from the opposite half of the chapel toward CA-W or CA-E. Verify that an authored pew or column gameplay collider stops or despawns the projectile and that PlayerHealth.TakeDamage is not called through or after that cover. The enemy does not need a clear pre-fire line of sight for this test."
+      "reference": "GDD - Approved Five-Room Spatial Layout Blockout; NSC-029 VAL-002",
+      "requirement": "At least one designated Chapel side-cover pocket must be occluded from a representative opposite-half ranged path by authored pew or column gameplay collision. NSC-072 retains real projectile-collision proof; a geometry ray or synthetic cover alone does not satisfy it."
+    },
+    {
+      "reference": "GDD - Enemy Detection, Pursuit, and Target Loss; NSC-054 INT-001",
+      "requirement": "Cover does not make an enemy forget the wizard. Target loss remains distance-based with last-known-position search. The direct-launch validation does not require clear pre-fire line of sight or add target-acquisition behavior."
+    },
+    {
+      "reference": "GDD - Approved Five-Room Spatial Layout Blockout; NSC-046 AC-001, AC-002 and INT-004",
+      "requirement": "Accepted room revisions in the owning task contract supersede baseline geometry within the approved size envelope. NSC-072 consumes the revised committed Chapel and respects its pew-or-column height conditional; it does not resize, rebuild or repair the room."
     }
   ],
   "id": "NSC-072",
   "kind": "implementation",
-  "notes": "This follow-up validates committed room geometry; it does not edit the room scene, its builder, or its layout data.",
+  "notes": "Bounded GER refinement; no execution, readiness or delivery is claimed. NO DESIGN DECISION IS OUTSTANDING FOR THIS TASK, and an earlier revision was wrong to say otherwise - it gated completion on three questions for Vincent, and a fresh re-audit found each already settled by existing authority. The budget-versus-representative-path question belongs to NSC-030 VAL-005/VAL-007 and NSC-054 tuning. The absent production WispOrigin question is dissolved rather than answered: AC-003 now specifies 0.75 and 2.0 unconditionally, so nothing waits on NSC-055. The non-enemy-occupiable geometric origin is permitted by GDD line 379, which lets the validation choose one representative path, with encounter-position geometry checked separately by NSC-030 VAL-005. FOR AWARENESS AND NOT BLOCKING: at speed 3 and lifetime 5 a Lantern Wraith projectile flies at most 15 units while the enlarged Chapel is 36 by 34, so whether that range feels right is a playtest judgement for NSC-030 VAL-007 and NSC-054 tuning, not a precondition here. The prescribed low origin is a geometry probe, not an authored encounter spawn. PRECONDITION, not a contract defect: NSC-046 has not been delivered, the snapshot's ChapelOfAshLayout.MaximumZ is still 42f and the saved scene still carries baseline collision objects and cube visuals, so the fixture's canary will correctly fail until NSC-046 lands - THE FIXTURE MUST NEVER ADAPT ITSELF TO THE BASELINE ROOM. This task writes only its test file and metadata; it does not edit scenes, builders, layout, catalog, runtime code, prefab assets, art, asmdefs, packages or project settings. Missing or stale revised Chapel content is reported to NSC-046.",
   "parent": "NSC-029",
   "provenance": {
     "origin": "room_construction_validation_split",
     "approved_by": "Vincent",
     "approved_at_utc_date": "2026-09-12",
     "source_task_id": "NSC-046",
-    "preserved_gate_id": "VAL-001"
+    "preserved_gate_id": "VAL-001",
+    "contract_followups": [
+      {
+        "date": "2026-09-22",
+        "reason": "GER round 20260922-120315: round 03 proposal with the re-audit's six required changes, plus five fabricated GDD anchors replaced with real section names",
+        "source_head": "4ab2f030f21d4a9f2792481e9fff0cc1fcdc623d",
+        "previous_contract_revision": 1,
+        "base_contract_sha256": "19e862e921cc394d97ee8f36a73ff80d08e2e1e52e204875c8652231b86445c3",
+        "revised_contract_sha256": "4c259807d2bc0a73e01302c8b2bdb2917a6a0c14877d480aba082b7abc328c8d",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      }
+    ]
   },
   "reconciliation_key": "chapel-of-ash-projectile-cover-validation",
   "repository_evidence_at_bootstrap": [],
