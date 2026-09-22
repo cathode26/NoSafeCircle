@@ -103,7 +103,8 @@
         "victory-trigger-overlay-integration",
         "navmesh-agent-configuration-foundation",
         "spectral-decoy-spell",
-        "doorway-opening-seal-and-door-art-binding"
+        "doorway-opening-seal-and-door-art-binding",
+        "world-sprite-sorting-layer-adoption"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
       "work_ids": [
@@ -134,7 +135,8 @@
         "NSC-086",
         "NSC-089",
         "NSC-088",
-        "NSC-097"
+        "NSC-097",
+        "NSC-100"
       ]
     },
     {
@@ -432,12 +434,14 @@
     {
       "reconciliation_keys": [
         "five-room-continuity-door-sequence",
-        "independent-room-scene-composition"
+        "independent-room-scene-composition",
+        "world-sprite-sorting-layer-adoption"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneComposer.cs",
       "work_ids": [
         "NSC-049",
-        "NSC-069"
+        "NSC-069",
+        "NSC-100"
       ]
     },
     {
@@ -1310,6 +1314,28 @@
       "work_ids": [
         "NSC-015",
         "NSC-099"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "independent-room-scene-composition",
+        "world-sprite-sorting-layer-adoption"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/World/RoomSceneComposerTests.cs",
+      "work_ids": [
+        "NSC-069",
+        "NSC-100"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "independent-room-scene-composition",
+        "world-sprite-sorting-layer-adoption"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/World/RoomSceneContractTests.cs",
+      "work_ids": [
+        "NSC-069",
+        "NSC-100"
       ]
     }
   ],

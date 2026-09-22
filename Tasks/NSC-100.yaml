@@ -1,0 +1,115 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "Vincent, 2026-09-17: \"Create a new Sorting layer\"; NSC-069 provenance.design_decisions and INT-003",
+      "requirement": "Repoint DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName (Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs:56) from \"Default\" to \"WorldSprites\". Before repointing, verify that ProjectSettings/TagManager.asset already declares a sorting layer named \"WorldSprites\" and fail the build/validation step if it does not; do not add, renumber, or otherwise edit the Default (uniqueID 0) or WorldSprites (uniqueID 1043912875) sorting-layer entries in ProjectSettings/TagManager.asset."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "Vincent, 2026-09-17: \"Create a new Sorting layer\"",
+      "requirement": "After the repoint, every builder-authored SpriteRenderer and TilemapRenderer that reads WorldSpriteSortingLayerName moves onto the WorldSprites sorting layer, including the background-band FloorTilemap and ArchitecturalTilemap created by CreateVisualOnlyTilemap (Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs, background floor call at :369 and architectural-border call at :398) as well as every world-sprite SpriteRenderer produced or repaired through ApplyWorldSpriteRendererConvention and RepairWorldSpritePrefabConvention (:916-925, :927-939). The background band renderers move layers along with everything else; only their sortingOrder values stay unchanged, per AC-004."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "Vincent, 2026-09-17: \"Create a new Sorting layer\"",
+      "requirement": "Rename and extend RoomSceneComposer.ValidateRendererSortingLayer (Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneComposer.cs:338-359) to a method whose name reflects that it validates draw order as well as layer, for example ValidateRendererSortingLayerAndOrder. For every SpriteRenderer and TilemapRenderer found under RoomValidationResult.VisualsRoot or RoomValidationResult.GameplayGeometryRoot (:49-50, called at :334-335), require both sortingLayerName == DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName and sortingOrder == 0, and report a validation error naming the renderer when either check fails. Apply this as one flat rule with no per-category inference: RoomSceneComposer recognizes only VisualsRoot and GameplayGeometryRoot, and neither category root holds background-band content, so a renderer at sortingOrder 50 is an error there and a renderer at sortingOrder -100 is an equally reportable error there, even though -100 is the legal BackgroundGroundSortingOrder value used elsewhere by the global scene builder."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "NSC-039 approved design; GER Agent scope boundary for this task",
+      "requirement": "Do not change the numeric sorting-order band values themselves. WorldSpriteSortingOrder (0), BackgroundGroundSortingOrder (-100), and BackgroundArchitecturalBorderSortingOrder (-90) in DoorPrototypeSceneBuilder.cs (:57-59) remain exactly as NSC-039 defined them; this task only validates that VisualsRoot/GameplayGeometryRoot content is at order 0 and only adopts the new sorting layer, it does not retune any band value."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "NSC-069 INT-003 and revision 8/9 notes; discharges NSC-069 INT-002",
+      "requirement": "Add an EditMode test in the RoomSceneCompositionFoundationTests partial class (declared across RoomSceneComposerTests.cs and RoomSceneContractTests.cs) proving that a room whose Visuals or GameplayGeometry SpriteRenderer or TilemapRenderer is authored on a sorting layer other than WorldSprites fails RoomSceneComposer composition/validation with a reported error. Add a second, distinct negative case for sorting order: a Visuals or GameplayGeometry renderer authored at sortingOrder 50 (a value that is not part of the -100/-90/0 band and is not a legal value in these two categories under AC-003) must also fail validation with a reported error. These two cases restore the negative sorting-layer case removed by NSC-069 revision 8 (now provable because a second sorting layer, WorldSprites, exists) and add the sorting-order counterpart. Each negative case must assert the SPECIFIC validation error, not merely that composition failed: the reported message must name the offending renderer and the rule it broke, in the form RoomSceneComposer.AddError already emits (for the layer case, \"SpriteRenderer '<name>' must use the shared '<layer>' sorting layer.\"). A test that asserts only failure passes when the room is rejected earlier for an unrelated reason such as a missing door anchor or a wrong root name, and so proves nothing about this gate."
+    },
+    {
+      "criterion_id": "AC-006",
+      "reference": "DoorPrototypeSceneBuilder.ApplyWorldSpriteRendererConvention comment (:916-925); Vincent, 2026-09-17: \"Create a new Sorting layer\"",
+      "requirement": "Extend RoomSceneComposer's validation so that every SpriteRenderer (not TilemapRenderer, which has no spriteSortPoint property) under VisualsRoot or GameplayGeometryRoot has spriteSortPoint == SpriteSortPoint.Pivot, reporting a validation error naming the renderer when it does not. Add a matching EditMode negative-case test in RoomSceneCompositionFoundationTests proving that a Visuals or GameplayGeometry SpriteRenderer left at the default SpriteSortPoint.Center fails validation with a reported error. Each negative case must assert the SPECIFIC validation error, not merely that composition failed: the reported message must name the offending renderer and the rule it broke, in the form RoomSceneComposer.AddError already emits (for the layer case, \"SpriteRenderer '<name>' must use the shared '<layer>' sorting layer.\"). A test that asserts only failure passes when the room is rejected earlier for an unrelated reason such as a missing door anchor or a wrong root name, and so proves nothing about this gate."
+    }
+  ],
+  "basis": "human_approved_engineering_architecture",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "Authoritative EditMode composition-foundation validation, extended for this task",
+      "requirement": "RoomSceneComposerTests.cs and RoomSceneContractTests.cs (the single partial-class fixture NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests) pass, including the new negative cases for: a renderer on a non-WorldSprites sorting layer, a renderer at a non-zero sorting order (50) under VisualsRoot/GameplayGeometryRoot, and a SpriteRenderer left at spriteSortPoint.Center instead of Pivot. Existing catalog, contract, and composition assertions in that fixture keep passing unchanged."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "ProjectSettings sorting-layer verification",
+      "requirement": "An automated check confirms ProjectSettings/TagManager.asset declares a sorting layer named \"WorldSprites\" (uniqueID 1043912875) before DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName is treated as valid, and fails clearly if that layer is absent, renamed, or renumbered. The same check confirms the Default sorting layer (uniqueID 0) is untouched."
+    },
+    {
+      "gate_id": "VAL-003",
+      "reference": "Builder idempotence and prefab-repair migration evidence",
+      "requirement": "A build/repair pass over existing world-sprite Prefab assets through RepairWorldSpritePrefabConvention moves their SpriteRenderer.sortingLayerName from Default to WorldSprites (sortingOrder and spriteSortPoint already conformant), and a second consecutive pass makes no further change, proving the repair converges and is idempotent."
+    },
+    {
+      "gate_id": "VAL-004",
+      "reference": "Developer visual regression review",
+      "requirement": "Vincent opens Assets/Scenes/DoorPrototype.unity and confirms the existing prototype still renders with correct draw order and remains playable after the sorting-layer repoint, with no renderer visibly misordered relative to its pre-change appearance."
+    }
+  ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "The layer repoint, the composer's flat sorting-order and spriteSortPoint validation, and their EditMode negative-case tests are one self-contained change confined to three source files and the two existing partial-class test files; no further split is warranted.",
+  "decomposition_state": "concrete",
+  "depends_on": [],
+  "downstream_integration_obligations": [],
+  "exclusive_resources": [
+    "repo-file:ProjectSettings/TagManager.asset",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneComposer.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/World/RoomSceneComposerTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/World/RoomSceneContractTests.cs"
+  ],
+  "execution_reason": "One agent can repoint the shared world-sprite sorting-layer constant, verify the already-declared WorldSprites sorting layer in ProjectSettings/TagManager.asset, extend RoomSceneComposer's draw-order validation, and add the matching EditMode negative-case tests in one bounded pass.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "GDD — Environment Presentation and Authoring Direction",
+      "requirement": "The wizard, enemies, taller props, interactive doors, obstacles, decorative set pieces, and other independently sorted objects use world-space SpriteRenderers and prefabs that follow the same isometric sorting conventions as other world-space SpriteRenderers; this task keeps that shared convention machine-checkable once a dedicated sorting layer exists."
+    }
+  ],
+  "id": "NSC-100",
+  "kind": "implementation",
+  "notes": "This task adopts the WorldSprites sorting layer that already exists as an orphan entry in ProjectSettings/TagManager.asset (uniqueID 1043912875) but is not yet referenced by any code; it does not create the layer, per AC-001. Repointing WorldSpriteSortingLayerName will cause RepairWorldSpritePrefabConvention to silently migrate existing world-sprite Prefab assets onto the new layer on their next repair pass; that migration is intended (VAL-003), and is exactly why RoomSceneComposer must fail loudly on a mismatch rather than repair one. AC-004 restates that the -100/-90/0 sorting-order band values are NSC-039's design and are out of scope to retune. AC-005 discharges NSC-069's downstream_integration_obligations INT-002 (formerly INT-003) by writing the negative sorting-layer case NSC-069 revision 8 removed as unwritable; NSC-069 itself is not edited by this task. A cascade grep for the literal sorting-layer name \"Default\" across Tasks/ and Docs/ found NSC-044 through NSC-048 and NSC-069 as expected, plus one additional active task, NSC-075, whose AC text quotes the current shared band as 'the shared sortingLayerName \"Default\" and sortingOrder 0'; that task's prose will go stale once this task lands and is flagged here for the GER Agent rather than edited, since NSC-075 is outside this task's exclusive_resources and outside the named cascade.",
+  "parent": "NSC-022",
+  "provenance": {
+    "graph_delta_plan_id": null,
+    "origin": "ger_agent_contract_request",
+    "parent_contract_revision": null,
+    "parent_contract_sha256": null,
+    "parent_task_id": null,
+    "task_design_ger": "Vincent approved a task to make the world-sprite sorting convention real (2026-09-20, \"Yes\"). GER Agent design brief nsc100-sorting-layer-design-20260920.md, re-measured at main 0f11a9bfa: ProjectSettings/TagManager.asset already declares WorldSprites (uniqueID 1043912875) as an orphan, DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName is still \"Default\" so RoomSceneComposer's layer check is vacuous, and the composer reads neither sortingOrder nor spriteSortPoint. NSC-069 INT-002 names this task as the one that restores the negative case revision 8 removed.",
+    "contract_followups": []
+  },
+  "reconciliation_key": "world-sprite-sorting-layer-adoption",
+  "repository_evidence_at_bootstrap": [
+    {
+      "path": "ProjectSettings/TagManager.asset",
+      "evidence_type": "config",
+      "observation": "m_SortingLayers already declares Default (uniqueID 0) and WorldSprites (uniqueID 1043912875); no code references WorldSprites yet, so it is an orphan entry this task adopts rather than creates."
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+      "evidence_type": "code",
+      "observation": "WorldSpriteSortingLayerName (:56) is hard-coded to \"Default\"; ApplyWorldSpriteRendererConvention/RepairWorldSpritePrefabConvention (:916-939) and CreateVisualOnlyTilemap (:402-427, used for the background band at :369 and :398) all read this one constant, so repointing it is a single-point change."
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneComposer.cs",
+      "evidence_type": "code",
+      "observation": "ValidateRendererSortingLayer (:338-359) compares sortingLayerName only, against the same constant; because that constant currently equals every renderer's default layer, the check is vacuous until a second layer exists, and it reads neither sortingOrder nor spriteSortPoint."
+    }
+  ],
+  "repository_state_at_bootstrap": "partial",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "World Sprite Sorting Layer Adoption and Draw-Order Band Validation",
+  "type": "world-authoring-foundation"
+}

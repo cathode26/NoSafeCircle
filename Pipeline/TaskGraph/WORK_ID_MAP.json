@@ -97,7 +97,8 @@
     "wizard-128-source-integration-switch": "NSC-096",
     "doorway-opening-seal-and-door-art-binding": "NSC-097",
     "fireball-second-mint": "NSC-098",
-    "enemy-death-look-art-integration": "NSC-099"
+    "enemy-death-look-art-integration": "NSC-099",
+    "world-sprite-sorting-layer-adoption": "NSC-100"
   },
   "reconciliation_run_id": "20260821T193541Z-998ee7b5",
   "schema_version": "1.0",
