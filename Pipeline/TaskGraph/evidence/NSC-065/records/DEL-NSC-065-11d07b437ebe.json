@@ -1,0 +1,170 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "2d5c8a1dc5d4bba469fb158b27967717309e5b7ad6f8ab4a38fbbd05ad583c9f"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "6f271b326d813ad01f87f238bc9408f136dd6e45",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source/door_bonestone_sealed_S_000.png",
+      "role": "selected_door_source_art"
+    },
+    {
+      "blob_sha": "c40b8da3d78deeaebcd7196e60deab4af5eb85c8",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source/door_bonestone_sealed_S_000.png.meta",
+      "role": "stable_unity_sprite_identity"
+    },
+    {
+      "blob_sha": "bf2e94135c25c8bc23ac22f5127663adc31f699f",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source/door_bonestone_opening_S_000.png",
+      "role": "selected_door_source_art"
+    },
+    {
+      "blob_sha": "a10d90bbb8cf0cd2237a8447265bb6f1a6d27181",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source/door_bonestone_opening_S_000.png.meta",
+      "role": "stable_unity_sprite_identity"
+    },
+    {
+      "blob_sha": "6929c16cc468d2b534114e0877bf58d3d9255877",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source/door_bonestone_open_S_000.png",
+      "role": "selected_door_source_art"
+    },
+    {
+      "blob_sha": "55dbe5d47a9a57d95fcc06f7596773b7d332b92a",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source/door_bonestone_open_S_000.png.meta",
+      "role": "stable_unity_sprite_identity"
+    },
+    {
+      "blob_sha": "e2596d31a08f3ff5be3ef06d7da08731f57e9e67",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source/door_bonestone_locked_S_000.png",
+      "role": "selected_door_source_art"
+    },
+    {
+      "blob_sha": "5d71caa2c9695f7c497e7687ea5d4382841275c6",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source/door_bonestone_locked_S_000.png.meta",
+      "role": "stable_unity_sprite_identity"
+    },
+    {
+      "blob_sha": "73217894f5b03c0b37a64254622f966e2384420e",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source/door_bonestone_damaged_S_000.png",
+      "role": "selected_door_source_art"
+    },
+    {
+      "blob_sha": "1576769a7090eca46c0a7b53ac6264d1fbe30789",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source/door_bonestone_damaged_S_000.png.meta",
+      "role": "stable_unity_sprite_identity"
+    },
+    {
+      "blob_sha": "36520a5d10086de98dc0020f75043c6ee5525ff3",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source/door_bonestone_broken_S_000.png",
+      "role": "selected_door_source_art"
+    },
+    {
+      "blob_sha": "8fa7d724882fa649e07d69d8c852f89e6b94aa45",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source/door_bonestone_broken_S_000.png.meta",
+      "role": "stable_unity_sprite_identity"
+    },
+    {
+      "blob_sha": "d3210d792f0a712751698ccaed62b86347f8f1d1",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source/door_bonestone_final_S_000.png",
+      "role": "selected_door_source_art"
+    },
+    {
+      "blob_sha": "c17e4ed1773d9dc854394d65f7a7ea66a05ea732",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source/door_bonestone_final_S_000.png.meta",
+      "role": "stable_unity_sprite_identity"
+    },
+    {
+      "blob_sha": "1bd6106e16b06fea4af8ee5fa563ae594a89e09b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source.meta",
+      "role": "door_source_provenance_or_review_reference"
+    },
+    {
+      "blob_sha": "65f75135cbee0f1f262b7e138c468d5ee1760197",
+      "path": "Docs/Art/Doors/PIXELLAB_GENERATION.md",
+      "role": "door_source_provenance_or_review_reference"
+    },
+    {
+      "blob_sha": "a7fb707a6e06387c06ff67f87a2e3898cfbdbd63",
+      "path": "Docs/Art/Doors/generation-provenance.json",
+      "role": "door_source_provenance_or_review_reference"
+    },
+    {
+      "blob_sha": "9120473efc69113990002ab4cae8f8222fd48ca3",
+      "path": "Docs/Art/Doors/inventory.json",
+      "role": "door_source_provenance_or_review_reference"
+    },
+    {
+      "blob_sha": "8444cc83e983cd8b025ba4105646bd9b24a73f84",
+      "path": "Docs/Art/Doors/inventory.md",
+      "role": "door_source_provenance_or_review_reference"
+    },
+    {
+      "blob_sha": "38d01b289d5fc2bdc311e2e5e984cd20dac83692",
+      "path": "Docs/Art/Doors/contact_sheet.png",
+      "role": "door_source_provenance_or_review_reference"
+    }
+  ],
+  "delivery": {
+    "base_commit": "8d485ebdd0d1f1d7355e1ff44dcf4d6db2d725d1",
+    "candidate_commit": "a1c483395933b1e6e2117a139eb2ddd20b98fdba",
+    "integrated_commit": "11d07b437ebe7d9d372d58fcf91d57ee24e5186b",
+    "integrated_tree": "c3aae97cf1acdd22d08f739489b107afc9a26ccc"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "5e69c3bdb03fb67e84c1bfaf2f1d53db8728686b",
+          "path": "Pipeline/TaskGraph/evidence/NSC-065/artifacts/NSC065RevalInventoryScript-11d07b437ebe.py"
+        },
+        {
+          "blob_sha": "63af938aad8ae482a377d3e102d07842edcb4855",
+          "path": "Pipeline/TaskGraph/evidence/NSC-065/artifacts/NSC065Revalidation-11d07b437ebe.md"
+        },
+        {
+          "blob_sha": "484e31c821a4c9fbdb7b0d6c6324f70b6abf36f4",
+          "path": "Pipeline/TaskGraph/evidence/NSC-065/artifacts/NSC065DoorMetaVerifySevenRerun-11d07b437ebe.log"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "PASS, carried forward and re-run at the validated commit. It examines pixels, and the pixels did not move: all seven door PNGs are byte-identical to the prior DEL-NSC-065-03affab6b822 record. nsc065_reval.py's re-run inventory (in REVALIDATION.md) found one canvas (128x128) and one drawn bounding box (6, 4, 122, 121) shared by all seven states, transparent backgrounds throughout, 7 of 7 required states present including the final-door variant, and no ambiguous filenames. Independently, door_meta_verify_seven_rerun_20260922.log shows a real Unity-importer load of all seven states (grep -c DOOR_META_VERIFY = 8, SUMMARY loaded=7/7), confirming pixelsPerUnit=64, pivot=(64.00, 7.00), filterMode=Point post-fix. Only the seven .meta files changed (Art Director's 2026-09-22 import-settings fix under Vincent's rule that art is not delivered until its .meta imports it as the thing it is meant to be); the GDD canon moved 5d9aa63a...->2d5c8a1d... in commit b7e46c320, a Lower Vault line about painted platforms versus walkable collision that does not touch door art direction.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "63af938aad8ae482a377d3e102d07842edcb4855",
+          "path": "Pipeline/TaskGraph/evidence/NSC-065/artifacts/NSC065Revalidation-11d07b437ebe.md"
+        },
+        {
+          "blob_sha": "792eac918900a6742eb7ce56ca2ee56e0cfa905d",
+          "path": "Pipeline/TaskGraph/evidence/NSC-065/artifacts/NSC065RevalContactSheet3x-11d07b437ebe.png"
+        }
+      ],
+      "gate_id": "VAL-002",
+      "notes": "PASS, but re-done, not carried forward, because it was invalidated by the same change that fixed the defect it exists to catch. Gameplay scale is canvas divided by pixels-per-unit, and PPU moved 100->64 on all seven states, so the gate measured precisely the thing that changed. At PPU 100 the wizard stood at 69% of the door's drawn height (the recorded pass); at PPU 64, measured now, it is 44%. The 69% figure is the 'large wizard, small door' defect Vincent reported from his own 2026-09-17 playtest, so VAL-002 had previously passed over the defect it was written to catch, and the change that invalidated the gate is the change that fixed it. Readability of all seven states was judged from doors_all_states_3x.png: one key light, one arch, one base footprint held across sealed/opening/open/locked/damaged/broken/final, with locked and final each carrying an unmistakable distinguishing feature (bone crossbar; gold frame glow and skull emblem) on the identical footprint, satisfying AC-002 and AC-003. No aperture width was measured: thresholding dark opaque pixels to isolate the open state's aperture returned the whole drawn figure because the family is dark throughout, so that number is not claimed; the opening-width judgement rests on the identical (6,4,122,121) bounding box across all seven states and on visual inspection only. Vincent's remark that the door art 'looks good' while viewing doors_all_states_3x.png is not recorded as approval for this assistant-only gate. This gate's coherence half is expected to go stale again when NSC-096 moves the wizard to PixelLab128 at 64 PPU and changes its world height and therefore the 44% figure; that is anticipated, not a regression.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "",
+    "decision": "not_required",
+    "notes": "NSC-065's completion_gates (VAL-001, VAL-002) are both assistant-review gates per the task contract; no human_approval is required or claimed. Vincent's in-session remark that the door art looked good while viewing doors_all_states_3x.png is not a gate approval and is not recorded as one.",
+    "required": false
+  },
+  "record_id": "DEL-NSC-065-11d07b437ebe",
+  "record_type": "delivery",
+  "recorded_at": "2026-09-22T09:11:57Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-065.yaml",
+    "revision": 1,
+    "sha256": "5928c8de6f717091c3746de8e762a01b31f7e452973bc292b8ad60aa5a64a364"
+  },
+  "task_id": "NSC-065",
+  "validated_state": {
+    "commit": "11d07b437ebe7d9d372d58fcf91d57ee24e5186b",
+    "tree": "c3aae97cf1acdd22d08f739489b107afc9a26ccc"
+  }
+}
