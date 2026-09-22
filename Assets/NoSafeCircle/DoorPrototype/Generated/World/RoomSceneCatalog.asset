@@ -23,31 +23,31 @@ MonoBehaviour:
   - roomId: 1
     sceneAssetPath: Assets/Scenes/Rooms/BoneArchive.unity
     bounds:
-      MinX: -10
-      MaxX: 10
+      MinX: -12
+      MaxX: 12
       MinZ: 0
       MaxZ: 20
   - roomId: 2
     sceneAssetPath: Assets/Scenes/Rooms/ChapelOfAsh.unity
     bounds:
-      MinX: -12
-      MaxX: 12
+      MinX: -18
+      MaxX: 18
       MinZ: 20
-      MaxZ: 42
+      MaxZ: 54
   - roomId: 3
     sceneAssetPath: Assets/Scenes/Rooms/LowerVault.unity
     bounds:
-      MinX: -11
-      MaxX: 11
-      MinZ: 42
-      MaxZ: 64
+      MinX: -20
+      MaxX: 20
+      MinZ: 54
+      MaxZ: 76
   - roomId: 4
     sceneAssetPath: Assets/Scenes/Rooms/FinalRoom.unity
     bounds:
-      MinX: -12
-      MaxX: 12
-      MinZ: 64
-      MaxZ: 86
+      MinX: -15
+      MaxX: 15
+      MinZ: 76
+      MaxZ: 104
   doors:
   - doorId: 0
     exitRoom: 0
@@ -65,17 +65,17 @@ MonoBehaviour:
     exitRoom: 2
     isFinal: 0
     entryRoom: 3
-    expectedGroundCenter: {x: -6, y: 42}
+    expectedGroundCenter: {x: -8, y: 54}
     openingWidth: 3
   - doorId: 3
     exitRoom: 3
     isFinal: 0
     entryRoom: 4
-    expectedGroundCenter: {x: 4, y: 64}
+    expectedGroundCenter: {x: 4, y: 76}
     openingWidth: 3
   - doorId: 4
     exitRoom: 4
     isFinal: 1
     entryRoom: 4
-    expectedGroundCenter: {x: 0, y: 86}
+    expectedGroundCenter: {x: 0, y: 104}
     openingWidth: 3
