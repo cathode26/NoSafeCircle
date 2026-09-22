@@ -12,6 +12,7 @@ import sys
 import tempfile
 import threading
 import time
+import unicodedata
 from datetime import datetime, timezone
 from typing import Any, Callable, Mapping
 
@@ -221,6 +222,101 @@ def provider_configuration(provider_name: str) -> tuple[str, RuntimeConfiguratio
     except ContractValidationError as exc:
         raise DecompositionPreflightError(f"invalid provider model configuration: {exc}") from exc
     return key, configuration
+
+
+# ---------------------------------------------------------------------------
+# The model selection a container receives.
+#
+# `provider_configuration` above runs on whichever side of the boundary calls
+# it. Inside the container it sees none of the host's environment, so it
+# returns the defaults - which is correct behaviour and was the whole bug: a
+# launcher that forwarded no model let the container answer for itself, and the
+# run reported success at a model nobody chose. Both launchers resolve the
+# models on the host and pin them, and both do it through here so their answers
+# cannot drift apart.
+# ---------------------------------------------------------------------------
+
+PROVIDER_MODEL_ENVIRONMENT = {
+    "claude": "NSC_CLAUDE_MODEL",
+    "codex": "NSC_OPENAI_CODEX_MODEL",
+}
+
+MODEL_ENVIRONMENT_NAMES = tuple(sorted(PROVIDER_MODEL_ENVIRONMENT.values()))
+
+# Well-formedness, NOT a policy gate on which models are allowed.
+#
+# The first version of this was `^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`, which a
+# review caught: it also gates the POOLED path, which is live and carries every
+# run today, and it rejects real model id forms - `claude-opus-5[1m]`,
+# `anthropic/claude-opus-5`, `claude-opus-5@20260801`. Worse, it would have
+# rejected them *after* the leases were reserved, stranding the reservation.
+#
+# The character check bought nothing: the value goes into an argv LIST after
+# `NAME=`, so there is no shell to inject into and a leading dash cannot be
+# read as a flag. What is genuinely unusable is a non-string, an empty string,
+# something with a newline or a tab in it, or untrimmed whitespace - all of
+# which would break the container rather than express a model choice.
+_MAX_MODEL_LENGTH = 256
+
+
+def _model_value_problem(value) -> str:
+    if type(value) is not str:
+        return "is not a string"
+    if value != value.strip():
+        return "has leading or trailing whitespace"
+    if any(character.isspace() for character in value):
+        return "contains whitespace"
+    # Cc and Cf, not just C0 and DEL: a review pointed out the first version
+    # accepted U+009B (the 8-bit CSI escape), U+200B, U+202E and a leading
+    # U+FEFF, so the comment claiming "control character" was not true. The
+    # harm was only ever a misleading log line - docker gets one exact argv
+    # element either way - but a rule should mean what it says.
+    if any(unicodedata.category(character) in ("Cc", "Cf") for character in value):
+        return "contains a control character"
+    if len(value) > _MAX_MODEL_LENGTH:
+        return f"is longer than {_MAX_MODEL_LENGTH} characters"
+    return ""
+
+
+def resolve_provider_model_environment(provider_order) -> dict:
+    """The model each named provider resolves to on this host.
+
+    Only the providers actually in the run are named: telling a container about
+    a provider it is not using invites it to resolve a route nobody asked for.
+    """
+    environment: dict = {}
+    for provider in dict.fromkeys(provider_order):
+        name = PROVIDER_MODEL_ENVIRONMENT.get(provider)
+        if name is None:
+            continue
+        key, configuration = provider_configuration(provider)
+        entry = configuration.to_dict()["provider_configurations"][key]
+        environment[name] = str(entry["models"]["high_reasoning"])
+    return environment
+
+
+def model_environment_arguments(environment) -> list:
+    """Render ``--env NAME=value`` for the model selection, or refuse.
+
+    ``--env`` is a hole into the container, so this is an allow-list of exactly
+    the two model variables and not a general passthrough. Empty values are
+    dropped rather than forwarded: ``NSC_CLAUDE_MODEL=`` would override the
+    container's own default with the empty string, which is worse than silence.
+    """
+    arguments: list = []
+    for name, value in sorted(dict(environment).items()):
+        if name not in MODEL_ENVIRONMENT_NAMES:
+            raise ValueError(
+                "only the model environment variables "
+                f"{', '.join(MODEL_ENVIRONMENT_NAMES)} may be injected, not {name!r}"
+            )
+        if value is None or value == "":
+            continue
+        problem = _model_value_problem(value)
+        if problem:
+            raise ValueError(f"model value for {name} {problem}: {value!r}")
+        arguments.extend(("--env", f"{name}={value}"))
+    return arguments
 
 
 def _real_provider_bundle(

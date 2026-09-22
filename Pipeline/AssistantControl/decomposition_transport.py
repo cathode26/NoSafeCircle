@@ -15,6 +15,10 @@ for _module_root in (ROOT, ROOT / "Pipeline", ROOT / "Pipeline" / "TaskGraph"):
         sys.path.insert(0, str(_module_root))
 
 from TaskDecomposition.round_robin_decomposition import same_provider_role_pair  # noqa: E402
+from TaskDecomposition.live_decomposition import (  # noqa: E402
+    MODEL_ENVIRONMENT_NAMES,
+    model_environment_arguments,
+)
 
 
 _SAFE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
@@ -23,10 +27,16 @@ _SAFE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 # the transport does not import because that module loads the whole scheduler.
 POOL_LEASE_MOUNT = "/nsc-pool/decomposition-leases.json"
 
+# The allow-list and the renderer live with `provider_configuration`, which is
+# what resolves the models, so this transport and the production launcher
+# cannot answer differently.
+_model_environment_arguments = model_environment_arguments
+
 
 def build_compose_command(
     *, task_id: str, project: str, providers: str, max_calls: int,
     run_id: str, pool_assignment: Mapping[str, Any] | None = None,
+    provider_environment: Mapping[str, Any] | None = None,
 ) -> tuple[str, ...]:
     """Build the only decomposition transport AssistantControl supports.
 
@@ -56,6 +66,14 @@ def build_compose_command(
             "Assistant decomposition by one provider requires the host's role-session "
             "lease reservation; without it author and reviewer are one conversation"
         )
+    if pool_assignment is not None and provider_environment is not None:
+        # A pooled run's model is part of the identity its leases were reserved
+        # for. A second source would either lose silently or make the container
+        # fail closed; either way there must be one source, not a winner.
+        raise ValueError(
+            "A pooled decomposition takes its model from its reservation: "
+            "provider_environment is one source too many"
+        )
     command = ["docker", "compose", "-p", project, "run", "--rm", "-T"]
     if pool_assignment is not None:
         bundle = pool_assignment.get("lease_bundle_path")
@@ -70,10 +88,18 @@ def build_compose_command(
         # The container resolves its model from its own environment, so the
         # model the leases were reserved for is pinned here; the container
         # still fails closed on any route it observes that differs.
-        environment = pool_assignment.get("provider_environment") or {}
-        for name, value in sorted(environment.items()):
-            if value:
-                command.extend(("--env", f"{name}={value}"))
+        command.extend(
+            _model_environment_arguments(pool_assignment.get("provider_environment") or {})
+        )
+    elif provider_environment:
+        # The same pinning for a mixed pair, which has no reservation to carry
+        # it. Without this the container ran `provider_configuration`'s own
+        # defaults - claude-sonnet-5 and gpt-5.6-sol - while the run reported
+        # success, so a caller that asked for Opus silently got Sonnet. It is
+        # NOT a compose.yaml passthrough: on the pooled path a host value that
+        # disagreed with the reservation would make the container fail closed,
+        # which is why this lives here and applies only when unpooled.
+        command.extend(_model_environment_arguments(provider_environment))
     command.extend((
         "round-robin-decompose", "python3",
         "Pipeline/TaskDecomposition/run_round_robin_decomposition.py",
@@ -90,4 +116,4 @@ def build_compose_command(
     return tuple(command)
 
 
-__all__ = ["POOL_LEASE_MOUNT", "build_compose_command"]
+__all__ = ["MODEL_ENVIRONMENT_NAMES", "POOL_LEASE_MOUNT", "build_compose_command"]

@@ -16,7 +16,7 @@ import sys
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 from Pipeline.AssistantControl.checkouts import Checkouts, write_record
 from Pipeline.AssistantControl.decomposition_transport import build_compose_command
@@ -41,7 +41,10 @@ for module_root in (ROOT, ROOT / "Pipeline", TASK_GRAPH_ROOT):
         sys.path.insert(0, str(module_root))
 
 from TaskDecomposition.contracts import DecompositionResult  # noqa: E402
-from TaskDecomposition.live_decomposition import provider_configuration  # noqa: E402
+from TaskDecomposition.live_decomposition import (  # noqa: E402
+    provider_configuration,
+    resolve_provider_model_environment,
+)
 from TaskDecomposition.round_robin_decomposition import (  # noqa: E402
     candidate_sha256,
     same_provider_role_pair,
@@ -205,6 +208,25 @@ def _pool_owner(
         compose_project=compose_project,
         manifest_path=_pool_manifest(manager, repository_identity),
     )
+
+
+def _unpooled_provider_environment(provider_order: Sequence[str]) -> dict[str, str]:
+    """The model selection for a run with two distinct providers.
+
+    A pooled run pins its model through the lease reservation. A mixed pair has
+    no reservation, and until 2026-09-18 it was launched with no ``--env`` at
+    all, so ``provider_configuration`` re-ran inside the container with none of
+    the host's environment and returned its own defaults. The run reported
+    success at ``claude-sonnet-5`` however high the caller had escalated - and
+    because the escalation ladder's top rung is the mixed-provider rung, the
+    rung whose whole purpose is escalating was the one that silently did not.
+
+    Resolved with the same ``provider_configuration`` the pooled path reserves
+    against, so the two answers cannot drift. Only the providers actually in
+    this run are named: injecting the other one's default would tell the
+    container about a provider it is not using.
+    """
+    return resolve_provider_model_environment(provider_order)
 
 
 def _run_directory_started(run_dir: Path) -> bool:
@@ -655,6 +677,15 @@ def run(
             }
             write_record(path, record)
 
+        # A mixed pair carries no reservation, so its models are resolved here,
+        # from the same host function the pooled path reserves against
+        # (provider_configuration) rather than from a second reading of the
+        # environment that could drift from it.
+        unpooled_environment = None if pooled else _unpooled_provider_environment(provider_order)
+        if unpooled_environment:
+            record["provider_environment"] = dict(unpooled_environment)
+            write_record(path, record)
+
         command = list(build_compose_command(
             task_id=task_id,
             project=compose_project,
@@ -662,6 +693,7 @@ def run(
             max_calls=2,
             run_id=run_id,
             pool_assignment=pool_assignment,
+            provider_environment=unpooled_environment,
         ))
         if container_name is not None:
             position = command.index("run") + 1
