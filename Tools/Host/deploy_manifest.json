@@ -94,15 +94,20 @@
   },
   "root_files": [
     "nsc_paths.py",
-    "review_result.py"
+    "review_result.py",
+    "main_write_lock.py",
+    "guarded_merge.py"
   ],
   "root_files_note": [
-    "NEITHER IS DEPLOYED TODAY, and the closure launcher refuses without them.",
+    "nsc_paths.py and review_result.py are required by the closure launcher.",
     "run_closure_review.sh resolves nsc_paths.py at $HELPERS/../nsc_paths.py and",
     "exits 2 when it is missing; make_closure_prompt.py imports it from its",
     "parent directory. review_result.py is the protocol every reader goes",
     "through. Deploying codex-jobs or the jobs checkers without these two gives",
-    "a launcher that refuses every run."
+    "a launcher that refuses every run.",
+    "main_write_lock.py and guarded_merge.py must ship with the GER main-write",
+    "adapter and all five callers. A --family ger deployment excludes root_files",
+    "and is not a complete main-write lock cutover. See MAIN_WRITE_LOCK.md."
   ],
   "never_deploy": {
     "assistant-utilities": "not cited by any guide",

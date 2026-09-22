@@ -1,43 +1,25 @@
-"""Main-write protocol journal markers for GER contract commits (nsc-main-orchestrator-guide.md section 5).
+"""GER adapter for the shared main-write Git lock and operation journal.
 
-start() refuses when another role has a MAIN-WRITE START without an END in the last 30 minutes, then appends
-"MAIN-WRITE START <role> <operation> expected HEAD <sha>". end() appends "MAIN-WRITE END <role> new HEAD
-<sha>; <checks>". Lines go under a "## <date> <role>" section, which is added when the journal's last
-section belongs to another role.
-
-**`role` is a REQUIRED argument, and that is the whole point.** It was a module
-constant, `ROLE = "GER Agent"`, until 2026-09-22. Every START was therefore
-written as GER whatever role was running, `start()` filtered the open writes with
-`not item.startswith(ROLE)`, and so it discarded every one of them: `others` was
-always empty and the refusal above was unreachable - it had never fired, for
-anyone. `end()` popped by the same constant, so one role's END closed another's
-START. Reported by the GER Agent (board H-20260920-10) with a reproduction
-against a throwaway journal: role A opened, role B was NOT refused, B's single
-END emptied the pending map while A never ended.
-
-A caller that forgets the role is now refused rather than silently mislabelled.
-Journal lines already stamped "GER Agent" on another role's behalf are history
-and are left as they are; rewriting them would be inventing a record.
-
-Ported from C:\\nscrev\\ger-contract-revisions-20260916\\main_write.py (G15b): every function takes a
-`journal` path so a caller, including a test, can point it at a throwaway file without touching the live
-journal.
-
-G15b round 2 (reviewer finding: live-journal hazard): a caller that omits `journal` no longer always gets
-the live path. `default_journal(repo)` resolves it instead - the live journal only for the canonical
-checkout, a per-repo fallback file otherwise - and the two ger-tools commit scripts call it themselves when
-`--journal` is not given, so a test running against any other clone can never append to the live journal.
-
-G15b round 3 (re-check findings): `journal` is a required keyword argument on every function, so no caller
-can reach the live journal by omitting it (None is refused too), and a repo without `.git` is a clean
-SystemExit instead of a traceback.
+start requires the actual mutation repository, expected HEAD, role and journal;
+end accepts only its returned handle. transaction keeps ownership through checks,
+file writes, Git/hooks, validation, restoration and final outcome recording.
+Journal history is diagnostic and never decides admission. default_journal uses
+the live journal only for the canonical checkout; fixtures get their own Git-dir
+journal. A role is attribution, never permission for nested ownership.
 """
 from __future__ import annotations
 
 import datetime as dt
+import contextlib
+from dataclasses import dataclass
 import os
 import pathlib
 import re
+import sys
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+import main_write_lock as lock
+from main_write_lock import MutationChildUncertain, run_process
 
 JOURNAL = pathlib.Path(r"C:\NSC\NoSafeCircle-AssistantCheckouts\.assistant-control\graph-lead-journal.md")
 CANONICAL_REPO = pathlib.Path(r"C:\NSC\NSC\NoSafeCircle")
@@ -67,7 +49,7 @@ def resolve_role(explicit: str | None = None) -> str:
             f"role {role!r} cannot be read back out of the journal: it must be "
             f"words ending in Agent, Steward or Orchestrator (for example "
             f"'Pipeline Maintainer Agent'). A role this module cannot parse "
-            f"writes a START that the collision check will never see.")
+            f"cannot be represented by the journal's diagnostic parser.")
     return role
 
 
@@ -129,7 +111,7 @@ def open_writes(minutes: int = 30, *, journal: pathlib.Path) -> list[str]:
     now = dt.datetime.now(dt.timezone.utc)
     pending: dict[str, str] = {}
     for line in _read(journal).splitlines():
-        start = re.search(r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}) UTC MAIN-WRITE START ([A-Za-z ]+?(?:Agent|Steward|Orchestrator))", line)
+        start = re.search(r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2})(?::\d{2})? UTC MAIN-WRITE START ([A-Za-z ]+?(?:Agent|Steward|Orchestrator))", line)
         if start:
             pending[start.group(2).strip()] = start.group(1)
             continue
@@ -144,24 +126,141 @@ def open_writes(minutes: int = 30, *, journal: pathlib.Path) -> list[str]:
     return recent
 
 
-def start(operation: str, expected_head: str, *, role: str, journal: pathlib.Path) -> None:
-    """Refuse if ANOTHER role holds an open write, then record that this one began.
+@dataclass
+class WriteHandle:
+    lock: lock.WriteHandle
+    journal: pathlib.Path
+    ended: bool = False
 
-    The filter compares against the CALLER's role, which is the fix: it used to
-    compare against a module constant that every START had also been written
-    with, so it discarded every open write and refused nothing.
+
+def _git(repo, *args):
+    code, out, error = lock._git(repo, *args)
+    if code:
+        raise lock.MainWriteLockError(f"git {' '.join(args)} failed: {error}")
+    return out
+
+
+def start(operation: str, expected_head: str, *, repo, role: str,
+          journal: pathlib.Path, timeout: float = lock.DEFAULT_TIMEOUT) -> WriteHandle:
+    """Acquire first; the journal records ownership and never grants it."""
+    role = resolve_role(role)
+    if journal is None:
+        raise SystemExit("main_write needs an explicit journal path")
+    journal = pathlib.Path(journal).resolve()
+    owner = lock.acquire(repo=repo, role=role, operation=operation,
+                         expected_head=expected_head, timeout=timeout)
+    try:
+        if _git(owner.repo, "rev-parse", "HEAD") != expected_head:
+            raise SystemExit("HEAD moved since planning; rerun")
+        stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        _append(f"- {stamp} UTC MAIN-WRITE START {role}: {operation}, "
+                f"expected HEAD {expected_head}; operation {owner.operation_id}",
+                role=role, journal=journal)
+    except MutationChildUncertain as error:
+        raise MutationChildUncertain(f"{error}; retained owner {owner.owner_oid}") from error
+    except BaseException:
+        lock.release(owner)
+        raise
+    return WriteHandle(owner, journal)
+
+
+def end(write: WriteHandle, new_head: str, checks: str) -> None:
+    """End exactly the returned operation. Recording failure still releases."""
+    if not isinstance(write, WriteHandle):
+        raise lock.MainWriteLockError("end requires the exact start WriteHandle")
+    if write.ended:
+        lock.release(write.lock)  # retry a previous failed release, never append twice
+        return
+    write.ended = True
+    try:
+        _append(f"- MAIN-WRITE END {write.lock.role}: new HEAD {new_head}; "
+                f"{checks}; operation {write.lock.operation_id}",
+                role=write.lock.role, journal=write.journal)
+    finally:
+        lock.release(write.lock)
+
+
+@contextlib.contextmanager
+def transaction(operation: str, expected_head: str, *, repo, role: str,
+                journal: pathlib.Path, touched, expected_files=None,
+                timeout=lock.DEFAULT_TIMEOUT):
+    """Hold through checks, writes, restoration and observed outcome.
+
+    Planning can happen without ownership. Admission verifies the plan's HEAD
+    and inputs, then captures actual restoration bytes while the lock is held.
+    A successful commit is never restored because a later report failed.
     """
-    role = resolve_role(role)
-    others = [item for item in open_writes(journal=journal)
-              if not item.startswith(f"{role} since")]
-    if others:
-        raise SystemExit(f"another main write is open: {others}; wait or ask")
-    stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d %H:%M")
-    _append(f"- {stamp} UTC MAIN-WRITE START {role}: {operation}, expected HEAD {expected_head[:9]}",
-            role=role, journal=journal)
-
-
-def end(new_head: str, checks: str, *, role: str, journal: pathlib.Path) -> None:
-    role = resolve_role(role)
-    _append(f"- MAIN-WRITE END {role}: new HEAD {new_head[:9]}; {checks}",
-            role=role, journal=journal)
+    write = start(operation, expected_head, repo=repo, role=role,
+                  journal=journal, timeout=timeout)
+    target = write.lock.repo
+    snapshots = None
+    outcome = "completed; not pushed"
+    observed = "unknown"
+    uncertain = False
+    try:
+        if _git(target, "symbolic-ref", "--short", "HEAD") != "main":
+            raise SystemExit("the target is not checked out on main")
+        if _git(target, "status", "--porcelain=v1", "--", *touched):
+            raise SystemExit("target paths already have uncommitted changes")
+        if _git(target, "diff", "--cached", "--name-only"):
+            raise SystemExit("the index already has staged paths; refusing to commit")
+        for marker in ("MERGE_HEAD", "CHERRY_PICK_HEAD", "REVERT_HEAD", "rebase-merge", "rebase-apply"):
+            path = pathlib.Path(_git(target, "rev-parse", "--git-path", marker))
+            if not path.is_absolute():
+                path = target / path
+            if path.exists():
+                raise SystemExit(f"unfinished Git operation: {marker}")
+        for relative, planned in (expected_files or {}).items():
+            path = target / relative
+            actual = path.read_bytes() if path.exists() else None
+            if actual != planned:
+                raise SystemExit(f"{relative} changed since planning; rerun")
+        snapshots = {relative: ((target / relative).read_bytes()
+                                if (target / relative).exists() else None)
+                     for relative in touched}
+        yield write
+    except MutationChildUncertain:
+        uncertain = True
+        raise
+    except BaseException as error:
+        outcome = f"failed: {type(error).__name__}: {error}; inspect recorded HEAD"
+        try:
+            observed = _git(target, "rev-parse", "HEAD")
+            if snapshots is not None and observed == expected_head:
+                _git(target, "reset", "-q")
+                failures = []
+                for relative, data in snapshots.items():
+                    try:
+                        path = target / relative
+                        if data is None:
+                            path.unlink(missing_ok=True)
+                        else:
+                            path.write_bytes(data)
+                    except OSError as failure:
+                        failures.append(f"{relative}: {failure}")
+                if failures:
+                    raise lock.MainWriteLockError("restoration incomplete: " + "; ".join(failures))
+                outcome += "; original touched bytes and empty index restored"
+            elif observed != expected_head:
+                outcome += "; HEAD changed, committed result retained without restoration"
+        except MutationChildUncertain:
+            uncertain = True
+            raise
+        except BaseException as observation_error:
+            outcome += f"; restoration/observation failed: {observation_error}"
+            raise
+        raise
+    finally:
+        if uncertain:
+            print(f"MAIN-WRITE retained owner {write.lock.owner_oid} in {target}; "
+                  "confirm writer and children stopped before explicit recovery", file=sys.stderr)
+        else:
+            observation_failure = None
+            try:
+                observed = _git(target, "rev-parse", "HEAD")
+            except BaseException as observation_error:
+                outcome += f"; HEAD observation failed: {observation_error}"
+                observation_failure = observation_error
+            end(write, observed, outcome)
+            if observation_failure is not None:
+                raise observation_failure

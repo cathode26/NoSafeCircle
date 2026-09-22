@@ -84,16 +84,14 @@ class Base(unittest.TestCase):
         return repo, journal, candidate
 
     def run_tool(self, repo: pathlib.Path, journal: pathlib.Path, role: str,
-                 candidate: str, timeout: float = 5.0,
-                 stale_after: float = 1800.0) -> tuple[int, str]:
+                 candidate: str, timeout: float = 5.0) -> tuple[int, str]:
         result = subprocess.run(
             [sys.executable, "-B", str(TOOL), "--role", role,
              "--candidate", candidate, "--authority", "test",
              "--not-proven", "nothing; this is a fixture",
              "--repo", str(repo), "--journal", str(journal),
              "--validate", "stub_validate.py",
-             "--lock-timeout", str(timeout),
-             "--stale-after", str(stale_after)],
+             "--lock-timeout", str(timeout)],
             capture_output=True, text=True, creationflags=NO_WINDOW)
         return result.returncode, result.stdout + result.stderr
 
@@ -261,16 +259,16 @@ class TheGuardRefusesBeforeWriting(Base):
         self.assertNotEqual(candidate, git(repo, "rev-parse", "HEAD"),
                             "main must be untouched while another holds it")
 
-    def test_a_stale_lock_is_broken_rather_than_inherited(self):
-        """A crashed merger must not block main forever - but say so."""
+    def test_an_old_lock_still_requires_explicit_recovery(self):
+        """Age is diagnostic; it never revokes a live writer."""
         repo, journal, candidate = self.build_fixture()
         self.plant_lock(repo, b"Ghost Agent|99999|1|long ago" + EOL.encode())
         code, output = self.run_tool(repo, journal,
                                      "Pipeline Maintainer Agent", candidate,
-                                     timeout=5.0, stale_after=1.0)
-        self.assertEqual(0, code, f"a stale lock must not block{EOL}{output}")
-        self.assertIn("stale main-write lock", output,
-                      "breaking a lock must be recorded, not silent")
+                                     timeout=0.0)
+        self.assertNotEqual(0, code, f"an old lock must still block{EOL}{output}")
+        self.assertIn("OVERDUE", output)
+        self.assertNotEqual(candidate, git(repo, "rev-parse", "HEAD"))
 
     def test_only_the_holder_can_release(self):
         """Release is a compare-and-swap, so a foreign delete cannot steal it."""

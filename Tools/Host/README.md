@@ -70,9 +70,11 @@ repositories, services, records or output folders.
   `merge_all_branches.py` and `salvage_ger.py`. They are preserved as authored
   source, not instructions to rerun them. The runbook draft and dated feedback
   files keep their original names and status.
-- `ger/main_write.py` records journal markers. It does not implement an
-  operating-system mutex or the generation check needed to reject an old
-  worker after undo.
+- `ger/main_write.py` and `guarded_merge.py` share `main_write_lock.py` for
+  exclusion in the actual mutation repository. See [MAIN_WRITE_LOCK.md](MAIN_WRITE_LOCK.md)
+  for all five callers, explicit recovery, and the complete deployment set.
+  This does not implement the generation check needed to reject an old worker
+  after undo.
 - The art export keeps its original `PROVENANCE.md`, including the accepted
   numeric-edge limitation. Historical acceptance and test results in imported
   documentation were not rerun by this import.

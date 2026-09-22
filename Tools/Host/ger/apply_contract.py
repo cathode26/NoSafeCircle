@@ -167,7 +167,8 @@ def plan_policy_rebind(policy_data: dict, policy_crlf: bool, task_id: str, blob_
 
 def git(*args: str, check: bool = True) -> subprocess.CompletedProcess:
     env = {**os.environ, "GIT_OPTIONAL_LOCKS": "0"}
-    result = subprocess.run(["git", "-C", str(REPO), *args], capture_output=True, env=env,
+    result = main_write.run_process(["git", "-C", str(REPO), *args], capture_output=True, env=env,
+                            mutation_capable=any(a in ("add", "commit", "reset") for a in args),
                             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     if check and result.returncode != 0:
         raise SystemExit(f"git {' '.join(args)} failed: {result.stderr.decode(errors='replace').strip()}")
@@ -856,25 +857,21 @@ def main() -> int:
 
     if git("rev-parse", "HEAD").stdout.decode().strip() != head:
         raise SystemExit("HEAD moved since planning; rerun")
-    main_write.start(f"{task_id} GER contract revision {merged['contract_revision']}", head, role=args.role, journal=args.journal)
-    try:
+    with main_write.transaction(f"{task_id} GER contract revision {merged['contract_revision']}", head, role=args.role, journal=args.journal, repo=REPO, touched=touched,
+                                expected_files={rel: original, groups_rel: groups_original,
+                                                policy_rel: policy_original}):
         commit = write_and_commit_packet(rel, path, original, merged, b"\r\n" in original, groups_path,
                                          groups_original, groups_bytes, group_changes, policy_path,
                                          policy_original, policy_bytes, blob_sha, touched, packet, message)
-    except BaseException as error:
-        main_write.end(git("rev-parse", "HEAD").stdout.decode().strip(),
-                       f"aborted, nothing committed ({error})", role=args.role, journal=args.journal)
-        raise
-    main_write.end(commit, f"{task_id} rev {merged['contract_revision']}; taskcontrol validate PASS; not pushed",
-                   role=args.role, journal=args.journal)
-    files = git("show", "--name-only", "--format=", "HEAD").stdout.decode().split()
-    print(f"[DONE] {task_id} contract commit {commit} (parent {head}; files {files}); not pushed")
+        files = git("show", "--name-only", "--format=", "HEAD").stdout.decode().split()
+        print(f"[DONE] {task_id} contract commit {commit} (parent {head}; files {files}); not pushed")
     return 0
 
 
 def write_and_commit_packet(rel, path, original, merged, crlf, groups_path, groups_original, groups_bytes,
                             group_changes, policy_path, policy_original, policy_bytes, blob_sha, touched,
                             packet, message) -> str:
+    head = git("rev-parse", "HEAD").stdout.decode().strip()
     def restore() -> None:
         path.write_bytes(original)
         groups_path.write_bytes(groups_original)
@@ -890,7 +887,7 @@ def write_and_commit_packet(rel, path, original, merged, crlf, groups_path, grou
     except OSError as error:
         restore()
         raise SystemExit(f"writing {touched} failed; restored: {error}") from error
-    validate = subprocess.run([sys.executable, "-B", "Pipeline/TaskGraph/taskcontrol.py", "validate"], cwd=str(REPO),
+    validate = main_write.run_process([sys.executable, "-B", "Pipeline/TaskGraph/taskcontrol.py", "validate"], cwd=str(REPO),
                               capture_output=True, text=True, encoding="utf-8", errors="replace",
                               env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1", "PYTHONUTF8": "1"},
                               creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
@@ -915,7 +912,11 @@ def write_and_commit_packet(rel, path, original, merged, crlf, groups_path, grou
         message_path = packet / "CONTRACT_COMMIT_MESSAGE.txt"
         message_path.write_text(message, encoding="utf-8")
         git(*IDENTITY, "commit", "-F", str(message_path))
+    except main_write.MutationChildUncertain:
+        raise
     except (SystemExit, RuntimeError, OSError) as error:
+        if git("rev-parse", "HEAD").stdout.decode().strip() != head:
+            raise  # preserve a completed commit when a later step reports failure
         # G15b round 4: reset the whole index, not just these paths. Both tools refuse to start with
         # anything staged, and a path git staged under a different spelling (a case variant of an
         # existing folder) would survive a pathspec reset.

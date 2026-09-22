@@ -33,9 +33,10 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 # only a junction to it, sits at depth 2 inside the tree the cleanup walks, and if it
 # is ever removed nothing else puts these helpers on sys.path (PYTHONPATH is unset and
 # no .pth adds them). The junction is kept as a fallback in case the move is reversed.
-for _helpers in (r"C:\NSC\tools\ger", r"C:\nscrev\ger-tools"):
+for _helpers in (pathlib.Path(__file__).resolve().parents[1] / "ger",
+                 pathlib.Path(r"C:\NSC\tools\ger"), pathlib.Path(r"C:\nscrev\ger-tools")):
     if os.path.isdir(_helpers):
-        sys.path.insert(0, _helpers)
+        sys.path.insert(0, str(_helpers))
         break
 else:  # fail loudly rather than silently importing the stale main_write.py alongside
     raise SystemExit(
@@ -210,8 +211,9 @@ def main() -> int:
         raise SystemExit("HEAD moved since planning; rerun")
     operation = f"new task contracts {', '.join(expected)}"
     journal = main_write.default_journal(ac.REPO)
-    main_write.start(operation, head, role=args.role, journal=journal)
-    try:
+    with main_write.transaction(operation, head, role=args.role, journal=journal, repo=ac.REPO, touched=touched,
+                                expected_files={IDMAP_REL: idmap_original, GROUPS_REL: groups_original,
+                                                POLICY_REL: policy_original}):
         for task_id in expected:
             (ac.REPO / f"Tasks/{task_id}.yaml").write_bytes(ac.serialize(drafts[task_id], template_crlf))
         (ac.REPO / IDMAP_REL).write_bytes(idmap_bytes)
@@ -219,7 +221,7 @@ def main() -> int:
             groups_path.write_bytes(groups_bytes)
         if policy_bytes:
             policy_path.write_bytes(policy_bytes)
-        validate = subprocess.run([sys.executable, "-B", "Pipeline/TaskGraph/taskcontrol.py", "validate"],
+        validate = main_write.run_process([sys.executable, "-B", "Pipeline/TaskGraph/taskcontrol.py", "validate"],
                                   cwd=str(ac.REPO), capture_output=True, creationflags=0x08000000, text=True, encoding="utf-8", errors="replace",
                                   env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1", "PYTHONUTF8": "1"})
         print(validate.stdout.strip()[-300:])
@@ -240,7 +242,7 @@ def main() -> int:
                 ac.git("reset", "-q", "--", *touched)
                 restore()
                 raise SystemExit(f"staged {task_id} blob hash differs from its policy hash; unstaged and restored")
-        message_path = pathlib.Path(__file__).resolve().parent / f"COMMIT_MESSAGE.{'_'.join(expected)}.txt"
+        message_path = main_write._git_dir(ac.REPO) / f"COMMIT_MESSAGE.{'_'.join(expected)}.txt"
         message_path.write_text(
             f"TaskGraph: add {' and '.join(expected)}\n\n"
             + "".join(f"{task_id} ({drafts[task_id]['reconciliation_key']}): {drafts[task_id]['title']}.\n"
@@ -252,17 +254,8 @@ def main() -> int:
             + "\nCo-Authored-By: Claude Opus 5 <noreply@anthropic.com>\n", encoding="utf-8")
         ac.git(*IDENTITY, "commit", "-F", str(message_path))
         commit = ac.git("rev-parse", "HEAD").stdout.decode().strip()
-    except BaseException as error:
-        now = ac.git("rev-parse", "HEAD").stdout.decode().strip()
-        if now == head:
-            ac.git("reset", "-q", "--", *touched, check=False)
-            restore()
-        main_write.end(now, f"aborted, nothing committed ({error})" if now == head else f"UNEXPECTED: HEAD moved during the write ({error})",
-                       role=args.role, journal=journal)
-        raise
-    files = ac.git("show", "--name-only", "--format=", "HEAD").stdout.decode().split()
-    print(f"[DONE] {', '.join(expected)} committed {commit} (parent {head}; files {files}); not pushed")
-    main_write.end(commit, f"{', '.join(expected)} rev 1; taskcontrol validate PASS; not pushed", role=args.role, journal=journal)
+        files = ac.git("show", "--name-only", "--format=", "HEAD").stdout.decode().split()
+        print(f"[DONE] {', '.join(expected)} committed {commit} (parent {head}; files {files}); not pushed")
     return 0
 
 

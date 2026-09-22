@@ -13,6 +13,7 @@ pass on git's idempotence without once reaching the lock it claimed to check.
 from __future__ import annotations
 
 import json
+import os
 import pathlib
 import subprocess
 import sys
@@ -172,7 +173,7 @@ class ItNeverStealsALiveLock(Base):
         blocker = lock.acquire(repo=repo, role="Holder Agent", operation="x")
         started = time.monotonic()
         with mock.patch.object(lock, "inspect", return_value=None):
-            with self.assertRaises(lock.MainWriteLockBusy):
+            with self.assertRaisesRegex(lock.MainWriteLockError, "timed out acquiring"):
                 lock.acquire(repo=repo, role="Contender Agent",
                              operation="y", timeout=0.3)
         self.assertLess(time.monotonic() - started, 15,
@@ -370,6 +371,221 @@ class TheRepositoryIsTheAuthority(Base):
         self.assertIsNotNone(lock.inspect(repo=two),
                              "releasing one repo's lock must not touch another")
         lock.release(second)
+
+
+class ReleaseAndGitFailures(Base):
+    def obstruction(self, repo):
+        path = repo / ".git/refs/locks/main-write.lock"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("fixture obstruction")
+        return path
+
+    def test_release_failure_is_visible_and_retryable(self):
+        repo = self.repo()
+        owner = lock.acquire(repo=repo, role="A Agent", operation="x")
+        obstruction = self.obstruction(repo)
+        with self.assertRaisesRegex(lock.MainWriteLockError, "still ours"):
+            lock.release(owner)
+        self.assertFalse(owner.is_released)
+        self.assertEqual(owner.owner_oid, lock.inspect(repo=repo)[0])
+        obstruction.unlink()
+        lock.release(owner)
+        self.assertTrue(owner.is_released)
+        self.assertIsNone(lock.inspect(repo=repo))
+
+    def test_held_does_not_hide_release_failure_or_original_error(self):
+        repo = self.repo()
+        with self.assertRaises(lock.MainWriteLockError) as caught:
+            with lock.held(repo=repo, role="A Agent", operation="x") as owner:
+                obstruction = self.obstruction(repo)
+                raise ValueError("original operation failure")
+        self.assertIsInstance(caught.exception.__context__, ValueError)
+        obstruction.unlink()
+        lock.release(owner)
+
+    def test_acquire_reports_real_git_failure_without_fictional_owner(self):
+        repo = self.repo()
+        self.obstruction(repo)
+        with self.assertRaisesRegex(lock.MainWriteLockError, "could not acquire") as caught:
+            lock.acquire(repo=repo, role="A Agent", operation="x", timeout=0)
+        self.assertNotIsInstance(caught.exception, lock.MainWriteLockBusy)
+        self.assertIn("main-write.lock", str(caught.exception))
+
+    def test_a_broken_ref_is_an_error_not_absence(self):
+        repo = self.repo()
+        path = repo / ".git/refs/locks/main-write"
+        path.parent.mkdir(parents=True)
+        path.write_text("not an object id")
+        with self.assertRaisesRegex(lock.MainWriteLockError, "cannot inspect"):
+            lock.inspect(repo=repo)
+
+    def test_relative_acquisition_survives_cwd_change(self):
+        one, two = self.repo(), self.repo()
+        previous = pathlib.Path.cwd()
+        try:
+            os.chdir(one)
+            owner = lock.acquire(repo=".", role="A Agent", operation="x")
+            self.assertTrue(owner.repo.is_absolute())
+            os.chdir(two)
+            lock.release(owner)
+        finally:
+            os.chdir(previous)
+        self.assertIsNone(lock.inspect(repo=one))
+
+    def test_linked_worktrees_share_identity_and_contend(self):
+        repo = self.repo()
+        linked = repo.parent / "linked"
+        git(repo, "worktree", "add", "-b", "linked", str(linked))
+        owner = lock.acquire(repo=repo, role="A Agent", operation="x")
+        with self.assertRaises(lock.MainWriteLockBusy):
+            lock.acquire(repo=linked, role="B Agent", operation="y", timeout=0)
+        lock.release(owner, repo=linked)
+        self.assertIsNone(lock.inspect(repo=repo))
+
+    def test_same_process_new_acquisition_has_a_fresh_nonce(self):
+        repo = self.repo()
+        a = lock.acquire(repo=repo, role="A Agent", operation="x")
+        lock.release(a)
+        b = lock.acquire(repo=repo, role="A Agent", operation="x")
+        self.assertNotEqual(a.owner_oid, b.owner_oid)
+        self.assertNotEqual(a.operation_id, b.operation_id)
+        lock.release(b)
+
+
+class RecoveryReportsAndChildren(Base):
+    def test_uncertain_ref_children_report_the_possible_full_owner(self):
+        repo = self.repo()
+        real_git = lock._git
+        def uncertain(target, *args, **kwargs):
+            if args[0] == "update-ref":
+                raise lock.MutationChildUncertain("fixture Git wait interrupted")
+            return real_git(target, *args, **kwargs)
+        with mock.patch.object(lock, "_git", side_effect=uncertain):
+            with self.assertRaisesRegex(lock.MutationChildUncertain, r"acquisition may hold owner [0-9a-f]{40}"):
+                lock.acquire(repo=repo, role="A Agent", operation="x")
+        owner = lock.acquire(repo=repo, role="A Agent", operation="x")
+        with mock.patch.object(lock, "_git", side_effect=uncertain):
+            with self.assertRaisesRegex(lock.MutationChildUncertain, owner.owner_oid):
+                lock.release(owner)
+            with self.assertRaisesRegex(lock.MutationChildUncertain, r"recovery replacement may hold owner [0-9a-f]{40}"):
+                lock.recover(repo=repo, role="Recovery Agent", expected_owner_oid=owner.owner_oid,
+                             reason="fixture", termination_established=True)
+        self.assertFalse(owner.is_released)
+        self.assertEqual(owner.owner_oid, lock.inspect(repo=repo)[0])
+        lock.release(owner)
+
+    def test_killed_fixture_owner_requires_explicit_recovery(self):
+        repo = self.repo()
+        script = ("import sys; sys.path.insert(0,sys.argv[1]); import main_write_lock as lock; "
+                  "h=lock.acquire(repo=sys.argv[2],role='Fixture Agent',operation='fixture'); "
+                  "print(h.owner_oid,flush=True); sys.stdin.readline()")
+        child = subprocess.Popen([sys.executable, "-B", "-c", script, str(HOST), str(repo)],
+                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                 stderr=subprocess.PIPE, text=True)
+        try:
+            token = child.stdout.readline().strip()
+            self.assertEqual(token, lock.inspect(repo=repo)[0])
+            # At READY all Git children completed; this fixture starts no more.
+            child.kill()
+            child.communicate(timeout=10)
+            self.assertIsNotNone(child.returncode)
+            with self.assertRaises(lock.MainWriteLockBusy):
+                lock.acquire(repo=repo, role="Next Agent", operation="y", timeout=0)
+            lock.recover_and_report(repo=repo, expected_owner_oid=token,
+                role="Recovery Agent", reason="fixture process and all children stopped",
+                termination_established=True, report=repo.parent / "killed-owner.json")
+            self.assertIsNone(lock.inspect(repo=repo))
+        finally:
+            if child.poll() is None:
+                child.kill()
+                child.communicate(timeout=10)
+
+    def test_recovery_rejects_blank_role_and_abbreviated_oid(self):
+        repo = self.repo()
+        owner = lock.acquire(repo=repo, role="A Agent", operation="x")
+        for role, oid in (("  ", owner.owner_oid), ("B Agent", owner.owner_oid[:12])):
+            with self.assertRaises(lock.MainWriteLockError):
+                lock.recover(repo=repo, expected_owner_oid=oid, role=role,
+                             reason="fixture", termination_established=True)
+        self.assertEqual(owner.owner_oid, lock.inspect(repo=repo)[0])
+        lock.release(owner)
+
+    def test_recovery_checks_cas_after_python_inspection(self):
+        repo = self.repo()
+        old = lock.acquire(repo=repo, role="A Agent", operation="x")
+        real_write = lock._write_owner_blob
+        replacement = []
+        def change_after_inspect(target, body):
+            lock.release(old)
+            replacement.append(lock.acquire(repo=repo, role="B Agent", operation="y"))
+            return real_write(target, body)
+        with mock.patch.object(lock, "_write_owner_blob", side_effect=change_after_inspect):
+            # Avoid recursively intercepting the replacement acquire.
+            def once(target, body):
+                with mock.patch.object(lock, "_write_owner_blob", side_effect=real_write):
+                    return change_after_inspect(target, body)
+            with mock.patch.object(lock, "_write_owner_blob", side_effect=once):
+                with self.assertRaisesRegex(lock.MainWriteLockError, "compare-and-swap"):
+                    lock.recover(repo=repo, expected_owner_oid=old.owner_oid,
+                                 role="Recovery Agent", reason="fixture", termination_established=True)
+        self.assertEqual(replacement[0].owner_oid, lock.inspect(repo=repo)[0])
+        lock.release(replacement[0])
+
+    def test_recovery_report_preserves_dirty_and_in_progress_state(self):
+        repo = self.repo()
+        owner = lock.acquire(repo=repo, role="A Agent", operation="x")
+        (repo / "base.txt").write_text("dirty")
+        (repo / ".git/MERGE_HEAD").write_text(git(repo, "rev-parse", "HEAD") + "\n")
+        report = repo.parent / "recovery.json"
+        state = lock.recover_and_report(repo=repo, expected_owner_oid=owner.owner_oid,
+            role="Recovery Agent", reason="fixture owner settled", termination_established=True,
+            report=report)
+        self.assertIn("base.txt", state["status"])
+        self.assertIn("MERGE_HEAD", state["in_progress"])
+        self.assertEqual("dirty", (repo / "base.txt").read_text())
+        self.assertIsNone(lock.inspect(repo=repo))
+        self.assertEqual(state, json.loads(report.read_text()))
+
+    def test_failed_recovery_recording_retains_new_token(self):
+        repo = self.repo()
+        owner = lock.acquire(repo=repo, role="A Agent", operation="x")
+        with self.assertRaisesRegex(lock.MainWriteLockError, "retained recovery owner"):
+            lock.recover_and_report(repo=repo, expected_owner_oid=owner.owner_oid,
+                role="Recovery Agent", reason="fixture", termination_established=True,
+                report=repo.parent / "absent" / "report.json")
+        found = lock.inspect(repo=repo)
+        self.assertNotEqual(owner.owner_oid, found[0])
+        self.assertEqual("Recovery Agent", found[1]["role"])
+
+    def test_uncertain_child_keeps_owner(self):
+        repo = self.repo()
+        with self.assertRaisesRegex(lock.MutationChildUncertain, "retained"):
+            with lock.held(repo=repo, role="A Agent", operation="x") as owner:
+                raise lock.MutationChildUncertain("fixture child still running")
+        self.assertEqual(owner.owner_oid, lock.inspect(repo=repo)[0])
+        lock.release(owner)  # synthetic child has no actual process
+
+    def test_process_wrapper_marks_interrupted_mutation_child(self):
+        child = mock.Mock(pid=123, args=["fake"], returncode=None)
+        child.communicate.side_effect = KeyboardInterrupt()
+        with mock.patch.object(lock.subprocess, "Popen", return_value=child):
+            with self.assertRaisesRegex(lock.MutationChildUncertain, "child 123"):
+                lock.run_process(["fake"])
+        child.kill.assert_not_called()
+
+    def test_process_identity_unavailable_and_available_paths(self):
+        import builtins
+        original = builtins.__import__
+        def missing(name, *args, **kwargs):
+            if name == "Pipeline.AssistantControl.process_identity":
+                raise ImportError("fixture deployment has no Pipeline")
+            return original(name, *args, **kwargs)
+        with mock.patch("builtins.__import__", side_effect=missing):
+            self.assertTrue(lock._process_identity().startswith("unavailable:"))
+        module = mock.Mock()
+        module.identify.return_value = {"pid": os.getpid(), "created_ticks": "1", "image": "python"}
+        with mock.patch.dict(sys.modules, {"Pipeline.AssistantControl.process_identity": module}):
+            self.assertEqual(module.identify.return_value, lock._process_identity())
 
 
 if __name__ == "__main__":

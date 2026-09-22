@@ -1,89 +1,29 @@
 #!/usr/bin/env python
-"""One admission protocol for every writer of canonical `main`.
+"""Shared admission for cooperating writers of one actual Git repository.
 
-Designed by Astra (gpt-6-astra, xhigh) on 2026-09-22 at the Pipeline
-Maintainer's request; implemented here. The design report is
-`codex-design-report.md` in that day's MainWriteLock shared folder. Where this
-file departs from that design it says so.
+Git conditional ref creation/removal binds ownership to a fresh UUID-bearing
+blob. Linked worktrees share the ordinary ref through their common Git directory;
+independent clones do not. Every caller must pass the repository it will mutate.
+The handle binds that absolute target and common Git identity once.
 
-WHAT BINDS, AND WHAT DOES NOT
+No age, PID, role, journal entry or process metadata grants takeover permission.
+Sixty seconds means overdue for inspection only; there is no upper bound on a
+legitimate hold. Explicit recovery requires the full observed token, a reason,
+and the operator's confirmation that the original writer AND its children cannot
+continue. It replaces the token atomically, records actual repository state and
+releases without resetting or retrying business operations.
 
-`git update-ref <ref> <new> <old>` is a compare-and-swap that git enforces:
-
-    update-ref refs/locks/main-write <A> ""   -> succeeds only when absent
-    update-ref refs/locks/main-write <B> ""   -> fatal: reference already exists
-    update-ref -d refs/locks/main-write <B>   -> error: is at <A> but expected <B>
-
-**The lock binds every writer that ADDRESSES THE SAME REPOSITORY. It does not
-bind "any tool from any clone", and an earlier version of this claim said it
-did.** Measured 2026-09-22: an independent clone has no `refs/locks/*` at all,
-its `--git-common-dir` is its own `.git`, and the default refspec
-`+refs/heads/*:refs/remotes/origin/*` never fetches them. Linked worktrees share
-refs through a common Git directory; independent clones do not. So `repo` is
-required everywhere here, must name the canonical repository being modified
-rather than the clone the script happens to live in, and **is never resolved
-against the current directory**. A clone-local absence of the ref does not mean
-`main` is free.
-
-NO AUTOMATIC AGE-ONLY RECLAMATION. THIS IS THE POINT OF THE REDESIGN.
-
-The predecessor deleted any lock older than 1800 seconds and took it. That is
-unsafe for a reason no threshold fixes: **an expired timestamp does not revoke a
-running process's ability to write.** The displaced holder is not notified, not
-stopped, and not checked; it carries on writing while a second writer believes
-it holds exclusive access. Making two tools agree on one threshold does not help
--- a single shared threshold still steals from a sufficiently long-running live
-operation.
-
-So: a held lock is never broken automatically, at any age. `acquire` waits, then
-refuses and names the holder. Reclaiming a crashed writer's lock is an explicit
-operator action, `recover()`, which the caller may only perform after
-establishing that the writer and its descendants have stopped.
-
-`OVERDUE_SECONDS` is a *warning* threshold and carries no authority to delete.
-It is 60 seconds rather than 1800 because the observed holds are short: four
-real merges on 2026-09-22 bracketed 1, 1, 2 and 1 seconds START to END, and a
-local re-timing put `taskcontrol validate` at ~780ms plus ~186ms of git
-precondition checks. So a minute is long enough not to cry wolf and short
-enough to surface a problem while someone can still act on it.
-
-**It means OVERDUE, INSPECT. It never means dead.** An earlier version of this
-docstring said a lock older than a minute was a crash with near-certainty;
-Codex was right to make me withdraw that. Those samples time one component on
-one tree -- they do not measure the full merge, hook and GER path, and a median
-of three bounds no tail. A paused, blocked or overloaded writer can hold far
-longer and is still writing. Nothing in this module's behaviour depends on the
-withdrawn claim: no threshold authorises a takeover at any age.
-
-WHAT THIS MODULE DELIBERATELY DOES NOT DO
-
-It makes no liveness determination. Checking whether the holder's pid died is
-not sufficient -- its git subprocess may still be writing, and pids are reused --
-so rather than implement a check that could be wrong, `recover()` requires the
-caller to have established termination and records that it claimed to. A guard
-that cannot be trusted is worse than an absent one that forces a human to look.
-
-**A BARE PID IS NOT AN IDENTITY, AND THAT IS NOT THEORETICAL HERE.** The Game
-Agent observed reuse on this machine on 2026-09-22 inside five minutes under
-ordinary load: a crew settled at 09:54:05Z, and at 09:58:19Z its watcher read
-WINPID 67956 as RUNNING again because a short-lived process had taken the
-number. The pid did not exist.
-
-For this module the consequence runs the OPPOSITE way to lock-stealing and is
-just as bad: a recovery tool that implements 'proven terminated' as 'pid absent'
-will read a recycled pid as a LIVE holder and refuse to recover a genuinely
-abandoned lock -- the stale-lock-blocks-everyone failure, arriving through the
-fix rather than the bug. So the owner blob carries `process_identity` (pid,
-creation ticks and image, from the checker this codebase already uses) and any
-termination check MUST bind all three. When that identity cannot be captured the
-blob says so explicitly rather than omitting the field, so a recovery tool has to
-handle its absence deliberately instead of reading a missing key as a pass.
+Optional process identity is diagnostic. The tracked Pipeline implementation is
+used when available; standalone deployments record an explicit unavailable reason.
+Neither outcome is automatic liveness proof or recovery authority.
 """
 from __future__ import annotations
 
 import contextlib
+import argparse
 import json
 import os
+import re
 import pathlib
 import socket
 import sys
@@ -130,6 +70,47 @@ class MainWriteLockError(RuntimeError):
     """The lock could not be operated on."""
 
 
+class MutationChildUncertain(MainWriteLockError):
+    """A started child may still write. Retain ownership for explicit recovery."""
+
+
+def run_process(*args, **kwargs):
+    """subprocess.run equivalent which never hides an unsettled child.
+
+    An interrupted/expired wait does not prove that Git hooks or validator
+    descendants stopped. Keep the lock and report the process for recovery.
+    Failure to create the process is an ordinary error: no child was started.
+    """
+    input_data = kwargs.pop("input", None)
+    mutation_capable = kwargs.pop("mutation_capable", True)
+    timeout = kwargs.pop("timeout", None)
+    check = kwargs.pop("check", False)
+    if kwargs.pop("capture_output", False):
+        kwargs["stdout"] = subprocess.PIPE
+        kwargs["stderr"] = subprocess.PIPE
+    if input_data is not None:
+        kwargs["stdin"] = subprocess.PIPE
+    child = subprocess.Popen(*args, **kwargs)
+    try:
+        stdout, stderr = child.communicate(input_data, timeout=timeout)
+    except BaseException as error:
+        if not mutation_capable:
+            # A failed observation cannot modify repository state. Settle the
+            # direct reader where possible, but never turn it into ownership.
+            with contextlib.suppress(BaseException):
+                child.kill()
+                child.communicate(timeout=5)
+            raise
+        raise MutationChildUncertain(
+            f"child {child.pid} wait failed; its descendants may still write. "
+            "Ownership must be retained until the operation and children are "
+            f"confirmed stopped: {type(error).__name__}: {error}") from error
+    result = subprocess.CompletedProcess(child.args, child.returncode, stdout, stderr)
+    if check:
+        result.check_returncode()
+    return result
+
+
 class MainWriteLockBusy(MainWriteLockError):
     """Another writer holds the lock. Carries the holder so callers can name it."""
 
@@ -161,6 +142,7 @@ class WriteHandle:
     """Proof of ownership. Required to release; never reconstructible by a peer."""
 
     repo: pathlib.Path
+    common_git_dir: pathlib.Path
     owner_oid: str
     operation_id: str
     role: str
@@ -176,8 +158,9 @@ class WriteHandle:
 
 def _git(repo: pathlib.Path, *args: str,
          stdin: bytes | None = None) -> tuple[int, str, str]:
-    result = subprocess.run(["git", "-C", str(repo), *args], input=stdin,
-                            capture_output=True, creationflags=NO_WINDOW)
+    result = run_process(["git", "-C", str(repo), *args], input=stdin,
+                            capture_output=True, creationflags=NO_WINDOW,
+                            mutation_capable=bool(args and args[0] in ("update-ref", "hash-object", "reset")))
     return (result.returncode,
             result.stdout.decode("utf-8", "replace").strip(),
             result.stderr.decode("utf-8", "replace").strip())
@@ -190,11 +173,19 @@ def _require_repo(repo) -> pathlib.Path:
             "the main-write lock requires an explicit repo: it binds every "
             "writer that addresses one repository, so resolving it against the "
             "current directory would lock the wrong thing and read as free")
-    path = pathlib.Path(repo)
+    path = pathlib.Path(repo).resolve()
     code, top, error = _git(path, "rev-parse", "--git-dir")
     if code != 0:
         raise MainWriteLockError(f"{path} is not a git repository: {error}")
     return path
+
+
+def _common_dir(repo: pathlib.Path) -> pathlib.Path:
+    code, common, error = _git(repo, "rev-parse", "--git-common-dir")
+    if code != 0 or not common:
+        raise MainWriteLockError(f"cannot resolve repository identity: {error}")
+    path = pathlib.Path(common)
+    return (path if path.is_absolute() else repo / path).resolve()
 
 
 def _now() -> str:
@@ -204,15 +195,24 @@ def _now() -> str:
 def inspect(*, repo) -> tuple[str, dict] | None:
     """(owner_oid, owner) for the current holder, or None. Never writes."""
     repo = _require_repo(repo)
-    code, current, _ = _git(repo, "rev-parse", "--verify", "-q", LOCK_REF)
-    if code != 0 or not current:
+    code, current, error = _git(repo, "rev-parse", "--verify", "--quiet", LOCK_REF)
+    # Git emits a warning for a broken ref even with --quiet. Only a clean
+    # missing-ref result is absence; never discard diagnostics as "free".
+    if code == 1 and not error:
         return None
-    code, blob, _ = _git(repo, "cat-file", "blob", current)
+    if code != 0 or not current:
+        raise MainWriteLockError(f"cannot inspect {LOCK_REF}: {error}")
+    code, blob, error = _git(repo, "cat-file", "blob", current)
     if code != 0:
-        return current, {"malformed": "the lock blob could not be read"}
+        raise MainWriteLockError(f"cannot read lock object {current}: {error}")
     try:
         owner = json.loads(blob)
     except (ValueError, TypeError):
+        # Old merger owners remain held; preserve their diagnostic identity.
+        parts = blob.split("|")
+        if len(parts) >= 3:
+            return current, {"role": parts[0], "pid": parts[1],
+                             "acquired_epoch": parts[2], "legacy": True}
         return current, {"malformed": blob[:200]}
     return current, owner if isinstance(owner, dict) else {"malformed": blob[:200]}
 
@@ -238,6 +238,7 @@ def acquire(*, repo, role: str, operation: str, expected_head: str = "",
             timeout: float = DEFAULT_TIMEOUT) -> WriteHandle:
     """Take the lock, or raise MainWriteLockBusy. Never breaks a held lock."""
     repo = _require_repo(repo)
+    common = _common_dir(repo)
     if not isinstance(role, str) or not role.strip():
         raise MainWriteLockError("the main-write lock requires a role")
     if not isinstance(operation, str) or not operation.strip():
@@ -263,13 +264,22 @@ def acquire(*, repo, role: str, operation: str, expected_head: str = "",
 
     deadline = time.monotonic() + max(0.0, timeout)
     while True:
-        if _git(repo, "update-ref", LOCK_REF, owner_oid, "")[0] == 0:
-            return WriteHandle(repo=repo, owner_oid=owner_oid,
+        try:
+            code, _, error = _git(repo, "update-ref", LOCK_REF, owner_oid, "")
+        except MutationChildUncertain as error:
+            raise MutationChildUncertain(
+                f"{error}; acquisition may hold owner {owner_oid} in {repo}; "
+                "inspect after the child is settled") from error
+        if code == 0:
+            return WriteHandle(repo=repo, common_git_dir=common, owner_oid=owner_oid,
                                operation_id=operation_id, role=body["role"],
                                operation=body["operation"],
                                expected_head=expected_head,
                                acquired_at=body["acquired_epoch"])
         found = inspect(repo=repo)
+        if found is None and not ("reference already exists" in error or
+                                  "but expected" in error):
+            raise MainWriteLockError(f"could not acquire {LOCK_REF}: {error}")
         current_oid, owner = found if found is not None else ("", {})
         # EVERY retry path checks the deadline. The branch where the ref
         # vanished between our attempt and our look used to `continue`
@@ -279,6 +289,10 @@ def acquire(*, repo, role: str, operation: str, expected_head: str = "",
         # test here -- a contender that never stops is not a refusal a
         # caller can observe.
         if time.monotonic() >= deadline:
+            if found is None:
+                raise MainWriteLockError(
+                    f"timed out acquiring {LOCK_REF}; ownership changed during "
+                    f"inspection: {error}")
             raise MainWriteLockBusy(owner, current_oid,
                                     overdue_by(owner) if owner else None)
         time.sleep(POLL_SECONDS)
@@ -296,21 +310,30 @@ def release(handle: WriteHandle, *, repo=None) -> None:
         raise MainWriteLockError(
             "release requires the WriteHandle that acquire returned; a role or "
             "a re-read of the current holder is not proof of ownership")
-    if repo is not None and pathlib.Path(repo).resolve() != handle.repo.resolve():
+    if _common_dir(_require_repo(handle.repo)) != handle.common_git_dir:
+        raise MainWriteLockError("the handle's repository identity changed")
+    if repo is not None and _common_dir(_require_repo(repo)) != handle.common_git_dir:
         raise MainWriteLockError(
             f"handle belongs to {handle.repo}, not {repo}")
     if handle.is_released:
         return
-    code, _, error = _git(handle.repo, "update-ref", "-d", LOCK_REF,
-                          handle.owner_oid)
-    handle.released.append(_now())
+    try:
+        code, _, error = _git(handle.repo, "update-ref", "-d", LOCK_REF,
+                              handle.owner_oid)
+    except MutationChildUncertain as error:
+        raise MutationChildUncertain(
+            f"{error}; release of owner {handle.owner_oid} in {handle.repo} "
+            "is uncertain; inspect after the child is settled") from error
     if code != 0:
         found = inspect(repo=handle.repo)
+        state = ("still ours" if found and found[0] == handle.owner_oid
+                 else "no longer ours")
         raise MainWriteLockError(
-            f"could not release {LOCK_REF}: {error}. This lock is no longer "
-            f"ours -- current holder: "
+            f"could not release {LOCK_REF}: {error}. This lock is {state} "
+            f"-- current holder: "
             f"{'none' if found is None else found[1]}. Do not assume the write "
             f"was exclusive; inspect the repository before trusting it.")
+    handle.released.append(_now())
 
 
 @contextlib.contextmanager
@@ -321,9 +344,15 @@ def held(*, repo, role: str, operation: str, expected_head: str = "",
                      expected_head=expected_head, timeout=timeout)
     try:
         yield handle
-    finally:
-        with contextlib.suppress(MainWriteLockError):
-            release(handle)
+    except MutationChildUncertain as error:
+        raise MutationChildUncertain(
+            f"{error}; retained {LOCK_REF} owner {handle.owner_oid} "
+            f"in {handle.repo}") from error
+    except BaseException:
+        release(handle)  # a release failure chains the original body failure
+        raise
+    else:
+        release(handle)
 
 
 def recover(*, repo, expected_owner_oid: str, role: str, reason: str,
@@ -341,6 +370,11 @@ def recover(*, repo, expected_owner_oid: str, role: str, reason: str,
     of stealing from the new owner.
     """
     repo = _require_repo(repo)
+    if not isinstance(role, str) or not role.strip():
+        raise MainWriteLockError("recovery requires a role")
+    if not isinstance(expected_owner_oid, str) or not re.fullmatch(
+            r"(?:[0-9a-f]{40}|[0-9a-f]{64})", expected_owner_oid):
+        raise MainWriteLockError("recovery requires the full observed owner OID")
     if not termination_established:
         raise MainWriteLockError(
             "recovery refuses: establish that the holding writer AND its child "
@@ -376,11 +410,92 @@ def recover(*, repo, expected_owner_oid: str, role: str, reason: str,
         "termination_established_by_caller": True,
     }
     owner_oid = _write_owner_blob(repo, body)
-    code, _, error = _git(repo, "update-ref", LOCK_REF, owner_oid, current_oid)
+    try:
+        code, _, error = _git(repo, "update-ref", LOCK_REF, owner_oid, current_oid)
+    except MutationChildUncertain as error:
+        raise MutationChildUncertain(
+            f"{error}; recovery replacement may hold owner {owner_oid} in {repo}; "
+            "inspect after the child is settled") from error
     if code != 0:
         raise MainWriteLockError(
             f"recovery lost the compare-and-swap, nothing changed: {error}")
-    return WriteHandle(repo=repo, owner_oid=owner_oid,
+    return WriteHandle(repo=repo, common_git_dir=_common_dir(repo), owner_oid=owner_oid,
                        operation_id=operation_id, role=body["role"],
                        operation=body["operation"], expected_head="",
                        acquired_at=body["acquired_epoch"])
+
+
+def recover_and_report(*, report, **kwargs) -> dict:
+    """Take recovery ownership, record actual Git state, then release.
+
+    No business operation or rollback runs here. Any failure retains the fresh
+    recovery token so another writer cannot hide the state before inspection.
+    """
+    owner = recover(**kwargs)
+    try:
+        state = {"repo": str(owner.repo), "common_git_dir": str(owner.common_git_dir),
+                 "recovery_owner_oid": owner.owner_oid,
+                 "recovered_from": kwargs["expected_owner_oid"], "reason": kwargs["reason"]}
+        for name, args in (("head", ("rev-parse", "HEAD")),
+                           ("status", ("status", "--porcelain=v1")),
+                           ("index", ("diff", "--cached", "--name-status"))):
+            code, out, error = _git(owner.repo, *args)
+            if code:
+                raise MainWriteLockError(f"recovery cannot observe {name}: {error}")
+            state[name] = out
+        state["in_progress"] = []
+        for marker in ("MERGE_HEAD", "CHERRY_PICK_HEAD", "REVERT_HEAD", "rebase-merge", "rebase-apply"):
+            code, path, error = _git(owner.repo, "rev-parse", "--git-path", marker)
+            if code:
+                raise MainWriteLockError(f"cannot inspect {marker}: {error}")
+            resolved = pathlib.Path(path)
+            if not resolved.is_absolute():
+                resolved = owner.repo / resolved
+            if resolved.exists():
+                state["in_progress"].append(marker)
+        with pathlib.Path(report).open("x", encoding="utf-8") as stream:
+            json.dump(state, stream, indent=2)
+            stream.write("\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        release(owner)
+        return state
+    except BaseException as error:
+        raise MainWriteLockError(
+            f"recovery did not complete: {error}; retained recovery owner "
+            f"{owner.owner_oid} in {owner.repo}. Inspect before retrying.") from error
+
+
+def main(argv=None) -> int:
+    parser = argparse.ArgumentParser(description="Inspect or explicitly recover a main-write lock.")
+    commands = parser.add_subparsers(dest="command", required=True)
+    view = commands.add_parser("inspect")
+    view.add_argument("--repo", required=True, type=pathlib.Path)
+    repair = commands.add_parser("recover")
+    repair.add_argument("--repo", required=True, type=pathlib.Path)
+    repair.add_argument("--owner-oid", required=True)
+    repair.add_argument("--role", required=True)
+    repair.add_argument("--reason", required=True)
+    repair.add_argument("--termination-established", action="store_true", required=True,
+                        help="assert the original writer AND its children cannot continue")
+    repair.add_argument("--report", required=True, type=pathlib.Path)
+    args = parser.parse_args(argv)
+    try:
+        if args.command == "inspect":
+            print(json.dumps(inspect(repo=args.repo), indent=2))
+        else:
+            result = recover_and_report(repo=args.repo, expected_owner_oid=args.owner_oid,
+                                        role=args.role, reason=args.reason,
+                                        termination_established=args.termination_established,
+                                        report=args.report)
+            print(f"Lock cleared; repository state recorded in {args.report}. "
+                  "No reset, repair, merge or commit was performed.")
+            print(json.dumps(result, indent=2))
+    except MainWriteLockError as error:
+        print(str(error), file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

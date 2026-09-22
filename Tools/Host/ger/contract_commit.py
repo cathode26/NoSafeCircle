@@ -321,17 +321,12 @@ def main() -> int:
 
     if ac.git("rev-parse", "HEAD").stdout.decode().strip() != head:
         raise SystemExit("HEAD moved since planning; rerun")
-    main_write.start(f"{task_id} contract revision {merged['contract_revision']}", head, role=args.role, journal=args.journal)
-    try:
+    with main_write.transaction(f"{task_id} contract revision {merged['contract_revision']}", head, role=args.role, journal=args.journal, repo=ac.REPO, touched=touched,
+                                expected_files={rel: original, groups_rel: groups_original,
+                                                policy_rel: policy_original}):
         commit = write_and_commit(args, task_id, rel, path, merged, changed, touched, restore, group_changes,
                                   groups_path, groups_bytes, policy_path, policy_bytes, blob_sha, head,
                                   b"\r\n" in original, extras)
-    except BaseException as error:
-        main_write.end(ac.git("rev-parse", "HEAD").stdout.decode().strip(),
-                       f"aborted, nothing committed ({error})", role=args.role, journal=args.journal)
-        raise
-    main_write.end(commit, f"{task_id} rev {merged['contract_revision']}; taskcontrol validate PASS; not pushed",
-                   role=args.role, journal=args.journal)
     return 0
 
 
@@ -351,10 +346,10 @@ def write_and_commit(args, task_id, rel, path, merged, changed, touched, restore
     except OSError as error:
         restore()
         raise SystemExit(f"writing {touched} failed; restored: {error}") from error
-    validate = subprocess.run([sys.executable, "-B", "Pipeline/TaskGraph/taskcontrol.py", "validate"], cwd=str(ac.REPO),
+    validate = main_write.run_process([sys.executable, "-B", "Pipeline/TaskGraph/taskcontrol.py", "validate"], cwd=str(ac.REPO),
                               capture_output=True, text=True, encoding="utf-8", errors="replace",
                               env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1", "PYTHONUTF8": "1"},
-                              creationflags=subprocess.CREATE_NO_WINDOW)
+                              creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     print(validate.stdout.strip()[-300:])
     if validate.returncode != 0 or "PASS" not in validate.stdout:
         restore()
@@ -386,7 +381,11 @@ def write_and_commit(args, task_id, rel, path, merged, changed, touched, restore
             if ac.sha256(ac.git("show", f":{extra_path}").stdout) != ac.sha256(data):
                 raise RuntimeError(f"staged {extra_path} differs from its source bytes")
         ac.git(*IDENTITY, "commit", "-F", str(message_path))
+    except main_write.MutationChildUncertain:
+        raise
     except (SystemExit, RuntimeError, OSError) as exc:
+        if ac.git("rev-parse", "HEAD").stdout.decode().strip() != head:
+            raise  # preserve a completed commit when a later step reports failure
         # G15b round 4: reset the whole index, not just these paths. Both tools refuse to start with
         # anything staged, and a path git staged under a different spelling (a case variant of an
         # existing folder) would survive a pathspec reset.

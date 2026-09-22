@@ -25,9 +25,10 @@ import sys
 # depth 2 inside the tree the cleanup walks, and if it is ever removed nothing else puts
 # these helpers on sys.path (PYTHONPATH is unset and no .pth adds them). The junction is
 # kept as a fallback in case the move is reversed.
-for _helpers in (r"C:\NSC\tools\ger", r"C:\nscrev\ger-tools"):
+for _helpers in (pathlib.Path(__file__).resolve().parents[1] / "ger",
+                 pathlib.Path(r"C:\NSC\tools\ger"), pathlib.Path(r"C:\nscrev\ger-tools")):
     if os.path.isdir(_helpers):
-        sys.path.insert(0, _helpers)
+        sys.path.insert(0, str(_helpers))
         break
 else:  # fail loudly rather than silently importing the stale main_write.py alongside
     raise SystemExit(
@@ -96,10 +97,10 @@ def main() -> int:
     if ac.git("rev-parse", "HEAD").stdout.decode().strip() != head:
         raise SystemExit("HEAD moved since planning; rerun")
     journal = main_write.default_journal(ac.REPO)
-    main_write.start(f"{args.task} validation policy entry (no contract change)", head, role=args.role, journal=journal)
-    try:
+    with main_write.transaction(f"{args.task} validation policy entry (no contract change)", head, role=args.role, journal=journal, repo=ac.REPO, touched=[POLICY_REL],
+                                expected_files={POLICY_REL: original}):
         policy_path.write_bytes(new_bytes)
-        validate = subprocess.run([sys.executable, "-B", "Pipeline/TaskGraph/taskcontrol.py", "validate"], cwd=str(ac.REPO),
+        validate = main_write.run_process([sys.executable, "-B", "Pipeline/TaskGraph/taskcontrol.py", "validate"], cwd=str(ac.REPO),
                                   capture_output=True, text=True, encoding="utf-8", errors="replace",
                                   creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
                                   env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1", "PYTHONUTF8": "1"})
@@ -112,7 +113,7 @@ def main() -> int:
             ac.git("reset", "-q", "--", POLICY_REL)
             policy_path.write_bytes(original)
             raise SystemExit(f"unexpected staged paths {staged}; unstaged and restored")
-        message = pathlib.Path(__file__).resolve().parent / f"COMMIT_MESSAGE.policy.{args.task}.txt"
+        message = main_write._git_dir(ac.REPO) / f"COMMIT_MESSAGE.policy.{args.task}.txt"
         message.write_text(
             f"TaskReviewAgent: add the validation policy entry for {args.task}\n\n{args.reason}\n"
             f"Bound to the committed contract sha256 {blob_sha} (revision {contract['contract_revision']}); "
@@ -120,15 +121,7 @@ def main() -> int:
             "Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>\n", encoding="utf-8")
         ac.git(*IDENTITY, "commit", "-F", str(message))
         commit = ac.git("rev-parse", "HEAD").stdout.decode().strip()
-    except BaseException as error:
-        now = ac.git("rev-parse", "HEAD").stdout.decode().strip()
-        if now == head:
-            ac.git("reset", "-q", "--", POLICY_REL, check=False)
-            policy_path.write_bytes(original)
-        main_write.end(now, f"aborted, nothing committed ({error})", role=args.role, journal=journal)
-        raise
-    print(f"[DONE] {args.task} policy entry committed {commit} (parent {head}); not pushed")
-    main_write.end(commit, f"{args.task} validation policy entry; taskcontrol validate PASS; not pushed", role=args.role, journal=journal)
+        print(f"[DONE] {args.task} policy entry committed {commit} (parent {head}); not pushed")
     return 0
 
 
