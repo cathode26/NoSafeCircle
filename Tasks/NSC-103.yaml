@@ -12,7 +12,7 @@
     },
     {
       "criterion_id": "AC-003",
-      "requirement": "THE PIVOT RULE BRANCHES, AND APPLYING ONE BRANCH TO BOTH KINDS OF PROP FAILS A CORRECT ASSET. For a standing prop the pivot is the MEASURED GROUND LINE: alignment Custom with spritePivot y equal to the number of fully transparent rows below the drawn art divided by the canvas height, and x at the drawn figure's horizontal centre. The catalog's bottom-contact rule assumes the art touches the canvas bottom and these do not, so a constant (0.5, 0) floats a prop above its floor contact - at 64 pixels per unit, fifteen transparent rows is 0.234 world units of hover, which is the wizard-hover defect again. FOR ca_sigil_floor_mark THE RULE IS DIFFERENT: it is flat floor art, drawn as a foreshortened ellipse seen from directly above, and NSC-078's PropCatalog.json pivot_normalized rule names it as one of exactly two entries whose pivot is the CENTRE rather than bottom-contact. Its pivot is therefore the centre of the alpha bounding box in both axes. That classification is NSC-078's to state and this task cites it rather than copying it; this task does not own PropCatalog.json and must not claim it. Applying the standing-prop rule to ca_sigil_floor_mark would compute an expectation the correct asset cannot meet.",
+      "requirement": "THE PIVOT RULE BRANCHES, AND APPLYING ONE BRANCH TO BOTH KINDS OF PROP FAILS A CORRECT ASSET. For a standing prop the pivot is the MEASURED GROUND LINE: alignment Custom with spritePivot y equal to the number of fully transparent rows below the drawn art divided by the canvas height, and x at the drawn figure's horizontal centre. The catalog's bottom-contact rule assumes the art touches the canvas bottom and these do not, so a constant (0.5, 0) floats a prop above its floor contact - at 64 pixels per unit, fifteen transparent rows is 0.234 world units of hover, which is the wizard-hover defect again. THE FLAT CASE IS SELECTED BY A COMPUTABLE TEST, NOT BY A NAMED LIST: an entry is flat when its art-plan footprint_world_size has h == 0, and a flat entry's pivot is the CENTRE of the alpha bounding box in both axes. For this task's seven that selects exactly one prop, ca_sigil_floor_mark at footprint 2, 2, 0 - the only h == 0 row in all forty-five manifest entries, swept and verified. THE TEST MATTERS MORE THAN THE ANSWER: a prop with zero vertical extent IS the ground plane, so its alpha bounding box has no bottom edge to stand on and the centre is the only meaningful anchor, while anything with h > 0 stands up from the floor however slightly and takes bottom contact. Six entries sit at h between 0.2 and 0.4 - ca_comedy_offering_plate_sock, shared_bone_pile_b, fr_ritual_bone_candle_ring, re_comedy_thumbs_up_skeleton_hand, ba_comedy_skull_with_spectacles and ca_ash_heap - and every one of them would be misjudged by eye as flat. A named list would also need editing each time a prop is added, whereas the height test classifies a future entry automatically and an unclassifiable entry is one whose footprint was never filled in, which is worth failing on. NSC-078's AC-004 and VAL-003 describe the same split as bottom-center for standing props and center for the flat floor-art entries the catalog marks, citing ca_sigil_floor_mark and fr_ritual_bone_candle_ring AS EXAMPLES rather than as a closed set; an earlier wording of this criterion read that as exactly two entries and that over-reading is withdrawn. NOTE THE OPEN CONFLICT, WHICH IS NOT THIS TASK'S TO RESOLVE: fr_ritual_bone_candle_ring has h == 0.3, so the height test makes it bottom-contact while NSC-078 offers it as a centre example. It is a Final Room prop and not among this task's seven, so nothing here depends on the answer, but PropCatalog.json must state which governs before that prop is published. This task does not own PropCatalog.json and must not claim it. Applying the standing-prop rule to ca_sigil_floor_mark would compute an expectation the correct asset cannot meet.",
       "reference": "NSC-078 PropCatalog.json pivot_normalized rule; NSC-102 AC-003; NSC-075 AC-008 and NSC-077 AC-002 wizard-hover precedent"
     },
     {
@@ -30,7 +30,7 @@
     },
     {
       "gate_id": "VAL-002",
-      "requirement": "THE PIVOT GATE COMPUTES ITS OWN EXPECTATION FROM THE COMMITTED IMAGE AND BRANCHES ON THE PROP KIND. For each of the seven, decode the committed PNG, compute the alpha bounding box, and derive the expected pivot: for the six standing props, expected y is the canvas height minus the bounding box's bottom row divided by the canvas height, with x at the bounding box's horizontal centre; for ca_sigil_floor_mark, expected pivot is the bounding box's centre in both axes. Assert the imported sprite's pivot equals the expected value within one pixel. THE EXPECTED VALUE IS COMPUTED FROM THE COMMITTED IMAGE AND IS NEVER WRITTEN INTO THE TEST AS A CONSTANT: a gate asserting a fixed (0.5, 0) would pass a floating prop and fail a correct one, and a gate applying the standing-prop formula to the flat entry would fail a correct one. The branch selection is data, taken from this contract's AC-003 list of flat entries, and a prop added later without being classified must fail the gate rather than default to either branch.",
+      "requirement": "THE PIVOT GATE COMPUTES ITS OWN EXPECTATION FROM THE COMMITTED IMAGE AND BRANCHES ON THE PROP KIND. For each of the seven, decode the committed PNG, compute the alpha bounding box, and derive the expected pivot: for the six standing props, expected y is the canvas height minus the bounding box's bottom row divided by the canvas height, with x at the bounding box's horizontal centre; for ca_sigil_floor_mark, expected pivot is the bounding box's centre in both axes. Assert the imported sprite's pivot equals the expected value within one pixel. THE EXPECTED VALUE IS COMPUTED FROM THE COMMITTED IMAGE AND IS NEVER WRITTEN INTO THE TEST AS A CONSTANT: a gate asserting a fixed (0.5, 0) would pass a floating prop and fail a correct one, and a gate applying the standing-prop formula to the flat entry would fail a correct one. The branch selection is computed from the art plan's footprint_world_size - h == 0 selects the centre branch, h > 0 selects bottom contact - rather than read from a list in this contract, so a prop added later is classified automatically. An entry whose footprint cannot be resolved, or which the catalog marks flat while its footprint says otherwise, must FAIL the gate rather than default to either branch: a default silently hands the next author the standing-prop rule, which is the gate-enforces-the-bug shape this gate exists to prevent.",
       "reference": "NSC-102 VAL-002; NSC-078 PropCatalog.json pivot_normalized rule"
     },
     {
@@ -41,7 +41,7 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "decomposition_reason": "Seven props, twenty-one art paths and one fixture. The work is a single publication step with one test file; there is nothing to partition and a child could not own a share of one fixture.",
   "decomposition_state": "concrete",
   "depends_on": [],
@@ -100,7 +100,18 @@
     "parent_contract_revision": null,
     "parent_contract_sha256": null,
     "parent_task_id": null,
-    "task_design_ger": "not_reviewed"
+    "task_design_ger": "not_reviewed",
+    "contract_followups": [
+      {
+        "date": "2026-09-22",
+        "reason": "Select the flat-pivot branch by the computable footprint h == 0 test rather than a named list; withdraw an over-reading of NSC-078's examples as a closed set",
+        "source_head": "d39358eda8e770d60aca18466787fbcbaea52f4c",
+        "previous_contract_revision": 1,
+        "base_contract_sha256": "23c652a1dcb9df81cd32c51420fe779e436a11e71dc1482393c8cc677afebf10",
+        "revised_contract_sha256": "1553f821de487bfdcbb5f9136f7c74c7ba24c3657fb7114e4211108d45d78207",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      }
+    ]
   },
   "reconciliation_key": "chapel-of-ash-prop-publication",
   "repository_evidence_at_bootstrap": [],
