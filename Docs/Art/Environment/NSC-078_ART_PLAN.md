@@ -99,20 +99,22 @@ Density: Vincent picked option B on 2026-09-16. Characters are re-made at 128x12
 
 `NSC-078_DECISIONS.md` D-2 (2026-09-17) moved these independently sorted SpriteRenderer props from NSC-064 to NSC-078. They follow the same rules as 1a.
 
-| id | owner | family | identity_category | variant_group (entries) | facing | segment_role | footprint_world_size x, z, h | canvas px | footprint_reference |
+| id | family | identity_category | variant_group (entries) | facing | segment_role | footprint_world_size x, z, h | canvas px | intended_rooms | footprint_reference |
 |---|---|---|---|---|---|---|---|---|---|
-| `ba_shelf_bank_z_start` | NSC-078 | furnishings | shelf_bank_segment | shelf_bank (3) | world_z | start | 1.5, 1.5, 2.5 | 144x216 | BoneArchiveLayout.ShelfA/B/C |
-| `ba_shelf_bank_z_middle` | NSC-078 | furnishings | shelf_bank_segment | shelf_bank (3) | world_z | middle | 1.5, 1, 2.5 | 124x204 | BoneArchiveLayout.ShelfA/B/C |
-| `ba_shelf_bank_z_end` | NSC-078 | furnishings | shelf_bank_segment | shelf_bank (3) | world_z | end | 1.5, 1.5, 2.5 | 144x216 | BoneArchiveLayout.ShelfA/B/C |
-| `ca_pew_x_start` | NSC-078 | furnishings | pew_segment | pew (3) | world_x | start | 1.75, 1.5, 1.25 | 156x152 | ChapelOfAshLayout.PewFootprints |
-| `ca_pew_x_middle` | NSC-078 | furnishings | pew_segment | pew (3) | world_x | middle | 1, 1.5, 1.25 | 124x136 | ChapelOfAshLayout.PewFootprints |
-| `ca_pew_x_end` | NSC-078 | furnishings | pew_segment | pew (3) | world_x | end | 1.75, 1.5, 1.25 | 156x152 | ChapelOfAshLayout.PewFootprints |
-| `shared_stone_column` | NSC-078 | architecture | pillar_column | column (1) | either | single | 1.5, 1.5, 2.5 | 144x216 | ChapelOfAshLayout.ColumnBounds; LowerVaultLayout.CentralColumnCluster |
-| `lv_barrel` | NSC-078 | furnishings | barrel | storage (2) | either | single | 0.8, 0.8, 1 | 84x100 | LowerVaultLayout.WestStoragePile/EastStoragePile/NorthWestStorageBar |
-| `lv_crate` | NSC-078 | furnishings | crate | storage (2) | either | single | 1, 1, 1 | 100x112 | LowerVaultLayout storage piles |
-| `shared_rubble_pile_a` | NSC-078 | architecture | debris_rubble | debris_rubble (3) | either | single | 2, 2, 1.25 | 192x168 | RuinedEntryLayout.RubbleABounds/RubbleBBounds (cluster piece) |
+| `ba_shelf_bank_z_start` | furnishings | shelf_bank_segment | shelf_bank (3) | world_z | start | 1.5, 1.5, 2.5 | 144x216 | BoneArchive | BoneArchiveLayout.ShelfA/B/C |
+| `ba_shelf_bank_z_middle` | furnishings | shelf_bank_segment | shelf_bank (3) | world_z | middle | 1.5, 1, 2.5 | 124x204 | BoneArchive | BoneArchiveLayout.ShelfA/B/C |
+| `ba_shelf_bank_z_end` | furnishings | shelf_bank_segment | shelf_bank (3) | world_z | end | 1.5, 1.5, 2.5 | 144x216 | BoneArchive | BoneArchiveLayout.ShelfA/B/C |
+| `ca_pew_x_start` | furnishings | pew_segment | pew (3) | world_x | start | 1.75, 1.5, 1.25 | 156x152 | ChapelOfAsh | ChapelOfAshLayout.PewFootprints |
+| `ca_pew_x_middle` | furnishings | pew_segment | pew (3) | world_x | middle | 1, 1.5, 1.25 | 124x136 | ChapelOfAsh | ChapelOfAshLayout.PewFootprints |
+| `ca_pew_x_end` | furnishings | pew_segment | pew (3) | world_x | end | 1.75, 1.5, 1.25 | 156x152 | ChapelOfAsh | ChapelOfAshLayout.PewFootprints |
+| `shared_stone_column` | architecture | pillar_column | column (1) | either | single | 1.5, 1.5, 2.5 | 144x216 | ChapelOfAsh, LowerVault | ChapelOfAshLayout.ColumnBounds; LowerVaultLayout.CentralColumnCluster |
+| `lv_barrel` | furnishings | barrel | storage (2) | either | single | 0.8, 0.8, 1 | 84x100 | LowerVault | LowerVaultLayout.WestStoragePile/EastStoragePile/NorthWestStorageBar |
+| `lv_crate` | furnishings | crate | storage (2) | either | single | 1, 1, 1 | 100x112 | LowerVault | LowerVaultLayout storage piles |
+| `shared_rubble_pile_a` | architecture | debris_rubble | debris_rubble (3) | either | single | 2, 2, 1.25 | 192x168 | RuinedEntry | RuinedEntryLayout.RubbleABounds/RubbleBBounds (cluster piece) |
 
 Walls, floors, corners, end caps, wall pilasters, door-jamb transitions and the near-wall cutaway-stub family stay NSC-064 Tilemap sources and aren't listed.
+
+**One header for both blocks, from revision 9.** Until then 1a and 1b carried *different* column sets - 1b inserted `owner` and dropped `intended_rooms` - so `facing` sat at index 4 in one block and index 5 in the other. **A script binding every row to one header misreads the other block as plausible data and never as an error**, which is why three separate counts of the `world_x` entries disagreed (3 and 7 from one script run under each header, 5 then 9 and 8 from two readers matching ids instead of the column). The correct count, binding each row to the header above it, is **ten**. `owner` is dropped because it read `NSC-078` in all ten rows and the sentence above this table already says so; `intended_rooms` is added because it is per-row and load-bearing, and was absent for these ten. **Those ten values are derived from `footprint_reference`** - the rooms whose committed layout names the prop. For a `shared_` entry that is the set with a committed reference, not a bar on reuse elsewhere; widening it is an art-direction change, not a transcription.
 
 ### 1c. AC-002 coverage check
 
@@ -239,6 +241,7 @@ dark-but-cute horror-comedy dungeon prop, chunky readable proportions, low top-d
 - **Materials:**
   - stone: "violet slate and mauve stone with lilac edge highlights and mossy green-grey accents; cold violet and mauve purple, no tan, no beige, no warm brown stone";
   - wood: "dark red-brown wood with iron studs";
+  - iron: "cold blue-grey wrought iron with dull orange-brown rust patches, hard metal not timber, no wood, no wood grain, no warm brown planks". Added in revision 9 and tested on `lv_iron_rail_z` against a baseline already on disk, one variable changed: pixels desaturated enough to read as bare metal went 3.3% to 58.2%, and the warm orange-brown band 7.1% to 27.1% - the warm share rising is the rust in the clause working, not the palette drifting. One prop, one call: strong on a rail, untested on every other iron entry;
   - bone: "cream bone, not pure white";
   - candles: "warm amber flames as the brightest pixels";
   - webs: "chunky 2-pixel pale grey-lilac strands" (1 px strands vanish at game scale).
@@ -246,54 +249,56 @@ dark-but-cute horror-comedy dungeon prop, chunky readable proportions, low top-d
 
 ### 4b. Subject clauses
 
-| id | Subject clause |
-|---|---|
-| `shared_bone_pile_a` | small heap of cream bones with one cracked skull on top |
-| `shared_bone_pile_b` | low scatter of cream ribs and long bones, no skull |
-| `shared_web_corner_a` | thick chunky spider web filling a stone wall corner |
-| `shared_web_drape_b` | sagging chunky spider web drape hanging between two points |
-| `shared_rubble_scatter_b` | low scatter of broken violet-slate stones with one snapped wooden plank |
-| `shared_candle_cluster_a` | five melted cream candles of different heights on a small wax puddle, warm amber flames |
-| `re_landmark_guardian_statue_standing` | weathered stone guardian statue on a square plinth, chunky rounded helmet, cracked shield held forward, moss on its shoulders, long side runs diagonally from upper-left to lower-right |
-| `re_landmark_guardian_statue_broken` | the same guardian statue toppled and broken on its plinth, its helmeted head rolled beside it, moss in the cracks. **Make it from the approved standing statue with `edit_image_pro_flash` (reference method) or `create_object_state` so the pair matches** |
-| `re_broken_masonry_blocks` | tumbled carved violet-slate masonry blocks lying flat and scattered; nothing standing, nothing upright, no curved shapes |
-| `re_roots_and_mushrooms` | tangle of dark roots with small pale glowing mushrooms and mossy green-grey tufts |
-| `re_debris_broken_handcart` | broken wooden handcart tipped on its side with a snapped wheel and spilled planks |
-| `re_comedy_thumbs_up_skeleton_hand` | tiny cute skeleton hand poking out of a pile of pebbles giving a cheerful thumbs-up |
-| `ba_collapsed_reading_table_z` | collapsed dark wooden reading table with one snapped leg, open books sliding off, long side runs diagonally from lower-left to upper-right |
-| `ba_book_and_scroll_stack` | tall wobbly stack of old leather books topped with rolled scrolls |
-| `ba_spilled_scroll_basket` | tipped wicker basket spilling rolled parchment scrolls |
-| `ba_landmark_chained_grimoire_lectern` | giant chained grimoire lying open on a carved bone lectern, faint violet glow between its pages, chains hanging to the floor |
-| `ba_comedy_skull_with_spectacles` | small cute skull wearing round reading spectacles, resting on an open book |
-| `ca_altar_ash_bowl_x` | low violet-slate stone altar holding a wide bowl of pale grey ash and two small candles, abstract carved geometric pattern, long side runs diagonally from upper-left to lower-right |
-| `ca_ash_heap` | soft heap of pale grey ash with a few charcoal flecks, no fire, no embers |
-| `ca_sigil_floor_mark` | flat ritual circle painted on the floor, abstract geometric lines and dots, faded chalk-lilac, seen lying flat on the ground |
-| `ca_candelabra_tall` | tall thin wrought-iron gothic candelabra with pointed finials holding five cream candles with warm amber flames |
-| `ca_landmark_cracked_bell_frame_x` | tall dark wooden gothic bell frame with a pointed-arch top holding a large cracked bell, long side runs diagonally from upper-left to lower-right |
-| `ca_comedy_offering_plate_sock` | small offering plate holding one lonely striped sock and a button |
-| `lv_iron_rail_x` | short rusty iron railing section, two square posts joined by two bars with a post at each end, long side runs diagonally from upper-left to lower-right |
-| `lv_iron_rail_z` | the same railing section, long side runs diagonally from lower-left to upper-right |
-| `lv_sluice_slime_spill` | broken stone sluice pipe mouth spilling murky green-grey slime into a small puddle |
-| `lv_broken_ledge_chunk` | cracked violet-slate stone ledge fragment with a chipped edge and dripping moss |
-| `lv_landmark_sluice_wheel_gate_x` | large rusty sluice gate, a big iron valve wheel on a stone frame beside a jammed wooden gate with trickles of water, long side runs diagonally from upper-left to lower-right |
-| `lv_comedy_barrel_striped_socks` | wooden barrel with two skeleton legs in striped socks sticking out of the top |
-| `fr_bench_x` | sturdy dark wooden bench with carved bone-shaped legs, long side runs diagonally from upper-left to lower-right |
-| `fr_round_table_with_stools` | round dark wooden table with a candle stub and two small stools |
-| `fr_ritual_bone_candle_ring` | flat ring of small cream bones and tiny violet candles laid on the floor |
-| `fr_bone_chain_post` | short bone-and-iron post topped with a small skull, a sagging chain end hanging from it |
-| `fr_landmark_bone_throne` | huge ominous throne of stacked violet-slate stone and cream bones with a tall pointed back, violet ritual candles on its steps, empty seat, no gold |
-| `fr_comedy_party_hat_skull_cake` | cute skull wearing a tiny striped party hat beside a small cake with one candle |
+| id | Subject clause | Production note |
+|---|---|---|
+| `shared_bone_pile_a` | small heap of cream bones with one cracked skull on top |  |
+| `shared_bone_pile_b` | low scatter of cream ribs and long bones, no skull |  |
+| `shared_web_corner_a` | thick chunky spider web spanning a right-angled corner, the web alone and nothing behind it, no wall, no bricks, no stone, no floor, no architecture | Revision 9, finding 4. The committed clause said "filling a stone wall corner" and the generation drew a whole stone wall and floor; this tail is the repair that then worked. |
+| `shared_web_drape_b` | sagging chunky spider web drape, its top edge stretched wide and its middle sagging low, the web alone and nothing behind it, no wall, no bricks, no stone, no floor, no architecture, no posts, no anchors | Revision 9, finding 4. Generated from this text: keeper, no invented anchors. |
+| `shared_rubble_scatter_b` | low scatter of broken violet-slate stones with one snapped wooden plank |  |
+| `shared_candle_cluster_a` | five melted cream candles of different heights on a small wax puddle, warm amber flames |  |
+| `re_landmark_guardian_statue_standing` | weathered stone guardian statue on a square plinth, chunky rounded helmet, cracked shield held forward, moss on its shoulders, long side runs diagonally from upper-left to lower-right | Batch 1 keeper, accepted on its merits as a landmark - **never judged on its facing**, and the tilt/mirror-IoU test cannot judge it, because that test only works on long thin props. It and the broken statue are a coupled pair and must agree. |
+| `re_landmark_guardian_statue_broken` | weathered stone guardian statue toppled and broken on its square plinth, chunky rounded helmet, cracked shield, moss on the fallen pieces, its helmeted head rolled beside it, moss in the cracks, long side runs diagonally from upper-left to lower-right | Make it from the approved standing statue with `edit_image_pro_flash` (reference method) or `create_object_state` so the pair matches. **Moved here from the subject clause in revision 9**, which is the only reason this column exists: as clause text those two tool names, the backticks and the bold markers were assembled verbatim into the prompt, mid-sentence between the subject and the material clause. The clause also gained the `world_x` facing phrase it never had and a full restatement of the statue, so it can be sent standalone. |
+| `re_broken_masonry_blocks` | tumbled carved violet-slate masonry blocks lying flat and scattered; nothing standing, nothing upright, no curved shapes | Clause unchanged and now **tested** - see D-5. Dropping the arch noun and adding "no curved shapes" produced rubble with no arch and no surviving curve on the first attempt. |
+| `re_roots_and_mushrooms` | tangle of dark roots with small pale glowing mushrooms and mossy green-grey tufts |  |
+| `re_debris_broken_handcart` | broken wooden handcart tipped on its side with a snapped wheel and spilled planks |  |
+| `re_comedy_thumbs_up_skeleton_hand` | tiny cute skeleton hand poking out of a pile of pebbles giving a cheerful thumbs-up |  |
+| `ba_collapsed_reading_table_z` | collapsed dark wooden reading table with one snapped leg, open books sliding off, long side runs diagonally from lower-left to upper-right |  |
+| `ba_book_and_scroll_stack` | tall wobbly stack of old leather books topped with rolled scrolls |  |
+| `ba_spilled_scroll_basket` | tipped wicker basket spilling rolled parchment scrolls |  |
+| `ba_landmark_chained_grimoire_lectern` | giant chained grimoire lying open on a carved bone lectern, faint violet glow between its pages, chains hanging down and pooling loosely at its base | Revision 9, finding 4. Generated from this text: keeper, chains pool at the base, no floor drawn. |
+| `ba_comedy_skull_with_spectacles` | small cute skull wearing round reading spectacles, resting on an open book |  |
+| `ca_altar_ash_bowl_x` | low violet-slate stone altar holding a wide bowl of pale grey ash and two small candles, abstract carved geometric pattern, long side runs diagonally from upper-left to lower-right | **Carries the same "pale grey ash" phrasing that made `ca_ash_heap` read as a snow pile** (finding 3). The Art Director re-cast `ca_ash_heap` and did not extend that to this entry, and what an altar bowl should read as is their call, not this plan's - so the clause is left as written and flagged here. Check the ash value on the first generation rather than discovering it in a contact sheet. Two clauses in the 45 carry the phrase; these are both. |
+| `ca_ash_heap` | soft heap of dark charcoal-grey ash with black burnt chunks, no fire, no embers | Revision 9, finding 3. "Pale grey" against the deep-plum palette read as a snow pile - the brightest value in the run, and the model drew what the plan asked for. Re-cast dark it works: mean luminance 133.2 to 71.6, peak 222.5 to 154.0, saturation flat at 0.07 to 0.08, so it stayed neutral grey and only moved down in value. |
+| `ca_sigil_floor_mark` | ritual circle of abstract geometric lines and dots in faded chalk-lilac, drawn as a flat foreshortened ellipse seen from directly above, the painted marks alone with nothing beneath them, no stone slab, no flagstones, no floor tiles, no ground plane | Revision 9, finding 4, and the one that could not simply have the noun deleted: this prop genuinely **is** a floor marking, so stripping the setting carelessly makes the model draw an upright ring instead of a flat one. The wording keeps the flatness and refuses the slab. **Not yet generated** - send it alone, so a failure is attributable to it. |
+| `ca_candelabra_tall` | tall thin wrought-iron gothic candelabra with pointed finials holding five cream candles with warm amber flames |  |
+| `ca_landmark_cracked_bell_frame_x` | tall dark wooden gothic bell frame with a pointed-arch top holding a large cracked bell, long side runs diagonally from upper-left to lower-right |  |
+| `ca_comedy_offering_plate_sock` | small offering plate holding one lonely striped sock and a button |  |
+| `lv_iron_rail_x` | short rusty iron railing section, two square posts joined by two bars with a post at each end, long side runs diagonally from upper-left to lower-right |  |
+| `lv_iron_rail_z` | short rusty iron railing section, two square posts joined by two bars with a post at each end, long side runs diagonally from lower-left to upper-right | Revision 9, finding 5. The committed clause was "the same railing section" with no restatement, so sent standalone it described nothing; this is `lv_iron_rail_x`'s subject in full with the `world_z` facing. |
+| `lv_sluice_slime_spill` | broken stone sluice pipe mouth spilling murky green-grey slime into a small puddle |  |
+| `lv_broken_ledge_chunk` | cracked violet-slate stone ledge fragment with a chipped edge and dripping moss |  |
+| `lv_landmark_sluice_wheel_gate_x` | large rusty sluice gate, a big iron valve wheel on a stone frame beside a jammed wooden gate with trickles of water, long side runs diagonally from upper-left to lower-right |  |
+| `lv_comedy_barrel_striped_socks` | wooden barrel with two skeleton legs in striped socks sticking out of the top |  |
+| `fr_bench_x` | sturdy dark wooden bench with carved bone-shaped legs, long side runs diagonally from upper-left to lower-right |  |
+| `fr_round_table_with_stools` | round dark wooden table with a candle stub and two small stools |  |
+| `fr_ritual_bone_candle_ring` | flat ring of small cream bones and tiny violet candles arranged in a foreshortened ellipse seen from above, the ring alone with nothing beneath it, no floor, no slab, no tiles, no ground | Revision 9, finding 4. The geometry it was reaching for - seen from above, lying flat - is kept; only the setting noun invited the slab. Generated from this text: keeper, no floor slab. |
+| `fr_bone_chain_post` | short bone-and-iron post topped with a small skull, a sagging chain end hanging from it |  |
+| `fr_landmark_bone_throne` | huge ominous throne of stacked violet-slate stone and cream bones with a tall pointed back, violet ritual candles on its steps, empty seat, no gold |  |
+| `fr_comedy_party_hat_skull_cake` | cute skull wearing a tiny striped party hat beside a small cake with one candle |  |
 
-| `ba_shelf_bank_z_start` | first section of a tall dark wooden archive shelf packed with old books and bone bookends, a thick upright post at each end, long side runs diagonally from lower-left to upper-right |
-| `ba_shelf_bank_z_middle` | middle section of the same tall dark wooden archive shelf packed with old books and bone bookends, a single upright post at its upper-right end only, long side runs diagonally from lower-left to upper-right |
-| `ba_shelf_bank_z_end` | last section of the same tall dark wooden archive shelf packed with old books and bone bookends, a thick capped upright post at its upper-right end only, long side runs diagonally from lower-left to upper-right |
-| `ca_pew_x_start` | first section of a dark wooden chapel pew with a carved backrest, carved end posts at both ends, long side runs diagonally from upper-left to lower-right |
-| `ca_pew_x_middle` | middle section of the same dark wooden chapel pew with a carved backrest, a single upright post at its lower-right end only, long side runs diagonally from upper-left to lower-right |
-| `ca_pew_x_end` | last section of the same dark wooden chapel pew with a carved backrest, a carved end post at its lower-right end only, long side runs diagonally from upper-left to lower-right |
-| `shared_stone_column` | thick violet-slate gothic column with a cracked base and a bone-carved capital |
-| `lv_barrel` | banded dark wooden barrel with iron hoops |
-| `lv_crate` | iron-cornered dark wooden crate |
-| `shared_rubble_pile_a` | large heap of broken violet-slate blocks and dust |
+| id | Subject clause | Production note |
+|---|---|---|
+| `ba_shelf_bank_z_start` | first section of a tall dark wooden archive shelf packed with old books and bone bookends, a thick upright post at each end, long side runs diagonally from lower-left to upper-right | Three-segment run: see D-7. `world_z`, the reliable diagonal. |
+| `ba_shelf_bank_z_middle` | middle section of the same tall dark wooden archive shelf packed with old books and bone bookends, a single upright post at its upper-right end only, long side runs diagonally from lower-left to upper-right | Three-segment run: see D-7. |
+| `ba_shelf_bank_z_end` | last section of the same tall dark wooden archive shelf packed with old books and bone bookends, a thick capped upright post at its upper-right end only, long side runs diagonally from lower-left to upper-right | Three-segment run: see D-7. |
+| `ca_pew_x_start` | first section of a dark wooden chapel pew with a carved backrest, carved end posts at both ends, long side runs diagonally from upper-left to lower-right | Three-segment run on the unreliable `world_x` diagonal: **the worst facing exposure in the plan**, and none of the three has been attempted. See D-7 and the re-roll budget in D-5. |
+| `ca_pew_x_middle` | middle section of the same dark wooden chapel pew with a carved backrest, a single upright post at its lower-right end only, long side runs diagonally from upper-left to lower-right | Three-segment run on `world_x`: see D-7. |
+| `ca_pew_x_end` | last section of the same dark wooden chapel pew with a carved backrest, a carved end post at its lower-right end only, long side runs diagonally from upper-left to lower-right | Three-segment run on `world_x`: see D-7. |
+| `shared_stone_column` | thick violet-slate gothic column with a cracked base and a bone-carved capital |  |
+| `lv_barrel` | banded dark wooden barrel with iron hoops |  |
+| `lv_crate` | iron-cornered dark wooden crate |  |
+| `shared_rubble_pile_a` | large heap of broken violet-slate blocks and dust |  |
 
 **Segment joints** (post-and-panel):
 - A run is laid from its world -Z end (shelves) or -X end (pews) toward +Z or +X: start, then middles, then end.
@@ -350,7 +355,43 @@ dark-but-cute horror-comedy dungeon prop, chunky readable proportions, low top-d
   - Repairs go through PixelLab only: masked inpaint, preferably `inpaint_image_pro_flash` (byte-exact outside the mask, about 6 generations), with the repaired area recorded as `repair_mask` rectangles in the family inventory; PixelLab's own `reduce_colors`; or regeneration.
   - No local pixel edits, scripted palette reduction or seam repair. Post-and-panel segments need no seams.
 - **Re-rolls (D-5).** *Re-rolls pin both halves, not the half that failed.* When a generation is right in one respect and wrong in another, the re-roll prompt must re-state what was already correct as well as what is being fixed. The masonry re-roll pinned the silhouette alone and the palette drifted from violet slate to warm tan; the next pinned silhouette and palette together and produced Vincent's pick. A re-roll prompt that names only the defect is how a fix trades one reject for another.
-  - **`re_broken_masonry_blocks` is UNTESTED as written.** The proven prompt is round 3's, which kept the arch noun; this entry drops it instead. The first family generation for this entry is therefore a clause verification, not production - one re-roll at 6 printed if it comes back too plain.
+  - **`re_broken_masonry_blocks` is TESTED as written, and the UNTESTED mark added in revision 7 is withdrawn.** Dropping the arch noun and adding "no curved shapes" produced rubble with no arch and no surviving curve, first attempt, keeper. Round 3's proven prompt kept the noun and still produced a voussoir curve, so the noun was the cause and removing it was the fix.
+  - **`world_x` facings are seed-sensitive, not unreachable - budget re-rolls and measure the tilt.** A strict single-variable test, seed 500 on both sides and one phrase differing, gives tilt -0.949 px/row for `world_z` and +0.850 for `world_x`: near-perfect opposite tilts, so **the committed facing clauses are the ones that work and neither needs rewriting.** But `_z` rendered diagonal at both seeds tried and `_x` at one of three, so every `world_x` entry needs two or three attempts budgeted and the tilt of each result measured rather than assumed. A report that the `_x` diagonal was unreachable by prompt was **withdrawn**: its controlled pair had run at two different seeds, so two variables moved and were reported as one. Do not re-derive it.
+- **Clause text is what the asset depicts; method goes in the production-note column (D-6).**
+  The subject-clause column is assembled into the generator prompt **verbatim, with no sanitising
+  whatever**, so everything in it is drawn: markdown emphasis, backticks and tool names are prompt
+  text. **Only column 2 of section 4b is assembled**; column 3 is for readers and is never sent.
+  - Until revision 9 the clause table had two columns and therefore **nowhere to record a per-entry
+    method note**, so the one entry that needed one put it in the clause -
+    `re_landmark_guardian_statue_broken` carried about 110 characters of operator instruction. The
+    third column exists so the next author has somewhere to put it. **Counted before it was called a
+    class: 1 of the 45 clause rows and 1 of the 35 assembled prompts in that run's `call_table.json`;
+    the global clause and all material clauses were clean.**
+  - **A clause must name its subject completely enough to be drawn with no other clause in hand.**
+    "The same X" is not the defect - **a missing restatement is**. Six of the 45 clauses say "the
+    same"; four of them (`ba_shelf_bank_z_middle`/`_end`, `ca_pew_x_middle`/`_end`) then restate the
+    subject in full and are healthy. The two that did not are repaired in revision 9.
+  - **Name what the prop is, including its own parts; never name a surface, room feature or anchor
+    that the prop is not.** A prop told its setting draws its setting: `shared_web_corner_a` was told
+    it filled a stone wall corner and drew a whole stone wall and floor. **Five of the 45 clauses did
+    this and all five are repaired in revision 9**; a further six name another part of the same prop
+    (the statue's own head, the skull's book, the sluice's puddle) and are correct - that is the
+    distinction, not a list of forbidden words. When a value instruction needs a comparison, write a
+    bare value: "darker than the ground it sits on" walks straight back into this.
+- **A multi-segment run is one lineage, not three lucky generations (D-7).**
+  `ba_shelf_bank_z_start`/`_middle`/`_end` and `ca_pew_x_start`/`_middle`/`_end` must read as **one
+  piece of furniture**: the same tilt direction, the same post geometry at the joint, the same
+  palette and the same drawn height. **Three segments each re-rolled independently until it happens
+  to render will not match each other**, so the run is produced from **one approved source segment**
+  with the other two derived from it, and is **judged as a run** rather than segment by segment.
+  - This is not the seam rule. AC-005's "no pixel-exact seam" is about how joints meet, and
+    post-and-panel construction already settles that; it does **not** say the segments may be
+    generated independently.
+  - **The pew run is the exposure.** All three segments are `world_x`, the diagonal that rendered at
+    one of three seeds tried, and none of the three has ever been attempted - so it needs the re-roll
+    budget of D-5 *and* the single lineage of this rule. Rotating one segment is a candidate
+    mechanism and is **untested on a tiling run**: the Art Director picks the mechanism, this rule
+    sets the bar it has to meet.
 - **Style inputs (AC-001).** The pilot uses text prompts only. Family acquisition may pass `style_image`/`color_image` only from Vincent-approved pilot sources, recorded by SHA-256. R01-R17 and any franchise art are never PixelLab inputs.
 - **Wizard proxy (AC-003).** See section 3.
 - **Who executes:** the Art Director Agent session, under the art bible and `nsc-art-director-guide.md` section 1. Unity import steps (the importer postprocessor and the `.meta` files after import) are run by the Game Agent's `unity-runner`; the Art Director can't run Unity.
