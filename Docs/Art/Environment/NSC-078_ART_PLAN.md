@@ -268,9 +268,9 @@ dark-but-cute horror-comedy dungeon prop, chunky readable proportions, low top-d
 | `ba_spilled_scroll_basket` | tipped wicker basket spilling rolled parchment scrolls |  |
 | `ba_landmark_chained_grimoire_lectern` | giant chained grimoire lying open on a carved bone lectern, faint violet glow between its pages, chains hanging down and pooling loosely at its base | Revision 9, finding 4. Generated from this text: keeper, chains pool at the base, no floor drawn. |
 | `ba_comedy_skull_with_spectacles` | small cute skull wearing round reading spectacles, resting on an open book |  |
-| `ca_altar_ash_bowl_x` | low violet-slate stone altar holding a wide bowl of pale grey ash and two small candles, abstract carved geometric pattern, long side runs diagonally from upper-left to lower-right | **Carries the same "pale grey ash" phrasing that made `ca_ash_heap` read as a snow pile** (finding 3). The Art Director re-cast `ca_ash_heap` and did not extend that to this entry, and what an altar bowl should read as is their call, not this plan's - so the clause is left as written and flagged here. Check the ash value on the first generation rather than discovering it in a contact sheet. Two clauses in the 45 carry the phrase; these are both. |
+| `ca_altar_ash_bowl_x` | low violet-slate stone altar holding a wide bowl of pale grey ash and two small candles, abstract carved geometric pattern, long side runs diagonally from upper-left to lower-right | **Flagged in revision 9 as carrying the same "pale grey ash" phrasing that made `ca_ash_heap` read as a snow pile, and RESOLVED in revision 10: the Art Director did extend the re-cast, and measured it.** Mean luminance **61.6** against the approved `ca_ash_heap` re-roll at **55.2**; 2.23% of opaque pixels above 180 and 0.83% above 220, so the bright peak is a small highlight rather than a pale mass. **It is not a snow pile and the clause stands as written.** Selected. **Flagging it rather than silently re-casting it was the right call** - the value question was theirs, they answered it with a measurement, and the clause never needed changing. |
 | `ca_ash_heap` | soft heap of dark charcoal-grey ash with black burnt chunks, no fire, no embers | Revision 9, finding 3. "Pale grey" against the deep-plum palette read as a snow pile - the brightest value in the run, and the model drew what the plan asked for. Re-cast dark it works: mean luminance 133.2 to 71.6, peak 222.5 to 154.0, saturation flat at 0.07 to 0.08, so it stayed neutral grey and only moved down in value. |
-| `ca_sigil_floor_mark` | ritual circle of abstract geometric lines and dots in faded chalk-lilac, drawn as a flat foreshortened ellipse seen from directly above, the painted marks alone with nothing beneath them, no stone slab, no flagstones, no floor tiles, no ground plane | Revision 9, finding 4, and the one that could not simply have the noun deleted: this prop genuinely **is** a floor marking, so stripping the setting carelessly makes the model draw an upright ring instead of a flat one. The wording keeps the flatness and refuses the slab. **Not yet generated** - send it alone, so a failure is attributable to it. |
+| `ca_sigil_floor_mark` | ritual circle of abstract geometric lines and dots in faded chalk-lilac, drawn as a flat foreshortened ellipse seen from directly above, the painted marks alone with nothing beneath them, no stone slab, no flagstones, no floor tiles, no ground plane | Revision 9, finding 4, and the one that could not simply have the noun deleted: this prop genuinely **is** a floor marking, so stripping the setting carelessly makes the model draw an upright ring instead of a flat one. The wording keeps the flatness and refuses the slab. **Sent alone as planned, and SELECTED** - `batch11/ca_sigil_floor_mark.png`, recorded in `SELECTION.json` with provenance "direct; hard setting-noun repair". The wording worked first time. Revision 9's "not yet generated" is withdrawn. |
 | `ca_candelabra_tall` | tall thin wrought-iron gothic candelabra with pointed finials holding five cream candles with warm amber flames |  |
 | `ca_landmark_cracked_bell_frame_x` | tall dark wooden gothic bell frame with a pointed-arch top holding a large cracked bell, long side runs diagonally from upper-left to lower-right |  |
 | `ca_comedy_offering_plate_sock` | small offering plate holding one lonely striped sock and a button |  |
@@ -289,12 +289,12 @@ dark-but-cute horror-comedy dungeon prop, chunky readable proportions, low top-d
 
 | id | Subject clause | Production note |
 |---|---|---|
-| `ba_shelf_bank_z_start` | first section of a tall dark wooden archive shelf packed with old books and bone bookends, a thick upright post at each end, long side runs diagonally from lower-left to upper-right | Three-segment run: see D-7. `world_z`, the reliable diagonal. |
+| `ba_shelf_bank_z_start` | first section of a tall dark wooden archive shelf packed with old books and bone bookends, a thick upright post at each end, long side runs diagonally from lower-left to upper-right | Three-segment run: see D-7. `world_z`, the reliable diagonal. **All three segments exist and the run tiles**, from the same one-frontal-plus-rotation recipe as the pews. |
 | `ba_shelf_bank_z_middle` | middle section of the same tall dark wooden archive shelf packed with old books and bone bookends, a single upright post at its upper-right end only, long side runs diagonally from lower-left to upper-right | Three-segment run: see D-7. |
 | `ba_shelf_bank_z_end` | last section of the same tall dark wooden archive shelf packed with old books and bone bookends, a thick capped upright post at its upper-right end only, long side runs diagonally from lower-left to upper-right | Three-segment run: see D-7. |
-| `ca_pew_x_start` | first section of a dark wooden chapel pew with a carved backrest, carved end posts at both ends, long side runs diagonally from upper-left to lower-right | Three-segment run on the unreliable `world_x` diagonal: **the worst facing exposure in the plan**, and none of the three has been attempted. See D-7 and the re-roll budget in D-5. |
-| `ca_pew_x_middle` | middle section of the same dark wooden chapel pew with a carved backrest, a single upright post at its lower-right end only, long side runs diagonally from upper-left to lower-right | Three-segment run on `world_x`: see D-7. |
-| `ca_pew_x_end` | last section of the same dark wooden chapel pew with a carved backrest, a carved end post at its lower-right end only, long side runs diagonally from upper-left to lower-right | Three-segment run on `world_x`: see D-7. |
+| `ca_pew_x_start` | first section of a dark wooden chapel pew with a carved backrest, carved end posts at both ends, long side runs diagonally from upper-left to lower-right | Three-segment run on `world_x`. **All three segments now exist and the run tiles** (D-7), produced from one frontal `start` by `create_object_state` then rotation. **NOT SELECTED: Vincent has not picked, and the rotation is flagged to him as lighter than the approved crimson and carrying armrests the frontal lacks.** |
+| `ca_pew_x_middle` | middle section of the same dark wooden chapel pew with a carved backrest, a single upright post at its lower-right end only, long side runs diagonally from upper-left to lower-right | Middle segment of the `world_x` pew run: see D-7. Exists, tiles, **not selected**. |
+| `ca_pew_x_end` | last section of the same dark wooden chapel pew with a carved backrest, a carved end post at its lower-right end only, long side runs diagonally from upper-left to lower-right | End segment of the `world_x` pew run: see D-7. Exists, tiles, **not selected**. |
 | `shared_stone_column` | thick violet-slate gothic column with a cracked base and a bone-carved capital |  |
 | `lv_barrel` | banded dark wooden barrel with iron hoops |  |
 | `lv_crate` | iron-cornered dark wooden crate |  |
@@ -378,6 +378,16 @@ dark-but-cute horror-comedy dungeon prop, chunky readable proportions, low top-d
     (the statue's own head, the skull's book, the sluice's puddle) and are correct - that is the
     distinction, not a list of forbidden words. When a value instruction needs a comparison, write a
     bare value: "darker than the ground it sits on" walks straight back into this.
+**A production note carries METHOD and HAZARD, never RUN STATUS - learned the expensive way in
+revision 10.** Revision 9 put four status claims in this column - *"none of the three has been
+attempted"*, *"not yet generated"*, *"did not extend that to this entry"*, and D-7's *"untested on
+a tiling run"* - and **all four were false within about two hours.** This file is pinned by hash in
+NSC-078's VAL-001, so correcting a sentence costs a paired two-commit revision; the run it
+describes moves in minutes. **Mutable state does not belong in an immutable artifact.** Run status
+lives in `CALL_LOG.md` and `SELECTION.json`, which are the authority for what was generated, what
+was kept and what Vincent picked. **Note that D-7 itself - the rule - did not go stale; it was
+confirmed. Only the sentences about what had happened yet did.**
+
 - **A multi-segment run is one lineage, not three lucky generations (D-7).**
   `ba_shelf_bank_z_start`/`_middle`/`_end` and `ca_pew_x_start`/`_middle`/`_end` must read as **one
   piece of furniture**: the same tilt direction, the same post geometry at the joint, the same
@@ -387,11 +397,20 @@ dark-but-cute horror-comedy dungeon prop, chunky readable proportions, low top-d
   - This is not the seam rule. AC-005's "no pixel-exact seam" is about how joints meet, and
     post-and-panel construction already settles that; it does **not** say the segments may be
     generated independently.
-  - **The pew run is the exposure.** All three segments are `world_x`, the diagonal that rendered at
-    one of three seeds tried, and none of the three has ever been attempted - so it needs the re-roll
-    budget of D-5 *and* the single lineage of this rule. Rotating one segment is a candidate
-    mechanism and is **untested on a tiling run**: the Art Director picks the mechanism, this rule
-    sets the bar it has to meet.
+  - **THE MECHANISM IS NO LONGER UNTESTED, and revision 9's "the pew run has never been
+    attempted" is withdrawn.** All six segments of both runs now exist and both runs tile.
+    Produced by the D-7 recipe, measured 2026-09-22: generate `start` **frontal** at the plan canvas with **no facing phrase at all**; derive `middle` and `end` from that frontal with `create_object_state`, which IS the single lineage D-7 requires; rotate all three with `first_frame_url` and `n_directions: 8` at the **same seed**; then take **`south-east` for `_z` and `south-west` for `_x`**. **One rotation yields both diagonals.**
+  - **`world_x` was never a clause problem.** Direct generation scored 1 success in 7 across
+    three burned phrasings; the diagonal needs a **rotation**, not a fourth wording. Read this
+    together with D-5: budget re-rolls only where you are generating the facing directly.
+  - **Compositing values measured, and the ORDER is not decoration:** shelf `dx=+74, dy=-28`,
+    pew `dx=+62, dy=+19`, and **draw order is opposite between them** - `_z` recedes while
+    `_x` advances. **A correct offset in the wrong order still reads broken.** These are
+    compositing figures; the layout scripts own the real ones.
+  - **The bar this rule sets is unchanged and is NOT yet met for the pews: Vincent has not
+    picked, and two defects are flagged to him** - the rotation drifted lighter than the
+    crimson he approved, and it grew armrests its own frontal does not have. **Demonstrating
+    the mechanism is not selecting the art.**
 - **Style inputs (AC-001).** The pilot uses text prompts only. Family acquisition may pass `style_image`/`color_image` only from Vincent-approved pilot sources, recorded by SHA-256. R01-R17 and any franchise art are never PixelLab inputs.
 - **Wizard proxy (AC-003).** See section 3.
 - **Who executes:** the Art Director Agent session, under the art bible and `nsc-art-director-guide.md` section 1. Unity import steps (the importer postprocessor and the `.meta` files after import) are run by the Game Agent's `unity-runner`; the Art Director can't run Unity.
