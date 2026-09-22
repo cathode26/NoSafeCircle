@@ -796,6 +796,112 @@ class AGeneratedAssetNeedsItsSidecarMeta(unittest.TestCase):
             allowed_generated_asset_metas=(self.TILE + ".meta",),
         )
 
+
+    def _run_with(self, writer, metas):
+        return run_door_prototype_builder(
+            checkout=self.checkout, task_id="NSC-046",
+            state_root=self.records, initial_changed_paths=(),
+            unity_executable=self.unity, unity_command_runner=writer,
+            allowed_generated_paths=tuple(sorted(
+                (CHAPEL_SCENE, self.TILE), key=str.casefold)),
+            allowed_generated_roots=(),
+            allowed_generated_asset_metas=metas,
+        )
+
+    def _writer(self, meta_body: bytes, *, meta_path: str | None = None):
+        path = meta_path or (self.TILE + ".meta")
+
+        def run(args, cwd, timeout):
+            (cwd / CHAPEL_SCENE).write_text("generated chapel scene\n", newline="\n")
+            tile = cwd / self.TILE
+            tile.parent.mkdir(parents=True, exist_ok=True)
+            tile.write_text("%YAML 1.1\ngenerated tile\n", newline="\n")
+            target = cwd / path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(meta_body)
+            return subprocess.CompletedProcess(args, 0, b"ok\n", b"")
+        return run
+
+    GOOD_META = (
+        b"fileFormatVersion: 2\n"
+        b"guid: 0123456789abcdef0123456789abcdef\n"
+        b"NativeFormatImporter:\n"
+        b"  externalObjects: {}\n"
+        b"  userData:\n"
+    )
+
+    def test_an_unregistered_meta_is_refused(self):
+        """Its payload is not in `allowed`, so it is not a companion at all."""
+        other = ("Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles"
+                 "/Unrelated.asset.meta")
+        with self.assertRaisesRegex(
+            DoorPrototypeMaterializationError, "asset_meta_not_registered",
+        ):
+            self._run_with(self._writer(self.GOOD_META), (other,))
+
+    def test_an_already_committed_meta_is_refused(self):
+        """The exception is for MISSING companions only.
+
+        Admitting a committed meta would hand the builder new write authority
+        over existing importer settings and asset identities -- the authority
+        expansion Astra flagged in my first proposal.
+        """
+        meta = self.TILE + ".meta"
+        target = self.checkout / meta
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(self.GOOD_META)
+        self.git("add", "--", meta)
+        self.git("commit", "-q", "-m", "meta already committed")
+        with self.assertRaisesRegex(
+            DoorPrototypeMaterializationError, "asset_meta_preexists",
+        ):
+            self._run_with(self._writer(self.GOOD_META), (meta,))
+
+    def test_a_folder_meta_shape_is_refused_as_an_asset_meta(self):
+        """The two policies must not fall back to each other."""
+        body = (b"fileFormatVersion: 2\n"
+                b"guid: 0123456789abcdef0123456789abcdef\n"
+                b"folderAsset: yes\n"
+                b"DefaultImporter:\n")
+        with self.assertRaisesRegex(
+            DoorPrototypeMaterializationError, "asset_meta_invalid_envelope",
+        ):
+            self._run_with(self._writer(body), (self.TILE + ".meta",))
+
+    def test_an_indented_folder_asset_key_is_refused(self):
+        """Reaches the folderAsset guard, which the folder-SHAPE test does not.
+
+        A real folder meta carries ``folderAsset: yes`` on line 2, so the
+        "<Name>Importer:" requirement rejects it first and the loop check never
+        runs -- leaving that test green for a reason other than the guard it
+        names. Found by mutation, not by reading.
+        """
+        body = (b"fileFormatVersion: 2\n"
+                b"guid: 0123456789abcdef0123456789abcdef\n"
+                b"NativeFormatImporter:\n"
+                b"  folderAsset: yes\n")
+        with self.assertRaisesRegex(
+            DoorPrototypeMaterializationError, "asset_meta_invalid_envelope",
+        ):
+            self._run_with(self._writer(body), (self.TILE + ".meta",))
+
+    def test_a_second_top_level_declaration_is_refused(self):
+        """Appended YAML must not ride in on a valid first three lines."""
+        body = self.GOOD_META + b"SomethingElse: true\n"
+        with self.assertRaisesRegex(
+            DoorPrototypeMaterializationError, "asset_meta_invalid_envelope",
+        ):
+            self._run_with(self._writer(body), (self.TILE + ".meta",))
+
+    def test_a_zero_guid_is_refused(self):
+        body = (b"fileFormatVersion: 2\n"
+                b"guid: " + b"0" * 32 + b"\n"
+                b"NativeFormatImporter:\n")
+        with self.assertRaisesRegex(
+            DoorPrototypeMaterializationError, "asset_meta_invalid_envelope",
+        ):
+            self._run_with(self._writer(body), (self.TILE + ".meta",))
+
     def test_a_new_generated_asset_materializes_with_its_sidecar(self):
         """FAILING-BEFORE: today this raises the boundary refusal for the meta.
 

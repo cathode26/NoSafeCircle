@@ -246,8 +246,9 @@ def _authenticate_asset_metas(
                 f"asset_meta_not_regular: {meta}"
             )
         if not _git(root, "cat-file", "-e", f"HEAD:{meta}", check=False).returncode:
-            # Already committed: outside this exception entirely, so that
-            # existing importer settings gain no new write authority.
+            # Defence in depth: the pre-launch check above is what actually
+            # fires. This one cannot normally be reached, because a committed
+            # meta arrives as a TRACKED change and never enters this list.
             raise DoorPrototypeMaterializationError(
                 f"asset_meta_preexists: {meta}"
             )
@@ -507,6 +508,16 @@ def run_door_prototype_builder(
             if allowed is None or meta[: -len(".meta")] not in set(allowed):
                 raise DoorPrototypeMaterializationError(
                     f"asset_meta_not_registered: {meta}"
+                )
+            # PRE-LAUNCH eligibility, per Astra's condition 2. This check used
+            # to live after Unity ran, behind a filter on the untracked set --
+            # where it could NEVER fire, because a committed meta that Unity
+            # rewrites appears as a TRACKED change. The outcome was still
+            # correct by accident (the tracked branch restores it); the guard
+            # asserting it was unreachable. Found by writing the refusal test.
+            if not _git(root, "cat-file", "-e", f"HEAD:{meta}", check=False).returncode:
+                raise DoorPrototypeMaterializationError(
+                    f"asset_meta_preexists: {meta}"
                 )
 
     # Resolved from PAYLOADS ONLY. `allowed` also selects the builder, so a
