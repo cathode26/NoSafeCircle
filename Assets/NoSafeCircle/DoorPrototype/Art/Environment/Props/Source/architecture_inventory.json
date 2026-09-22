@@ -1,0 +1,494 @@
+{
+  "schema_version": 1,
+  "family": "architecture",
+  "owner_task_id": "NSC-078",
+  "entries": [
+    {
+      "id": "ba_landmark_chained_grimoire_lectern",
+      "source_path": "Docs/Art/Environment/Props/Raw/architecture/ba_landmark_chained_grimoire_lectern.png",
+      "source_owner_task_id": "NSC-102",
+      "raw_sha256": "c8e660db6d1bcdedcc7216271cc4bd34e5ee79f1375ea96a6c48ae339b57d013",
+      "selected_sha256": "5e5f9f1a799a8cc22b2fa6abef894e0a54b7fa451b65c1744e8ba37d4cee8504",
+      "crop_pad_offset_px": null,
+      "repair_mask": null,
+      "pixel_width": 144,
+      "pixel_height": 188,
+      "alpha_bounds_px": {
+        "x": 7,
+        "y": 22,
+        "width": 128,
+        "height": 150
+      },
+      "has_transparent_pixels": true,
+      "pixels_per_unit": 64,
+      "footprint_world_size": {
+        "x": 1.5,
+        "z": 1.5,
+        "h": 2.0
+      },
+      "intended_rooms": [
+        "BoneArchive"
+      ],
+      "renderer_use": "SpriteRenderer",
+      "pivot_normalized": {
+        "x": 0.5,
+        "y": 0.085106
+      },
+      "sorting_anchor_normalized": {
+        "x": 0.5,
+        "y": 0.085106
+      },
+      "identity_category": "archive_landmark",
+      "variant_group": "archive_landmark",
+      "facing": "either",
+      "segment_role": "single",
+      "footprint_reference": "art direction",
+      "placement_role": "focal_landmark",
+      "collision_intent": "downstream_review_required",
+      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md"
+    },
+    {
+      "id": "ca_landmark_cracked_bell_frame_x",
+      "source_path": "Docs/Art/Environment/Props/Raw/architecture/ca_landmark_cracked_bell_frame_x.png",
+      "source_owner_task_id": "NSC-078",
+      "raw_sha256": "dfc9212bdf86931d30fafa0e4d911d1a69ab14635736c1e81022fe33d81fc233",
+      "selected_sha256": "822ae859648b7f8d6f51ae8f15f2f98d736f8fd724891e0a5ec13a5c4123b5a4",
+      "crop_pad_offset_px": null,
+      "repair_mask": null,
+      "pixel_width": 216,
+      "pixel_height": 216,
+      "alpha_bounds_px": {
+        "x": 39,
+        "y": 3,
+        "width": 130,
+        "height": 199
+      },
+      "has_transparent_pixels": true,
+      "pixels_per_unit": 64,
+      "footprint_world_size": {
+        "x": 2.0,
+        "z": 1.0,
+        "h": 2.5
+      },
+      "intended_rooms": [
+        "ChapelOfAsh"
+      ],
+      "renderer_use": "SpriteRenderer",
+      "pivot_normalized": {
+        "x": 0.5,
+        "y": 0.064815
+      },
+      "sorting_anchor_normalized": {
+        "x": 0.5,
+        "y": 0.064815
+      },
+      "identity_category": "chapel_landmark",
+      "variant_group": "chapel_landmark",
+      "facing": "world_x",
+      "segment_role": "single",
+      "footprint_reference": "art direction",
+      "placement_role": "focal_landmark",
+      "collision_intent": "downstream_review_required",
+      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md"
+    },
+    {
+      "id": "ca_sigil_floor_mark",
+      "source_path": "Docs/Art/Environment/Props/Raw/architecture/ca_sigil_floor_mark.png",
+      "source_owner_task_id": "NSC-078",
+      "raw_sha256": "46654f6d511a85961ce3f6e3f6a4e116d8f779bdd71c71aa1ca2278cf9064b4a",
+      "selected_sha256": "5bab90e11a80ed99ab68e72d01f13609ac1fb0026869de9613d9510da12f9403",
+      "crop_pad_offset_px": null,
+      "repair_mask": null,
+      "pixel_width": 192,
+      "pixel_height": 100,
+      "alpha_bounds_px": {
+        "x": 29,
+        "y": 13,
+        "width": 134,
+        "height": 76
+      },
+      "has_transparent_pixels": true,
+      "pixels_per_unit": 64,
+      "footprint_world_size": {
+        "x": 2.0,
+        "z": 2.0,
+        "h": 0.0
+      },
+      "intended_rooms": [
+        "ChapelOfAsh"
+      ],
+      "renderer_use": "SpriteRenderer",
+      "pivot_normalized": {
+        "x": 0.5,
+        "y": 0.11
+      },
+      "sorting_anchor_normalized": {
+        "x": 0.5,
+        "y": 0.11
+      },
+      "identity_category": "sigil",
+      "variant_group": "sigil",
+      "facing": "either",
+      "segment_role": "single",
+      "footprint_reference": "ChapelOfAshLayout.CentralAisleWidth (4.0)",
+      "placement_role": "background",
+      "collision_intent": "decorative_none",
+      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md"
+    },
+    {
+      "id": "fr_landmark_bone_throne",
+      "source_path": "Docs/Art/Environment/Props/Raw/architecture/fr_landmark_bone_throne.png",
+      "source_owner_task_id": "NSC-078",
+      "raw_sha256": "bf65949dd9889edc77aa0b18adfb84393d6a4bf9a66c481e99f262de8a81b443",
+      "selected_sha256": "9caff0486cfda0cdc5bb243f80eccad8f5ec22d0fab2f43fa699f5c420d998ee",
+      "crop_pad_offset_px": null,
+      "repair_mask": null,
+      "pixel_width": 212,
+      "pixel_height": 244,
+      "alpha_bounds_px": {
+        "x": 24,
+        "y": 6,
+        "width": 164,
+        "height": 230
+      },
+      "has_transparent_pixels": true,
+      "pixels_per_unit": 64,
+      "footprint_world_size": {
+        "x": 2.25,
+        "z": 2.25,
+        "h": 2.4
+      },
+      "intended_rooms": [
+        "FinalRoom"
+      ],
+      "renderer_use": "SpriteRenderer",
+      "pivot_normalized": {
+        "x": 0.5,
+        "y": 0.032787
+      },
+      "sorting_anchor_normalized": {
+        "x": 0.5,
+        "y": 0.032787
+      },
+      "identity_category": "dramatic_landmark",
+      "variant_group": "dramatic_landmark",
+      "facing": "either",
+      "segment_role": "single",
+      "footprint_reference": "FinalRoomLayout.FinalObstacleBounds (centre piece of the 5x5 obstacle)",
+      "placement_role": "focal_landmark",
+      "collision_intent": "downstream_review_required",
+      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md"
+    },
+    {
+      "id": "lv_landmark_sluice_wheel_gate_x",
+      "source_path": "Docs/Art/Environment/Props/Raw/architecture/lv_landmark_sluice_wheel_gate_x.png",
+      "source_owner_task_id": "NSC-078",
+      "raw_sha256": "0a84c2b373f41ae5732f20cfa056ab5f0648dbec2ff745928f290052bdddf653",
+      "selected_sha256": "156f675090ed2384ff85115f1c4bea4f6e5f3852c7eee582e2b2116717c6f081",
+      "crop_pad_offset_px": null,
+      "repair_mask": null,
+      "pixel_width": 216,
+      "pixel_height": 216,
+      "alpha_bounds_px": {
+        "x": 44,
+        "y": 11,
+        "width": 125,
+        "height": 192
+      },
+      "has_transparent_pixels": true,
+      "pixels_per_unit": 64,
+      "footprint_world_size": {
+        "x": 2.0,
+        "z": 1.0,
+        "h": 2.5
+      },
+      "intended_rooms": [
+        "LowerVault"
+      ],
+      "renderer_use": "SpriteRenderer",
+      "pivot_normalized": {
+        "x": 0.5,
+        "y": 0.060185
+      },
+      "sorting_anchor_normalized": {
+        "x": 0.5,
+        "y": 0.060185
+      },
+      "identity_category": "vault_landmark",
+      "variant_group": "vault_landmark",
+      "facing": "world_x",
+      "segment_role": "single",
+      "footprint_reference": "art direction",
+      "placement_role": "focal_landmark",
+      "collision_intent": "downstream_review_required",
+      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md"
+    },
+    {
+      "id": "re_broken_masonry_blocks",
+      "source_path": "Docs/Art/Environment/Props/Raw/architecture/re_broken_masonry_blocks.png",
+      "source_owner_task_id": "NSC-078",
+      "raw_sha256": "1321984ce09d317cdfe19348716b8f7adf945975ee8fbdc723ff2e2b3a97a35b",
+      "selected_sha256": "27b1fc01270b77c85f9ff08c4d2972754f777bad5dcc75e09279d3889fcfc9e8",
+      "crop_pad_offset_px": null,
+      "repair_mask": null,
+      "pixel_width": 124,
+      "pixel_height": 112,
+      "alpha_bounds_px": {
+        "x": 7,
+        "y": 20,
+        "width": 108,
+        "height": 77
+      },
+      "has_transparent_pixels": true,
+      "pixels_per_unit": 64,
+      "footprint_world_size": {
+        "x": 1.5,
+        "z": 1.0,
+        "h": 0.8
+      },
+      "intended_rooms": [
+        "RuinedEntry"
+      ],
+      "renderer_use": "SpriteRenderer",
+      "pivot_normalized": {
+        "x": 0.5,
+        "y": 0.133929
+      },
+      "sorting_anchor_normalized": {
+        "x": 0.5,
+        "y": 0.133929
+      },
+      "identity_category": "broken_masonry",
+      "variant_group": "broken_masonry",
+      "facing": "either",
+      "segment_role": "single",
+      "footprint_reference": "RuinedEntryLayout.NorthWestClusterDressingBounds",
+      "placement_role": "wall_rhythm",
+      "collision_intent": "downstream_review_required",
+      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md"
+    },
+    {
+      "id": "re_landmark_guardian_statue_broken",
+      "source_path": "Docs/Art/Environment/Props/Raw/architecture/re_landmark_guardian_statue_broken.png",
+      "source_owner_task_id": "NSC-078",
+      "raw_sha256": "66fdf0751f8c601d168734ff44eb9221fc37d967bbadf8ecd4c9cd4cd88242e2",
+      "selected_sha256": "ec861ad7ab722b373f18e485418ebca17bfb7eb147cf9fc5bbf49324d8c48d3b",
+      "crop_pad_offset_px": null,
+      "repair_mask": null,
+      "pixel_width": 100,
+      "pixel_height": 176,
+      "alpha_bounds_px": {
+        "x": 6,
+        "y": 49,
+        "width": 86,
+        "height": 115
+      },
+      "has_transparent_pixels": true,
+      "pixels_per_unit": 64,
+      "footprint_world_size": {
+        "x": 1.5,
+        "z": 0.5,
+        "h": 1.4
+      },
+      "intended_rooms": [
+        "RuinedEntry"
+      ],
+      "renderer_use": "SpriteRenderer",
+      "pivot_normalized": {
+        "x": 0.5,
+        "y": 0.068182
+      },
+      "sorting_anchor_normalized": {
+        "x": 0.5,
+        "y": 0.068182
+      },
+      "identity_category": "introductory_landmark",
+      "variant_group": "d1_guardian",
+      "facing": "world_x",
+      "segment_role": "single",
+      "footprint_reference": "RuinedEntryLayout.D1LandmarkEastDressingBounds",
+      "placement_role": "focal_landmark",
+      "collision_intent": "downstream_review_required",
+      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md"
+    },
+    {
+      "id": "re_landmark_guardian_statue_standing",
+      "source_path": "Docs/Art/Environment/Props/Raw/architecture/re_landmark_guardian_statue_standing.png",
+      "source_owner_task_id": "NSC-078",
+      "raw_sha256": "6dde4ad053f179ccbe1f11597ecc7cdab99f136a22c3623ab95102da7cf20774",
+      "selected_sha256": "b3d7c660946bb0a34157017166137367127a0f7e9cd178c22351b25fe0ba324d",
+      "crop_pad_offset_px": null,
+      "repair_mask": null,
+      "pixel_width": 100,
+      "pixel_height": 176,
+      "alpha_bounds_px": {
+        "x": 6,
+        "y": 8,
+        "width": 86,
+        "height": 156
+      },
+      "has_transparent_pixels": true,
+      "pixels_per_unit": 64,
+      "footprint_world_size": {
+        "x": 1.5,
+        "z": 0.5,
+        "h": 2.2
+      },
+      "intended_rooms": [
+        "RuinedEntry"
+      ],
+      "renderer_use": "SpriteRenderer",
+      "pivot_normalized": {
+        "x": 0.5,
+        "y": 0.068182
+      },
+      "sorting_anchor_normalized": {
+        "x": 0.5,
+        "y": 0.068182
+      },
+      "identity_category": "introductory_landmark",
+      "variant_group": "d1_guardian",
+      "facing": "world_x",
+      "segment_role": "single",
+      "footprint_reference": "RuinedEntryLayout.D1LandmarkWestDressingBounds",
+      "placement_role": "focal_landmark",
+      "collision_intent": "downstream_review_required",
+      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md"
+    },
+    {
+      "id": "shared_rubble_pile_a",
+      "source_path": "Docs/Art/Environment/Props/Raw/architecture/shared_rubble_pile_a.png",
+      "source_owner_task_id": "NSC-078",
+      "raw_sha256": "e9b68c37507307cb958175d7ac6205694102bb08fa5401a3740531ce3ca19d13",
+      "selected_sha256": "7e52bf9aa226ed5dd76542d4969e61ecaf43ed1d75609c9cf34e6b4767636d0a",
+      "crop_pad_offset_px": null,
+      "repair_mask": null,
+      "pixel_width": 192,
+      "pixel_height": 168,
+      "alpha_bounds_px": {
+        "x": 7,
+        "y": 9,
+        "width": 177,
+        "height": 149
+      },
+      "has_transparent_pixels": true,
+      "pixels_per_unit": 64,
+      "footprint_world_size": {
+        "x": 2.0,
+        "z": 2.0,
+        "h": 1.25
+      },
+      "intended_rooms": [
+        "RuinedEntry"
+      ],
+      "renderer_use": "SpriteRenderer",
+      "pivot_normalized": {
+        "x": 0.5,
+        "y": 0.059524
+      },
+      "sorting_anchor_normalized": {
+        "x": 0.5,
+        "y": 0.059524
+      },
+      "identity_category": "debris_rubble",
+      "variant_group": "debris_rubble",
+      "facing": "either",
+      "segment_role": "single",
+      "footprint_reference": "RuinedEntryLayout.RubbleABounds/RubbleBBounds (cluster piece)",
+      "placement_role": "supporting_cluster",
+      "collision_intent": "decorative_none",
+      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md"
+    },
+    {
+      "id": "shared_rubble_scatter_b",
+      "source_path": "Docs/Art/Environment/Props/Raw/architecture/shared_rubble_scatter_b.png",
+      "source_owner_task_id": "NSC-078",
+      "raw_sha256": "9592e54e3b46f62c1919544c76c0355cac1f1b1e3cd00c72386318bb9f3f321d",
+      "selected_sha256": "76f1c4c095750594bc14e38aeddedf0083b0a96e82b38240ada53db67a736b57",
+      "crop_pad_offset_px": null,
+      "repair_mask": null,
+      "pixel_width": 144,
+      "pixel_height": 104,
+      "alpha_bounds_px": {
+        "x": 11,
+        "y": 9,
+        "width": 120,
+        "height": 90
+      },
+      "has_transparent_pixels": true,
+      "pixels_per_unit": 64,
+      "footprint_world_size": {
+        "x": 1.5,
+        "z": 1.5,
+        "h": 0.5
+      },
+      "intended_rooms": [
+        "RuinedEntry",
+        "LowerVault",
+        "FinalRoom"
+      ],
+      "renderer_use": "SpriteRenderer",
+      "pivot_normalized": {
+        "x": 0.5,
+        "y": 0.048077
+      },
+      "sorting_anchor_normalized": {
+        "x": 0.5,
+        "y": 0.048077
+      },
+      "identity_category": "debris_rubble",
+      "variant_group": "debris_rubble",
+      "facing": "either",
+      "segment_role": "single",
+      "footprint_reference": "RuinedEntryLayout.RubbleABounds/RubbleBBounds (cluster piece)",
+      "placement_role": "supporting_cluster",
+      "collision_intent": "decorative_none",
+      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md"
+    },
+    {
+      "id": "shared_stone_column",
+      "source_path": "Docs/Art/Environment/Props/Raw/architecture/shared_stone_column.png",
+      "source_owner_task_id": "NSC-078",
+      "raw_sha256": "e5ef41127b318ddb4019438040f1dc1ed519c2d4f61d7531b815bb46479c0baf",
+      "selected_sha256": "24f367d79bceef67cb425746f41516cb49db67d4e0cbb3c2ecda3e0c0c38ccc0",
+      "crop_pad_offset_px": null,
+      "repair_mask": null,
+      "pixel_width": 144,
+      "pixel_height": 216,
+      "alpha_bounds_px": {
+        "x": 29,
+        "y": 8,
+        "width": 84,
+        "height": 193
+      },
+      "has_transparent_pixels": true,
+      "pixels_per_unit": 64,
+      "footprint_world_size": {
+        "x": 1.5,
+        "z": 1.5,
+        "h": 2.5
+      },
+      "intended_rooms": [
+        "ChapelOfAsh",
+        "LowerVault"
+      ],
+      "renderer_use": "SpriteRenderer",
+      "pivot_normalized": {
+        "x": 0.5,
+        "y": 0.069444
+      },
+      "sorting_anchor_normalized": {
+        "x": 0.5,
+        "y": 0.069444
+      },
+      "identity_category": "pillar_column",
+      "variant_group": "column",
+      "facing": "either",
+      "segment_role": "single",
+      "footprint_reference": "ChapelOfAshLayout.ColumnBounds; LowerVaultLayout.CentralColumnCluster",
+      "placement_role": "wall_rhythm",
+      "collision_intent": "downstream_review_required",
+      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md"
+    }
+  ]
+}

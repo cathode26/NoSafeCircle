@@ -1,0 +1,1293 @@
+{
+  "schema_version": 1,
+  "family": "furnishings",
+  "owner_task_id": "NSC-078",
+  "entries": [
+    {
+      "id": "ba_book_and_scroll_stack",
+      "source_path": "Docs/Art/Environment/Props/Raw/furnishings/ba_book_and_scroll_stack.png",
+      "source_owner_task_id": "NSC-102",
+      "raw_sha256": "31622d32e208e0349037954aadbdb5ac3ac0050538205e0195ac45aaa032dbf7",
+      "selected_sha256": "19292d2a94d9abd460fffef2c9441b0e059432e6b13832901d1a94d12b4e096f",
+      "crop_pad_offset_px": null,
+      "repair_mask": null,
+      "pixel_width": 64,
+      "pixel_height": 88,
+      "alpha_bounds_px": {
+        "x": 12,
+        "y": 3,
+        "width": 41,
+        "height": 81
+      },
+      "has_transparent_pixels": true,
+      "pixels_per_unit": 64,
+      "footprint_world_size": {
+        "x": 0.6,
+        "z": 0.6,
+        "h": 0.9
+      },
+      "intended_rooms": [
+        "BoneArchive"
+      ],
+      "renderer_use": "SpriteRenderer",
+      "pivot_normalized": {
+        "x": 0.5,
+        "y": 0.045455
+      },
+      "sorting_anchor_normalized": {
+        "x": 0.5,
+        "y": 0.045455
+      },
+      "identity_category": "books_or_scrolls",
+      "variant_group": "books_or_scrolls",
+      "facing": "either",
+      "segment_role": "single",
+      "footprint_reference": "art direction",
+      "placement_role": "supporting_cluster",
+      "collision_intent": "decorative_none",
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+    },
+    {
+      "id": "ba_collapsed_reading_table_z",
+      "source_path": "Docs/Art/Environment/Props/Raw/furnishings/ba_collapsed_reading_table_z.png",
+      "source_owner_task_id": "NSC-102",
+      "raw_sha256": "514ab53fd37936e09c8fe32d620e59f038d2dde1259ac41fa023b32d72f7dd2a",
+      "selected_sha256": "63e8a6891110c7febf213d8adfd3c861235e7885aaf1bb83ba97598bfb083e16",
+      "crop_pad_offset_px": null,
+      "repair_mask": null,
+      "pixel_width": 148,
+      "pixel_height": 148,
+      "alpha_bounds_px": {
+        "x": 14,
+        "y": 22,
+        "width": 117,
+        "height": 107
+      },
+      "has_transparent_pixels": true,
+      "pixels_per_unit": 64,
+      "footprint_world_size": {
+        "x": 1.0,
+        "z": 2.0,
+        "h": 1.25
+      },
+      "intended_rooms": [
+        "BoneArchive"
+      ],
+      "renderer_use": "SpriteRenderer",
+      "pivot_normalized": {
+        "x": 0.5,
+        "y": 0.128378
+      },
+      "sorting_anchor_normalized": {
+        "x": 0.5,
+        "y": 0.128378
+      },
+      "identity_category": "collapsed_furniture",
+      "variant_group": "collapsed_furniture",
+      "facing": "world_z",
+      "segment_role": "single",
+      "footprint_reference": "BoneArchiveLayout.CollapsedFurnitureBA1",
+      "placement_role": "supporting_cluster",
+      "collision_intent": "downstream_review_required",
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+    },
+    {
+      "id": "ba_comedy_skull_with_spectacles",
+      "source_path": "Docs/Art/Environment/Props/Raw/furnishings/ba_comedy_skull_with_spectacles.png",
+      "source_owner_task_id": "NSC-102",
+      "raw_sha256": "d214b0dc514a7fcb339fa03f46f8c03dff379c507b7cddfbb987081e682a94fe",
+      "selected_sha256": "b18dd91f32718f6ce864b10b1a65e46e42a19eae6d368842f13808f1e2f516d5",
+      "crop_pad_offset_px": null,
+      "repair_mask": null,
+      "pixel_width": 64,
+      "pixel_height": 60,
+      "alpha_bounds_px": {
+        "x": 7,
+        "y": 10,
+        "width": 46,
+        "height": 43
+      },
+      "has_transparent_pixels": true,
+      "pixels_per_unit": 64,
+      "footprint_world_size": {
+        "x": 0.6,
+        "z": 0.6,
+        "h": 0.4
+      },
+      "intended_rooms": [
+        "BoneArchive"
+      ],
+      "renderer_use": "SpriteRenderer",
+      "pivot_normalized": {
+        "x": 0.5,
+        "y": 0.116667
+      },
+      "sorting_anchor_normalized": {
+        "x": 0.5,
+        "y": 0.116667
+      },
+      "identity_category": "spooky_comedy_detail",
+      "variant_group": "comedy_ba",
+      "facing": "either",
+      "segment_role": "single",
+      "footprint_reference": "art direction",
+      "placement_role": "supporting_cluster",
+      "collision_intent": "decorative_none",
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+    },
+    {
+      "id": "ba_shelf_bank_z_end",
+      "source_path": "Docs/Art/Environment/Props/Raw/furnishings/ba_shelf_bank_z_end.png",
+      "source_owner_task_id": "NSC-078",
+      "raw_sha256": "0aec82c1301d56c3f6bfc4693494cadc9ead1e64d9cc6bee5c15ea1294fa9742",
+      "selected_sha256": "842550b2e79b52c75fe0febdef4e8ab2653c941e6591239caaa1d07e6ad79044",
+      "crop_pad_offset_px": null,
+      "repair_mask": null,
+      "pixel_width": 216,
+      "pixel_height": 216,
+      "alpha_bounds_px": {
+        "x": 54,
+        "y": 10,
+        "width": 110,
+        "height": 178
+      },
+      "has_transparent_pixels": true,
+      "pixels_per_unit": 64,
+      "footprint_world_size": {
+        "x": 1.5,
+        "z": 1.5,
+        "h": 2.5
+      },
+      "intended_rooms": [
+        "BoneArchive"
+      ],
+      "renderer_use": "SpriteRenderer",
+      "pivot_normalized": {
+        "x": 0.5,
+        "y": 0.12963
+      },
+      "sorting_anchor_normalized": {
+        "x": 0.5,
+        "y": 0.12963
+      },
+      "identity_category": "shelf_bank_segment",
+      "variant_group": "shelf_bank",
+      "facing": "world_z",
+      "segment_role": "end",
+      "footprint_reference": "BoneArchiveLayout.ShelfA/B/C",
+      "placement_role": "supporting_cluster",
+      "collision_intent": "downstream_review_required",
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+    },
+    {
+      "id": "ba_shelf_bank_z_middle",
+      "source_path": "Docs/Art/Environment/Props/Raw/furnishings/ba_shelf_bank_z_middle.png",
+      "source_owner_task_id": "NSC-078",
+      "raw_sha256": "3a08a986475532c74233c82101ad44dd08e118ab5522901e79c980bb5e518fc3",
+      "selected_sha256": "e3f25cd72c2efcf4c73c2153487c9ca74c3a556bb4d8fa9a254af93131fabd65",
+      "crop_pad_offset_px": null,
+      "repair_mask": null,
+      "pixel_width": 216,
+      "pixel_height": 216,
+      "alpha_bounds_px": {
+        "x": 54,
+        "y": 12,
+        "width": 106,
+        "height": 175
+      },
+      "has_transparent_pixels": true,
+      "pixels_per_unit": 64,
+      "footprint_world_size": {
+        "x": 1.5,
+        "z": 1.0,
+        "h": 2.5
+      },
+      "intended_rooms": [
+        "BoneArchive"
+      ],
+      "renderer_use": "SpriteRenderer",
+      "pivot_normalized": {
+        "x": 0.5,
+        "y": 0.134259
+      },
+      "sorting_anchor_normalized": {
+        "x": 0.5,
+        "y": 0.134259
+      },
+      "identity_category": "shelf_bank_segment",
+      "variant_group": "shelf_bank",
+      "facing": "world_z",
+      "segment_role": "middle",
+      "footprint_reference": "BoneArchiveLayout.ShelfA/B/C",
+      "placement_role": "supporting_cluster",
+      "collision_intent": "downstream_review_required",
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+    },
+    {
+      "id": "ba_shelf_bank_z_start",
+      "source_path": "Docs/Art/Environment/Props/Raw/furnishings/ba_shelf_bank_z_start.png",
+      "source_owner_task_id": "NSC-078",
+      "raw_sha256": "36545384bb1f8e2ccf46cf2a8f6eaa237a69eb3866fa5d9247eb59d74523e81c",
+      "selected_sha256": "5f69dd710760f4822eb8227f498d7403cc17dbacc499bedbe031d74b91916879",
+      "crop_pad_offset_px": null,
+      "repair_mask": null,
+      "pixel_width": 216,
+      "pixel_height": 216,
+      "alpha_bounds_px": {
+        "x": 54,
+        "y": 14,
+        "width": 108,
+        "height": 183
+      },
+      "has_transparent_pixels": true,
+      "pixels_per_unit": 64,
+      "footprint_world_size": {
+        "x": 1.5,
+        "z": 1.5,
+        "h": 2.5
+      },
+      "intended_rooms": [
+        "BoneArchive"
+      ],
+      "renderer_use": "SpriteRenderer",
+      "pivot_normalized": {
+        "x": 0.5,
+        "y": 0.087963
+      },
+      "sorting_anchor_normalized": {
+        "x": 0.5,
+        "y": 0.087963
+      },
+      "identity_category": "shelf_bank_segment",
+      "variant_group": "shelf_bank",
+      "facing": "world_z",
+      "segment_role": "start",
+      "footprint_reference": "BoneArchiveLayout.ShelfA/B/C",
+      "placement_role": "supporting_cluster",
+      "collision_intent": "downstream_review_required",
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+    },
+    {
+      "id": "ba_spilled_scroll_basket",
+      "source_path": "Docs/Art/Environment/Props/Raw/furnishings/ba_spilled_scroll_basket.png",
+      "source_owner_task_id": "NSC-102",
+      "raw_sha256": "c31cf6b201f1850d661a59a0fc6bdacf011fa7ebd6345959c698099c30642d52",
+      "selected_sha256": "7fcac6f197ce410274b1f16dbb2d50cb9fd54f17d69da667fc41a372abfbaa61",
+      "crop_pad_offset_px": null,
+      "repair_mask": null,
+      "pixel_width": 84,
+      "pixel_height": 80,
+      "alpha_bounds_px": {
+        "x": 12,
+        "y": 6,
+        "width": 59,
+        "height": 70
+      },
+      "has_transparent_pixels": true,
+      "pixels_per_unit": 64,
+      "footprint_world_size": {
+        "x": 0.8,
+        "z": 0.8,
+        "h": 0.6
+      },
+      "intended_rooms": [
+        "BoneArchive"
+      ],
+      "renderer_use": "SpriteRenderer",
+      "pivot_normalized": {
+        "x": 0.5,
+        "y": 0.05
+      },
+      "sorting_anchor_normalized": {
+        "x": 0.5,
+        "y": 0.05
+      },
+      "identity_category": "archival_clutter",
+      "variant_group": "archival_clutter",
+      "facing": "either",
+      "segment_role": "single",
+      "footprint_reference": "art direction",
+      "placement_role": "supporting_cluster",
+      "collision_intent": "decorative_none",
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+    },
+    {
+      "id": "ca_altar_ash_bowl_x",
+      "source_path": "Docs/Art/Environment/Props/Raw/furnishings/ca_altar_ash_bowl_x.png",
+      "source_owner_task_id": "NSC-078",
+      "raw_sha256": "308c3eece0c24480a7aac4fea634456ab7bac0d5cbfe270c45366b395b31bfab",
+      "selected_sha256": "9799c12e399758615f0b82d5e68376bad73eccbfebaf2fb9500bd7558851e230",
+      "crop_pad_offset_px": null,
+      "repair_mask": null,
+      "pixel_width": 144,
+      "pixel_height": 144,
+      "alpha_bounds_px": {
+        "x": 23,
+        "y": 7,
+        "width": 106,
+        "height": 126
+      },
+      "has_transparent_pixels": true,
+      "pixels_per_unit": 64,
+      "footprint_world_size": {
+        "x": 2.0,
+        "z": 1.0,
+        "h": 1.2
+      },
+      "intended_rooms": [
+        "ChapelOfAsh"
+      ],
+      "renderer_use": "SpriteRenderer",
+      "pivot_normalized": {
+        "x": 0.5,
+        "y": 0.076389
+      },
+      "sorting_anchor_normalized": {
+        "x": 0.5,
+        "y": 0.076389
+      },
+      "identity_category": "altar_or_ritual_focus",
+      "variant_group": "altar",
+      "facing": "world_x",
+      "segment_role": "single",
+      "footprint_reference": "art direction",
+      "placement_role": "supporting_cluster",
+      "collision_intent": "downstream_review_required",
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+    },
+    {
+      "id": "ca_ash_heap",
+      "source_path": "Docs/Art/Environment/Props/Raw/furnishings/ca_ash_heap.png",
+      "source_owner_task_id": "NSC-078",
+      "raw_sha256": "48f69c4aa6116e57895a821933e9a027de106cdf5f423f83d55871496eb55f05",
+      "selected_sha256": "abbb7bd1cbce87e139efd883149e788287db3f3fa865bfbafc352e72a17fd421",
+      "crop_pad_offset_px": null,
+      "repair_mask": null,
+      "pixel_width": 100,
+      "pixel_height": 76,
+      "alpha_bounds_px": {
+        "x": 4,
+        "y": 9,
+        "width": 91,
+        "height": 62
+      },
+      "has_transparent_pixels": true,
+      "pixels_per_unit": 64,
+      "footprint_world_size": {
+        "x": 1.0,
+        "z": 1.0,
+        "h": 0.4
+      },
+      "intended_rooms": [
+        "ChapelOfAsh"
+      ],
+      "renderer_use": "SpriteRenderer",
+      "pivot_normalized": {
+        "x": 0.5,
+        "y": 0.065789
+      },
+      "sorting_anchor_normalized": {
+        "x": 0.5,
+        "y": 0.065789
+      },
+      "identity_category": "ash_accent",
+      "variant_group": "ash_accent",
+      "facing": "either",
+      "segment_role": "single",
+      "footprint_reference": "art direction",
+      "placement_role": "supporting_cluster",
+      "collision_intent": "decorative_none",
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+    },
+    {
+      "id": "ca_candelabra_tall",
+      "source_path": "Docs/Art/Environment/Props/Raw/furnishings/ca_candelabra_tall.png",
+      "source_owner_task_id": "NSC-078",
+      "raw_sha256": "e93573754f233c79135fc07a27ff458d84ceeae4b9bdd8c923b1ba33764fefb0",
+      "selected_sha256": "3c7133d9bb8e81ba457e8fc5d59865361653d81d7534e67f497773846282a624",
+      "crop_pad_offset_px": null,
+      "repair_mask": null,
+      "pixel_width": 64,
+      "pixel_height": 148,
+      "alpha_bounds_px": {
+        "x": 5,
+        "y": 7,
+        "width": 54,
+        "height": 135
+      },
+      "has_transparent_pixels": true,
+      "pixels_per_unit": 64,
+      "footprint_world_size": {
+        "x": 0.6,
+        "z": 0.6,
+        "h": 2.0
+      },
+      "intended_rooms": [
+        "ChapelOfAsh"
+      ],
+      "renderer_use": "SpriteRenderer",
+      "pivot_normalized": {
+        "x": 0.5,
+        "y": 0.040541
+      },
+      "sorting_anchor_normalized": {
+        "x": 0.5,
+        "y": 0.040541
+      },
+      "identity_category": "gothic_vertical_shape",
+      "variant_group": "gothic_vertical",
+      "facing": "either",
+      "segment_role": "single",
+      "footprint_reference": "art direction",
+      "placement_role": "wall_rhythm",
+      "collision_intent": "downstream_review_required",
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+    },
+    {
+      "id": "ca_comedy_offering_plate_sock",
+      "source_path": "Docs/Art/Environment/Props/Raw/furnishings/ca_comedy_offering_plate_sock.png",
+      "source_owner_task_id": "NSC-078",
+      "raw_sha256": "61c267ca81e12e4685e5af0e427aa79e488f543972b5c49eac1dccac21517928",
+      "selected_sha256": "454f6cd33d63035e5c26a29a9f49214eb585e8abbbe134a5c7e401e2b22b6a68",
+      "crop_pad_offset_px": null,
+      "repair_mask": null,
+      "pixel_width": 56,
+      "pixel_height": 44,
+      "alpha_bounds_px": {
+        "x": 7,
+        "y": 5,
+        "width": 42,
+        "height": 34
+      },
+      "has_transparent_pixels": true,
+      "pixels_per_unit": 64,
+      "footprint_world_size": {
+        "x": 0.5,
+        "z": 0.5,
+        "h": 0.2
+      },
+      "intended_rooms": [
+        "ChapelOfAsh"
+      ],
+      "renderer_use": "SpriteRenderer",
+      "pivot_normalized": {
+        "x": 0.5,
+        "y": 0.113636
+      },
+      "sorting_anchor_normalized": {
+        "x": 0.5,
+        "y": 0.113636
+      },
+      "identity_category": "spooky_comedy_detail",
+      "variant_group": "comedy_ca",
+      "facing": "either",
+      "segment_role": "single",
+      "footprint_reference": "art direction",
+      "placement_role": "supporting_cluster",
+      "collision_intent": "decorative_none",
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+    },
+    {
+      "id": "ca_pew_x_end",
+      "source_path": "Docs/Art/Environment/Props/Raw/furnishings/ca_pew_x_end.png",
+      "source_owner_task_id": "NSC-078",
+      "raw_sha256": "3dc4e7bd15d22c00c2812ebb0cd60cc92e186db3f13523f47977903453457430",
+      "selected_sha256": "4e3a5a916006faad837c8eb882255a3151997568b4d7b3961978dcdb2cdc90a1",
+      "crop_pad_offset_px": null,
+      "repair_mask": null,
+      "pixel_width": 156,
+      "pixel_height": 156,
+      "alpha_bounds_px": {
+        "x": 10,
+        "y": 29,
+        "width": 125,
+        "height": 115
+      },
+      "has_transparent_pixels": true,
+      "pixels_per_unit": 64,
+      "footprint_world_size": {
+        "x": 1.75,
+        "z": 1.5,
+        "h": 1.25
+      },
+      "intended_rooms": [
+        "ChapelOfAsh"
+      ],
+      "renderer_use": "SpriteRenderer",
+      "pivot_normalized": {
+        "x": 0.5,
+        "y": 0.076923
+      },
+      "sorting_anchor_normalized": {
+        "x": 0.5,
+        "y": 0.076923
+      },
+      "identity_category": "pew_segment",
+      "variant_group": "pew",
+      "facing": "world_x",
+      "segment_role": "end",
+      "footprint_reference": "ChapelOfAshLayout.PewFootprints",
+      "placement_role": "supporting_cluster",
+      "collision_intent": "downstream_review_required",
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+    },
+    {
+      "id": "ca_pew_x_middle",
+      "source_path": "Docs/Art/Environment/Props/Raw/furnishings/ca_pew_x_middle.png",
+      "source_owner_task_id": "NSC-078",
+      "raw_sha256": "eaad5b8f1bf010247af3bcbb2a756644f809a2fca834bdab480403c51684a606",
+      "selected_sha256": "baa42f3240f9440b25fddcd5ebf195ff6675c770cc82130abb1fe974b93d4ccb",
+      "crop_pad_offset_px": null,
+      "repair_mask": null,
+      "pixel_width": 156,
+      "pixel_height": 156,
+      "alpha_bounds_px": {
+        "x": 16,
+        "y": 29,
+        "width": 114,
+        "height": 113
+      },
+      "has_transparent_pixels": true,
+      "pixels_per_unit": 64,
+      "footprint_world_size": {
+        "x": 1.0,
+        "z": 1.5,
+        "h": 1.25
+      },
+      "intended_rooms": [
+        "ChapelOfAsh"
+      ],
+      "renderer_use": "SpriteRenderer",
+      "pivot_normalized": {
+        "x": 0.5,
+        "y": 0.089744
+      },
+      "sorting_anchor_normalized": {
+        "x": 0.5,
+        "y": 0.089744
+      },
+      "identity_category": "pew_segment",
+      "variant_group": "pew",
+      "facing": "world_x",
+      "segment_role": "middle",
+      "footprint_reference": "ChapelOfAshLayout.PewFootprints",
+      "placement_role": "supporting_cluster",
+      "collision_intent": "downstream_review_required",
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+    },
+    {
+      "id": "ca_pew_x_start",
+      "source_path": "Docs/Art/Environment/Props/Raw/furnishings/ca_pew_x_start.png",
+      "source_owner_task_id": "NSC-078",
+      "raw_sha256": "6dac0a4e4ce8d724a81a959d532eacc0e18cf7e0d9d1f13eb2ce2b35178ae4d1",
+      "selected_sha256": "88b082438c62d95e3715cc8a4c845c1234df1fcd60d20934d2095f0f88b5b576",
+      "crop_pad_offset_px": null,
+      "repair_mask": null,
+      "pixel_width": 156,
+      "pixel_height": 156,
+      "alpha_bounds_px": {
+        "x": 8,
+        "y": 9,
+        "width": 133,
+        "height": 137
+      },
+      "has_transparent_pixels": true,
+      "pixels_per_unit": 64,
+      "footprint_world_size": {
+        "x": 1.75,
+        "z": 1.5,
+        "h": 1.25
+      },
+      "intended_rooms": [
+        "ChapelOfAsh"
+      ],
+      "renderer_use": "SpriteRenderer",
+      "pivot_normalized": {
+        "x": 0.5,
+        "y": 0.064103
+      },
+      "sorting_anchor_normalized": {
+        "x": 0.5,
+        "y": 0.064103
+      },
+      "identity_category": "pew_segment",
+      "variant_group": "pew",
+      "facing": "world_x",
+      "segment_role": "start",
+      "footprint_reference": "ChapelOfAshLayout.PewFootprints",
+      "placement_role": "supporting_cluster",
+      "collision_intent": "downstream_review_required",
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+    },
+    {
+      "id": "fr_bench_x",
+      "source_path": "Docs/Art/Environment/Props/Raw/furnishings/fr_bench_x.png",
+      "source_owner_task_id": "NSC-078",
+      "raw_sha256": "aea0eb9224278130c95d74abf6f1d7a267d0e44d218536191b6d7fda2bfe30dd",
+      "selected_sha256": "5ea53f76d2720ae941cae7a3827a8e43e500d1f25229f1cd9c06bb69f7aacc4e",
+      "crop_pad_offset_px": null,
+      "repair_mask": null,
+      "pixel_width": 148,
+      "pixel_height": 148,
+      "alpha_bounds_px": {
+        "x": 21,
+        "y": 25,
+        "width": 108,
+        "height": 102
+      },
+      "has_transparent_pixels": true,
+      "pixels_per_unit": 64,
+      "footprint_world_size": {
+        "x": 2.5,
+        "z": 0.55,
+        "h": 0.7
+      },
+      "intended_rooms": [
+        "FinalRoom"
+      ],
+      "renderer_use": "SpriteRenderer",
+      "pivot_normalized": {
+        "x": 0.5,
+        "y": 0.141892
+      },
+      "sorting_anchor_normalized": {
+        "x": 0.5,
+        "y": 0.141892
+      },
+      "identity_category": "bench",
+      "variant_group": "bench",
+      "facing": "world_x",
+      "segment_role": "single",
+      "footprint_reference": "FinalRoomLayout.WestBenchBounds/EastBenchBounds",
+      "placement_role": "supporting_cluster",
+      "collision_intent": "downstream_review_required",
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+    },
+    {
+      "id": "fr_comedy_party_hat_skull_cake",
+      "source_path": "Docs/Art/Environment/Props/Raw/furnishings/fr_comedy_party_hat_skull_cake.png",
+      "source_owner_task_id": "NSC-078",
+      "raw_sha256": "d50683f4fc7fc75f9db16a473aaff8d6a694cf6aeb48480d4c336aeb25bd4e10",
+      "selected_sha256": "57bb02f0141e84194814ff1577f99894cfe78f7b9fd8dbeb399b186d9709d4ff",
+      "crop_pad_offset_px": null,
+      "repair_mask": null,
+      "pixel_width": 64,
+      "pixel_height": 64,
+      "alpha_bounds_px": {
+        "x": 6,
+        "y": 7,
+        "width": 51,
+        "height": 47
+      },
+      "has_transparent_pixels": true,
+      "pixels_per_unit": 64,
+      "footprint_world_size": {
+        "x": 0.6,
+        "z": 0.6,
+        "h": 0.5
+      },
+      "intended_rooms": [
+        "FinalRoom"
+      ],
+      "renderer_use": "SpriteRenderer",
+      "pivot_normalized": {
+        "x": 0.5,
+        "y": 0.15625
+      },
+      "sorting_anchor_normalized": {
+        "x": 0.5,
+        "y": 0.15625
+      },
+      "identity_category": "spooky_comedy_detail",
+      "variant_group": "comedy_fr",
+      "facing": "either",
+      "segment_role": "single",
+      "footprint_reference": "art direction",
+      "placement_role": "supporting_cluster",
+      "collision_intent": "decorative_none",
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+    },
+    {
+      "id": "fr_ritual_bone_candle_ring",
+      "source_path": "Docs/Art/Environment/Props/Raw/furnishings/fr_ritual_bone_candle_ring.png",
+      "source_owner_task_id": "NSC-078",
+      "raw_sha256": "45b6eff0a6bd37f0d27e96e2f3f02959bb282130e59b96b24df68c3d3f2b6298",
+      "selected_sha256": "df5c033bf7bc942a221c3d83e4ba0d8b8d004f39469affd80d0d71b2e65a3321",
+      "crop_pad_offset_px": null,
+      "repair_mask": null,
+      "pixel_width": 144,
+      "pixel_height": 96,
+      "alpha_bounds_px": {
+        "x": 5,
+        "y": 4,
+        "width": 131,
+        "height": 83
+      },
+      "has_transparent_pixels": true,
+      "pixels_per_unit": 64,
+      "footprint_world_size": {
+        "x": 1.5,
+        "z": 1.5,
+        "h": 0.3
+      },
+      "intended_rooms": [
+        "FinalRoom"
+      ],
+      "renderer_use": "SpriteRenderer",
+      "pivot_normalized": {
+        "x": 0.5,
+        "y": 0.09375
+      },
+      "sorting_anchor_normalized": {
+        "x": 0.5,
+        "y": 0.09375
+      },
+      "identity_category": "ritual_detail",
+      "variant_group": "ritual_detail",
+      "facing": "either",
+      "segment_role": "single",
+      "footprint_reference": "art direction",
+      "placement_role": "supporting_cluster",
+      "collision_intent": "decorative_none",
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+    },
+    {
+      "id": "fr_round_table_with_stools",
+      "source_path": "Docs/Art/Environment/Props/Raw/furnishings/fr_round_table_with_stools.png",
+      "source_owner_task_id": "NSC-078",
+      "raw_sha256": "ca59f126f60e26aada3b55817f2b1f39d1e104ee32fc4421429bd68c3428815a",
+      "selected_sha256": "461744b63e4408fad2d3898dd6a300f749897d358a1e06532ca71fbff3655c0f",
+      "crop_pad_offset_px": null,
+      "repair_mask": null,
+      "pixel_width": 144,
+      "pixel_height": 128,
+      "alpha_bounds_px": {
+        "x": 10,
+        "y": 12,
+        "width": 123,
+        "height": 103
+      },
+      "has_transparent_pixels": true,
+      "pixels_per_unit": 64,
+      "footprint_world_size": {
+        "x": 1.5,
+        "z": 1.5,
+        "h": 0.9
+      },
+      "intended_rooms": [
+        "FinalRoom"
+      ],
+      "renderer_use": "SpriteRenderer",
+      "pivot_normalized": {
+        "x": 0.5,
+        "y": 0.101562
+      },
+      "sorting_anchor_normalized": {
+        "x": 0.5,
+        "y": 0.101562
+      },
+      "identity_category": "recognizable_furniture",
+      "variant_group": "furniture",
+      "facing": "either",
+      "segment_role": "single",
+      "footprint_reference": "art direction",
+      "placement_role": "supporting_cluster",
+      "collision_intent": "downstream_review_required",
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+    },
+    {
+      "id": "lv_barrel",
+      "source_path": "Docs/Art/Environment/Props/Raw/furnishings/lv_barrel.png",
+      "source_owner_task_id": "NSC-078",
+      "raw_sha256": "bbade6ada821856c7c7b259021438f1c009948785f9984e2cbdda64828db5729",
+      "selected_sha256": "79e02758cdec0c57a1cb2f0d01e7cc3cdccf5c077fdd7c9b7b98133d98cfe705",
+      "crop_pad_offset_px": null,
+      "repair_mask": null,
+      "pixel_width": 84,
+      "pixel_height": 100,
+      "alpha_bounds_px": {
+        "x": 16,
+        "y": 15,
+        "width": 53,
+        "height": 70
+      },
+      "has_transparent_pixels": true,
+      "pixels_per_unit": 64,
+      "footprint_world_size": {
+        "x": 0.8,
+        "z": 0.8,
+        "h": 1.0
+      },
+      "intended_rooms": [
+        "LowerVault"
+      ],
+      "renderer_use": "SpriteRenderer",
+      "pivot_normalized": {
+        "x": 0.5,
+        "y": 0.15
+      },
+      "sorting_anchor_normalized": {
+        "x": 0.5,
+        "y": 0.15
+      },
+      "identity_category": "barrel",
+      "variant_group": "storage",
+      "facing": "either",
+      "segment_role": "single",
+      "footprint_reference": "LowerVaultLayout.WestStoragePile/EastStoragePile/NorthWestStorageBar",
+      "placement_role": "supporting_cluster",
+      "collision_intent": "decorative_none",
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+    },
+    {
+      "id": "lv_comedy_barrel_striped_socks",
+      "source_path": "Docs/Art/Environment/Props/Raw/furnishings/lv_comedy_barrel_striped_socks.png",
+      "source_owner_task_id": "NSC-078",
+      "raw_sha256": "9c95bd7d6731b65c4618400267618f7069e170e7817d64cb825f5f0610e7237e",
+      "selected_sha256": "0fa02750f4cb38aca0608bd317803e0db2319adf0855862ebcf7a35ed1891d31",
+      "crop_pad_offset_px": null,
+      "repair_mask": null,
+      "pixel_width": 84,
+      "pixel_height": 108,
+      "alpha_bounds_px": {
+        "x": 16,
+        "y": 6,
+        "width": 53,
+        "height": 92
+      },
+      "has_transparent_pixels": true,
+      "pixels_per_unit": 64,
+      "footprint_world_size": {
+        "x": 0.8,
+        "z": 0.8,
+        "h": 1.1
+      },
+      "intended_rooms": [
+        "LowerVault"
+      ],
+      "renderer_use": "SpriteRenderer",
+      "pivot_normalized": {
+        "x": 0.5,
+        "y": 0.092593
+      },
+      "sorting_anchor_normalized": {
+        "x": 0.5,
+        "y": 0.092593
+      },
+      "identity_category": "spooky_comedy_detail",
+      "variant_group": "comedy_lv",
+      "facing": "either",
+      "segment_role": "single",
+      "footprint_reference": "LowerVaultLayout.WestStoragePile (cluster piece)",
+      "placement_role": "supporting_cluster",
+      "collision_intent": "decorative_none",
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+    },
+    {
+      "id": "lv_crate",
+      "source_path": "Docs/Art/Environment/Props/Raw/furnishings/lv_crate.png",
+      "source_owner_task_id": "NSC-078",
+      "raw_sha256": "9ad95055b0a9a17be7e5f215835b679461f7937dc6d460105e8b5b104b2f4285",
+      "selected_sha256": "b3d5a5351dc90b06a1ba2655c0694d5e2a1620fe23897ee302317c99db6b6dfb",
+      "crop_pad_offset_px": null,
+      "repair_mask": null,
+      "pixel_width": 100,
+      "pixel_height": 112,
+      "alpha_bounds_px": {
+        "x": 15,
+        "y": 17,
+        "width": 69,
+        "height": 77
+      },
+      "has_transparent_pixels": true,
+      "pixels_per_unit": 64,
+      "footprint_world_size": {
+        "x": 1.0,
+        "z": 1.0,
+        "h": 1.0
+      },
+      "intended_rooms": [
+        "LowerVault"
+      ],
+      "renderer_use": "SpriteRenderer",
+      "pivot_normalized": {
+        "x": 0.5,
+        "y": 0.160714
+      },
+      "sorting_anchor_normalized": {
+        "x": 0.5,
+        "y": 0.160714
+      },
+      "identity_category": "crate",
+      "variant_group": "storage",
+      "facing": "either",
+      "segment_role": "single",
+      "footprint_reference": "LowerVaultLayout storage piles",
+      "placement_role": "supporting_cluster",
+      "collision_intent": "decorative_none",
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+    },
+    {
+      "id": "re_comedy_thumbs_up_skeleton_hand",
+      "source_path": "Docs/Art/Environment/Props/Raw/furnishings/re_comedy_thumbs_up_skeleton_hand.png",
+      "source_owner_task_id": "NSC-078",
+      "raw_sha256": "d2cfa5e451a5d0591c9c38d20d55665fb6f1c85981ba897aa49dffe1b8d1eabc",
+      "selected_sha256": "503e0677e10aa03dbd5b74773d650d5aae4e56f957b2ce41f0058e11af0dce9e",
+      "crop_pad_offset_px": null,
+      "repair_mask": null,
+      "pixel_width": 56,
+      "pixel_height": 56,
+      "alpha_bounds_px": {
+        "x": 5,
+        "y": 7,
+        "width": 43,
+        "height": 44
+      },
+      "has_transparent_pixels": true,
+      "pixels_per_unit": 64,
+      "footprint_world_size": {
+        "x": 0.5,
+        "z": 0.5,
+        "h": 0.4
+      },
+      "intended_rooms": [
+        "RuinedEntry"
+      ],
+      "renderer_use": "SpriteRenderer",
+      "pivot_normalized": {
+        "x": 0.5,
+        "y": 0.089286
+      },
+      "sorting_anchor_normalized": {
+        "x": 0.5,
+        "y": 0.089286
+      },
+      "identity_category": "spooky_comedy_detail",
+      "variant_group": "comedy_re",
+      "facing": "either",
+      "segment_role": "single",
+      "footprint_reference": "art direction",
+      "placement_role": "supporting_cluster",
+      "collision_intent": "decorative_none",
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+    },
+    {
+      "id": "re_debris_broken_handcart",
+      "source_path": "Docs/Art/Environment/Props/Raw/furnishings/re_debris_broken_handcart.png",
+      "source_owner_task_id": "NSC-078",
+      "raw_sha256": "993a089729749e917b95734ea579bcdaa3b2c78645a053d63d09fa36712d648c",
+      "selected_sha256": "754f27d98013097f06b16681ea365a44ad24c7f4aed3ad79f6c673c4f712abdc",
+      "crop_pad_offset_px": null,
+      "repair_mask": null,
+      "pixel_width": 124,
+      "pixel_height": 112,
+      "alpha_bounds_px": {
+        "x": 10,
+        "y": 9,
+        "width": 99,
+        "height": 91
+      },
+      "has_transparent_pixels": true,
+      "pixels_per_unit": 64,
+      "footprint_world_size": {
+        "x": 1.5,
+        "z": 1.0,
+        "h": 0.8
+      },
+      "intended_rooms": [
+        "RuinedEntry"
+      ],
+      "renderer_use": "SpriteRenderer",
+      "pivot_normalized": {
+        "x": 0.5,
+        "y": 0.107143
+      },
+      "sorting_anchor_normalized": {
+        "x": 0.5,
+        "y": 0.107143
+      },
+      "identity_category": "debris_rubble",
+      "variant_group": "debris_rubble",
+      "facing": "either",
+      "segment_role": "single",
+      "footprint_reference": "RuinedEntryLayout.RubbleABounds (cluster piece)",
+      "placement_role": "supporting_cluster",
+      "collision_intent": "decorative_none",
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+    },
+    {
+      "id": "re_roots_and_mushrooms",
+      "source_path": "Docs/Art/Environment/Props/Raw/furnishings/re_roots_and_mushrooms.png",
+      "source_owner_task_id": "NSC-078",
+      "raw_sha256": "d5ee085bb641bf01bc1633ca2b5e0daf932a397387d8e529c8fbed8e32e70100",
+      "selected_sha256": "a991c9b5973bfb3290653820e371be66cbe1bb0d2e935cd65f769813043a0a59",
+      "crop_pad_offset_px": null,
+      "repair_mask": null,
+      "pixel_width": 100,
+      "pixel_height": 88,
+      "alpha_bounds_px": {
+        "x": 0,
+        "y": 3,
+        "width": 94,
+        "height": 82
+      },
+      "has_transparent_pixels": true,
+      "pixels_per_unit": 64,
+      "footprint_world_size": {
+        "x": 1.0,
+        "z": 1.0,
+        "h": 0.6
+      },
+      "intended_rooms": [
+        "RuinedEntry"
+      ],
+      "renderer_use": "SpriteRenderer",
+      "pivot_normalized": {
+        "x": 0.5,
+        "y": 0.034091
+      },
+      "sorting_anchor_normalized": {
+        "x": 0.5,
+        "y": 0.034091
+      },
+      "identity_category": "vegetation_or_slime",
+      "variant_group": "vegetation",
+      "facing": "either",
+      "segment_role": "single",
+      "footprint_reference": "RuinedEntryLayout.WestWallClusterDressingBounds",
+      "placement_role": "supporting_cluster",
+      "collision_intent": "decorative_none",
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+    },
+    {
+      "id": "shared_bone_pile_a",
+      "source_path": "Docs/Art/Environment/Props/Raw/furnishings/shared_bone_pile_a.png",
+      "source_owner_task_id": "NSC-102",
+      "raw_sha256": "28e4b5c4f4b685e7c7ac3d0b1941b18e727172f434428df6fdae70c1f1b26099",
+      "selected_sha256": "1056ac583cd60ab622a77c3cf5b13f60a398946ab85178b17732eeaa7e54fec4",
+      "crop_pad_offset_px": null,
+      "repair_mask": null,
+      "pixel_width": 100,
+      "pixel_height": 84,
+      "alpha_bounds_px": {
+        "x": 11,
+        "y": 9,
+        "width": 76,
+        "height": 65
+      },
+      "has_transparent_pixels": true,
+      "pixels_per_unit": 64,
+      "footprint_world_size": {
+        "x": 1.0,
+        "z": 1.0,
+        "h": 0.5
+      },
+      "intended_rooms": [
+        "BoneArchive",
+        "ChapelOfAsh",
+        "FinalRoom"
+      ],
+      "renderer_use": "SpriteRenderer",
+      "pivot_normalized": {
+        "x": 0.5,
+        "y": 0.119048
+      },
+      "sorting_anchor_normalized": {
+        "x": 0.5,
+        "y": 0.119048
+      },
+      "identity_category": "bone_pile",
+      "variant_group": "bone_pile",
+      "facing": "either",
+      "segment_role": "single",
+      "footprint_reference": "art direction",
+      "placement_role": "supporting_cluster",
+      "collision_intent": "decorative_none",
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+    },
+    {
+      "id": "shared_bone_pile_b",
+      "source_path": "Docs/Art/Environment/Props/Raw/furnishings/shared_bone_pile_b.png",
+      "source_owner_task_id": "NSC-102",
+      "raw_sha256": "8206213bbfb3cad17a6b4290be6c2fc93c26644b2f57a381a4e48188fdf95f30",
+      "selected_sha256": "9d78e7f9c16febbbd3bbcbc5375d58624db4dd549b14c2a9aa53466199e0e689",
+      "crop_pad_offset_px": null,
+      "repair_mask": null,
+      "pixel_width": 100,
+      "pixel_height": 72,
+      "alpha_bounds_px": {
+        "x": 10,
+        "y": 6,
+        "width": 81,
+        "height": 63
+      },
+      "has_transparent_pixels": true,
+      "pixels_per_unit": 64,
+      "footprint_world_size": {
+        "x": 1.2,
+        "z": 0.8,
+        "h": 0.3
+      },
+      "intended_rooms": [
+        "BoneArchive",
+        "FinalRoom",
+        "RuinedEntry"
+      ],
+      "renderer_use": "SpriteRenderer",
+      "pivot_normalized": {
+        "x": 0.5,
+        "y": 0.041667
+      },
+      "sorting_anchor_normalized": {
+        "x": 0.5,
+        "y": 0.041667
+      },
+      "identity_category": "bone_pile",
+      "variant_group": "bone_pile",
+      "facing": "either",
+      "segment_role": "single",
+      "footprint_reference": "art direction",
+      "placement_role": "supporting_cluster",
+      "collision_intent": "decorative_none",
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+    },
+    {
+      "id": "shared_candle_cluster_a",
+      "source_path": "Docs/Art/Environment/Props/Raw/furnishings/shared_candle_cluster_a.png",
+      "source_owner_task_id": "NSC-078",
+      "raw_sha256": "606b35e3c2b3b5854b4ed72f1d8410739b71eff9275940a24c95b9403cda8bd5",
+      "selected_sha256": "0544c83676404238fc9185dae736c090cea6199a0cdd94dac4155c2293bf6457",
+      "crop_pad_offset_px": null,
+      "repair_mask": null,
+      "pixel_width": 84,
+      "pixel_height": 80,
+      "alpha_bounds_px": {
+        "x": 12,
+        "y": 7,
+        "width": 57,
+        "height": 65
+      },
+      "has_transparent_pixels": true,
+      "pixels_per_unit": 64,
+      "footprint_world_size": {
+        "x": 0.8,
+        "z": 0.8,
+        "h": 0.6
+      },
+      "intended_rooms": [
+        "ChapelOfAsh",
+        "FinalRoom"
+      ],
+      "renderer_use": "SpriteRenderer",
+      "pivot_normalized": {
+        "x": 0.5,
+        "y": 0.1
+      },
+      "sorting_anchor_normalized": {
+        "x": 0.5,
+        "y": 0.1
+      },
+      "identity_category": "candle_cluster",
+      "variant_group": "candle_cluster",
+      "facing": "either",
+      "segment_role": "single",
+      "footprint_reference": "art direction",
+      "placement_role": "supporting_cluster",
+      "collision_intent": "decorative_none",
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+    },
+    {
+      "id": "shared_web_corner_a",
+      "source_path": "Docs/Art/Environment/Props/Raw/furnishings/shared_web_corner_a.png",
+      "source_owner_task_id": "NSC-102",
+      "raw_sha256": "a156ece0c2d3a2b777827e6729f50af34c4cba86026285f4fa04edbe98ebd9d3",
+      "selected_sha256": "5fc1040884b2637f94c576a970abecc82062c7d07f37c02453a31f06ec55b9cc",
+      "crop_pad_offset_px": null,
+      "repair_mask": null,
+      "pixel_width": 100,
+      "pixel_height": 140,
+      "alpha_bounds_px": {
+        "x": 2,
+        "y": 3,
+        "width": 95,
+        "height": 129
+      },
+      "has_transparent_pixels": true,
+      "pixels_per_unit": 64,
+      "footprint_world_size": {
+        "x": 1.0,
+        "z": 1.0,
+        "h": 1.5
+      },
+      "intended_rooms": [
+        "RuinedEntry",
+        "BoneArchive",
+        "ChapelOfAsh",
+        "FinalRoom"
+      ],
+      "renderer_use": "SpriteRenderer",
+      "pivot_normalized": {
+        "x": 0.5,
+        "y": 0.057143
+      },
+      "sorting_anchor_normalized": {
+        "x": 0.5,
+        "y": 0.057143
+      },
+      "identity_category": "web",
+      "variant_group": "web",
+      "facing": "either",
+      "segment_role": "single",
+      "footprint_reference": "art direction (far corners only; near corners are cutaway)",
+      "placement_role": "supporting_cluster",
+      "collision_intent": "decorative_none",
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+    },
+    {
+      "id": "shared_web_drape_b",
+      "source_path": "Docs/Art/Environment/Props/Raw/furnishings/shared_web_drape_b.png",
+      "source_owner_task_id": "NSC-102",
+      "raw_sha256": "87488c6125841fb987d6c54f8ab5359c79243c037eee3a5e5c8f8ca4a8f2d39b",
+      "selected_sha256": "3112043d7768466ff7b156ab537edd3de5dee8cd071344830f7cebbe86a06184",
+      "crop_pad_offset_px": null,
+      "repair_mask": null,
+      "pixel_width": 88,
+      "pixel_height": 104,
+      "alpha_bounds_px": {
+        "x": 3,
+        "y": 12,
+        "width": 82,
+        "height": 83
+      },
+      "has_transparent_pixels": true,
+      "pixels_per_unit": 64,
+      "footprint_world_size": {
+        "x": 1.5,
+        "z": 0.2,
+        "h": 1.0
+      },
+      "intended_rooms": [
+        "RuinedEntry",
+        "BoneArchive",
+        "FinalRoom"
+      ],
+      "renderer_use": "SpriteRenderer",
+      "pivot_normalized": {
+        "x": 0.5,
+        "y": 0.086538
+      },
+      "sorting_anchor_normalized": {
+        "x": 0.5,
+        "y": 0.086538
+      },
+      "identity_category": "web",
+      "variant_group": "web",
+      "facing": "either",
+      "segment_role": "single",
+      "footprint_reference": "art direction",
+      "placement_role": "supporting_cluster",
+      "collision_intent": "decorative_none",
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+    }
+  ]
+}

@@ -1,0 +1,227 @@
+{
+  "schema_version": 1,
+  "family": "hazard_route",
+  "owner_task_id": "NSC-078",
+  "entries": [
+    {
+      "id": "fr_bone_chain_post",
+      "source_path": "Docs/Art/Environment/Props/Raw/hazard_route/fr_bone_chain_post.png",
+      "source_owner_task_id": "NSC-078",
+      "raw_sha256": "9bd8ed7664c71b8b09a85677ee850ccdd2a1d33ac7702cc19519753415ad86cc",
+      "selected_sha256": "d45896a016eebe1b9d19161692e2592497a8aef26abb5795ac197dc450e0a972",
+      "crop_pad_offset_px": null,
+      "repair_mask": null,
+      "pixel_width": 48,
+      "pixel_height": 96,
+      "alpha_bounds_px": {
+        "x": 11,
+        "y": 13,
+        "width": 31,
+        "height": 69
+      },
+      "has_transparent_pixels": true,
+      "pixels_per_unit": 64,
+      "footprint_world_size": {
+        "x": 0.4,
+        "z": 0.4,
+        "h": 1.2
+      },
+      "intended_rooms": [
+        "FinalRoom"
+      ],
+      "renderer_use": "SpriteRenderer",
+      "pivot_normalized": {
+        "x": 0.5,
+        "y": 0.145833
+      },
+      "sorting_anchor_normalized": {
+        "x": 0.5,
+        "y": 0.145833
+      },
+      "identity_category": "bounded_hazard_framing",
+      "variant_group": "hazard_frame",
+      "facing": "either",
+      "segment_role": "single",
+      "footprint_reference": "art direction (placed in rows around the bounded area)",
+      "placement_role": "hazard_boundary",
+      "collision_intent": "downstream_existing_geometry",
+      "provenance_document": "Docs/Art/Environment/HAZARD_ROUTE_PIXELLAB_GENERATION.md"
+    },
+    {
+      "id": "lv_broken_ledge_chunk",
+      "source_path": "Docs/Art/Environment/Props/Raw/hazard_route/lv_broken_ledge_chunk.png",
+      "source_owner_task_id": "NSC-078",
+      "raw_sha256": "3f3889c5ce14bb82bd5b8bb963abe6aeed5fea43b5c3d75a8963cb217cccc8fa",
+      "selected_sha256": "13aa36499afcabda33483267c1ff01c9366ed54190567c656c1f6b07da08d711",
+      "crop_pad_offset_px": null,
+      "repair_mask": null,
+      "pixel_width": 124,
+      "pixel_height": 112,
+      "alpha_bounds_px": {
+        "x": 12,
+        "y": 19,
+        "width": 96,
+        "height": 80
+      },
+      "has_transparent_pixels": true,
+      "pixels_per_unit": 64,
+      "footprint_world_size": {
+        "x": 1.5,
+        "z": 1.0,
+        "h": 0.8
+      },
+      "intended_rooms": [
+        "LowerVault"
+      ],
+      "renderer_use": "SpriteRenderer",
+      "pivot_normalized": {
+        "x": 0.5,
+        "y": 0.116071
+      },
+      "sorting_anchor_normalized": {
+        "x": 0.5,
+        "y": 0.116071
+      },
+      "identity_category": "cliff_or_platform",
+      "variant_group": "ledge",
+      "facing": "either",
+      "segment_role": "single",
+      "footprint_reference": "NSC-047 rev 4 LV-H1 edge, decorative only",
+      "placement_role": "hazard_boundary",
+      "collision_intent": "downstream_existing_geometry",
+      "provenance_document": "Docs/Art/Environment/HAZARD_ROUTE_PIXELLAB_GENERATION.md"
+    },
+    {
+      "id": "lv_iron_rail_x",
+      "source_path": "Docs/Art/Environment/Props/Raw/hazard_route/lv_iron_rail_x.png",
+      "source_owner_task_id": "NSC-078",
+      "raw_sha256": "299f274795c22726eba90c9de71855de0841e12a6c2ffb395cf8720900bbdc9e",
+      "selected_sha256": "4b064e354cec3fab55e5925c20ea922a1185de1149655427f6d3dc2fb37d87a3",
+      "crop_pad_offset_px": null,
+      "repair_mask": null,
+      "pixel_width": 116,
+      "pixel_height": 116,
+      "alpha_bounds_px": {
+        "x": 17,
+        "y": 23,
+        "width": 78,
+        "height": 69
+      },
+      "has_transparent_pixels": true,
+      "pixels_per_unit": 64,
+      "footprint_world_size": {
+        "x": 2.0,
+        "z": 0.2,
+        "h": 1.0
+      },
+      "intended_rooms": [
+        "LowerVault"
+      ],
+      "renderer_use": "SpriteRenderer",
+      "pivot_normalized": {
+        "x": 0.5,
+        "y": 0.206897
+      },
+      "sorting_anchor_normalized": {
+        "x": 0.5,
+        "y": 0.206897
+      },
+      "identity_category": "rail",
+      "variant_group": "rail",
+      "facing": "world_x",
+      "segment_role": "single",
+      "footprint_reference": "NSC-047 rev 4 crossing edge; collision_intent downstream_existing_geometry",
+      "placement_role": "route_edge",
+      "collision_intent": "downstream_existing_geometry",
+      "provenance_document": "Docs/Art/Environment/HAZARD_ROUTE_PIXELLAB_GENERATION.md"
+    },
+    {
+      "id": "lv_iron_rail_z",
+      "source_path": "Docs/Art/Environment/Props/Raw/hazard_route/lv_iron_rail_z.png",
+      "source_owner_task_id": "NSC-078",
+      "raw_sha256": "3558e50a6a6544da2f4b7c3338892270e8933dea16ed022032f571feaa1ac5e5",
+      "selected_sha256": "b1bf551ce2f470d2d7cddcb5f8e1a1af75baa454125a9ca7ed76d3c105301909",
+      "crop_pad_offset_px": null,
+      "repair_mask": null,
+      "pixel_width": 116,
+      "pixel_height": 116,
+      "alpha_bounds_px": {
+        "x": 20,
+        "y": 23,
+        "width": 77,
+        "height": 69
+      },
+      "has_transparent_pixels": true,
+      "pixels_per_unit": 64,
+      "footprint_world_size": {
+        "x": 0.2,
+        "z": 2.0,
+        "h": 1.0
+      },
+      "intended_rooms": [
+        "LowerVault"
+      ],
+      "renderer_use": "SpriteRenderer",
+      "pivot_normalized": {
+        "x": 0.5,
+        "y": 0.206897
+      },
+      "sorting_anchor_normalized": {
+        "x": 0.5,
+        "y": 0.206897
+      },
+      "identity_category": "rail",
+      "variant_group": "rail",
+      "facing": "world_z",
+      "segment_role": "single",
+      "footprint_reference": "NSC-047 rev 4 crossing edge; collision_intent downstream_existing_geometry",
+      "placement_role": "route_edge",
+      "collision_intent": "downstream_existing_geometry",
+      "provenance_document": "Docs/Art/Environment/HAZARD_ROUTE_PIXELLAB_GENERATION.md"
+    },
+    {
+      "id": "lv_sluice_slime_spill",
+      "source_path": "Docs/Art/Environment/Props/Raw/hazard_route/lv_sluice_slime_spill.png",
+      "source_owner_task_id": "NSC-078",
+      "raw_sha256": "9483c1496b38d0bb3c1c4fab166ece42b10d615cab03c8d67a481c2d0dbfdb3e",
+      "selected_sha256": "34bfa8cac09bf3342b6f3913d9077f32d972dd646fe02ce7ed0aaf4447d2838d",
+      "crop_pad_offset_px": null,
+      "repair_mask": null,
+      "pixel_width": 124,
+      "pixel_height": 112,
+      "alpha_bounds_px": {
+        "x": 10,
+        "y": 2,
+        "width": 100,
+        "height": 106
+      },
+      "has_transparent_pixels": true,
+      "pixels_per_unit": 64,
+      "footprint_world_size": {
+        "x": 1.5,
+        "z": 1.0,
+        "h": 0.8
+      },
+      "intended_rooms": [
+        "LowerVault"
+      ],
+      "renderer_use": "SpriteRenderer",
+      "pivot_normalized": {
+        "x": 0.5,
+        "y": 0.035714
+      },
+      "sorting_anchor_normalized": {
+        "x": 0.5,
+        "y": 0.035714
+      },
+      "identity_category": "water_or_slime_edge",
+      "variant_group": "slime_edge",
+      "facing": "either",
+      "segment_role": "single",
+      "footprint_reference": "NSC-047 rev 4 LV-H1 edge, decorative only",
+      "placement_role": "hazard_boundary",
+      "collision_intent": "downstream_existing_geometry",
+      "provenance_document": "Docs/Art/Environment/HAZARD_ROUTE_PIXELLAB_GENERATION.md"
+    }
+  ]
+}
