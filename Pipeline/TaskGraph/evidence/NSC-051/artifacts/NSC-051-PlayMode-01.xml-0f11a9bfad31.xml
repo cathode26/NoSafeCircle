@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="1" result="Passed" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-09-22 05:58:11Z" end-time="2026-09-22 05:58:12Z" duration="1.1096607">
+  <test-suite type="TestSuite" id="1301" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="256" result="Passed" start-time="2026-09-22 05:58:11Z" end-time="2026-09-22 05:58:12Z" duration="1.109661" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="PlayMode" />
+    </properties>
+    <test-suite type="Assembly" id="1287" name="NoSafeCircle.DoorPrototype.Tests.dll" fullname="C:/nscrev/branch-verify/Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Tests.dll" runstate="Runnable" testcasecount="252" result="Passed" start-time="2026-09-22 05:58:11Z" end-time="2026-09-22 05:58:12Z" duration="1.093306" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="49764" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="PlayMode" />
+        <property name="EditorOnly" value="False" />
+      </properties>
+      <test-suite type="TestSuite" id="1288" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="252" result="Passed" start-time="2026-09-22 05:58:11Z" end-time="2026-09-22 05:58:12Z" duration="1.088580" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1289" name="DoorPrototype" fullname="NoSafeCircle.DoorPrototype" runstate="Runnable" testcasecount="252" result="Passed" start-time="2026-09-22 05:58:11Z" end-time="2026-09-22 05:58:12Z" duration="1.084232" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1290" name="Tests" fullname="NoSafeCircle.DoorPrototype.Tests" runstate="Runnable" testcasecount="252" result="Passed" start-time="2026-09-22 05:58:11Z" end-time="2026-09-22 05:58:12Z" duration="1.079582" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestFixture" id="1082" name="DoorPassabilityConnectionPlayModeTests" fullname="NoSafeCircle.DoorPrototype.Tests.DoorPassabilityConnectionPlayModeTests" classname="NoSafeCircle.DoorPrototype.Tests.DoorPassabilityConnectionPlayModeTests" runstate="Runnable" testcasecount="1" result="Passed" start-time="2026-09-22 05:58:11Z" end-time="2026-09-22 05:58:12Z" duration="1.066290" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1083" name="DoorTransitions_PublishEnemyWalkabilityThroughPassabilityOwner" fullname="NoSafeCircle.DoorPrototype.Tests.DoorPassabilityConnectionPlayModeTests.DoorTransitions_PublishEnemyWalkabilityThroughPassabilityOwner" methodname="DoorTransitions_PublishEnemyWalkabilityThroughPassabilityOwner" classname="NoSafeCircle.DoorPrototype.Tests.DoorPassabilityConnectionPlayModeTests" runstate="Runnable" seed="978940329" result="Passed" start-time="2026-09-22 05:58:11Z" end-time="2026-09-22 05:58:12Z" duration="1.049461" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[Saving results to: C:/Users/VincentLiguori/AppData/LocalLow/DefaultCompany/NoSafeCircle\TestResults.xml
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

@@ -1,0 +1,81 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "2d5c8a1dc5d4bba469fb158b27967717309e5b7ad6f8ab4a38fbbd05ad583c9f"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "383e56cfb77b9b3e67e88000fe66faa6aff77b18",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+      "role": "Runtime door under test: TakeDamage gating by lock state, automatic close-and-lock on forward crossing, health restore through PlayerHealth's own Restore method, break transition, and ResetDoor()"
+    },
+    {
+      "blob_sha": "42fc3c27f5646647509d39301e3a9524d61c77e6",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+      "role": "Owns wiring DoorInteractable's doorVisual/doorwayBlocker and forward-crossing trigger in the built scene, which is the production wiring the fixture's own hand-built equivalent stands in for"
+    },
+    {
+      "blob_sha": "ac4cd5e4e6d14ebfdb2c4402482e336857a1fb84",
+      "path": "Assets/Scenes/DoorPrototype.unity",
+      "role": "The canonical scene whose DoorInteractable composition this gate's production wiring reflects; not itself opened by the PlayMode fixture, which builds its own test-owned door and player"
+    }
+  ],
+  "delivery": {
+    "base_commit": "c5b40974bd458ce681100f8bcb3eae802d647cdd",
+    "candidate_commit": "10245c7eb11670ea6bda283ab03e860cf52aea85",
+    "integrated_commit": "10245c7eb11670ea6bda283ab03e860cf52aea85",
+    "integrated_tree": "e7839c381d15064033dbcc70c015a3cde99b15ae"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "ae8c991f2b88ddde97529b84ef0a28189682793f",
+          "path": "Pipeline/TaskGraph/evidence/NSC-050/artifacts/NSC-050-PlayMode-01.xml-10245c7eb116.xml"
+        },
+        {
+          "blob_sha": "d48e11ab7d4f8355a542ec864c57356b7a9c43d4",
+          "path": "Pipeline/TaskGraph/evidence/NSC-050/artifacts/NSC-050-PlayMode-01.log-10245c7eb116.log"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "Authoritative PlayMode run at validated commit 10245c7eb11670ea6bda283ab03e860cf52aea85 through run_unity_tests_clean.ps1, filter NoSafeCircle.DoorPrototype.Tests.DoorLockDurabilityPlayModeTests: 13 tests, 13 passed, 0 failed, 0 skipped, runner exit 0, final line VALIDATION PASSED. Counts read from test-results.xml (total=\"13\" passed=\"13\" failed=\"0\" skipped=\"0\"), not the console summary. The bound manifest records commit and post_commit both 10245c7eb11670ea6bda283ab03e860cf52aea85 and tree and post_tree both e7839c381d15064033dbcc70c015a3cde99b15ae, clean before and after. All 13 cases declare NoSafeCircle.DoorPrototype.Tests.DoorLockDurabilityPlayModeTests (non-partial). The dedicated case DoorLockDurabilityFlow_MatchesFullBreachGate (its own file comment explicitly marks it VAL-001) proves the gate's full sequential narrative in one run: TakeDamage(10) on the still-sealed door leaves CurrentDurability at MaxDurability (damage before the door ever locks is rejected); OpenDoor()+CrossForward() then asserts IsLocked true and doorwayBlocker.enabled true (automatic locking and backward-player blocking); four TakeDamage(MaxDurability/4) calls break the door (IsBroken true); a further TakeDamage(10) leaves CurrentDurability at 0 (further damage calls rejected); and doorwayBlocker.enabled stays true throughout, including after the broken doorway is targeted again (player still cannot move backward). The other 12 cases in the same XML (TakeDamage_WhileSealed_IsRejected, TakeDamage_WhileOpenButNotLocked_IsRejected, ForwardCrossing_AutomaticallyLocksDoor_WithoutSecondInput, TakeDamage_WhileLocked_ReducesDurability, TakeDamage_ReducingDurabilityToZero_BreaksDoor, TakeDamage_AfterBroken_IsRejected, BrokenDoor_RemainsBroken_AndBlockerContinuesPreventingBackwardTravel, plus ForwardCrossing_RestoresPlayerHealth_ThroughOwnerControlledRestore, StartInteraction_AfterLocked_DoesNotReopenDoor, ResetDoor_RestoresLockBrokenAndDurabilityState, MaxDurability_IsPerDoorConfigurable_AndCurrentDurabilityFollowsIt) isolate each of the same clauses individually and additionally regression-test AC-002/AC-003/AC-006/AC-007 (owner-controlled health restore, no-reopen-after-lock, full reset, and per-door-configurable max durability) that VAL-001 does not itself name.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "ae8c991f2b88ddde97529b84ef0a28189682793f",
+          "path": "Pipeline/TaskGraph/evidence/NSC-050/artifacts/NSC-050-PlayMode-01.xml-10245c7eb116.xml"
+        },
+        {
+          "blob_sha": "d48e11ab7d4f8355a542ec864c57356b7a9c43d4",
+          "path": "Pipeline/TaskGraph/evidence/NSC-050/artifacts/NSC-050-PlayMode-01.log-10245c7eb116.log"
+        }
+      ],
+      "gate_id": "VAL-002",
+      "notes": "ForwardCrossing_ClosesAndLocksVisibly_AndMakesForwardProgressFinal (its own file comment explicitly marks it VAL-002) opens the test door, asserts doorwayBlocker.enabled is false beforehand (proving the door genuinely started open), then triggers only the forward-crossing trigger (CrossForward(), a single call, no second input) and asserts IsLocked true, doorVisual.activeSelf true (visibly closed) and doorwayBlocker.enabled true (locked) as the direct and only consequence -- proving 'forward-side crossing visibly closes and locks the door without a second input.' It then calls door.StartInteraction() (a literal second input attempt) and asserts IsInteracting stays false, proving the resulting blocker makes forward progress final: the door cannot be reopened afterward. Counts read from the same test-results.xml as VAL-001 (total=13 passed=13 failed=0 skipped=0).",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "",
+    "decision": "not_required",
+    "notes": "NSC-050 has two completion gates, VAL-001 and VAL-002, and both are automated PlayMode gates; the contract contains no human gate, so no human approval is claimed. Delivery evidence recorded by the delivery-evidence recorder (for the Game Agent / Integration Steward) on 2026-09-22 at commit 10245c7eb11670ea6bda283ab03e860cf52aea85, main tip after the NSC-051, NSC-032, and NSC-017 evidence commits recorded earlier in the same pass, and where Unity actually ran. The implementation has been on main for days (base_commit c5b40974bd458ce681100f8bcb3eae802d647cdd is the parent of the commit that introduced it); this record is evidence debt being paid on merged work, not a claim that the work landed today. NSC-021 VAL-002 and VAL-004 remain in their own owning contracts; this record does not transfer or remove those entries.",
+    "required": false
+  },
+  "record_id": "DEL-NSC-050-10245c7eb116",
+  "record_type": "delivery",
+  "recorded_at": "2026-09-22T06:19:44Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-050.yaml",
+    "revision": 1,
+    "sha256": "1de606bd2401f14167d168025bb095aac55a705186211032e3af1b3499bad27f"
+  },
+  "task_id": "NSC-050",
+  "validated_state": {
+    "commit": "10245c7eb11670ea6bda283ab03e860cf52aea85",
+    "tree": "e7839c381d15064033dbcc70c015a3cde99b15ae"
+  }
+}

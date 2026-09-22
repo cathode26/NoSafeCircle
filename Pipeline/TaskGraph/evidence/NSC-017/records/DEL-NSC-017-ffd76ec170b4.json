@@ -1,0 +1,141 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "2d5c8a1dc5d4bba469fb158b27967717309e5b7ad6f8ab4a38fbbd05ad583c9f"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "38b624de22fb943028154448e1960a27dc5161bf",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyPursuitMovement.cs",
+      "role": "Owns BlockingLockedDoor/BlockingDoorApproachPoint selection, the SearchingLastKnownPosition transition that cancels a pending hit, and the reset entry point EnemyLockedDoorAttack coordinates with"
+    },
+    {
+      "blob_sha": "3f97b8eaa6b002ae319e89c5eae09660feb85e96",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyLockedDoorAttack.cs",
+      "role": "Runtime component under test: attack-reach gating, per-interval damage requests to DoorInteractable, PendingDoor lifecycle, ResetAttack(), and driving DoorBreachFeedback only while in reach"
+    },
+    {
+      "blob_sha": "355eaadff1f8a4032bde7cdaf36baf7a86a02cf2",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/EnemyLockedDoorAttackPlayModeTests.cs",
+      "role": "The PlayMode fixture the committed validation policy names for this task, and the sole owned file carrying all six gates' evidence"
+    }
+  ],
+  "delivery": {
+    "base_commit": "3276b90e1fb73aab15da8123950ea05b48fa01b7",
+    "candidate_commit": "ffd76ec170b4607e26c02212487fcaa919ef2f8c",
+    "integrated_commit": "ffd76ec170b4607e26c02212487fcaa919ef2f8c",
+    "integrated_tree": "31e9478db0c36ca1fd08513c956b3514a013f2ed"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "8509b1100324b3ef805337a843c14a87a9a63498",
+          "path": "Pipeline/TaskGraph/evidence/NSC-017/artifacts/NSC-017-PlayMode-01.xml-ffd76ec170b4.xml"
+        },
+        {
+          "blob_sha": "4f2973a6f6b671971d200ca9da0b4d21106fef55",
+          "path": "Pipeline/TaskGraph/evidence/NSC-017/artifacts/NSC-017-PlayMode-01.log-ffd76ec170b4.log"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "Authoritative PlayMode run at validated commit ffd76ec170b4607e26c02212487fcaa919ef2f8c through run_unity_tests_clean.ps1, filter NoSafeCircle.DoorPrototype.Tests.EnemyLockedDoorAttackPlayModeTests: 9 tests, 9 passed, 0 failed, 0 skipped, runner exit 0, final line VALIDATION PASSED. Counts read from test-results.xml (total=\"9\" passed=\"9\" failed=\"0\" skipped=\"0\"), not the console summary. The bound manifest records commit and post_commit both ffd76ec170b4607e26c02212487fcaa919ef2f8c and tree and post_tree both 31e9478db0c36ca1fd08513c956b3514a013f2ed, clean before and after. All nine cases declare NoSafeCircle.DoorPrototype.Tests.EnemyLockedDoorAttackPlayModeTests (a sealed non-partial class). LockedDoor_RoutesToApproach_HitsBreaksAndResumesPursuit acquires a sideways-offset wizard on the far side of a locked door through EnemyPursuitMovement.Tick, asserts a PathPartial route to the wizard directly and a PathComplete route to the door approach point, asserts pursuit.BlockingLockedDoor is the same door, drives 8 out-of-reach frames asserting durability unchanged, then drives to first hit (durability drops) and to Broken (door.IsBroken, DoorEnemyPassability.CurrentState==Broken, attack.PendingDoor null), then re-Ticks pursuit and asserts BlockingLockedDoor null and knowledge.State stays Pursuing while the same enemy walks forward through the doorway (z>0.5) with knowledge.State still Pursuing at the end.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "8509b1100324b3ef805337a843c14a87a9a63498",
+          "path": "Pipeline/TaskGraph/evidence/NSC-017/artifacts/NSC-017-PlayMode-01.xml-ffd76ec170b4.xml"
+        },
+        {
+          "blob_sha": "4f2973a6f6b671971d200ca9da0b4d21106fef55",
+          "path": "Pipeline/TaskGraph/evidence/NSC-017/artifacts/NSC-017-PlayMode-01.log-ffd76ec170b4.log"
+        }
+      ],
+      "gate_id": "VAL-002",
+      "notes": "SameRoomTargetAndOpenOrBrokenDoor_DoNotProduceAnAttackTarget covers same-room-route-complete and locked-door-nearby-but-not-between together (wizard placed on the enemy's own side at z=-4, same side as EnemyStart) asserting BlockingLockedDoor null and durability unchanged, then breaks the door (TakeDamage(MaxDurability)) and asserts BlockingLockedDoor and PendingDoor stay null with the door Broken. The fixture's SetUp always advances the door from Sealed through Open to Locked via PlayerInteractionController before every test body runs (door.IsOpen is asserted true in SetUp before the reflection call locks it), so the 'open' half of this gate is proven through the identical code branch as 'broken': EnemyPursuitMovement.cs line 173 guards on `!door.IsLocked || door.IsBroken`, and a broken door already has IsLocked==false (NSC-050 VAL-001 proves this), so Open and Broken hit the same `!door.IsLocked` condition rather than distinct branches; exercising Broken exercises the same guard Open would. UnreachableDoorApproach_DoesNotSelectNearbyLockedDoor adds a second full-width NavMeshObstacle isolating the door's approach side and asserts the approach point is unreachable (no PathComplete) and BlockingLockedDoor stays null with durability unchanged, proving the incomplete-approach-path case. LosingTargetAndResettingEnemy_CancelPendingDoorHit begins a qualifying attack (PendingDoor set), moves the wizard beyond LoseTargetDistance, and asserts knowledge.State becomes SearchingLastKnownPosition with PendingDoor and BlockingLockedDoor both null and durability unchanged, proving the attack-in-progress cancellation. SearchArrivalAndExpiry_NearLockedDoorNeverCauseDamage drives an unobstructed pursuing enemy through arrival at the last-known position, bounded Wandering, and expiry back to Idle while the wizard stays beyond Detection Distance, asserting BlockingLockedDoor null and durability unchanged (0 hits) throughout. Same test-results.xml as VAL-001.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "8509b1100324b3ef805337a843c14a87a9a63498",
+          "path": "Pipeline/TaskGraph/evidence/NSC-017/artifacts/NSC-017-PlayMode-01.xml-ffd76ec170b4.xml"
+        },
+        {
+          "blob_sha": "4f2973a6f6b671971d200ca9da0b4d21106fef55",
+          "path": "Pipeline/TaskGraph/evidence/NSC-017/artifacts/NSC-017-PlayMode-01.log-ffd76ec170b4.log"
+        }
+      ],
+      "gate_id": "VAL-003",
+      "notes": "ForcedDisplacement_CancelsHitAndPursuitReturnsForFullNewInterval walks the enemy to attack reach, begins a partial in-reach interval (attack.Tick(0.4f), PendingDoor set, no damage yet), then calls EnemyStatusEffectMovement.RequestDisplacement(Vector3.back, 3f) and asserts the enemy is actually moved more than 1m out of attack reach (not warped directly -- RequestDisplacement is the only movement call). It asserts no hit occurs while out of reach (durability unchanged, PendingDoor null after the next Tick), that ordinary EnemyPursuitMovement.Tick returns the still-pursuing enemy to the door (WalkToAttackReach succeeds again), and that damage resumes only after a new full uninterrupted interval (0.79s tick causes no damage, the following 0.01s tick does, matching the interval-completion semantics used elsewhere in the same file). This proves only the enemy-side displacement response, as the gate specifies; it does not touch NSC-009's Force Wave/blocker interaction. Same test-results.xml as VAL-001.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "8509b1100324b3ef805337a843c14a87a9a63498",
+          "path": "Pipeline/TaskGraph/evidence/NSC-017/artifacts/NSC-017-PlayMode-01.xml-ffd76ec170b4.xml"
+        },
+        {
+          "blob_sha": "4f2973a6f6b671971d200ca9da0b4d21106fef55",
+          "path": "Pipeline/TaskGraph/evidence/NSC-017/artifacts/NSC-017-PlayMode-01.log-ffd76ec170b4.log"
+        }
+      ],
+      "gate_id": "VAL-004",
+      "notes": "TwoInReachEnemies_ContributeIndependentHitsAndBothCrossAfterBreak places two independently-componented pursuing enemies both within attack reach of the same door, asserts each has its own EnemyLockedDoorAttack/EnemyPursuitMovement with BlockingLockedDoor equal to the door, ticks both attacks together for one interval and asserts durability drops by exactly two configured damage amounts (20 = 2x10) in that single interval, continues until the door breaks, and asserts both previously-Pursuing enemies continue forward through the broken doorway (z>0.5 for both) with knowledge.State staying Pursuing for both. DistantSecondEnemy_DoesNotContributeUntilItsOwnFullInReachInterval starts one enemy in reach and a second (distant) enemy still Pursuing but outside attack reach (created via NavMeshAgent movement toward the door, not warped into position for the reach check), asserts the in-reach enemy alone supplies the first hit (durability drops by exactly one configured amount), then drives the distant enemy's own pursuit until it reaches reach and asserts its first hit lands only after its own full 0.8s in-reach interval (0.79s no change, 0.01s further hit), explicitly not relying on NavMeshAgent avoidance to create the out-of-reach case (the distant enemy is spawned at EnemyStart+left, walking independently). Same test-results.xml as VAL-001.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "8509b1100324b3ef805337a843c14a87a9a63498",
+          "path": "Pipeline/TaskGraph/evidence/NSC-017/artifacts/NSC-017-PlayMode-01.xml-ffd76ec170b4.xml"
+        },
+        {
+          "blob_sha": "4f2973a6f6b671971d200ca9da0b4d21106fef55",
+          "path": "Pipeline/TaskGraph/evidence/NSC-017/artifacts/NSC-017-PlayMode-01.log-ffd76ec170b4.log"
+        }
+      ],
+      "gate_id": "VAL-005",
+      "notes": "LosingTargetAndResettingEnemy_CancelPendingDoorHit begins a qualifying attack (PendingDoor set via attack.Tick(0.4f)), then the wizard moves beyond LoseTargetDistance which itself transitions knowledge to SearchingLastKnownPosition and clears PendingDoor/BlockingLockedDoor through the production target-loss path before the explicit reset calls run; attack.ResetAttack() and pursuit.ResetPursuit() are then called and the test asserts PendingDoor and BlockingLockedDoor are (still) null, knowledge.State is Idle, the enemy Transform is within 0.5m of its original EnemyStart spawn position (existing reset target/path/Transform state), and a further attack.Tick(2f) causes no delayed damage. It then re-establishes acquisition (wizard back to WizardForward, WalkToAttackReach) and asserts a fresh attack needs a full new interval (0.79s no damage, 0.01s the first hit), not inheriting the earlier partial 0.4s progress. Every literal assertion VAL-005 names (pending/blocking null, no delayed damage, reset target/path/Transform state, fresh full-interval requirement) is proven; the target-loss transition clearing PendingDoor before the explicit ResetAttack/ResetPursuit call means the reset calls are exercised against an already-idle attack rather than literally interrupting a still-pending hit, so ResetAttack's ReleasePendingDoor(door!=null) unsubscribe branch is not separately exercised here -- an implementation-level distinction the gate text does not itself assert as a separate observable claim. Same test-results.xml as VAL-001.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "8509b1100324b3ef805337a843c14a87a9a63498",
+          "path": "Pipeline/TaskGraph/evidence/NSC-017/artifacts/NSC-017-PlayMode-01.xml-ffd76ec170b4.xml"
+        },
+        {
+          "blob_sha": "4f2973a6f6b671971d200ca9da0b4d21106fef55",
+          "path": "Pipeline/TaskGraph/evidence/NSC-017/artifacts/NSC-017-PlayMode-01.log-ffd76ec170b4.log"
+        }
+      ],
+      "gate_id": "VAL-006",
+      "notes": "DoorAttack_DrivesBoundBreachFeedback_OnlyWhileInReach binds a production DoorBreachFeedback component to test-owned fill-Image and two crack GameObjects, drives the enemy while still out of reach and asserts feedback.DurabilityRatio stays 1, cracks[0] stays inactive, and feedback.IsShaking stays false, then walks the enemy into reach and lands one accepted hit and asserts feedback.DurabilityRatio drops below 1, feedback.IsShaking becomes true, and cracks[0] activates -- exactly the 'one accepted hit sets IsShaking, lowers DurabilityRatio, activates the expected crack stage' and 'out-of-reach attempt leaves observables unchanged' halves of VAL-006. Same test-results.xml as VAL-001 (total=9 passed=9 failed=0 skipped=0).",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "",
+    "decision": "not_required",
+    "notes": "NSC-017 has six completion gates, VAL-001 through VAL-006, and all are automated PlayMode gates; the contract contains no human gate, so no human approval is claimed. Delivery evidence recorded by the delivery-evidence recorder (for the Game Agent / Integration Steward) on 2026-09-22 at commit ffd76ec170b4607e26c02212487fcaa919ef2f8c, main tip after the NSC-051 and NSC-032 evidence commits recorded earlier in the same pass, and where Unity actually ran (NSC-053 was preflighted at the same commit but its evidence was not committed; see the pass report for that finding, which does not affect NSC-017). The implementation has been on main for days (base_commit 3276b90e1fb73aab15da8123950ea05b48fa01b7 is the parent of the commit that introduced it); this record is evidence debt being paid on merged work, not a claim that the work landed today. NSC-021 VAL-001 and NSC-051 INT-001 remain in their own owning contracts; this record reuses no cross-task claim beyond what the gate text itself authorizes.",
+    "required": false
+  },
+  "record_id": "DEL-NSC-017-ffd76ec170b4",
+  "record_type": "delivery",
+  "recorded_at": "2026-09-22T06:14:29Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-017.yaml",
+    "revision": 7,
+    "sha256": "43bb6dc6dfeb7bfbf161944d63421d2912b15f4f31282be77b9080ba5e65f01d"
+  },
+  "task_id": "NSC-017",
+  "validated_state": {
+    "commit": "ffd76ec170b4607e26c02212487fcaa919ef2f8c",
+    "tree": "31e9478db0c36ca1fd08513c956b3514a013f2ed"
+  }
+}
