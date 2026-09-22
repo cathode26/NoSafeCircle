@@ -937,5 +937,179 @@ class AGeneratedAssetNeedsItsSidecarMeta(unittest.TestCase):
             resolve_generated_builder([CHAPEL_SCENE, CHAPEL_SCENE + ".meta"])
 
 
+class TheProductionPathMaterializesANewAssetAndItsSidecar(unittest.TestCase):
+    """NSC-046's real shape, driven through materialize_candidate.
+
+    Every other sidecar test calls run_door_prototype_builder directly, so the
+    production path -- scope, inventory derivation, builder, commit, validation
+    -- was reasoned about rather than exercised. This drives all of it.
+
+    Standalone rather than a subclass of RoomSceneMaterializationTests: that
+    class's tests assume a scope with no NEW generated asset, and inheriting
+    them re-ran those assumptions against a fixture that had changed.
+    """
+
+    TILE = ("Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles"
+            "/ChapelOfAshFarWallTile.asset")
+    LEASE = "fixture-lease"
+
+    def setUp(self):
+        test_root = Path.cwd() / ".test-work"
+        test_root.mkdir(exist_ok=True)
+        self.root = test_root / f"assistant-e2e-sidecar-{uuid.uuid4().hex}"
+        self.root.mkdir()
+        self.addCleanup(shutil.rmtree, self.root, True)
+        self.source = self.root / "source"
+        self.source.mkdir()
+        self.git(self.source, "init", "-q")
+        name, email = validated_agent_git_identity()
+        self.git(self.source, "config", "user.name", name)
+        self.git(self.source, "config", "user.email", email)
+        for relative, content in (
+            (CHAPEL_BUILDER, "class ChapelOfAshSceneBuilder {}\n"),
+            (CHAPEL_TEST, "class ChapelOfAshSceneTests {}\n"),
+            (CHAPEL_SCENE, "old chapel scene\n"),
+            (CHAPEL_SCENE + ".meta", "fileFormatVersion: 2\nguid: "
+             + "a" * 32 + "\nDefaultImporter:\n"),
+            ("ProjectSettings/ProjectVersion.txt", "m_EditorVersion: 6000.1.8f1\n"),
+            ("Pipeline/Testing/run_unity_tests_clean.ps1", "# fixture\n"),
+            ("Pipeline/TaskGraph/taskcontrol.py", "print('taskcontrol validate: PASS')\n"),
+        ):
+            target = self.source / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content, encoding="utf-8", newline="\n")
+        task = {
+            "schema_version": "2.0", "id": "NSC-046", "contract_revision": 1,
+            "contract_disposition": "active", "title": "Fixture Chapel of Ash room",
+            "reconciliation_key": "fixture-chapel", "kind": "implementation",
+            "type": "world-foundation", "execution_scope": "single_agent",
+            "execution_reason": "fixture", "decomposition_state": "concrete",
+            "decomposition_reason": "fixture", "parent": None, "depends_on": [],
+            "exclusive_resources": [
+                f"repo-file:{CHAPEL_BUILDER}", f"repo-file:{CHAPEL_TEST}",
+                f"unity-scene:{CHAPEL_SCENE}", f"repo-file:{self.TILE}",
+            ],
+            "acceptance_criteria": [], "completion_gates": [],
+            "downstream_integration_obligations": [], "gdd_evidence": [],
+            "basis": "direct_gdd", "source_scope": "required", "confidence": "high",
+        }
+        task_path = self.source / "Tasks/NSC-046.yaml"
+        task_path.parent.mkdir()
+        task_path.write_text(json.dumps(task), encoding="utf-8", newline="\n")
+        self.git(self.source, "add", ".")
+        self.git(self.source, "commit", "-q", "-m", "fixture")
+        self.manager = Checkouts(self.source, self.root / "checkouts")
+        prepared = self.manager.prepare("NSC-046")
+        self.checkout = Path(prepared["checkout"])
+        self.unity = self.root / "Unity.exe"
+        self.unity.write_bytes(b"fixture")
+        self.scope = AssistantScopePlanner(self.manager).plan(
+            "NSC-046",
+            ExecutionScopePlan(
+                (CHAPEL_BUILDER, CHAPEL_SCENE), (self.TILE,), (CHAPEL_TEST,), ()),
+            lease_id=self.LEASE,
+        )
+
+    @staticmethod
+    def git(root: Path, *args: str) -> str:
+        result = subprocess.run(
+            ("git", "-C", str(root), *args), capture_output=True, check=False,
+        )
+        if result.returncode:
+            raise AssertionError(result.stderr.decode(errors="replace"))
+        return result.stdout.decode().strip()
+
+    def register_code_candidate(self) -> str:
+        (self.checkout / CHAPEL_BUILDER).write_text(
+            "class FixedChapelBuilder {}\n", newline="\n")
+        (self.checkout / CHAPEL_TEST).write_text(
+            "class FixedChapelTests {}\n", newline="\n")
+        paths = [CHAPEL_BUILDER, CHAPEL_TEST]
+        self.git(self.checkout, "add", "--", *paths)
+        self.git(self.checkout, "commit", "-q", "-m", "crew Chapel room candidate")
+        commit = self.git(self.checkout, "rev-parse", "HEAD")
+        tree = self.git(self.checkout, "rev-parse", "HEAD^{tree}")
+        record_path = self.manager.records / "NSC-046.json"
+        record = json.loads(record_path.read_text())
+        receipt = LocalCandidateCommitReceipt(
+            task_id="NSC-046", lease_id=self.LEASE, plan_id=self.scope["plan_id"],
+            run_id="fixture-crew", source_base=record["source_commit"],
+            candidate_commit=commit, candidate_tree=tree,
+            candidate_parent=record["source_commit"],
+            task_contract_sha256=record["task_contract_sha256"],
+            execution_result_sha256="a" * 64, candidate_patch_sha256="b" * 64,
+            changed_paths=tuple(sorted(paths, key=str.casefold)),
+            validation_sha256="c" * 64,
+        )
+        record["candidate"] = {
+            "commit": commit, "tree": tree, "parent": record["source_commit"],
+            "run_id": "fixture-crew", "lease_id": self.LEASE,
+            "plan_id": self.scope["plan_id"], "receipt": receipt.to_dict(),
+        }
+        record["status"] = "awaiting_human"
+        record["approval"] = None
+        write_record(record_path, record)
+        return commit
+
+    def builder(self, args, cwd, timeout):
+        """Unity writing a NEW asset: never without its sidecar."""
+        self.assertIn(CHAPEL_BUILD_METHOD, args)
+        (cwd / CHAPEL_SCENE).write_text("generated chapel scene\n", newline="\n")
+        tile = cwd / self.TILE
+        tile.parent.mkdir(parents=True, exist_ok=True)
+        tile.write_text("%YAML 1.1\ngenerated tile\n", newline="\n")
+        (cwd / (self.TILE + ".meta")).write_text(
+            "fileFormatVersion: 2\n"
+            "guid: 0123456789abcdef0123456789abcdef\n"
+            "NativeFormatImporter:\n"
+            "  externalObjects: {}\n"
+            "  mainObjectFileID: 11400000\n"
+            "  userData:\n",
+            newline="\n",
+        )
+        return subprocess.CompletedProcess(args, 0, b"builder complete\n", b"")
+
+    def passing_validation(self, **kwargs):
+        commit = self.git(kwargs["checkout"], "rev-parse", "HEAD")
+        self.assertEqual(
+            "", self.git(kwargs["checkout"], "status", "--porcelain=v1"))
+        return ({
+            "test_platform": "EditMode", "test_filter": "ChapelOfAshSceneTests",
+            "commit": commit,
+            "tree": self.git(kwargs["checkout"], "rev-parse", "HEAD^{tree}"),
+            "total": 2, "passed": 2,
+        },)
+
+    def test_the_new_asset_and_its_sidecar_are_both_committed(self):
+        """Before the fix this froze the task with retryable: False."""
+        original = self.register_code_candidate()
+        result = materialize_candidate(
+            self.manager, "NSC-046", original, unity_executable=self.unity,
+            unity_command_runner=self.builder,
+            validation_runner=self.passing_validation,
+        )
+        self.assertEqual("awaiting_human", result["status"])
+        changed = result["candidate"]["changed_paths"]
+        self.assertIn(self.TILE, changed)
+        self.assertIn(self.TILE + ".meta", changed,
+                      "the sidecar must be COMMITTED, not merely tolerated")
+        self.assertIn(CHAPEL_SCENE, changed)
+
+    def test_the_journal_records_the_companion_authority(self):
+        """A reviewer must see what Unity was permitted to write."""
+        original = self.register_code_candidate()
+        materialize_candidate(
+            self.manager, "NSC-046", original, unity_executable=self.unity,
+            unity_command_runner=self.builder,
+            validation_runner=self.passing_validation,
+        )
+        journal = json.loads((
+            self.manager.records / f"NSC-046.unity-materialization.{original}.json"
+        ).read_text())
+        self.assertEqual(
+            [self.TILE + ".meta"],
+            journal.get("registered_generated_asset_metas"),
+        )
+
 if __name__ == "__main__":
     unittest.main()
