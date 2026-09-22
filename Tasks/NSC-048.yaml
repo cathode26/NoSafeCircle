@@ -28,7 +28,7 @@
     {
       "criterion_id": "AC-006",
       "reference": "NSC-069 AC-006; Vincent room-catalog decision, 2026-09-14; GER room decision 4 (2026-09-15); re-check C-04 (2026-09-15)",
-      "requirement": "Take an exclusive catalog turn on the combined candidate described below, after the NSC-046 and NSC-047 source changes, including NSC-047's D4 center (4,76), have been applied to it. In Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneCatalog.cs, change only FinalRoom RoomBounds to X [-15,+15], Z [76,104] and D5 ExpectedGroundCenter to (0,104). Do not change D4, another room, catalog order, scene paths, opening widths, or D5's final-door identity; if D4 is not yet (4,76), stop and report that the Final Room catalog turn is waiting for NSC-047's catalog edit. Regenerate Assets/NoSafeCircle/DoorPrototype/Generated/World/RoomSceneCatalog.asset through No Safe Circle/World/Build Room Scene Catalog; do not hand-edit serialized YAML. Under GER room decision 4 (2026-09-15), NSC-046, NSC-047, and NSC-048 move shared boundaries, so their source changes are applied in that order to one combined candidate, where Assets/NoSafeCircle/DoorPrototype/Generated/World/RoomSceneCatalog.asset is regenerated with No Safe Circle/World/Build Room Scene Catalog from the combined RoomSceneCatalog.cs and is never merged or edited by hand, and the three catalog edits reach main only together, in one batched landing with NSC-049's narrow refresh, never alone. This task's own gates never wait for that refresh: NSC-049 depends on NSC-046, NSC-047, and NSC-048, so the refresh gates only the landing, which the NSC-049 integration obligation records."
+      "requirement": "NSC-101 has already written FinalRoom's RoomBounds literal in RoomSceneCatalog.CreateCanonicalRooms as X [-15,+15], Z [76,104] and D5's ExpectedGroundCenter in RoomSceneCatalog.CreateCanonicalDoors as (0,104); this task does not edit Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneCatalog.cs or Assets/NoSafeCircle/DoorPrototype/Generated/World/RoomSceneCatalog.asset. It verifies that both catalog representations record FinalRoom's RoomBounds and D5's center at those values, that D4 remains at (4,76), that catalog order, scene paths, and opening widths are unchanged, that D5 remains the only final door, and fails if any of these differ."
     }
   ],
   "basis": "direct_gdd",
@@ -56,11 +56,12 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 5,
+  "contract_revision": 6,
   "decomposition_reason": "The revised Final Room bounds, solid central obstacle, two retained low-furniture colliders, room-owned floor and wall Tilemaps, separate gameplay colliders, layout handoff bounds, catalog update, focused tests, materialization, and camera review form one coherent room-authoring unit. Canonical-scene composition, production prop dressing, live doors, encounters, and victory remain with existing downstream owners.",
   "decomposition_state": "concrete",
   "depends_on": [
-    "NSC-069"
+    "NSC-069",
+    "NSC-101"
   ],
   "downstream_integration_obligations": [
     {
@@ -79,8 +80,6 @@
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/FinalRoomLayout.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/FinalRoomSceneTests.cs",
     "unity-scene:Assets/Scenes/Rooms/FinalRoom.unity",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneCatalog.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/World/RoomSceneCatalog.asset",
     "logical:room-walkability:final-room"
   ],
   "execution_reason": "One implementation crew can revise FinalRoomLayout.cs, FinalRoomSceneBuilder.cs, FinalRoomSceneTests.cs, and the Final Room entry and D5 center in RoomSceneCatalog.cs. The Windows Unity controller then materializes FinalRoom.unity and RoomSceneCatalog.asset through their production menu commands and runs the focused tests, after which Vincent reviews the exact candidate at gameplay-camera scale. The task does not edit another room, the canonical gameplay scene, live doors, enemies, shared tile generators, or production dressing assets.",
@@ -150,6 +149,15 @@
         "previous_contract_revision": 4,
         "base_contract_sha256": "397eeee65882b2490144cad99610ff316c12198f8fe6d3a276b77fe68e5fa9c8",
         "revised_contract_sha256": "0a176012de4e46baa8ce123cfd5b16ccfe81a2e557418920650c2b1622ecbf00",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      },
+      {
+        "date": "2026-09-22",
+        "reason": "Hand the RoomSceneCatalog writes to NSC-101. Drops Editor/World/RoomSceneCatalog.cs and Generated/World/RoomSceneCatalog.asset from exclusive_resources, adds NSC-101 to depends_on, and turns this task's catalog clause from a WRITE into a VERIFICATION: NSC-101 has already written the values, this task edits neither representation, and it fails if its own room's entry differs. The clause is kept rather than deleted because a task with no clause at all would pass while the catalog said anything. The ordering those five encoded was a computation chain - each room's Z bounds begin where the previous room's end - so NSC-047's 'do not change D3's center, which NSC-046 moves to (-8,54)' and NSC-048's 'if D4 is not yet (4,76), stop' guards, and the GER room decision 4 combined-candidate paragraph, are removed with it: every clause in them was about the catalog, and a guard against an ordering that no longer exists reads as a live constraint. Vincent 2026-09-22: 'Add the task to the graph.'",
+        "source_head": "d1460364ad06deb8668d80cf64f6e3449d3405f9",
+        "previous_contract_revision": 5,
+        "base_contract_sha256": "2a2a34ff036fb7640e51ac75f553271cec76c20fd3a36eb4d45ae9b0be6347da",
+        "revised_contract_sha256": "e0faf295885d318fb911349a9e3813ce1a454a6841a01f8785193f8b31418627",
         "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
       }
     ]
