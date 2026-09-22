@@ -41,13 +41,19 @@ operator action, `recover()`, which the caller may only perform after
 establishing that the writer and its descendants have stopped.
 
 `OVERDUE_SECONDS` is a *warning* threshold and carries no authority to delete.
-It is 60 seconds, not 1800, and that number is measured rather than guessed:
-across four real merges on 2026-09-22 the whole START-to-END bracket was 1, 1, 2
-and 1 seconds, and a local re-timing put `taskcontrol validate` at ~780ms with
-~186ms of git precondition checks. A legitimate holder is three orders of
-magnitude below the old threshold, so a lock older than a minute is a crash with
-near-certainty and should say so in the same minute rather than half an hour
-later. The old 1800s was chosen with no measurement behind it.
+It is 60 seconds rather than 1800 because the observed holds are short: four
+real merges on 2026-09-22 bracketed 1, 1, 2 and 1 seconds START to END, and a
+local re-timing put `taskcontrol validate` at ~780ms plus ~186ms of git
+precondition checks. So a minute is long enough not to cry wolf and short
+enough to surface a problem while someone can still act on it.
+
+**It means OVERDUE, INSPECT. It never means dead.** An earlier version of this
+docstring said a lock older than a minute was a crash with near-certainty;
+Codex was right to make me withdraw that. Those samples time one component on
+one tree -- they do not measure the full merge, hook and GER path, and a median
+of three bounds no tail. A paused, blocked or overloaded writer can hold far
+longer and is still writing. Nothing in this module's behaviour depends on the
+withdrawn claim: no threshold authorises a takeover at any age.
 
 WHAT THIS MODULE DELIBERATELY DOES NOT DO
 
@@ -99,11 +105,12 @@ class MainWriteLockBusy(MainWriteLockError):
         text = (f"{who} holds {LOCK_REF} for {what} "
                 f"(host {where}, pid {pid}, owner {self.owner_oid[:12]})")
         if self.overdue_by is not None and self.overdue_by > 0:
-            text += (f"; it is OVERDUE by {self.overdue_by:.0f}s. A legitimate "
-                     f"hold is 1-2s, so this is very likely a crashed writer. "
-                     f"It will NOT be taken automatically -- establish that the "
-                     f"writer and its children have stopped, then run recovery "
-                     f"against owner {self.owner_oid}.")
+            text += (f"; it is OVERDUE by {self.overdue_by:.0f}s and should be "
+                     f"INSPECTED. Overdue is not dead: a paused, blocked or "
+                     f"overloaded writer is still writing. It will NOT be taken "
+                     f"automatically -- establish that the writer and its "
+                     f"children cannot continue, then run recovery against "
+                     f"owner {self.owner_oid}.")
         return text
 
 
@@ -219,11 +226,17 @@ def acquire(*, repo, role: str, operation: str, expected_head: str = "",
                                expected_head=expected_head,
                                acquired_at=body["acquired_epoch"])
         found = inspect(repo=repo)
-        if found is None:
-            continue                  # released between our attempt and our look
-        current_oid, owner = found
+        current_oid, owner = found if found is not None else ("", {})
+        # EVERY retry path checks the deadline. The branch where the ref
+        # vanished between our attempt and our look used to `continue`
+        # without checking it and without sleeping, so a lock that kept
+        # appearing and disappearing spun this loop forever with no
+        # timeout at all. Found by Codex reading the source, not by a
+        # test here -- a contender that never stops is not a refusal a
+        # caller can observe.
         if time.monotonic() >= deadline:
-            raise MainWriteLockBusy(owner, current_oid, overdue_by(owner))
+            raise MainWriteLockBusy(owner, current_oid,
+                                    overdue_by(owner) if owner else None)
         time.sleep(POLL_SECONDS)
 
 

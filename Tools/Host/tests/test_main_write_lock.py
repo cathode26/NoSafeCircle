@@ -19,6 +19,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest import mock
 
 HOST = pathlib.Path(__file__).resolve().parents[1]
 if str(HOST) not in sys.path:
@@ -156,6 +157,27 @@ class ItNeverStealsALiveLock(Base):
         self.assertIn("will NOT be taken automatically", output)
         self.assertIsNotNone(lock.inspect(repo=repo),
                              "the holder's lock must survive the attempt")
+
+    def test_a_vanishing_holder_cannot_defeat_the_timeout(self):
+        """The retry path that skipped its own deadline.
+
+        When the ref is gone at the moment we look, acquire loops to try again.
+        That branch used to `continue` without checking the deadline or
+        sleeping, so a ref that kept appearing and disappearing spun forever
+        and the caller's timeout meant nothing. Forced here by making `inspect`
+        always report no holder while the ref is genuinely held, so the
+        update-ref keeps failing and the look keeps finding nothing.
+        """
+        repo = self.repo()
+        blocker = lock.acquire(repo=repo, role="Holder Agent", operation="x")
+        started = time.monotonic()
+        with mock.patch.object(lock, "inspect", return_value=None):
+            with self.assertRaises(lock.MainWriteLockBusy):
+                lock.acquire(repo=repo, role="Contender Agent",
+                             operation="y", timeout=0.3)
+        self.assertLess(time.monotonic() - started, 15,
+                        "acquire must honour its timeout on EVERY retry path")
+        lock.release(blocker)
 
     def test_a_fresh_lock_is_not_reported_overdue(self):
         repo = self.repo()
