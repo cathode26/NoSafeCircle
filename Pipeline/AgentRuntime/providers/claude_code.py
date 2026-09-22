@@ -26,6 +26,7 @@ from ..process_runner import (
     StandardProcessRunner,
 )
 from .base import (
+    ProviderBudgetExhausted,
     ProviderFailure,
     ProviderQuotaExhausted,
     ProviderInvocationResponse,
@@ -769,7 +770,18 @@ def _require_success(envelope: Mapping[str, Any], raw_log: str) -> None:
         or envelope["subtype"] != "success"
         or envelope["terminal_reason"] != "completed"
     ):
-        raise ProviderFailure(_unsuccessful_detail(envelope), raw_log=raw_log)
+        detail = _unsuccessful_detail(envelope)
+        # Turn exhaustion is a fact about the assignment's budget, not a fault
+        # in the provider. Classifying it as a provider error sent its reader
+        # to quota: NSC-047 discarded 1,866s of succeeded implementer and test
+        # author work and recorded only "AgentResult failed: provider_error".
+        # Either field alone is accepted -- the CLI sets both, and falling back
+        # to a provider fault when only one is present would restore exactly
+        # the misdiagnosis this distinction exists to prevent.
+        if (envelope["subtype"] == "error_max_turns"
+                or envelope["terminal_reason"] == "max_turns"):
+            raise ProviderBudgetExhausted(detail, raw_log=raw_log)
+        raise ProviderFailure(detail, raw_log=raw_log)
     if "structured_output" not in envelope:
         raise ProviderOutputInvalid(
             "Claude Code result envelope has no structured_output candidate",
