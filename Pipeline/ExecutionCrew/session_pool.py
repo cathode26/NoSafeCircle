@@ -8,8 +8,8 @@ launched it.
 
 Five ideas carry the design.
 
-Role isolation. `contract_locality_auditor`, `implementer`, `test_author`, and
-`validator` keep entirely separate pools. A conversation is offered back only for
+Role isolation. `implementer`, `test_author`, and `validator` keep entirely
+separate pools. A conversation is offered back only for
 the exact role that created it, so an Implementer's memory can never become a
 Validator's context.
 

@@ -623,7 +623,7 @@ class ExecutionCrewSessionPoolOwner:
         if role_routes is not None and self.runtime_binding is None:
             raise ExecutionCrewSessionPoolError("profile pool requires exact conversation-store and resume-control binding")
         if role_routes is not None and set(role_routes) != set(PROFILE_ROLE_CAPABILITY_CLASSES):
-            raise ExecutionCrewSessionPoolError("profile must carry exactly five distinct crew roles")
+            raise ExecutionCrewSessionPoolError("profile must carry exactly the profile crew roles")
         checkout_identity = self.checkout_manifest_identity(
             task_id=task_id,
             worker_slot_id=worker_slot_id,

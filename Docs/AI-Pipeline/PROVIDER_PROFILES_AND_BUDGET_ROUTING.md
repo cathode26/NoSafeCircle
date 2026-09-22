@@ -134,11 +134,13 @@ contracts receive separate assignments.
 ## Crew execution and evidence
 
 Each profile worker carries a hash-checked host assignment file referencing its
-registered ledger entry. The host supplies five isolated pooled role leases:
-implementer, test author, validator, contract locality auditor, and optional
-Lead Developer. Profiles reuse the existing session pool and durable settlement
+registered ledger entry. The host supplies four isolated pooled role leases:
+implementer, test author, validator, and optional Lead Developer (the contract
+locality auditor was retired in 6e718ece2; older run folders may still contain
+its role results). Profiles reuse the existing session pool and durable settlement
 guards, with a namespace bound to conversation stores and exact Codex resume
-controls. The per-profile capacity is fifty leases (five roles for ten workers).
+controls. The per-profile capacity remains fifty leases, above the forty that four roles
+for ten workers need.
 
 The assignment's `task_contract_sha256` is SHA-256 of the exact
 `Tasks/<TASK-ID>.yaml` Git blob bytes at the assignment's bound source commit.
@@ -146,8 +148,8 @@ ExecutionCrew verifies that committed blob identity before accepting the profile
 it never hashes working-tree bytes, which may have been transformed to CRLF by
 `core.autocrlf` or by another checkout filter.
 
-In mixed mode, the implementer and test author use provider A, the validator and
-contract locality auditor use B, ordinary repair stays with A, and revalidation
+In mixed mode, the implementer and test author use provider A, the validator
+uses B, ordinary repair stays with A, and revalidation
 stays with B. A design block or failed second repair may request one pooled B
 Lead Developer diagnosis. That diagnosis cannot approve a rejected candidate or
 fabricate human PASS. An unused Lead Developer lease is cancelled through the
