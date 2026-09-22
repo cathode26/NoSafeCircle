@@ -179,6 +179,30 @@ class ItNeverStealsALiveLock(Base):
                         "acquire must honour its timeout on EVERY retry path")
         lock.release(blocker)
 
+    def test_the_owner_blob_carries_an_identity_not_a_bare_pid(self):
+        """A recycled pid makes a dead holder look live.
+
+        Observed on this machine on 2026-09-22, inside five minutes under
+        ordinary load. A recovery tool checking only the number would refuse to
+        reclaim a genuinely abandoned lock. The field is never absent: when the
+        identity cannot be captured it holds a string saying why, so absence
+        cannot be read as a pass.
+        """
+        repo = self.repo()
+        handle = lock.acquire(repo=repo, role="A Agent", operation="x")
+        _, owner = lock.inspect(repo=repo)
+        self.assertIn("process_identity", owner,
+                      "the field must always be present")
+        identity = owner["process_identity"]
+        if isinstance(identity, dict):
+            self.assertEqual({"pid", "created_ticks", "image"}, set(identity),
+                             "an identity must bind pid, creation and image")
+            self.assertEqual(owner["pid"], identity["pid"])
+        else:
+            self.assertTrue(identity.startswith("unavailable:"),
+                            f"an absent identity must say why: {identity!r}")
+        lock.release(handle)
+
     def test_a_fresh_lock_is_not_reported_overdue(self):
         repo = self.repo()
         handle = lock.acquire(repo=repo, role="A Agent", operation="x")

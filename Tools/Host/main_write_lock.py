@@ -62,6 +62,22 @@ not sufficient -- its git subprocess may still be writing, and pids are reused -
 so rather than implement a check that could be wrong, `recover()` requires the
 caller to have established termination and records that it claimed to. A guard
 that cannot be trusted is worse than an absent one that forces a human to look.
+
+**A BARE PID IS NOT AN IDENTITY, AND THAT IS NOT THEORETICAL HERE.** The Game
+Agent observed reuse on this machine on 2026-09-22 inside five minutes under
+ordinary load: a crew settled at 09:54:05Z, and at 09:58:19Z its watcher read
+WINPID 67956 as RUNNING again because a short-lived process had taken the
+number. The pid did not exist.
+
+For this module the consequence runs the OPPOSITE way to lock-stealing and is
+just as bad: a recovery tool that implements 'proven terminated' as 'pid absent'
+will read a recycled pid as a LIVE holder and refuse to recover a genuinely
+abandoned lock -- the stale-lock-blocks-everyone failure, arriving through the
+fix rather than the bug. So the owner blob carries `process_identity` (pid,
+creation ticks and image, from the checker this codebase already uses) and any
+termination check MUST bind all three. When that identity cannot be captured the
+blob says so explicitly rather than omitting the field, so a recovery tool has to
+handle its absence deliberately instead of reading a missing key as a pass.
 """
 from __future__ import annotations
 
@@ -70,9 +86,11 @@ import json
 import os
 import pathlib
 import socket
+import sys
 import subprocess
 import time
 import uuid
+from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
@@ -82,6 +100,30 @@ DEFAULT_TIMEOUT = 120.0
 OVERDUE_SECONDS = 60.0
 POLL_SECONDS = 0.05
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
+
+def _process_identity() -> dict | str:
+    """This process as pid + creation ticks + image, or why not.
+
+    Reuses `Pipeline.AssistantControl.process_identity`, which already
+    implements this correctly, rather than writing a second identity
+    function -- two implementations of one identity is the same trap as two
+    implementations of one lock. Returns a STRING reason on failure, never
+    None and never a missing key, so a caller cannot read absence as a pass.
+    """
+    root = pathlib.Path(__file__).resolve().parents[2]
+    if str(root) not in sys.path:
+        sys.path.insert(0, str(root))
+    try:
+        from Pipeline.AssistantControl.process_identity import identify
+    except ImportError as error:
+        return f"unavailable: process_identity could not be imported ({error})"
+    with suppress(OSError, ValueError, NotImplementedError):
+        found = identify(os.getpid())
+        if found is not None:
+            return found
+        return "unavailable: this process reported no identity"
+    return "unavailable: the host identity check refused"
 
 
 class MainWriteLockError(RuntimeError):
@@ -214,6 +256,8 @@ def acquire(*, repo, role: str, operation: str, expected_head: str = "",
         "acquired_epoch": time.time(),
         "acquired_at": _now(),
         "expected_head": expected_head,
+        # A bare pid is not an identity: see the module docstring.
+        "process_identity": _process_identity(),
     }
     owner_oid = _write_owner_blob(repo, body)
 
@@ -327,6 +371,7 @@ def recover(*, repo, expected_owner_oid: str, role: str, reason: str,
         "acquired_epoch": time.time(),
         "acquired_at": _now(),
         "expected_head": "",
+        "process_identity": _process_identity(),
         "recovered_from": {"owner_oid": current_oid, "owner": owner},
         "termination_established_by_caller": True,
     }
