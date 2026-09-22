@@ -1,0 +1,112 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "requirement": "Publish the seven ready Chapel of Ash props at their committed paths: shared_candle_cluster_a, ca_altar_ash_bowl_x, ca_ash_heap, ca_sigil_floor_mark, ca_landmark_cracked_bell_frame_x and ca_comedy_offering_plate_sock, plus shared_stone_column. Each contributes three paths - the selected PNG under Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/<category>/, its .png.meta, and the raw export under Docs/Art/Environment/Props/Raw/<category>/ - all of which this task owns. These seven are the room's READY set and the room's full assignment is thirteen: the other six are excluded deliberately and must not be added here. shared_bone_pile_a and shared_web_corner_a are already on main from NSC-102, and ca_candelabra_tall is already on main as a style-lock pilot source, so none of the three needs publishing; ca_pew_x_start, ca_pew_x_middle and ca_pew_x_end are a coupled tiling run under the art plan's D-7 whose rotation Vincent has not selected, and they follow in a separate task rather than parking this one on an undecided visual.",
+      "reference": "NSC-078 revision 12 resource split; Docs/Art/Environment/NSC-078_ART_PLAN.md section 1 intended_rooms; NSC-081 depends_on"
+    },
+    {
+      "criterion_id": "AC-002",
+      "requirement": "Every published .png.meta must be a real TextureImporter that imports the file as the thing it is meant to be, not a GUID-only stub: TextureImporterType Sprite, spriteImportMode Single, spritePixelsPerUnit 64, filterMode Point, textureCompression None, alphaIsTransparency true, mipmapEnabled false, wrapMode Clamp, textureShape Texture2D, and alignment Custom (9). A GUID-only .meta imports as a Cubemap or point cookie in Unity 6000.1, which means the PNGs land, the task goes green and the room renders nothing. wrapMode Clamp is a deliberate divergence from the approved door_bonestone_* metas on main, which are Repeat, and must not be reconciled to them: for a non-tiling sprite the two are visually identical, but the prop set includes tiling runs where wrap mode is not cosmetic. Note that wrapU 0 is Repeat, not Clamp - an inverted reading of that enum failed sixteen metas on this field alone.",
+      "reference": "NSC-102 AC-002; NSC-078 revision 12 acceptance criteria; Unity 6000.1 importer behaviour"
+    },
+    {
+      "criterion_id": "AC-003",
+      "requirement": "THE PIVOT RULE BRANCHES, AND APPLYING ONE BRANCH TO BOTH KINDS OF PROP FAILS A CORRECT ASSET. For a standing prop the pivot is the MEASURED GROUND LINE: alignment Custom with spritePivot y equal to the number of fully transparent rows below the drawn art divided by the canvas height, and x at the drawn figure's horizontal centre. The catalog's bottom-contact rule assumes the art touches the canvas bottom and these do not, so a constant (0.5, 0) floats a prop above its floor contact - at 64 pixels per unit, fifteen transparent rows is 0.234 world units of hover, which is the wizard-hover defect again. FOR ca_sigil_floor_mark THE RULE IS DIFFERENT: it is flat floor art, drawn as a foreshortened ellipse seen from directly above, and NSC-078's PropCatalog.json pivot_normalized rule names it as one of exactly two entries whose pivot is the CENTRE rather than bottom-contact. Its pivot is therefore the centre of the alpha bounding box in both axes. That classification is NSC-078's to state and this task cites it rather than copying it; this task does not own PropCatalog.json and must not claim it. Applying the standing-prop rule to ca_sigil_floor_mark would compute an expectation the correct asset cannot meet.",
+      "reference": "NSC-078 PropCatalog.json pivot_normalized rule; NSC-102 AC-003; NSC-075 AC-008 and NSC-077 AC-002 wizard-hover precedent"
+    },
+    {
+      "criterion_id": "AC-004",
+      "requirement": "The seven published props must satisfy NSC-081's dressing needs for the Chapel of Ash without requiring any entry this task excludes. Record, per prop, the canvas size, the measured alpha bounding box, the derived pivot and which branch of AC-003 produced it, so a later reader can re-derive every pivot from the committed bytes rather than trusting this contract's arithmetic.",
+      "reference": "NSC-081 AC-005; NSC-102 AC-004"
+    }
+  ],
+  "basis": "direct_gdd",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "requirement": "From a clean candidate checkout the Edit Mode fixture NoSafeCircle.DoorPrototype.Tests.Editor.ChapelOfAshPropImportTests runs and passes. This task owns that file and its .meta, so a validation filter naming the fixture resolves to exactly one type. For each of the seven props the fixture loads the asset through AssetDatabase and asserts that the loaded object IS a Sprite - not merely that the file exists - then asserts each of the AC-002 importer values. Note that NSC-078's DungeonPropImportPostprocessor.cs does NOT exist on main and neither does any other AssetPostprocessor, so nothing automatic corrects a wrong .meta and nothing downstream catches one; this fixture is the only check that exists. That absence is stated rather than assumed so no reader supposes an automatic path is covering this.",
+      "reference": "NSC-102 VAL-001; absence of any AssetPostprocessor at main, verified by content"
+    },
+    {
+      "gate_id": "VAL-002",
+      "requirement": "THE PIVOT GATE COMPUTES ITS OWN EXPECTATION FROM THE COMMITTED IMAGE AND BRANCHES ON THE PROP KIND. For each of the seven, decode the committed PNG, compute the alpha bounding box, and derive the expected pivot: for the six standing props, expected y is the canvas height minus the bounding box's bottom row divided by the canvas height, with x at the bounding box's horizontal centre; for ca_sigil_floor_mark, expected pivot is the bounding box's centre in both axes. Assert the imported sprite's pivot equals the expected value within one pixel. THE EXPECTED VALUE IS COMPUTED FROM THE COMMITTED IMAGE AND IS NEVER WRITTEN INTO THE TEST AS A CONSTANT: a gate asserting a fixed (0.5, 0) would pass a floating prop and fail a correct one, and a gate applying the standing-prop formula to the flat entry would fail a correct one. The branch selection is data, taken from this contract's AC-003 list of flat entries, and a prop added later without being classified must fail the gate rather than default to either branch.",
+      "reference": "NSC-102 VAL-002; NSC-078 PropCatalog.json pivot_normalized rule"
+    },
+    {
+      "gate_id": "VAL-003",
+      "requirement": "The candidate changes only paths that appear in this task's exclusive_resources, and no others. IT NEED NOT CHANGE ALL OF THEM. This is a subset rule and not an equality rule, deliberately: NSC-102's first revision required its candidate to change exactly its full path list and that gate became unsatisfiable the moment part of the set landed separately. Three of this room's thirteen props are already on main and NSC-078 still claims ca_candelabra_tall's three paths although the file is published, so equality rules in this area are already known to be wrong. A candidate that adds only the fixture and some of the twenty-one art paths satisfies this gate.",
+      "reference": "NSC-102 VAL-003 as corrected in its revision 2; NSC-078 revision 12 notes"
+    }
+  ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "Seven props, twenty-one art paths and one fixture. The work is a single publication step with one test file; there is nothing to partition and a child could not own a share of one fixture.",
+  "decomposition_state": "concrete",
+  "depends_on": [],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "requirement": "Two of the seven are shared with other rooms at the same repository path, and there is one file which must keep one GUID. shared_candle_cluster_a is also a Final Room prop and shared_stone_column is also a Lower Vault prop, per the art plan's intended_rooms column. A later room task that ships an overlapping prop set must REUSE the GUIDs this task commits rather than regenerate them: two GUIDs for one path make Unity treat it as two assets and silently break every reference authored against the other one. This is not hypothetical - two differing GUIDs were generated for three shared props during the Bone Archive staging and had to be reconciled before that merge, and shared_bone_pile_a and shared_web_corner_a are already on main with pinned GUIDs that this task must not disturb. The hazard is invisible from inside a later task's own scope, because nothing it owns reveals that the path is shared.",
+      "reference": "NSC-102 INT-003; Docs/Art/Environment/NSC-078_ART_PLAN.md section 1 intended_rooms"
+    },
+    {
+      "obligation_id": "INT-002",
+      "requirement": "NSC-078 keeps catalog authorship for all forty-five entries including these seven: this task publishes files, it does not describe them. When NSC-078 later lands DungeonPropImportPostprocessor.cs, the settings it applies must equal the ones this task proves - TextureImporterType Sprite, spriteImportMode Single, spritePixelsPerUnit 64, filterMode Point, textureCompression None, alphaIsTransparency true, mipmapEnabled false, wrapMode Clamp, textureShape Texture2D, and alignment Custom (9), with each prop's pivot derived by the branch AC-003 assigns it - so that re-importing these seven is a no-op rather than a silent re-pivot. NSC-078 revision 12 records the reciprocal half of this split.",
+      "reference": "NSC-078 revision 12 notes; NSC-102 INT-002"
+    }
+  ],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/shared_candle_cluster_a.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/shared_candle_cluster_a.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/furnishings/shared_candle_cluster_a.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ca_altar_ash_bowl_x.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ca_altar_ash_bowl_x.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/furnishings/ca_altar_ash_bowl_x.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ca_ash_heap.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ca_ash_heap.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/furnishings/ca_ash_heap.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/ca_sigil_floor_mark.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/ca_sigil_floor_mark.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/architecture/ca_sigil_floor_mark.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/ca_landmark_cracked_bell_frame_x.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/ca_landmark_cracked_bell_frame_x.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/architecture/ca_landmark_cracked_bell_frame_x.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ca_comedy_offering_plate_sock.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ca_comedy_offering_plate_sock.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/furnishings/ca_comedy_offering_plate_sock.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/shared_stone_column.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/shared_stone_column.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/architecture/shared_stone_column.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/ChapelOfAshPropImportTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/ChapelOfAshPropImportTests.cs.meta"
+  ],
+  "execution_reason": "One agent commits seven selected PNGs, their TextureImporter .meta files and their raw exports, and authors one Edit Mode fixture that proves each imports as a Sprite at the right pivot. No crew split is useful and no other task's files are touched.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "GDD — Approved Five-Room Spatial Layout Blockout §4 (Global room and door coordinates) and §13 (Revision policy; Vincent's room-size authority, 2026-09-14)",
+      "requirement": "The five rooms share one continuous floor with doors D1 through D5 in fixed order and D5 identified as the final door. §13 allows an approved room revision to change baseline bounds and door centers within each room's maximum envelope, with the revision recorded in the owning room task contract; RoomSceneCatalog is the single authoritative, shared record of those reconciled bounds and door centers that every room task and the five-room composition task (NSC-049) read."
+    }
+  ],
+  "id": "NSC-103",
+  "kind": "implementation",
+  "notes": "Authored 2026-09-22 on the NSC-102 pattern so NSC-081 can dress NSC-046 without waiting for NSC-078's full forty-five entries. NSC-078 revision 12 released these twenty-one paths FIRST, at dd3ea3cfe: creating the task before the release produces resource groups owned by both tasks, which is contention rather than resolution. THE ONE THING THAT DOES NOT TRANSFER FROM NSC-102 IS THE PIVOT GATE. NSC-102's gate derives the expected pivot from the alpha bounding box's bottom row, which is correct there only because every Bone Archive prop is a standing prop; the NSC-102 design record said in as many words that this reasoning would not hold for the Chapel of Ash, and this is why - ca_sigil_floor_mark is flat floor art whose pivot is the centre. Copying the Bone Archive gate would fail a correct asset. The fixture is flat in Tests/Editor/ rather than Tests/Editor/Environment/, because that directory does not exist on main and NSC-078 owns its .meta - the contended thing is the DIRECTORY. This task claims no PropCatalog.json, no inventory JSON, no directory .meta and no postprocessor; each is in NSC-078's set and claiming any of them recreates the contention that makes a room-by-room split impossible.",
+  "parent": "NSC-022",
+  "provenance": {
+    "graph_delta_plan_id": null,
+    "origin": "GER Agent, 2026-09-22: narrow Chapel of Ash publication authored on the NSC-102 pattern after the NSC-078 revision 12 resource release",
+    "parent_contract_revision": null,
+    "parent_contract_sha256": null,
+    "parent_task_id": null,
+    "task_design_ger": "not_reviewed"
+  },
+  "reconciliation_key": "chapel-of-ash-prop-publication",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "Chapel of Ash Prop Publication",
+  "type": "world-authoring-foundation"
+}
