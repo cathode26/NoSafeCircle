@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-081",
-  "contract_revision": 2,
+  "contract_revision": 3,
   "contract_disposition": "active",
   "title": "Chapel of Ash Visual Dressing",
   "reconciliation_key": "chapel-of-ash-visual-dressing",
@@ -14,7 +14,7 @@
   "parent": "NSC-029",
   "depends_on": [
     "NSC-046",
-    "NSC-078"
+    "NSC-103"
   ],
   "exclusive_resources": [
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing/ChapelOfAshDressing.prefab",
@@ -73,13 +73,24 @@
   "basis": "human_approved_gameplay_presentation",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "Visual dressing may add presentation objects only; geometry and navigation remain authoritative. Governing visual direction: Docs/Art/Environment/DUNGEON_ART_DIRECTION.md, Vincent-approved project direction dated 2026-09-13. The supplied images are inspiration only; all art and layouts must be original.",
+  "notes": "Visual dressing may add presentation objects only; geometry and navigation remain authoritative. Governing visual direction: Docs/Art/Environment/DUNGEON_ART_DIRECTION.md, Vincent-approved project direction dated 2026-09-13. The supplied images are inspiration only; all art and layouts must be original. DEPENDENCY REPOINTED 2026-09-22 (contract revision 3): depends_on moves from NSC-078 to NSC-103. NSC-078 is a forty-five entry catalog task for all five rooms; NSC-103 publishes the seven ready Chapel of Ash props this task actually needs, so the dressing no longer waits on four other rooms' art. Same move NSC-080 made to NSC-102. WHAT THIS TASK CAN DRESS WITH, counted rather than assumed: the plan assigns THIRTEEN props to ChapelOfAsh. Three are already on main - shared_bone_pile_a and shared_web_corner_a from NSC-102, and ca_candelabra_tall as a style-lock pilot source. NSC-103 publishes seven more. The remaining three are ca_pew_x_start/middle/end, a coupled tiling run under the art plan's D-7 whose rotation Vincent has not selected; they follow in their own task. AC-005 IS SATISFIABLE WITHOUT THEM AND I CHECKED THE WORDING RATHER THAN ASSUMING: it says matched candle, pew, column or arch groupings MAY frame the centre - an optional list joined by 'or', not a conjunct - and both shared_candle_cluster_a and shared_stone_column are in NSC-103's set, with ca_altar_ash_bowl_x, ca_sigil_floor_mark and ca_landmark_cracked_bell_frame_x available as the required altar, sigil or ritual-focus landmark. This task still reads NSC-078's PropCatalog description of those entries; it simply no longer waits for NSC-078 to deliver.",
   "repository_state_at_bootstrap": "partial",
   "repository_evidence_at_bootstrap": [],
   "provenance": {
     "origin": "human_approved_environment_content_followup",
     "approved_at_utc_date": "2026-09-13",
-    "approved_by": "Vincent"
+    "approved_by": "Vincent",
+    "contract_followups": [
+      {
+        "date": "2026-09-22",
+        "reason": "Repoint the Chapel dressing from the 45-entry NSC-078 to the narrow NSC-103, as NSC-080 did to NSC-102",
+        "source_head": "aa0c974413a8c78ab235a716f1df5496a3bc878a",
+        "previous_contract_revision": 2,
+        "base_contract_sha256": "1c0caae43d686579410369bcce2a7263765f64ca67404d396b7627d7eadc65e4",
+        "revised_contract_sha256": "c3c9e940db58bc37b98d5e9efa73fbbb314c30b9da7d9c2527fdcaadfbb74811",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      }
+    ]
   },
   "visual_direction_addendum": "Use curated original clusters around walls, corners, alcoves, and the ritual focal point: pews or furniture, containers, books/tools, hanging or wall decoration, ash/organic growth, candles, restrained ritual and bone motifs, one unmistakable original focal landmark, and small lights. Use foreground/background depth layering and camera-scale readability while preserving the primary lane and door approach. Hazard accents remain clearly bounded and non-blocking."
 }
