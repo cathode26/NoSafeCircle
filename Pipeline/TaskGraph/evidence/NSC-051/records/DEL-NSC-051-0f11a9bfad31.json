@@ -1,0 +1,66 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "2d5c8a1dc5d4bba469fb158b27967717309e5b7ad6f8ab4a38fbbd05ad583c9f"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "383e56cfb77b9b3e67e88000fe66faa6aff77b18",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+      "role": "Runtime door under test: its own Sealed/Open/Locked/Broken/reset-to-Sealed transitions (BindEnemyPassability, TakeDamage, ResetDoor, forward-crossing lock) are exercised without any test manipulation of navigation internals"
+    },
+    {
+      "blob_sha": "42fc3c27f5646647509d39301e3a9524d61c77e6",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+      "role": "Owns wiring DoorInteractable to its DoorEnemyPassability/NavMeshObstacle in the built scene, which is the production wiring the fixture's own hand-built equivalent stands in for"
+    },
+    {
+      "blob_sha": "ac4cd5e4e6d14ebfdb2c4402482e336857a1fb84",
+      "path": "Assets/Scenes/DoorPrototype.unity",
+      "role": "The canonical scene whose DoorInteractable/DoorEnemyPassability composition this gate's production wiring reflects; not itself opened by the PlayMode fixture, which builds its own test-owned geometry and NavMesh"
+    }
+  ],
+  "delivery": {
+    "base_commit": "45dc997d39d7d758446596ef8f901941a0286892",
+    "candidate_commit": "0f11a9bfad31ef45ccccc80cdaacd3e819fe0636",
+    "integrated_commit": "0f11a9bfad31ef45ccccc80cdaacd3e819fe0636",
+    "integrated_tree": "1686a0b7196e58c5fce4665229fd06d39689c37c"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "7880f88138eaf139b0ada5d63568d3842b6aa9e6",
+          "path": "Pipeline/TaskGraph/evidence/NSC-051/artifacts/NSC-051-PlayMode-01.xml-0f11a9bfad31.xml"
+        },
+        {
+          "blob_sha": "cdcddce3ba17694a83a97340c674111ae2be1d27",
+          "path": "Pipeline/TaskGraph/evidence/NSC-051/artifacts/NSC-051-PlayMode-01.log-0f11a9bfad31.log"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "Authoritative PlayMode run at validated commit 0f11a9bfad31ef45ccccc80cdaacd3e819fe0636 through run_unity_tests_clean.ps1, filter NoSafeCircle.DoorPrototype.Tests.DoorPassabilityConnectionPlayModeTests: 1 test, 1 passed, 0 failed, 0 skipped, runner exit 0, final line VALIDATION PASSED. Counts read from test-results.xml (total=\"1\" passed=\"1\" failed=\"0\" skipped=\"0\"), not the console summary. The bound manifest records commit and post_commit both 0f11a9bfad31ef45ccccc80cdaacd3e819fe0636 and tree and post_tree both 1686a0b7196e58c5fce4665229fd06d39689c37c, clean before and after: the run mutated nothing. The single case, DoorTransitions_PublishEnemyWalkabilityThroughPassabilityOwner (NoSafeCircle.DoorPrototype.Tests.DoorPassabilityConnectionPlayModeTests, a sealed non-partial class so the filter cannot silently select a subset), builds its own test-owned door, DoorEnemyPassability, NavMeshObstacle, floor/wall colliders and a real NavMeshAgent on the project's configured agent type, then drives the real DoorInteractable through BindEnemyPassability, StartInteraction/Tick to Open, the private HandleForwardCrossingTriggerEnter to Locked, TakeDamage(MaxDurability) to Broken, and ResetDoor back to Sealed. After each transition it asserts DoorEnemyPassability.CurrentState, the NavMeshObstacle.carving flag, and that agent.CalculatePath to a point on the far side returns PathComplete only when the door state requires enemy walkability (open or broken) and not when it requires blocking (sealed or locked) -- Sealed=carving/no path, Open=no carving/path, Locked=carving/no path, Broken=no carving/path, reset-to-Sealed=carving/no path again. The test never calls SetDoorState directly, so every navigation result comes from DoorInteractable's own production transitions, exactly what VAL-001 requires.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "",
+    "decision": "not_required",
+    "notes": "NSC-051 has exactly one completion gate, VAL-001, and it is an automated PlayMode gate; the contract contains no human gate, so no human approval is claimed. Delivery evidence recorded by the delivery-evidence recorder (for the Game Agent / Integration Steward) on 2026-09-22 at live main 0f11a9bfad31ef45ccccc80cdaacd3e819fe0636, which is where Unity actually ran. The implementation has been on main for days (base_commit 45dc997d39d7d758446596ef8f901941a0286892 is the parent of the commit that introduced it); this record is evidence debt being paid on merged work, not a claim that the work landed today. record_delivery requires HEAD == validated_commit, so this evidence commit binds at the current main tip rather than the historical integration commit.",
+    "required": false
+  },
+  "record_id": "DEL-NSC-051-0f11a9bfad31",
+  "record_type": "delivery",
+  "recorded_at": "2026-09-22T06:00:00Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-051.yaml",
+    "revision": 2,
+    "sha256": "84a75e00a5dbcbcd74da31195c9a37a586499869b6c7e391975b2ece8c5a7d37"
+  },
+  "task_id": "NSC-051",
+  "validated_state": {
+    "commit": "0f11a9bfad31ef45ccccc80cdaacd3e819fe0636",
+    "tree": "1686a0b7196e58c5fce4665229fd06d39689c37c"
+  }
+}
