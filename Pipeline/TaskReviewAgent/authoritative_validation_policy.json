@@ -286,12 +286,12 @@
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-078": {
-      "task_contract_sha256": "8c2c225af0a093ab39b87cdbd84120cd9528d763456510dec0ffcc5da1d4963b",
+      "task_contract_sha256": "fdece2596f9970ba46b0d591e33cac5c008bd480d570b8594e23048c43122be3",
       "required_test_platforms": [
         "EditMode"
       ],
       "test_filters": {
-        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.Environment.DungeonPropImportSettingsTests"
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.DungeonPropImportSettingsTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
