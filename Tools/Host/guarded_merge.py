@@ -1,32 +1,42 @@
 #!/usr/bin/env python
-"""Merge a candidate into local main as one guarded, serialisable step.
+"""Merge a candidate into local main, serialised by a git ref compare-and-swap.
 
-Role-agnostic on purpose. Two roles merge into main now - the Game Agent owns
-the Unity surface, the Pipeline Maintainer owns pipeline work - and a tool that
-lives in one agent's private folder cannot be shared: you either hand-merge,
-which is what reopened the HEAD window twice in one hour on 2026-09-22, or copy
-it, which is how two versions drift.
+Two roles merge into main now - the Game Agent owns the Unity surface, the
+Pipeline Maintainer owns pipeline work - so main is a two-writer resource and
+needs a real lock rather than a convention.
 
-WHAT THIS ADDS OVER A CHECK-THEN-MERGE SCRIPT
+WHY A REF AND NOT A LOCK FILE
 
-Re-deriving main and merging happen inside ONE process, so main cannot move in
-the window between them. That much the Game Agent's version already did.
+`git update-ref <ref> <new> <old>` is a compare-and-swap that git enforces.
+Measured, not assumed:
 
-What it did not do is serialise two mergers. It read the journal for an open
-MAIN-WRITE, and wrote its own START later; two processes can both pass that
-check before either writes, and both then merge. It also journalled by
-read-modify-write, so two writers can lose a line outright. Neither has bitten
-because only one agent ran it.
+    update-ref refs/locks/main-write <A> ""   -> succeeds when absent
+    update-ref refs/locks/main-write <B> ""   -> fatal: reference already exists
+    update-ref -d refs/locks/main-write <B>   -> error: is at <A> but expected <B>
+    update-ref -d refs/locks/main-write <A>   -> released
 
-So: an OS-level exclusive lock decides who proceeds, taken before any check
-that the merge depends on and held until the journal is closed. The lock is a
-file created with O_CREAT|O_EXCL, which is atomic on Windows and POSIX alike --
-whoever creates it wins, and a loser refuses rather than waiting for a window
-that has already closed. Journal writes are atomic appends, never
-read-modify-write.
+That matters more than the atomicity alone: the lock lives in the repository
+both mergers write to, so it binds anything that uses it from any clone or
+tool. An earlier version of this file used an O_CREAT|O_EXCL lock file, which
+is equally atomic and protects only processes that opted into my convention -
+a lock the other merger's tool cannot see is decorative.
 
-The MAIN-WRITE journal record is still written, because the lock serialises and
-the journal is what anyone can read afterwards. They answer different questions.
+The holder's identity IS the locked object: a blob naming role, pid and time,
+so `git cat-file blob refs/locks/main-write` answers "who holds main" from any
+clone. Breaking a stale lock is itself a compare-and-swap against that blob, so
+two mergers cannot both break and both acquire.
+
+WHAT THIS REPLACES
+
+The predecessor, and `main_write.start()` itself, are check-then-act: they read
+for an open MAIN-WRITE, decide, and append their own claim several steps later.
+Two roles both read an empty window, both conclude it is clear, both proceed.
+That is not the --role defect fixed on 2026-09-22 - that one made the filter
+compare a role against itself - it is the ordering of the check against the
+append, and it survived that fix untouched.
+
+The MAIN-WRITE journal record is still written: the ref serialises, the journal
+is what a human reads afterwards. They answer different questions.
 
     python -B guarded_merge.py --role "Pipeline Maintainer Agent" \\
         --candidate <ref> --authority "<why this may land>" \\
@@ -51,6 +61,7 @@ DEFAULT_REPO = pathlib.Path(r"C:\NSC\NSC\NoSafeCircle")
 DEFAULT_JOURNAL = pathlib.Path(
     r"C:\NSC\NoSafeCircle-AssistantCheckouts\.assistant-control"
     r"\graph-lead-journal.md")
+LOCK_REF = "refs/locks/main-write"
 ROLE_PATTERN = re.compile(r"^[A-Za-z ]+(?:Agent|Steward|Orchestrator)$")
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
@@ -63,9 +74,8 @@ def stamp() -> str:
 def append(journal: pathlib.Path, text: str) -> None:
     """One atomic append. Never read-modify-write.
 
-    The previous tool read the whole journal, concatenated a line and wrote it
-    back. Two writers doing that lose whichever line was read before the other
-    wrote. An O_APPEND write of a single short line cannot interleave that way.
+    The predecessor read the journal, concatenated a line and wrote it back;
+    two writers doing that lose whichever line was read before the other wrote.
     """
     line = f"- {stamp()} {text}\n".encode("utf-8")
     with open(journal, "ab") as handle:
@@ -74,101 +84,111 @@ def append(journal: pathlib.Path, text: str) -> None:
         os.fsync(handle.fileno())
 
 
-@contextlib.contextmanager
-def exclusive(lock_path: pathlib.Path, role: str, timeout: float):
-    """Whoever creates the lock file proceeds; everyone else refuses.
+class Git:
+    def __init__(self, repo: pathlib.Path) -> None:
+        self.repo = repo
 
-    O_EXCL makes the create-or-fail one operation, so there is no window in
-    which two processes both believe they hold it. A stale lock older than
-    `timeout` is broken rather than inherited, because a crashed merger must not
-    block main forever -- and the breaking is recorded, because silently
-    stealing a lock is how the guard stops meaning anything.
+    def __call__(self, *args: str, check: bool = False,
+                 stdin: bytes | None = None) -> subprocess.CompletedProcess:
+        result = subprocess.run(
+            ["git", "-C", str(self.repo), *args], input=stdin,
+            capture_output=True, creationflags=NO_WINDOW)
+        result.out = result.stdout.decode("utf-8", "replace").strip()
+        result.err = result.stderr.decode("utf-8", "replace").strip()
+        if check and result.returncode != 0:
+            raise SystemExit(f"git {' '.join(args)} failed: {result.err}")
+        return result
+
+
+@contextlib.contextmanager
+def held(git: Git, role: str, timeout: float, stale_after: float):
+    """Hold LOCK_REF for the duration, or refuse.
+
+    Acquire and release and stale-break are all compare-and-swap, so no
+    interleaving lets two holders believe they have it.
     """
-    payload = f"{role}|{os.getpid()}|{stamp()}\n".encode("utf-8")
+    mine = git("hash-object", "-w", "--stdin",
+               stdin=f"{role}|{os.getpid()}|{time.time():.0f}|{stamp()}\n"
+                     .encode("utf-8"), check=True).out
     deadline = time.monotonic() + timeout
     while True:
-        try:
-            handle = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-            os.write(handle, payload)
-            os.close(handle)
+        taken = git("update-ref", LOCK_REF, mine, "")
+        if taken.returncode == 0:
             break
-        except FileExistsError:
-            try:
-                age = time.time() - lock_path.stat().st_mtime
-                held = lock_path.read_text(encoding="utf-8").strip()
-            except OSError:
-                continue
-            if age > timeout:
-                print(f"breaking a stale lock held {age:.0f}s by {held}",
-                      file=sys.stderr)
-                with contextlib.suppress(OSError):
-                    lock_path.unlink()
-                continue
-            if time.monotonic() >= deadline:
-                raise SystemExit(
-                    f"REFUSED: another merge holds the lock ({held}). "
-                    f"main untouched, nothing written.")
-            time.sleep(0.05)
+
+        current = git("rev-parse", "--verify", "-q", LOCK_REF)
+        if current.returncode != 0:
+            continue                     # released between our try and our look
+        holder = git("cat-file", "blob", current.out).out
+        age = None
+        with contextlib.suppress(ValueError, IndexError):
+            age = time.time() - float(holder.split("|")[2])
+
+        if age is not None and age > stale_after:
+            # Breaking is itself a CAS against the blob we just read, so two
+            # mergers cannot both break and both acquire.
+            print(f"breaking a stale main-write lock held {age:.0f}s by "
+                  f"{holder.strip()}", file=sys.stderr)
+            git("update-ref", "-d", LOCK_REF, current.out)
+            continue
+
+        if time.monotonic() >= deadline:
+            raise SystemExit(
+                f"REFUSED: {holder.strip() or 'another merger'} holds "
+                f"{LOCK_REF}. main untouched, nothing written.")
+        time.sleep(0.05)
+
     try:
         yield
     finally:
-        with contextlib.suppress(OSError):
-            lock_path.unlink()
+        released = git("update-ref", "-d", LOCK_REF, mine)
+        if released.returncode != 0:
+            print(f"WARNING: could not release {LOCK_REF}: {released.err}",
+                  file=sys.stderr)
 
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--role", required=True,
-                    help='the merging role, e.g. "Pipeline Maintainer Agent"')
+    ap.add_argument("--role", required=True)
     ap.add_argument("--candidate", required=True)
-    ap.add_argument("--authority", required=True,
-                    help="why this may land; recorded in the journal")
-    ap.add_argument("--not-proven", default="nothing recorded",
-                    help="what this merge does NOT establish")
+    ap.add_argument("--authority", required=True)
+    ap.add_argument("--not-proven", default="nothing recorded")
     ap.add_argument("--repo", type=pathlib.Path, default=DEFAULT_REPO)
     ap.add_argument("--journal", type=pathlib.Path, default=DEFAULT_JOURNAL)
     ap.add_argument("--lock-timeout", type=float, default=120.0)
+    ap.add_argument("--stale-after", type=float, default=1800.0,
+                    help="seconds before a held lock is treated as abandoned")
     ap.add_argument("--validate", default="Pipeline/TaskGraph/taskcontrol.py")
     args = ap.parse_args(argv)
 
     if not ROLE_PATTERN.match(args.role):
         raise SystemExit(
             f"--role {args.role!r} is not a shape the journal can be parsed "
-            "back for; it must end in Agent, Steward or Orchestrator. A role "
-            "the guard cannot see writes a START nobody can match.")
+            "back for; it must end in Agent, Steward or Orchestrator.")
 
-    repo, journal = args.repo, args.journal
+    git = Git(args.repo)
+    journal = args.journal
 
-    def git(*a: str, check: bool = False) -> subprocess.CompletedProcess:
-        result = subprocess.run(["git", "-C", str(repo), *a],
-                                capture_output=True, text=True,
-                                creationflags=NO_WINDOW)
-        if check and result.returncode != 0:
-            raise SystemExit(
-                f"git {' '.join(a)} failed: {result.stdout}{result.stderr}")
-        return result
-
-    lock = journal.with_suffix(journal.suffix + ".merge-lock")
-    with exclusive(lock, args.role, args.lock_timeout):
+    with held(git, args.role, args.lock_timeout, args.stale_after):
         sha = git("rev-parse", "--verify", f"{args.candidate}^{{commit}}",
-                  check=True).stdout.strip()
-        head = git("rev-parse", "HEAD", check=True).stdout.strip()
+                  check=True).out
+        head = git("rev-parse", "HEAD", check=True).out
 
         problems: list[str] = []
-        if git("status", "--porcelain").stdout.strip():
+        if git("status", "--porcelain").out:
             problems.append("canonical worktree is dirty")
         if git("merge-base", "--is-ancestor", sha, head).returncode == 0:
             problems.append(f"{sha[:9]} is already an ancestor of main")
-        identities = set(git("log", "--format=%ae%n%ce",
-                             f"{head}..{sha}").stdout.split())
+        identities = set(git("log", "--format=%ae%n%ce", f"{head}..{sha}")
+                         .out.split())
         leaked = sorted(i for i in identities if not i.endswith(".invalid"))
         if leaked:
             problems.append(f"non-.invalid identity: {', '.join(leaked)}")
         predicted = git("merge-tree", "--write-tree", head, sha)
-        if predicted.returncode != 0 or "CONFLICT" in predicted.stdout.upper():
+        if predicted.returncode != 0 or "CONFLICT" in predicted.out.upper():
             problems.append("trial merge against live main is not clean")
-        predicted_tree = (predicted.stdout.splitlines()[0].strip()
-                          if predicted.stdout else "")
+        predicted_tree = (predicted.out.splitlines()[0].strip()
+                          if predicted.out else "")
 
         if problems:
             append(journal, f"MERGE REFUSED {args.role}: {args.candidate} "
@@ -181,55 +201,49 @@ def main(argv: list[str] | None = None) -> int:
 
         fast_forward = git("merge-base", "--is-ancestor", head,
                            sha).returncode == 0
-        files = git("diff", "--name-only", f"{head}..{sha}").stdout.split()
-        commits = len(git("log", "--format=%H",
-                          f"{head}..{sha}").stdout.split())
+        files = git("diff", "--name-only", f"{head}..{sha}").out.split()
+        commits = len(git("log", "--format=%H", f"{head}..{sha}").out.split())
 
         append(journal,
                f"MAIN-WRITE START {args.role}: merge {args.candidate} ({sha}) "
                f"into main, expected HEAD {head[:9]}. {args.authority} "
-               f"Measured in-process under an exclusive lock: tree clean, "
+               f"Measured in-process while holding {LOCK_REF}: tree clean, "
                f"every identity .invalid, trial merge clean predicting tree "
                f"{predicted_tree[:12]}, {commits} commit(s), {len(files)} "
                f"file(s), {'fast-forward' if fast_forward else 'merge commit'}.")
 
         try:
-            if git("rev-parse", "HEAD").stdout.strip() != head:
+            if git("rev-parse", "HEAD").out != head:
                 append(journal, f"MAIN-WRITE END {args.role}: ABORTED, nothing "
-                                f"written, HEAD unchanged. main moved between "
-                                f"the checks and the merge.")
+                                f"written. main moved between the checks and "
+                                f"the merge.")
                 print("REFUSED: main moved mid-check; main untouched")
                 return 1
 
             if fast_forward:
                 merge_args = ["merge", "--ff-only", sha]
             else:
+                slug = args.role.lower().replace(" ", "-")
                 merge_args = [
                     "-c", f"user.name=No Safe Circle {args.role}",
-                    "-c", "user.email=" + args.role.lower().replace(" ", "-")
-                          + "@nosafecircle.invalid",
-                    "merge", "--no-ff", sha, "-m",
-                    f"Merge {args.candidate}"]
+                    "-c", f"user.email={slug}@nosafecircle.invalid",
+                    "merge", "--no-ff", sha, "-m", f"Merge {args.candidate}"]
             merged = git(*merge_args)
             if merged.returncode != 0:
-                detail = (merged.stdout + merged.stderr).strip().replace(
-                    "\n", " ")[:300]
+                detail = f"{merged.out} {merged.err}".strip()[:300]
                 append(journal, f"MAIN-WRITE END {args.role}: ABORTED, merge "
                                 f"failed, main unchanged at {head[:9]}: {detail}")
-                print("MERGE FAILED, main untouched:\n",
-                      merged.stdout, merged.stderr)
+                print("MERGE FAILED, main untouched:\n", merged.out, merged.err)
                 return 1
 
-            new_head = git("rev-parse", "HEAD", check=True).stdout.strip()
-            new_tree = git("rev-parse", "HEAD^{tree}",
-                           check=True).stdout.strip()
-            dirty = git("status", "--porcelain").stdout.strip()
+            new_head = git("rev-parse", "HEAD", check=True).out
+            new_tree = git("rev-parse", "HEAD^{tree}", check=True).out
+            dirty = git("status", "--porcelain").out
             validate = subprocess.run(
                 [sys.executable, "-B", args.validate, "validate"],
-                cwd=str(repo), capture_output=True, text=True,
+                cwd=str(args.repo), capture_output=True, text=True,
                 creationflags=NO_WINDOW)
-            ahead = git("rev-list", "--count",
-                        "origin/main..main").stdout.strip() or "?"
+            ahead = git("rev-list", "--count", "origin/main..main").out or "?"
             drift = ("" if new_tree == predicted_tree
                      else f" (WARNING: tree differs from predicted "
                           f"{predicted_tree})")
@@ -253,12 +267,9 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  ahead of origin: {ahead} (not pushed)")
             return 0 if validate.returncode == 0 and not dirty else 1
         except BaseException as error:              # noqa: BLE001
-            # An unclosed START is worse than a failed merge: the next merger
-            # cannot tell a crash from a write in progress.
             append(journal, f"MAIN-WRITE END {args.role}: ABORTED on an "
-                            f"unexpected error, main may be mid-merge, inspect "
-                            f"before retrying: {type(error).__name__}: "
-                            f"{str(error)[:200]}")
+                            f"unexpected error, inspect main before retrying: "
+                            f"{type(error).__name__}: {str(error)[:200]}")
             raise
 
 
