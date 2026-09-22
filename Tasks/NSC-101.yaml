@@ -31,7 +31,7 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 2,
+  "contract_revision": 3,
   "decomposition_reason": "One bounded mechanical responsibility: apply five already-approved GER room-revision literals to the single shared RoomSceneCatalog.cs file, regenerate its generated asset, and add one new geometry test proving both representations agree. No design decision and no per-room scene authoring belong here.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -41,7 +41,7 @@
     {
       "obligation_id": "INT-001",
       "reference": "GER room decision 4 (2026-09-15); Game Agent verification, 2026-09-22, that this task alone fails CommittedRoomSourceSceneConformanceTests",
-      "requirement": "This task's catalog change must not reach main alone. NoSafeCircle.DoorPrototype.Tests.Editor.World.CommittedRoomSourceSceneConformanceTests opens the five committed Assets/Scenes/Rooms/*.unity scenes and validates them against RoomSceneCatalog.CreateCanonicalRooms and RoomSceneCatalog.CreateCanonicalDoors, so a catalog whose bounds and door centers have moved ahead of the committed scenes turns main red. This change lands only together with the rebuilt room scenes from NSC-044 through NSC-048 and NSC-049's narrow refresh of Assets/Scenes/DoorPrototype.unity - the batched landing GER room decision 4 requires, never alone. This task cannot prove that by itself, which is why it is an obligation and not a completion gate."
+      "requirement": "This task's catalog change must not reach main alone. NoSafeCircle.DoorPrototype.Tests.Editor.World.CommittedRoomSourceSceneConformanceTests opens the five committed Assets/Scenes/Rooms/*.unity scenes and validates them against RoomSceneCatalog.CreateCanonicalRooms and RoomSceneCatalog.CreateCanonicalDoors, so a catalog whose bounds and door centers have moved ahead of the committed scenes turns main red. This change lands only together with the rebuilt room scenes from NSC-044 through NSC-048 and NSC-049's narrow refresh of Assets/Scenes/DoorPrototype.unity - the batched landing GER room decision 4 required. ATOMICITY WITHDRAWN 2026-09-22 BY THE GER AGENT. This obligation previously ended \"never alone\", and THAT NO LONGER BINDS - indeed THIS TASK ALREADY LANDED ALONE, at fb36f012f, on Vincent's own decision to accept a red main, so the clause was asserting something already false. The rooms may land individually; NSC-046 INT-003, NSC-047 INT-001 and NSC-048 INT-001 carry the full reasoning. What survives is a requirement about a SUITE rather than a commit count: no room task is delivered or conformant until the five committed room scenes are mutually consistent and both CommittedRoomSourceSceneConformanceTests and FiveRoomDoorSequencePlayModeTests pass. This task cannot prove that by itself, which is why it remains an obligation and not a completion gate. This task cannot prove that by itself, which is why it is an obligation and not a completion gate."
     }
   ],
   "exclusive_resources": [
@@ -76,6 +76,15 @@
         "previous_contract_revision": 1,
         "base_contract_sha256": "f9732daab8873285345af817cd1fcf9202e466e0f5cc0e415242d11f89e1f5a8",
         "revised_contract_sha256": "fbd05431ae64fcb808e511f19a6ef54efb5374a81ef6f6a3fd36e422ec276ea1",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      },
+      {
+        "date": "2026-09-22",
+        "reason": "Withdraw the 'never alone' atomicity clause from the catalog side; this task already landed alone on Vincent's decision",
+        "source_head": "3c31cea7e1c199bcc466f26c242ad93d3ac8faeb",
+        "previous_contract_revision": 2,
+        "base_contract_sha256": "961b513ca08ff044a586b1ab8bcb617ecfb0bc4128bc09514c279b224de09991",
+        "revised_contract_sha256": "223c86d0d2bbfc5e0f21b8398d60d657d2fd48dab794df0c6f7ea1d2a321b6aa",
         "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
       }
     ]
