@@ -72,13 +72,20 @@ CONTRACT_CHANGED = 8
 # agreement. The shell cannot observe this condition today; it reserves the
 # number anyway, so a caller never has to ask which launcher it is reading.
 USAGE_LIMIT = 9
-# 2 promises the caller that NOTHING WAS LAUNCHED - the shell can only reach it
-# before `codex exec`, so the job name is free and no tokens were spent. Fable
-# found three sites here returning it after the provider had run, one of them a
-# fix I had just made. A retry policy keyed on 2 would have paid twice. This is
-# for a finished review whose EVIDENCE cannot be recorded under this job name:
-# the review happened, so it is not a setup problem, and it is not the reviewer's
-# fault either.
+# 2 promises the caller ONE thing: the reviewer was not launched, so nothing was
+# spent. The shell can only reach it above `codex exec`, and Fable found three
+# sites here returning it after the provider had run - one of them a fix I had
+# made an hour earlier. A retry policy keyed on 2 would have paid twice.
+#
+# It does NOT promise the job name is usable, and an earlier version of this
+# comment said it did. One of the two sites returning 2 is "this job already has
+# evidence on disk" - the name being TAKEN is a reason for the refusal, not
+# something the refusal rules out. Codex caught the contradiction; the code was
+# always right and the comment was not.
+#
+# 10 is for a finished review whose EVIDENCE cannot be recorded under this job
+# name: the review happened and was paid for, so it is neither a setup problem
+# nor the reviewer's fault.
 EVIDENCE_UNPUBLISHABLE = 10
 
 

@@ -24,13 +24,24 @@
 #       9 the provider refused the call - a usage or rate limit. Reserved, not
 #         returned here: only the Claude launcher can observe it, and the number
 #         is held so one code never means two things across the two launchers;
-#      10 the review finished but its evidence could not be recorded under this
-#         job name. Also reserved rather than returned: this script refuses
-#         existing evidence before it launches, so it cannot reach the case.
+#      10 the review finished, or may have, but its evidence could not be recorded
+#         under this job name. THIS SCRIPT DOES RETURN 10: the checker
+#         refuses an unreadable input, a bad argument combination or an existing
+#         record with its own 2, and by then the provider has run, so that 2 is
+#         translated here rather than passed through. An earlier version of this
+#         comment called 10 reserved and unreachable while the code below
+#         returned it - added in the same commit, and caught by Codex running
+#         the script rather than reading it.
 #
-# 2 carries a promise the other codes do not: NOTHING WAS LAUNCHED. Every site
-# that returns it is above the `codex exec` line, so a caller reading 2 knows the
-# job name is free and nothing was spent. Do not add a 2 below that line.
+# 2 carries a promise the other codes do not: THE REVIEWER WAS NOT LAUNCHED, so
+# nothing was spent. Every site returning it is above the `codex exec` line. Do
+# not add a 2 below that line.
+#
+# It does NOT promise the job name is usable. One of the sites returning 2 is
+# "this job already has evidence on disk", which is the name being taken - so a
+# caller reading 2 knows only that it was not charged, and must still pick a new
+# name if the refusal was about occupancy. An earlier version of this comment
+# claimed both, which does not follow from either.
 #
 # 2026-09-21: the reviewer now declares its verdict in one JSON object rather
 # than in prose. $JOB.result.json is what the provider wrote and the only
