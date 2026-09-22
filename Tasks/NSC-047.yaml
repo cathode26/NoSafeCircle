@@ -41,7 +41,7 @@
     {
       "gate_id": "VAL-003",
       "reference": "AC-001, AC-003 and AC-004; generated-content materialization and broader-suite compatibility; GER room decision 4 (2026-09-15); re-check C-04 (2026-09-15)",
-      "requirement": "The Windows Unity controller evaluates this gate on the combined room-landing candidate required by GER room decision 4, in which the NSC-046, NSC-047, and NSC-048 source changes are applied in that order, so it also contains the NSC-046 and NSC-048 RoomSceneCatalog.cs changes (including D3's center at (-8,54)) and their materialized Assets/Scenes/Rooms/ChapelOfAsh.unity and Assets/Scenes/Rooms/FinalRoom.unity. NSC-049's narrow refresh of Assets/Scenes/DoorPrototype.unity and FiveRoomDoorSequencePlayModeTests must be present before that batch lands on main, but it is not part of this gate's evidence. It first runs No Safe Circle/World/Build Room Scene Catalog, producing Assets/NoSafeCircle/DoorPrototype/Generated/World/RoomSceneCatalog.asset, then runs No Safe Circle/Rooms/Build Lower Vault Authoring Scene, producing Assets/Scenes/Rooms/LowerVault.unity, Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/LowerVaultNearWallStubTile.asset, Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/LowerVaultBlockoutProxySprite.asset, and their .meta companions. It verifies that NSC-047's own RoomSceneCatalog.cs change, diffed against the combined candidate immediately before NSC-047's edit, is limited to Lower Vault's RoomBounds literal and D4's ExpectedGroundCenter, and verifies semantic catalog, hierarchy, Tilemap occupancy, Sprite/Tile pixels and pivots, collider, anchor, reference, and object-count values. It runs LowerVaultSceneTests as NSC-047 gate evidence; runs FinalRoomSceneTests, ChapelOfAshSceneTests, NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests, and NSC-049's NoSafeCircle.DoorPrototype.Tests.Editor.World.CommittedRoomSourceSceneConformanceTests as regression-only checks; and then runs the complete Edit Mode suite as broader-suite compatibility evidence. It runs both production commands again in the same order and verifies equivalent semantic outputs, stable .meta identities, no duplicate roots or assets, and no unexpected repository changes. If Unity cannot materialize the outputs, the task stops as NEEDS_MATERIALIZATION rather than hand-editing serialized data."
+      "requirement": "The Windows Unity controller evaluates this gate on the combined room-landing candidate required by GER room decision 4, in which the NSC-046, NSC-047 and NSC-048 source changes are applied together (their authoring order dissolved when NSC-101 took over the catalog writes; what remains is that they land as one candidate), so it also contains their materialized Assets/Scenes/Rooms/ChapelOfAsh.unity and Assets/Scenes/Rooms/FinalRoom.unity. NSC-049's narrow refresh of Assets/Scenes/DoorPrototype.unity and FiveRoomDoorSequencePlayModeTests must be present before that batch lands on main, but it is not part of this gate's evidence. It first runs No Safe Circle/World/Build Room Scene Catalog, producing Assets/NoSafeCircle/DoorPrototype/Generated/World/RoomSceneCatalog.asset, then runs No Safe Circle/Rooms/Build Lower Vault Authoring Scene, producing Assets/Scenes/Rooms/LowerVault.unity, Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/LowerVaultNearWallStubTile.asset, Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/LowerVaultBlockoutProxySprite.asset, and their .meta companions. It verifies that this candidate changes neither Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneCatalog.cs nor its generated asset: NSC-101 wrote Lower Vault's RoomBounds literal and D4's ExpectedGroundCenter at (4,76), this task claims neither file, and any diff to either one fails this gate. It verifies semantic catalog, hierarchy, Tilemap occupancy, Sprite/Tile pixels and pivots, collider, anchor, reference, and object-count values. It runs LowerVaultSceneTests as NSC-047 gate evidence; runs FinalRoomSceneTests, ChapelOfAshSceneTests, NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests, and NSC-049's NoSafeCircle.DoorPrototype.Tests.Editor.World.CommittedRoomSourceSceneConformanceTests as regression-only checks; and then runs the complete Edit Mode suite as broader-suite compatibility evidence. It runs both production commands again in the same order and verifies equivalent semantic outputs, stable .meta identities, no duplicate roots or assets, and no unexpected repository changes. If Unity cannot materialize the outputs, the task stops as NEEDS_MATERIALIZATION rather than hand-editing serialized data."
     },
     {
       "gate_id": "VAL-004",
@@ -51,7 +51,7 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 6,
+  "contract_revision": 7,
   "decomposition_reason": "The revised Lower Vault remains one bounded room-authoring responsibility: one layout file, one deterministic room-scene and generated-asset builder, one focused test file, one room Scene, two room-owned generated visual assets, and the authorized Lower Vault catalog update to its RoomBounds entry and D4 center. Production prop art, dressing, canonical composition, the shared-boundary wall exclusion, doors, encounters, and runtime enemy behavior remain in their existing tasks.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -163,6 +163,15 @@
         "previous_contract_revision": 5,
         "base_contract_sha256": "13341c941fe92abcc7497e524bf11d9031f639400fd3a34d469a6e7f9c7b4e3b",
         "revised_contract_sha256": "2c6030c8fc62a11e8f4415c33480a4b490e49185c02fb6561e9062404b9d09f0",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      },
+      {
+        "date": "2026-09-22",
+        "reason": "VAL-003 demanded a diff of RoomSceneCatalog.cs, a file this task neither claims nor may write after NSC-101 took the catalog. Both clauses are rebuilt to assert the catalog and its generated asset are unchanged.",
+        "source_head": "9a72b69b784954ed985e7ad859bf44e5a19438f6",
+        "previous_contract_revision": 6,
+        "base_contract_sha256": "fdef7300b7139b08c6ccb5ea45ee932fd7587936980e1c823ff3edcd1be597e1",
+        "revised_contract_sha256": "60e21a70261072d2e6584dbe1a80d9e888cf4c28999ebd1ca92abe945e50f40f",
         "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
       }
     ]
