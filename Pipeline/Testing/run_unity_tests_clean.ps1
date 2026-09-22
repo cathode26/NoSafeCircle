@@ -518,8 +518,28 @@ try {
     if ($failed -ne 0) {
         Stop-WithCode $ExitResult "RESULT FAILURE: Test result reports $failed failed test(s)."
     }
-    if ($result -ne "Passed") {
-        Stop-WithCode $ExitResult "RESULT FAILURE: Test-run result is '$result', expected 'Passed'."
+    # An explicitly IGNORED test is not a failing test. NUnit reports the run
+    # label as "Skipped:Ignored" when any test opted out, even with every other
+    # test green -- which made NSC-044 unvalidatable: 14 passed, 0 failed, and
+    # one opt-in visual capture that must not run unattended.
+    #
+    # Every property this gate had is kept, and one is ADDED: passed must be
+    # greater than zero. Without it a suite whose tests were ALL ignored would
+    # report failed=0, total>0 and "Skipped:Ignored" and sail through a gate
+    # that had just been widened.
+    $acceptableResults = @("Passed", "Skipped:Ignored")
+    if ($acceptableResults -notcontains $result) {
+        Stop-WithCode $ExitResult "RESULT FAILURE: Test-run result is '$result', expected one of: $($acceptableResults -join ', ')."
+    }
+    if ($passed -le 0) {
+        Stop-WithCode $ExitResult "RESULT FAILURE: Test run reports zero passed tests (total=$total skipped=$skipped)."
+    }
+    if ($skipped -gt 0) {
+        # A skip that is invisible in the record is how "opt-in" quietly
+        # becomes "never runs". Name them.
+        $ignoredNodes = $resultDocument.SelectNodes("//test-case[starts-with(@result,'Skipped')]")
+        $ignoredNames = @($ignoredNodes | ForEach-Object { $_.GetAttribute("fullname") })
+        Write-Host "Ignored tests ($skipped): $($ignoredNames -join ', ')"
     }
     if ($total -le 0) {
         Stop-WithCode $ExitResult "RESULT FAILURE: Unity discovered zero tests for platform '$TestPlatform' and filter '$TestFilter'."
