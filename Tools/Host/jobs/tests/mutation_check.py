@@ -39,11 +39,15 @@ Exit: 0 every mutation killed by the test that names it; 1 otherwise.
 """
 from __future__ import annotations
 
+import argparse
+import concurrent.futures
+import os
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 FAILURE = re.compile(r"^FAIL: (\S+)", re.MULTILINE)
@@ -66,6 +70,7 @@ FILES = {
     "ger_node": Path("ger/ger_node.py"),
     "apply_contract": Path("ger/apply_contract.py"),
     "record": Path("jobs/closure_record.py"),
+    "deploy": Path("deploy_tools.py"),
     "checker": Path("jobs/check_closure_report.py"),
     # Bash is not exempt. Two of the defects Codex reproduced on 2026-09-21 were
     # in this file, and both had been "fixed" on the Python path beside it - the
@@ -84,12 +89,14 @@ SUITES = {
     "node": Path("ger/tests/test_ger_node.py"),
     "contract": Path("ger/tests/test_apply_contract.py"),
     "job_record": Path("jobs/tests/test_closure_record.py"),
+    "deploy": Path("tests/test_deploy_tools.py"),
     "shell": Path("codex-jobs/tests/test_run_closure_review.py"),
     "adapter": Path("jobs/tests/test_claude_closure_review.py"),
 }
 
 # Copied so the suites import and navigate as they do in the tree. Never mutated.
 SUPPORT = [
+    Path("deploy_manifest.json"),
     # What the shell suite's own deployment step copies. Without these it builds
     # a workspace missing its helpers and every case fails at setup, which is a
     # crash and not a kill.
@@ -371,6 +378,33 @@ MUTATIONS = [
      '        return OK\n    return OK',
      'adapter', 'test_a_record_that_appears_mid_run_is_a_refusal_not_a_traceback'),
 
+    # ---- the deployment record: three states that looked identical before it.
+
+    ('deploy', 'telling an EDITED deployment from a merely stale one',
+     '        elif live_hash != was:',
+     '        elif False:',
+     'deploy', 'test_an_edited_deployment_is_MODIFIED_not_stale'),
+
+    ('deploy', 'noticing that the tracked file has moved on',
+     '        elif live_hash != tracked_hash:',
+     '        elif False:',
+     'deploy', 'test_a_merge_makes_the_deployment_stale'),
+
+    ('deploy', 'the refusal to record a commit that does not describe the bytes',
+     '    if dirty:',
+     '    if False:',
+     'deploy', 'test_it_refuses_to_deploy_from_a_dirty_checkout'),
+
+    ('deploy', 'line-ending normalisation before hashing',
+     '    return data.replace(b"\\r\\n", b"\\n").replace(b"\\r", b"\\n")',
+     '    return data',
+     'deploy', 'test_a_crlf_deployment_of_an_lf_file_is_current'),
+
+    ('deploy', 'a deployment with no record not being called current',
+     '            states[relative] = CURRENT if live_hash == tracked_hash else UNRECORDED',
+     '            states[relative] = CURRENT',
+     'deploy', 'test_a_deployment_with_no_record_cannot_be_called_current'),
+
 ]
 
 
@@ -384,6 +418,42 @@ def stage(tmp: Path) -> tuple[dict[str, Path], dict[str, Path]]:
         shutil.copy2(HOST / relative, target)
     return ({key: host / rel for key, rel in FILES.items()},
             {key: host / rel for key, rel in SUITES.items()})
+
+
+def workers(requested: int | None = None) -> int:
+    """How many mutations to run at once.
+
+    Every unit of work is a subprocess that spends most of its life waiting, so
+    this can exceed the core count without starving anything. Capped anyway: the
+    shell suite spawns bash, git and python per test, and a machine thrashing its
+    disk is not faster.
+    """
+    if requested:
+        return max(1, requested)
+    from_env = os.environ.get("NSC_MUTATION_WORKERS")
+    if from_env and from_env.isdigit() and int(from_env) > 0:
+        return int(from_env)
+    return max(1, min(8, (os.cpu_count() or 2)))
+
+
+def one_mutation(mutation, expected: dict[str, int]) -> tuple[str, bool, str]:
+    """Stage a private tree, break one guard in it, run the named suite, score.
+
+    A tree of its own per mutation is what makes concurrency safe here, and it
+    also retires the old restore-after-each step: nothing is shared, so a crash
+    cannot leave a guard disabled in a copy the next mutation would use.
+    """
+    file_key, what, old, new, suite_key, must_die = mutation
+    with tempfile.TemporaryDirectory(prefix="protocol-mutation-") as tmpdir:
+        files, suites = stage(Path(tmpdir))
+        path = files[file_key]
+        text = path.read_text(encoding="utf-8")
+        if text.count(old) != 1:
+            return what, False, f"ANCHOR LOST: matched {text.count(old)}, expected 1"
+        path.write_text(text.replace(old, new), encoding="utf-8")
+        code, output = run(suites[suite_key])
+    killed, reason = score(code, output, must_die, expected[suite_key])
+    return what, killed, reason
 
 
 def run(suite: Path) -> tuple[int, str]:
@@ -453,7 +523,14 @@ def score(code: int, output: str, must_die: str,
     return True, ""
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Break each guard on purpose and require the named test to fail.")
+    parser.add_argument("--workers", type=int, default=None,
+                        help="mutations to run at once; default min(8, cpus), "
+                             "or NSC_MUTATION_WORKERS")
+    args = parser.parse_args(argv)
+
     missing = [rel for rel in list(FILES.values()) + list(SUITES.values()) + SUPPORT
                if not (HOST / rel).is_file()]
     if missing:
@@ -463,7 +540,6 @@ def main() -> int:
 
     with tempfile.TemporaryDirectory(prefix="protocol-mutation-") as tmpdir:
         files, suites = stage(Path(tmpdir))
-        pristine = {key: path.read_text(encoding="utf-8") for key, path in files.items()}
 
         # Each baseline must itself be a COMPLETED, green, non-empty run, and its
         # collected count is kept. Astra MJ-MUT-02: a baseline exit of 0 alone
@@ -471,8 +547,14 @@ def main() -> int:
         # mutated run collecting one test scored as a kill against a baseline of
         # sixty-five.
         expected: dict[str, int] = {}
-        for key, suite in suites.items():
-            code, output = run(suite)
+        # Baselines share the one staged tree, unmutated, so they are safe to
+        # overlap: nothing writes to it.
+        with concurrent.futures.ThreadPoolExecutor(
+                max_workers=workers(args.workers)) as pool:
+            baselines = {key: pool.submit(run, suite)
+                         for key, suite in suites.items()}
+        for key, future in baselines.items():
+            code, output = future.result()
             tests, verdict, counts = terminal_summary(output)
             problem = None
             if code != 0 or verdict != "OK":
@@ -492,32 +574,39 @@ def main() -> int:
             print(f"baseline {key}: {tests} tests, {verdict}")
         print()
 
-        survivors: list[str] = []
-        for file_key, what, old, new, suite_key, must_die in MUTATIONS:
-            path, text = files[file_key], pristine[file_key]
-            if text.count(old) != 1:
-                print(f"ANCHOR LOST  {what}: matched {text.count(old)}, expected 1")
-                survivors.append(f"{what} (anchor lost)")
-                continue
+    # The staged tree above was only needed for the baselines; each mutation
+    # stages its own. Outside the `with`, so the baseline copy is already gone.
+    count = workers(args.workers)
+    print(f"{len(MUTATIONS)} mutations, {count} at a time")
+    started = time.time()
 
-            path.write_text(text.replace(old, new), encoding="utf-8")
-            try:
-                code, output = run(suites[suite_key])
-            finally:
-                path.write_text(text, encoding="utf-8")
+    outcomes: dict[str, tuple[bool, str]] = {}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=count) as pool:
+        futures = {pool.submit(one_mutation, m, expected): m[1] for m in MUTATIONS}
+        for future in concurrent.futures.as_completed(futures):
+            what, killed, reason = future.result()
+            outcomes[what] = (killed, reason)
 
-            killed, reason = score(code, output, must_die, expected[suite_key])
-            if killed:
-                print(f"killed       {what}")
-            else:
-                print(f"SURVIVED     {what}")
-                print(f"             {reason}")
-                survivors.append(what)
+    # Printed in TABLE order, not completion order, so two runs are diffable.
+    survivors: list[str] = []
+    for mutation in MUTATIONS:
+        what = mutation[1]
+        killed, reason = outcomes[what]
+        if killed:
+            print(f"killed       {what}")
+        elif reason.startswith("ANCHOR LOST"):
+            print(f"ANCHOR LOST  {what}: {reason[len('ANCHOR LOST: '):]}")
+            survivors.append(f"{what} (anchor lost)")
+        else:
+            print(f"SURVIVED     {what}")
+            print(f"             {reason}")
+            survivors.append(what)
 
-        print(f"\n{len(MUTATIONS) - len(survivors)}/{len(MUTATIONS)} mutations killed")
-        for survivor in survivors:
-            print(f"  SURVIVOR: {survivor}")
-        return 1 if survivors else 0
+    print(f"\n{len(MUTATIONS) - len(survivors)}/{len(MUTATIONS)} mutations killed "
+          f"in {time.time() - started:.0f}s")
+    for survivor in survivors:
+        print(f"  SURVIVOR: {survivor}")
+    return 1 if survivors else 0
 
 
 if __name__ == "__main__":

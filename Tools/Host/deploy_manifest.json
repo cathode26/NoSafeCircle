@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "comment": [
+    "WHAT DEPLOYS, declared rather than inferred.",
+    "",
+    "The tools exist twice: tracked here, and copied to <workspace>/tools where",
+    "agents actually run them. Nothing recorded which commit the copy came from,",
+    "so 'is the deployment current?' could only be answered by hashing every file",
+    "by hand - which is how the 2026-09-22 drift was found, after the fact.",
+    "",
+    "There is no rule to infer. MOVE-TOOLS-IN.ps1 chose seven families by hand in",
+    "September ('the tools the doc set and agent definitions actually cite') and",
+    "left four tracked families behind. tests/ deploys inside some families and",
+    "not others. So the set is declared here, reviewably, and deploy_tools.py",
+    "reads it. This file plus DEPLOYED.json is the whole mechanism.",
+    "",
+    "ADDING AN ENTRY IS A DEPLOYMENT DECISION. The closure family below is not",
+    "yet deployed anywhere; it is declared because CLOSURE_PROTOCOL_CUTOVER.md",
+    "already specifies it as the supported set, and prose that nothing executes",
+    "is how the previous deployment went stale unnoticed. --check reports a",
+    "declared-but-absent file as 'absent', which is a true statement about today",
+    "and not a failure."
+  ],
+  "families": {
+    "art": {
+      "include": [
+        "**/*.py"
+      ],
+      "exclude": [
+        "tests/**"
+      ]
+    },
+    "astra": {
+      "include": [
+        "**/*.py"
+      ],
+      "exclude": [
+        "tests/**"
+      ]
+    },
+    "cleanup": {
+      "include": [
+        "**/*.py"
+      ],
+      "exclude": [
+        "tests/**"
+      ]
+    },
+    "ger": {
+      "include": [
+        "**/*.py"
+      ],
+      "exclude": [
+        "tests/**"
+      ]
+    },
+    "jobs": {
+      "include": [
+        "**/*.py"
+      ],
+      "exclude": [
+        "tests/**"
+      ]
+    },
+    "session": {
+      "include": [
+        "**/*.py"
+      ],
+      "exclude": [
+        "tests/**"
+      ]
+    },
+    "viewer": {
+      "include": [
+        "**/*.py"
+      ],
+      "exclude": [
+        "tests/**"
+      ]
+    },
+    "codex-jobs": {
+      "include": [
+        "*.sh",
+        "*.py",
+        "templates/*.md"
+      ],
+      "exclude": [
+        "tests/**",
+        "closure-stream-*.sh",
+        "run_checks_batch2.sh"
+      ],
+      "note": "Not deployed today. Required by CLOSURE_PROTOCOL_CUTOVER.md: the closure launcher and its prompt template."
+    }
+  },
+  "root_files": [
+    "nsc_paths.py",
+    "review_result.py"
+  ],
+  "root_files_note": [
+    "NEITHER IS DEPLOYED TODAY, and the closure launcher refuses without them.",
+    "run_closure_review.sh resolves nsc_paths.py at $HELPERS/../nsc_paths.py and",
+    "exits 2 when it is missing; make_closure_prompt.py imports it from its",
+    "parent directory. review_result.py is the protocol every reader goes",
+    "through. Deploying codex-jobs or the jobs checkers without these two gives",
+    "a launcher that refuses every run."
+  ],
+  "never_deploy": {
+    "assistant-utilities": "not cited by any guide",
+    "ger-contract-revisions-20260916": "a verbatim archive, and the GER Agent's live working area",
+    "tests": "host-level test suites; they run from a checkout, never from a deployment",
+    "run_tool_tests.py": "runs the suites, which are not deployed",
+    "<family>/tests": "a deployment is what RUNS; the suites run from a checkout, which is why run_tool_tests.py is never deployed. 15 test files ARE deployed today under art, astra, cleanup and jobs; they report as `extra`, which is a true statement about the deployment and somebody's call to act on."
+  }
+}

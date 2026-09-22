@@ -36,7 +36,10 @@ from __future__ import annotations
 
 import os
 import re
+import concurrent.futures
+import shutil
 import subprocess
+import tempfile
 import sys
 import time
 from pathlib import Path
@@ -50,6 +53,7 @@ SUITES: list[tuple[str, Path, Path, Path | None]] = [
     ("paths", HOST / "tests" / "test_nsc_paths.py", HOST / "tests", None),
     ("runner", HOST / "tests" / "test_run_tool_tests.py", HOST / "tests", None),
     ("result", HOST / "tests" / "test_review_result.py", HOST / "tests", None),
+    ("deploy", HOST / "tests" / "test_deploy_tools.py", HOST / "tests", None),
     ("cleanup", HOST / "cleanup" / "tests" / "test_safe_delete.py",
      HOST / "cleanup" / "tests", None),
     ("art", ART / "tests" / "test_analysis_ledger_sheets.py", ART, ART),
@@ -142,11 +146,19 @@ def terminal_summary(text: str) -> tuple[int | None, str | None, dict[str, int]]
     return tests, verdict.group(1), counts
 
 
-def run_one(suite: Path, cwd: Path, extra_path: Path | None, timeout: int):
+def run_one(suite: Path, cwd: Path, extra_path: Path | None, timeout: int,
+            temp_root: Path | None = None):
     """(ok, tests, detail). ok requires exit 0 AND a positive Ran count."""
     if not suite.exists():
         return False, 0, "suite file is missing"
     env = dict(os.environ)
+    if temp_root is not None:
+        # A private temp root per suite. Suites run concurrently now, and at
+        # least three of them write temp under a fixed path - two sharing a root
+        # would collide and read as flakiness rather than as the collision it is.
+        temp_root.mkdir(parents=True, exist_ok=True)
+        env["TEMP"] = env["TMP"] = str(temp_root)
+        env["PYTHONPYCACHEPREFIX"] = str(temp_root / "pycache")
     if extra_path is not None:
         env["PYTHONPATH"] = os.pathsep.join(
             [str(extra_path)] + ([env["PYTHONPATH"]] if env.get("PYTHONPATH") else []))
@@ -194,6 +206,20 @@ def run_one(suite: Path, cwd: Path, extra_path: Path | None, timeout: int):
     return True, tests, f"{skipped} skipped" if skipped else ""
 
 
+def workers() -> int:
+    """How many suites to run at once.
+
+    Each one is a subprocess that spends most of its life waiting on git,
+    another subprocess, or a deliberate timeout, so this can exceed the core
+    count. Capped anyway, and NSC_TOOL_TESTS_WORKERS=1 restores the old
+    one-at-a-time behaviour for anyone bisecting a suite interaction.
+    """
+    from_env = os.environ.get("NSC_TOOL_TESTS_WORKERS")
+    if from_env and from_env.isdigit() and int(from_env) > 0:
+        return int(from_env)
+    return max(1, min(8, (os.cpu_count() or 2)))
+
+
 def main() -> int:
     wanted = {a.lower() for a in sys.argv[1:]}
     selected = [s for s in SUITES if not wanted or s[0] in wanted]
@@ -206,18 +232,32 @@ def main() -> int:
     print(f"repo {REPO}\n")
 
     failures, skipped_in, total, started = [], [], 0, time.time()
-    for family, suite, cwd, extra in selected:
-        rel = suite.relative_to(REPO).as_posix()
-        print(f"  {rel} ... ", end="", flush=True)
-        ok, tests, detail = run_one(suite, cwd, extra, timeout=900)
-        total += tests
-        if ok:
-            print(f"OK ({tests})" + (f" - {detail}" if detail else ""))
-            if detail:
-                skipped_in.append((rel, detail))
-        else:
-            print(f"FAILED - {detail}")
-            failures.append((family, rel, detail))
+    width = workers()
+    print(f"running {width} at a time\n" if width > 1 else "")
+
+    with tempfile.TemporaryDirectory(prefix="tool-tests-") as scratch:
+        pending = {}
+        with concurrent.futures.ThreadPoolExecutor(max_workers=width) as pool:
+            for index, (family, suite, cwd, extra) in enumerate(selected):
+                root = Path(scratch) / f"suite{index:02d}"
+                pending[suite] = pool.submit(run_one, suite, cwd, extra, 900, root)
+
+            # Reported in TABLE order, not completion order: a run stays
+            # diffable against the last one, and nobody reads scheduling as
+            # significance. `.result()` blocks on each in turn, which is
+            # exactly the order we want to print.
+            for family, suite, cwd, extra in selected:
+                rel = suite.relative_to(REPO).as_posix()
+                print(f"  {rel} ... ", end="", flush=True)
+                ok, tests, detail = pending[suite].result()
+                total += tests
+                if ok:
+                    print(f"OK ({tests})" + (f" - {detail}" if detail else ""))
+                    if detail:
+                        skipped_in.append((rel, detail))
+                else:
+                    print(f"FAILED - {detail}")
+                    failures.append((family, rel, detail))
 
     elapsed = time.time() - started
     print(f"\n{total} tests across {len(selected)} suites in {elapsed:.0f}s")
