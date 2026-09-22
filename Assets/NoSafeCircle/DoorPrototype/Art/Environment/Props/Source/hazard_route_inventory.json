@@ -45,7 +45,8 @@
       "footprint_reference": "art direction (placed in rows around the bounded area)",
       "placement_role": "hazard_boundary",
       "collision_intent": "downstream_existing_geometry",
-      "provenance_document": "Docs/Art/Environment/HAZARD_ROUTE_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/HAZARD_ROUTE_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "lv_broken_ledge_chunk",
@@ -89,7 +90,8 @@
       "footprint_reference": "NSC-047 rev 4 LV-H1 edge, decorative only",
       "placement_role": "hazard_boundary",
       "collision_intent": "downstream_existing_geometry",
-      "provenance_document": "Docs/Art/Environment/HAZARD_ROUTE_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/HAZARD_ROUTE_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "lv_iron_rail_x",
@@ -133,7 +135,8 @@
       "footprint_reference": "NSC-047 rev 4 crossing edge; collision_intent downstream_existing_geometry",
       "placement_role": "route_edge",
       "collision_intent": "downstream_existing_geometry",
-      "provenance_document": "Docs/Art/Environment/HAZARD_ROUTE_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/HAZARD_ROUTE_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "lv_iron_rail_z",
@@ -177,7 +180,8 @@
       "footprint_reference": "NSC-047 rev 4 crossing edge; collision_intent downstream_existing_geometry",
       "placement_role": "route_edge",
       "collision_intent": "downstream_existing_geometry",
-      "provenance_document": "Docs/Art/Environment/HAZARD_ROUTE_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/HAZARD_ROUTE_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "lv_sluice_slime_spill",
@@ -221,7 +225,8 @@
       "footprint_reference": "NSC-047 rev 4 LV-H1 edge, decorative only",
       "placement_role": "hazard_boundary",
       "collision_intent": "downstream_existing_geometry",
-      "provenance_document": "Docs/Art/Environment/HAZARD_ROUTE_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/HAZARD_ROUTE_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     }
   ]
 }

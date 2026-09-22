@@ -88,6 +88,7 @@ def build(root: pathlib.Path):
         "placement_role": "supporting_cluster",
         "collision_intent": "decorative_none",
         "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md",
+        "pivot_rule": "ground_line",
     }
     return {"schema_version": 1, "owner_task_id": "NSC-078", "pixels_per_unit": 64,
             "entries": [entry]}
@@ -137,6 +138,15 @@ def main() -> int:
                  "repair_mask", [{"x": 0, "y": 0, "width": 999, "height": 2}])),
             ("duplicate entry", "duplicate",
              lambda c: c["entries"].append(copy.deepcopy(c["entries"][0]))),
+            # the lie_within branch is new, so it gets its own guards rather than being
+            # shipped on the strength of the happy path passing
+            ("lie_within prop still pinned to its ground line", "footprint centre",
+             lambda c: c["entries"][0].update(pivot_rule="lie_within")),
+            ("ground_line prop given a centre pivot", "ground line",
+             lambda c: c["entries"][0].__setitem__(
+                 "pivot_normalized", {"x": 0.5, "y": 0.5})),
+            ("unknown pivot_rule", "not ground_line or lie_within",
+             lambda c: c["entries"][0].update(pivot_rule="whatever")),
             ("png on disk with no entry", "no catalog entry",
              lambda c: c["entries"].clear() or c["entries"].append(
                  dict(good["entries"][0], id="fx_other"))),
@@ -167,7 +177,7 @@ def main() -> int:
         print(f"\n{len(failures)} smoke-test failure(s)")
         return 1
 
-    print("OK smoke test: 1 accepted catalog, 12 guards each refused for its own reason, "
+    print("OK smoke test: 1 accepted catalog, 15 guards each refused for its own reason, "
           "no fixture written outside the temporary directory")
     return 0
 
