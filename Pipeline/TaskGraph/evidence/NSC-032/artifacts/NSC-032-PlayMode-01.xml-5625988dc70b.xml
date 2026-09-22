@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="4" result="Passed" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-09-22 06:01:02Z" end-time="2026-09-22 06:01:02Z" duration="0.1438269">
+  <test-suite type="TestSuite" id="1301" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="256" result="Passed" start-time="2026-09-22 06:01:02Z" end-time="2026-09-22 06:01:02Z" duration="0.143827" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="PlayMode" />
+    </properties>
+    <test-suite type="Assembly" id="1287" name="NoSafeCircle.DoorPrototype.Tests.dll" fullname="C:/nscrev/branch-verify/Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Tests.dll" runstate="Runnable" testcasecount="252" result="Passed" start-time="2026-09-22 06:01:02Z" end-time="2026-09-22 06:01:02Z" duration="0.123737" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="57312" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="PlayMode" />
+        <property name="EditorOnly" value="False" />
+      </properties>
+      <test-suite type="TestSuite" id="1288" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="252" result="Passed" start-time="2026-09-22 06:01:02Z" end-time="2026-09-22 06:01:02Z" duration="0.115757" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1289" name="DoorPrototype" fullname="NoSafeCircle.DoorPrototype" runstate="Runnable" testcasecount="252" result="Passed" start-time="2026-09-22 06:01:02Z" end-time="2026-09-22 06:01:02Z" duration="0.106940" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1290" name="Tests" fullname="NoSafeCircle.DoorPrototype.Tests" runstate="Runnable" testcasecount="252" result="Passed" start-time="2026-09-22 06:01:02Z" end-time="2026-09-22 06:01:02Z" duration="0.100011" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestFixture" id="1185" name="FloorRunRestartPlayModeTests" fullname="NoSafeCircle.DoorPrototype.Tests.FloorRunRestartPlayModeTests" classname="NoSafeCircle.DoorPrototype.Tests.FloorRunRestartPlayModeTests" runstate="Runnable" testcasecount="4" result="Passed" start-time="2026-09-22 06:01:02Z" end-time="2026-09-22 06:01:02Z" duration="0.086611" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1188" name="NonFatalDamage_DoesNotTriggerRestart" fullname="NoSafeCircle.DoorPrototype.Tests.FloorRunRestartPlayModeTests.NonFatalDamage_DoesNotTriggerRestart" methodname="NonFatalDamage_DoesNotTriggerRestart" classname="NoSafeCircle.DoorPrototype.Tests.FloorRunRestartPlayModeTests" runstate="Runnable" seed="261424436" result="Passed" start-time="2026-09-22 06:01:02Z" end-time="2026-09-22 06:01:02Z" duration="0.047975" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[PlayerMovement has no 'Player' action map assigned/found; mouse-directed movement and the shared pointer projection will be unavailable.
+]]></output>
+              </test-case>
+              <test-case id="1189" name="OwnerState_RemainsUnsettableFromOutsideDeclaringType" fullname="NoSafeCircle.DoorPrototype.Tests.FloorRunRestartPlayModeTests.OwnerState_RemainsUnsettableFromOutsideDeclaringType" methodname="OwnerState_RemainsUnsettableFromOutsideDeclaringType" classname="NoSafeCircle.DoorPrototype.Tests.FloorRunRestartPlayModeTests" runstate="Runnable" seed="1594478290" result="Passed" start-time="2026-09-22 06:01:02Z" end-time="2026-09-22 06:01:02Z" duration="0.003904" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[PlayerMovement has no 'Player' action map assigned/found; mouse-directed movement and the shared pointer projection will be unavailable.
+]]></output>
+              </test-case>
+              <test-case id="1186" name="PlayerDied_RestartsAllCurrentlyExistingOwners_ToFloorInitialState" fullname="NoSafeCircle.DoorPrototype.Tests.FloorRunRestartPlayModeTests.PlayerDied_RestartsAllCurrentlyExistingOwners_ToFloorInitialState" methodname="PlayerDied_RestartsAllCurrentlyExistingOwners_ToFloorInitialState" classname="NoSafeCircle.DoorPrototype.Tests.FloorRunRestartPlayModeTests" runstate="Runnable" seed="451600301" result="Passed" start-time="2026-09-22 06:01:02Z" end-time="2026-09-22 06:01:02Z" duration="0.009417" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[PlayerMovement has no 'Player' action map assigned/found; mouse-directed movement and the shared pointer projection will be unavailable.
+]]></output>
+              </test-case>
+              <test-case id="1187" name="PlayerDied_TriggersFreshRestart_ExactlyOncePerZeroHealthTransition" fullname="NoSafeCircle.DoorPrototype.Tests.FloorRunRestartPlayModeTests.PlayerDied_TriggersFreshRestart_ExactlyOncePerZeroHealthTransition" methodname="PlayerDied_TriggersFreshRestart_ExactlyOncePerZeroHealthTransition" classname="NoSafeCircle.DoorPrototype.Tests.FloorRunRestartPlayModeTests" runstate="Runnable" seed="409952453" result="Passed" start-time="2026-09-22 06:01:02Z" end-time="2026-09-22 06:01:02Z" duration="0.006061" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[PlayerMovement has no 'Player' action map assigned/found; mouse-directed movement and the shared pointer projection will be unavailable.
+Saving results to: C:/Users/VincentLiguori/AppData/LocalLow/DefaultCompany/NoSafeCircle\TestResults.xml
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

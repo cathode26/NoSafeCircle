@@ -1,0 +1,76 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "2d5c8a1dc5d4bba469fb158b27967717309e5b7ad6f8ab4a38fbbd05ad583c9f"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "42fc3c27f5646647509d39301e3a9524d61c77e6",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+      "role": "Owns wiring the floor-run restart orchestrator to the run-persistent owners (Player Health, Player Mana, Player Movement, Player Interaction, each door) in the built scene"
+    },
+    {
+      "blob_sha": "ac4cd5e4e6d14ebfdb2c4402482e336857a1fb84",
+      "path": "Assets/Scenes/DoorPrototype.unity",
+      "role": "The canonical scene whose composed restart wiring the fixture's hand-built equivalent stands in for; not itself opened by this PlayMode fixture, which builds its own test-owned owners"
+    }
+  ],
+  "delivery": {
+    "base_commit": "73ec96890d9dcb1477de6eb180f19244f4a03ec9",
+    "candidate_commit": "5625988dc70bb677b34eb69dbe03499153fcee20",
+    "integrated_commit": "5625988dc70bb677b34eb69dbe03499153fcee20",
+    "integrated_tree": "a6e149636e231b3c6aad95547679f38f3a94b585"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "0250b5c79647611e99ca914913927b816b1a957c",
+          "path": "Pipeline/TaskGraph/evidence/NSC-032/artifacts/NSC-032-PlayMode-01.xml-5625988dc70b.xml"
+        },
+        {
+          "blob_sha": "427839c253755d25686d92e64d4055b138060a51",
+          "path": "Pipeline/TaskGraph/evidence/NSC-032/artifacts/NSC-032-PlayMode-01.log-5625988dc70b.log"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "Authoritative PlayMode run at validated commit 5625988dc70bb677b34eb69dbe03499153fcee20 through run_unity_tests_clean.ps1, filter NoSafeCircle.DoorPrototype.Tests.FloorRunRestartPlayModeTests: 4 tests, 4 passed, 0 failed, 0 skipped, runner exit 0, final line VALIDATION PASSED. Counts read from test-results.xml (total=\"4\" passed=\"4\" failed=\"0\" skipped=\"0\"), not the console summary. The bound manifest records commit and post_commit both 5625988dc70bb677b34eb69dbe03499153fcee20 and tree and post_tree both a6e149636e231b3c6aad95547679f38f3a94b585, clean before and after. All four cases declare NoSafeCircle.DoorPrototype.Tests.FloorRunRestartPlayModeTests (a non-partial class). PlayerDied_TriggersFreshRestart_ExactlyOncePerZeroHealthTransition (its own file comment marks it VAL-001) reduces Player Health to zero twice, independently, and asserts a Died-count increment of exactly one on each transition, proving a fresh restart fires exactly once per zero-health transition rather than firing on every frame at zero or failing to re-arm after the first. NonFatalDamage_DoesNotTriggerRestart is the accompanying regression: 25% damage that keeps health above zero leaves mana and position untouched, ruling out a threshold- or polling-based trigger.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "0250b5c79647611e99ca914913927b816b1a957c",
+          "path": "Pipeline/TaskGraph/evidence/NSC-032/artifacts/NSC-032-PlayMode-01.xml-5625988dc70b.xml"
+        },
+        {
+          "blob_sha": "427839c253755d25686d92e64d4055b138060a51",
+          "path": "Pipeline/TaskGraph/evidence/NSC-032/artifacts/NSC-032-PlayMode-01.log-5625988dc70b.log"
+        }
+      ],
+      "gate_id": "VAL-002",
+      "notes": "PlayerDied_RestartsAllCurrentlyExistingOwners_ToFloorInitialState (marked VAL-002 in its own file comment) damages Player Health and Player Mana by half, moves the player 3m off its floor-initial position, opens two separate doors, and click-selects a third sealed door through PlayerInteractionController before reducing health to zero. After the zero-health transition it asserts Player Health and Player Mana are back at their max (floor-initial) values, player position (x and z) matches the recorded floor-initial position with HasActiveDestination false, both doors report IsOpen false with Progress 0 and their visual/collider restored, and PlayerInteractionController's PendingDoor is null with IsInteracting and HasLockedDoorInteraction both false. This covers Player Health, Player Mana, player position, and door-open-interaction state (progress/open/blocker) exactly as VAL-002 requires, and additionally proves every currently active door is reset (not only a single serialized reference) and that the locked-door-interaction suppression is cleared. Counts read from the same test-results.xml as VAL-001 (total=4 passed=4 failed=0 skipped=0).",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "",
+    "decision": "not_required",
+    "notes": "NSC-032 has two completion gates, VAL-001 and VAL-002, and both are automated PlayMode gates; the contract contains no human gate, so no human approval is claimed. Delivery evidence recorded by the delivery-evidence recorder (for the Game Agent / Integration Steward) on 2026-09-22 at commit 5625988dc70bb677b34eb69dbe03499153fcee20, which is main tip advanced by the NSC-051 evidence commit recorded immediately before this one in the same evidence pass, and where Unity actually ran. The implementation has been on main for days (base_commit 73ec96890d9dcb1477de6eb180f19244f4a03ec9 is the parent of the commit that introduced it); this record is evidence debt being paid on merged work, not a claim that the work landed today. NSC-032 does not own Assets/NoSafeCircle/DoorPrototype/Tests/FloorRunRestartPlayModeTests.cs, so that fixture file is not claimed as a surface here even though it carries the gate evidence.",
+    "required": false
+  },
+  "record_id": "DEL-NSC-032-5625988dc70b",
+  "record_type": "delivery",
+  "recorded_at": "2026-09-22T06:02:14Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-032.yaml",
+    "revision": 2,
+    "sha256": "98c4b837320a8fad3f292232e979b8380e819ee75459c5244ad3600a325374d1"
+  },
+  "task_id": "NSC-032",
+  "validated_state": {
+    "commit": "5625988dc70bb677b34eb69dbe03499153fcee20",
+    "tree": "a6e149636e231b3c6aad95547679f38f3a94b585"
+  }
+}
