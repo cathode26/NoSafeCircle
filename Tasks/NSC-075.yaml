@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-075",
-  "contract_revision": 6,
+  "contract_revision": 7,
   "contract_disposition": "active",
   "title": "Unity Eight-Direction Wizard Locomotion Integration",
   "reconciliation_key": "wizard-eight-direction-locomotion-integration",
@@ -67,7 +67,7 @@
     {
       "criterion_id": "AC-007",
       "reference": "GER Agent design decision W3, 2026-09-17 (Vincent, 2026-09-17: \"The door wizard sorting order is wrong\"; his screenshot shows the D1 door sprite drawn over the wizard's upper body). GER Agent diagnosis, 2026-09-17: IsometricCameraFollow.OnEnable reapplies transparencySortAxis (0, 1, -0.26) on every scene load, overriding DoorPrototypeGlobalSceneBuilder.BuildCamera's (0, 1, 0.26), whose own comment records that a negative Z coefficient renders a door in front of a wizard standing south of it; the Game Agent fixes the camera as maintenance. The existing DoorPrototypeSceneBuilderTests.Build_PlayerAndDoorDepthKeysCrossAtTheDoorGroundPlane passes with either sign, so sort keys alone do not prove the draw order.",
-      "requirement": "In the production-built Assets/Scenes/DoorPrototype.unity under its gameplay camera, after IsometricCameraFollow has enabled, the wizard's Visual draws over D1's DoorRoot/DoorVisual/DoorSprite whenever the wizard's floor-contact point is on the camera side of that sprite's pivot (the Ruined Entry side, smaller world Z), with D1 closed or open, and DoorSprite draws over the wizard when the wizard is on the far side with D1 open. The camera's sort axis is the Game Agent's maintenance fix, not this task's: that fix is merged on local main at 79a1d3527, where IsometricTransparencySortAxis lives once in IsometricCameraFollow at (0, 1, 0.26) normalized and BuildCamera reads it, so authored and reapplied values cannot drift; the candidate's base must include it. That commit also adds the render guard IsometricSortingRenderTests, which proves a closed D1 door never draws over a wizard standing south of it. This task neither edits nor claims that fixture; VAL-007 covers the placements it does not. Keep the NSC-039 sorting band unchanged: the shared sortingLayerName \"Default\" and sortingOrder 0 (DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName and WorldSpriteSortingOrder), SpriteRenderer.spriteSortPoint Pivot, and TransparencySortMode.CustomAxis with axis (0, 1, 0.26). Fix any remaining wizard-side defect only in WizardAnimationController.cs and the wizard-owned code in DoorPrototypeGlobalSceneBuilder.cs. If VAL-007 fails for a reason outside those files, including a base without the camera fix, stop and escalate to the GER Agent with the test and its measurements instead of editing DoorPrototypeSceneBuilder.cs, IsometricCameraFollow.cs, the door's visuals or another file this task does not claim. Wall sorting is outside this task."
+      "requirement": "In the production-built Assets/Scenes/DoorPrototype.unity under its gameplay camera, after IsometricCameraFollow has enabled, the wizard's Visual draws over D1's DoorRoot/DoorVisual/DoorSprite whenever the wizard's floor-contact point is on the camera side of that sprite's pivot (the Ruined Entry side, smaller world Z), with D1 closed or open, and DoorSprite draws over the wizard when the wizard is on the far side with D1 open. The camera's sort axis is the Game Agent's maintenance fix, not this task's: that fix is merged on local main at 79a1d3527, where IsometricTransparencySortAxis lives once in IsometricCameraFollow at (0, 1, 0.26) normalized and BuildCamera reads it, so authored and reapplied values cannot drift; the candidate's base must include it. That commit also adds the render guard IsometricSortingRenderTests, which proves a closed D1 door never draws over a wizard standing south of it. This task neither edits nor claims that fixture; VAL-007 covers the placements it does not. Keep the NSC-039 sorting band unchanged: the shared world-sprite sorting layer (DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName) and sortingOrder 0 (WorldSpriteSortingOrder), SpriteRenderer.spriteSortPoint Pivot, and TransparencySortMode.CustomAxis with axis (0, 1, 0.26). Fix any remaining wizard-side defect only in WizardAnimationController.cs and the wizard-owned code in DoorPrototypeGlobalSceneBuilder.cs. If VAL-007 fails for a reason outside those files, including a base without the camera fix, stop and escalate to the GER Agent with the test and its measurements instead of editing DoorPrototypeSceneBuilder.cs, IsometricCameraFollow.cs, the door's visuals or another file this task does not claim. Wall sorting is outside this task."
     },
     {
       "criterion_id": "AC-008",
@@ -186,6 +186,15 @@
         "base_contract_sha256": "b88f2d11953faaa392d0c8dbc8b9cdb324546bdf1a77f4bfb55b8ff3fd0fcf26",
         "revised_contract_sha256": "c8ce19f81fd6e1cd786e664ff98b43423c150b4fa49adfeca4c018c176f6d834",
         "review": "post-commit closure review (tiered rule, 2026-09-17)"
+      },
+      {
+        "date": "2026-09-22",
+        "reason": "Sorting-layer wording: name the constant DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName instead of the literal 'Default', with no parenthetical gloss. NSC-100 (committed 100fed0bd, revision 2 at 11f0d3bc5) repoints that constant to the dedicated WorldSprites layer, which makes every clause naming the literal stale. A clause naming the constant survives any repoint; a gloss recreates the same staleness one repoint later, which is exactly the state NSC-045's acceptance_criteria[4] was already in. Sorting ORDER values are unchanged everywhere. No change to exclusive_resources: the parallelism edit planned for this pass was dropped after measurement showed the five room tasks each still write their own RoomSceneCatalog literal.",
+        "source_head": "4c51fd7ef1062fb23d2a53a26d250046f75bc1d4",
+        "previous_contract_revision": 6,
+        "base_contract_sha256": "06aed44b26e91eb81d36f3d2f49787d55252d9356b62f459e0dd88409fbd5357",
+        "revised_contract_sha256": "7364d7a94934187b06aa136933ab420a7c8275e9aefa51c1e869d3a288bd7668",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
       }
     ]
   }
