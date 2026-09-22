@@ -5,6 +5,12 @@ name: TaskReviewAgent Deterministic Validation
 # resource reservation, real/durable/resumable checkout, workflow runtime
 # compatibility, real read-only observation, and Git identity safety.
 #
+# The trigger also lists .github/scripts/core-suite-relevance.ps1: that
+# script IS the relevance decision below, so a PR editing only it must
+# start this workflow and face the classifier regressions in
+# ci_workflow_split_smoke_test.py. Omitting it let the one file that can
+# narrow Core coverage be the one file that changed unchecked.
+#
 # Branch protection depends on this exact workflow name and the two windows-smoke
 # job ids, so the trigger below fires on every PR touching
 # Pipeline/TaskReviewAgent/**, Pipeline/ExecutionCrew/**, or
@@ -21,6 +27,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/task-review-agent-deterministic.yml"
+      - ".github/scripts/core-suite-relevance.ps1"
       - "Pipeline/TaskGraph/**"
       - "Pipeline/Testing/**"
       - "Tasks/**"
@@ -77,6 +84,13 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Launcher admission tests failed." }
           python Pipeline/TaskReviewAgent/tests/human_action_wait_smoke_test.py
           if ($LASTEXITCODE -ne 0) { throw "Human-action wait tests failed." }
+          # The dispatcher's own regressions, run BEFORE the dispatcher so a
+          # broken guard fails ahead of the run it guards. The real run below
+          # cannot cover them: it takes the happy path, while two of these
+          # five cases need a failed inventory and a dropped case injected.
+          # Always-on, like the rest of this bundle.
+          python Pipeline/TaskReviewAgent/tests/run_reset_shards_smoke_test.py
+          if ($LASTEXITCODE -ne 0) { throw "Reset dispatcher regression tests failed." }
           # Sharded across processes. Without this line the shard selector
           # is dead code in CI: extra shards are not parallelism, and this
           # step is one sequential pwsh block. The dispatcher checks its

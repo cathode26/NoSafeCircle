@@ -111,6 +111,7 @@ CORE_ONLY_STEP_COMMANDS = (
     "Pipeline/TaskReviewAgent/tests/post_poll_observation_budget_smoke_test.py",
     "Pipeline/TaskReviewAgent/tests/gate_restart_recovery_smoke_test.py",
     "Pipeline/TaskReviewAgent/tests/human_action_wait_smoke_test.py",
+    "Pipeline/TaskReviewAgent/tests/run_reset_shards_smoke_test.py",
 )
 CORE_FULL_SUITE_GATE = "if: steps.scope.outputs.run_full_core == 'true'"
 # Commands that run on EVERY PR. They carried the gate before the four-way
@@ -124,6 +125,10 @@ ALWAYS_ON_COMMANDS = frozenset({
     # Inside the reset bundle step, which runs on every PR. Astra flagged this
     # one from source before any test did.
     "Pipeline/TaskReviewAgent/tests/human_action_wait_smoke_test.py",
+    # The dispatcher's guard tests. Gating them would mean the guard is
+    # only checked on the PRs that already run the full suite, which is
+    # the subset least likely to need it.
+    "Pipeline/TaskReviewAgent/tests/run_reset_shards_smoke_test.py",
 })
 DECOMPOSITION_POOLING_COMMANDS = (
     "Pipeline/TaskDecomposition/tests/pooled_decomposition_smoke_test.py",
@@ -659,6 +664,32 @@ def test_core_scope_classifier_checks_its_diff_before_trusting_it() -> None:
     )
 
 
+def test_a_classifier_only_change_triggers_this_workflow() -> None:
+    """The file that decides Core coverage must start the workflow it decides for.
+
+    Measured before the fix: the classifier lived at
+    .github/scripts/core-suite-relevance.ps1 and matched no entry in Core's
+    `paths:`, so a pull request touching only that script started no run. The
+    classifier regressions in this file would then pass on the merge commit
+    and never once on the change itself.
+
+    This is checked against the workflow's real `paths:` block through the same
+    _triggers matcher the other routing tests use, so deleting the entry fails
+    here rather than being noticed on a live pull request.
+    """
+    core_paths = _extract_paths_block(CORE_WORKFLOW.read_text(encoding="utf-8"))
+    changed = ".github/scripts/core-suite-relevance.ps1"
+    require(
+        _triggers(core_paths, changed),
+        f"{changed} decides whether the Core suite runs; a PR changing only it "
+        f"must trigger this workflow",
+    )
+    require(
+        CLASSIFIER_SCRIPT.is_file(),
+        "the trigger must name a classifier that exists",
+    )
+
+
 def test_every_job_uses_the_one_shared_classifier() -> None:
     """Four jobs, one classifier.
 
@@ -675,15 +706,27 @@ def test_every_job_uses_the_one_shared_classifier() -> None:
                    if step.startswith("Determine Core suite relevance")
                    or "id: scope" in step]
     require(len(scope_steps) >= 1, "Core must define at least one scope step")
+    all_steps = _core_steps(core_text)
+    scope_indices = {i for i, step in enumerate(all_steps) if step in scope_steps}
     for step in scope_steps:
-        require("core-suite-relevance.ps1" in step,
-                f"every scope step must call the shared classifier: {step[:200]}")
+        require(step.count("core-suite-relevance.ps1") == 1,
+                f"every scope step must call the shared classifier exactly "
+                f"once: {step[:200]}")
     require("ownedByOtherSuites = @(" not in core_text,
             "the allowlist must live in the shared classifier only; an inline "
             "copy is the duplication this replaced")
-    require(core_text.count("core-suite-relevance.ps1")
-            == len(scope_steps),
-            "each scope step calls the classifier exactly once")
+    # Counted per step, not across the file. The file-wide count this replaced
+    # assumed every mention of the filename was a call, which stopped being
+    # true once the classifier was listed in `paths:` so that editing it
+    # triggers this workflow. Per step is also stricter: a call from a step
+    # that is not a scope step is now refused, and the old count could not
+    # distinguish that from a correct one.
+    for i, step in enumerate(all_steps):
+        if i in scope_indices:
+            continue
+        require("core-suite-relevance.ps1" not in step,
+                f"only a scope step may invoke the classifier; this step "
+                f"calls it too: {step[:200]}")
 
 
 def main() -> int:
@@ -706,6 +749,7 @@ def main() -> int:
     test_registered_runner_rejects_widened_delivery_prefix()
     test_core_scope_classifier_checks_its_diff_before_trusting_it()
     test_every_job_uses_the_one_shared_classifier()
+    test_a_classifier_only_change_triggers_this_workflow()
     print("ci_workflow_split_smoke_test: PASS")
     return 0
 
