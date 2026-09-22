@@ -50,6 +50,11 @@ def main() -> int:
     parser.add_argument("--playmode")
     parser.add_argument("--reason", required=True)
     parser.add_argument("--commit", action="store_true")
+    parser.add_argument("--role", default=None,
+                        help="the role writing to main, e.g. 'GER Agent'. Falls back to "
+                             "NSC_ROLE. Required: the one-writer guard compares open "
+                             "writes against it, and a default is what made that guard "
+                             "compare every role against itself until 2026-09-22.")
     args = parser.parse_args()
     if not args.editmode and not args.playmode:
         raise SystemExit("give --editmode and/or --playmode filters")
@@ -91,7 +96,7 @@ def main() -> int:
     if ac.git("rev-parse", "HEAD").stdout.decode().strip() != head:
         raise SystemExit("HEAD moved since planning; rerun")
     journal = main_write.default_journal(ac.REPO)
-    main_write.start(f"{args.task} validation policy entry (no contract change)", head, journal=journal)
+    main_write.start(f"{args.task} validation policy entry (no contract change)", head, role=args.role, journal=journal)
     try:
         policy_path.write_bytes(new_bytes)
         validate = subprocess.run([sys.executable, "-B", "Pipeline/TaskGraph/taskcontrol.py", "validate"], cwd=str(ac.REPO),
@@ -120,10 +125,10 @@ def main() -> int:
         if now == head:
             ac.git("reset", "-q", "--", POLICY_REL, check=False)
             policy_path.write_bytes(original)
-        main_write.end(now, f"aborted, nothing committed ({error})", journal=journal)
+        main_write.end(now, f"aborted, nothing committed ({error})", role=args.role, journal=journal)
         raise
     print(f"[DONE] {args.task} policy entry committed {commit} (parent {head}); not pushed")
-    main_write.end(commit, f"{args.task} validation policy entry; taskcontrol validate PASS; not pushed", journal=journal)
+    main_write.end(commit, f"{args.task} validation policy entry; taskcontrol validate PASS; not pushed", role=args.role, journal=journal)
     return 0
 
 

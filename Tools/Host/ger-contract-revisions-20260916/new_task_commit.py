@@ -66,6 +66,11 @@ def main() -> int:
     parser.add_argument("--policy-filters-file", type=pathlib.Path)
     parser.add_argument("--review", default="post-commit contract closure review (tiered rule, 2026-09-17)")
     parser.add_argument("--commit", action="store_true")
+    parser.add_argument("--role", default=None,
+                        help="the role writing to main, e.g. 'GER Agent'. Falls back to "
+                             "NSC_ROLE. Required: the one-writer guard compares open "
+                             "writes against it, and a default is what made that guard "
+                             "compare every role against itself until 2026-09-22.")
     args = parser.parse_args()
 
     head = ac.git("rev-parse", "HEAD").stdout.decode().strip()
@@ -205,7 +210,7 @@ def main() -> int:
         raise SystemExit("HEAD moved since planning; rerun")
     operation = f"new task contracts {', '.join(expected)}"
     journal = main_write.default_journal(ac.REPO)
-    main_write.start(operation, head, journal=journal)
+    main_write.start(operation, head, role=args.role, journal=journal)
     try:
         for task_id in expected:
             (ac.REPO / f"Tasks/{task_id}.yaml").write_bytes(ac.serialize(drafts[task_id], template_crlf))
@@ -253,11 +258,11 @@ def main() -> int:
             ac.git("reset", "-q", "--", *touched, check=False)
             restore()
         main_write.end(now, f"aborted, nothing committed ({error})" if now == head else f"UNEXPECTED: HEAD moved during the write ({error})",
-                       journal=journal)
+                       role=args.role, journal=journal)
         raise
     files = ac.git("show", "--name-only", "--format=", "HEAD").stdout.decode().split()
     print(f"[DONE] {', '.join(expected)} committed {commit} (parent {head}; files {files}); not pushed")
-    main_write.end(commit, f"{', '.join(expected)} rev 1; taskcontrol validate PASS; not pushed", journal=journal)
+    main_write.end(commit, f"{', '.join(expected)} rev 1; taskcontrol validate PASS; not pushed", role=args.role, journal=journal)
     return 0
 
 

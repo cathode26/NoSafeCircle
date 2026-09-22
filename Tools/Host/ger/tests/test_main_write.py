@@ -19,6 +19,8 @@ cannot reach the real one.
 """
 from __future__ import annotations
 
+import ast
+import inspect
 import os
 import sys
 import tempfile
@@ -171,6 +173,71 @@ class TheJournalIsStillReadBack(Base):
     def test_an_old_start_falls_out_of_the_window(self):
         mw.start("first", HEAD_A, role="Game Agent", journal=self.journal)
         self.assertEqual(mw.open_writes(minutes=0, journal=self.journal), [])
+
+
+class EveryCallerPassesTheRole(unittest.TestCase):
+    """The signature change broke two callers, and nothing here was looking.
+
+    `role` became a required keyword-only argument on 2026-09-22. The three
+    callers under `ger/` were updated. `new_task_commit.py` and
+    `policy_entry_commit.py` under `ger-contract-revisions-20260916/` were not,
+    even though the agreed plan named them, and both raise
+    `TypeError: start() missing 1 required keyword-only argument: 'role'` at
+    their first journal write. The GER Agent found them by running the scripts.
+
+    A line grep cannot answer this: these calls wrap, `role=` lands on a
+    continuation line, and grepping for its absence reports six callers that are
+    in fact correct. Parse instead.
+
+    Worth stating plainly: this sees only the tracked tree. The same two files
+    also live at `C:/nscrev/ger-contract-revisions-20260916/`, outside any
+    checkout, and nothing in CI can reach them. Landing a signature change means
+    copying there too.
+    """
+
+    HOST = Path(__file__).resolve().parents[2]
+
+    def test_no_tracked_caller_omits_the_role(self):
+        offenders = []
+        for path in sorted(self.HOST.rglob("*.py")):
+            parts = set(path.parts)
+            if "__pycache__" in parts or "tests" in parts:
+                continue
+            if "retired-" in path.name:
+                continue
+            try:
+                tree = ast.parse(path.read_text(encoding="utf-8", errors="replace"))
+            except SyntaxError:
+                continue
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Call):
+                    continue
+                func = node.func
+                if not (isinstance(func, ast.Attribute)
+                        and isinstance(func.value, ast.Name)
+                        and func.value.id == "main_write"
+                        and func.attr in ("start", "end")):
+                    continue
+                if not any(kw.arg == "role" for kw in node.keywords):
+                    offenders.append(f"{path.relative_to(self.HOST)}:"
+                                     f"{node.lineno} main_write.{func.attr}()")
+        self.assertEqual([], offenders,
+                         "these callers omit role= and raise TypeError at the "
+                         "first journal write: " + "; ".join(offenders))
+
+    def test_the_rule_this_enforces_is_still_real(self):
+        """Guard the guard: if role stops being required, the test above passes
+        on every file whatever it says, which is the vacuous shape this module
+        exists to punish."""
+        for name in ("start", "end"):
+            parameter = inspect.signature(getattr(mw, name)).parameters.get("role")
+            self.assertIsNotNone(parameter, f"{name}() no longer takes a role")
+            self.assertIs(parameter.kind, inspect.Parameter.KEYWORD_ONLY,
+                          f"{name}()'s role is no longer keyword-only")
+            self.assertIs(parameter.default, inspect.Parameter.empty,
+                          f"{name}()'s role has acquired a default - which is "
+                          "exactly what made the guard compare every role "
+                          "against itself until 2026-09-22")
 
 
 if __name__ == "__main__":
