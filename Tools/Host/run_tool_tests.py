@@ -92,6 +92,8 @@ SUITES: list[tuple[str, Path, Path, Path | None]] = [
      HOST / "codex-jobs" / "tests", None),
     ("session", HOST / "session" / "tests" / "test_compaction_bootstrap.py",
      HOST / "session" / "tests", None),
+    ("ger", HOST / "ger" / "tests" / "test_main_write.py",
+     HOST / "ger" / "tests", None),
     ("ger", HOST / "ger" / "tests" / "test_ger_round.py",
      HOST / "ger" / "tests", None),
     ("ger", HOST / "ger" / "tests" / "test_ger_node.py",

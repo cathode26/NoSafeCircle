@@ -654,6 +654,11 @@ def main() -> int:
                         "the task's authoritative_validation_policy.json entry")
     parser.add_argument("--drop-policy", action="store_true",
                         help="remove the task's validation policy entry (the revision has no Unity test gate)")
+    parser.add_argument("--role", default=None,
+                        help="the role writing to main, e.g. 'GER Agent'. Falls back to "
+                             "NSC_ROLE. Required: the one-writer guard compares open "
+                             "writes against it, and a default is what made that guard "
+                             "compare every role against itself until 2026-09-22.")
     parser.add_argument("--journal", type=pathlib.Path, default=None,
                         help="MAIN-WRITE START/END journal path (default: the live graph-lead journal for "
                         "the canonical checkout, otherwise a journal file inside this repo's own git dir)")
@@ -851,17 +856,17 @@ def main() -> int:
 
     if git("rev-parse", "HEAD").stdout.decode().strip() != head:
         raise SystemExit("HEAD moved since planning; rerun")
-    main_write.start(f"{task_id} GER contract revision {merged['contract_revision']}", head, journal=args.journal)
+    main_write.start(f"{task_id} GER contract revision {merged['contract_revision']}", head, role=args.role, journal=args.journal)
     try:
         commit = write_and_commit_packet(rel, path, original, merged, b"\r\n" in original, groups_path,
                                          groups_original, groups_bytes, group_changes, policy_path,
                                          policy_original, policy_bytes, blob_sha, touched, packet, message)
     except BaseException as error:
         main_write.end(git("rev-parse", "HEAD").stdout.decode().strip(),
-                       f"aborted, nothing committed ({error})", journal=args.journal)
+                       f"aborted, nothing committed ({error})", role=args.role, journal=args.journal)
         raise
     main_write.end(commit, f"{task_id} rev {merged['contract_revision']}; taskcontrol validate PASS; not pushed",
-                   journal=args.journal)
+                   role=args.role, journal=args.journal)
     files = git("show", "--name-only", "--format=", "HEAD").stdout.decode().split()
     print(f"[DONE] {task_id} contract commit {commit} (parent {head}; files {files}); not pushed")
     return 0

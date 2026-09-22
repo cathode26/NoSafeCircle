@@ -2,8 +2,22 @@
 
 start() refuses when another role has a MAIN-WRITE START without an END in the last 30 minutes, then appends
 "MAIN-WRITE START <role> <operation> expected HEAD <sha>". end() appends "MAIN-WRITE END <role> new HEAD
-<sha>; <checks>". Lines go under a "## <date> GER Agent" section, which is added when the journal's last
+<sha>; <checks>". Lines go under a "## <date> <role>" section, which is added when the journal's last
 section belongs to another role.
+
+**`role` is a REQUIRED argument, and that is the whole point.** It was a module
+constant, `ROLE = "GER Agent"`, until 2026-09-22. Every START was therefore
+written as GER whatever role was running, `start()` filtered the open writes with
+`not item.startswith(ROLE)`, and so it discarded every one of them: `others` was
+always empty and the refusal above was unreachable - it had never fired, for
+anyone. `end()` popped by the same constant, so one role's END closed another's
+START. Reported by the GER Agent (board H-20260920-10) with a reproduction
+against a throwaway journal: role A opened, role B was NOT refused, B's single
+END emptied the pending map while A never ended.
+
+A caller that forgets the role is now refused rather than silently mislabelled.
+Journal lines already stamped "GER Agent" on another role's behalf are history
+and are left as they are; rewriting them would be inventing a record.
 
 Ported from C:\\nscrev\\ger-contract-revisions-20260916\\main_write.py (G15b): every function takes a
 `journal` path so a caller, including a test, can point it at a throwaway file without touching the live
@@ -21,12 +35,40 @@ SystemExit instead of a traceback.
 from __future__ import annotations
 
 import datetime as dt
+import os
 import pathlib
 import re
 
 JOURNAL = pathlib.Path(r"C:\NSC\NoSafeCircle-AssistantCheckouts\.assistant-control\graph-lead-journal.md")
 CANONICAL_REPO = pathlib.Path(r"C:\NSC\NSC\NoSafeCircle")
-ROLE = "GER Agent"
+
+# The shape `open_writes` can parse back out of the journal. A role that does not
+# match it writes a START this module can never see again - invisible, so the
+# guard would be dead for that role exactly as it was dead for everyone before.
+# Validated at write time rather than trusted, because the failure is silent.
+ROLE_PATTERN = re.compile(r"^[A-Za-z ]+(?:Agent|Steward|Orchestrator)$")
+
+
+def resolve_role(explicit: str | None = None) -> str:
+    """The role writing to main: given, or from NSC_ROLE, or refused.
+
+    There is deliberately no default. A default is what made the guard useless -
+    every caller inherited "GER Agent" and the collision check compared a role
+    against itself.
+    """
+    role = (explicit or os.environ.get("NSC_ROLE") or "").strip()
+    if not role:
+        raise SystemExit(
+            "main_write needs the role that is writing: pass --role, or set "
+            "NSC_ROLE. There is no default on purpose - a default is what made "
+            "the one-writer guard compare every role against itself.")
+    if not ROLE_PATTERN.match(role):
+        raise SystemExit(
+            f"role {role!r} cannot be read back out of the journal: it must be "
+            f"words ending in Agent, Steward or Orchestrator (for example "
+            f"'Pipeline Maintainer Agent'). A role this module cannot parse "
+            f"writes a START that the collision check will never see.")
+    return role
 
 
 def _git_dir(repo: pathlib.Path) -> pathlib.Path:
@@ -70,10 +112,10 @@ def _read(journal: pathlib.Path) -> str:
         return ""
 
 
-def _append(line: str, *, journal: pathlib.Path) -> None:
+def _append(line: str, *, role: str, journal: pathlib.Path) -> None:
     text = _read(journal)
     today = dt.datetime.now(dt.timezone.utc).date().isoformat()
-    header = f"## {today} {ROLE}"
+    header = f"## {today} {role}"
     headers = [h for h in text.splitlines() if h.startswith("## ")]
     prefix = "" if (not text or text.endswith("\n")) else "\n"
     if not headers or headers[-1].strip() != header:
@@ -102,13 +144,24 @@ def open_writes(minutes: int = 30, *, journal: pathlib.Path) -> list[str]:
     return recent
 
 
-def start(operation: str, expected_head: str, *, journal: pathlib.Path) -> None:
-    others = [item for item in open_writes(journal=journal) if not item.startswith(ROLE)]
+def start(operation: str, expected_head: str, *, role: str, journal: pathlib.Path) -> None:
+    """Refuse if ANOTHER role holds an open write, then record that this one began.
+
+    The filter compares against the CALLER's role, which is the fix: it used to
+    compare against a module constant that every START had also been written
+    with, so it discarded every open write and refused nothing.
+    """
+    role = resolve_role(role)
+    others = [item for item in open_writes(journal=journal)
+              if not item.startswith(f"{role} since")]
     if others:
         raise SystemExit(f"another main write is open: {others}; wait or ask")
     stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d %H:%M")
-    _append(f"- {stamp} UTC MAIN-WRITE START {ROLE}: {operation}, expected HEAD {expected_head[:9]}", journal=journal)
+    _append(f"- {stamp} UTC MAIN-WRITE START {role}: {operation}, expected HEAD {expected_head[:9]}",
+            role=role, journal=journal)
 
 
-def end(new_head: str, checks: str, *, journal: pathlib.Path) -> None:
-    _append(f"- MAIN-WRITE END {ROLE}: new HEAD {new_head[:9]}; {checks}", journal=journal)
+def end(new_head: str, checks: str, *, role: str, journal: pathlib.Path) -> None:
+    role = resolve_role(role)
+    _append(f"- MAIN-WRITE END {role}: new HEAD {new_head[:9]}; {checks}",
+            role=role, journal=journal)

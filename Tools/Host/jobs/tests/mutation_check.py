@@ -71,6 +71,7 @@ FILES = {
     "apply_contract": Path("ger/apply_contract.py"),
     "record": Path("jobs/closure_record.py"),
     "deploy": Path("deploy_tools.py"),
+    "main_write": Path("ger/main_write.py"),
     "checker": Path("jobs/check_closure_report.py"),
     # Bash is not exempt. Two of the defects Codex reproduced on 2026-09-21 were
     # in this file, and both had been "fixed" on the Python path beside it - the
@@ -90,6 +91,7 @@ SUITES = {
     "contract": Path("ger/tests/test_apply_contract.py"),
     "job_record": Path("jobs/tests/test_closure_record.py"),
     "deploy": Path("tests/test_deploy_tools.py"),
+    "main_write": Path("ger/tests/test_main_write.py"),
     "shell": Path("codex-jobs/tests/test_run_closure_review.py"),
     "adapter": Path("jobs/tests/test_claude_closure_review.py"),
 }
@@ -404,6 +406,28 @@ MUTATIONS = [
      '            states[relative] = CURRENT if live_hash == tracked_hash else UNRECORDED',
      '            states[relative] = CURRENT',
      'deploy', 'test_a_deployment_with_no_record_cannot_be_called_current'),
+
+    # ---- the one-writer guard, which had never fired for anyone.
+
+    ('main_write', 'comparing open writes against the role that is writing',
+     '              if not item.startswith(f"{role} since")]',
+     '              if not item.startswith("GER Agent")]',
+     'main_write', 'test_the_same_role_may_continue'),
+
+    ('main_write', 'requiring a role instead of defaulting to one',
+     '    role = (explicit or os.environ.get("NSC_ROLE") or "").strip()',
+     '    role = (explicit or os.environ.get("NSC_ROLE") or "GER Agent").strip()',
+     'main_write', 'test_no_role_and_no_environment_is_refused'),
+
+    ('main_write', 'refusing a role the journal cannot be parsed for',
+     '    if not ROLE_PATTERN.match(role):',
+     '    if False:',
+     'main_write', 'test_a_role_the_journal_cannot_be_parsed_for_is_refused'),
+
+    ('main_write', 'stamping the END with the role that is ending',
+     '    _append(f"- MAIN-WRITE END {role}: new HEAD {new_head[:9]}; {checks}",',
+     '    _append(f"- MAIN-WRITE END GER Agent: new HEAD {new_head[:9]}; {checks}",',
+     'main_write', 'test_a_second_role_is_allowed_once_the_first_ends'),
 
 ]
 

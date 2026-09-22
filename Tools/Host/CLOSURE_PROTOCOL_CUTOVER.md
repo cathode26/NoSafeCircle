@@ -5,7 +5,38 @@ the protocol. **Nothing here has been performed.** Deployment is outside the
 implementation assignment; this records what a future authorized cutover must
 move, what it must check first, and what it can roll back to.
 
-Every figure below was measured on 2026-09-21 and says how. **Re-measure at the
+**The deployed state is no longer recorded here. Ask the tool:**
+
+```
+python -B Tools/Host/deploy_tools.py --check
+```
+
+It reports every declared file as current, stale, modified, absent or extra,
+and names the commit the deployment was made from. The table below says WHAT
+deploys; `deploy_tools.py` says what is deployed right now.
+
+This column used to hold hand-measured results - "deployed, bytes match
+`d886ece91`" - and the reason it is gone is worth stating exactly, because it is
+not the obvious one.
+
+**Those cells were never false.** All seven deployed GER tools still match
+`d886ece91` byte for byte; that was verified on 2026-09-22, after the merge that
+moved main to `ba2ce2b00`. What expired was not their accuracy but their
+usefulness: the column answered "does the deployment match `d886ece91`?" while
+every reader was asking "is the deployment current?", and once main moved those
+stopped being the same question.
+
+The GER Agent raised it on 2026-09-22 by comparing deployed against MAIN and
+finding two of three drifted. That measurement is correct and it is why the
+cutover was held. The inference that the table was stale is the part to be
+careful with - the table never claimed deployed equals main.
+
+**A stale-but-true measurement is worse than a wrong one**, which is the whole
+argument for deleting the column rather than refreshing it. A wrong claim gets
+caught the first time somebody checks it. This one survived checking, because
+checking confirmed it.
+
+Every other figure below was measured on 2026-09-21 and says how. **Re-measure at the
 cutover**: this file records a state, not a guarantee.
 
 **On the strength of these claims.** An earlier draft of this file said the live
@@ -31,28 +62,29 @@ a launcher calling a validator with a different idea of what a result is - and
 the prompt template is part of the set, because an old Markdown prompt with a new
 JSON validator fails even when every module is present.
 
-| Tracked source | Deployed path | Observed 2026-09-21 |
-| --- | --- | --- |
-| `Tools/Host/review_result.py` | `C:/NSC/tools/review_result.py` | absent |
-| `Tools/Host/nsc_paths.py` | `C:/NSC/tools/nsc_paths.py` | absent |
-| `Tools/Host/jobs/check_closure_report.py` | `C:/NSC/tools/jobs/` | absent |
-| `Tools/Host/jobs/legacy_closure_markdown.py` | `C:/NSC/tools/jobs/` | absent (new name) |
-| `Tools/Host/jobs/claude_closure_review.py` | `C:/NSC/tools/jobs/` | absent (new) |
+| Tracked source | Deployed path |
+| --- | --- |
+| `Tools/Host/review_result.py` | `C:/NSC/tools/review_result.py` |
+| `Tools/Host/nsc_paths.py` | `C:/NSC/tools/nsc_paths.py` |
+| `Tools/Host/jobs/check_closure_report.py` | `C:/NSC/tools/jobs/` |
+| `Tools/Host/jobs/legacy_closure_markdown.py` | `C:/NSC/tools/jobs/` |
+| `Tools/Host/jobs/claude_closure_review.py` | `C:/NSC/tools/jobs/` |
 | **`Tools/Host/jobs/closure_record.py`** | `C:/NSC/tools/jobs/` | absent (new) |
 | **`Tools/Host/codex-jobs/templates/contract-closure-review-prompt.md`** | `C:/NSC/tools/codex-jobs/templates/` | directory absent |
 | **`Tools/Host/codex-jobs/make_closure_prompt.py`** | `C:/NSC/tools/codex-jobs/` | directory absent |
-| `Tools/Host/codex-jobs/run_closure_review.sh` | `C:/NSC/tools/codex-jobs/` | directory absent |
-| `Tools/Host/ger/ger_round.py` | `C:/NSC/tools/ger/ger_round.py` | deployed, bytes match `d886ece91` |
-| `Tools/Host/ger/ger_node.py` | `C:/NSC/tools/ger/ger_node.py` | deployed, bytes match |
-| `Tools/Host/ger/apply_contract.py` | `C:/NSC/tools/ger/apply_contract.py` | deployed, bytes match |
-| `Tools/Host/ger/ger_decision_revision.py` | `C:/NSC/tools/ger/` | deployed, bytes match |
-| `Tools/Host/ger/apply_followup_revision.py` | `C:/NSC/tools/ger/` | deployed, bytes match |
-| `Tools/Host/ger/contract_commit.py` | `C:/NSC/tools/ger/` | deployed, bytes match |
-| `Tools/Host/ger/ger_patch.py` | `C:/NSC/tools/ger/ger_patch.py` | deployed, bytes match |
-| `Tools/Host/ger/main_write.py` | `C:/NSC/tools/ger/main_write.py` | deployed, bytes match |
+| `Tools/Host/codex-jobs/run_closure_review.sh` | `C:/NSC/tools/codex-jobs/` |
+| `Tools/Host/ger/ger_round.py` | `C:/NSC/tools/ger/ger_round.py` |
+| `Tools/Host/ger/ger_node.py` | `C:/NSC/tools/ger/ger_node.py` |
+| `Tools/Host/ger/apply_contract.py` | `C:/NSC/tools/ger/apply_contract.py` |
+| `Tools/Host/ger/ger_decision_revision.py` | `C:/NSC/tools/ger/` |
+| `Tools/Host/ger/apply_followup_revision.py` | `C:/NSC/tools/ger/` |
+| `Tools/Host/ger/contract_commit.py` | `C:/NSC/tools/ger/` |
+| `Tools/Host/ger/ger_patch.py` | `C:/NSC/tools/ger/ger_patch.py` |
+| `Tools/Host/ger/main_write.py` | `C:/NSC/tools/ger/main_write.py` |
 
-"Bytes match" means the deployed file equals `git show d886ece91:<tracked path>`
-ignoring line endings.
+`deploy_tools.py` compares with line endings normalised, because deployed
+copies are CRLF in the working tree while tracked blobs are LF - an unnormalised
+comparison calls every file different.
 
 **The job record is part of the set too.** `closure_record.py` defines what a
 finished standalone closure job publishes and how a consumer reads it. Deploying
@@ -97,9 +129,9 @@ Agent's and the GER Agent's; this branch does not touch them.
 launcher refuses without them:
 
 | Tracked source | Deployed path | Observed 2026-09-21 |
-| --- | --- | --- |
-| `Tools/Host/jobs/resolve_codex.py` | `C:/NSC/tools/jobs/` | deployed, **OLDER than tracked** |
-| `Tools/Host/jobs/check_job_result.py` | `C:/NSC/tools/jobs/` | deployed, bytes match |
+| --- | --- |
+| `Tools/Host/jobs/resolve_codex.py` | `C:/NSC/tools/jobs/` |
+| `Tools/Host/jobs/check_job_result.py` | `C:/NSC/tools/jobs/` |
 
 The deployed `resolve_codex.py` predates two fixes that are on `main` already, not
 on this branch: a candidate whose `--version` exits non-zero is no longer accepted
@@ -135,8 +167,14 @@ are the place to answer it, not this measurement.
 **There is no prior version of the dedicated checker to restore.** Nothing by
 that name is deployed now, so a rollback cannot reinstate one. Do not invent one.
 
-**The GER deployment is live and currently in sync.** Every GER tool this branch
-changes has a deployed counterpart whose bytes match main. These are the files
+**The GER deployment is live and is NO LONGER in sync.** This sentence said "is
+currently in sync" and was true on 2026-09-21, when main was `d886ece91`. Main is
+past that now and the deployment is not: the seven changed GER tools still hold
+the `d886ece91` bytes. That is a complete, self-consistent OLD family, which is
+the permitted state - not a half-deployed one - but it is no longer main. This
+was the one genuinely false sentence in this document, and it is here rather than
+in the table the GER Agent flagged; run `deploy_tools.py --check` instead of
+trusting either. These are the files
 needing a coordinated move, and where a partial deployment does damage: a
 deployed `ger_round.py` writing `RESULT.json` beside a deployed
 `apply_contract.py` that still greps `OUTPUT.md` would read a derived view as a
