@@ -41,7 +41,7 @@
     {
       "gate_id": "VAL-003",
       "reference": "AC-005; Unity generated-output and non-mutation validation",
-      "requirement": "The Windows Unity controller first runs both named production builders, verifies that RuinedEntry.unity, RuinedEntryLowWallTile.asset and RoomSceneCatalog.asset were materialized from the changed source, and commits that materialized candidate through the authorized task workflow. Before that first build, the controller records every room and door entry of RoomSceneCatalog.asset at the candidate's parent commit; after materialization it reports that only the Ruined Entry RoomBounds entry changed and that the other four room entries and all five door entries, including order and the final-door flag, are unchanged. On the exact clean candidate commit, it records HEAD/tree, Unity version, test filter, external XML/log paths and clean tracked/untracked state; runs the focused Edit Mode tests including RuinedEntrySceneTests and CommittedRoomSourceSceneConformanceTests; parses and reports total, passed, failed and skipped counts; and requires the same clean HEAD/tree and tracked/untracked state afterward. Separately, in a disposable validation copy of that exact candidate, it runs both builders again and compares semantic inventories before and after: hierarchy, component values, FloorTilemap and wall-Tilemap cells and Tile references, collider bounds, marker values, catalog values, object counts and deterministic .meta identities. The second build must create no duplicate roots, Tilemaps, markers, colliders, sub-assets or catalog entries. Raw Unity YAML hashes or local object IDs are not the equivalence oracle."
+      "requirement": "The Windows Unity controller first runs both named production builders, verifies that RuinedEntry.unity, RuinedEntryLowWallTile.asset and RoomSceneCatalog.asset were materialized from the changed source, and commits that materialized candidate through the authorized task workflow. Before that first build, the controller records every room and door entry of RoomSceneCatalog.asset at the candidate's parent commit; after materialization it reports that NO room or door entry changed: all five room entries and all five door entries, including order and the final-door flag, still hold exactly what NSC-101 wrote. This task does not edit Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneCatalog.cs and does not claim it or the generated asset, so a changed entry here means either the catalog source was edited outside this task's scope or NSC-101's values are not yet on the candidate, and either fails this gate. On the exact clean candidate commit, it records HEAD/tree, Unity version, test filter, external XML/log paths and clean tracked/untracked state; runs the focused Edit Mode tests including RuinedEntrySceneTests and CommittedRoomSourceSceneConformanceTests; parses and reports total, passed, failed and skipped counts; and requires the same clean HEAD/tree and tracked/untracked state afterward. Separately, in a disposable validation copy of that exact candidate, it runs both builders again and compares semantic inventories before and after: hierarchy, component values, FloorTilemap and wall-Tilemap cells and Tile references, collider bounds, marker values, catalog values, object counts and deterministic .meta identities. The second build must create no duplicate roots, Tilemaps, markers, colliders, sub-assets or catalog entries. Raw Unity YAML hashes or local object IDs are not the equivalence oracle."
     },
     {
       "gate_id": "VAL-004",
@@ -51,7 +51,7 @@
   ],
   "confidence": "medium",
   "contract_disposition": "active",
-  "contract_revision": 7,
+  "contract_revision": 8,
   "decomposition_reason": "The revised work remains one bounded room-authoring unit: one layout file, one room builder, one focused test fixture, one source scene, one room-owned generated low-wall Tile, and the authorized room-specific catalog edit. Deterministic Windows Unity materialization and exact-candidate human camera review are delivery stages rather than separate implementation responsibilities.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -154,6 +154,15 @@
         "previous_contract_revision": 6,
         "base_contract_sha256": "3de921eeb8d2e7f246629e6039f963e638e05e54981c660ce55d88e7b5019be8",
         "revised_contract_sha256": "74b78b8acfb77644791d4ca248801a9f7d4495cf79c6d7c17505f04c8b3138f8",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      },
+      {
+        "date": "2026-09-22",
+        "reason": "VAL-003 asserted that only the Ruined Entry RoomBounds entry changed. NSC-101 now writes every room and door catalog entry, so this task changes none; the gate is rebuilt to assert that.",
+        "source_head": "2733413cb364fbf4ef38034424e41a99e48a23d7",
+        "previous_contract_revision": 7,
+        "base_contract_sha256": "53c5539ec65f46c89e8637a6c6374220b47ac1d1dbaddf6958eb1d93d95a26a4",
+        "revised_contract_sha256": "31530d16a8f0f025bcd85b0f0215b4bde0f4415e6c704290b8270784da3b9ff2",
         "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
       }
     ]
