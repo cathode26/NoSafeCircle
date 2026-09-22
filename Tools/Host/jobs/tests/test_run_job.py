@@ -161,6 +161,29 @@ class Base(unittest.TestCase):
         root.mkdir(parents=True, exist_ok=True)
         self.fx = Fixture(root)
 
+    def use_fixture_roots(self):
+        """Point the guarded roots at real fixture directories, for this test.
+
+        The constants resolve at import from whatever machine is running, so on a
+        runner with no C:/NSC these cases used to skip - and a skipped guard test
+        is an unexercised guard, which is the whole reason
+        NSC_TOOL_TESTS_NO_SKIPS=1 exists. Overriding them is the designed path:
+        run_job._override honours NSC_RUN_JOB_CANONICAL and
+        NSC_RUN_JOB_FORBIDDEN_ROOT under NSC_RUN_JOB_TESTING=1 so the guard can
+        be tested off this machine, and the fixture's directories are real, which
+        the UNC and 8.3 spellings need.
+
+        The originals are captured before being replaced and restored by
+        addCleanup, so one test cannot leak a root into the next.
+        """
+        self.addCleanup(setattr, run_job, "CANONICAL", run_job.CANONICAL)
+        self.addCleanup(setattr, run_job, "FORBIDDEN_ROOT", run_job.FORBIDDEN_ROOT)
+        run_job.CANONICAL = self.fx.canonical.resolve()
+        run_job.FORBIDDEN_ROOT = self.fx.forbidden.resolve()
+        self.assertTrue(run_job.CANONICAL.is_dir())
+        self.assertTrue(run_job.FORBIDDEN_ROOT.is_dir())
+
+
     def wait_for(self, predicate, seconds: int = 90) -> bool:
         """Poll until a detached background child has finished its work."""
         deadline = time.monotonic() + seconds
@@ -922,9 +945,8 @@ class ReviewCloneGuardSpellings(Base):
         return out
 
     def test_every_spelling_of_the_canonical_repo_is_refused(self):
+        self.use_fixture_roots()
         canonical = run_job.CANONICAL
-        if not canonical.is_dir():
-            self.skipTest(f"{canonical} is not on this machine")
         for spelling in self._spellings_of(canonical):
             with self.subTest(spelling=spelling):
                 with self.assertRaises(run_job.Refused) as caught:
@@ -932,9 +954,11 @@ class ReviewCloneGuardSpellings(Base):
                 self.assertIn("canonical checkout", str(caught.exception))
 
     def test_every_spelling_of_the_forbidden_root_is_under_it(self):
+        # The fixture puts canonical UNDER forbidden, the same relationship the
+        # real C:/NSC/NSC/NoSafeCircle has to C:/NSC, so this still asks the
+        # question it names.
+        self.use_fixture_roots()
         root = run_job.FORBIDDEN_ROOT
-        if not root.is_dir():
-            self.skipTest(f"{root} is not on this machine")
         for spelling in self._spellings_of(run_job.CANONICAL):
             with self.subTest(spelling=spelling):
                 self.assertTrue(run_job.is_under(Path(spelling), root))
@@ -1224,17 +1248,19 @@ class ReviewOutGuard(Base):
     an ANCESTOR of it. `--out C:/` (also `C:/Users/..`, `//localhost/C$` and
     `//?/C:/`) passed and would mount C:\\NSC writable at /out/NSC.
 
-    The ancestor-direction cases are checked directly against the real
-    FORBIDDEN_ROOT module constant and its filesystem-identity spellings, the
-    same way ReviewCloneGuardSpellings checks `is_under` and `guard_clone` -
-    the bypass is about which way `is_under` is called, not anything the
-    fixture's own fake forbidden root can exercise by itself.
+    The bypass is about which DIRECTION `is_under` is called in, so the drive
+    root and its filesystem-identity spellings are what matter.
+
+    An earlier version of this docstring said the fixture's own forbidden root
+    "cannot exercise this by itself" and checked the real module constant, which
+    made these cases skip on any machine without C:/NSC - CI #141. The claim was
+    too strong: the spellings below are the DRIVE ROOT, which is as genuine an
+    ancestor of a temp directory as it is of C:/NSC. Only the comparison target
+    changes, and the spelling strings are identical either way.
     """
 
     def _ancestor_spellings(self):
         root = run_job.FORBIDDEN_ROOT
-        if not root.is_dir():
-            self.skipTest(f"{root} is not on this machine")
         drive = str(root)[0]
         return [
             Path(f"{drive}:\\"),
@@ -1244,6 +1270,7 @@ class ReviewOutGuard(Base):
         ]
 
     def test_an_ancestor_of_forbidden_root_is_refused(self):
+        self.use_fixture_roots()
         for spelling in self._ancestor_spellings():
             with self.subTest(spelling=spelling):
                 with self.assertRaises(run_job.Refused) as caught:
@@ -1251,9 +1278,8 @@ class ReviewOutGuard(Base):
                 self.assertIn("ancestor of", str(caught.exception))
 
     def test_a_descendant_of_forbidden_root_is_still_refused(self):
+        self.use_fixture_roots()
         root = run_job.FORBIDDEN_ROOT
-        if not root.is_dir():
-            self.skipTest(f"{root} is not on this machine")
         with self.assertRaises(run_job.Refused) as caught:
             run_job.guard_out(root / "somewhere", dry_run=True)
         self.assertIn("is inside", str(caught.exception))
