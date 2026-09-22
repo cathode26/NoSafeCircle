@@ -7,6 +7,7 @@ state it then accepts proves only that two pieces of my own writing agree.
 from __future__ import annotations
 
 import json
+import pathlib
 import shutil
 import subprocess
 import unittest
@@ -141,6 +142,17 @@ class ReopenMaterializationTests(unittest.TestCase):
         (cwd / SCENE).write_text("generated chapel scene\n", newline="\n")
         return subprocess.CompletedProcess(args, 0, b"ok\n", b"")
 
+    def passing_validation(self, **kwargs):
+        commit = self.git(kwargs["checkout"], "rev-parse", "HEAD")
+        self.assertEqual(
+            "", self.git(kwargs["checkout"], "status", "--porcelain=v1"))
+        return ({
+            "test_platform": "EditMode", "test_filter": "ChapelOfAshSceneTests",
+            "commit": commit,
+            "tree": self.git(kwargs["checkout"], "rev-parse", "HEAD^{tree}"),
+            "total": 2, "passed": 2,
+        },)
+
     def failing_validation(self, **kwargs):
         raise AuthoritativeCandidateValidationError(
             "authoritative validation requires a clean task checkout")
@@ -259,6 +271,55 @@ class ReopenMaterializationTests(unittest.TestCase):
         self.assertTrue(plan["applied"])
         record = json.loads((self.manager.records / "NSC-046.json").read_text())
         self.assertEqual("needs_materialization", record["status"])
+
+    def test_the_retained_journal_is_archived_not_left_to_short_circuit(self):
+        """The defect the record-level tests could not see.
+
+        The journal is keyed by the CANDIDATE commit, which is exactly what the
+        reopen restores to, so it survived and unity_materialization refused
+        with "unfinished Unity materialization was retained". Archived, not
+        deleted: a reopen must never be why something becomes unreachable.
+        """
+        original, materialized, digest = self.make_failed_record()
+        journal = (self.manager.records
+                   / f"NSC-046.unity-materialization.{original}.json")
+        self.assertTrue(journal.is_file(), "fixture did not retain a journal")
+        fix = self.land_host_fix()
+        plan = reopen_materialization(
+            self.manager, "NSC-046", expected_candidate=materialized,
+            expected_failure_sha256=digest, host_fix_commit=fix, apply=True)
+        self.assertFalse(journal.exists(), "journal still short-circuits materialization")
+        archived = pathlib.Path(plan["archived_journal"])
+        self.assertTrue(archived.is_file(), "journal was deleted rather than archived")
+
+    def test_materialization_actually_runs_again_after_a_reopen(self):
+        """END TO END: the thing the command exists for.
+
+        Every other reopen test asserts the RECORD. This asserts that Unity is
+        invoked and a NEW materialized commit appears -- which is what failed on
+        NSC-046 while every record-level assertion passed.
+        """
+        original, materialized, digest = self.make_failed_record()
+        fix = self.land_host_fix()
+        reopen_materialization(
+            self.manager, "NSC-046", expected_candidate=materialized,
+            expected_failure_sha256=digest, host_fix_commit=fix, apply=True)
+        launched = []
+
+        def counting_builder(args, cwd, timeout):
+            launched.append(args)
+            return self.builder(args, cwd, timeout)
+
+        result = materialize_candidate(
+            self.manager, "NSC-046", original, unity_executable=self.unity,
+            unity_command_runner=counting_builder,
+            validation_runner=self.passing_validation,
+        )
+        self.assertTrue(launched, "Unity was never invoked after the reopen")
+        self.assertEqual("awaiting_human", result["status"])
+        self.assertNotEqual(
+            original, result["candidate"]["commit"],
+            "materialization produced no new commit")
 
     def test_a_crew_candidate_is_refused(self):
         """This command is for a failed MATERIALIZED candidate only."""

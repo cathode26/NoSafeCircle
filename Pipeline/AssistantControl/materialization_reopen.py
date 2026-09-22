@@ -180,6 +180,15 @@ def reopen_materialization(
             raise MaterializationReopenError("Source contains no fix after the failed run")
         checkout = Path(str(record.get("checkout", ""))).resolve()
         original_commit = str(original["commit"])
+        # Keyed by the candidate commit being materialized -- which is exactly
+        # the commit this reopen restores to, so it would short-circuit the
+        # very re-materialization the reopen exists to enable.
+        journal_path = (
+            checkouts.records
+            / f"{task_id}.unity-materialization.{original_commit}.json"
+        )
+        archive_dir = checkouts.records / "materialization-reopen"
+        archive_path = archive_dir / f"{task_id}.{original_commit}.{expected_candidate}.json"
         # Bind the contract where MATERIALIZATION binds it: in the CHECKOUT, at
         # the candidate commit, against the record's pinned sha
         # (unity_materialization.py:294 and :544). The first version of this
@@ -210,6 +219,8 @@ def reopen_materialization(
             "validation_error": failure.get("validation_error"),
             "checkout": str(checkout),
             "preserved_ref": f"refs/materialization-reopen/{task_id}/{expected_candidate}",
+            "retained_journal": str(journal_path) if journal_path.is_file() else None,
+            "archived_journal": str(archive_path),
             "next_status": "needs_materialization",
         }
 
@@ -219,6 +230,22 @@ def reopen_materialization(
                 raise MaterializationReopenError("task still has an active admission")
             if not apply:
                 return plan
+
+            # Retire the retained journal FIRST: if this fails, nothing else
+            # has moved and the reopen can simply be re-run.
+            if journal_path.is_file():
+                if archive_path.exists():
+                    raise MaterializationReopenError(
+                        "a reopen archive already exists for this pair; inspect "
+                        f"it before retrying: {archive_path}")
+                archive_dir.mkdir(parents=True, exist_ok=True)
+                if not archive_dir.resolve().is_relative_to(checkouts.records.resolve()):
+                    raise MaterializationReopenError(
+                        "reopen archive escaped the records directory")
+                journal_path.rename(archive_path)
+                if journal_path.exists() or not archive_path.is_file():
+                    raise MaterializationReopenError(
+                        "retained journal could not be archived")
 
             # Preserve the materialized commit BEFORE moving the branch. A
             # reopen must never be the reason a commit becomes unreachable,
@@ -258,6 +285,7 @@ def reopen_materialization(
                 "host_fix_commit": host_fix_commit,
                 "failed_validation_sha256": expected_failure_sha256,
                 "preserved_ref": plan["preserved_ref"],
+                "archived_journal": str(archive_path),
             }
             write_record(record_path, record)
 
