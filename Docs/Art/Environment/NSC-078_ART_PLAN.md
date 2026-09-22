@@ -234,9 +234,29 @@ Pilot sheet panels (AC-003):
 ### 4a. Global clause (append to every description; Pro Flash has no outline or shading parameters)
 
 ```text
-dark-but-cute horror-comedy dungeon prop, chunky readable proportions, low top-down isometric view, single color black outline, basic shading, medium detail, crisp pixel art with no anti-aliasing and no gradients, dark spooky dungeon color palette of deep plum and teal-black shadows with warm lantern-glow highlights, soft key light from the upper left, transparent background, no text, no letters, no runes, no floor shadow, no other objects
+dark-but-cute horror-comedy dungeon prop, chunky readable proportions, low top-down isometric view, single color black outline, basic shading, medium detail, crisp pixel art with no anti-aliasing and no gradients, dark spooky dungeon color palette of deep plum and teal-black shadows with warm amber glow highlights, soft key light from the upper left, transparent background, no text, no letters, no runes, no floor shadow, no other objects
 ```
 
+- **THE HIGHLIGHT PHRASE NO LONGER SAYS "lantern", AND THAT WAS THE CAUSE OF THE LANTERNS.**
+  Until revision 14 the global clause read *"warm **lantern**-glow highlights"*, so **the word
+  `lantern` was sent with every single generation** - and every clause-level attempt to suppress the
+  unprompted lanterns was fighting a trigger word the same prompt supplied. **Tested three for
+  three, first attempt**, replacing it with "warm amber glow highlights":
+  `re_debris_broken_handcart` 1 lantern to none, `ca_landmark_cracked_bell_frame_x` 1 to none,
+  `lv_landmark_sluice_wheel_gate_x` **2** to none - confirmed by eye, not only by the hot-warm
+  cluster metric (0.36% to 0.01% on the sluice).
+  - **The rule this is an instance of: a negative asks the model not to draw a thing the prompt has
+    just named. Removing the noun removes the pull; adding a negative re-supplies it.** Compare the
+    bone-pile case, where a negative WAS right because the model volunteered the blood unprompted.
+    **The test is whether the prompt named it first.** Here it did, in every call.
+  - **There is no committed no-lantern negative to remove** - the plan never carried one, so this
+    revision changes exactly one phrase. Any negative added at call time now supplies the ONLY
+    remaining instance of the word, which is the thing to stop doing.
+  - **Untested and therefore not claimed:** the three re-rolls kept a call-time negative alongside
+    the amber wording, so "amber with no negative at all" has not been generated. Budget one call
+    to establish it rather than assuming it follows.
+  - **The other "lantern" in this plan is the Lantern Wraith**, a character name in the tooling
+    section that is never assembled into a prompt. Swept: those are the only two occurrences.
 - **Light direction:** "upper left" is a proposal. Confirm it against the door family B and wizard highlights in the pilot, then record it in `NSC-078_STYLE_LOCK.md`.
 - **Materials:**
   - stone: "violet slate and mauve stone with lilac edge highlights and mossy green-grey accents; cold violet and mauve purple, no tan, no beige, no warm brown stone";
@@ -356,6 +376,12 @@ dark-but-cute horror-comedy dungeon prop, chunky readable proportions, low top-d
   - No local pixel edits, scripted palette reduction or seam repair. Post-and-panel segments need no seams.
 - **Re-rolls (D-5).** *Re-rolls pin both halves, not the half that failed.* When a generation is right in one respect and wrong in another, the re-roll prompt must re-state what was already correct as well as what is being fixed. The masonry re-roll pinned the silhouette alone and the palette drifted from violet slate to warm tan; the next pinned silhouette and palette together and produced Vincent's pick. A re-roll prompt that names only the defect is how a fix trades one reject for another.
   - **`re_broken_masonry_blocks` is TESTED as written, and the UNTESTED mark added in revision 7 is withdrawn.** Dropping the arch noun and adding "no curved shapes" produced rubble with no arch and no surviving curve, first attempt, keeper. Round 3's proven prompt kept the noun and still produced a voussoir curve, so the noun was the cause and removing it was the fix.
+  - **A fix that drops a named subject element is not a fix - a second confirmation of this rule,
+    recorded because it happened while fixing something else.** The `lv_landmark_sluice_wheel_gate_x`
+    re-roll removed both lanterns and **lost the iron valve wheel its own clause names**. Lanterns
+    gone, subject incomplete. It was re-rolled again with the wheel **led rather than listed**,
+    which is the practical form of "pin both halves": the element you must not lose goes first in
+    the clause, not in the tail.
   - **`world_x` facings are seed-sensitive, not unreachable - budget re-rolls and measure the tilt.** A strict single-variable test, seed 500 on both sides and one phrase differing, gives tilt -0.949 px/row for `world_z` and +0.850 for `world_x`: near-perfect opposite tilts, so **the committed facing clauses are the ones that work and neither needs rewriting.** But `_z` rendered diagonal at both seeds tried and `_x` at one of three, so every `world_x` entry needs two or three attempts budgeted and the tilt of each result measured rather than assumed. A report that the `_x` diagonal was unreachable by prompt was **withdrawn**: its controlled pair had run at two different seeds, so two variables moved and were reported as one. Do not re-derive it.
 - **Clause text is what the asset depicts; method goes in the production-note column (D-6).**
   The subject-clause column is assembled into the generator prompt **verbatim, with no sanitising

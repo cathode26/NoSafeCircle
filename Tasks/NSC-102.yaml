@@ -41,7 +41,7 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 2,
+  "contract_revision": 3,
   "decomposition_reason": "One bounded mechanical responsibility: commit nine already-approved Bone Archive prop PNGs and their Raw copies at fixed paths with correct Sprite import settings, and add one Edit Mode fixture that proves those settings. No generation, no selection, no catalog authoring.",
   "decomposition_state": "concrete",
   "depends_on": [],
@@ -103,7 +103,7 @@
   ],
   "id": "NSC-102",
   "kind": "implementation",
-  "notes": "Created 2026-09-22 on Vincent's word, given to the Documentation Agent: \"Get me a room with art :)\" and \"If you need to make a task for that to happen, make a task.\" Re-targeted from the Ruined Entry to the Bone Archive after NSC-044 went needs_human on a compile error while NSC-045 passed on its first attempt; the reasoning is identical and the Ruined Entry version remains authorable if NSC-044 lands. Scope is the nine props the NSC-078 plan's intended_rooms column assigns to BoneArchive - not the ten or eleven proposed in discussion, which included shared_candle_cluster_a, a prop the plan assigns to neither room. TWO DEFECTS SHIP KNOWINGLY, recorded here rather than passed silently so a later fix has a handle, and both under Vincent's \"I dont care if it might look bad, we will fix it later\": none of the nine has had its facing judged against the plan's facing column, and the Art Director's tilt metric cannot judge blocky props at all. NOT ESTABLISHED BY THIS CONTRACT: that NSC-080 will pass, only that its dependency on NSC-078 is unnecessary; and the blockout states above are the Game Agent's measurement relayed through the Documentation Agent, which I could not confirm from the dispatch records visible to me.",
+  "notes": "Created 2026-09-22 on Vincent's word, given to the Documentation Agent: \"Get me a room with art :)\" and \"If you need to make a task for that to happen, make a task.\" Re-targeted from the Ruined Entry to the Bone Archive after NSC-044 went needs_human on a compile error while NSC-045 passed on its first attempt; the reasoning is identical and the Ruined Entry version remains authorable if NSC-044 lands. Scope is the nine props the NSC-078 plan's intended_rooms column assigns to BoneArchive - not the ten or eleven proposed in discussion, which included shared_candle_cluster_a, a prop the plan assigns to neither room. TWO DEFECTS SHIP KNOWINGLY, recorded here rather than passed silently so a later fix has a handle, and both under Vincent's \"I dont care if it might look bad, we will fix it later\": none of the nine has had its facing judged against the plan's facing column, and the Art Director's tilt metric cannot judge blocky props at all. NOT ESTABLISHED BY THIS CONTRACT: that NSC-080 will pass, only that its dependency on NSC-078 is unnecessary; and the blockout states above are the Game Agent's measurement relayed through the Documentation Agent, which I could not confirm from the dispatch records visible to me. REVISION 3, 2026-09-22, NOTES ONLY - no criterion, gate, obligation or resource changed. KNOWN DEFECT IN A PUBLISHED ASSET, recorded so the committed set is not read as clean: ba_book_and_scroll_stack, on main under this task, carries an UNPROMPTED LANTERN. The cause is now understood and fixed upstream - NSC-078's global clause said \"warm lantern-glow highlights\" and was appended to every description, so the word lantern was in every prompt of the run that produced this art. NSC-078 revision 14 replaced it with \"warm amber glow highlights\", tested three for three on other props. THIS IS NOT A CONTRACT DEFECT AND NOTHING HERE NEEDS REVISING TO FIX IT: the gates this task sets - Sprite import, the nine importer values, the self-measuring pivot - all pass on the committed bytes regardless of what the sprite depicts, and they should, because depiction is the Art Director's judgement rather than an importer property. Replacing the sprite is an ART task against the corrected global clause, and it needs no change here: this task's VAL-003 is a subset rule, so a later candidate that re-publishes only this one path satisfies it. Flagged by the Art Director, who correctly declined to touch another task's committed asset.",
   "parent": "NSC-022",
   "provenance": {
     "graph_delta_plan_id": null,
@@ -120,6 +120,15 @@
         "previous_contract_revision": 1,
         "base_contract_sha256": "e267adbd7fb8008dd610ea9a6e4ab0fb8414955ff37a51e1e2cef15c10f29a0c",
         "revised_contract_sha256": "212c215bfbf824e465e9666deb397f8181a45d9141f334e9e2e930bb31cd510e",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      },
+      {
+        "date": "2026-09-22",
+        "reason": "Notes only: record the unprompted lantern on a published asset and that NSC-078 rev 14 fixed the cause upstream",
+        "source_head": "c538879a738f51e9115991fc81f79f754b8ef6e9",
+        "previous_contract_revision": 2,
+        "base_contract_sha256": "ff0a66255ea657a19f1ba65fc38e2b636c76c3f9fd840b6888ef772c4273bd38",
+        "revised_contract_sha256": "ce2a1d9b5a7b1d919f8ab92724ae8e24c18e632e63799970b2be80074cb5ab47",
         "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
       }
     ]

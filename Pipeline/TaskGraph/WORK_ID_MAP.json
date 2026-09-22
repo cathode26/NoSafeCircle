@@ -100,7 +100,9 @@
     "enemy-death-look-art-integration": "NSC-099",
     "world-sprite-sorting-layer-adoption": "NSC-100",
     "room-scene-catalog-consolidation": "NSC-101",
-    "bone-archive-prop-publication": "NSC-102"
+    "bone-archive-prop-publication": "NSC-102",
+    "chapel-of-ash-prop-publication": "NSC-103",
+    "pixellab-enemy-attack-art": "NSC-104"
   },
   "reconciliation_run_id": "20260821T193541Z-998ee7b5",
   "schema_version": "1.0",

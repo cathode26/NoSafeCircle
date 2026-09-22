@@ -42,7 +42,7 @@
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-046": {
-      "task_contract_sha256": "3b364ced4bcaa671667256d99b30ea02e530b8086e774f4c3b878ddc7f51bde4",
+      "task_contract_sha256": "a5da42b143e0ed3427e5fc27e15c343df8d59ca319771096f1905bdf268f175b",
       "required_test_platforms": [
         "EditMode"
       ],
@@ -188,7 +188,7 @@
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-081": {
-      "task_contract_sha256": "053686bffed97ac73bc82737fd1277365d3c275fff60bfabbae4e7d1d1f61ce6",
+      "task_contract_sha256": "087f0adf911aca527df83ccb45a09cdef2afb62014fed966e8aea3b166556d16",
       "required_test_platforms": [
         "EditMode"
       ],
@@ -286,12 +286,12 @@
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-078": {
-      "task_contract_sha256": "2155b4997c5cf8dcd48c793d24dcef0fdb8fb796f58152b0f758c0bbd86ff06a",
+      "task_contract_sha256": "f69f6481ae8277b5bd8a6fd906b42b65c24e5653ba183831086115d9be99d87d",
       "required_test_platforms": [
         "EditMode"
       ],
       "test_filters": {
-        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.Environment.DungeonPropImportSettingsTests"
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.DungeonPropImportSettingsTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
@@ -510,12 +510,22 @@
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-102": {
-      "task_contract_sha256": "62297f5bb96837a44ce97ab31f5ffa74fdc24888a6c23e3769d3d0d7e82fcfa8",
+      "task_contract_sha256": "f30c676d37f5aab6e1b38d943214949d51fec765150002ec56248102b781104c",
       "required_test_platforms": [
         "EditMode"
       ],
       "test_filters": {
         "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.BoneArchivePropImportTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-103": {
+      "task_contract_sha256": "34fcd0554c9f1d2e16026c9bb0da754e761d596706634e0539cf83d9228a2805",
+      "required_test_platforms": [
+        "EditMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.ChapelOfAshPropImportTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
     }
