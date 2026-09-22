@@ -134,6 +134,21 @@ def main(argv=None) -> int:
     restored.add_argument("--changed-paths", type=Path, required=True)
     restored.add_argument("--evidence", type=Path, required=True)
     restored.add_argument("--reference-provenance", type=Path, required=True)
+    reopen = commands.add_parser(
+        "reopen-materialization",
+        help=(
+            "Dry-run (default) or --apply the return of ONE failed materialized "
+            "candidate to needs_materialization, after proving a host fix "
+            "landed since the failure. Not an approval path."
+        ),
+    )
+    reopen.add_argument("task")
+    reopen.add_argument("--candidate-commit", required=True,
+                        help="The MATERIALIZED commit recorded on the failed candidate")
+    reopen.add_argument("--failed-validation-sha256", required=True)
+    reopen.add_argument("--host-fix-commit", required=True)
+    reopen.add_argument("--apply", action="store_true",
+                        help="Without this the command only reports what it would do")
     worker_status = commands.add_parser("worker-status", help="Inspect host identity and retained worker state")
     worker_status.add_argument("task")
     settlement = commands.add_parser("settle-worker", help="Release ended worker capacity after verified process/container exit")
@@ -548,6 +563,18 @@ def main(argv=None) -> int:
                     reference_provenance=json.loads(
                         args.reference_provenance.read_text(encoding="utf-8-sig")
                     ),
+                )
+            elif args.command == "reopen-materialization":
+                from Pipeline.AssistantControl.materialization_reopen import (
+                    reopen_materialization,
+                )
+                result = reopen_materialization(
+                    manager,
+                    args.task,
+                    expected_candidate=args.candidate_commit,
+                    expected_failure_sha256=args.failed_validation_sha256,
+                    host_fix_commit=args.host_fix_commit,
+                    apply=args.apply,
                 )
             elif args.command == "refresh-prepared":
                 from Pipeline.AssistantControl.prepared_refresh import refresh_prepared
