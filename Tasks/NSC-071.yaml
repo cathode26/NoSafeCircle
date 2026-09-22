@@ -3,7 +3,7 @@
     {
       "criterion_id": "AC-001",
       "reference": "NSC-029 VAL-001; NSC-025 INT-001; NSC-014 INT-001; GDD — Approved Five-Room Spatial Layout Blockout §§6 and 12",
-      "requirement": "On committed Bone Archive geometry, verify that the configured enemy navigation agent from NSC-025 and enemy pursuit/search movement from NSC-014 can traverse the BA-1 2.5-unit pinch and every intended lane. An impassable approved lane fails validation; a synthetic corridor or test-only replacement geometry cannot stand in for the authored room."
+      "requirement": "On committed Bone Archive geometry, the configured enemy must be able to traverse the BA-1 2.5-unit pinch and each of the five lanes BoneArchiveLayout defines - not \"every intended lane\", which named no authority and is withdrawn by this revision. THE SET IS THE ONE COMMITTED CODE ALREADY ASSERTS, so that the two tests move together when a shelf moves: Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/BoneArchiveSceneTests.cs, test Layout_PreservesLaneWidthsAndBypasses, enumerates exactly these five gaps, and every figure below is re-derived from BoneArchiveLayout's own members rather than copied - ShelfA to ShelfB 3.5, ShelfB to ShelfC 3.5, the west room bound to ShelfA 3.5, ShelfC to the east room bound 5.0, and CollapsedFurnitureBA1 to ShelfC 2.5, which IS the BA-1 pinch and equals BoneArchiveLayout.MinLaneWidth. The enemy is the configured one and not a stand-in: the NavMesh agent configuration NSC-089 delivers, carrying NSC-025's navigation foundation, and the pursuit and search movement NSC-092 delivers, carrying NSC-014's detection foundation. A lane the configured enemy cannot traverse fails this criterion; the earlier wording said an impassable APPROVED lane, and since nothing records which lanes are approved, that qualifier named no authority either and is withdrawn - the five above are the set, and a sixth lane reaches this criterion only by being added to BoneArchiveLayout and to the Edit Mode test that enumerates it. A synthetic corridor or test-only replacement geometry cannot stand in for the authored room. THE ROUTE THAT MATTERS MOST IS NOT A LANE AT ALL and is stated separately so it cannot be dropped: a pursuing enemy must be able to cross the room end to end, from door D1 to door D2, which no single lane assertion covers."
     }
   ],
   "basis": "human_approved_room_construction_priority",
@@ -11,12 +11,12 @@
     {
       "gate_id": "VAL-001",
       "reference": "NSC-029 VAL-001; NSC-025 INT-001; NSC-014 INT-001; GDD — Approved Five-Room Spatial Layout Blockout §§6 and 12",
-      "requirement": "Play Mode validation uses the committed Bone Archive geometry, NSC-025's configured enemy navigation agent, and NSC-014's delivered pursuit/search movement to prove enemy traversal through BA-1's 2.5-unit pinch and every intended lane. It fails for any approved lane the configured enemy cannot traverse, and does not accept a synthetic corridor as proof."
+      "requirement": "Play Mode validation loads the committed Bone Archive scene asset - not a builder-produced in-memory scene and not a synthetic corridor - and proves traversal with the NavMesh agent configuration NSC-089 delivers and the pursuit and search movement NSC-092 delivers. FOR EACH OF AC-001's FIVE LANES AND FOR THE D1 TO D2 ROUTE, the gate samples both endpoints onto the baked surface with NavMesh.SamplePosition and asserts that the agent's CalculatePath returns a path whose status is NavMeshPathStatus.PathComplete. PathPartial FAILS, and so does a true return value with a non-complete status - CalculatePath returning true means it produced a path, not that the path arrives, and asserting only the return value is the shape that passes on a severed NavMesh. This is the pattern already committed in DoorPassabilityConnectionPlayModeTests and DoorEnemyPassabilityPlayModeTests, and EnemyPursuitMovement.cs itself acts on PathComplete, so the gate asserts the same condition the game depends on. THE GATE MUST NOT BE SATISFIED BY COMPARING WIDTHS, AND THE REASON IS ARITHMETIC RATHER THAN STYLE: ProjectSettings/NavMeshAreas.asset sets agentRadius 0.5, so a 1.0-diameter agent clears all five lanes with room to spare and the 2.5 pinch by 0.75 on each side. Every width comparison available here passes before the NavMesh is consulted, and the committed Edit Mode test Layout_PreservesLaneWidthsAndBypasses already makes them. WHAT CAN ACTUALLY FAIL IS THE BAKE - erosion by the agent radius and voxel rounding can leave a gap disconnected where the raw geometry is wide enough - and proving the bake is the only thing this Play Mode gate can do that Edit Mode cannot. Record in the test output the agent radius the run used, so a later widening of the agent shows up here as a failure rather than as a silent change of what was proven. Expectations are derived from BoneArchiveLayout at run time and never written in as literals: the Edit Mode test hardcodes the room bounds as plus and minus ten, which agrees with BoneArchiveLayout.RoomBounds today, and NSC-101 has already widened RoomBounds on other rooms, so a literal here would keep asserting against a room that no longer exists. BoneArchiveLayout.ClearWidthBetween may be used to measure a pair this contract names but never to DISCOVER lanes: it returns right.min.x minus left.max.x with no check that the two bounds overlap in Z, so for any pair that does not overlap it returns a number that is not a lane. The five pairs above were each verified to overlap in Z."
     }
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 4,
+  "contract_revision": 5,
   "decomposition_reason": "One focused Play Mode test file owns the combined real-room navigation and enemy-movement proof transferred from NSC-025 and NSC-014.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -38,7 +38,7 @@
   ],
   "id": "NSC-071",
   "kind": "implementation",
-  "notes": "This follow-up validates committed room geometry with the delivered navigation agent and enemy movement; it does not edit the room scene, its builder, or its layout data. The one focused test closes NSC-025 INT-001 and NSC-014 INT-001 without treating synthetic geometry as equivalent proof.",
+  "notes": "This follow-up validates committed room geometry with the delivered navigation agent and enemy movement; it does not edit the room scene, its builder, or its layout data. The one focused test closes NSC-025 INT-001 and NSC-014 INT-001 without treating synthetic geometry as equivalent proof. REVISION 5, 2026-09-22 - the design review this task never received. It and NSC-072 both fell out of the 2026-09-14 GER cohort and were reviewed by neither the released nor the active list for eight days. Two defects, both of them undefined sets, and both turned out to be citable rather than genuinely open: \"every intended lane\" and \"an impassable APPROVED lane\" named no authority, while BoneArchiveLayout and the committed Edit Mode test Layout_PreservesLaneWidthsAndBypasses enumerate exactly five lanes between them. Naming that set beats inventing one, because a test author faced with an undefined set invents a set and the gate then passes on whatever was invented. THE MORE IMPORTANT CHANGE IS WHAT THE GATE PROVES. With agentRadius 0.5 every lane here clears the agent arithmetically, so a width-comparing gate can never fail and the Edit Mode test already compares widths; the Play Mode gate now has to assert PathComplete on the baked surface, which is the only failure this task can actually detect. Pre-checked before revising: NSC-071 is not_delivered with no selected record and no committed delivery, baseline or revalidation evidence, so no revision here un-delivers anything. Its dependencies NSC-089 and NSC-092 are both conformant; NSC-045 is not, so this task waits on the Bone Archive blockout rather than on anything in this contract. NSC-025 and NSC-014 were verified to be live active tasks in conformant state, not superseded ids, so the references naming them stand. The em dash and section marks in the reference field are correct UTF-8 and were NOT repaired - they render as replacement characters in a Windows console, which is a reader artifact and not damage to the contract.",
   "parent": "NSC-029",
   "provenance": {
     "accepted_contract_transfers": [
@@ -57,7 +57,18 @@
     "approved_by": "Vincent",
     "origin": "room_construction_validation_split",
     "preserved_gate_id": "VAL-001",
-    "source_task_id": "NSC-045"
+    "source_task_id": "NSC-045",
+    "contract_followups": [
+      {
+        "date": "2026-09-22",
+        "reason": "Name the five lanes BoneArchiveLayout defines instead of 'every intended lane', and make the gate prove a baked PathComplete rather than a width every lane already passes",
+        "source_head": "da943424a12959d037c1b7a5f4ea6ed85340535f",
+        "previous_contract_revision": 4,
+        "base_contract_sha256": "dbaba464dfc8f7cacb93f8144c4f3af2dd3cf45a39a2c12f13f710b3c8304d41",
+        "revised_contract_sha256": "10079b62e9d6fff796b4d47d12a826651f7e4788b05cbab9062bf6c7fb9166e6",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      }
+    ]
   },
   "reconciliation_key": "bone-archive-navigation-validation",
   "repository_evidence_at_bootstrap": [],
