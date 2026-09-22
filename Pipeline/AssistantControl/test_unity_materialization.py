@@ -371,7 +371,7 @@ class MaterializationTests(unittest.TestCase):
 CHAPEL_BUILDER = "Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/ChapelOfAshSceneBuilder.cs"
 CHAPEL_TEST = "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/ChapelOfAshSceneTests.cs"
 CHAPEL_SCENE = "Assets/Scenes/Rooms/ChapelOfAsh.unity"
-CHAPEL_BUILD_METHOD = "NoSafeCircle.DoorPrototype.Editor.Rooms.ChapelOfAshSceneBuilder.Build"
+CHAPEL_BUILD_METHOD = "NoSafeCircle.DoorPrototype.Editor.Rooms.ChapelOfAshSceneBuilder.BuildAndSave"
 LOWER_VAULT_SCENE = "Assets/Scenes/Rooms/LowerVault.unity"
 UNKNOWN_ROOM_SCENE = "Assets/Scenes/Rooms/UnknownRoom.unity"
 
@@ -569,6 +569,66 @@ class RoomSceneMaterializationTests(unittest.TestCase):
         )
         journal = json.loads(journal_path.read_text())
         self.assertEqual(CHAPEL_BUILD_METHOD, journal["builder"])
+
+
+class TheRegistryMatchesTheBuilderSource(unittest.TestCase):
+    """Every registered entry point must exist in the C# that owns it.
+
+    The check this joins compared the registry against a constant in this file
+    carrying the same assumption -- both said ``.Build`` -- so it could not fail
+    when four builders named their entry point ``BuildAndSave``. Unity then
+    refused with "method 'Build' ... could not be found" and ZERO compiler
+    errors, and three review-ready room candidates were blocked on 2026-09-22.
+
+    This reads the source instead. It needs no Unity: a static method
+    declaration is in the text.
+    """
+
+    REPO = Path(__file__).resolve().parents[2]
+
+    def source_of(self, builder_source_path: str) -> str:
+        path = self.REPO / builder_source_path
+        self.assertTrue(path.is_file(),
+                        f"registered builder source is missing: {path}")
+        return path.read_text(encoding="utf-8")
+
+    def test_registry_names_entry_points_that_exist_in_the_builder_source(self):
+        for scene, room in sorted(ROOM_SCENE_BUILDERS.items()):
+            with self.subTest(scene=scene):
+                text = self.source_of(room.builder_source_path)
+                klass, _, method = room.build_method.rpartition(".")
+                self.assertTrue(
+                    f"class {klass.rsplit('.', 1)[-1]}" in text,
+                    f"{scene}: {klass} is not declared in "
+                    f"{room.builder_source_path}")
+                self.assertTrue(
+                    f"public static void {method}()" in text,
+                    f"{scene}: the registry calls {method}() but "
+                    f"{room.builder_source_path} does not declare it. Unity "
+                    f"fails this with 'could not be found' and NO compiler "
+                    f"errors, so the candidate looks fine.")
+
+    def test_every_registered_entry_point_is_the_one_that_saves(self):
+        """Never register BuildInMemoryForTests: it builds without saving.
+
+        Materialization exists to regenerate the committed .unity file. An
+        entry point that does not save would report success and change nothing,
+        which is worse than the failure above because nothing complains.
+        """
+        for scene, room in sorted(ROOM_SCENE_BUILDERS.items()):
+            with self.subTest(scene=scene):
+                method = room.build_method.rpartition(".")[2]
+                self.assertNotEqual(
+                    "BuildInMemoryForTests", method,
+                    f"{scene}: the in-memory builder does not save the scene")
+                text = self.source_of(room.builder_source_path)
+                declaration = text.index(f"public static void {method}()")
+                preceding = text[:declaration]
+                self.assertIn(
+                    "[MenuItem(", preceding.rsplit(chr(10) + chr(10), 1)[-1],
+                    f"{scene}: {method}() is not the [MenuItem] entry point. "
+                    f"In every room builder the menu-decorated method is the "
+                    f"one that builds AND saves.")
 
 
 if __name__ == "__main__":

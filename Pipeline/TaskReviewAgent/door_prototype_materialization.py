@@ -38,9 +38,28 @@ class RoomSceneBuilder:
     builder_source_path: str
 
 
-# Exact, reviewable registry of the five approved room scenes. Each room
-# defines its own static ``Build`` method; there is deliberately no wildcard
-# match for an arbitrary file under ``Assets/Scenes/Rooms/``.
+# Exact, reviewable registry of the five approved room scenes. There is
+# deliberately no wildcard match for an arbitrary file under
+# ``Assets/Scenes/Rooms/``.
+#
+# EACH ROOM NAMES ITS OWN ENTRY POINT AND THEY ARE NOT ALL CALLED ``Build``.
+# This comment used to say every room defined a static ``Build``. That was
+# true of RuinedEntry, which existed on 2026-09-12 when this table was being
+# written, and false of the four rooms that landed on 2026-09-13 naming their
+# entry point ``BuildAndSave``. Unity then failed materialization with
+# "method 'Build' ... could not be found" and ZERO compiler errors -- the
+# candidate compiles; the entry point simply does not exist. Three
+# review-ready room candidates were blocked by it on 2026-09-22.
+#
+# ``Build`` and ``BuildAndSave`` are one ROLE under two names, not two
+# methods: in every builder the ``[MenuItem]``-decorated method is the one
+# that builds AND saves, and every builder also has ``BuildInMemoryForTests``
+# which must never be registered here -- it does not save.
+#
+# ``test_registry_names_entry_points_that_exist_in_the_builder_source``
+# reads the C# and fails if an entry here names a method that is not there.
+# Before it, the only check compared this table against a constant in the
+# test file holding the same assumption, so it could never fail.
 ROOM_SCENE_BUILDERS: dict[str, RoomSceneBuilder] = {
     "Assets/Scenes/Rooms/RuinedEntry.unity": RoomSceneBuilder(
         scene_path="Assets/Scenes/Rooms/RuinedEntry.unity",
@@ -51,28 +70,28 @@ ROOM_SCENE_BUILDERS: dict[str, RoomSceneBuilder] = {
     ),
     "Assets/Scenes/Rooms/BoneArchive.unity": RoomSceneBuilder(
         scene_path="Assets/Scenes/Rooms/BoneArchive.unity",
-        build_method="NoSafeCircle.DoorPrototype.Editor.Rooms.BoneArchiveSceneBuilder.Build",
+        build_method="NoSafeCircle.DoorPrototype.Editor.Rooms.BoneArchiveSceneBuilder.BuildAndSave",
         builder_source_path=(
             "Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/BoneArchiveSceneBuilder.cs"
         ),
     ),
     "Assets/Scenes/Rooms/ChapelOfAsh.unity": RoomSceneBuilder(
         scene_path="Assets/Scenes/Rooms/ChapelOfAsh.unity",
-        build_method="NoSafeCircle.DoorPrototype.Editor.Rooms.ChapelOfAshSceneBuilder.Build",
+        build_method="NoSafeCircle.DoorPrototype.Editor.Rooms.ChapelOfAshSceneBuilder.BuildAndSave",
         builder_source_path=(
             "Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/ChapelOfAshSceneBuilder.cs"
         ),
     ),
     "Assets/Scenes/Rooms/LowerVault.unity": RoomSceneBuilder(
         scene_path="Assets/Scenes/Rooms/LowerVault.unity",
-        build_method="NoSafeCircle.DoorPrototype.Editor.Rooms.LowerVaultSceneBuilder.Build",
+        build_method="NoSafeCircle.DoorPrototype.Editor.Rooms.LowerVaultSceneBuilder.BuildAndSave",
         builder_source_path=(
             "Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/LowerVaultSceneBuilder.cs"
         ),
     ),
     "Assets/Scenes/Rooms/FinalRoom.unity": RoomSceneBuilder(
         scene_path="Assets/Scenes/Rooms/FinalRoom.unity",
-        build_method="NoSafeCircle.DoorPrototype.Editor.Rooms.FinalRoomSceneBuilder.Build",
+        build_method="NoSafeCircle.DoorPrototype.Editor.Rooms.FinalRoomSceneBuilder.BuildAndSave",
         builder_source_path=(
             "Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/FinalRoomSceneBuilder.cs"
         ),
@@ -174,7 +193,8 @@ def resolve_generated_builder(paths: Sequence[str]) -> tuple[str, str]:
 
     Raises when a path is not a registered Unity builder output, or when the
     given paths span more than one builder; materialization must invoke
-    exactly one exact static ``Build`` method per request.
+    exactly one exact static entry point per request -- whatever that room
+    names it.
     """
     owners: set[tuple[str, str]] = set()
     for path in paths:

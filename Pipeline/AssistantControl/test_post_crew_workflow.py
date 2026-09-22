@@ -353,7 +353,7 @@ class PostCrewWorkflowDoorPrototypeTests(unittest.TestCase):
 CHAPEL_BUILDER = "Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/ChapelOfAshSceneBuilder.cs"
 CHAPEL_TEST = "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/ChapelOfAshSceneTests.cs"
 CHAPEL_SCENE = "Assets/Scenes/Rooms/ChapelOfAsh.unity"
-CHAPEL_BUILD_METHOD = "NoSafeCircle.DoorPrototype.Editor.Rooms.ChapelOfAshSceneBuilder.Build"
+CHAPEL_BUILD_METHOD = "NoSafeCircle.DoorPrototype.Editor.Rooms.ChapelOfAshSceneBuilder.BuildAndSave"
 
 
 class PostCrewWorkflowRoomSceneTests(unittest.TestCase):
