@@ -110,5 +110,15 @@
     "tests": "host-level test suites; they run from a checkout, never from a deployment",
     "run_tool_tests.py": "runs the suites, which are not deployed",
     "<family>/tests": "a deployment is what RUNS; the suites run from a checkout, which is why run_tool_tests.py is never deployed. 15 test files ARE deployed today under art, astra, cleanup and jobs; they report as `extra`, which is a true statement about the deployment and somebody's call to act on."
+  },
+  "known_extras_needing_a_decision": {
+    "comment": [
+      "Deployed, in no commit, and reported as `extra` by --check. Listed here",
+      "so they get an explicit decision rather than being swept with the other",
+      "43 undeclared files."
+    ],
+    "ger/next/": "Holds its own ger_node.py and ger_round.py. Verified 2026-09-22 by the GER Agent and again here: SAME DATE as the live copies (2026-09-14) and DIFFERENT BYTES - ger_node live 448d29be vs next 969896ba, ger_round live 71d3e25f vs next a1c8bcde. Divergent same-day variants, neither stale nor newer. Nothing in the GER path resolves to them today, so not a live hazard - but it is main_write.py's shape: an undeclared shadow beside the real tool under a name implying precedence. The GER Agent's recommendation, and mine: DELETE rather than leave for whoever next greps for ger_round and finds two answers. Vincent executes it.",
+    "ger/patches/": "Nine upgrade scripts that were applied once. Same question, lower stakes - they do not shadow a live tool name.",
+    "*.bak.py (13 files)": "The rollback convention already in use under C:/NSC/tools/ger. These are deliberate and should stay until a cutover retires them."
   }
 }
