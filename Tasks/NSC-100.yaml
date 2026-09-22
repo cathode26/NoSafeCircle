@@ -22,7 +22,7 @@
     },
     {
       "criterion_id": "AC-005",
-      "reference": "NSC-069 INT-003 and revision 8/9 notes; discharges NSC-069 INT-002",
+      "reference": "NSC-069 INT-003 and revision 8/9 notes; discharges NSC-069 INT-003",
       "requirement": "Add an EditMode test in the RoomSceneCompositionFoundationTests partial class (declared across RoomSceneComposerTests.cs and RoomSceneContractTests.cs) proving that a room whose Visuals or GameplayGeometry SpriteRenderer or TilemapRenderer is authored on a sorting layer other than WorldSprites fails RoomSceneComposer composition/validation with a reported error. Add a second, distinct negative case for sorting order: a Visuals or GameplayGeometry renderer authored at sortingOrder 50 (a value that is not part of the -100/-90/0 band and is not a legal value in these two categories under AC-003) must also fail validation with a reported error. These two cases restore the negative sorting-layer case removed by NSC-069 revision 8 (now provable because a second sorting layer, WorldSprites, exists) and add the sorting-order counterpart. Each negative case must assert the SPECIFIC validation error, not merely that composition failed: the reported message must name the offending renderer and the rule it broke, in the form RoomSceneComposer.AddError already emits (for the layer case, \"SpriteRenderer '<name>' must use the shared '<layer>' sorting layer.\"). A test that asserts only failure passes when the room is rejected earlier for an unrelated reason such as a missing door anchor or a wrong root name, and so proves nothing about this gate."
     },
     {
@@ -56,7 +56,7 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "decomposition_reason": "The layer repoint, the composer's flat sorting-order and spriteSortPoint validation, and their EditMode negative-case tests are one self-contained change confined to three source files and the two existing partial-class test files; no further split is warranted.",
   "decomposition_state": "concrete",
   "depends_on": [],
@@ -78,7 +78,7 @@
   ],
   "id": "NSC-100",
   "kind": "implementation",
-  "notes": "This task adopts the WorldSprites sorting layer that already exists as an orphan entry in ProjectSettings/TagManager.asset (uniqueID 1043912875) but is not yet referenced by any code; it does not create the layer, per AC-001. Repointing WorldSpriteSortingLayerName will cause RepairWorldSpritePrefabConvention to silently migrate existing world-sprite Prefab assets onto the new layer on their next repair pass; that migration is intended (VAL-003), and is exactly why RoomSceneComposer must fail loudly on a mismatch rather than repair one. AC-004 restates that the -100/-90/0 sorting-order band values are NSC-039's design and are out of scope to retune. AC-005 discharges NSC-069's downstream_integration_obligations INT-002 (formerly INT-003) by writing the negative sorting-layer case NSC-069 revision 8 removed as unwritable; NSC-069 itself is not edited by this task. A cascade grep for the literal sorting-layer name \"Default\" across Tasks/ and Docs/ found NSC-044 through NSC-048 and NSC-069 as expected, plus one additional active task, NSC-075, whose AC text quotes the current shared band as 'the shared sortingLayerName \"Default\" and sortingOrder 0'; that task's prose will go stale once this task lands and is flagged here for the GER Agent rather than edited, since NSC-075 is outside this task's exclusive_resources and outside the named cascade.",
+  "notes": "This task adopts the WorldSprites sorting layer that already exists as an orphan entry in ProjectSettings/TagManager.asset (uniqueID 1043912875) but is not yet referenced by any code; it does not create the layer, per AC-001. Repointing WorldSpriteSortingLayerName will cause RepairWorldSpritePrefabConvention to silently migrate existing world-sprite Prefab assets onto the new layer on their next repair pass; that migration is intended (VAL-003), and is exactly why RoomSceneComposer must fail loudly on a mismatch rather than repair one. AC-004 restates that the -100/-90/0 sorting-order band values are NSC-039's design and are out of scope to retune. AC-005 discharges NSC-069's downstream_integration_obligations INT-003 by writing the negative sorting-layer case NSC-069 revision 8 removed as unwritable; NSC-069 itself is not edited by this task. A cascade grep for the literal sorting-layer name \"Default\" across Tasks/ and Docs/ found NSC-044 through NSC-048 and NSC-069 as expected, plus one additional active task, NSC-075, whose AC text quotes the current shared band as 'the shared sortingLayerName \"Default\" and sortingOrder 0'; that task's prose will go stale once this task lands and is flagged here for the GER Agent rather than edited, since NSC-075 is outside this task's exclusive_resources and outside the named cascade.",
   "parent": "NSC-022",
   "provenance": {
     "graph_delta_plan_id": null,
@@ -86,8 +86,18 @@
     "parent_contract_revision": null,
     "parent_contract_sha256": null,
     "parent_task_id": null,
-    "task_design_ger": "Vincent approved a task to make the world-sprite sorting convention real (2026-09-20, \"Yes\"). GER Agent design brief nsc100-sorting-layer-design-20260920.md, re-measured at main 0f11a9bfa: ProjectSettings/TagManager.asset already declares WorldSprites (uniqueID 1043912875) as an orphan, DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName is still \"Default\" so RoomSceneComposer's layer check is vacuous, and the composer reads neither sortingOrder nor spriteSortPoint. NSC-069 INT-002 names this task as the one that restores the negative case revision 8 removed.",
-    "contract_followups": []
+    "task_design_ger": "Vincent approved a task to make the world-sprite sorting convention real (2026-09-20, \"Yes\"). GER Agent design brief nsc100-sorting-layer-design-20260920.md, re-measured at main 0f11a9bfa: ProjectSettings/TagManager.asset already declares WorldSprites (uniqueID 1043912875) as an orphan, DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName is still \"Default\" so RoomSceneComposer's layer check is vacuous, and the composer reads neither sortingOrder nor spriteSortPoint. NSC-069 INT-003 names this task as the one that restores the negative case revision 8 removed.",
+    "contract_followups": [
+      {
+        "date": "2026-09-22",
+        "reason": "Correct the discharged obligation id: NSC-069's sorting obligation is INT-003, not INT-002 (INT-002 references NSC-049). The error originated in the GER design brief and reached provenance.task_design_ger verbatim from the drafting prompt, so it was wrong when written rather than true at the time. Three references corrected; no other change.",
+        "source_head": "94684a9b2bf87a3795d7ddf8acc84c75db4fd352",
+        "previous_contract_revision": 1,
+        "base_contract_sha256": "f598bfe1fa4bac21a360f45db35548857a234b0d52e9269d1a47f7e773d38ecf",
+        "revised_contract_sha256": "c9fc8a18ff953887eafffb13ae3dfe74eaf799f9ba2c781b5d45c991873d17b7",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      }
+    ]
   },
   "reconciliation_key": "world-sprite-sorting-layer-adoption",
   "repository_evidence_at_bootstrap": [
