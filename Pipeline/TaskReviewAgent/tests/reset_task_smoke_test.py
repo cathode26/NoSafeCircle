@@ -1890,21 +1890,85 @@ def test_ordinary_reset_modes_are_unchanged(root: Path) -> None:
     )
 
 
-def main() -> int:
-    test_dependency_walk()
-    test_undecomposed_aggregate_is_safe_abandoned_rehearsal_state()
-    test_unpushed_decomposition_baseline_is_safe()
-    with _temporary_test_directory() as directory:
-        root = Path(directory).resolve()
-        test_temporary_test_directory_selection(root)
-        test_path_guard(root / "repo")
-        test_readonly_tree_removal(root)
-        test_branchless_checkout_manifest_guard(root)
-        test_branchless_checkout_source_may_advance_on_main(root)
-        test_branchless_unpublished_candidate_requires_complete_durable_identity(root)
-        test_exact_remote_branch_object_is_fetched_without_local_ref(root)
+# --- shard selection ---------------------------------------------------------
+#
+# Measured wall-clock seconds, 2026-09-22, used ONLY to balance shards evenly.
+# Correctness never depends on these numbers; a stale or missing entry makes a
+# shard slower, not wrong. A case absent here gets _DEFAULT_WEIGHT so that
+# adding a test mis-balances rather than silently dropping it.
+_MEASURED_SECONDS = {
+    'test_branchless_checkout_manifest_guard': 0.0,
+    'test_branchless_checkout_source_may_advance_on_main': 0.8,
+    'test_branchless_unpublished_candidate_requires_complete_durable_identity': 1.5,
+    'test_dependency_walk': 0.0,
+    'test_exact_remote_branch_object_is_fetched_without_local_ref': 1.5,
+    'test_ordinary_reset_modes_are_unchanged': 0.0,
+    'test_path_guard': 1.6,
+    'test_published_decomposition_undo_recovery_cleans_only_stale_coordination': 21.2,
+    'test_published_decomposition_undo_recovery_refuses_any_child_issue': 6.7,
+    'test_published_decomposition_undo_recovery_refuses_later_protected_path': 7.3,
+    'test_published_decomposition_undo_recovery_resumes_partial_cleanup': 29.3,
+    'test_published_recovery_protects_unity_resources_without_false_existing_path': 5.3,
+    'test_published_recovery_refuses_canonical_checkout_linked_elsewhere': 7.3,
+    'test_published_recovery_refuses_parent_linked_worktree': 7.1,
+    'test_published_recovery_resume_rebinds_receipt_authority': 14.0,
+    'test_published_recovery_resume_rechecks_private_repository': 12.6,
+    'test_published_recovery_resume_rechecks_state_file_bytes': 15.4,
+    'test_published_recovery_resume_refuses_closed_issue_without_marker': 13.3,
+    'test_published_recovery_resume_revalidates_before_mutation': 14.0,
+    'test_published_recovery_revalidates_issue_author_before_mutation': 8.2,
+    'test_readonly_tree_removal': 0.0,
+    'test_temporary_test_directory_selection': 0.0,
+    'test_undecomposed_aggregate_is_safe_abandoned_rehearsal_state': 0.0,
+    'test_undo_decomposition_dry_run_is_read_only': 4.8,
+    'test_undo_decomposition_refuses_advanced_child_taskgraph_state': 4.0,
+    'test_undo_decomposition_refuses_changed_graph': 4.4,
+    'test_undo_decomposition_refuses_child_branch': 4.7,
+    'test_undo_decomposition_refuses_child_checkout': 4.7,
+    'test_undo_decomposition_refuses_child_claim_ref': 5.8,
+    'test_undo_decomposition_refuses_child_linked_worktree': 5.1,
+    'test_undo_decomposition_refuses_child_state_file': 4.2,
+    'test_undo_decomposition_refuses_consumed_child_issue': 4.9,
+    'test_undo_decomposition_refuses_dirty_controller': 2.9,
+    'test_undo_decomposition_refuses_later_main': 4.4,
+    'test_undo_decomposition_refuses_origin_movement_after_preflight': 5.2,
+    'test_undo_decomposition_refuses_wrong_plan_identity': 2.6,
+    'test_undo_decomposition_rejects_invalid_graph_delta_cleanly': 2.9,
+    'test_undo_decomposition_restores_exact_source_tree': 8.9,
+    'test_undo_decomposition_resume_does_not_create_a_second_undo': 8.4,
+    'test_undo_decomposition_resume_refuses_dirty_controller': 7.8,
+    'test_undo_decomposition_resume_refuses_wrong_branch': 7.3,
+    'test_undo_decomposition_resume_refuses_wrong_head': 7.7,
+    'test_unpushed_decomposition_baseline_is_safe': 0.0,
+}
+_DEFAULT_WEIGHT = 3.0
 
-        undo_tests = (
+
+def _inventory():
+    """Every case exactly once, in the driver's canonical order.
+
+    Three kinds, because they need different roots:
+      "bare"   - takes no directory
+      "shared" - used to receive one root shared by seven cases; each now gets
+                 its own, since two of them both claim NSC-901 and only avoid
+                 collision through execution order
+      "undo"   - already received a private per-case root
+    """
+    bare = (
+        test_dependency_walk,
+        test_undecomposed_aggregate_is_safe_abandoned_rehearsal_state,
+        test_unpushed_decomposition_baseline_is_safe,
+    )
+    shared = (
+        test_temporary_test_directory_selection,
+        test_path_guard,
+        test_readonly_tree_removal,
+        test_branchless_checkout_manifest_guard,
+        test_branchless_checkout_source_may_advance_on_main,
+        test_branchless_unpublished_candidate_requires_complete_durable_identity,
+        test_exact_remote_branch_object_is_fetched_without_local_ref,
+    )
+    undo_tests = (
             test_undo_decomposition_dry_run_is_read_only,
             test_undo_decomposition_restores_exact_source_tree,
             test_undo_decomposition_refuses_later_main,
@@ -1939,12 +2003,61 @@ def main() -> int:
             test_undo_decomposition_rejects_invalid_graph_delta_cleanly,
             test_ordinary_reset_modes_are_unchanged,
         )
-        for index, undo_test in enumerate(undo_tests):
-            case_root = root / f"undo-{index:02d}"
-            case_root.mkdir(parents=True, exist_ok=True)
-            undo_test(case_root)
-            print(f"PASS {undo_test.__name__}")
-    print("reset_task_smoke_test: PASS")
+    cases = [(f.__name__, "bare", f) for f in bare]
+    cases += [(f.__name__, "shared", f) for f in shared]
+    cases += [(f.__name__, "undo", f) for f in undo_tests]
+    return cases
+
+
+def _shard(cases, index: int, count: int):
+    """Longest-processing-time assignment: deterministic, and balanced by the
+    measured table rather than by case count, because the slowest case is 29s
+    and the fastest is under a second."""
+    bins = [[0.0, []] for _ in range(count)]
+    ordered = sorted(
+        enumerate(cases),
+        key=lambda pair: (-_MEASURED_SECONDS.get(pair[1][0], _DEFAULT_WEIGHT),
+                          pair[0]))
+    for _, case in ordered:
+        target = min(bins, key=lambda b: (b[0], bins.index(b)))
+        target[0] += _MEASURED_SECONDS.get(case[0], _DEFAULT_WEIGHT)
+        target[1].append(case)
+    chosen = bins[index][1]
+    return [case for case in cases if case in chosen]
+
+
+def main(argv=None) -> int:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    index, count = 0, 1
+    if "--list" in argv:
+        for name, kind, _ in _inventory():
+            print(f"{name}\t{kind}\t{_MEASURED_SECONDS.get(name, _DEFAULT_WEIGHT)}")
+        return 0
+    if "--shard" in argv:
+        raw_value = argv[argv.index("--shard") + 1]
+        index, count = (int(part) for part in raw_value.split("/"))
+        if not 0 <= index < count:
+            raise SystemExit(f"--shard {raw_value}: index out of range")
+
+    cases = _inventory()
+    if len(cases) != len({name for name, _, _ in cases}):
+        raise SystemExit("inventory contains a duplicate case name")
+    selected = _shard(cases, index, count) if count > 1 else cases
+
+    with _temporary_test_directory() as directory:
+        root = Path(directory).resolve()
+        for position, (name, kind, function) in enumerate(selected):
+            if kind == "bare":
+                function()
+            else:
+                case_root = root / f"case-{position:02d}"
+                case_root.mkdir(parents=True, exist_ok=True)
+                function(case_root / "repo" if name == "test_path_guard"
+                         else case_root)
+            print(f"PASS {name}")
+
+    label = f" shard {index}/{count}" if count > 1 else ""
+    print(f"reset_task_smoke_test{label}: PASS ({len(selected)} cases)")
     return 0
 
 
