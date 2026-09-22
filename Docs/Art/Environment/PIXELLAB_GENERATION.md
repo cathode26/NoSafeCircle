@@ -12,6 +12,32 @@ one palette is that they do not look like two games. Every piece is measured aga
 luminance 68-73, saturation 19-39, warm pixels 4-5% — and floors are allowed to sit darker, because a
 floor should sit *under* the things standing on it.
 
+## Style lock
+
+**NSC-064 has no separate style-lock document and claims no resource for one**, unlike NSC-078. The
+lock is recorded here instead, in the file the task does claim, so that there is something to check
+this kit against rather than nothing.
+
+| setting | value | why |
+|---|---|---|
+| density | **64 px per world unit** | D-1, the same as the props and the option-B characters. Not 180, which is the wizard's. |
+| key light | **upper left** | matches the door family, the wizard and every NSC-078 prop |
+| stone | violet slate and mauve, lilac edge highlights, mossy green-grey accents | NSC-078's material clause, unchanged |
+| palette band | luminance 68-73, saturation 19-39, warm pixels 4-5% | measured off delivered props, not chosen |
+| floors may sit darker | luminance down to ~49 | a floor belongs *under* the things standing on it |
+| colour depth | **48 colours**, `reduce_colors`, PixelLab only | D-4 forbids scripted palette reduction |
+| floor grid | 32 px Wang tiles, 16 per set | Unity Isometric Tilemaps |
+| wall height | 2.5 world units = 160 px | the room layouts' own `WallHeight` |
+| import | Sprite, Single, 64 ppu, Point, uncompressed, alphaIsTransparency, no mipmaps, **wrap Clamp**, Texture2D | the same nine settings NSC-078's gate names |
+
+**`wrapU: 0` in a serialized `.meta` is Repeat, not Clamp.** The enum reads inverted from the
+intuition, and getting it backwards once failed sixteen assets while every text-level check passed
+them.
+
+**What is NOT locked, and is Vincent's to settle:** whether this direction is the one he wants at all.
+He pre-approved the spend — *"all runs approved"* — while at work; **that cleared the generation, it
+is not a review of the result.** Nothing here has been seen by him.
+
 ## Floors — five rooms, one stone
 
 Wang tilesets, 16 tiles of 32 px, `low top-down`, lineless, transition 0.25 unless noted.
