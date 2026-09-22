@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-069",
-  "contract_revision": 9,
+  "contract_revision": 10,
   "contract_disposition": "active",
   "title": "Independent Room Scene Authoring and Deterministic World Composition Foundation",
   "reconciliation_key": "independent-room-scene-composition",
@@ -61,7 +61,7 @@
     {
       "gate_id": "VAL-001",
       "reference": "Authoritative EditMode composition-foundation validation; corrected 2026-09-17 after the Game Agent found the named fixture has never existed on main and the filter therefore selects zero tests",
-      "requirement": "RoomSceneComposerTests.cs and RoomSceneContractTests.cs each declare part of the single Edit Mode fixture NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests, a partial class; those file names are not type names. That one fixture verifies catalog completeness/order, root and anchor contracts, source-scene immutability, local-reference ownership, build-settings exclusion, and composition failure before canonical save. Sorting is deliberately not among the clauses this gate proves. The project defines exactly one sorting layer, Default, and DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName is that same layer, so RoomSceneComposer.ValidateSortingConvention cannot fail: Unity refuses every attempt to move a renderer off Default when no other layer exists, including assigning sortingLayerID directly (probed in Unity at 7a1bae97a). The guard stays in the code for the day a dedicated layer exists, and this gate claims only what it can prove today."
+      "requirement": "RoomSceneComposerTests.cs and RoomSceneContractTests.cs each declare part of the single Edit Mode fixture NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests, a partial class; those file names are not type names. That one fixture verifies catalog completeness/order, root and anchor contracts, source-scene immutability, local-reference ownership, build-settings exclusion, and composition failure before canonical save. Sorting is deliberately not among the clauses this gate proves. Sorting stays out of this gate because NSC-100 owns it, not because it cannot be proven. Revision 8 excluded it on the premise that the project defined exactly one sorting layer, so Unity refused every attempt to move a renderer off it (probed at 7a1bae97a); that premise expired when d688f8b12 added a second declared layer to ProjectSettings/TagManager.asset, and this revision records the expiry rather than leaving a gate resting on it. NSC-100 repoints DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName at the dedicated layer, extends RoomSceneComposer to validate sorting order and sprite sort point alongside the layer, and writes the negative cases - so duplicating them here would put the same proof in two tasks claiming the same fixture. See INT-003."
     },
     {
       "gate_id": "VAL-002",
@@ -97,8 +97,8 @@
     },
     {
       "obligation_id": "INT-003",
-      "reference": "GER Agent, 2026-09-17, after the Game Agent's Unity probe at 7a1bae97a; Vincent, 2026-09-17: \"Create a new Sorting layer\"",
-      "requirement": "The task that makes the world-sprite sorting convention real - adding a dedicated sorting layer to ProjectSettings/TagManager.asset, repointing DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName at it, and moving every builder-authored renderer onto it - also restores the proof this gate cannot carry today: a room whose Visuals or GameplayGeometry renderer sits on a different sorting layer is reported as an error by RoomSceneComposer.ValidateOpenRoomScene. That case is unwritable while Default is the only layer defined, and becomes writable as soon as a second one exists."
+      "reference": "NSC-100; GER Agent, 2026-09-17, after the Game Agent's Unity probe at 7a1bae97a; Vincent, 2026-09-17: \"Create a new Sorting layer\"",
+      "requirement": "The task that makes the world-sprite sorting convention real - adding a dedicated sorting layer to ProjectSettings/TagManager.asset, repointing DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName at it, and moving every builder-authored renderer onto it - also restores the proof this gate cannot carry today: a room whose Visuals or GameplayGeometry renderer sits on a different sorting layer is reported as an error by RoomSceneComposer.ValidateOpenRoomScene. That case became writable when d688f8b12 added a second declared sorting layer, and NSC-100 is the task that carries it: NSC-100 AC-005 restores the negative sorting-layer case this gate gave up in revision 8 and adds the negative sorting-order case, discharging this obligation."
     }
   ],
   "gdd_evidence": [
@@ -194,6 +194,15 @@
         "base_contract_sha256": "86cc6ecdddb60a780d063320d8605057d20813bb4bf666f17fe9b34c54bffb0c",
         "revised_contract_sha256": "dbe9f70223d4e3157615667ec3d35dbe8c1e755e0feb64bc120241925e43dc90",
         "review": "post-commit closure review (tiered rule, 2026-09-17)"
+      },
+      {
+        "date": "2026-09-22",
+        "reason": "Revision 10: two live fields asserted the project defines exactly one sorting layer, which stopped being true when d688f8b12 added WorldSprites to TagManager.asset. VAL-001 now records that sorting stays out because NSC-100 owns it, not because it cannot be proven. INT-003 says the negative case became writable and names NSC-100 as the task discharging it. The dated Revision 7/8/9 paragraphs in notes are historical records and are unchanged - they were true when written.",
+        "source_head": "11f0d3bc53739bbf9f855c826679f7693bd9300e",
+        "previous_contract_revision": 9,
+        "base_contract_sha256": "4fb86b9392854ab08a5ada02e54140f61d9a42e04a57b77c94f38fd7a9ba79df",
+        "revised_contract_sha256": "817390cd47a9cee385f68873540a6d0fe343af4f7dfce6772d2382079b80fb2f",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
       }
     ]
   }
