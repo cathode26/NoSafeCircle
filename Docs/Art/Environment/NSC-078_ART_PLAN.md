@@ -237,7 +237,7 @@ dark-but-cute horror-comedy dungeon prop, chunky readable proportions, low top-d
 
 - **Light direction:** "upper left" is a proposal. Confirm it against the door family B and wizard highlights in the pilot, then record it in `NSC-078_STYLE_LOCK.md`.
 - **Materials:**
-  - stone: "violet slate and mauve stone with lilac edge highlights and mossy green-grey accents";
+  - stone: "violet slate and mauve stone with lilac edge highlights and mossy green-grey accents; cold violet and mauve purple, no tan, no beige, no warm brown stone";
   - wood: "dark red-brown wood with iron studs";
   - bone: "cream bone, not pure white";
   - candles: "warm amber flames as the brightest pixels";
@@ -256,7 +256,7 @@ dark-but-cute horror-comedy dungeon prop, chunky readable proportions, low top-d
 | `shared_candle_cluster_a` | five melted cream candles of different heights on a small wax puddle, warm amber flames |
 | `re_landmark_guardian_statue_standing` | weathered stone guardian statue on a square plinth, chunky rounded helmet, cracked shield held forward, moss on its shoulders, long side runs diagonally from upper-left to lower-right |
 | `re_landmark_guardian_statue_broken` | the same guardian statue toppled and broken on its plinth, its helmeted head rolled beside it, moss in the cracks. **Make it from the approved standing statue with `edit_image_pro_flash` (reference method) or `create_object_state` so the pair matches** |
-| `re_broken_masonry_blocks` | tumbled carved violet-slate masonry blocks with a broken arch stone |
+| `re_broken_masonry_blocks` | tumbled carved violet-slate masonry blocks lying flat and scattered; nothing standing, nothing upright, no curved shapes |
 | `re_roots_and_mushrooms` | tangle of dark roots with small pale glowing mushrooms and mossy green-grey tufts |
 | `re_debris_broken_handcart` | broken wooden handcart tipped on its side with a snapped wheel and spilled planks |
 | `re_comedy_thumbs_up_skeleton_hand` | tiny cute skeleton hand poking out of a pile of pebbles giving a cheerful thumbs-up |
@@ -349,6 +349,8 @@ dark-but-cute horror-comedy dungeon prop, chunky readable proportions, low top-d
   - Only lossless crop/pad, recorded against the committed raw export.
   - Repairs go through PixelLab only: masked inpaint, preferably `inpaint_image_pro_flash` (byte-exact outside the mask, about 6 generations), with the repaired area recorded as `repair_mask` rectangles in the family inventory; PixelLab's own `reduce_colors`; or regeneration.
   - No local pixel edits, scripted palette reduction or seam repair. Post-and-panel segments need no seams.
+- **Re-rolls (D-5).** *Re-rolls pin both halves, not the half that failed.* When a generation is right in one respect and wrong in another, the re-roll prompt must re-state what was already correct as well as what is being fixed. The masonry re-roll pinned the silhouette alone and the palette drifted from violet slate to warm tan; the next pinned silhouette and palette together and produced Vincent's pick. A re-roll prompt that names only the defect is how a fix trades one reject for another.
+  - **`re_broken_masonry_blocks` is UNTESTED as written.** The proven prompt is round 3's, which kept the arch noun; this entry drops it instead. The first family generation for this entry is therefore a clause verification, not production - one re-roll at 6 printed if it comes back too plain.
 - **Style inputs (AC-001).** The pilot uses text prompts only. Family acquisition may pass `style_image`/`color_image` only from Vincent-approved pilot sources, recorded by SHA-256. R01-R17 and any franchise art are never PixelLab inputs.
 - **Wizard proxy (AC-003).** See section 3.
 - **Who executes:** the Art Director Agent session, under the art bible and `nsc-art-director-guide.md` section 1. Unity import steps (the importer postprocessor and the `.meta` files after import) are run by the Game Agent's `unity-runner`; the Art Director can't run Unity.
