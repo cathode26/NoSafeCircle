@@ -112,7 +112,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
         }
 
         [Test]
-        public void EveryPivotSitsOnTheDrawnGroundLine()
+        public void EveryPivotMatchesItsClassifiedRule()
         {
             var paths = SelectedPngPaths();
             Assert.That(paths, Is.Not.Empty, "no selected prop PNGs; refusing to pass vacuously");
@@ -132,7 +132,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                 importer.ReadTextureSettings(settings);
 
                 Vector2 expected;
-                if (!DungeonPropImportPostprocessor.TryMeasureGroundPivot(path, out expected))
+                if (!DungeonPropImportPostprocessor.TryMeasurePivot(path, out expected))
                 {
                     failures.Add(path + ": could not measure a ground line (fully transparent?)");
                     continue;
@@ -147,6 +147,10 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
 
                 // The catalog rule of (0.5, 0) floats every one of these props, because they
                 // all carry transparent rows below the art. Catch a regression to it.
+                //
+                // `expected` now comes from TryMeasurePivot, which honours the catalog's
+                // pivot_rule, so a lie-within prop expects its centre and this guard still
+                // means what it says: the pivot collapsed to the canvas bottom.
                 if (expected.y > PivotTolerance && settings.spritePivot.y <= PivotTolerance)
                 {
                     floating.Add(path);

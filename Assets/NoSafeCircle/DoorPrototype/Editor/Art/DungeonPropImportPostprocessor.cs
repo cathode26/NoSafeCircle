@@ -25,6 +25,9 @@ namespace NoSafeCircle.DoorPrototype.Editor.Art
 
         public const float PixelsPerUnit = 64f;
 
+        public const string CatalogPath =
+            "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/PropCatalog.json";
+
         public static bool IsDungeonProp(string assetPath)
         {
             return assetPath != null
@@ -55,13 +58,144 @@ namespace NoSafeCircle.DoorPrototype.Editor.Art
             importer.spriteBorder = Vector4.zero;
 
             Vector2 pivot;
-            if (TryMeasureGroundPivot(assetPath, out pivot))
+            if (TryMeasurePivot(assetPath, out pivot))
             {
                 var settings = new TextureImporterSettings();
                 importer.ReadTextureSettings(settings);
                 settings.spriteAlignment = (int)SpriteAlignment.Custom;
                 settings.spritePivot = pivot;
                 importer.SetTextureSettings(settings);
+            }
+        }
+
+        /// <summary>
+        /// The pivot this prop should carry, honouring the catalog's pivot_rule.
+        ///
+        /// Most props STAND ON a base and take the drawn ground line. A few LIE WITHIN an
+        /// area -- a floor sigil, a ring of candles, bones strewn flat -- and for those the
+        /// bottom edge of the sprite is the NEAR RIM of the shape, not a base. Anchoring a
+        /// lying prop to its bottom edge puts that rim at the placement point and pushes
+        /// the whole object behind where it belongs: measured at 0.594 world units for
+        /// ca_sigil_floor_mark and 0.492 for shared_bone_pile_b, against 0.234 for the
+        /// wizard hover defect that produced NSC-075 AC-008.
+        ///
+        /// The classification CANNOT be derived from the footprint. Ranking all 45 props by
+        /// height over depth gives 0.00 / 0.20 / 0.33 / 0.37 / 0.40 -- a continuum with no
+        /// break, so any threshold would be tuned to whichever cases were looked at first.
+        /// It is an art judgement, so the catalog records it and this reads it.
+        ///
+        /// Unknown or unlisted falls back to the ground line, so a prop that has never been
+        /// classified imports exactly as it does today rather than silently moving.
+        /// </summary>
+        public static bool TryMeasurePivot(string assetPath, out Vector2 pivot)
+        {
+            if (!LiesWithinItsFootprint(assetPath))
+            {
+                return TryMeasureGroundPivot(assetPath, out pivot);
+            }
+
+            pivot = new Vector2(0.5f, 0f);
+            int top, bottom, height;
+            if (!TryMeasureAlphaRows(assetPath, out top, out bottom, out height))
+            {
+                return false;
+            }
+
+            float raw = (height - (top + bottom) * 0.5f) / height;
+            pivot = new Vector2(0.5f, Mathf.Round(raw * 1000000f) / 1000000f);
+            return true;
+        }
+
+        private static bool LiesWithinItsFootprint(string assetPath)
+        {
+            var id = Path.GetFileNameWithoutExtension(assetPath);
+            var catalog = AssetDatabase.LoadAssetAtPath<TextAsset>(CatalogPath);
+            if (catalog == null)
+            {
+                return false;
+            }
+
+            // Deliberately a substring scan rather than a JSON parse: the postprocessor runs
+            // during import, the catalog is itself an imported asset, and a parse failure
+            // here would silently reclassify every prop. A miss falls back to the ground
+            // line, which is the safe direction.
+            var text = catalog.text;
+            var at = text.IndexOf("\"" + id + "\"", System.StringComparison.Ordinal);
+            if (at < 0)
+            {
+                return false;
+            }
+
+            var rule = text.IndexOf("\"pivot_rule\"", at, System.StringComparison.Ordinal);
+            if (rule < 0)
+            {
+                return false;
+            }
+
+            var nextEntry = text.IndexOf("\"id\":", at + 1, System.StringComparison.Ordinal);
+            if (nextEntry >= 0 && rule > nextEntry)
+            {
+                return false;                      // that pivot_rule belongs to a later entry
+            }
+
+            var line = text.Substring(rule, System.Math.Min(64, text.Length - rule));
+            return line.Contains("lie_within");
+        }
+
+        private static bool TryMeasureAlphaRows(string assetPath, out int top, out int bottom,
+                                                out int height)
+        {
+            top = bottom = 0;
+            height = 0;
+            if (!File.Exists(assetPath))
+            {
+                return false;
+            }
+
+            var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            try
+            {
+                if (!texture.LoadImage(File.ReadAllBytes(assetPath), false))
+                {
+                    return false;
+                }
+
+                height = texture.height;
+                int width = texture.width;
+                var pixels = texture.GetPixels32();
+
+                int lowest = -1, highest = -1;
+                for (int y = 0; y < height; y++)
+                {
+                    int rowStart = y * width;
+                    for (int x = 0; x < width; x++)
+                    {
+                        if (pixels[rowStart + x].a != 0)
+                        {
+                            if (lowest < 0)
+                            {
+                                lowest = y;
+                            }
+                            highest = y;
+                            break;
+                        }
+                    }
+                }
+
+                if (lowest < 0)
+                {
+                    return false;
+                }
+
+                // rows run bottom-up; convert to top-down so the caller's arithmetic matches
+                // the alpha bounding box everything else is measured against
+                top = height - 1 - highest;
+                bottom = height - lowest;
+                return true;
+            }
+            finally
+            {
+                Object.DestroyImmediate(texture);
             }
         }
 

@@ -30,7 +30,7 @@ REQUIRED_FIELDS = (
     "has_transparent_pixels", "pixels_per_unit", "footprint_world_size", "intended_rooms",
     "renderer_use", "pivot_normalized", "sorting_anchor_normalized", "identity_category",
     "variant_group", "facing", "segment_role", "footprint_reference", "placement_role",
-    "collision_intent", "provenance_document",
+    "collision_intent", "provenance_document", "pivot_rule",
 )
 
 ALLOWED_ROOMS = {
@@ -257,14 +257,30 @@ def validate(catalog_path: pathlib.Path, repo_root: pathlib.Path):
             errors.append(f"{eid}: has_transparent_pixels {e.get('has_transparent_pixels')} "
                           f"but measured {transparent}")
 
-        # The pivot is the drawn ground line, not the canvas bottom. (0.5, 0) floats a prop
-        # whose art stops short of the bottom edge, which is every prop in this family.
+        # Most props STAND ON a base and take the drawn ground line. A few LIE WITHIN an
+        # area -- a floor sigil, a ring of candles, bones strewn flat -- whose bottom edge is
+        # the near RIM of the shape rather than a base; anchoring those to the bottom pushes
+        # them behind their placement point by up to 0.65 world units at 64 PPU.
+        #
+        # The classification cannot be derived from the geometry: ranking the family by
+        # height over depth gives a continuum with no break, so any threshold would be tuned
+        # to whichever cases were looked at first. The catalog records it and this reads it.
+        # Anything unclassified is treated as ground_line, so an unlabelled entry behaves as
+        # it always has.
+        rule = e.get("pivot_rule", "ground_line")
+        if rule not in ("ground_line", "lie_within"):
+            errors.append(f"{eid}: pivot_rule {rule!r} is not ground_line or lie_within")
         pivot = e.get("pivot_normalized") or {}
         if bounds is not None and isinstance(pivot, dict):
-            expected_y = (h - (bounds["y"] + bounds["height"])) / h
+            if rule == "lie_within":
+                expected_y = (h - (bounds["y"] + bounds["height"] / 2)) / h
+                what = "its footprint centre"
+            else:
+                expected_y = (h - (bounds["y"] + bounds["height"])) / h
+                what = "the drawn ground line"
             if abs(float(pivot.get("y", -1)) - expected_y) > 0.002:
-                errors.append(f"{eid}: pivot_normalized.y {pivot.get('y')} but the drawn "
-                              f"ground line is {round(expected_y, 6)}")
+                errors.append(f"{eid}: pivot_normalized.y {pivot.get('y')} but {what} "
+                              f"is {round(expected_y, 6)} (pivot_rule={rule})")
 
         mask = e.get("repair_mask")
         if mask is not None:

@@ -45,7 +45,8 @@
       "footprint_reference": "art direction",
       "placement_role": "supporting_cluster",
       "collision_intent": "decorative_none",
-      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "ba_collapsed_reading_table_z",
@@ -89,7 +90,8 @@
       "footprint_reference": "BoneArchiveLayout.CollapsedFurnitureBA1",
       "placement_role": "supporting_cluster",
       "collision_intent": "downstream_review_required",
-      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "ba_comedy_skull_with_spectacles",
@@ -133,7 +135,8 @@
       "footprint_reference": "art direction",
       "placement_role": "supporting_cluster",
       "collision_intent": "decorative_none",
-      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "ba_landmark_chained_grimoire_lectern",
@@ -177,7 +180,8 @@
       "footprint_reference": "art direction",
       "placement_role": "focal_landmark",
       "collision_intent": "downstream_review_required",
-      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "ba_shelf_bank_z_end",
@@ -221,7 +225,8 @@
       "footprint_reference": "BoneArchiveLayout.ShelfA/B/C",
       "placement_role": "supporting_cluster",
       "collision_intent": "downstream_review_required",
-      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "ba_shelf_bank_z_middle",
@@ -265,7 +270,8 @@
       "footprint_reference": "BoneArchiveLayout.ShelfA/B/C",
       "placement_role": "supporting_cluster",
       "collision_intent": "downstream_review_required",
-      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "ba_shelf_bank_z_start",
@@ -309,7 +315,8 @@
       "footprint_reference": "BoneArchiveLayout.ShelfA/B/C",
       "placement_role": "supporting_cluster",
       "collision_intent": "downstream_review_required",
-      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "ba_spilled_scroll_basket",
@@ -353,7 +360,8 @@
       "footprint_reference": "art direction",
       "placement_role": "supporting_cluster",
       "collision_intent": "decorative_none",
-      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "ca_altar_ash_bowl_x",
@@ -397,7 +405,8 @@
       "footprint_reference": "art direction",
       "placement_role": "supporting_cluster",
       "collision_intent": "downstream_review_required",
-      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "ca_ash_heap",
@@ -441,7 +450,8 @@
       "footprint_reference": "art direction",
       "placement_role": "supporting_cluster",
       "collision_intent": "decorative_none",
-      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "ca_candelabra_tall",
@@ -485,7 +495,8 @@
       "footprint_reference": "art direction",
       "placement_role": "wall_rhythm",
       "collision_intent": "downstream_review_required",
-      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "ca_comedy_offering_plate_sock",
@@ -529,7 +540,8 @@
       "footprint_reference": "art direction",
       "placement_role": "supporting_cluster",
       "collision_intent": "decorative_none",
-      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "ca_landmark_cracked_bell_frame_x",
@@ -573,7 +585,8 @@
       "footprint_reference": "art direction",
       "placement_role": "focal_landmark",
       "collision_intent": "downstream_review_required",
-      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "ca_pew_x_end",
@@ -617,7 +630,8 @@
       "footprint_reference": "ChapelOfAshLayout.PewFootprints",
       "placement_role": "supporting_cluster",
       "collision_intent": "downstream_review_required",
-      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "ca_pew_x_middle",
@@ -661,7 +675,8 @@
       "footprint_reference": "ChapelOfAshLayout.PewFootprints",
       "placement_role": "supporting_cluster",
       "collision_intent": "downstream_review_required",
-      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "ca_pew_x_start",
@@ -705,7 +720,8 @@
       "footprint_reference": "ChapelOfAshLayout.PewFootprints",
       "placement_role": "supporting_cluster",
       "collision_intent": "downstream_review_required",
-      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "ca_sigil_floor_mark",
@@ -736,11 +752,11 @@
       "renderer_use": "SpriteRenderer",
       "pivot_normalized": {
         "x": 0.5,
-        "y": 0.11
+        "y": 0.49
       },
       "sorting_anchor_normalized": {
         "x": 0.5,
-        "y": 0.11
+        "y": 0.49
       },
       "identity_category": "sigil",
       "variant_group": "sigil",
@@ -749,7 +765,8 @@
       "footprint_reference": "ChapelOfAshLayout.CentralAisleWidth (4.0)",
       "placement_role": "background",
       "collision_intent": "decorative_none",
-      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md",
+      "pivot_rule": "lie_within"
     },
     {
       "id": "fr_bench_x",
@@ -793,7 +810,8 @@
       "footprint_reference": "FinalRoomLayout.WestBenchBounds/EastBenchBounds",
       "placement_role": "supporting_cluster",
       "collision_intent": "downstream_review_required",
-      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "fr_bone_chain_post",
@@ -837,7 +855,8 @@
       "footprint_reference": "art direction (placed in rows around the bounded area)",
       "placement_role": "hazard_boundary",
       "collision_intent": "downstream_existing_geometry",
-      "provenance_document": "Docs/Art/Environment/HAZARD_ROUTE_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/HAZARD_ROUTE_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "fr_comedy_party_hat_skull_cake",
@@ -881,7 +900,8 @@
       "footprint_reference": "art direction",
       "placement_role": "supporting_cluster",
       "collision_intent": "decorative_none",
-      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "fr_landmark_bone_throne",
@@ -925,7 +945,8 @@
       "footprint_reference": "FinalRoomLayout.FinalObstacleBounds (centre piece of the 5x5 obstacle)",
       "placement_role": "focal_landmark",
       "collision_intent": "downstream_review_required",
-      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "fr_ritual_bone_candle_ring",
@@ -956,11 +977,11 @@
       "renderer_use": "SpriteRenderer",
       "pivot_normalized": {
         "x": 0.5,
-        "y": 0.09375
+        "y": 0.526042
       },
       "sorting_anchor_normalized": {
         "x": 0.5,
-        "y": 0.09375
+        "y": 0.526042
       },
       "identity_category": "ritual_detail",
       "variant_group": "ritual_detail",
@@ -969,7 +990,8 @@
       "footprint_reference": "art direction",
       "placement_role": "supporting_cluster",
       "collision_intent": "decorative_none",
-      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md",
+      "pivot_rule": "lie_within"
     },
     {
       "id": "fr_round_table_with_stools",
@@ -1013,7 +1035,8 @@
       "footprint_reference": "art direction",
       "placement_role": "supporting_cluster",
       "collision_intent": "downstream_review_required",
-      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "lv_barrel",
@@ -1057,7 +1080,8 @@
       "footprint_reference": "LowerVaultLayout.WestStoragePile/EastStoragePile/NorthWestStorageBar",
       "placement_role": "supporting_cluster",
       "collision_intent": "decorative_none",
-      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "lv_broken_ledge_chunk",
@@ -1101,7 +1125,8 @@
       "footprint_reference": "NSC-047 rev 4 LV-H1 edge, decorative only",
       "placement_role": "hazard_boundary",
       "collision_intent": "downstream_existing_geometry",
-      "provenance_document": "Docs/Art/Environment/HAZARD_ROUTE_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/HAZARD_ROUTE_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "lv_comedy_barrel_striped_socks",
@@ -1145,7 +1170,8 @@
       "footprint_reference": "LowerVaultLayout.WestStoragePile (cluster piece)",
       "placement_role": "supporting_cluster",
       "collision_intent": "decorative_none",
-      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "lv_crate",
@@ -1189,7 +1215,8 @@
       "footprint_reference": "LowerVaultLayout storage piles",
       "placement_role": "supporting_cluster",
       "collision_intent": "decorative_none",
-      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "lv_iron_rail_x",
@@ -1233,7 +1260,8 @@
       "footprint_reference": "NSC-047 rev 4 crossing edge; collision_intent downstream_existing_geometry",
       "placement_role": "route_edge",
       "collision_intent": "downstream_existing_geometry",
-      "provenance_document": "Docs/Art/Environment/HAZARD_ROUTE_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/HAZARD_ROUTE_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "lv_iron_rail_z",
@@ -1277,7 +1305,8 @@
       "footprint_reference": "NSC-047 rev 4 crossing edge; collision_intent downstream_existing_geometry",
       "placement_role": "route_edge",
       "collision_intent": "downstream_existing_geometry",
-      "provenance_document": "Docs/Art/Environment/HAZARD_ROUTE_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/HAZARD_ROUTE_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "lv_landmark_sluice_wheel_gate_x",
@@ -1321,7 +1350,8 @@
       "footprint_reference": "art direction",
       "placement_role": "focal_landmark",
       "collision_intent": "downstream_review_required",
-      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "lv_sluice_slime_spill",
@@ -1365,7 +1395,8 @@
       "footprint_reference": "NSC-047 rev 4 LV-H1 edge, decorative only",
       "placement_role": "hazard_boundary",
       "collision_intent": "downstream_existing_geometry",
-      "provenance_document": "Docs/Art/Environment/HAZARD_ROUTE_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/HAZARD_ROUTE_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "re_broken_masonry_blocks",
@@ -1409,7 +1440,8 @@
       "footprint_reference": "RuinedEntryLayout.NorthWestClusterDressingBounds",
       "placement_role": "wall_rhythm",
       "collision_intent": "downstream_review_required",
-      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "re_comedy_thumbs_up_skeleton_hand",
@@ -1453,7 +1485,8 @@
       "footprint_reference": "art direction",
       "placement_role": "supporting_cluster",
       "collision_intent": "decorative_none",
-      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "re_debris_broken_handcart",
@@ -1497,7 +1530,8 @@
       "footprint_reference": "RuinedEntryLayout.RubbleABounds (cluster piece)",
       "placement_role": "supporting_cluster",
       "collision_intent": "decorative_none",
-      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "re_landmark_guardian_statue_broken",
@@ -1541,7 +1575,8 @@
       "footprint_reference": "RuinedEntryLayout.D1LandmarkEastDressingBounds",
       "placement_role": "focal_landmark",
       "collision_intent": "downstream_review_required",
-      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "re_landmark_guardian_statue_standing",
@@ -1585,7 +1620,8 @@
       "footprint_reference": "RuinedEntryLayout.D1LandmarkWestDressingBounds",
       "placement_role": "focal_landmark",
       "collision_intent": "downstream_review_required",
-      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "re_roots_and_mushrooms",
@@ -1629,7 +1665,8 @@
       "footprint_reference": "RuinedEntryLayout.WestWallClusterDressingBounds",
       "placement_role": "supporting_cluster",
       "collision_intent": "decorative_none",
-      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "shared_bone_pile_a",
@@ -1675,7 +1712,8 @@
       "footprint_reference": "art direction",
       "placement_role": "supporting_cluster",
       "collision_intent": "decorative_none",
-      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "shared_bone_pile_b",
@@ -1708,11 +1746,11 @@
       "renderer_use": "SpriteRenderer",
       "pivot_normalized": {
         "x": 0.5,
-        "y": 0.041667
+        "y": 0.479167
       },
       "sorting_anchor_normalized": {
         "x": 0.5,
-        "y": 0.041667
+        "y": 0.479167
       },
       "identity_category": "bone_pile",
       "variant_group": "bone_pile",
@@ -1721,7 +1759,8 @@
       "footprint_reference": "art direction",
       "placement_role": "supporting_cluster",
       "collision_intent": "decorative_none",
-      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md",
+      "pivot_rule": "lie_within"
     },
     {
       "id": "shared_candle_cluster_a",
@@ -1766,7 +1805,8 @@
       "footprint_reference": "art direction",
       "placement_role": "supporting_cluster",
       "collision_intent": "decorative_none",
-      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "shared_rubble_pile_a",
@@ -1810,7 +1850,8 @@
       "footprint_reference": "RuinedEntryLayout.RubbleABounds/RubbleBBounds (cluster piece)",
       "placement_role": "supporting_cluster",
       "collision_intent": "decorative_none",
-      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "shared_rubble_scatter_b",
@@ -1856,7 +1897,8 @@
       "footprint_reference": "RuinedEntryLayout.RubbleABounds/RubbleBBounds (cluster piece)",
       "placement_role": "supporting_cluster",
       "collision_intent": "decorative_none",
-      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "shared_stone_column",
@@ -1901,7 +1943,8 @@
       "footprint_reference": "ChapelOfAshLayout.ColumnBounds; LowerVaultLayout.CentralColumnCluster",
       "placement_role": "wall_rhythm",
       "collision_intent": "downstream_review_required",
-      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "shared_web_corner_a",
@@ -1948,7 +1991,8 @@
       "footprint_reference": "art direction (far corners only; near corners are cutaway)",
       "placement_role": "supporting_cluster",
       "collision_intent": "decorative_none",
-      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "shared_web_drape_b",
@@ -1994,7 +2038,8 @@
       "footprint_reference": "art direction",
       "placement_role": "supporting_cluster",
       "collision_intent": "decorative_none",
-      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/PROPS_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     }
   ]
 }
