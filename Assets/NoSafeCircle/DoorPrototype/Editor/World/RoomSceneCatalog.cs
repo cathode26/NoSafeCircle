@@ -109,19 +109,19 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
                 new RoomCatalogEntry(
                     RoomId.BoneArchive,
                     "Assets/Scenes/Rooms/BoneArchive.unity",
-                    new RoomBounds(-10f, 10f, 0f, 20f)),
+                    new RoomBounds(-12f, 12f, 0f, 20f)),
                 new RoomCatalogEntry(
                     RoomId.ChapelOfAsh,
                     "Assets/Scenes/Rooms/ChapelOfAsh.unity",
-                    new RoomBounds(-12f, 12f, 20f, 42f)),
+                    new RoomBounds(-18f, 18f, 20f, 54f)),
                 new RoomCatalogEntry(
                     RoomId.LowerVault,
                     "Assets/Scenes/Rooms/LowerVault.unity",
-                    new RoomBounds(-11f, 11f, 42f, 64f)),
+                    new RoomBounds(-20f, 20f, 54f, 76f)),
                 new RoomCatalogEntry(
                     RoomId.FinalRoom,
                     "Assets/Scenes/Rooms/FinalRoom.unity",
-                    new RoomBounds(-12f, 12f, 64f, 86f))
+                    new RoomBounds(-15f, 15f, 76f, 104f))
             };
         }
 
@@ -139,13 +139,13 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
                     new Vector2(6f, 20f), openingWidth),
                 new DoorSequenceEntry(
                     DoorId.D3, RoomId.ChapelOfAsh, RoomId.LowerVault, false,
-                    new Vector2(-6f, 42f), openingWidth),
+                    new Vector2(-8f, 54f), openingWidth),
                 new DoorSequenceEntry(
                     DoorId.D4, RoomId.LowerVault, RoomId.FinalRoom, false,
-                    new Vector2(4f, 64f), openingWidth),
+                    new Vector2(4f, 76f), openingWidth),
                 new DoorSequenceEntry(
                     DoorId.D5, RoomId.FinalRoom, RoomId.FinalRoom, true,
-                    new Vector2(0f, 86f), openingWidth)
+                    new Vector2(0f, 104f), openingWidth)
             };
         }
 
