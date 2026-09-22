@@ -1111,5 +1111,98 @@ class TheProductionPathMaterializesANewAssetAndItsSidecar(unittest.TestCase):
             journal.get("registered_generated_asset_metas"),
         )
 
+class UnityLineEndingChurnMustNotFailValidation(unittest.TestCase):
+    """A file Unity rewrites with different line endings but identical bytes.
+
+    Measured on NSC-046 at 19:16:51Z: it MATERIALIZED, then validation refused
+    with "authoritative validation requires a clean task checkout" over
+    ProjectSettings/Packages/com.unity.testtools.codecoverage/Settings.json --
+    a file in no task's contract.
+
+        git diff --name-only HEAD   ->  ''      boundary saw nothing
+        git status --porcelain=v1   ->  ' M '   validation saw it
+
+    Nothing to do with the task. Two checks asking the same question two
+    different ways.
+    """
+
+    SETTINGS = "ProjectSettings/Packages/com.unity.testtools.codecoverage/Settings.json"
+
+    def setUp(self):
+        test_root = Path.cwd() / ".test-work"
+        test_root.mkdir(exist_ok=True)
+        self.root = test_root / f"assistant-eol-{uuid.uuid4().hex}"
+        self.root.mkdir()
+        self.addCleanup(shutil.rmtree, self.root, True)
+        self.checkout = self.root / "checkout"
+        self.checkout.mkdir()
+        self.records = self.root / "records"
+        self.records.mkdir()
+        self.git("init", "-q")
+        name, email = validated_agent_git_identity()
+        self.git("config", "user.name", name)
+        self.git("config", "user.email", email)
+        # The condition under test: git normalises to CRLF in the worktree.
+        self.git("config", "core.autocrlf", "true")
+        for relative, content in (
+            (CHAPEL_BUILDER, "class ChapelOfAshSceneBuilder {}\n"),
+            (CHAPEL_SCENE, "old chapel scene\n"),
+            (self.SETTINGS, '{"m_Enabled": false}\n'),
+        ):
+            target = self.checkout / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content, encoding="utf-8", newline="\n")
+        self.git("add", ".")
+        self.git("commit", "-q", "-m", "fixture")
+        # Normalise the worktree the way a fresh clone would have it.
+        self.git("rm", "-q", "--cached", "-r", ".")
+        self.git("reset", "-q", "--hard")
+        self.unity = self.root / "Unity.exe"
+        self.unity.write_bytes(b"fixture")
+
+    def git(self, *args: str) -> str:
+        result = subprocess.run(
+            ("git", "-C", str(self.checkout), *args), capture_output=True, check=False,
+        )
+        if result.returncode:
+            raise AssertionError(result.stderr.decode(errors="replace"))
+        return result.stdout.decode().strip()
+
+    def builder_rewriting_settings_with_lf(self, args, cwd, timeout):
+        """Unity writes that file with LF; the bytes are otherwise identical."""
+        (cwd / CHAPEL_SCENE).write_text("generated chapel scene\n", newline="\n")
+        (cwd / self.SETTINGS).write_bytes(b'{"m_Enabled": false}\n')
+        return subprocess.CompletedProcess(args, 0, b"ok\n", b"")
+
+    def test_the_checkout_is_clean_by_validations_own_test(self):
+        """FAILING-BEFORE: the boundary used diff and could not see this.
+
+        Asserts the exact question authoritative_candidate_validation asks,
+        because asking it differently is the whole defect.
+        """
+        run_door_prototype_builder(
+            checkout=self.checkout, task_id="NSC-046",
+            state_root=self.records, initial_changed_paths=(),
+            unity_executable=self.unity,
+            unity_command_runner=self.builder_rewriting_settings_with_lf,
+            allowed_generated_paths=(CHAPEL_SCENE,),
+            allowed_generated_roots=(),
+        )
+        status = self.git("status", "--porcelain=v1", "--untracked-files=all")
+        # The builder's OWN output is expected to be dirty here -- the commit
+        # happens later. What must not survive is incidental churn in a file no
+        # contract names, which is what validation refused on NSC-046.
+        self.assertNotIn(
+            self.SETTINGS, status,
+            "incidental line-ending churn must be restored, not carried into "
+            "the commit and then refused by validation",
+        )
+        for line in status.splitlines():
+            self.assertIn(
+                CHAPEL_SCENE, line,
+                f"only builder output may remain dirty; found: {line!r}",
+            )
+
+
 if __name__ == "__main__":
     unittest.main()

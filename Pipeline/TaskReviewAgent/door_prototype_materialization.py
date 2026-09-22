@@ -158,10 +158,58 @@ def _git_lines(root: Path, *args: str) -> tuple[str, ...]:
     return tuple(sorted((line for line in output.splitlines() if line), key=str.casefold))
 
 
+def _status_paths(root: Path) -> tuple[tuple[str, str], ...]:
+    """Every path git reports as not-clean, with its XY status code.
+
+    Uses the EXACT command authoritative validation uses, because the two must
+    agree. `git diff --name-only HEAD` does not: a file whose only difference
+    is line endings normalizes away under diff and still reports ` M` under
+    status. Measured on NSC-046, where Unity rewrote a settings file with LF,
+    the bytes were provably identical, and the boundary could not see what
+    validation then refused.
+    """
+    output = _decode(
+        _git(root, "status", "--porcelain=v1", "-z", "--untracked-files=all").stdout,
+        "Git status",
+    )
+    records = [item for item in output.split("\0") if item]
+    entries: list[tuple[str, str]] = []
+    index = 0
+    while index < len(records):
+        record = records[index]
+        index += 1
+        if len(record) < 4:
+            continue
+        code, path = record[:2], record[3:]
+        entries.append((code, path))
+        if code[0] in {"R", "C"} or code[1] in {"R", "C"}:
+            # A rename or copy carries its SOURCE as the next NUL record. The
+            # source is a change too, and skipping it here would silently drop
+            # a path from the boundary.
+            if index < len(records):
+                entries.append((code, records[index]))
+                index += 1
+    return tuple(entries)
+
+
 def changed_paths(root: Path) -> tuple[str, ...]:
-    tracked = _git_lines(root, "diff", "--name-only", "HEAD", "--")
-    untracked = _git_lines(root, "ls-files", "--others", "--exclude-standard")
-    return tuple(sorted(set(tracked).union(untracked), key=str.casefold))
+    return tuple(sorted({path for _code, path in _status_paths(root)},
+                        key=str.casefold))
+
+
+def tracked_changed_paths(root: Path) -> tuple[str, ...]:
+    """Not-clean paths that git already tracks, so they can be restored."""
+    return tuple(sorted(
+        {path for code, path in _status_paths(root) if code != "??"},
+        key=str.casefold,
+    ))
+
+
+def untracked_paths(root: Path) -> tuple[str, ...]:
+    return tuple(sorted(
+        {path for code, path in _status_paths(root) if code == "??"},
+        key=str.casefold,
+    ))
 
 
 def is_expected_nsc032_folder_meta(root: Path, path: str, content: bytes) -> bool:
@@ -561,8 +609,10 @@ def run_door_prototype_builder(
             + (f"\n{detail}" if detail else "")
         )
 
-    tracked = _git_lines(root, "diff", "--name-only", "HEAD", "--")
-    untracked = _git_lines(root, "ls-files", "--others", "--exclude-standard")
+    # Same source of truth as validation, so the boundary can see and restore
+    # what validation would otherwise refuse the checkout for.
+    tracked = tracked_changed_paths(root)
+    untracked = untracked_paths(root)
     initial_set = set(initial)
 
     def permitted(path: str) -> bool:
