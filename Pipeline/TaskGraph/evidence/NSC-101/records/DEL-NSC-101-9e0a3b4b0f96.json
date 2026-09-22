@@ -1,0 +1,110 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "2d5c8a1dc5d4bba469fb158b27967717309e5b7ad6f8ab4a38fbbd05ad583c9f"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "c9ff7e42ce4832cb40e1362a4418dc7bc1edacff",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneCatalog.cs",
+      "role": "edited_catalog_source (CreateCanonicalRooms/CreateCanonicalDoors literals, AC-001/AC-002)"
+    },
+    {
+      "blob_sha": "9156024d68d41b61d2035b9d47d5731dd94328a9",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/World/RoomSceneCatalog.asset",
+      "role": "regenerated_catalog_asset (Build Room Scene Catalog menu command output, AC-003)"
+    },
+    {
+      "blob_sha": "7f24e195cfd7c41c81b8674253ad60430415e06b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/World/RoomSceneCatalogGeometryTests.cs",
+      "role": "new_geometry_fixture (VAL-001/VAL-002, mutation-proven non-vacuous)"
+    },
+    {
+      "blob_sha": "e8829366395549c671fc6ffec6aeb53851458e5e",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/World/RoomSceneCatalogGeometryTests.cs.meta",
+      "role": "fixture_meta"
+    }
+  ],
+  "delivery": {
+    "base_commit": "b440c4d0a582c990aa0bf06183d3e578456833c6",
+    "candidate_commit": "fb36f012fff47a3f52caf94d21b3c3f2a54d1af2",
+    "integrated_commit": "9e0a3b4b0f9654709da8edef7f21a30de47e7567",
+    "integrated_tree": "e2574365f7f582bcd21bda1d9b823b8fd05bf8a2"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "eb5120b0d3b91d56fcf9496724af6d6ed7c2efd0",
+          "path": "Pipeline/TaskGraph/evidence/NSC-101/artifacts/NSC101-RoomCatalogGeometry-EditMode-9e0a3b4b0f96.xml"
+        },
+        {
+          "blob_sha": "5efb6a024ebe515b634f27554073a755ae636f18",
+          "path": "Pipeline/TaskGraph/evidence/NSC-101/artifacts/NSC101-RoomCatalogGeometry-EditMode-9e0a3b4b0f96.log"
+        },
+        {
+          "blob_sha": "7b5fe23e5943d70ed58b89fba55fcd5b7f8dfcf5",
+          "path": "Pipeline/TaskGraph/evidence/NSC-101/artifacts/NSC101-RoomCatalogGeometry-manifest-9e0a3b4b0f96.json"
+        },
+        {
+          "blob_sha": "9628947ec745e0978a2a89e948c9c6455b6b1d97",
+          "path": "Pipeline/TaskGraph/evidence/NSC-101/artifacts/NSC101-MutationCheck-LowerVaultMinZ-9e0a3b4b0f96.xml"
+        },
+        {
+          "blob_sha": "996ff496063debd4d8df2f3bf9563226469d43a5",
+          "path": "Pipeline/TaskGraph/evidence/NSC-101/artifacts/NSC101-MutationCheck-LowerVaultMinZ-9e0a3b4b0f96.log"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "run_unity_tests_clean.ps1 EditMode at commit 9e0a3b4b0f9654709da8edef7f21a30de47e7567 (tree e2574365f7f582bcd21bda1d9b823b8fd05bf8a2), Unity 6000.1.8f1, filter NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCatalogGeometryTests, exit 0, clean before and after (validation-manifest.json binds commit/tree/hashes). test-results.xml: testcasecount=4, result=Passed, total=4 passed=4 failed=0 skipped=0, including CanonicalRoomSource_MatchesEveryContractValue and CanonicalDoorSource_MatchesEveryContractValue, which assert every AC-001/AC-002 value against RoomSceneCatalog.CreateCanonicalRooms()/CreateCanonicalDoors(): RuinedEntry's RoomBounds (-14,14,-26,0) verified unchanged; BoneArchive (-12,12,0,20), ChapelOfAsh (-18,18,20,54), LowerVault (-20,20,54,76), FinalRoom (-15,15,76,104); D1 (0,0) and D2 (6,20) verified unchanged; D3 (-8,54), D4 (4,76), D5 (0,104); room and door order; every sceneAssetPath; every openingWidth of 3; D5 as the only isFinal door, asserted as a set property as well as per entry. Mutation-proof of non-vacuousness: on a throwaway branch with exactly one literal changed (LowerVault MinZ 54f->53f), CanonicalRoomSource_MatchesEveryContractValue FAILED with the verbatim message \"CreateCanonicalRooms() room[3] (expected LowerVault): RoomBounds.MinZ differs.\\n  Expected: 54.0f\\n  But was:  53.0f\" (mutation-xml/mutation-log, run C:\\nscrev\\reports\\unity-runner\\nsc101-mutation-check-20260922-040943.log, copied durably to C:/nscrev/reports/delivery/NSC-101/mutation-check/ before this record). This proves the fixture actually exercises the source values rather than passing unconditionally.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "eb5120b0d3b91d56fcf9496724af6d6ed7c2efd0",
+          "path": "Pipeline/TaskGraph/evidence/NSC-101/artifacts/NSC101-RoomCatalogGeometry-EditMode-9e0a3b4b0f96.xml"
+        },
+        {
+          "blob_sha": "5efb6a024ebe515b634f27554073a755ae636f18",
+          "path": "Pipeline/TaskGraph/evidence/NSC-101/artifacts/NSC101-RoomCatalogGeometry-EditMode-9e0a3b4b0f96.log"
+        },
+        {
+          "blob_sha": "7b5fe23e5943d70ed58b89fba55fcd5b7f8dfcf5",
+          "path": "Pipeline/TaskGraph/evidence/NSC-101/artifacts/NSC101-RoomCatalogGeometry-manifest-9e0a3b4b0f96.json"
+        },
+        {
+          "blob_sha": "9628947ec745e0978a2a89e948c9c6455b6b1d97",
+          "path": "Pipeline/TaskGraph/evidence/NSC-101/artifacts/NSC101-MutationCheck-LowerVaultMinZ-9e0a3b4b0f96.xml"
+        },
+        {
+          "blob_sha": "996ff496063debd4d8df2f3bf9563226469d43a5",
+          "path": "Pipeline/TaskGraph/evidence/NSC-101/artifacts/NSC101-MutationCheck-LowerVaultMinZ-9e0a3b4b0f96.log"
+        }
+      ],
+      "gate_id": "VAL-002",
+      "notes": "Same run as VAL-001 (test-results.xml testcasecount=4, result=Passed, 4/4, 0 failed, 0 skipped): GeneratedCatalogAsset_RoomsMatchTheSameContractValues and GeneratedCatalogAsset_DoorsMatchTheSameContractValues load the generated Assets/NoSafeCircle/DoorPrototype/Generated/World/RoomSceneCatalog.asset (AssetDatabase.LoadAssetAtPath) and assert every VAL-001 value against its Rooms/Doors collections too, so the pair proves the C# source and the serialized asset agree rather than the source agreeing with itself. The asset was regenerated by running the production menu command 'No Safe Circle/World/Build Room Scene Catalog' (RoomSceneCatalog.BuildAsset), never hand-edited; its diff against the pre-implementation asset (base_commit b440c4d0a582c990aa0bf06183d3e578456833c6) is exactly the four changed room bounds and three changed door centres and nothing else -- RuinedEntry's bounds and D1/D2's centres do not appear in the asset diff at all. Mutation-proof of non-tautology: in the same LowerVault MinZ 54f->53f mutation run, GeneratedCatalogAsset_RoomsMatchTheSameContractValues STILL PASSED, because it reads the untouched committed asset which still held 54, while the source-side VAL-001 test failed on the identical mutation (mutation-xml/mutation-log). That asymmetry is the evidence this is a real source/asset comparison, not a tautology. WHAT THIS GATE DOES NOT PROVE: this task carries downstream_integration_obligation INT-001, deliberately unsatisfied at landing. This change turns local main red: NoSafeCircle.DoorPrototype.Tests.Editor.World.CommittedRoomSourceSceneConformanceTests opens the five committed Assets/Scenes/Rooms/*.unity scenes and validates them against the moved catalog. Measured at commit 9e0a3b4b0f9654709da8edef7f21a30de47e7567: 70 selected, 64 passed, 5 failed, 1 skipped, against a baseline of 65 passing and 0 failing -- CommittedRoomSourceSceneConformanceTests.FiveCommittedRoomScenes_AreComposableWithPairedDoorAnchors, ChapelOfAshSceneTests.CommittedScene_ValidatesForComposition, FinalRoomSceneTests.CommittedScene_ValidatesForComposition, and two LowerVaultSceneTests, all one cause; RuinedEntry and BoneArchive do not fail. INT-001 is satisfied only once NSC-044 through NSC-048 and NSC-049's refresh have landed. This was knowingly not satisfied at landing on Vincent's explicit decision ('Land it, accept red main', 2026-09-22), because the pipeline satisfies a dependency only via committed conformance or an approved_integration receipt requiring the commit already be an ancestor of main, so no room could be built while NSC-101 sat on a branch; that decision is recorded here as authority for the state of main, not as a gate result or a human-approval decision for these two automated gates. CI does not run this fixture, and NSC-101 has no entry in Pipeline/TaskReviewAgent/authoritative_validation_policy.json; the GER Agent is deliberately holding that binding until verify_filter.py runs against it.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "",
+    "decision": "not_required",
+    "notes": "",
+    "required": false
+  },
+  "record_id": "DEL-NSC-101-9e0a3b4b0f96",
+  "record_type": "delivery",
+  "recorded_at": "2026-09-22T09:25:15Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-101.yaml",
+    "revision": 2,
+    "sha256": "dccd898f496ba02fe21eeeaeffbb802cd346cf6425c5124b36501dab3cfe45d8"
+  },
+  "task_id": "NSC-101",
+  "validated_state": {
+    "commit": "9e0a3b4b0f9654709da8edef7f21a30de47e7567",
+    "tree": "e2574365f7f582bcd21bda1d9b823b8fd05bf8a2"
+  }
+}

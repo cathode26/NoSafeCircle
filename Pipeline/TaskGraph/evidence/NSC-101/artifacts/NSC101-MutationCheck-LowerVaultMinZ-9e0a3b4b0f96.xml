@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="4" result="Failed(Child)" total="4" passed="3" failed="1" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-09-22 09:10:10Z" end-time="2026-09-22 09:10:10Z" duration="0.1027621">
+  <test-suite type="TestSuite" id="1000" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="164" result="Failed" site="Child" start-time="2026-09-22 09:10:10Z" end-time="2026-09-22 09:10:10Z" duration="0.102762" total="4" passed="3" failed="1" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <failure>
+      <message><![CDATA[One or more child tests had errors]]></message>
+    </failure>
+    <test-suite type="Assembly" id="1191" name="NoSafeCircle.DoorPrototype.Tests.Editor.dll" fullname="C:/NSC/NoSafeCircle-AssistantCheckouts/NSC-101/Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Tests.Editor.dll" runstate="Runnable" testcasecount="164" result="Failed" site="Child" start-time="2026-09-22 09:10:10Z" end-time="2026-09-22 09:10:10Z" duration="0.090845" total="4" passed="3" failed="1" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="13728" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <failure>
+        <message><![CDATA[One or more child tests had errors]]></message>
+      </failure>
+      <test-suite type="TestSuite" id="1192" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="164" result="Failed" site="Child" start-time="2026-09-22 09:10:10Z" end-time="2026-09-22 09:10:10Z" duration="0.084980" total="4" passed="3" failed="1" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <failure>
+          <message><![CDATA[One or more child tests had errors]]></message>
+        </failure>
+        <test-suite type="TestSuite" id="1193" name="DoorPrototype" fullname="NoSafeCircle.DoorPrototype" runstate="Runnable" testcasecount="164" result="Failed" site="Child" start-time="2026-09-22 09:10:10Z" end-time="2026-09-22 09:10:10Z" duration="0.079067" total="4" passed="3" failed="1" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <failure>
+            <message><![CDATA[One or more child tests had errors]]></message>
+          </failure>
+          <test-suite type="TestSuite" id="1194" name="Tests" fullname="NoSafeCircle.DoorPrototype.Tests" runstate="Runnable" testcasecount="164" result="Failed" site="Child" start-time="2026-09-22 09:10:10Z" end-time="2026-09-22 09:10:10Z" duration="0.073351" total="4" passed="3" failed="1" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <failure>
+              <message><![CDATA[One or more child tests had errors]]></message>
+            </failure>
+            <test-suite type="TestSuite" id="1195" name="Editor" fullname="NoSafeCircle.DoorPrototype.Tests.Editor" runstate="Runnable" testcasecount="164" result="Failed" site="Child" start-time="2026-09-22 09:10:10Z" end-time="2026-09-22 09:10:10Z" duration="0.066438" total="4" passed="3" failed="1" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <failure>
+                <message><![CDATA[One or more child tests had errors]]></message>
+              </failure>
+              <test-suite type="TestSuite" id="1196" name="World" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.World" runstate="Runnable" testcasecount="32" result="Failed" site="Child" start-time="2026-09-22 09:10:10Z" end-time="2026-09-22 09:10:10Z" duration="0.058398" total="4" passed="3" failed="1" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <failure>
+                  <message><![CDATA[One or more child tests had errors]]></message>
+                </failure>
+                <test-suite type="TestFixture" id="1111" name="RoomSceneCatalogGeometryTests" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCatalogGeometryTests" classname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCatalogGeometryTests" runstate="Runnable" testcasecount="4" result="Failed" site="Child" start-time="2026-09-22 09:10:10Z" end-time="2026-09-22 09:10:10Z" duration="0.054816" total="4" passed="3" failed="1" inconclusive="0" skipped="0" asserts="0">
+                  <properties />
+                  <failure>
+                    <message><![CDATA[One or more child tests had errors]]></message>
+                  </failure>
+                  <test-case id="1113" name="CanonicalDoorSource_MatchesEveryContractValue" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCatalogGeometryTests.CanonicalDoorSource_MatchesEveryContractValue" methodname="CanonicalDoorSource_MatchesEveryContractValue" classname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCatalogGeometryTests" runstate="Runnable" seed="1411740604" result="Passed" start-time="2026-09-22 09:10:10Z" end-time="2026-09-22 09:10:10Z" duration="0.018725" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1112" name="CanonicalRoomSource_MatchesEveryContractValue" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCatalogGeometryTests.CanonicalRoomSource_MatchesEveryContractValue" methodname="CanonicalRoomSource_MatchesEveryContractValue" classname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCatalogGeometryTests" runstate="Runnable" seed="541201020" result="Failed" start-time="2026-09-22 09:10:10Z" end-time="2026-09-22 09:10:10Z" duration="0.011567" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                    <failure>
+                      <message><![CDATA[  CreateCanonicalRooms() room[3] (expected LowerVault): RoomBounds.MinZ differs.
+  Expected: 54.0f
+  But was:  53.0f
+]]></message>
+                      <stack-trace><![CDATA[at NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCatalogGeometryTests.AssertRooms (NoSafeCircle.DoorPrototype.Editor.World.RoomSceneCatalog+RoomCatalogEntry[] actual, System.String source) [0x0011c] in C:\NSC\NoSafeCircle-AssistantCheckouts\NSC-101\Assets\NoSafeCircle\DoorPrototype\Tests\Editor\World\RoomSceneCatalogGeometryTests.cs:110
+at NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCatalogGeometryTests.CanonicalRoomSource_MatchesEveryContractValue () [0x00001] in C:\NSC\NoSafeCircle-AssistantCheckouts\NSC-101\Assets\NoSafeCircle\DoorPrototype\Tests\Editor\World\RoomSceneCatalogGeometryTests.cs:58
+]]></stack-trace>
+                    </failure>
+                  </test-case>
+                  <test-case id="1115" name="GeneratedCatalogAsset_DoorsMatchTheSameContractValues" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCatalogGeometryTests.GeneratedCatalogAsset_DoorsMatchTheSameContractValues" methodname="GeneratedCatalogAsset_DoorsMatchTheSameContractValues" classname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCatalogGeometryTests" runstate="Runnable" seed="1346266054" result="Passed" start-time="2026-09-22 09:10:10Z" end-time="2026-09-22 09:10:10Z" duration="0.004194" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1114" name="GeneratedCatalogAsset_RoomsMatchTheSameContractValues" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCatalogGeometryTests.GeneratedCatalogAsset_RoomsMatchTheSameContractValues" methodname="GeneratedCatalogAsset_RoomsMatchTheSameContractValues" classname="NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCatalogGeometryTests" runstate="Runnable" seed="1095003521" result="Passed" start-time="2026-09-22 09:10:10Z" end-time="2026-09-22 09:10:10Z" duration="0.000950" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                    <output><![CDATA[Saving results to: C:/Users/VincentLiguori/AppData/LocalLow/DefaultCompany/NoSafeCircle\TestResults.xml
+]]></output>
+                  </test-case>
+                </test-suite>
+              </test-suite>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>
