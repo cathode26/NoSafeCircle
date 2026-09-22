@@ -28,7 +28,7 @@
     {
       "criterion_id": "AC-006",
       "reference": "NSC-069 AC-006; Vincent catalog decision 2026-09-14; GER room decision 4 (2026-09-15); re-check C-04 (2026-09-15)",
-      "requirement": "Edit only ChapelOfAsh's RoomBounds literal in RoomSceneCatalog.CreateCanonicalRooms and the D3 ExpectedGroundCenter literal in RoomSceneCatalog.CreateCanonicalDoors in Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneCatalog.cs, then regenerate Assets/NoSafeCircle/DoorPrototype/Generated/World/RoomSceneCatalog.asset with No Safe Circle/World/Build Room Scene Catalog. Both catalog representations must record Chapel at X [-18,+18], Z [20,54] and D3 at (-8,54), retain D2 at (+6,20), preserve D1-D5 order with D5 as the only final door, and leave every other room and door entry at its pre-edit value. Under GER room decision 4 (2026-09-15), NSC-046, NSC-047, and NSC-048 move shared boundaries, so their source changes are applied in that order to one combined candidate, where Assets/NoSafeCircle/DoorPrototype/Generated/World/RoomSceneCatalog.asset is regenerated with No Safe Circle/World/Build Room Scene Catalog from the combined RoomSceneCatalog.cs and is never merged or edited by hand, and the three catalog edits reach main only together, in one batched landing with NSC-049's narrow refresh, never alone. This task's own gates never wait for that refresh: NSC-049 depends on NSC-046, NSC-047, and NSC-048, so the refresh gates only the landing, which the NSC-049 integration obligation records."
+      "requirement": "NSC-101 has already written ChapelOfAsh's RoomBounds literal in RoomSceneCatalog.CreateCanonicalRooms and the D3 ExpectedGroundCenter literal in RoomSceneCatalog.CreateCanonicalDoors in Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneCatalog.cs, and regenerated Assets/NoSafeCircle/DoorPrototype/Generated/World/RoomSceneCatalog.asset; this task does not edit RoomSceneCatalog.cs or the generated asset. It verifies that both catalog representations record Chapel at X [-18,+18], Z [20,54] and D3 at (-8,54), that D2 remains at (+6,20), that D1-D5 order is preserved with D5 as the only final door, and that every other room and door entry keeps its catalog value, failing if any of these differ."
     },
     {
       "criterion_id": "AC-007",
@@ -66,11 +66,12 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 7,
+  "contract_revision": 8,
   "decomposition_reason": "The Chapel revision is one bounded Unity room-authoring responsibility: one layout source, one deterministic room builder and preview seam, two generated wall Tile assets, one room scene, one focused test fixture, and the Chapel-only catalog update. Sibling room relocation, canonical composition, shared-boundary wall exclusion, real projectile validation, and final dressing remain separate existing tasks.",
   "decomposition_state": "concrete",
   "depends_on": [
-    "NSC-069"
+    "NSC-069",
+    "NSC-101"
   ],
   "downstream_integration_obligations": [
     {
@@ -108,8 +109,6 @@
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/ChapelOfAshSceneBuilder.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/ChapelOfAshLayout.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/ChapelOfAshSceneTests.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneCatalog.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/World/RoomSceneCatalog.asset",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/ChapelOfAshFarWallTile.asset",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/ChapelOfAshFarWallTile.asset.meta",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/ChapelOfAshCutawayWallTile.asset",
@@ -196,6 +195,15 @@
         "previous_contract_revision": 6,
         "base_contract_sha256": "8a81ef43ace6dc4af1e5c6fddb319d8e0d7a4506409c5aa6b7ab436b992d48a8",
         "revised_contract_sha256": "eb10b3fc7556eb2526d51fff51872994a905f21cf22d2422d4476b6c761a8e7a",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      },
+      {
+        "date": "2026-09-22",
+        "reason": "Hand the RoomSceneCatalog writes to NSC-101. Drops Editor/World/RoomSceneCatalog.cs and Generated/World/RoomSceneCatalog.asset from exclusive_resources, adds NSC-101 to depends_on, and turns this task's catalog clause from a WRITE into a VERIFICATION: NSC-101 has already written the values, this task edits neither representation, and it fails if its own room's entry differs. The clause is kept rather than deleted because a task with no clause at all would pass while the catalog said anything. The ordering those five encoded was a computation chain - each room's Z bounds begin where the previous room's end - so NSC-047's 'do not change D3's center, which NSC-046 moves to (-8,54)' and NSC-048's 'if D4 is not yet (4,76), stop' guards, and the GER room decision 4 combined-candidate paragraph, are removed with it: every clause in them was about the catalog, and a guard against an ordering that no longer exists reads as a live constraint. Vincent 2026-09-22: 'Add the task to the graph.'",
+        "source_head": "b162c9d70910f4f19f1cc2cb9eb0b07979a71d77",
+        "previous_contract_revision": 7,
+        "base_contract_sha256": "faeb8f9fd52cdaffa31cce56279f2d9967c2ad9b7b69dd24625d3a07131187eb",
+        "revised_contract_sha256": "7c6585eacbf32b50e551e13648e6aa17d3d71487bd305d0b02a0b8f38df01cb2",
         "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
       }
     ]
