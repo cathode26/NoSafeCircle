@@ -1,0 +1,146 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "2d5c8a1dc5d4bba469fb158b27967717309e5b7ad6f8ab4a38fbbd05ad583c9f"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "814e952d2381292debbe1b0f2979168b2400b11d",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/RangedEnemyKeepDistanceMovement.cs",
+      "role": "Runtime component under test: ConfigureDistances band validation, approach/hold/retreat destination selection, Frost-compatible speed delegation, blocked-retreat side-path and cornered-hold behavior, and RequireComponent/reset ownership handoff back to EnemyPursuitMovement"
+    },
+    {
+      "blob_sha": "ac355549f8699e3054c8b62eabcf688c3e158419",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/RangedEnemyKeepDistanceMovement.cs.meta",
+      "role": "Unity asset identity for the component under test"
+    },
+    {
+      "blob_sha": "d2476ca6b90c3607eca81ffa9b81f122e26d40bc",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/RangedEnemyKeepDistanceMovementPlayModeTests.cs",
+      "role": "The PlayMode fixture the committed validation policy names for this task, and the sole owned file carrying all six gates' evidence"
+    },
+    {
+      "blob_sha": "63e0ae9970d4a543637d85a3cc95e5a55b4b4dca",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/RangedEnemyKeepDistanceMovementPlayModeTests.cs.meta",
+      "role": "Unity asset identity for the owned test fixture"
+    }
+  ],
+  "delivery": {
+    "base_commit": "5b3d0b3a7016e92dd25baac90298f2982778d0b6",
+    "candidate_commit": "6b72b7308446fda78dcd7e8a6b27c4bb3bd4f9b6",
+    "integrated_commit": "6b72b7308446fda78dcd7e8a6b27c4bb3bd4f9b6",
+    "integrated_tree": "65f8ab31392558d48fa67160125bb5460bfcb023"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "4b0cd84770a9f1237e38e24ff0d613c57d263dfe",
+          "path": "Pipeline/TaskGraph/evidence/NSC-053/artifacts/NSC-053-PlayMode-01.xml-6b72b7308446.xml"
+        },
+        {
+          "blob_sha": "12290711cf05bd6d9680c3625891d78bcd68eaf9",
+          "path": "Pipeline/TaskGraph/evidence/NSC-053/artifacts/NSC-053-PlayMode-01.log-6b72b7308446.log"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "Authoritative PlayMode run at validated commit 6b72b7308446fda78dcd7e8a6b27c4bb3bd4f9b6 through run_unity_tests_clean.ps1, filter NoSafeCircle.DoorPrototype.Tests.RangedEnemyKeepDistanceMovementPlayModeTests: 9 tests, 9 passed, 0 failed, 0 skipped, runner exit 0, final line VALIDATION PASSED. Counts read from test-results.xml (total=\"9\" passed=\"9\" failed=\"0\" skipped=\"0\"), not the console summary. The bound manifest records commit and post_commit both 6b72b7308446fda78dcd7e8a6b27c4bb3bd4f9b6 and tree and post_tree both 65f8ab31392558d48fa67160125bb5460bfcb023, clean before and after. All nine cases declare NoSafeCircle.DoorPrototype.Tests.RangedEnemyKeepDistanceMovementPlayModeTests (a sealed non-partial class). VAL-001 (its own file comment marks it AC-001/003/004): AcquiredWizard_Approaches_HoldsInBand_ThenRetreatsWhenClose configures no Melee Enemy in the fixture, drives the enemy from beyond the far limit (3.5) to close distance on a stationary wizard through only public methods, asserts CurrentTarget stays the same wizard transform throughout, asserts NavMeshAgent.hasPath is false for 60 consecutive frames while holding in the band, and then moves the wizard inside the close limit (2) and asserts separation increases past closeSeparation+0.6 with CurrentTarget unchanged, i.e. approach, hold with no jitter, and retreat with target retention.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "4b0cd84770a9f1237e38e24ff0d613c57d263dfe",
+          "path": "Pipeline/TaskGraph/evidence/NSC-053/artifacts/NSC-053-PlayMode-01.xml-6b72b7308446.xml"
+        },
+        {
+          "blob_sha": "12290711cf05bd6d9680c3625891d78bcd68eaf9",
+          "path": "Pipeline/TaskGraph/evidence/NSC-053/artifacts/NSC-053-PlayMode-01.log-6b72b7308446.log"
+        }
+      ],
+      "gate_id": "VAL-002",
+      "notes": "Frost_ReducesRealApproachAndRetreatDisplacement (file comment marks it AC-005/VAL-002) runs a control approach and a Frosted approach from the same warped start position sequentially in the same temporary fixture (not spatially separated, but sequential with an explicit ResetKeepDistanceMovement and re-warp between them, which the requirement's 'or' permits), calling EnemyStatusEffectMovement.ApplyFrostSlowdown(0.3f, 3f) directly, measuring real Play Mode displacement over a 0.6s window after the agent has already begun moving (steady speed) and well before either case reaches a band boundary. It asserts frostedApproach < controlApproach - 0.1 and repeats the same control/Frosted pair for close-range retreat, asserting frostedRetreat < controlRetreat - 0.1. Both phases assert CurrentTarget stays the wizard (Pursuing) and agent.isOnNavMesh throughout. The component never assigns NavMeshAgent.speed directly (grep of RangedEnemyKeepDistanceMovement.cs confirms no agent.speed assignment); Frost's slowdown is read back only through EnemyStatusEffectMovement. Same test-results.xml as VAL-001 (total=9 passed=9 failed=0 skipped=0).",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "4b0cd84770a9f1237e38e24ff0d613c57d263dfe",
+          "path": "Pipeline/TaskGraph/evidence/NSC-053/artifacts/NSC-053-PlayMode-01.xml-6b72b7308446.xml"
+        },
+        {
+          "blob_sha": "12290711cf05bd6d9680c3625891d78bcd68eaf9",
+          "path": "Pipeline/TaskGraph/evidence/NSC-053/artifacts/NSC-053-PlayMode-01.log-6b72b7308446.log"
+        }
+      ],
+      "gate_id": "VAL-003",
+      "notes": "BlockedDirectRetreat_UsesStableCompleteSidePath (file comment: AC-003/VAL-003) blocks the direct retreat ray with a wall, confirms the block with NavMesh.Raycast, then asserts the component selects a side destination with a PathComplete route, that the side destination stays fixed (within 0.2m) while the agent begins moving and for 3s of real Play Mode time, that separation from the wizard actually increases by more than 0.3m, and that agent.isOnNavMesh holds throughout -- proving the 'stays on that side route until reached or invalidated' half. CorneredNoRoute_HoldsWithoutTargetwardPath (file comment: AC-003/VAL-003) encloses the enemy with four fences so no reachable candidate increases separation; over 1.1s of real Play Mode frames it asserts knowledge.State stays Pursuing, agent.isOnNavMesh stays true, agent.hasPath is false at the end of every sampled frame, separation does not drop by more than 0.1m, and the enemy's own position moves less than 0.1m from its start -- proving the 'no reachable candidate' half exactly as required. Same XML as VAL-001.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "4b0cd84770a9f1237e38e24ff0d613c57d263dfe",
+          "path": "Pipeline/TaskGraph/evidence/NSC-053/artifacts/NSC-053-PlayMode-01.xml-6b72b7308446.xml"
+        },
+        {
+          "blob_sha": "12290711cf05bd6d9680c3625891d78bcd68eaf9",
+          "path": "Pipeline/TaskGraph/evidence/NSC-053/artifacts/NSC-053-PlayMode-01.log-6b72b7308446.log"
+        }
+      ],
+      "gate_id": "VAL-004",
+      "notes": "TargetLoss_LeavesLastKnownMovementToPursuit_ThenReacquires (file comment: AC-006/VAL-004) moves the wizard beyond LoseTargetDistance and asserts knowledge.State becomes SearchingLastKnownPosition with agent.destination within 0.8m of knowledge.LastKnownPosition -- i.e. EnemyPursuitMovement/EnemyTargetKnowledge own last-known-position movement, not the keep-distance component, since RangedEnemyKeepDistanceMovement has no override active while the target is lost. It then moves the wizard further to force the Wandering (bounded search) state and asserts that transition too. Finally it brings the wizard back inside close range during wandering and asserts the same enemy reacquires (State returns to Pursuing, CurrentTarget the same wizard) and keep-distance destination behavior resumes (agent.destination pulls away from the wizard again, distance > 0.8m). This fixture does not include a cover-collider regression case; the brief's caution about that case applies to other fixtures, and no such case appears in this file, so none is claimed here. Same XML as VAL-001.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "4b0cd84770a9f1237e38e24ff0d613c57d263dfe",
+          "path": "Pipeline/TaskGraph/evidence/NSC-053/artifacts/NSC-053-PlayMode-01.xml-6b72b7308446.xml"
+        },
+        {
+          "blob_sha": "12290711cf05bd6d9680c3625891d78bcd68eaf9",
+          "path": "Pipeline/TaskGraph/evidence/NSC-053/artifacts/NSC-053-PlayMode-01.log-6b72b7308446.log"
+        }
+      ],
+      "gate_id": "VAL-005",
+      "notes": "InvalidBand_Throws_AndLaterLossRangeChangeClearsPath (file comment: AC-002/VAL-005) calls keepDistance.ConfigureDistances with a non-positive close limit (0f,3f), close==far (3f,3f), and far>=LoseTargetDistance (2f,12f against a 12f loss distance) and asserts ArgumentException for all three, proving the configuration contract exactly as required. It then leaves the enemy Pursuing at close range, calls EnemyTargetKnowledge.ConfigureDistances(1f,3f) to make the active band incompatible with the current keep-distance band, and asserts the keep-distance component clears its path (agent.hasPath false) and holds; restoring EnemyTargetKnowledge.ConfigureDistances(8f,12f) afterward and asserting agent.isOnNavMesh confirms the component did not corrupt agent state while held. Same XML as VAL-001.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "4b0cd84770a9f1237e38e24ff0d613c57d263dfe",
+          "path": "Pipeline/TaskGraph/evidence/NSC-053/artifacts/NSC-053-PlayMode-01.xml-6b72b7308446.xml"
+        },
+        {
+          "blob_sha": "12290711cf05bd6d9680c3625891d78bcd68eaf9",
+          "path": "Pipeline/TaskGraph/evidence/NSC-053/artifacts/NSC-053-PlayMode-01.log-6b72b7308446.log"
+        }
+      ],
+      "gate_id": "VAL-006",
+      "notes": "Three sub-claims, each evidenced separately, at validated commit 6b72b7308446fda78dcd7e8a6b27c4bb3bd4f9b6.\n\n(1) RequireComponent production and self-resolution: AddOnlyKeepDistance_ProvidesAndResolvesCompanions adds only RangedEnemyKeepDistanceMovement to a fresh GameObject and asserts NavMeshAgent, EnemyTargetKnowledge and EnemyPursuitMovement are all present, and that ConfigureDistances does not throw once they exist.\n\n(2) Disable and destroy during an active retreat: DisableDuringRetreat_ClearsPath_AndPursuitResumesTargetward drives the enemy into an active retreat (agent.hasPath true), disables the component, and asserts agent.hasPath becomes false immediately, that EnemyPursuitMovement and the NavMeshAgent stay enabled, that agent.destination returns to within 0.8m of the wizard on the next frame, and that moving the wizard beyond LoseTargetDistance still drives EnemyTargetKnowledge.State to SearchingLastKnownPosition. The destroy variant is not a separate test and is not claimed as one; RangedEnemyKeepDistanceMovement.cs:173-174 reads 'private void OnDisable() => ResetKeepDistanceMovement();' and 'private void OnDestroy() => ResetKeepDistanceMovement();', so both lifecycle hooks enter the identical method and the disable case exercises the same reset code a destroy case would reach.\n\n(3) The paired reset, which no committed test covered until this candidate. PairedReset_DuringRetreat_AbandonsRetainedRepositionDestination is new in this candidate (commit 079e7cb75464a18e3580712cc9586ec01b716696, corrected by 6b72b7308446fda78dcd7e8a6b27c4bb3bd4f9b6). It drives an active retreat, captures the retained destination, asserts that destination leads away from the wizard, then calls keepDistance.ResetKeepDistanceMovement() and pursuit.ResetPursuit() together in the same frame and asserts over 45 real Play Mode frames that the enemy never closes on the abandoned destination and that it is never reissued to the agent, with the component, the agent and the NavMesh all still healthy. The fixture satisfies the gate's ordering condition: SetUp adds EnemyTargetKnowledge before EnemyPursuitMovement, which is the ordering the gate cites EnemyPursuitPlayModeTests for.\n\nWhy this case asserts BETWEEN the two calls, which is the only reason it proves anything. The first version of this test asserted only on the state after both calls, and a mutation run showed that version passing with ResetKeepDistanceMovement() replaced by an empty body. EnemyPursuitMovement.ResetPursuit() calls EnemyTargetKnowledge.ResetTargetKnowledge(), which leaves State Idle, and RangedEnemyKeepDistanceMovement.Update's own non-Pursuing branch then clears hasRepositionDestination on the very next frame - so the component self-clears whatever the reset did or did not do, and no post-hoc assertion can tell a working reset from a no-op. Hold() calls agent.ResetPath() synchronously, so the single observable moment is between the two calls. Against the same empty-body mutation the corrected test fails with total=1 passed=0 failed=1 and the named message 'ResetKeepDistanceMovement must drop the retreat path in the same frame, before pursuit's own reset can mask it. Expected: False But was: True'. That mutation run used raw Unity batchmode rather than run_unity_tests_clean.ps1, because the wrapper refuses a deliberately dirty worktree; its results are at C:/nscrev/reports/delivery/NSC-053/val006-mutation-results.xml and are NOT bound to this record, since a record binds passing evidence and that run is a failing control. The reasoning is also recorded in the candidate's own commit message at 6b72b7308446fda78dcd7e8a6b27c4bb3bd4f9b6.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "",
+    "decision": "not_required",
+    "notes": "NSC-053 has six completion gates, VAL-001 through VAL-006, and all are automated PlayMode gates; the contract contains no human gate, so no human approval is claimed. Delivery evidence recorded by the delivery-evidence recorder (for the Game Agent / Integration Steward) on 2026-09-22 at commit ffd76ec170b4607e26c02212487fcaa919ef2f8c, main tip after the NSC-051 and NSC-032 evidence commits recorded earlier in the same pass, and where Unity actually ran. The implementation has been on main for days (base_commit 5b3d0b3a7016e92dd25baac90298f2982778d0b6 is the parent of the commit that introduced it); this record is evidence debt being paid on merged work, not a claim that the work landed today. VAL-006's ResetKeepDistanceMovement()+ResetPursuit() simultaneous-reset scenario and its EnemyPursuitPlayModeTests companion-ordering scenario are named in the gate text but not exercised by this fixture; this record claims only the RequireComponent-resolution and disable-during-retreat halves that the fixture actually proves, and does not claim full VAL-006 coverage beyond that.",
+    "required": false
+  },
+  "record_id": "DEL-NSC-053-6b72b7308446",
+  "record_type": "delivery",
+  "recorded_at": "2026-09-22T06:43:21Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-053.yaml",
+    "revision": 3,
+    "sha256": "e40066969fa6ce094b648c86c8279a7b9a007715d9055eb95dac83f037913b59"
+  },
+  "task_id": "NSC-053",
+  "validated_state": {
+    "commit": "6b72b7308446fda78dcd7e8a6b27c4bb3bd4f9b6",
+    "tree": "65f8ab31392558d48fa67160125bb5460bfcb023"
+  }
+}
