@@ -1,0 +1,87 @@
+{
+  "schema_version": "2.0",
+  "id": "NSC-104",
+  "contract_revision": 1,
+  "contract_disposition": "active",
+  "title": "PixelLab Enemy Eight-Direction Attack Source Art",
+  "reconciliation_key": "pixellab-enemy-attack-art",
+  "kind": "implementation",
+  "type": "enemy-walk-source-art",
+  "execution_scope": "single_agent",
+  "execution_reason": "One agent runs sixteen PixelLab template-mode animate calls against two already selected characters and commits the frames with their provenance. No code, scene or prefab write is involved and there is nothing to split.",
+  "decomposition_state": "concrete",
+  "decomposition_reason": "Two enemies, eight facings each, one generation document. A child could not own a share of one provenance record, and the work is a single generation pass.",
+  "parent": "NSC-010",
+  "depends_on": [
+    "NSC-063"
+  ],
+  "exclusive_resources": [
+    "logical:pixellab-enemy-attack-art",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack",
+    "repo-file:Docs/Art/Enemies/PIXELLAB_ATTACK_GENERATION.md"
+  ],
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "requirement": "Generate attack wind-up source art in all EIGHT facings for BOTH enemies, from the two already selected PixelLab characters and from no others: the melee Dungeon Brute, character_id 3db4582d-8b48-4486-be1a-19d1a8c6b9d2 in group a9d1ee9f-090f-4df8-9534-a44bba438c12, and the ranged Lantern Wraith, character_id 361131dd-8c48-4b99-8b81-c79bd30078dc in group f8421090-c9f3-42e9-aaae-262ee997238c, both at 180x180. THIS TASK MUST NOT CREATE A NEW CHARACTER. Docs/Art/Enemies/PIXELLAB_GENERATION.md lists non-selected candidates alongside these two, and animating one of those would silently replace an enemy whose idle and walk clips are already on main in eight directions - a substitution that no gate here would catch, because the frames would be internally consistent. Covering only one enemy also fails this criterion: both lack attack art, so a half-covered contract leaves the same gap open.",
+      "reference": "Docs/Art/Enemies/PIXELLAB_GENERATION.md selected-character table; Art Director Agent, 2026-09-22; NSC-063 selection"
+    },
+    {
+      "criterion_id": "AC-002",
+      "requirement": "Land the frames under Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack, following the naming and per-direction layout NSC-093 established under Source/Walk. This task owns that DIRECTORY rather than a list of files, deliberately: PixelLab emits frames that cannot be enumerated in advance, and a task whose exclusive_resources are all files derives an EMPTY allowed-roots set, after which anything generated beside the owned files is fatal at materialization.",
+      "reference": "NSC-093 AC-002 and its Source/Walk layout; Pipeline/AssistantControl/unity_materialization.py _generated_resource_roots"
+    },
+    {
+      "criterion_id": "AC-003",
+      "requirement": "Record per-call provenance in Docs/Art/Enemies/PIXELLAB_ATTACK_GENERATION.md: for every call, the character_id and group_id used, the direction, the mode, the seed, and the generation cost read from the tool rather than estimated. Record the totals against the measured cost model - TEMPLATE mode at 180 px is ONE generation per direction, so EIGHT per enemy and SIXTEEN for both, where v3 would be about six per direction. An earlier note circulating in the art queue said seven facings at about forty-two generations; BOTH halves of that were wrong, and it is recorded here so the figure is not reintroduced from memory.",
+      "reference": "Art Director Agent measurement against the PixelLab cost model, 2026-09-22; NSC-093 AC-003"
+    }
+  ],
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "requirement": "From a clean candidate checkout, Docs/Art/Enemies/PIXELLAB_ATTACK_GENERATION.md exists and its recorded calls account for every committed frame under Source/Attack, in both directions: no committed frame lacks a recorded call, and no recorded call lacks its committed frame. Report the totals literally. A frame with no provenance cannot be distinguished later from one generated against the wrong character, which is the failure AC-001 exists to prevent.",
+      "reference": "NSC-093 VAL-001"
+    },
+    {
+      "gate_id": "VAL-002",
+      "requirement": "Every recorded call names one of exactly two character_ids - 3db4582d-8b48-4486-be1a-19d1a8c6b9d2 or 361131dd-8c48-4b99-8b81-c79bd30078dc - and the run creates no new PixelLab character. Assert this from the recorded provenance rather than by inspecting the images: a substituted character produces frames that are internally consistent and visually plausible, so pixel inspection cannot catch it and only the recorded id can. Any other character_id fails this gate.",
+      "reference": "AC-001; Docs/Art/Enemies/PIXELLAB_GENERATION.md selected-character table"
+    }
+  ],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "requirement": "THIS TASK PRODUCES SOURCE ART ONLY AND DELIBERATELY CLAIMS NOTHING UNDER Art/Enemies/Generated/. All thirty-two existing enemy .anim clips live there and that path falls under NSC-077's directory-wide claim on Art/Enemies; NSC-093 likewise claims no Generated path, because walk-clip integration was NSC-077's. SO ATTACK CLIP INTEGRATION IS A SECOND, DISTINCT GAP AND THIS OBLIGATION NAMES IT RATHER THAN CLOSING IT: the destination Generated/<Enemy>_attack_<facing>.anim sits inside a path NSC-077 owns but OUTSIDE its stated scope, which its title limits to the existing MOVING enemies - idle and walk, which is what landed. Integration therefore needs either a widening of NSC-077's scope or its own task, and that is a decision about another task's contract rather than something this one may assume. Until it is settled, the frames this task lands are consumable source art and no enemy gains an attack animation from this task alone. NSC-015, NSC-016, NSC-054 and NSC-055 all consume attack art and none produces it; NSC-099 separately owns the death looks, so the unowned work is attack only.",
+      "reference": "NSC-077 revision 10 title and exclusive_resources; NSC-093 exclusive_resources; NSC-099"
+    },
+    {
+      "obligation_id": "INT-002",
+      "requirement": "Execution of this task requires a PixelLab tool the Art Director Agent's permission layer currently refuses: mcp__pixellab__animate_character is declined as a Real-World Transaction, while every other PixelLab tool used on 2026-09-22 was permitted. A contract alone therefore does not unblock this work - Vincent must clear that tool as well, and both are necessary while neither is sufficient. This is recorded in the contract so the dependency is visible to whoever schedules the task rather than being rediscovered at dispatch.",
+      "reference": "Art Director Agent, 2026-09-22"
+    }
+  ],
+  "gdd_evidence": [
+    {
+      "reference": "GDD Required Enemy Roster",
+      "requirement": "Melee and Ranged Enemy identities must remain readable as distinct threats."
+    },
+    {
+      "reference": "GDD 2.5D Isometric Visual and World Representation",
+      "requirement": "Moving world-space characters use directional sprites with grounded presentation."
+    }
+  ],
+  "basis": "human_requested_all_moving_characters_eight_direction_walk",
+  "source_scope": "required",
+  "confidence": "high",
+  "notes": "Authored 2026-09-22 after the Art Director reported that both enemies have idle and walk in all eight directions and NO attack clips, and that the four tasks which consume attack art - NSC-015, NSC-016, NSC-054 and NSC-055 - hold zero art resources between them. Verified on main before authoring: thirty-two .anim files under Art/Enemies/Generated, zero of them attack or death; NSC-099 separately owns the death looks under Source/Death/*, so the unowned work is ATTACK ONLY and half the originally reported gap was already assigned. Mirrors NSC-093 exactly, which is the proven shape for enemy source art: a claimed output DIRECTORY plus a generation document, and nothing under Generated/. Measured before claiming Source/Attack: zero exact-path collisions under Art/Enemies across all contracts - NSC-093 claims Source/Walk and NSC-099 claims Source/Death/* while NSC-077 claims Art/Enemies, so sub-path art tasks coexisting with that directory claim is an established two-task precedent rather than a new exception. The costs in AC-003 are the Art Director's measurement against the tool's own cost model, not an estimate.",
+  "repository_state_at_bootstrap": "missing",
+  "repository_evidence_at_bootstrap": [],
+  "provenance": {
+    "origin": "GER Agent, 2026-09-22: authored to close the unowned enemy attack art gap reported by the Art Director Agent",
+    "source_art_task_id": "NSC-063",
+    "approved_development_tool": "PixelLab MCP",
+    "created_by_human_request": true,
+    "task_design_ger": "not_reviewed"
+  }
+}
