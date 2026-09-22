@@ -191,7 +191,7 @@ class CandidateValidationRetryTests(unittest.TestCase):
             "source_synchronized", synchronized["candidate_validation_retry"]["phase"]
         )
         (_checkout, _candidate, receipt, generated, generated_roots,
-         _asset_metas) = _require_candidate(
+         _asset_metas, _folder_metas) = _require_candidate(
             self.manager, synchronized, synced_candidate["commit"]
         )
         self.assertEqual([BUILDER], receipt["changed_paths"])
