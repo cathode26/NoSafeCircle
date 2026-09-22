@@ -3,7 +3,7 @@
     {
       "criterion_id": "AC-001",
       "reference": "GDD — Approved Five-Room Spatial Layout Blockout §§8 and 13; Vincent room-size authority, 2026-09-14; GER room decisions 1-5 (2026-09-15); re-check C-04 (2026-09-15)",
-      "requirement": "In Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/LowerVaultLayout.cs, author Lower Vault at X [-20,+20], Z [54,76], the 3.0-unit D3 Entry opening at (-8,54), and the 3.0-unit D4 Exit opening at (+4,76). Author LV-C1 X [-4,+2], Z [59.5,64.5], height 2.5; LV-W1 X [-12,-8], Z [59.5,66.5], height 1.5; LV-E1 X [+7,+12], Z [59.5,64.5], height 1.5; and LV-N1 X [-19.75,-10], Z [69.5,75.75], height 1.5. In Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneCatalog.cs, change only Lower Vault's RoomBounds literal in CreateCanonicalRooms to X [-20,+20], Z [54,76] and D4's ExpectedGroundCenter in CreateCanonicalDoors from (4,64) to (4,76); do not change D3's center, which NSC-046 moves to (-8,54), or any other room or door entry. Regenerate Assets/NoSafeCircle/DoorPrototype/Generated/World/RoomSceneCatalog.asset with No Safe Circle/World/Build Room Scene Catalog. Under GER room decision 4 (2026-09-15), NSC-046, NSC-047, and NSC-048 move shared boundaries, so their source changes are applied in that order to one combined candidate, where Assets/NoSafeCircle/DoorPrototype/Generated/World/RoomSceneCatalog.asset is regenerated with No Safe Circle/World/Build Room Scene Catalog from the combined RoomSceneCatalog.cs and is never merged or edited by hand, and the three catalog edits reach main only together, in one batched landing with NSC-049's narrow refresh, never alone. This task's own gates never wait for that refresh: NSC-049 depends on NSC-046, NSC-047, and NSC-048, so the refresh gates only the landing, which the NSC-049 integration obligation records."
+      "requirement": "In Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/LowerVaultLayout.cs, author Lower Vault at X [-20,+20], Z [54,76], the 3.0-unit D3 Entry opening at (-8,54), and the 3.0-unit D4 Exit opening at (+4,76). Author LV-C1 X [-4,+2], Z [59.5,64.5], height 2.5; LV-W1 X [-12,-8], Z [59.5,66.5], height 1.5; LV-E1 X [+7,+12], Z [59.5,64.5], height 1.5; and LV-N1 X [-19.75,-10], Z [69.5,75.75], height 1.5. NSC-101 has already written Lower Vault's RoomBounds literal in RoomSceneCatalog.CreateCanonicalRooms as X [-20,+20], Z [54,76] and D4's ExpectedGroundCenter in RoomSceneCatalog.CreateCanonicalDoors as (4,76); this task does not edit Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneCatalog.cs or Assets/NoSafeCircle/DoorPrototype/Generated/World/RoomSceneCatalog.asset. It verifies that both catalog representations record Lower Vault's RoomBounds and D4's center at those values, that every other room and door entry keeps its catalog value, and fails if any of these differ."
     },
     {
       "criterion_id": "AC-002",
@@ -51,11 +51,12 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 5,
+  "contract_revision": 6,
   "decomposition_reason": "The revised Lower Vault remains one bounded room-authoring responsibility: one layout file, one deterministic room-scene and generated-asset builder, one focused test file, one room Scene, two room-owned generated visual assets, and the authorized Lower Vault catalog update to its RoomBounds entry and D4 center. Production prop art, dressing, canonical composition, the shared-boundary wall exclusion, doors, encounters, and runtime enemy behavior remain in their existing tasks.",
   "decomposition_state": "concrete",
   "depends_on": [
-    "NSC-069"
+    "NSC-069",
+    "NSC-101"
   ],
   "downstream_integration_obligations": [
     {
@@ -73,8 +74,6 @@
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/LowerVaultSceneBuilder.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/LowerVaultLayout.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/LowerVaultSceneTests.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneCatalog.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/World/RoomSceneCatalog.asset",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/LowerVaultNearWallStubTile.asset",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/LowerVaultNearWallStubTile.asset.meta",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/LowerVaultBlockoutProxySprite.asset",
@@ -155,6 +154,15 @@
         "previous_contract_revision": 4,
         "base_contract_sha256": "6a592b90f5dcff4cd8c91e265d48f019e03eee36dd41d8fe4d43290ad700db65",
         "revised_contract_sha256": "54b0b33ccdc1d38f58735d542a6384346e39ff19e7e9292a146337fcb5efcb58",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      },
+      {
+        "date": "2026-09-22",
+        "reason": "Hand the RoomSceneCatalog writes to NSC-101. Drops Editor/World/RoomSceneCatalog.cs and Generated/World/RoomSceneCatalog.asset from exclusive_resources, adds NSC-101 to depends_on, and turns this task's catalog clause from a WRITE into a VERIFICATION: NSC-101 has already written the values, this task edits neither representation, and it fails if its own room's entry differs. The clause is kept rather than deleted because a task with no clause at all would pass while the catalog said anything. The ordering those five encoded was a computation chain - each room's Z bounds begin where the previous room's end - so NSC-047's 'do not change D3's center, which NSC-046 moves to (-8,54)' and NSC-048's 'if D4 is not yet (4,76), stop' guards, and the GER room decision 4 combined-candidate paragraph, are removed with it: every clause in them was about the catalog, and a guard against an ordering that no longer exists reads as a live constraint. Vincent 2026-09-22: 'Add the task to the graph.'",
+        "source_head": "e4257a42b93a787d742bfd9da3b8669e0c2e4abf",
+        "previous_contract_revision": 5,
+        "base_contract_sha256": "13341c941fe92abcc7497e524bf11d9031f639400fd3a34d469a6e7f9c7b4e3b",
+        "revised_contract_sha256": "2c6030c8fc62a11e8f4415c33480a4b490e49185c02fb6561e9062404b9d09f0",
         "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
       }
     ]

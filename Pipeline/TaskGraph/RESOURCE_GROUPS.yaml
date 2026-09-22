@@ -1085,14 +1085,12 @@
     {
       "reconciliation_keys": [
         "independent-room-scene-composition",
-        "lower-vault-blockout",
         "final-room-blockout",
         "room-scene-catalog-consolidation"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneCatalog.cs",
       "work_ids": [
         "NSC-069",
-        "NSC-047",
         "NSC-048",
         "NSC-101"
       ]
@@ -1100,14 +1098,12 @@
     {
       "reconciliation_keys": [
         "independent-room-scene-composition",
-        "lower-vault-blockout",
         "final-room-blockout",
         "room-scene-catalog-consolidation"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/World/RoomSceneCatalog.asset",
       "work_ids": [
         "NSC-069",
-        "NSC-047",
         "NSC-048",
         "NSC-101"
       ]
