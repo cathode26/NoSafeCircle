@@ -3,7 +3,7 @@
     {
       "criterion_id": "AC-001",
       "reference": "GDD — Approved Five-Room Spatial Layout Blockout §§4, 6, and 13; Vincent room-size authority 2026-09-14; revised GER room decision 3 (2026-09-15)",
-      "requirement": "Implement the reviewed Bone Archive geometry PROPOSAL in Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/BoneArchiveLayout.cs and Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/BoneArchiveSceneBuilder.cs: a 24-by-20-world-unit Bone Archive with walkable bounds X [-12,+12], Z [0,20], D1 at (0,0), D2 at (+6,20), and 3.0-unit clear openings. Author these gameplay BoxCollider footprints and heights: Shelf A at X [-7.5,-6.0], Z [4,15], height 2.5; Shelf B at X [-2.5,-1.0], Z [4,13.5], height 2.5; Shelf C at X [+2.5,+4.0], Z [5.5,15.5], height 2.5; Collapsed Furniture BA-1 at X [-1.0,0], Z [9,11], height 1.25; West Archive Bay W-1 at X [-11.75,-10.5], Z [7,16], height 2.5; and East Archive Bay E-1 at X [+7.0,+11.75], Z [5.5,13.5], height 2.5. Each obstacle's visual uses the same X/Z footprint as its BoxCollider; the Shelf A, Shelf B, Shelf C, W-1 and E-1 visuals are exactly 1.0 unit high, and the BA-1 visual is 1.25 units high. In Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneCatalog.cs, edit only Bone Archive's RoomBounds literal in CreateCanonicalRooms to X [-12,+12], Z [0,20] and leave CreateCanonicalDoors unchanged, so D1 stays at (0,0) and D2 at (+6,20). Running No Safe Circle/World/Build Room Scene Catalog regenerates the complete Assets/NoSafeCircle/DoorPrototype/Generated/World/RoomSceneCatalog.asset, so the other four room entries and all five door entries must keep their pre-edit values and order. Materialize the same layout and typed anchors in Assets/Scenes/Rooms/BoneArchive.unity."
+      "requirement": "Implement the reviewed Bone Archive geometry PROPOSAL in Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/BoneArchiveLayout.cs and Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/BoneArchiveSceneBuilder.cs: a 24-by-20-world-unit Bone Archive with walkable bounds X [-12,+12], Z [0,20], D1 at (0,0), D2 at (+6,20), and 3.0-unit clear openings. Author these gameplay BoxCollider footprints and heights: Shelf A at X [-7.5,-6.0], Z [4,15], height 2.5; Shelf B at X [-2.5,-1.0], Z [4,13.5], height 2.5; Shelf C at X [+2.5,+4.0], Z [5.5,15.5], height 2.5; Collapsed Furniture BA-1 at X [-1.0,0], Z [9,11], height 1.25; West Archive Bay W-1 at X [-11.75,-10.5], Z [7,16], height 2.5; and East Archive Bay E-1 at X [+7.0,+11.75], Z [5.5,13.5], height 2.5. Each obstacle's visual uses the same X/Z footprint as its BoxCollider; the Shelf A, Shelf B, Shelf C, W-1 and E-1 visuals are exactly 1.0 unit high, and the BA-1 visual is 1.25 units high. NSC-101 has already written Bone Archive's RoomBounds literal in Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneCatalog.cs's CreateCanonicalRooms as X [-12,+12], Z [0,20]; this task does not edit RoomSceneCatalog.cs or the generated asset. It verifies that Bone Archive's catalog entry in both the C# source and the generated asset reads that RoomBounds, that D1 stays at (0,0) and D2 at (+6,20), and fails if any of these differ. Materialize the same layout and typed anchors in Assets/Scenes/Rooms/BoneArchive.unity."
     },
     {
       "criterion_id": "AC-002",
@@ -56,11 +56,12 @@
   ],
   "confidence": "medium",
   "contract_disposition": "active",
-  "contract_revision": 5,
+  "contract_revision": 6,
   "decomposition_reason": "The widened Bone Archive remains one cohesive room-authoring responsibility: layout data, room-local builder, focused tests, saved source scene, and only Bone Archive's authorized shared catalog entry. Bone Archive keeps Z [0,20], D1 at (0,0), and D2 at (+6,20), so it moves no shared boundary and needs no sibling-room coordinate revision. The design decisions it applies are recorded in provenance.design_decisions. Real navigation, final dressing, and canonical composition, including shared-boundary wall exclusion, remain assigned to existing downstream tasks.",
   "decomposition_state": "concrete",
   "depends_on": [
-    "NSC-069"
+    "NSC-069",
+    "NSC-101"
   ],
   "downstream_integration_obligations": [
     {
@@ -84,8 +85,6 @@
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/BoneArchiveLayout.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/BoneArchiveSceneTests.cs",
     "unity-scene:Assets/Scenes/Rooms/BoneArchive.unity",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneCatalog.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/World/RoomSceneCatalog.asset",
     "logical:room-walkability:bone-archive"
   ],
   "execution_reason": "One room-authoring crew revises BoneArchiveLayout, the room builder, focused tests, the saved source scene, and Bone Archive's catalog bounds during its exclusive RoomSceneCatalog turn. Bone Archive moves no shared boundary, so it lands independently of the NSC-046, NSC-047, and NSC-048 boundary set and its NSC-049 refresh. The Windows Unity controller materializes the scene and catalog, runs the committed-artifact and cross-room regressions, and stages the unsaved camera review. NSC-071 retains real navigation proof, NSC-080 retains final dressing, and NSC-049 retains canonical composition, including shared-boundary wall exclusion.",
@@ -161,6 +160,15 @@
         "previous_contract_revision": 4,
         "base_contract_sha256": "5e5dbd4e73b09c1faabaab7c9dfeb11f872fc6891cc2fcd4317fd488d2ce50e3",
         "revised_contract_sha256": "d7d0e5064bb3abb5ac3e3cb6b8bf731dc7953b6d16b6b6a9ed2171562958bf85",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      },
+      {
+        "date": "2026-09-22",
+        "reason": "Hand the RoomSceneCatalog writes to NSC-101. Drops Editor/World/RoomSceneCatalog.cs and Generated/World/RoomSceneCatalog.asset from exclusive_resources, adds NSC-101 to depends_on, and turns this task's catalog clause from a WRITE into a VERIFICATION: NSC-101 has already written the values, this task edits neither representation, and it fails if its own room's entry differs. The clause is kept rather than deleted because a task with no clause at all would pass while the catalog said anything. The ordering those five encoded was a computation chain - each room's Z bounds begin where the previous room's end - so NSC-047's 'do not change D3's center, which NSC-046 moves to (-8,54)' and NSC-048's 'if D4 is not yet (4,76), stop' guards, and the GER room decision 4 combined-candidate paragraph, are removed with it: every clause in them was about the catalog, and a guard against an ordering that no longer exists reads as a live constraint. Vincent 2026-09-22: 'Add the task to the graph.'",
+        "source_head": "7401471c9e802fe6cd151b8832a158648ad202db",
+        "previous_contract_revision": 5,
+        "base_contract_sha256": "6a702854833b4cd4178ce89e8b7953a1f00a42259d6e57d0b853820c02dda41b",
+        "revised_contract_sha256": "805412b0891d8e4a426b1f7263aeaa076bf05133a96db4b328fe2979089af9bc",
         "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
       }
     ]
