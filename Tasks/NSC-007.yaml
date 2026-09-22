@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-007",
-  "contract_revision": 8,
+  "contract_revision": 9,
   "contract_disposition": "active",
   "title": "Charged Fireball Input, Charge, Projectile Damage, Reset, and Suspension",
   "reconciliation_key": "fireball",
@@ -41,7 +41,7 @@
   "acceptance_criteria": [
     {
       "reference": "Docs/GDD/No_Safe_Circle_GDD.md:65,75-76,92",
-      "requirement": "Create Assets/NoSafeCircle/DoorPrototype/Scripts/Fireball.cs and Assets/NoSafeCircle/DoorPrototype/Scripts/FireballProjectile.cs. Fireball owns tap, charge, cast, reset, and suspension state and every projectile it creates. FireballProjectile owns one runtime-created in-flight shot; this contract introduces no Fireball prefab asset. Play Mode coverage is split across three fixtures, one per separable concern, rather than one file: **FireballCastAndChargePlayModeTests** (tap, hold, charge tiers, mana gating, the movement restriction and interruption), **FireballProjectilePlayModeTests** (flight, the obstruction query, contact, area damage) and **FireballLifecyclePlayModeTests** (ResetFireball, suspend and enable, and the title/entry wiring). This is a structural requirement, not a style preference: a child of this task that owns projectile behaviour must be able to own a test file, and with a single shared Play Mode file no decomposition can partition the resource set - which rejected two otherwise-clean decomposition attempts. A decomposition that assigns all three to one child remains legal; the point is that the files exist to be divided.",
+      "requirement": "Create Assets/NoSafeCircle/DoorPrototype/Scripts/Fireball.cs and Assets/NoSafeCircle/DoorPrototype/Scripts/FireballProjectile.cs. Fireball owns tap, charge, cast, reset, and suspension state and every projectile it creates. FireballProjectile owns one runtime-created in-flight shot; this contract introduces no Fireball prefab asset. Play Mode coverage is split across three fixtures, one per separable concern, rather than one file: **FireballCastAndChargePlayModeTests** (tap, hold, charge tiers, mana gating, the movement restriction and interruption), **FireballProjectilePlayModeTests** (flight, the obstruction query, contact, area damage) and **FireballLifecyclePlayModeTests** (ResetFireball, suspend and enable, and the title/entry wiring). This is a structural requirement, not a style preference: a child of this task that owns projectile behaviour must be able to own a test file, and with a single shared Play Mode file no decomposition can partition the resource set - which rejected two otherwise-clean decomposition attempts. A decomposition that assigns all three to one child remains legal; the point is that the files exist to be divided. AC-002 is a separate obligation from this one and must map to its own child acceptance-criteria entry, even when one child owns both: this criterion is structural - which files exist and what each owns - while AC-002 is behavioural, the Tick(float) seam, the tap-tier starting values and the monotonic scaling. Two independent decomposition attempts (2026-09-22, runs decomp-nsc007-20260922b and decomp-nsc007-20260922c) each wrote a single child entry citing both, and each was rejected because distinct parent obligations must have injective child mappings. Assigning both to one child remains legal; writing them as one entry does not.",
       "criterion_id": "AC-001"
     },
     {
@@ -250,6 +250,15 @@
         "previous_contract_revision": 7,
         "base_contract_sha256": "c41f19053743df4a09dafc910c6e95cee2714454268a7dccea38e1d5d987a8bd",
         "revised_contract_sha256": "9d88eb91e63cc952b80c60c870f7a5497f4304a6863a5519ca9e8e517daac30b",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      },
+      {
+        "date": "2026-09-22",
+        "reason": "Two independent fresh Opus decomposition sessions each merged parent AC-001 and AC-002 into one child acceptance-criteria entry and were rejected by the injective-mapping rule. Two models agreeing is evidence about the contract's readability, so AC-001 now states that AC-002 is a separate obligation needing its own child entry, in the same shape as the existing three-test-file clause. Requested by the Decomposition Agent, who will not launch a 4th attempt until this lands.",
+        "source_head": "9ef5ad92ea11c42303db85e45c553aba8bdddfc0",
+        "previous_contract_revision": 8,
+        "base_contract_sha256": "9b9dfe144c7b260cd358d58904ab373db89b111bb299bd84fc99b876fb1d8eeb",
+        "revised_contract_sha256": "2d8f4f7441f55c1450b771e8e7ffa2c66836c37727cd87841ea908ad2a828440",
         "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
       }
     ]
