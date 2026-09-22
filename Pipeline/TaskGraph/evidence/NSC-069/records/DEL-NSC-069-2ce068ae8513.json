@@ -1,0 +1,140 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "2d5c8a1dc5d4bba469fb158b27967717309e5b7ad6f8ab4a38fbbd05ad583c9f"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "42fc3c27f5646647509d39301e3a9524d61c77e6",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+      "role": "Foundation builder that creates the visual Tilemaps and the composed-room roots"
+    },
+    {
+      "blob_sha": "e979dacc117474a11573b75f6e666ee674351500",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs",
+      "role": "Global scene builder the foundation extraction produced"
+    },
+    {
+      "blob_sha": "7f141adb24096b5829efd63562df3c6ab76b5410",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneCatalog.cs",
+      "role": "Shared catalog type recording the five stable room identities and scene paths"
+    },
+    {
+      "blob_sha": "900906fd71b83696c59865b3b89abd89c64ba458",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneComposer.cs",
+      "role": "Deterministic Editor-time composition and room-scene validation"
+    },
+    {
+      "blob_sha": "a1c57bf43d9c485bf9a34fde3fc52539fe2240f7",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/World/RoomSceneCatalog.asset",
+      "role": "Generated catalog asset carrying the five stable room scene paths"
+    },
+    {
+      "blob_sha": "fcd2dec5e7d7ff678e54c8ddc5dcdc24ab5d5baa",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/World/RoomAuthoringContract.cs",
+      "role": "Runtime authoring contract markers the composer validates against"
+    },
+    {
+      "blob_sha": "e6269e4a883e19c136cb2a068cb9a568d65a8f3e",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/World/RoomSceneComposerTests.cs",
+      "role": "Half of the RoomSceneCompositionFoundationTests partial fixture: composer validation"
+    },
+    {
+      "blob_sha": "9632d1aeb912c2616dd911f33c35b0d000066c51",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/World/RoomSceneContractTests.cs",
+      "role": "Half of the RoomSceneCompositionFoundationTests partial fixture: catalog and anchor contracts"
+    },
+    {
+      "blob_sha": "ac4cd5e4e6d14ebfdb2c4402482e336857a1fb84",
+      "path": "Assets/Scenes/DoorPrototype.unity",
+      "role": "The canonical scene the foundation builder materializes and Vincent checked"
+    }
+  ],
+  "delivery": {
+    "base_commit": "b5883f9c00a2ff8b98d9813eaa5d7cb76d29812d",
+    "candidate_commit": "2ce068ae85139ca94dd79d7503e4b913809f5610",
+    "integrated_commit": "2ce068ae85139ca94dd79d7503e4b913809f5610",
+    "integrated_tree": "9e21c9cc745f994434297f4383a37dd2d7625653"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "d494ec1ce3f6a7afc0a192f48995443f56a53be2",
+          "path": "Pipeline/TaskGraph/evidence/NSC-069/artifacts/NSC-069-EditMode-rev10.xml-2ce068ae8513.xml"
+        },
+        {
+          "blob_sha": "831d44f0fd2a556057f110ceee314eabe9e103b3",
+          "path": "Pipeline/TaskGraph/evidence/NSC-069/artifacts/NSC-069-EditMode-rev10.log-2ce068ae8513.log"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "Fresh authoritative EditMode run at this validated commit through run_unity_tests_clean.ps1, filter NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests: 26 tests, 26 passed, 0 failed, 0 skipped, runner exit 0, final line VALIDATION PASSED. Counts read from test-results.xml, not the console summary. The bound manifest records commit and post_commit both 2ce068ae85139ca94dd79d7503e4b913809f5610 and tree and post_tree both 9e21c9cc745f994434297f4383a37dd2d7625653, clean before and after, so the run mutated nothing. The fixture is a partial class: RoomSceneComposerTests.cs declares 20 [Test] cases and RoomSceneContractTests.cs declares 6, totalling the 26 the run reports, and the policy filter names the type rather than either file.\n\nWHY THIS RECORD EXISTS. Revision 10 (88ac2d724) changed VAL-001's text, which is a semantic field, so the 2026-09-17 record no longer proved the current gate and the task read needs_replan. The change is explanatory, not a change of assertion: revision 10 states that the two file names are not type names, and records why sorting stays out of this gate - revision 8 excluded sorting on the premise that the project declared exactly one sorting layer, and d688f8b12 ended that premise by adding a second declared layer to ProjectSettings/TagManager.asset. NSC-100 owns sorting. The clauses this gate proves - catalog completeness and order, root and anchor contracts, source-scene immutability, local-reference ownership, build-settings exclusion, and composition failure before canonical save - are unchanged from revision 9.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "d494ec1ce3f6a7afc0a192f48995443f56a53be2",
+          "path": "Pipeline/TaskGraph/evidence/NSC-069/artifacts/NSC-069-EditMode-rev10.xml-2ce068ae8513.xml"
+        }
+      ],
+      "gate_id": "VAL-002",
+      "notes": "Re-verified from the committed tree at this validated commit, not copied from the prior record. Assets/NoSafeCircle/DoorPrototype/Generated/World/RoomSceneCatalog.asset and its .meta are both committed at 2ce068ae8, and the meta carries the stable GUID e29ec0c6941d9dc489d1560b67557c92 under NativeFormatImporter rather than a GUID-only stub. The catalog records exactly the five stable room scene paths in fixed order: RuinedEntry, BoneArchive, ChapelOfAsh, LowerVault, FinalRoom under Assets/Scenes/Rooms/, and the fixture asserts both the order and the distinct stable paths (CanonicalRooms_MatchFixedFiveRoomOrder, CanonicalRooms_RecordDistinctStableScenePaths), both passing in the run bound to this record. Per-room asset creation and identity belong to NSC-044 through NSC-048, which this gate defers to.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "d494ec1ce3f6a7afc0a192f48995443f56a53be2",
+          "path": "Pipeline/TaskGraph/evidence/NSC-069/artifacts/NSC-069-EditMode-rev10.xml-2ce068ae8513.xml"
+        }
+      ],
+      "gate_id": "VAL-003",
+      "notes": "Two consecutive foundation builds were run at the validated commit and compared semantically, because a rebuild is never byte-identical: recreated objects receive fresh random fileIDs. Both builds produced 1261 objects across 66 distinct (class, script) keys with no count differences and no size differences, and a component/value snapshot of the generated-root hierarchy after each build was identical. No duplicates appeared. The checkout was restored afterwards and reported 0 changes. The fixture proves the composer-level half separately: TryComposeRoom_RunTwice_ReplacesComposedRoomWithoutDuplicating and TryComposeRoom_ValidSourceScene_ClonesContentAndClosesSourceWithoutSaving. CARRIED FORWARD, NOT RE-RUN IN THIS PASS: this evidence was produced in the 2026-09-17 pass at 01620a96d. It carries because the implementation did not change - all nine recorded surfaces are byte-identical between 01620a96d and this validated commit 2ce068ae8, measured per path with git rev-parse. Revision 10 changed only VAL-001's contract text.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "d494ec1ce3f6a7afc0a192f48995443f56a53be2",
+          "path": "Pipeline/TaskGraph/evidence/NSC-069/artifacts/NSC-069-EditMode-rev10.xml-2ce068ae8513.xml"
+        }
+      ],
+      "gate_id": "VAL-004",
+      "notes": "Re-verified from the committed tree at this validated commit, not copied. Build-settings exclusion is proven by the fixture case AreRoomScenesExcludedFromBuild_CatalogRoomPaths_AreNotRegisteredInBuildSettings, passing in the run bound to this record. On scene load/unload APIs the honest statement is narrower than 'none exist': measured at 2ce068ae8, production code under Assets/NoSafeCircle/DoorPrototype/Scripts/ contains exactly one SceneManager load or unload call, at DemoRunFlow.cs:296, reloading the active scene by its own build index from the 'press R to play again' end-screen handler. That is a run restart, not a room transition, so the gate's requirement - that no room-transition code calls scene load/unload APIs - holds. Playability is covered by VAL-005. Final content composition remains deferred to NSC-049.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "d494ec1ce3f6a7afc0a192f48995443f56a53be2",
+          "path": "Pipeline/TaskGraph/evidence/NSC-069/artifacts/NSC-069-EditMode-rev10.xml-2ce068ae8513.xml"
+        }
+      ],
+      "gate_id": "VAL-005",
+      "notes": "Vincent opened Assets/Scenes/DoorPrototype.unity in the editor on canonical at HEAD 01620a96d, the exact validated commit, confirmed unmoved before and after he looked, and said: \"The game looks fine.\" He was in Play mode with the HUD and the health and mana bars live. The Hierarchy in his screenshot showed exactly one each of Player, Main Camera, Canvas, DoorRoot, EventSystem, World and GameplayNavigation, with no duplicate roots; floor and wall content sits under the single World root. Reported by the GER Agent, who launched the editor for him; his quoted words are his own. CARRIED FORWARD, NOT RE-RUN IN THIS PASS: this evidence was produced in the 2026-09-17 pass at 01620a96d. It carries because the implementation did not change - all nine recorded surfaces are byte-identical between 01620a96d and this validated commit 2ce068ae8, measured per path with git rev-parse. Revision 10 changed only VAL-001's contract text.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "Vincent Liguori",
+    "decision": "approved",
+    "notes": "VAL-005 is a human gate and its requirement is UNCHANGED in revision 10; only VAL-001's text moved. Vincent Liguori gave this approval on 2026-09-17 with Assets/Scenes/DoorPrototype.unity open in the editor on canonical at HEAD 01620a96d0325ad0d1ff62daed3cb622b6244115, confirmed unmoved before he looked and still unmoved when the original record was written. His words: \"The game looks fine.\" He was in Play mode with the HUD and the health and mana bars live, and his Hierarchy showed exactly one each of Player, Main Camera, Canvas, DoorRoot, EventSystem, World and GameplayNavigation, so no duplicate roots existed. The editor was launched for him by the GER Agent; the quoted words are his own.\n\nTHIS APPROVAL IS CARRIED FORWARD, NOT RE-ASKED, and the basis is measured rather than assumed: every one of the nine recorded surfaces - including Assets/Scenes/DoorPrototype.unity itself - is byte-identical between 01620a96d0325ad0d1ff62daed3cb622b6244115 and this validated commit 2ce068ae85139ca94dd79d7503e4b913809f5610, checked per path with git rev-parse. What he looked at is bit-for-bit what this record binds. If any of those surfaces had moved, this gate would have needed his eyes again and this record would not have been written.",
+    "required": true
+  },
+  "record_id": "DEL-NSC-069-2ce068ae8513",
+  "record_type": "delivery",
+  "recorded_at": "2026-09-22T07:54:02Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-069.yaml",
+    "revision": 10,
+    "sha256": "50f71f6f9b49a19a70aea59524d7023a8957c87a127f55e2a64a0bdc74cc4882"
+  },
+  "task_id": "NSC-069",
+  "validated_state": {
+    "commit": "2ce068ae85139ca94dd79d7503e4b913809f5610",
+    "tree": "9e21c9cc745f994434297f4383a37dd2d7625653"
+  }
+}
