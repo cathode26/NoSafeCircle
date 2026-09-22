@@ -198,7 +198,7 @@
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-080": {
-      "task_contract_sha256": "df4d07ba312ac7768fe87dab0e38138779cfbea79c76b913f0babb421576b97e",
+      "task_contract_sha256": "329beef6aca0c60e6987c750c497353bdb65e9e3596a55d3653d7ad5d16bcae0",
       "required_test_platforms": [
         "EditMode"
       ],

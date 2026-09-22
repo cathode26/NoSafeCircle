@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-080",
-  "contract_revision": 2,
+  "contract_revision": 3,
   "contract_disposition": "active",
   "title": "Bone Archive Visual Dressing",
   "reconciliation_key": "bone-archive-visual-dressing",
@@ -14,7 +14,7 @@
   "parent": "NSC-029",
   "depends_on": [
     "NSC-045",
-    "NSC-078"
+    "NSC-102"
   ],
   "exclusive_resources": [
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing/BoneArchiveDressing.prefab",
@@ -73,13 +73,24 @@
   "basis": "human_approved_gameplay_presentation",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "Visual dressing may add presentation objects only; geometry and navigation remain authoritative. Governing visual direction: Docs/Art/Environment/DUNGEON_ART_DIRECTION.md, Vincent-approved project direction dated 2026-09-13. The supplied images are inspiration only; all art and layouts must be original.",
+  "notes": "Visual dressing may add presentation objects only; geometry and navigation remain authoritative. Governing visual direction: Docs/Art/Environment/DUNGEON_ART_DIRECTION.md, Vincent-approved project direction dated 2026-09-13. The supplied images are inspiration only; all art and layouts must be original. DEPENDENCY REPOINTED 2026-09-22 (contract revision 3): depends_on NSC-078 becomes NSC-102. This task consumes nine prop files and references PropCatalog.json nowhere, so it never needed the 45-entry NSC-078; NSC-102 publishes exactly those nine with proved Sprite import settings and a measured ground-line pivot. NSC-078 keeps catalog authorship for all forty-five entries and remains this project’s prop-acquisition task; nothing about its scope, gates or spend controls changed beyond releasing those nine files’ paths.",
   "repository_state_at_bootstrap": "partial",
   "repository_evidence_at_bootstrap": [],
   "provenance": {
     "origin": "human_approved_environment_content_followup",
     "approved_at_utc_date": "2026-09-13",
-    "approved_by": "Vincent"
+    "approved_by": "Vincent",
+    "contract_followups": [
+      {
+        "date": "2026-09-22",
+        "reason": "Repoints depends_on from NSC-078 to NSC-102. This task consumes nine prop files and references PropCatalog.json nowhere, so it never needed the 45-entry acquisition task; NSC-102 publishes exactly those nine with proved Sprite import settings and a measured ground-line pivot. Unblocks Bone Archive dressing behind NSC-045, which passed.",
+        "source_head": "e622006655244472d7ea961a81eb89f5061a1552",
+        "previous_contract_revision": 2,
+        "base_contract_sha256": "f811328a22229929cbadc2d1e0358ca40965d1284b4f4bf624001d0378e74435",
+        "revised_contract_sha256": "4c2f615d1d0f840894ee729e66a95468c82bf2544ba776758a091838010732d1",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      }
+    ]
   },
   "visual_direction_addendum": "Use curated original clusters along walls, corners, alcoves, and focal points: shelf banks, furniture, containers, books or tools, webs/bones, organic growth, and small lights. Use foreground/background depth layering and camera-scale readability while preserving readable primary lanes and door approaches."
 }
