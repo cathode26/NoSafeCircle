@@ -55,6 +55,7 @@ SUITES: list[tuple[str, Path, Path, Path | None]] = [
     ("result", HOST / "tests" / "test_review_result.py", HOST / "tests", None),
     ("deploy", HOST / "tests" / "test_deploy_tools.py", HOST / "tests", None),
     ("merge", HOST / "tests" / "test_guarded_merge.py", HOST / "tests", None),
+    ("merge", HOST / "tests" / "test_main_write_lock.py", HOST / "tests", None),
     ("cleanup", HOST / "cleanup" / "tests" / "test_safe_delete.py",
      HOST / "cleanup" / "tests", None),
     ("art", ART / "tests" / "test_analysis_ledger_sheets.py", ART, ART),
