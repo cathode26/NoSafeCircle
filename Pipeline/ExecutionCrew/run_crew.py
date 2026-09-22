@@ -1916,6 +1916,10 @@ DEFAULT_ROLE_BUDGET = (32, 1200.0)
 ROLE_BUDGET_DEFAULTS = {
     ("implementer", "full"): (96, 3600.0),
     ("test_author", "full"): (96, 3600.0),
+    # NSC-047 attempt 5 died at 531.3s on error_max_turns AFTER the implementer
+    # and test author had both succeeded -- 2,657s of paid work discarded
+    # because the third role ran out of turns. It died on TURNS, not the wall.
+    ("validator", "full"): (96, 3600.0),
 }
 
 

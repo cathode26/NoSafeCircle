@@ -18,12 +18,14 @@ class RoleBudgetTests(unittest.TestCase):
         """Both writing roles, pinned together.
 
         The implementer was raised after NSC-042 died on max_turns twice; the test author
-        after NSC-007 died on the 1200s wall writing two full suites. The environment
-        override cannot substitute for either: compose's crew services declare a fixed
-        environment block, so a host value never reaches the container.
+        after NSC-007 died on the 1200s wall writing two full suites; the validator after
+        NSC-047 died at 531.3s on error_max_turns with both writing roles already
+        succeeded. The environment override cannot substitute for any of them: compose's
+        crew services declare a fixed environment block, so a host value never reaches
+        the container.
         """
 
-        for role in ("implementer", "test_author"):
+        for role in ("implementer", "test_author", "validator"):
             with self.subTest(role=role):
                 with patch.dict(os.environ, {}, clear=False):
                     os.environ.pop(f"NSC_{role.upper()}_TURN_LIMIT", None)
@@ -34,7 +36,8 @@ class RoleBudgetTests(unittest.TestCase):
 
     def test_other_roles_and_profiles_keep_the_default(self):
         # The standard-profile test author is deliberately not raised; only the full profile is.
-        for role, profile in (("implementer", "lean"), ("validator", "full"), ("test_author", "standard")):
+        for role, profile in (("implementer", "lean"), ("test_author", "standard"),
+                              ("validator", "standard")):
             with patch.dict(os.environ, {}, clear=False):
                 os.environ.pop(f"NSC_{role.upper()}_TURN_LIMIT", None)
                 budget = role_budgets(role, profile)
