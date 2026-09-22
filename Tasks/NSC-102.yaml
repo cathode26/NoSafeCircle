@@ -7,7 +7,7 @@
     },
     {
       "criterion_id": "AC-002",
-      "requirement": "Each of the nine .meta files carries real Sprite import settings, not a GUID-only stub: TextureImporterType Sprite, spriteImportMode Single, spritePixelsPerUnit 64, filterMode Point, textureCompression None, alphaIsTransparency true, mipmapEnabled false, wrapMode Clamp, and textureShape TextureImporterShape.Texture2D. A GUID-only stub imports as Cube with point-cookie defaults in Unity 6000.1 rather than as a Sprite, which would land the PNGs in the repository while the room renders nothing.",
+      "requirement": "Each of the nine .meta files carries real Sprite import settings, not a GUID-only stub: TextureImporterType Sprite, spriteImportMode Single, spritePixelsPerUnit 64, filterMode Point, textureCompression None, alphaIsTransparency true, mipmapEnabled false, wrapMode Clamp, and textureShape TextureImporterShape.Texture2D. A GUID-only stub imports as Cube with point-cookie defaults in Unity 6000.1 rather than as a Sprite, which would land the PNGs in the repository while the room renders nothing. wrapMode Clamp is a deliberate divergence from the approved door_bonestone_* metas on main, which are Repeat, and is not an oversight to be reconciled to them: for a non-tiling sprite the two are visually identical, but the prop set includes tiling runs (ca_pew_x_start/middle/end and ba_shelf_bank_z_start/middle/end) where wrap mode is not cosmetic. Note that wrapU 0 is Repeat, not Clamp.",
       "reference": "NSC-078 AC-004 applied import settings; memory stub-meta-imports-as-cubemap"
     },
     {
@@ -35,13 +35,13 @@
     },
     {
       "gate_id": "VAL-003",
-      "requirement": "The candidate changes exactly the 29 paths in this task's exclusive_resources and no others. It must not add, edit or delete Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/PropCatalog.json, any *_inventory.json, any directory .meta, Assets/NoSafeCircle/DoorPrototype/Editor/Art/DungeonPropImportPostprocessor.cs or Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Environment/DungeonPropImportSettingsTests.cs. Each of those belongs to NSC-078, and a diff touching any of them fails this gate.",
+      "requirement": "The candidate changes only paths that appear in this task's exclusive_resources, and no others. It need not change all of them: the nine props' 27 art paths reached main separately via candidate/art-director/bone-archive-props, so a candidate that adds only the two fixture paths satisfies this gate. An earlier revision of this gate required the candidate to change exactly 29 paths, which became unsatisfiable the moment those 27 landed; that wording is withdrawn. It must not add, edit or delete Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/PropCatalog.json, any *_inventory.json, any directory .meta, Assets/NoSafeCircle/DoorPrototype/Editor/Art/DungeonPropImportPostprocessor.cs or Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Environment/DungeonPropImportSettingsTests.cs. Each of those belongs to NSC-078, and a diff touching any of them fails this gate.",
       "reference": "NSC-078 exclusive_resources at contract revision 7"
     }
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "decomposition_reason": "One bounded mechanical responsibility: commit nine already-approved Bone Archive prop PNGs and their Raw copies at fixed paths with correct Sprite import settings, and add one Edit Mode fixture that proves those settings. No generation, no selection, no catalog authoring.",
   "decomposition_state": "concrete",
   "depends_on": [],
@@ -55,6 +55,11 @@
       "obligation_id": "INT-002",
       "requirement": "NSC-080 Bone Archive Visual Dressing consumes these nine props. Its exclusive_resources are its own five paths and it references PropCatalog.json nowhere, so it needs the props to exist at the committed paths and needs nothing else from NSC-078. This task does not repoint NSC-080's depends_on; that is a separate revision.",
       "reference": "NSC-080 rev 2 acceptance criteria AC-005 and exclusive_resources"
+    },
+    {
+      "obligation_id": "INT-003",
+      "reference": "Art Director Agent, 2026-09-22; committed .meta files at main after candidate/art-director/bone-archive-props merged",
+      "requirement": "Three of this task's nine props - shared_bone_pile_b, shared_web_corner_a and shared_web_drape_b - are also members of the Ruined Entry prop set, at the same repository path. There is one file and it must keep one GUID. The authoritative values, now committed on main, are shared_bone_pile_b 57a1b49337db46e28acd25f46e1949b2, shared_web_corner_a 70c7379416124ac5a781dc30b987ff32 and shared_web_drape_b bb8ef000c28f4f19b33be8895fd62f83. A later room task that ships an overlapping prop set must reuse these exact GUIDs rather than regenerate them; two GUIDs for one path make Unity treat it as two assets and silently break every reference authored against the other one. Two differing GUIDs were in fact generated for these three during staging and were reconciled before the merge. This obligation exists because the hazard is invisible from inside the later task's own scope: nothing it owns reveals that the path is shared."
     }
   ],
   "exclusive_resources": [
@@ -106,7 +111,18 @@
     "parent_contract_revision": null,
     "parent_contract_sha256": null,
     "parent_task_id": null,
-    "task_design_ger": "Vincent, 2026-09-22, to the Documentation Agent: \"Get me a room with art :)\" and \"If you need to make a task for that to happen, make a task.\" Board H-20260922-23. Authored by the GER Agent after measuring that NSC-078 cannot be decomposed by room - one test fixture and an indivisible PropCatalog.json across 168 exclusive_resources - and that NSC-080 consumes none of that shared core."
+    "task_design_ger": "Vincent, 2026-09-22, to the Documentation Agent: \"Get me a room with art :)\" and \"If you need to make a task for that to happen, make a task.\" Board H-20260922-23. Authored by the GER Agent after measuring that NSC-078 cannot be decomposed by room - one test fixture and an indivisible PropCatalog.json across 168 exclusive_resources - and that NSC-080 consumes none of that shared core.",
+    "contract_followups": [
+      {
+        "date": "2026-09-22",
+        "reason": "Fixes a defect I introduced in rev 1: VAL-003 required the candidate to change exactly the 29 paths, equality where it needed a subset, and became unsatisfiable the moment the art candidate landed 27 of them on main. Also records that wrapMode Clamp is a deliberate divergence from the door metas because the prop set includes tiling runs, and adds INT-003 pinning the three shared props' authoritative GUIDs so a later room task reuses rather than regenerates them.",
+        "source_head": "0c96cb8250a4e99fddb7f5fb01e30fa544979861",
+        "previous_contract_revision": 1,
+        "base_contract_sha256": "e267adbd7fb8008dd610ea9a6e4ab0fb8414955ff37a51e1e2cef15c10f29a0c",
+        "revised_contract_sha256": "212c215bfbf824e465e9666deb397f8181a45d9141f334e9e2e930bb31cd510e",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      }
+    ]
   },
   "reconciliation_key": "bone-archive-prop-publication",
   "repository_evidence_at_bootstrap": [],
