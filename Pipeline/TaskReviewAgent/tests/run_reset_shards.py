@@ -33,6 +33,31 @@ SUITE = pathlib.Path(__file__).resolve().parent / "reset_task_smoke_test.py"
 DEFAULT_TIMEOUT = 1800
 
 
+def read_inventory(repo: pathlib.Path) -> list[str]:
+    """The case identities the suite says exist, collected before any shard runs.
+
+    Fatal on failure, deliberately. The previous version ran this after the
+    shards and only validated when the inventory command happened to succeed,
+    so the one situation the check existed for -- not knowing what should have
+    run -- was the situation it skipped.
+    """
+    listing = subprocess.run([sys.executable, "-B", str(SUITE), "--list"],
+                             cwd=str(repo), capture_output=True, text=True)
+    if listing.returncode != 0:
+        sys.exit(f"*** inventory command failed (exit {listing.returncode}); "
+                 f"refusing to run shards without knowing what should run.\n"
+                 f"{(listing.stderr or '').strip()[:800]}")
+    names = [line.split("\t")[0].strip()
+             for line in (listing.stdout or "").splitlines() if line.strip()]
+    if not names:
+        sys.exit("*** inventory is empty; refusing to run shards, because "
+                 "every partition trivially satisfies an empty expectation.")
+    if len(set(names)) != len(names):
+        sys.exit("*** inventory lists a duplicate case name; the partition "
+                 "cannot be verified against it.")
+    return names
+
+
 def workers_default() -> int:
     """Match the runner rather than this host. A 22-core dev box would pick a
     partition that a 4-core runner cannot execute in parallel, and the measured
@@ -65,10 +90,11 @@ def run_shard(index: int, count: int, repo: pathlib.Path, timeout: int) -> dict:
         code, timed_out = 124, True
 
     elapsed = time.perf_counter() - started
-    passes = sum(1 for line in (output or "").splitlines()
-                 if line.startswith("PASS "))
-    return {"index": index, "code": code, "seconds": elapsed, "passes": passes,
-            "timed_out": timed_out, "output": output or "", "scratch": scratch}
+    names = [line[5:].strip() for line in (output or "").splitlines()
+             if line.startswith("PASS ")]
+    return {"index": index, "code": code, "seconds": elapsed,
+            "passes": len(names), "names": names, "timed_out": timed_out,
+            "output": output or "", "scratch": scratch}
 
 
 def main() -> int:
@@ -86,8 +112,12 @@ def main() -> int:
     if not SUITE.is_file():
         sys.exit(f"*** suite not found: {SUITE}")
 
+    # Collected BEFORE anything is launched. When this ran afterwards it was
+    # wrapped in a success test, so an unusable inventory skipped the check it
+    # was supposed to perform and the driver exited 0 with nothing verified.
+    inventory = read_inventory(repo)
     print(f"reset shards: {shards} shard(s), {workers} worker(s), "
-          f"repo {repo}", flush=True)
+          f"{len(inventory)} case(s) expected, repo {repo}", flush=True)
     started = time.perf_counter()
     results: list[dict] = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
@@ -118,18 +148,30 @@ def main() -> int:
     print(f"cases reported   : {cases}")
     print(f"shards failed    : {len(failed)}")
 
-    # The partition is only trustworthy if every case ran. A shard selector bug
-    # that drops cases would otherwise read as a speed-up.
-    expected = subprocess.run([sys.executable, "-B", str(SUITE), "--list"],
-                              cwd=str(repo), capture_output=True, text=True)
-    if expected.returncode == 0:
-        wanted = len([l for l in expected.stdout.splitlines() if l.strip()])
-        print(f"cases expected   : {wanted}")
-        if not failed and cases != wanted:
-            print(f"*** case count mismatch: ran {cases}, inventory has {wanted}")
-            return 1
+    print(f"cases expected   : {len(inventory)}")
 
-    return failed[0]["code"] if failed else 0
+    # Identities, not counts: a partition that drops one case and duplicates
+    # another has the right total and the wrong coverage.
+    ran: list[str] = []
+    for result in results:
+        ran.extend(result["names"])
+    missing = sorted(set(inventory) - set(ran))
+    unexpected = sorted(set(ran) - set(inventory))
+    repeated = sorted({name for name in ran if ran.count(name) > 1})
+
+    for label, names in (("never ran", missing), ("not in the inventory",
+                                                  unexpected),
+                         ("ran more than once", repeated)):
+        if names:
+            print(f"*** {len(names)} case(s) {label}:")
+            for name in names[:10]:
+                print(f"      {name}")
+
+    if failed:
+        return failed[0]["code"]
+    if missing or unexpected or repeated:
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
