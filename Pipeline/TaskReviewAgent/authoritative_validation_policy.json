@@ -520,7 +520,7 @@
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-103": {
-      "task_contract_sha256": "3791fe5394ab7aeb3573031abc040a91de1be6d93dfb4a36a44b697a67297d4c",
+      "task_contract_sha256": "bf02d753001fc42050ff93e2900ee2647d4a4c3279050ac6732a746ebc3744a5",
       "required_test_platforms": [
         "EditMode"
       ],
