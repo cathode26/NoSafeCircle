@@ -172,7 +172,15 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 Is.GreaterThan(Vector3.Distance(enemy.transform.position, wizard.transform.position)),
                 "The retained destination must lead away from the wizard, or it is not a retreat.");
 
+            // The two calls are made together in the same frame, as the gate asks, but the
+            // assertion between them is what gives this case teeth. A mutation run proved the
+            // alternative vacuous: ResetPursuit calls EnemyTargetKnowledge.ResetTargetKnowledge,
+            // leaving State Idle, and this component's own non-Pursuing branch then clears
+            // hasRepositionDestination on the very next frame - so a ResetKeepDistanceMovement
+            // that did nothing at all still produced a clean end state. Hold() calls
+            // agent.ResetPath() synchronously, so the effect is observable here and nowhere later.
             keepDistance.ResetKeepDistanceMovement();
+            Assert.IsFalse(agent.hasPath, "ResetKeepDistanceMovement must drop the retreat path in the same frame, before pursuit's own reset can mask it.");
             pursuit.ResetPursuit();
 
             Assert.IsFalse(agent.hasPath, "The paired reset must leave no path for the agent to walk out.");
