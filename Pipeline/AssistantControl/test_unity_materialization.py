@@ -14,6 +14,7 @@ from Pipeline.AssistantControl.review import ReviewGate
 from Pipeline.AssistantControl.scope import AssistantScopePlanner
 from Pipeline.AssistantControl.unity_materialization import (
     MaterializationError,
+    _missing_folder_meta_inventory,
     materialize_candidate,
 )
 from Pipeline.TaskReviewAgent.authoritative_candidate_validation import (
@@ -1201,6 +1202,170 @@ class UnityLineEndingChurnMustNotFailValidation(unittest.TestCase):
             self.assertIn(
                 CHAPEL_SCENE, line,
                 f"only builder output may remain dirty; found: {line!r}",
+            )
+
+
+class UnityRepairsCommittedFoldersWithNoMeta(unittest.TestCase):
+    """NSC-044's shape: committed prop folders, files inside, no .meta.
+
+    Measured 2026-09-22 against the fixed code: NSC-044's asset-meta inventory
+    comes back EMPTY, because its generated payloads already have committed
+    metas. The sidecar fix provably cannot help this room; the two defects are
+    disjoint in exposure.
+    """
+
+    ART = "Assets/NoSafeCircle/DoorPrototype/Art/Environment"
+    PROP = ART + "/Props/Source/selected/chair.png"
+    TILE = ("Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles"
+            "/RuinedEntryLowWallTile.asset")
+    SCENE = "Assets/Scenes/Rooms/RuinedEntry.unity"
+    KEPT = "Assets/NoSafeCircle/DoorPrototype/Art/Kept"
+
+    def setUp(self):
+        test_root = Path.cwd() / ".test-work"
+        test_root.mkdir(exist_ok=True)
+        self.root = test_root / f"assistant-folder-meta-{uuid.uuid4().hex}"
+        self.root.mkdir()
+        self.addCleanup(shutil.rmtree, self.root, True)
+        self.checkout = self.root / "checkout"
+        self.checkout.mkdir()
+        self.records = self.root / "records"
+        self.records.mkdir()
+        self.git("init", "-q")
+        name, email = validated_agent_git_identity()
+        self.git("config", "user.name", name)
+        self.git("config", "user.email", email)
+        builder = ("Assets/NoSafeCircle/DoorPrototype/Editor/Rooms"
+                   "/RuinedEntrySceneBuilder.cs")
+        for relative, content in (
+            (builder, "class RuinedEntrySceneBuilder {}\n"),
+            (self.SCENE, "old ruined entry\n"),
+            (self.TILE, "%YAML 1.1\ntile\n"),
+            # The payload HAS its meta committed -- which is why the sidecar
+            # inventory is empty for this room.
+            (self.TILE + ".meta", "fileFormatVersion: 2\nguid: "
+             + "b" * 32 + "\nNativeFormatImporter:\n  userData:\n"),
+            # Committed prop files, NO folder metas, NO .gitkeep anywhere.
+            (self.PROP, "png bytes\n"),
+            # A committed folder that ALREADY has its meta: the inventory
+            # must exclude it, or this would hand out authority over an
+            # existing folder identity.
+            (self.KEPT + "/kept.txt", "kept\n"),
+            (self.KEPT + ".meta", "fileFormatVersion: 2\nguid: "
+             + "e" * 32 + "\nfolderAsset: yes\nDefaultImporter:\n"),
+        ):
+            target = self.checkout / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content, encoding="utf-8", newline="\n")
+        self.git("add", ".")
+        self.git("commit", "-q", "-m", "fixture")
+        self.unity = self.root / "Unity.exe"
+        self.unity.write_bytes(b"fixture")
+        self.inventory = _missing_folder_meta_inventory(
+            self.checkout, self.git("rev-parse", "HEAD"))
+
+    def git(self, *args: str) -> str:
+        result = subprocess.run(
+            ("git", "-C", str(self.checkout), *args), capture_output=True, check=False,
+        )
+        if result.returncode:
+            raise AssertionError(result.stderr.decode(errors="replace"))
+        return result.stdout.decode().strip()
+
+    def builder(self, args, cwd, timeout):
+        """Unity regenerates the scene AND repairs every meta-less folder."""
+        (cwd / self.SCENE).write_text("generated ruined entry\n", newline="\n")
+        for meta in self.inventory:
+            target = cwd / meta
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(
+                "fileFormatVersion: 2\n"
+                "guid: " + f"{abs(hash(meta)):032x}"[:32] + "\n"
+                "folderAsset: yes\n"
+                "DefaultImporter:\n"
+                "  externalObjects: {}\n"
+                "  userData:\n",
+                newline="\n",
+            )
+        return subprocess.CompletedProcess(args, 0, b"ok\n", b"")
+
+    def test_the_inventory_finds_the_committed_folders_with_no_meta(self):
+        """Project-wide within the builder root, not derived from the task."""
+        self.assertIn(self.ART + ".meta", self.inventory)
+        self.assertIn(self.ART + "/Props.meta", self.inventory)
+        self.assertIn(self.ART + "/Props/Source/selected.meta", self.inventory)
+        # A folder whose meta IS committed must not be in the inventory.
+        # A DIRECTORY whose meta is already committed must be excluded.
+        # Asserting on the tile meta proved nothing: that is a FILE
+        # sidecar and was never a candidate for this inventory.
+        self.assertNotIn(self.KEPT + ".meta", self.inventory)
+
+    def test_materialization_admits_the_repaired_folder_metas(self):
+        """FAILING-BEFORE: every one of these raised the boundary refusal."""
+        result = run_door_prototype_builder(
+            checkout=self.checkout, task_id="NSC-044",
+            state_root=self.records, initial_changed_paths=(),
+            unity_executable=self.unity, unity_command_runner=self.builder,
+            allowed_generated_paths=tuple(sorted(
+                (self.SCENE, self.TILE), key=str.casefold)),
+            allowed_generated_roots=(),
+            allowed_missing_folder_metas=self.inventory,
+        )
+        self.assertEqual(
+            tuple(sorted(self.inventory, key=str.casefold)),
+            result.generated_folder_meta_paths,
+        )
+
+    def test_a_meta_outside_the_pinned_inventory_is_refused(self):
+        """Unity cannot widen what it was permitted before launch."""
+        def rogue(args, cwd, timeout):
+            self.builder(args, cwd, timeout)
+            # A folder that is NOT in the committed tree, so it cannot be in
+            # the pinned inventory. "Editor.meta" was a bad choice: Editor IS
+            # a committed meta-less folder here, so it is legitimately admitted.
+            stray = cwd / "Assets/NoSafeCircle/DoorPrototype/Fabricated.meta"
+            stray.write_text(
+                "fileFormatVersion: 2\nguid: " + "c" * 32
+                + "\nfolderAsset: yes\nDefaultImporter:\n", newline="\n")
+            return subprocess.CompletedProcess(args, 0, b"ok\n", b"")
+        # The REAL protection is the boundary refusal. Mutation showed the
+        # inventory-membership check inside the authenticator cannot fire:
+        # the caller filters the admitted list to inventory members first.
+        with self.assertRaisesRegex(
+            DoorPrototypeMaterializationError,
+            "outside the DoorPrototype builder-owned boundary",
+        ):
+            run_door_prototype_builder(
+                checkout=self.checkout, task_id="NSC-044",
+                state_root=self.records, initial_changed_paths=(),
+                unity_executable=self.unity, unity_command_runner=rogue,
+                allowed_generated_paths=tuple(sorted(
+                    (self.SCENE, self.TILE), key=str.casefold)),
+                allowed_generated_roots=(),
+                allowed_missing_folder_metas=self.inventory,
+            )
+
+    def test_an_asset_meta_shape_is_not_accepted_as_a_folder_repair(self):
+        """The two predicates must never fall back to each other."""
+        def wrong_shape(args, cwd, timeout):
+            (cwd / self.SCENE).write_text("generated\n", newline="\n")
+            target = cwd / self.inventory[0]
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(
+                "fileFormatVersion: 2\nguid: " + "d" * 32
+                + "\nNativeFormatImporter:\n  userData:\n", newline="\n")
+            return subprocess.CompletedProcess(args, 0, b"ok\n", b"")
+        with self.assertRaisesRegex(
+            DoorPrototypeMaterializationError, "folder_meta_invalid_content",
+        ):
+            run_door_prototype_builder(
+                checkout=self.checkout, task_id="NSC-044",
+                state_root=self.records, initial_changed_paths=(),
+                unity_executable=self.unity, unity_command_runner=wrong_shape,
+                allowed_generated_paths=tuple(sorted(
+                    (self.SCENE, self.TILE), key=str.casefold)),
+                allowed_generated_roots=(),
+                allowed_missing_folder_metas=self.inventory,
             )
 
 

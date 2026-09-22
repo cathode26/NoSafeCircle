@@ -121,6 +121,7 @@ class DoorPrototypeMaterialization:
     normalized_paths: tuple[str, ...]
     authenticated_incidental_meta_paths: tuple[str, ...]
     generated_asset_meta_paths: tuple[str, ...]
+    generated_folder_meta_paths: tuple[str, ...]
     incidental_evidence_path: str | None
     unity_executable: str
     unity_log: str
@@ -269,6 +270,84 @@ def _asset_meta_guid(content: bytes) -> str:
         if line.casefold().strip() == "folderasset: yes":
             return ""
     return guid
+
+
+def _folder_meta_guid(content: bytes) -> str:
+    """Return the guid of a plain FOLDER meta, or "" if it is not one.
+
+    Deliberately separate from the asset-meta envelope: a folder meta has no
+    importer settings, so it can be held to a complete grammar rather than an
+    envelope. The two predicates must never fall back to each other -- an asset
+    meta admitted as a folder repair, or the reverse, would be a real authority
+    leak.
+    """
+    if len(content) > 4096:
+        return ""
+    try:
+        text = content.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return ""
+    lines = text.replace(chr(13) + chr(10), "\n").split("\n")
+    if len(lines) < 4 or lines[0] != "fileFormatVersion: 2":
+        return ""
+    guid_match = re.fullmatch(r"guid: ([0-9a-fA-F]{32})", lines[1])
+    if not guid_match:
+        return ""
+    guid = guid_match.group(1).casefold()
+    if guid == "0" * 32:
+        return ""
+    if lines[2] != "folderAsset: yes" or lines[3] != "DefaultImporter:":
+        return ""
+    for line in lines[4:]:
+        if line and not line[0].isspace():
+            return ""
+    return guid
+
+
+def _authenticate_folder_metas(
+    root: Path, admitted: Sequence[str], inventory: Sequence[str],
+) -> tuple[str, ...]:
+    """Accept only pinned, genuinely missing metas for committed folders."""
+    pinned = set(inventory)
+    seen: dict[str, str] = {}
+    accepted: list[str] = []
+    for meta in admitted:
+        if meta not in pinned:
+            # Defence in depth; this cannot normally be reached, because the
+            # caller already filters the admitted list to inventory members.
+            # The REAL protection for a meta outside the inventory is the
+            # incidental_untracked refusal below. Found by mutation.
+            raise DoorPrototypeMaterializationError(
+                f"folder_meta_not_in_inventory: {meta}")
+        folder = meta[: -len(".meta")]
+        if not folder.startswith(DOOR_PROTOTYPE_ROOT):
+            raise DoorPrototypeMaterializationError(
+                f"folder_meta_outside_root: {meta}")
+        target = root / meta
+        if not target.is_file() or target.is_symlink():
+            raise DoorPrototypeMaterializationError(
+                f"folder_meta_not_regular: {meta}")
+        if not (root / folder).is_dir():
+            raise DoorPrototypeMaterializationError(
+                f"folder_meta_has_no_directory: {meta}")
+        if not _git(root, "cat-file", "-e", f"HEAD:{meta}", check=False).returncode:
+            raise DoorPrototypeMaterializationError(
+                f"folder_meta_preexists: {meta}")
+        try:
+            content = target.read_bytes()
+        except OSError as exc:
+            raise DoorPrototypeMaterializationError(
+                f"folder_meta_unreadable: {meta}") from exc
+        guid = _folder_meta_guid(content)
+        if not guid:
+            raise DoorPrototypeMaterializationError(
+                f"folder_meta_invalid_content: {meta}")
+        if guid in seen:
+            raise DoorPrototypeMaterializationError(
+                f"folder_meta_guid_collision: {meta} and {seen[guid]}")
+        seen[guid] = meta
+        accepted.append(meta)
+    return tuple(sorted(accepted, key=str.casefold))
 
 
 def _authenticate_asset_metas(
@@ -478,6 +557,7 @@ def run_door_prototype_builder(
     allowed_generated_paths: Sequence[str] | None = None,
     allowed_generated_roots: Sequence[str] | None = None,
     allowed_generated_asset_metas: Sequence[str] | None = None,
+    allowed_missing_folder_metas: Sequence[str] | None = None,
     incidental_folder_meta_path: str | None = None,
 ) -> DoorPrototypeMaterialization:
     """Run the canonical builder and return its exact authenticated path set.
@@ -628,7 +708,20 @@ def run_door_prototype_builder(
     admitted_asset_metas = _authenticate_asset_metas(
         root, [meta for meta in asset_metas if meta in set(untracked)], allowed or (),
     )
-    admitted_meta_set = set(admitted_asset_metas)
+    # The NSC-032 hatch keeps its own path exactly. The general mechanism
+    # would subsume it -- Scripts/Enemies is a committed meta-less folder and
+    # lands in the inventory -- but that would silently move an existing
+    # record's meta from authenticated_incidental_meta_paths to the new field.
+    # Changing a live record shape is not part of this fix.
+    folder_inventory = tuple(
+        meta for meta in (allowed_missing_folder_metas or ())
+        if meta != incidental_folder_meta_path
+    )
+    admitted_folder_metas = _authenticate_folder_metas(
+        root, [meta for meta in folder_inventory if meta in set(untracked)],
+        folder_inventory,
+    )
+    admitted_meta_set = set(admitted_asset_metas) | set(admitted_folder_metas)
 
     incidental_tracked = tuple(
         path for path in tracked if path not in initial_set and not permitted(path)
@@ -698,6 +791,7 @@ def run_door_prototype_builder(
         restored_tracked_paths=incidental_tracked, normalized_paths=normalized,
         authenticated_incidental_meta_paths=authenticated_incidental,
         generated_asset_meta_paths=admitted_asset_metas,
+        generated_folder_meta_paths=admitted_folder_metas,
         incidental_evidence_path=incidental_evidence_path,
         unity_executable=str(executable), unity_log=str(log_path),
     )

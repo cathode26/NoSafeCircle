@@ -31,6 +31,7 @@ from Pipeline.TaskReviewAgent.authoritative_candidate_validation import (
 from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task
 from Pipeline.TaskReviewAgent.contracts import ExecutionScopePlan, semantic_sha256, validate_task_id
 from Pipeline.TaskReviewAgent.door_prototype_materialization import (
+    DOOR_PROTOTYPE_ROOT,
     DoorPrototypeMaterializationError,
     UnityCommandRunner,
     default_unity_command_runner,
@@ -202,6 +203,40 @@ def _generated_asset_meta_inventory(
     return tuple(sorted(set(inventory), key=str.casefold))
 
 
+def _missing_folder_meta_inventory(checkout: Path, commit: str) -> tuple[str, ...]:
+    """Committed directories under the builder root with no tracked .meta.
+
+    Project-wide within DOOR_PROTOTYPE_ROOT rather than derived from the task's
+    own outputs: NSC-044's six are under Art/Environment/**, nowhere near its
+    generated tile, because Unity imports the whole project and repairs every
+    folder it finds without one.
+
+    Pinned at the candidate commit. Unity cannot add committed directories
+    mid-run, so the admitted set is finite and known before launch.
+    """
+    output = git(
+        checkout, "ls-tree", "-r", "--name-only", "-z", commit, "--",
+        DOOR_PROTOTYPE_ROOT,
+    ).decode()
+    tracked = {item for item in output.split("\0") if item}
+    directories: set[str] = set()
+    for path in tracked:
+        parts = path.split("/")
+        for index in range(1, len(parts)):
+            directory = "/".join(parts[:index])
+            # STRICTLY below the root: the root directory itself is not a
+            # repairable folder under this policy, and including it made the
+            # inventory emit a path the authenticator then refused as
+            # folder_meta_outside_root -- internally inconsistent.
+            if directory.startswith(DOOR_PROTOTYPE_ROOT):
+                directories.add(directory)
+    return tuple(sorted(
+        (directory + ".meta" for directory in directories
+         if directory + ".meta" not in tracked),
+        key=str.casefold,
+    ))
+
+
 def _require_candidate(
     checkouts: Checkouts, record: Mapping[str, Any], expected_candidate: str,
 ) -> tuple[Path, dict[str, Any], dict[str, Any], tuple[str, ...], tuple[str, ...]]:
@@ -267,7 +302,8 @@ def _require_candidate(
     asset_metas = _generated_asset_meta_inventory(
         checkout, expected_candidate, generated,
     )
-    return checkout, candidate, receipt, generated, roots, asset_metas
+    folder_metas = _missing_folder_meta_inventory(checkout, expected_candidate)
+    return checkout, candidate, receipt, generated, roots, asset_metas, folder_metas
 
 
 def _finalize(
@@ -501,7 +537,7 @@ def materialize_candidate(
         ):
             _require_no_active_reservation(checkouts, task_id)
             (checkout, candidate, receipt, generated, generated_roots,
-             generated_asset_metas) = _require_candidate(
+             generated_asset_metas, missing_folder_metas) = _require_candidate(
                 checkouts, record, expected_candidate,
             )
             build_method, _builder_source = resolve_generated_builder(generated)
@@ -524,6 +560,7 @@ def materialize_candidate(
                     "registered_generated_paths": list(generated),
                     "registered_generated_roots": list(generated_roots),
                     "registered_generated_asset_metas": list(generated_asset_metas),
+                    "registered_missing_folder_metas": list(missing_folder_metas),
                     "builder": build_method,
                     "materialization_error": str(exc),
                     "retryable": True,
@@ -547,6 +584,7 @@ def materialize_candidate(
                 "registered_generated_paths": list(generated),
                 "registered_generated_roots": list(generated_roots),
                 "registered_generated_asset_metas": list(generated_asset_metas),
+                "registered_missing_folder_metas": list(missing_folder_metas),
                 "builder": build_method,
                 "started_at": _now(),
             }
@@ -563,6 +601,7 @@ def materialize_candidate(
                     allowed_generated_paths=generated,
                     allowed_generated_roots=generated_roots,
                     allowed_generated_asset_metas=generated_asset_metas,
+                    allowed_missing_folder_metas=missing_folder_metas,
                     incidental_folder_meta_path=(
                         "Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies.meta"
                         if task_id == "NSC-032" else None
