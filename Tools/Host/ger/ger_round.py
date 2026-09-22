@@ -31,6 +31,9 @@ import time
 # review_result sits one directory up in both layouts: <repo>/Tools/Host for the
 # tracked copy, <workspace>/tools for a deployment.
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
+# Same route apply_contract.py:59 uses to reach the jobs family.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "jobs"))
+import resolve_codex  # noqa: E402
 import review_result  # noqa: E402
 
 CANONICAL = pathlib.Path(r"C:\NSC\NSC\NoSafeCircle")
@@ -897,9 +900,20 @@ def stream_process(command: list[str], prompt: str, stdout_path: pathlib.Path, s
 
 
 def run_codex(round_dir: pathlib.Path, snapshot: pathlib.Path, prompt: str, images: list[str], timeout: int) -> dict:
-    exe = shutil.which("codex")
-    if not exe:
-        raise ValueError("codex CLI not found")
+    # `shutil.which` finds the 0.151.0 standalone, which is refused
+    # server-side for gpt-6-astra; only the app's bundled build runs it.
+    # The shared resolver probes every candidate by --version and honours
+    # NSC_CODEX_EXE.
+    try:
+        exe = str(resolve_codex.resolve())
+    except resolve_codex.NoCodex as failure:
+        raise ValueError(f"codex CLI not found: {failure}") from failure
+    # Record WHICH binary ran. A round that silently used the wrong CLI is
+    # how gpt-6-astra looked "broken on this host" for an entire evening.
+    try:
+        (round_dir / "CODEX_CLI.txt").write_text(exe + "\n", encoding="utf-8")
+    except OSError:
+        pass
     command = [exe, "exec", "--json", "--sandbox", "read-only", "--cd", str(snapshot),
                "--skip-git-repo-check", "-c", f'model_reasoning_effort="{CODEX_REASONING_EFFORT}"',
                "--output-last-message", str(round_dir / "OUTPUT.md")]
