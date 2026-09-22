@@ -99,7 +99,8 @@
     "fireball-second-mint": "NSC-098",
     "enemy-death-look-art-integration": "NSC-099",
     "world-sprite-sorting-layer-adoption": "NSC-100",
-    "room-scene-catalog-consolidation": "NSC-101"
+    "room-scene-catalog-consolidation": "NSC-101",
+    "bone-archive-prop-publication": "NSC-102"
   },
   "reconciliation_run_id": "20260821T193541Z-998ee7b5",
   "schema_version": "1.0",

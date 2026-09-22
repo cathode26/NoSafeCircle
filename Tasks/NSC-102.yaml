@@ -1,0 +1,118 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "requirement": "Commit the nine approved Bone Archive prop PNGs - ba_landmark_chained_grimoire_lectern, ba_book_and_scroll_stack, ba_spilled_scroll_basket, ba_collapsed_reading_table_z, ba_comedy_skull_with_spectacles, shared_bone_pile_a, shared_bone_pile_b, shared_web_corner_a, shared_web_drape_b - each at Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/<category>/<id>.png with its .meta, and its unmodified source copy at Docs/Art/Environment/Props/Raw/<category>/<id>.png. Categories are architecture for ba_landmark_chained_grimoire_lectern and furnishings for the other eight. Copy the approved bytes verbatim from the Art Director's quantized set; this task performs no PixelLab generation, no selection and no repair, and never edits a PNG's pixels.",
+      "reference": "Art Director Agent keeper set, 2026-09-22; NSC-078 art plan intended_rooms column"
+    },
+    {
+      "criterion_id": "AC-002",
+      "requirement": "Each of the nine .meta files carries real Sprite import settings, not a GUID-only stub: TextureImporterType Sprite, spriteImportMode Single, spritePixelsPerUnit 64, filterMode Point, textureCompression None, alphaIsTransparency true, mipmapEnabled false, wrapMode Clamp, and textureShape TextureImporterShape.Texture2D. A GUID-only stub imports as Cube with point-cookie defaults in Unity 6000.1 rather than as a Sprite, which would land the PNGs in the repository while the room renders nothing.",
+      "reference": "NSC-078 AC-004 applied import settings; memory stub-meta-imports-as-cubemap"
+    },
+    {
+      "criterion_id": "AC-003",
+      "requirement": "Each .meta uses alignment 9 (Custom) with spritePivot x 0.5 and y equal to that prop's measured ground line - the count of fully transparent pixel rows below the drawn art divided by the canvas height - rather than the catalog's nominal bottom-contact pivot (0.5, 0). None of these props' art touches its canvas bottom, so a bottom-contact pivot floats the prop above its floor contact by that gap; at 64 pixels per unit a 15-pixel gap is 0.234 world units. This is the same defect as the wizard hover recorded in NSC-075 AC-008 and NSC-077 AC-002.",
+      "reference": "Art Director Agent measurement, 2026-09-22; board H-20260917-24"
+    },
+    {
+      "criterion_id": "AC-004",
+      "requirement": "Add the Edit Mode fixture Assets/NoSafeCircle/DoorPrototype/Tests/Editor/BoneArchivePropImportTests.cs and its .meta, declaring NoSafeCircle.DoorPrototype.Tests.Editor.BoneArchivePropImportTests as a new sealed non-partial type distinct from every existing type in that assembly, so a test-path filter resolves to exactly this one file. Place it directly in Tests/Editor/, which already exists: Tests/Editor/Environment/ does not exist on main and its directory .meta is claimed by NSC-078, so creating it here would collide with that task.",
+      "reference": "graph_controller._resolve_test_paths matches file stems and requires exactly one match; NSC-101 VAL-001 uses the same shape"
+    }
+  ],
+  "basis": "direct_gdd",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "requirement": "The Windows Unity Edit Mode run of Assets/NoSafeCircle/DoorPrototype/Tests/Editor/BoneArchivePropImportTests.cs passes. For each of the nine props the fixture loads the committed PNG through AssetDatabase and asserts that the loaded asset IS a Sprite, and that its TextureImporter reports TextureImporterType Sprite, spriteImportMode Single, spritePixelsPerUnit 64, filterMode Point, textureCompression None, alphaIsTransparency true, mipmapEnabled false, wrapMode Clamp, and textureShape TextureImporterShape.Texture2D. Asserting the importer fields alone is not sufficient: the fixture must also confirm the imported asset's type, because a stub meta yields a non-Sprite asset while some importer fields still read plausibly.",
+      "reference": "AC-002, AC-004"
+    },
+    {
+      "gate_id": "VAL-002",
+      "requirement": "In the same fixture, for each of the nine props, compute the alpha bounding box of the committed texture, derive the expected pivot y as (canvas height minus the bounding box's bottom row) divided by canvas height, and assert the imported sprite's pivot y equals that value within one pixel, with pivot x 0.5 and alignment Custom. The expected value is COMPUTED from the committed image, never written into the test as a constant: a gate asserting a fixed (0.5, 0) would pass a floating prop and fail a correct one, which is the defect this gate exists to prevent.",
+      "reference": "AC-003"
+    },
+    {
+      "gate_id": "VAL-003",
+      "requirement": "The candidate changes exactly the 29 paths in this task's exclusive_resources and no others. It must not add, edit or delete Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/PropCatalog.json, any *_inventory.json, any directory .meta, Assets/NoSafeCircle/DoorPrototype/Editor/Art/DungeonPropImportPostprocessor.cs or Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Environment/DungeonPropImportSettingsTests.cs. Each of those belongs to NSC-078, and a diff touching any of them fails this gate.",
+      "reference": "NSC-078 exclusive_resources at contract revision 7"
+    }
+  ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "One bounded mechanical responsibility: commit nine already-approved Bone Archive prop PNGs and their Raw copies at fixed paths with correct Sprite import settings, and add one Edit Mode fixture that proves those settings. No generation, no selection, no catalog authoring.",
+  "decomposition_state": "concrete",
+  "depends_on": [],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "requirement": "NSC-078 remains the owner of PropCatalog.json, the three inventory JSONs, the prop directory .meta files, DungeonPropImportPostprocessor.cs and DungeonPropImportSettingsTests.cs, and still owns the other thirty-six plan entries. This task narrows NSC-078's exclusive_resources by exactly the nine props' paths and changes nothing else about it - not its acceptance criteria, not its completion gates, not its generation cap or spend gates. When NSC-078 later lands its postprocessor and catalog, the values it applies must equal the ones proved here, so that re-importing these nine through the postprocessor is a no-op rather than a silent re-pivot.",
+      "reference": "NSC-078 rev 7 AC-004 and VAL-003"
+    },
+    {
+      "obligation_id": "INT-002",
+      "requirement": "NSC-080 Bone Archive Visual Dressing consumes these nine props. Its exclusive_resources are its own five paths and it references PropCatalog.json nowhere, so it needs the props to exist at the committed paths and needs nothing else from NSC-078. This task does not repoint NSC-080's depends_on; that is a separate revision.",
+      "reference": "NSC-080 rev 2 acceptance criteria AC-005 and exclusive_resources"
+    }
+  ],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/ba_landmark_chained_grimoire_lectern.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/ba_landmark_chained_grimoire_lectern.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/architecture/ba_landmark_chained_grimoire_lectern.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ba_book_and_scroll_stack.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ba_book_and_scroll_stack.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/furnishings/ba_book_and_scroll_stack.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ba_spilled_scroll_basket.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ba_spilled_scroll_basket.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/furnishings/ba_spilled_scroll_basket.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ba_collapsed_reading_table_z.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ba_collapsed_reading_table_z.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/furnishings/ba_collapsed_reading_table_z.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ba_comedy_skull_with_spectacles.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ba_comedy_skull_with_spectacles.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/furnishings/ba_comedy_skull_with_spectacles.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/shared_bone_pile_a.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/shared_bone_pile_a.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/furnishings/shared_bone_pile_a.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/shared_bone_pile_b.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/shared_bone_pile_b.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/furnishings/shared_bone_pile_b.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/shared_web_corner_a.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/shared_web_corner_a.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/furnishings/shared_web_corner_a.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/shared_web_drape_b.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/shared_web_drape_b.png.meta",
+    "repo-file:Docs/Art/Environment/Props/Raw/furnishings/shared_web_drape_b.png",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/BoneArchivePropImportTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/BoneArchivePropImportTests.cs.meta"
+  ],
+  "execution_reason": "NSC-080 Bone Archive Visual Dressing depends on NSC-078, a 45-entry catalog for all five rooms that is far from delivering, while every prop the Bone Archive needs already exists as an approved keeper. NSC-078 cannot be decomposed by room: its 168 exclusive_resources include one PropCatalog.json, three inventory JSONs, six directory .meta files and exactly one test fixture, and a decomposition's children must exactly partition the parent with a test file each. This task takes the narrow path instead - it claims only the nine props' own paths and its own fixture, and claims none of that shared core.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "GDD — Approved Five-Room Spatial Layout Blockout §4 (Global room and door coordinates) and §13 (Revision policy; Vincent's room-size authority, 2026-09-14)",
+      "requirement": "The five rooms share one continuous floor with doors D1 through D5 in fixed order and D5 identified as the final door. §13 allows an approved room revision to change baseline bounds and door centers within each room's maximum envelope, with the revision recorded in the owning room task contract; RoomSceneCatalog is the single authoritative, shared record of those reconciled bounds and door centers that every room task and the five-room composition task (NSC-049) read."
+    }
+  ],
+  "id": "NSC-102",
+  "kind": "implementation",
+  "notes": "Created 2026-09-22 on Vincent's word, given to the Documentation Agent: \"Get me a room with art :)\" and \"If you need to make a task for that to happen, make a task.\" Re-targeted from the Ruined Entry to the Bone Archive after NSC-044 went needs_human on a compile error while NSC-045 passed on its first attempt; the reasoning is identical and the Ruined Entry version remains authorable if NSC-044 lands. Scope is the nine props the NSC-078 plan's intended_rooms column assigns to BoneArchive - not the ten or eleven proposed in discussion, which included shared_candle_cluster_a, a prop the plan assigns to neither room. TWO DEFECTS SHIP KNOWINGLY, recorded here rather than passed silently so a later fix has a handle, and both under Vincent's \"I dont care if it might look bad, we will fix it later\": none of the nine has had its facing judged against the plan's facing column, and the Art Director's tilt metric cannot judge blocky props at all. NOT ESTABLISHED BY THIS CONTRACT: that NSC-080 will pass, only that its dependency on NSC-078 is unnecessary; and the blockout states above are the Game Agent's measurement relayed through the Documentation Agent, which I could not confirm from the dispatch records visible to me.",
+  "parent": "NSC-022",
+  "provenance": {
+    "graph_delta_plan_id": null,
+    "origin": "ger_agent_contract_request",
+    "parent_contract_revision": null,
+    "parent_contract_sha256": null,
+    "parent_task_id": null,
+    "task_design_ger": "Vincent, 2026-09-22, to the Documentation Agent: \"Get me a room with art :)\" and \"If you need to make a task for that to happen, make a task.\" Board H-20260922-23. Authored by the GER Agent after measuring that NSC-078 cannot be decomposed by room - one test fixture and an indivisible PropCatalog.json across 168 exclusive_resources - and that NSC-080 consumes none of that shared core."
+  },
+  "reconciliation_key": "bone-archive-prop-publication",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "Bone Archive Prop Publication",
+  "type": "world-authoring-foundation"
+}
