@@ -149,6 +149,63 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.That(knowledge.State, Is.EqualTo(EnemyTargetKnowledgeState.SearchingLastKnownPosition));
         }
 
+        // AC-007, VAL-006: the paired reset the gate names - ResetKeepDistanceMovement()
+        // together with EnemyPursuitMovement.ResetPursuit() during an active retreat - must
+        // abandon the retained reposition destination, not merely stop issuing new ones.
+        //
+        // The wizard deliberately stays in play and is moved to the FAR SIDE after the reset.
+        // Removing it instead would prove nothing: EnemyTargetKnowledge.ResetTargetKnowledge
+        // leaves State Idle, and EnemyPursuitMovement.HandleIdle calls agent.ResetPath() on the
+        // next frame, so a keep-distance reset that did nothing at all would still look clean.
+        // Keeping a live target holds the enemy in Pursuing, where a surviving retained
+        // destination is still driven; putting the wizard on the opposite side makes a fresh,
+        // legitimate retreat travel the other way, so stale and fresh cannot be confused.
+        [UnityTest]
+        public IEnumerator PairedReset_DuringRetreat_AbandonsRetainedRepositionDestination()
+        {
+            wizard.transform.position = enemy.transform.position + Vector3.right * 0.6f;
+            for (var i = 0; i < 15 && !agent.hasPath; i++) yield return null;
+            Assert.IsTrue(agent.hasPath, "Fixture must reach an active retreat before the paired reset means anything.");
+            var retainedDestination = agent.destination;
+            Assert.That(
+                Vector3.Distance(retainedDestination, wizard.transform.position),
+                Is.GreaterThan(Vector3.Distance(enemy.transform.position, wizard.transform.position)),
+                "The retained destination must lead away from the wizard, or it is not a retreat.");
+
+            keepDistance.ResetKeepDistanceMovement();
+            pursuit.ResetPursuit();
+
+            Assert.IsFalse(agent.hasPath, "The paired reset must leave no path for the agent to walk out.");
+
+            // Same frame, so no fresh decision has been taken yet: put the wizard on the opposite
+            // side, which makes every legitimate retreat from here travel away from the retained
+            // destination rather than toward it.
+            var restartPosition = enemy.transform.position;
+            wizard.transform.position = restartPosition + Vector3.left * 0.6f;
+            var separationAfterReset = Vector3.Distance(restartPosition, retainedDestination);
+
+            for (var i = 0; i < 45; i++)
+            {
+                yield return null;
+                Assert.That(
+                    Vector3.Distance(enemy.transform.position, retainedDestination),
+                    Is.GreaterThan(separationAfterReset - 0.25f),
+                    "The enemy resumed travel toward the destination the paired reset abandoned.");
+                if (agent.hasPath)
+                {
+                    Assert.That(
+                        Vector3.Distance(agent.destination, retainedDestination),
+                        Is.GreaterThan(0.35f),
+                        "The abandoned reposition destination was reissued to the agent.");
+                }
+            }
+
+            Assert.AreSame(wizard.transform, knowledge.CurrentTarget, "A live target is what keeps this test honest.");
+            Assert.IsTrue(pursuit.enabled);
+            Assert.IsTrue(agent.enabled);
+            Assert.IsTrue(agent.isOnNavMesh);
+        }
+
         // AC-001/007, VAL-006: RequireComponent works even if this component is added first.
         [Test]
         public void AddOnlyKeepDistance_ProvidesAndResolvesCompanions()
