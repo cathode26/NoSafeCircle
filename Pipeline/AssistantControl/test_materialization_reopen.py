@@ -321,6 +321,71 @@ class ReopenMaterializationTests(unittest.TestCase):
             original, result["candidate"]["commit"],
             "materialization produced no new commit")
 
+    def _reopen_leaving_the_journal(self):
+        """The state both rooms are in: record reopened, journal still there.
+
+        Produced by running the real reopen and restoring the journal, rather
+        than by hand-writing a record -- the state has to be one the command
+        can actually produce.
+        """
+        original, materialized, digest = self.make_failed_record()
+        journal = (self.manager.records
+                   / f"NSC-046.unity-materialization.{original}.json")
+        retained = journal.read_bytes()
+        fix = self.land_host_fix()
+        reopen_materialization(
+            self.manager, "NSC-046", expected_candidate=materialized,
+            expected_failure_sha256=digest, host_fix_commit=fix, apply=True)
+        archived = pathlib.Path(
+            json.loads((self.manager.records / "NSC-046.json").read_text())
+            ["materialization_reopen"]["archived_journal"])
+        archived.unlink()
+        journal.write_bytes(retained)
+        return original, materialized, digest, fix, journal
+
+    def test_a_reopen_can_be_resumed_to_retire_a_surviving_journal(self):
+        """Both rooms are in this state; without this they need a hand-moved file."""
+        _original, materialized, digest, fix, journal = self._reopen_leaving_the_journal()
+        self.assertTrue(journal.is_file())
+        plan = reopen_materialization(
+            self.manager, "NSC-046", expected_candidate=materialized,
+            expected_failure_sha256=digest, host_fix_commit=fix, apply=True)
+        self.assertTrue(plan["applied"])
+        self.assertTrue(plan["resumed"])
+        self.assertFalse(journal.exists())
+        self.assertTrue(pathlib.Path(plan["archived_journal"]).is_file())
+
+    def test_resume_dry_run_reports_without_moving_the_journal(self):
+        _original, materialized, digest, fix, journal = self._reopen_leaving_the_journal()
+        plan = reopen_materialization(
+            self.manager, "NSC-046", expected_candidate=materialized,
+            expected_failure_sha256=digest, host_fix_commit=fix)
+        self.assertFalse(plan["applied"])
+        self.assertTrue(journal.is_file())
+
+    def test_resume_with_nothing_left_says_so_rather_than_claiming_success(self):
+        """A command that reports success for work it did not do is worse
+        than one that refuses."""
+        _original, materialized, digest = self.make_failed_record()
+        fix = self.land_host_fix()
+        reopen_materialization(
+            self.manager, "NSC-046", expected_candidate=materialized,
+            expected_failure_sha256=digest, host_fix_commit=fix, apply=True)
+        plan = reopen_materialization(
+            self.manager, "NSC-046", expected_candidate=materialized,
+            expected_failure_sha256=digest, host_fix_commit=fix, apply=True)
+        self.assertTrue(plan.get("nothing_to_do"))
+        self.assertFalse(plan["applied"])
+
+    def test_resume_refuses_a_digest_that_is_not_the_recorded_one(self):
+        """Resume is bound to the record's OWN reopen marker."""
+        _original, materialized, _digest, fix, _journal = self._reopen_leaving_the_journal()
+        with self.assertRaisesRegex(
+                MaterializationReopenError, "not 'needs_materialization'"):
+            reopen_materialization(
+                self.manager, "NSC-046", expected_candidate=materialized,
+                expected_failure_sha256="f" * 64, host_fix_commit=fix, apply=True)
+
     def test_a_crew_candidate_is_refused(self):
         """This command is for a failed MATERIALIZED candidate only."""
         original = self.register_candidate()
