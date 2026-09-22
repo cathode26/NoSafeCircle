@@ -186,7 +186,12 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Launcher admission tests failed." }
           python Pipeline/TaskReviewAgent/tests/human_action_wait_smoke_test.py
           if ($LASTEXITCODE -ne 0) { throw "Human-action wait tests failed." }
-          python Pipeline/TaskReviewAgent/tests/reset_task_smoke_test.py
+          # Sharded across processes. Without this line the shard selector
+          # is dead code in CI: extra shards are not parallelism, and this
+          # step is one sequential pwsh block. The dispatcher checks its
+          # case count against the suite's own --list, so a partition that
+          # dropped a case fails here instead of reading as a speed-up.
+          python Pipeline/TaskReviewAgent/tests/run_reset_shards.py
           if ($LASTEXITCODE -ne 0) { throw "Guarded reset tests failed." }
           python Pipeline/TaskReviewAgent/tests/reset_rehearsal_task_smoke_test.py
           if ($LASTEXITCODE -ne 0) { throw "Rehearsal reset and transferred-Issue tests failed." }
