@@ -3,7 +3,7 @@
     {
       "criterion_id": "AC-001",
       "reference": "GDD — Approved Five-Room Spatial Layout Blockout §§3, 5, and 13; NSC-069 AC-006; Vincent room-size and player-start decisions, 2026-09-14",
-      "requirement": "Implement the reviewed Ruined Entry geometry PROPOSAL in Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/RuinedEntryLayout.cs: rectangular bounds X [-14,+14], Z [-26,0] (28 by 26 world units, within the 60 by 54 maximum); a 3.0-unit D1 opening centered at (0,0); public static Vector3 PlayerStart => new Vector3(-4f, 0f, -22f) as a gameplay-ground point; Rubble A at X [+2,+8], Z [-17,-10]; touching Rubble B at X [+6,+10], Z [-10,-6]; and a D1 staging rectangle at X [-2.5,+2.5], Z [-5.25,-0.25]. Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/RuinedEntrySceneBuilder.cs must materialize matching geometry, D1, D1StagingArea, and a plain PlayerStart GameObject under Authoring in Assets/Scenes/Rooms/RuinedEntry.unity; the PlayerStart marker must have no Player-named MonoBehaviour. In Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneCatalog.cs, edit only Ruined Entry's RoomBounds literal in CreateCanonicalRooms and leave CreateCanonicalDoors unchanged. Running No Safe Circle/World/Build Room Scene Catalog regenerates the complete Assets/NoSafeCircle/DoorPrototype/Generated/World/RoomSceneCatalog.asset, so the other four room entries and all five door entries must retain their pre-edit values and order."
+      "requirement": "Implement the reviewed Ruined Entry geometry PROPOSAL in Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/RuinedEntryLayout.cs: rectangular bounds X [-14,+14], Z [-26,0] (28 by 26 world units, within the 60 by 54 maximum); a 3.0-unit D1 opening centered at (0,0); public static Vector3 PlayerStart => new Vector3(-4f, 0f, -22f) as a gameplay-ground point; Rubble A at X [+2,+8], Z [-17,-10]; touching Rubble B at X [+6,+10], Z [-10,-6]; and a D1 staging rectangle at X [-2.5,+2.5], Z [-5.25,-0.25]. Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/RuinedEntrySceneBuilder.cs must materialize matching geometry, D1, D1StagingArea, and a plain PlayerStart GameObject under Authoring in Assets/Scenes/Rooms/RuinedEntry.unity; the PlayerStart marker must have no Player-named MonoBehaviour. NSC-101 has already written Ruined Entry's RoomBounds literal in Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneCatalog.cs's CreateCanonicalRooms as X [-14,+14], Z [-26,0] and regenerated Assets/NoSafeCircle/DoorPrototype/Generated/World/RoomSceneCatalog.asset; this task does not edit RoomSceneCatalog.cs or the generated asset. It verifies that Ruined Entry's catalog entry in both the C# source and the generated asset still reads RoomBounds X [-14,+14], Z [-26,0] and fails if either representation differs."
     },
     {
       "criterion_id": "AC-002",
@@ -51,11 +51,12 @@
   ],
   "confidence": "medium",
   "contract_disposition": "active",
-  "contract_revision": 6,
+  "contract_revision": 7,
   "decomposition_reason": "The revised work remains one bounded room-authoring unit: one layout file, one room builder, one focused test fixture, one source scene, one room-owned generated low-wall Tile, and the authorized room-specific catalog edit. Deterministic Windows Unity materialization and exact-candidate human camera review are delivery stages rather than separate implementation responsibilities.",
   "decomposition_state": "concrete",
   "depends_on": [
-    "NSC-069"
+    "NSC-069",
+    "NSC-101"
   ],
   "downstream_integration_obligations": [
     {
@@ -73,8 +74,6 @@
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/RuinedEntrySceneBuilder.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/RuinedEntryLayout.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/RuinedEntrySceneTests.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneCatalog.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/World/RoomSceneCatalog.asset",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/RuinedEntryLowWallTile.asset",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/RuinedEntryLowWallTile.asset.meta",
     "unity-scene:Assets/Scenes/Rooms/RuinedEntry.unity",
@@ -146,6 +145,15 @@
         "previous_contract_revision": 5,
         "base_contract_sha256": "58392e8a16aa615702420b791ce6dd31ea237d98821f780be2b62b713863fb21",
         "revised_contract_sha256": "1bdd8f7cbece693c77e7ab8645a2acb3a4eeaf96cb16e4259af7e9bbdba28dc7",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      },
+      {
+        "date": "2026-09-22",
+        "reason": "Hand the RoomSceneCatalog writes to NSC-101. Drops Editor/World/RoomSceneCatalog.cs and Generated/World/RoomSceneCatalog.asset from exclusive_resources, adds NSC-101 to depends_on, and turns this task's catalog clause from a WRITE into a VERIFICATION: NSC-101 has already written the values, this task edits neither representation, and it fails if its own room's entry differs. The clause is kept rather than deleted because a task with no clause at all would pass while the catalog said anything. The ordering those five encoded was a computation chain - each room's Z bounds begin where the previous room's end - so NSC-047's 'do not change D3's center, which NSC-046 moves to (-8,54)' and NSC-048's 'if D4 is not yet (4,76), stop' guards, and the GER room decision 4 combined-candidate paragraph, are removed with it: every clause in them was about the catalog, and a guard against an ordering that no longer exists reads as a live constraint. Vincent 2026-09-22: 'Add the task to the graph.'",
+        "source_head": "5c7ef2309caf860c502bb85a436e832d3da04c44",
+        "previous_contract_revision": 6,
+        "base_contract_sha256": "3de921eeb8d2e7f246629e6039f963e638e05e54981c660ce55d88e7b5019be8",
+        "revised_contract_sha256": "74b78b8acfb77644791d4ca248801a9f7d4495cf79c6d7c17505f04c8b3138f8",
         "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
       }
     ]
