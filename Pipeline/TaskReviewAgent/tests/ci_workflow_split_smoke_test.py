@@ -36,6 +36,7 @@ SUPERVISOR_WORKFLOW = ROOT / ".github/workflows/task-review-agent-supervisor.yml
 DELIVERY_WORKFLOW = ROOT / ".github/workflows/task-review-agent-delivery.yml"
 D1B2_WORKFLOW = ROOT / ".github/workflows/d1b2-core-deterministic.yml"
 DURABLE_GATE_WORKFLOW = ROOT / ".github/workflows/task-review-agent-durable-gate.yml"
+CLASSIFIER_SCRIPT = ROOT / ".github/scripts/core-suite-relevance.ps1"
 
 CORE_WORKFLOW_NAME = "TaskReviewAgent Deterministic Validation"
 WINDOWS_SMOKE_JOB = "windows-smoke:"
@@ -110,8 +111,25 @@ CORE_ONLY_STEP_COMMANDS = (
     "Pipeline/TaskReviewAgent/tests/post_poll_observation_budget_smoke_test.py",
     "Pipeline/TaskReviewAgent/tests/gate_restart_recovery_smoke_test.py",
     "Pipeline/TaskReviewAgent/tests/human_action_wait_smoke_test.py",
+    "Pipeline/TaskReviewAgent/tests/run_reset_shards_smoke_test.py",
 )
 CORE_FULL_SUITE_GATE = "if: steps.scope.outputs.run_full_core == 'true'"
+# Commands that run on EVERY PR. They carried the gate before the four-way
+# rebalance and it was inert - their job hardcoded the flag true - so the
+# gate's removal preserved behaviour rather than changing it. Gating them
+# for real is a coverage narrowing and needs Vincent, not a test edit.
+ALWAYS_ON_COMMANDS = frozenset({
+    "Pipeline/TaskReviewAgent/tests/dispatch_plan_smoke_test.py",
+    "Pipeline/TaskReviewAgent/tests/fresh_dispatch_smoke_test.py",
+    "Pipeline/TaskReviewAgent/tests/contention_retry_smoke_test.py",
+    # Inside the reset bundle step, which runs on every PR. Astra flagged this
+    # one from source before any test did.
+    "Pipeline/TaskReviewAgent/tests/human_action_wait_smoke_test.py",
+    # The dispatcher's guard tests. Gating them would mean the guard is
+    # only checked on the PRs that already run the full suite, which is
+    # the subset least likely to need it.
+    "Pipeline/TaskReviewAgent/tests/run_reset_shards_smoke_test.py",
+})
 DECOMPOSITION_POOLING_COMMANDS = (
     "Pipeline/TaskDecomposition/tests/pooled_decomposition_smoke_test.py",
     "Pipeline/TaskReviewAgent/tests/decomposition_session_pool_smoke_test.py",
@@ -193,7 +211,7 @@ def _triggers(paths_patterns: Sequence[str], changed_path: str) -> bool:
     return triggered
 
 
-def _extract_core_scope_allowlist(core_workflow_text: str) -> list[str]:
+def _extract_core_scope_allowlist() -> list[str]:
     """Pull the $ownedByOtherSuites array out of Core's scope-detection step.
 
     This is the runtime allowlist of Supervisor/Delivery-owned files that
@@ -202,7 +220,7 @@ def _extract_core_scope_allowlist(core_workflow_text: str) -> list[str]:
     """
     match = re.search(
         r"\$ownedByOtherSuites\s*=\s*@\((.*?)\)",
-        core_workflow_text,
+        CLASSIFIER_SCRIPT.read_text(encoding='utf-8'),
         re.DOTALL,
     )
     require(match is not None, "Core workflow must define $ownedByOtherSuites for its scope check")
@@ -211,11 +229,11 @@ def _extract_core_scope_allowlist(core_workflow_text: str) -> list[str]:
     return entries
 
 
-def _extract_core_delivery_prefixes(core_workflow_text: str) -> list[str]:
+def _extract_core_delivery_prefixes() -> list[str]:
     """Read Core's narrow ordinary task-delivery prefix list."""
     match = re.search(
         r"\$ordinaryDeliveryPrefixes\s*=\s*@\((.*?)\)",
-        core_workflow_text,
+        CLASSIFIER_SCRIPT.read_text(encoding='utf-8'),
         re.DOTALL,
     )
     require(
@@ -297,7 +315,7 @@ def test_delivery_only_paths_do_not_route_to_supervisor() -> None:
 def test_supervisor_only_change_keeps_legacy_check_but_skips_full_core() -> None:
     core_text = CORE_WORKFLOW.read_text(encoding="utf-8")
     core_paths = _extract_paths_block(core_text)
-    scope_allowlist = _extract_core_scope_allowlist(core_text)
+    scope_allowlist = _extract_core_scope_allowlist()
     for changed in REPRESENTATIVE_SUPERVISOR_ONLY_PATHS:
         require(
             _triggers(core_paths, changed),
@@ -312,7 +330,7 @@ def test_supervisor_only_change_keeps_legacy_check_but_skips_full_core() -> None
 def test_delivery_only_change_keeps_legacy_check_but_skips_full_core() -> None:
     core_text = CORE_WORKFLOW.read_text(encoding="utf-8")
     core_paths = _extract_paths_block(core_text)
-    scope_allowlist = _extract_core_scope_allowlist(core_text)
+    scope_allowlist = _extract_core_scope_allowlist()
     for changed in REPRESENTATIVE_DELIVERY_ONLY_PATHS:
         require(
             _triggers(core_paths, changed),
@@ -327,8 +345,8 @@ def test_delivery_only_change_keeps_legacy_check_but_skips_full_core() -> None:
 def test_ordinary_task_delivery_keeps_required_check_but_skips_full_core() -> None:
     core_text = CORE_WORKFLOW.read_text(encoding="utf-8")
     core_paths = _extract_paths_block(core_text)
-    scope_allowlist = _extract_core_scope_allowlist(core_text)
-    delivery_prefixes = _extract_core_delivery_prefixes(core_text)
+    scope_allowlist = _extract_core_scope_allowlist()
+    delivery_prefixes = _extract_core_delivery_prefixes()
     require(
         _triggers(
             core_paths,
@@ -349,8 +367,8 @@ def test_ordinary_task_delivery_keeps_required_check_but_skips_full_core() -> No
 
 def test_task_contract_pipeline_workflow_and_unknown_paths_still_fail_safe() -> None:
     core_text = CORE_WORKFLOW.read_text(encoding="utf-8")
-    scope_allowlist = _extract_core_scope_allowlist(core_text)
-    delivery_prefixes = _extract_core_delivery_prefixes(core_text)
+    scope_allowlist = _extract_core_scope_allowlist()
+    delivery_prefixes = _extract_core_delivery_prefixes()
     for changed in (
         "Tasks/NSC-914.yaml",
         "Pipeline/TaskGraph/task_loader.py",
@@ -371,7 +389,7 @@ def test_task_contract_pipeline_workflow_and_unknown_paths_still_fail_safe() -> 
 def test_core_owned_change_selects_full_core() -> None:
     core_text = CORE_WORKFLOW.read_text(encoding="utf-8")
     core_paths = _extract_paths_block(core_text)
-    scope_allowlist = _extract_core_scope_allowlist(core_text)
+    scope_allowlist = _extract_core_scope_allowlist()
     changed = "Pipeline/TaskReviewAgent/real_checkout.py"
     require(_triggers(core_paths, changed), f"{changed} must trigger the legacy Core check")
     require(
@@ -383,7 +401,7 @@ def test_core_owned_change_selects_full_core() -> None:
 def test_pool_and_runtime_changes_trigger_full_core() -> None:
     core_text = CORE_WORKFLOW.read_text(encoding="utf-8")
     core_paths = _extract_paths_block(core_text)
-    scope_allowlist = _extract_core_scope_allowlist(core_text)
+    scope_allowlist = _extract_core_scope_allowlist()
     for changed in REPRESENTATIVE_POOL_CORE_PATHS:
         require(
             _triggers(core_paths, changed),
@@ -415,11 +433,18 @@ def test_core_owned_tests_run_in_core_gated_like_other_core_tests() -> None:
             f"Core workflow must run {command}: removing it from Core must be caught here",
         )
         for step in steps:
-            require(
-                CORE_FULL_SUITE_GATE in step,
-                f"{command} must be gated exactly like the other Core "
-                f"regression tests ('{CORE_FULL_SUITE_GATE}'): {step}",
-            )
+            if command in ALWAYS_ON_COMMANDS:
+                require(
+                    CORE_FULL_SUITE_GATE not in step,
+                    f"{command} runs on every PR; adding a relevance gate "
+                    f"would narrow coverage on ordinary delivery: {step[:200]}",
+                )
+            else:
+                require(
+                    CORE_FULL_SUITE_GATE in step,
+                    f"{command} must be gated exactly like the other Core "
+                    f"regression tests ('{CORE_FULL_SUITE_GATE}'): {step[:200]}",
+                )
 
 
 def test_decomposition_pooling_suites_run_once_in_d1b2_windows_core() -> None:
@@ -470,24 +495,48 @@ def test_durable_gate_bundle_runs_once_in_its_own_workflow() -> None:
 
 
 def test_rehearsal_reset_remains_registered_in_core() -> None:
+    """The reset bundle runs on every PR, and every command keeps its exit check.
+
+    This used to require `if: steps.scope.outputs.run_full_core == 'true'` on
+    the step. That condition was there, and it was INERT: the job it lived in
+    hardcoded the flag to true, so the step ran unconditionally while the
+    assertion read a gate. Requiring it again would narrow coverage on ordinary
+    delivery PRs, which is a policy change nobody has approved. So this asserts
+    what the step does - always-on - and the gate's absence is the point.
+
+    Behind that failure sat a second one: this demanded a direct
+    `reset_task_smoke_test.py` call while the workflow now invokes the shard
+    dispatcher. A suite can be deleted from CI and leave this green if it only
+    checks the commands it already expected.
+    """
     text = CORE_WORKFLOW.read_text(encoding="utf-8")
     step = next(part for part in text.split("      - name: ")
                 if part.startswith("Run launcher admission and guarded reset tests\n"))
-    require("if: steps.scope.outputs.run_full_core == 'true'" in step,
-            "guarded reset suite must retain Core relevance gating")
+    require(CORE_FULL_SUITE_GATE not in step,
+            "the reset bundle runs on every PR; a relevance gate here would "
+            "silently narrow coverage on ordinary delivery")
     require("shell: pwsh" in step, "guarded reset suite requires explicit native exit checks")
-    for name in ("launcher_preflight", "human_action_wait", "reset_task", "reset_rehearsal_task"):
-        command = f"python Pipeline/TaskReviewAgent/tests/{name}_smoke_test.py"
-        require(step.count(command) == 1, f"Core must run {name} once")
+
+    commands = [f"python Pipeline/TaskReviewAgent/tests/{name}_smoke_test.py"
+                for name in ("launcher_preflight", "human_action_wait",
+                             "reset_rehearsal_task")]
+    # The reset suite is sharded across processes; the dispatcher is the command,
+    # and it is what must keep its exit check.
+    commands.append("python Pipeline/TaskReviewAgent/tests/run_reset_shards.py")
+    for command in commands:
+        require(step.count(command) == 1, f"Core must run {command} exactly once")
         remainder = step.split(command, 1)[1].lstrip()
         require(remainder.startswith("if ($LASTEXITCODE -ne 0) { throw "),
-                f"Core must preserve the exit status of {name}")
+                f"Core must preserve the exit status of {command}")
+    require("reset_task_smoke_test.py" not in step,
+            "the sharded suite must not also be invoked directly; that would "
+            "run all 43 cases twice and hide the dispatcher failing")
 
 
 def test_unknown_task_review_agent_file_routes_to_core() -> None:
     core_text = CORE_WORKFLOW.read_text(encoding="utf-8")
     core_paths = _extract_paths_block(core_text)
-    scope_allowlist = _extract_core_scope_allowlist(core_text)
+    scope_allowlist = _extract_core_scope_allowlist()
     supervisor_paths = _extract_paths_block(SUPERVISOR_WORKFLOW.read_text(encoding="utf-8"))
     delivery_paths = _extract_paths_block(DELIVERY_WORKFLOW.read_text(encoding="utf-8"))
     require(
@@ -510,15 +559,17 @@ def test_unknown_task_review_agent_file_routes_to_core() -> None:
 
 def test_registered_runner_rejects_widened_delivery_prefix() -> None:
     """Exercise main's actual guard calls with read-only, in-memory workflow drift."""
-    original = CORE_WORKFLOW.read_text(encoding="utf-8")
-    needle = '            "Pipeline/TaskGraph/evidence/"'
-    require(original.count(needle) == 1, "expected one narrow delivery evidence prefix")
-    mutated = original.replace(needle, '            "Pipeline/"')
+    original = CLASSIFIER_SCRIPT.read_text(encoding="utf-8")
+    needle = '  "Pipeline/TaskGraph/evidence/"'
+    require(original.count(needle) == 1,
+            "expected one narrow delivery evidence prefix in the shared "
+            "classifier; four copies is what this test existed to prevent")
+    mutated = original.replace(needle, '  "Pipeline/"')
     calls: list[str] = []
     ordinary_guard = test_ordinary_task_delivery_keeps_required_check_but_skips_full_core
     fail_safe_guard = test_task_contract_pipeline_workflow_and_unknown_paths_still_fail_safe
 
-    class ReadOnlyWorkflow:
+    class ReadOnlyClassifier:
         def read_text(self, encoding: str = "utf-8") -> str:
             return mutated
 
@@ -532,7 +583,7 @@ def test_registered_runner_rejects_widened_delivery_prefix() -> None:
 
     failure = None
     with patch.dict(globals(), {
-        "CORE_WORKFLOW": ReadOnlyWorkflow(),
+        "CLASSIFIER_SCRIPT": ReadOnlyClassifier(),
         "test_ordinary_task_delivery_keeps_required_check_but_skips_full_core": observe_ordinary_guard,
         "test_task_contract_pipeline_workflow_and_unknown_paths_still_fail_safe": observe_fail_safe_guard,
         # Avoid recursively running this regression if both real guards are removed.
@@ -589,16 +640,11 @@ def test_core_scope_classifier_checks_its_diff_before_trusting_it() -> None:
 
     This guard is structural: it keeps the explicit branch from being deleted.
     """
-    core_text = CORE_WORKFLOW.read_text(encoding="utf-8")
-    step = next(
-        part
-        for part in core_text.split("      - name: ")
-        if part.startswith("Determine Core suite relevance\n")
-    )
+    step = CLASSIFIER_SCRIPT.read_text(encoding="utf-8")
     command = 'git diff --name-only "$baseSha...HEAD"'
     require(
         step.count(command) == 1,
-        "Core's scope step must read the changed-file list exactly once",
+        "the shared classifier must read the changed-file list exactly once",
     )
     remainder = step.split(command, 1)[1].lstrip()
     require(
@@ -616,6 +662,71 @@ def test_core_scope_classifier_checks_its_diff_before_trusting_it() -> None:
         "$runFullCore = $false" not in failure_branch,
         "the unreadable-diff branch must never clear $runFullCore",
     )
+
+
+def test_a_classifier_only_change_triggers_this_workflow() -> None:
+    """The file that decides Core coverage must start the workflow it decides for.
+
+    Measured before the fix: the classifier lived at
+    .github/scripts/core-suite-relevance.ps1 and matched no entry in Core's
+    `paths:`, so a pull request touching only that script started no run. The
+    classifier regressions in this file would then pass on the merge commit
+    and never once on the change itself.
+
+    This is checked against the workflow's real `paths:` block through the same
+    _triggers matcher the other routing tests use, so deleting the entry fails
+    here rather than being noticed on a live pull request.
+    """
+    core_paths = _extract_paths_block(CORE_WORKFLOW.read_text(encoding="utf-8"))
+    changed = ".github/scripts/core-suite-relevance.ps1"
+    require(
+        _triggers(core_paths, changed),
+        f"{changed} decides whether the Core suite runs; a PR changing only it "
+        f"must trigger this workflow",
+    )
+    require(
+        CLASSIFIER_SCRIPT.is_file(),
+        "the trigger must name a classifier that exists",
+    )
+
+
+def test_every_job_uses_the_one_shared_classifier() -> None:
+    """Four jobs, one classifier.
+
+    The rebalance originally copy-pasted the relevance classifier into every
+    job: four identical allowlists to keep in sync by hand, and a regression
+    test that mutates the delivery prefix could no longer find exactly one to
+    mutate. Drift between those copies would be invisible and would change
+    which suites run.
+    """
+    require(CLASSIFIER_SCRIPT.is_file(),
+            f"the shared classifier must exist at {CLASSIFIER_SCRIPT}")
+    core_text = CORE_WORKFLOW.read_text(encoding="utf-8")
+    scope_steps = [step for step in _core_steps(core_text)
+                   if step.startswith("Determine Core suite relevance")
+                   or "id: scope" in step]
+    require(len(scope_steps) >= 1, "Core must define at least one scope step")
+    all_steps = _core_steps(core_text)
+    scope_indices = {i for i, step in enumerate(all_steps) if step in scope_steps}
+    for step in scope_steps:
+        require(step.count("core-suite-relevance.ps1") == 1,
+                f"every scope step must call the shared classifier exactly "
+                f"once: {step[:200]}")
+    require("ownedByOtherSuites = @(" not in core_text,
+            "the allowlist must live in the shared classifier only; an inline "
+            "copy is the duplication this replaced")
+    # Counted per step, not across the file. The file-wide count this replaced
+    # assumed every mention of the filename was a call, which stopped being
+    # true once the classifier was listed in `paths:` so that editing it
+    # triggers this workflow. Per step is also stricter: a call from a step
+    # that is not a scope step is now refused, and the old count could not
+    # distinguish that from a correct one.
+    for i, step in enumerate(all_steps):
+        if i in scope_indices:
+            continue
+        require("core-suite-relevance.ps1" not in step,
+                f"only a scope step may invoke the classifier; this step "
+                f"calls it too: {step[:200]}")
 
 
 def main() -> int:
@@ -637,6 +748,8 @@ def main() -> int:
     test_unknown_task_review_agent_file_routes_to_core()
     test_registered_runner_rejects_widened_delivery_prefix()
     test_core_scope_classifier_checks_its_diff_before_trusting_it()
+    test_every_job_uses_the_one_shared_classifier()
+    test_a_classifier_only_change_triggers_this_workflow()
     print("ci_workflow_split_smoke_test: PASS")
     return 0
 
