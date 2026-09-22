@@ -237,6 +237,29 @@ class ReopenMaterializationTests(unittest.TestCase):
                 self.manager, "NSC-046", expected_candidate=materialized,
                 expected_failure_sha256=digest, host_fix_commit=fix, apply=True)
 
+    def test_an_unrelated_contract_revision_on_main_does_not_block_reopen(self):
+        """GER propagating a contract fix must not strand a parked candidate.
+
+        Materialization binds the contract in the CHECKOUT at the candidate
+        commit against the record pin, never at Source HEAD -- so contract
+        churn on main provably cannot reach a parked candidate.
+        """
+        _original, materialized, digest = self.make_failed_record()
+        task_path = self.source / "Tasks/NSC-046.yaml"
+        task = json.loads(task_path.read_text())
+        task["contract_revision"] = 2
+        task["title"] = "Fixture Chapel of Ash room, revised"
+        task_path.write_text(json.dumps(task), encoding="utf-8", newline="\n")
+        self.git(self.source, "add", "--", "Tasks/NSC-046.yaml")
+        self.git(self.source, "commit", "-q", "-m", "GER: contract revision 2")
+        fix = self.git(self.source, "rev-parse", "HEAD")
+        plan = reopen_materialization(
+            self.manager, "NSC-046", expected_candidate=materialized,
+            expected_failure_sha256=digest, host_fix_commit=fix, apply=True)
+        self.assertTrue(plan["applied"])
+        record = json.loads((self.manager.records / "NSC-046.json").read_text())
+        self.assertEqual("needs_materialization", record["status"])
+
     def test_a_crew_candidate_is_refused(self):
         """This command is for a failed MATERIALIZED candidate only."""
         original = self.register_candidate()

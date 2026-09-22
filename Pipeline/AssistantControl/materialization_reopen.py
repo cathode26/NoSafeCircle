@@ -178,17 +178,27 @@ def reopen_materialization(
                 "host-fix commit does not descend from the candidate Source") from exc
         if not _source_changes(checkouts.source, source_base, source_head):
             raise MaterializationReopenError("Source contains no fix after the failed run")
+        checkout = Path(str(record.get("checkout", ""))).resolve()
+        original_commit = str(original["commit"])
+        # Bind the contract where MATERIALIZATION binds it: in the CHECKOUT, at
+        # the candidate commit, against the record's pinned sha
+        # (unity_materialization.py:294 and :544). The first version of this
+        # guard read Source HEAD instead, which materialization never consults
+        # -- so an unrelated contract revision landing on main blocked a reopen
+        # whose candidate had not moved at all. Measured on NSC-046: its
+        # contract blob is identical at both the original and materialized
+        # commits and matches the pin exactly, while main had moved twice.
+        # The intent is "the task has not silently changed meaning under THIS
+        # candidate", and this is where that is true or false.
         try:
             load_committed_task(
-                checkouts.source, task_id, commit=source_head,
+                checkout, task_id, commit=original_commit,
                 expected_sha256=str(record.get("task_contract_sha256", "")),
             )
         except Exception as exc:
             raise MaterializationReopenError(
-                "task contract changed at the host-fix commit") from exc
-
-        checkout = Path(str(record.get("checkout", ""))).resolve()
-        original_commit = str(original["commit"])
+                "task contract differs from the record pin at the candidate commit"
+            ) from exc
         plan = {
             "schema_version": SCHEMA_VERSION,
             "task_id": task_id,
