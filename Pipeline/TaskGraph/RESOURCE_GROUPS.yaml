@@ -1089,7 +1089,8 @@
         "bone-archive-blockout",
         "chapel-of-ash-blockout",
         "lower-vault-blockout",
-        "final-room-blockout"
+        "final-room-blockout",
+        "room-scene-catalog-consolidation"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneCatalog.cs",
       "work_ids": [
@@ -1098,7 +1099,8 @@
         "NSC-045",
         "NSC-046",
         "NSC-047",
-        "NSC-048"
+        "NSC-048",
+        "NSC-101"
       ]
     },
     {
@@ -1108,7 +1110,8 @@
         "bone-archive-blockout",
         "chapel-of-ash-blockout",
         "lower-vault-blockout",
-        "final-room-blockout"
+        "final-room-blockout",
+        "room-scene-catalog-consolidation"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/World/RoomSceneCatalog.asset",
       "work_ids": [
@@ -1117,7 +1120,8 @@
         "NSC-045",
         "NSC-046",
         "NSC-047",
-        "NSC-048"
+        "NSC-048",
+        "NSC-101"
       ]
     },
     {

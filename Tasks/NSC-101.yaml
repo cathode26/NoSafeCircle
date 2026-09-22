@@ -1,0 +1,74 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "GDD — Approved Five-Room Spatial Layout Blockout §4 and §13 (Vincent's room-size authority, 2026-09-14); GER room decisions 1-5 (2026-09-15) as already recorded in NSC-045, NSC-046, NSC-047, and NSC-048",
+      "requirement": "In Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneCatalog.cs, edit CreateCanonicalRooms so BoneArchive's RoomBounds changes from (-10,10,0,20) to (-12,12,0,20), ChapelOfAsh's RoomBounds changes from (-12,12,20,42) to (-18,18,20,54), LowerVault's RoomBounds changes from (-11,11,42,64) to (-20,20,54,76), and FinalRoom's RoomBounds changes from (-12,12,64,86) to (-15,15,76,104). Leave RuinedEntry's RoomBounds at (-14,14,-26,0) — do not change it. Verify RuinedEntry's value explicitly rather than skipping it silently: a test that only checks the four changed rooms would pass even if RuinedEntry's bounds were corrupted. Preserve room order (RuinedEntry, BoneArchive, ChapelOfAsh, LowerVault, FinalRoom) and every sceneAssetPath exactly as committed."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "GDD — Approved Five-Room Spatial Layout Blockout §4 and §10 (Door sequence) and §13; GER room decision 4 (2026-09-15) as already recorded in NSC-046, NSC-047, and NSC-048",
+      "requirement": "In the same file's CreateCanonicalDoors, change D3's ExpectedGroundCenter from (-6,42) to (-8,54), D4's ExpectedGroundCenter from (4,64) to (4,76), and D5's ExpectedGroundCenter from (0,86) to (0,104). Leave D1's ExpectedGroundCenter at (0,0) and D2's at (6,20) — do not change them. Verify both explicitly rather than skipping them silently. Preserve door order D1 through D5, every openingWidth of 3, and D5 as the only entry with isFinal true."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "NSC-069 AC-001/AC-006 (RoomSceneCatalog generated-asset convention); AC-001 and AC-002 above",
+      "requirement": "Run the existing No Safe Circle/World/Build Room Scene Catalog menu item (RoomSceneCatalog.BuildAsset) to regenerate Assets/NoSafeCircle/DoorPrototype/Generated/World/RoomSceneCatalog.asset from the edited CreateCanonicalRooms and CreateCanonicalDoors. The regenerated asset's five RoomCatalogEntry values and five DoorSequenceEntry values must exactly match the edited C# source: the four changed room bounds and the unchanged RuinedEntry bounds, the three changed door centers and the two unchanged door centers, room and door order, every sceneAssetPath, every openingWidth of 3, and D5 as the sole final door. Do not hand-edit the serialized asset outside this menu command."
+    }
+  ],
+  "basis": "direct_gdd",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "AC-001 and AC-002",
+      "requirement": "Add the Edit Mode fixture Assets/NoSafeCircle/DoorPrototype/Tests/Editor/World/RoomSceneCatalogGeometryTests.cs plus its .meta, owned by this task, declaring NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCatalogGeometryTests as a new type distinct from the existing partial class NoSafeCircle.DoorPrototype.Tests.Editor.World.RoomSceneCompositionFoundationTests (split across RoomSceneComposerTests.cs and RoomSceneContractTests.cs), so a test-path filter resolves to exactly this one file. Against RoomSceneCatalog.CreateCanonicalRooms() and RoomSceneCatalog.CreateCanonicalDoors(), assert every value from AC-001 and AC-002: RuinedEntry's RoomBounds (-14,14,-26,0) verified unchanged; BoneArchive, ChapelOfAsh, LowerVault, and FinalRoom at their new RoomBounds; D1 (0,0) and D2 (6,20) verified unchanged; D3, D4, and D5 at their new ExpectedGroundCenter values; room and door order; every sceneAssetPath; every openingWidth of 3; and D5 as the only isFinal door. The fixture fails if any single value differs."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "AC-003",
+      "requirement": "In the same fixture, load Assets/NoSafeCircle/DoorPrototype/Generated/World/RoomSceneCatalog.asset (RoomSceneCatalog.LoadOrBuildAsset or AssetDatabase.LoadAssetAtPath<RoomSceneCatalog>) and assert every value from VAL-001 against its Rooms and Doors collections as well, so the test proves the C# source and the generated asset agree rather than checking only the source."
+    }
+  ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "One bounded mechanical responsibility: apply five already-approved GER room-revision literals to the single shared RoomSceneCatalog.cs file, regenerate its generated asset, and add one new geometry test proving both representations agree. No design decision and no per-room scene authoring belong here.",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-069"
+  ],
+  "downstream_integration_obligations": [],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneCatalog.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/World/RoomSceneCatalog.asset",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/World/RoomSceneCatalogGeometryTests.cs"
+  ],
+  "execution_reason": "One crew edits two known methods in one existing file, regenerates one generated asset through an existing menu command, and writes one new Edit Mode test asserting the resulting values. No design decision, no gameplay code, no scene authoring.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "GDD — Approved Five-Room Spatial Layout Blockout §4 (Global room and door coordinates) and §13 (Revision policy; Vincent's room-size authority, 2026-09-14)",
+      "requirement": "The five rooms share one continuous floor with doors D1 through D5 in fixed order and D5 identified as the final door. §13 allows an approved room revision to change baseline bounds and door centers within each room's maximum envelope, with the revision recorded in the owning room task contract; RoomSceneCatalog is the single authoritative, shared record of those reconciled bounds and door centers that every room task and the five-room composition task (NSC-049) read."
+    }
+  ],
+  "id": "NSC-101",
+  "kind": "implementation",
+  "notes": "Created 2026-09-22 at Vincent's request to consolidate five room tasks' independent writes to the single shared Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneCatalog.cs into one upfront task. NSC-044 through NSC-048 each carried an acceptance criterion instructing that task to edit its own room's RoomBounds literal (and, for NSC-046/047/048, a door ExpectedGroundCenter literal) and regenerate the generated asset; because each room's Z bounds begin where the previous room's end, those edits formed a computation chain that the contracts enforced as cross-task preconditions — NSC-047 AC-001 required D3 already be at (-8,54) before touching D4, and NSC-048 AC-006 required D4 already be at (4,76) before touching D5. That chain made the five room tasks unable to run in parallel even though their actual room geometry, colliders, and scene contents do not depend on each other. This task performs every catalog write the chain required, using the exact target values already approved and recorded across NSC-044 revision 6, NSC-045 revision 5, NSC-046 revision 7, NSC-047 revision 5, and NSC-048 revision 5 (GER room decisions 1-5, 2026-09-15, and Vincent's room-size authority, 2026-09-14). It invents no new room size, door position, or design decision; it only moves five already-approved literals into one task and one commit, and adds its own geometry-audit test so the result is independently verified rather than trusted. After this task lands, NSC-044 through NSC-048 depend on it and verify — rather than write — their own room's catalog entry, and no longer share the catalog file or generated asset as an exclusive resource with each other.",
+  "parent": "NSC-022",
+  "provenance": {
+    "graph_delta_plan_id": null,
+    "origin": "ger_agent_contract_request",
+    "parent_contract_revision": null,
+    "parent_contract_sha256": null,
+    "parent_task_id": null,
+    "task_design_ger": "Vincent, 2026-09-22: \"Add the task to the graph.\" Consolidates the RoomSceneCatalog writes that NSC-044 through NSC-048 each performed on their own, so the five room tasks read the catalog instead of writing it and can run in parallel. The ordering they encode is a computation chain, not a file-locking accident: each room's Z bounds begin where the previous room's end.",
+    "contract_followups": []
+  },
+  "reconciliation_key": "room-scene-catalog-consolidation",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "RoomSceneCatalog Bounds and Door Center Consolidation",
+  "type": "world-authoring-foundation"
+}
