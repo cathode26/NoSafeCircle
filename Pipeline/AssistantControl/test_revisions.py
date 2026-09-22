@@ -8,6 +8,7 @@ from pathlib import Path
 from Pipeline.AssistantControl.admission import reserve
 from Pipeline.AssistantControl.checkouts import Checkouts, write_record
 from Pipeline.AssistantControl.review import ReviewGate
+from Pipeline.AssistantControl.inspect_project import git
 from Pipeline.AssistantControl.revisions import RevisionError, begin_revision
 from Pipeline.AssistantControl.scope import AssistantScopePlanner
 from Pipeline.TaskReviewAgent.contracts import ExecutionScopePlan
@@ -143,9 +144,51 @@ class RevisionTests(unittest.TestCase):
         (self.source / "source-advance.txt").write_text("advance\n")
         self.git("add", "source-advance.txt")
         self.git("commit", "-m", "advance source")
-        with self.assertRaisesRegex(RevisionError, "ancestor"):
+        # Names the refusal it actually gets. The bare substring "ancestor"
+        # passed here for a message about a DIFFERENT cause: an advanced Source
+        # is absent from the task checkout, so the ancestry check never ran.
+        # The two branches now have a test each, above.
+        with self.assertRaisesRegex(RevisionError, "not present in the task checkout"):
             begin_revision(self.checkouts, "NSC-042", candidate)
         self.assertEqual(before, record_path.read_bytes())
+
+    def test_an_unresolvable_source_commit_says_so_rather_than_claiming_non_ancestry(self):
+        """The live NSC-046 shape: Source HEAD is absent from the task checkout.
+
+        The checkout is created by `prepare` and never fetches later Source
+        commits, so `merge-base` exits 128 "Not a valid commit name" rather
+        than 1. Reporting that as non-ancestry states a fact nobody measured.
+        """
+        candidate = self.make_rejected_candidate()
+        (self.source / "source-advance.txt").write_text("advance\n")
+        self.git("add", "source-advance.txt")
+        self.git("commit", "-m", "advance source")
+        head = self.git("rev-parse", "HEAD").decode().strip()
+        checkout = self.checkouts.root / "NSC-042"
+        with self.assertRaises(RuntimeError):
+            # Establishes the precondition rather than assuming it: the commit
+            # really is absent from the checkout this check runs in.
+            git(checkout, "cat-file", "-e", head + "^{commit}")
+        with self.assertRaisesRegex(RevisionError, "not present in the task checkout"):
+            begin_revision(self.checkouts, "NSC-042", candidate)
+
+    def test_a_resolvable_commit_that_is_genuinely_not_an_ancestor_still_says_so(self):
+        """The control, and the one that keeps the fix honest.
+
+        Here the Source commit IS in the checkout, so the ancestry question is
+        actually asked and actually answered no. A fix that relabelled every
+        refusal as "not present" would pass the test above and fail this one.
+        """
+        candidate = self.make_rejected_candidate()
+        (self.source / "source-advance.txt").write_text("advance\n")
+        self.git("add", "source-advance.txt")
+        self.git("commit", "-m", "advance source")
+        head = self.git("rev-parse", "HEAD").decode().strip()
+        checkout = self.checkouts.root / "NSC-042"
+        git(checkout, "fetch", "--no-tags", str(self.source), head)
+        git(checkout, "cat-file", "-e", head + "^{commit}")  # precondition, proven
+        with self.assertRaisesRegex(RevisionError, "is not an ancestor"):
+            begin_revision(self.checkouts, "NSC-042", candidate)
 
     def test_revision_second_candidate_approval_and_integration(self):
         old_candidate = self.make_rejected_candidate()

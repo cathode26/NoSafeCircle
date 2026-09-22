@@ -108,11 +108,28 @@ def begin_revision(checkouts: Checkouts, task_id: str, expected_candidate: str) 
             if any(item.get("task_id") == task_id for item in registry["reservations"]):
                 raise RevisionError("task has an active admission; release it before revision")
             source_head, source_tree = _source_head_and_tree(checkouts.source)
+            # `--is-ancestor` exits 1 for a proven non-ancestor and 128 when it
+            # cannot resolve an argument. The task checkout never fetches later
+            # Source commits, so a moved Source reaches 128 -- and reporting
+            # that as non-ancestry asserts a fact nobody measured. Resolve the
+            # objects first so each refusal names its own cause.
+            checkout_root = checkouts.root / task_id
+            for label, commit in (("current source HEAD", source_head),
+                                  ("the rejected candidate", expected_candidate)):
+                try:
+                    git(checkout_root, "cat-file", "-e", f"{commit}^{{commit}}")
+                except RuntimeError as exc:
+                    raise RevisionError(
+                        f"{label} {commit} is not present in the task checkout, so its "
+                        "ancestry against the rejected candidate was never determined"
+                    ) from exc
             try:
-                git(checkouts.root / task_id, "merge-base", "--is-ancestor", source_head,
+                git(checkout_root, "merge-base", "--is-ancestor", source_head,
                     expected_candidate)
             except RuntimeError as exc:
-                raise RevisionError("current source HEAD is not an ancestor of the rejected candidate")
+                raise RevisionError(
+                    "current source HEAD is not an ancestor of the rejected candidate"
+                ) from exc
             contract_sha = record.get("task_contract_sha256")
             from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task
             try:
