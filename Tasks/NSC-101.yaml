@@ -7,7 +7,7 @@
     },
     {
       "criterion_id": "AC-002",
-      "reference": "GDD — Approved Five-Room Spatial Layout Blockout §4 and §10 (Door sequence) and §13; GER room decision 4 (2026-09-15) as already recorded in NSC-046, NSC-047, and NSC-048",
+      "reference": "GDD — Approved Five-Room Spatial Layout Blockout §4 and §10 (Door sequence) and §13; GER room decision 4 (2026-09-15); its batched-landing half is recorded in this task's INT-001, having moved here with the catalog writes",
       "requirement": "In the same file's CreateCanonicalDoors, change D3's ExpectedGroundCenter from (-6,42) to (-8,54), D4's ExpectedGroundCenter from (4,64) to (4,76), and D5's ExpectedGroundCenter from (0,86) to (0,104). Leave D1's ExpectedGroundCenter at (0,0) and D2's at (6,20) — do not change them. Verify both explicitly rather than skipping them silently. Preserve door order D1 through D5, every openingWidth of 3, and D5 as the only entry with isFinal true."
     },
     {
@@ -31,13 +31,19 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "decomposition_reason": "One bounded mechanical responsibility: apply five already-approved GER room-revision literals to the single shared RoomSceneCatalog.cs file, regenerate its generated asset, and add one new geometry test proving both representations agree. No design decision and no per-room scene authoring belong here.",
   "decomposition_state": "concrete",
   "depends_on": [
     "NSC-069"
   ],
-  "downstream_integration_obligations": [],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "GER room decision 4 (2026-09-15); Game Agent verification, 2026-09-22, that this task alone fails CommittedRoomSourceSceneConformanceTests",
+      "requirement": "This task's catalog change must not reach main alone. NoSafeCircle.DoorPrototype.Tests.Editor.World.CommittedRoomSourceSceneConformanceTests opens the five committed Assets/Scenes/Rooms/*.unity scenes and validates them against RoomSceneCatalog.CreateCanonicalRooms and RoomSceneCatalog.CreateCanonicalDoors, so a catalog whose bounds and door centers have moved ahead of the committed scenes turns main red. This change lands only together with the rebuilt room scenes from NSC-044 through NSC-048 and NSC-049's narrow refresh of Assets/Scenes/DoorPrototype.unity - the batched landing GER room decision 4 requires, never alone. This task cannot prove that by itself, which is why it is an obligation and not a completion gate."
+    }
+  ],
   "exclusive_resources": [
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneCatalog.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/World/RoomSceneCatalog.asset",
@@ -62,7 +68,17 @@
     "parent_contract_sha256": null,
     "parent_task_id": null,
     "task_design_ger": "Vincent, 2026-09-22: \"Add the task to the graph.\" Consolidates the RoomSceneCatalog writes that NSC-044 through NSC-048 each performed on their own, so the five room tasks read the catalog instead of writing it and can run in parallel. The ordering they encode is a computation chain, not a file-locking accident: each room's Z bounds begin where the previous room's end.",
-    "contract_followups": []
+    "contract_followups": [
+      {
+        "date": "2026-09-22",
+        "reason": "Adds INT-001, the batched-landing requirement from GER room decision 4 that relocated here with the catalog writes and was never written down: this catalog change alone turns main red via CommittedRoomSourceSceneConformanceTests. Also repoints AC-002's circular reference.",
+        "source_head": "00cfc9e7ca0c1a8fd06b70e397a2bc8027a853d3",
+        "previous_contract_revision": 1,
+        "base_contract_sha256": "f9732daab8873285345af817cd1fcf9202e466e0f5cc0e415242d11f89e1f5a8",
+        "revised_contract_sha256": "fbd05431ae64fcb808e511f19a6ef54efb5374a81ef6f6a3fd36e422ec276ea1",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      }
+    ]
   },
   "reconciliation_key": "room-scene-catalog-consolidation",
   "repository_evidence_at_bootstrap": [],
