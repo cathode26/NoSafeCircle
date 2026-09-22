@@ -793,6 +793,7 @@ class AGeneratedAssetNeedsItsSidecarMeta(unittest.TestCase):
             allowed_generated_paths=tuple(sorted(
                 (CHAPEL_SCENE, self.TILE), key=str.casefold)),
             allowed_generated_roots=(),
+            allowed_generated_asset_metas=(self.TILE + ".meta",),
         )
 
     def test_a_new_generated_asset_materializes_with_its_sidecar(self):
