@@ -710,5 +710,406 @@ class ARoomAbsorbsItsOwnGeneratedOutputs(unittest.TestCase):
                       str(caught.exception))
 
 
+class AGeneratedAssetNeedsItsSidecarMeta(unittest.TestCase):
+    """Unity cannot write Foo.asset without Foo.asset.meta.
+
+    Measured 2026-09-22 against NSC-046's and NSC-047's live scope records: the
+    sidecar of the builder's OWN registered generated asset is refused, because
+    graph_controller strips every ".meta" from the ExecutionScopePlan, so the
+    sidecar can never reach ``allowed_generated_paths``. The refusal is retained
+    as ``retryable: False``, which freezes the task permanently.
+
+    This reproduces it at a public entry point so the failure is the real
+    boundary refusal, not an import error for a helper that does not exist yet.
+    """
+
+    TILE = ("Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles"
+            "/ChapelOfAshFarWallTile.asset")
+
+    def setUp(self):
+        test_root = Path.cwd() / ".test-work"
+        test_root.mkdir(exist_ok=True)
+        self.root = test_root / f"assistant-sidecar-{uuid.uuid4().hex}"
+        self.root.mkdir()
+        self.addCleanup(shutil.rmtree, self.root, True)
+        self.checkout = self.root / "checkout"
+        self.checkout.mkdir()
+        self.records = self.root / "records"
+        self.records.mkdir()
+        self.git("init", "-q")
+        name, email = validated_agent_git_identity()
+        self.git("config", "user.name", name)
+        self.git("config", "user.email", email)
+        for relative, content in (
+            (CHAPEL_BUILDER, "class ChapelOfAshSceneBuilder {}\n"),
+            (CHAPEL_SCENE, "old chapel scene\n"),
+        ):
+            target = self.checkout / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content, encoding="utf-8", newline="\n")
+        self.git("add", ".")
+        self.git("commit", "-q", "-m", "fixture")
+        self.unity = self.root / "Unity.exe"
+        self.unity.write_bytes(b"fixture")
+
+    def git(self, *args: str) -> str:
+        result = subprocess.run(
+            ("git", "-C", str(self.checkout), *args), capture_output=True, check=False,
+        )
+        if result.returncode:
+            raise AssertionError(result.stderr.decode(errors="replace"))
+        return result.stdout.decode().strip()
+
+    def runner_writing_the_asset_and_its_meta(self, args, cwd, timeout):
+        """Exactly what Unity does: a new asset is never written alone."""
+        self.assertIn(CHAPEL_BUILD_METHOD, args)
+        (cwd / CHAPEL_SCENE).write_text("generated chapel scene\n", newline="\n")
+        tile = cwd / self.TILE
+        tile.parent.mkdir(parents=True, exist_ok=True)
+        tile.write_text("%YAML 1.1\ngenerated tile\n", newline="\n")
+        (cwd / (self.TILE + ".meta")).write_text(
+            "fileFormatVersion: 2\n"
+            "guid: 0123456789abcdef0123456789abcdef\n"
+            "NativeFormatImporter:\n"
+            "  externalObjects: {}\n"
+            "  mainObjectFileID: 11400000\n"
+            "  userData:\n",
+            newline="\n",
+        )
+        return subprocess.CompletedProcess(args, 0, b"builder complete\n", b"")
+
+    def _materialize(self):
+        """``allowed_generated_roots=()`` is what AssistantControl really passes.
+
+        For a task whose exclusive_resources are all files the roots tuple is
+        EMPTY, not None -- which is why the permissive fallback in permitted(),
+        requiring BOTH to be None, is unreachable for every scoped task.
+        """
+        return run_door_prototype_builder(
+            checkout=self.checkout, task_id="NSC-046",
+            state_root=self.records, initial_changed_paths=(),
+            unity_executable=self.unity,
+            unity_command_runner=self.runner_writing_the_asset_and_its_meta,
+            allowed_generated_paths=tuple(sorted(
+                (CHAPEL_SCENE, self.TILE), key=str.casefold)),
+            allowed_generated_roots=(),
+            allowed_generated_asset_metas=(self.TILE + ".meta",),
+        )
+
+
+    def _run_with(self, writer, metas):
+        return run_door_prototype_builder(
+            checkout=self.checkout, task_id="NSC-046",
+            state_root=self.records, initial_changed_paths=(),
+            unity_executable=self.unity, unity_command_runner=writer,
+            allowed_generated_paths=tuple(sorted(
+                (CHAPEL_SCENE, self.TILE), key=str.casefold)),
+            allowed_generated_roots=(),
+            allowed_generated_asset_metas=metas,
+        )
+
+    def _writer(self, meta_body: bytes, *, meta_path: str | None = None):
+        path = meta_path or (self.TILE + ".meta")
+
+        def run(args, cwd, timeout):
+            (cwd / CHAPEL_SCENE).write_text("generated chapel scene\n", newline="\n")
+            tile = cwd / self.TILE
+            tile.parent.mkdir(parents=True, exist_ok=True)
+            tile.write_text("%YAML 1.1\ngenerated tile\n", newline="\n")
+            target = cwd / path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(meta_body)
+            return subprocess.CompletedProcess(args, 0, b"ok\n", b"")
+        return run
+
+    GOOD_META = (
+        b"fileFormatVersion: 2\n"
+        b"guid: 0123456789abcdef0123456789abcdef\n"
+        b"NativeFormatImporter:\n"
+        b"  externalObjects: {}\n"
+        b"  userData:\n"
+    )
+
+    def test_an_unregistered_meta_is_refused(self):
+        """Its payload is not in `allowed`, so it is not a companion at all."""
+        other = ("Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles"
+                 "/Unrelated.asset.meta")
+        with self.assertRaisesRegex(
+            DoorPrototypeMaterializationError, "asset_meta_not_registered",
+        ):
+            self._run_with(self._writer(self.GOOD_META), (other,))
+
+    def test_an_already_committed_meta_is_refused(self):
+        """The exception is for MISSING companions only.
+
+        Admitting a committed meta would hand the builder new write authority
+        over existing importer settings and asset identities -- the authority
+        expansion Astra flagged in my first proposal.
+        """
+        meta = self.TILE + ".meta"
+        target = self.checkout / meta
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(self.GOOD_META)
+        self.git("add", "--", meta)
+        self.git("commit", "-q", "-m", "meta already committed")
+        with self.assertRaisesRegex(
+            DoorPrototypeMaterializationError, "asset_meta_preexists",
+        ):
+            self._run_with(self._writer(self.GOOD_META), (meta,))
+
+    def test_a_folder_meta_shape_is_refused_as_an_asset_meta(self):
+        """The two policies must not fall back to each other."""
+        body = (b"fileFormatVersion: 2\n"
+                b"guid: 0123456789abcdef0123456789abcdef\n"
+                b"folderAsset: yes\n"
+                b"DefaultImporter:\n")
+        with self.assertRaisesRegex(
+            DoorPrototypeMaterializationError, "asset_meta_invalid_envelope",
+        ):
+            self._run_with(self._writer(body), (self.TILE + ".meta",))
+
+    def test_an_indented_folder_asset_key_is_refused(self):
+        """Reaches the folderAsset guard, which the folder-SHAPE test does not.
+
+        A real folder meta carries ``folderAsset: yes`` on line 2, so the
+        "<Name>Importer:" requirement rejects it first and the loop check never
+        runs -- leaving that test green for a reason other than the guard it
+        names. Found by mutation, not by reading.
+        """
+        body = (b"fileFormatVersion: 2\n"
+                b"guid: 0123456789abcdef0123456789abcdef\n"
+                b"NativeFormatImporter:\n"
+                b"  folderAsset: yes\n")
+        with self.assertRaisesRegex(
+            DoorPrototypeMaterializationError, "asset_meta_invalid_envelope",
+        ):
+            self._run_with(self._writer(body), (self.TILE + ".meta",))
+
+    def test_a_second_top_level_declaration_is_refused(self):
+        """Appended YAML must not ride in on a valid first three lines."""
+        body = self.GOOD_META + b"SomethingElse: true\n"
+        with self.assertRaisesRegex(
+            DoorPrototypeMaterializationError, "asset_meta_invalid_envelope",
+        ):
+            self._run_with(self._writer(body), (self.TILE + ".meta",))
+
+    def test_a_zero_guid_is_refused(self):
+        body = (b"fileFormatVersion: 2\n"
+                b"guid: " + b"0" * 32 + b"\n"
+                b"NativeFormatImporter:\n")
+        with self.assertRaisesRegex(
+            DoorPrototypeMaterializationError, "asset_meta_invalid_envelope",
+        ):
+            self._run_with(self._writer(body), (self.TILE + ".meta",))
+
+    def test_a_new_generated_asset_materializes_with_its_sidecar(self):
+        """FAILING-BEFORE: today this raises the boundary refusal for the meta.
+
+        Measured on main at 56a5e019a: the payload is permitted and ONLY its
+        sidecar is refused, so the task is frozen for a file Unity had no
+        choice about writing.
+        """
+        result = self._materialize()
+        self.assertIn(self.TILE, result.builder_paths)
+        self.assertIn(CHAPEL_SCENE, result.builder_paths)
+
+    def test_the_sidecar_is_recorded_separately_from_the_payloads(self):
+        """Astra: companions carry their own evidence field, not silent union.
+
+        A reviewer must be able to see which paths Unity added as companions
+        rather than as builder output.
+        """
+        result = self._materialize()
+        self.assertEqual(
+            (self.TILE + ".meta",),
+            getattr(result, "generated_asset_meta_paths", ()),
+        )
+
+    def test_the_builder_is_resolved_from_payloads_not_companions(self):
+        """The defect Astra caught in my own proposal.
+
+        ``generated`` also SELECTS the builder, so admitting
+        ``Assets/Scenes/Rooms/ChapelOfAsh.unity.meta`` as a payload would fail
+        both is_door_prototype_builder_output() and resolve_generated_builder().
+        Companions must never reach builder resolution.
+        """
+        with self.assertRaises(DoorPrototypeMaterializationError):
+            resolve_generated_builder([CHAPEL_SCENE, CHAPEL_SCENE + ".meta"])
+
+
+class TheProductionPathMaterializesANewAssetAndItsSidecar(unittest.TestCase):
+    """NSC-046's real shape, driven through materialize_candidate.
+
+    Every other sidecar test calls run_door_prototype_builder directly, so the
+    production path -- scope, inventory derivation, builder, commit, validation
+    -- was reasoned about rather than exercised. This drives all of it.
+
+    Standalone rather than a subclass of RoomSceneMaterializationTests: that
+    class's tests assume a scope with no NEW generated asset, and inheriting
+    them re-ran those assumptions against a fixture that had changed.
+    """
+
+    TILE = ("Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles"
+            "/ChapelOfAshFarWallTile.asset")
+    LEASE = "fixture-lease"
+
+    def setUp(self):
+        test_root = Path.cwd() / ".test-work"
+        test_root.mkdir(exist_ok=True)
+        self.root = test_root / f"assistant-e2e-sidecar-{uuid.uuid4().hex}"
+        self.root.mkdir()
+        self.addCleanup(shutil.rmtree, self.root, True)
+        self.source = self.root / "source"
+        self.source.mkdir()
+        self.git(self.source, "init", "-q")
+        name, email = validated_agent_git_identity()
+        self.git(self.source, "config", "user.name", name)
+        self.git(self.source, "config", "user.email", email)
+        for relative, content in (
+            (CHAPEL_BUILDER, "class ChapelOfAshSceneBuilder {}\n"),
+            (CHAPEL_TEST, "class ChapelOfAshSceneTests {}\n"),
+            (CHAPEL_SCENE, "old chapel scene\n"),
+            (CHAPEL_SCENE + ".meta", "fileFormatVersion: 2\nguid: "
+             + "a" * 32 + "\nDefaultImporter:\n"),
+            ("ProjectSettings/ProjectVersion.txt", "m_EditorVersion: 6000.1.8f1\n"),
+            ("Pipeline/Testing/run_unity_tests_clean.ps1", "# fixture\n"),
+            ("Pipeline/TaskGraph/taskcontrol.py", "print('taskcontrol validate: PASS')\n"),
+        ):
+            target = self.source / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content, encoding="utf-8", newline="\n")
+        task = {
+            "schema_version": "2.0", "id": "NSC-046", "contract_revision": 1,
+            "contract_disposition": "active", "title": "Fixture Chapel of Ash room",
+            "reconciliation_key": "fixture-chapel", "kind": "implementation",
+            "type": "world-foundation", "execution_scope": "single_agent",
+            "execution_reason": "fixture", "decomposition_state": "concrete",
+            "decomposition_reason": "fixture", "parent": None, "depends_on": [],
+            "exclusive_resources": [
+                f"repo-file:{CHAPEL_BUILDER}", f"repo-file:{CHAPEL_TEST}",
+                f"unity-scene:{CHAPEL_SCENE}", f"repo-file:{self.TILE}",
+            ],
+            "acceptance_criteria": [], "completion_gates": [],
+            "downstream_integration_obligations": [], "gdd_evidence": [],
+            "basis": "direct_gdd", "source_scope": "required", "confidence": "high",
+        }
+        task_path = self.source / "Tasks/NSC-046.yaml"
+        task_path.parent.mkdir()
+        task_path.write_text(json.dumps(task), encoding="utf-8", newline="\n")
+        self.git(self.source, "add", ".")
+        self.git(self.source, "commit", "-q", "-m", "fixture")
+        self.manager = Checkouts(self.source, self.root / "checkouts")
+        prepared = self.manager.prepare("NSC-046")
+        self.checkout = Path(prepared["checkout"])
+        self.unity = self.root / "Unity.exe"
+        self.unity.write_bytes(b"fixture")
+        self.scope = AssistantScopePlanner(self.manager).plan(
+            "NSC-046",
+            ExecutionScopePlan(
+                (CHAPEL_BUILDER, CHAPEL_SCENE), (self.TILE,), (CHAPEL_TEST,), ()),
+            lease_id=self.LEASE,
+        )
+
+    @staticmethod
+    def git(root: Path, *args: str) -> str:
+        result = subprocess.run(
+            ("git", "-C", str(root), *args), capture_output=True, check=False,
+        )
+        if result.returncode:
+            raise AssertionError(result.stderr.decode(errors="replace"))
+        return result.stdout.decode().strip()
+
+    def register_code_candidate(self) -> str:
+        (self.checkout / CHAPEL_BUILDER).write_text(
+            "class FixedChapelBuilder {}\n", newline="\n")
+        (self.checkout / CHAPEL_TEST).write_text(
+            "class FixedChapelTests {}\n", newline="\n")
+        paths = [CHAPEL_BUILDER, CHAPEL_TEST]
+        self.git(self.checkout, "add", "--", *paths)
+        self.git(self.checkout, "commit", "-q", "-m", "crew Chapel room candidate")
+        commit = self.git(self.checkout, "rev-parse", "HEAD")
+        tree = self.git(self.checkout, "rev-parse", "HEAD^{tree}")
+        record_path = self.manager.records / "NSC-046.json"
+        record = json.loads(record_path.read_text())
+        receipt = LocalCandidateCommitReceipt(
+            task_id="NSC-046", lease_id=self.LEASE, plan_id=self.scope["plan_id"],
+            run_id="fixture-crew", source_base=record["source_commit"],
+            candidate_commit=commit, candidate_tree=tree,
+            candidate_parent=record["source_commit"],
+            task_contract_sha256=record["task_contract_sha256"],
+            execution_result_sha256="a" * 64, candidate_patch_sha256="b" * 64,
+            changed_paths=tuple(sorted(paths, key=str.casefold)),
+            validation_sha256="c" * 64,
+        )
+        record["candidate"] = {
+            "commit": commit, "tree": tree, "parent": record["source_commit"],
+            "run_id": "fixture-crew", "lease_id": self.LEASE,
+            "plan_id": self.scope["plan_id"], "receipt": receipt.to_dict(),
+        }
+        record["status"] = "awaiting_human"
+        record["approval"] = None
+        write_record(record_path, record)
+        return commit
+
+    def builder(self, args, cwd, timeout):
+        """Unity writing a NEW asset: never without its sidecar."""
+        self.assertIn(CHAPEL_BUILD_METHOD, args)
+        (cwd / CHAPEL_SCENE).write_text("generated chapel scene\n", newline="\n")
+        tile = cwd / self.TILE
+        tile.parent.mkdir(parents=True, exist_ok=True)
+        tile.write_text("%YAML 1.1\ngenerated tile\n", newline="\n")
+        (cwd / (self.TILE + ".meta")).write_text(
+            "fileFormatVersion: 2\n"
+            "guid: 0123456789abcdef0123456789abcdef\n"
+            "NativeFormatImporter:\n"
+            "  externalObjects: {}\n"
+            "  mainObjectFileID: 11400000\n"
+            "  userData:\n",
+            newline="\n",
+        )
+        return subprocess.CompletedProcess(args, 0, b"builder complete\n", b"")
+
+    def passing_validation(self, **kwargs):
+        commit = self.git(kwargs["checkout"], "rev-parse", "HEAD")
+        self.assertEqual(
+            "", self.git(kwargs["checkout"], "status", "--porcelain=v1"))
+        return ({
+            "test_platform": "EditMode", "test_filter": "ChapelOfAshSceneTests",
+            "commit": commit,
+            "tree": self.git(kwargs["checkout"], "rev-parse", "HEAD^{tree}"),
+            "total": 2, "passed": 2,
+        },)
+
+    def test_the_new_asset_and_its_sidecar_are_both_committed(self):
+        """Before the fix this froze the task with retryable: False."""
+        original = self.register_code_candidate()
+        result = materialize_candidate(
+            self.manager, "NSC-046", original, unity_executable=self.unity,
+            unity_command_runner=self.builder,
+            validation_runner=self.passing_validation,
+        )
+        self.assertEqual("awaiting_human", result["status"])
+        changed = result["candidate"]["changed_paths"]
+        self.assertIn(self.TILE, changed)
+        self.assertIn(self.TILE + ".meta", changed,
+                      "the sidecar must be COMMITTED, not merely tolerated")
+        self.assertIn(CHAPEL_SCENE, changed)
+
+    def test_the_journal_records_the_companion_authority(self):
+        """A reviewer must see what Unity was permitted to write."""
+        original = self.register_code_candidate()
+        materialize_candidate(
+            self.manager, "NSC-046", original, unity_executable=self.unity,
+            unity_command_runner=self.builder,
+            validation_runner=self.passing_validation,
+        )
+        journal = json.loads((
+            self.manager.records / f"NSC-046.unity-materialization.{original}.json"
+        ).read_text())
+        self.assertEqual(
+            [self.TILE + ".meta"],
+            journal.get("registered_generated_asset_metas"),
+        )
+
 if __name__ == "__main__":
     unittest.main()

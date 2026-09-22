@@ -174,6 +174,34 @@ def _generated_resource_roots(
     )
 
 
+def _generated_asset_meta_inventory(
+    checkout: Path, commit: str, generated: Sequence[str],
+) -> tuple[str, ...]:
+    """Companions Unity must write because the payload has none committed.
+
+    Pinned to the candidate commit BEFORE Unity runs, so the admitted set is
+    finite and cannot grow during the build.
+
+    Only genuinely MISSING companions qualify. A committed meta stays outside
+    this exception, so the builder gains no new authority over existing
+    importer settings or asset identities.
+
+    ``generated`` already contains the folder metas unioned in by
+    ``_generated_resource_roots``; a sidecar is never derived from a path that
+    is itself a meta.
+    """
+    inventory: list[str] = []
+    for path in generated:
+        if path.casefold().endswith(".meta"):
+            continue
+        meta = path + ".meta"
+        try:
+            git(checkout, "cat-file", "-e", f"{commit}:{meta}")
+        except RuntimeError:
+            inventory.append(meta)
+    return tuple(sorted(set(inventory), key=str.casefold))
+
+
 def _require_candidate(
     checkouts: Checkouts, record: Mapping[str, Any], expected_candidate: str,
 ) -> tuple[Path, dict[str, Any], dict[str, Any], tuple[str, ...], tuple[str, ...]]:
@@ -236,7 +264,10 @@ def _require_candidate(
         task, checkout, expected_candidate, receipt["changed_paths"],
     )
     generated = tuple(sorted(set(generated).union(companions), key=str.casefold))
-    return checkout, candidate, receipt, generated, roots
+    asset_metas = _generated_asset_meta_inventory(
+        checkout, expected_candidate, generated,
+    )
+    return checkout, candidate, receipt, generated, roots, asset_metas
 
 
 def _finalize(
@@ -469,7 +500,8 @@ def materialize_candidate(
             registry_lock, timeout_seconds=10,
         ):
             _require_no_active_reservation(checkouts, task_id)
-            checkout, candidate, receipt, generated, generated_roots = _require_candidate(
+            (checkout, candidate, receipt, generated, generated_roots,
+             generated_asset_metas) = _require_candidate(
                 checkouts, record, expected_candidate,
             )
             build_method, _builder_source = resolve_generated_builder(generated)
@@ -491,6 +523,7 @@ def materialize_candidate(
                     "lease_id": receipt["lease_id"],
                     "registered_generated_paths": list(generated),
                     "registered_generated_roots": list(generated_roots),
+                    "registered_generated_asset_metas": list(generated_asset_metas),
                     "builder": build_method,
                     "materialization_error": str(exc),
                     "retryable": True,
@@ -513,6 +546,7 @@ def materialize_candidate(
                 "lease_id": receipt["lease_id"],
                 "registered_generated_paths": list(generated),
                 "registered_generated_roots": list(generated_roots),
+                "registered_generated_asset_metas": list(generated_asset_metas),
                 "builder": build_method,
                 "started_at": _now(),
             }
@@ -528,6 +562,7 @@ def materialize_candidate(
                     timeout_seconds=timeout_seconds,
                     allowed_generated_paths=generated,
                     allowed_generated_roots=generated_roots,
+                    allowed_generated_asset_metas=generated_asset_metas,
                     incidental_folder_meta_path=(
                         "Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies.meta"
                         if task_id == "NSC-032" else None

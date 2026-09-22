@@ -120,6 +120,7 @@ class DoorPrototypeMaterialization:
     restored_tracked_paths: tuple[str, ...]
     normalized_paths: tuple[str, ...]
     authenticated_incidental_meta_paths: tuple[str, ...]
+    generated_asset_meta_paths: tuple[str, ...]
     incidental_evidence_path: str | None
     unity_executable: str
     unity_log: str
@@ -178,6 +179,97 @@ def is_expected_nsc032_folder_meta(root: Path, path: str, content: bytes) -> boo
         and not _git(root, "cat-file", "-e", f"HEAD:{folder}/.gitkeep", check=False).returncode
         and _git(root, "cat-file", "-e", f"HEAD:{path}", check=False).returncode
     )
+
+
+ASSET_META_MAX_BYTES = 1 << 20
+
+
+def _asset_meta_guid(content: bytes) -> str:
+    """Return the guid of a plain asset meta, or "" if it is not one.
+
+    An ENVELOPE check, deliberately not a YAML or importer-settings validator:
+    the importer body is builder output that Unity and human review own. What
+    is checked is identity -- one version line, one 32-hex guid, one top-level
+    "<Name>Importer:" key -- and that nothing else is declared at top level.
+
+    The folder-meta policy's grammar does NOT apply here and neither does its
+    4096-byte cap: a real asset meta carries importer settings.
+    """
+    if len(content) > ASSET_META_MAX_BYTES:
+        return ""
+    try:
+        text = content.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return ""
+    if "\r" in text.replace(chr(13) + chr(10), ""):
+        return ""
+    lines = text.replace(chr(13) + chr(10), "\n").split("\n")
+    if len(lines) < 3 or lines[0] != "fileFormatVersion: 2":
+        return ""
+    guid_match = re.fullmatch(r"guid: ([0-9a-fA-F]{32})", lines[1])
+    if not guid_match:
+        return ""
+    guid = guid_match.group(1).casefold()
+    if guid == "0" * 32:
+        return ""
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*Importer:", lines[2]):
+        return ""
+    for line in lines[3:]:
+        if line and not line[0].isspace():
+            # A second top-level declaration means this is not a plain meta.
+            return ""
+        if line.casefold().strip() == "folderasset: yes":
+            return ""
+    return guid
+
+
+def _authenticate_asset_metas(
+    root: Path, admitted: Sequence[str], allowed: Sequence[str],
+) -> tuple[str, ...]:
+    """Accept only new companions that pair with a registered payload."""
+    payloads = set(allowed)
+    seen_guids: dict[str, str] = {}
+    accepted: list[str] = []
+    for meta in admitted:
+        payload = meta[: -len(".meta")]
+        if payload not in payloads:
+            raise DoorPrototypeMaterializationError(
+                f"asset_meta_not_registered: {meta}"
+            )
+        if not (root / payload).is_file():
+            raise DoorPrototypeMaterializationError(
+                f"asset_meta_payload_missing: {meta}"
+            )
+        target = root / meta
+        if not target.is_file() or target.is_symlink():
+            raise DoorPrototypeMaterializationError(
+                f"asset_meta_not_regular: {meta}"
+            )
+        if not _git(root, "cat-file", "-e", f"HEAD:{meta}", check=False).returncode:
+            # Defence in depth: the pre-launch check above is what actually
+            # fires. This one cannot normally be reached, because a committed
+            # meta arrives as a TRACKED change and never enters this list.
+            raise DoorPrototypeMaterializationError(
+                f"asset_meta_preexists: {meta}"
+            )
+        try:
+            content = target.read_bytes()
+        except OSError as exc:
+            raise DoorPrototypeMaterializationError(
+                f"asset_meta_unreadable: {meta}"
+            ) from exc
+        guid = _asset_meta_guid(content)
+        if not guid:
+            raise DoorPrototypeMaterializationError(
+                f"asset_meta_invalid_envelope: {meta}"
+            )
+        if guid in seen_guids:
+            raise DoorPrototypeMaterializationError(
+                f"asset_meta_guid_collision: {meta} and {seen_guids[guid]}"
+            )
+        seen_guids[guid] = meta
+        accepted.append(meta)
+    return tuple(sorted(accepted, key=str.casefold))
 
 
 def is_door_prototype_builder_output(path: str) -> bool:
@@ -337,6 +429,7 @@ def run_door_prototype_builder(
     timeout_seconds: float = 1800.0,
     allowed_generated_paths: Sequence[str] | None = None,
     allowed_generated_roots: Sequence[str] | None = None,
+    allowed_generated_asset_metas: Sequence[str] | None = None,
     incidental_folder_meta_path: str | None = None,
 ) -> DoorPrototypeMaterialization:
     """Run the canonical builder and return its exact authenticated path set.
@@ -400,6 +493,35 @@ def run_door_prototype_builder(
             "allowed generated authority must contain at least one path or root"
         )
 
+    asset_metas: tuple[str, ...] = ()
+    if allowed_generated_asset_metas is not None:
+        asset_metas = tuple(sorted(set(allowed_generated_asset_metas), key=str.casefold))
+        if tuple(allowed_generated_asset_metas) != asset_metas:
+            raise DoorPrototypeMaterializationError(
+                "allowed generated asset metas must be sorted and unique"
+            )
+        for meta in asset_metas:
+            if not meta.endswith(".meta") or not meta.startswith("Assets/"):
+                raise DoorPrototypeMaterializationError(
+                    f"asset_meta_not_registered: {meta}"
+                )
+            if allowed is None or meta[: -len(".meta")] not in set(allowed):
+                raise DoorPrototypeMaterializationError(
+                    f"asset_meta_not_registered: {meta}"
+                )
+            # PRE-LAUNCH eligibility, per Astra's condition 2. This check used
+            # to live after Unity ran, behind a filter on the untracked set --
+            # where it could NEVER fire, because a committed meta that Unity
+            # rewrites appears as a TRACKED change. The outcome was still
+            # correct by accident (the tracked branch restores it); the guard
+            # asserting it was unreachable. Found by writing the refusal test.
+            if not _git(root, "cat-file", "-e", f"HEAD:{meta}", check=False).returncode:
+                raise DoorPrototypeMaterializationError(
+                    f"asset_meta_preexists: {meta}"
+                )
+
+    # Resolved from PAYLOADS ONLY. `allowed` also selects the builder, so a
+    # companion reaching this call would fail resolve_generated_builder().
     build_method = DOOR_PROTOTYPE_BUILD_METHOD
     if allowed is not None:
         build_method, _builder_source = resolve_generated_builder(allowed)
@@ -453,6 +575,11 @@ def run_door_prototype_builder(
         folded = path.casefold()
         return any(folded.startswith(root.casefold() + "/") for root in allowed_roots)
 
+    admitted_asset_metas = _authenticate_asset_metas(
+        root, [meta for meta in asset_metas if meta in set(untracked)], allowed or (),
+    )
+    admitted_meta_set = set(admitted_asset_metas)
+
     incidental_tracked = tuple(
         path for path in tracked if path not in initial_set and not permitted(path)
     )
@@ -460,7 +587,9 @@ def run_door_prototype_builder(
         _git(root, "restore", "--source=HEAD", "--staged", "--worktree", "--",
              *incidental_tracked)
     incidental_untracked = tuple(
-        path for path in untracked if path not in initial_set and not permitted(path)
+        path for path in untracked
+        if path not in initial_set and not permitted(path)
+        and path not in admitted_meta_set
     )
     authenticated_incidental: tuple[str, ...] = ()
     incidental_evidence_path: str | None = None
@@ -498,7 +627,8 @@ def run_door_prototype_builder(
     post_unity = set(tracked).union(untracked)
     builder_paths = tuple(sorted(
         (path for path in post_unity.difference(initial_set)
-         if permitted(path) or path in authenticated_incidental),
+         if permitted(path) or path in authenticated_incidental
+         or path in admitted_meta_set),
         key=str.casefold,
     ))
     expected = tuple(sorted(initial_set.union(builder_paths), key=str.casefold))
@@ -517,6 +647,7 @@ def run_door_prototype_builder(
         changed_paths=expected, builder_paths=builder_paths,
         restored_tracked_paths=incidental_tracked, normalized_paths=normalized,
         authenticated_incidental_meta_paths=authenticated_incidental,
+        generated_asset_meta_paths=admitted_asset_metas,
         incidental_evidence_path=incidental_evidence_path,
         unity_executable=str(executable), unity_log=str(log_path),
     )
