@@ -66,6 +66,7 @@ jobs:
             "Pipeline.AssistantControl.test_post_crew_workflow",
             "Pipeline.AssistantControl.test_viewer.ViewerTests.test_review_queue_preserves_exact_candidate_without_alarm",
             "Pipeline.AssistantControl.test_viewer.ViewerTests.test_review_queue_clears_after_approve_or_deny_state",
+            "Pipeline.AssistantControl.test_admission_reconciliation",
             "Pipeline.TaskReviewAgent.tests.provider_profiles_test"
           )
           if (Test-Path -LiteralPath "Pipeline/AssistantControl/test_publication.py") {
