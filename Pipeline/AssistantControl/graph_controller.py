@@ -20,6 +20,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any, Callable, Iterator, Mapping, Sequence
 
 from Pipeline.AssistantControl import background_jobs
+from Pipeline.AssistantControl import worker_state
 from Pipeline.AssistantControl.automation_policy import (
     HUMAN_ONLY_TASKS,
     committed_json,
@@ -617,6 +618,35 @@ class GraphController:
     def _decomposition(self, task_id: str) -> dict[str, Any] | None:
         return _read_json(self.manager.records / f"{task_id}.decomposition.json")
 
+    def _record_describes_live_work(self, task_id: str) -> bool:
+        """True when this controller's own record still has work in flight.
+
+        The committed-conformance route in `_task_complete` exists for work
+        completed OUTSIDE this controller -- `_committed_conformant` says so --
+        so gating it on a record merely EXISTING used the presence of a file as
+        a proxy for "the controller is managing this". One leftover record from
+        a failed run then vetoed that route forever, and the task could never be
+        recognised as already delivered however good the committed evidence was.
+
+        What the gate protects is the narrower case where this controller has
+        something in flight that its own state machine should drive instead: a
+        candidate awaiting review or integration, or a run the record does not
+        prove is over. `worker_state` owns "is this run over", and asking it
+        here rather than re-deriving keeps this answer and `_actions`' answer
+        from drifting apart -- they disagreeing is what produced the pair of
+        defects this replaces.
+        """
+        record = self._record(task_id)
+        if not isinstance(record, Mapping):
+            return False
+        if record.get("candidate"):
+            return True
+        for entry in (record.get("worker"), record.get("launch")):
+            if isinstance(entry, Mapping) and not worker_state.is_finished_launch(
+                    record, entry):
+                return True
+        return False
+
     def _applied_decomposition(
         self, task_id: str, task: Mapping[str, Any], head: str,
     ) -> bool:
@@ -687,7 +717,8 @@ class GraphController:
             ), lambda: approved_integration(
                 self.manager.source, self.manager.records, task_id, head,
             ) is not None)
-        if not complete and self._record(task_id) is None and self._decomposition(task_id) is None:
+        if (not complete and not self._record_describes_live_work(task_id)
+                and self._decomposition(task_id) is None):
             # The task's own committed conformance state is a pure function of
             # this HEAD (and worktree dirtiness), so its outcome is kept per HEAD.
             complete = self._proof(
@@ -969,7 +1000,20 @@ class GraphController:
             worker = record.get("worker") or record.get("launch")
             if isinstance(worker, Mapping):
                 worker_status = worker.get("status")
-                if worker.get("capacity_released") is not True:
+                # A launch entry keeps whatever status the launcher wrote, so a
+                # run that ended and was settled can leave `ready_pending` with a
+                # null `capacity_released` behind. Read at face value that is
+                # "not settled, not terminal", which emits `wait_worker` for a
+                # run that ended days ago -- on every pass, with nothing that can
+                # ever change it. `worker_state` answers from the record's own
+                # proof instead: the settled copy in `worker_history`.
+                #
+                # Such a record then falls through to `blocked`, deliberately.
+                # Retiring the stale entry so the task can be dispatched again
+                # is a separate decision with its own command; surfacing it is
+                # this function's job, and silently retrying would hide it.
+                if (not worker_state.is_finished_launch(record, worker)
+                        and worker.get("capacity_released") is not True):
                     if worker_status in _WORKER_TERMINAL:
                         actions.append({"kind": "settle_worker", "task_id": task_id,
                                         "run_id": worker.get("run_id")})

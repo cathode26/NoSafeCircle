@@ -1021,5 +1021,152 @@ class GraphControllerTests(unittest.TestCase):
         self.assertEqual("approved", approved["status"])
 
 
+    # --- stale records must not veto completion -------------------------
+    # Two defects in _task_complete and _actions sharing one root: the
+    # controller asks what a RECORD SAYS rather than whether the run it
+    # describes is over. NSC-046 is the measured shape, 2026-09-22.
+    # They must be fixed together: fixing only the _actions half stops the
+    # controller waiting on a finished run and makes it DISPATCH an
+    # already-merged conformant task instead.
+    SETTLED_RUN = "fixture-run-settled"
+
+    def write_stale_launch(self, task_id: str) -> None:
+        """A record whose only run ended and was settled, left mid-shape."""
+        self.manager.records.mkdir(parents=True, exist_ok=True)
+        write_record(self.manager.records / f"{task_id}.json", {
+            "schema_version": "assistant-checkout/v1",
+            "task_id": task_id,
+            "source": str(self.source.resolve()),
+            "checkout": str(self.manager.root / task_id),
+            "status": "prepared",
+            "launch": {"run_id": self.SETTLED_RUN, "lease_id": "fixture-lease",
+                       "status": "ready_pending", "capacity_released": None},
+            "worker_history": [{"run_id": self.SETTLED_RUN, "status": "stopped",
+                                "capacity_released": True,
+                                "settled_at": "2026-09-18T03:18:28+00:00"}],
+        })
+
+    def write_live_worker(self, task_id: str) -> None:
+        """A record describing work that has NOT finished."""
+        self.manager.records.mkdir(parents=True, exist_ok=True)
+        write_record(self.manager.records / f"{task_id}.json", {
+            "schema_version": "assistant-checkout/v1",
+            "task_id": task_id,
+            "source": str(self.source.resolve()),
+            "checkout": str(self.manager.root / task_id),
+            "status": "prepared",
+            "worker": {"run_id": "fixture-run-live", "lease_id": "fixture-lease",
+                       "status": "running", "capacity_released": False},
+        })
+
+    def conformant(self):
+        return patch(
+            "Pipeline.AssistantControl.graph_controller.inspect_dependencies",
+            return_value={"task_state": {"state": "conformant"}},
+        )
+
+    def test_a_settled_leftover_record_does_not_veto_committed_conformance(self):
+        """DEFECT 1: the committed-conformance route is gated on a record's
+        mere EXISTENCE.
+
+        That route exists for work completed outside this controller, as its
+        own comment says. Using "a record exists" as a proxy for "the
+        controller is managing this" means one leftover record from a failed
+        run vetoes the route forever: the task can never be recognised as
+        already delivered, no matter what the committed evidence says.
+        """
+        self.write_stale_launch("NSC-899")
+        controller = self.controller("NSC-899")
+        tasks = controller._contracts(self.head)
+        with self.conformant():
+            self.assertTrue(
+                controller._task_complete("NSC-899", tasks, self.head, {}, set()),
+                "a record whose only run is settled describes nothing in "
+                "flight, so it must not veto committed conformance",
+            )
+
+    def test_a_live_worker_still_vetoes_committed_conformance(self):
+        """The half of the old gate that was load-bearing, kept.
+
+        Passes before the fix too, for the wrong reason -- before, ANY record
+        vetoed. It is here so that widening the gate cannot quietly widen it
+        to work that is still running.
+        """
+        self.write_live_worker("NSC-899")
+        controller = self.controller("NSC-899")
+        tasks = controller._contracts(self.head)
+        with self.conformant():
+            self.assertFalse(
+                controller._task_complete("NSC-899", tasks, self.head, {}, set()),
+                "a running worker must still veto the shortcut",
+            )
+
+    def test_a_decomposition_record_still_vetoes_committed_conformance(self):
+        """The other load-bearing half, untouched by this change."""
+        self.manager.records.mkdir(parents=True, exist_ok=True)
+        write_record(self.manager.records / "NSC-899.decomposition.json", {
+            "schema_version": "assistant-decomposition/v1",
+            "task_id": "NSC-899", "source": str(self.source.resolve()),
+            "status": "review_ready", "child_ids": [],
+        })
+        controller = self.controller("NSC-899")
+        tasks = controller._contracts(self.head)
+        with self.conformant():
+            self.assertFalse(
+                controller._task_complete("NSC-899", tasks, self.head, {}, set()),
+                "a decomposition record must still veto the shortcut",
+            )
+
+    def test_a_settled_leftover_launch_is_not_waited_on_forever(self):
+        """DEFECT 2: `_actions` reads `capacity_released` off the launch.
+
+        A launch entry keeps the status the launcher wrote, so a run that
+        ended and was settled leaves `ready_pending` and a null
+        `capacity_released` behind. Read at face value that is "not settled
+        and not terminal", which emits `wait_worker` for a run that ended
+        days ago -- every pass, forever.
+        """
+        self.write_stale_launch("NSC-042")
+        plan = self.controller("NSC-042").plan()
+        waits = [action for action in plan["next_actions"]
+                 if action.get("kind") == "wait_worker"
+                 and action.get("task_id") == "NSC-042"]
+        self.assertEqual(
+            [], waits,
+            "the record proves this run ended and released its capacity; "
+            f"waiting on it cannot terminate. plan: {plan['next_actions']}",
+        )
+
+    def test_an_unsettled_worker_is_still_waited_on(self):
+        """The behaviour that must survive: a real run is still waited for."""
+        self.write_live_worker("NSC-042")
+        plan = self.controller("NSC-042").plan()
+        waits = [action for action in plan["next_actions"]
+                 if action.get("kind") == "wait_worker"
+                 and action.get("task_id") == "NSC-042"]
+        self.assertEqual(
+            1, len(waits),
+            f"a running worker must still be waited on: {plan['next_actions']}",
+        )
+
+    def test_a_conformant_task_with_a_stale_launch_is_not_redispatched(self):
+        """Why the two must be fixed together.
+
+        With only the `_actions` half fixed, the controller stops waiting and
+        falls through to dispatching work for a task whose contract is already
+        delivered and merged. The completion half is what makes it recognise
+        the task as done and emit nothing at all.
+        """
+        self.write_stale_launch("NSC-899")
+        with self.conformant():
+            plan = self.controller("NSC-899").plan()
+        mine = [action for action in plan["next_actions"]
+                if action.get("task_id") == "NSC-899"]
+        self.assertEqual(
+            [], mine,
+            f"an already-conformant task must produce no actions: {mine}",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
