@@ -1,0 +1,144 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "2d5c8a1dc5d4bba469fb158b27967717309e5b7ad6f8ab4a38fbbd05ad583c9f"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "2c53e087a4cb7074f3a37d000b1754563e1ce344",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/LowerVaultSceneBuilder.cs",
+      "role": "room_authoring_builder"
+    },
+    {
+      "blob_sha": "06850092395572c859fb8bc2f8307ffc15c325cb",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/LowerVaultLayout.cs",
+      "role": "room_layout_constants"
+    },
+    {
+      "blob_sha": "1c8036098b2c733f5ded02442e25051371d65930",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/LowerVaultSceneTests.cs",
+      "role": "room_conformance_tests"
+    },
+    {
+      "blob_sha": "40f81bfd28bb3f35cd868be38c1e97a36fe51211",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/LowerVaultNearWallStubTile.asset",
+      "role": "generated_wall_tile"
+    },
+    {
+      "blob_sha": "3cd48082c1bd4479f1ab3c49bd0c21302f141253",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/LowerVaultNearWallStubTile.asset.meta",
+      "role": "generated_wall_tile_identity"
+    },
+    {
+      "blob_sha": "1467193eb7c01a991291cc70ecff78f662530d45",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/LowerVaultBlockoutProxySprite.asset",
+      "role": "generated_blockout_proxy_sprite"
+    },
+    {
+      "blob_sha": "ec928ef80238e91f1695359c3b59e22ff3447ddd",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/LowerVaultBlockoutProxySprite.asset.meta",
+      "role": "generated_blockout_proxy_identity"
+    },
+    {
+      "blob_sha": "f5fa562959077291013df714f97193260d741212",
+      "path": "Assets/Scenes/Rooms/LowerVault.unity",
+      "role": "authored_tiled_room_source"
+    }
+  ],
+  "delivery": {
+    "base_commit": "796c1858b495b4a40d4f47718942523a6bbb0243",
+    "candidate_commit": "05e8282f038de5d9657adefeb435cad18b6ae80c",
+    "integrated_commit": "3e5bb5b0d65bb3ecc5b1878a9d6f614a7d974ae9",
+    "integrated_tree": "236a9f8e14a5473369a9f1da9880c6d02839e3db"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "5f7a7223bde2cbeda7890c8aa7b633c26ca68a76",
+          "path": "Pipeline/TaskGraph/evidence/NSC-047/artifacts/MaterializedLowerVaultResults-3e5bb5b0d65b.xml"
+        },
+        {
+          "blob_sha": "b8c1fbd9417bb2a0dad206394033754a7130e61f",
+          "path": "Pipeline/TaskGraph/evidence/NSC-047/artifacts/MaterializedLowerVaultLog-3e5bb5b0d65b.log"
+        },
+        {
+          "blob_sha": "042d3ba7ead1c751cfbd95cd42896c6295ca8af1",
+          "path": "Pipeline/TaskGraph/evidence/NSC-047/artifacts/CandidateEditModeResults.xml-3e5bb5b0d65b.xml"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "Committed-scene conformance. LowerVaultSceneTests ran 19/19 passed with 0 failed on the materialized candidate 28422b436 under the pipeline's own authoritative validation (RunId materialize-28422b436cc2), and again inside the full Edit Mode suite at the landed candidate 05e8282f0. Covers room bounds, D3 Entry (-8,54), D4 Exit (+4,76), the named LV-C1/LV-W1/LV-E1/LV-N1/LV-H1 collider footprints, both door aprons and route clearances.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "5f7a7223bde2cbeda7890c8aa7b633c26ca68a76",
+          "path": "Pipeline/TaskGraph/evidence/NSC-047/artifacts/MaterializedLowerVaultResults-3e5bb5b0d65b.xml"
+        },
+        {
+          "blob_sha": "042d3ba7ead1c751cfbd95cd42896c6295ca8af1",
+          "path": "Pipeline/TaskGraph/evidence/NSC-047/artifacts/CandidateEditModeResults.xml-3e5bb5b0d65b.xml"
+        }
+      ],
+      "gate_id": "VAL-002",
+      "notes": "Focused Edit Mode seams. The same LowerVaultSceneTests run (19/19 passed) exercises LowerVaultSceneBuilder's in-memory and temporary-asset seams without writing canonical assets, including NearWallStubTile repeat-period and stale/matching-pixel behaviour and LoadOrCreateBlockoutProxySprite reuse.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "042d3ba7ead1c751cfbd95cd42896c6295ca8af1",
+          "path": "Pipeline/TaskGraph/evidence/NSC-047/artifacts/CandidateEditModeResults.xml-3e5bb5b0d65b.xml"
+        },
+        {
+          "blob_sha": "d86dc7aa01abaad6fa50b379febadcf43f9876c2",
+          "path": "Pipeline/TaskGraph/evidence/NSC-047/artifacts/CandidateEditModeLog-3e5bb5b0d65b.log"
+        },
+        {
+          "blob_sha": "20b8d30af59cfd1ce4b4e944866887b06d4e75ee",
+          "path": "Pipeline/TaskGraph/evidence/NSC-047/artifacts/BaseEditModeResults.xml-3e5bb5b0d65b.xml"
+        },
+        {
+          "blob_sha": "9167540c8fd6a35084107d6bfefce857880506e2",
+          "path": "Pipeline/TaskGraph/evidence/NSC-047/artifacts/BaseEditModeLog-3e5bb5b0d65b.log"
+        }
+      ],
+      "gate_id": "VAL-003",
+      "notes": "Paired regression evidence required by revision 12. Full Edit Mode suite at the CANDIDATE 05e8282f0: total=185 passed=181 failed=3 (start 2026-09-23 05:18:28Z). Full Edit Mode suite at the candidate's BASE 796c1858b: total=172 passed=166 failed=5 (start 2026-09-23 07:05:43Z). REGRESSIONS attributable to this task (pass at base, fail at candidate): 0. PRE-EXISTING failures reported with their base-commit result rather than excused: ChapelOfAshSceneTests.CommittedScene_ValidatesForComposition fails at BOTH base 796c1858b and candidate 05e8282f0; FinalRoomSceneTests.CommittedScene_ValidatesForComposition fails at BOTH base 796c1858b and candidate 05e8282f0; CommittedRoomSourceSceneConformanceTests.FiveCommittedRoomScenes_AreComposableWithPairedDoorAnchors fails at BOTH base 796c1858b and candidate 05e8282f0. Failures cleared by this candidate: LowerVaultSceneTests.Build_CreatesComposerReadyHierarchyAndDoorAnchors, LowerVaultSceneTests.CommittedScene_ValidatesThroughRoomSceneComposer. The split was computed from both result files, not from recollection.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "4990fcdfe34ba9a004e2e49009e0a4ffd916623b",
+          "path": "Pipeline/TaskGraph/evidence/NSC-047/artifacts/HumanValidation-3e5bb5b0d65b.txt"
+        }
+      ],
+      "gate_id": "VAL-004",
+      "notes": "Vincent approved the room in his own words at 2026-09-23 07:05Z: \"I approve the room, please put the art in.\" He declined an explicit offer to inspect it first. The nine-shot contact sheet VAL-004 describes WAS NOT PRODUCED and this approval is not based on it; the menu item VAL-004 names never positions WizardReviewStandIn, so run as shipped it frames empty ground about 65 units from the room. Full detail, including what was and was not established about what he viewed, is in the human_validation artifact.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "Vincent Liguori",
+    "decision": "approved",
+    "notes": "Approved 2026-09-23 07:05Z: \"I approve the room, please put the art in.\" Approved WITHOUT the nine-shot gameplay-camera contact sheet described by VAL-004, which was not produced. He also said \"I felt like I didnt see anything new\". No claim is made here that he performed the nine-shot review.",
+    "required": true
+  },
+  "record_id": "DEL-NSC-047-3e5bb5b0d65b",
+  "record_type": "delivery",
+  "recorded_at": "2026-09-23T07:13:27Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-047.yaml",
+    "revision": 12,
+    "sha256": "ee7eaa89558717e0f1e8d6db450d122cdd9ba2591ad4c2accbc8f0055848f756"
+  },
+  "task_id": "NSC-047",
+  "validated_state": {
+    "commit": "3e5bb5b0d65bb3ecc5b1878a9d6f614a7d974ae9",
+    "tree": "236a9f8e14a5473369a9f1da9880c6d02839e3db"
+  }
+}
