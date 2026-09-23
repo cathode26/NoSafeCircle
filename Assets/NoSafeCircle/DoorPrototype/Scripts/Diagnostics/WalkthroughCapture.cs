@@ -245,6 +245,13 @@ namespace NoSafeCircle.DoorPrototype.Diagnostics
                 captureLoop = null;
             }
 
+            // StopCoroutine abandons the iterator rather than disposing it, so the finally
+            // in CaptureOneFrame does NOT run when a stop lands mid-capture. Left alone the
+            // flag would stay set for the rest of the session and the summary would never
+            // draw -- pressing F9 to stop would show nothing, which is precisely the thing
+            // this readout exists to prevent.
+            overlaySuppressedForCapture = false;
+
             FinishSession();
         }
 
