@@ -183,6 +183,28 @@ def main(argv=None) -> int:
                                 help="One relative path inside the task checkout")
     representation.add_argument("--apply", action="store_true",
                                 help="Without this the command only reports what it would do")
+    on_source = commands.add_parser(
+        "revise-on-source",
+        help=(
+            "Dry-run (default) or --apply the reconciliation of ONE rejected "
+            "candidate with an inspected Source and an explicitly named contract. "
+            "Publishes prepared with NO active candidate, for fresh crew work. "
+            "Carries the implementation forward, never its validation authority."
+        ),
+    )
+    on_source.add_argument("task")
+    on_source.add_argument("--candidate-commit", required=True,
+                           help="The rejected materialized commit")
+    on_source.add_argument("--source-commit", required=True,
+                           help="The Source commit you INSPECTED; must equal Source HEAD")
+    on_source.add_argument("--accept-contract-sha256", required=True,
+                           help=("The contract you are ADOPTING at that Source commit. "
+                                 "Named, never inferred: carrying work across a changed "
+                                 "task is a decision, not a side effect."))
+    on_source.add_argument("--reason", required=True,
+                           help="Why this work is worth carrying forward")
+    on_source.add_argument("--apply", action="store_true",
+                           help="Without this the command only reports what it would do")
     worker_status = commands.add_parser("worker-status", help="Inspect host identity and retained worker state")
     worker_status.add_argument("task")
     settlement = commands.add_parser("settle-worker", help="Release ended worker capacity after verified process/container exit")
@@ -628,6 +650,17 @@ def main(argv=None) -> int:
                 )
                 result = repair_checkout_representation(
                     manager, args.task, path=args.path, apply=args.apply,
+                )
+            elif args.command == "revise-on-source":
+                from Pipeline.AssistantControl.revise_on_source import revise_on_source
+                result = revise_on_source(
+                    manager,
+                    args.task,
+                    expected_candidate=args.candidate_commit,
+                    expected_source_commit=args.source_commit,
+                    accept_contract_sha256=args.accept_contract_sha256,
+                    reason=args.reason,
+                    apply=args.apply,
                 )
             elif args.command == "refresh-prepared":
                 from Pipeline.AssistantControl.prepared_refresh import refresh_prepared
