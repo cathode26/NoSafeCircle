@@ -14,9 +14,10 @@ invented holder or a free lock.
 
 There is no age-based takeover and `guarded_merge --stale-after` is removed.
 Sixty seconds is only an overdue warning. Acquisition timeout bounds how long a
-contender waits; it never revokes an owner. Standalone deployments may report
-process identity as unavailable when the tracked Pipeline helper is absent.
-That explicit diagnostic does not weaken exclusion or authorize recovery.
+contender waits; it never revokes an owner. The identity API is loaded from the
+containing tracked repository or, in a deployed `tools` directory, its workspace's
+canonical repository as resolved by `nsc_paths.py`. A missing API or unsupported
+host records an explicit unavailable reason; it never authorizes recovery.
 
 ## Writer behavior
 
@@ -40,6 +41,9 @@ The merger requires explicit `--repo` and `--journal`. It checks main and the
 current repository state after acquisition, then holds through Git hooks,
 validation and reporting. A failed merge or postcommit report preserves actual
 state for inspection. It does not promise that a nonzero result means no commit.
+An interrupted validator reports `UNCERTAIN`, attempts an uncertainty END record,
+and retains ownership even if the journal cannot be written. It never describes
+that path as a refusal with an untouched repository.
 
 Ordinary errors attempt journal completion and checked release. Journal or HEAD
 observation errors still release, and exit unsuccessfully. Release failure is
@@ -72,18 +76,45 @@ does not reset files, repair a merge, retry a task, or imply the tree is clean.
 
 The tracked deployment manifest includes both root files `main_write_lock.py`
 and `guarded_merge.py`. A GER-only family deployment excludes root files and
-cannot complete this cutover. The activation owner must deploy those root files,
+cannot complete this cutover. The Pipeline Maintainer owns activation and
+coordinates the GER and Release owners. That owner must deploy those root files,
 GER's adapter and three callers together, plus the two extra committers at their
 maintained standalone location when those copies are used. The extra family is
 still excluded from automatic family deployment; this change does not broaden
 that historical archive's deployment scope.
 
+The cutover inventory includes:
+
+- the approved checkout's `Tools/Host` helper, merger, `nsc_paths.py`, `ger`
+  adapter and three callers, and `ger-contract-revisions-20260916` extra callers;
+- installed root files in `C:\NSC\tools`, plus its `ger` adapter and three callers;
+- `C:\nscrev\ger-tools`, currently a junction to `C:\NSC\tools\ger`, including
+  entry points invoked through that alias; verify the junction target again at
+  cutover rather than treating the alias as an independently deployed copy;
+- standalone copies at `C:\nscrev\ger-contract-revisions-20260916\new_task_commit.py`
+  and `policy_entry_commit.py`, and
+  any launcher-selected alternative roots. Resolve their actual imported GER
+  and shared helper, not merely the entry point's location.
+
+At the audit checkpoint the deployed root helper and merger were absent; the
+active merger source was `C:\NSC\NSC\NoSafeCircle\Tools\Host\guarded_merge.py`.
+These observations describe the pre-cutover machine, not a completed deployment.
+
 Before activation, stop admission of old writer invocations and wait for their
-mutation children to finish. Then verify the installed files' hashes against the
-approved source revision and verify each caller's actual imported adapter and
-shared helper. Old GER may write without the ref and an old merger may delete an
-aged ref, so mixed versions do not provide this guarantee. Source approval alone
-is not evidence of deployment. No live activation is performed by the tests.
+mutation children to finish. Verify resolved paths and hashes against the approved
+source, including the helper imported by every caller and alias. Update the
+fleet's merger invocation documentation at the same cutover: `--repo` and
+`--journal` are required; there is no canonical repository default.
+
+Old GER committers write only the journal and can race either merger despite
+the shared ref. Old and new mergers address the same ref; the old pipe-delimited
+age parser normally cannot extract an age from a new JSON owner, so it does not
+age-break that owner. Its age-based takeover remains unsafe for legacy owners.
+Recent open legacy START records without an operation UUID produce a warning in
+both new adapters for 30 minutes. This is a transitional diagnostic, not an
+admission gate or proof that older writers are absent. Journal read failures are
+reported as warnings. Source approval alone is not evidence of deployment, and
+tests perform no live activation.
 
 ## Focused verification
 

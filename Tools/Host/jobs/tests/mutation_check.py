@@ -72,6 +72,7 @@ FILES = {
     "record": Path("jobs/closure_record.py"),
     "deploy": Path("deploy_tools.py"),
     "main_write": Path("ger/main_write.py"),
+    "main_write_lock": Path("main_write_lock.py"),
     "checker": Path("jobs/check_closure_report.py"),
     # Bash is not exempt. Two of the defects Codex reproduced on 2026-09-21 were
     # in this file, and both had been "fixed" on the Python path beside it - the
@@ -92,6 +93,7 @@ SUITES = {
     "job_record": Path("jobs/tests/test_closure_record.py"),
     "deploy": Path("tests/test_deploy_tools.py"),
     "main_write": Path("ger/tests/test_main_write.py"),
+    "main_write_lock": Path("tests/test_main_write_lock.py"),
     "shell": Path("codex-jobs/tests/test_run_closure_review.py"),
     "adapter": Path("jobs/tests/test_claude_closure_review.py"),
 }
@@ -107,9 +109,16 @@ SUPPORT = [
     Path("nsc_paths.py"),
     Path("ger/ger_decision_revision.py"),
     Path("ger/main_write.py"),
+    Path("guarded_merge.py"),
+    Path("ger/contract_commit.py"),
+    Path("ger/apply_followup_revision.py"),
+    Path("ger-contract-revisions-20260916/new_task_commit.py"),
+    Path("ger-contract-revisions-20260916/policy_entry_commit.py"),
+    Path("ger-contract-revisions-20260916/main_write.py"),
     Path("ger/tests/ger_fixtures.py"),
     Path("codex-jobs/templates/contract-closure-review-prompt.md"),
 ]
+REPO_SUPPORT = [Path("Pipeline/AssistantControl/process_identity.py")]
 
 # (file key, what the mutation removes, find, replace, suite key, the test that must die)
 MUTATIONS = [
@@ -409,37 +418,78 @@ MUTATIONS = [
 
     # ---- the one-writer guard, which had never fired for anyone.
 
-    ('main_write', 'comparing open writes against the role that is writing',
-     '              if not item.startswith(f"{role} since")]',
-     '              if not item.startswith("GER Agent")]',
-     'main_write', 'test_the_same_role_may_continue'),
+    ('main_write', 'binding ownership to the role that is writing',
+     'owner = lock.acquire(repo=repo, role=role, operation=operation,',
+     'owner = lock.acquire(repo=repo, role="GER Agent", operation=operation,',
+     'main_write', 'test_role_required_environment_allowed'),
 
     ('main_write', 'requiring a role instead of defaulting to one',
      '    role = (explicit or os.environ.get("NSC_ROLE") or "").strip()',
      '    role = (explicit or os.environ.get("NSC_ROLE") or "GER Agent").strip()',
-     'main_write', 'test_no_role_and_no_environment_is_refused'),
+     'main_write', 'test_role_required_environment_allowed'),
 
     ('main_write', 'refusing a role the journal cannot be parsed for',
      '    if not ROLE_PATTERN.match(role):',
      '    if False:',
-     'main_write', 'test_a_role_the_journal_cannot_be_parsed_for_is_refused'),
+     'main_write', 'test_invalid_role_is_refused_without_journal'),
 
     ('main_write', 'stamping the END with the role that is ending',
-     '    _append(f"- MAIN-WRITE END {role}: new HEAD {new_head[:9]}; {checks}",',
-     '    _append(f"- MAIN-WRITE END GER Agent: new HEAD {new_head[:9]}; {checks}",',
-     'main_write', 'test_a_second_role_is_allowed_once_the_first_ends'),
+     '_append(f"- MAIN-WRITE END {write.lock.role}: new HEAD {new_head}; "',
+     '_append(f"- MAIN-WRITE END GER Agent: new HEAD {new_head}; "',
+     'main_write', 'test_different_and_same_roles_contend'),
+
+    ('main_write', 'checking the planned HEAD after acquisition',
+     'if _git(owner.repo, "rev-parse", "HEAD") != expected_head:',
+     'if False:', 'main_write', 'test_head_change_before_acquire_refuses_without_start'),
+
+    ('main_write', 'requiring main before entering the mutation body',
+     'if _git(target, "symbolic-ref", "--short", "HEAD") != "main":',
+     'if False:', 'main_write', 'test_non_main_branch_refuses_before_mutation'),
+
+    ('main_write_lock', 'conditional acquisition excludes another process',
+     '_git(repo, "update-ref", LOCK_REF, owner_oid, "")',
+     '_git(repo, "update-ref", LOCK_REF, owner_oid)',
+     'main_write_lock', 'test_a_second_process_is_refused_while_held'),
+
+    ('main_write_lock', 'conditional release cannot delete a replacement owner',
+     '_git(handle.repo, "update-ref", "-d", LOCK_REF,\n                              handle.owner_oid)',
+     '_git(handle.repo, "update-ref", "-d", LOCK_REF)',
+     'main_write_lock', 'test_release_refuses_when_the_lock_was_recovered_from_under_it'),
+
+    ('main_write_lock', 'recovery atomically checks the observed owner',
+     '_git(repo, "update-ref", LOCK_REF, owner_oid, current_oid)',
+     '_git(repo, "update-ref", LOCK_REF, owner_oid)',
+     'main_write_lock', 'test_recovery_checks_cas_after_python_inspection'),
+
+    ('main_write_lock', 'uncertain mutation retains ownership',
+     '    except MutationChildUncertain as error:\n        raise MutationChildUncertain(\n            f"{error}; retained {LOCK_REF}',
+     '    except MutationChildUncertain as error:\n        release(handle)\n        raise MutationChildUncertain(\n            f"{error}; retained {LOCK_REF}',
+     'main_write_lock', 'test_uncertain_child_keeps_owner'),
+
+    ('main_write_lock', 'vanished holder retry still observes the deadline',
+     '        current_oid, owner = found if found is not None else ("", {})',
+     '        if found is None:\n            continue\n        current_oid, owner = found if found is not None else ("", {})',
+     'main_write_lock', 'test_a_vanishing_holder_cannot_defeat_the_timeout'),
+
+    ('main_write_lock', 'supported host identity cannot silently degrade',
+     '        identify = _identity_provider().identify',
+     '        return "unavailable: injected mutation"',
+     'main_write_lock', 'test_the_owner_blob_carries_an_identity_not_a_bare_pid'),
 
 ]
 
 
 def stage(tmp: Path) -> tuple[dict[str, Path], dict[str, Path]]:
     """A copy that keeps the layout the suites navigate by."""
-    host = tmp / "Host"
+    host = tmp / "Tools" / "Host"
     every = list(FILES.values()) + list(SUITES.values()) + SUPPORT
     for relative in every:
         target = host / relative
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(HOST / relative, target)
+    for relative in REPO_SUPPORT:
+        (tmp / relative).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(HOST.parents[1] / relative, tmp / relative)
     return ({key: host / rel for key, rel in FILES.items()},
             {key: host / rel for key, rel in SUITES.items()})
 
@@ -553,13 +603,23 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--workers", type=int, default=None,
                         help="mutations to run at once; default min(8, cpus), "
                              "or NSC_MUTATION_WORKERS")
+    parser.add_argument("--file", action="append", choices=sorted(FILES),
+                        help="run only mutations for this file key; repeat for several files")
     args = parser.parse_args(argv)
+    mutations = [m for m in MUTATIONS if not args.file or m[0] in args.file]
+    suite_keys = {m[4] for m in mutations}
 
     missing = [rel for rel in list(FILES.values()) + list(SUITES.values()) + SUPPORT
                if not (HOST / rel).is_file()]
+    missing_roots = [HOST.parents[1] / rel for rel in REPO_SUPPORT
+                     if not (HOST.parents[1] / rel).is_file()]
     if missing:
         for rel in missing:
             print(f"missing {HOST / rel}", file=sys.stderr)
+        return 1
+    if missing_roots:
+        for path in missing_roots:
+            print(f"missing {path}", file=sys.stderr)
         return 1
 
     with tempfile.TemporaryDirectory(prefix="protocol-mutation-") as tmpdir:
@@ -576,7 +636,7 @@ def main(argv: list[str] | None = None) -> int:
         with concurrent.futures.ThreadPoolExecutor(
                 max_workers=workers(args.workers)) as pool:
             baselines = {key: pool.submit(run, suite)
-                         for key, suite in suites.items()}
+                         for key, suite in suites.items() if key in suite_keys}
         for key, future in baselines.items():
             code, output = future.result()
             tests, verdict, counts = terminal_summary(output)
@@ -601,19 +661,19 @@ def main(argv: list[str] | None = None) -> int:
     # The staged tree above was only needed for the baselines; each mutation
     # stages its own. Outside the `with`, so the baseline copy is already gone.
     count = workers(args.workers)
-    print(f"{len(MUTATIONS)} mutations, {count} at a time")
+    print(f"{len(mutations)} mutations, {count} at a time")
     started = time.time()
 
     outcomes: dict[str, tuple[bool, str]] = {}
     with concurrent.futures.ThreadPoolExecutor(max_workers=count) as pool:
-        futures = {pool.submit(one_mutation, m, expected): m[1] for m in MUTATIONS}
+        futures = {pool.submit(one_mutation, m, expected): m[1] for m in mutations}
         for future in concurrent.futures.as_completed(futures):
             what, killed, reason = future.result()
             outcomes[what] = (killed, reason)
 
     # Printed in TABLE order, not completion order, so two runs are diffable.
     survivors: list[str] = []
-    for mutation in MUTATIONS:
+    for mutation in mutations:
         what = mutation[1]
         killed, reason = outcomes[what]
         if killed:
@@ -626,7 +686,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"             {reason}")
             survivors.append(what)
 
-    print(f"\n{len(MUTATIONS) - len(survivors)}/{len(MUTATIONS)} mutations killed "
+    print(f"\n{len(mutations) - len(survivors)}/{len(mutations)} mutations killed "
           f"in {time.time() - started:.0f}s")
     for survivor in survivors:
         print(f"  SURVIVOR: {survivor}")

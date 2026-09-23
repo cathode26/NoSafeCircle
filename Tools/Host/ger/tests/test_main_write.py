@@ -76,6 +76,7 @@ class AdmissionAndJournal(Base):
                 self.start(role=role, timeout=0)
         self.assertEqual(1, self.text().count("MAIN-WRITE START"))
         mw.end(first, self.head, "done")
+        self.assertIn("MAIN-WRITE END Test Agent:", self.text())
         second = self.start()
         mw.end(second, self.head, "done")
 
@@ -143,6 +144,19 @@ class AdmissionAndJournal(Base):
 
 
 class ProtectedChecksAndRestoration(Base):
+    def test_non_main_branch_refuses_before_mutation(self):
+        git(self.repo, "checkout", "-b", "feature")
+        entered = False
+        try:
+            with self.transaction():
+                entered = True
+        except SystemExit as error:
+            self.assertIn("not checked out on main", str(error))
+        self.assertFalse(entered, "a writer must not enter its mutation body off main")
+        self.assertEqual(self.head, git(self.repo, "rev-parse", "HEAD"))
+        self.assertEqual("", git(self.repo, "status", "--porcelain"))
+        self.assertIsNone(lock.inspect(repo=self.repo))
+
     def test_changed_touched_path_is_not_restored_by_refused_writer(self):
         (self.repo / "base.txt").write_text("other writer")
         with self.assertRaisesRegex(SystemExit, "target paths"):

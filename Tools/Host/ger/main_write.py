@@ -147,6 +147,7 @@ def start(operation: str, expected_head: str, *, repo, role: str,
     if journal is None:
         raise SystemExit("main_write needs an explicit journal path")
     journal = pathlib.Path(journal).resolve()
+    lock.warn_legacy_writers(journal)
     owner = lock.acquire(repo=repo, role=role, operation=operation,
                          expected_head=expected_head, timeout=timeout)
     try:

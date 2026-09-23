@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import contextlib
 import argparse
+import importlib.util
 import json
 import os
 import re
@@ -42,6 +43,19 @@ POLL_SECONDS = 0.05
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 
+def _identity_provider():
+    """Load the maintained identity API from this tool's resolved repository."""
+    from nsc_paths import canonical, containing_repo
+    located = containing_repo() or canonical()
+    source = located.path / "Pipeline" / "AssistantControl" / "process_identity.py"
+    spec = importlib.util.spec_from_file_location("_main_write_process_identity", source)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"cannot load process identity from {source}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def _process_identity() -> dict | str:
     """This process as pid + creation ticks + image, or why not.
 
@@ -51,12 +65,9 @@ def _process_identity() -> dict | str:
     implementations of one lock. Returns a STRING reason on failure, never
     None and never a missing key, so a caller cannot read absence as a pass.
     """
-    root = pathlib.Path(__file__).resolve().parents[2]
-    if str(root) not in sys.path:
-        sys.path.insert(0, str(root))
     try:
-        from Pipeline.AssistantControl.process_identity import identify
-    except ImportError as error:
+        identify = _identity_provider().identify
+    except (ImportError, OSError) as error:
         return f"unavailable: process_identity could not be imported ({error})"
     with suppress(OSError, ValueError, NotImplementedError):
         found = identify(os.getpid())
@@ -64,6 +75,46 @@ def _process_identity() -> dict | str:
             return found
         return "unavailable: this process reported no identity"
     return "unavailable: the host identity check refused"
+
+
+def warn_legacy_writers(journal, *, now=None, stream=None):
+    """Expose recent legacy writers during cutover; the journal is never a gate."""
+    stream = sys.stderr if stream is None else stream
+    try:
+        text = pathlib.Path(journal).read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return
+    except (OSError, UnicodeError) as error:
+        print(f"WARNING: legacy writer journal could not be read: {journal}: {error}", file=stream)
+        return
+    now = datetime.now(timezone.utc) if now is None else now
+    records = re.compile(r"^- (\d{4}-\d\d-\d\d \d\d:\d\d(?::\d\d)?) UTC MAIN-WRITE (START|END) ([A-Za-z ]+(?:Agent|Steward|Orchestrator)):")
+    operation = re.compile(r"; operation [0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?:\b)", re.I)
+    ended = re.compile(r"MAIN-WRITE END ([A-Za-z ]+(?:Agent|Steward|Orchestrator)):")
+    pending = {}
+    for line in text.splitlines():
+        end = ended.search(line)
+        if end:
+            pending.pop(end.group(1), None)
+            continue
+        match = records.match(line)
+        if not match:
+            continue
+        stamp, event, role = match.groups()
+        if event == "END":
+            pending.pop(role, None)
+        elif operation.search(line):
+            pending.pop(role, None)
+        else:
+            try:
+                when = datetime.fromisoformat(stamp).replace(tzinfo=timezone.utc)
+            except ValueError:
+                continue
+            pending[role] = (when, line)
+    for role, (when, line) in pending.items():
+        if 0 <= (now - when).total_seconds() < 30 * 60:
+            print(f"WARNING: recent legacy writer may bypass {LOCK_REF}: {line}. "
+                  "Pipeline Maintainer must reconcile this invocation during cutover.", file=stream)
 
 
 class MainWriteLockError(RuntimeError):

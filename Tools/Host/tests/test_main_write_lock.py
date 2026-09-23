@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import os
+import io
 import pathlib
 import subprocess
 import sys
@@ -171,14 +172,28 @@ class ItNeverStealsALiveLock(Base):
         """
         repo = self.repo()
         blocker = lock.acquire(repo=repo, role="Holder Agent", operation="x")
-        started = time.monotonic()
-        with mock.patch.object(lock, "inspect", return_value=None):
-            with self.assertRaisesRegex(lock.MainWriteLockError, "timed out acquiring"):
-                lock.acquire(repo=repo, role="Contender Agent",
-                             operation="y", timeout=0.3)
-        self.assertLess(time.monotonic() - started, 15,
-                        "acquire must honour its timeout on EVERY retry path")
-        lock.release(blocker)
+        script = "\n".join([
+            "import sys", "from unittest import mock",
+            "sys.path.insert(0, sys.argv[1])", "import main_write_lock as lock",
+            "with mock.patch.object(lock, 'inspect', return_value=None):",
+            "    try:",
+            "        lock.acquire(repo=sys.argv[2], role='Contender Agent', operation='y', timeout=0.3)",
+            "    except lock.MainWriteLockError as error:",
+            "        print(error)",
+            "        sys.exit(0 if 'timed out acquiring' in str(error) else 2)",
+            "sys.exit(3)",
+        ])
+        try:
+            try:
+                result = subprocess.run([sys.executable, "-B", "-c", script, str(HOST), str(repo)],
+                                        capture_output=True, text=True, timeout=8)
+            except subprocess.TimeoutExpired:
+                self.fail("acquire must honour its timeout on EVERY retry path")
+            self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        finally:
+            found = lock.inspect(repo=repo)
+            if found and found[0] == blocker.owner_oid:
+                lock.release(blocker)
 
     def test_the_owner_blob_carries_an_identity_not_a_bare_pid(self):
         """A recycled pid makes a dead holder look live.
@@ -195,6 +210,8 @@ class ItNeverStealsALiveLock(Base):
         self.assertIn("process_identity", owner,
                       "the field must always be present")
         identity = owner["process_identity"]
+        if os.name == "nt":
+            self.assertIsInstance(identity, dict, "Windows identity must be captured in the tracked layout")
         if isinstance(identity, dict):
             self.assertEqual({"pid", "created_ticks", "image"}, set(identity),
                              "an identity must bind pid, creation and image")
@@ -562,7 +579,9 @@ class RecoveryReportsAndChildren(Base):
         with self.assertRaisesRegex(lock.MutationChildUncertain, "retained"):
             with lock.held(repo=repo, role="A Agent", operation="x") as owner:
                 raise lock.MutationChildUncertain("fixture child still running")
-        self.assertEqual(owner.owner_oid, lock.inspect(repo=repo)[0])
+        found = lock.inspect(repo=repo)
+        self.assertIsNotNone(found, "uncertain mutation must retain ownership")
+        self.assertEqual(owner.owner_oid, found[0])
         lock.release(owner)  # synthetic child has no actual process
 
     def test_process_wrapper_marks_interrupted_mutation_child(self):
@@ -574,18 +593,62 @@ class RecoveryReportsAndChildren(Base):
         child.kill.assert_not_called()
 
     def test_process_identity_unavailable_and_available_paths(self):
-        import builtins
-        original = builtins.__import__
-        def missing(name, *args, **kwargs):
-            if name == "Pipeline.AssistantControl.process_identity":
-                raise ImportError("fixture deployment has no Pipeline")
-            return original(name, *args, **kwargs)
-        with mock.patch("builtins.__import__", side_effect=missing):
+        with mock.patch.object(lock, "_identity_provider", side_effect=ImportError("fixture deployment has no Pipeline")):
             self.assertTrue(lock._process_identity().startswith("unavailable:"))
         module = mock.Mock()
         module.identify.return_value = {"pid": os.getpid(), "created_ticks": "1", "image": "python"}
-        with mock.patch.dict(sys.modules, {"Pipeline.AssistantControl.process_identity": module}):
+        with mock.patch.object(lock, "_identity_provider", return_value=module):
             self.assertEqual(module.identify.return_value, lock._process_identity())
+
+    @unittest.skipUnless(os.name == "nt", "maintained identity implementation requires Windows")
+    def test_deployed_layout_captures_real_process_identity(self):
+        import shutil
+        with tempfile.TemporaryDirectory(prefix="deployed-lock-identity-") as tmp:
+            workspace = pathlib.Path(tmp)
+            tools = workspace / "tools"
+            tools.mkdir()
+            for name in ("main_write_lock.py", "nsc_paths.py"):
+                shutil.copy2(HOST / name, tools / name)
+            source = HOST.parents[1] / "Pipeline/AssistantControl/process_identity.py"
+            target = workspace / "NSC/NoSafeCircle/Pipeline/AssistantControl/process_identity.py"
+            target.parent.mkdir(parents=True)
+            shutil.copy2(source, target)
+            result = subprocess.run([sys.executable, "-B", "-c",
+                "import json, main_write_lock; print(json.dumps(main_write_lock._process_identity()))"],
+                cwd=tools, capture_output=True, text=True, timeout=10)
+            self.assertEqual(0, result.returncode, result.stderr)
+            identity = json.loads(result.stdout)
+            self.assertIsInstance(identity, dict, result.stdout)
+            self.assertEqual({"pid", "created_ticks", "image"}, set(identity))
+
+
+class TransitionalLegacyWarnings(unittest.TestCase):
+    def test_recent_legacy_warns_but_uuid_and_ended_records_do_not(self):
+        from datetime import datetime, timezone
+        now = datetime(2026, 9, 23, 2, 10, tzinfo=timezone.utc)
+        with tempfile.TemporaryDirectory(prefix="legacy-writer-warning-") as tmp:
+            journal = pathlib.Path(tmp) / "journal.md"
+            journal.write_text("\n".join([
+                "- 2026-09-23 01:00 UTC MAIN-WRITE START Old Agent: ancient",
+                "- 2026-09-23 02:00 UTC MAIN-WRITE START Legacy Agent: active",
+                "- 2026-09-23 02:01:01 UTC MAIN-WRITE START New Agent: new; operation 12345678-1234-1234-1234-123456789abc. detail",
+                "- 2026-09-23 02:02 UTC MAIN-WRITE START Ended Agent: old",
+                "- 2026-09-23 02:03 UTC MAIN-WRITE END Ended Agent: done",
+                "- 2026-09-23 02:04 UTC MAIN-WRITE START Ger Agent: old",
+                "- MAIN-WRITE END Ger Agent: done",
+            ]), encoding="utf-8")
+            output = io.StringIO()
+            lock.warn_legacy_writers(journal, now=now, stream=output)
+            self.assertIn("Legacy Agent", output.getvalue())
+            for quiet in ("Old Agent", "New Agent", "Ended Agent", "Ger Agent"):
+                self.assertNotIn(quiet, output.getvalue())
+
+    def test_unreadable_journal_warns_honestly(self):
+        output = io.StringIO()
+        with mock.patch.object(pathlib.Path, "read_text", side_effect=PermissionError("fixture denied")):
+            lock.warn_legacy_writers("fixture.md", stream=output)
+        self.assertIn("could not be read", output.getvalue())
+        self.assertIn("fixture denied", output.getvalue())
 
 
 if __name__ == "__main__":

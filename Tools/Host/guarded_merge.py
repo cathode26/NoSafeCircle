@@ -18,10 +18,6 @@ import subprocess
 import sys
 import main_write_lock as lock
 
-DEFAULT_REPO = pathlib.Path(r"C:\NSC\NSC\NoSafeCircle")
-DEFAULT_JOURNAL = pathlib.Path(
-    r"C:\NSC\NoSafeCircle-AssistantCheckouts\.assistant-control"
-    r"\graph-lead-journal.md")
 LOCK_REF = "refs/locks/main-write"
 ROLE_PATTERN = re.compile(r"^[A-Za-z ]+(?:Agent|Steward|Orchestrator)$")
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
@@ -88,6 +84,7 @@ def main(argv: list[str] | None = None) -> int:
 
     git = Git(args.repo)
     journal = args.journal
+    lock.warn_legacy_writers(journal)
 
     with held(git, args.role, args.lock_timeout, operation=f"merge {args.candidate}") as owner:
         sha = git("rev-parse", "--verify", f"{args.candidate}^{{commit}}",
@@ -214,7 +211,13 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  worktree : {'clean' if not dirty else dirty}")
             print(f"  ahead of origin: {ahead} (not pushed)")
             return 0 if validate.returncode == 0 and not dirty and new_tree == predicted_tree else 1
-        except lock.MutationChildUncertain:
+        except lock.MutationChildUncertain as error:
+            try:
+                finish(f"MAIN-WRITE END {args.role}: UNCERTAIN; result may already be committed, "
+                       f"inspect main before retrying; operation {owner.operation_id}: {error}")
+            except BaseException as journal_error:
+                # Reporting must not change the exception which retains ownership.
+                error.add_note(f"uncertainty END could not be recorded: {journal_error}")
             raise
         except BaseException as error:              # noqa: BLE001
             finish(f"MAIN-WRITE END {args.role}: ABORTED on an "
@@ -224,8 +227,16 @@ def main(argv: list[str] | None = None) -> int:
             raise
 
 
-if __name__ == "__main__":
+def cli(argv=None):
     try:
-        raise SystemExit(main())
-    except lock.MainWriteLockError as error:
+        return main(argv)
+    except lock.MutationChildUncertain as error:
+        raise SystemExit(f"UNCERTAIN: result may already be committed; inspect main before retrying. {error}") from error
+    except lock.MainWriteLockBusy as error:
         raise SystemExit(f"REFUSED: {error}") from error
+    except lock.MainWriteLockError as error:
+        raise SystemExit(f"FAILED: result may already be committed; inspect main before retrying. {error}") from error
+
+
+if __name__ == "__main__":
+    raise SystemExit(cli())

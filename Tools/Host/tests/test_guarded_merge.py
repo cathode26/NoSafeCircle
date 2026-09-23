@@ -35,8 +35,11 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest import mock
 
 TOOL = pathlib.Path(__file__).resolve().parents[1] / "guarded_merge.py"
+sys.path.insert(0, str(TOOL.parent))
+import guarded_merge as merger
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 LOCK_REF = "refs/locks/main-write"
 NAMES = ["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf",
@@ -107,6 +110,57 @@ class Base(unittest.TestCase):
             elif "MAIN-WRITE END" in line:
                 depth -= 1
         return depth
+
+
+class UncertainMutationReporting(Base):
+    def test_postcommit_release_failure_does_not_claim_refusal(self):
+        repo, journal, candidate = self.build_fixture()
+        args = ["--role", "Fixture Agent", "--candidate", candidate, "--authority", "test",
+                "--repo", str(repo), "--journal", str(journal), "--validate", "stub_validate.py"]
+        with mock.patch.object(merger.lock, "release", side_effect=merger.lock.MainWriteLockError("fixture release failed")):
+            with self.assertRaises(SystemExit) as caught:
+                merger.cli(args)
+        self.assertIn("FAILED:", str(caught.exception))
+        self.assertNotIn("REFUSED", str(caught.exception))
+        self.assertIn("result may already be committed", str(caught.exception))
+        self.assertEqual(candidate, git(repo, "rev-parse", "HEAD"))
+        self.assertIsNotNone(merger.lock.inspect(repo=repo))
+
+    def exercise_uncertain_validator(self, *, broken_journal=False):
+        repo, journal, candidate = self.build_fixture()
+        real_run = merger.lock.run_process
+        real_append = merger.append
+        def interrupted(command, **kwargs):
+            if "stub_validate.py" in command:
+                raise merger.lock.MutationChildUncertain("fixture validator child may still run")
+            return real_run(command, **kwargs)
+        def append(path, text):
+            if broken_journal and "MAIN-WRITE END" in text:
+                raise OSError("fixture journal unavailable")
+            return real_append(path, text)
+        args = ["--role", "Fixture Agent", "--candidate", candidate, "--authority", "test",
+                "--repo", str(repo), "--journal", str(journal), "--validate", "stub_validate.py"]
+        with mock.patch.object(merger.lock, "run_process", side_effect=interrupted), \
+                mock.patch.object(merger, "append", side_effect=append):
+            with self.assertRaises(SystemExit) as caught:
+                merger.cli(args)
+        self.assertIn("UNCERTAIN:", str(caught.exception))
+        self.assertNotIn("REFUSED", str(caught.exception))
+        self.assertIn("result may already be committed", str(caught.exception))
+        self.assertIsInstance(caught.exception.__cause__, merger.lock.MutationChildUncertain)
+        self.assertEqual(candidate, git(repo, "rev-parse", "HEAD"))
+        self.assertIsNotNone(merger.lock.inspect(repo=repo), "uncertainty must retain the owner")
+        return journal
+
+    def test_uncertain_postcommit_validator_records_end_and_retains_owner(self):
+        journal = self.exercise_uncertain_validator()
+        text = journal.read_text(encoding="utf-8")
+        self.assertEqual(1, text.count("MAIN-WRITE END"))
+        self.assertIn("UNCERTAIN; result may already be committed", text)
+
+    def test_failed_uncertainty_journal_does_not_mask_or_release(self):
+        journal = self.exercise_uncertain_validator(broken_journal=True)
+        self.assertEqual(1, journal.read_text().count("MAIN-WRITE START"))
 
 
 class TwoMergersSerialise(Base):
