@@ -8,6 +8,19 @@ Assets/Plugins/Demigiant/DOTween.meta -text -whitespace
 Assets/Plugins/deVoid/Signals/Signals.cs -text -whitespace
 Assets/Plugins/deVoid/Signals/LICENSE.txt -text -whitespace
 
+# Pinned art-conformance inventory blobs (CRLF as authored 09-17, not real trailing
+# whitespace -- git's whitespace check reads CR-at-EOL identically to blank-at-eol).
+# NSC-065's delivery record and contract hash gates hash these committed bytes, so
+# do not normalize line endings; that would change every pinned hash. Confirmed by
+# the Art Director Agent 2026-09-23: zero lines with real trailing space in any of
+# these six files.
+Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Death/death-inventory.json -text -whitespace
+Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/PropCatalog.json -text -whitespace
+Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/architecture_inventory.json -text -whitespace
+Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/furnishings_inventory.json -text -whitespace
+Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/hazard_route_inventory.json -text -whitespace
+Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/source-inventory.json -text -whitespace
+
 # Preserve imported historical evidence and original host guidance byte-for-byte.
 Docs/AI-Pipeline/Historical-Context-Sessions/reports/untracked-project-outputs-20260920/** -text -whitespace
 Docs/AI-Pipeline/Agent-Operations/host-guides/originals/** -text -whitespace
