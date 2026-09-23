@@ -81,6 +81,7 @@ namespace NoSafeCircle.DoorPrototype.Diagnostics
         }
 
         private const string ManifestFileName = "session.json";
+        private const float SummarySeconds = 12f;
         private const string BuildCommitResourceName = "BuildCommit";
         private const float MinimumFramesPerSecond = 0.05f;
 
@@ -114,6 +115,9 @@ namespace NoSafeCircle.DoorPrototype.Diagnostics
         private bool capturing;
         private bool frameContentConfirmed;
         private bool uniformFrameReported;
+        private bool overlaySuppressedForCapture;
+        private float summaryHideTime;
+        private GUIStyle overlayStyle;
 
         /// <summary>True while a session is running.</summary>
         public bool IsCapturing => capturing;
@@ -123,6 +127,29 @@ namespace NoSafeCircle.DoorPrototype.Diagnostics
 
         /// <summary>Frames accepted so far in the current session.</summary>
         public int FrameCount => frameIndex;
+
+        /// <summary>Marks recorded so far in the current session.</summary>
+        public int MarkCount => manifest != null ? manifest.marks.Count : 0;
+
+        /// <summary>True while a capture owns the frame currently being composed.</summary>
+        public bool OverlaySuppressedForCapture => overlaySuppressedForCapture;
+
+        /// <summary>Whether the on-screen readout may draw on this frame.</summary>
+        /// <remarks>
+        /// Pure, so the rule can be proven by a truth table rather than by looking at a
+        /// screenshot. THE SUPPRESSION TERM IS THE LOAD-BEARING ONE.
+        /// <see cref="ScreenCapture.CaptureScreenshotIntoRenderTexture"/> grabs the
+        /// COMPOSED SCREEN, so anything drawn during a captured frame is burned into the
+        /// PNG -- layer culling cannot help, because it is not a camera render. That
+        /// failure is silent and expensive: it yields three hundred usable-looking frames
+        /// with a debug counter stamped across the room somebody is judging, and the
+        /// whole point of this tool is that those frames are evidence.
+        /// </remarks>
+        public static bool ShouldDrawOverlay(
+            bool isCapturing, bool summaryVisible, bool suppressedForCapture)
+        {
+            return (isCapturing || summaryVisible) && !suppressedForCapture;
+        }
 
         /// <summary>
         /// Redirect output before a session starts. Tests use this so a capture run
@@ -208,6 +235,9 @@ namespace NoSafeCircle.DoorPrototype.Diagnostics
             }
 
             capturing = false;
+            // Leave the final count and the folder on screen long enough to read and
+            // retype, so the path does not have to be hunted for afterwards.
+            summaryHideTime = Time.unscaledTime + SummarySeconds;
 
             if (captureLoop != null)
             {
@@ -260,6 +290,49 @@ namespace NoSafeCircle.DoorPrototype.Diagnostics
             }
         }
 
+        /// <summary>Draw the recording readout, except on a frame being captured.</summary>
+        private void OnGUI()
+        {
+            bool summaryVisible = !capturing
+                                  && summaryHideTime > 0f
+                                  && Time.unscaledTime < summaryHideTime;
+
+            if (!ShouldDrawOverlay(capturing, summaryVisible, overlaySuppressedForCapture))
+            {
+                return;
+            }
+
+            if (overlayStyle == null)
+            {
+                overlayStyle = new GUIStyle(GUI.skin.label)
+                {
+                    fontSize = 18,
+                    alignment = TextAnchor.UpperLeft,
+                    wordWrap = false
+                };
+            }
+
+            string text = capturing
+                ? "RECORDING   frames " + frameIndex + "   marks " + MarkCount + "\n"
+                  + "F9 stop     F10 mark"
+                : "WALKTHROUGH SAVED   " + frameIndex + " frames\n" + sessionDirectory;
+
+            overlayStyle.normal.textColor = capturing
+                ? new Color(1f, 0.35f, 0.35f)
+                : Color.white;
+
+            var box = new Rect(12f, 12f, 620f, 62f);
+            Color previous = GUI.color;
+            GUI.color = new Color(0f, 0f, 0f, 0.65f);
+            GUI.DrawTexture(box, Texture2D.whiteTexture);
+            GUI.color = previous;
+
+            GUI.Label(
+                new Rect(box.x + 10f, box.y + 7f, box.width - 20f, box.height - 14f),
+                text,
+                overlayStyle);
+        }
+
         private void OnDestroy()
         {
             // Play mode can end mid-session. Without this the PNGs survive and the
@@ -286,6 +359,23 @@ namespace NoSafeCircle.DoorPrototype.Diagnostics
         }
 
         private IEnumerator CaptureOneFrame()
+        {
+            // Set BEFORE this frame renders. Coroutines resume after Update and BEFORE
+            // OnGUI, so the readout sees this flag and skips drawing for exactly the frame
+            // ScreenCapture composes. Suppressing after WaitForEndOfFrame would be too
+            // late -- by then the overlay is already in the buffer.
+            overlaySuppressedForCapture = true;
+            try
+            {
+                yield return CaptureComposedFrame();
+            }
+            finally
+            {
+                overlaySuppressedForCapture = false;
+            }
+        }
+
+        private IEnumerator CaptureComposedFrame()
         {
             yield return new WaitForEndOfFrame();
 
