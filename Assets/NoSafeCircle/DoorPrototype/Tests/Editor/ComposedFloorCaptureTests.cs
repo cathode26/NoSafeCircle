@@ -30,6 +30,18 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
         private const int ShotWidth = 800;
         private const int ShotHeight = 600;
 
+        // Derive the camera offset from the rotation instead of writing a vector down.
+        // The offset MUST be antiparallel to the camera forward or the room does not sit in
+        // the middle of the frame: the hand-written (30, 30, -30) was 4.79 units off that
+        // axis, which on an orthographic camera with orthographicSize 22 put every room
+        // 21.7% of half-height low. Nothing clipped, so no capture ever looked broken -- it
+        // just read as art sitting low, which is exactly the misreading this avoids.
+        // Built this way the offset cannot drift when the rotation changes.
+        private static readonly Quaternion CameraRotation = Quaternion.Euler(30f, -45f, 0f);
+        private const float CameraDistance = 51.96f;
+        private static readonly Vector3 CameraOffset =
+            CameraRotation * Vector3.back * CameraDistance;
+
         [Explicit("Set NSC_FLOOR_CAPTURE_OUTPUT and NSC_FLOOR_CAPTURE_SCENE to photograph a scene.")]
         [Test]
         public void CaptureComposedFloor()
@@ -81,15 +93,14 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                 camera.orthographicSize = 22f;
                 camera.transparencySortMode = TransparencySortMode.CustomAxis;
                 camera.transparencySortAxis = IsometricCameraFollow.IsometricTransparencySortAxis;
-                cameraObject.transform.rotation = Quaternion.Euler(30f, -45f, 0f);
+                cameraObject.transform.rotation = CameraRotation;
                 target = new RenderTexture(ShotWidth, ShotHeight, 24);
                 target.Create();
                 camera.targetTexture = target;
 
                 for (int index = 0; index < names.Count; index++)
                 {
-                    cameraObject.transform.position =
-                        positions[index] + new Vector3(30f, 30f, -30f);
+                    cameraObject.transform.position = positions[index] + CameraOffset;
                     camera.Render();
                     RenderTexture.active = target;
                     Texture2D shot = new Texture2D(ShotWidth, ShotHeight, TextureFormat.RGBA32, false);
