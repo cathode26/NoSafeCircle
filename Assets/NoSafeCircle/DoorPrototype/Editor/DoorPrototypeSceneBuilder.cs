@@ -53,7 +53,13 @@ namespace NoSafeCircle.DoorPrototype.Editor
         // Every world sprite is additionally anchored at a consistent ground-contact (feet)
         // origin - see EnsureWorldSpritePrefab/CreateWorldSpriteVisual below - so sprite height
         // or center elevation never arbitrarily shifts an object's isometric depth.
-        internal const string WorldSpriteSortingLayerName = "Default";
+        // PUBLIC so the Editor test assembly can assert the RELATION rather than the current
+        // value. It was internal, and NoSafeCircle.DoorPrototype.Tests.Editor is a separate
+        // assembly, so every room test asserted the literal "Default" instead -- which keeps
+        // passing after this constant is repointed while the room's floor and walls sort
+        // wrongly against every world sprite. Reaching this constant across that boundary is
+        // also what left NSC-045's candidate unable to compile.
+        public const string WorldSpriteSortingLayerName = "Default";
         private const int WorldSpriteSortingOrder = 0;
         private const int BackgroundGroundSortingOrder = -100;
         private const int BackgroundArchitecturalBorderSortingOrder = -90;

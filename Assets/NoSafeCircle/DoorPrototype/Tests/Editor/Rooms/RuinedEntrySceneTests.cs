@@ -509,7 +509,12 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
             TilemapRenderer renderer = tilemap.GetComponent<TilemapRenderer>();
             Assert.IsNotNull(renderer);
             Assert.AreEqual(TilemapRenderer.Mode.Individual, renderer.mode);
-            Assert.AreEqual("Default", renderer.sortingLayerName);
+            // Assert the RELATION, not the value. This constant currently EQUALS "Default",
+            // so the literal passed for the wrong reason and would keep passing after NSC-100
+            // repoints it, while the room sorted wrongly against every world sprite.
+            Assert.AreEqual(
+                NoSafeCircle.DoorPrototype.Editor.DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName,
+                renderer.sortingLayerName);
             Assert.AreEqual(sortingOrder, renderer.sortingOrder);
             return tilemap;
         }
