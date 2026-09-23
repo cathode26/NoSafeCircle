@@ -6,6 +6,7 @@ worker, and a caller must supply proof of terminal completion before release.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable, Mapping
 
@@ -222,6 +223,88 @@ def _validate_persisted_scope(checkouts: Checkouts, record: Mapping[str, Any],
     return scope
 
 
+_SHA40 = re.compile(r"[0-9a-f]{40}")
+
+
+def _reconciled_source_commit(checkouts: Checkouts, record: Mapping[str, Any],
+                              entry: Mapping[str, Any], reconciled: str) -> str:
+    """The Source commit a reconciliation merged.
+
+    Entries written after this field was added record it outright. The first
+    reconciliations predate it, so it is DERIVED from the merge -- and the
+    derivation is verified rather than assumed: ``revise-on-source`` branches at
+    the rejected candidate and merges Source, so the first parent must be the
+    candidate the entry names. If it is not, this is not a merge that command
+    made and nothing may be concluded from its parent order.
+    """
+    recorded = entry.get("inspected_source_commit")
+    if isinstance(recorded, str) and _SHA40.fullmatch(recorded):
+        return recorded
+    checkout = Path(str(record.get("checkout", "")))
+    unresolvable = unresolvable_commit(checkout, ("reconciled commit", reconciled))
+    if unresolvable:
+        raise ValueError(unresolvable)
+    first = git(checkout, "rev-parse", f"{reconciled}^1").decode().strip()
+    if first != entry.get("rejected_candidate"):
+        raise ValueError(
+            "the reconciled commit's first parent is not the rejected candidate, "
+            "so its Source parent cannot be identified")
+    return git(checkout, "rev-parse", f"{reconciled}^2").decode().strip()
+
+
+def _revise_on_source_baseline(checkouts: Checkouts, record: Mapping[str, Any],
+                               source_head: str) -> str | None:
+    """Baseline for a record ``revise-on-source`` reconciled with Source.
+
+    A reconciliation is a MERGE of the rejected candidate and Source, so BY
+    CONSTRUCTION it can never equal Source HEAD. The ordinary path below demands
+    ``record["source_commit"] == source_head``, which no reconciled record can
+    ever satisfy -- not "is stale now" but "cannot become admissible", because
+    ``refresh-prepared`` would move the checkout to Source and discard the
+    reconciliation that is the entire point of the command.
+
+    THE REVISION PATH'S FRESHNESS RULE IS DELIBERATELY NOT COPIED. It requires
+    the rework decision to have been taken at current Source HEAD. But
+    ``revise-on-source`` archives the rejected candidate and pops it, so it
+    cannot be run a second time: copying that rule would make every
+    reconciliation UNRECOVERABLE the moment ``main`` moved, and here ``main``
+    moves every few minutes.
+
+    What is required instead is that the reconciliation sits ON the main line
+    rather than beside it -- the Source commit it merged must be an ancestor of
+    current Source HEAD. A reconciliation MAY lag Source. It may not be built on
+    a commit Source never had.
+    """
+    history = record.get("revise_on_source_history")
+    if not isinstance(history, list) or not history:
+        return None
+    entry = history[-1]
+    if not isinstance(entry, Mapping):
+        raise ValueError("revise-on-source history is malformed")
+    reconciled = entry.get("reconciled_commit")
+    baseline = record.get("source_commit")
+    if not isinstance(reconciled, str) or reconciled != baseline:
+        # Something moved the record past this reconciliation. Guessing which
+        # entry is current would be worse than declining to supply a baseline.
+        return None
+    if entry.get("accepted_contract_sha256") != record.get("task_contract_sha256"):
+        raise ValueError("the reconciled contract is not the record's pinned contract")
+    if record.get("candidate"):
+        raise ValueError("a reconciled record must carry no candidate")
+    merged = _reconciled_source_commit(checkouts, record, entry, reconciled)
+    unresolvable = unresolvable_commit(
+        checkouts.source, ("merged Source commit", merged), ("Source HEAD", source_head))
+    if unresolvable:
+        raise ValueError(unresolvable)
+    try:
+        git(checkouts.source, "merge-base", "--is-ancestor", merged, source_head)
+    except RuntimeError as exc:
+        raise ValueError(
+            "the reconciliation was built on a Source commit that is not an "
+            "ancestor of current Source HEAD") from exc
+    return reconciled
+
+
 def _revision_baseline(checkouts: Checkouts, record: Mapping[str, Any],
                        task_id: str, source_head: str) -> str | None:
     revision = record.get("revision")
@@ -335,6 +418,8 @@ def reserve(
                 raise ValueError("task checkout record is unreadable") from exc
             source_head = git(source, "rev-parse", "HEAD").decode().strip()
             baseline = _revision_baseline(checkouts, record, task_id, source_head)
+            if baseline is None:
+                baseline = _revise_on_source_baseline(checkouts, record, source_head)
             scope = record.get("scope")
             if baseline is None and (record.get("source_commit") != source_head
                                      or not isinstance(scope, dict)

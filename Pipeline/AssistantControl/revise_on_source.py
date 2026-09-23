@@ -256,6 +256,9 @@ def revise_on_source(
                 "rejected_candidate": expected_candidate,
                 "old_contract_sha256": record.get("task_contract_sha256"),
                 "accepted_contract_sha256": accept_contract_sha256,
+                # Admission needs the Source this merged. Entries written before
+                # this field existed force it to be derived from parent order.
+                "inspected_source_commit": source_head,
                 "reconciled_commit": merged, "archived_record": str(archive),
             })
             record["status"] = "prepared"
