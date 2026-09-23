@@ -59,6 +59,41 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Object.DestroyImmediate(doorObject);
         }
 
+        /// <summary>Puts an empty scene back after the tests that load the composed floor.</summary>
+        /// <remarks>
+        /// CommittedScene_D1_, CommittedScene_D2_ and HumanReview_ call
+        /// SceneManager.LoadScene("DoorPrototype", LoadSceneMode.Single), which REPLACES the
+        /// active scene with the composed five-room floor and leaves it loaded. The [TearDown]
+        /// above cannot clean that up: it returns early on doorObject == null, and SetUp skips
+        /// those three tests by name so doorObject was never created. Every fixture running
+        /// after this one therefore ran INSIDE the five-room floor.
+        /// <para>
+        /// That caused two separate-looking regressions with one cause.
+        /// DoorEnemyPassabilityPlayModeTests builds a test doorway and BAKES A NAVMESH, so five
+        /// rooms of walls and door obstacles went into the bake and Open/Broken came back
+        /// PathPartial -- while Sealed/Locked kept passing, because they expect blocked and get
+        /// blocked whatever the reason. DoorInteractionFeedbackHoverPlayModeTests raycasts a
+        /// camera at its own door and hit the composed scene instead, which is why its pointer
+        /// had a world target and still failed the door's own selection test.
+        /// </para>
+        /// <para>
+        /// Measured: excluding only these three tests takes that group from 3 failures to 8/8.
+        /// Seven other fixtures load the same scene the same way and ALL SEVEN already restore
+        /// an empty scene; this was the only one that did not, so this is the house pattern
+        /// rather than a new one.
+        /// </para>
+        /// </remarks>
+        [UnityTearDown]
+        public IEnumerator RestoreEmptyActiveSceneAfterCommittedSceneTests()
+        {
+            var scene = SceneManager.GetSceneByName("DoorPrototype");
+            if (!scene.IsValid() || !scene.isLoaded) yield break;
+
+            var cleanupScene = SceneManager.CreateScene("DoorBreachFeedbackTestCleanup");
+            SceneManager.SetActiveScene(cleanupScene);
+            yield return SceneManager.UnloadSceneAsync(scene);
+        }
+
         [Test]
         public void AcceptedDamage_UpdatesIndicatorCracksAndShake()
         {
