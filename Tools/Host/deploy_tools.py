@@ -61,7 +61,7 @@ import os
 import shutil
 import subprocess
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
@@ -120,38 +120,69 @@ def load_manifest(host: Path) -> dict:
     return manifest
 
 
-def selected(host: Path, manifest: dict, only: str | None = None) -> list[str]:
+def tracked_paths(repo: Path) -> frozenset[str]:
+    """Every file tracked at HEAD under Tools/Host, relative to Tools/Host.
+
+    This is the set a deployment is allowed to draw from. Read from the COMMIT,
+    not the index and not the filesystem, so it says what the recorded HEAD
+    actually contains.
+    """
+    out = git_output(repo, "ls-tree", "-r", "--name-only", "HEAD", "--", "Tools/Host")
+    prefix = "Tools/Host/"
+    return frozenset(
+        line[len(prefix):] for line in out.splitlines()
+        if line.startswith(prefix) and line[len(prefix):]
+    )
+
+
+def selected(host: Path, manifest: dict, only: str | None = None, *,
+             tracked: frozenset[str]) -> list[str]:
     """Every path the manifest declares, relative to Tools/Host, sorted.
 
-    Matching is done against the TRACKED tree, so a file declared by a pattern
-    that matches nothing is simply absent from the result - the manifest can name
-    a family before it exists without breaking the check.
+    MATCHED AGAINST THE TRACKED TREE, WHICH THIS DOCSTRING ALREADY CLAIMED AND
+    THE CODE DID NOT DO. It globbed the filesystem: `root.glob(pattern)` over
+    `host / family`. Combined with a dirty check that uses ordinary
+    `git status` -- which omits IGNORED files -- a gitignored local `.py` sitting
+    in an included family was copied into the deployment and then recorded in
+    DEPLOYED.json as having come from a HEAD that contains no such file. **False
+    provenance, and it ships a local helper by accident.** Found by Astra's main
+    audit, 2026-09-23 (H1).
+
+    `tracked` is keyword-only and has NO DEFAULT on purpose: there is no way to
+    call this and quietly get the filesystem back.
+
+    A pattern that matches nothing is still simply absent from the result, so a
+    manifest may name a family before it exists.
     """
     paths: set[str] = set()
 
     if only in (None, ""):
         for name in manifest.get("root_files", []):
-            if (host / name).is_file():
+            if name in tracked:
                 paths.add(name)
 
     for family, rule in sorted(manifest.get("families", {}).items()):
         if only and family != only:
             continue
-        root = host / family
-        if not root.is_dir():
-            continue
-        for pattern in rule.get("include", []):
-            for found in sorted(root.glob(pattern)):
-                if not found.is_file():
-                    continue
-                relative = found.relative_to(host).as_posix()
-                tail = found.relative_to(root).as_posix()
-                if any(fnmatch.fnmatch(tail, skip) or fnmatch.fnmatch(found.name, skip)
-                       for skip in rule.get("exclude", [])):
-                    continue
-                if "__pycache__" in relative:
-                    continue
-                paths.add(relative)
+        prefix = f"{family}/"
+        for relative in tracked:
+            if not relative.startswith(prefix):
+                continue
+            tail = relative[len(prefix):]
+            # PurePosixPath.full_match has the same `**` semantics as
+            # Path.glob, verified against this manifest's four patterns before
+            # the swap: *.py, **/*.py, *.sh and templates/*.md all select the
+            # same names either way.
+            if not any(PurePosixPath(tail).full_match(pattern)
+                       for pattern in rule.get("include", [])):
+                continue
+            if any(fnmatch.fnmatch(tail, skip)
+                   or fnmatch.fnmatch(PurePosixPath(tail).name, skip)
+                   for skip in rule.get("exclude", [])):
+                continue
+            if "__pycache__" in relative:
+                continue
+            paths.add(relative)
 
     return sorted(paths)
 
@@ -197,7 +228,8 @@ def dirty_among(repo: Path, relative_paths: list[str]) -> list[str]:
 
 
 def compare(host: Path, tools: Path, manifest: dict,
-            only: str | None = None) -> tuple[dict[str, str], dict]:
+            only: str | None = None, *,
+            tracked: frozenset[str]) -> tuple[dict[str, str], dict]:
     """Classify every declared path, plus anything deployed and not declared."""
     record = read_record(tools)
     recorded = (record or {}).get("files", {})
@@ -205,14 +237,14 @@ def compare(host: Path, tools: Path, manifest: dict,
         recorded = {}
 
     states: dict[str, str] = {}
-    for relative in selected(host, manifest, only):
-        tracked = host / relative
+    for relative in selected(host, manifest, only, tracked=tracked):
+        source = host / relative
         live = tools / relative
         if not live.is_file():
             states[relative] = ABSENT
             continue
         live_hash = digest(live.read_bytes())
-        tracked_hash = digest(tracked.read_bytes())
+        tracked_hash = digest(source.read_bytes())
         was = recorded.get(relative)
         if was is None:
             # Deployed, and this deployment has no record of it. Cannot tell a
@@ -289,7 +321,7 @@ def report(states: dict[str, str], record: dict, tools: Path,
 
 def apply(host: Path, tools: Path, manifest: dict, repo: Path,
           only: str | None = None) -> dict:
-    paths = selected(host, manifest, only)
+    paths = selected(host, manifest, only, tracked=tracked_paths(repo))
     if not paths:
         raise DeployError("the manifest selected no files; nothing to deploy")
 
@@ -378,6 +410,18 @@ def main(argv: list[str] | None = None) -> int:
 
         manifest = load_manifest(host)
 
+        # A MISSPELLED --family SELECTED NOTHING AND PASSED. `--check
+        # --require-complete --family jobz` reached the exit line below with an
+        # EMPTY `states`, and `any()` over nothing is False, so it returned 0 --
+        # a green "complete" from a run that checked not one file. Astra's main
+        # audit, 2026-09-23 (H2). The apply path's own empty-selection guard
+        # never protected check mode.
+        known = set(manifest.get("families", {}))
+        if args.family and args.family not in known:
+            raise DeployError(
+                f"--family {args.family!r} is not in {MANIFEST_NAME}; it "
+                f"declares {', '.join(sorted(known)) or 'no families'}")
+
         if args.apply:
             tools.mkdir(parents=True, exist_ok=True)
             record = apply(host, tools, manifest, Path(repo), args.family)
@@ -388,12 +432,24 @@ def main(argv: list[str] | None = None) -> int:
 
         if not tools.is_dir():
             raise DeployError(f"no deployment at {tools}")
-        states, record = compare(host, tools, manifest, args.family)
+        states, record = compare(host, tools, manifest, args.family,
+                                 tracked=tracked_paths(Path(repo)))
         report(states, record, tools, head_commit(Path(repo)), args.quiet)
 
         bad = {SHADOWED, MODIFIED, EXTRA, STALE, UNRECORDED}
         if args.require_complete:
             bad = bad | {ABSENT}
+            if not states:
+                # The second half of H2, and the family check above does not
+                # cover it: a legitimately declared family whose patterns match
+                # nothing in the tracked tree also yields an empty inventory.
+                # "Complete" over zero files is not a pass; it is a question
+                # nobody asked.
+                raise DeployError(
+                    "--require-complete checked NOTHING: the manifest selected "
+                    "no files"
+                    + (f" for --family {args.family}" if args.family else "")
+                    + ". An empty inventory cannot be complete.")
         return 1 if any(state in bad for state in states.values()) else 0
 
     except DeployError as error:

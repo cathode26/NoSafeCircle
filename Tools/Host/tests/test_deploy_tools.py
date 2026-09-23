@@ -105,7 +105,9 @@ class Base(unittest.TestCase):
 
     def states(self) -> dict[str, str]:
         manifest = dt.load_manifest(self.host)
-        found, _record = dt.compare(self.host, self.tools, manifest)
+        found, _record = dt.compare(
+            self.host, self.tools, manifest,
+            tracked=dt.tracked_paths(self.repo))
         return found
 
 
@@ -354,6 +356,110 @@ class TheRealDeployment(unittest.TestCase):
     def test_every_declared_root_file_exists_in_the_tree(self):
         for name in self.manifest["root_files"]:
             self.assertTrue((HOST / name).is_file(), f"{name} is declared and absent")
+
+
+class SelectionComesFromTheTrackedTree(Base):
+    """H1: it globbed the FILESYSTEM while its docstring claimed the tree.
+
+    The dirty check uses ordinary `git status`, which omits IGNORED files, so a
+    gitignored local .py inside a declared family was copied into the
+    deployment AND recorded in DEPLOYED.json as deployed from a HEAD containing
+    no such file. False provenance, and it ships a local helper by accident.
+    """
+
+    def ignored_intruder(self) -> str:
+        """An ignored, untracked .py inside a declared family."""
+        self.write("ger/scratch_helper.py", "print('local only')\n")
+        self.write(".gitignore", "scratch_helper.py\n")
+        self.git("add", "Tools/Host/.gitignore")
+        self.git("commit", "-m", "ignore a local helper", "--no-gpg-sign")
+        return "ger/scratch_helper.py"
+
+    def test_an_ignored_local_file_is_never_selected(self):
+        intruder = self.ignored_intruder()
+        manifest = dt.load_manifest(self.host)
+        chosen = dt.selected(self.host, manifest,
+                             tracked=dt.tracked_paths(self.repo))
+        self.assertNotIn(intruder, chosen)
+        self.assertEqual(
+            "", self.git("status", "--porcelain").strip(),
+            "the intruder must be invisible to the dirty check, which is "
+            "exactly what made it shippable")
+
+    def test_an_ignored_local_file_is_never_deployed_or_recorded(self):
+        intruder = self.ignored_intruder()
+        self.assertEqual(0, self.deploy())
+        self.assertFalse((self.tools / intruder).exists(),
+                         "an ignored local file reached the deployment")
+        self.assertNotIn(intruder, self.record()["files"],
+                         "DEPLOYED.json recorded a file its HEAD does not have")
+
+    def test_every_recorded_file_exists_in_the_recorded_commit(self):
+        """The provenance claim itself, checked against git rather than trusted."""
+        self.ignored_intruder()
+        self.assertEqual(0, self.deploy())
+        record = self.record()
+        listing = self.git("ls-tree", "-r", "--name-only",
+                           record["deployed_from"], "--", "Tools/Host")
+        prefix = "Tools/Host/"
+        in_commit = {line[len(prefix):] for line in listing.splitlines()
+                     if line.startswith(prefix)}
+        missing = sorted(set(record["files"]) - in_commit)
+        self.assertEqual(
+            [], missing,
+            "DEPLOYED.json names files absent from the commit it cites")
+
+
+class RequireCompleteCannotPassOnNothing(Base):
+    """H2: `any()` over an empty inventory is False, so it returned 0."""
+
+    def test_a_misspelled_family_is_refused_rather_than_passing(self):
+        self.assertEqual(0, self.deploy())
+        self.assertEqual(
+            2, self.run_tool("--check", "--require-complete", "--family", "jobz"),
+            "a typo must not report a complete deployment")
+
+    def test_a_misspelled_family_is_refused_without_require_complete_too(self):
+        """This is what the family-name check earns on its own.
+
+        With --require-complete, the empty-inventory guard below it would catch
+        the typo anyway, so the two overlap and a test using that flag cannot
+        tell which one fired. Plain --check has no such backstop: before the
+        family check, `--check --family jobz` selected nothing, `any()` over
+        nothing was False, and it exited 0.
+        """
+        self.assertEqual(0, self.deploy())
+        self.assertEqual(
+            2, self.run_tool("--check", "--family", "jobz"),
+            "a typo must not report a clean deployment either")
+
+    def test_a_real_family_still_works(self):
+        """The refusal must not swallow the ordinary case."""
+        self.assertEqual(0, self.deploy())
+        self.assertIn(self.run_tool("--check", "--family", "ger"), (0, 1))
+
+    def test_a_declared_family_that_matches_nothing_is_also_refused(self):
+        """The family-name check does not cover this one.
+
+        A family can be spelled correctly, be declared in the manifest, and
+        still select zero files because its patterns match nothing tracked.
+        "Complete" over an empty inventory is not a pass either way, and
+        without this the second guard has no test and is a claim.
+        """
+        self.assertEqual(0, self.deploy())
+        (self.host / dt.MANIFEST_NAME).write_text(json.dumps({
+            "schema_version": 1,
+            "families": {
+                "ger": {"include": ["*.py"], "exclude": ["tests/**"]},
+                "empty": {"include": ["*.nothing"], "exclude": []},
+            },
+            "root_files": ["nsc_paths.py"],
+        }), encoding="utf-8")
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", "declare a family that matches nothing")
+        self.assertEqual(
+            2, self.run_tool("--check", "--require-complete", "--family", "empty"),
+            "an empty inventory cannot be complete")
 
 
 if __name__ == "__main__":
