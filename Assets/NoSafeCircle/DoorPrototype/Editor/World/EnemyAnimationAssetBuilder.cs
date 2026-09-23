@@ -142,7 +142,27 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
                 }
             }
 
-            string[] actualPaths = Directory.GetFiles(SourceRoot, "*.png", SearchOption.AllDirectories)
+            // SCAN ONLY THE TWO DIRECTORIES THIS BUILDER ACTUALLY MANAGES.
+            // This used to be SearchOption.AllDirectories over SourceRoot, which made the
+            // builder police every subdirectory beneath it -- including ones belonging to
+            // deliveries it knows nothing about. Landing the NSC-098/099 death sprites into
+            // Source/Death put 12 PNGs under that recursive scan, and because the expected
+            // set is built exclusively from fully-qualified idle paths (SourceRoot/*.png)
+            // and walk paths (SourceRoot/Walk/*.png), every one of them fell out of
+            // actualPaths.Except(expectedPaths) as an "Unexpected enemy source PNG" --
+            // which threw out of BuildChaseEnemies and stopped DoorPrototypeSceneBuilder.Build
+            // BEFORE it composed a single room. Four real rooms were unreachable because an
+            // animation builder was validating a sibling folder.
+            //
+            // The guard itself is kept, not weakened: a stray or misnamed PNG in either
+            // managed directory is still caught, and a Death/ file could never have
+            // satisfied an expected path anyway because those paths are fully qualified.
+            // What it stops doing is claiming authority over directories it does not own.
+            string[] actualPaths = Directory
+                .GetFiles(SourceRoot, "*.png", SearchOption.TopDirectoryOnly)
+                .Concat(Directory.Exists(WalkSourceRoot)
+                    ? Directory.GetFiles(WalkSourceRoot, "*.png", SearchOption.TopDirectoryOnly)
+                    : Array.Empty<string>())
                 .Select(NormalizePath)
                 .OrderBy(path => path, StringComparer.Ordinal)
                 .ToArray();
