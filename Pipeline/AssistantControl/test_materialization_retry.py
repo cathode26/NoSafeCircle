@@ -86,6 +86,21 @@ class MaterializationRetryTests(unittest.TestCase):
         self.assertEqual(before, (self.manager.records / f"{TASK}.json").read_bytes())
         self.assertTrue(Path(plan["retained_journal"]).is_file())
 
+    def test_the_plan_states_what_applying_COSTS_not_only_what_it_does(self):
+        """A dry run that hides the downside asks for half a decision.
+
+        Measured on NSC-048's real first use: the retry worked, validation then
+        failed, and the intact candidate was REPLACED by a degraded one that
+        this command can no longer reach.
+        """
+        candidate, digest = self.make_attempt_failure()
+        plan = retry_materialization(
+            self.manager, TASK, expected_candidate=candidate,
+            expected_failure_sha256=digest, reason="registry fixed host-side")
+        cost = plan["cost_if_validation_fails"]
+        self.assertIn("unity_materialization_failed", cost)
+        self.assertIn("reopen-materialization", cost)
+
     def test_apply_preserves_the_failure_and_returns_the_record_to_needs_materialization(self):
         candidate, digest = self.make_attempt_failure()
         pin = self.record()["task_contract_sha256"]
