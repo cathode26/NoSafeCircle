@@ -273,7 +273,10 @@ class NSC032MaterializationRecoveryTests(unittest.TestCase):
         self.assertEqual("needs_materialization", record["status"])
         self.assertEqual(self.candidate, record["candidate"]["commit"])
         self.assertIsNone(record["approval"])
-        self.assertEqual((SCENE,), _require_candidate(self.manager, record, self.candidate)[3])
+        self.assertEqual(
+            (SCENE,),
+            _require_candidate(self.manager, record, self.candidate).generated,
+        )
         unity = self.root / "Unity.exe"
         unity.write_bytes(b"fixture")
         def builder_runner(args, cwd, timeout):

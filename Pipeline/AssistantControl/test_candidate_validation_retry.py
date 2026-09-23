@@ -190,13 +190,17 @@ class CandidateValidationRetryTests(unittest.TestCase):
         self.assertEqual(
             "source_synchronized", synchronized["candidate_validation_retry"]["phase"]
         )
-        (_checkout, _candidate, receipt, generated, generated_roots,
-         _asset_metas, _folder_metas) = _require_candidate(
+        materials = _require_candidate(
             self.manager, synchronized, synced_candidate["commit"]
         )
+        receipt = materials.receipt
         self.assertEqual([BUILDER], receipt["changed_paths"])
-        self.assertEqual((SCENE,), generated)
-        self.assertEqual((), generated_roots)
+        self.assertEqual((SCENE,), materials.generated)
+        # The ORIGINAL builder payload, before metadata is unioned in. Builder
+        # selection resolves from this and never from the enlarged set.
+        self.assertEqual((SCENE,), materials.builder_payload)
+        self.assertEqual((), materials.roots)
+        self.assertIsNone(materials.dressing)
 
         def builder_runner(args, cwd, timeout):
             self.assertEqual(self.checkout.resolve(), cwd.resolve())

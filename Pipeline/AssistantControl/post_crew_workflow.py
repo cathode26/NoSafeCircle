@@ -32,11 +32,18 @@ from Pipeline.AssistantControl.unity_materialization import (
 from Pipeline.TaskReviewAgent.contracts import ExecutionScopePlan, validate_task_id
 from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task
 from Pipeline.TaskReviewAgent.door_prototype_materialization import (
+    DRESSING_PREFAB_BUILDERS,
     UnityCommandRunner,
     default_unity_command_runner,
     is_door_prototype_builder_output,
     is_unity_serialized,
     resolve_generated_builder,
+)
+
+# Builder sources whose absence from the receipt is a FAILURE rather than "no
+# Unity work applies here". Derived from the registry so the two cannot drift.
+DRESSING_BUILDER_SOURCES = frozenset(
+    builder.builder_source_path for builder in DRESSING_PREFAB_BUILDERS.values()
 )
 from Pipeline.TaskReviewAgent.execution_bridge import ExecutionCrewBridge
 from Pipeline.TaskReviewAgent.execution_session_pool import _exclusive_file_lock
@@ -199,10 +206,21 @@ def _candidate_generated_paths(
         raise PostCrewWorkflowError(
             "candidate edited a registered Unity-generated output; leave that output for the builder"
         )
-    builder_sources = {
-        resolve_generated_builder((path,))[1] for path in generated
-    }
-    return generated if builder_sources.intersection(changed) else ()
+    # Resolve the WHOLE request once rather than each path on its own. Path-by-path
+    # resolution cannot see a conflict between two paths, so a request with two
+    # owners looks fine here and only refuses later inside materialization.
+    _method, builder_source = resolve_generated_builder(tuple(generated))
+    if builder_source in changed:
+        return generated
+    if builder_source in DRESSING_BUILDER_SOURCES:
+        # A registered dressing request whose builder the crew never wrote is a
+        # FAILURE, not "materialization does not apply here". Returning () would
+        # report the task as needing no Unity work at all and quietly deliver a
+        # room with no dressing in it.
+        raise PostCrewWorkflowError(
+            f"crew candidate did not change the {builder_source} builder"
+        )
+    return ()
 
 
 def _materialization_journal_path(checkouts: Checkouts, task_id: str, crew_candidate: str) -> Path:

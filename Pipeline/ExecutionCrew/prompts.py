@@ -15,6 +15,45 @@ def _paths(values: Iterable[str]) -> str:
     return "\n".join(f"- {value}" for value in values)
 
 
+def _dressing_guidance(*path_groups: Iterable[str]) -> str:
+    """Tell the crew the ONE entry point the materializer will invoke, or nothing.
+
+    Derived from the pipeline's own registry -- never a second copy of it. A
+    crew that guesses a method name produces a candidate that passes review and
+    then fails in Unity with "method could not be found" and no compiler error,
+    which is the most expensive place for this to surface. Saying the exact
+    method here costs a few lines; not saying it costs a paid crew.
+
+    This widens no path authority. Every path named below is already in the
+    role's own approved list; if it is not, this returns nothing.
+    """
+    from Pipeline.TaskReviewAgent.door_prototype_materialization import (
+        DRESSING_PREFAB_BUILDERS,
+    )
+
+    by_source = {
+        builder.builder_source_path: builder
+        for builder in DRESSING_PREFAB_BUILDERS.values()
+    }
+    seen: list[Any] = []
+    for group in path_groups:
+        for path in group:
+            builder = DRESSING_PREFAB_BUILDERS.get(path) or by_source.get(path)
+            if builder is not None and builder not in seen:
+                seen.append(builder)
+    if len(seen) != 1:
+        return ""
+    builder = seen[0]
+    return f"""
+ROOM DRESSING PREFAB - THE EXACT DETERMINISTIC ENTRY POINT
+- {builder.prefab_path} is produced by the Windows pipeline running your builder, not by you. Never hand-author or edit its serialized YAML and never create its .meta.
+- {builder.builder_source_path} must declare exactly this nesting: namespace {builder.namespace}, then public static class {builder.class_name}, directly containing public static void Build() with a body.
+- The pipeline invokes {builder.build_method} and nothing else. A different method name, any parameter, a non-public or non-static declaration, or a method nested in an inner type is refused before Unity runs. It is never BuildAndSave and never BuildInMemoryForTests.
+- {builder.catalog_path} is an ordinary UTF-8 JSON SOURCE file that you author and Build() reads. Its schema is yours to choose; it must parse as JSON. It is not a generated artifact.
+- Do not open, modify, or create any .unity scene in this task. An observed scene write refuses the whole run.
+"""
+
+
 def _committed_gdd_reference(gdd_path: str) -> str:
     """The explicit committed-GDD read instruction for a role not handed it inline.
 
@@ -148,6 +187,9 @@ def implementer_prompt(*, task_id: str, title: str, task_contract: str,
                        human_review_feedback: str | None = None) -> str:
     review = _human_review(human_review_feedback or "", role="implementer")
     repair = "" if findings is None else "\nVALIDATOR BLOCKING FINDINGS FROM THE PRIOR PASS\n---\n" + json.dumps(findings, indent=2) + "\n---\n"
+    implementation_paths = tuple(implementation_paths)
+    new_implementation_paths = tuple(new_implementation_paths)
+    dressing = _dressing_guidance(implementation_paths, new_implementation_paths)
     return f"""You are the Implementer for {task_id} - {title}. Implement only approved production behavior. Do not invent game design or edit tests.
 ENGINEERING REUSE / TOOL SELECTION
 - Before designing the change, read Docs/Engineering/ENGINEERING_STANDARDS.md, especially "Reuse and tool selection", and search the current repository for established infrastructure.
@@ -161,7 +203,7 @@ APPROVED EXACT NEW FILES YOU MAY CREATE
 PIPELINE-OWNED SIDECARS YOU MUST NOT CREATE OR EDIT
 {_paths(pipeline_sidecars)}
 OTHER ROLE PATHS YOU MUST NOT MODIFY
-{_paths(other_role_paths)}
+{_paths(other_role_paths)}{dressing}
 Create only the exact approved new file paths. Their parent directories already exist. Do not create directories, helper/sibling files, or .meta files. ExecutionCrew deterministically owns the listed sidecars. Absence of an approved new file is why exact creation authority was granted; do not treat that absence as a blocker. If required production work needs another path the human did not authorize, report a blocker.
 Do not run Unity, tests, builds, scripts, or package managers. Do not stage, commit, reset, checkout, rebase, merge, or modify Git metadata. Claims are non-authoritative.
 ROLE-OWNERSHIP / INTEGRATION BLOCKER POLICY
@@ -181,6 +223,9 @@ def test_author_prompt(*, task_id: str, title: str, task_contract: str,
                        human_review_feedback: str | None = None) -> str:
     review = _human_review(human_review_feedback or "", role="test_author")
     repair = "" if findings is None else "\nVALIDATOR BLOCKING FINDINGS FROM THE PRIOR PASS\n---\n" + json.dumps(findings, indent=2) + "\n---\n"
+    implementation_paths = tuple(implementation_paths)
+    implementation_actual_paths = tuple(implementation_actual_paths)
+    dressing = _dressing_guidance(implementation_paths, implementation_actual_paths)
     return f"""You are the independent Unity Test Author for {task_id} - {title}. Translate the acceptance criteria, completion gates, and actual implementation diff into tests. Do not invent design or alter production code.
 BOUNDED TEST-AUTHOR WORKFLOW
 - Start with the exact committed task contract, implementation diff, and approved test paths already supplied below. Inspect those approved test files before reading any other repository file.
@@ -199,7 +244,7 @@ PIPELINE-OWNED SIDECARS YOU MUST NOT CREATE OR EDIT
 {_paths(pipeline_sidecars)}
 Create only the exact approved new test file paths. Their parent directories already exist. Do not create directories, helper/sibling files, or .meta files. ExecutionCrew deterministically owns the listed sidecars. Absence of an approved new file is why exact creation authority was granted; do not treat that absence as a blocker. If required test work needs another path the human did not authorize, report a blocker.
 Implementation paths are read-only to you:\n{_paths(implementation_paths)}
-Deterministic actual implementation changed paths:\n{_paths(implementation_actual_paths)}
+Deterministic actual implementation changed paths:\n{_paths(implementation_actual_paths)}{dressing}
 Do not run Unity, tests, builds, scripts, or package managers. Do not stage, commit, reset, checkout, rebase, merge, or modify Git metadata. Do not claim tests passed. Report blockers rather than expanding scope.
 If an existing test inside your approved test paths encodes behavior that the current TaskContract/GDD explicitly supersedes and the implementation diff replaces, updating that stale assertion is your responsibility rather than an Implementer blocker. Preserve valid regression coverage while making the test express the current approved behavior. Report a blocker only if required test coverage cannot be represented within your approved test paths or the task/canon/design is genuinely ambiguous.
 EXACT COMMITTED TASK CONTRACT\n---\n{task_contract}\n---\n{_committed_gdd_reference(gdd_path)}COMMITTED UNITY TESTING POLICY\n---\n{policy}\n---\nEXACT DETERMINISTIC IMPLEMENTATION DIFF\n---\n{implementation_patch}\n---{review}{repair}"""
@@ -211,6 +256,8 @@ def validator_prompt(*, task_id: str, title: str, task_contract: str,
                      implementer_output: Mapping[str, Any], test_author_output: Mapping[str, Any],
                      human_review_feedback: str | None = None) -> str:
     review = _human_review(human_review_feedback or "", role="validator")
+    changed_paths = tuple(changed_paths)
+    dressing = _dressing_guidance(changed_paths)
     return f"""You are the independent read-only Validator for {task_id} - {title}. Semantically review the supplied implementation and test changes against the exact task and canon. You have no write authority. Do not run Unity, tests, builds, scripts, or package managers. A pass means semantic review only: it does not mean Unity passed, delivery occurred, conformance/readiness exists, or integration is approved.
 ENGINEERING REUSE / TOOL SELECTION
 - Read Docs/Engineering/ENGINEERING_STANDARDS.md and check whether the candidate unnecessarily duplicates suitable existing infrastructure.
@@ -237,5 +284,5 @@ REASON_CODE (required on every criteria_results item)
   - missing_required_artifact: a required artifact (source, test, or generated file) that the criterion depends on is missing. Must not coexist with overall status=pass; use needs_changes or blocked_by_design as appropriate.
   - insufficient_evidence: the available evidence does not establish the criterion either way. Must not coexist with overall status=pass; use needs_changes or blocked_by_design as appropriate.
   - design_ambiguity: the GDD/task contract does not unambiguously define the required behavior. Must never coexist with overall status=pass; the overall status must be blocked_by_design.
-Overall status=pass is valid only when every not_proven item uses runtime_not_executed. Any not_proven item using missing_integration_dependency or design_ambiguity requires overall status=blocked_by_design.{review}
+Overall status=pass is valid only when every not_proven item uses runtime_not_executed. Any not_proven item using missing_integration_dependency or design_ambiguity requires overall status=blocked_by_design.{dressing}{review}
 EXACT COMMITTED TASK CONTRACT\n---\n{task_contract}\n---\n{_committed_gdd_reference(gdd_path)}EXACT DETERMINISTIC ACTUAL CHANGED PATHS\n---\n{_paths(changed_paths)}\n---\nIMPLEMENTER STRUCTURED OUTPUT\n---\n{json.dumps(implementer_output, indent=2)}\n---\nTEST AUTHOR STRUCTURED OUTPUT\n---\n{json.dumps(test_author_output, indent=2)}\n---\nEXACT FULL CANDIDATE GIT PATCH\n---\n{candidate_patch}\n---"""
