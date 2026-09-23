@@ -128,7 +128,7 @@
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-072": {
-      "task_contract_sha256": "28fc4c87a1df7fcec443572100e88343e6af7e91a9727872f3fe30f01ad95a1a",
+      "task_contract_sha256": "0ea59c401ca1f42e90fa6ffa32636b52b885078a20b8de2c32793cca083c2646",
       "required_test_platforms": [
         "PlayMode"
       ],
@@ -306,7 +306,7 @@
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-096": {
-      "task_contract_sha256": "a0ffebe333ea5394d9c439cbb6434f399796e7dd690fca9d2a0772f10722a8b2",
+      "task_contract_sha256": "74bdad2a96a1dd3d55a365802b345b99132a3789444d15eab72d23f2fcb693ee",
       "required_test_platforms": [
         "EditMode",
         "PlayMode"
