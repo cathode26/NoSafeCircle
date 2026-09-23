@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-083",
-  "contract_revision": 3,
+  "contract_revision": 4,
   "contract_disposition": "active",
   "title": "Final Room Visual Dressing",
   "reconciliation_key": "final-room-visual-dressing",
@@ -13,8 +13,7 @@
   "decomposition_reason": "One room's independent dressing prefab, catalog, builder, and focused test are a bounded unit that can be handed to a later canonical-scene integrator.",
   "parent": "NSC-029",
   "depends_on": [
-    "NSC-048",
-    "NSC-078"
+    "NSC-048"
   ],
   "exclusive_resources": [
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing/FinalRoomDressing.prefab",
@@ -36,7 +35,7 @@
     {
       "criterion_id": "AC-002",
       "reference": "NSC-078 prop catalog",
-      "requirement": "Use only catalogued original props and keep passages, alcoves, door approach, and player routes clear."
+      "requirement": "Use only catalogued original props and keep passages, alcoves, door approach, and player routes clear. THE PROPS THIS ROOM USES ARE ALREADY COMMITTED, AND NSC-078 IS REMOVED FROM depends_on FOR THAT REASON. Measured at main: all twelve catalog entries whose intended_rooms include FinalRoom are present under Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/ with BOTH their .png and their .png.meta, and PropCatalog.json carries all forty-five entries. NSC-078 is a forty-five entry task whose art review, 120-generation stop and spend approval are reserved to Vincent, so depending on it gated this room's dressing on decisions about GENERATING art rather than on the art's AVAILABILITY, which is settled. NSC-080 and NSC-081 already depend on their narrow publication tasks rather than on NSC-078, so this makes all five room-dressing tasks consistent rather than carving out an exception. NSC-078 KEEPS CATALOG AUTHORSHIP for all forty-five entries and this task still must not edit PropCatalog.json. THE DEPENDENCY IS REPLACED BY A CHECK RATHER THAN DROPPED, because a dependency on another task's review state never proved anything about the files. Before placing any prop, this task must confirm that the prop resolves to a committed entry in PropCatalog.json and that the file at that entry's path matches the entry's recorded selected_sha256, and must FAIL rather than place a prop that does not. That is strictly stronger than what the dependency asserted: it verifies the bytes this room dresses with, at the moment it dresses."
     },
     {
       "criterion_id": "AC-003",
@@ -77,7 +76,7 @@
   "basis": "human_approved_gameplay_presentation",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "Visual dressing may add presentation objects only; geometry, door, countdown, candle, and navigation behavior remain authoritative. Governing visual direction: Docs/Art/Environment/DUNGEON_ART_DIRECTION.md, Vincent-approved project direction dated 2026-09-13. The supplied images are inspiration only; all art and layouts must be original. RESOURCE-SHAPE REVISION, 2026-09-23: the four asset .meta paths are added to exclusive_resources and the folder-meta hazard is recorded in AC-003. Nothing else changed - no criterion or gate was added, removed or reworded beyond that clause, and the dressing design is untouched. Authored after a sweep found that all five room-dressing tasks - NSC-079, NSC-080, NSC-081, NSC-082 and NSC-083 - carried a file-only resource list, which derives an empty allowed-roots set and makes any generated sibling fatal at materialization. None of the five has ever run: there is no dressing prefab on main and none of them holds a candidate record, so this revision strands nothing. WORTH RECORDING BECAUSE IT WAS NEARLY MISSED IN THE OTHER DIRECTION: a sweep of the five room SCENES for references to the forty-five selected props returns zero, and that is the contract working rather than a gap - AC-003 forbids editing the blockout scene and VAL-001 requires proving it without opening the room's .unity file at all, because the dressing is a PREFAB. A measurement of the wrong artifact reads exactly like a missing feature.",
+  "notes": "Visual dressing may add presentation objects only; geometry, door, countdown, candle, and navigation behavior remain authoritative. Governing visual direction: Docs/Art/Environment/DUNGEON_ART_DIRECTION.md, Vincent-approved project direction dated 2026-09-13. The supplied images are inspiration only; all art and layouts must be original. RESOURCE-SHAPE REVISION, 2026-09-23: the four asset .meta paths are added to exclusive_resources and the folder-meta hazard is recorded in AC-003. Nothing else changed - no criterion or gate was added, removed or reworded beyond that clause, and the dressing design is untouched. Authored after a sweep found that all five room-dressing tasks - NSC-079, NSC-080, NSC-081, NSC-082 and NSC-083 - carried a file-only resource list, which derives an empty allowed-roots set and makes any generated sibling fatal at materialization. None of the five has ever run: there is no dressing prefab on main and none of them holds a candidate record, so this revision strands nothing. WORTH RECORDING BECAUSE IT WAS NEARLY MISSED IN THE OTHER DIRECTION: a sweep of the five room SCENES for references to the forty-five selected props returns zero, and that is the contract working rather than a gap - AC-003 forbids editing the blockout scene and VAL-001 requires proving it without opening the room's .unity file at all, because the dressing is a PREFAB. A measurement of the wrong artifact reads exactly like a missing feature. DEPENDENCY CARVE-OUT, 2026-09-23: NSC-078 removed from depends_on, replaced by a verification the task performs itself, recorded in AC-002. The room's blockout dependency is unchanged. Authorised as the second half of the option Vincent chose at 07:02Z - \"GER fixes the five that exist\" - which explicitly covered the carve-out and explicitly forbade new task IDs, so the NSC-102 and NSC-103 mechanism of a narrow publication task was not available here. Measured before acting: every prop this room needs is committed with its .png and .png.meta, and the task holds no candidate record, so nothing is stranded. THE SHAPE WORTH KEEPING: the dependency was a PROXY for \"the props exist\", and it had stopped tracking the thing it stood for - the files landed while the task that owns them stayed un-reviewable behind gates about generating more art. Replacing a proxy with the check it was standing in for is the same move as making a gate read the imported sprite instead of the .meta.",
   "repository_state_at_bootstrap": "partial",
   "repository_evidence_at_bootstrap": [],
   "provenance": {
@@ -92,6 +91,15 @@
         "previous_contract_revision": 2,
         "base_contract_sha256": "a3f1985828c1fbd21f4b0b6da217aa80ae17fb14779a8a6ed8eaf7c5941e967f",
         "revised_contract_sha256": "fa1ed6e0ac707f70bdb3ad36fcaefbef41fc33bd98e3fd9aa37774159eefd388",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      },
+      {
+        "date": "2026-09-23",
+        "reason": "Replace the NSC-078 dependency with the check it stood for: every prop this room needs is committed, and the task now verifies selected_sha256 before placing one",
+        "source_head": "fa691d30a760f59fd9961c7f943c23a6bb843a09",
+        "previous_contract_revision": 3,
+        "base_contract_sha256": "9084527815030657f85088382ea9293d4b3e3d08dce69c6408d378668528b909",
+        "revised_contract_sha256": "1aae0f13ce308133a31b3fafd270cbd89b37f25b59108b8e5281dc424a2044aa",
         "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
       }
     ]
