@@ -1,0 +1,611 @@
+{
+  "task": "NSC-015 (Dungeon Brute looks) and the Lantern Wraith task",
+  "recorded_utc": "2026-09-18",
+  "family": "enemy_death_looks",
+  "canvas": [
+    144,
+    96
+  ],
+  "pixels_per_unit": 64,
+  "filter_mode": "Point",
+  "ground_row_inclusive": 92,
+  "pivot": [
+    0.5,
+    0.03125
+  ],
+  "alignment_note": "every sprite's lowest opaque row is on one row by whole-pixel shifts only; opaque counts unchanged and nothing clipped (tools/align_ground.py, report in aligned/ground_line_report.json). One pivot serves the whole set.",
+  "palette": {
+    "colours": 48,
+    "note": "all twelve generated sprites were quantized together in one reduce_colors call, so the union across the set is exactly 48."
+  },
+  "selection": {
+    "decision": "Vincent 2026-09-18: all four contested brutes ship, then \"So we want all of the art\".",
+    "selection_rule": "Vincent 2026-09-18, verbatim: \"you get killed with 1 shot, then you are decapitated\" and \"if you need multiple shots to kill you, you lose an arm\". So selection is driven by the kill's hit count, not random - one shot picks decapitated, more than one picks dismembered, and the two variants of each give variety inside the rule. Burned stays gated to a fire kill and blasted is the default when no rule matches. The wraith has no head or arm, so its equivalent pair is shattered for one shot and unravelled or draining for multiple. Confirmation of the contracted wording is with the GER Agent, who had the rule from Vincent directly.",
+    "consequence": "SIX looks per enemy. Brute: blasted, burned, decapitated a and b, dismembered a and b. Wraith: dissipated, snuffed, shattered, unravelled, hollowed, draining. Nothing is rejected, so the rejects branch gets nothing from this batch.",
+    "style_note": "decapitated_a keeps a small wound spiral at the collar. Vincent chose it with the sprite in front of him, so a wound read is inside the approved family from now on - recorded so nobody 'fixes' it later by citing the stylised-not-gore direction."
+  },
+  "spend": {
+    "before": {
+      "remaining": 4381,
+      "used": 618
+    },
+    "after": {
+      "remaining": 4309,
+      "used": 690
+    },
+    "metered": 72,
+    "cap": 90,
+    "note": "690 - 618 = 72 and 4381 - 4309 = 72; both columns agree, queue empty at both readings."
+  },
+  "authority": "Vincent's direction and cap relayed by the GER Agent 2026-09-18: stylised-violent rather than literal gore, batch approved, cap 90 generations.",
+  "byte_warning": "sha256 values are of THESE files. Copy them verbatim; a re-export changes every hash.",
+  "sprites": [
+    {
+      "key": "death_brute_blasted",
+      "enemy": "dungeon_brute",
+      "look": "blasted",
+      "variant": null,
+      "object_id": "4423f1d2-08ee-44d8-ba0a-c81abeeb95f0",
+      "seed": 40001,
+      "silhouette": "on its back, limbs splayed, cleaver thrown clear",
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Death/death_brute_blasted.png",
+      "pixels_per_unit": 64,
+      "filter_mode": "Point",
+      "pivot": [
+        0.5,
+        0.03125
+      ],
+      "canvas": [
+        144,
+        96
+      ],
+      "alpha_bbox": [
+        1,
+        6,
+        141,
+        93
+      ],
+      "alpha_bottom_y_from_top": 92,
+      "opaque_px": 5773,
+      "colours": 38,
+      "sha256": "25414efc2f17f993a0991b1d479d46190f542db5ab1c30abd0f7f4b7586ef64b",
+      "bytes": 8963,
+      "settings": {
+        "call": "create_object_pro_flash",
+        "n_directions": 1,
+        "view": "low top-down",
+        "canvas": [
+          144,
+          96
+        ],
+        "seed": 40001,
+        "style_clause": "committed NSC-078 plan section 4a global clause, with 'no other objects' replaced by 'no other objects except the body and the pieces described' so the separate-piece device is allowed",
+        "post_process": [
+          "reduce_colors num_colors=48 across all 12 together",
+          "whole-pixel vertical shift onto ground row 92 (tools/align_ground.py)"
+        ]
+      }
+    },
+    {
+      "key": "death_brute_burned",
+      "enemy": "dungeon_brute",
+      "look": "burned",
+      "variant": null,
+      "object_id": "a102f7b2-29c4-4747-8d08-687a2e71bce0",
+      "seed": 40002,
+      "silhouette": "curled, charcoal cloak, embers, one smoke wisp",
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Death/death_brute_burned.png",
+      "pixels_per_unit": 64,
+      "filter_mode": "Point",
+      "pivot": [
+        0.5,
+        0.03125
+      ],
+      "canvas": [
+        144,
+        96
+      ],
+      "alpha_bbox": [
+        13,
+        10,
+        122,
+        93
+      ],
+      "alpha_bottom_y_from_top": 92,
+      "opaque_px": 4628,
+      "colours": 36,
+      "sha256": "6fdfaca12784794359d21163ca545cb0b7fd0096cc7fa885d03815361c2024b7",
+      "bytes": 6838,
+      "settings": {
+        "call": "create_object_pro_flash",
+        "n_directions": 1,
+        "view": "low top-down",
+        "canvas": [
+          144,
+          96
+        ],
+        "seed": 40002,
+        "style_clause": "committed NSC-078 plan section 4a global clause, with 'no other objects' replaced by 'no other objects except the body and the pieces described' so the separate-piece device is allowed",
+        "post_process": [
+          "reduce_colors num_colors=48 across all 12 together",
+          "whole-pixel vertical shift onto ground row 92 (tools/align_ground.py)"
+        ]
+      }
+    },
+    {
+      "key": "death_brute_decapitated_a",
+      "enemy": "dungeon_brute",
+      "look": "decapitated",
+      "variant": "_a",
+      "object_id": "693166c8-0c4e-471f-84a1-bd7faf8a13e1",
+      "seed": 40003,
+      "silhouette": "face down, hood lying beside it, dark pool at the collar",
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Death/death_brute_decapitated_a.png",
+      "pixels_per_unit": 64,
+      "filter_mode": "Point",
+      "pivot": [
+        0.5,
+        0.03125
+      ],
+      "canvas": [
+        144,
+        96
+      ],
+      "alpha_bbox": [
+        17,
+        11,
+        126,
+        93
+      ],
+      "alpha_bottom_y_from_top": 92,
+      "opaque_px": 4805,
+      "colours": 29,
+      "sha256": "275ca0955d9ad94ccd91cda402ceb433c84be796b4761e98452512c58f5da12a",
+      "bytes": 5421,
+      "settings": {
+        "call": "create_object_pro_flash",
+        "n_directions": 1,
+        "view": "low top-down",
+        "canvas": [
+          144,
+          96
+        ],
+        "seed": 40003,
+        "style_clause": "committed NSC-078 plan section 4a global clause, with 'no other objects' replaced by 'no other objects except the body and the pieces described' so the separate-piece device is allowed",
+        "post_process": [
+          "reduce_colors num_colors=48 across all 12 together",
+          "whole-pixel vertical shift onto ground row 92 (tools/align_ground.py)"
+        ]
+      }
+    },
+    {
+      "key": "death_brute_decapitated_b",
+      "enemy": "dungeon_brute",
+      "look": "decapitated",
+      "variant": "_b",
+      "object_id": "083e969b-85ca-4491-aa4a-e13000fd57d9",
+      "seed": 40013,
+      "silhouette": "crumpled, neck end a dark hollow, hood lying beside it",
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Death/death_brute_decapitated_b.png",
+      "pixels_per_unit": 64,
+      "filter_mode": "Point",
+      "pivot": [
+        0.5,
+        0.03125
+      ],
+      "canvas": [
+        144,
+        96
+      ],
+      "alpha_bbox": [
+        1,
+        21,
+        134,
+        93
+      ],
+      "alpha_bottom_y_from_top": 92,
+      "opaque_px": 5844,
+      "colours": 37,
+      "sha256": "b2d803ae65a5b7278728d87fa9e4c7c730391865950d624073ef486a4c9175f4",
+      "bytes": 7406,
+      "settings": {
+        "call": "create_object_pro_flash",
+        "n_directions": 1,
+        "view": "low top-down",
+        "canvas": [
+          144,
+          96
+        ],
+        "seed": 40013,
+        "style_clause": "committed NSC-078 plan section 4a global clause, with 'no other objects' replaced by 'no other objects except the body and the pieces described' so the separate-piece device is allowed",
+        "post_process": [
+          "reduce_colors num_colors=48 across all 12 together",
+          "whole-pixel vertical shift onto ground row 92 (tools/align_ground.py)"
+        ]
+      }
+    },
+    {
+      "key": "death_brute_dismembered_a",
+      "enemy": "dungeon_brute",
+      "look": "dismembered",
+      "variant": "_a",
+      "object_id": "1a791813-e690-4431-a7b8-49959eeee6ea",
+      "seed": 40004,
+      "silhouette": "on its side, severed arm a few pixels away gripping the cleaver",
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Death/death_brute_dismembered_a.png",
+      "pixels_per_unit": 64,
+      "filter_mode": "Point",
+      "pivot": [
+        0.5,
+        0.03125
+      ],
+      "canvas": [
+        144,
+        96
+      ],
+      "alpha_bbox": [
+        7,
+        4,
+        141,
+        93
+      ],
+      "alpha_bottom_y_from_top": 92,
+      "opaque_px": 5438,
+      "colours": 39,
+      "sha256": "f13bc469df5dca9b236f5d65643381866c79e431f5ff920dede99b91791536bd",
+      "bytes": 8224,
+      "settings": {
+        "call": "create_object_pro_flash",
+        "n_directions": 1,
+        "view": "low top-down",
+        "canvas": [
+          144,
+          96
+        ],
+        "seed": 40004,
+        "style_clause": "committed NSC-078 plan section 4a global clause, with 'no other objects' replaced by 'no other objects except the body and the pieces described' so the separate-piece device is allowed",
+        "post_process": [
+          "reduce_colors num_colors=48 across all 12 together",
+          "whole-pixel vertical shift onto ground row 92 (tools/align_ground.py)"
+        ]
+      }
+    },
+    {
+      "key": "death_brute_dismembered_b",
+      "enemy": "dungeon_brute",
+      "look": "dismembered",
+      "variant": "_b",
+      "object_id": "5831dfc8-15f6-4a6b-b169-3332bc88aa0b",
+      "seed": 40014,
+      "silhouette": "flat, empty sleeve, cleaver thrown clear",
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Death/death_brute_dismembered_b.png",
+      "pixels_per_unit": 64,
+      "filter_mode": "Point",
+      "pivot": [
+        0.5,
+        0.03125
+      ],
+      "canvas": [
+        144,
+        96
+      ],
+      "alpha_bbox": [
+        0,
+        21,
+        138,
+        93
+      ],
+      "alpha_bottom_y_from_top": 92,
+      "opaque_px": 5059,
+      "colours": 45,
+      "sha256": "b5ad086ba12485db26a507fcfc6259ff4f499e5f2bb66661b06476b2252e0cee",
+      "bytes": 8633,
+      "settings": {
+        "call": "create_object_pro_flash",
+        "n_directions": 1,
+        "view": "low top-down",
+        "canvas": [
+          144,
+          96
+        ],
+        "seed": 40014,
+        "style_clause": "committed NSC-078 plan section 4a global clause, with 'no other objects' replaced by 'no other objects except the body and the pieces described' so the separate-piece device is allowed",
+        "post_process": [
+          "reduce_colors num_colors=48 across all 12 together",
+          "whole-pixel vertical shift onto ground row 92 (tools/align_ground.py)"
+        ]
+      }
+    },
+    {
+      "key": "death_wraith_dissipated",
+      "enemy": "lantern_wraith",
+      "look": "dissipated",
+      "variant": null,
+      "object_id": "56059dfa-96a2-4529-8606-14004efd373d",
+      "seed": 40005,
+      "silhouette": "empty cloak collapsing, teal wisp scattering from the collar",
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Death/death_wraith_dissipated.png",
+      "pixels_per_unit": 64,
+      "filter_mode": "Point",
+      "pivot": [
+        0.5,
+        0.03125
+      ],
+      "canvas": [
+        144,
+        96
+      ],
+      "alpha_bbox": [
+        12,
+        0,
+        129,
+        93
+      ],
+      "alpha_bottom_y_from_top": 92,
+      "opaque_px": 3878,
+      "colours": 27,
+      "sha256": "1c29808ff8d3170dc833d5503d9097d049575df1bbe2919e9913311c23901e99",
+      "bytes": 5292,
+      "settings": {
+        "call": "create_object_pro_flash",
+        "n_directions": 1,
+        "view": "low top-down",
+        "canvas": [
+          144,
+          96
+        ],
+        "seed": 40005,
+        "style_clause": "committed NSC-078 plan section 4a global clause, with 'no other objects' replaced by 'no other objects except the body and the pieces described' so the separate-piece device is allowed",
+        "post_process": [
+          "reduce_colors num_colors=48 across all 12 together",
+          "whole-pixel vertical shift onto ground row 92 (tools/align_ground.py)"
+        ]
+      }
+    },
+    {
+      "key": "death_wraith_snuffed",
+      "enemy": "lantern_wraith",
+      "look": "snuffed",
+      "variant": null,
+      "object_id": "c6af695d-437a-4ee7-848f-55ad79a30c30",
+      "seed": 40015,
+      "silhouette": "cloak collapsed flat, lantern fallen and dark",
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Death/death_wraith_snuffed.png",
+      "pixels_per_unit": 64,
+      "filter_mode": "Point",
+      "pivot": [
+        0.5,
+        0.03125
+      ],
+      "canvas": [
+        144,
+        96
+      ],
+      "alpha_bbox": [
+        5,
+        6,
+        139,
+        93
+      ],
+      "alpha_bottom_y_from_top": 92,
+      "opaque_px": 6339,
+      "colours": 38,
+      "sha256": "0fe6dee2b445a49e5bc3eebdc71e0fc4e7228b5c105e73b52eccda5c76a34cb3",
+      "bytes": 7792,
+      "settings": {
+        "call": "create_object_pro_flash",
+        "n_directions": 1,
+        "view": "low top-down",
+        "canvas": [
+          144,
+          96
+        ],
+        "seed": 40015,
+        "style_clause": "committed NSC-078 plan section 4a global clause, with 'no other objects' replaced by 'no other objects except the body and the pieces described' so the separate-piece device is allowed",
+        "post_process": [
+          "reduce_colors num_colors=48 across all 12 together",
+          "whole-pixel vertical shift onto ground row 92 (tools/align_ground.py)"
+        ]
+      }
+    },
+    {
+      "key": "death_wraith_shattered",
+      "enemy": "lantern_wraith",
+      "look": "shattered",
+      "variant": null,
+      "object_id": "6da672cb-9ad2-427a-9473-60f124c686d2",
+      "seed": 40007,
+      "silhouette": "lantern burst open, teal flame in separate shards",
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Death/death_wraith_shattered.png",
+      "pixels_per_unit": 64,
+      "filter_mode": "Point",
+      "pivot": [
+        0.5,
+        0.03125
+      ],
+      "canvas": [
+        144,
+        96
+      ],
+      "alpha_bbox": [
+        3,
+        6,
+        139,
+        93
+      ],
+      "alpha_bottom_y_from_top": 92,
+      "opaque_px": 5433,
+      "colours": 37,
+      "sha256": "8dd4ee7315ec58492aa4084a508d359356e8a859125896607b5a1bb37116d817",
+      "bytes": 8052,
+      "settings": {
+        "call": "create_object_pro_flash",
+        "n_directions": 1,
+        "view": "low top-down",
+        "canvas": [
+          144,
+          96
+        ],
+        "seed": 40007,
+        "style_clause": "committed NSC-078 plan section 4a global clause, with 'no other objects' replaced by 'no other objects except the body and the pieces described' so the separate-piece device is allowed",
+        "post_process": [
+          "reduce_colors num_colors=48 across all 12 together",
+          "whole-pixel vertical shift onto ground row 92 (tools/align_ground.py)"
+        ]
+      }
+    },
+    {
+      "key": "death_wraith_unravelled",
+      "enemy": "lantern_wraith",
+      "look": "unravelled",
+      "variant": null,
+      "object_id": "168245b2-4730-46a8-b056-b699ea1cdf51",
+      "seed": 40016,
+      "silhouette": "cloak torn open, teal draining low across the ground",
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Death/death_wraith_unravelled.png",
+      "pixels_per_unit": 64,
+      "filter_mode": "Point",
+      "pivot": [
+        0.5,
+        0.03125
+      ],
+      "canvas": [
+        144,
+        96
+      ],
+      "alpha_bbox": [
+        3,
+        1,
+        131,
+        93
+      ],
+      "alpha_bottom_y_from_top": 92,
+      "opaque_px": 6308,
+      "colours": 37,
+      "sha256": "34e1cb3c70e953d65a2a7838e4d3f7f40c354f6780688f5d8bf4a01fd4acf562",
+      "bytes": 8489,
+      "settings": {
+        "call": "create_object_pro_flash",
+        "n_directions": 1,
+        "view": "low top-down",
+        "canvas": [
+          144,
+          96
+        ],
+        "seed": 40016,
+        "style_clause": "committed NSC-078 plan section 4a global clause, with 'no other objects' replaced by 'no other objects except the body and the pieces described' so the separate-piece device is allowed",
+        "post_process": [
+          "reduce_colors num_colors=48 across all 12 together",
+          "whole-pixel vertical shift onto ground row 92 (tools/align_ground.py)"
+        ]
+      }
+    },
+    {
+      "key": "death_wraith_hollowed",
+      "enemy": "lantern_wraith",
+      "look": "hollowed",
+      "variant": null,
+      "object_id": "e8c7d38f-3a15-4386-b5cb-23ef8a835577",
+      "seed": 40006,
+      "silhouette": "cloak still standing but empty and slack, lantern fallen dark at its feet",
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Death/death_wraith_hollowed.png",
+      "pixels_per_unit": 64,
+      "filter_mode": "Point",
+      "pivot": [
+        0.5,
+        0.03125
+      ],
+      "canvas": [
+        144,
+        96
+      ],
+      "alpha_bbox": [
+        7,
+        10,
+        136,
+        93
+      ],
+      "alpha_bottom_y_from_top": 92,
+      "opaque_px": 5204,
+      "colours": 37,
+      "sha256": "b37091b6e0605204852ac3e275b91d277af421c209419a00971e3552feff3c4f",
+      "bytes": 8187,
+      "settings": {
+        "call": "create_object_pro_flash",
+        "n_directions": 1,
+        "view": "low top-down",
+        "canvas": [
+          144,
+          96
+        ],
+        "seed": 40006,
+        "style_clause": "committed NSC-078 plan section 4a global clause, with 'no other objects' replaced by 'no other objects except the body and the pieces described' so the separate-piece device is allowed",
+        "post_process": [
+          "reduce_colors num_colors=48 across all 12 together",
+          "whole-pixel vertical shift onto ground row 92 (tools/align_ground.py)"
+        ]
+      }
+    },
+    {
+      "key": "death_wraith_draining",
+      "enemy": "lantern_wraith",
+      "look": "draining",
+      "variant": null,
+      "object_id": "89f40548-a7dc-48c6-aba9-520158027751",
+      "seed": 40008,
+      "silhouette": "caught upright mid-dissolve, teal spirit pouring out of the collar, lantern still in a limp sleeve",
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Death/death_wraith_draining.png",
+      "pixels_per_unit": 64,
+      "filter_mode": "Point",
+      "pivot": [
+        0.5,
+        0.03125
+      ],
+      "canvas": [
+        144,
+        96
+      ],
+      "alpha_bbox": [
+        14,
+        7,
+        116,
+        93
+      ],
+      "alpha_bottom_y_from_top": 92,
+      "opaque_px": 4334,
+      "colours": 43,
+      "sha256": "063ffe87844bd1ce00f70f4a16fb7776c82661ccfcc58ad4dd104c0a5665f366",
+      "bytes": 7466,
+      "settings": {
+        "call": "create_object_pro_flash",
+        "n_directions": 1,
+        "view": "low top-down",
+        "canvas": [
+          144,
+          96
+        ],
+        "seed": 40008,
+        "style_clause": "committed NSC-078 plan section 4a global clause, with 'no other objects' replaced by 'no other objects except the body and the pieces described' so the separate-piece device is allowed",
+        "post_process": [
+          "reduce_colors num_colors=48 across all 12 together",
+          "whole-pixel vertical shift onto ground row 92 (tools/align_ground.py)"
+        ]
+      }
+    }
+  ],
+  "rejects": [],
+  "generation_recipe": {
+    "class": "enemy death look",
+    "canvas": [
+      144,
+      96
+    ],
+    "why_144x96": "footprint 2 x 1 x 0.4 world units: width (2+1) x 0.7071 x 64 = 136 and height (0.4 x 0.866 + 3 x 0.3536) x 64 = 90, rounded up to multiples of 4 with margin",
+    "call": "create_object_pro_flash, n_directions 1, view low top-down, one screen orientation per look",
+    "printed_cost": "6 per sprite at this canvas (measured, not estimated)",
+    "colour_lock": "one reduce_colors call across the whole set so they share a palette; 0.1 printed",
+    "alignment": "align_ground.py, whole-pixel shifts only, one pivot for the set"
+  },
+  "self_path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Death/death-inventory.json",
+  "layout_note": "the staged tree mirrors the repository destination exactly, so importing is a copy: this inventory sits INSIDE the Death folder, which is where NSC-099 rev 2 lists it"
+}
