@@ -478,14 +478,30 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
                 outputFull.StartsWith(repository, StringComparison.OrdinalIgnoreCase),
                 "Camera review PNGs must be written outside the repository.");
 
-            string[] names = { "d3-apron", "c1-west-lane", "c1-east-lane", "d4-apron" };
+            // Eight, not four. The Art Director owns VAL-002 and measured that the original
+            // four all sat on the D3->centre->D4 spine, leaving LV-N1 and two of the three
+            // LV-H1 hazard spans outside every frame -- and their two mechanical AC-005 tests
+            // (no rail with hazard both sides, no ledge chunk surrounded by hazard) live on
+            // those spans. A panel that cannot show whether its own test passed is worse than
+            // no panel, because a reviewer can still sign it.
+            string[] names =
+            {
+                "d3-apron", "c1-west-lane", "c1-east-lane", "east-storage",
+                "hall-west", "hall-east", "nw-collapse", "d4-apron"
+            };
             Vector3[] positions =
             {
                 LowerVaultLayout.D3Apron.center,
                 new Vector3(-6f, 0f, 62f),
                 new Vector3(4.5f, 0f, 62f),
+                LowerVaultLayout.EastStoragePile.center,
+                LowerVaultLayout.HallWestSpan.center,
+                LowerVaultLayout.HallEastSpan.center,
+                LowerVaultLayout.NorthWestStorageBar.center,
                 LowerVaultLayout.D4Apron.center
             };
+            Assert.AreEqual(names.Length, positions.Length,
+                "Every named shot needs exactly one position.");
             Directory.CreateDirectory(outputFull);
             foreach (string name in names)
             {
@@ -564,13 +580,21 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
                     File.WriteAllBytes(Path.Combine(outputFull, names[index] + ".png"), shot.EncodeToPNG());
                 }
 
-                Texture2D contact = new Texture2D(1600, 1200, TextureFormat.RGBA32, false);
+                // Grid is computed rather than hardcoded 2x2, because the shot count moved
+                // from four to eight and will move again. Eight divides exactly into two
+                // columns, so there are no empty cells: a fresh Texture2D is NOT cleared, and
+                // an unfilled cell would carry uninitialised memory that reads as a frame.
+                const int columns = 2;
+                int rows = (names.Length + columns - 1) / columns;
+                Assert.AreEqual(0, (columns * rows) - names.Length,
+                    "Shot count must fill the contact sheet grid exactly, or a cell is garbage.");
+                Texture2D contact = new Texture2D(columns * 800, rows * 600, TextureFormat.RGBA32, false);
                 shots.Add(contact);
-                for (int index = 0; index < 4; index++)
+                for (int index = 0; index < names.Length; index++)
                 {
                     Color32[] pixels = shots[index].GetPixels32();
-                    int originX = (index % 2) * 800;
-                    int originY = (1 - index / 2) * 600;
+                    int originX = (index % columns) * 800;
+                    int originY = (rows - 1 - (index / columns)) * 600;
                     for (int row = 0; row < 600; row++)
                     {
                         for (int column = 0; column < 800; column++)
