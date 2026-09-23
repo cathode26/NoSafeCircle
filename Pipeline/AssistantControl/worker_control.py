@@ -11,6 +11,7 @@ from Pipeline.AssistantControl.checkouts import Checkouts, write_record
 from Pipeline.AssistantControl.process_identity import matches, terminate
 from Pipeline.AssistantControl.docker_workers import stop_containers
 from Pipeline.AssistantControl.windows_job import active_count, terminate_job
+from Pipeline.AssistantControl.worker_state import output_was_withdrawn
 from Pipeline.TaskReviewAgent.contracts import validate_task_id
 from Pipeline.TaskReviewAgent.execution_session_pool import _exclusive_file_lock
 
@@ -155,51 +156,6 @@ def force_stop(checkouts: Checkouts, task_id: str, *, run_id: str) -> dict:
             "capacity_released": False}
 
 
-def _output_withdrawn_by_revise_on_source(record: Mapping[str, Any],
-                                          worker: Mapping[str, Any]) -> bool:
-    """True when this worker's output was explicitly WITHDRAWN, not merely unharvested.
-
-    `revise-on-source` archives a rejected candidate and re-prepares the task on a
-    reconciled baseline, deliberately discarding that crew's validation authority while
-    carrying its implementation forward as INPUT. The crew genuinely succeeded, so the
-    status guard refuses -- and the task can then never be dispatched again, because the
-    dispatch gates test the *presence* of the worker entry, not its state. That is the
-    NSC-045 deadlock one stage further along, and "succeeded worker, withdrawn output"
-    is the case that was not in view when the guard was written.
-
-    The discriminator is two facts already on the record, and it is an identity compare
-    rather than a timestamp:
-
-      * the newest withdrawal produced the baseline the task sits on NOW
-        (`reconciled_commit` == `record["source_commit"]`), and
-      * this worker ran against a Source that withdrawal superseded
-        (`worker["source_head"]` is present and is not that commit).
-
-    A worker dispatched AFTER the reconciliation carries the reconciled commit as its own
-    `source_head`, so it fails the second test and is still refused. That is the case this
-    must not swallow: a live succeeded crew whose candidate is merely waiting to be
-    harvested. An absent `source_head` is refused rather than waved through, because the
-    permissive direction here rewrites a durable record under a run that may still own it.
-
-    This relaxes the worker's STATUS only. The "record carries no candidate, approval,
-    integration or revision" guard below is untouched, and it is what actually proves the
-    output is not still live in the review path.
-    """
-    history = record.get("revise_on_source_history")
-    if not isinstance(history, list) or not history:
-        return False
-    newest = history[-1]
-    if not isinstance(newest, Mapping):
-        return False
-    reconciled = newest.get("reconciled_commit")
-    if not isinstance(reconciled, str) or not reconciled:
-        return False
-    if reconciled != record.get("source_commit"):
-        return False
-    ran_against = worker.get("source_head")
-    return isinstance(ran_against, str) and bool(ran_against) and ran_against != reconciled
-
-
 def retire_settled_worker(checkouts: Checkouts, task_id: str, *, run_id: str) -> dict:
     """Archive one settled, provably dead worker so its task can be dispatched again.
 
@@ -227,7 +183,7 @@ def retire_settled_worker(checkouts: Checkouts, task_id: str, *, run_id: str) ->
             raise ValueError(f"Retiring a worker needs a prepared record, not {record.get('status')!r}")
         withdrawn = False
         if worker.get("status") not in {"failed", "stopped"}:
-            withdrawn = _output_withdrawn_by_revise_on_source(record, worker)
+            withdrawn = output_was_withdrawn(record, worker)
             if not withdrawn:
                 raise ValueError(
                     f"Only a failed or stopped worker is retired, not {worker.get('status')!r}; "

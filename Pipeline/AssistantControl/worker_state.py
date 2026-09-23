@@ -29,6 +29,66 @@ def is_finished_worker(entry: Any) -> bool:
             and bool(entry.get("settled_at")))
 
 
+def is_settled_worker(entry: Any) -> bool:
+    """True when the record proves this run's process and containers are gone.
+
+    Split out of `is_finished_worker` so the withdrawn-output case below can reuse
+    the settlement proof WITHOUT relaxing it. Settlement is never waived.
+    """
+
+    return (isinstance(entry, Mapping)
+            and entry.get("capacity_released") is True
+            and bool(entry.get("settled_at")))
+
+
+def output_was_withdrawn(record: Mapping[str, Any], entry: Any) -> bool:
+    """True when `revise-on-source` explicitly withdrew THIS run's output.
+
+    The single named form of a question four gates have now had to ask. A crew can
+    succeed and still leave nothing in the review path: `revise-on-source` archives
+    the rejected candidate, carries its implementation forward as INPUT to fresh
+    work, and deliberately discards its validation authority. After that the run is
+    as over as a failed one, but `status` still reads "succeeded" forever.
+
+    The exclusion of "succeeded" from `FINISHED_WORKER_STATUSES` is RIGHT for every
+    other case and is not being softened -- a successful run's output does belong to
+    the review path. This is the one case where the record itself proves the output
+    left it.
+
+    The discriminator is two facts already on the record, compared by identity
+    rather than by timestamp:
+
+      * the newest withdrawal produced the baseline the task sits on NOW
+        (`reconciled_commit` == `record["source_commit"]`), and
+      * this run worked against a Source that withdrawal superseded
+        (`source_head` is present and is not that commit).
+
+    A run dispatched AFTER the reconciliation carries the reconciled commit as its
+    own `source_head`, so it fails the second test and is still treated as live.
+    That is the case this must never swallow: a succeeded crew whose candidate is
+    merely waiting to be harvested. An absent `source_head` is refused rather than
+    waved through, because the permissive direction here lets a gate re-dispatch
+    over work that may still be real.
+    """
+
+    if not isinstance(entry, Mapping):
+        return False
+    history = record.get("revise_on_source_history")
+    if not isinstance(history, list) or not history:
+        return False
+    newest = history[-1]
+    if not isinstance(newest, Mapping):
+        return False
+    reconciled = newest.get("reconciled_commit")
+    if not isinstance(reconciled, str) or not reconciled:
+        return False
+    if reconciled != record.get("source_commit"):
+        return False
+    worked_against = entry.get("source_head")
+    return (isinstance(worked_against, str) and bool(worked_against)
+            and worked_against != reconciled)
+
+
 def finished_run_ids(record: Mapping[str, Any]) -> set[str]:
     """Run ids the record itself proves are over, live entry and archive alike."""
 
@@ -40,7 +100,11 @@ def finished_run_ids(record: Mapping[str, Any]) -> set[str]:
         # level, while `worker_launcher` nests them under "worker". Read both, or a run
         # archived by one of them would not count as finished by the other.
         for candidate in (entry, entry.get("worker")):
-            if is_finished_worker(candidate):
+            # A settled run whose output was withdrawn is as over as a failed one;
+            # settlement is still required, only the status test is widened.
+            if is_finished_worker(candidate) or (
+                    is_settled_worker(candidate)
+                    and output_was_withdrawn(record, candidate)):
                 run_id = candidate.get("run_id") or entry.get("run_id")
                 if isinstance(run_id, str):
                     finished.add(run_id)
