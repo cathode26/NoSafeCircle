@@ -1,10 +1,12 @@
-using System.IO;
+using System;
+using NoSafeCircle.DoorPrototype.Editor;
 using NoSafeCircle.DoorPrototype.World;
 using NoSafeCircle.DoorPrototype.World.Rooms;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.Tilemaps;
 using Object = UnityEngine.Object;
 
 namespace NoSafeCircle.DoorPrototype.Editor.Rooms
@@ -13,6 +15,13 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
     public static class FinalRoomSceneBuilder
     {
         public const string ScenePath = "Assets/Scenes/Rooms/FinalRoom.unity";
+
+        private const string ArchitecturalTileFolder =
+            "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles";
+        private const string FloorTilePath = ArchitecturalTileFolder + "/FloorTile.asset";
+        private const string WallTilePath = ArchitecturalTileFolder + "/WallTile.asset";
+        private const float WallVisualOffset = 0.151f;
+        private static readonly Vector3 LowWallCellScale = new Vector3(1f, 0.2f, 1f);
 
         [MenuItem("No Safe Circle/Rooms/Build Final Room Authoring Scene")]
         public static void BuildAndSave()
@@ -34,17 +43,13 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             dressingObject.transform.SetParent(visuals, false);
             Transform dressing = dressingObject.transform;
 
-            CreateBox("FloorVisual", visuals.transform,
-                FinalRoomLayout.RoomBounds.center + Vector3.down * 0.05f,
-                new Vector3(FinalRoomLayout.RoomBounds.size.x, 0.1f, FinalRoomLayout.RoomBounds.size.z),
-                new Color(0.055f, 0.04f, 0.075f), false);
-            CreateBox("FloorCollision", geometry.transform,
+            BuildTilemapVisuals(visuals);
+
+            CreateBox("FloorCollision", geometry,
                 FinalRoomLayout.RoomBounds.center + Vector3.down * 0.05f,
                 new Vector3(FinalRoomLayout.RoomBounds.size.x, 0.1f, FinalRoomLayout.RoomBounds.size.z),
                 Color.clear, true);
-
-            CreatePerimeter(visuals, false);
-            CreatePerimeter(geometry, true);
+            CreateGameplayPerimeter(geometry);
             CreateObstacle(visuals, false);
             CreateObstacle(geometry, true);
             CreateFittingRoomDressing(dressing, geometry);
@@ -53,62 +58,190 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             CreateAnchor("D5Anchor", anchors, FinalRoomLayout.D5, Vector3.forward, DoorId.D5, DoorAnchorRole.Exit);
             GameObject staging = new GameObject("D5Staging");
             staging.transform.SetParent(authoring, false);
-            staging.transform.position = FinalRoomLayout.NorthStagingBounds.center;
+            staging.transform.position = FinalRoomLayout.D5StagingBounds.center;
             SceneManager.SetActiveScene(scene);
         }
 
-        private static void CreatePerimeter(Transform parent, bool collision)
+        private static void BuildTilemapVisuals(Transform parent)
         {
-            float y = FinalRoomLayout.WallHeight * 0.5f;
-            float depth = FinalRoomLayout.MaximumZ - FinalRoomLayout.MinimumZ;
-            CreateBox("WestWall" + Suffix(collision), parent,
-                new Vector3(FinalRoomLayout.MinimumX, y, FinalRoomLayout.RoomBounds.center.z),
-                new Vector3(FinalRoomLayout.WallThickness, FinalRoomLayout.WallHeight, depth), WallColor, collision);
-            CreateBox("EastWall" + Suffix(collision), parent,
-                new Vector3(FinalRoomLayout.MaximumX, y, FinalRoomLayout.RoomBounds.center.z),
-                new Vector3(FinalRoomLayout.WallThickness, FinalRoomLayout.WallHeight, depth), WallColor, collision);
-            CreateOpeningWall("SouthWall", parent, FinalRoomLayout.D4X, FinalRoomLayout.MinimumZ, collision);
-            CreateOpeningWall("NorthWall", parent, FinalRoomLayout.D5X, FinalRoomLayout.MaximumZ, collision);
+            Tile floorTile = AssetDatabase.LoadAssetAtPath<Tile>(FloorTilePath);
+            Tile wallTile = AssetDatabase.LoadAssetAtPath<Tile>(WallTilePath);
+            if (floorTile == null || wallTile == null)
+            {
+                Debug.LogError(
+                    $"Final Room requires the existing {FloorTilePath} and {WallTilePath} Tile assets.");
+                return;
+            }
+
+            GameObject gridObject = new GameObject("IsometricZAsY", typeof(Grid));
+            gridObject.transform.SetParent(parent, false);
+            Grid grid = gridObject.GetComponent<Grid>();
+            grid.cellSize = new Vector3(1f, 0.5f, 1f);
+            grid.cellSwizzle = GridLayout.CellSwizzle.XYZ;
+
+            Tilemap floor = CreateVisualTilemap(gridObject.transform, "FloorTilemap",
+                new Vector3(0f, 0.01f, 0f), Quaternion.Euler(-90f, 0f, 0f), -100);
+            PaintFloor(floor, floorTile);
+
+            Tilemap north = CreateVisualTilemap(gridObject.transform, "NorthFullWallTilemap",
+                new Vector3(0.5f, 0f, FinalRoomLayout.MaximumZ - WallVisualOffset), Quaternion.identity, 0);
+            PaintStraightWallRun(north, wallTile, -9, 13);
+            PaintStraightWallRun(north, wallTile, 8, 13);
+
+            Tilemap south = CreateVisualTilemap(gridObject.transform, "SouthLowWallTilemap",
+                new Vector3(0.5f, 0f, FinalRoomLayout.MinimumZ + WallVisualOffset), Quaternion.identity, 0);
+            PaintLowWallRun(south, wallTile, -7, 17);
+            PaintLowWallRun(south, wallTile, 10, 9);
+
+            Tilemap west = CreateVisualTilemap(gridObject.transform, "WestFullWallTilemap",
+                new Vector3(FinalRoomLayout.MinimumX + WallVisualOffset, 0f, -0.5f),
+                Quaternion.Euler(0f, 90f, 0f), 0);
+            PaintStraightWallRun(west, wallTile, -90, 28);
+
+            Tilemap east = CreateVisualTilemap(gridObject.transform, "EastLowWallTilemap",
+                new Vector3(FinalRoomLayout.MaximumX - WallVisualOffset, 0f, -0.5f),
+                Quaternion.Euler(0f, 90f, 0f), 0);
+            PaintLowWallRun(east, wallTile, -90, 28);
         }
 
-        private static void CreateOpeningWall(string name, Transform parent, float openingCenter, float z, bool collision)
+        private static Tilemap CreateVisualTilemap(
+            Transform parent, string name, Vector3 localPosition, Quaternion localRotation, int sortingOrder)
+        {
+            GameObject tilemapObject = new GameObject(name);
+            tilemapObject.transform.SetParent(parent, false);
+            tilemapObject.transform.localPosition = localPosition;
+            tilemapObject.transform.localRotation = localRotation;
+            Tilemap tilemap = tilemapObject.AddComponent<Tilemap>();
+            tilemap.tileAnchor = Vector3.zero;
+            tilemap.orientation = Tilemap.Orientation.XY;
+
+            TilemapRenderer renderer = tilemapObject.AddComponent<TilemapRenderer>();
+            renderer.mode = TilemapRenderer.Mode.Individual;
+            renderer.sortOrder = TilemapRenderer.SortOrder.TopRight;
+            renderer.sortingLayerName = DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName;
+            renderer.sortingOrder = sortingOrder;
+            return tilemap;
+        }
+
+        // tileAnchor is zero, so Tilemap.GetCellCenterWorld returns the cell's ORIGIN CORNER,
+        // not its centre. A cell therefore covers [corner.x, corner.x + cellSize.x) in world x,
+        // and because the -90 degree tilemap rotation negates z, (corner.z - cellSize.y, corner.z]
+        // in world z. Testing the corner alone -- which is what this builder used to do -- paints
+        // a band offset by one cell: a full column past MaximumX, half a row short of MaximumZ.
+        // Test the cell's COVERED INTERVAL so the painted floor is exactly the room.
+        // Shared with FinalRoomSceneTests so the builder and its check cannot drift apart; the
+        // test that actually proves COVERAGE is the world-point sampling loop, not this.
+        public static bool FloorCellIsInsideRoom(Vector3 cellCorner, Vector3 cellSize)
+        {
+            const float tolerance = 0.001f;
+            return cellCorner.x >= FinalRoomLayout.MinimumX - tolerance
+                && cellCorner.x + cellSize.x <= FinalRoomLayout.MaximumX + tolerance
+                && cellCorner.z - cellSize.y >= FinalRoomLayout.MinimumZ - tolerance
+                && cellCorner.z <= FinalRoomLayout.MaximumZ + tolerance;
+        }
+
+        private static void PaintFloor(Tilemap tilemap, TileBase floorTile)
+        {
+            float minimumX = FinalRoomLayout.MinimumX;
+            float maximumX = FinalRoomLayout.MaximumX;
+            float minimumZ = FinalRoomLayout.MinimumZ;
+            float maximumZ = FinalRoomLayout.MaximumZ;
+
+            Vector3Int cornerA = tilemap.WorldToCell(new Vector3(minimumX - 1f, 0f, minimumZ - 1f));
+            Vector3Int cornerB = tilemap.WorldToCell(new Vector3(maximumX + 1f, 0f, maximumZ + 1f));
+
+            int minCellX = Mathf.Min(cornerA.x, cornerB.x);
+            int maxCellX = Mathf.Max(cornerA.x, cornerB.x);
+            int minRow = Mathf.Min(cornerA.y, cornerB.y);
+            int maxRow = Mathf.Max(cornerA.y, cornerB.y);
+
+            for (int x = minCellX; x <= maxCellX; x++)
+            {
+                for (int row = minRow; row <= maxRow; row++)
+                {
+                    Vector3Int cell = new Vector3Int(x, row, 0);
+                    Vector3 corner = tilemap.GetCellCenterWorld(cell);
+                    if (FloorCellIsInsideRoom(corner, tilemap.layoutGrid.cellSize))
+                    {
+                        tilemap.SetTile(cell, floorTile);
+                    }
+                }
+            }
+        }
+
+        public static void PaintStraightWallRun(Tilemap wallTilemap, TileBase wallTile, int centerCell, int cellCount)
+        {
+            if (wallTilemap == null) throw new ArgumentNullException(nameof(wallTilemap));
+            if (wallTile == null) throw new ArgumentNullException(nameof(wallTile));
+            if (cellCount <= 0) throw new ArgumentOutOfRangeException(nameof(cellCount));
+
+            int firstCell = centerCell - cellCount / 2;
+            for (int index = 0; index < cellCount; index++)
+            {
+                wallTilemap.SetTile(new Vector3Int(firstCell + index, 0, 0), wallTile);
+            }
+        }
+
+        private static void PaintLowWallRun(Tilemap wallTilemap, TileBase wallTile, int centerCell, int cellCount)
+        {
+            PaintStraightWallRun(wallTilemap, wallTile, centerCell, cellCount);
+            int firstCell = centerCell - cellCount / 2;
+            Matrix4x4 lowCellTransform = Matrix4x4.Scale(LowWallCellScale);
+            for (int index = 0; index < cellCount; index++)
+            {
+                wallTilemap.SetTransformMatrix(new Vector3Int(firstCell + index, 0, 0), lowCellTransform);
+            }
+        }
+
+        private static void CreateGameplayPerimeter(Transform parent)
+        {
+            float centerY = FinalRoomLayout.GameplayWallColliderHeight * 0.5f;
+            float roomDepth = FinalRoomLayout.MaximumZ - FinalRoomLayout.MinimumZ;
+
+            CreateBox("WestWallCollision", parent,
+                new Vector3(FinalRoomLayout.MinimumX, centerY, FinalRoomLayout.RoomBounds.center.z),
+                new Vector3(FinalRoomLayout.WallThickness, FinalRoomLayout.GameplayWallColliderHeight, roomDepth),
+                Color.clear, true);
+            CreateBox("EastWallCollision", parent,
+                new Vector3(FinalRoomLayout.MaximumX, centerY, FinalRoomLayout.RoomBounds.center.z),
+                new Vector3(FinalRoomLayout.WallThickness, FinalRoomLayout.GameplayWallColliderHeight, roomDepth),
+                Color.clear, true);
+
+            CreateSplitWallCollision(parent, "SouthWall", FinalRoomLayout.D4X, FinalRoomLayout.MinimumZ, centerY);
+            CreateSplitWallCollision(parent, "NorthWall", FinalRoomLayout.D5X, FinalRoomLayout.MaximumZ, centerY);
+        }
+
+        private static void CreateSplitWallCollision(
+            Transform parent, string prefix, float openingCenter, float z, float centerY)
         {
             float halfOpening = FinalRoomLayout.DoorOpeningWidth * 0.5f;
             float westLength = openingCenter - halfOpening - FinalRoomLayout.MinimumX;
             float eastLength = FinalRoomLayout.MaximumX - openingCenter - halfOpening;
-            float y = FinalRoomLayout.WallHeight * 0.5f;
-            CreateBox(name + "West" + Suffix(collision), parent,
-                new Vector3(FinalRoomLayout.MinimumX + westLength * 0.5f, y, z),
-                new Vector3(westLength, FinalRoomLayout.WallHeight, FinalRoomLayout.WallThickness), WallColor, collision);
-            CreateBox(name + "East" + Suffix(collision), parent,
-                new Vector3(FinalRoomLayout.MaximumX - eastLength * 0.5f, y, z),
-                new Vector3(eastLength, FinalRoomLayout.WallHeight, FinalRoomLayout.WallThickness), WallColor, collision);
+            CreateBox(prefix + "WestCollision", parent,
+                new Vector3(FinalRoomLayout.MinimumX + westLength * 0.5f, centerY, z),
+                new Vector3(westLength, FinalRoomLayout.GameplayWallColliderHeight, FinalRoomLayout.WallThickness),
+                Color.clear, true);
+            CreateBox(prefix + "EastCollision", parent,
+                new Vector3(FinalRoomLayout.MaximumX - eastLength * 0.5f, centerY, z),
+                new Vector3(eastLength, FinalRoomLayout.GameplayWallColliderHeight, FinalRoomLayout.WallThickness),
+                Color.clear, true);
         }
 
         private static void CreateObstacle(Transform parent, bool collision)
         {
             CreateBox("FR-1" + Suffix(collision), parent,
-                FinalRoomLayout.FinalObstacleBounds.center,
-                FinalRoomLayout.FinalObstacleBounds.size,
+                FinalRoomLayout.FR1Bounds.center,
+                FinalRoomLayout.FR1Bounds.size,
                 new Color(0.16f, 0.08f, 0.2f), collision);
         }
 
         private static void CreateFittingRoomDressing(Transform parent, Transform gameplay)
         {
-            // Low, visual-only dressing keeps the single hard-cover obstacle and routes intact.
-            CreateBox("NorthExitSigil", parent, new Vector3(0f, 0.025f, 83.5f), new Vector3(6f, 0.04f, 0.08f), new Color(0.65f, 0.22f, 0.55f), false);
-            CreateBox("WestMirror", parent, new Vector3(-10.9f, 1.15f, 76f), new Vector3(0.08f, 1.4f, 2.8f), new Color(0.2f, 0.45f, 0.55f), false);
-            CreateBox("EastMirror", parent, new Vector3(10.9f, 1.15f, 76f), new Vector3(0.08f, 1.4f, 2.8f), new Color(0.2f, 0.45f, 0.55f), false);
             CreateBox("WestBench", parent, FinalRoomLayout.WestBenchBounds.center, FinalRoomLayout.WestBenchBounds.size, new Color(0.23f, 0.12f, 0.16f), false);
             CreateBox("EastBench", parent, FinalRoomLayout.EastBenchBounds.center, FinalRoomLayout.EastBenchBounds.size, new Color(0.23f, 0.12f, 0.16f), false);
             CreateBox("WestBenchCollision", gameplay, FinalRoomLayout.WestBenchBounds.center, FinalRoomLayout.WestBenchBounds.size, Color.clear, true);
             CreateBox("EastBenchCollision", gameplay, FinalRoomLayout.EastBenchBounds.center, FinalRoomLayout.EastBenchBounds.size, Color.clear, true);
-            CreateBox("FR1Ribbon", parent, new Vector3(0f, 1.15f, 78.5f), new Vector3(4.5f, 0.08f, 0.08f), new Color(0.7f, 0.28f, 0.5f), false);
-            for (int i = 0; i < 5; i++)
-            {
-                float x = -8f + i * 4f;
-                CreateCandle("Candle" + (i + 1), parent, new Vector3(x, 0f, 82f));
-            }
+            CreateCandle("Candle1", parent, new Vector3(-12f, 0f, 82.5f));
         }
 
         private static void CreateCandle(string name, Transform parent, Vector3 groundPosition)
@@ -132,7 +265,6 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             flame.transform.localScale = new Vector3(0.09f, 0.15f, 0.09f);
             flame.GetComponent<Renderer>().sharedMaterial = CreateMaterial(new Color(1f, 0.35f, 0.05f));
             Object.DestroyImmediate(flame.GetComponent<Collider>());
-
         }
 
         private static GameObject CreateBox(string name, Transform parent, Vector3 position, Vector3 size, Color color, bool collision)
@@ -184,7 +316,6 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
         }
 
         private static string Suffix(bool collision) => collision ? "Collision" : "Visual";
-        private static readonly Color WallColor = new Color(0.09f, 0.07f, 0.12f);
 
         private static Material CreateMaterial(Color color)
         {
