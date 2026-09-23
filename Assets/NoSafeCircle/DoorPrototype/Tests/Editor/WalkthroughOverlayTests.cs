@@ -1,3 +1,5 @@
+using System.IO;
+using System;
 using NoSafeCircle.DoorPrototype.Diagnostics;
 using NUnit.Framework;
 
@@ -73,6 +75,50 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                         WalkthroughCapture.ShouldDrawOverlay(
                             isCapturing, summaryVisible, suppressedForCapture: true),
                         "isCapturing=" + isCapturing + " summaryVisible=" + summaryVisible);
+                }
+            }
+        }
+
+        // U2 REGRESSION. The session stamp resolves to the SECOND and
+        // Directory.CreateDirectory reports SUCCESS for a directory that already exists,
+        // so two captures started in the same second used to share a directory: the
+        // second restarted frame numbering at 000001 and overwrote the first session in
+        // place, with no error. Break it on purpose -- ask for the SAME day and stamp
+        // twice and require two different directories.
+        [Test]
+        public void SessionDirectory_IsNeverHandedOutTwiceForTheSameSecond()
+        {
+            string root = Path.Combine(
+                Path.GetTempPath(), "nsc-walkthrough-dir-test-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                const string day = "2026-09-23";
+                const string stamp = "04_15_09";
+
+                Assert.IsTrue(
+                    WalkthroughCapture.TryCreateFreshDirectory(root, day, stamp, out string first),
+                    "The first session must get a directory.");
+                Assert.IsTrue(
+                    WalkthroughCapture.TryCreateFreshDirectory(root, day, stamp, out string second),
+                    "The second session must still get a directory.");
+
+                Assert.AreNotEqual(first, second,
+                    "Two captures in the same second must not share a directory: the second " +
+                    "would overwrite the first session frame for frame.");
+                Assert.IsTrue(Directory.Exists(first));
+                Assert.IsTrue(Directory.Exists(second));
+
+                // A third must not collide with either of the first two.
+                Assert.IsTrue(
+                    WalkthroughCapture.TryCreateFreshDirectory(root, day, stamp, out string third));
+                Assert.AreNotEqual(first, third);
+                Assert.AreNotEqual(second, third);
+            }
+            finally
+            {
+                if (Directory.Exists(root))
+                {
+                    Directory.Delete(root, true);
                 }
             }
         }

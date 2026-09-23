@@ -44,6 +44,29 @@ namespace NoSafeCircle.DoorPrototype.Diagnostics
     /// </remarks>
     public sealed class WalkthroughCapture : MonoBehaviour
     {
+        // DELIBERATELY OUTSIDE the #if !UNITY_WEBGL gate below. This is pure logic
+        // with no platform dependency, and WalkthroughOverlayTests calls it. The
+        // Editor test assembly is includePlatforms [Editor] with NO excludePlatforms,
+        // and UNITY_WEBGL is defined in the EDITOR whenever WebGL is the active build
+        // target, so gating it broke the entire test assembly with CS0117 the moment
+        // WebGL was selected -- which is exactly what the Release Agent publishes.
+        /// <summary>Whether the on-screen readout may draw on this frame.</summary>
+        /// <remarks>
+        /// Pure, so the rule can be proven by a truth table rather than by looking at a
+        /// screenshot. THE SUPPRESSION TERM IS THE LOAD-BEARING ONE.
+        /// <see cref="ScreenCapture.CaptureScreenshotIntoRenderTexture"/> grabs the
+        /// COMPOSED SCREEN, so anything drawn during a captured frame is burned into the
+        /// PNG -- layer culling cannot help, because it is not a camera render. That
+        /// failure is silent and expensive: it yields three hundred usable-looking frames
+        /// with a debug counter stamped across the room somebody is judging, and the
+        /// whole point of this tool is that those frames are evidence.
+        /// </remarks>
+        public static bool ShouldDrawOverlay(
+            bool isCapturing, bool summaryVisible, bool suppressedForCapture)
+        {
+            return (isCapturing || summaryVisible) && !suppressedForCapture;
+        }
+
 #if !UNITY_WEBGL
 
         /// <summary>
@@ -133,23 +156,6 @@ namespace NoSafeCircle.DoorPrototype.Diagnostics
 
         /// <summary>True while a capture owns the frame currently being composed.</summary>
         public bool OverlaySuppressedForCapture => overlaySuppressedForCapture;
-
-        /// <summary>Whether the on-screen readout may draw on this frame.</summary>
-        /// <remarks>
-        /// Pure, so the rule can be proven by a truth table rather than by looking at a
-        /// screenshot. THE SUPPRESSION TERM IS THE LOAD-BEARING ONE.
-        /// <see cref="ScreenCapture.CaptureScreenshotIntoRenderTexture"/> grabs the
-        /// COMPOSED SCREEN, so anything drawn during a captured frame is burned into the
-        /// PNG -- layer culling cannot help, because it is not a camera render. That
-        /// failure is silent and expensive: it yields three hundred usable-looking frames
-        /// with a debug counter stamped across the room somebody is judging, and the
-        /// whole point of this tool is that those frames are evidence.
-        /// </remarks>
-        public static bool ShouldDrawOverlay(
-            bool isCapturing, bool summaryVisible, bool suppressedForCapture)
-        {
-            return (isCapturing || summaryVisible) && !suppressedForCapture;
-        }
 
         /// <summary>
         /// Redirect output before a session starts. Tests use this so a capture run
@@ -621,6 +627,7 @@ namespace NoSafeCircle.DoorPrototype.Diagnostics
                 {
                     manifest.framesDroppedByBackPressure = writer.DroppedCount;
                     manifest.framesUnwrittenAtShutdown = unwritten;
+                    manifest.framesFailedToWrite = writer.FailedCount;
                 }
 
                 writer.Dispose();
@@ -660,11 +667,17 @@ namespace NoSafeCircle.DoorPrototype.Diagnostics
         private bool TryCreateSessionDirectory(out string directory)
         {
             DateTime now = DateTime.Now;
-            string relative = Path.Combine(
-                now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-                now.ToString("HH_mm_ss", CultureInfo.InvariantCulture));
+            string day = now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            string stamp = now.ToString("HH_mm_ss", CultureInfo.InvariantCulture);
 
-            if (TryCreateDirectory(Path.Combine(captureRoot, relative), out directory))
+            // The stamp resolves to the SECOND, and Directory.CreateDirectory SUCCEEDS
+            // SILENTLY on a directory that already exists. Two stop/start cycles inside
+            // one second therefore landed in the SAME directory: frame numbering restarted
+            // at 000001 and overwrote the previous session PNGs and its manifest in place,
+            // so pressing the hotkey twice quickly destroyed the first walkthrough without
+            // saying anything. A session that silently eats the previous one is worse than
+            // one that refuses to start. Never accept a directory that already exists.
+            if (TryCreateFreshDirectory(captureRoot, day, stamp, out directory))
             {
                 return true;
             }
@@ -675,13 +688,59 @@ namespace NoSafeCircle.DoorPrototype.Diagnostics
             Debug.LogError("Walkthrough capture could not write under '" + captureRoot +
                            "'. Falling back to '" + fallbackRoot + "'.");
 
-            if (TryCreateDirectory(Path.Combine(fallbackRoot, relative), out directory))
+            if (TryCreateFreshDirectory(fallbackRoot, day, stamp, out directory))
             {
                 return true;
             }
 
             Debug.LogError("Walkthrough capture could not create a session directory under '" +
                            captureRoot + "' or '" + fallbackRoot + "'. Capture NOT started.");
+            return false;
+        }
+
+        /// <summary>Allocate a session directory that did not already exist.</summary>
+        /// <remarks>
+        /// Suffixes the second-resolution stamp until a free name is found, so a capture
+        /// started inside the same second as the previous one gets its own directory
+        /// instead of overwriting it. Directory.Exists is checked before each create
+        /// because CreateDirectory reports success for a directory that is already there.
+        /// </remarks>
+        // PUBLIC so the data-loss rule can be proven by a test rather than trusted.
+        // Overwriting a previous walkthrough is silent and unrecoverable, so this one
+        // gets a guard that fails if the allocator ever hands out the same path twice.
+        public static bool TryCreateFreshDirectory(
+            string root, string day, string stamp, out string created)
+        {
+            for (int attempt = 1; attempt <= 100; attempt++)
+            {
+                string leaf = attempt == 1
+                    ? stamp
+                    : stamp + "-" + attempt.ToString(CultureInfo.InvariantCulture);
+                string candidate = Path.Combine(root, day, leaf);
+
+                try
+                {
+                    if (Directory.Exists(candidate))
+                    {
+                        continue;
+                    }
+                }
+                catch (Exception exception)
+                {
+                    Debug.LogWarning("Walkthrough capture could not inspect a session path: " +
+                                     exception.Message);
+                    created = null;
+                    return false;
+                }
+
+                if (TryCreateDirectory(candidate, out created))
+                {
+                    return true;
+                }
+            }
+
+            Debug.LogError("Walkthrough capture found no free session directory after 100 attempts.");
+            created = null;
             return false;
         }
 

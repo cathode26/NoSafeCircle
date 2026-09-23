@@ -79,6 +79,9 @@ namespace NoSafeCircle.DoorPrototype.Diagnostics
         /// </summary>
         public int framesUnwrittenAtShutdown;
 
+        /// <summary>Frames accepted and queued that never reached disk.</summary>
+        public int framesFailedToWrite;
+
         public List<FrameRecord> frames = new List<FrameRecord>();
         public List<Mark> marks = new List<Mark>();
     }

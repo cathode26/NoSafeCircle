@@ -59,6 +59,7 @@ namespace NoSafeCircle.DoorPrototype.Diagnostics
         private volatile bool stopRequested;
         private int queuedCount;
         private int droppedCount;
+        private int failedCount;
         private bool disposed;
 
         /// <summary>Frames accepted but not yet written.</summary>
@@ -66,6 +67,16 @@ namespace NoSafeCircle.DoorPrototype.Diagnostics
 
         /// <summary>Frames refused because the queue was full.</summary>
         public int DroppedCount => Volatile.Read(ref droppedCount);
+
+        /// <summary>Frames accepted and queued that then failed to reach disk.</summary>
+        /// <remarks>
+        /// Both failure paths in the writer fall through to the same finally block and
+        /// decrement queuedCount EXACTLY AS ON SUCCESS. Without this counter a session
+        /// could finish reporting zero unwritten and zero dropped while its manifest named
+        /// PNG files that do not exist. A capture that lies about being complete is worse
+        /// than one that admits it lost frames.
+        /// </remarks>
+        public int FailedCount => Volatile.Read(ref failedCount);
 
         public WalkthroughFrameWriter(int maximumQueuedFrames)
         {
@@ -198,6 +209,7 @@ namespace NoSafeCircle.DoorPrototype.Diagnostics
                 if (png == null || png.Length == 0)
                 {
                     Debug.LogError("Walkthrough frame encoded to nothing: " + frame.Path);
+                    Interlocked.Increment(ref failedCount);
                     return;
                 }
 
@@ -207,6 +219,7 @@ namespace NoSafeCircle.DoorPrototype.Diagnostics
             {
                 // One unwritable frame must not take the session down with it.
                 Debug.LogError("Walkthrough frame was not written to " + frame.Path + ": " + exception);
+                Interlocked.Increment(ref failedCount);
             }
             finally
             {
