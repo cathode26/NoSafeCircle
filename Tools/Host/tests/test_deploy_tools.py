@@ -203,6 +203,38 @@ class TheThreeStates(Base):
         self.assertEqual(self.run_tool("--check", "--quiet"), 0)
         self.assertEqual(self.run_tool("--check", "--quiet", "--require-complete"), 1)
 
+    def _deploy_a_copy_of_the_excluded_test(self, text: str) -> None:
+        """Put a copy of an EXCLUDED host file into the deployment."""
+        self.assertEqual(self.deploy(), 0)
+        landed = self.tools / "ger" / "tests" / "test_ger_round.py"
+        landed.parent.mkdir(parents=True, exist_ok=True)
+        io.open(landed, "w", encoding="utf-8", newline="\n").write(text)
+
+    def test_an_undeclared_file_that_differs_from_the_host_tree_is_shadowed(self):
+        """The real defect: excluded from the manifest, so no --apply repairs it.
+
+        Measured live 2026-09-22: three jobs/tests files sat in the deployment
+        with older content, one of them seven test cases short, filed under
+        EXTRA beside twenty-six .bak leftovers.
+        """
+        self._deploy_a_copy_of_the_excluded_test("# an older copy\n")
+        self.assertEqual(self.states()["ger/tests/test_ger_round.py"], dt.SHADOWED)
+        self.assertEqual(self.run_tool("--check", "--quiet"), 1)
+
+    def test_an_undeclared_file_identical_to_the_host_tree_stays_extra(self):
+        """The control. Undeclared but not misleading: nothing is hidden by it.
+
+        A change that called every undeclared file SHADOWED would pass the test
+        above and erase the distinction it exists to draw.
+        """
+        self._deploy_a_copy_of_the_excluded_test("# never deploys\n")
+        self.assertEqual(self.states()["ger/tests/test_ger_round.py"], dt.EXTRA)
+
+    def test_shadowed_is_reported_ahead_of_modified(self):
+        """Ordering carries the meaning: a modified declared file is one
+        --apply from correct; a shadowed one is reachable by no command."""
+        self.assertLess(dt.SEVERITY.index(dt.SHADOWED), dt.SEVERITY.index(dt.MODIFIED))
+
     def test_an_undeclared_deployed_file_is_extra(self):
         self.assertEqual(self.deploy(), 0)
         (self.tools / "ger" / "hand_placed.py").write_text("x = 1\n", encoding="utf-8")

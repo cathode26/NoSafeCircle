@@ -47,6 +47,7 @@ from Pipeline.AgentRuntime.provider_sessions import (  # noqa: E402
     validate_session_id,
 )
 from Pipeline.AgentRuntime.providers.base import (  # noqa: E402
+    ProviderBudgetExhausted,
     ProviderFailure,
     ProviderOutputInvalid,
     ProviderRequestRejected,
@@ -831,13 +832,18 @@ def test_confirmed_identity_survives_a_terminal_provider_error() -> None:
 
     with workspace() as text:
         temp = Path(text)
+        # Each case carries its OWN expected refusal. They previously shared
+        # one, so a classification change could not be noticed here -- and one
+        # of them is a budget, not a provider fault.
         cases = (
-            {"is_error": True, "subtype": "error_during_execution",
-             "terminal_reason": "error", "result": "structured output rejected"},
-            {"subtype": "error_max_turns", "terminal_reason": "max_turns"},
-            {"permission_denials": [{"tool_name": "Edit"}]},
+            ({"is_error": True, "subtype": "error_during_execution",
+              "terminal_reason": "error", "result": "structured output rejected"},
+             ProviderFailure),
+            ({"subtype": "error_max_turns", "terminal_reason": "max_turns"},
+             ProviderBudgetExhausted),
+            ({"permission_denials": [{"tool_name": "Edit"}]}, ProviderFailure),
         )
-        for index, changes in enumerate(cases):
+        for index, (changes, expected_refusal) in enumerate(cases):
             runner = ClaudeRunner(
                 claude_stream(events=structured_output_events(3),
                               session_id=SESSION_A, **changes)
@@ -846,7 +852,7 @@ def test_confirmed_identity_survives_a_terminal_provider_error() -> None:
             provider = claude_provider(
                 temp, runner, session=binding(), session_ledger=ledger
             )
-            rejects(lambda: provider.invoke(request(), CLAUDE_MODEL), ProviderFailure)
+            rejects(lambda: provider.invoke(request(), CLAUDE_MODEL), expected_refusal)
             confirmed = ledger.confirmed
             require(
                 confirmed is not None and confirmed.session_id == SESSION_A,

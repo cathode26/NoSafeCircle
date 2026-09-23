@@ -39,6 +39,7 @@ from Pipeline.AgentRuntime.process_runner import (
 from Pipeline.AgentRuntime.providers import ClaudeCodeProvider
 from Pipeline.AgentRuntime.providers.claude_code import ClaudeLiveRenderer
 from Pipeline.AgentRuntime.providers.base import (
+    ProviderBudgetExhausted,
     ProviderFailure,
     ProviderOutputInvalid,
     ProviderRequestRejected,
@@ -675,7 +676,10 @@ def test_envelope_and_process_failures() -> None:
     unsuccessful = (
         successful_envelope(is_error=True, result="provider error"),
         successful_envelope(subtype="error"),
-        successful_envelope(terminal_reason="max_turns"),
+        # `terminal_reason="max_turns"` deliberately no longer lives here: turn
+        # exhaustion is a budget, not a provider fault. See
+        # test_turn_exhaustion_is_a_budget_rather_than_a_provider_fault, which
+        # asserts both envelope fields and keeps a provider-fault control.
         successful_envelope(permission_denials=[{"tool": "Read"}]),
     )
     for envelope in unsuccessful:
@@ -1179,6 +1183,43 @@ def test_live_observer_plumbing_and_authoritative_parse_independence() -> None:
         assert response.raw_log == raw.decode("utf-8")
 
 
+def test_turn_exhaustion_is_a_budget_rather_than_a_provider_fault() -> None:
+    """The NSC-047 shape: a run died on TURNS and was reported as a provider fault.
+
+    Measured on that run's own artifacts: implementer and test author both
+    succeeded (850.6s, 1016.1s), the validator failed at 531.3s, and the record
+    said "AgentResult failed: provider_error" -- which sends its reader to
+    quota. 1,866s of succeeded work was discarded over a 32-turn default.
+
+    Both envelope fields are asserted separately. The real CLI sets both, but a
+    build that set only one would fall back to `provider_error` and restore the
+    exact misdiagnosis this exists to stop.
+    """
+    exhausted = (
+        successful_envelope(is_error=True, subtype="error_max_turns",
+                            terminal_reason="max_turns"),
+        successful_envelope(is_error=True, terminal_reason="max_turns"),
+        successful_envelope(is_error=True, subtype="error_max_turns"),
+    )
+    for envelope in exhausted:
+        raw = encoded(envelope)
+        exception = rejects(
+            lambda raw=raw: invoke_with_stdout(raw), ProviderBudgetExhausted
+        )
+        assert exception.raw_log == raw.decode("utf-8")
+        assert "max_turns" in str(exception) or "error_max_turns" in str(exception)
+
+    # The control, and the one that keeps the fix honest: an ordinary failed
+    # envelope must STILL be a provider fault. A change that routed every
+    # unsuccessful result to the budget classification would pass the loop
+    # above and destroy the distinction it exists to draw.
+    for envelope in (successful_envelope(is_error=True, result="provider error"),
+                     successful_envelope(subtype="error_during_execution",
+                                         terminal_reason="error")):
+        raw = encoded(envelope)
+        rejects(lambda raw=raw: invoke_with_stdout(raw), ProviderFailure)
+
+
 def main() -> None:
     before = tree_hashes(RUNTIME_ROOT)
     status_before = subprocess.run(
@@ -1206,6 +1247,7 @@ def main() -> None:
     test_claude_live_renderer_is_resilient_to_malformed_and_non_dict_lines()
     test_claude_live_renderer_write_failures_never_raise()
     test_live_observer_plumbing_and_authoritative_parse_independence()
+    test_turn_exhaustion_is_a_budget_rather_than_a_provider_fault()
     after = tree_hashes(RUNTIME_ROOT)
     status_after = subprocess.run(
         ["git", "status", "--porcelain=v1", "--untracked-files=all"],

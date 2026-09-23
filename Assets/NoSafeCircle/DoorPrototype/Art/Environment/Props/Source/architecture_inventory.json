@@ -45,7 +45,8 @@
       "footprint_reference": "art direction",
       "placement_role": "focal_landmark",
       "collision_intent": "downstream_review_required",
-      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "ca_landmark_cracked_bell_frame_x",
@@ -89,7 +90,8 @@
       "footprint_reference": "art direction",
       "placement_role": "focal_landmark",
       "collision_intent": "downstream_review_required",
-      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "ca_sigil_floor_mark",
@@ -120,11 +122,11 @@
       "renderer_use": "SpriteRenderer",
       "pivot_normalized": {
         "x": 0.5,
-        "y": 0.11
+        "y": 0.49
       },
       "sorting_anchor_normalized": {
         "x": 0.5,
-        "y": 0.11
+        "y": 0.49
       },
       "identity_category": "sigil",
       "variant_group": "sigil",
@@ -133,7 +135,8 @@
       "footprint_reference": "ChapelOfAshLayout.CentralAisleWidth (4.0)",
       "placement_role": "background",
       "collision_intent": "decorative_none",
-      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md",
+      "pivot_rule": "lie_within"
     },
     {
       "id": "fr_landmark_bone_throne",
@@ -177,7 +180,8 @@
       "footprint_reference": "FinalRoomLayout.FinalObstacleBounds (centre piece of the 5x5 obstacle)",
       "placement_role": "focal_landmark",
       "collision_intent": "downstream_review_required",
-      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "lv_landmark_sluice_wheel_gate_x",
@@ -221,7 +225,8 @@
       "footprint_reference": "art direction",
       "placement_role": "focal_landmark",
       "collision_intent": "downstream_review_required",
-      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "re_broken_masonry_blocks",
@@ -265,7 +270,8 @@
       "footprint_reference": "RuinedEntryLayout.NorthWestClusterDressingBounds",
       "placement_role": "wall_rhythm",
       "collision_intent": "downstream_review_required",
-      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "re_landmark_guardian_statue_broken",
@@ -309,7 +315,8 @@
       "footprint_reference": "RuinedEntryLayout.D1LandmarkEastDressingBounds",
       "placement_role": "focal_landmark",
       "collision_intent": "downstream_review_required",
-      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "re_landmark_guardian_statue_standing",
@@ -353,7 +360,8 @@
       "footprint_reference": "RuinedEntryLayout.D1LandmarkWestDressingBounds",
       "placement_role": "focal_landmark",
       "collision_intent": "downstream_review_required",
-      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "shared_rubble_pile_a",
@@ -397,7 +405,8 @@
       "footprint_reference": "RuinedEntryLayout.RubbleABounds/RubbleBBounds (cluster piece)",
       "placement_role": "supporting_cluster",
       "collision_intent": "decorative_none",
-      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "shared_rubble_scatter_b",
@@ -443,7 +452,8 @@
       "footprint_reference": "RuinedEntryLayout.RubbleABounds/RubbleBBounds (cluster piece)",
       "placement_role": "supporting_cluster",
       "collision_intent": "decorative_none",
-      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     },
     {
       "id": "shared_stone_column",
@@ -488,7 +498,8 @@
       "footprint_reference": "ChapelOfAshLayout.ColumnBounds; LowerVaultLayout.CentralColumnCluster",
       "placement_role": "wall_rhythm",
       "collision_intent": "downstream_review_required",
-      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md"
+      "provenance_document": "Docs/Art/Environment/ARCHITECTURE_MODULES_PIXELLAB_GENERATION.md",
+      "pivot_rule": "ground_line"
     }
   ]
 }
