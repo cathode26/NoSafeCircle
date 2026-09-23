@@ -154,3 +154,53 @@ class ReviewTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ChangedPathsResolvabilityTests(unittest.TestCase):
+    """A commit absent from the checkout is not a malformed request."""
+
+    setUp = fixture.CheckoutTests.setUp
+    run_git = fixture.CheckoutTests.run_git
+
+    def _repo(self):
+        root = Path(self.temp.name) / "lonely"
+        root.mkdir()
+        subprocess.run(["git", "-C", str(root), "init", "-q"], check=True)
+        name, email = validated_agent_git_identity()
+        for key, value in (("user.name", name), ("user.email", email)):
+            subprocess.run(["git", "-C", str(root), "config", key, value], check=True)
+        (root / "a.txt").write_text("a\n", encoding="utf-8")
+        subprocess.run(["git", "-C", str(root), "add", "-A"], check=True)
+        subprocess.run(["git", "-C", str(root), "commit", "-qm", "one"], check=True)
+        first = subprocess.run(["git", "-C", str(root), "rev-parse", "HEAD"],
+                               capture_output=True, text=True, check=True).stdout.strip()
+        (root / "b.txt").write_text("b\n", encoding="utf-8")
+        subprocess.run(["git", "-C", str(root), "add", "-A"], check=True)
+        subprocess.run(["git", "-C", str(root), "commit", "-qm", "two"], check=True)
+        second = subprocess.run(["git", "-C", str(root), "rev-parse", "HEAD"],
+                                capture_output=True, text=True, check=True).stdout.strip()
+        return root, first, second
+
+    def test_an_absent_base_says_so_instead_of_fatal_bad_object(self):
+        """The NSC-047 shape: integrate passes canonical HEAD into a task checkout.
+
+        `prepare` cuts the checkout at an older commit and no command updates it
+        at that stage, so git answers "fatal: bad object" naming a commit that
+        IS in canonical.
+        """
+        root, _first, second = self._repo()
+        absent = "0" * 40
+        with self.assertRaisesRegex(ValueError, "not present in the task checkout"):
+            review._changed_paths(root, absent, second)
+
+    def test_an_absent_candidate_is_named_as_the_candidate(self):
+        """Each side is labelled, so the message says WHICH commit is missing."""
+        root, _first, second = self._repo()
+        with self.assertRaisesRegex(ValueError, "the candidate"):
+            review._changed_paths(root, second, "0" * 40)
+
+    def test_a_resolvable_pair_still_reports_the_real_changed_paths(self):
+        """The control. A fix that refused everything would pass the two above."""
+        root, first, second = self._repo()
+        self.assertEqual({"b.txt"}, review._changed_paths(root, first, second))
+
