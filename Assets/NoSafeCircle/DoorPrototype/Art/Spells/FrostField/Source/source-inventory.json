@@ -1,0 +1,761 @@
+{
+  "task": "unassigned at authoring time - Frost Field VFX for NSC-008",
+  "recorded_utc": "2026-09-23",
+  "family": "frost_field",
+  "pixels_per_unit": 64,
+  "filter_mode": "Point",
+  "canvas": [
+    128,
+    72
+  ],
+  "pivot": [
+    0.5,
+    0.458333
+  ],
+  "pivot_note": "ONE pivot for all 28 frames, the centre of the drawn ellipse. A per-frame pivot makes the field hop; the fireball's impact set shares one value for the same reason.",
+  "palette": {
+    "colours": 47,
+    "note": "all 28 frames were quantized TOGETHER in a single reduce_colors call at 48 colours, so they share one palette. Quantizing frame by frame is the mistake that tool exists to prevent."
+  },
+  "byte_warning": "selected_sha256 is the sha256 of THESE files. Copy them verbatim; never re-encode, re-crop or round-trip.",
+  "ground_decal_note": "this is a FLAT GROUND decal, not a billboard. 128x72 is 1.78:1, the isometric foreshortening of a circle under the committed camera Euler(30,-45,0); the committed ca_sigil_floor_mark is 2.09x1.19.",
+  "playback": {
+    "form": {
+      "frames": "form_0..8",
+      "order": "0,1,2,3,4,5,6,7,8",
+      "loop": false,
+      "note": "the field settling in after the cast. One-way."
+    },
+    "hold_loop": {
+      "frames": "hold_0..8",
+      "order": "0,1,2,3,4,5,6,7,8,7,6,5,4,3,2,1",
+      "loop": true,
+      "note": "PING-PONG, and this is required. Played 0..8 straight the wrap is 1.19x the largest interior step and the field visibly hitches every cycle. Ping-pong is seamless by construction. Measured: consecutive-frame mean diff avg 3.2, wrap 7.5. Dropping leading frames makes it WORSE (ratios 1.79-2.50) because frame 0 is an endpoint of a one-way drift, not an outlier."
+    },
+    "expire": {
+      "frames": "expire_0..8",
+      "order": "0,1,2,3,4,5,6,7,8",
+      "loop": false,
+      "note": "THE SPRITES DO NOT VANISH AND ARE NOT MEANT TO. They show the frost losing its structure - crystals shrink away, rim needles retreat - ending as a flat pale patch still covering 43.6% of the canvas. The DISAPPEARANCE is an alpha fade the engine applies over these frames. Binding them without a fade leaves a pale patch on the floor forever, which reads as a bug."
+    }
+  },
+  "art_direction": {
+    "hue": "pale cyan-white, explicitly NO green and NO teal. NSC-088 requires the spectral phantom to read clearly distinct from the Lantern Wraith's teal wisp, so frost must not crowd that hue. Art Director's pick, 2026-09-23.",
+    "not_reviewed_in_engine": "nobody has seen these in Unity. They have never been imported and no human has approved them."
+  },
+  "generation": {
+    "tool": "create_object_pro_flash + animate_object (mode v3) + reduce_colors",
+    "view": "low top-down",
+    "seeds": [
+      40001,
+      40002
+    ],
+    "objects": {
+      "first": "6f6677c7-d0f7-4f10-9c6d-dd88ac577606",
+      "settled": "0e1fa708-1877-4a47-b6d5-4f9f9818dd15"
+    },
+    "quantize_job": "81d7f5ef-5635-4a0d-aead-aed42d053e6b"
+  },
+  "frames": [
+    {
+      "key": "frost_field",
+      "group": "still",
+      "file": "field_still.png",
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/FrostField/Source/field_still.png",
+      "selected_sha256": "6741d7f8593568f01f743f67eb2e4b3f2d907c1c6a61e319fc138c1085617cd4",
+      "bytes": 5304,
+      "canvas": [
+        128,
+        72
+      ],
+      "alpha_bbox": [
+        7,
+        8,
+        114,
+        62
+      ],
+      "colours": 36,
+      "pivot": [
+        0.5,
+        0.458333
+      ],
+      "pixels_per_unit": 64,
+      "filter_mode": "Point"
+    },
+    {
+      "key": "frost_field",
+      "group": "form",
+      "file": "form_0.png",
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/FrostField/Source/form_0.png",
+      "selected_sha256": "70fa50b9e715e90de3c9e0ca6f6de04b1ef0029daecdaba4046d8e41f48afe1a",
+      "bytes": 8688,
+      "canvas": [
+        128,
+        72
+      ],
+      "alpha_bbox": [
+        5,
+        8,
+        118,
+        59
+      ],
+      "colours": 45,
+      "pivot": [
+        0.5,
+        0.458333
+      ],
+      "pixels_per_unit": 64,
+      "filter_mode": "Point"
+    },
+    {
+      "key": "frost_field",
+      "group": "form",
+      "file": "form_1.png",
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/FrostField/Source/form_1.png",
+      "selected_sha256": "36b4a32cd600c9172bbb80bcaa6df8e59841175efa068210e36cf31c53ae20c3",
+      "bytes": 8894,
+      "canvas": [
+        128,
+        72
+      ],
+      "alpha_bbox": [
+        4,
+        8,
+        121,
+        61
+      ],
+      "colours": 38,
+      "pivot": [
+        0.5,
+        0.458333
+      ],
+      "pixels_per_unit": 64,
+      "filter_mode": "Point"
+    },
+    {
+      "key": "frost_field",
+      "group": "form",
+      "file": "form_2.png",
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/FrostField/Source/form_2.png",
+      "selected_sha256": "0d49b4e4013aff505410da322e94fb719d2c37c712b56d241667b6ab72e9ffd1",
+      "bytes": 8544,
+      "canvas": [
+        128,
+        72
+      ],
+      "alpha_bbox": [
+        2,
+        8,
+        122,
+        63
+      ],
+      "colours": 38,
+      "pivot": [
+        0.5,
+        0.458333
+      ],
+      "pixels_per_unit": 64,
+      "filter_mode": "Point"
+    },
+    {
+      "key": "frost_field",
+      "group": "form",
+      "file": "form_3.png",
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/FrostField/Source/form_3.png",
+      "selected_sha256": "0ab5757881a94f5c4da61b66e8157dd538cf33358bc01ef747b11252de6b1ab3",
+      "bytes": 7024,
+      "canvas": [
+        128,
+        72
+      ],
+      "alpha_bbox": [
+        6,
+        8,
+        116,
+        61
+      ],
+      "colours": 38,
+      "pivot": [
+        0.5,
+        0.458333
+      ],
+      "pixels_per_unit": 64,
+      "filter_mode": "Point"
+    },
+    {
+      "key": "frost_field",
+      "group": "form",
+      "file": "form_4.png",
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/FrostField/Source/form_4.png",
+      "selected_sha256": "1dfa9600f00e9ecfc1807c68ac4251a45cdffe2b9716589be759ff7acaada884",
+      "bytes": 5940,
+      "canvas": [
+        128,
+        72
+      ],
+      "alpha_bbox": [
+        10,
+        8,
+        108,
+        57
+      ],
+      "colours": 37,
+      "pivot": [
+        0.5,
+        0.458333
+      ],
+      "pixels_per_unit": 64,
+      "filter_mode": "Point"
+    },
+    {
+      "key": "frost_field",
+      "group": "form",
+      "file": "form_5.png",
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/FrostField/Source/form_5.png",
+      "selected_sha256": "20ad180f356b6ca829ee6e45039b8117234f7efc0222cb8bb949c9071f66be07",
+      "bytes": 5925,
+      "canvas": [
+        128,
+        72
+      ],
+      "alpha_bbox": [
+        10,
+        8,
+        108,
+        59
+      ],
+      "colours": 37,
+      "pivot": [
+        0.5,
+        0.458333
+      ],
+      "pixels_per_unit": 64,
+      "filter_mode": "Point"
+    },
+    {
+      "key": "frost_field",
+      "group": "form",
+      "file": "form_6.png",
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/FrostField/Source/form_6.png",
+      "selected_sha256": "0256f2f783721a06ba5897b3c9ae4a967855db4e9b2d55e8cf6f271f493aa752",
+      "bytes": 5073,
+      "canvas": [
+        128,
+        72
+      ],
+      "alpha_bbox": [
+        10,
+        8,
+        108,
+        59
+      ],
+      "colours": 35,
+      "pivot": [
+        0.5,
+        0.458333
+      ],
+      "pixels_per_unit": 64,
+      "filter_mode": "Point"
+    },
+    {
+      "key": "frost_field",
+      "group": "form",
+      "file": "form_7.png",
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/FrostField/Source/form_7.png",
+      "selected_sha256": "b502e12fed29a5e67346398410ebbbfa8099c484449e3251440f409ed9c4b24b",
+      "bytes": 5274,
+      "canvas": [
+        128,
+        72
+      ],
+      "alpha_bbox": [
+        10,
+        8,
+        108,
+        57
+      ],
+      "colours": 38,
+      "pivot": [
+        0.5,
+        0.458333
+      ],
+      "pixels_per_unit": 64,
+      "filter_mode": "Point"
+    },
+    {
+      "key": "frost_field",
+      "group": "form",
+      "file": "form_8.png",
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/FrostField/Source/form_8.png",
+      "selected_sha256": "6741d7f8593568f01f743f67eb2e4b3f2d907c1c6a61e319fc138c1085617cd4",
+      "bytes": 5304,
+      "canvas": [
+        128,
+        72
+      ],
+      "alpha_bbox": [
+        7,
+        8,
+        114,
+        62
+      ],
+      "colours": 36,
+      "pivot": [
+        0.5,
+        0.458333
+      ],
+      "pixels_per_unit": 64,
+      "filter_mode": "Point"
+    },
+    {
+      "key": "frost_field",
+      "group": "hold_loop",
+      "file": "hold_0.png",
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/FrostField/Source/hold_0.png",
+      "selected_sha256": "6741d7f8593568f01f743f67eb2e4b3f2d907c1c6a61e319fc138c1085617cd4",
+      "bytes": 5304,
+      "canvas": [
+        128,
+        72
+      ],
+      "alpha_bbox": [
+        7,
+        8,
+        114,
+        62
+      ],
+      "colours": 36,
+      "pivot": [
+        0.5,
+        0.458333
+      ],
+      "pixels_per_unit": 64,
+      "filter_mode": "Point"
+    },
+    {
+      "key": "frost_field",
+      "group": "hold_loop",
+      "file": "hold_1.png",
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/FrostField/Source/hold_1.png",
+      "selected_sha256": "886146fb5e769eb67a0978c7e9dde3c5996e94e196a7376361068dce364bd8ff",
+      "bytes": 5279,
+      "canvas": [
+        128,
+        72
+      ],
+      "alpha_bbox": [
+        7,
+        6,
+        113,
+        65
+      ],
+      "colours": 41,
+      "pivot": [
+        0.5,
+        0.458333
+      ],
+      "pixels_per_unit": 64,
+      "filter_mode": "Point"
+    },
+    {
+      "key": "frost_field",
+      "group": "hold_loop",
+      "file": "hold_2.png",
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/FrostField/Source/hold_2.png",
+      "selected_sha256": "4deb9a2212927dccc3106a0600432afdef4b78e2f4546bb6eab1f9613f3f7f19",
+      "bytes": 4549,
+      "canvas": [
+        128,
+        72
+      ],
+      "alpha_bbox": [
+        8,
+        7,
+        110,
+        62
+      ],
+      "colours": 37,
+      "pivot": [
+        0.5,
+        0.458333
+      ],
+      "pixels_per_unit": 64,
+      "filter_mode": "Point"
+    },
+    {
+      "key": "frost_field",
+      "group": "hold_loop",
+      "file": "hold_3.png",
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/FrostField/Source/hold_3.png",
+      "selected_sha256": "2e0a3676cad78c6c0e3c14d122e3b857eb1d52143518996ca8be984a969ec491",
+      "bytes": 4188,
+      "canvas": [
+        128,
+        72
+      ],
+      "alpha_bbox": [
+        10,
+        8,
+        108,
+        60
+      ],
+      "colours": 41,
+      "pivot": [
+        0.5,
+        0.458333
+      ],
+      "pixels_per_unit": 64,
+      "filter_mode": "Point"
+    },
+    {
+      "key": "frost_field",
+      "group": "hold_loop",
+      "file": "hold_4.png",
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/FrostField/Source/hold_4.png",
+      "selected_sha256": "9d489d2502c70a27d0ad59bf9c73fd77381c099c6fb762cef00c92471f79cbee",
+      "bytes": 3691,
+      "canvas": [
+        128,
+        72
+      ],
+      "alpha_bbox": [
+        10,
+        10,
+        108,
+        55
+      ],
+      "colours": 35,
+      "pivot": [
+        0.5,
+        0.458333
+      ],
+      "pixels_per_unit": 64,
+      "filter_mode": "Point"
+    },
+    {
+      "key": "frost_field",
+      "group": "hold_loop",
+      "file": "hold_5.png",
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/FrostField/Source/hold_5.png",
+      "selected_sha256": "321e505303810fd1a09490a2fae2107188bb47f2907117c87d2337266705413e",
+      "bytes": 3578,
+      "canvas": [
+        128,
+        72
+      ],
+      "alpha_bbox": [
+        10,
+        10,
+        108,
+        54
+      ],
+      "colours": 38,
+      "pivot": [
+        0.5,
+        0.458333
+      ],
+      "pixels_per_unit": 64,
+      "filter_mode": "Point"
+    },
+    {
+      "key": "frost_field",
+      "group": "hold_loop",
+      "file": "hold_6.png",
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/FrostField/Source/hold_6.png",
+      "selected_sha256": "41dfb6f3acfd3b79ce1a77874870c9dfe1ac7f0d2ce728fbe30aedab9161c78a",
+      "bytes": 3301,
+      "canvas": [
+        128,
+        72
+      ],
+      "alpha_bbox": [
+        10,
+        12,
+        108,
+        54
+      ],
+      "colours": 32,
+      "pivot": [
+        0.5,
+        0.458333
+      ],
+      "pixels_per_unit": 64,
+      "filter_mode": "Point"
+    },
+    {
+      "key": "frost_field",
+      "group": "hold_loop",
+      "file": "hold_7.png",
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/FrostField/Source/hold_7.png",
+      "selected_sha256": "ebfa1d9398e208b9f0b50fdecc77d831ec95ad2a9e29c8021cbefce3ad8d8fc3",
+      "bytes": 3501,
+      "canvas": [
+        128,
+        72
+      ],
+      "alpha_bbox": [
+        10,
+        13,
+        108,
+        54
+      ],
+      "colours": 37,
+      "pivot": [
+        0.5,
+        0.458333
+      ],
+      "pixels_per_unit": 64,
+      "filter_mode": "Point"
+    },
+    {
+      "key": "frost_field",
+      "group": "hold_loop",
+      "file": "hold_8.png",
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/FrostField/Source/hold_8.png",
+      "selected_sha256": "a90af3b13edb3dd527beb9ceef4a26937c5df5b4ce49909160d754dc629d1b9e",
+      "bytes": 3496,
+      "canvas": [
+        128,
+        72
+      ],
+      "alpha_bbox": [
+        8,
+        11,
+        112,
+        59
+      ],
+      "colours": 36,
+      "pivot": [
+        0.5,
+        0.458333
+      ],
+      "pixels_per_unit": 64,
+      "filter_mode": "Point"
+    },
+    {
+      "key": "frost_field",
+      "group": "expire",
+      "file": "expire_0.png",
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/FrostField/Source/expire_0.png",
+      "selected_sha256": "6741d7f8593568f01f743f67eb2e4b3f2d907c1c6a61e319fc138c1085617cd4",
+      "bytes": 5304,
+      "canvas": [
+        128,
+        72
+      ],
+      "alpha_bbox": [
+        7,
+        8,
+        114,
+        62
+      ],
+      "colours": 36,
+      "pivot": [
+        0.5,
+        0.458333
+      ],
+      "pixels_per_unit": 64,
+      "filter_mode": "Point"
+    },
+    {
+      "key": "frost_field",
+      "group": "expire",
+      "file": "expire_1.png",
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/FrostField/Source/expire_1.png",
+      "selected_sha256": "902b5ae5ece1d294b429823ea6178ac081ef181beddcbb1d2846762576524add",
+      "bytes": 4716,
+      "canvas": [
+        128,
+        72
+      ],
+      "alpha_bbox": [
+        7,
+        6,
+        113,
+        66
+      ],
+      "colours": 41,
+      "pivot": [
+        0.5,
+        0.458333
+      ],
+      "pixels_per_unit": 64,
+      "filter_mode": "Point"
+    },
+    {
+      "key": "frost_field",
+      "group": "expire",
+      "file": "expire_2.png",
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/FrostField/Source/expire_2.png",
+      "selected_sha256": "b46c2d5827758796d1ea3b85f2338f3623676ee7d48e6b08d613f397e9f28bff",
+      "bytes": 3874,
+      "canvas": [
+        128,
+        72
+      ],
+      "alpha_bbox": [
+        4,
+        6,
+        118,
+        66
+      ],
+      "colours": 41,
+      "pivot": [
+        0.5,
+        0.458333
+      ],
+      "pixels_per_unit": 64,
+      "filter_mode": "Point"
+    },
+    {
+      "key": "frost_field",
+      "group": "expire",
+      "file": "expire_3.png",
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/FrostField/Source/expire_3.png",
+      "selected_sha256": "ea34c066dc6f06d700f2945c554d30d082efc54af70876ce1b1d841223c45e1e",
+      "bytes": 3059,
+      "canvas": [
+        128,
+        72
+      ],
+      "alpha_bbox": [
+        10,
+        10,
+        108,
+        55
+      ],
+      "colours": 41,
+      "pivot": [
+        0.5,
+        0.458333
+      ],
+      "pixels_per_unit": 64,
+      "filter_mode": "Point"
+    },
+    {
+      "key": "frost_field",
+      "group": "expire",
+      "file": "expire_4.png",
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/FrostField/Source/expire_4.png",
+      "selected_sha256": "fc3fc8c1a61efb79edeb76dafa5d0341685be3b017d4673fc52cadf5cc3e7ab1",
+      "bytes": 2011,
+      "canvas": [
+        128,
+        72
+      ],
+      "alpha_bbox": [
+        10,
+        15,
+        108,
+        49
+      ],
+      "colours": 34,
+      "pivot": [
+        0.5,
+        0.458333
+      ],
+      "pixels_per_unit": 64,
+      "filter_mode": "Point"
+    },
+    {
+      "key": "frost_field",
+      "group": "expire",
+      "file": "expire_5.png",
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/FrostField/Source/expire_5.png",
+      "selected_sha256": "dfa98cee4abfa0515b02f9f4495c126b829f4b7feb89528867e49adb763d730a",
+      "bytes": 1551,
+      "canvas": [
+        128,
+        72
+      ],
+      "alpha_bbox": [
+        10,
+        16,
+        108,
+        48
+      ],
+      "colours": 26,
+      "pivot": [
+        0.5,
+        0.458333
+      ],
+      "pixels_per_unit": 64,
+      "filter_mode": "Point"
+    },
+    {
+      "key": "frost_field",
+      "group": "expire",
+      "file": "expire_6.png",
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/FrostField/Source/expire_6.png",
+      "selected_sha256": "09ebc1af751807ce22bb2d7ef0f91abcea7494184468d69304cc69a3add4d631",
+      "bytes": 1319,
+      "canvas": [
+        128,
+        72
+      ],
+      "alpha_bbox": [
+        10,
+        16,
+        108,
+        48
+      ],
+      "colours": 15,
+      "pivot": [
+        0.5,
+        0.458333
+      ],
+      "pixels_per_unit": 64,
+      "filter_mode": "Point"
+    },
+    {
+      "key": "frost_field",
+      "group": "expire",
+      "file": "expire_7.png",
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/FrostField/Source/expire_7.png",
+      "selected_sha256": "9fa39f5bef25b18f1344688bc1cb117ac27871d61bf34fe06f24e561c1dcad4a",
+      "bytes": 1231,
+      "canvas": [
+        128,
+        72
+      ],
+      "alpha_bbox": [
+        10,
+        16,
+        108,
+        48
+      ],
+      "colours": 15,
+      "pivot": [
+        0.5,
+        0.458333
+      ],
+      "pixels_per_unit": 64,
+      "filter_mode": "Point"
+    },
+    {
+      "key": "frost_field",
+      "group": "expire",
+      "file": "expire_8.png",
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/FrostField/Source/expire_8.png",
+      "selected_sha256": "9530d939ee8250f5fc12eac1a2b4b4945be45d187ddf35ae8ee21375feb67970",
+      "bytes": 1201,
+      "canvas": [
+        128,
+        72
+      ],
+      "alpha_bbox": [
+        10,
+        16,
+        108,
+        48
+      ],
+      "colours": 13,
+      "pivot": [
+        0.5,
+        0.458333
+      ],
+      "pixels_per_unit": 64,
+      "filter_mode": "Point"
+    }
+  ]
+}
