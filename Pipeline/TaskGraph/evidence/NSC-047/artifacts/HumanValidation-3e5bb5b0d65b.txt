@@ -1,0 +1,61 @@
+NSC-047 VAL-004 human validation record
+Task: NSC-047 Lower Vault Blockout Colliders, Wall Tilemaps, and Catalog Rebase
+Contract revision at delivery: 12 (554285b73)
+Recorded by: Game Agent, 2026-09-23
+Approver: Vincent Liguori
+
+WHAT HE SAID, VERBATIM
+  2026-09-23 07:05Z  "I approve the room, please put the art in."
+  2026-09-23 07:08Z  "No, lets get this show on the road. 80 percent there is what
+                      I need. I can fix stuff later."
+Both statements were made by Vincent directly in his own chat and relayed to the
+Game Agent by the Documentation Agent. The 07:08Z statement was his answer to an
+explicit offer to inspect the room before his approval was recorded; he declined it.
+
+WHAT WAS NOT DONE, STATED PLAINLY
+VAL-004 as written describes a nine-shot contact sheet at
+C:\Users\VincentLiguori\Downloads\NoSafeCircleOutput\NSC-047\<RunId>\LowerVault-camera-review.png
+covering the D3 apron, the C1 left and right lanes, both ends of the north merge,
+both storage pockets, the primary crossing and the D4 apron.
+
+THAT CONTACT SHEET WAS NOT PRODUCED, AND THIS APPROVAL IS NOT BASED ON IT.
+Vincent also told the Documentation Agent "I felt like I didnt see anything new".
+
+WHY IT WAS NOT PRODUCED -- A DEFECT IN THE TOOL VAL-004 NAMES
+The menu item VAL-004 relies on, No Safe Circle/Rooms/Stage Lower Vault Camera
+Review (LowerVaultSceneBuilder.StageCameraReview), creates WizardReviewStandIn and
+never positions it, leaving it at the world origin. The review camera is parented to
+that stand-in, while Lower Vault occupies X [-20,+20], Z [54,76]. Run as shipped the
+tool therefore frames empty ground roughly 65 world units short of the room.
+This was measured by the Game Agent on 2026-09-23 by executing the shipped menu item
+against the delivered tree and rendering its camera; the result is the capture named
+01-as-staged.png, which shows the wizard stand-in alone on open ground.
+All nine review markers ARE created correctly and their positions match VAL-004's
+nine required shots exactly. Only the camera framing is wrong.
+Every AC-005 clause is nonetheless satisfied and all 19 LowerVaultSceneTests pass,
+because AC-005 never required the stand-in to be positioned inside the room. The
+defect is being routed to GER as a separate contract item and is not repaired here.
+
+WHAT WAS AVAILABLE TO HIM INSTEAD
+The Game Agent rendered the delivered room from the shipped review camera, re-aimed
+at the room centre and at both door aprons, and delivered those images to Vincent
+before the 07:05Z approval. They are retained at
+C:\nscrev\reports\five-levels\lowervault-review-20260923\ as
+  01-as-staged.png            what the shipped tool actually frames
+  04-room-isometric-wide.png  the room at the shipped isometric angle
+  05-room-isometric-close.png the same, closer
+Whether Vincent examined those images before approving is NOT KNOWN to the recorder
+and is not claimed here.
+
+ONE FURTHER UNCERTAINTY, RECORDED RATHER THAN RESOLVED
+Canonical carried an interactive Unity editor session between 06:37Z and 06:44Z
+(Logs/AssetImportWorker0.log, -projectPath C:/NSC/NSC/NoSafeCircle, no -executeMethod
+and no test run), during which Assets/Scenes/Rooms/BoneArchive.unity was rewritten.
+BoneArchive is a different room and a stub. It is therefore possible that the room
+Vincent had open in the editor was not Lower Vault. This is stated as an open
+uncertainty; the recorder did not establish what he viewed.
+
+SCOPE OF THIS APPROVAL
+Vincent approved the room and directed that the art be put in. He did not perform,
+and did not claim to perform, the nine-shot gameplay-camera review that VAL-004
+describes. This record asserts his approval and nothing about a review he did not do.
