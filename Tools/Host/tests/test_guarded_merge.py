@@ -59,6 +59,16 @@ def git(repo: pathlib.Path, *args: str) -> str:
 
 
 class Base(unittest.TestCase):
+    def setUp(self):
+        patcher = mock.patch.object(merger.lock, "_boot_stamp", return_value="unavailable: test fixture")
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def tool_command(self, *args):
+        script = ("import sys; sys.path.insert(0,sys.argv.pop(1)); import guarded_merge as m; "
+                  "m.lock._boot_stamp=lambda:'unavailable: test fixture'; sys.exit(m.cli())")
+        return [sys.executable, "-B", "-c", script, str(TOOL.parent), *args]
+
     def build_fixture(self) -> tuple[pathlib.Path, pathlib.Path, str]:
         """A repo with main and a candidate branch, plus an empty journal."""
         root = pathlib.Path(tempfile.mkdtemp(prefix="guarded-merge-"))
@@ -91,12 +101,12 @@ class Base(unittest.TestCase):
     def run_tool(self, repo: pathlib.Path, journal: pathlib.Path, role: str,
                  candidate: str, timeout: float = 5.0) -> tuple[int, str]:
         result = subprocess.run(
-            [sys.executable, "-B", str(TOOL), "--role", role,
+            self.tool_command("--role", role,
              "--candidate", candidate, "--authority", "test",
              "--not-proven", "nothing; this is a fixture",
              "--repo", str(repo), "--journal", str(journal),
              "--validate", "stub_validate.py",
-             "--lock-timeout", str(timeout)],
+             "--lock-timeout", str(timeout)),
             capture_output=True, text=True, creationflags=NO_WINDOW)
         return result.returncode, result.stdout + result.stderr
 
@@ -185,8 +195,8 @@ class AdmissionFailureReporting(Base):
         with tempfile.TemporaryDirectory(prefix="non-git-merge-target-") as tmp:
             repo = pathlib.Path(tmp)
             journal = repo / "journal.md"
-            result = subprocess.run([sys.executable, "-B", str(TOOL),
-                *self.arguments(repo, journal, "unused")], capture_output=True, text=True, timeout=10)
+            result = subprocess.run(self.tool_command(*self.arguments(repo, journal, "unused")),
+                                    capture_output=True, text=True, timeout=10)
             self.assertNotEqual(0, result.returncode)
             self.assertIn("PRE-ADMISSION FAILED", result.stderr)
             self.assertIn("main untouched by this invocation", result.stderr)
@@ -224,6 +234,21 @@ class AdmissionFailureReporting(Base):
         self.assertIn("UNCERTAIN:", str(caught.exception))
         self.assertNotIn("PRE-ADMISSION", str(caught.exception))
 
+    def test_completed_reboot_recovery_reports_no_business_admission(self):
+        repo, journal, candidate = self.build_fixture()
+        head = git(repo, "rev-parse", "HEAD")
+        report = repo / ".git/nsc-main-write-recovery/fixture.json"
+        with mock.patch.object(merger.lock, "acquire",
+                               side_effect=merger.lock.MainWriteLockRecovered(report)):
+            with self.assertRaises(SystemExit) as caught:
+                merger.cli(self.arguments(repo, journal, candidate))
+        self.assertIn("RECOVERED:", str(caught.exception))
+        self.assertIn("NOT started", str(caught.exception))
+        self.assertIn(str(report), str(caught.exception))
+        self.assertNotIn("PRE-ADMISSION FAILED", str(caught.exception))
+        self.assertEqual(head, git(repo, "rev-parse", "HEAD"))
+        self.assertEqual([], self.journal_lines(journal))
+
     def test_admitted_body_error_is_not_called_pre_admission_failure(self):
         repo, _, _ = self.build_fixture()
         with self.assertRaises(merger.lock.MainWriteLockError) as caught:
@@ -235,8 +260,8 @@ class AdmissionFailureReporting(Base):
     def test_merger_warns_about_recent_legacy_writer_at_entry(self):
         repo, journal, candidate = self.build_fixture()
         journal.write_text(f"- {merger.stamp()} MAIN-WRITE START Legacy Agent: fixture\n")
-        result = subprocess.run([sys.executable, "-B", str(TOOL),
-            *self.arguments(repo, journal, candidate)], capture_output=True, text=True, timeout=15)
+        result = subprocess.run(self.tool_command(*self.arguments(repo, journal, candidate)),
+                                capture_output=True, text=True, timeout=15)
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
         self.assertIn("recent legacy writer may bypass", result.stderr)
         self.assertIn("Legacy Agent", result.stderr)

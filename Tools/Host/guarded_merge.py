@@ -70,7 +70,7 @@ def held(git: Git, role: str, timeout: float, *, operation="merge candidate"):
         with lock.held(repo=git.repo, role=role, operation=operation, timeout=timeout) as owner:
             admitted = True
             yield owner
-    except (lock.MutationChildUncertain, lock.MainWriteLockBusy):
+    except (lock.MutationChildUncertain, lock.MainWriteLockBusy, lock.MainWriteLockRecovered):
         raise
     except lock.MainWriteLockError as error:
         if not admitted:
@@ -245,6 +245,8 @@ def main(argv: list[str] | None = None) -> int:
 def cli(argv=None):
     try:
         return main(argv)
+    except lock.MainWriteLockRecovered as error:
+        raise SystemExit(f"RECOVERED: {error}") from error
     except lock.MutationChildUncertain as error:
         raise SystemExit(f"UNCERTAIN: result may already be committed; inspect main before retrying. {error}") from error
     except lock.MainWriteLockBusy as error:

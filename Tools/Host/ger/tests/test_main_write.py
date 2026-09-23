@@ -39,6 +39,9 @@ def git(repo, *args):
 
 class Base(unittest.TestCase):
     def setUp(self):
+        boot = mock.patch.object(lock, "_boot_stamp", return_value="unavailable: test fixture")
+        boot.start()
+        self.addCleanup(boot.stop)
         self.temp = tempfile.TemporaryDirectory(prefix="ger-main-write-")
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
@@ -460,6 +463,7 @@ import pathlib,sys,json
 source,realger,repo,journal,mode,head,candidate,args = sys.argv[1:]
 sys.path[:0] = [source, str(pathlib.Path(source)/'ger')]
 import main_write as mw, main_write_lock as lock, guarded_merge as gm
+lock._boot_stamp = lambda: 'unavailable: test fixture'
 assert pathlib.Path(mw.__file__).resolve() == (pathlib.Path(source)/'ger/main_write.py').resolve()
 assert pathlib.Path(lock.__file__).resolve() == (pathlib.Path(source)/'main_write_lock.py').resolve()
 if mode == 'hold-merge':

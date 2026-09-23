@@ -43,6 +43,11 @@ def git(repo: pathlib.Path, *args: str) -> str:
 
 
 class Base(unittest.TestCase):
+    def setUp(self):
+        patcher = mock.patch.object(lock, "_boot_stamp", return_value="unavailable: test fixture")
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def repo(self) -> pathlib.Path:
         root = pathlib.Path(tempfile.mkdtemp(prefix="main-write-lock-"))
         self.addCleanup(self._clean, root)
@@ -68,6 +73,7 @@ class Base(unittest.TestCase):
             "import sys",
             "sys.path.insert(0, sys.argv[1])",
             "import main_write_lock as lock",
+            "lock._boot_stamp = lambda: 'unavailable: test fixture'",
             "try:",
             "    h = lock.acquire(repo=sys.argv[2], role=sys.argv[3],",
             "                     operation='contender', timeout=float(sys.argv[4]))",
@@ -176,6 +182,7 @@ class ItNeverStealsALiveLock(Base):
         script = "\n".join([
             "import sys", "from unittest import mock",
             "sys.path.insert(0, sys.argv[1])", "import main_write_lock as lock",
+            "lock._boot_stamp = lambda: 'unavailable: test fixture'",
             "with mock.patch.object(lock, 'inspect', return_value=None):",
             "    try:",
             "        lock.acquire(repo=sys.argv[2], role='Contender Agent', operation='y', timeout=0.3)",
@@ -495,6 +502,7 @@ class RecoveryReportsAndChildren(Base):
     def test_killed_fixture_owner_requires_explicit_recovery(self):
         repo = self.repo()
         script = ("import sys; sys.path.insert(0,sys.argv[1]); import main_write_lock as lock; "
+                  "lock._boot_stamp=lambda:'unavailable: test fixture'; "
                   "h=lock.acquire(repo=sys.argv[2],role='Fixture Agent',operation='fixture'); "
                   "print(h.owner_oid,flush=True); sys.stdin.readline()")
         child = subprocess.Popen([sys.executable, "-B", "-c", script, str(HOST), str(repo)],
@@ -703,6 +711,238 @@ class OwnerProcessDiagnostics(Base):
         self.assertIn("explicit recovery still required", diagnostic.getvalue())
         self.assertEqual(oid, lock.inspect(repo=repo)[0])
         provider.matches.assert_called_with(owner["process_identity"])
+
+
+def startup_stamp(start="2026-09-18T11:02:36.5000000Z", record=10, host="fixture-host"):
+    return {"source": lock.BOOT_SOURCE, "computer": host, "channel": "System",
+            "provider": "Microsoft-Windows-Kernel-General", "record_id": record,
+            "start_time_utc": start}
+
+
+def epoch(text):
+    return lock.datetime.fromisoformat(text.replace("Z", "+00:00")).timestamp()
+
+
+class StartupEvidence(unittest.TestCase):
+    def response(self, stamp):
+        data = {k: v for k, v in stamp.items() if k != "source"}
+        return subprocess.CompletedProcess([], 0, json.dumps(data), "")
+
+    def test_provider_selects_only_newest_startup_and_validates_local_response(self):
+        stamp = startup_stamp()
+        with mock.patch.object(lock.os, "name", "nt"), \
+                mock.patch.object(lock.socket, "gethostname", return_value="FIXTURE-HOST"), \
+                mock.patch.object(lock.subprocess, "run", return_value=self.response(stamp)) as run:
+            self.assertEqual(stamp, lock._boot_stamp())
+        command = run.call_args.args[0]
+        self.assertIn("-NoProfile", command)
+        self.assertIn("-NonInteractive", command)
+        self.assertIn('$PSHOME/Modules/Microsoft.PowerShell.Diagnostics/', command[-1])
+        self.assertIn("Id=12", command[-1])
+        self.assertIn("-MaxEvents 1", command[-1])
+        self.assertIn(".ToXml()", command[-1])
+        self.assertIn("StartTime", command[-1])
+        self.assertNotIn("Message", command[-1])
+        self.assertEqual(15, run.call_args.kwargs["timeout"])
+
+    def test_invalid_foreign_and_hibernation_events_are_unavailable(self):
+        bad = [None, [], {}, {k: v for k, v in startup_stamp().items() if k != "record_id"}]
+        for key, value in (("computer", "foreign"), ("channel", "Application"),
+                           ("provider", "Microsoft-Windows-Power-Troubleshooter"),
+                           ("record_id", True), ("record_id", 0), ("record_id", "10"),
+                           ("start_time_utc", "2026-09-23T01:00:00"),
+                           ("start_time_utc", "2026-09-23T01:00:00+02:00"),
+                           ("start_time_utc", ["2026-09-23T01:00:00Z"]),
+                           ("start_time_utc", "2026-02-30T01:00:00Z")):
+            bad.append({**startup_stamp(), key: value})
+        for item in bad:
+            raw = {k: v for k, v in item.items() if k != "source"} if isinstance(item, dict) else item
+            with self.subTest(raw=raw), mock.patch.object(lock.os, "name", "nt"), \
+                    mock.patch.object(lock.socket, "gethostname", return_value="fixture-host"), \
+                    mock.patch.object(lock.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, json.dumps(raw), "")):
+                self.assertTrue(lock._boot_stamp().startswith("unavailable:"))
+
+    def test_query_timeout_errors_and_non_windows_do_not_fallback(self):
+        with mock.patch.object(lock.os, "name", "nt"):
+            for error in (subprocess.TimeoutExpired("fixture", 15), OSError("denied"), ValueError("bad XML-derived JSON")):
+                with mock.patch.object(lock.subprocess, "run", side_effect=error) as run:
+                    self.assertTrue(lock._boot_stamp().startswith("unavailable:"))
+                    run.assert_called_once()
+            for result in (subprocess.CompletedProcess([], 1, "", "event access denied"),
+                           subprocess.CompletedProcess([], 0, "not JSON", "")):
+                with mock.patch.object(lock.subprocess, "run", return_value=result):
+                    self.assertTrue(lock._boot_stamp().startswith("unavailable:"))
+        with mock.patch.object(lock.os, "name", "posix"), mock.patch.object(lock.subprocess, "run") as run:
+            self.assertTrue(lock._boot_stamp().startswith("unavailable:"))
+            run.assert_not_called()
+
+    def test_fractional_start_time_is_preserved_without_float_rounding(self):
+        from decimal import Decimal
+        stamp = startup_stamp("2026-09-23T00:00:00.1234567Z")
+        self.assertEqual(Decimal(int(epoch("2026-09-23T00:00:00Z"))) + Decimal("0.1234567"),
+                         lock._boot_time(stamp, "fixture-host"))
+        self.assertIsNone(lock._boot_time({**stamp, "start_time_utc": "2026-09-23T00:00:00.12345678Z"}, "fixture-host"))
+
+
+class RebootPredicate(unittest.TestCase):
+    def owner(self):
+        return {"host": "FIXTURE-HOST", "acquired_epoch": epoch("2026-09-22T00:00:00Z"),
+                "boot_stamp": startup_stamp()}
+
+    def current(self):
+        return startup_stamp("2026-09-23T00:00:00Z", 11)
+
+    def proof(self, owner=None, current=None, now=None):
+        return lock.reboot_recovery_proof(self.owner() if owner is None else owner,
+            self.current() if current is None else current, hostname="fixture-host",
+            now=epoch("2026-09-23T01:00:00Z") if now is None else now)
+
+    def test_only_a_later_startup_after_acquisition_produces_proof(self):
+        proof = self.proof()
+        self.assertIsNotNone(proof)
+        self.assertEqual(self.owner(), proof["old_owner"])
+        self.assertEqual(self.current(), proof["current_boot_stamp"])
+        self.assertEqual("fixture-host", proof["local_host"])
+
+    def test_same_boot_hibernation_and_clock_jumps_never_prove_reboot(self):
+        for now in (epoch("2026-09-23T01:00:00Z"), epoch("2030-01-01T00:00:00Z"), epoch("2020-01-01T00:00:00Z")):
+            self.assertIsNone(self.proof(current=startup_stamp(), now=now))
+            self.assertIsNone(self.proof(current=startup_stamp(record=900), now=now))
+        self.assertIsNone(self.proof(owner={**self.owner(), "acquired_epoch": epoch("2026-09-17T00:00:00Z")}))
+        self.assertIsNone(self.proof(now=epoch("2026-09-22T23:59:59Z")))
+        self.assertIsNone(self.proof(owner={**self.owner(), "acquired_epoch": epoch("2026-09-23T00:00:00Z")}))
+
+    def test_foreign_legacy_malformed_and_unknown_metadata_remains_manual(self):
+        for field, value in (("host", "foreign"), ("host", ""), ("host", None),
+                             ("boot_stamp", None), ("boot_stamp", "unavailable: fixture"),
+                             ("boot_stamp", {}), ("acquired_epoch", True), ("acquired_epoch", -1),
+                             ("acquired_epoch", "123"), ("acquired_epoch", float("nan")),
+                             ("acquired_epoch", float("inf"))):
+            with self.subTest(field=field, value=value):
+                self.assertIsNone(self.proof(owner={**self.owner(), field: value}))
+        for stamp in ({}, "unavailable: query failed", {**self.current(), "source": "WMI"},
+                      {**self.current(), "record_id": False}, {**self.current(), "extra": 1}):
+            self.assertIsNone(self.proof(current=stamp))
+
+
+class AutomaticRebootRecovery(Base):
+    def stamps(self):
+        host = lock.socket.gethostname()
+        return startup_stamp(host=host), startup_stamp("2026-09-23T00:00:00Z", 11, host)
+
+    def old_owner(self, repo, **changes):
+        old, _ = self.stamps()
+        owner = {"host": lock.socket.gethostname(), "role": "Previous Agent", "boot_stamp": old,
+                 "acquired_epoch": epoch("2026-09-22T00:00:00Z")}
+        owner.update(changes)
+        return self.plant(repo, owner)
+
+    def acquire(self, repo):
+        return lock.acquire(repo=repo, role="Next Agent", operation="new request", timeout=0)
+
+    def test_new_owner_captures_one_startup_query(self):
+        repo = self.repo()
+        _, current = self.stamps()
+        with mock.patch.object(lock, "_boot_stamp", return_value=current) as query:
+            owner = self.acquire(repo)
+        self.assertEqual(current, lock.inspect(repo=repo)[1]["boot_stamp"])
+        query.assert_called_once()
+        lock.release(owner)
+
+    def test_reboot_records_and_releases_without_entering_business_or_repairing(self):
+        repo = self.repo()
+        token = self.old_owner(repo)
+        _, current = self.stamps()
+        head = git(repo, "rev-parse", "HEAD")
+        (repo / "base.txt").write_text("staged change")
+        git(repo, "add", "base.txt")
+        (repo / "base.txt").write_text("unstaged change")
+        (repo / ".git/MERGE_HEAD").write_text(head + "\n")
+        index = git(repo, "diff", "--cached", "--binary")
+        status = git(repo, "status", "--porcelain=v1")
+        with mock.patch.object(lock, "_boot_stamp", return_value=current) as query:
+            with self.assertRaises(lock.MainWriteLockRecovered) as caught:
+                with lock.held(repo=repo, role="Next Agent", operation="must not run", timeout=0):
+                    self.fail("automatic recovery must end admission before business body")
+        query.assert_called_once()
+        self.assertIsNone(lock.inspect(repo=repo))
+        report = json.loads(caught.exception.report_path.read_text())
+        self.assertEqual((repo / ".git/nsc-main-write-recovery").resolve(), caught.exception.report_path.parent)
+        self.assertEqual(token, report["reboot_recovery_proof"]["old_owner_oid"])
+        self.assertEqual(current, report["reboot_recovery_proof"]["current_boot_stamp"])
+        self.assertEqual(head, report["head"])
+        self.assertIn("base.txt", report["index"])
+        self.assertIn("MERGE_HEAD", report["in_progress"])
+        self.assertEqual(head, git(repo, "rev-parse", "HEAD"))
+        self.assertEqual(index, git(repo, "diff", "--cached", "--binary"))
+        self.assertEqual(status, git(repo, "status", "--porcelain=v1"))
+        with mock.patch.object(lock, "_boot_stamp", return_value=current):
+            fresh = self.acquire(repo)  # fresh caller must still apply its normal business preconditions
+        lock.release(fresh)
+
+    def test_same_boot_foreign_and_legacy_keep_the_exact_token(self):
+        for changes, use_current in (({}, False), ({"host": "foreign"}, True), ({"boot_stamp": None}, True)):
+            with self.subTest(changes=changes, use_current=use_current):
+                repo = self.repo()
+                token = self.old_owner(repo, **changes)
+                old, current = self.stamps()
+                with mock.patch.object(lock, "_boot_stamp", return_value=current if use_current else old):
+                    with self.assertRaises(lock.MainWriteLockBusy):
+                        self.acquire(repo)
+                self.assertEqual(token, lock.inspect(repo=repo)[0])
+                self.assertFalse((repo / ".git/nsc-main-write-recovery").exists())
+
+    def test_recovery_race_does_not_clear_a_changed_owner(self):
+        repo = self.repo()
+        old_token = self.old_owner(repo)
+        _, current = self.stamps()
+        real_write = lock._write_owner_blob
+        replacement = []
+        def racing_write(target, body):
+            result = real_write(target, body)
+            if "recovered_from" in body:
+                live = real_write(target, {"host": lock.socket.gethostname(), "boot_stamp": current,
+                    "acquired_epoch": time.time(), "role": "Live Agent"})
+                git(repo, "update-ref", lock.LOCK_REF, live, old_token)
+                replacement.append(live)
+            return result
+        with mock.patch.object(lock, "_boot_stamp", return_value=current), \
+                mock.patch.object(lock, "_write_owner_blob", side_effect=racing_write):
+            with self.assertRaisesRegex(lock.MainWriteLockError, "compare-and-swap"):
+                self.acquire(repo)
+        self.assertEqual(replacement[0], lock.inspect(repo=repo)[0])
+
+    def test_report_failure_retains_fresh_recovery_owner_and_startup_evidence(self):
+        repo = self.repo()
+        old_token = self.old_owner(repo)
+        _, current = self.stamps()
+        with mock.patch.object(lock, "_boot_stamp", return_value=current) as query, \
+                mock.patch.object(lock.os, "fsync", side_effect=OSError("fixture disk failure")):
+            with self.assertRaisesRegex(lock.MainWriteLockError, "retained recovery owner"):
+                self.acquire(repo)
+        query.assert_called_once()
+        token, owner = lock.inspect(repo=repo)
+        self.assertNotEqual(old_token, token)
+        self.assertEqual(current, owner["boot_stamp"])
+        self.assertFalse(owner["termination_established_by_caller"])
+        self.assertEqual(old_token, owner["reboot_recovery_proof"]["old_owner_oid"])
+        with mock.patch.object(lock, "_boot_stamp", return_value=current):
+            with self.assertRaises(lock.MainWriteLockBusy):
+                self.acquire(repo)
+        self.assertEqual(token, lock.inspect(repo=repo)[0])
+
+    def test_uncertain_recovery_release_is_not_reclassified_as_ordinary_failure(self):
+        repo = self.repo()
+        old_token = self.old_owner(repo)
+        _, current = self.stamps()
+        with mock.patch.object(lock, "_boot_stamp", return_value=current), \
+                mock.patch.object(lock, "release", side_effect=lock.MutationChildUncertain("fixture release child unsettled")):
+            with self.assertRaisesRegex(lock.MutationChildUncertain, "retained recovery owner"):
+                self.acquire(repo)
+        token, owner = lock.inspect(repo=repo)
+        self.assertNotEqual(old_token, token)
+        self.assertEqual(old_token, owner["recovered_from"]["owner_oid"])
+        self.assertEqual(1, len(list((repo / ".git/nsc-main-write-recovery").glob("*.json"))))
 
 
 class TransitionalLegacyWarnings(unittest.TestCase):

@@ -8,10 +8,12 @@ The handle binds that absolute target and common Git identity once.
 
 No age, PID, role, journal entry or process metadata grants takeover permission.
 Sixty seconds means overdue for inspection only; there is no upper bound on a
-legitimate hold. Explicit recovery requires the full observed token, a reason,
-and the operator's confirmation that the original writer AND its children cannot
-continue. It replaces the token atomically, records actual repository state and
-releases without resetting or retrying business operations.
+legitimate hold. A verified later startup of the same Windows host permits
+automatic recovery; unknown or unchanged startup evidence does not. Explicit
+recovery requires the full observed token, a reason, and confirmation that the
+original writer AND its children cannot continue. Both recovery paths replace
+the token atomically, record actual repository state and release without
+resetting or retrying business operations.
 
 Optional process identity is diagnostic. The tracked Pipeline implementation is
 used when available; standalone deployments record an explicit unavailable reason.
@@ -24,6 +26,7 @@ import contextlib
 import argparse
 import importlib.util
 import json
+import math
 import os
 import re
 import pathlib
@@ -35,6 +38,7 @@ import uuid
 from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from decimal import Decimal
 
 LOCK_REF = "refs/locks/main-write"
 BLOB_SCHEMA = "nsc-main-write-lock/v2"
@@ -42,6 +46,85 @@ DEFAULT_TIMEOUT = 120.0
 OVERDUE_SECONDS = 60.0
 POLL_SECONDS = 0.05
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+BOOT_SOURCE = "windows-system-kernel-general-12-start-time/v1"
+BOOT_QUERY_TIMEOUT = 15
+BOOT_QUERY = """$ErrorActionPreference = 'Stop'
+Import-Module "$PSHOME/Modules/Microsoft.PowerShell.Diagnostics/Microsoft.PowerShell.Diagnostics.psd1" -ErrorAction Stop
+$bootEvent = Get-WinEvent -FilterHashtable @{LogName='System';ProviderName='Microsoft-Windows-Kernel-General';Id=12} -MaxEvents 1
+$bootXml = [xml]$bootEvent.ToXml()
+$startTime = ($bootXml.Event.EventData.Data | Where-Object { $_.Name -eq 'StartTime' }).'#text'
+[pscustomobject]@{computer=$bootEvent.MachineName;channel=$bootEvent.LogName;provider=$bootEvent.ProviderName;record_id=$bootEvent.RecordId;start_time_utc=$startTime} | ConvertTo-Json -Compress
+"""
+
+
+def _boot_time(stamp, hostname):
+    """Strict local startup evidence, as exact decimal UTC seconds or None."""
+    try:
+        if (not isinstance(stamp, dict) or set(stamp) != {
+                "source", "computer", "channel", "provider", "record_id", "start_time_utc"}
+                or stamp["source"] != BOOT_SOURCE or stamp["channel"] != "System"
+                or stamp["provider"] != "Microsoft-Windows-Kernel-General"
+                or not isinstance(hostname, str) or not hostname.strip()
+                or not isinstance(stamp["computer"], str) or not stamp["computer"].strip()
+                or stamp["computer"].casefold() != hostname.casefold()
+                or type(stamp["record_id"]) is not int or stamp["record_id"] <= 0
+                or not isinstance(stamp["start_time_utc"], str)):
+            return None
+        matched = re.fullmatch(r"(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)(?:\.(\d{1,7}))?(?:Z|\+00:00)", stamp["start_time_utc"])
+        if not matched:
+            return None
+        when = datetime.fromisoformat(matched[1]).replace(tzinfo=timezone.utc)
+        seconds = Decimal(int(when.timestamp())) + Decimal("0." + (matched[2] or "0"))
+        return seconds if seconds > 0 else None
+    except Exception:
+        return None
+
+
+def _boot_stamp():
+    """One bounded read of the local OS startup event; no uptime/wake fallback."""
+    if os.name != "nt":
+        return "unavailable: Windows startup events are not supported on this host"
+    try:
+        result = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", BOOT_QUERY],
+                                capture_output=True, text=True, timeout=BOOT_QUERY_TIMEOUT,
+                                creationflags=NO_WINDOW)
+        if result.returncode:
+            return f"unavailable: startup event query failed ({result.stderr.strip()})"
+        raw = json.loads(result.stdout)
+        if not isinstance(raw, dict) or set(raw) != {"computer", "channel", "provider", "record_id", "start_time_utc"}:
+            return "unavailable: malformed startup event response"
+        stamp = {"source": BOOT_SOURCE, **raw}
+        if _boot_time(stamp, socket.gethostname()) is None:
+            return "unavailable: startup event evidence failed validation"
+        return stamp
+    except Exception as error:
+        return f"unavailable: startup event query failed ({type(error).__name__}: {error})"
+
+
+def reboot_recovery_proof(owner, current_stamp, *, hostname, now):
+    """A later local startup, not age or parent death, proves reboot settlement."""
+    try:
+        if (not isinstance(owner, dict) or not isinstance(owner.get("host"), str)
+                or not owner["host"].strip() or not isinstance(hostname, str) or not hostname.strip()
+                or owner["host"].casefold() != hostname.casefold()):
+            return None
+        acquired = owner.get("acquired_epoch")
+        if any(type(value) not in (int, float) or not math.isfinite(value) or value <= 0
+               for value in (acquired, now)):
+            return None
+        old_boot = _boot_time(owner.get("boot_stamp"), hostname)
+        current_boot = _boot_time(current_stamp, hostname)
+        if old_boot is None or current_boot is None:
+            return None
+        acquired_time = Decimal(acquired)
+        if not old_boot <= acquired_time < current_boot <= Decimal(now) or current_boot <= old_boot:
+            return None
+        return {"predicate": "same-host-later-startup-after-recorded-startup-and-acquisition/v1",
+                "local_host": hostname, "old_owner": owner, "old_boot_stamp": owner["boot_stamp"],
+                "current_boot_stamp": current_stamp, "acquired_epoch": acquired,
+                "checked_epoch": now, "checked_at": datetime.fromtimestamp(now, timezone.utc).isoformat()}
+    except Exception:
+        return None
 
 
 def _identity_provider():
@@ -148,6 +231,16 @@ class MainWriteLockError(RuntimeError):
 
 class MutationChildUncertain(MainWriteLockError):
     """A started child may still write. Retain ownership for explicit recovery."""
+
+
+class MainWriteLockRecovered(MainWriteLockError):
+    """Automatic recovery completed; this invocation must not run business work."""
+
+    def __init__(self, report_path):
+        self.report_path = pathlib.Path(report_path)
+        super().__init__(f"automatic reboot recovery recorded repository state in {self.report_path} "
+                         "and released the lock. The requested business operation was NOT started; "
+                         "rerun with fresh admission and repository checks.")
 
 
 def run_process(*args, **kwargs):
@@ -314,7 +407,7 @@ def _write_owner_blob(repo: pathlib.Path, body: dict) -> str:
 
 def acquire(*, repo, role: str, operation: str, expected_head: str = "",
             timeout: float = DEFAULT_TIMEOUT) -> WriteHandle:
-    """Take the lock, or raise MainWriteLockBusy. Never breaks a held lock."""
+    """Take ownership, or report contention/recovery without running business work."""
     repo = _require_repo(repo)
     common = _common_dir(repo)
     if not isinstance(role, str) or not role.strip():
@@ -324,6 +417,7 @@ def acquire(*, repo, role: str, operation: str, expected_head: str = "",
             "the main-write lock requires an operation: a refusal that cannot "
             "say what the holder is doing sends the reader to the journal")
 
+    boot_stamp = _boot_stamp()  # This process cannot survive a reboot; never poll the OS per retry.
     operation_id = str(uuid.uuid4())
     body = {
         "schema_version": BLOB_SCHEMA,
@@ -337,6 +431,7 @@ def acquire(*, repo, role: str, operation: str, expected_head: str = "",
         "expected_head": expected_head,
         # A bare pid is not an identity: see the module docstring.
         "process_identity": _process_identity(),
+        "boot_stamp": boot_stamp,
     }
     owner_oid = _write_owner_blob(repo, body)
 
@@ -359,6 +454,13 @@ def acquire(*, repo, role: str, operation: str, expected_head: str = "",
                                   "but expected" in error):
             raise MainWriteLockError(f"could not acquire {LOCK_REF}: {error}")
         current_oid, owner = found if found is not None else ("", {})
+        proof = reboot_recovery_proof(owner, boot_stamp, hostname=body["host"], now=time.time())
+        if proof is not None:
+            proof["old_owner_oid"] = current_oid
+            state = recover_and_report(repo=repo, expected_owner_oid=current_oid, role=body["role"],
+                reason="verified later local OS startup", termination_established=True,
+                recovery_proof=proof)
+            raise MainWriteLockRecovered(state["report_path"])
         # EVERY retry path checks the deadline. The branch where the ref
         # vanished between our attempt and our look used to `continue`
         # without checking it and without sleeping, so a lock that kept
@@ -434,14 +536,12 @@ def held(*, repo, role: str, operation: str, expected_head: str = "",
 
 
 def recover(*, repo, expected_owner_oid: str, role: str, reason: str,
-            termination_established: bool) -> WriteHandle:
-    """Reclaim a crashed writer's lock, after the CALLER proved it stopped.
+            termination_established: bool, recovery_proof=None) -> WriteHandle:
+    """Reserve recovery after explicit settlement or verified later OS startup.
 
-    This is the only path that displaces another owner, and it is deliberately
-    not automatic. `termination_established` is the caller asserting it checked;
-    this module cannot check for it, because a dead pid does not prove a dead
-    git subprocess and pids are reused. Recording the assertion at least makes
-    a wrong one attributable.
+    This is the only path that displaces another owner. Manual callers assert
+    `termination_established`; acquire supplies its checked startup proof for
+    automatic recovery. A dead PID or overdue timestamp supplies neither proof.
 
     The swap is a compare-and-swap against the exact owner the caller inspected,
     so a recovery that races a legitimate release-and-reacquire refuses instead
@@ -457,7 +557,7 @@ def recover(*, repo, expected_owner_oid: str, role: str, reason: str,
         raise MainWriteLockError(
             "recovery refuses: establish that the holding writer AND its child "
             "processes have stopped before reclaiming. An expired timestamp is "
-            "not evidence of that, which is why this is not automatic.")
+            "not evidence of that; automatic recovery requires a verified later startup.")
     if not isinstance(reason, str) or not reason.strip():
         raise MainWriteLockError("recovery requires a reason; it is recorded")
 
@@ -485,8 +585,11 @@ def recover(*, repo, expected_owner_oid: str, role: str, reason: str,
         "expected_head": "",
         "process_identity": _process_identity(),
         "recovered_from": {"owner_oid": current_oid, "owner": owner},
-        "termination_established_by_caller": True,
+        "termination_established_by_caller": recovery_proof is None,
+        "boot_stamp": _boot_stamp() if recovery_proof is None else recovery_proof["current_boot_stamp"],
     }
+    if recovery_proof is not None:
+        body["reboot_recovery_proof"] = recovery_proof
     owner_oid = _write_owner_blob(repo, body)
     try:
         code, _, error = _git(repo, "update-ref", LOCK_REF, owner_oid, current_oid)
@@ -503,7 +606,7 @@ def recover(*, repo, expected_owner_oid: str, role: str, reason: str,
                        acquired_at=body["acquired_epoch"])
 
 
-def recover_and_report(*, report, **kwargs) -> dict:
+def recover_and_report(*, report=None, **kwargs) -> dict:
     """Take recovery ownership, record actual Git state, then release.
 
     No business operation or rollback runs here. Any failure retains the fresh
@@ -511,9 +614,16 @@ def recover_and_report(*, report, **kwargs) -> dict:
     """
     owner = recover(**kwargs)
     try:
+        if report is None:
+            directory = owner.common_git_dir / "nsc-main-write-recovery"
+            directory.mkdir(parents=True, exist_ok=True)
+            report = directory / f"{owner.operation_id}.json"
         state = {"repo": str(owner.repo), "common_git_dir": str(owner.common_git_dir),
                  "recovery_owner_oid": owner.owner_oid,
-                 "recovered_from": kwargs["expected_owner_oid"], "reason": kwargs["reason"]}
+                 "recovered_from": kwargs["expected_owner_oid"], "reason": kwargs["reason"],
+                 "report_path": str(pathlib.Path(report).resolve())}
+        if kwargs.get("recovery_proof") is not None:
+            state["reboot_recovery_proof"] = kwargs["recovery_proof"]
         for name, args in (("head", ("rev-parse", "HEAD")),
                            ("status", ("status", "--porcelain=v1")),
                            ("index", ("diff", "--cached", "--name-status"))):
@@ -539,7 +649,8 @@ def recover_and_report(*, report, **kwargs) -> dict:
         release(owner)
         return state
     except BaseException as error:
-        raise MainWriteLockError(
+        error_type = MutationChildUncertain if isinstance(error, MutationChildUncertain) else MainWriteLockError
+        raise error_type(
             f"recovery did not complete: {error}; retained recovery owner "
             f"{owner.owner_oid} in {owner.repo}. Inspect before retrying.") from error
 

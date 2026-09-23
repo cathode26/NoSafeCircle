@@ -65,7 +65,7 @@ recovery. It does not restore files or release ownership on that path. Normal
 subprocess completion establishes that the invoked process finished; hooks and
 validators must not deliberately detach additional writers.
 
-## Explicit recovery
+## Recovery after a verified reboot, or explicit recovery
 
 The helper's `inspect` subcommand requires `--repo` and prints the current full
 token and metadata as the existing JSON tuple (or `null`) on stdout. It separately
@@ -76,20 +76,36 @@ malformed, unavailable or failed queries are unknown; no foreign-host process is
 queried. A gone owner says nothing about surviving children and never changes
 admission or recovery.
 
-Recovery requires that same actual target, the full observed
+Explicit recovery requires that same actual target, the full observed
 `--owner-oid`, `--role`, `--reason`, `--termination-established`, and a new
 `--report` file. The termination flag is the operator's assertion that the prior
 writer and its children/hooks cannot continue; it is not machine proof and must
 not be inferred from age or a bare PID.
 
-The chosen policy is explicit recovery; this change does not add automatic
-reclamation after a reboot or through Windows Job Objects. The earlier routine
-timeout premise was corrected by the operational audit: Claude Code's Bash tool
-backgrounds a command on that timeout instead of killing its writer tree. An
-ordinary foreground timeout is therefore not evidence that the owner stopped.
-After abnormal termination, a retained lock signals that the writer's children
-and actual repository state require inspection. Manual recovery remains an
-accepted operational cost; it does not justify restoring age-based takeover.
+Vincent chose automatic recovery after a verified later startup of the same
+Windows host. The design owner corrected the earlier delivery's attribution of
+manual-only acceptance to him. Each new owner records one bounded read of the
+newest local System / Microsoft-Windows-Kernel-General / event 12 XML StartTime,
+with its provider, channel, computer and record ID. This query has a 15-second
+limit and runs once per acquisition, not once per retry. Failed queries record
+an unavailable reason and do not prevent ordinary lock acquisition. The helper
+does not use WMI boot time, now minus uptime, event Message text or wake events.
+
+Automatic recovery requires matching nonblank host names, valid captured and
+current startup stamps, and finite positive acquisition time. Current startup
+must be later than both the previous startup and acquisition, and no later than
+the current observation. Previous acquisition cannot precede its startup.
+An unchanged startup refuses even after hibernation or a wall-clock jump;
+record-ID changes alone never qualify. Foreign hosts, malformed or unavailable
+evidence, and legacy owners without a valid captured startup remain held for
+explicit recovery. Epoch-only legacy metadata cannot safely distinguish a reboot
+from a historical clock adjustment. A true reboot whose timestamps fail this
+ordering conservatively requires explicit recovery too.
+
+The earlier routine timeout premise was corrected by the operational audit:
+Claude Code's Bash tool backgrounds a command on that timeout instead of killing
+its writer tree. An ordinary foreground timeout is not evidence that the owner
+stopped. No age, PID-death or Windows Job Object inference grants recovery.
 
 Recovery first conditionally replaces the inspected token with a fresh recovery
 token. A changed token refuses. While still holding ownership, it records actual
@@ -97,6 +113,12 @@ HEAD, staged changes, worktree state and in-progress Git markers to the new
 report. If inspection or recording fails, it retains and reports its recovery
 token. After successful recording it conditionally releases. Clearing the lock
 does not reset files, repair a merge, retry a task, or imply the tree is clean.
+Automatic reports use an exclusive UUID filename under the common Git directory's
+`nsc-main-write-recovery` folder and include the exact previous owner OID, owner
+metadata, both startup stamps, acquisition/check time and recovery predicate.
+The requested operation stops with `MainWriteLockRecovered` (merger: `RECOVERED`)
+before journal START or business mutation. Run a new invocation to apply all
+normal admission and repository checks; recovery never replays either operation.
 
 ## Delivery set and later activation
 
@@ -149,3 +171,7 @@ merger, adapter, five entry-point fixtures and both-direction process contention
 tests. They use disposable repositories and explicit journals; no real tasks,
 providers, live lock or Unity project execution is involved. The deployment
 manifest tests verify that declared root files exist in the tracked source.
+Startup provider and recovery checks use synthetic event responses and disposable
+Git repositories. A separate read-only Windows provider observation and existing
+host event history support the chosen source. No physical reboot or hibernation
+was induced for this change, and no such end-to-end experiment is claimed.
