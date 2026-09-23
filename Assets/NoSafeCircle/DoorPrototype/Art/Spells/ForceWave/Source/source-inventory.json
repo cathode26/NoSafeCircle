@@ -1,0 +1,244 @@
+{
+  "task": "unassigned at authoring time - Force Wave cast pulse VFX for NSC-009",
+  "recorded_utc": "2026-09-23",
+  "family": "force_wave",
+  "pixels_per_unit": 64,
+  "filter_mode": "Point",
+  "canvas": [
+    256,
+    144
+  ],
+  "pivot": [
+    0.5,
+    0.5
+  ],
+  "pivot_note": "ONE pivot for all 7 frames, and it is the CANVAS CENTRE rather than the alpha-bbox centre. NSC-009 makes Force Wave a player-centered short-range radial knockback, so the sprite anchors at the caster's feet. Measured: across the three frames with a real bright rim the ring centre is within 1px of canvas centre in x. The 4.5px/6.5px frame-to-frame wander in the alpha bbox is DUST ASYMMETRY, not the ring translating; anchoring to it would make the pulse jitter. The committed Frost Field set took the opposite call for a reason -- there the drawn ellipse IS the field.",
+  "world_size_note": "256x144 at 64 ppu is 4.00 x 2.25 world units, i.e. a ground circle of RADIUS 2.0 -- the LOW end of NSC-009's 2-4 unit proposal range. The 2.25 height is the isometric foreshortening of a 4.00 circle under the committed camera Euler(30,-45,0): the ratio 1.778 matches the committed ca_sigil_floor_mark, the only h=0.00 flat decal in PropCatalog.json, which draws 2.09 x 1.19 world = 1.763. IF TUNING PICKS A LARGER RADIUS, 2x (radius 4.0, the top of the range) is the only clean scale; radius 3 would need the art regenerated, because a 1.5x scale breaks the 64 PPU pixel grid.",
+  "palette": {
+    "colours": 39,
+    "note": "all 7 frames were quantized TOGETHER in one reduce_colors call at 40 colours, so they share one palette. Quantizing frame by frame is the mistake that tool exists to prevent."
+  },
+  "byte_warning": "selected_sha256 is the sha256 of THESE files. Copy them verbatim; never re-encode, re-crop or round-trip.",
+  "playback": {
+    "burst": {
+      "frames": "burst_0..6",
+      "order": "0,1,2,3,4,5,6",
+      "loop": false,
+      "note": "ONE-SHOT, never looped. NSC-009 AC-012 makes IsPulseActive a brief cosmetic window that ends on its own, and AC-006 states Force Wave has no wind-up and no travelling effect -- the displacement and cooldown are synchronous inside TryCast(). The arc is bright ring (0-2), rim dimming (3), dust settling (4-6). THE RING DOES NOT EXPAND AND THAT IS DELIBERATE: the radius is the gameplay-relevant fact (which enemies were hit), so showing it at full extent on frame 0 reads it immediately, whereas an expanding ring only reveals it at the end."
+    }
+  },
+  "engine_obligation": {
+    "alpha_fade_required": true,
+    "note": "MEASURED: mean alpha is 255.0 on EVERY frame -- these sprites never fade. Bound without an engine-applied alpha fade over the serialized pulse duration, the pulse will POP out of existence on the last frame. Same obligation the committed Frost Field expire set carries, and for the same reason: the art shows the structure dissipating, the engine supplies the disappearance."
+  },
+  "art_direction": {
+    "hue": "dusty bone-white and warm pale grey, explicitly no blue, cyan, teal, green or orange. Force Wave is concussive, not elemental, and the spell kit is crowded: Fireball is orange, Frost Field is pale cyan-white, the Lantern Wraith wisp is teal and NSC-088's Spectral Decoy phantom is teal-violet. Art Director's pick, 2026-09-23.",
+    "known_defect_repaired": "the generator put 46 dark ball-shaped blobs across the 7 frames which read as stone spheres LYING ON THE FLOOR, not as motion -- they barely moved between frames 0-2. That matters here because these rooms are dressed with real rubble props (shared_rubble_scatter_b, re_broken_masonry_blocks, lv_broken_ledge_chunk). Removed by connected-component analysis on a MEASURED signature: max bbox dimension <= 20px and fill >= 0.42 at luma < 130. Dust streaks in the same frames measure 26-53px across at fill 0.23-0.44, so the two classes separate with a wide margin. Two attempts to fix this by re-prompting BOTH made it worse -- one filled the ring centre solid, the other nearly doubled the dark pixel count.",
+    "not_reviewed_in_engine": "nobody has seen these in Unity. Import settings are verified by force-reimport; nobody has approved how they look in motion."
+  },
+  "generation": {
+    "tool": "create_object_pro_flash + animate_object (mode v3) + reduce_colors",
+    "view": "low top-down",
+    "seed": 40101,
+    "object": "3e4c520a-6fb9-45ab-a3d2-9fa80814a017",
+    "quantize_job": "98d8fe84-c933-44c9-905f-df20cc4d64ae"
+  },
+  "frames": [
+    {
+      "key": "force_wave",
+      "group": "burst",
+      "file": "burst_0.png",
+      "frame_index": 0,
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/ForceWave/Source/burst_0.png",
+      "selected_sha256": "86575a508dffa91acee15c7322cd47f1cb1d03f371863f1b92c496fbbcf9e08e",
+      "bytes": 16414,
+      "canvas": [
+        256,
+        144
+      ],
+      "alpha_bbox": [
+        0,
+        15,
+        254,
+        121
+      ],
+      "opaque_px": 9427,
+      "bright_rim_px": 5525,
+      "colours": 36,
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "pixels_per_unit": 64,
+      "filter_mode": "Point"
+    },
+    {
+      "key": "force_wave",
+      "group": "burst",
+      "file": "burst_1.png",
+      "frame_index": 1,
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/ForceWave/Source/burst_1.png",
+      "selected_sha256": "b07c9617a04b182e768f4fd8cf3fd61124278d890186a440ab3272ea89637b8d",
+      "bytes": 12665,
+      "canvas": [
+        256,
+        144
+      ],
+      "alpha_bbox": [
+        0,
+        11,
+        256,
+        126
+      ],
+      "opaque_px": 9505,
+      "bright_rim_px": 5650,
+      "colours": 20,
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "pixels_per_unit": 64,
+      "filter_mode": "Point"
+    },
+    {
+      "key": "force_wave",
+      "group": "burst",
+      "file": "burst_2.png",
+      "frame_index": 2,
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/ForceWave/Source/burst_2.png",
+      "selected_sha256": "2d4e97e9639c4c5d7768c92332fb272a1f0cb27bea36e8e39f1e7f734d301706",
+      "bytes": 13663,
+      "canvas": [
+        256,
+        144
+      ],
+      "alpha_bbox": [
+        0,
+        7,
+        255,
+        134
+      ],
+      "opaque_px": 9684,
+      "bright_rim_px": 5548,
+      "colours": 22,
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "pixels_per_unit": 64,
+      "filter_mode": "Point"
+    },
+    {
+      "key": "force_wave",
+      "group": "burst",
+      "file": "burst_3.png",
+      "frame_index": 3,
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/ForceWave/Source/burst_3.png",
+      "selected_sha256": "c051083c844d80033f61a3c17ed1506c88435e4e109ce64829b9970e73653b58",
+      "bytes": 14422,
+      "canvas": [
+        256,
+        144
+      ],
+      "alpha_bbox": [
+        0,
+        21,
+        247,
+        109
+      ],
+      "opaque_px": 10314,
+      "bright_rim_px": 1255,
+      "colours": 23,
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "pixels_per_unit": 64,
+      "filter_mode": "Point"
+    },
+    {
+      "key": "force_wave",
+      "group": "burst",
+      "file": "burst_4.png",
+      "frame_index": 4,
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/ForceWave/Source/burst_4.png",
+      "selected_sha256": "5fc250f494b62dd098aaaf46d1f515bb6441ed774611887a7cc53c9a8d9152f0",
+      "bytes": 12417,
+      "canvas": [
+        256,
+        144
+      ],
+      "alpha_bbox": [
+        0,
+        27,
+        247,
+        105
+      ],
+      "opaque_px": 9912,
+      "bright_rim_px": 3327,
+      "colours": 18,
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "pixels_per_unit": 64,
+      "filter_mode": "Point"
+    },
+    {
+      "key": "force_wave",
+      "group": "burst",
+      "file": "burst_5.png",
+      "frame_index": 5,
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/ForceWave/Source/burst_5.png",
+      "selected_sha256": "4afe83cdad468a0284f36d0bfd6a31347be06d22cde55f4a51dd3a8843c09393",
+      "bytes": 12022,
+      "canvas": [
+        256,
+        144
+      ],
+      "alpha_bbox": [
+        0,
+        26,
+        249,
+        108
+      ],
+      "opaque_px": 9758,
+      "bright_rim_px": 3382,
+      "colours": 16,
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "pixels_per_unit": 64,
+      "filter_mode": "Point"
+    },
+    {
+      "key": "force_wave",
+      "group": "burst",
+      "file": "burst_6.png",
+      "frame_index": 6,
+      "selected_path": "Assets/NoSafeCircle/DoorPrototype/Art/Spells/ForceWave/Source/burst_6.png",
+      "selected_sha256": "2d887ae9e4fc86024a6c83a49a85344c3ec5b94a08e86900e2a6ee7cc62d83d7",
+      "bytes": 11673,
+      "canvas": [
+        256,
+        144
+      ],
+      "alpha_bbox": [
+        0,
+        25,
+        251,
+        111
+      ],
+      "opaque_px": 9654,
+      "bright_rim_px": 3332,
+      "colours": 16,
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "pixels_per_unit": 64,
+      "filter_mode": "Point"
+    }
+  ]
+}
