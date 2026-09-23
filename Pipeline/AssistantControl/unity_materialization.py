@@ -11,9 +11,10 @@ from __future__ import annotations
 import copy
 import json
 import re
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Mapping, Sequence
 
 from Pipeline.AssistantControl.admission import _source_registry_paths
 from Pipeline.AssistantControl.checkouts import Checkouts, write_record
@@ -33,10 +34,13 @@ from Pipeline.TaskReviewAgent.contracts import ExecutionScopePlan, semantic_sha2
 from Pipeline.TaskReviewAgent.door_prototype_materialization import (
     DOOR_PROTOTYPE_ROOT,
     DoorPrototypeMaterializationError,
+    DressingPrefabBuilder,
     UnityCommandRunner,
+    declares_dressing_entry_point,
     default_unity_command_runner,
     is_door_prototype_builder_output,
     is_unity_serialized,
+    resolve_dressing_builder,
     resolve_generated_builder,
     resolve_unity_executable,
     run_door_prototype_builder,
@@ -237,9 +241,140 @@ def _missing_folder_meta_inventory(checkout: Path, commit: str) -> tuple[str, ..
     ))
 
 
+def _task_owned_repo_files(task: Mapping[str, Any]) -> frozenset[str]:
+    owned: set[str] = set()
+    for resource in task.get("exclusive_resources") or []:
+        if not isinstance(resource, str):
+            continue
+        kind, separator, value = resource.partition(":")
+        if not separator or kind != "repo-file":
+            continue
+        path = value.replace("\\", "/").strip("/")
+        if path:
+            owned.add(path)
+    return frozenset(owned)
+
+
+def _implementation_paths(scope: Mapping[str, Any]) -> tuple[str, ...]:
+    try:
+        plan = ExecutionScopePlan.from_dict(scope["plan"])
+    except Exception as exc:
+        raise MaterializationError("registered execution scope is malformed") from exc
+    return (*plan.existing_implementation_paths, *plan.new_implementation_paths)
+
+
+def _regular_blob(checkout: Path, commit: str, path: str) -> str | None:
+    """The blob sha of ``path`` at ``commit`` when it is an ordinary file.
+
+    ``None`` for a symlink (mode 120000), a submodule gitlink (160000), a tree,
+    or an absent path -- the three shapes that would otherwise let a candidate
+    point the entry-point witness at content that is not in the commit.
+    """
+    try:
+        entry = git(checkout, "ls-tree", "-z", commit, "--", path).decode()
+    except RuntimeError:
+        return None
+    entry = entry.split("\0")[0]
+    if not entry:
+        return None
+    metadata, _, _name = entry.partition("\t")
+    fields = metadata.split()
+    if len(fields) < 3 or fields[1] != "blob" or fields[0] not in {"100644", "100755"}:
+        return None
+    return fields[2]
+
+
+def _is_regular_file(path: Path) -> bool:
+    return path.is_file() and not path.is_symlink()
+
+
+def _require_dressing_sources(
+    checkout: Path,
+    commit: str,
+    task: Mapping[str, Any],
+    implementation: Sequence[str],
+    builder: DressingPrefabBuilder,
+) -> dict[str, Any]:
+    """Authenticate a dressing candidate's own builder and catalog at C.
+
+    Everything here is read AT THE EXACT CANDIDATE COMMIT, never at main and
+    never at the admitted source baseline. These five builders do not exist on
+    main at all -- the crew authors them -- so the candidate is the only place
+    the declared entry point can be witnessed. A valid builder on some other
+    commit cannot rescue an invalid C.
+    """
+    owned = _task_owned_repo_files(task)
+    in_scope = set(implementation)
+    for path in (
+        builder.prefab_path, builder.builder_source_path, builder.catalog_path,
+    ):
+        if path not in owned or path not in in_scope:
+            raise MaterializationError(f"dressing_builder_scope_mismatch: {path}")
+
+    source_blob = _regular_blob(checkout, commit, builder.builder_source_path)
+    if source_blob is None or not _is_regular_file(checkout / builder.builder_source_path):
+        raise MaterializationError(
+            f"builder_source_not_regular: {builder.builder_source_path} at {commit}"
+        )
+    catalog_blob = _regular_blob(checkout, commit, builder.catalog_path)
+    if catalog_blob is None or not _is_regular_file(checkout / builder.catalog_path):
+        raise MaterializationError(
+            f"catalog_source_missing: {builder.catalog_path} at {commit}"
+        )
+    try:
+        source = git(checkout, "cat-file", "blob", source_blob).decode("utf-8")
+    except (RuntimeError, UnicodeDecodeError) as exc:
+        raise MaterializationError(
+            f"builder_source_not_regular: {builder.builder_source_path} at {commit}"
+        ) from exc
+    if not declares_dressing_entry_point(source, builder):
+        raise MaterializationError(
+            f"builder_entry_point_missing: {builder.build_method} in "
+            f"{builder.builder_source_path} at {commit}"
+        )
+    try:
+        json.loads(git(checkout, "cat-file", "blob", catalog_blob).decode("utf-8"))
+    except (RuntimeError, UnicodeDecodeError, ValueError) as exc:
+        raise MaterializationError(
+            f"catalog_source_invalid: {builder.catalog_path} at {commit}"
+        ) from exc
+    return {
+        "dressing_room": builder.room,
+        "dressing_primary_prefab": builder.prefab_path,
+        "dressing_build_method": builder.build_method,
+        "dressing_builder_source": builder.builder_source_path,
+        "dressing_builder_source_blob": source_blob,
+        "dressing_catalog": builder.catalog_path,
+        "dressing_catalog_blob": catalog_blob,
+        "dressing_sources_read_at": commit,
+    }
+
+
+@dataclass(frozen=True)
+class _CandidateMaterials:
+    """What one authenticated candidate offers the Unity run.
+
+    ``builder_payload`` is deliberately separate from ``generated``: the second
+    has metadata companions unioned in, and re-resolving THAT set picks up the
+    default scene builder as a second owner. Selection reads the payload;
+    metadata is a permission to write, never evidence about who builds.
+    """
+
+    checkout: Path
+    candidate: dict[str, Any]
+    receipt: dict[str, Any]
+    generated: tuple[str, ...]
+    roots: tuple[str, ...]
+    asset_metas: tuple[str, ...]
+    folder_metas: tuple[str, ...]
+    builder_payload: tuple[str, ...]
+    dressing: DressingPrefabBuilder | None = None
+    dressing_journal: dict[str, Any] = field(default_factory=dict)
+
+
 def _require_candidate(
     checkouts: Checkouts, record: Mapping[str, Any], expected_candidate: str,
-) -> tuple[Path, dict[str, Any], dict[str, Any], tuple[str, ...], tuple[str, ...]]:
+) -> _CandidateMaterials:
     if record.get("task_id") is None or record.get("source") != str(checkouts.source):
         raise MaterializationError("owned task record identity differs")
     if (record.get("status") not in {"awaiting_human", "needs_materialization"}
@@ -298,12 +433,31 @@ def _require_candidate(
     roots, companions = _generated_resource_roots(
         task, checkout, expected_candidate, receipt["changed_paths"],
     )
+    # The ORIGINAL builder payload, before metadata is unioned in. Builder
+    # SELECTION must be made from this list and nothing else: a companion .meta
+    # sits under the DoorPrototype root, so re-resolving the enlarged set drags
+    # in the default scene builder as a second owner and a request that has
+    # exactly one legitimate owner refuses. Metadata is a permission to write,
+    # never evidence about who builds.
+    builder_payload = generated
     generated = tuple(sorted(set(generated).union(companions), key=str.casefold))
     asset_metas = _generated_asset_meta_inventory(
         checkout, expected_candidate, generated,
     )
     folder_metas = _missing_folder_meta_inventory(checkout, expected_candidate)
-    return checkout, candidate, receipt, generated, roots, asset_metas, folder_metas
+    dressing = resolve_dressing_builder(builder_payload)
+    dressing_journal: dict[str, Any] = {}
+    if dressing is not None:
+        dressing_journal = _require_dressing_sources(
+            checkout, expected_candidate, task,
+            _implementation_paths(scope), dressing,
+        )
+    return _CandidateMaterials(
+        checkout=checkout, candidate=candidate, receipt=receipt,
+        generated=generated, roots=roots, asset_metas=asset_metas,
+        folder_metas=folder_metas, builder_payload=builder_payload,
+        dressing=dressing, dressing_journal=dressing_journal,
+    )
 
 
 def _finalize(
@@ -536,11 +690,16 @@ def materialize_candidate(
             registry_lock, timeout_seconds=10,
         ):
             _require_no_active_reservation(checkouts, task_id)
-            (checkout, candidate, receipt, generated, generated_roots,
-             generated_asset_metas, missing_folder_metas) = _require_candidate(
-                checkouts, record, expected_candidate,
-            )
-            build_method, _builder_source = resolve_generated_builder(generated)
+            materials = _require_candidate(checkouts, record, expected_candidate)
+            checkout = materials.checkout
+            candidate = materials.candidate
+            receipt = materials.receipt
+            generated = materials.generated
+            generated_roots = materials.roots
+            generated_asset_metas = materials.asset_metas
+            missing_folder_metas = materials.folder_metas
+            builder_payload = materials.builder_payload
+            build_method, _builder_source = resolve_generated_builder(builder_payload)
             task = load_committed_task(
                 checkout, task_id, commit=expected_candidate,
                 expected_sha256=str(record["task_contract_sha256"]),
@@ -562,6 +721,7 @@ def materialize_candidate(
                     "registered_generated_asset_metas": list(generated_asset_metas),
                     "registered_missing_folder_metas": list(missing_folder_metas),
                     "builder": build_method,
+                    **materials.dressing_journal,
                     "materialization_error": str(exc),
                     "retryable": True,
                     "failed_at": _now(),
@@ -586,6 +746,7 @@ def materialize_candidate(
                 "registered_generated_asset_metas": list(generated_asset_metas),
                 "registered_missing_folder_metas": list(missing_folder_metas),
                 "builder": build_method,
+                **materials.dressing_journal,
                 "started_at": _now(),
             }
             write_record(journal_path, journal)
@@ -599,6 +760,7 @@ def materialize_candidate(
                     unity_command_runner=unity_command_runner,
                     timeout_seconds=timeout_seconds,
                     allowed_generated_paths=generated,
+                    builder_payload_paths=builder_payload,
                     allowed_generated_roots=generated_roots,
                     allowed_generated_asset_metas=generated_asset_metas,
                     allowed_missing_folder_metas=missing_folder_metas,

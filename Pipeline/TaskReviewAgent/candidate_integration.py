@@ -22,6 +22,7 @@ from .authoritative_candidate_validation import (
 )
 from .door_prototype_materialization import (
     DOOR_PROTOTYPE_BUILDER as _DOOR_PROTOTYPE_BUILDER,
+    DRESSING_PREFAB_BUILDERS as _DRESSING_PREFAB_BUILDERS,
     DoorPrototypeMaterializationError,
     UnityCommandRunner,
     default_unity_command_runner,
@@ -711,6 +712,7 @@ class CandidateIntegrator:
         The gate owner performs that synchronization and exact-tree validation.
         """
 
+        self._refuse_unsupported_dressing_route()
         execution = self.execution.require(run_id)
         if execution.crew_status != "review_ready":
             raise CandidateIntegrationError(
@@ -846,6 +848,7 @@ class CandidateIntegrator:
         return receipt
 
     def integrate(self, run_id: str) -> CandidateIntegrationReceipt:
+        self._refuse_unsupported_dressing_route()
         execution = self.execution.require(run_id)
         if execution.crew_status != "review_ready":
             raise CandidateIntegrationError(
@@ -1074,6 +1077,32 @@ class CandidateIntegrator:
         execution: ExecutionCrewReceipt,
     ) -> None:
         self.commit_validator.apply_candidate(root, candidate, execution)
+
+    def _refuse_unsupported_dressing_route(self) -> None:
+        """Refuse a registered room-dressing prefab on this legacy route.
+
+        THIS ROUTE CANNOT BUILD ONE. It detects only the default scene builder
+        (``_requires_door_prototype_builder``) and calls the runner with no
+        narrowed scope, so a dressing request runs the wrong builder or none at
+        all -- and would learn that only after mutating the checkout and
+        pushing. Refusing at admission is the difference between an error and a
+        published wrong candidate.
+
+        Deliberately OUTSIDE the default-builder conditional, which a dressing
+        request never reaches. This adds no dressing support here; it names the
+        route that has it.
+        """
+        accepted = self.scope.accepted
+        if accepted is None:
+            return
+        plan = accepted.plan
+        for path in (
+            *plan.existing_implementation_paths, *plan.new_implementation_paths,
+        ):
+            if path in _DRESSING_PREFAB_BUILDERS:
+                raise CandidateIntegrationError(
+                    "dressing_materialization_requires_assistant_control: " + path
+                )
 
     @staticmethod
     def _requires_door_prototype_builder(execution: ExecutionCrewReceipt) -> bool:

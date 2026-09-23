@@ -97,6 +97,256 @@ ROOM_SCENE_BUILDERS: dict[str, RoomSceneBuilder] = {
         ),
     ),
 }
+# The five rooms that may carry visual dressing. A FINITE list, not a prefix
+# match: a name that merely resembles a dressing prefab refuses rather than
+# falling through to the default scene builder, because a silent fallback is how
+# the wrong builder gets invoked and Unity reports "method could not be found"
+# with no compiler error.
+DRESSING_ROOMS = ("RuinedEntry", "BoneArchive", "ChapelOfAsh", "LowerVault", "FinalRoom")
+
+DRESSING_PREFAB_DIRECTORY = DOOR_PROTOTYPE_ROOT + "Art/Environment/RoomDressing/"
+DRESSING_BUILDER_DIRECTORY = DOOR_PROTOTYPE_ROOT + "Editor/Environment/"
+DRESSING_BUILDER_NAMESPACE = "NoSafeCircle.DoorPrototype.Editor.Environment"
+
+# Newly specified, and deliberately NOT inferred from the room builders: those
+# register Build or BuildAndSave depending on when they were written. The crew
+# prompt must state this exact full method, or a crew reasonably chooses
+# something else and the failure lands in Unity instead of here.
+DRESSING_BUILD_METHOD_NAME = "Build"
+
+
+@dataclass(frozen=True)
+class DressingPrefabBuilder:
+    """One room's dressing prefab and the candidate-authored builder that makes it."""
+
+    room: str
+    prefab_path: str
+    builder_source_path: str
+    catalog_path: str
+    build_method: str
+    class_name: str
+    namespace: str
+
+
+def _dressing_builder(room: str) -> DressingPrefabBuilder:
+    class_name = room + "DressingPrefabBuilder"
+    return DressingPrefabBuilder(
+        room=room,
+        prefab_path=DRESSING_PREFAB_DIRECTORY + room + "Dressing.prefab",
+        builder_source_path=DRESSING_BUILDER_DIRECTORY + class_name + ".cs",
+        catalog_path=DRESSING_PREFAB_DIRECTORY + room + "DressingCatalog.json",
+        build_method=DRESSING_BUILDER_NAMESPACE + "." + class_name + "."
+                     + DRESSING_BUILD_METHOD_NAME,
+        class_name=class_name,
+        namespace=DRESSING_BUILDER_NAMESPACE,
+    )
+
+
+# Trusted pipeline configuration declaring an EXPECTED INTERFACE. It does not
+# claim these builder files exist on main -- they do not; the crew authors them.
+# That is why nothing here is verified against main the way ROOM_SCENE_BUILDERS
+# is: the witness for a dressing builder is the exact candidate, checked at
+# materialization, where the file actually exists.
+DRESSING_PREFAB_BUILDERS: dict[str, DressingPrefabBuilder] = {
+    builder.prefab_path: builder
+    for builder in (_dressing_builder(room) for room in DRESSING_ROOMS)
+}
+
+
+def is_dressing_prefab_location(path: str) -> bool:
+    """True for any .prefab at or below the dressing directory, registered or not.
+
+    Used to tell "not a dressing prefab at all" from "shaped like one and not
+    registered". The second must refuse BY NAME instead of silently becoming the
+    default scene builder's problem, because that fallback invokes a builder whose
+    own output is the composed scene and which would never produce the prefab.
+
+    ANY DEPTH QUALIFIES, deliberately. A nested
+    RoomDressing/sub/LowerVaultDressing.prefab is not one of the five exact
+    registered keys, and letting depth alone route it to the default builder would
+    reopen the silent fallback this exists to close.
+    """
+    return path.startswith(DRESSING_PREFAB_DIRECTORY) and path.endswith(".prefab")
+
+
+def resolve_dressing_builder(paths: Sequence[str]) -> "DressingPrefabBuilder | None":
+    """The one registered dressing descriptor in this payload, or None.
+
+    ``resolve_generated_builder`` already refuses a payload with two owners, so
+    the multi-owner branch here is defensive rather than a second policy.
+    """
+    found = {
+        DRESSING_PREFAB_BUILDERS[path]
+        for path in paths if path in DRESSING_PREFAB_BUILDERS
+    }
+    if not found:
+        return None
+    if len(found) > 1:
+        raise DoorPrototypeMaterializationError(
+            "generated paths require more than one builder method: "
+            + str(sorted(builder.build_method for builder in found))
+        )
+    return next(iter(found))
+
+
+def _blank_csharp_comments_and_literals(source: str) -> str:
+    """Replace comments and literals with spaces, preserving length and newlines.
+
+    THE DECOY IS THE POINT. A comment or a string containing the expected class
+    or method name must not satisfy the witness, so the scan runs over text with
+    those regions blanked rather than over the raw source. Lengths and newlines
+    are preserved so an offset still maps back to a real line.
+
+    Unrecognised exotic syntax degrades toward blanking, never toward revealing:
+    a C# 11 raw string is scanned as a run of ordinary strings, which still
+    erases its contents.
+    """
+    out = list(source)
+    length = len(source)
+    index = 0
+
+    def blank(start: int, stop: int) -> None:
+        for position in range(start, min(stop, length)):
+            if out[position] != "\n":
+                out[position] = " "
+
+    while index < length:
+        char = source[index]
+        if char == "/" and source.startswith("//", index):
+            stop = source.find("\n", index)
+            stop = length if stop < 0 else stop
+            blank(index, stop)
+            index = stop
+            continue
+        if char == "/" and source.startswith("/*", index):
+            stop = source.find("*/", index + 2)
+            stop = length if stop < 0 else stop + 2
+            blank(index, stop)
+            index = stop
+            continue
+        if char == "@" and source.startswith('@"', index):
+            # Verbatim: no backslash escapes, and "" is an escaped quote.
+            cursor = index + 2
+            while cursor < length:
+                if source[cursor] == '"':
+                    if source.startswith('""', cursor):
+                        cursor += 2
+                        continue
+                    cursor += 1
+                    break
+                cursor += 1
+            blank(index, cursor)
+            index = cursor
+            continue
+        if char in {'"', "'"}:
+            cursor = index + 1
+            while cursor < length:
+                if source[cursor] == "\\":
+                    cursor += 2
+                    continue
+                if source[cursor] == char:
+                    cursor += 1
+                    break
+                if source[cursor] == "\n" and char == '"':
+                    break
+                cursor += 1
+            blank(index, cursor)
+            index = cursor
+            continue
+        index += 1
+    return "".join(out)
+
+
+def _depth_at(text: str, position: int) -> int:
+    return text.count("{", 0, position) - text.count("}", 0, position)
+
+
+def _matching_brace(text: str, opening: int) -> int:
+    depth = 0
+    for position in range(opening, len(text)):
+        if text[position] == "{":
+            depth += 1
+        elif text[position] == "}":
+            depth -= 1
+            if depth == 0:
+                return position
+    return -1
+
+
+_CSHARP_TYPE_MODIFIERS = (
+    r"(?:public|internal|private|protected|static|sealed|partial|abstract|unsafe|new)"
+)
+_CSHARP_MEMBER_MODIFIERS = (
+    r"(?:public|internal|private|protected|static|extern|unsafe|new|virtual|override|sealed)"
+)
+
+
+def declares_dressing_entry_point(
+    source: str, builder: "DressingPrefabBuilder",
+) -> bool:
+    """True when ``source`` declares exactly the registered entry point.
+
+    A BOUNDED SYNTACTIC WITNESS, NOT A C# PARSER and not a substring match. It
+    requires real nesting -- the exact namespace directly containing a public
+    static class of the expected name, directly containing
+    ``public static void Build()`` with a body -- so three independent name
+    matches scattered through a file do not qualify. Unity remains the authority
+    on whether that method compiles and is callable; this only refuses a
+    candidate whose declaration is absent, misspelled, nested in the wrong type,
+    or present only inside a comment or a string.
+    """
+    text = _blank_csharp_comments_and_literals(source)
+    namespace = re.escape(builder.namespace)
+    body_start: int | None = None
+    body_stop: int | None = None
+    for match in re.finditer(
+        rf"(?:^|[;{{}}\s])namespace\s+{namespace}\s*(\{{|;)", text
+    ):
+        if _depth_at(text, match.start()) != 0:
+            continue
+        if match.group(1) == ";":
+            body_start, body_stop = match.end(), len(text)
+        else:
+            opening = match.end() - 1
+            closing = _matching_brace(text, opening)
+            if closing < 0:
+                return False
+            body_start, body_stop = opening + 1, closing
+        break
+    if body_start is None or body_stop is None:
+        return False
+
+    namespace_depth = _depth_at(text, body_start)
+    class_name = re.escape(builder.class_name)
+    for match in re.finditer(
+        rf"(?:^|[;{{}}\s\]])((?:{_CSHARP_TYPE_MODIFIERS}\s+)+)class\s+{class_name}\b"
+        rf"[^{{;]*\{{",
+        text[body_start:body_stop],
+    ):
+        start = body_start + match.start()
+        if _depth_at(text, start) != namespace_depth:
+            continue
+        if not {"public", "static"} <= set(match.group(1).split()):
+            continue
+        opening = body_start + match.end() - 1
+        closing = _matching_brace(text, opening)
+        if closing < 0:
+            return False
+        class_depth = _depth_at(text, opening + 1)
+        method = re.escape(DRESSING_BUILD_METHOD_NAME)
+        for member in re.finditer(
+            rf"(?:^|[;{{}}\s\]])((?:{_CSHARP_MEMBER_MODIFIERS}\s+)+)void\s+{method}"
+            rf"\s*\(\s*\)\s*\{{",
+            text[opening + 1:closing],
+        ):
+            if _depth_at(text, opening + 1 + member.start()) != class_depth:
+                continue
+            if {"public", "static"} <= set(member.group(1).split()):
+                return True
+        return False
+    return False
+
+
 UNITY_SERIALIZED_SUFFIXES = (
     ".asset", ".unity", ".prefab", ".mat", ".meta", ".anim", ".controller",
     ".overrideController", ".physicsMaterial2D", ".spriteatlas", ".preset",
@@ -438,19 +688,33 @@ def resolve_generated_builder(paths: Sequence[str]) -> tuple[str, str]:
     scene is the default builder's own output rather than a room's.
     """
     rooms: set[tuple[str, str]] = set()
+    dressing: set[tuple[str, str]] = set()
     prototype_owned: list[str] = []
     for path in paths:
         room = ROOM_SCENE_BUILDERS.get(path)
         if room is not None:
             rooms.add((room.build_method, room.builder_source_path))
-        elif path.startswith(DOOR_PROTOTYPE_ROOT) or path == DOOR_PROTOTYPE_SCENE:
+            continue
+        registered = DRESSING_PREFAB_BUILDERS.get(path)
+        if registered is not None:
+            # An EXPLICIT owner, resolved before the prototype-prefix fallback.
+            # A dressing prefab is under the DoorPrototype root, so without this
+            # it would fall through to the default scene builder -- which builds
+            # the composed scene and would never produce the prefab.
+            dressing.add((registered.build_method, registered.builder_source_path))
+            continue
+        if is_dressing_prefab_location(path):
+            raise DoorPrototypeMaterializationError(
+                f"dressing_prefab_not_registered: {path}"
+            )
+        if path.startswith(DOOR_PROTOTYPE_ROOT) or path == DOOR_PROTOTYPE_SCENE:
             prototype_owned.append(path)
         else:
             raise DoorPrototypeMaterializationError(
                 f"path is not a registered Unity builder output: {path}"
             )
 
-    owners: set[tuple[str, str]] = set(rooms)
+    owners: set[tuple[str, str]] = set(rooms) | dressing
     absorbed_by_room = (
         len(rooms) == 1 and DOOR_PROTOTYPE_SCENE not in prototype_owned
     )
@@ -555,6 +819,7 @@ def run_door_prototype_builder(
     unity_command_runner: UnityCommandRunner = default_unity_command_runner,
     timeout_seconds: float = 1800.0,
     allowed_generated_paths: Sequence[str] | None = None,
+    builder_payload_paths: Sequence[str] | None = None,
     allowed_generated_roots: Sequence[str] | None = None,
     allowed_generated_asset_metas: Sequence[str] | None = None,
     allowed_missing_folder_metas: Sequence[str] | None = None,
@@ -566,6 +831,14 @@ def run_door_prototype_builder(
     and is empty when AssistantControl starts from a committed code candidate.
     Supplying ``allowed_generated_paths`` narrows the normal Door Prototype
     boundary to those exact paths.
+
+    ``builder_payload_paths`` is the ORIGINAL payload the scope registered,
+    before metadata companions were unioned into ``allowed_generated_paths``.
+    Builder selection reads it and nothing else. Without it this function
+    re-resolves the enlarged set, and a companion ``.meta`` under the
+    DoorPrototype root pulls the default scene builder in as a second owner --
+    so a request with exactly one legitimate owner refuses. It defaults to
+    ``allowed_generated_paths`` for callers that never enlarge the set.
     """
     root = Path(checkout).resolve()
     evidence_root = Path(state_root).resolve()
@@ -648,11 +921,24 @@ def run_door_prototype_builder(
                     f"asset_meta_preexists: {meta}"
                 )
 
-    # Resolved from PAYLOADS ONLY. `allowed` also selects the builder, so a
-    # companion reaching this call would fail resolve_generated_builder().
+    # PAYLOADS ONLY -- see builder_payload_paths in the docstring. `allowed` is
+    # the enlarged write permission and must never select the builder.
+    payload: tuple[str, ...] | None = allowed
+    if builder_payload_paths is not None:
+        payload = tuple(sorted(set(builder_payload_paths), key=str.casefold))
+        if tuple(builder_payload_paths) != payload:
+            raise DoorPrototypeMaterializationError(
+                "builder payload paths must be sorted and unique"
+            )
+        if allowed is None or not set(payload) <= set(allowed):
+            raise DoorPrototypeMaterializationError(
+                "builder payload paths must be a subset of the allowed generated paths"
+            )
     build_method = DOOR_PROTOTYPE_BUILD_METHOD
-    if allowed is not None:
-        build_method, _builder_source = resolve_generated_builder(allowed)
+    dressing: DressingPrefabBuilder | None = None
+    if payload is not None:
+        build_method, _builder_source = resolve_generated_builder(payload)
+        dressing = resolve_dressing_builder(payload)
 
     executable = resolve_unity_executable(root, unity_executable)
     evidence_root.mkdir(parents=True, exist_ok=True)
@@ -694,6 +980,34 @@ def run_door_prototype_builder(
     tracked = tracked_changed_paths(root)
     untracked = untracked_paths(root)
     initial_set = set(initial)
+
+    # DRESSING ONLY, AND DELIBERATELY BEFORE THE RESTORE BELOW. The generic
+    # cleanup restores incidental tracked changes from HEAD, which would quietly
+    # undo a catalog Unity rewrote -- leaving a prefab built from bytes nobody
+    # reviewed and a checkout that looks clean. Asking afterwards cannot tell
+    # the two apart, so the question has to be asked here.
+    #
+    # These catch an OBSERVABLE write. A builder that reads a scene, or writes
+    # one and restores it before Unity exits, is invisible to this and to
+    # everything else here; do not read a pass as proof no scene was touched.
+    if dressing is not None:
+        changed_since_candidate = set(tracked).difference(initial_set)
+        for path in (dressing.builder_source_path, dressing.catalog_path):
+            if (path in changed_since_candidate
+                    or not (root / path).is_file()
+                    or (root / path).is_symlink()):
+                raise DoorPrototypeMaterializationError(
+                    f"builder_modified_source_input: {path}"
+                )
+        scenes = sorted(
+            (path for path in set(tracked).union(untracked).difference(initial_set)
+             if path.casefold().endswith(".unity")),
+            key=str.casefold,
+        )
+        if scenes:
+            raise DoorPrototypeMaterializationError(
+                f"dressing_builder_modified_scene: {scenes[0]}"
+            )
 
     def permitted(path: str) -> bool:
         if allowed is None and allowed_roots is None:
@@ -774,6 +1088,23 @@ def run_door_prototype_builder(
          or path in admitted_meta_set),
         key=str.casefold,
     ))
+    if dressing is not None:
+        # The REQUIRED OUTPUT, not merely a non-empty result. builder_paths is
+        # non-empty as soon as an admitted folder meta appears, so a run that
+        # wrote only metadata would otherwise read as a successful build of a
+        # prefab that does not exist.
+        produced = set(builder_paths)
+        for path in (dressing.prefab_path, dressing.prefab_path + ".meta"):
+            if not (root / path).is_file() or (root / path).is_symlink():
+                raise DoorPrototypeMaterializationError(
+                    f"registered_prefab_output_missing: {path}"
+                )
+            if (path not in produced
+                    and _git(root, "cat-file", "-e", f"HEAD:{path}",
+                             check=False).returncode):
+                raise DoorPrototypeMaterializationError(
+                    f"registered_prefab_output_missing: {path}"
+                )
     expected = tuple(sorted(initial_set.union(builder_paths), key=str.casefold))
     remaining = changed_paths(root)
     if remaining != expected:
@@ -800,6 +1131,9 @@ def run_door_prototype_builder(
 __all__ = [
     "DOOR_PROTOTYPE_BUILDER", "DOOR_PROTOTYPE_BUILD_METHOD",
     "ROOM_SCENE_BUILDERS", "RoomSceneBuilder",
+    "DRESSING_PREFAB_BUILDERS", "DressingPrefabBuilder", "DRESSING_ROOMS",
+    "DRESSING_BUILD_METHOD_NAME", "is_dressing_prefab_location",
+    "resolve_dressing_builder", "declares_dressing_entry_point",
     "DoorPrototypeMaterialization", "DoorPrototypeMaterializationError",
     "UnityCommandRunner", "changed_paths", "default_unity_command_runner",
     "is_door_prototype_builder_output", "is_unity_serialized",
