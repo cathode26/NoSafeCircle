@@ -21,6 +21,37 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
         internal const string GeneratedRoot =
             "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated";
 
+        /// <summary>True when an asset path lies in a directory this builder manages.</summary>
+        /// <remarks>
+        /// This builder owns exactly two directories: the idle root and Walk/. Art/Enemies/Source
+        /// also carries sibling deliveries -- Death/ arrived with NSC-098/099 -- which this
+        /// builder neither reads nor generates. Anything asserting an EXACT enemy-source
+        /// inventory must ask this question instead of enumerating SourceRoot recursively,
+        /// because a recursive scan makes the caller police folders it does not own. That is
+        /// exactly what stopped composition for a day: 12 unrelated PNGs under Death/ fell out
+        /// of an Except() as "Unexpected enemy source PNG" and aborted the whole scene build.
+        /// Narrowing one caller is not enough -- a second reader of the same directory fails
+        /// the same way -- so the managed set is declared ONCE, here, and asked for by name.
+        /// </remarks>
+        public static bool ManagesSourcePath(string assetPath)
+        {
+            if (string.IsNullOrEmpty(assetPath))
+            {
+                return false;
+            }
+
+            string normalized = assetPath.Replace("\\", "/");
+            int lastSlash = normalized.LastIndexOf('/');
+            if (lastSlash < 0)
+            {
+                return false;
+            }
+
+            string directory = normalized.Substring(0, lastSlash);
+            return string.Equals(directory, SourceRoot, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(directory, WalkSourceRoot, StringComparison.OrdinalIgnoreCase);
+        }
+
         private const int IdleSourceSize = 128;
         private const int WalkSourceSize = 176;
         private const int WalkFrameCount = 6;

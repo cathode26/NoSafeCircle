@@ -69,8 +69,14 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             Assert.AreEqual(112, expectedFrames.Count);
             Assert.AreEqual(112, expectedFrames.Select(frame => frame.Path).Distinct().Count());
 
+            // Scan recursively -- a stray PNG in a managed directory must still be caught --
+            // but assert only over the directories EnemyAnimationAssetBuilder actually owns.
+            // Art/Enemies/Source also holds sibling deliveries (Death/, from NSC-098/099) that
+            // NSC-077 neither approves nor imports, and an exact-set assertion over the whole
+            // subtree makes this test fail on any future art landing anywhere beneath it.
             string[] actualPngPaths = Directory.GetFiles(SourceRoot, "*.png", SearchOption.AllDirectories)
                 .Select(path => path.Replace('\\', '/'))
+                .Where(EnemyAnimationAssetBuilder.ManagesSourcePath)
                 .OrderBy(path => path)
                 .ToArray();
             CollectionAssert.AreEquivalent(
@@ -102,8 +108,13 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                 AssertSourceImport(frame, inventory.alpha_bottom_y_from_top);
             }
 
+            // FindAssets over a folder is RECURSIVE, so this is the same exact-set assertion
+            // over the same subtree as the PNG scan above and fails for the same reason on the
+            // same files. It is the second enumerator: narrowing the first one alone left this
+            // one red. Both now ask the builder which directories are managed.
             string[] importedSpritePaths = AssetDatabase.FindAssets("t:Sprite", new[] { SourceRoot })
                 .Select(AssetDatabase.GUIDToAssetPath)
+                .Where(EnemyAnimationAssetBuilder.ManagesSourcePath)
                 .OrderBy(path => path)
                 .ToArray();
             CollectionAssert.AreEquivalent(expectedFrames.Select(frame => frame.Path), importedSpritePaths);
