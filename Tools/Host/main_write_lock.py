@@ -15,7 +15,8 @@ releases without resetting or retrying business operations.
 
 Optional process identity is diagnostic. The tracked Pipeline implementation is
 used when available; standalone deployments record an explicit unavailable reason.
-Neither outcome is automatic liveness proof or recovery authority.
+The owner's alive/gone/unknown status never proves child settlement or grants
+recovery authority.
 """
 from __future__ import annotations
 
@@ -67,14 +68,38 @@ def _process_identity() -> dict | str:
     """
     try:
         identify = _identity_provider().identify
-    except (ImportError, OSError) as error:
-        return f"unavailable: process_identity could not be imported ({error})"
-    with suppress(OSError, ValueError, NotImplementedError):
         found = identify(os.getpid())
         if found is not None:
             return found
         return "unavailable: this process reported no identity"
-    return "unavailable: the host identity check refused"
+    except Exception as error:
+        return f"unavailable: process identity query failed ({type(error).__name__}: {error})"
+
+
+def owner_process_status(owner, *, hostname=None, matches=None) -> str:
+    """Alive/gone/unknown for the recorded parent only; never child settlement.
+
+    Optional inputs keep the diagnostic independently testable. Malformed or
+    foreign identities do not reach the local OS query. Nothing mutates Git.
+    """
+    try:
+        local_host = socket.gethostname() if hostname is None else hostname
+        if (not isinstance(owner, dict) or not isinstance(owner.get("host"), str)
+                or not owner["host"].strip() or not isinstance(local_host, str) or not local_host.strip()
+                or owner["host"].casefold() != local_host.casefold()):
+            return "unknown"
+        identity = owner.get("process_identity")
+        if (not isinstance(identity, dict) or set(identity) != {"pid", "created_ticks", "image"}
+                or type(identity["pid"]) is not int or identity["pid"] <= 0
+                or type(identity["created_ticks"]) is not int or identity["created_ticks"] <= 0
+                or not isinstance(identity["image"], str) or not identity["image"].strip()
+                or type(owner.get("pid")) is not int or owner["pid"] != identity["pid"]):
+            return "unknown"
+        query = _identity_provider().matches if matches is None else matches
+        result = query(identity)
+        return "alive" if result is True else "gone" if result is False else "unknown"
+    except Exception:
+        return "unknown"
 
 
 def warn_legacy_writers(journal, *, now=None, stream=None):
@@ -177,11 +202,13 @@ class MainWriteLockBusy(MainWriteLockError):
         where = self.owner.get("host") or "?"
         pid = self.owner.get("pid")
         text = (f"{who} holds {LOCK_REF} for {what} "
-                f"(host {where}, pid {pid}, owner {self.owner_oid[:12]})")
+                f"(host {where}, pid {pid}, owner {self.owner_oid[:12]}); "
+                f"owner process: {owner_process_status(self.owner)}; "
+                "child termination is not established")
         if self.overdue_by is not None and self.overdue_by > 0:
             text += (f"; it is OVERDUE by {self.overdue_by:.0f}s and should be "
-                     f"INSPECTED. Overdue is not dead: a paused, blocked or "
-                     f"overloaded writer is still writing. It will NOT be taken "
+                     f"INSPECTED. Overdue does not prove the owner or its "
+                     f"children have settled. It will NOT be taken "
                      f"automatically -- establish that the writer and its "
                      f"children cannot continue, then run recovery against "
                      f"owner {self.owner_oid}.")
@@ -533,7 +560,12 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
     try:
         if args.command == "inspect":
-            print(json.dumps(inspect(repo=args.repo), indent=2))
+            found = inspect(repo=args.repo)
+            print(json.dumps(found, indent=2))
+            if found is not None:
+                print(f"owner process: {owner_process_status(found[1])}; "
+                      "child termination is not established; explicit recovery still required",
+                      file=sys.stderr)
         else:
             result = recover_and_report(repo=args.repo, expected_owner_oid=args.owner_oid,
                                         role=args.role, reason=args.reason,

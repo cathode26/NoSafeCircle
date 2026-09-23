@@ -18,6 +18,8 @@ contender waits; it never revokes an owner. The identity API is loaded from the
 containing tracked repository or, in a deployed `tools` directory, its workspace's
 canonical repository as resolved by `nsc_paths.py`. A missing API or unsupported
 host records an explicit unavailable reason; it never authorizes recovery.
+Identity provider or query errors, including an invalid source module, remain
+diagnostics rather than preventing acquisition.
 
 ## Writer behavior
 
@@ -44,6 +46,13 @@ state for inspection. It does not promise that a nonzero result means no commit.
 An interrupted validator reports `UNCERTAIN`, attempts an uncertainty END record,
 and retains ownership even if the journal cannot be written. It never describes
 that path as a refusal with an untouched repository.
+If the uncertainty END cannot be recorded, a warning is emitted to stderr; a
+failed diagnostic stream still cannot mask uncertainty or release ownership.
+Known contention reports `REFUSED`. Other definite failures before acquisition
+report `PRE-ADMISSION FAILED`; both say main was untouched by this invocation.
+Once admitted, an unexpected lock or release failure reports `FAILED` with a
+possibly committed result. Uncertain acquisition stays `UNCERTAIN`, since its
+Git child may already have taken ownership.
 
 Ordinary errors attempt journal completion and checked release. Journal or HEAD
 observation errors still release, and exit unsuccessfully. Release failure is
@@ -59,11 +68,28 @@ validators must not deliberately detach additional writers.
 ## Explicit recovery
 
 The helper's `inspect` subcommand requires `--repo` and prints the current full
-token and metadata. Recovery requires that same actual target, the full observed
+token and metadata as the existing JSON tuple (or `null`) on stdout. It separately
+prints `owner process: alive / gone / unknown` on stderr. Contention diagnostics
+include the same status. Only a complete identity on the recorded local host is
+queried through the maintained `process_identity.matches()` API. Foreign,
+malformed, unavailable or failed queries are unknown; no foreign-host process is
+queried. A gone owner says nothing about surviving children and never changes
+admission or recovery.
+
+Recovery requires that same actual target, the full observed
 `--owner-oid`, `--role`, `--reason`, `--termination-established`, and a new
 `--report` file. The termination flag is the operator's assertion that the prior
 writer and its children/hooks cannot continue; it is not machine proof and must
 not be inferred from age or a bare PID.
+
+The chosen policy is explicit recovery; this change does not add automatic
+reclamation after a reboot or through Windows Job Objects. The earlier routine
+timeout premise was corrected by the operational audit: Claude Code's Bash tool
+backgrounds a command on that timeout instead of killing its writer tree. An
+ordinary foreground timeout is therefore not evidence that the owner stopped.
+After abnormal termination, a retained lock signals that the writer's children
+and actual repository state require inspection. Manual recovery remains an
+accepted operational cost; it does not justify restoring age-based takeover.
 
 Recovery first conditionally replaces the inspected token with a fresh recovery
 token. A changed token refuses. While still holding ownership, it records actual

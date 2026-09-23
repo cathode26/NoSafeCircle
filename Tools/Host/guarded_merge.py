@@ -58,11 +58,24 @@ class Git:
         return result
 
 
+class PreAdmissionFailure(lock.MainWriteLockError):
+    """This invocation never acquired ownership or entered its merge body."""
+
+
 @contextlib.contextmanager
 def held(git: Git, role: str, timeout: float, *, operation="merge candidate"):
     """Merger adapter for the same lock used by GER."""
-    with lock.held(repo=git.repo, role=role, operation=operation, timeout=timeout) as owner:
-        yield owner
+    admitted = False
+    try:
+        with lock.held(repo=git.repo, role=role, operation=operation, timeout=timeout) as owner:
+            admitted = True
+            yield owner
+    except (lock.MutationChildUncertain, lock.MainWriteLockBusy):
+        raise
+    except lock.MainWriteLockError as error:
+        if not admitted:
+            raise PreAdmissionFailure(str(error)) from error
+        raise
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -218,6 +231,8 @@ def main(argv: list[str] | None = None) -> int:
             except BaseException as journal_error:
                 # Reporting must not change the exception which retains ownership.
                 error.add_note(f"uncertainty END could not be recorded: {journal_error}")
+                with contextlib.suppress(BaseException):
+                    print(f"WARNING: uncertainty END could not be recorded: {journal_error}", file=sys.stderr)
             raise
         except BaseException as error:              # noqa: BLE001
             finish(f"MAIN-WRITE END {args.role}: ABORTED on an "
@@ -233,7 +248,9 @@ def cli(argv=None):
     except lock.MutationChildUncertain as error:
         raise SystemExit(f"UNCERTAIN: result may already be committed; inspect main before retrying. {error}") from error
     except lock.MainWriteLockBusy as error:
-        raise SystemExit(f"REFUSED: {error}") from error
+        raise SystemExit(f"REFUSED: main untouched by this invocation. {error}") from error
+    except PreAdmissionFailure as error:
+        raise SystemExit(f"PRE-ADMISSION FAILED: main untouched by this invocation. {error}") from error
     except lock.MainWriteLockError as error:
         raise SystemExit(f"FAILED: result may already be committed; inspect main before retrying. {error}") from error
 

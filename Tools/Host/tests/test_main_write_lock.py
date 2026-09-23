@@ -13,6 +13,7 @@ pass on git's idempotence without once reaching the lock it claimed to check.
 from __future__ import annotations
 
 import json
+import contextlib
 import os
 import io
 import pathlib
@@ -620,6 +621,88 @@ class RecoveryReportsAndChildren(Base):
             identity = json.loads(result.stdout)
             self.assertIsInstance(identity, dict, result.stdout)
             self.assertEqual({"pid", "created_ticks", "image"}, set(identity))
+
+
+class OwnerProcessDiagnostics(Base):
+    def owner(self):
+        return {"host": "fixture-host", "pid": 23,
+                "process_identity": {"pid": 23, "created_ticks": 100, "image": "fixture.exe"}}
+
+    def test_exact_same_host_identity_reports_alive_or_gone(self):
+        for matched, expected in ((True, "alive"), (False, "gone")):
+            with self.subTest(matched=matched):
+                query = mock.Mock(return_value=matched)
+                owner = self.owner()
+                self.assertEqual(expected, lock.owner_process_status(owner, hostname="FIXTURE-HOST", matches=query))
+                query.assert_called_once_with(owner["process_identity"])
+
+    def test_foreign_malformed_or_unavailable_identity_never_queries(self):
+        examples = [None, {}, {**self.owner(), "host": "foreign-host"},
+                    {**self.owner(), "host": ""}, {**self.owner(), "pid": True},
+                    {**self.owner(), "pid": 24}]
+        for identity in ("unavailable: fixture", None, {},
+                         {"pid": 23, "created_ticks": 100, "image": "fixture.exe", "extra": 1},
+                         {"pid": 23, "created_ticks": 100},
+                         {"pid": 0, "created_ticks": 100, "image": "fixture.exe"},
+                         {"pid": True, "created_ticks": 100, "image": "fixture.exe"},
+                         {"pid": 23, "created_ticks": 0, "image": "fixture.exe"},
+                         {"pid": 23, "created_ticks": True, "image": "fixture.exe"},
+                         {"pid": 23, "created_ticks": "100", "image": "fixture.exe"},
+                         {"pid": 23, "created_ticks": 100, "image": " "}):
+            examples.append({**self.owner(), "process_identity": identity})
+        for owner in examples:
+            with self.subTest(owner=owner):
+                query = mock.Mock(return_value=False)
+                self.assertEqual("unknown", lock.owner_process_status(owner, hostname="fixture-host", matches=query))
+                query.assert_not_called()
+
+    def test_query_errors_and_non_boolean_results_are_unknown(self):
+        for value in (None, 0, 1, "alive", {}, []):
+            self.assertEqual("unknown", lock.owner_process_status(
+                self.owner(), hostname="fixture-host", matches=mock.Mock(return_value=value)))
+        for error in (OSError("denied"), ValueError("invalid"), SyntaxError("broken module")):
+            self.assertEqual("unknown", lock.owner_process_status(
+                self.owner(), hostname="fixture-host", matches=mock.Mock(side_effect=error)))
+            with mock.patch.object(lock, "_identity_provider", side_effect=error):
+                self.assertEqual("unknown", lock.owner_process_status(self.owner(), hostname="fixture-host"))
+
+    def test_identity_capture_provider_and_query_errors_are_diagnostic(self):
+        for error in (SyntaxError("broken checkout module"), RuntimeError("fixture query failure")):
+            with mock.patch.object(lock, "_identity_provider", side_effect=error):
+                self.assertIn("unavailable:", lock._process_identity())
+            provider = mock.Mock()
+            provider.identify.side_effect = error
+            with mock.patch.object(lock, "_identity_provider", return_value=provider):
+                self.assertIn("unavailable:", lock._process_identity())
+
+    def test_diagnostics_do_not_swallow_process_interruption(self):
+        with mock.patch.object(lock, "_identity_provider", side_effect=KeyboardInterrupt):
+            with self.assertRaises(KeyboardInterrupt):
+                lock._process_identity()
+        with self.assertRaises(KeyboardInterrupt):
+            lock.owner_process_status(self.owner(), hostname="fixture-host",
+                                      matches=mock.Mock(side_effect=KeyboardInterrupt))
+
+    def test_busy_description_and_inspect_cli_consume_identity_without_recovery(self):
+        repo = self.repo()
+        owner = self.owner()
+        owner["host"] = lock.socket.gethostname()
+        oid = self.plant(repo, owner)
+        provider = mock.Mock()
+        provider.matches.return_value = False
+        output, diagnostic = io.StringIO(), io.StringIO()
+        with mock.patch.object(lock, "_identity_provider", return_value=provider):
+            text = lock.MainWriteLockBusy(owner, oid, 120).describe()
+            self.assertIn("owner process: gone", text)
+            self.assertIn("child termination is not established", text)
+            self.assertNotIn("is still writing", text)
+            with contextlib.redirect_stdout(output), contextlib.redirect_stderr(diagnostic):
+                self.assertEqual(0, lock.main(["inspect", "--repo", str(repo)]))
+        self.assertEqual([oid, owner], json.loads(output.getvalue()))
+        self.assertIn("owner process: gone", diagnostic.getvalue())
+        self.assertIn("explicit recovery still required", diagnostic.getvalue())
+        self.assertEqual(oid, lock.inspect(repo=repo)[0])
+        provider.matches.assert_called_with(owner["process_identity"])
 
 
 class TransitionalLegacyWarnings(unittest.TestCase):

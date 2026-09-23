@@ -69,6 +69,17 @@ class Base(unittest.TestCase):
 
 
 class AdmissionAndJournal(Base):
+    def test_ger_warns_about_recent_legacy_writer_at_entry(self):
+        stamp = mw.dt.datetime.now(mw.dt.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        self.journal.write_text(f"- {stamp} MAIN-WRITE START Legacy Agent: fixture\n")
+        output = io.StringIO()
+        with contextlib.redirect_stderr(output):
+            owner = self.start()
+        self.assertIn("recent legacy writer may bypass", output.getvalue())
+        self.assertIn("Legacy Agent", output.getvalue())
+        mw.end(owner, self.head, "fixture finished")
+        self.assertIsNone(lock.inspect(repo=self.repo))
+
     def test_different_and_same_roles_contend(self):
         first = self.start()
         for role in ("Other Agent", "Test Agent"):
