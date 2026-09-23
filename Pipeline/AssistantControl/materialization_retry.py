@@ -209,6 +209,16 @@ def retry_materialization(
             "archived_failure": str(failure_archive),
             "archived_journal": str(journal_archive),
             "next_status": "needs_materialization",
+            # What applying COSTS, not only what it does. If the re-attempt
+            # materializes and then fails validation, the intact candidate is
+            # REPLACED and this command can never reach it again.
+            "cost_if_validation_fails": (
+                "materialization replaces this intact candidate with a degraded "
+                "one (kind unity_materialization_failed). retry-materialization "
+                "cannot reach that; reopen-materialization becomes the only route "
+                "and re-runs the same tests, and revise is refused whenever Source "
+                "has advanced past the candidate. Measured on NSC-048."
+            ),
         }
 
         with _exclusive_file_lock(source_lock, timeout_seconds=10):
