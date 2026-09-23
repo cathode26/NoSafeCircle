@@ -143,7 +143,14 @@ class UncertainMutationReporting(Base):
         real_run = merger.lock.run_process
         real_append = merger.append
         def interrupted(command, **kwargs):
-            if "stub_validate.py" in command:
+            # The POST-COMMIT validator specifically. guarded_merge now also
+            # validates a TRIAL MERGE WORKTREE before it writes main, so
+            # matching on the script name alone would interrupt that one
+            # instead and main would never move -- which is a different case,
+            # covered by its own test. The post-commit run is the one whose cwd
+            # is the repository itself.
+            if ("stub_validate.py" in command
+                    and str(kwargs.get("cwd")) == str(repo)):
                 raise merger.lock.MutationChildUncertain("fixture validator child may still run")
             return real_run(command, **kwargs)
         def append(path, text):
@@ -456,6 +463,94 @@ class TheGuardRefusesBeforeWriting(Base):
                             "a non-holder must not be able to delete the lock")
         self.assertEqual(mine, git(repo, "rev-parse", LOCK_REF),
                          "the lock must still belong to its holder")
+
+
+class ValidateGatesTheMergeRatherThanReportingOnIt(Base):
+    """The post-commit validate is a post-mortem; this is the gate.
+
+    Measured 2026-09-23: guarded_merge merged, THEN ran taskcontrol validate,
+    then returned its exit code. Nothing rolled back, so a candidate that fails
+    validation left main red and the operator read "validate : FAIL" after the
+    fact. The Game Agent re-read its own seven merges that night and found every
+    one printed PASS while none of them had been protected by it.
+    """
+
+    def break_validate_for_the_candidate(self, repo: pathlib.Path) -> str:
+        """Make the CANDIDATE fail validation while main still passes.
+
+        The stub must fail only in the merged state, or the tool would refuse
+        for the ordinary reason and prove nothing about the gate.
+        """
+        git(repo, "checkout", "-q", "candidate")
+        (repo / "stub_validate.py").write_text(
+            "import pathlib, sys" + EOL
+            + "sys.exit(1 if pathlib.Path('change.txt').exists() else 0)" + EOL,
+            encoding="utf-8")
+        git(repo, "add", "stub_validate.py")
+        git(repo, "commit", "-m", "candidate breaks validation", "--no-gpg-sign")
+        candidate = git(repo, "rev-parse", "HEAD")
+        git(repo, "checkout", "-q", "main")
+        return candidate
+
+    def test_a_candidate_that_fails_validate_is_refused_and_main_is_untouched(self):
+        repo, journal, _candidate = self.build_fixture()
+        candidate = self.break_validate_for_the_candidate(repo)
+        before = git(repo, "rev-parse", "HEAD")
+        code, output = self.run_tool(repo, journal, "Fixture Agent", candidate)
+        self.assertEqual(1, code)
+        self.assertIn("main untouched", output)
+        self.assertIn("RED", output)
+        # The assertion that matters: nothing was written.
+        self.assertEqual(before, git(repo, "rev-parse", "HEAD"))
+        self.assertEqual("", git(repo, "status", "--porcelain"))
+        self.assertEqual(0, self.open_starts(journal),
+                         "a refusal must still close its journal window")
+        self.assertIsNone(merger.lock.inspect(repo=repo),
+                          "a refusal must release the lock")
+
+    def test_the_trial_worktree_is_removed_even_when_it_refuses(self):
+        repo, journal, _candidate = self.build_fixture()
+        candidate = self.break_validate_for_the_candidate(repo)
+        self.run_tool(repo, journal, "Fixture Agent", candidate)
+        worktrees = git(repo, "worktree", "list", "--porcelain")
+        self.assertEqual(
+            1, worktrees.count("worktree "),
+            f"a trial worktree was left behind: {worktrees}")
+
+    def test_a_healthy_candidate_still_merges(self):
+        """The gate must not refuse the ordinary case."""
+        repo, journal, candidate = self.build_fixture()
+        code, output = self.run_tool(repo, journal, "Fixture Agent", candidate)
+        self.assertEqual(0, code, output)
+        self.assertEqual(candidate, git(repo, "rev-parse", "HEAD"))
+
+    def test_an_interrupted_pre_merge_validator_refuses_rather_than_claiming_uncertainty(self):
+        """Uncertainty BEFORE the write is a refusal, not "may be committed".
+
+        The outer uncertainty handler exists for a validator interrupted AFTER
+        the merge, where main really may have moved. Reporting that here would
+        send an operator to inspect a merge that does not exist.
+        """
+        repo, journal, candidate = self.build_fixture()
+        before = git(repo, "rev-parse", "HEAD")
+        real_run = merger.lock.run_process
+
+        def interrupted(command, **kwargs):
+            if ("stub_validate.py" in command
+                    and str(kwargs.get("cwd")) != str(repo)):
+                raise merger.lock.MutationChildUncertain("fixture pre-merge child")
+            return real_run(command, **kwargs)
+
+        args = ["--role", "Fixture Agent", "--candidate", candidate,
+                "--authority", "test", "--repo", str(repo),
+                "--journal", str(journal), "--validate", "stub_validate.py"]
+        with mock.patch.object(merger.lock, "run_process", side_effect=interrupted):
+            code = merger.main(args)
+        self.assertEqual(1, code)
+        self.assertEqual(before, git(repo, "rev-parse", "HEAD"))
+        entries = EOL.join(self.journal_lines(journal))
+        self.assertIn("ABORTED, nothing written", entries)
+        self.assertNotIn("may already be committed", entries)
 
 
 if __name__ == "__main__":

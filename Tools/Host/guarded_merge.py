@@ -15,6 +15,7 @@ import os
 import pathlib
 import re
 import subprocess
+import tempfile
 import sys
 import main_write_lock as lock
 
@@ -170,6 +171,74 @@ def main(argv: list[str] | None = None) -> int:
                                 f"written. main moved between the checks and "
                                 f"the merge.")
                 print("REFUSED: main moved mid-check; main untouched")
+                return 1
+
+            # VALIDATE THE MERGE BEFORE WRITING IT, NOT AFTER.
+            #
+            # The validate below this block runs on main AFTER the merge and
+            # only sets the exit code -- nothing rolls back. So "validate: FAIL"
+            # was a post-mortem: by the time anyone read it, main was already
+            # red. Measured 2026-09-23, when a candidate of mine left main red
+            # for four minutes, and re-read by the Game Agent against its own
+            # seven merges that night: every one printed PASS, and not one of
+            # them was protected by it.
+            #
+            # `predicted_tree` is already computed by the trial merge-tree
+            # above. `commit-tree` turns it into an UNREFERENCED commit, so a
+            # throwaway worktree can be checked out at exactly the state the
+            # merge would produce without any ref moving. Measured cost on this
+            # repository: about 3s to create the worktree and 1s to validate,
+            # against a red main that blocks every merger and every decompose.
+            trial_head = git(
+                "commit-tree", predicted_tree, "-p", head, "-p", sha,
+                "-m", f"trial merge of {args.candidate}", check=True).out
+            trial_root = tempfile.mkdtemp(prefix="nsc-trial-")
+            try:
+                added = git("worktree", "add", "-q", "--detach",
+                            trial_root, trial_head)
+                if added.returncode != 0:
+                    finish(f"MAIN-WRITE END {args.role}: ABORTED, nothing "
+                           f"written. could not build the trial worktree to "
+                           f"validate before merging; operation "
+                           f"{owner.operation_id}.")
+                    print("REFUSED: could not pre-validate; main untouched\n",
+                          added.out, added.err)
+                    return 1
+                try:
+                    pre = lock.run_process(
+                        [sys.executable, "-B", args.validate, "validate"],
+                        cwd=trial_root, capture_output=True, text=True,
+                        creationflags=NO_WINDOW)
+                except lock.MutationChildUncertain as error:
+                    # UNCERTAINTY HERE IS NOT THE UNCERTAINTY THE OUTER HANDLER
+                    # REPORTS. That one means "the merge may already be
+                    # committed"; this runs BEFORE anything is written, against
+                    # a throwaway worktree, so the honest answer is a refusal
+                    # with main provably untouched. Letting it propagate would
+                    # tell an operator to go and inspect a merge that does not
+                    # exist.
+                    finish(f"MAIN-WRITE END {args.role}: ABORTED, nothing "
+                           f"written. the pre-merge validator child was "
+                           f"uncertain; main untouched at {head[:9]}; "
+                           f"operation {owner.operation_id}: {error}")
+                    print("REFUSED: pre-merge validation was interrupted; "
+                          "main untouched (nothing was committed)")
+                    return 1
+            finally:
+                with contextlib.suppress(Exception):
+                    git("worktree", "remove", "--force", trial_root)
+                with contextlib.suppress(Exception):
+                    git("worktree", "prune")
+            if pre.returncode != 0:
+                detail = f"{pre.stdout} {pre.stderr}".strip()[-400:]
+                finish(f"MAIN-WRITE END {args.role}: ABORTED, nothing written. "
+                       f"taskcontrol validate FAILED on the trial merge tree "
+                       f"{predicted_tree[:12]}; main untouched; operation "
+                       f"{owner.operation_id}: {detail}")
+                print("REFUSED: the merge would make main RED. main untouched.")
+                print(f"  trial tree : {predicted_tree}")
+                print(f"  validate   : FAIL")
+                print(detail)
                 return 1
 
             if fast_forward:
