@@ -235,11 +235,13 @@
     },
     {
       "reconciliation_keys": [
-        "ruined-entry-blockout"
+        "ruined-entry-blockout",
+        "world-sprite-sorting-layer-adoption"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/RuinedEntrySceneBuilder.cs",
       "work_ids": [
-        "NSC-044"
+        "NSC-044",
+        "NSC-100"
       ]
     },
     {
@@ -971,14 +973,16 @@
         "isometric-tilemap-visual-layer",
         "world-sprite-prefab-sorting",
         "seamless-scalable-wall-tiling",
-        "door-breach-feedback"
+        "door-breach-feedback",
+        "world-sprite-sorting-layer-adoption"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs",
       "work_ids": [
         "NSC-038",
         "NSC-039",
         "NSC-042",
-        "NSC-052"
+        "NSC-052",
+        "NSC-100"
       ]
     },
     {
