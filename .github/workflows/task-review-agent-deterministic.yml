@@ -388,6 +388,10 @@ jobs:
         timeout-minutes: 6
         run: python Pipeline/ExecutionCrew/tests/quota_failover_smoke_test.py
 
+      - name: Run dressing-prompt delivery smoke test
+        if: steps.scope.outputs.run_full_core == 'true'
+        run: python Pipeline/ExecutionCrew/tests/dressing_prompt_delivery_test.py
+
       - name: Run Stage 4 contention-retry tests
         run: python Pipeline/TaskReviewAgent/tests/contention_retry_smoke_test.py
 

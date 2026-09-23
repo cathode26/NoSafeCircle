@@ -68,6 +68,10 @@ jobs:
             "Pipeline.AssistantControl.test_viewer.ViewerTests.test_review_queue_clears_after_approve_or_deny_state",
             "Pipeline.AssistantControl.test_admission_reconciliation",
             "Pipeline.AssistantControl.test_graph_controller",
+            "Pipeline.AssistantControl.test_dressing_prefab_registry",
+            "Pipeline.AssistantControl.test_dressing_materialization_guards",
+            "Pipeline.AssistantControl.test_dressing_legacy_route",
+            "Pipeline.AssistantControl.test_resolve_generated_builder_characterization",
             "Pipeline.TaskReviewAgent.tests.provider_profiles_test"
           )
           if (Test-Path -LiteralPath "Pipeline/AssistantControl/test_publication.py") {
