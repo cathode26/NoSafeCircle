@@ -149,6 +149,26 @@ def main(argv=None) -> int:
     reopen.add_argument("--host-fix-commit", required=True)
     reopen.add_argument("--apply", action="store_true",
                         help="Without this the command only reports what it would do")
+    retry = commands.add_parser(
+        "retry-materialization",
+        help=(
+            "Dry-run (default) or --apply another materialization attempt for ONE "
+            "candidate whose ATTEMPT failed while the candidate itself stayed "
+            "intact. Distinct from reopen-materialization, which restores a "
+            "candidate that a failed validation replaced. Not an approval path."
+        ),
+    )
+    retry.add_argument("task")
+    retry.add_argument("--candidate-commit", required=True,
+                       help="The intact crew-reviewed commit the failed attempt ran against")
+    retry.add_argument("--failure-sha256", required=True,
+                       help="Digest of the exact retained materialization_failure")
+    retry.add_argument("--reason", required=True,
+                       help=("Why another attempt is expected to behave differently. The "
+                             "mechanical checks cannot establish that the blocker is gone, "
+                             "so this is the evidence a later reader judges."))
+    retry.add_argument("--apply", action="store_true",
+                       help="Without this the command only reports what it would do")
     worker_status = commands.add_parser("worker-status", help="Inspect host identity and retained worker state")
     worker_status.add_argument("task")
     settlement = commands.add_parser("settle-worker", help="Release ended worker capacity after verified process/container exit")
@@ -574,6 +594,18 @@ def main(argv=None) -> int:
                     expected_candidate=args.candidate_commit,
                     expected_failure_sha256=args.failed_validation_sha256,
                     host_fix_commit=args.host_fix_commit,
+                    apply=args.apply,
+                )
+            elif args.command == "retry-materialization":
+                from Pipeline.AssistantControl.materialization_retry import (
+                    retry_materialization,
+                )
+                result = retry_materialization(
+                    manager,
+                    args.task,
+                    expected_candidate=args.candidate_commit,
+                    expected_failure_sha256=args.failure_sha256,
+                    reason=args.reason,
                     apply=args.apply,
                 )
             elif args.command == "refresh-prepared":
