@@ -141,5 +141,114 @@ class RetireSettledWorkerTests(unittest.TestCase):
         self.assertIn("already in worker_history", str(caught.exception))
 
 
+class RetireWithdrawnOutputTests(RetireSettledWorkerTests):
+    """A succeeded crew whose output `revise-on-source` explicitly withdrew.
+
+    Shaped from the live NSC-048 record, which reached `prepared` with no candidate and
+    could still not be dispatched: the succeeded worker stayed on the record and the
+    dispatch gates test its presence. The decisive test is not the one that retires --
+    it is `test_a_worker_dispatched_after_the_reconciliation_is_still_refused`, because
+    a relaxation that also swallows a live succeeded crew would lose real output.
+    """
+
+    RECONCILED = "39fdae4529cd84233741eb6877e7e5ca812fb0e4"
+    OLD_SOURCE = "04d37a7c55edd200870b0f93bc15e8953479aef2"
+
+    def withdrawn(self, *, worker=None, source_commit=None, reconciled=None, **record_fields):
+        """The NSC-048 shape: prepared, no candidate, succeeded worker, one withdrawal."""
+        record = {
+            "task_id": "NSC-007",
+            "status": "prepared",
+            "source_commit": self.RECONCILED if source_commit is None else source_commit,
+            "revise_on_source_history": [{
+                "reconciled_commit": self.RECONCILED if reconciled is None else reconciled,
+                "rejected_candidate": "79308ab9fd799ed6623adfaa1f03ffa5fbf8199b",
+            }],
+            "worker": settled_worker(status="succeeded", source_head=self.OLD_SOURCE)
+            if worker is None else worker,
+        }
+        record.update(record_fields)
+        self.write(record)
+        return record
+
+    def test_a_succeeded_worker_whose_output_was_withdrawn_is_retired(self):
+        self.withdrawn()
+        result = self.retire()
+        record = self.read()
+        self.assertNotIn("worker", record, "the dispatch gates test presence, so it must be gone")
+        self.assertEqual("prepared", record["status"])
+        self.assertTrue(result["retired"])
+        self.assertFalse(AssistantScopePlanner._worker_underway(record),
+                         "this is the whole point: the task must become dispatchable")
+
+    def test_a_worker_dispatched_after_the_reconciliation_is_still_refused(self):
+        """The case this must not swallow: a live succeeded crew awaiting harvest.
+
+        Its `source_head` IS the reconciled commit, because it was dispatched from the
+        reconciled baseline. Nothing else about the record distinguishes it.
+        """
+        self.withdrawn(worker=settled_worker(status="succeeded", source_head=self.RECONCILED))
+        with self.assertRaisesRegex(ValueError, "belongs to the review path"):
+            self.retire()
+        self.assertIn("worker", self.read(), "a refused retire changes nothing")
+
+    def test_a_withdrawal_that_did_not_produce_the_current_baseline_is_refused(self):
+        """A stale history entry must not authorise retiring a later run."""
+        self.withdrawn(source_commit="ffffffffffffffffffffffffffffffffffffffff")
+        with self.assertRaisesRegex(ValueError, "belongs to the review path"):
+            self.retire()
+
+    def test_a_withdrawn_worker_with_no_recorded_source_head_is_refused(self):
+        """Absent evidence is refused, not waved through; the permissive direction
+        rewrites a durable record under a run that may still own it."""
+        worker = settled_worker(status="succeeded")
+        worker.pop("source_head", None)
+        self.withdrawn(worker=worker)
+        with self.assertRaisesRegex(ValueError, "belongs to the review path"):
+            self.retire()
+
+    def test_an_empty_or_malformed_history_is_refused(self):
+        for history in ([], "not a list", [None], [{"reconciled_commit": ""}]):
+            with self.subTest(history=history):
+                self.withdrawn(revise_on_source_history=history)
+                with self.assertRaisesRegex(ValueError, "belongs to the review path"):
+                    self.retire()
+
+    def test_a_withdrawn_worker_still_carrying_output_is_refused(self):
+        """The status relaxation does not touch the guard that actually proves the
+        output left the review path."""
+        for field in ("candidate", "approval", "integration", "revision"):
+            with self.subTest(field=field):
+                self.withdrawn(**{field: {"commit": "abc"}})
+                with self.assertRaisesRegex(ValueError, f"carries {field}"):
+                    self.retire()
+
+    def test_a_withdrawn_but_unsettled_worker_is_refused(self):
+        self.withdrawn(worker=settled_worker(status="succeeded", source_head=self.OLD_SOURCE,
+                                             capacity_released=False))
+        with self.assertRaisesRegex(ValueError, "not settled"):
+            self.retire()
+
+    def test_a_withdrawn_worker_with_a_live_identity_is_refused(self):
+        self.withdrawn()
+        with patch.object(worker_control, "matches", return_value=True),              patch.object(worker_control, "active_count", return_value=0):
+            with self.assertRaisesRegex(ValueError, "confirmed dead host identity"):
+                worker_control.retire_settled_worker(self.checkouts, "NSC-007",
+                                                     run_id="nsc-007-run")
+
+    def test_the_archived_entry_says_why_a_succeeded_run_was_retired(self):
+        self.withdrawn()
+        self.retire()
+        entry = self.read()["worker_history"][0]
+        self.assertEqual("output withdrawn by revise-on-source", entry["retired_because"])
+        self.assertEqual("succeeded", entry["status"], "the archive keeps what really happened")
+
+    def test_a_failed_worker_is_not_annotated_as_withdrawn(self):
+        """The annotation must name the path actually taken, or it is noise."""
+        self.write({"task_id": "NSC-007", "status": "prepared", "worker": settled_worker()})
+        self.retire()
+        self.assertNotIn("retired_because", self.read()["worker_history"][0])
+
+
 if __name__ == "__main__":
     unittest.main()

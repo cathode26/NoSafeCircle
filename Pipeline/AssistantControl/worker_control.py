@@ -5,6 +5,7 @@ import hashlib
 import json
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any, Mapping
 
 from Pipeline.AssistantControl.checkouts import Checkouts, write_record
 from Pipeline.AssistantControl.process_identity import matches, terminate
@@ -154,6 +155,51 @@ def force_stop(checkouts: Checkouts, task_id: str, *, run_id: str) -> dict:
             "capacity_released": False}
 
 
+def _output_withdrawn_by_revise_on_source(record: Mapping[str, Any],
+                                          worker: Mapping[str, Any]) -> bool:
+    """True when this worker's output was explicitly WITHDRAWN, not merely unharvested.
+
+    `revise-on-source` archives a rejected candidate and re-prepares the task on a
+    reconciled baseline, deliberately discarding that crew's validation authority while
+    carrying its implementation forward as INPUT. The crew genuinely succeeded, so the
+    status guard refuses -- and the task can then never be dispatched again, because the
+    dispatch gates test the *presence* of the worker entry, not its state. That is the
+    NSC-045 deadlock one stage further along, and "succeeded worker, withdrawn output"
+    is the case that was not in view when the guard was written.
+
+    The discriminator is two facts already on the record, and it is an identity compare
+    rather than a timestamp:
+
+      * the newest withdrawal produced the baseline the task sits on NOW
+        (`reconciled_commit` == `record["source_commit"]`), and
+      * this worker ran against a Source that withdrawal superseded
+        (`worker["source_head"]` is present and is not that commit).
+
+    A worker dispatched AFTER the reconciliation carries the reconciled commit as its own
+    `source_head`, so it fails the second test and is still refused. That is the case this
+    must not swallow: a live succeeded crew whose candidate is merely waiting to be
+    harvested. An absent `source_head` is refused rather than waved through, because the
+    permissive direction here rewrites a durable record under a run that may still own it.
+
+    This relaxes the worker's STATUS only. The "record carries no candidate, approval,
+    integration or revision" guard below is untouched, and it is what actually proves the
+    output is not still live in the review path.
+    """
+    history = record.get("revise_on_source_history")
+    if not isinstance(history, list) or not history:
+        return False
+    newest = history[-1]
+    if not isinstance(newest, Mapping):
+        return False
+    reconciled = newest.get("reconciled_commit")
+    if not isinstance(reconciled, str) or not reconciled:
+        return False
+    if reconciled != record.get("source_commit"):
+        return False
+    ran_against = worker.get("source_head")
+    return isinstance(ran_against, str) and bool(ran_against) and ran_against != reconciled
+
+
 def retire_settled_worker(checkouts: Checkouts, task_id: str, *, run_id: str) -> dict:
     """Archive one settled, provably dead worker so its task can be dispatched again.
 
@@ -179,11 +225,14 @@ def retire_settled_worker(checkouts: Checkouts, task_id: str, *, run_id: str) ->
             raise ValueError("Exact worker run id does not match the record")
         if record.get("status") != "prepared":
             raise ValueError(f"Retiring a worker needs a prepared record, not {record.get('status')!r}")
+        withdrawn = False
         if worker.get("status") not in {"failed", "stopped"}:
-            raise ValueError(
-                f"Only a failed or stopped worker is retired, not {worker.get('status')!r}; "
-                "a succeeded worker's output belongs to the review path"
-            )
+            withdrawn = _output_withdrawn_by_revise_on_source(record, worker)
+            if not withdrawn:
+                raise ValueError(
+                    f"Only a failed or stopped worker is retired, not {worker.get('status')!r}; "
+                    "a succeeded worker's output belongs to the review path"
+                )
         if worker.get("capacity_released") is not True or not worker.get("settled_at"):
             raise ValueError("Worker is not settled; run settle-worker first")
         identity = worker.get("process_identity")
@@ -201,7 +250,12 @@ def retire_settled_worker(checkouts: Checkouts, task_id: str, *, run_id: str) ->
             history = []
         if any(isinstance(entry, dict) and entry.get("run_id") == run_id for entry in history):
             raise ValueError("Worker run id is already in worker_history")
-        history.append({**worker, "retired_at": datetime.now(timezone.utc).isoformat()})
+        entry = {**worker, "retired_at": datetime.now(timezone.utc).isoformat()}
+        if withdrawn:
+            # Say WHY a succeeded run was retired, so the audit does not have to
+            # re-derive it from two commits and a history list.
+            entry["retired_because"] = "output withdrawn by revise-on-source"
+        history.append(entry)
         record["worker_history"] = history
         record.pop("worker", None)
         write_record(path, record)
