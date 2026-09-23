@@ -91,6 +91,30 @@ def _source_changes(source: Path, base: str, head: str) -> tuple[str, ...]:
                         key=str.casefold))
 
 
+def _working_tree_dirt(checkout: Path) -> tuple[str, ...]:
+    """Paths a `git reset --hard` here would destroy or leave behind.
+
+    Tracked modifications are DESTROYED by the reset. Untracked files survive
+    it but then trip the post-reset cleanliness check, turning an avoidable
+    refusal into one that fires after the record has already moved -- so both
+    are refused up front.
+
+    Ignored files are deliberately not listed: Unity rewrites `Library/` and
+    friends constantly and none of it is at risk.
+    """
+    # Deliberately NOT -z: with NUL separators a rename is two entries and the
+    # second is a bare path, which this would slice as if it carried a status
+    # prefix. Line form keeps `R  old -> new` intact, and this output is a
+    # diagnostic, not something another program parses.
+    output = git(
+        checkout, "status", "--porcelain=v1", "--untracked-files=all",
+    ).decode(errors="replace")
+    return tuple(sorted(
+        (line[3:] for line in output.splitlines() if len(line) > 3),
+        key=str.casefold,
+    ))
+
+
 def _resume(
     checkouts: Checkouts,
     record: dict[str, Any],
@@ -266,6 +290,22 @@ def reopen_materialization(
         if not _source_changes(checkouts.source, source_base, source_head):
             raise MaterializationReopenError("Source contains no fix after the failed run")
         checkout = Path(str(record.get("checkout", ""))).resolve()
+        # REFUSE BEFORE ANYTHING MOVES. `--apply` ends in `git reset --hard`,
+        # which discards every tracked edit in this checkout without asking.
+        # The operator running this is BY DEFINITION investigating a failed
+        # materialization, so the thing destroyed is their own diagnosis.
+        #
+        # This is checked here rather than beside the reset for two reasons:
+        # it runs for `--check` too, so the dry run TELLS you before you commit
+        # to applying; and it precedes the ref write and the journal rename, so
+        # a refusal leaves nothing half-done.
+        dirt = _working_tree_dirt(checkout)
+        if dirt:
+            raise MaterializationReopenError(
+                "task checkout has uncommitted changes and reopen would "
+                f"`git reset --hard` them away: {dirt}. Commit or stash them, "
+                "then re-run."
+            )
         original_commit = str(original["commit"])
         # Keyed by the candidate commit being materialized -- which is exactly
         # the commit this reopen restores to, so it would short-circuit the
@@ -342,12 +382,31 @@ def reopen_materialization(
             if head != expected_candidate:
                 raise MaterializationReopenError(
                     "checkout HEAD is not the materialized commit this request names")
+            # HEAD was verified here and the WORKING TREE was not, which is how
+            # a destructive reset shipped behind two correct-looking checks.
+            # Re-asked immediately before the reset: the first ask happens
+            # outside this lock, so an edit made in between would otherwise be
+            # destroyed by a check that had already passed.
+            dirt = _working_tree_dirt(checkout)
+            if dirt:
+                raise MaterializationReopenError(
+                    "task checkout became dirty after verification and before "
+                    f"the reset; nothing was discarded: {dirt}"
+                )
             git(checkout, "reset", "--hard", original_commit)
             after = git(checkout, "rev-parse", "HEAD").decode().strip()
             if after != original_commit:
                 raise MaterializationReopenError("checkout did not return to the original candidate")
-            if git(checkout, "status", "--porcelain=v1", "--untracked-files=all"):
-                raise MaterializationReopenError("checkout is not clean after reopen")
+            residue = _working_tree_dirt(checkout)
+            if residue:
+                # Reachable only if something wrote to the checkout DURING the
+                # reset. The old wording here was "checkout is not clean after
+                # reopen", which read as a tidiness complaint and pointed away
+                # from the fact that a hard reset had just run.
+                raise MaterializationReopenError(
+                    "checkout was written to during the reopen reset; inspect it "
+                    f"before retrying: {residue}"
+                )
 
             lineage = record.get("candidate_lineage")
             if not isinstance(lineage, list):

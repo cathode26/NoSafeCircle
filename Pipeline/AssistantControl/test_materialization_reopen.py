@@ -396,5 +396,129 @@ class ReopenMaterializationTests(unittest.TestCase):
                 expected_failure_sha256="d" * 64, host_fix_commit=fix, apply=True)
 
 
+    # ------------------------------------------------------------------
+    # REOPEN NEVER DESTROYS AN OPERATOR'S UNCOMMITTED WORK.
+    #
+    # `--apply` ends in `git reset --hard`, and HEAD was checked while the
+    # WORKING TREE was not. Whoever runs this is by definition investigating a
+    # FAILED materialization, so whatever is uncommitted in that checkout is
+    # their diagnosis. Found by Astra's main audit, 2026-09-23, in a module I
+    # wrote.
+    #
+    # These live in this class rather than a subclass on purpose: subclassing
+    # it re-runs all fourteen of its tests for the fixture alone.
+    # ------------------------------------------------------------------
+
+    NOTES = "investigation-notes.txt"
+
+    def dirty_tracked_edit(self) -> str:
+        """An edit to a TRACKED file -- the shape `reset --hard` destroys."""
+        text = "class ChapelOfAshSceneBuilder { /* mid-investigation */ }\n"
+        (self.checkout / BUILDER).write_text(text, encoding="utf-8", newline="\n")
+        return text
+
+    def record_status(self) -> str:
+        return json.loads(
+            (self.manager.records / "NSC-046.json").read_text()
+        )["status"]
+
+    def test_apply_refuses_and_the_edit_is_still_there_afterwards(self):
+        _original, materialized, digest = self.make_failed_record()
+        fix = self.land_host_fix()
+        text = self.dirty_tracked_edit()
+        with self.assertRaises(MaterializationReopenError) as caught:
+            reopen_materialization(
+                self.manager, "NSC-046", expected_candidate=materialized,
+                expected_failure_sha256=digest, host_fix_commit=fix, apply=True)
+        message = str(caught.exception)
+        self.assertIn("uncommitted changes", message)
+        self.assertIn(BUILDER, message)
+        self.assertIn("reset --hard", message)
+        # The assertion that actually matters: the work survived.
+        self.assertEqual(
+            text, (self.checkout / BUILDER).read_text(encoding="utf-8"))
+        self.assertEqual("validation_failed", self.record_status())
+
+    def test_the_dry_run_refuses_too_so_it_is_learned_before_applying(self):
+        _original, materialized, digest = self.make_failed_record()
+        fix = self.land_host_fix()
+        self.dirty_tracked_edit()
+        with self.assertRaises(MaterializationReopenError) as caught:
+            reopen_materialization(
+                self.manager, "NSC-046", expected_candidate=materialized,
+                expected_failure_sha256=digest, host_fix_commit=fix)
+        self.assertIn("uncommitted changes", str(caught.exception))
+
+    def test_an_untracked_file_is_refused_before_the_record_moves(self):
+        """`reset --hard` spares untracked files, then the post-reset check
+        refuses -- after the journal was archived and the ref written. Refusing
+        up front turns a half-done reopen into a clean one."""
+        _original, materialized, digest = self.make_failed_record()
+        fix = self.land_host_fix()
+        (self.checkout / self.NOTES).write_text(
+            "why it failed\n", encoding="utf-8", newline="\n")
+        with self.assertRaises(MaterializationReopenError) as caught:
+            reopen_materialization(
+                self.manager, "NSC-046", expected_candidate=materialized,
+                expected_failure_sha256=digest, host_fix_commit=fix, apply=True)
+        self.assertIn(self.NOTES, str(caught.exception))
+        self.assertTrue((self.checkout / self.NOTES).is_file())
+        self.assertEqual("validation_failed", self.record_status())
+
+    def test_an_edit_arriving_after_verification_is_still_not_destroyed(self):
+        """The first check runs OUTSIDE the lock, so it can go stale.
+
+        Simulated by making the first observation report clean while the tree is
+        really dirty -- which is exactly what a write landing between the two
+        looks like from in here. Without the second check this reaches the reset.
+        """
+        from unittest import mock
+
+        import Pipeline.AssistantControl.materialization_reopen as reopen
+
+        _original, materialized, digest = self.make_failed_record()
+        fix = self.land_host_fix()
+        text = self.dirty_tracked_edit()
+        real = reopen._working_tree_dirt
+        calls = []
+
+        def clean_once(checkout):
+            calls.append(checkout)
+            return () if len(calls) == 1 else real(checkout)
+
+        with mock.patch.object(reopen, "_working_tree_dirt", clean_once):
+            with self.assertRaises(MaterializationReopenError) as caught:
+                reopen_materialization(
+                    self.manager, "NSC-046", expected_candidate=materialized,
+                    expected_failure_sha256=digest, host_fix_commit=fix,
+                    apply=True)
+        self.assertIn("became dirty after verification", str(caught.exception))
+        self.assertIn("nothing was discarded", str(caught.exception))
+        self.assertEqual(
+            text, (self.checkout / BUILDER).read_text(encoding="utf-8"))
+        self.assertGreater(len(calls), 1, "the second observation never happened")
+
+    def test_an_ignored_file_does_not_block_a_reopen(self):
+        """A guard this strict would block every reopen in a real checkout.
+
+        Unity litters ignored paths constantly and none of it is at risk from a
+        reset. Excluded via .git/info/exclude specifically because that is not a
+        tracked file, so the fixture stays clean while proving the case.
+        """
+        _original, materialized, digest = self.make_failed_record()
+        fix = self.land_host_fix()
+        exclude = self.checkout / ".git" / "info" / "exclude"
+        exclude.parent.mkdir(parents=True, exist_ok=True)
+        with exclude.open("a", encoding="utf-8", newline="\n") as handle:
+            handle.write("\nunity-scratch.tmp\n")
+        (self.checkout / "unity-scratch.tmp").write_text(
+            "ignored\n", encoding="utf-8", newline="\n")
+        plan = reopen_materialization(
+            self.manager, "NSC-046", expected_candidate=materialized,
+            expected_failure_sha256=digest, host_fix_commit=fix, apply=True)
+        self.assertTrue(plan["applied"])
+        self.assertEqual("needs_materialization", self.record_status())
+
+
 if __name__ == "__main__":
     unittest.main()
