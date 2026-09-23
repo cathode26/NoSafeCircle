@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-081",
-  "contract_revision": 3,
+  "contract_revision": 4,
   "contract_disposition": "active",
   "title": "Chapel of Ash Visual Dressing",
   "reconciliation_key": "chapel-of-ash-visual-dressing",
@@ -21,6 +21,10 @@
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing/ChapelOfAshDressingCatalog.json",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Environment/ChapelOfAshDressingPrefabBuilder.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Environment/ChapelOfAshDressingPrefabTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing/ChapelOfAshDressing.prefab.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing/ChapelOfAshDressingCatalog.json.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Environment/ChapelOfAshDressingPrefabBuilder.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Environment/ChapelOfAshDressingPrefabTests.cs.meta",
     "logical:room-visual-dressing:chapel-of-ash"
   ],
   "acceptance_criteria": [
@@ -37,7 +41,7 @@
     {
       "criterion_id": "AC-003",
       "reference": "Room ownership boundary",
-      "requirement": "Own only this room's dressing prefab, catalog, builder, and focused tests; do not edit the blockout scene, common builders, another room, doors, navigation, or the canonical scene."
+      "requirement": "Own only this room's dressing prefab, catalog, builder, and focused tests; do not edit the blockout scene, common builders, another room, doors, navigation, or the canonical scene. EVERY OWNED ASSET'S .meta IS OWNED WITH IT, AND AN EARLIER REVISION LISTED ONLY THE FOUR ASSETS. Unity writes a .meta beside every asset it imports, so this task's four assets are eight committed files. The omission is not cosmetic and this is measured at source rather than argued: Pipeline/AssistantControl/unity_materialization.py's _generated_resource_roots admits a resource to the Unity builder's allowed roots ONLY when git cat-file -t reports a tree for it, so a resource list containing files alone derives an EMPTY root set - and the companion folder metas it would otherwise supply are computed only FROM those roots, so they are empty too. After that, any file generated beside the owned ones is fatal at materialization. That is the shape that nearly froze NSC-044. THE THREE OUTPUT DIRECTORIES DO NOT EXIST ON MAIN AND ARE DELIBERATELY NOT CLAIMED HERE. Measured: Art/Environment/RoomDressing, Editor/Environment and Tests/Editor/Environment are all absent, while their parent Art/Environment is present with its own .meta. So the FIRST of the five room-dressing tasks to land creates all three, and Unity generates a folder .meta for each. Five tasks claiming one path would be a resource collision, so none claims them and the question of who commits them is named here rather than assumed away: the established remedy is the one used for the prop folders, which were committed separately at 9bd49c7ee as proper folder assets - folderAsset: yes with DefaultImporter, never GUID-only stubs, which import as Cubemaps in Unity 6000.1 - so that no task had to create them. Until that is done for these three, the first dressing task to run needs its contract revised to claim them at that time. EVERY LATER TASK MUST TOLERATE THEIR PRE-EXISTENCE AND MUST NOT ASSERT THAT IT ADDS THEM: a subset rule, not an equality rule, for exactly the reason NSC-102's VAL-003 had to be rewritten - a gate asserting that a task ADDS a path already on main becomes unsatisfiable the moment anyone else lands it."
     },
     {
       "criterion_id": "AC-005",
@@ -73,7 +77,7 @@
   "basis": "human_approved_gameplay_presentation",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "Visual dressing may add presentation objects only; geometry and navigation remain authoritative. Governing visual direction: Docs/Art/Environment/DUNGEON_ART_DIRECTION.md, Vincent-approved project direction dated 2026-09-13. The supplied images are inspiration only; all art and layouts must be original. DEPENDENCY REPOINTED 2026-09-22 (contract revision 3): depends_on moves from NSC-078 to NSC-103. NSC-078 is a forty-five entry catalog task for all five rooms; NSC-103 publishes the seven ready Chapel of Ash props this task actually needs, so the dressing no longer waits on four other rooms' art. Same move NSC-080 made to NSC-102. WHAT THIS TASK CAN DRESS WITH, counted rather than assumed: the plan assigns THIRTEEN props to ChapelOfAsh. Three are already on main - shared_bone_pile_a and shared_web_corner_a from NSC-102, and ca_candelabra_tall as a style-lock pilot source. NSC-103 publishes seven more. The remaining three are ca_pew_x_start/middle/end, a coupled tiling run under the art plan's D-7 whose rotation Vincent has not selected; they follow in their own task. AC-005 IS SATISFIABLE WITHOUT THEM AND I CHECKED THE WORDING RATHER THAN ASSUMING: it says matched candle, pew, column or arch groupings MAY frame the centre - an optional list joined by 'or', not a conjunct - and both shared_candle_cluster_a and shared_stone_column are in NSC-103's set, with ca_altar_ash_bowl_x, ca_sigil_floor_mark and ca_landmark_cracked_bell_frame_x available as the required altar, sigil or ritual-focus landmark. This task still reads NSC-078's PropCatalog description of those entries; it simply no longer waits for NSC-078 to deliver.",
+  "notes": "Visual dressing may add presentation objects only; geometry and navigation remain authoritative. Governing visual direction: Docs/Art/Environment/DUNGEON_ART_DIRECTION.md, Vincent-approved project direction dated 2026-09-13. The supplied images are inspiration only; all art and layouts must be original. DEPENDENCY REPOINTED 2026-09-22 (contract revision 3): depends_on moves from NSC-078 to NSC-103. NSC-078 is a forty-five entry catalog task for all five rooms; NSC-103 publishes the seven ready Chapel of Ash props this task actually needs, so the dressing no longer waits on four other rooms' art. Same move NSC-080 made to NSC-102. WHAT THIS TASK CAN DRESS WITH, counted rather than assumed: the plan assigns THIRTEEN props to ChapelOfAsh. Three are already on main - shared_bone_pile_a and shared_web_corner_a from NSC-102, and ca_candelabra_tall as a style-lock pilot source. NSC-103 publishes seven more. The remaining three are ca_pew_x_start/middle/end, a coupled tiling run under the art plan's D-7 whose rotation Vincent has not selected; they follow in their own task. AC-005 IS SATISFIABLE WITHOUT THEM AND I CHECKED THE WORDING RATHER THAN ASSUMING: it says matched candle, pew, column or arch groupings MAY frame the centre - an optional list joined by 'or', not a conjunct - and both shared_candle_cluster_a and shared_stone_column are in NSC-103's set, with ca_altar_ash_bowl_x, ca_sigil_floor_mark and ca_landmark_cracked_bell_frame_x available as the required altar, sigil or ritual-focus landmark. This task still reads NSC-078's PropCatalog description of those entries; it simply no longer waits for NSC-078 to deliver. RESOURCE-SHAPE REVISION, 2026-09-23: the four asset .meta paths are added to exclusive_resources and the folder-meta hazard is recorded in AC-003. Nothing else changed - no criterion or gate was added, removed or reworded beyond that clause, and the dressing design is untouched. Authored after a sweep found that all five room-dressing tasks - NSC-079, NSC-080, NSC-081, NSC-082 and NSC-083 - carried a file-only resource list, which derives an empty allowed-roots set and makes any generated sibling fatal at materialization. None of the five has ever run: there is no dressing prefab on main and none of them holds a candidate record, so this revision strands nothing. WORTH RECORDING BECAUSE IT WAS NEARLY MISSED IN THE OTHER DIRECTION: a sweep of the five room SCENES for references to the forty-five selected props returns zero, and that is the contract working rather than a gap - AC-003 forbids editing the blockout scene and VAL-001 requires proving it without opening the room's .unity file at all, because the dressing is a PREFAB. A measurement of the wrong artifact reads exactly like a missing feature.",
   "repository_state_at_bootstrap": "partial",
   "repository_evidence_at_bootstrap": [],
   "provenance": {
@@ -88,6 +92,15 @@
         "previous_contract_revision": 2,
         "base_contract_sha256": "1c0caae43d686579410369bcce2a7263765f64ca67404d396b7627d7eadc65e4",
         "revised_contract_sha256": "c3c9e940db58bc37b98d5e9efa73fbbb314c30b9da7d9c2527fdcaadfbb74811",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      },
+      {
+        "date": "2026-09-23",
+        "reason": "Own each asset's .meta: a file-only resource list derives an empty allowed_roots set, after which any generated sibling is fatal at materialization",
+        "source_head": "f66598e7d98826329ca9666b48488e5d831d6ba6",
+        "previous_contract_revision": 3,
+        "base_contract_sha256": "94e6b433b4b8c5662f5f5f873f516b6428dd01ed885aeedbe0ad64dfb1af3076",
+        "revised_contract_sha256": "f6e35cc76dee61f163ee4552f7b51a2ab0ad1a98a53589ede36e5b5af435c1b9",
         "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
       }
     ]
