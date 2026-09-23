@@ -111,6 +111,55 @@ def _builder_source_missing_entry_point(dressing: DressingPrefabBuilder) -> str:
     )
 
 
+_RAW = '"' * 3
+_BUILD_DECOY = (
+    "        public static void Build()\n"
+    "        {\n"
+    "        }\n"
+)
+
+
+def _builder_source_with_multiline_literal_decoy(
+    dressing: DressingPrefabBuilder, opener: str,
+) -> str:
+    """Declares NO Build. The decoy sits inside a literal that spans newlines.
+
+    R1 from Astra's review of 63d54ca53. A single-line scan ends at the first
+    newline, so every line after the first of a verbatim or raw literal reached
+    the declaration scan as if it were code.
+    """
+    closer = _RAW if _RAW in opener else '"'
+    return (
+        f"namespace {dressing.namespace}\n"
+        "{\n"
+        f"    public static class {dressing.class_name}\n"
+        "    {\n"
+        f"        const string Usage = {opener}\n"
+        f"{_BUILD_DECOY}"
+        f"        {closer};\n"
+        "        public static void NotBuild() { }\n"
+        "    }\n"
+        "}\n"
+    )
+
+
+def _generic_builder_source(dressing: DressingPrefabBuilder) -> str:
+    """A GENERIC class of the right name, declaring Build.
+
+    R2 from the same review. The registered entry point names an exact
+    non-generic type, so Unity could never resolve the method on this.
+    """
+    return (
+        f"namespace {dressing.namespace}\n"
+        "{\n"
+        f"    public static class {dressing.class_name}<T>\n"
+        "    {\n"
+        "        public static void Build() { }\n"
+        "    }\n"
+        "}\n"
+    )
+
+
 def _good_catalog(dressing: DressingPrefabBuilder) -> str:
     return json.dumps({"room": dressing.room, "props": []}) + "\n"
 
@@ -467,6 +516,54 @@ class DressingBuilderEntryPointMissingRefuses(DressingFixtureMixin, unittest.Tes
                 validation_runner=self.passing_validation,
             )
 
+    def _refuses_entry_point_at_the_candidate(self, room, task, source_for):
+        """Shared driver: a real candidate must refuse BEFORE Unity launches."""
+        dressing = self._bootstrap(room, task)
+        self.write_and_stage(dressing.builder_source_path, source_for(dressing))
+        self.write_and_stage(dressing.catalog_path, _good_catalog(dressing))
+        self.commit("crew dressing candidate")
+        original = self.register_candidate_at_head(
+            changed_paths=(dressing.builder_source_path, dressing.catalog_path),
+        )
+
+        def exploding_runner(*_args, **_kwargs):
+            raise AssertionError("Unity must not launch for an unusable entry point")
+
+        with self.assertRaisesRegex(
+            MaterializationError,
+            f"builder_entry_point_missing: {dressing.build_method} in "
+            f"{dressing.builder_source_path} at {original}",
+        ):
+            materialize_candidate(
+                self.manager, task, original, unity_executable=self.unity,
+                unity_command_runner=exploding_runner,
+                validation_runner=self.passing_validation,
+            )
+
+    def test_a_multiline_verbatim_literal_decoy_refuses_at_the_candidate(self):
+        """R1, proven where it matters: through materialize_candidate itself.
+
+        The unit decoys below cover the witness in isolation. Astra asked for
+        this at the CANDIDATE level, because that is the path a real crew takes
+        and it is where "zero Unity invocations" is a meaningful claim.
+        """
+        self._refuses_entry_point_at_the_candidate(
+            "BoneArchive", "NSC-523",
+            lambda d: _builder_source_with_multiline_literal_decoy(d, '@$"usage:'),
+        )
+
+    def test_a_multiline_raw_literal_decoy_refuses_at_the_candidate(self):
+        self._refuses_entry_point_at_the_candidate(
+            "ChapelOfAsh", "NSC-524",
+            lambda d: _builder_source_with_multiline_literal_decoy(d, _RAW),
+        )
+
+    def test_a_generic_class_of_the_right_name_refuses_at_the_candidate(self):
+        """R2. It declares Build, and Unity still could not resolve it."""
+        self._refuses_entry_point_at_the_candidate(
+            "FinalRoom", "NSC-525", _generic_builder_source,
+        )
+
 
 class DressingCatalogSourceMissingRefuses(DressingFixtureMixin, unittest.TestCase):
     """catalog_source_missing: builder exists; catalog was never committed."""
@@ -686,6 +783,80 @@ class DeclaresDressingEntryPointDecoys(unittest.TestCase):
     def _wrap(self, body: str, *, namespace: str | None = None) -> str:
         ns = self.dressing.namespace if namespace is None else namespace
         return f"namespace {ns}\n{{\n{body}\n}}\n"
+
+    # -- R1 and R2, Astra's review of 63d54ca53 -------------------------
+    # Every decoy below declares NO usable entry point, and each one PASSED
+    # before the fix. They survived 140 unittests, seven prompt checks and
+    # nineteen mutations that all died for their named reasons, because none
+    # of those asked this question.
+
+    def test_a_multiline_at_dollar_verbatim_decoy_is_false(self):
+        source = _builder_source_with_multiline_literal_decoy(
+            self.dressing, '@$"usage:')
+        self.assertFalse(declares_dressing_entry_point(source, self.dressing))
+
+    def test_a_multiline_dollar_at_verbatim_decoy_is_false(self):
+        """`$@"` and `@$"` are both legal and both verbatim."""
+        source = _builder_source_with_multiline_literal_decoy(
+            self.dressing, '$@"usage:')
+        self.assertFalse(declares_dressing_entry_point(source, self.dressing))
+
+    def test_a_multiline_plain_verbatim_decoy_is_false(self):
+        source = _builder_source_with_multiline_literal_decoy(
+            self.dressing, '@"')
+        self.assertFalse(declares_dressing_entry_point(source, self.dressing))
+
+    def test_a_multiline_raw_literal_decoy_is_false(self):
+        source = _builder_source_with_multiline_literal_decoy(
+            self.dressing, _RAW)
+        self.assertFalse(declares_dressing_entry_point(source, self.dressing))
+
+    def test_a_multiline_interpolated_raw_literal_decoy_is_false(self):
+        source = _builder_source_with_multiline_literal_decoy(
+            self.dressing, "$" + _RAW)
+        self.assertFalse(declares_dressing_entry_point(source, self.dressing))
+
+    def test_a_generic_class_of_the_right_name_is_false(self):
+        source = _generic_builder_source(self.dressing)
+        self.assertFalse(declares_dressing_entry_point(source, self.dressing))
+
+    def test_a_generic_class_written_with_a_space_is_false(self):
+        source = _generic_builder_source(self.dressing).replace(
+            f"{self.dressing.class_name}<T>", f"{self.dressing.class_name} <T>")
+        self.assertFalse(declares_dressing_entry_point(source, self.dressing))
+
+    # -- the positives these fixes must NOT break -----------------------
+
+    def test_a_non_generic_class_implementing_a_generic_interface_is_true(self):
+        """The refusal is for a GENERIC TYPE, not for the character `<`.
+
+        `class X : IComparable<X>` is an ordinary non-generic class and Unity
+        resolves the method on it perfectly well.
+        """
+        source = self._wrap(
+            f"    public static class {self.dressing.class_name} : IThing<int>\n"
+            "    {\n"
+            "        public static void Build() { }\n"
+            "    }"
+        )
+        self.assertTrue(declares_dressing_entry_point(source, self.dressing))
+
+    def test_a_real_multiline_literal_before_a_real_build_is_true(self):
+        """Blanking a literal must not swallow the declaration after it."""
+        for opener in ('@$"docs:', '$@"docs:', '@"docs:', _RAW, "$" + _RAW):
+            closer = _RAW if _RAW in opener else '"'
+            with self.subTest(opener=opener):
+                source = self._wrap(
+                    f"    public static class {self.dressing.class_name}\n"
+                    "    {\n"
+                    f"        const string Usage = {opener}\n"
+                    "        harmless documentation\n"
+                    f"        {closer};\n"
+                    "        public static void Build() { }\n"
+                    "    }"
+                )
+                self.assertTrue(
+                    declares_dressing_entry_point(source, self.dressing))
 
     # -- decoys: every one of these must be False -----------------------
 

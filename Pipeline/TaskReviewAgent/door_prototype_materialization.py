@@ -197,9 +197,20 @@ def _blank_csharp_comments_and_literals(source: str) -> str:
     those regions blanked rather than over the raw source. Lengths and newlines
     are preserved so an offset still maps back to a real line.
 
-    Unrecognised exotic syntax degrades toward blanking, never toward revealing:
-    a C# 11 raw string is scanned as a run of ordinary strings, which still
-    erases its contents.
+    THIS DOCSTRING USED TO CLAIM that unrecognised syntax "degrades toward
+    blanking, never toward revealing" and that a raw string "is scanned as a run
+    of ordinary strings, which still erases its contents". **That was false and
+    untested.** A single-line scan stops at a newline, so a multiline verbatim
+    literal (`@$"` or `$@"`) or a triple-quoted raw literal was blanked on its
+    FIRST LINE ONLY and every later line was handed to the scanner as code --
+    enough for a class declaring no `Build` at all to satisfy the witness.
+    Found by Astra's independent review, after 140 unittests and nineteen
+    mutations had all passed.
+
+    Kept as a warning rather than deleted: a reassurance about an unmeasured
+    case is worse than no comment, because it stops the next reader looking.
+    Verbatim and raw literals now span newlines, and an unterminated one blanks
+    to end of file, which is the conservative direction.
     """
     out = list(source)
     length = len(source)
@@ -224,30 +235,81 @@ def _blank_csharp_comments_and_literals(source: str) -> str:
             blank(index, stop)
             index = stop
             continue
-        if char == "@" and source.startswith('@"', index):
-            # Verbatim: no backslash escapes, and "" is an escaped quote.
-            cursor = index + 2
-            while cursor < length:
-                if source[cursor] == '"':
-                    if source.startswith('""', cursor):
+        if char in {"$", "@", '"'}:
+            # The PREFIX decides how far the literal reaches, and getting this
+            # wrong is how a decoy escapes. `$` and `@` may appear in either
+            # order, so `@$"` and `$@"` are both verbatim.
+            scan = index
+            prefix = ""
+            while scan < length and source[scan] in "$@":
+                prefix += source[scan]
+                scan += 1
+            if scan >= length or source[scan] != '"':
+                index += 1
+                continue
+            quotes = scan
+            while quotes < length and source[quotes] == '"':
+                quotes += 1
+            run = quotes - scan
+            if run >= 3:
+                # Raw string literal: opened by a run of N quotes, closed by the
+                # next run of at least N. SPANS NEWLINES.
+                cursor = quotes
+                while cursor < length:
+                    if source[cursor] != '"':
+                        cursor += 1
+                        continue
+                    closing = cursor
+                    while closing < length and source[closing] == '"':
+                        closing += 1
+                    if closing - cursor >= run:
+                        cursor = closing
+                        break
+                    cursor = closing
+                else:
+                    cursor = length
+            elif "@" in prefix:
+                # Verbatim: no backslash escapes, "" is an escaped quote, and it
+                # SPANS NEWLINES. Terminating at a newline here is what let a
+                # multiline @$"..." expose its later lines as code.
+                cursor = scan + 1
+                while cursor < length:
+                    if source[cursor] == '"':
+                        if source.startswith('""', cursor):
+                            cursor += 2
+                            continue
+                        cursor += 1
+                        break
+                    cursor += 1
+                else:
+                    cursor = length
+            else:
+                # Ordinary or interpolated single-line string. Stopping at a
+                # newline is CORRECT for this form only: C# does not let one
+                # span lines, so an unterminated quote is malformed source, not
+                # a literal that continues.
+                cursor = scan + 1
+                while cursor < length:
+                    if source[cursor] == "\\":
                         cursor += 2
                         continue
+                    if source[cursor] == '"':
+                        cursor += 1
+                        break
+                    if source[cursor] == "\n":
+                        break
                     cursor += 1
-                    break
-                cursor += 1
             blank(index, cursor)
             index = cursor
             continue
-        if char in {'"', "'"}:
+        if char == "'":
             cursor = index + 1
             while cursor < length:
                 if source[cursor] == "\\":
                     cursor += 2
                     continue
-                if source[cursor] == char:
+                if source[cursor] == "'":
                     cursor += 1
-                    break
-                if source[cursor] == "\n" and char == '"':
                     break
                 cursor += 1
             blank(index, cursor)
@@ -319,8 +381,13 @@ def declares_dressing_entry_point(
     namespace_depth = _depth_at(text, body_start)
     class_name = re.escape(builder.class_name)
     for match in re.finditer(
+        # `(?!\s*<)` refuses `XDressingPrefabBuilder<T>`: the registered entry
+        # point names an exact NON-GENERIC type, so Unity could never resolve
+        # the method on a generic of the same name. The lookahead sits
+        # immediately after the type name, so a non-generic class implementing
+        # a generic interface -- `class X : IComparable<X>` -- still passes.
         rf"(?:^|[;{{}}\s\]])((?:{_CSHARP_TYPE_MODIFIERS}\s+)+)class\s+{class_name}\b"
-        rf"[^{{;]*\{{",
+        rf"(?!\s*<)[^{{;]*\{{",
         text[body_start:body_stop],
     ):
         start = body_start + match.start()
