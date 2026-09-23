@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="14" result="Passed" total="14" passed="14" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-09-23 19:37:40Z" end-time="2026-09-23 19:37:40Z" duration="0.1177693">
+  <test-suite type="TestSuite" id="1308" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="262" result="Passed" start-time="2026-09-23 19:37:40Z" end-time="2026-09-23 19:37:40Z" duration="0.117769" total="14" passed="14" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="PlayMode" />
+    </properties>
+    <test-suite type="Assembly" id="1294" name="NoSafeCircle.DoorPrototype.Tests.dll" fullname="C:/nscrev/branch-verify/Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Tests.dll" runstate="Runnable" testcasecount="258" result="Passed" start-time="2026-09-23 19:37:40Z" end-time="2026-09-23 19:37:40Z" duration="0.101196" total="14" passed="14" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="67380" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="PlayMode" />
+        <property name="EditorOnly" value="False" />
+      </properties>
+      <test-suite type="TestSuite" id="1295" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="258" result="Passed" start-time="2026-09-23 19:37:40Z" end-time="2026-09-23 19:37:40Z" duration="0.091955" total="14" passed="14" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1296" name="DoorPrototype" fullname="NoSafeCircle.DoorPrototype" runstate="Runnable" testcasecount="258" result="Passed" start-time="2026-09-23 19:37:40Z" end-time="2026-09-23 19:37:40Z" duration="0.084921" total="14" passed="14" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1297" name="Tests" fullname="NoSafeCircle.DoorPrototype.Tests" runstate="Runnable" testcasecount="258" result="Passed" start-time="2026-09-23 19:37:40Z" end-time="2026-09-23 19:37:40Z" duration="0.078036" total="14" passed="14" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestFixture" id="1231" name="RangedEnemyAttackPlayModeTests" fullname="NoSafeCircle.DoorPrototype.Tests.RangedEnemyAttackPlayModeTests" classname="NoSafeCircle.DoorPrototype.Tests.RangedEnemyAttackPlayModeTests" runstate="Runnable" testcasecount="14" result="Passed" start-time="2026-09-23 19:37:40Z" end-time="2026-09-23 19:37:40Z" duration="0.065897" total="14" passed="14" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1232" name="AcquiredWizard_WindsUpThenProjectileMovesAndDamagesOnce" fullname="NoSafeCircle.DoorPrototype.Tests.RangedEnemyAttackPlayModeTests.AcquiredWizard_WindsUpThenProjectileMovesAndDamagesOnce" methodname="AcquiredWizard_WindsUpThenProjectileMovesAndDamagesOnce" classname="NoSafeCircle.DoorPrototype.Tests.RangedEnemyAttackPlayModeTests" runstate="Runnable" seed="1733305253" result="Passed" start-time="2026-09-23 19:37:40Z" end-time="2026-09-23 19:37:40Z" duration="0.030942" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1235" name="ChildColliderOfPlayer_IsNeitherDamageTargetNorCover" fullname="NoSafeCircle.DoorPrototype.Tests.RangedEnemyAttackPlayModeTests.ChildColliderOfPlayer_IsNeitherDamageTargetNorCover" methodname="ChildColliderOfPlayer_IsNeitherDamageTargetNorCover" classname="NoSafeCircle.DoorPrototype.Tests.RangedEnemyAttackPlayModeTests" runstate="Runnable" seed="233858327" result="Passed" start-time="2026-09-23 19:37:40Z" end-time="2026-09-23 19:37:40Z" duration="0.001610" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1237" name="ConsecutiveTicks_DetectNewCoverWithoutPhysicsFrame" fullname="NoSafeCircle.DoorPrototype.Tests.RangedEnemyAttackPlayModeTests.ConsecutiveTicks_DetectNewCoverWithoutPhysicsFrame" methodname="ConsecutiveTicks_DetectNewCoverWithoutPhysicsFrame" classname="NoSafeCircle.DoorPrototype.Tests.RangedEnemyAttackPlayModeTests" runstate="Runnable" seed="1120336876" result="Passed" start-time="2026-09-23 19:37:40Z" end-time="2026-09-23 19:37:40Z" duration="0.001020" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1245" name="DirectLaunch_IsRegisteredWithOwnerAndResetRemovesIt" fullname="NoSafeCircle.DoorPrototype.Tests.RangedEnemyAttackPlayModeTests.DirectLaunch_IsRegisteredWithOwnerAndResetRemovesIt" methodname="DirectLaunch_IsRegisteredWithOwnerAndResetRemovesIt" classname="NoSafeCircle.DoorPrototype.Tests.RangedEnemyAttackPlayModeTests" runstate="Runnable" seed="439633155" result="Passed" start-time="2026-09-23 19:37:40Z" end-time="2026-09-23 19:37:40Z" duration="0.000770" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1242" name="DisableAndDestroyOwner_RemoveFeedbackAndOwnedProjectiles" fullname="NoSafeCircle.DoorPrototype.Tests.RangedEnemyAttackPlayModeTests.DisableAndDestroyOwner_RemoveFeedbackAndOwnedProjectiles" methodname="DisableAndDestroyOwner_RemoveFeedbackAndOwnedProjectiles" classname="NoSafeCircle.DoorPrototype.Tests.RangedEnemyAttackPlayModeTests" runstate="Runnable" seed="533737377" result="Passed" start-time="2026-09-23 19:37:40Z" end-time="2026-09-23 19:37:40Z" duration="0.000919" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1243" name="FrostSlowdown_LeavesWindUpCooldownSpeedAndLifetimeUnchanged" fullname="NoSafeCircle.DoorPrototype.Tests.RangedEnemyAttackPlayModeTests.FrostSlowdown_LeavesWindUpCooldownSpeedAndLifetimeUnchanged" methodname="FrostSlowdown_LeavesWindUpCooldownSpeedAndLifetimeUnchanged" classname="NoSafeCircle.DoorPrototype.Tests.RangedEnemyAttackPlayModeTests" runstate="Runnable" seed="1050203179" result="Passed" start-time="2026-09-23 19:37:40Z" end-time="2026-09-23 19:37:40Z" duration="0.003892" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[Failed to create agent because there is no valid NavMesh
+]]></output>
+              </test-case>
+              <test-case id="1240" name="MissingTargetKnowledge_DoesNotStartAttack" fullname="NoSafeCircle.DoorPrototype.Tests.RangedEnemyAttackPlayModeTests.MissingTargetKnowledge_DoesNotStartAttack" methodname="MissingTargetKnowledge_DoesNotStartAttack" classname="NoSafeCircle.DoorPrototype.Tests.RangedEnemyAttackPlayModeTests" runstate="Runnable" seed="1606891055" result="Passed" start-time="2026-09-23 19:37:40Z" end-time="2026-09-23 19:37:40Z" duration="0.000664" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1236" name="OtherEnemyCollider_IsIgnored" fullname="NoSafeCircle.DoorPrototype.Tests.RangedEnemyAttackPlayModeTests.OtherEnemyCollider_IsIgnored" methodname="OtherEnemyCollider_IsIgnored" classname="NoSafeCircle.DoorPrototype.Tests.RangedEnemyAttackPlayModeTests" runstate="Runnable" seed="1397532773" result="Passed" start-time="2026-09-23 19:37:40Z" end-time="2026-09-23 19:37:40Z" duration="0.001175" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1233" name="PewCover_BlocksProjectileButNotPursuit_ThenNextShotCanHit" fullname="NoSafeCircle.DoorPrototype.Tests.RangedEnemyAttackPlayModeTests.PewCover_BlocksProjectileButNotPursuit_ThenNextShotCanHit" methodname="PewCover_BlocksProjectileButNotPursuit_ThenNextShotCanHit" classname="NoSafeCircle.DoorPrototype.Tests.RangedEnemyAttackPlayModeTests" runstate="Runnable" seed="1642762523" result="Passed" start-time="2026-09-23 19:37:40Z" end-time="2026-09-23 19:37:40Z" duration="0.001128" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1238" name="PlayerSidestepsAfterLaunch_ProjectileDoesNotHome" fullname="NoSafeCircle.DoorPrototype.Tests.RangedEnemyAttackPlayModeTests.PlayerSidestepsAfterLaunch_ProjectileDoesNotHome" methodname="PlayerSidestepsAfterLaunch_ProjectileDoesNotHome" classname="NoSafeCircle.DoorPrototype.Tests.RangedEnemyAttackPlayModeTests" runstate="Runnable" seed="1460071877" result="Passed" start-time="2026-09-23 19:37:40Z" end-time="2026-09-23 19:37:40Z" duration="0.000731" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1244" name="ProjectileLaunch_RequiresOwner" fullname="NoSafeCircle.DoorPrototype.Tests.RangedEnemyAttackPlayModeTests.ProjectileLaunch_RequiresOwner" methodname="ProjectileLaunch_RequiresOwner" classname="NoSafeCircle.DoorPrototype.Tests.RangedEnemyAttackPlayModeTests" runstate="Runnable" seed="1875816695" result="Passed" start-time="2026-09-23 19:37:40Z" end-time="2026-09-23 19:37:40Z" duration="0.001375" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1241" name="ResetDuringWindUpAndFlight_CancelsAndRestartsAtInitialTiming" fullname="NoSafeCircle.DoorPrototype.Tests.RangedEnemyAttackPlayModeTests.ResetDuringWindUpAndFlight_CancelsAndRestartsAtInitialTiming" methodname="ResetDuringWindUpAndFlight_CancelsAndRestartsAtInitialTiming" classname="NoSafeCircle.DoorPrototype.Tests.RangedEnemyAttackPlayModeTests" runstate="Runnable" seed="1179191561" result="Passed" start-time="2026-09-23 19:37:40Z" end-time="2026-09-23 19:37:40Z" duration="0.000716" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1239" name="TargetLostDuringWindUp_CancelsWithoutChangingSearchState" fullname="NoSafeCircle.DoorPrototype.Tests.RangedEnemyAttackPlayModeTests.TargetLostDuringWindUp_CancelsWithoutChangingSearchState" methodname="TargetLostDuringWindUp_CancelsWithoutChangingSearchState" classname="NoSafeCircle.DoorPrototype.Tests.RangedEnemyAttackPlayModeTests" runstate="Runnable" seed="492665721" result="Passed" start-time="2026-09-23 19:37:40Z" end-time="2026-09-23 19:37:40Z" duration="0.000685" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1234" name="TriggerCover_DoesNotStopProjectile" fullname="NoSafeCircle.DoorPrototype.Tests.RangedEnemyAttackPlayModeTests.TriggerCover_DoesNotStopProjectile" methodname="TriggerCover_DoesNotStopProjectile" classname="NoSafeCircle.DoorPrototype.Tests.RangedEnemyAttackPlayModeTests" runstate="Runnable" seed="1962048496" result="Passed" start-time="2026-09-23 19:37:40Z" end-time="2026-09-23 19:37:40Z" duration="0.000704" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[Saving results to: C:/Users/VincentLiguori/AppData/LocalLow/DefaultCompany/NoSafeCircle\TestResults.xml
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

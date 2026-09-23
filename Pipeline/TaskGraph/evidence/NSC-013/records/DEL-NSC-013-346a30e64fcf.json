@@ -1,0 +1,116 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "2d5c8a1dc5d4bba469fb158b27967717309e5b7ad6f8ab4a38fbbd05ad583c9f"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "60a3cd439ad12d68527688c64faf76c1644683da",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyStatusEffectMovement.cs",
+      "role": "enemy_locomotion_status_effect_surface"
+    },
+    {
+      "blob_sha": "5095b2aba8c40455247d72ec8caadc8ecaf9689e",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyStatusEffectMovement.cs.meta",
+      "role": "unity_identity_for_the_status_effect_surface"
+    },
+    {
+      "blob_sha": "189544ddc86ef9af4fec2ca34352a7fa25885067",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/EnemyStatusEffectMovementPlayModeTests.cs",
+      "role": "play_mode_verification_of_the_status_effect_surface"
+    },
+    {
+      "blob_sha": "13fb3b24fd0ea87a13599f344e3b231595d9dcf0",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/EnemyStatusEffectMovementPlayModeTests.cs.meta",
+      "role": "unity_identity_for_the_verification_fixture"
+    }
+  ],
+  "delivery": {
+    "base_commit": "ab0e2f37152ad677046bd577bb14bcd880fbe22d",
+    "candidate_commit": "ed8a44ed702a7334947377e8f0d214ac91a203b4",
+    "integrated_commit": "346a30e64fcf24f4bab31896d081176336a7bcee",
+    "integrated_tree": "4a6bf3fa0fc1f2c07561236779fd4340c2535279"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "1a79e00a5c5f5f897edf20b2b14622d04410c359",
+          "path": "Pipeline/TaskGraph/evidence/NSC-013/artifacts/EnemyStatusEffectMovementValidationManifest-346a30e64fcf.json"
+        },
+        {
+          "blob_sha": "7094aadd7e6a629ef89b5db7e410e7a522d3f2ee",
+          "path": "Pipeline/TaskGraph/evidence/NSC-013/artifacts/EnemyStatusEffectMovementPlayModeResults-346a30e64fcf.xml"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "ApplyFrostSlowdown_ReducesAgentSpeed_AndRestoresBaselineWhenDurationElapses applies the slowdown, advances past the duration with Tick and asserts IsFrostSlowdownActive is false and the agent speed is back at BaselineSpeed, which is the gate's 'fully restored when the effect ends, with no permanent slowdown remaining'. ApplyFrostSlowdown_ReappliedBeforeExpiry_OverwritesMultiplierAndRefreshesDuration, _MultiplierAboveOne_ClampsToBaselineSpeedWithoutIncrease, _NegativeMultiplier_ClampsToFullStop and _NonPositiveDuration_DoesNotApplyEffect cover the boundaries. 13 of 13 passed, repository clean before and after.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "1a79e00a5c5f5f897edf20b2b14622d04410c359",
+          "path": "Pipeline/TaskGraph/evidence/NSC-013/artifacts/EnemyStatusEffectMovementValidationManifest-346a30e64fcf.json"
+        },
+        {
+          "blob_sha": "7094aadd7e6a629ef89b5db7e410e7a522d3f2ee",
+          "path": "Pipeline/TaskGraph/evidence/NSC-013/artifacts/EnemyStatusEffectMovementPlayModeResults-346a30e64fcf.xml"
+        }
+      ],
+      "gate_id": "VAL-002",
+      "notes": "RequestDisplacement_WhilePursuing_PreservesNavigationAndPursuitResumesTowardTarget is the gate's 'resumes appropriate pursuit behavior afterward rather than becoming stuck', exercised against the production EnemyPursuitMovement rather than a fake. _ValidDirection_WarpsToValidNavMeshPositionAndPreservesIdentity and _SampledPointDisconnectedAcrossWall_RejectsItAndStaysPathConnected cover 'preserving valid navigation state'; _ZeroDirection and _NonPositiveDistance cover the degenerate inputs. 13 of 13 passed.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "ef547c96504525224039179dbd478203fb504415",
+          "path": "Pipeline/TaskGraph/evidence/NSC-013/artifacts/RangedEnemyAttackValidationManifest-346a30e64fcf.json"
+        },
+        {
+          "blob_sha": "fe7689c9976ba51784e40c8388c3ed6c49f359f9",
+          "path": "Pipeline/TaskGraph/evidence/NSC-013/artifacts/RangedEnemyAttackPlayModeResults-346a30e64fcf.xml"
+        }
+      ],
+      "gate_id": "VAL-003",
+      "notes": "FrostSlowdown_LeavesWindUpCooldownSpeedAndLifetimeUnchanged is the gate directly: a ranged enemy under active Frost slowdown keeps its telegraphed attack wind-up, cooldown, projectile speed and lifetime unchanged, so only repositioning speed is reduced. Run as its own fixture, 14 of 14 passed, repository clean before and after.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "1a79e00a5c5f5f897edf20b2b14622d04410c359",
+          "path": "Pipeline/TaskGraph/evidence/NSC-013/artifacts/EnemyStatusEffectMovementValidationManifest-346a30e64fcf.json"
+        },
+        {
+          "blob_sha": "7094aadd7e6a629ef89b5db7e410e7a522d3f2ee",
+          "path": "Pipeline/TaskGraph/evidence/NSC-013/artifacts/EnemyStatusEffectMovementPlayModeResults-346a30e64fcf.xml"
+        }
+      ],
+      "gate_id": "VAL-004",
+      "notes": "ResetStatusEffects_WhileFrostActive_ClearsSlowdownAndRestoresBaselineSpeed is the owner-controlled reset entry point clearing active state; _WithNoActiveEffects_DoesNotThrowAndLeavesBaselineSpeed proves it is safe on an unaffected enemy, which is what a floor restart sweeping every enemy requires; _ThenFrostAppliedAgain_AppliesNormally proves the reset does not leave the component unusable. 13 of 13 passed. NOT PROVEN by these artifacts: that a real floor restart calls this entry point for every live enemy, which is FloorRunRestart's surface and not this task's.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "",
+    "decision": "not_required",
+    "notes": "NSC-013's four completion gates are all automated verification and the contract declares no human review step and no validation_policy. Its own dependencies NSC-089 and NSC-092, and the sibling NSC-090, all delivered with required false and decision not_required; NSC-041, which does carry a human gate, delivered with required true. No Vincent approval is claimed here because none was sought and none is owed.",
+    "required": false
+  },
+  "record_id": "DEL-NSC-013-346a30e64fcf",
+  "record_type": "delivery",
+  "recorded_at": "2026-09-23T19:51:06Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-013.yaml",
+    "revision": 4,
+    "sha256": "6b7af341c4d991e24244d64486579362de06b379c10e89ead67dcb0329f95d23"
+  },
+  "task_id": "NSC-013",
+  "validated_state": {
+    "commit": "346a30e64fcf24f4bab31896d081176336a7bcee",
+    "tree": "4a6bf3fa0fc1f2c07561236779fd4340c2535279"
+  }
+}

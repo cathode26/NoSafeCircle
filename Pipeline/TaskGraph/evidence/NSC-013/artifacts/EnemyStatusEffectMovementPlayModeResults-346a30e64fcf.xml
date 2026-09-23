@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="13" result="Passed" total="13" passed="13" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-09-23 19:36:47Z" end-time="2026-09-23 19:36:48Z" duration="0.4910674">
+  <test-suite type="TestSuite" id="1308" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="262" result="Passed" start-time="2026-09-23 19:36:47Z" end-time="2026-09-23 19:36:48Z" duration="0.491067" total="13" passed="13" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="PlayMode" />
+    </properties>
+    <test-suite type="Assembly" id="1294" name="NoSafeCircle.DoorPrototype.Tests.dll" fullname="C:/nscrev/branch-verify/Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Tests.dll" runstate="Runnable" testcasecount="258" result="Passed" start-time="2026-09-23 19:36:47Z" end-time="2026-09-23 19:36:48Z" duration="0.474476" total="13" passed="13" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="66220" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="PlayMode" />
+        <property name="EditorOnly" value="False" />
+      </properties>
+      <test-suite type="TestSuite" id="1295" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="258" result="Passed" start-time="2026-09-23 19:36:47Z" end-time="2026-09-23 19:36:48Z" duration="0.469213" total="13" passed="13" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1296" name="DoorPrototype" fullname="NoSafeCircle.DoorPrototype" runstate="Runnable" testcasecount="258" result="Passed" start-time="2026-09-23 19:36:47Z" end-time="2026-09-23 19:36:48Z" duration="0.464126" total="13" passed="13" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1297" name="Tests" fullname="NoSafeCircle.DoorPrototype.Tests" runstate="Runnable" testcasecount="258" result="Passed" start-time="2026-09-23 19:36:47Z" end-time="2026-09-23 19:36:48Z" duration="0.457999" total="13" passed="13" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestFixture" id="1146" name="EnemyStatusEffectMovementPlayModeTests" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyStatusEffectMovementPlayModeTests" classname="NoSafeCircle.DoorPrototype.Tests.EnemyStatusEffectMovementPlayModeTests" runstate="Runnable" testcasecount="13" result="Passed" start-time="2026-09-23 19:36:47Z" end-time="2026-09-23 19:36:48Z" duration="0.445937" total="13" passed="13" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1148" name="ApplyFrostSlowdown_MultiplierAboveOne_ClampsToBaselineSpeedWithoutIncrease" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyStatusEffectMovementPlayModeTests.ApplyFrostSlowdown_MultiplierAboveOne_ClampsToBaselineSpeedWithoutIncrease" methodname="ApplyFrostSlowdown_MultiplierAboveOne_ClampsToBaselineSpeedWithoutIncrease" classname="NoSafeCircle.DoorPrototype.Tests.EnemyStatusEffectMovementPlayModeTests" runstate="Runnable" seed="503355004" result="Passed" start-time="2026-09-23 19:36:47Z" end-time="2026-09-23 19:36:47Z" duration="0.031436" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1149" name="ApplyFrostSlowdown_NegativeMultiplier_ClampsToFullStop" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyStatusEffectMovementPlayModeTests.ApplyFrostSlowdown_NegativeMultiplier_ClampsToFullStop" methodname="ApplyFrostSlowdown_NegativeMultiplier_ClampsToFullStop" classname="NoSafeCircle.DoorPrototype.Tests.EnemyStatusEffectMovementPlayModeTests" runstate="Runnable" seed="12986563" result="Passed" start-time="2026-09-23 19:36:47Z" end-time="2026-09-23 19:36:47Z" duration="0.002383" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1151" name="ApplyFrostSlowdown_NonPositiveDuration_DoesNotApplyEffect" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyStatusEffectMovementPlayModeTests.ApplyFrostSlowdown_NonPositiveDuration_DoesNotApplyEffect" methodname="ApplyFrostSlowdown_NonPositiveDuration_DoesNotApplyEffect" classname="NoSafeCircle.DoorPrototype.Tests.EnemyStatusEffectMovementPlayModeTests" runstate="Runnable" seed="1693001922" result="Passed" start-time="2026-09-23 19:36:47Z" end-time="2026-09-23 19:36:47Z" duration="0.001779" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1150" name="ApplyFrostSlowdown_ReappliedBeforeExpiry_OverwritesMultiplierAndRefreshesDuration" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyStatusEffectMovementPlayModeTests.ApplyFrostSlowdown_ReappliedBeforeExpiry_OverwritesMultiplierAndRefreshesDuration" methodname="ApplyFrostSlowdown_ReappliedBeforeExpiry_OverwritesMultiplierAndRefreshesDuration" classname="NoSafeCircle.DoorPrototype.Tests.EnemyStatusEffectMovementPlayModeTests" runstate="Runnable" seed="1041349791" result="Passed" start-time="2026-09-23 19:36:47Z" end-time="2026-09-23 19:36:47Z" duration="0.001734" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1147" name="ApplyFrostSlowdown_ReducesAgentSpeed_AndRestoresBaselineWhenDurationElapses" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyStatusEffectMovementPlayModeTests.ApplyFrostSlowdown_ReducesAgentSpeed_AndRestoresBaselineWhenDurationElapses" methodname="ApplyFrostSlowdown_ReducesAgentSpeed_AndRestoresBaselineWhenDurationElapses" classname="NoSafeCircle.DoorPrototype.Tests.EnemyStatusEffectMovementPlayModeTests" runstate="Runnable" seed="2137101924" result="Passed" start-time="2026-09-23 19:36:47Z" end-time="2026-09-23 19:36:47Z" duration="0.009396" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1155" name="RequestDisplacement_NonPositiveDistance_DoesNotMoveAgent" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyStatusEffectMovementPlayModeTests.RequestDisplacement_NonPositiveDistance_DoesNotMoveAgent" methodname="RequestDisplacement_NonPositiveDistance_DoesNotMoveAgent" classname="NoSafeCircle.DoorPrototype.Tests.EnemyStatusEffectMovementPlayModeTests" runstate="Runnable" seed="2014539859" result="Passed" start-time="2026-09-23 19:36:47Z" end-time="2026-09-23 19:36:47Z" duration="0.004026" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1153" name="RequestDisplacement_SampledPointDisconnectedAcrossWall_RejectsItAndStaysPathConnected" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyStatusEffectMovementPlayModeTests.RequestDisplacement_SampledPointDisconnectedAcrossWall_RejectsItAndStaysPathConnected" methodname="RequestDisplacement_SampledPointDisconnectedAcrossWall_RejectsItAndStaysPathConnected" classname="NoSafeCircle.DoorPrototype.Tests.EnemyStatusEffectMovementPlayModeTests" runstate="Runnable" seed="425053248" result="Passed" start-time="2026-09-23 19:36:47Z" end-time="2026-09-23 19:36:47Z" duration="0.005783" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1152" name="RequestDisplacement_ValidDirection_WarpsToValidNavMeshPositionAndPreservesIdentity" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyStatusEffectMovementPlayModeTests.RequestDisplacement_ValidDirection_WarpsToValidNavMeshPositionAndPreservesIdentity" methodname="RequestDisplacement_ValidDirection_WarpsToValidNavMeshPositionAndPreservesIdentity" classname="NoSafeCircle.DoorPrototype.Tests.EnemyStatusEffectMovementPlayModeTests" runstate="Runnable" seed="1189177871" result="Passed" start-time="2026-09-23 19:36:47Z" end-time="2026-09-23 19:36:47Z" duration="0.002030" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1156" name="RequestDisplacement_WhilePursuing_PreservesNavigationAndPursuitResumesTowardTarget" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyStatusEffectMovementPlayModeTests.RequestDisplacement_WhilePursuing_PreservesNavigationAndPursuitResumesTowardTarget" methodname="RequestDisplacement_WhilePursuing_PreservesNavigationAndPursuitResumesTowardTarget" classname="NoSafeCircle.DoorPrototype.Tests.EnemyStatusEffectMovementPlayModeTests" runstate="Runnable" seed="481795443" result="Passed" start-time="2026-09-23 19:36:47Z" end-time="2026-09-23 19:36:48Z" duration="0.360207" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1154" name="RequestDisplacement_ZeroDirection_FallsBackToForwardDirectionAndStillDisplaces" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyStatusEffectMovementPlayModeTests.RequestDisplacement_ZeroDirection_FallsBackToForwardDirectionAndStillDisplaces" methodname="RequestDisplacement_ZeroDirection_FallsBackToForwardDirectionAndStillDisplaces" classname="NoSafeCircle.DoorPrototype.Tests.EnemyStatusEffectMovementPlayModeTests" runstate="Runnable" seed="1720846463" result="Passed" start-time="2026-09-23 19:36:48Z" end-time="2026-09-23 19:36:48Z" duration="0.003132" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1159" name="ResetStatusEffects_ThenFrostAppliedAgain_AppliesNormally" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyStatusEffectMovementPlayModeTests.ResetStatusEffects_ThenFrostAppliedAgain_AppliesNormally" methodname="ResetStatusEffects_ThenFrostAppliedAgain_AppliesNormally" classname="NoSafeCircle.DoorPrototype.Tests.EnemyStatusEffectMovementPlayModeTests" runstate="Runnable" seed="2052459270" result="Passed" start-time="2026-09-23 19:36:48Z" end-time="2026-09-23 19:36:48Z" duration="0.002023" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1157" name="ResetStatusEffects_WhileFrostActive_ClearsSlowdownAndRestoresBaselineSpeed" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyStatusEffectMovementPlayModeTests.ResetStatusEffects_WhileFrostActive_ClearsSlowdownAndRestoresBaselineSpeed" methodname="ResetStatusEffects_WhileFrostActive_ClearsSlowdownAndRestoresBaselineSpeed" classname="NoSafeCircle.DoorPrototype.Tests.EnemyStatusEffectMovementPlayModeTests" runstate="Runnable" seed="2046393748" result="Passed" start-time="2026-09-23 19:36:48Z" end-time="2026-09-23 19:36:48Z" duration="0.001688" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1158" name="ResetStatusEffects_WithNoActiveEffects_DoesNotThrowAndLeavesBaselineSpeed" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyStatusEffectMovementPlayModeTests.ResetStatusEffects_WithNoActiveEffects_DoesNotThrowAndLeavesBaselineSpeed" methodname="ResetStatusEffects_WithNoActiveEffects_DoesNotThrowAndLeavesBaselineSpeed" classname="NoSafeCircle.DoorPrototype.Tests.EnemyStatusEffectMovementPlayModeTests" runstate="Runnable" seed="916981500" result="Passed" start-time="2026-09-23 19:36:48Z" end-time="2026-09-23 19:36:48Z" duration="0.001580" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[Saving results to: C:/Users/VincentLiguori/AppData/LocalLow/DefaultCompany/NoSafeCircle\TestResults.xml
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>
