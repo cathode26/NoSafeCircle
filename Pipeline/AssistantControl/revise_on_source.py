@@ -40,8 +40,10 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 import re
 import shutil
+import stat
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -54,6 +56,7 @@ from Pipeline.AssistantControl.inspect_project import git
 from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task
 from Pipeline.TaskReviewAgent.contracts import validate_task_id
 from Pipeline.TaskReviewAgent.execution_session_pool import _exclusive_file_lock
+from Pipeline.TaskReviewAgent.git_identity_guard import validated_agent_git_identity
 
 SCHEMA_VERSION = "assistant-revise-on-source/v1"
 _COMMIT = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
@@ -72,6 +75,34 @@ def _commit(value: str, field: str) -> str:
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _remove_staging(staging: Path, plan: dict[str, Any]) -> None:
+    """Delete a finished staging clone, and SAY SO when it cannot be deleted.
+
+    This was ``shutil.rmtree(staging, ignore_errors=True)``, which on Windows
+    silently fails: git marks objects and packs read-only, and rmtree cannot
+    unlink a read-only file. Every successful reconciliation therefore left a
+    full ``--no-local`` clone behind -- a complete copy of the checkout, one per
+    run, accumulating in the checkouts root with nothing reporting it.
+
+    Found by a test written for a DIFFERENT defect: asserting that success does
+    not litter is what surfaced it. ``ignore_errors=True`` is what made it
+    invisible, which is the same shape as a guard that cannot fail.
+    """
+    def clear_readonly(function, path, _info):
+        try:
+            os.chmod(path, stat.S_IWRITE)
+        except OSError:
+            return
+        function(path)
+
+    shutil.rmtree(staging, onexc=clear_readonly)
+    if staging.exists():
+        # Never raise from the cleanup path: it runs in a `finally` and would
+        # replace whatever real error is already in flight. Record it instead,
+        # so a leaked clone is visible rather than merely absent from the logs.
+        plan["staging_cleanup_failed"] = str(staging)
 
 
 def revise_on_source(
@@ -208,6 +239,16 @@ def revise_on_source(
                 str(checkout), str(staging), timeout_seconds=300)
             try:
                 git(staging, "config", "core.hooksPath", "/dev/null")
+                # A CLONE DOES NOT INHERIT user.name/user.email from the source
+                # repository's local config -- it falls through to the host's
+                # global identity. The merge below WRITES A COMMIT, so without
+                # this the reconciled baseline is authored by whoever owns the
+                # machine. Reproduced by Astra's audit as merge 4da00660e,
+                # authored by the fixture host despite the NSC automation
+                # variables being set. Second instance of this class.
+                name, email = validated_agent_git_identity()
+                git(staging, "config", "user.name", name)
+                git(staging, "config", "user.email", email)
                 git(staging, "checkout", "-b", f"assistant-revise/{task_id}-{operation}",
                     expected_candidate, timeout_seconds=180)
                 git(staging, "fetch", "--no-tags", str(checkouts.source), source_head,
@@ -216,9 +257,17 @@ def revise_on_source(
                     git(staging, "merge", "--no-ff", "--no-edit", "FETCH_HEAD",
                         timeout_seconds=300)
                 except RuntimeError as exc:
+                    # RETAIN IT, because the message says so. `staging_retained`
+                    # was read in the finally block and set NOWHERE, so this
+                    # directory was deleted on the way out and the error named a
+                    # path the reader could no longer open. The staging path
+                    # carries a fresh uuid per run, so keeping it blocks no
+                    # retry -- it only preserves the conflict for inspection.
+                    plan["staging_retained"] = True
                     raise ReviseOnSourceError(
                         f"Source merge conflicted; retained staging at {staging}") from exc
                 if git(staging, "status", "--porcelain=v1", "--untracked-files=all"):
+                    plan["staging_retained"] = True
                     raise ReviseOnSourceError(
                         f"staging merge is dirty; retained staging at {staging}")
                 merged = git(staging, "rev-parse", "HEAD").decode().strip()
@@ -248,7 +297,7 @@ def revise_on_source(
                     raise ReviseOnSourceError("task checkout did not fast-forward to the merge")
             finally:
                 if staging.exists() and plan.get("staging_retained") is not True:
-                    shutil.rmtree(staging, ignore_errors=True)
+                    _remove_staging(staging, plan)
 
             history = record.setdefault("revise_on_source_history", [])
             history.append({

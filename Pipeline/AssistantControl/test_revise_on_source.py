@@ -158,6 +158,92 @@ class ReviseOnSourceTests(unittest.TestCase):
                 expected_source_commit=head, accept_contract_sha256=contract,
                 reason="stale inspection", apply=True)
 
+    # ------------------------------------------------------------------
+    # A2 and A3 from Astra's main audit, 2026-09-23. Both in code I wrote.
+    # ------------------------------------------------------------------
+
+    def test_the_reconciled_merge_is_authored_by_the_agent_not_the_host(self):
+        """A2. The staging clone wrote the merge under the HOST identity.
+
+        `git clone` does not inherit user.name/user.email from the source
+        repository's local config; it falls through to the machine's global
+        identity. The merge below WRITES A COMMIT, so the reconciled baseline --
+        which becomes the record's `source_commit` and every later worker's base
+        -- carried a real person's name and address into the history.
+
+        Asserting the exact expected identity rather than merely "not the host"
+        keeps this meaningful on a machine whose global identity happens to be
+        absent or already .invalid.
+        """
+        from Pipeline.TaskReviewAgent.git_identity_guard import (
+            validated_agent_git_identity,
+        )
+
+        candidate, head, contract = self.frozen_pair()
+        plan = revise_on_source(
+            self.manager, TASK, expected_candidate=candidate,
+            expected_source_commit=head, accept_contract_sha256=contract,
+            reason="identity check", apply=True)
+        merged = plan["reconciled_commit"]
+        name, email = validated_agent_git_identity()
+        observed = self.git(
+            self.checkout, "show", "-s", "--format=%an%n%ae%n%cn%n%ce", merged)
+        self.assertEqual([name, email, name, email], observed.splitlines())
+        self.assertTrue(
+            email.endswith(".invalid"),
+            "the agent identity itself must not be a deliverable address")
+
+    def _conflicting_source(self) -> tuple[str, str]:
+        """Move Source so it edits the same file the candidate did."""
+        builder = self.source / fixture.BUILDER
+        builder.write_text("class SourceWroteSomethingElse {}\n",
+                           encoding="utf-8", newline="\n")
+        self.git(self.source, "add", "--", fixture.BUILDER)
+        self.git(self.source, "commit", "-q", "-m", "source edits the builder")
+        head = self.git(self.source, "rev-parse", "HEAD")
+        blob = git(self.source, "cat-file", "blob", f"{head}:Tasks/{TASK}.yaml")
+        return head, hashlib.sha256(blob).hexdigest()
+
+    def test_a_conflicted_merge_retains_the_staging_it_names(self):
+        """A3. The error named a directory the `finally` block had deleted.
+
+        `plan["staging_retained"]` was READ in the cleanup and SET NOWHERE, so
+        the promise in the message was never kept. The staging path carries a
+        fresh uuid per run, so retaining it blocks no retry.
+        """
+        _original, materialized, _digest = self.make_failed_record()
+        head, contract = self._conflicting_source()
+        with self.assertRaises(ReviseOnSourceError) as caught:
+            revise_on_source(
+                self.manager, TASK, expected_candidate=materialized,
+                expected_source_commit=head, accept_contract_sha256=contract,
+                reason="conflicting reconciliation", apply=True)
+        message = str(caught.exception)
+        self.assertIn("retained staging at", message)
+        named = Path(message.split("retained staging at ", 1)[1].strip())
+        self.assertTrue(
+            named.is_dir(),
+            f"the error named {named} for inspection and it does not exist")
+        self.assertTrue(
+            (named / ".git").exists(),
+            "the retained staging is not a usable repository to inspect")
+
+    def test_a_successful_reconciliation_still_removes_its_staging(self):
+        """Retention is for the failure path only; success must not litter."""
+        candidate, head, contract = self.frozen_pair()
+        before = {p.name for p in self.manager.root.iterdir() if p.is_dir()}
+        plan = revise_on_source(
+            self.manager, TASK, expected_candidate=candidate,
+            expected_source_commit=head, accept_contract_sha256=contract,
+            reason="clean reconciliation", apply=True)
+        self.assertTrue(plan["applied"])
+        self.assertIsNot(plan.get("staging_retained"), True)
+        leftover = {
+            p.name for p in self.manager.root.iterdir()
+            if p.is_dir() and p.name.startswith(f".{TASK}-revise-")
+        }
+        self.assertEqual(set(), leftover - before)
+
 
 if __name__ == "__main__":
     unittest.main()
