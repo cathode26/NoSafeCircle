@@ -22,6 +22,7 @@ behaviour it claimed to. That is the whole point of condition 3.
 from __future__ import annotations
 
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -178,6 +179,17 @@ class TheMutationTable(unittest.TestCase):
                          + mutation_check.SUPPORT):
             with self.subTest(relative=str(relative)):
                 self.assertTrue((HOST / relative).is_file(), HOST / relative)
+        for relative in mutation_check.REPO_SUPPORT:
+            self.assertTrue((HOST.parents[1] / relative).is_file())
+
+    def test_staging_preserves_the_tracked_identity_dependency(self):
+        with tempfile.TemporaryDirectory(prefix="mutation-stage-test-") as tmp:
+            root = Path(tmp)
+            files, _ = mutation_check.stage(root)
+            self.assertEqual(root / "Tools/Host/main_write_lock.py", files["main_write_lock"])
+            self.assertTrue((root / "Tools/Host/nsc_paths.py").is_file())
+            for relative in mutation_check.REPO_SUPPORT:
+                self.assertEqual((HOST.parents[1] / relative).read_bytes(), (root / relative).read_bytes())
 
 
 if __name__ == "__main__":

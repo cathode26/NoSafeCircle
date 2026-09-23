@@ -27,6 +27,8 @@ the case the moment two roles shared the tool.
 from __future__ import annotations
 
 import concurrent.futures
+import contextlib
+import io
 import os
 import pathlib
 import re
@@ -35,8 +37,11 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest import mock
 
 TOOL = pathlib.Path(__file__).resolve().parents[1] / "guarded_merge.py"
+sys.path.insert(0, str(TOOL.parent))
+import guarded_merge as merger
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 LOCK_REF = "refs/locks/main-write"
 NAMES = ["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf",
@@ -54,6 +59,16 @@ def git(repo: pathlib.Path, *args: str) -> str:
 
 
 class Base(unittest.TestCase):
+    def setUp(self):
+        patcher = mock.patch.object(merger.lock, "_boot_stamp", return_value="unavailable: test fixture")
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def tool_command(self, *args):
+        script = ("import sys; sys.path.insert(0,sys.argv.pop(1)); import guarded_merge as m; "
+                  "m.lock._boot_stamp=lambda:'unavailable: test fixture'; sys.exit(m.cli())")
+        return [sys.executable, "-B", "-c", script, str(TOOL.parent), *args]
+
     def build_fixture(self) -> tuple[pathlib.Path, pathlib.Path, str]:
         """A repo with main and a candidate branch, plus an empty journal."""
         root = pathlib.Path(tempfile.mkdtemp(prefix="guarded-merge-"))
@@ -84,16 +99,14 @@ class Base(unittest.TestCase):
         return repo, journal, candidate
 
     def run_tool(self, repo: pathlib.Path, journal: pathlib.Path, role: str,
-                 candidate: str, timeout: float = 5.0,
-                 stale_after: float = 1800.0) -> tuple[int, str]:
+                 candidate: str, timeout: float = 5.0) -> tuple[int, str]:
         result = subprocess.run(
-            [sys.executable, "-B", str(TOOL), "--role", role,
+            self.tool_command("--role", role,
              "--candidate", candidate, "--authority", "test",
              "--not-proven", "nothing; this is a fixture",
              "--repo", str(repo), "--journal", str(journal),
              "--validate", "stub_validate.py",
-             "--lock-timeout", str(timeout),
-             "--stale-after", str(stale_after)],
+             "--lock-timeout", str(timeout)),
             capture_output=True, text=True, creationflags=NO_WINDOW)
         return result.returncode, result.stdout + result.stderr
 
@@ -109,6 +122,162 @@ class Base(unittest.TestCase):
             elif "MAIN-WRITE END" in line:
                 depth -= 1
         return depth
+
+
+class UncertainMutationReporting(Base):
+    def test_postcommit_release_failure_does_not_claim_refusal(self):
+        repo, journal, candidate = self.build_fixture()
+        args = ["--role", "Fixture Agent", "--candidate", candidate, "--authority", "test",
+                "--repo", str(repo), "--journal", str(journal), "--validate", "stub_validate.py"]
+        with mock.patch.object(merger.lock, "release", side_effect=merger.lock.MainWriteLockError("fixture release failed")):
+            with self.assertRaises(SystemExit) as caught:
+                merger.cli(args)
+        self.assertIn("FAILED:", str(caught.exception))
+        self.assertNotIn("REFUSED", str(caught.exception))
+        self.assertIn("result may already be committed", str(caught.exception))
+        self.assertEqual(candidate, git(repo, "rev-parse", "HEAD"))
+        self.assertIsNotNone(merger.lock.inspect(repo=repo))
+
+    def exercise_uncertain_validator(self, *, broken_journal=False):
+        repo, journal, candidate = self.build_fixture()
+        real_run = merger.lock.run_process
+        real_append = merger.append
+        def interrupted(command, **kwargs):
+            if "stub_validate.py" in command:
+                raise merger.lock.MutationChildUncertain("fixture validator child may still run")
+            return real_run(command, **kwargs)
+        def append(path, text):
+            if broken_journal and "MAIN-WRITE END" in text:
+                raise OSError("fixture journal unavailable")
+            return real_append(path, text)
+        args = ["--role", "Fixture Agent", "--candidate", candidate, "--authority", "test",
+                "--repo", str(repo), "--journal", str(journal), "--validate", "stub_validate.py"]
+        with mock.patch.object(merger.lock, "run_process", side_effect=interrupted), \
+                mock.patch.object(merger, "append", side_effect=append):
+            with self.assertRaises(SystemExit) as caught:
+                merger.cli(args)
+        self.assertIn("UNCERTAIN:", str(caught.exception))
+        self.assertNotIn("REFUSED", str(caught.exception))
+        self.assertIn("result may already be committed", str(caught.exception))
+        self.assertIsInstance(caught.exception.__cause__, merger.lock.MutationChildUncertain)
+        self.assertEqual(candidate, git(repo, "rev-parse", "HEAD"))
+        self.assertIsNotNone(merger.lock.inspect(repo=repo), "uncertainty must retain the owner")
+        return journal
+
+    def test_uncertain_postcommit_validator_records_end_and_retains_owner(self):
+        journal = self.exercise_uncertain_validator()
+        text = journal.read_text(encoding="utf-8")
+        self.assertEqual(1, text.count("MAIN-WRITE END"))
+        self.assertIn("UNCERTAIN; result may already be committed", text)
+
+    def test_failed_uncertainty_journal_does_not_mask_or_release(self):
+        output = io.StringIO()
+        with contextlib.redirect_stderr(output):
+            journal = self.exercise_uncertain_validator(broken_journal=True)
+        self.assertIn("uncertainty END could not be recorded", output.getvalue())
+        self.assertIn("fixture journal unavailable", output.getvalue())
+        self.assertEqual(1, journal.read_text().count("MAIN-WRITE START"))
+
+    def test_failed_stderr_diagnostic_still_preserves_uncertainty(self):
+        stream = mock.Mock()
+        stream.write.side_effect = OSError("fixture stderr unavailable")
+        with contextlib.redirect_stderr(stream):
+            self.exercise_uncertain_validator(broken_journal=True)
+
+
+class AdmissionFailureReporting(Base):
+    def arguments(self, repo, journal, candidate):
+        return ["--role", "Fixture Agent", "--candidate", candidate, "--authority", "test",
+                "--repo", str(repo), "--journal", str(journal), "--validate", "stub_validate.py",
+                "--lock-timeout", "0"]
+
+    def test_non_git_target_reports_pre_admission_failure(self):
+        with tempfile.TemporaryDirectory(prefix="non-git-merge-target-") as tmp:
+            repo = pathlib.Path(tmp)
+            journal = repo / "journal.md"
+            result = subprocess.run(self.tool_command(*self.arguments(repo, journal, "unused")),
+                                    capture_output=True, text=True, timeout=10)
+            self.assertNotEqual(0, result.returncode)
+            self.assertIn("PRE-ADMISSION FAILED", result.stderr)
+            self.assertIn("main untouched by this invocation", result.stderr)
+            self.assertNotIn("may already be committed", result.stderr)
+            self.assertFalse(journal.exists())
+            self.assertEqual([], list(repo.iterdir()))
+
+    def test_acquisition_timeout_reports_pre_admission_failure(self):
+        repo, journal, candidate = self.build_fixture()
+        head = git(repo, "rev-parse", "HEAD")
+        owner = merger.lock.acquire(repo=repo, role="Holder Agent", operation="fixture")
+        try:
+            # The bounded helper regression proves the real retry deadline.
+            # This case checks only its merger-level outcome classification.
+            timeout = merger.lock.MainWriteLockError(
+                f"timed out acquiring {LOCK_REF}; ownership changed during inspection")
+            with mock.patch.object(merger.lock, "acquire", side_effect=timeout):
+                with self.assertRaises(SystemExit) as caught:
+                    merger.cli(self.arguments(repo, journal, candidate))
+            self.assertIn("PRE-ADMISSION FAILED", str(caught.exception))
+            self.assertIn("timed out acquiring", str(caught.exception))
+            self.assertNotIn("may already be committed", str(caught.exception))
+            self.assertEqual(head, git(repo, "rev-parse", "HEAD"))
+            self.assertEqual(owner.owner_oid, merger.lock.inspect(repo=repo)[0])
+            self.assertEqual([], self.journal_lines(journal))
+        finally:
+            merger.lock.release(owner)
+
+    def test_uncertain_acquisition_is_not_called_pre_admission_failure(self):
+        repo, journal, candidate = self.build_fixture()
+        with mock.patch.object(merger.lock, "acquire",
+                               side_effect=merger.lock.MutationChildUncertain("fixture acquisition may have taken ownership")):
+            with self.assertRaises(SystemExit) as caught:
+                merger.cli(self.arguments(repo, journal, candidate))
+        self.assertIn("UNCERTAIN:", str(caught.exception))
+        self.assertNotIn("PRE-ADMISSION", str(caught.exception))
+
+    def test_completed_reboot_recovery_reports_no_business_admission(self):
+        repo, journal, candidate = self.build_fixture()
+        head = git(repo, "rev-parse", "HEAD")
+        report = repo / ".git/nsc-main-write-recovery/fixture.json"
+        with mock.patch.object(merger.lock, "acquire",
+                               side_effect=merger.lock.MainWriteLockRecovered(report)):
+            with self.assertRaises(SystemExit) as caught:
+                merger.cli(self.arguments(repo, journal, candidate))
+        self.assertIn("RECOVERED:", str(caught.exception))
+        self.assertIn("NOT started", str(caught.exception))
+        self.assertIn(str(report), str(caught.exception))
+        self.assertNotIn("PRE-ADMISSION FAILED", str(caught.exception))
+        self.assertEqual(head, git(repo, "rev-parse", "HEAD"))
+        self.assertEqual([], self.journal_lines(journal))
+
+    def test_admitted_body_error_is_not_called_pre_admission_failure(self):
+        repo, _, _ = self.build_fixture()
+        with self.assertRaises(merger.lock.MainWriteLockError) as caught:
+            with merger.held(merger.Git(repo), "Fixture Agent", 0):
+                raise merger.lock.MainWriteLockError("fixture admitted observation error")
+        self.assertNotIsInstance(caught.exception, merger.PreAdmissionFailure)
+        self.assertIsNone(merger.lock.inspect(repo=repo))
+
+    def test_merger_warns_about_recent_legacy_writer_at_entry(self):
+        repo, journal, candidate = self.build_fixture()
+        journal.write_text(f"- {merger.stamp()} MAIN-WRITE START Legacy Agent: fixture\n")
+        result = subprocess.run(self.tool_command(*self.arguments(repo, journal, candidate)),
+                                capture_output=True, text=True, timeout=15)
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertIn("recent legacy writer may bypass", result.stderr)
+        self.assertIn("Legacy Agent", result.stderr)
+        self.assertEqual(candidate, git(repo, "rev-parse", "HEAD"))
+
+    def test_merger_refuses_non_main_without_writing(self):
+        repo, journal, candidate = self.build_fixture()
+        head = git(repo, "rev-parse", "HEAD")
+        git(repo, "checkout", "-b", "feature")
+        code, output = self.run_tool(repo, journal, "Fixture Agent", candidate)
+        self.assertNotEqual(0, code)
+        self.assertIn("not checked out on main", output)
+        self.assertIn("main untouched", output)
+        self.assertEqual(head, git(repo, "rev-parse", "HEAD"))
+        self.assertEqual("", git(repo, "status", "--porcelain"))
+        self.assertIsNone(merger.lock.inspect(repo=repo))
 
 
 class TwoMergersSerialise(Base):
@@ -261,16 +430,16 @@ class TheGuardRefusesBeforeWriting(Base):
         self.assertNotEqual(candidate, git(repo, "rev-parse", "HEAD"),
                             "main must be untouched while another holds it")
 
-    def test_a_stale_lock_is_broken_rather_than_inherited(self):
-        """A crashed merger must not block main forever - but say so."""
+    def test_an_old_lock_still_requires_explicit_recovery(self):
+        """Age is diagnostic; it never revokes a live writer."""
         repo, journal, candidate = self.build_fixture()
         self.plant_lock(repo, b"Ghost Agent|99999|1|long ago" + EOL.encode())
         code, output = self.run_tool(repo, journal,
                                      "Pipeline Maintainer Agent", candidate,
-                                     timeout=5.0, stale_after=1.0)
-        self.assertEqual(0, code, f"a stale lock must not block{EOL}{output}")
-        self.assertIn("stale main-write lock", output,
-                      "breaking a lock must be recorded, not silent")
+                                     timeout=0.0)
+        self.assertNotEqual(0, code, f"an old lock must still block{EOL}{output}")
+        self.assertIn("OVERDUE", output)
+        self.assertNotEqual(candidate, git(repo, "rev-parse", "HEAD"))
 
     def test_only_the_holder_can_release(self):
         """Release is a compare-and-swap, so a foreign delete cannot steal it."""

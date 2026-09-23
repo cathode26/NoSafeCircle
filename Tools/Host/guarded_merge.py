@@ -1,49 +1,10 @@
 #!/usr/bin/env python
-"""Merge a candidate into local main, serialised by a git ref compare-and-swap.
+"""Merge a candidate into local main while holding the shared Git lock.
 
-Two roles merge into main now - the Game Agent owns the Unity surface, the
-Pipeline Maintainer owns pipeline work - so main is a two-writer resource and
-needs a real lock rather than a convention.
-
-WHY A REF AND NOT A LOCK FILE
-
-`git update-ref <ref> <new> <old>` is a compare-and-swap that git enforces.
-Measured, not assumed:
-
-    update-ref refs/locks/main-write <A> ""   -> succeeds when absent
-    update-ref refs/locks/main-write <B> ""   -> fatal: reference already exists
-    update-ref -d refs/locks/main-write <B>   -> error: is at <A> but expected <B>
-    update-ref -d refs/locks/main-write <A>   -> released
-
-That matters more than the atomicity alone: the lock lives in the repository
-both mergers write to, so it binds anything that uses it from any clone or
-tool. An earlier version of this file used an O_CREAT|O_EXCL lock file, which
-is equally atomic and protects only processes that opted into my convention -
-a lock the other merger's tool cannot see is decorative.
-
-The holder's identity IS the locked object: a blob naming role, pid and time,
-so `git cat-file blob refs/locks/main-write` answers "who holds main" from any
-clone. Breaking a stale lock is itself a compare-and-swap against that blob, so
-two mergers cannot both break and both acquire.
-
-WHAT THIS REPLACES
-
-The predecessor, and `main_write.start()` itself, are check-then-act: they read
-for an open MAIN-WRITE, decide, and append their own claim several steps later.
-Two roles both read an empty window, both conclude it is clear, both proceed.
-That is not the --role defect fixed on 2026-09-22 - that one made the filter
-compare a role against itself - it is the ordering of the check against the
-append, and it survived that fix untouched.
-
-The MAIN-WRITE journal record is still written: the ref serialises, the journal
-is what a human reads afterwards. They answer different questions.
-
-    python -B guarded_merge.py --role "Pipeline Maintainer Agent" \\
-        --candidate <ref> --authority "<why this may land>" \\
-        --not-proven "<what it does not establish>"
-
-It never pushes. Publication to origin is the Release Agent's, on Vincent's own
-word, and nothing here changes that.
+Every cooperating writer addresses the repository it actually mutates. Linked
+worktrees share the ref; independent clones do not. The journal records the
+operation but never grants admission. Recovery is explicit in main_write_lock.py;
+no owner is displaced merely because its timestamp is old. This tool never pushes.
 """
 from __future__ import annotations
 
@@ -55,12 +16,8 @@ import pathlib
 import re
 import subprocess
 import sys
-import time
+import main_write_lock as lock
 
-DEFAULT_REPO = pathlib.Path(r"C:\NSC\NSC\NoSafeCircle")
-DEFAULT_JOURNAL = pathlib.Path(
-    r"C:\NSC\NoSafeCircle-AssistantCheckouts\.assistant-control"
-    r"\graph-lead-journal.md")
 LOCK_REF = "refs/locks/main-write"
 ROLE_PATTERN = re.compile(r"^[A-Za-z ]+(?:Agent|Steward|Orchestrator)$")
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
@@ -86,13 +43,14 @@ def append(journal: pathlib.Path, text: str) -> None:
 
 class Git:
     def __init__(self, repo: pathlib.Path) -> None:
-        self.repo = repo
+        self.repo = pathlib.Path(repo).resolve()
 
     def __call__(self, *args: str, check: bool = False,
                  stdin: bytes | None = None) -> subprocess.CompletedProcess:
-        result = subprocess.run(
+        result = lock.run_process(
             ["git", "-C", str(self.repo), *args], input=stdin,
-            capture_output=True, creationflags=NO_WINDOW)
+            capture_output=True, creationflags=NO_WINDOW,
+            mutation_capable="merge" in args)
         result.out = result.stdout.decode("utf-8", "replace").strip()
         result.err = result.stderr.decode("utf-8", "replace").strip()
         if check and result.returncode != 0:
@@ -100,51 +58,24 @@ class Git:
         return result
 
 
+class PreAdmissionFailure(lock.MainWriteLockError):
+    """This invocation never acquired ownership or entered its merge body."""
+
+
 @contextlib.contextmanager
-def held(git: Git, role: str, timeout: float, stale_after: float):
-    """Hold LOCK_REF for the duration, or refuse.
-
-    Acquire and release and stale-break are all compare-and-swap, so no
-    interleaving lets two holders believe they have it.
-    """
-    mine = git("hash-object", "-w", "--stdin",
-               stdin=f"{role}|{os.getpid()}|{time.time():.0f}|{stamp()}\n"
-                     .encode("utf-8"), check=True).out
-    deadline = time.monotonic() + timeout
-    while True:
-        taken = git("update-ref", LOCK_REF, mine, "")
-        if taken.returncode == 0:
-            break
-
-        current = git("rev-parse", "--verify", "-q", LOCK_REF)
-        if current.returncode != 0:
-            continue                     # released between our try and our look
-        holder = git("cat-file", "blob", current.out).out
-        age = None
-        with contextlib.suppress(ValueError, IndexError):
-            age = time.time() - float(holder.split("|")[2])
-
-        if age is not None and age > stale_after:
-            # Breaking is itself a CAS against the blob we just read, so two
-            # mergers cannot both break and both acquire.
-            print(f"breaking a stale main-write lock held {age:.0f}s by "
-                  f"{holder.strip()}", file=sys.stderr)
-            git("update-ref", "-d", LOCK_REF, current.out)
-            continue
-
-        if time.monotonic() >= deadline:
-            raise SystemExit(
-                f"REFUSED: {holder.strip() or 'another merger'} holds "
-                f"{LOCK_REF}. main untouched, nothing written.")
-        time.sleep(0.05)
-
+def held(git: Git, role: str, timeout: float, *, operation="merge candidate"):
+    """Merger adapter for the same lock used by GER."""
+    admitted = False
     try:
-        yield
-    finally:
-        released = git("update-ref", "-d", LOCK_REF, mine)
-        if released.returncode != 0:
-            print(f"WARNING: could not release {LOCK_REF}: {released.err}",
-                  file=sys.stderr)
+        with lock.held(repo=git.repo, role=role, operation=operation, timeout=timeout) as owner:
+            admitted = True
+            yield owner
+    except (lock.MutationChildUncertain, lock.MainWriteLockBusy, lock.MainWriteLockRecovered):
+        raise
+    except lock.MainWriteLockError as error:
+        if not admitted:
+            raise PreAdmissionFailure(str(error)) from error
+        raise
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -153,11 +84,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--candidate", required=True)
     ap.add_argument("--authority", required=True)
     ap.add_argument("--not-proven", default="nothing recorded")
-    ap.add_argument("--repo", type=pathlib.Path, default=DEFAULT_REPO)
-    ap.add_argument("--journal", type=pathlib.Path, default=DEFAULT_JOURNAL)
+    ap.add_argument("--repo", type=pathlib.Path, required=True)
+    ap.add_argument("--journal", type=pathlib.Path, required=True)
     ap.add_argument("--lock-timeout", type=float, default=120.0)
-    ap.add_argument("--stale-after", type=float, default=1800.0,
-                    help="seconds before a held lock is treated as abandoned")
     ap.add_argument("--validate", default="Pipeline/TaskGraph/taskcontrol.py")
     args = ap.parse_args(argv)
 
@@ -168,23 +97,37 @@ def main(argv: list[str] | None = None) -> int:
 
     git = Git(args.repo)
     journal = args.journal
+    lock.warn_legacy_writers(journal)
 
-    with held(git, args.role, args.lock_timeout, args.stale_after):
+    with held(git, args.role, args.lock_timeout, operation=f"merge {args.candidate}") as owner:
         sha = git("rev-parse", "--verify", f"{args.candidate}^{{commit}}",
                   check=True).out
         head = git("rev-parse", "HEAD", check=True).out
 
         problems: list[str] = []
-        if git("status", "--porcelain").out:
+        if git("symbolic-ref", "--short", "HEAD", check=True).out != "main":
+            problems.append("the target is not checked out on main")
+        for marker in ("MERGE_HEAD", "CHERRY_PICK_HEAD", "REVERT_HEAD", "rebase-merge", "rebase-apply"):
+            path = pathlib.Path(git("rev-parse", "--git-path", marker, check=True).out)
+            if not path.is_absolute():
+                path = git.repo / path
+            if path.exists():
+                problems.append(f"unfinished Git operation: {marker}")
+        if git("status", "--porcelain", check=True).out:
             problems.append("canonical worktree is dirty")
-        if git("merge-base", "--is-ancestor", sha, head).returncode == 0:
+        ancestor = git("merge-base", "--is-ancestor", sha, head)
+        if ancestor.returncode not in (0, 1):
+            raise SystemExit(f"cannot check ancestry: {ancestor.err}")
+        if ancestor.returncode == 0:
             problems.append(f"{sha[:9]} is already an ancestor of main")
-        identities = set(git("log", "--format=%ae%n%ce", f"{head}..{sha}")
+        identities = set(git("log", "--format=%ae%n%ce", f"{head}..{sha}", check=True)
                          .out.split())
         leaked = sorted(i for i in identities if not i.endswith(".invalid"))
         if leaked:
             problems.append(f"non-.invalid identity: {', '.join(leaked)}")
         predicted = git("merge-tree", "--write-tree", head, sha)
+        if predicted.returncode not in (0, 1):
+            raise SystemExit(f"cannot compute trial merge: {predicted.err}")
         if predicted.returncode != 0 or "CONFLICT" in predicted.out.upper():
             problems.append("trial merge against live main is not clean")
         predicted_tree = (predicted.out.splitlines()[0].strip()
@@ -199,22 +142,31 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"  - {problem}")
             return 1
 
-        fast_forward = git("merge-base", "--is-ancestor", head,
-                           sha).returncode == 0
-        files = git("diff", "--name-only", f"{head}..{sha}").out.split()
-        commits = len(git("log", "--format=%H", f"{head}..{sha}").out.split())
+        ancestor = git("merge-base", "--is-ancestor", head, sha)
+        if ancestor.returncode not in (0, 1):
+            raise SystemExit(f"cannot check ancestry: {ancestor.err}")
+        fast_forward = ancestor.returncode == 0
+        files = git("diff", "--name-only", f"{head}..{sha}", check=True).out.split()
+        commits = len(git("log", "--format=%H", f"{head}..{sha}", check=True).out.split())
 
         append(journal,
                f"MAIN-WRITE START {args.role}: merge {args.candidate} ({sha}) "
-               f"into main, expected HEAD {head[:9]}. {args.authority} "
+               f"into main, expected HEAD {head[:9]}; operation {owner.operation_id}. {args.authority} "
                f"Measured in-process while holding {LOCK_REF}: tree clean, "
                f"every identity .invalid, trial merge clean predicting tree "
                f"{predicted_tree[:12]}, {commits} commit(s), {len(files)} "
                f"file(s), {'fast-forward' if fast_forward else 'merge commit'}.")
 
+        ended = False
+        def finish(text):
+            nonlocal ended
+            if not ended:
+                ended = True
+                append(journal, text)
+
         try:
-            if git("rev-parse", "HEAD").out != head:
-                append(journal, f"MAIN-WRITE END {args.role}: ABORTED, nothing "
+            if git("rev-parse", "HEAD", check=True).out != head:
+                finish(f"MAIN-WRITE END {args.role}: ABORTED, nothing "
                                 f"written. main moved between the checks and "
                                 f"the merge.")
                 print("REFUSED: main moved mid-check; main untouched")
@@ -231,26 +183,32 @@ def main(argv: list[str] | None = None) -> int:
             merged = git(*merge_args)
             if merged.returncode != 0:
                 detail = f"{merged.out} {merged.err}".strip()[:300]
-                append(journal, f"MAIN-WRITE END {args.role}: ABORTED, merge "
-                                f"failed, main unchanged at {head[:9]}: {detail}")
-                print("MERGE FAILED, main untouched:\n", merged.out, merged.err)
+                actual = git("rev-parse", "HEAD", check=True).out
+                state = git("status", "--porcelain", check=True).out
+                finish(f"MAIN-WRITE END {args.role}: merge failed; actual "
+                                f"HEAD {actual}; worktree {state or 'clean'}; "
+                                f"operation {owner.operation_id}: {detail}")
+                print("MERGE FAILED; inspect the recorded HEAD and worktree:\n", merged.out, merged.err)
                 return 1
 
             new_head = git("rev-parse", "HEAD", check=True).out
             new_tree = git("rev-parse", "HEAD^{tree}", check=True).out
-            dirty = git("status", "--porcelain").out
-            validate = subprocess.run(
+            validate = lock.run_process(
                 [sys.executable, "-B", args.validate, "validate"],
                 cwd=str(args.repo), capture_output=True, text=True,
                 creationflags=NO_WINDOW)
-            ahead = git("rev-list", "--count", "origin/main..main").out or "?"
+            dirty = git("status", "--porcelain", check=True).out
+            if git("rev-parse", "HEAD", check=True).out != new_head:
+                raise SystemExit("validator changed HEAD; preserve and inspect the result")
+            ahead_result = git("rev-list", "--count", "origin/main..main")
+            ahead = (ahead_result.out if ahead_result.returncode == 0
+                     else f"unavailable ({ahead_result.err})")
             drift = ("" if new_tree == predicted_tree
                      else f" (WARNING: tree differs from predicted "
                           f"{predicted_tree})")
 
-            append(journal,
-                   f"MAIN-WRITE END {args.role}: new HEAD {new_head}, tree "
-                   f"{new_tree}{drift}; {commits} commit(s), {len(files)} "
+            finish(f"MAIN-WRITE END {args.role}: new HEAD {new_head}, tree "
+                   f"{new_tree}{drift}; operation {owner.operation_id}; {commits} commit(s), {len(files)} "
                    f"file(s); validate "
                    f"{'PASS' if validate.returncode == 0 else 'FAIL'}; "
                    f"worktree {'clean' if not dirty else dirty}. "
@@ -265,13 +223,39 @@ def main(argv: list[str] | None = None) -> int:
                   f"{'PASS' if validate.returncode == 0 else 'FAIL'}")
             print(f"  worktree : {'clean' if not dirty else dirty}")
             print(f"  ahead of origin: {ahead} (not pushed)")
-            return 0 if validate.returncode == 0 and not dirty else 1
+            return 0 if validate.returncode == 0 and not dirty and new_tree == predicted_tree else 1
+        except lock.MutationChildUncertain as error:
+            try:
+                finish(f"MAIN-WRITE END {args.role}: UNCERTAIN; result may already be committed, "
+                       f"inspect main before retrying; operation {owner.operation_id}: {error}")
+            except BaseException as journal_error:
+                # Reporting must not change the exception which retains ownership.
+                error.add_note(f"uncertainty END could not be recorded: {journal_error}")
+                with contextlib.suppress(BaseException):
+                    print(f"WARNING: uncertainty END could not be recorded: {journal_error}", file=sys.stderr)
+            raise
         except BaseException as error:              # noqa: BLE001
-            append(journal, f"MAIN-WRITE END {args.role}: ABORTED on an "
-                            f"unexpected error, inspect main before retrying: "
+            finish(f"MAIN-WRITE END {args.role}: ABORTED on an "
+                            f"unexpected error; result may already be committed, inspect main before retrying; "
+                            f"operation {owner.operation_id}: "
                             f"{type(error).__name__}: {str(error)[:200]}")
             raise
 
 
+def cli(argv=None):
+    try:
+        return main(argv)
+    except lock.MainWriteLockRecovered as error:
+        raise SystemExit(f"RECOVERED: {error}") from error
+    except lock.MutationChildUncertain as error:
+        raise SystemExit(f"UNCERTAIN: result may already be committed; inspect main before retrying. {error}") from error
+    except lock.MainWriteLockBusy as error:
+        raise SystemExit(f"REFUSED: main untouched by this invocation. {error}") from error
+    except PreAdmissionFailure as error:
+        raise SystemExit(f"PRE-ADMISSION FAILED: main untouched by this invocation. {error}") from error
+    except lock.MainWriteLockError as error:
+        raise SystemExit(f"FAILED: result may already be committed; inspect main before retrying. {error}") from error
+
+
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(cli())
