@@ -169,6 +169,20 @@ def main(argv=None) -> int:
                              "so this is the evidence a later reader judges."))
     retry.add_argument("--apply", action="store_true",
                        help="Without this the command only reports what it would do")
+    representation = commands.add_parser(
+        "repair-checkout-representation",
+        help=(
+            "Dry-run (default) or --apply the restore of ONE tracked path that "
+            "does not match its FILTERED checkout representation. Refuses unless "
+            "it can prove the worktree holds no edit, which is what makes it safe "
+            "where a bare git checkout is not."
+        ),
+    )
+    representation.add_argument("task")
+    representation.add_argument("--path", required=True,
+                                help="One relative path inside the task checkout")
+    representation.add_argument("--apply", action="store_true",
+                                help="Without this the command only reports what it would do")
     worker_status = commands.add_parser("worker-status", help="Inspect host identity and retained worker state")
     worker_status.add_argument("task")
     settlement = commands.add_parser("settle-worker", help="Release ended worker capacity after verified process/container exit")
@@ -607,6 +621,13 @@ def main(argv=None) -> int:
                     expected_failure_sha256=args.failure_sha256,
                     reason=args.reason,
                     apply=args.apply,
+                )
+            elif args.command == "repair-checkout-representation":
+                from Pipeline.AssistantControl.checkout_representation import (
+                    repair_checkout_representation,
+                )
+                result = repair_checkout_representation(
+                    manager, args.task, path=args.path, apply=args.apply,
                 )
             elif args.command == "refresh-prepared":
                 from Pipeline.AssistantControl.prepared_refresh import refresh_prepared
