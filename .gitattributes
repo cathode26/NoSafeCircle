@@ -18,6 +18,8 @@ Docs/AI-Pipeline/Historical-Context-Sessions/reports/host-reports-20260920/origi
 Docs/AI-Pipeline/Historical-Context-Sessions/reports/art-reports-20260920/originals/** -text -whitespace
 
 # Unity serializes empty YAML fields as "key: " with a trailing space and rewrites it on every project open,
-# so these .meta files are not normalized. Exempt only the trailing-space check, and only for .meta files.
-Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128.meta whitespace=-blank-at-eol
-Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/**/*.meta whitespace=-blank-at-eol
+# so .meta files are not normalized. Exempt only the trailing-space check, and only for .meta files, across
+# the whole DoorPrototype content tree -- this recurs on every new asset family Unity touches (2026-09-17:
+# 284 files under Wizard/Source/PixelLab128 alone; 2026-09-22: 100+ more across Doors/Enemies/Environment/
+# Spells, none of them content the fix should have to keep re-scoping file-by-file).
+Assets/NoSafeCircle/DoorPrototype/**/*.meta whitespace=-blank-at-eol
