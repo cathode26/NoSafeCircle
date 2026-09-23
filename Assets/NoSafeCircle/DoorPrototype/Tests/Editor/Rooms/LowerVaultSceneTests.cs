@@ -457,6 +457,148 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
         // Shared assertion helpers
         // --------------------------------------------------------------
 
+        [Explicit("Requires an external NSC082_CAMERA_REVIEW_OUTPUT directory for the NSC-082 VAL-002 review.")]
+        [Test]
+        public void CaptureGameplayCameraReview()
+        {
+            const string dressingPrefabPath =
+                "Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing/LowerVaultDressing.prefab";
+
+            string output = Environment.GetEnvironmentVariable("NSC082_CAMERA_REVIEW_OUTPUT");
+            if (string.IsNullOrWhiteSpace(output))
+            {
+                Assert.Ignore("Set NSC082_CAMERA_REVIEW_OUTPUT to run the explicit visual capture.");
+            }
+            Assert.IsTrue(Path.IsPathRooted(output));
+            string outputFull = Path.GetFullPath(output);
+            string repository = Path.GetFullPath(Directory.GetCurrentDirectory())
+                .TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            Assert.IsFalse(outputFull.TrimEnd(Path.DirectorySeparatorChar)
+                    .Equals(repository.TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase) ||
+                outputFull.StartsWith(repository, StringComparison.OrdinalIgnoreCase),
+                "Camera review PNGs must be written outside the repository.");
+
+            string[] names = { "d3-apron", "c1-west-lane", "c1-east-lane", "d4-apron" };
+            Vector3[] positions =
+            {
+                LowerVaultLayout.D3Apron.center,
+                new Vector3(-6f, 0f, 62f),
+                new Vector3(4.5f, 0f, 62f),
+                LowerVaultLayout.D4Apron.center
+            };
+            Directory.CreateDirectory(outputFull);
+            foreach (string name in names)
+            {
+                Assert.IsFalse(File.Exists(Path.Combine(outputFull, name + ".png")),
+                    "Use a fresh output directory so earlier visual evidence is preserved.");
+            }
+            Assert.IsFalse(File.Exists(Path.Combine(outputFull, "contact-sheet.png")));
+
+            Scene source = default;
+            Scene temporary = default;
+            GameObject wizard = null;
+            GameObject cameraObject = null;
+            GameObject dressing = null;
+            RenderTexture target = null;
+            var shots = new List<Texture2D>();
+            RenderTexture previousActive = RenderTexture.active;
+            try
+            {
+                // SetUp authors an unsaved room. Load the committed source additively, then
+                // close the fixture scene before creating the separate unsaved review scene.
+                // Unity rejects NewScene(Additive) while another untitled scene remains open.
+                Scene fixtureScene = SceneManager.GetActiveScene();
+                source = EditorSceneManager.OpenScene(LowerVaultSceneBuilder.ScenePath, OpenSceneMode.Additive);
+                SceneManager.SetActiveScene(source);
+                EditorSceneManager.CloseScene(fixtureScene, true);
+                temporary = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
+                SceneManager.SetActiveScene(temporary);
+
+                // VAL-002 judges the DRESSING against the committed blockout, and the prefab does
+                // not exist until NSC-082 runs. Stage it when present and state which it was: a
+                // panel of an undressed room looks exactly like a dressed one to a reviewer who
+                // was not told, and that is how a visual gate gets certified on nothing.
+                GameObject dressingPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(dressingPrefabPath);
+                if (dressingPrefab != null)
+                {
+                    dressing = (GameObject)PrefabUtility.InstantiatePrefab(dressingPrefab, temporary);
+                }
+                File.WriteAllText(Path.Combine(outputFull, "dressing-state.txt"),
+                    (dressing != null
+                        ? "STAGED " + dressingPrefabPath
+                        : "ABSENT " + dressingPrefabPath + Environment.NewLine +
+                          "These frames show the UNDRESSED committed blockout only.") + Environment.NewLine);
+
+                Sprite wizardSprite = AssetDatabase.LoadAssetAtPath<Sprite>(
+                    "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/standing/south-east.png");
+                Assert.IsNotNull(wizardSprite);
+                wizard = new GameObject("NSC082ReviewWizard", typeof(SpriteRenderer));
+                wizard.transform.localScale = new Vector3(1f, 2f, 1f);
+                SpriteRenderer wizardRenderer = wizard.GetComponent<SpriteRenderer>();
+                wizardRenderer.sprite = wizardSprite;
+                wizardRenderer.sortingLayerName = "Default";
+                wizardRenderer.sortingOrder = 0;
+
+                cameraObject = new GameObject("NSC082ReviewCamera", typeof(Camera), typeof(IsometricCameraFollow));
+                Camera camera = cameraObject.GetComponent<Camera>();
+                camera.orthographic = true;
+                camera.orthographicSize = 8f;
+                camera.transparencySortMode = TransparencySortMode.CustomAxis;
+                camera.transparencySortAxis = IsometricCameraFollow.IsometricTransparencySortAxis;
+                cameraObject.transform.rotation = Quaternion.Euler(30f, -45f, 0f);
+                target = new RenderTexture(800, 600, 24);
+                target.Create();
+                camera.targetTexture = target;
+
+                for (int index = 0; index < names.Length; index++)
+                {
+                    wizard.transform.position = positions[index];
+                    cameraObject.transform.position = positions[index] + new Vector3(10f, 10f, -10f);
+                    cameraObject.GetComponent<IsometricCameraFollow>().Initialize(wizard.transform);
+                    camera.Render();
+                    RenderTexture.active = target;
+                    Texture2D shot = new Texture2D(800, 600, TextureFormat.RGBA32, false);
+                    shot.ReadPixels(new Rect(0f, 0f, 800f, 600f), 0, 0);
+                    shot.Apply(false, false);
+                    shots.Add(shot);
+                    File.WriteAllBytes(Path.Combine(outputFull, names[index] + ".png"), shot.EncodeToPNG());
+                }
+
+                Texture2D contact = new Texture2D(1600, 1200, TextureFormat.RGBA32, false);
+                shots.Add(contact);
+                for (int index = 0; index < 4; index++)
+                {
+                    Color32[] pixels = shots[index].GetPixels32();
+                    int originX = (index % 2) * 800;
+                    int originY = (1 - index / 2) * 600;
+                    for (int row = 0; row < 600; row++)
+                    {
+                        for (int column = 0; column < 800; column++)
+                        {
+                            contact.SetPixel(originX + column, originY + row, pixels[row * 800 + column]);
+                        }
+                    }
+                }
+                contact.Apply(false, false);
+                File.WriteAllBytes(Path.Combine(outputFull, "contact-sheet.png"), contact.EncodeToPNG());
+            }
+            finally
+            {
+                RenderTexture.active = previousActive;
+                foreach (Texture2D shot in shots) Object.DestroyImmediate(shot);
+                if (cameraObject != null) Object.DestroyImmediate(cameraObject);
+                if (wizard != null) Object.DestroyImmediate(wizard);
+                if (dressing != null) Object.DestroyImmediate(dressing);
+                if (target != null)
+                {
+                    target.Release();
+                    Object.DestroyImmediate(target);
+                }
+                if (temporary.IsValid() && temporary.isLoaded) EditorSceneManager.CloseScene(temporary, true);
+                if (source.IsValid() && source.isLoaded) EditorSceneManager.CloseScene(source, true);
+            }
+        }
+
         private static void AssertRoomGeometry(Scene scene)
         {
             GameObject root = scene.GetRootGameObjects().Single(candidate => candidate.name == "Room_LowerVault");
