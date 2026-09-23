@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-079",
-  "contract_revision": 2,
+  "contract_revision": 3,
   "contract_disposition": "active",
   "title": "Ruined Entry Visual Dressing",
   "reconciliation_key": "ruined-entry-visual-dressing",
@@ -21,6 +21,10 @@
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing/RuinedEntryDressingCatalog.json",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Environment/RuinedEntryDressingPrefabBuilder.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Environment/RuinedEntryDressingPrefabTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing/RuinedEntryDressing.prefab.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing/RuinedEntryDressingCatalog.json.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Environment/RuinedEntryDressingPrefabBuilder.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Environment/RuinedEntryDressingPrefabTests.cs.meta",
     "logical:room-visual-dressing:ruined-entry"
   ],
   "acceptance_criteria": [
@@ -37,7 +41,7 @@
     {
       "criterion_id": "AC-003",
       "reference": "Room ownership boundary",
-      "requirement": "Own only this room's dressing prefab, catalog, builder, and focused tests; do not edit the blockout scene, common builders, another room, doors, navigation, or the canonical scene."
+      "requirement": "Own only this room's dressing prefab, catalog, builder, and focused tests; do not edit the blockout scene, common builders, another room, doors, navigation, or the canonical scene. EVERY OWNED ASSET'S .meta IS OWNED WITH IT, AND AN EARLIER REVISION LISTED ONLY THE FOUR ASSETS. Unity writes a .meta beside every asset it imports, so this task's four assets are eight committed files. The omission is not cosmetic and this is measured at source rather than argued: Pipeline/AssistantControl/unity_materialization.py's _generated_resource_roots admits a resource to the Unity builder's allowed roots ONLY when git cat-file -t reports a tree for it, so a resource list containing files alone derives an EMPTY root set - and the companion folder metas it would otherwise supply are computed only FROM those roots, so they are empty too. After that, any file generated beside the owned ones is fatal at materialization. That is the shape that nearly froze NSC-044. THE THREE OUTPUT DIRECTORIES DO NOT EXIST ON MAIN AND ARE DELIBERATELY NOT CLAIMED HERE. Measured: Art/Environment/RoomDressing, Editor/Environment and Tests/Editor/Environment are all absent, while their parent Art/Environment is present with its own .meta. So the FIRST of the five room-dressing tasks to land creates all three, and Unity generates a folder .meta for each. Five tasks claiming one path would be a resource collision, so none claims them and the question of who commits them is named here rather than assumed away: the established remedy is the one used for the prop folders, which were committed separately at 9bd49c7ee as proper folder assets - folderAsset: yes with DefaultImporter, never GUID-only stubs, which import as Cubemaps in Unity 6000.1 - so that no task had to create them. Until that is done for these three, the first dressing task to run needs its contract revised to claim them at that time. EVERY LATER TASK MUST TOLERATE THEIR PRE-EXISTENCE AND MUST NOT ASSERT THAT IT ADDS THEM: a subset rule, not an equality rule, for exactly the reason NSC-102's VAL-003 had to be rewritten - a gate asserting that a task ADDS a path already on main becomes unsatisfiable the moment anyone else lands it."
     },
     {
       "criterion_id": "AC-005",
@@ -73,13 +77,24 @@
   "basis": "human_approved_gameplay_presentation",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "Visual dressing may add presentation objects only; geometry and navigation remain authoritative. Governing visual direction: Docs/Art/Environment/DUNGEON_ART_DIRECTION.md, Vincent-approved project direction dated 2026-09-13. The supplied images are inspiration only; all art and layouts must be original.",
+  "notes": "Visual dressing may add presentation objects only; geometry and navigation remain authoritative. Governing visual direction: Docs/Art/Environment/DUNGEON_ART_DIRECTION.md, Vincent-approved project direction dated 2026-09-13. The supplied images are inspiration only; all art and layouts must be original. RESOURCE-SHAPE REVISION, 2026-09-23: the four asset .meta paths are added to exclusive_resources and the folder-meta hazard is recorded in AC-003. Nothing else changed - no criterion or gate was added, removed or reworded beyond that clause, and the dressing design is untouched. Authored after a sweep found that all five room-dressing tasks - NSC-079, NSC-080, NSC-081, NSC-082 and NSC-083 - carried a file-only resource list, which derives an empty allowed-roots set and makes any generated sibling fatal at materialization. None of the five has ever run: there is no dressing prefab on main and none of them holds a candidate record, so this revision strands nothing. WORTH RECORDING BECAUSE IT WAS NEARLY MISSED IN THE OTHER DIRECTION: a sweep of the five room SCENES for references to the forty-five selected props returns zero, and that is the contract working rather than a gap - AC-003 forbids editing the blockout scene and VAL-001 requires proving it without opening the room's .unity file at all, because the dressing is a PREFAB. A measurement of the wrong artifact reads exactly like a missing feature.",
   "repository_state_at_bootstrap": "partial",
   "repository_evidence_at_bootstrap": [],
   "provenance": {
     "origin": "human_approved_environment_content_followup",
     "approved_at_utc_date": "2026-09-13",
-    "approved_by": "Vincent"
+    "approved_by": "Vincent",
+    "contract_followups": [
+      {
+        "date": "2026-09-23",
+        "reason": "Own each asset's .meta: a file-only resource list derives an empty allowed_roots set, after which any generated sibling is fatal at materialization",
+        "source_head": "73fa9068d4c3c4a061dec2c6d136f35ae07c800e",
+        "previous_contract_revision": 2,
+        "base_contract_sha256": "cc8839371032166a7c0a158e6aa1d98e0330391691cbdd63af1ae3baaa2b7596",
+        "revised_contract_sha256": "92ead1ce0370af752965696913065a4d8500f0fc7054d75379983ca159642298",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      }
+    ]
   },
   "visual_direction_addendum": "Use curated original clusters along walls, corners, alcoves, and the landmark: furniture or containers, tools or books, hanging or wall decoration, plants or organic growth, and small lights. Prefer foreground/background depth layering and camera-scale readability over uniform scattering; preserve a clearly readable primary lane and door approach."
 }
