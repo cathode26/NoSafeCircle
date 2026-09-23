@@ -160,6 +160,47 @@ def _generic_builder_source(dressing: DressingPrefabBuilder) -> str:
     )
 
 
+_Q = '"'
+
+
+def _quoted_start_verbatim_decoy(dressing: DressingPrefabBuilder) -> str:
+    """No usable Build. Taken from Astra's own probe rather than rebuilt.
+
+    THE FOUR INTERIOR QUOTES ARE THE WHOLE CASE. `@` + three quotes opens a
+    VERBATIM string whose first content character is an escaped quote; the four
+    that follow are two more escaped quotes. Reading the quote run before the
+    `@` prefix took those as a raw literal's closing delimiter, which ended the
+    literal early and handed the decoy to the declaration scan.
+
+    My own reconstruction of this used two interior quotes and did NOT
+    reproduce. Running the preserved source did. Reconstructing a repro is not
+    running it.
+    """
+    return (
+        f"namespace {dressing.namespace} "
+        f"{{ public static class {dressing.class_name} {{\n"
+        f"static readonly string Example = @{_Q * 3}quoted start {_Q * 4}\n"
+        "public static void Build() {}\n"
+        f"End{_Q};\n"
+        "} }"
+    )
+
+
+def _quoted_start_verbatim_with_real_build(dressing: DressingPrefabBuilder) -> str:
+    """A REAL Build after a verbatim literal that opens with a quote.
+
+    The other half of the same ordering defect: the raw-literal reading ran past
+    this method and swallowed it, so a perfectly good builder was refused.
+    """
+    return (
+        f"namespace {dressing.namespace} "
+        f"{{ public static class {dressing.class_name} {{\n"
+        f"static readonly string Example = @{_Q * 3}quoted start{_Q};\n"
+        "public static void Build() {}\n"
+        "} }"
+    )
+
+
 def _good_catalog(dressing: DressingPrefabBuilder) -> str:
     return json.dumps({"room": dressing.room, "props": []}) + "\n"
 
@@ -564,6 +605,17 @@ class DressingBuilderEntryPointMissingRefuses(DressingFixtureMixin, unittest.Tes
             "FinalRoom", "NSC-525", _generic_builder_source,
         )
 
+    def test_a_quote_opening_verbatim_decoy_refuses_at_the_candidate(self):
+        """The R1 continuation, proven on the real candidate path.
+
+        Astra asked for this at the candidate level specifically, which is where
+        "refused before Unity launched" is a claim about the pipeline rather
+        than about a helper function.
+        """
+        self._refuses_entry_point_at_the_candidate(
+            "RuinedEntry", "NSC-526", _quoted_start_verbatim_decoy,
+        )
+
 
 class DressingCatalogSourceMissingRefuses(DressingFixtureMixin, unittest.TestCase):
     """catalog_source_missing: builder exists; catalog was never committed."""
@@ -819,6 +871,20 @@ class DeclaresDressingEntryPointDecoys(unittest.TestCase):
     def test_a_generic_class_of_the_right_name_is_false(self):
         source = _generic_builder_source(self.dressing)
         self.assertFalse(declares_dressing_entry_point(source, self.dressing))
+
+    # -- R1 continuation: the fix for R1 reintroduced R1's class -------
+    # `@"""` is a VERBATIM opener plus an escaped quote, not a raw opener.
+    # Deciding the quote run before the prefix produced BOTH a false negative
+    # and a false positive from one ordering bug.
+
+    def test_a_quote_opening_verbatim_literal_does_not_expose_a_decoy(self):
+        self.assertFalse(declares_dressing_entry_point(
+            _quoted_start_verbatim_decoy(self.dressing), self.dressing))
+
+    def test_a_quote_opening_verbatim_literal_does_not_swallow_a_real_build(self):
+        """The false NEGATIVE half: a good builder was being refused."""
+        self.assertTrue(declares_dressing_entry_point(
+            _quoted_start_verbatim_with_real_build(self.dressing), self.dressing))
 
     def test_a_generic_class_written_with_a_space_is_false(self):
         source = _generic_builder_source(self.dressing).replace(

@@ -251,7 +251,31 @@ def _blank_csharp_comments_and_literals(source: str) -> str:
             while quotes < length and source[quotes] == '"':
                 quotes += 1
             run = quotes - scan
-            if run >= 3:
+            if "@" in prefix:
+                # THE VERBATIM PREFIX WINS, AND IT MUST BE ASKED FIRST.
+                # `@"""` is NOT a raw opener: it is `@"` followed by `""`, an
+                # ESCAPED QUOTE inside a verbatim string. C# has no `@`-prefixed
+                # raw literal at all, so a prefix containing `@` settles the
+                # form before any quote counting happens.
+                #
+                # Asking the quote run first read `@"""` as a raw literal and
+                # scanned to the next run of three -- which SWALLOWED A REAL
+                # `Build` method. Astra's continuation of R1: my fix for "a
+                # string can expose a decoy" reintroduced the same class through
+                # a different mechanism, which is why the ordering is spelled
+                # out here rather than left to branch order.
+                cursor = scan + 1
+                while cursor < length:
+                    if source[cursor] == '"':
+                        if source.startswith('""', cursor):
+                            cursor += 2
+                            continue
+                        cursor += 1
+                        break
+                    cursor += 1
+                else:
+                    cursor = length
+            elif run >= 3:
                 # Raw string literal: opened by a run of N quotes, closed by the
                 # next run of at least N. SPANS NEWLINES.
                 cursor = quotes
@@ -266,21 +290,6 @@ def _blank_csharp_comments_and_literals(source: str) -> str:
                         cursor = closing
                         break
                     cursor = closing
-                else:
-                    cursor = length
-            elif "@" in prefix:
-                # Verbatim: no backslash escapes, "" is an escaped quote, and it
-                # SPANS NEWLINES. Terminating at a newline here is what let a
-                # multiline @$"..." expose its later lines as code.
-                cursor = scan + 1
-                while cursor < length:
-                    if source[cursor] == '"':
-                        if source.startswith('""', cursor):
-                            cursor += 2
-                            continue
-                        cursor += 1
-                        break
-                    cursor += 1
                 else:
                     cursor = length
             else:
