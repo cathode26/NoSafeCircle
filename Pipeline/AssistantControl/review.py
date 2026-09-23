@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Iterator
 
 from Pipeline.AssistantControl.checkouts import Checkouts, write_record
-from Pipeline.AssistantControl.inspect_project import git
+from Pipeline.AssistantControl.inspect_project import git, unresolvable_commit
 from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task
 from Pipeline.TaskReviewAgent.contracts import validate_task_id
 from Pipeline.TaskReviewAgent.execution_session_pool import _exclusive_file_lock
@@ -71,6 +71,23 @@ def _worktree_snapshot(source: Path) -> dict:
 
 
 def _changed_paths(checkout: Path, base: str, candidate: str) -> set[str]:
+    # `integrate` passes CANONICAL's HEAD as `base` while running in the TASK
+    # CHECKOUT, which `prepare` cut at an older commit and which no command
+    # updates at that stage -- `refresh-prepared` accepts only `prepared`
+    # records. Git then answers "fatal: bad object" naming a commit that IS in
+    # canonical, which points nowhere near the cause. Measured on NSC-047.
+    #
+    # The check lives here rather than at the call site so every caller is
+    # covered. `reset_task.py` passes `checkouts.source`, where both objects
+    # exist by construction, so it cannot fire there.
+    missing = unresolvable_commit(
+        checkout, ("the integration base", base), ("the candidate", candidate),
+    )
+    if missing is not None:
+        raise ValueError(
+            f"{missing}, so the changed-path comparison could not run; fetch that "
+            "commit into the task checkout before integrating"
+        )
     return _z_paths(git(
         checkout, "diff", "--name-only", "--no-renames", "-z", base, candidate, "--",
     ))
