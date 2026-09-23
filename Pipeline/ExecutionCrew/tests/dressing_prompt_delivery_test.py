@@ -29,7 +29,7 @@ from Pipeline.TaskReviewAgent.door_prototype_materialization import (  # noqa: E
 )
 
 ROOM_BUILDER = "Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/RuinedEntrySceneBuilder.cs"
-ROOM_SCENE = "Assets/NoSafeCircle/DoorPrototype/Scenes/RuinedEntry.unity"
+ROOM_SCENE = "Assets/Scenes/Rooms/RuinedEntry.unity"
 
 
 def _builder(room: str):

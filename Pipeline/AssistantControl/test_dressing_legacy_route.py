@@ -26,7 +26,7 @@ from Pipeline.TaskReviewAgent.door_prototype_materialization import (
     DRESSING_ROOMS,
 )
 
-ROOM_SCENE = "Assets/NoSafeCircle/DoorPrototype/Scenes/LowerVault.unity"
+ROOM_SCENE = "Assets/Scenes/Rooms/LowerVault.unity"
 ROOM_BUILDER = "Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/LowerVaultSceneBuilder.cs"
 
 
