@@ -67,6 +67,84 @@ namespace NoSafeCircle.DoorPrototype.Diagnostics
             return (isCapturing || summaryVisible) && !suppressedForCapture;
         }
 
+        // THESE TWO LIVE OUTSIDE THE #if BECAUSE THEY MUST COMPILE ON EVERY BUILD TARGET.
+        // UNITY_WEBGL is defined in the EDITOR whenever WebGL is the active build target, so
+        // everything below the guard disappears from the Editor compile as well as from a
+        // WebGL player -- including, until now, TryCreateFreshDirectory, which
+        // WalkthroughOverlayTests calls unconditionally. main therefore compiled on Standalone
+        // and could not compile on WebGL, and every run anyone had done was green because
+        // everyone was on the same target. Vincent hit it opening canonical and got Safe Mode.
+        //
+        // Guarding the three call sites instead would have made the test VANISH on WebGL, and
+        // this method is public for exactly one reason: overwriting a previous walkthrough is
+        // silent and unrecoverable, so the rule is proven by a test rather than trusted. A test
+        // that disappears with the build target is the absence-reads-as-pass shape.
+        //
+        // Neither helper touches anything WebGL lacks at COMPILE time -- System.IO and
+        // System.Globalization only. The readback, flip and capture machinery below the guard
+        // genuinely cannot build for WebGL and stays there.
+        /// <summary>Allocate a session directory that did not already exist.</summary>
+        /// <remarks>
+        /// Suffixes the second-resolution stamp until a free name is found, so a capture
+        /// started inside the same second as the previous one gets its own directory
+        /// instead of overwriting it. Directory.Exists is checked before each create
+        /// because CreateDirectory reports success for a directory that is already there.
+        /// </remarks>
+        // PUBLIC so the data-loss rule can be proven by a test rather than trusted.
+        // Overwriting a previous walkthrough is silent and unrecoverable, so this one
+        // gets a guard that fails if the allocator ever hands out the same path twice.
+        public static bool TryCreateFreshDirectory(
+            string root, string day, string stamp, out string created)
+        {
+            for (int attempt = 1; attempt <= 100; attempt++)
+            {
+                string leaf = attempt == 1
+                    ? stamp
+                    : stamp + "-" + attempt.ToString(CultureInfo.InvariantCulture);
+                string candidate = Path.Combine(root, day, leaf);
+
+                try
+                {
+                    if (Directory.Exists(candidate))
+                    {
+                        continue;
+                    }
+                }
+                catch (Exception exception)
+                {
+                    Debug.LogWarning("Walkthrough capture could not inspect a session path: " +
+                                     exception.Message);
+                    created = null;
+                    return false;
+                }
+
+                if (TryCreateDirectory(candidate, out created))
+                {
+                    return true;
+                }
+            }
+
+            Debug.LogError("Walkthrough capture found no free session directory after 100 attempts.");
+            created = null;
+            return false;
+        }
+
+        private static bool TryCreateDirectory(string path, out string created)
+        {
+            try
+            {
+                Directory.CreateDirectory(path);
+                created = path;
+                return true;
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning("Walkthrough capture could not create '" + path + "': " + exception.Message);
+                created = null;
+                return false;
+            }
+        }
+
 #if !UNITY_WEBGL
 
         /// <summary>
@@ -696,68 +774,6 @@ namespace NoSafeCircle.DoorPrototype.Diagnostics
             Debug.LogError("Walkthrough capture could not create a session directory under '" +
                            captureRoot + "' or '" + fallbackRoot + "'. Capture NOT started.");
             return false;
-        }
-
-        /// <summary>Allocate a session directory that did not already exist.</summary>
-        /// <remarks>
-        /// Suffixes the second-resolution stamp until a free name is found, so a capture
-        /// started inside the same second as the previous one gets its own directory
-        /// instead of overwriting it. Directory.Exists is checked before each create
-        /// because CreateDirectory reports success for a directory that is already there.
-        /// </remarks>
-        // PUBLIC so the data-loss rule can be proven by a test rather than trusted.
-        // Overwriting a previous walkthrough is silent and unrecoverable, so this one
-        // gets a guard that fails if the allocator ever hands out the same path twice.
-        public static bool TryCreateFreshDirectory(
-            string root, string day, string stamp, out string created)
-        {
-            for (int attempt = 1; attempt <= 100; attempt++)
-            {
-                string leaf = attempt == 1
-                    ? stamp
-                    : stamp + "-" + attempt.ToString(CultureInfo.InvariantCulture);
-                string candidate = Path.Combine(root, day, leaf);
-
-                try
-                {
-                    if (Directory.Exists(candidate))
-                    {
-                        continue;
-                    }
-                }
-                catch (Exception exception)
-                {
-                    Debug.LogWarning("Walkthrough capture could not inspect a session path: " +
-                                     exception.Message);
-                    created = null;
-                    return false;
-                }
-
-                if (TryCreateDirectory(candidate, out created))
-                {
-                    return true;
-                }
-            }
-
-            Debug.LogError("Walkthrough capture found no free session directory after 100 attempts.");
-            created = null;
-            return false;
-        }
-
-        private static bool TryCreateDirectory(string path, out string created)
-        {
-            try
-            {
-                Directory.CreateDirectory(path);
-                created = path;
-                return true;
-            }
-            catch (Exception exception)
-            {
-                Debug.LogWarning("Walkthrough capture could not create '" + path + "': " + exception.Message);
-                created = null;
-                return false;
-            }
         }
 
         private static string UtcNow()
