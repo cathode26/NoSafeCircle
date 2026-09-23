@@ -161,13 +161,45 @@ def _clean_checkout(checkouts: Checkouts, record: Mapping[str, Any], source_head
     return checkout
 
 
+# Directories Unity and the build regenerate wholesale. A checkout Unity has
+# opened always has these, so requiring their absence would refuse every task
+# whose crew ever ran.
+_GENERATED_CACHE_DIRECTORIES = frozenset(
+    {"Library", "Temp", "Logs", "obj", "UserSettings"})
+
+# Unity rewrites the solution and per-assembly project files beside Library/ and
+# obj/ every time it opens a project. The repository's own .gitignore declares
+# this exact family generated (*.csproj, *.unityproj, *.sln, *.slnx), and they
+# are allowed ONLY as a single top-level entry: a .csproj deeper in the tree is
+# not Unity's and stays a local change.
+_GENERATED_IDE_PROJECT_SUFFIXES = frozenset(
+    {".csproj", ".unityproj", ".sln", ".slnx"})
+
+
 def _allowed_ignored_checkout_path(checkout: Path, value: str) -> bool:
-    """Allow only owned generated caches and verified crew output files."""
+    """Allow only owned generated caches and verified crew output files.
+
+    Everything reaching here is already ignored by the repository's own rules --
+    the caller asks Git for ``--ignored=matching`` -- so the question is which of
+    the project's OWN generated artifacts an admission may tolerate, not whether
+    to trust arbitrary untracked files.
+
+    The list previously named Library, Temp, Logs and obj but not the .csproj,
+    .sln and UserSettings/ siblings Unity writes in the same breath. That made
+    the guard narrower than its own docstring: those ARE owned generated caches,
+    and every checkout whose crew has run Unity carries them, so admission
+    refused the whole class rather than a defect. Deleting them per task is not a
+    remedy either -- the next Unity run recreates them.
+    """
     relative = value.replace("\\", "/").strip().strip("/")
     parts = PurePosixPath(relative).parts
-    if (not parts or any(part in {"", ".", ".."} for part in parts)
-            or not (parts[0] in {"Library", "Temp", "Logs", "obj"}
-                    or parts[:3] == ("Pipeline", "ExecutionCrew", "outputs"))):
+    if not parts or any(part in {"", ".", ".."} for part in parts):
+        return False
+    if not (parts[0] in _GENERATED_CACHE_DIRECTORIES
+            or parts[:3] == ("Pipeline", "ExecutionCrew", "outputs")
+            or (len(parts) == 1
+                and PurePosixPath(parts[0]).suffix.casefold()
+                in _GENERATED_IDE_PROJECT_SUFFIXES)):
         return False
     candidate = checkout.joinpath(*parts)
     checkout_resolved = checkout.resolve()
