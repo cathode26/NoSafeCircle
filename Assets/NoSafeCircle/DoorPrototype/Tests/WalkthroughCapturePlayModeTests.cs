@@ -277,6 +277,27 @@ namespace NoSafeCircle.DoorPrototype.Tests
         }
 
         [UnityTest]
+        public IEnumerator The_capture_creates_itself_without_any_scene_holding_it()
+        {
+            // The whole point of the bootstrap: walking a room must not require editing
+            // that room's scene, because the room contracts forbid touching the blockout.
+            RequireRenderableFrameLoop();
+
+            WalkthroughCapture existing = UnityEngine.Object.FindFirstObjectByType<WalkthroughCapture>();
+
+            Assert.IsNotNull(
+                existing,
+                "Nothing created a WalkthroughCapture, so using it would mean adding a " +
+                "component to a room scene and dirtying it.");
+            Assert.IsFalse(existing.IsCapturing, "It must wait for the hotkey, not capture on load.");
+            Assert.AreEqual(
+                "DontDestroyOnLoad", existing.gameObject.scene.name,
+                "It must outlive scene changes; the manifest records a scene name per frame.");
+
+            yield return null;
+        }
+
+        [UnityTest]
         public IEnumerator A_mark_outside_a_session_is_refused_rather_than_recorded()
         {
             RequireRenderableFrameLoop();

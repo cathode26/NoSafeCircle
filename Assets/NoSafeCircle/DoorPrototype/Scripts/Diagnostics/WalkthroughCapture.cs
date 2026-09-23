@@ -16,9 +16,18 @@ namespace NoSafeCircle.DoorPrototype.Diagnostics
     /// bug by position instead of by guess.
     /// </summary>
     /// <remarks>
-    /// Drop this on a GameObject in the scene being walked. F9 starts and stops a
-    /// session, F10 marks the frame on screen as interesting. Both keys are serialized
-    /// fields, and both actions are public methods so tests drive them without input.
+    /// It creates itself. F9 starts and stops a session, F10 marks the frame on screen
+    /// as interesting, and both actions are public methods so tests drive them without
+    /// input.
+    /// <para>
+    /// Deliberately NOT placed on a GameObject in a scene. Adding a component to a room
+    /// scene and saving edits that scene, and the room contracts forbid touching the
+    /// blockout -- keeping it untouched is what the room tasks paid for. Walking five
+    /// rooms would otherwise mean five edited scenes, or re-adding the object by hand
+    /// every session and losing it on every Play mode exit. Creating itself also means
+    /// it SURVIVES scene changes, which the manifest needs anyway because it records a
+    /// scene name per frame.
+    /// </para>
     /// <para>
     /// Frames are written outside the project. Unity imports everything under
     /// <c>Assets/</c> and generates a <c>.meta</c> for each file, so a ten-minute
@@ -48,6 +57,27 @@ namespace NoSafeCircle.DoorPrototype.Diagnostics
             Auto,
             Always,
             Never
+        }
+
+        /// <summary>
+        /// Create the capture for this play session, once, without touching a scene.
+        /// </summary>
+        /// <remarks>
+        /// It only exists and waits for the hotkey; nothing is captured and no directory
+        /// is created until someone presses F9. The guard means a deliberately placed
+        /// instance, which a test may add, still wins rather than being duplicated.
+        /// </remarks>
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        private static void CreateForPlaySession()
+        {
+            if (FindFirstObjectByType<WalkthroughCapture>() != null)
+            {
+                return;
+            }
+
+            var host = new GameObject(nameof(WalkthroughCapture));
+            host.AddComponent<WalkthroughCapture>();
+            DontDestroyOnLoad(host);
         }
 
         private const string ManifestFileName = "session.json";
