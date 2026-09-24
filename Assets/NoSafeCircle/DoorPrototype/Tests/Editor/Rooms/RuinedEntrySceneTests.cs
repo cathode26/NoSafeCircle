@@ -409,6 +409,95 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
             }
         }
 
+        /// <summary>NSC-044. The rubble blockers are tinted, not left at Unity's default white.</summary>
+        /// <remarks>
+        /// THE DEFECT THIS EXISTS TO STOP COMING BACK: GameObject.CreatePrimitive keeps Unity's
+        /// default material, which is bright white, and nothing in this fixture used to look at
+        /// the blockers' appearance. Two white slabs sat in the middle of a grey stone room --
+        /// the most visible thing in the composed world -- while every test stayed green.
+        /// <para>
+        /// THE EXPECTED COLOUR IS WRITTEN OUT HERE ON PURPOSE. It is the Art Director's call,
+        /// recorded in C:/nscrev/reports/handoffs/ART-20260924-composed-world-review.md, and it
+        /// is NOT read from the builder: asserting against the constant the builder tints with
+        /// would agree with itself no matter what colour that constant later became.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public void Build_TintsTheRubbleBlockersInsteadOfLeavingThemDefaultWhite()
+        {
+            AssertRubbleTint(SceneManager.GetActiveScene());
+        }
+
+        /// <summary>The tint is in the COMMITTED scene, not merely in what the builder returns.</summary>
+        /// <remarks>
+        /// A builder that tints correctly proves nothing about the asset that actually ships if
+        /// the scene on disk was never rebuilt. This opens the committed scene for the same
+        /// reason the composed-scene dressing fixture does: the artifact is the claim.
+        /// </remarks>
+        [Test]
+        public void CommittedScene_RubbleBlockersCarryTheApprovedTint()
+        {
+            Scene scene = EditorSceneManager.OpenScene(
+                RuinedEntrySceneBuilder.ScenePath, OpenSceneMode.Additive);
+            try
+            {
+                AssertRubbleTint(scene);
+            }
+            finally
+            {
+                EditorSceneManager.CloseScene(scene, true);
+            }
+        }
+
+        private static void AssertRubbleTint(Scene scene)
+        {
+            // The Art Director's recorded colour. See the class remarks: deliberately not read
+            // from RuinedEntrySceneBuilder.
+            Color32 expected = new Color32(96, 88, 80, 230);
+
+            GameObject root = scene.GetRootGameObjects()
+                .Single(candidate => candidate.name == "Room_RuinedEntry");
+
+            foreach (string blockerName in new[] { "RubbleAVisual", "RubbleBVisual" })
+            {
+                Transform blocker = root.GetComponentsInChildren<Transform>(true)
+                    .FirstOrDefault(candidate => candidate.name == blockerName);
+                Assert.IsNotNull(blocker, blockerName + " is missing from the room.");
+
+                Renderer renderer = blocker.GetComponent<Renderer>();
+                Assert.IsNotNull(renderer, blockerName + " has no Renderer.");
+                Assert.IsNotNull(renderer.sharedMaterial,
+                    blockerName + " has no material, so it renders in Unity's default white.");
+
+                Color actual = renderer.sharedMaterial.color;
+                Color32 actual32 = actual;
+
+                Assert.AreNotEqual(Color.white, actual,
+                    blockerName + " is still Unity's default white. That is the original defect: " +
+                    "a primitive that was never given a material.");
+
+                // Compared with a tolerance rather than by Color32 equality: the colour makes a
+                // byte -> float -> byte round trip through the material, and a one-unit rounding
+                // difference would be a flake rather than a finding.
+                Assert.AreEqual(expected.r / 255f, actual.r, 1.5f / 255f,
+                    blockerName + " red: expected " + expected + " but was " + actual32);
+                Assert.AreEqual(expected.g / 255f, actual.g, 1.5f / 255f,
+                    blockerName + " green: expected " + expected + " but was " + actual32);
+                Assert.AreEqual(expected.b / 255f, actual.b, 1.5f / 255f,
+                    blockerName + " blue: expected " + expected + " but was " + actual32);
+                Assert.AreEqual(expected.a / 255f, actual.a, 1.5f / 255f,
+                    blockerName + " alpha: expected " + expected + " but was " + actual32);
+
+                // THE ALPHA MUST ACTUALLY DO SOMETHING. The Standard shader ignores alpha while
+                // its rendering mode is Opaque, so a material carrying alpha 230 can still render
+                // fully opaque -- the transparency would be silently dropped and every colour
+                // assertion above would still pass. The blocker is meant to read as a placeholder.
+                Assert.AreEqual((int)UnityEngine.Rendering.RenderQueue.Transparent,
+                    renderer.sharedMaterial.renderQueue,
+                    blockerName + " carries alpha " + expected.a + " but renders on the opaque " +
+                    "queue, so the transparency is dropped and it reads as finished art.");
+            }
+        }
         private static void AssertTilemapVisuals(Scene scene)
         {
             GameObject root = scene.GetRootGameObjects().Single(candidate => candidate.name == "Room_RuinedEntry");

@@ -134,10 +134,12 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
 
             CreateVisualBox(parent, "RubbleAVisual", RaisedCenter(RuinedEntryLayout.RubbleABounds,
                     RuinedEntryLayout.RubbleHeight),
-                RaisedSize(RuinedEntryLayout.RubbleABounds, RuinedEntryLayout.RubbleHeight));
+                RaisedSize(RuinedEntryLayout.RubbleABounds, RuinedEntryLayout.RubbleHeight),
+                RubblePlaceholderColor);
             CreateVisualBox(parent, "RubbleBVisual", RaisedCenter(RuinedEntryLayout.RubbleBBounds,
                     RuinedEntryLayout.RubbleHeight),
-                RaisedSize(RuinedEntryLayout.RubbleBBounds, RuinedEntryLayout.RubbleHeight));
+                RaisedSize(RuinedEntryLayout.RubbleBBounds, RuinedEntryLayout.RubbleHeight),
+                RubblePlaceholderColor);
         }
 
         private static Tilemap CreateVisualTilemap(
@@ -301,6 +303,21 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             TransientTileObjects.Clear();
         }
 
+        /// <summary>The Art Director's tint for the two rubble blockers.</summary>
+        /// <remarks>
+        /// NOT A CHOICE MADE HERE. Recorded by the Art Director in
+        /// C:/nscrev/reports/handoffs/ART-20260924-composed-world-review.md: inside the stone
+        /// value range the room already uses, slightly warmer than the wall so the blocker
+        /// separates from the backdrop, and semi-transparent so it still reads as a PLACEHOLDER.
+        /// <para>
+        /// THIS IS A STOPGAP AND IS MEANT TO BE DELETED, not kept. The real fix is the rubble
+        /// props NSC-079's dressing places in these two footprints. They are in the composed
+        /// scene already and they do NOT hide the blockers -- the props sit on top of the white
+        /// slabs -- which is why the tint is still worth having. When the blockers stop being
+        /// drawn at all, this colour and CreateMaterial go with them.
+        /// </para>
+        /// </remarks>
+        private static readonly Color32 RubblePlaceholderColor = new Color32(96, 88, 80, 230);
         private static Color32[] CreateLowWallPixels()
         {
             const int width = 64;
@@ -400,7 +417,8 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             return child.transform;
         }
 
-        private static void CreateVisualBox(Transform parent, string name, Vector3 position, Vector3 size)
+        private static void CreateVisualBox(
+            Transform parent, string name, Vector3 position, Vector3 size, Color32 color)
         {
             GameObject box = GameObject.CreatePrimitive(PrimitiveType.Cube);
             box.name = name;
@@ -408,6 +426,42 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             box.transform.position = position;
             box.transform.localScale = size;
             Object.DestroyImmediate(box.GetComponent<Collider>());
+
+            // A primitive keeps Unity's DEFAULT material, which is bright white. Every other
+            // room assigns one; Ruined Entry was simply left out, so its two blockers rendered
+            // as white slabs in the middle of a grey stone room -- the most visible defect in
+            // the composed world. THE COLOUR IS A REQUIRED ARGUMENT rather than a default: a
+            // future visual box must choose one instead of silently inheriting white again.
+            box.GetComponent<Renderer>().sharedMaterial = CreateMaterial(color);
+        }
+
+        /// <summary>A Standard material that actually honours the alpha it is given.</summary>
+        /// <remarks>
+        /// SETTING <c>material.color</c> ALONE IS NOT ENOUGH AND FAILS SILENTLY. The Standard
+        /// shader ignores alpha while its rendering mode is Opaque, so a colour carrying alpha
+        /// 230 renders fully opaque while the code still reads as though the transparency had
+        /// been applied. The blocker is meant to read as a PLACEHOLDER rather than as finished
+        /// art, which is the whole point of the alpha, so fade mode is configured explicitly
+        /// instead of assumed.
+        /// </remarks>
+        private static Material CreateMaterial(Color32 color)
+        {
+            Material material = new Material(Shader.Find("Standard"));
+            material.color = color;
+
+            if (color.a < 255)
+            {
+                material.SetFloat("_Mode", 2f); // Fade
+                material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+                material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                material.SetInt("_ZWrite", 0);
+                material.DisableKeyword("_ALPHATEST_ON");
+                material.EnableKeyword("_ALPHABLEND_ON");
+                material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+                material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+            }
+
+            return material;
         }
 
         private static void CreateGameplayBox(Transform parent, string name, Vector3 position, Vector3 size)
