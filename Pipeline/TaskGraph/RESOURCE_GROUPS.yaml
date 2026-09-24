@@ -974,7 +974,8 @@
         "world-sprite-prefab-sorting",
         "seamless-scalable-wall-tiling",
         "door-breach-feedback",
-        "world-sprite-sorting-layer-adoption"
+        "world-sprite-sorting-layer-adoption",
+        "doorway-opening-seal-and-door-art-binding"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs",
       "work_ids": [
@@ -982,7 +983,8 @@
         "NSC-039",
         "NSC-042",
         "NSC-052",
-        "NSC-100"
+        "NSC-100",
+        "NSC-097"
       ]
     },
     {
