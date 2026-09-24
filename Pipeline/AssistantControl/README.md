@@ -678,4 +678,23 @@ the older mixed-case and dotted run id.
 `inspect-decomposition` rechecks its exact durable artifacts, and
 `apply-decomposition` creates the canonical local D1C commit only while the reviewed
 source, contract and plan are still exact. These commands never push.
+
+### Decomposing in an isolated clone
+
+The apply-time gate compares the reviewed Source commit with Source HEAD under
+`Tasks`, `Pipeline/TaskGraph` and the validation policy, so delivery records that
+other agents land on the shared checkout invalidate an in-flight plan. Pass
+`--source` a standalone clone nobody else commits to and `--checkout-root` a
+directory disjoint from it (the records root must not nest inside the source).
+The proposal, `inspect-decomposition` and `apply-decomposition` then run exactly
+as they do on the shared checkout. The D1C commit moves to the shared checkout as
+an ordinary merge candidate with its ancestry intact (no cherry-pick or rebase);
+validate the combined graph on a trial merge with that checkout's own
+`taskcontrol.py validate` before merging. The decomposition receipt stays in the
+clone's records root, bound to the clone: it is never copied, relabelled or
+deleted to make the shared checkout accept it. On the shared checkout a
+committed decomposed parent is an aggregate whatever receipt it has, and a
+settled receipt there does not veto committed conformance.
+There is no separate decomposition `approve` command; application is the
+explicit `apply-decomposition` call.
 No fixture result is evidence that NSC-042's gameplay works.

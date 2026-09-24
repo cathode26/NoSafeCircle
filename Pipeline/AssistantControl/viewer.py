@@ -1076,13 +1076,24 @@ class AssistantSnapshot:
                 row["state"] = "blocked"
                 row["progress"] = {"phase": "checkout_needs_attention", "blocked_reason": str(exc)}
         if visible_parent:
-            # The committed graph supersedes an older failed proposal receipt.
-            # Children are now the executable work; the parent is an aggregate.
-            row["state"] = "aggregate"
-            row["progress"] = {
-                "phase": "decomposition_applied",
-                "transition_context": "Decomposition children are committed; their work determines parent completion.",
-            }
+            # The committed graph supersedes any older proposal receipt, including
+            # one bound to the isolated clone the decomposition was applied in.
+            # Its proposal child ids are history, so they are not projected as the
+            # current run; the current children come from the committed contract.
+            row.pop("decomposition_run", None)
+            if taskgraph_state is not None and taskgraph_state.get("state") == "conformant":
+                row["state"] = "complete"
+                row["progress"] = {
+                    "phase": "taskgraph_conformant",
+                    "transition_context": "Committed TaskGraph evidence proves this task is complete.",
+                }
+            else:
+                # Children are now the executable work; the parent is an aggregate.
+                row["state"] = "aggregate"
+                row["progress"] = {
+                    "phase": "decomposition_applied",
+                    "transition_context": "Decomposition children are committed; their work determines parent completion.",
+                }
         elif (active and taskgraph_state is not None
               and taskgraph_state.get("state") == "conformant"
               and row["state"] in {"assistant_idle", "local_accepted", "complete"}):

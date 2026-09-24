@@ -1108,6 +1108,76 @@ class DuplicateViewerPortTests(unittest.TestCase):
         self.assertEqual("aggregate", row["state"])
         self.assertEqual("decomposition_applied", row["progress"]["phase"])
 
+    DECOMPOSED_PARENT = {
+        "schema_version": "2.0", "id": "NSC-025", "title": "Navigation", "parent": None,
+        "depends_on": [], "contract_disposition": "active",
+        "decomposition_state": "decomposed",
+        "decomposition_children": ["NSC-089", "NSC-090"],
+        "execution_scope": "not_applicable", "kind": "feature",
+    }
+
+    def write_parent_receipt(self, reader, **fields):
+        reader.manager.records.mkdir(parents=True, exist_ok=True)
+        (reader.manager.records / "NSC-025.decomposition.json").write_text(json.dumps({
+            "schema_version": "assistant-decomposition/v1", "task_id": "NSC-025",
+            "source": str(reader.source), **fields,
+        }), encoding="utf-8")
+
+    def test_conformant_decomposed_parent_without_receipt_stays_complete(self):
+        reader = AssistantSnapshot(self.root, self.checkout_root())
+        row = reader.task_row(self.DECOMPOSED_PARENT, taskgraph_state={"state": "conformant"})
+        self.assertEqual("complete", row["state"])
+        self.assertEqual("taskgraph_conformant", row["progress"]["phase"])
+
+    def test_conformant_decomposed_parent_with_clone_bound_receipt_stays_complete(self):
+        reader = AssistantSnapshot(self.root, self.checkout_root())
+        self.write_parent_receipt(
+            reader, source=str(Path(self.root).parent / "isolated-clone"),
+            status="applied", child_ids=["NSC-900", "NSC-901"], run_id="old-run")
+        row = reader.task_row(self.DECOMPOSED_PARENT, taskgraph_state={"state": "conformant"})
+        self.assertEqual("complete", row["state"])
+        self.assertNotIn("decomposition_run", row)
+
+    def test_stale_receipt_child_ids_are_not_projected_for_a_decomposed_parent(self):
+        reader = AssistantSnapshot(self.root, self.checkout_root())
+        self.write_parent_receipt(reader, status="review_ready",
+                                  child_ids=["NSC-900", "NSC-901"], run_id="old-run")
+        row = reader.task_row(self.DECOMPOSED_PARENT)
+        self.assertEqual("aggregate", row["state"])
+        self.assertNotIn("decomposition_run", row)
+
+    def test_pending_decomposed_parent_stays_aggregate_whatever_its_receipt(self):
+        foreign = str(Path(self.root).parent / "isolated-clone")
+        cases = {
+            "absent": None,
+            "foreign": dict(source=foreign, status="applied", child_ids=["NSC-089", "NSC-090"]),
+            "failed": dict(status="failed", error="old"),
+            "review_ready": dict(status="review_ready"),
+            "mismatched applied": dict(status="applied", child_ids=["NSC-900"]),
+        }
+        for name, fields in cases.items():
+            with self.subTest(name):
+                reader = AssistantSnapshot(self.root, self.checkout_root())
+                receipt = reader.manager.records / "NSC-025.decomposition.json"
+                if receipt.exists():
+                    receipt.unlink()
+                if fields is not None:
+                    self.write_parent_receipt(reader, **fields)
+                for taskgraph_state in (None, {"state": "needs_testing"}):
+                    row = reader.task_row(self.DECOMPOSED_PARENT, taskgraph_state=taskgraph_state)
+                    self.assertEqual("aggregate", row["state"])
+                    self.assertEqual("decomposition_applied", row["progress"]["phase"])
+
+    def test_undecomposed_parent_with_foreign_receipt_is_still_blocked(self):
+        reader = AssistantSnapshot(self.root, self.checkout_root())
+        self.write_parent_receipt(reader, source=str(Path(self.root).parent / "isolated-clone"),
+                                  status="applied", child_ids=["NSC-089"])
+        row = reader.task_row({**self.DECOMPOSED_PARENT, "decomposition_state": "concrete",
+                               "decomposition_children": [],
+                               "execution_scope": "needs_execution_decomposition",
+                               "kind": "implementation"})
+        self.assertEqual("blocked", row["state"])
+
     def test_human_completion_overlay_keeps_formal_state_visible(self):
         reader = AssistantSnapshot(self.root, self.checkout_root())
         reader.manager.records.mkdir(parents=True)
