@@ -552,6 +552,16 @@
         "PlayMode": "NoSafeCircle.DoorPrototype.Tests.ForceWaveDisplacementPlayModeTests;NoSafeCircle.DoorPrototype.Tests.ForceWaveCastGatePlayModeTests;NoSafeCircle.DoorPrototype.Tests.ForceWaveLifecyclePlayModeTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-106": {
+      "task_contract_sha256": "b9c58193878e83333348ce01ef975ac202cfb649f9ddbf49a3a2c3fcb8845226",
+      "required_test_platforms": [
+        "PlayMode"
+      ],
+      "test_filters": {
+        "PlayMode": "NoSafeCircle.DoorPrototype.Tests.TitleScreenPlayModeTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
     }
   },
   "decomposition_child_templates": {}
