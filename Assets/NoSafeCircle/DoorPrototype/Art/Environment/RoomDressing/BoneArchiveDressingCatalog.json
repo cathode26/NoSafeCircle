@@ -1,0 +1,598 @@
+{
+  "schema": "nsc.room-dressing-catalog/1",
+  "room": "BoneArchive",
+  "task": "NSC-080",
+  "room_identity": "A library that stopped mid-use. Paper is the material here; bone is the note.",
+  "authored_by": "Art Director Agent",
+  "provenance": {
+    "brief": "Docs/Art/Environment/NSC-080_BONE_ARCHIVE_DRESSING.md",
+    "prop_catalog": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/PropCatalog.json",
+    "prop_catalog_sha256": "8e328c53bd657f33a7c660144c5cfe16a4d533ec7919672edb4ccc3bc541f2ea",
+    "layout_source": "Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/BoneArchiveLayout.cs",
+    "resolved_at_commit": "8ceea22ba",
+    "brief_checked_out": "Unlike NSC-081's and NSC-083's, this brief's numbers agree with the committed data: shelf segments draw 1.69 / 1.66 / 1.72 ('about 1.7 each'), the lectern draws 2.34, and the north strip is 2.75 deep. Nothing needed correcting."
+  },
+  "builder_contract": {
+    "pivot": "Committed pivot and PPU from PropCatalog.json; the builder never recomputes one.",
+    "y_is_always_zero": "Every placement sits on the floor at y=0. A book stack 'on a shelf top' is placed on the shelf's FOOTPRINT and reads as on the shelf through sorting order - it is not lifted in Y.",
+    "sorting": "sorting_order = round((x - z) * 10); larger x-z is nearer the camera.",
+    "colliders": "The dressing prefab carries NO colliders.",
+    "lie_within_props": "shared_bone_pile_b is the room's only lie_within entry."
+  },
+  "clearance_proved": {
+    "d1_approach": {
+      "x": [
+        -1.5,
+        1.5
+      ],
+      "z": [
+        0.25,
+        3.0
+      ],
+      "occupants": 0
+    },
+    "d2_exit_approach": {
+      "x": [
+        4.5,
+        7.5
+      ],
+      "z": [
+        17.0,
+        19.75
+      ],
+      "occupants": 0
+    },
+    "lanes": "All four lanes swept every 0.5 units of z against the 2.5 minimum. Lane 3 is pinched to exactly 2.5 by the reading table, which is deliberate and is why nothing else may enter it.",
+    "reading_table": "Asserted to occupy CollapsedFurnitureBA1 EXACTLY, and asserted that nothing is skirted within 0.5 of it. One unit of spill makes lane 3 illegal, so there is no margin here at all.",
+    "shelf_runs": "Each bank is asserted gap-free in DRAWN width across its whole footprint.",
+    "paper_beats_bone": "Asserted: paper props outnumber bone props, so the room stays a library rather than becoming a charnel house and stealing the Chapel of Ash's and the Final Room's distinction."
+  },
+  "props": [
+    {
+      "instance_id": "BA1-table-01",
+      "prop_id": "ba_collapsed_reading_table_z",
+      "footprint": "BA1",
+      "position": {
+        "x": 0.5,
+        "y": 0.0,
+        "z": 10.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -95,
+      "intent": "the room's one piece of furniture and DELIBERATELY the pinch in lane 3. Its 1.00 x 2.00 footprint is exactly CollapsedFurnitureBA1, so there is no margin at all - and nothing is skirted around it, which is the habit that would be right anywhere else in this project"
+    },
+    {
+      "instance_id": "NORTH-STRIP-landmark-01",
+      "prop_id": "ba_landmark_chained_grimoire_lectern",
+      "footprint": "NORTH-STRIP",
+      "position": {
+        "x": -1.0,
+        "y": 0.0,
+        "z": 18.5
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -195,
+      "intent": "THE landmark, in the open north strip against the drawn north wall. Seen straight up lane 3 from D1 at (0,0), backed by a drawn wall rather than floating, and clear of the D2 exit so it never reads as blocking the way out"
+    },
+    {
+      "instance_id": "NORTH-WALL-drape-01",
+      "prop_id": "shared_web_drape_b",
+      "footprint": "NORTH-WALL",
+      "position": {
+        "x": -6.5,
+        "y": 0.0,
+        "z": 19.5
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -260,
+      "intent": "the ONE drape, on the drawn north face"
+    },
+    {
+      "instance_id": "NW-CORNER-web-01",
+      "prop_id": "shared_web_corner_a",
+      "footprint": "NW-CORNER",
+      "position": {
+        "x": -9.0,
+        "y": 0.0,
+        "z": 18.9
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -279,
+      "intent": "the north-west corner: the only one with both walls drawn under this camera"
+    },
+    {
+      "instance_id": "STRIP-basket-01",
+      "prop_id": "ba_spilled_scroll_basket",
+      "footprint": "STRIP",
+      "position": {
+        "x": -7.6,
+        "y": 0.0,
+        "z": 17.4
+      },
+      "rotation_euler_z": -25.0,
+      "sorting_order": -250,
+      "intent": "tipped, contents pointing away from the basket: spill implies motion and motion implies something happened"
+    },
+    {
+      "instance_id": "STRIP-basket-02",
+      "prop_id": "ba_spilled_scroll_basket",
+      "footprint": "STRIP",
+      "position": {
+        "x": 8.6,
+        "y": 0.0,
+        "z": 4.6
+      },
+      "rotation_euler_z": 18.0,
+      "sorting_order": 40,
+      "intent": "tipped, contents pointing away from the basket: spill implies motion and motion implies something happened"
+    },
+    {
+      "instance_id": "STRIP-basket-03",
+      "prop_id": "ba_spilled_scroll_basket",
+      "footprint": "STRIP",
+      "position": {
+        "x": -4.2,
+        "y": 0.0,
+        "z": 18.4
+      },
+      "rotation_euler_z": -12.0,
+      "sorting_order": -226,
+      "intent": "tipped, contents pointing away from the basket: spill implies motion and motion implies something happened"
+    },
+    {
+      "instance_id": "STRIP-boneb-01",
+      "prop_id": "shared_bone_pile_b",
+      "footprint": "STRIP",
+      "position": {
+        "x": -8.4,
+        "y": 0.0,
+        "z": 1.6
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -100,
+      "intent": "bone is the NOTE here, not the material"
+    },
+    {
+      "instance_id": "STRIP-books-01",
+      "prop_id": "ba_book_and_scroll_stack",
+      "footprint": "STRIP",
+      "position": {
+        "x": -8.2,
+        "y": 0.0,
+        "z": 18.6
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -268,
+      "intent": "paper drifted into the open strip"
+    },
+    {
+      "instance_id": "STRIP-books-02",
+      "prop_id": "ba_book_and_scroll_stack",
+      "footprint": "STRIP",
+      "position": {
+        "x": 2.2,
+        "y": 0.0,
+        "z": 18.8
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -166,
+      "intent": "paper drifted into the open strip"
+    },
+    {
+      "instance_id": "STRIP-books-03",
+      "prop_id": "ba_book_and_scroll_stack",
+      "footprint": "STRIP",
+      "position": {
+        "x": -8.0,
+        "y": 0.0,
+        "z": 2.2
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -102,
+      "intent": "paper drifted into the open strip"
+    },
+    {
+      "instance_id": "STRIP-books-04",
+      "prop_id": "ba_book_and_scroll_stack",
+      "footprint": "STRIP",
+      "position": {
+        "x": 7.8,
+        "y": 0.0,
+        "z": 3.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": 48,
+      "intent": "paper drifted into the open strip"
+    },
+    {
+      "instance_id": "ShelfA-books-01",
+      "prop_id": "ba_book_and_scroll_stack",
+      "footprint": "ShelfA",
+      "position": {
+        "x": -5.75,
+        "y": 0.0,
+        "z": 6.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -118,
+      "intent": "on the shelf top: this is the prop that says the shelves are full, and paper is the material this room is made of"
+    },
+    {
+      "instance_id": "ShelfA-books-02",
+      "prop_id": "ba_book_and_scroll_stack",
+      "footprint": "ShelfA",
+      "position": {
+        "x": -5.75,
+        "y": 0.0,
+        "z": 11.5
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -172,
+      "intent": "on the shelf top: this is the prop that says the shelves are full, and paper is the material this room is made of"
+    },
+    {
+      "instance_id": "ShelfA-comedy-01",
+      "prop_id": "ba_comedy_skull_with_spectacles",
+      "footprint": "ShelfA",
+      "position": {
+        "x": -5.75,
+        "y": 0.0,
+        "z": 10.2
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -160,
+      "intent": "THE one comedy detail: a skull still wearing its reading glasses, mid-run on the west bank. Found by a player who looks along the shelves, and deliberately not beside the lectern"
+    },
+    {
+      "instance_id": "ShelfA-shelfend-01",
+      "prop_id": "ba_shelf_bank_z_end",
+      "footprint": "ShelfA",
+      "position": {
+        "x": -5.75,
+        "y": 0.0,
+        "z": 15.141
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -209,
+      "intent": "ShelfA bank, segment 8 of 8; still tidy. Drawn widths overlap by 0.192 so the run never reads as separate bookcases"
+    },
+    {
+      "instance_id": "ShelfA-shelfmid-01",
+      "prop_id": "ba_shelf_bank_z_middle",
+      "footprint": "ShelfA",
+      "position": {
+        "x": -5.75,
+        "y": 0.0,
+        "z": 6.324
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -121,
+      "intent": "ShelfA bank, segment 2 of 8; still tidy. Drawn widths overlap by 0.192 so the run never reads as separate bookcases"
+    },
+    {
+      "instance_id": "ShelfA-shelfmid-02",
+      "prop_id": "ba_shelf_bank_z_middle",
+      "footprint": "ShelfA",
+      "position": {
+        "x": -5.75,
+        "y": 0.0,
+        "z": 7.788
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -135,
+      "intent": "ShelfA bank, segment 3 of 8; still tidy. Drawn widths overlap by 0.192 so the run never reads as separate bookcases"
+    },
+    {
+      "instance_id": "ShelfA-shelfmid-03",
+      "prop_id": "ba_shelf_bank_z_middle",
+      "footprint": "ShelfA",
+      "position": {
+        "x": -5.75,
+        "y": 0.0,
+        "z": 9.252
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -150,
+      "intent": "ShelfA bank, segment 4 of 8; still tidy. Drawn widths overlap by 0.192 so the run never reads as separate bookcases"
+    },
+    {
+      "instance_id": "ShelfA-shelfmid-04",
+      "prop_id": "ba_shelf_bank_z_middle",
+      "footprint": "ShelfA",
+      "position": {
+        "x": -5.75,
+        "y": 0.0,
+        "z": 10.717
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -165,
+      "intent": "ShelfA bank, segment 5 of 8; still tidy. Drawn widths overlap by 0.192 so the run never reads as separate bookcases"
+    },
+    {
+      "instance_id": "ShelfA-shelfmid-05",
+      "prop_id": "ba_shelf_bank_z_middle",
+      "footprint": "ShelfA",
+      "position": {
+        "x": -5.75,
+        "y": 0.0,
+        "z": 12.181
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -179,
+      "intent": "ShelfA bank, segment 6 of 8; still tidy. Drawn widths overlap by 0.192 so the run never reads as separate bookcases"
+    },
+    {
+      "instance_id": "ShelfA-shelfmid-06",
+      "prop_id": "ba_shelf_bank_z_middle",
+      "footprint": "ShelfA",
+      "position": {
+        "x": -5.75,
+        "y": 0.0,
+        "z": 13.645
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -194,
+      "intent": "ShelfA bank, segment 7 of 8; still tidy. Drawn widths overlap by 0.192 so the run never reads as separate bookcases"
+    },
+    {
+      "instance_id": "ShelfA-shelfstart-01",
+      "prop_id": "ba_shelf_bank_z_start",
+      "footprint": "ShelfA",
+      "position": {
+        "x": -5.75,
+        "y": 0.0,
+        "z": 4.844
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -106,
+      "intent": "ShelfA bank, segment 1 of 8; still tidy. Drawn widths overlap by 0.192 so the run never reads as separate bookcases"
+    },
+    {
+      "instance_id": "ShelfB-books-01",
+      "prop_id": "ba_book_and_scroll_stack",
+      "footprint": "ShelfB",
+      "position": {
+        "x": -0.75,
+        "y": 0.0,
+        "z": 5.5
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -62,
+      "intent": "on the shelf top: this is the prop that says the shelves are full, and paper is the material this room is made of"
+    },
+    {
+      "instance_id": "ShelfB-books-02",
+      "prop_id": "ba_book_and_scroll_stack",
+      "footprint": "ShelfB",
+      "position": {
+        "x": -0.75,
+        "y": 0.0,
+        "z": 12.2
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -130,
+      "intent": "on the shelf top: this is the prop that says the shelves are full, and paper is the material this room is made of"
+    },
+    {
+      "instance_id": "ShelfB-shelfend-01",
+      "prop_id": "ba_shelf_bank_z_end",
+      "footprint": "ShelfB",
+      "position": {
+        "x": -0.75,
+        "y": 0.0,
+        "z": 13.141
+      },
+      "rotation_euler_z": -4.0,
+      "sorting_order": -139,
+      "intent": "ShelfB bank, segment 7 of 7; leaning. Drawn widths overlap by 0.115 so the run never reads as separate bookcases"
+    },
+    {
+      "instance_id": "ShelfB-shelfmid-01",
+      "prop_id": "ba_shelf_bank_z_middle",
+      "footprint": "ShelfB",
+      "position": {
+        "x": -0.75,
+        "y": 0.0,
+        "z": 5.401
+      },
+      "rotation_euler_z": -4.0,
+      "sorting_order": -62,
+      "intent": "ShelfB bank, segment 2 of 7; leaning. Drawn widths overlap by 0.115 so the run never reads as separate bookcases"
+    },
+    {
+      "instance_id": "ShelfB-shelfmid-02",
+      "prop_id": "ba_shelf_bank_z_middle",
+      "footprint": "ShelfB",
+      "position": {
+        "x": -0.75,
+        "y": 0.0,
+        "z": 6.943
+      },
+      "rotation_euler_z": -4.0,
+      "sorting_order": -77,
+      "intent": "ShelfB bank, segment 3 of 7; leaning. Drawn widths overlap by 0.115 so the run never reads as separate bookcases"
+    },
+    {
+      "instance_id": "ShelfB-shelfmid-03",
+      "prop_id": "ba_shelf_bank_z_middle",
+      "footprint": "ShelfB",
+      "position": {
+        "x": -0.75,
+        "y": 0.0,
+        "z": 8.484
+      },
+      "rotation_euler_z": -4.0,
+      "sorting_order": -92,
+      "intent": "ShelfB bank, segment 4 of 7; leaning. Drawn widths overlap by 0.115 so the run never reads as separate bookcases"
+    },
+    {
+      "instance_id": "ShelfB-shelfmid-04",
+      "prop_id": "ba_shelf_bank_z_middle",
+      "footprint": "ShelfB",
+      "position": {
+        "x": -0.75,
+        "y": 0.0,
+        "z": 10.026
+      },
+      "rotation_euler_z": -4.0,
+      "sorting_order": -108,
+      "intent": "ShelfB bank, segment 5 of 7; leaning. Drawn widths overlap by 0.115 so the run never reads as separate bookcases"
+    },
+    {
+      "instance_id": "ShelfB-shelfmid-05",
+      "prop_id": "ba_shelf_bank_z_middle",
+      "footprint": "ShelfB",
+      "position": {
+        "x": -0.75,
+        "y": 0.0,
+        "z": 11.568
+      },
+      "rotation_euler_z": -4.0,
+      "sorting_order": -123,
+      "intent": "ShelfB bank, segment 6 of 7; leaning. Drawn widths overlap by 0.115 so the run never reads as separate bookcases"
+    },
+    {
+      "instance_id": "ShelfB-shelfstart-01",
+      "prop_id": "ba_shelf_bank_z_start",
+      "footprint": "ShelfB",
+      "position": {
+        "x": -0.75,
+        "y": 0.0,
+        "z": 3.844
+      },
+      "rotation_euler_z": -4.0,
+      "sorting_order": -46,
+      "intent": "ShelfB bank, segment 1 of 7; leaning. Drawn widths overlap by 0.115 so the run never reads as separate bookcases"
+    },
+    {
+      "instance_id": "ShelfC-books-01",
+      "prop_id": "ba_book_and_scroll_stack",
+      "footprint": "ShelfC",
+      "position": {
+        "x": 4.25,
+        "y": 0.0,
+        "z": 8.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -38,
+      "intent": "on the shelf top: this is the prop that says the shelves are full, and paper is the material this room is made of"
+    },
+    {
+      "instance_id": "ShelfC-books-02",
+      "prop_id": "ba_book_and_scroll_stack",
+      "footprint": "ShelfC",
+      "position": {
+        "x": 4.25,
+        "y": 0.0,
+        "z": 14.8
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -106,
+      "intent": "on the shelf top: this is the prop that says the shelves are full, and paper is the material this room is made of"
+    },
+    {
+      "instance_id": "ShelfC-shelfend-01",
+      "prop_id": "ba_shelf_bank_z_end",
+      "footprint": "ShelfC",
+      "position": {
+        "x": 4.25,
+        "y": 0.0,
+        "z": 16.141
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -119,
+      "intent": "ShelfC bank, segment 7 of 7; collapsed section. Drawn widths overlap by 0.115 so the run never reads as separate bookcases"
+    },
+    {
+      "instance_id": "ShelfC-shelfmid-01",
+      "prop_id": "ba_shelf_bank_z_middle",
+      "footprint": "ShelfC",
+      "position": {
+        "x": 4.25,
+        "y": 0.0,
+        "z": 8.401
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -42,
+      "intent": "ShelfC bank, segment 2 of 7; collapsed section. Drawn widths overlap by 0.115 so the run never reads as separate bookcases"
+    },
+    {
+      "instance_id": "ShelfC-shelfmid-02",
+      "prop_id": "ba_shelf_bank_z_middle",
+      "footprint": "ShelfC",
+      "position": {
+        "x": 4.25,
+        "y": 0.0,
+        "z": 9.943
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -57,
+      "intent": "ShelfC bank, segment 3 of 7; collapsed section. Drawn widths overlap by 0.115 so the run never reads as separate bookcases"
+    },
+    {
+      "instance_id": "ShelfC-shelfmid-03",
+      "prop_id": "ba_shelf_bank_z_middle",
+      "footprint": "ShelfC",
+      "position": {
+        "x": 4.25,
+        "y": 0.0,
+        "z": 11.484
+      },
+      "rotation_euler_z": -21.0,
+      "sorting_order": -72,
+      "intent": "ShelfC bank, segment 4 of 7: THE COLLAPSED SECTION. Rotated rather than omitted - a missing segment would be a gap, which the brief forbids, while a leaning one is the story"
+    },
+    {
+      "instance_id": "ShelfC-shelfmid-04",
+      "prop_id": "ba_shelf_bank_z_middle",
+      "footprint": "ShelfC",
+      "position": {
+        "x": 4.25,
+        "y": 0.0,
+        "z": 13.026
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -88,
+      "intent": "ShelfC bank, segment 5 of 7; collapsed section. Drawn widths overlap by 0.115 so the run never reads as separate bookcases"
+    },
+    {
+      "instance_id": "ShelfC-shelfmid-05",
+      "prop_id": "ba_shelf_bank_z_middle",
+      "footprint": "ShelfC",
+      "position": {
+        "x": 4.25,
+        "y": 0.0,
+        "z": 14.568
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -103,
+      "intent": "ShelfC bank, segment 6 of 7; collapsed section. Drawn widths overlap by 0.115 so the run never reads as separate bookcases"
+    },
+    {
+      "instance_id": "ShelfC-shelfstart-01",
+      "prop_id": "ba_shelf_bank_z_start",
+      "footprint": "ShelfC",
+      "position": {
+        "x": 4.25,
+        "y": 0.0,
+        "z": 6.844
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -26,
+      "intent": "ShelfC bank, segment 1 of 7; collapsed section. Drawn widths overlap by 0.115 so the run never reads as separate bookcases"
+    },
+    {
+      "instance_id": "lane4-bonea-01",
+      "prop_id": "shared_bone_pile_a",
+      "footprint": "lane4",
+      "position": {
+        "x": 8.9,
+        "y": 0.0,
+        "z": 12.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -31,
+      "intent": "bone is the NOTE here, not the material"
+    }
+  ]
+}
