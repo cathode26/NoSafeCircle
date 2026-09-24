@@ -39,6 +39,24 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             return material;
         }
 
+        // SAME TONE, FULL ALPHA - and this exists because the alpha caused a real regression.
+        // A blockout mass whose alpha is below 255 takes the fade path above, which moves its
+        // material from the Standard opaque queue (2000) to Transparent (3000). Dressing props
+        // are SpriteRenderers already at 3000, so the mass stops drawing BEFORE them and starts
+        // competing with them - measured on the Final Room, where FR-1 overdrew about 4% of the
+        // bone throne and skeleton rows that sit against its silhouette.
+        //
+        // A mass at nine-tenths opacity reads as opaque anyway, so the alpha bought nothing
+        // there and cost the sort order. Small props like the Ruined Entry rubble keep theirs:
+        // they are what the provisional read is for, and they overlap no dressing.
+        //
+        // DERIVED from the approved tone, never a second authored colour - same principle as
+        // EdgeFrom below.
+        internal static Color32 Opaque(Color32 tone)
+        {
+            return new Color32(tone.r, tone.g, tone.b, 255);
+        }
+
         // Derives a lighter edge tone from a base tone at a given ratio, for placeholder
         // textures that draw a border to mark their own extent. This is a COMPUTATION, not a
         // second authored colour: the Lower Vault proxy encoded its edge at roughly 2x its

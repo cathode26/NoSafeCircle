@@ -232,7 +232,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             CreateBox("FR-1" + Suffix(collision), parent,
                 FinalRoomLayout.FR1Bounds.center,
                 FinalRoomLayout.FR1Bounds.size,
-                RoomPlaceholderVisuals.BlockoutPlaceholder, collision);
+                RoomPlaceholderVisuals.Opaque(RoomPlaceholderVisuals.BlockoutPlaceholder), collision);
         }
 
         private static void CreateFittingRoomDressing(Transform parent, Transform gameplay)

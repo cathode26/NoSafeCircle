@@ -217,7 +217,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
             // The approved blockout tone, written out DELIBERATELY rather than read from
             // RoomPlaceholderVisuals: a test that sources its expectation from the constant it
             // guards agrees with any value that constant ever takes, including a wrong one.
-            Color32 expected = new Color32(96, 88, 80, 230);
+            Color32 expected = new Color32(96, 88, 80, 255);
             Color32 rejected = new Color32(41, 20, 51, 255);
 
             Transform obstacle = scene.GetRootGameObjects()
@@ -249,15 +249,21 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
             Assert.AreEqual(expected.a / 255f, actual.a, 1.5f / 255f,
                 "FR-1Visual alpha: expected " + expected + " but was " + actual32);
 
-            // THE ALPHA MUST ACTUALLY DO SOMETHING. FinalRoomSceneBuilder.CreateMaterial used to
-            // be `material.color = color; return material;`, and the Standard shader ignores the
-            // alpha channel entirely while its mode is Opaque. Every colour assertion above would
-            // still pass with the transparency silently dropped, which is exactly how this went
-            // unnoticed in RuinedEntry until it was asserted here.
-            Assert.AreEqual((int)UnityEngine.Rendering.RenderQueue.Transparent,
-                renderer.sharedMaterial.renderQueue,
-                "FR-1Visual carries alpha " + expected.a + " but renders on the opaque queue, so " +
-                "the transparency is dropped and the placeholder reads as finished art.");
+            // FR-1 MUST DRAW BEFORE THE DRESSING, AND THIS ASSERTION USED TO SAY THE OPPOSITE.
+            // It required renderQueue == Transparent, to prove the alpha was not silently
+            // dropped. That is the right assertion for the Ruined Entry rubble and the WRONG one
+            // here, and it PASSED on the regression it should have caught: giving FR-1 alpha 230
+            // moved its material to the Transparent queue (3000), where the dressing
+            // SpriteRenderers already live, so the mass stopped drawing before them and overdrew
+            // about 4% of the bone throne and skeleton rows against its silhouette. Caught by
+            // measuring a rendered panel, not by this suite.
+            //
+            // Asserted as a RELATION rather than as the literal 2000, so any opaque-range queue
+            // satisfies it: the mass must be drawn before anything at Transparent.
+            Assert.Less(renderer.sharedMaterial.renderQueue,
+                (int)UnityEngine.Rendering.RenderQueue.Transparent,
+                "FR-1Visual renders at or after the transparent queue, so it draws over the " +
+                "dressing props that sit against it instead of behind them.");
         }
 
         private static void AssertCommittedSceneUnchanged(System.Action<Scene> body)
