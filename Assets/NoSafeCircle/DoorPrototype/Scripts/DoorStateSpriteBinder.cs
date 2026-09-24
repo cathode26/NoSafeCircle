@@ -52,13 +52,25 @@ namespace NoSafeCircle.DoorPrototype
 
         private void SyncToCurrentState()
         {
+            // LOCKED WINS OVER OPEN, AND THE ORDER IS THE WHOLE POINT: the two flags are not
+            // mutually exclusive. DoorInteractable.CloseAndLock sets IsLocked while LEAVING
+            // IsOpen true, so testing IsOpen first makes a door that was locked after being
+            // crossed render the open sprite for a passage that is shut - visible on any door
+            // re-enabled in that state, and not caught by the event handlers because locking
+            // raises Locked exactly once, before the object is ever disabled.
+            if (door.IsLocked)
+            {
+                HandleLocked();
+                return;
+            }
+
             if (door.IsOpen)
             {
                 HandleOpened();
                 return;
             }
 
-            SetSprite(door.IsFinalDoor ? finalSprite : (door.IsLocked ? lockedSprite : sealedSprite));
+            SetSprite(door.IsFinalDoor ? finalSprite : sealedSprite);
         }
 
         private void OnDisable()

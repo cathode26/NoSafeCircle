@@ -41,6 +41,12 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
         private static readonly float[] LateralOffsetFractions = { -0.95f, -0.4f, 0f, 0.4f, 0.95f };
         private static readonly float[] HeightFractions = { -0.9f, 0f, 0.9f };
 
+        // Edit Mode never runs MonoBehaviour lifecycle, so a binder built here has not
+        // subscribed to anything and has not synced to the door's current state. Tracked so
+        // TearDown can pair OnDisable, matching the repo precedent at
+        // DoorPrototypeSceneBuilderTests.cs:2515-2532.
+        private DoorStateSpriteBinder enabledBinder;
+
         [SetUp]
         public void SetUp()
         {
@@ -50,6 +56,12 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
         [TearDown]
         public void TearDown()
         {
+            if (enabledBinder != null)
+            {
+                InvokePrivate(enabledBinder, "OnDisable");
+                enabledBinder = null;
+            }
+
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
         }
 
@@ -214,6 +226,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             var binder = doorRoot.GetComponent<DoorStateSpriteBinder>();
             var doorSpriteRenderer = doorRoot.transform.Find("DoorVisual/DoorSprite").GetComponent<SpriteRenderer>();
             SetIsFinalDoor(door, true);
+            EnableBinder(binder);
 
             door.StartInteraction();
             door.Tick(door.Duration + 0.1f);
@@ -234,6 +247,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             var binder = doorRoot.GetComponent<DoorStateSpriteBinder>();
             var doorSpriteRenderer = doorRoot.transform.Find("DoorVisual/DoorSprite").GetComponent<SpriteRenderer>();
             SetIsFinalDoor(door, true);
+            EnableBinder(binder);
 
             door.StartInteraction();
             door.Tick(door.Duration + 0.1f);
@@ -257,6 +271,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             var binder = doorRoot.GetComponent<DoorStateSpriteBinder>();
             var doorSpriteRenderer = doorRoot.transform.Find("DoorVisual/DoorSprite").GetComponent<SpriteRenderer>();
             Assert.IsFalse(door.IsFinalDoor, "Test setup expects a non-final door.");
+            EnableBinder(binder);
 
             door.StartInteraction();
             door.Tick(door.Duration + 0.1f);
@@ -280,6 +295,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             var binder = doorRoot.GetComponent<DoorStateSpriteBinder>();
             var doorSpriteRenderer = doorRoot.transform.Find("DoorVisual/DoorSprite").GetComponent<SpriteRenderer>();
             Assert.IsFalse(door.IsFinalDoor, "Test setup expects a non-final door.");
+            EnableBinder(binder);
 
             door.StartInteraction();
             door.Tick(door.Duration + 0.1f);
@@ -324,6 +340,32 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
         {
             return Physics.Raycast(origin, direction, maxDistance, Physics.DefaultRaycastLayers,
                 QueryTriggerInteraction.Ignore);
+        }
+
+        // EDIT MODE DOES NOT INVOKE Awake/OnEnable. Without this the binder never subscribes
+        // and never runs SyncToCurrentState, so the renderer keeps whatever sprite the builder
+        // assigned at construction - which is why four tests expecting four DIFFERENT sprites
+        // all observed the same sealed one, and why the reset test failed on its own setup
+        // assertion before reaching the reset it was written to exercise.
+        //
+        // Call this AFTER any SetIsFinalDoor: OnEnable syncs to the door's state as it stands
+        // at that moment, which is exactly the production ordering this binder exists to
+        // handle - DoorSequenceBuilder clones an already-built door and sets isFinalDoor
+        // afterwards.
+        private void EnableBinder(DoorStateSpriteBinder binder)
+        {
+            Assert.IsNotNull(binder, "Expected a DoorStateSpriteBinder to enable.");
+            InvokePrivate(binder, "Awake");
+            InvokePrivate(binder, "OnEnable");
+            enabledBinder = binder;
+        }
+
+        private static void InvokePrivate(object target, string methodName)
+        {
+            var method = target.GetType().GetMethod(
+                methodName, BindingFlags.NonPublic | BindingFlags.Instance);
+            Assert.IsNotNull(method, methodName + " not found on " + target.GetType().Name + ".");
+            method.Invoke(target, null);
         }
 
         private static Sprite GetPrivateSprite(object target, string fieldName)
