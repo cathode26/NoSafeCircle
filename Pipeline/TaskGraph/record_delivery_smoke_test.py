@@ -91,11 +91,11 @@ def init_repo(
     return commit(root, "validated implementation")
 
 
-def unity_xml(*, result: str = "Passed", total: int = 3, passed: int = 3, failed: int = 0, skipped: int = 0) -> str:
+def unity_xml(*, result: str = "Passed", total: int = 3, passed: int = 3, failed: int = 0, skipped: int = 0, inconclusive: int = 0) -> str:
     return (
         f'<?xml version="1.0" encoding="utf-8"?>\n'
         f'<test-run id="1" result="{result}" total="{total}" passed="{passed}" '
-        f'failed="{failed}" skipped="{skipped}" inconclusive="0">\n'
+        f'failed="{failed}" skipped="{skipped}" inconclusive="{inconclusive}">\n'
         f'  <test-suite name="Suite" result="{result}"/>\n'
         f"</test-run>\n"
     )
@@ -330,7 +330,84 @@ def scenario_failed_unity_xml(root: Path) -> None:
     spec = base_spec(validated)
     wire_sources(spec, sources)
     spec_path = write_spec(root, spec)
-    expect_error(lambda: create_delivery_package(spec_path, root), "not 'Passed'")
+    # The message changed deliberately: the failed-count check now runs BEFORE
+    # the run-label check, so a real failure reports the COUNT rather than the
+    # label. That is the more useful of the two and it names the actual defect.
+    expect_error(lambda: create_delivery_package(spec_path, root), "1 failed test")
+
+
+def scenario_explicit_ignored_run_is_delivered(root: Path) -> None:
+    """A green suite containing an [Explicit] test must DELIVER.
+
+    NUnit labels the whole run "Skipped:Ignored" when any single test opts out.
+    Every room task owns an [Explicit] CaptureGameplayCameraReview, so this
+    shape -- measured at 8ceea22ba as total=262 passed=256 failed=0 skipped=6 --
+    is what every room delivery actually looks like. It used to be refused.
+    """
+    validated = init_repo(root)
+    external = root.parent / "external-sources"
+    sources = write_external_sources(
+        external,
+        xml_content=unity_xml(result="Skipped:Ignored", total=262, passed=256,
+                              failed=0, skipped=6),
+    )
+    spec = base_spec(validated)
+    wire_sources(spec, sources)
+    spec_path = write_spec(root, spec)
+    create_delivery_package(spec_path, root)
+
+
+def scenario_all_ignored_unity_xml(root: Path) -> None:
+    """Widening the label must NOT let a suite where nothing ran through.
+
+    failed=0, total>0 and "Skipped:Ignored" is exactly what an all-ignored run
+    reports, which is why `passed > 0` was added alongside the widened label.
+    """
+    validated = init_repo(root)
+    external = root.parent / "external-sources"
+    sources = write_external_sources(
+        external,
+        xml_content=unity_xml(result="Skipped:Ignored", total=15, passed=0,
+                              failed=0, skipped=15),
+    )
+    spec = base_spec(validated)
+    wire_sources(spec, sources)
+    spec_path = write_spec(root, spec)
+    expect_error(lambda: create_delivery_package(spec_path, root), "zero passed tests")
+
+
+def scenario_inconclusive_unity_xml(root: Path) -> None:
+    """An inconclusive test is not a passing test, and widening must not admit one."""
+    validated = init_repo(root)
+    external = root.parent / "external-sources"
+    sources = write_external_sources(
+        external,
+        xml_content=unity_xml(result="Skipped:Ignored", total=15, passed=13,
+                              failed=0, skipped=1, inconclusive=1),
+    )
+    spec = base_spec(validated)
+    wire_sources(spec, sources)
+    spec_path = write_spec(root, spec)
+    expect_error(lambda: create_delivery_package(spec_path, root), "inconclusive test")
+
+
+def scenario_unknown_run_label_is_refused(root: Path) -> None:
+    """The gate is an ALLOW-LIST, not "failed == 0 is enough".
+
+    A run-result nobody has considered still refuses, which is the property that
+    separates this from simply deleting the label check.
+    """
+    validated = init_repo(root)
+    external = root.parent / "external-sources"
+    sources = write_external_sources(
+        external,
+        xml_content=unity_xml(result="Inconclusive", total=3, passed=3,
+                              failed=0, skipped=0),
+    )
+    spec = base_spec(validated)
+    wire_sources(spec, sources)
+    spec_path = write_spec(root, spec)
+    expect_error(lambda: create_delivery_package(spec_path, root), "expected one of")
 
 
 def scenario_zero_unity_tests(root: Path) -> None:
@@ -835,6 +912,10 @@ def main() -> int:
     fresh(scenario_optional_token_usage_is_packaged_and_displayed)
     fresh(scenario_conflicting_token_usage_is_not_overwritten)
     fresh(scenario_malformed_token_usage_is_non_authoritative)
+    fresh(scenario_explicit_ignored_run_is_delivered)
+    fresh(scenario_all_ignored_unity_xml)
+    fresh(scenario_inconclusive_unity_xml)
+    fresh(scenario_unknown_run_label_is_refused)
     print("record_delivery_smoke_test: PASS")
     return 0
 
