@@ -49,6 +49,7 @@ import sys
 
 import apply_contract as ac
 import main_write
+import pinned_candidate_warning
 
 IDENTITY = ["-c", "user.name=No Safe Circle Contract Maintenance",
             "-c", "user.email=contract-maintenance@nosafecircle.invalid"]
@@ -169,6 +170,10 @@ def main() -> int:
     merged["provenance"] = provenance
     changed = sorted(key for key in current if current.get(key) != merged.get(key))
     print(f"[PLAN] {task_id}: revision {current.get('contract_revision')} -> {merged['contract_revision']} at HEAD {head}")
+    # A revision strands any candidate pinned to the CURRENT contract:
+    # revisions.py:134-140 refuses before either revise branch. Silent and
+    # after the fact unless it is said here, at the moment of deciding.
+    pinned_candidate_warning.warn(task_id, ac.REPO)
     print(f"[PLAN] changed fields: {changed}")
 
     groups_rel = "Pipeline/TaskGraph/RESOURCE_GROUPS.yaml"
