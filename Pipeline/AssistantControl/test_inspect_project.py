@@ -29,6 +29,11 @@ class InventoryTests(unittest.TestCase):
         (self.root / "Tasks").mkdir()
         self.contract = self.root / "Tasks/NSC-042.yaml"
         self.contract.write_text(json.dumps({
+            # schema_version is REQUIRED of a committed contract by
+            # current_conformance.py:357 since 692adcb9c (2026-09-12).
+            # Without it AssistantSnapshot.build() yields no task rows at
+            # all, and every fixture that chains to this one goes red.
+            "schema_version": "2.0",
             "id": "NSC-042", "title": "Committed wall task", "depends_on": [],
             "exclusive_resources": ["repo-file:wall file.txt"],
         }), encoding="utf-8")
