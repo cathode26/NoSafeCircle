@@ -1,0 +1,454 @@
+{
+  "families": {
+    "floor": 5,
+    "wall": 6
+  },
+  "gate": "VAL-001",
+  "measured_at_commit": "7f7a8efbb78fe9a53e4c035e39e9f246a4e32c95",
+  "provenance_document": "Docs/Art/Environment/PIXELLAB_GENERATION.md",
+  "source_count": 11,
+  "source_root": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source",
+  "sources": [
+    {
+      "bytes": 19719,
+      "family": "floor",
+      "guid": "3a1f76c268304705ae02da1f7c097ff9",
+      "import_settings": {
+        "alphaIsTransparency": "1",
+        "filterMode": "Point",
+        "mipmapEnabled": null,
+        "spriteMode": "Single",
+        "spritePixelsToUnits": "64",
+        "textureCompression": "Uncompressed",
+        "textureShape": "Texture2D",
+        "textureType": "Sprite",
+        "wrapU": "Clamp"
+      },
+      "intended_use": "Unity Isometric Tilemap (16-tile Wang set, sliced downstream by INT-001)",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/floors/floor_BoneArchive.png",
+      "pixels": {
+        "height": 128,
+        "width": 128
+      },
+      "sha256": "6fe148cd82f4eb5650230e212e37b0c0e03a207e32c1439b6ccc47acdd0edba9",
+      "tile_world_units_at_64ppu": 0.5,
+      "transparency": {
+        "corner_alpha": [
+          255,
+          255,
+          255,
+          255
+        ],
+        "fully_opaque_pct": 100.0,
+        "partial_alpha_pct": 0.0,
+        "shape": "full rectangle"
+      },
+      "wang_tiles_32px": 16,
+      "world_units_at_64ppu": {
+        "height": 2.0,
+        "width": 2.0
+      }
+    },
+    {
+      "bytes": 17033,
+      "family": "floor",
+      "guid": "cb8130442d6d40c58822a1b317b503e2",
+      "import_settings": {
+        "alphaIsTransparency": "1",
+        "filterMode": "Point",
+        "mipmapEnabled": null,
+        "spriteMode": "Single",
+        "spritePixelsToUnits": "64",
+        "textureCompression": "Uncompressed",
+        "textureShape": "Texture2D",
+        "textureType": "Sprite",
+        "wrapU": "Clamp"
+      },
+      "intended_use": "Unity Isometric Tilemap (16-tile Wang set, sliced downstream by INT-001)",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/floors/floor_ChapelOfAsh.png",
+      "pixels": {
+        "height": 128,
+        "width": 128
+      },
+      "sha256": "7e9ea4d10bbd78835e1956d9f44b5c006cda481cbc9c08fec4ca260e07b5e998",
+      "tile_world_units_at_64ppu": 0.5,
+      "transparency": {
+        "corner_alpha": [
+          255,
+          255,
+          255,
+          255
+        ],
+        "fully_opaque_pct": 100.0,
+        "partial_alpha_pct": 0.0,
+        "shape": "full rectangle"
+      },
+      "wang_tiles_32px": 16,
+      "world_units_at_64ppu": {
+        "height": 2.0,
+        "width": 2.0
+      }
+    },
+    {
+      "bytes": 19297,
+      "family": "floor",
+      "guid": "e7b940e123f445b3a1168f2d24b082c3",
+      "import_settings": {
+        "alphaIsTransparency": "1",
+        "filterMode": "Point",
+        "mipmapEnabled": null,
+        "spriteMode": "Single",
+        "spritePixelsToUnits": "64",
+        "textureCompression": "Uncompressed",
+        "textureShape": "Texture2D",
+        "textureType": "Sprite",
+        "wrapU": "Clamp"
+      },
+      "intended_use": "Unity Isometric Tilemap (16-tile Wang set, sliced downstream by INT-001)",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/floors/floor_FinalRoom.png",
+      "pixels": {
+        "height": 128,
+        "width": 128
+      },
+      "sha256": "ff4de22660e8334b1c28991ddb459deeca78b132740d15fd6ac78fc247134fae",
+      "tile_world_units_at_64ppu": 0.5,
+      "transparency": {
+        "corner_alpha": [
+          255,
+          255,
+          255,
+          255
+        ],
+        "fully_opaque_pct": 100.0,
+        "partial_alpha_pct": 0.0,
+        "shape": "full rectangle"
+      },
+      "wang_tiles_32px": 16,
+      "world_units_at_64ppu": {
+        "height": 2.0,
+        "width": 2.0
+      }
+    },
+    {
+      "bytes": 20219,
+      "family": "floor",
+      "guid": "9b3710b34c2e4bf494a7b45ce3fcb098",
+      "import_settings": {
+        "alphaIsTransparency": "1",
+        "filterMode": "Point",
+        "mipmapEnabled": null,
+        "spriteMode": "Single",
+        "spritePixelsToUnits": "64",
+        "textureCompression": "Uncompressed",
+        "textureShape": "Texture2D",
+        "textureType": "Sprite",
+        "wrapU": "Clamp"
+      },
+      "intended_use": "Unity Isometric Tilemap (16-tile Wang set, sliced downstream by INT-001)",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/floors/floor_LowerVault.png",
+      "pixels": {
+        "height": 128,
+        "width": 128
+      },
+      "sha256": "057f27dce62428484a9ea5c1335f49cc25f5141da917b3d41802a5655c6cfb1a",
+      "tile_world_units_at_64ppu": 0.5,
+      "transparency": {
+        "corner_alpha": [
+          255,
+          255,
+          255,
+          255
+        ],
+        "fully_opaque_pct": 100.0,
+        "partial_alpha_pct": 0.0,
+        "shape": "full rectangle"
+      },
+      "wang_tiles_32px": 16,
+      "world_units_at_64ppu": {
+        "height": 2.0,
+        "width": 2.0
+      }
+    },
+    {
+      "bytes": 24677,
+      "family": "floor",
+      "guid": "a56398373e5849c6a2028bf913354170",
+      "import_settings": {
+        "alphaIsTransparency": "1",
+        "filterMode": "Point",
+        "mipmapEnabled": null,
+        "spriteMode": "Single",
+        "spritePixelsToUnits": "64",
+        "textureCompression": "Uncompressed",
+        "textureShape": "Texture2D",
+        "textureType": "Sprite",
+        "wrapU": "Clamp"
+      },
+      "intended_use": "Unity Isometric Tilemap (16-tile Wang set, sliced downstream by INT-001)",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/floors/floor_RuinedEntry.png",
+      "pixels": {
+        "height": 128,
+        "width": 128
+      },
+      "sha256": "58637440f79912ae30b1ce50eacd5ffd2d0f180e3e924cf38b64913d22697e69",
+      "tile_world_units_at_64ppu": 0.5,
+      "transparency": {
+        "corner_alpha": [
+          255,
+          255,
+          255,
+          255
+        ],
+        "fully_opaque_pct": 100.0,
+        "partial_alpha_pct": 0.0,
+        "shape": "full rectangle"
+      },
+      "wang_tiles_32px": 16,
+      "world_units_at_64ppu": {
+        "height": 2.0,
+        "width": 2.0
+      }
+    },
+    {
+      "bytes": 14933,
+      "family": "wall",
+      "guid": "2080d27da4d94c51808934c2718eef00",
+      "import_settings": {
+        "alphaIsTransparency": "1",
+        "filterMode": "Point",
+        "mipmapEnabled": null,
+        "spriteMode": "Single",
+        "spritePixelsToUnits": "64",
+        "textureCompression": "Uncompressed",
+        "textureShape": "Texture2D",
+        "textureType": "Sprite",
+        "wrapU": "Clamp"
+      },
+      "intended_use": "Unity Isometric Tilemap wall module (sliced/assembled downstream by INT-001)",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/walls/wall_broken_stub.png",
+      "pixels": {
+        "height": 128,
+        "width": 128
+      },
+      "sha256": "f3f2d9f3d19f06ad803354acef7277405e5ef4edf8fb4bd530a25de99d98b9bb",
+      "tile_world_units_at_64ppu": null,
+      "transparency": {
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "fully_opaque_pct": 52.777,
+        "partial_alpha_pct": 0.0,
+        "shape": "shaped silhouette"
+      },
+      "wang_tiles_32px": 1,
+      "world_units_at_64ppu": {
+        "height": 2.0,
+        "width": 2.0
+      }
+    },
+    {
+      "bytes": 20757,
+      "family": "wall",
+      "guid": "6b4df10e880245ac8807c443a259f854",
+      "import_settings": {
+        "alphaIsTransparency": "1",
+        "filterMode": "Point",
+        "mipmapEnabled": null,
+        "spriteMode": "Single",
+        "spritePixelsToUnits": "64",
+        "textureCompression": "Uncompressed",
+        "textureShape": "Texture2D",
+        "textureType": "Sprite",
+        "wrapU": "Clamp"
+      },
+      "intended_use": "Unity Isometric Tilemap wall module (sliced/assembled downstream by INT-001)",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/walls/wall_corner.png",
+      "pixels": {
+        "height": 160,
+        "width": 128
+      },
+      "sha256": "a7327e6b9332ce30fc825bd7f0272c2a62c2711108cddff6873a9b1144392c6b",
+      "tile_world_units_at_64ppu": null,
+      "transparency": {
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "fully_opaque_pct": 54.893,
+        "partial_alpha_pct": 0.0,
+        "shape": "shaped silhouette"
+      },
+      "wang_tiles_32px": 1,
+      "world_units_at_64ppu": {
+        "height": 2.5,
+        "width": 2.0
+      }
+    },
+    {
+      "bytes": 15395,
+      "family": "wall",
+      "guid": "4071a2dc2bee4d9fbdfe3a8943df1ea2",
+      "import_settings": {
+        "alphaIsTransparency": "1",
+        "filterMode": "Point",
+        "mipmapEnabled": null,
+        "spriteMode": "Single",
+        "spritePixelsToUnits": "64",
+        "textureCompression": "Uncompressed",
+        "textureShape": "Texture2D",
+        "textureType": "Sprite",
+        "wrapU": "Clamp"
+      },
+      "intended_use": "Unity Isometric Tilemap wall module (sliced/assembled downstream by INT-001)",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/walls/wall_door_jamb.png",
+      "pixels": {
+        "height": 176,
+        "width": 128
+      },
+      "sha256": "4a411f06bada0b94d130f85efe3732be425ff1517a9b8cf603f12a9e8334bee6",
+      "tile_world_units_at_64ppu": null,
+      "transparency": {
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "fully_opaque_pct": 55.717,
+        "partial_alpha_pct": 0.0,
+        "shape": "shaped silhouette"
+      },
+      "wang_tiles_32px": 1,
+      "world_units_at_64ppu": {
+        "height": 2.75,
+        "width": 2.0
+      }
+    },
+    {
+      "bytes": 10522,
+      "family": "wall",
+      "guid": "2a8f63dcb67c4bb2b958bb49ea95fb70",
+      "import_settings": {
+        "alphaIsTransparency": "1",
+        "filterMode": "Point",
+        "mipmapEnabled": null,
+        "spriteMode": "Single",
+        "spritePixelsToUnits": "64",
+        "textureCompression": "Uncompressed",
+        "textureShape": "Texture2D",
+        "textureType": "Sprite",
+        "wrapU": "Clamp"
+      },
+      "intended_use": "Unity Isometric Tilemap wall module (sliced/assembled downstream by INT-001)",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/walls/wall_end_cap.png",
+      "pixels": {
+        "height": 160,
+        "width": 80
+      },
+      "sha256": "947c0d8e7270ffd21250b38c0ccbbb8081fb5418e9afcb0a28d6c639a8d7f8c8",
+      "tile_world_units_at_64ppu": null,
+      "transparency": {
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "fully_opaque_pct": 59.656,
+        "partial_alpha_pct": 0.0,
+        "shape": "shaped silhouette"
+      },
+      "wang_tiles_32px": 1,
+      "world_units_at_64ppu": {
+        "height": 2.5,
+        "width": 1.25
+      }
+    },
+    {
+      "bytes": 7614,
+      "family": "wall",
+      "guid": "49f4e5ab64b64abeab5ca9087c96b359",
+      "import_settings": {
+        "alphaIsTransparency": "1",
+        "filterMode": "Point",
+        "mipmapEnabled": null,
+        "spriteMode": "Single",
+        "spritePixelsToUnits": "64",
+        "textureCompression": "Uncompressed",
+        "textureShape": "Texture2D",
+        "textureType": "Sprite",
+        "wrapU": "Clamp"
+      },
+      "intended_use": "Unity Isometric Tilemap wall module (sliced/assembled downstream by INT-001)",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/walls/wall_pilaster.png",
+      "pixels": {
+        "height": 176,
+        "width": 64
+      },
+      "sha256": "bf1dee2eabb181a76038b867065ee4b0161170a6ca3e8643f80690ce5d86a44f",
+      "tile_world_units_at_64ppu": null,
+      "transparency": {
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "fully_opaque_pct": 39.906,
+        "partial_alpha_pct": 0.0,
+        "shape": "shaped silhouette"
+      },
+      "wang_tiles_32px": 1,
+      "world_units_at_64ppu": {
+        "height": 2.75,
+        "width": 1.0
+      }
+    },
+    {
+      "bytes": 18834,
+      "family": "wall",
+      "guid": "f67e394099ae47aaac7c814e49b64b36",
+      "import_settings": {
+        "alphaIsTransparency": "1",
+        "filterMode": "Point",
+        "mipmapEnabled": null,
+        "spriteMode": "Single",
+        "spritePixelsToUnits": "64",
+        "textureCompression": "Uncompressed",
+        "textureShape": "Texture2D",
+        "textureType": "Sprite",
+        "wrapU": "Clamp"
+      },
+      "intended_use": "Unity Isometric Tilemap wall module (sliced/assembled downstream by INT-001)",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/walls/wall_straight.png",
+      "pixels": {
+        "height": 160,
+        "width": 128
+      },
+      "sha256": "4c35b3338f20a16894fa3f1af219f327f0b950d2cba2d3ba067a1871f3c603e5",
+      "tile_world_units_at_64ppu": null,
+      "transparency": {
+        "corner_alpha": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "fully_opaque_pct": 59.961,
+        "partial_alpha_pct": 0.0,
+        "shape": "shaped silhouette"
+      },
+      "wang_tiles_32px": 1,
+      "world_units_at_64ppu": {
+        "height": 2.5,
+        "width": 2.0
+      }
+    }
+  ],
+  "task": "NSC-064"
+}

@@ -1,0 +1,200 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "2d5c8a1dc5d4bba469fb158b27967717309e5b7ad6f8ab4a38fbbd05ad583c9f"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "7abfb9608b49941e8981d316ebb66b74076518c8",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source.meta",
+      "role": "dungeon_architecture_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "bab11c97fa25a85f37f3b9af42052582113a7280",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/floors.meta",
+      "role": "dungeon_architecture_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "cfedf283af269e067105365720ca6d4fbb8598b5",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/floors/floor_BoneArchive.png",
+      "role": "dungeon_architecture_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "0edb1eaccefb51e507704bc2c1a0052a0e626125",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/floors/floor_BoneArchive.png.meta",
+      "role": "dungeon_architecture_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "3126cfecd4adbcbb5709a8615adc2a0b784fcad2",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/floors/floor_ChapelOfAsh.png",
+      "role": "dungeon_architecture_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "4ec155b936be0cd20d5d4fdecc55c51e3b6388f2",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/floors/floor_ChapelOfAsh.png.meta",
+      "role": "dungeon_architecture_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "d01d757bf7ff0534540211abdba1df9a9354ffb4",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/floors/floor_FinalRoom.png",
+      "role": "dungeon_architecture_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "c28dc4d714b421f9dffc677afd05fa7d5aa4efb0",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/floors/floor_FinalRoom.png.meta",
+      "role": "dungeon_architecture_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "63a9823c73bc1bc952ee08297fdbc0c723548db4",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/floors/floor_LowerVault.png",
+      "role": "dungeon_architecture_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "b8d367a977dd9fd621b33f4ea7cc09949932d6c6",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/floors/floor_LowerVault.png.meta",
+      "role": "dungeon_architecture_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "bcd8a50ab3fa043a88e54d96b312dab2fe5b1f56",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/floors/floor_RuinedEntry.png",
+      "role": "dungeon_architecture_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "0aabda0a6e2cd3a3e16f1c8e2760725842987565",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/floors/floor_RuinedEntry.png.meta",
+      "role": "dungeon_architecture_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "0cd7e7e1981dc62931e32142ddd43f1d3ec2c9cc",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/walls.meta",
+      "role": "dungeon_architecture_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "aba0f655feb7f87ac1282dc86a75620b81dcf3b0",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/walls/wall_broken_stub.png",
+      "role": "dungeon_architecture_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "d2de58ad32d01b3c2e920d516e2923adf86c400b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/walls/wall_broken_stub.png.meta",
+      "role": "dungeon_architecture_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "b130e2870b26b09f9805f80949a39ca6ed554ce7",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/walls/wall_corner.png",
+      "role": "dungeon_architecture_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "ec6fddebca72eeb8c62365c0ad087b907ed992cb",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/walls/wall_corner.png.meta",
+      "role": "dungeon_architecture_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "a7cac3c6e6b43895dc63d6cdb272bb0ffae7f877",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/walls/wall_door_jamb.png",
+      "role": "dungeon_architecture_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "fc41946c809b3d5bbf02f2b931eafea96c69737b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/walls/wall_door_jamb.png.meta",
+      "role": "dungeon_architecture_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "c016f3a9c2c1ca2d23d9a2594986869ecea6c782",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/walls/wall_end_cap.png",
+      "role": "dungeon_architecture_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "d389359d34eaae51cbe1f9c73fb9084e8e76ecec",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/walls/wall_end_cap.png.meta",
+      "role": "dungeon_architecture_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "3eb5b593c3a8dcd7638e83ec6bb31896fc086064",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/walls/wall_pilaster.png",
+      "role": "dungeon_architecture_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "3ab27101f048bc6cd8b00b02f07da86e12a3e2cd",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/walls/wall_pilaster.png.meta",
+      "role": "dungeon_architecture_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "23596546b7a525e2ed6028f408c95fa46dbd182b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/walls/wall_straight.png",
+      "role": "dungeon_architecture_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "9052115711478f3d23f3057ececd406a184d5e23",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/walls/wall_straight.png.meta",
+      "role": "dungeon_architecture_source_or_unity_identity"
+    },
+    {
+      "blob_sha": "3bf961b5fcf02c5139df39e5c79849a28ff0cc0c",
+      "path": "Docs/Art/Environment/PIXELLAB_GENERATION.md",
+      "role": "dungeon_architecture_source_or_unity_identity"
+    }
+  ],
+  "delivery": {
+    "base_commit": "75e6b146f90e0d118dcc39ff44774368a940de59",
+    "candidate_commit": "7954a0be9846828bb185d569223ff1bd7c7b4ebd",
+    "integrated_commit": "7f7a8efbb78fe9a53e4c035e39e9f246a4e32c95",
+    "integrated_tree": "bc911a42036dbf45c79bdfc512f52a6677a81917"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "5e3417f8ad664b2732bc2ca950bab5f18f39bdd5",
+          "path": "Pipeline/TaskGraph/evidence/NSC-064/artifacts/NSC064SourceInventory.json-7f7a8efbb78f.json"
+        },
+        {
+          "blob_sha": "1d3e378009b83e1adbf9f3939e1a35d8f3ac47bd",
+          "path": "Pipeline/TaskGraph/evidence/NSC-064/artifacts/NSC064InventoryScript.py-7f7a8efbb78f.py"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "Deterministic inventory of all 11 selected sources (5 room floors, 6 wall modules) measured from the committed blobs at 7f7a8efbb78fe9a53e4c035e39e9f246a4e32c95, with sha256, byte length, GUID, pixel dimensions, world size at 64 PPU, Wang-tile count, transparency (fully-opaque percentage, partial-alpha percentage and the four corner alpha values), intended Tilemap/SpriteRenderer use, and the nine import settings named by the task's own style lock. Regenerating NSC064InventoryScript.py at the same commit reproduces the JSON byte for byte. Measured result: every floor is a full rectangle at 100% opacity carrying 16 Wang tiles of 32 px; every wall module is a shaped silhouette, which is correct for a vertical billboard; and there are ZERO deviations from the style lock across all eleven (Sprite, Single, 64 PPU, Point, uncompressed, alphaIsTransparency, no mipmaps, wrap Clamp, Texture2D). Generation provenance is recorded in Docs/Art/Environment/PIXELLAB_GENERATION.md, which this task owns.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "4e6835cbfc2651d2f2ab582212c5853b6b20ea8e",
+          "path": "Pipeline/TaskGraph/evidence/NSC-064/artifacts/NSC064AssistantSelectionReview.md-7f7a8efbb78f.md"
+        },
+        {
+          "blob_sha": "8e9e882576ac0d502c58ad9e76342a929ce2f542",
+          "path": "Pipeline/TaskGraph/evidence/NSC-064/artifacts/NSC064CoherenceMeasurements.json-7f7a8efbb78f.json"
+        },
+        {
+          "blob_sha": "57a32b641b9fc4e21b09fd7fcc4902359234d834",
+          "path": "Pipeline/TaskGraph/evidence/NSC-064/artifacts/NSC064CoherenceScript.py-7f7a8efbb78f.py"
+        }
+      ],
+      "gate_id": "VAL-002",
+      "notes": "Assistant art-selection review in NSC064AssistantSelectionReview.md. The kit is mutually coherent and every motif maps to at least one named room: the five floors map one-to-one by name to Ruined Entry, Bone Archive, Chapel of Ash, Lower Vault and Final Room, and each of the six wall modules is mapped to at least one room against the committed room layouts. Coherence is evidenced rather than asserted, in NSC064CoherenceMeasurements.json. IMPORTANT METHOD NOTE recorded in the review: measured directly, 10 of 11 sources fall outside the palette band the style lock declares (luminance 68-73, saturation 19-39). That result is an artifact of the instrument, proven by running the identical function over NSC-078's delivered props - the set the band was derived from - where only 1 of 14 lands inside it (prop median saturation 46.2, median luminance 59.7). A reference set cannot fail the band measured off it, so the absolute figures are not comparable across instruments and only the relative comparison is valid. Under one instrument the walls sit inside the prop range and the floors sit at or below prop luminance, which is what the lock requires of a floor. Colour depth is instrument-independent and passes: every source is at or under the 48-colour lock. EXPLICITLY NOT CLAIMED: the Unity world is not authored from this kit - all eleven GUIDs have zero references anywhere in Assets/, and the rooms currently draw procedural masonry generated in code. The 16-tile Wang sheets import spriteMode Single and are not sliced, which is correct for a source and is explicitly downstream work under INT-001; AC-005 bars this task from creating Unity Tile assets.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "",
+    "decision": "not_required",
+    "notes": "NSC-064's two completion gates are both assistant-verified (VAL-001 a deterministic inventory, VAL-002 the assistant's selection review); human approval is not a contractual gate for this task, matching the NSC-063 and NSC-065 art-acquisition precedents. Stated plainly so the record does not overstate what a human reviewed: Vincent pre-approved the generation SPEND ('all runs approved') while at work, and the task's own provenance document records that clearing the spend is not a review of the result. He has not reviewed this art. INT-001 still owns the downstream Unity integration decision.",
+    "required": false
+  },
+  "record_id": "DEL-NSC-064-7f7a8efbb78f",
+  "record_type": "delivery",
+  "recorded_at": "2026-09-24T12:50:02Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-064.yaml",
+    "revision": 1,
+    "sha256": "be157c3ccbc195c5b7c0518c3210e66833b27137301fb11b883692854d221945"
+  },
+  "task_id": "NSC-064",
+  "validated_state": {
+    "commit": "7f7a8efbb78fe9a53e4c035e39e9f246a4e32c95",
+    "tree": "bc911a42036dbf45c79bdfc512f52a6677a81917"
+  }
+}
