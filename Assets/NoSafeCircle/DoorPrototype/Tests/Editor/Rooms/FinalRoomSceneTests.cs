@@ -195,6 +195,71 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
             AssertCommittedSceneUnchanged(scene => AssertRoomGeometry(scene));
         }
 
+
+        // NSC-083: the FR-1 mass shipped as a flat saturated INDIGO box - the same class of
+        // defect as the Ruined Entry white cubes, where a blockout proxy reads as a rendering
+        // fault rather than as a placeholder. The Art Director's pick was to reuse the tone
+        // already approved for the rubble rather than authoring a fourth placeholder colour.
+        [Test]
+        public void Build_TintsTheCentralObstacleInsteadOfLeavingItIndigo()
+        {
+            AssertObstacleTint(SceneManager.GetActiveScene());
+        }
+
+        [Test]
+        public void CommittedScene_CentralObstacleCarriesTheApprovedTint()
+        {
+            AssertCommittedSceneUnchanged(scene => AssertObstacleTint(scene));
+        }
+
+        private static void AssertObstacleTint(Scene scene)
+        {
+            // The approved blockout tone, written out DELIBERATELY rather than read from
+            // RoomPlaceholderVisuals: a test that sources its expectation from the constant it
+            // guards agrees with any value that constant ever takes, including a wrong one.
+            Color32 expected = new Color32(96, 88, 80, 230);
+            Color32 rejected = new Color32(41, 20, 51, 255);
+
+            Transform obstacle = scene.GetRootGameObjects()
+                .SelectMany(root => root.GetComponentsInChildren<Transform>(true))
+                .FirstOrDefault(candidate => candidate.name == "FR-1Visual");
+            Assert.IsNotNull(obstacle, "FR-1Visual is missing from the Final Room.");
+
+            Renderer renderer = obstacle.GetComponent<Renderer>();
+            Assert.IsNotNull(renderer, "FR-1Visual has no Renderer.");
+            Assert.IsNotNull(renderer.sharedMaterial, "FR-1Visual has no material.");
+
+            Color actual = renderer.sharedMaterial.color;
+            Color32 actual32 = actual;
+
+            Assert.Greater(
+                Mathf.Abs(actual.r - rejected.r / 255f) + Mathf.Abs(actual.b - rejected.b / 255f),
+                4f / 255f,
+                "FR-1Visual is still the saturated indigo " + rejected + ". That is the defect: a " +
+                "blockout mass in a colour no finished surface uses reads as a rendering fault.");
+
+            // Tolerance rather than Color32 equality: the colour makes a byte -> float -> byte
+            // round trip through the material and a one-unit rounding difference is a flake.
+            Assert.AreEqual(expected.r / 255f, actual.r, 1.5f / 255f,
+                "FR-1Visual red: expected " + expected + " but was " + actual32);
+            Assert.AreEqual(expected.g / 255f, actual.g, 1.5f / 255f,
+                "FR-1Visual green: expected " + expected + " but was " + actual32);
+            Assert.AreEqual(expected.b / 255f, actual.b, 1.5f / 255f,
+                "FR-1Visual blue: expected " + expected + " but was " + actual32);
+            Assert.AreEqual(expected.a / 255f, actual.a, 1.5f / 255f,
+                "FR-1Visual alpha: expected " + expected + " but was " + actual32);
+
+            // THE ALPHA MUST ACTUALLY DO SOMETHING. FinalRoomSceneBuilder.CreateMaterial used to
+            // be `material.color = color; return material;`, and the Standard shader ignores the
+            // alpha channel entirely while its mode is Opaque. Every colour assertion above would
+            // still pass with the transparency silently dropped, which is exactly how this went
+            // unnoticed in RuinedEntry until it was asserted here.
+            Assert.AreEqual((int)UnityEngine.Rendering.RenderQueue.Transparent,
+                renderer.sharedMaterial.renderQueue,
+                "FR-1Visual carries alpha " + expected.a + " but renders on the opaque queue, so " +
+                "the transparency is dropped and the placeholder reads as finished art.");
+        }
+
         private static void AssertCommittedSceneUnchanged(System.Action<Scene> body)
         {
             byte[] before = File.ReadAllBytes(FinalRoomSceneBuilder.ScenePath);
