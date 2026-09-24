@@ -2011,6 +2011,119 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                 "the next Build() rather than silently surviving unchanged.");
         }
 
+        // THE FLOOR-HOLE DEFECT. CreateDiamondPixels writes the four corners outside the
+        // inscribed diamond, and they used to be hardcoded transparent. A diamond inscribed in a
+        // rectangle covers exactly HALF its area, and every room paints this tile on a Grid whose
+        // cellLayout is Rectangle, so half of every floor cell was a hole. What showed through was
+        // the ground plane: measured (104,97,92) on an ortho-8 panel of the committed composed
+        // scene, a colour that appears in NO tile this builder generates.
+        //
+        // THIS ASSERTS THE RELATION, NOT THE ARTWORK. It does not care which tone the corners are
+        // - the Art Director may repick that freely - only that no floor pixel is see-through.
+        [Test]
+        public void Build_FloorTile_HasNoTransparentPixel_SoTheGroundCannotShowThroughTheFloor()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests(temporaryArchitecturalTileAssetFolder);
+
+            var floorTile = AssetDatabase.LoadAssetAtPath<Tile>(
+                temporaryArchitecturalTileAssetFolder + "/FloorTile.asset");
+            Assert.IsNotNull(floorTile, "The builder must materialize FloorTile.asset.");
+
+            var pixels = floorTile.sprite.texture.GetPixels32();
+            var transparentCount = 0;
+            foreach (var pixel in pixels)
+            {
+                if (pixel.a < 255) transparentCount++;
+            }
+
+            Assert.AreEqual(0, transparentCount,
+                "The floor tile must be fully opaque. " + transparentCount + " of " + pixels.Length +
+                " pixels are see-through, so that fraction of every painted floor cell is a hole " +
+                "and the ground plane reads through the floor as a lattice.");
+        }
+
+        // The fix must not flatten the tile into a plain rectangle: the scored border ring is what
+        // still draws the diamond once the corners are opaque. Asserted as a RELATION between the
+        // two tones rather than as counts, so repicking either colour leaves this test standing.
+        [Test]
+        public void Build_FloorTile_StillScoresItsDiamond_RatherThanBecomingAFlatRectangle()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests(temporaryArchitecturalTileAssetFolder);
+
+            var floorTile = AssetDatabase.LoadAssetAtPath<Tile>(
+                temporaryArchitecturalTileAssetFolder + "/FloorTile.asset");
+            Assert.IsNotNull(floorTile);
+
+            var pixels = floorTile.sprite.texture.GetPixels32();
+            var toneCounts = new Dictionary<int, int>();
+            foreach (var pixel in pixels)
+            {
+                var key = (pixel.r << 16) | (pixel.g << 8) | pixel.b;
+                toneCounts[key] = toneCounts.TryGetValue(key, out var seen) ? seen + 1 : 1;
+            }
+
+            Assert.AreEqual(2, toneCounts.Count,
+                "Expected exactly two opaque tones - the face and the scored ring. Got " +
+                toneCounts.Count + ".");
+
+            var counts = new List<int>(toneCounts.Values);
+            counts.Sort();
+            Assert.Greater(counts[0], 0,
+                "The scored ring must still be drawn; a flat rectangle has only one tone.");
+            Assert.Greater(counts[1], counts[0],
+                "The face must cover more of the tile than the ring that scores it.");
+        }
+
+        // THE ONE THAT GUARDS WHAT SHIPS. The two tests above build into a temporary folder and so
+        // only prove the GENERATOR is fixed. Every room loads the COMMITTED asset read-only
+        // (ChapelOfAshSceneBuilder.cs and its four siblings all LoadAssetAtPath the same path), so
+        // a green generator with a stale committed asset would still ship a holed floor.
+        [Test]
+        public void CommittedFloorTileAsset_HasNoTransparentPixel()
+        {
+            const string committedPath =
+                "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/FloorTile.asset";
+
+            var floorTile = AssetDatabase.LoadAssetAtPath<Tile>(committedPath);
+            Assert.IsNotNull(floorTile, "Expected the committed floor tile at " + committedPath + ".");
+
+            var pixels = floorTile.sprite.texture.GetPixels32();
+            var transparentCount = 0;
+            foreach (var pixel in pixels)
+            {
+                if (pixel.a < 255) transparentCount++;
+            }
+
+            Assert.AreEqual(0, transparentCount,
+                "The COMMITTED floor tile all five rooms load is " + transparentCount + "/" +
+                pixels.Length + " see-through. Rebuild it through the builder and commit the asset; " +
+                "fixing the generator alone changes nothing about what ships.");
+        }
+
+        // Proves the corner colour is genuinely per-caller and that the fix was not applied by
+        // blanket-editing the generator. This tile is painted NOWHERE, so its transparent corners
+        // are harmless - and keeping them keeps its committed asset byte-identical.
+        [Test]
+        public void Build_ArchitecturalBorderTile_KeepsItsTransparentCorners()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests(temporaryArchitecturalTileAssetFolder);
+
+            var borderTile = AssetDatabase.LoadAssetAtPath<Tile>(
+                temporaryArchitecturalTileAssetFolder + "/ArchitecturalBorderTile.asset");
+            Assert.IsNotNull(borderTile);
+
+            var pixels = borderTile.sprite.texture.GetPixels32();
+            var transparentCount = 0;
+            foreach (var pixel in pixels)
+            {
+                if (pixel.a == 0) transparentCount++;
+            }
+
+            Assert.Greater(transparentCount, 0,
+                "The decorative border tile is an overlay and keeps its transparent corners; if this " +
+                "fails, the floor fix was applied to the generator for every caller instead of per caller.");
+        }
+
         [Test]
         public void Build_DoorwayBlocker_IsSeparateBoxColliderWiredToDoorInteractable()
         {
