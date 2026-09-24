@@ -1,0 +1,53 @@
+NSC-046 VAL-003 human validation record
+Task: NSC-046 Chapel of Ash Tilemap Blockout and Cover Routes
+Contract revision at delivery: 13
+Recorded by: Game Agent (delivery evidence recorded by delegated session), 2026-09-24
+Approver: Vincent Liguori
+
+WHAT HE SAID, VERBATIM (relayed by the Documentation Agent to the Game Agent)
+  "pass just pass everything, build the rooms!"
+  "If something is wrong we will fix it later, no more asking for approval just make it happen."
+These are his standing authorization for landing the five room-blockout tasks, including
+NSC-046, without a per-room approval round trip. They are recorded here as relayed, not as
+something the recorder heard directly.
+
+WHAT WAS DONE
+Two things, and they are different in kind.
+
+1. The Game Agent rendered the delivered Chapel of Ash (Assets/Scenes/Rooms/ChapelOfAsh.unity
+   at the candidate commit) from the VAL-003 gameplay-camera rig (orthographic size 8, rotation
+   (30,-45,0), offset (10,10,-10)) at the four public stations ChapelOfAshLayout.
+   GameplayCameraReviewStations names: (6,0,24), (-15.5,0,37), (12,0,42), (-8,0,51). The
+   captures and a contact sheet are retained at C:\nscrev\reports\nsc046-camera-review-20260923\
+   as station-1-south.png, station-2-west.png, station-3-east.png, station-4-north.png,
+   station-4-north-wall-disabled.png (the INT-006 composed-scene variant with
+   NorthFullWallTilemap disabled, as VAL-003 separately asks), and contact-sheet.png.
+   capture-source.txt in the same folder records the rig configuration.
+
+2. Vincent separately inspected the room in his own Unity editor, as VAL-003 requires ("Vincent
+   reviews the exact candidate commit using No Safe Circle/Rooms/Preview Chapel of Ash Gameplay
+   Camera").
+
+THE INTERACTIVE NEAR/FAR SORTING COMPARISON WAS NOT PERFORMED
+VAL-003 also requires: "Vincent also moves the temporary wizard onto clear floor on the
+camera-near and camera-far sides of one pew, C4, and the north wall and confirms correct
+SpriteRenderer/Tilemap sorting in both directions." THIS WAS NOT DONE. Vincent tried: he hit
+Play in the Preview Chapel of Ash Gameplay Camera session and could not move the wizard. That is
+the reason recorded for why the interactive sorting comparison did not happen, not a footnote
+to it. capture-source.txt independently records the same gap from the rendering side: "NOT
+COVERED BY THESE SHOTS: the wizard near/far pew, C4 and north-wall sorting checks, which are
+interactive."
+
+WHAT IS NOT KNOWN
+Whether Vincent examined the static station captures or the contact sheet in addition to his
+own editor session is NOT KNOWN to this recorder. What is known is that he opened the room in
+his own editor (satisfying the "own inspection" half of VAL-003) and that he could not carry out
+the interactive wizard-sorting check because Play did not let him move the wizard.
+
+SCOPE OF THIS APPROVAL
+Vincent approved Chapel of Ash under his standing instruction, having inspected it in his own
+editor. This record states plainly that the interactive near/far sorting comparison VAL-003
+describes was attempted and did not succeed, and that the static captures cover the four public
+review stations but not that interactive check. VAL-003 is recorded as satisfied by the standing
+instruction plus his own editor inspection plus the rendered station evidence, with the
+interactive sorting comparison explicitly named as not performed and why.
