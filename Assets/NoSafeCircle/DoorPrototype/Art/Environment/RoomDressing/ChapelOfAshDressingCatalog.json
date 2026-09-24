@@ -1,0 +1,1050 @@
+{
+  "schema": "nsc.room-dressing-catalog/1",
+  "room": "ChapelOfAsh",
+  "task": "NSC-081",
+  "room_identity": "A chapel that burned. Pale ash, eight rows facing an altar, a cracked bell frame.",
+  "authored_by": "Art Director Agent",
+  "provenance": {
+    "brief": "Docs/Art/Environment/NSC-081_CHAPEL_OF_ASH_DRESSING.md",
+    "prop_catalog": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/PropCatalog.json",
+    "prop_catalog_sha256": "8e328c53bd657f33a7c660144c5cfe16a4d533ec7919672edb4ccc3bc541f2ea",
+    "layout_source": "Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/ChapelOfAshLayout.cs",
+    "resolved_at_commit": "8ceea22ba",
+    "correction_to_the_brief": "The brief states each pew footprint is 5.5 units wide. ChapelOfAshLayout.PewFootprints says 9.0, and the committed layout wins. Its other pew figure is correct: start+middle+end DRAWN widths total 5.81 (2.08+1.78+1.95). Three segments therefore cover 5.81 of a 9.0 row and leave a 3.19 gap, so this catalog uses FIVE segments per row (start + 3 middle + end = 9.37 drawn, overlapped onto 9.0) and 40 pew sprites rather than the brief's 24."
+  },
+  "builder_contract": {
+    "pivot": "Committed pivot and PPU from PropCatalog.json. The builder never recomputes a pivot; DungeonPropImportPostprocessor owns that and reads pivot_rule.",
+    "y_is_always_zero": "Every placement sits on the floor at y=0.",
+    "sorting": "sorting_order = round((x - z) * 10); larger x-z is nearer the camera.",
+    "colliders": "The dressing prefab carries NO colliders.",
+    "lie_within_props": "ca_sigil_floor_mark is the room's only lie_within entry (h=0.0); it takes the alpha-box centre, not a ground line."
+  },
+  "clearance_proved": {
+    "central_aisle": {
+      "x": [
+        -2.5,
+        2.5
+      ],
+      "z": [
+        25.0,
+        49.0
+      ],
+      "standing_occupants": 0,
+      "note": "ca_sigil_floor_mark lies on the aisle centre line and is excluded deliberately: h=0.0 IS the ground plane."
+    },
+    "d2_landing": {
+      "x": [
+        3.5,
+        8.5
+      ],
+      "z": [
+        20.25,
+        25.25
+      ],
+      "occupants": 0
+    },
+    "d3_staging": {
+      "x": [
+        -10.5,
+        -5.5
+      ],
+      "z": [
+        48.75,
+        53.75
+      ],
+      "occupants": 0
+    },
+    "side_routes": "Swept every 0.5 units of z: >= 3.5 clear, and >= 2.5 beside a column.",
+    "column_to_wall_gap": "Empty by assertion - that gap IS the 2.50 minimum clearance."
+  },
+  "props": [
+    {
+      "instance_id": "AISLE-FLOOR-sigil-01",
+      "prop_id": "ca_sigil_floor_mark",
+      "footprint": "AISLE-FLOOR",
+      "position": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 47.6
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -476,
+      "intent": "floor art on the aisle centre line before the altar. h=0.0 and lie_within, so it is the ground plane itself and cannot obstruct the aisle"
+    },
+    {
+      "instance_id": "ASH-ash-01",
+      "prop_id": "ca_ash_heap",
+      "footprint": "ASH",
+      "position": {
+        "x": -16.8,
+        "y": 0.0,
+        "z": 33.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -498,
+      "intent": "drifted where the room burned worst, not evenly scattered"
+    },
+    {
+      "instance_id": "ASH-ash-02",
+      "prop_id": "ca_ash_heap",
+      "footprint": "ASH",
+      "position": {
+        "x": -16.8,
+        "y": 0.0,
+        "z": 45.2
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -620,
+      "intent": "drifted where the room burned worst, not evenly scattered"
+    },
+    {
+      "instance_id": "ASH-ash-03",
+      "prop_id": "ca_ash_heap",
+      "footprint": "ASH",
+      "position": {
+        "x": -16.6,
+        "y": 0.0,
+        "z": 50.4
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -670,
+      "intent": "drifted where the room burned worst, not evenly scattered"
+    },
+    {
+      "instance_id": "ASH-ash-04",
+      "prop_id": "ca_ash_heap",
+      "footprint": "ASH",
+      "position": {
+        "x": 16.8,
+        "y": 0.0,
+        "z": 33.4
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -166,
+      "intent": "drifted where the room burned worst, not evenly scattered"
+    },
+    {
+      "instance_id": "ASH-ash-05",
+      "prop_id": "ca_ash_heap",
+      "footprint": "ASH",
+      "position": {
+        "x": 16.7,
+        "y": 0.0,
+        "z": 46.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -293,
+      "intent": "drifted where the room burned worst, not evenly scattered"
+    },
+    {
+      "instance_id": "ASH-ash-06",
+      "prop_id": "ca_ash_heap",
+      "footprint": "ASH",
+      "position": {
+        "x": -12.9,
+        "y": 0.0,
+        "z": 31.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -439,
+      "intent": "drifted where the room burned worst, not evenly scattered"
+    },
+    {
+      "instance_id": "ASH-ash-07",
+      "prop_id": "ca_ash_heap",
+      "footprint": "ASH",
+      "position": {
+        "x": -12.7,
+        "y": 0.0,
+        "z": 43.2
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -559,
+      "intent": "drifted where the room burned worst, not evenly scattered"
+    },
+    {
+      "instance_id": "ASH-ash-08",
+      "prop_id": "ca_ash_heap",
+      "footprint": "ASH",
+      "position": {
+        "x": 12.9,
+        "y": 0.0,
+        "z": 31.4
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -185,
+      "intent": "drifted where the room burned worst, not evenly scattered"
+    },
+    {
+      "instance_id": "ASH-ash-09",
+      "prop_id": "ca_ash_heap",
+      "footprint": "ASH",
+      "position": {
+        "x": 12.6,
+        "y": 0.0,
+        "z": 43.6
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -310,
+      "intent": "drifted where the room burned worst, not evenly scattered"
+    },
+    {
+      "instance_id": "ASH-ash-10",
+      "prop_id": "ca_ash_heap",
+      "footprint": "ASH",
+      "position": {
+        "x": -4.1,
+        "y": 0.0,
+        "z": 30.9
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -350,
+      "intent": "drifted where the room burned worst, not evenly scattered"
+    },
+    {
+      "instance_id": "ASH-ash-11",
+      "prop_id": "ca_ash_heap",
+      "footprint": "ASH",
+      "position": {
+        "x": 4.2,
+        "y": 0.0,
+        "z": 37.1
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -329,
+      "intent": "drifted where the room burned worst, not evenly scattered"
+    },
+    {
+      "instance_id": "ASH-ash-12",
+      "prop_id": "ca_ash_heap",
+      "footprint": "ASH",
+      "position": {
+        "x": -4.0,
+        "y": 0.0,
+        "z": 43.1
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -471,
+      "intent": "drifted where the room burned worst, not evenly scattered"
+    },
+    {
+      "instance_id": "ASH-ash-13",
+      "prop_id": "ca_ash_heap",
+      "footprint": "ASH",
+      "position": {
+        "x": 4.1,
+        "y": 0.0,
+        "z": 49.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -449,
+      "intent": "drifted where the room burned worst, not evenly scattered"
+    },
+    {
+      "instance_id": "ASH-ash-14",
+      "prop_id": "ca_ash_heap",
+      "footprint": "ASH",
+      "position": {
+        "x": -12.6,
+        "y": 0.0,
+        "z": 51.4
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -640,
+      "intent": "drifted where the room burned worst, not evenly scattered"
+    },
+    {
+      "instance_id": "BONE-bone-01",
+      "prop_id": "shared_bone_pile_a",
+      "footprint": "BONE",
+      "position": {
+        "x": -13.1,
+        "y": 0.0,
+        "z": 36.4
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -495,
+      "intent": "beside a pew, never in the aisle"
+    },
+    {
+      "instance_id": "BONE-bone-02",
+      "prop_id": "shared_bone_pile_a",
+      "footprint": "BONE",
+      "position": {
+        "x": -3.9,
+        "y": 0.0,
+        "z": 31.6
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -355,
+      "intent": "beside a pew, never in the aisle"
+    },
+    {
+      "instance_id": "BONE-bone-03",
+      "prop_id": "shared_bone_pile_a",
+      "footprint": "BONE",
+      "position": {
+        "x": 4.0,
+        "y": 0.0,
+        "z": 42.4
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -384,
+      "intent": "beside a pew, never in the aisle"
+    },
+    {
+      "instance_id": "BONE-bone-04",
+      "prop_id": "shared_bone_pile_a",
+      "footprint": "BONE",
+      "position": {
+        "x": 13.0,
+        "y": 0.0,
+        "z": 48.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -350,
+      "intent": "beside a pew, never in the aisle"
+    },
+    {
+      "instance_id": "BONE-bone-05",
+      "prop_id": "shared_bone_pile_a",
+      "footprint": "BONE",
+      "position": {
+        "x": -13.0,
+        "y": 0.0,
+        "z": 48.2
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -612,
+      "intent": "beside a pew, never in the aisle"
+    },
+    {
+      "instance_id": "COL0-column-01",
+      "prop_id": "shared_stone_column",
+      "footprint": "COL0",
+      "position": {
+        "x": -13.25,
+        "y": 0.0,
+        "z": 28.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -412,
+      "intent": "at its committed ColumnCenter; defines the side route"
+    },
+    {
+      "instance_id": "COL1-column-01",
+      "prop_id": "shared_stone_column",
+      "footprint": "COL1",
+      "position": {
+        "x": 13.25,
+        "y": 0.0,
+        "z": 28.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -148,
+      "intent": "at its committed ColumnCenter; defines the side route"
+    },
+    {
+      "instance_id": "COL2-column-01",
+      "prop_id": "shared_stone_column",
+      "footprint": "COL2",
+      "position": {
+        "x": -13.25,
+        "y": 0.0,
+        "z": 40.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -532,
+      "intent": "at its committed ColumnCenter; defines the side route"
+    },
+    {
+      "instance_id": "COL3-column-01",
+      "prop_id": "shared_stone_column",
+      "footprint": "COL3",
+      "position": {
+        "x": 13.25,
+        "y": 0.0,
+        "z": 40.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -268,
+      "intent": "at its committed ColumnCenter; defines the side route"
+    },
+    {
+      "instance_id": "JOKE-comedy-01",
+      "prop_id": "ca_comedy_offering_plate_sock",
+      "footprint": "JOKE",
+      "position": {
+        "x": -4.2,
+        "y": 0.0,
+        "z": 35.8
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -400,
+      "intent": "THE one comedy detail: an offering plate with a single sock. Beside the west block mid-room, found rather than presented, and deliberately NOT on the altar"
+    },
+    {
+      "instance_id": "NORTH-landmark-01",
+      "prop_id": "ca_landmark_cracked_bell_frame_x",
+      "footprint": "NORTH",
+      "position": {
+        "x": -3.5,
+        "y": 0.0,
+        "z": 52.9
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -564,
+      "intent": "THE landmark against the drawn north wall, west of centre: first thing the eye finds from D2, and it sits between the aisle edge (-2.5) and the D3 approach (-4.5) without entering either"
+    },
+    {
+      "instance_id": "PEW0-pewend-01",
+      "prop_id": "ca_pew_x_end",
+      "footprint": "PEW0",
+      "position": {
+        "x": -4.477,
+        "y": 0.0,
+        "z": 28.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -325,
+      "intent": "pew run 0 segment 5 of 5; drawn widths overlap by 0.094 so the run shows no gap"
+    },
+    {
+      "instance_id": "PEW0-pewmid-01",
+      "prop_id": "ca_pew_x_middle",
+      "footprint": "PEW0",
+      "position": {
+        "x": -9.625,
+        "y": 0.0,
+        "z": 28.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -376,
+      "intent": "pew run 0 segment 2 of 5; drawn widths overlap by 0.094 so the run shows no gap"
+    },
+    {
+      "instance_id": "PEW0-pewmid-02",
+      "prop_id": "ca_pew_x_middle",
+      "footprint": "PEW0",
+      "position": {
+        "x": -7.938,
+        "y": 0.0,
+        "z": 28.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -359,
+      "intent": "pew run 0 segment 3 of 5; drawn widths overlap by 0.094 so the run shows no gap"
+    },
+    {
+      "instance_id": "PEW0-pewmid-03",
+      "prop_id": "ca_pew_x_middle",
+      "footprint": "PEW0",
+      "position": {
+        "x": -6.25,
+        "y": 0.0,
+        "z": 28.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -342,
+      "intent": "pew run 0 segment 4 of 5; drawn widths overlap by 0.094 so the run shows no gap"
+    },
+    {
+      "instance_id": "PEW0-pewstart-01",
+      "prop_id": "ca_pew_x_start",
+      "footprint": "PEW0",
+      "position": {
+        "x": -11.461,
+        "y": 0.0,
+        "z": 28.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -395,
+      "intent": "pew run 0 segment 1 of 5; drawn widths overlap by 0.094 so the run shows no gap"
+    },
+    {
+      "instance_id": "PEW1-pewend-01",
+      "prop_id": "ca_pew_x_end",
+      "footprint": "PEW1",
+      "position": {
+        "x": -4.477,
+        "y": 0.0,
+        "z": 34.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -385,
+      "intent": "pew run 1 segment 5 of 5; drawn widths overlap by 0.094 so the run shows no gap"
+    },
+    {
+      "instance_id": "PEW1-pewmid-01",
+      "prop_id": "ca_pew_x_middle",
+      "footprint": "PEW1",
+      "position": {
+        "x": -9.625,
+        "y": 0.0,
+        "z": 34.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -436,
+      "intent": "pew run 1 segment 2 of 5; drawn widths overlap by 0.094 so the run shows no gap"
+    },
+    {
+      "instance_id": "PEW1-pewmid-02",
+      "prop_id": "ca_pew_x_middle",
+      "footprint": "PEW1",
+      "position": {
+        "x": -7.938,
+        "y": 0.0,
+        "z": 34.0
+      },
+      "rotation_euler_z": -7.0,
+      "sorting_order": -419,
+      "intent": "pew run 1 segment 3 of 5; drawn widths overlap by 0.094 so the run shows no gap"
+    },
+    {
+      "instance_id": "PEW1-pewmid-03",
+      "prop_id": "ca_pew_x_middle",
+      "footprint": "PEW1",
+      "position": {
+        "x": -6.25,
+        "y": 0.0,
+        "z": 34.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -402,
+      "intent": "pew run 1 segment 4 of 5; drawn widths overlap by 0.094 so the run shows no gap"
+    },
+    {
+      "instance_id": "PEW1-pewstart-01",
+      "prop_id": "ca_pew_x_start",
+      "footprint": "PEW1",
+      "position": {
+        "x": -11.461,
+        "y": 0.0,
+        "z": 34.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -455,
+      "intent": "pew run 1 segment 1 of 5; drawn widths overlap by 0.094 so the run shows no gap"
+    },
+    {
+      "instance_id": "PEW2-pewend-01",
+      "prop_id": "ca_pew_x_end",
+      "footprint": "PEW2",
+      "position": {
+        "x": -4.477,
+        "y": 0.0,
+        "z": 40.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -445,
+      "intent": "pew run 2 segment 5 of 5; drawn widths overlap by 0.094 so the run shows no gap"
+    },
+    {
+      "instance_id": "PEW2-pewmid-01",
+      "prop_id": "ca_pew_x_middle",
+      "footprint": "PEW2",
+      "position": {
+        "x": -9.625,
+        "y": 0.0,
+        "z": 40.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -496,
+      "intent": "pew run 2 segment 2 of 5; drawn widths overlap by 0.094 so the run shows no gap"
+    },
+    {
+      "instance_id": "PEW2-pewmid-02",
+      "prop_id": "ca_pew_x_middle",
+      "footprint": "PEW2",
+      "position": {
+        "x": -7.938,
+        "y": 0.0,
+        "z": 40.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -479,
+      "intent": "pew run 2 segment 3 of 5; drawn widths overlap by 0.094 so the run shows no gap"
+    },
+    {
+      "instance_id": "PEW2-pewmid-03",
+      "prop_id": "ca_pew_x_middle",
+      "footprint": "PEW2",
+      "position": {
+        "x": -6.25,
+        "y": 0.0,
+        "z": 40.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -462,
+      "intent": "pew run 2 segment 4 of 5; drawn widths overlap by 0.094 so the run shows no gap"
+    },
+    {
+      "instance_id": "PEW2-pewstart-01",
+      "prop_id": "ca_pew_x_start",
+      "footprint": "PEW2",
+      "position": {
+        "x": -11.461,
+        "y": 0.0,
+        "z": 40.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -515,
+      "intent": "pew run 2 segment 1 of 5; drawn widths overlap by 0.094 so the run shows no gap"
+    },
+    {
+      "instance_id": "PEW3-pewend-01",
+      "prop_id": "ca_pew_x_end",
+      "footprint": "PEW3",
+      "position": {
+        "x": -4.477,
+        "y": 0.0,
+        "z": 46.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -505,
+      "intent": "pew run 3 segment 5 of 5; drawn widths overlap by 0.094 so the run shows no gap"
+    },
+    {
+      "instance_id": "PEW3-pewmid-01",
+      "prop_id": "ca_pew_x_middle",
+      "footprint": "PEW3",
+      "position": {
+        "x": -9.625,
+        "y": 0.0,
+        "z": 46.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -556,
+      "intent": "pew run 3 segment 2 of 5; drawn widths overlap by 0.094 so the run shows no gap"
+    },
+    {
+      "instance_id": "PEW3-pewmid-02",
+      "prop_id": "ca_pew_x_middle",
+      "footprint": "PEW3",
+      "position": {
+        "x": -7.938,
+        "y": 0.0,
+        "z": 46.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -539,
+      "intent": "pew run 3 segment 3 of 5; drawn widths overlap by 0.094 so the run shows no gap"
+    },
+    {
+      "instance_id": "PEW3-pewmid-03",
+      "prop_id": "ca_pew_x_middle",
+      "footprint": "PEW3",
+      "position": {
+        "x": -6.25,
+        "y": 0.0,
+        "z": 46.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -522,
+      "intent": "pew run 3 segment 4 of 5; drawn widths overlap by 0.094 so the run shows no gap"
+    },
+    {
+      "instance_id": "PEW3-pewstart-01",
+      "prop_id": "ca_pew_x_start",
+      "footprint": "PEW3",
+      "position": {
+        "x": -11.461,
+        "y": 0.0,
+        "z": 46.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -575,
+      "intent": "pew run 3 segment 1 of 5; drawn widths overlap by 0.094 so the run shows no gap"
+    },
+    {
+      "instance_id": "PEW4-pewend-01",
+      "prop_id": "ca_pew_x_end",
+      "footprint": "PEW4",
+      "position": {
+        "x": 11.523,
+        "y": 0.0,
+        "z": 28.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -165,
+      "intent": "pew run 4 segment 5 of 5; drawn widths overlap by 0.094 so the run shows no gap"
+    },
+    {
+      "instance_id": "PEW4-pewmid-01",
+      "prop_id": "ca_pew_x_middle",
+      "footprint": "PEW4",
+      "position": {
+        "x": 6.375,
+        "y": 0.0,
+        "z": 28.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -216,
+      "intent": "pew run 4 segment 2 of 5; drawn widths overlap by 0.094 so the run shows no gap"
+    },
+    {
+      "instance_id": "PEW4-pewmid-02",
+      "prop_id": "ca_pew_x_middle",
+      "footprint": "PEW4",
+      "position": {
+        "x": 8.062,
+        "y": 0.0,
+        "z": 28.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -199,
+      "intent": "pew run 4 segment 3 of 5; drawn widths overlap by 0.094 so the run shows no gap"
+    },
+    {
+      "instance_id": "PEW4-pewmid-03",
+      "prop_id": "ca_pew_x_middle",
+      "footprint": "PEW4",
+      "position": {
+        "x": 9.75,
+        "y": 0.0,
+        "z": 28.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -182,
+      "intent": "pew run 4 segment 4 of 5; drawn widths overlap by 0.094 so the run shows no gap"
+    },
+    {
+      "instance_id": "PEW4-pewstart-01",
+      "prop_id": "ca_pew_x_start",
+      "footprint": "PEW4",
+      "position": {
+        "x": 4.539,
+        "y": 0.0,
+        "z": 28.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -235,
+      "intent": "pew run 4 segment 1 of 5; drawn widths overlap by 0.094 so the run shows no gap"
+    },
+    {
+      "instance_id": "PEW5-pewend-01",
+      "prop_id": "ca_pew_x_end",
+      "footprint": "PEW5",
+      "position": {
+        "x": 11.523,
+        "y": 0.0,
+        "z": 34.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -225,
+      "intent": "pew run 5 segment 5 of 5; drawn widths overlap by 0.094 so the run shows no gap"
+    },
+    {
+      "instance_id": "PEW5-pewmid-01",
+      "prop_id": "ca_pew_x_middle",
+      "footprint": "PEW5",
+      "position": {
+        "x": 6.375,
+        "y": 0.0,
+        "z": 34.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -276,
+      "intent": "pew run 5 segment 2 of 5; drawn widths overlap by 0.094 so the run shows no gap"
+    },
+    {
+      "instance_id": "PEW5-pewmid-02",
+      "prop_id": "ca_pew_x_middle",
+      "footprint": "PEW5",
+      "position": {
+        "x": 8.062,
+        "y": 0.0,
+        "z": 34.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -259,
+      "intent": "pew run 5 segment 3 of 5; drawn widths overlap by 0.094 so the run shows no gap"
+    },
+    {
+      "instance_id": "PEW5-pewmid-03",
+      "prop_id": "ca_pew_x_middle",
+      "footprint": "PEW5",
+      "position": {
+        "x": 9.75,
+        "y": 0.0,
+        "z": 34.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -242,
+      "intent": "pew run 5 segment 4 of 5; drawn widths overlap by 0.094 so the run shows no gap"
+    },
+    {
+      "instance_id": "PEW5-pewstart-01",
+      "prop_id": "ca_pew_x_start",
+      "footprint": "PEW5",
+      "position": {
+        "x": 4.539,
+        "y": 0.0,
+        "z": 34.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -295,
+      "intent": "pew run 5 segment 1 of 5; drawn widths overlap by 0.094 so the run shows no gap"
+    },
+    {
+      "instance_id": "PEW6-pewend-01",
+      "prop_id": "ca_pew_x_end",
+      "footprint": "PEW6",
+      "position": {
+        "x": 11.523,
+        "y": 0.0,
+        "z": 40.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -285,
+      "intent": "pew run 6 segment 5 of 5; drawn widths overlap by 0.094 so the run shows no gap"
+    },
+    {
+      "instance_id": "PEW6-pewmid-01",
+      "prop_id": "ca_pew_x_middle",
+      "footprint": "PEW6",
+      "position": {
+        "x": 6.375,
+        "y": 0.0,
+        "z": 40.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -336,
+      "intent": "pew run 6 segment 2 of 5; drawn widths overlap by 0.094 so the run shows no gap"
+    },
+    {
+      "instance_id": "PEW6-pewmid-02",
+      "prop_id": "ca_pew_x_middle",
+      "footprint": "PEW6",
+      "position": {
+        "x": 8.062,
+        "y": 0.0,
+        "z": 40.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -319,
+      "intent": "pew run 6 segment 3 of 5; drawn widths overlap by 0.094 so the run shows no gap"
+    },
+    {
+      "instance_id": "PEW6-pewmid-03",
+      "prop_id": "ca_pew_x_middle",
+      "footprint": "PEW6",
+      "position": {
+        "x": 9.75,
+        "y": 0.0,
+        "z": 40.0
+      },
+      "rotation_euler_z": 5.0,
+      "sorting_order": -302,
+      "intent": "pew run 6 segment 4 of 5; drawn widths overlap by 0.094 so the run shows no gap"
+    },
+    {
+      "instance_id": "PEW6-pewstart-01",
+      "prop_id": "ca_pew_x_start",
+      "footprint": "PEW6",
+      "position": {
+        "x": 4.539,
+        "y": 0.0,
+        "z": 40.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -355,
+      "intent": "pew run 6 segment 1 of 5; drawn widths overlap by 0.094 so the run shows no gap"
+    },
+    {
+      "instance_id": "PEW7-pewend-01",
+      "prop_id": "ca_pew_x_end",
+      "footprint": "PEW7",
+      "position": {
+        "x": 11.523,
+        "y": 0.0,
+        "z": 46.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -345,
+      "intent": "pew run 7 segment 5 of 5; drawn widths overlap by 0.094 so the run shows no gap"
+    },
+    {
+      "instance_id": "PEW7-pewmid-01",
+      "prop_id": "ca_pew_x_middle",
+      "footprint": "PEW7",
+      "position": {
+        "x": 6.375,
+        "y": 0.0,
+        "z": 46.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -396,
+      "intent": "pew run 7 segment 2 of 5; drawn widths overlap by 0.094 so the run shows no gap"
+    },
+    {
+      "instance_id": "PEW7-pewmid-02",
+      "prop_id": "ca_pew_x_middle",
+      "footprint": "PEW7",
+      "position": {
+        "x": 8.062,
+        "y": 0.0,
+        "z": 46.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -379,
+      "intent": "pew run 7 segment 3 of 5; drawn widths overlap by 0.094 so the run shows no gap"
+    },
+    {
+      "instance_id": "PEW7-pewmid-03",
+      "prop_id": "ca_pew_x_middle",
+      "footprint": "PEW7",
+      "position": {
+        "x": 9.75,
+        "y": 0.0,
+        "z": 46.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -362,
+      "intent": "pew run 7 segment 4 of 5; drawn widths overlap by 0.094 so the run shows no gap"
+    },
+    {
+      "instance_id": "PEW7-pewstart-01",
+      "prop_id": "ca_pew_x_start",
+      "footprint": "PEW7",
+      "position": {
+        "x": 4.539,
+        "y": 0.0,
+        "z": 46.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -415,
+      "intent": "pew run 7 segment 1 of 5; drawn widths overlap by 0.094 so the run shows no gap"
+    },
+    {
+      "instance_id": "RITUAL-altar-01",
+      "prop_id": "ca_altar_ash_bowl_x",
+      "footprint": "RITUAL",
+      "position": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 51.5
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -515,
+      "intent": "the thing eight rows of pews face; on the aisle centre line"
+    },
+    {
+      "instance_id": "RITUAL-candelabra-01",
+      "prop_id": "ca_candelabra_tall",
+      "footprint": "RITUAL",
+      "position": {
+        "x": -5.2,
+        "y": 0.0,
+        "z": 49.8
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -550,
+      "intent": "vertical accent flanking the landmark approach"
+    },
+    {
+      "instance_id": "RITUAL-candelabra-02",
+      "prop_id": "ca_candelabra_tall",
+      "footprint": "RITUAL",
+      "position": {
+        "x": 3.4,
+        "y": 0.0,
+        "z": 50.2
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -468,
+      "intent": "vertical accent flanking the altar approach"
+    },
+    {
+      "instance_id": "RITUAL-candle-01",
+      "prop_id": "shared_candle_cluster_a",
+      "footprint": "RITUAL",
+      "position": {
+        "x": -1.6,
+        "y": 0.0,
+        "z": 50.6
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -522,
+      "intent": "the room's only light source, kept near the altar"
+    },
+    {
+      "instance_id": "RITUAL-candle-02",
+      "prop_id": "shared_candle_cluster_a",
+      "footprint": "RITUAL",
+      "position": {
+        "x": 1.6,
+        "y": 0.0,
+        "z": 50.6
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -490,
+      "intent": "the room's only light source, kept near the altar"
+    },
+    {
+      "instance_id": "RITUAL-candle-03",
+      "prop_id": "shared_candle_cluster_a",
+      "footprint": "RITUAL",
+      "position": {
+        "x": -4.9,
+        "y": 0.0,
+        "z": 51.6
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -565,
+      "intent": "the room's only light source, kept near the landmark"
+    },
+    {
+      "instance_id": "RITUAL-candle-04",
+      "prop_id": "shared_candle_cluster_a",
+      "footprint": "RITUAL",
+      "position": {
+        "x": -2.1,
+        "y": 0.0,
+        "z": 51.9
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -540,
+      "intent": "the room's only light source, kept near the landmark"
+    },
+    {
+      "instance_id": "WEB-web-01",
+      "prop_id": "shared_web_corner_a",
+      "footprint": "WEB",
+      "position": {
+        "x": -17.0,
+        "y": 0.0,
+        "z": 21.4
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -384,
+      "intent": "SW corner"
+    },
+    {
+      "instance_id": "WEB-web-02",
+      "prop_id": "shared_web_corner_a",
+      "footprint": "WEB",
+      "position": {
+        "x": 17.0,
+        "y": 0.0,
+        "z": 21.4
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -44,
+      "intent": "SE corner"
+    },
+    {
+      "instance_id": "WEB-web-03",
+      "prop_id": "shared_web_corner_a",
+      "footprint": "WEB",
+      "position": {
+        "x": 17.0,
+        "y": 0.0,
+        "z": 52.8
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -358,
+      "intent": "NE corner"
+    }
+  ]
+}
