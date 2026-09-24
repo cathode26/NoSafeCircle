@@ -1,0 +1,196 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "2d5c8a1dc5d4bba469fb158b27967717309e5b7ad6f8ab4a38fbbd05ad583c9f"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "451c43705f0315fa2678bac077b5741e7aafdb78",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/shared_candle_cluster_a.png",
+      "role": "published_prop_texture"
+    },
+    {
+      "blob_sha": "df1fa6d83c67125d79426cd5ca1feddd404a4a9f",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/shared_candle_cluster_a.png.meta",
+      "role": "unity_identity_for_a_published_prop"
+    },
+    {
+      "blob_sha": "d2e4a274a7e302256c94d42cf20caf1eafdf2715",
+      "path": "Docs/Art/Environment/Props/Raw/furnishings/shared_candle_cluster_a.png",
+      "role": "published_prop_texture"
+    },
+    {
+      "blob_sha": "7b50f55413165f81a3dd3c5e4ce084c374fe0582",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ca_altar_ash_bowl_x.png",
+      "role": "published_prop_texture"
+    },
+    {
+      "blob_sha": "321483612b8d04aeca3c9f1aa7e99ed831586671",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ca_altar_ash_bowl_x.png.meta",
+      "role": "unity_identity_for_a_published_prop"
+    },
+    {
+      "blob_sha": "94a37a1ac9ff5be2fecb691953d43175155f55be",
+      "path": "Docs/Art/Environment/Props/Raw/furnishings/ca_altar_ash_bowl_x.png",
+      "role": "published_prop_texture"
+    },
+    {
+      "blob_sha": "66cf74f134ef28ebd35a8f6c81d567853144d44c",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ca_ash_heap.png",
+      "role": "published_prop_texture"
+    },
+    {
+      "blob_sha": "dc1081e8f1b8288548fc8b4cc5cad0d69223a601",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ca_ash_heap.png.meta",
+      "role": "unity_identity_for_a_published_prop"
+    },
+    {
+      "blob_sha": "7f629db110cdd913b7580d826a12dae5004d7f0b",
+      "path": "Docs/Art/Environment/Props/Raw/furnishings/ca_ash_heap.png",
+      "role": "published_prop_texture"
+    },
+    {
+      "blob_sha": "6c2e975184bb3ad08964b6cf7e616a7ead3c918e",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/ca_sigil_floor_mark.png",
+      "role": "published_prop_texture"
+    },
+    {
+      "blob_sha": "c5d289cf1b3e3220f94177bc6849da126d13a1ec",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/ca_sigil_floor_mark.png.meta",
+      "role": "unity_identity_for_a_published_prop"
+    },
+    {
+      "blob_sha": "72c77ff2a65be8dd9f0b8b949055a89d1f67678f",
+      "path": "Docs/Art/Environment/Props/Raw/architecture/ca_sigil_floor_mark.png",
+      "role": "published_prop_texture"
+    },
+    {
+      "blob_sha": "e95e7f5562d76e0f05e4db823a4f90cdce00e78b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/ca_landmark_cracked_bell_frame_x.png",
+      "role": "published_prop_texture"
+    },
+    {
+      "blob_sha": "fc55ec630bf71c04e586629e49d725efec79a783",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/ca_landmark_cracked_bell_frame_x.png.meta",
+      "role": "unity_identity_for_a_published_prop"
+    },
+    {
+      "blob_sha": "e7e2225b0df70cde88bcd9ae7eae6dc6bae108ff",
+      "path": "Docs/Art/Environment/Props/Raw/architecture/ca_landmark_cracked_bell_frame_x.png",
+      "role": "published_prop_texture"
+    },
+    {
+      "blob_sha": "8c71e616082160d5b0d280d554360b12980a7e57",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ca_comedy_offering_plate_sock.png",
+      "role": "published_prop_texture"
+    },
+    {
+      "blob_sha": "439662e2fadca30dde773f99f2a01069f49fe634",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ca_comedy_offering_plate_sock.png.meta",
+      "role": "unity_identity_for_a_published_prop"
+    },
+    {
+      "blob_sha": "4229c8de7d5ec2301cc247bfb55a6ebe576d4099",
+      "path": "Docs/Art/Environment/Props/Raw/furnishings/ca_comedy_offering_plate_sock.png",
+      "role": "published_prop_texture"
+    },
+    {
+      "blob_sha": "630f3b64d9790594833515352ce1da25155e50bb",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/shared_stone_column.png",
+      "role": "published_prop_texture"
+    },
+    {
+      "blob_sha": "3398497dec8b4a859f0bcc017ef7f933fd56d98f",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/shared_stone_column.png.meta",
+      "role": "unity_identity_for_a_published_prop"
+    },
+    {
+      "blob_sha": "88101eca3748a9bcc375adc71037ed853002a75f",
+      "path": "Docs/Art/Environment/Props/Raw/architecture/shared_stone_column.png",
+      "role": "published_prop_texture"
+    },
+    {
+      "blob_sha": "4dd1a82dd0b610f951b2f296115cb3a68db148ea",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/ChapelOfAshPropImportTests.cs",
+      "role": "prop_import_conformance_fixture"
+    },
+    {
+      "blob_sha": "fee41b8dfbb73f90abb524b4ecc6e0a2c3a788bb",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/ChapelOfAshPropImportTests.cs.meta",
+      "role": "unity_identity_for_the_fixture"
+    }
+  ],
+  "delivery": {
+    "base_commit": "f10e3fc71103826a26eb3449ff503759191ba5f9",
+    "candidate_commit": "e59c41b05a5ff14844e49d38400bddbca08be8f8",
+    "integrated_commit": "c58e30feae4a714769ca1232df378ff7572c6d97",
+    "integrated_tree": "1b83fdcb7bbd68cf79dc9be7ef740aed0c134621"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "c04ee62c8f7ed3de552691124c3d346289863b21",
+          "path": "Pipeline/TaskGraph/evidence/NSC-103/artifacts/EditModeResults.xml-c58e30feae4a.xml"
+        },
+        {
+          "blob_sha": "2cce2dc5de1118b25a8caf58363b46494bf96226",
+          "path": "Pipeline/TaskGraph/evidence/NSC-103/artifacts/EditModeLog-c58e30feae4a.log"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "ChapelOfAshPropImportTests ran 2 of 2 cases green at the validated commit. Each of the 7 props is loaded through AssetDatabase and asserted to BE a Sprite -- not merely to have plausible importer fields, because a stub .meta yields a non-Sprite asset whose settings still read sensibly -- and its TextureImporter is checked for type Sprite, mode Single, 64 PPU, Point filtering, no compression, alphaIsTransparency, no mipmaps, Clamp wrap and Texture2D shape. Whole suite: total=286 passed=275 failed=0 skipped=11 (run start 2026-09-24 06:48:51Z).",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "c04ee62c8f7ed3de552691124c3d346289863b21",
+          "path": "Pipeline/TaskGraph/evidence/NSC-103/artifacts/EditModeResults.xml-c58e30feae4a.xml"
+        },
+        {
+          "blob_sha": "2cce2dc5de1118b25a8caf58363b46494bf96226",
+          "path": "Pipeline/TaskGraph/evidence/NSC-103/artifacts/EditModeLog-c58e30feae4a.log"
+        }
+      ],
+      "gate_id": "VAL-002",
+      "notes": "The pivot gate COMPUTES ITS OWN EXPECTATION FROM THE COMMITTED IMAGE. The fixture decodes each PNG from disk and measures the alpha bounding box from its pixels; it never reads alpha_bounds_px from the catalog, because a check whose expectation comes from the artifact it checks agrees with itself whatever the asset does. Only pivot_rule is read from PropCatalog.json, and a missing or unrecognised rule FAILS rather than defaulting to a branch. lie_within takes the vertical centre of the box, ground_line its bottom row; pivot x is 0.5 in both, alignment Custom, tolerance one pixel. FOUND BY THIS FIXTURE, NOT AROUND IT: the first run failed because the ground-line expression was integer arithmetic and 16/188 evaluated to 0 -- the fixture disagreed with a correctly imported asset and said so, which is the behaviour the gate exists to produce.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "c04ee62c8f7ed3de552691124c3d346289863b21",
+          "path": "Pipeline/TaskGraph/evidence/NSC-103/artifacts/EditModeResults.xml-c58e30feae4a.xml"
+        },
+        {
+          "blob_sha": "2cce2dc5de1118b25a8caf58363b46494bf96226",
+          "path": "Pipeline/TaskGraph/evidence/NSC-103/artifacts/EditModeLog-c58e30feae4a.log"
+        }
+      ],
+      "gate_id": "VAL-003",
+      "notes": "Scope. The candidate for this task is e59c41b05, whose diff against base f10e3fc71 is EXACTLY TWO FILES: the fixture and its .meta. It adds no directory .meta, does not touch PropCatalog.json, any *_inventory.json, DungeonPropImportPostprocessor.cs or DungeonPropImportSettingsTests.cs -- each of which belongs to NSC-078 and each of which this gate names as fatal. The 7 prop art paths reached main separately, so this candidate adds only the fixture, which the gate explicitly allows.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "",
+    "decision": "not_required",
+    "notes": "This task's completion gates are VAL-001..VAL-003 and none of them is a human review gate. No approval by Vincent is claimed, because none is required and none was given for it.",
+    "required": false
+  },
+  "record_id": "DEL-NSC-103-c58e30feae4a",
+  "record_type": "delivery",
+  "recorded_at": "2026-09-24T06:58:34Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-103.yaml",
+    "revision": 11,
+    "sha256": "8c096b46aa9db6f9bf8cbd4f3fca8599a4c3799bf5ec86d92d62aec7a2792bf7"
+  },
+  "task_id": "NSC-103",
+  "validated_state": {
+    "commit": "c58e30feae4a714769ca1232df378ff7572c6d97",
+    "tree": "1b83fdcb7bbd68cf79dc9be7ef740aed0c134621"
+  }
+}
