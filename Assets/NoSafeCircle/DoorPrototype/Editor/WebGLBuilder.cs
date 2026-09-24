@@ -55,7 +55,7 @@ namespace NoSafeCircle.DoorPrototype.Editor
 
         private static string ResolveOutputDirectory()
         {
-            string[] arguments = Environment.GetCommandLineArgs();
+            string[] arguments = System.Environment.GetCommandLineArgs();
             for (int index = 0; index < arguments.Length - 1; index++)
             {
                 if (string.Equals(arguments[index], OutputArgument, StringComparison.Ordinal))
