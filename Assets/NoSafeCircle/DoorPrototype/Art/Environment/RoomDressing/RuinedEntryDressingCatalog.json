@@ -1,0 +1,293 @@
+{
+  "schema": "nsc.room-dressing-catalog/1",
+  "room": "RuinedEntry",
+  "task": "NSC-079",
+  "room_identity": "Where the outside got in. Stone, dust and growth - the least oppressive room, and the only one with living green.",
+  "authored_by": "Art Director Agent",
+  "provenance": {
+    "brief": "Docs/Art/Environment/NSC-079_RUINED_ENTRY_DRESSING.md",
+    "prop_catalog": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/PropCatalog.json",
+    "prop_catalog_sha256": "8e328c53bd657f33a7c660144c5cfe16a4d533ec7919672edb4ccc3bc541f2ea",
+    "layout_source": "Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/RuinedEntryLayout.cs",
+    "resolved_at_commit": "8ceea22ba"
+  },
+  "builder_contract": {
+    "pivot": "Committed pivot and PPU from PropCatalog.json; the builder never recomputes one.",
+    "y_is_always_zero": "Every placement sits on the floor at y=0. This matters most for the standing guardian: 2.44 drawn against a 2.5 wall is 0.06 units of headroom, about four pixels at 64 PPU, and any lift puts it outside the room. Do not scale it either.",
+    "sorting": "sorting_order = round((x - z) * 10); larger x-z is nearer the camera.",
+    "colliders": "The dressing prefab carries NO colliders.",
+    "lie_within_props": "shared_bone_pile_b is the room's only lie_within entry."
+  },
+  "clearance_proved": {
+    "d1_door_staging": {
+      "x": [
+        -2.5,
+        2.5
+      ],
+      "z": [
+        -5.25,
+        -0.25
+      ],
+      "occupants": 0
+    },
+    "player_start": {
+      "at": [
+        -4.0,
+        -22.0
+      ],
+      "occupants_within_1_unit": 0
+    },
+    "routes": "West and east routes swept every 0.5 units of z: >= 3.0 clear. The east route is 3.75 by construction and the dressing does not eat into it.",
+    "skirts": "Every rubble skirt is asserted INSIDE its blocker footprint - spilling past a collider edge is how dressing starts lying about where a blocker is."
+  },
+  "the_beat_that_must_not_be_swapped": "INTACT guardian WEST, FALLEN guardian EAST, asserted three ways. The player starts at X=-4 and walks north up the wide west lane, meets the intact one first, and sees its fallen twin only at the door. Swapping them throws the room's only reveal away.",
+  "props": [
+    {
+      "instance_id": "D1-EAST-guardian-fallen-01",
+      "prop_id": "re_landmark_guardian_statue_broken",
+      "footprint": "D1-EAST",
+      "position": {
+        "x": 3.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": 30,
+      "intent": "FALLEN guardian on the EAST bound, seen only at the door. That reveal is the entire beat and it costs two props"
+    },
+    {
+      "instance_id": "D1-WEST-guardian-intact-01",
+      "prop_id": "re_landmark_guardian_statue_standing",
+      "footprint": "D1-WEST",
+      "position": {
+        "x": -3.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -30,
+      "intent": "INTACT guardian on the WEST bound. The player starts at X=-4 and walks north up the wide west lane, so they meet this one first - the dungeon still presenting itself as guarded. Placed at its ground line with NO vertical offset: it has 0.06 units of headroom under the 2.5 wall, about four pixels, and any lift pokes it over the north wall"
+    },
+    {
+      "instance_id": "NW-CORNER-drape-01",
+      "prop_id": "shared_web_drape_b",
+      "footprint": "NW-CORNER",
+      "position": {
+        "x": -10.2,
+        "y": 0.0,
+        "z": -0.7
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -95,
+      "intent": "the ONE drape, on the drawn north face beside the corner. Its footprint runs along X, which is what a north-facing wall takes"
+    },
+    {
+      "instance_id": "NW-CORNER-masonry-01",
+      "prop_id": "re_broken_masonry_blocks",
+      "footprint": "NW-CORNER",
+      "position": {
+        "x": -11.2,
+        "y": 0.0,
+        "z": -1.3
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -99,
+      "intent": "the masonry that fell off the wall above it"
+    },
+    {
+      "instance_id": "NW-CORNER-masonry-02",
+      "prop_id": "re_broken_masonry_blocks",
+      "footprint": "NW-CORNER",
+      "position": {
+        "x": -12.9,
+        "y": 0.0,
+        "z": -2.4
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -105,
+      "intent": "the masonry that fell off the wall above it"
+    },
+    {
+      "instance_id": "NW-CORNER-web-01",
+      "prop_id": "shared_web_corner_a",
+      "footprint": "NW-CORNER",
+      "position": {
+        "x": -12.8,
+        "y": 0.0,
+        "z": -1.2
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -116,
+      "intent": "the ONLY corner web the room can have: the catalog says far corners only, and under a Euler(30,-45,0) camera exactly one corner has both its walls drawn - this one"
+    },
+    {
+      "instance_id": "RUBBLE-A-comedy-01",
+      "prop_id": "re_comedy_thumbs_up_skeleton_hand",
+      "footprint": "RUBBLE-A",
+      "position": {
+        "x": 3.05,
+        "y": 0.0,
+        "z": -10.95
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": 140,
+      "intent": "THE one comedy detail: a hand from under the collapse, giving a thumbs up. It emerges from the skirt at (2.9,-11.4) - found rather than presented - and it is deliberately far from the D1 approach, where a joke would compete with the guardians"
+    },
+    {
+      "instance_id": "RUBBLE-A-handcart-01",
+      "prop_id": "re_debris_broken_handcart",
+      "footprint": "RUBBLE-A",
+      "position": {
+        "x": 3.2,
+        "y": 0.0,
+        "z": -15.6
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": 188,
+      "intent": "the thing that was being moved when the ceiling came down"
+    },
+    {
+      "instance_id": "RUBBLE-A-mass-01",
+      "prop_id": "shared_rubble_pile_a",
+      "footprint": "RUBBLE-A",
+      "position": {
+        "x": 4.0,
+        "y": 0.0,
+        "z": -13.5
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": 175,
+      "intent": "the mass; the largest prop in the room"
+    },
+    {
+      "instance_id": "RUBBLE-A-mass-02",
+      "prop_id": "shared_rubble_pile_a",
+      "footprint": "RUBBLE-A",
+      "position": {
+        "x": 6.4,
+        "y": 0.0,
+        "z": -15.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": 214,
+      "intent": "the mass, second lobe"
+    },
+    {
+      "instance_id": "RUBBLE-A-skirt-01",
+      "prop_id": "shared_rubble_scatter_b",
+      "footprint": "RUBBLE-A",
+      "position": {
+        "x": 2.9,
+        "y": 0.0,
+        "z": -11.4
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": 143,
+      "intent": "skirt, kept INSIDE the footprint so the dressing never lies about where the blocker is"
+    },
+    {
+      "instance_id": "RUBBLE-A-skirt-02",
+      "prop_id": "shared_rubble_scatter_b",
+      "footprint": "RUBBLE-A",
+      "position": {
+        "x": 6.8,
+        "y": 0.0,
+        "z": -11.6
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": 184,
+      "intent": "skirt, kept INSIDE the footprint so the dressing never lies about where the blocker is"
+    },
+    {
+      "instance_id": "RUBBLE-A-skirt-03",
+      "prop_id": "shared_rubble_scatter_b",
+      "footprint": "RUBBLE-A",
+      "position": {
+        "x": 4.6,
+        "y": 0.0,
+        "z": -16.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": 206,
+      "intent": "skirt, kept INSIDE the footprint so the dressing never lies about where the blocker is"
+    },
+    {
+      "instance_id": "RUBBLE-B-mass-01",
+      "prop_id": "shared_rubble_pile_a",
+      "footprint": "RUBBLE-B",
+      "position": {
+        "x": 8.0,
+        "y": 0.0,
+        "z": -8.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": 160,
+      "intent": "the mass"
+    },
+    {
+      "instance_id": "RUBBLE-B-skirt-01",
+      "prop_id": "shared_rubble_scatter_b",
+      "footprint": "RUBBLE-B",
+      "position": {
+        "x": 6.9,
+        "y": 0.0,
+        "z": -6.9
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": 138,
+      "intent": "skirt, kept inside the footprint"
+    },
+    {
+      "instance_id": "RUBBLE-B-skirt-02",
+      "prop_id": "shared_rubble_scatter_b",
+      "footprint": "RUBBLE-B",
+      "position": {
+        "x": 9.0,
+        "y": 0.0,
+        "z": -9.1
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": 181,
+      "intent": "skirt, kept inside the footprint"
+    },
+    {
+      "instance_id": "WEST-WALL-bone-01",
+      "prop_id": "shared_bone_pile_b",
+      "footprint": "WEST-WALL",
+      "position": {
+        "x": -11.6,
+        "y": 0.0,
+        "z": -14.8
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": 32,
+      "intent": "on the floor beside the roots, deliberately NOT touching the wall. lie_within: alpha-box centre"
+    },
+    {
+      "instance_id": "WEST-WALL-roots-01",
+      "prop_id": "re_roots_and_mushrooms",
+      "footprint": "WEST-WALL",
+      "position": {
+        "x": -12.9,
+        "y": 0.0,
+        "z": -14.2
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": 13,
+      "intent": "the entry is where the outside got in, and roots through a wall joint say that in one prop. This is the only living green in the dungeon"
+    },
+    {
+      "instance_id": "WEST-WALL-roots-02",
+      "prop_id": "re_roots_and_mushrooms",
+      "footprint": "WEST-WALL",
+      "position": {
+        "x": -12.8,
+        "y": 0.0,
+        "z": -15.9
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": 31,
+      "intent": "the second root intrusion, kept sparse"
+    }
+  ]
+}
