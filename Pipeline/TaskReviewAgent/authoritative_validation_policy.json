@@ -562,6 +562,16 @@
         "PlayMode": "NoSafeCircle.DoorPrototype.Tests.TitleScreenPlayModeTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-107": {
+      "task_contract_sha256": "d13340df21b0aca1499d4442c82fe72772c8ede7fe74acdb04f678e5db141641",
+      "required_test_platforms": [
+        "PlayMode"
+      ],
+      "test_filters": {
+        "PlayMode": "NoSafeCircle.DoorPrototype.Tests.TitleScreenChaseBackdropPlayModeTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
     }
   },
   "decomposition_child_templates": {}
