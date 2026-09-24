@@ -65,7 +65,6 @@ namespace NoSafeCircle.DoorPrototype.Editor
         private const int BackgroundArchitecturalBorderSortingOrder = -90;
 
         internal const int WorldSpriteTextureSize = 128;
-        private const int WorldSpriteBorderThicknessPx = 6;
 
         // Subfolder name only, not an absolute path: the shared world-sprite Prefab asset is
         // always saved under whichever AssetDatabase folder the caller owns (the real
@@ -75,10 +74,6 @@ namespace NoSafeCircle.DoorPrototype.Editor
         // test seam never writes to the exact same AssetDatabase path Build() uses.
         private const string WorldSpritePrefabAssetFolderName = "WorldSprites";
         private const string WorldSpritePrefabAssetName = "WorldSpriteVisual.prefab";
-
-        // Placeholder colors only (GDD: placeholder character/prop sprites are acceptable).
-        private static readonly Color32 DoorSpriteFillColor = new Color32(90, 62, 38, 255);
-        private static readonly Color32 DoorSpriteBorderColor = new Color32(46, 30, 16, 255);
 
         // This list is the ownership boundary for non-persistent architectural objects made by
         // the parameterless test seam. Persistent AssetDatabase objects are never added here.
@@ -1054,23 +1049,6 @@ namespace NoSafeCircle.DoorPrototype.Editor
             return inMemorySprite;
         }
 
-        private static Color32[] CreateBorderedRectPixels(
-            int width, int height, Color32 fill, Color32 border, int borderThicknessPx)
-        {
-            var pixels = new Color32[width * height];
-            for (var y = 0; y < height; y++)
-            {
-                for (var x = 0; x < width; x++)
-                {
-                    var onBorder = x < borderThicknessPx || y < borderThicknessPx ||
-                                   x >= width - borderThicknessPx || y >= height - borderThicknessPx;
-                    pixels[y * width + x] = onBorder ? border : fill;
-                }
-            }
-
-            return pixels;
-        }
-
         private static GameObject BuildDoor(out DoorInteractable door, string architecturalTileAssetFolder)
         {
             var doorRoot = new GameObject("DoorRoot");
@@ -1081,36 +1059,43 @@ namespace NoSafeCircle.DoorPrototype.Editor
             rangeTrigger.size = new Vector3(3f, 3f, 3f);
             rangeTrigger.center = new Vector3(0f, 1.5f, 0f);
 
+            // AC-001: the doorway blocker's width is read back from this exact door's own
+            // DoorEnemyPassability obstacle instead of being authored a second time. That
+            // component already carries the authored opening width this doorway uses to carve
+            // enemy NavMesh traversal, so deriving from it here means a later change to the
+            // authored opening cannot silently reopen the jamb gap this task exists to close
+            // (measured at HEAD: wall collision begins at +/-1.5 either side of centre while the
+            // old hard-coded 2-unit blocker only reached +/-1.0, leaving open sightlines at both
+            // jambs of every door).
+            var doorEnemyPassability = doorRoot.AddComponent<DoorEnemyPassability>();
+            var doorwayOpeningWidth = ResolveDoorwayOpeningWidth(doorEnemyPassability);
+
             const float visualLocalHeight = 1.25f;
             var visual = new GameObject("DoorVisual");
             visual.transform.SetParent(doorRoot.transform, false);
             visual.transform.localPosition = new Vector3(0f, visualLocalHeight, 0f);
 
-            // Gameplay collision (the doorway blocker) stays a plain BoxCollider sized to the
-            // door's footprint, kept separate from the SpriteRenderer visual child below so the
-            // visual can hold its own authored orientation and non-uniform scale without
-            // shearing the collider.
+            // Gameplay collision (the doorway blocker) stays a plain BoxCollider spanning the
+            // full authored opening width - both jambs, not the door leaf's own art footprint -
+            // kept separate from the SpriteRenderer visual child below so the visual can hold its
+            // own authored orientation and non-uniform scale without shearing the collider.
             var doorwayBlocker = visual.AddComponent<BoxCollider>();
-            doorwayBlocker.size = new Vector3(2f, 2.5f, 0.3f);
+            doorwayBlocker.size = new Vector3(doorwayOpeningWidth, 2.5f, 0.3f);
 
             // DoorVisual itself stays elevated (visualLocalHeight) for the doorway-blocker
             // collider and ComputeGroundSelectionOffset's click math below, but the sprite's own
             // local position cancels that elevation back down to doorRoot's ground-contact
-            // point, per the shared ground-contact sorting convention above. The bottom-anchored
-            // prefab pivot then rebuilds the identical [0, 2.5] visual footprint from there.
+            // point, per the shared ground-contact sorting convention above.
             // Human-validated correction: the authored DoorSprite orientation is identity
             // (inspector 0,0,0), not a camera-facing billboard/tilt.
-            var doorSprite = CreateWorldSpriteVisual(
-                "DoorSprite",
-                "DoorSprite",
+            var doorSprite = CreateDoorSpriteVisual(
                 visual.transform,
                 new Vector3(0f, -visualLocalHeight, 0f),
-                Quaternion.identity,
-                new Vector2(2f, 2.5f),
-                CreateBorderedRectPixels(
-                    WorldSpriteTextureSize, WorldSpriteTextureSize, DoorSpriteFillColor, DoorSpriteBorderColor,
-                    WorldSpriteBorderThicknessPx),
-                architecturalTileAssetFolder);
+                architecturalTileAssetFolder,
+                out var sealedSprite,
+                out var lockedSprite,
+                out var openSprite,
+                out var finalSprite);
 
             door = doorRoot.AddComponent<DoorInteractable>();
             SetPrivateField(door, "doorVisual", visual);
@@ -1121,7 +1106,7 @@ namespace NoSafeCircle.DoorPrototype.Editor
             // locked the door while the wizard still stood in the opening.
             SetPrivateFieldValue(door, "forwardCrossingOffset", new Vector3(0f, 0f, 1.5f));
             SetPrivateFieldValue(door, "forwardCrossingTriggerSize", new Vector3(3f, 3f, 1f));
-            door.BindEnemyPassability(doorRoot.AddComponent<DoorEnemyPassability>());
+            door.BindEnemyPassability(doorEnemyPassability);
 
             // AC-001/AC-002/AC-003: gives the sealed door a base appearance distinguishable
             // from the plain-primitive walls plus hover/selected/opening feedback. The
@@ -1131,9 +1116,92 @@ namespace NoSafeCircle.DoorPrototype.Editor
             SetPrivateField(feedback, "door", door);
             SetPrivateField(feedback, "doorRenderer", visual.GetComponentInChildren<Renderer>());
 
+            // AC-002: binds the approved bonestone door sprites to the state DoorInteractable's
+            // own events express. Lives on doorRoot rather than visual, which DoorInteractable
+            // deactivates while the door is open, so it keeps receiving Opened/Locked/
+            // ResetCompleted and can re-enable visual before showing the open sprite.
+            var doorSpriteBinder = doorRoot.AddComponent<DoorStateSpriteBinder>();
+            SetPrivateField(doorSpriteBinder, "door", door);
+            SetPrivateField(doorSpriteBinder, "doorVisual", visual);
+            SetPrivateField(doorSpriteBinder, "spriteRenderer", doorSprite);
+            SetPrivateField(doorSpriteBinder, "sealedSprite", sealedSprite);
+            SetPrivateField(doorSpriteBinder, "lockedSprite", lockedSprite);
+            SetPrivateField(doorSpriteBinder, "openSprite", openSprite);
+            SetPrivateField(doorSpriteBinder, "finalSprite", finalSprite);
+
             BuildBreachFeedback(doorRoot, door, visual, doorSprite.transform);
 
             return doorRoot;
+        }
+
+        private static float ResolveDoorwayOpeningWidth(DoorEnemyPassability passability)
+        {
+            var field = typeof(DoorEnemyPassability).GetField(
+                "obstacleSize", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            return ((Vector3)field.GetValue(passability)).x;
+        }
+
+        // AC-002: the four DoorPassabilityState-reachable bonestone sprites, resolved by asset
+        // path per Docs/Art/Doors/APPROVAL.md's bind list rather than any other naming rule.
+        // damaged/opening/broken are deliberately not loaded here: no code path can reach them
+        // yet (Docs/Art/Doors/APPROVAL.md).
+        private const string DoorArtSourceFolder = "Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source";
+        private const string DoorSealedSpriteAssetName = "door_bonestone_sealed_S_000.png";
+        private const string DoorLockedSpriteAssetName = "door_bonestone_locked_S_000.png";
+        private const string DoorOpenSpriteAssetName = "door_bonestone_open_S_000.png";
+        private const string DoorFinalSpriteAssetName = "door_bonestone_final_S_000.png";
+
+        // AC-003: Vincent's approval 2026-09-17 (Docs/Art/Doors/APPROVAL.md) scales the existing
+        // approved art rather than re-authoring it. The Art Director measured the sealed/open
+        // sprites' painted opening at 1.00 x 1.30 world units against a 1.64-unit wizard; this
+        // uniform scale lifts that opening to roughly 2.0 units, clearing the wizard with margin,
+        // for zero additional PixelLab generations. GER Agent decision: if the resulting
+        // proportion is later rejected, the remedy is a revision of AC-003, not a rebuild of this
+        // binding.
+        private const float DoorArtScale = 1.54f;
+
+        private static SpriteRenderer CreateDoorSpriteVisual(
+            Transform parent,
+            Vector3 groundContactLocalPosition,
+            string architecturalTileAssetFolder,
+            out Sprite sealedSprite,
+            out Sprite lockedSprite,
+            out Sprite openSprite,
+            out Sprite finalSprite)
+        {
+            var prefab = EnsureWorldSpritePrefab(architecturalTileAssetFolder);
+            var spriteObject = string.IsNullOrEmpty(architecturalTileAssetFolder)
+                ? Object.Instantiate(prefab)
+                : (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+            spriteObject.name = "DoorSprite";
+            spriteObject.transform.SetParent(parent, false);
+            spriteObject.transform.localPosition = groundContactLocalPosition;
+            spriteObject.transform.localRotation = Quaternion.identity;
+            spriteObject.transform.localScale = Vector3.one * DoorArtScale;
+
+            sealedSprite = LoadDoorSprite(DoorSealedSpriteAssetName);
+            lockedSprite = LoadDoorSprite(DoorLockedSpriteAssetName);
+            openSprite = LoadDoorSprite(DoorOpenSpriteAssetName);
+            finalSprite = LoadDoorSprite(DoorFinalSpriteAssetName);
+
+            var renderer = spriteObject.GetComponent<SpriteRenderer>();
+            // Sealed is every door's construction-time state - DoorSequenceBuilder assigns
+            // isFinalDoor afterward, so the final-door skin is applied once this door actually
+            // reaches a closed state through DoorStateSpriteBinder's Locked/ResetCompleted
+            // handlers instead of being guessed here.
+            renderer.sprite = sealedSprite;
+            return renderer;
+        }
+
+        private static Sprite LoadDoorSprite(string assetFileName)
+        {
+            var path = DoorArtSourceFolder + "/" + assetFileName;
+            var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+            if (sprite == null)
+            {
+                Debug.LogWarning($"Door sprite not found or not imported as a Sprite at '{path}'.");
+            }
+            return sprite;
         }
 
         private static void BuildBreachFeedback(GameObject doorRoot, DoorInteractable door, GameObject visual,
