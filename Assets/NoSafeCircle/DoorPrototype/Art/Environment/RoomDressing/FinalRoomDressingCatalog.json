@@ -1,0 +1,350 @@
+{
+  "schema": "nsc.room-dressing-catalog/1",
+  "room": "FinalRoom",
+  "task": "NSC-083",
+  "room_identity": "The last room. A bone throne on the central mass, and a camp nobody left.",
+  "authored_by": "Art Director Agent",
+  "provenance": {
+    "brief": "Docs/Art/Environment/NSC-083_FINAL_ROOM_DRESSING.md",
+    "prop_catalog": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/PropCatalog.json",
+    "prop_catalog_sha256": "8e328c53bd657f33a7c660144c5cfe16a4d533ec7919672edb4ccc3bc541f2ea",
+    "layout_source": "Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/FinalRoomLayout.cs",
+    "resolved_at_commit": "8ceea22ba",
+    "correction_to_the_brief": "The brief's Z coordinates sit 12 units BELOW the committed FinalRoomLayout - it puts the benches at Z~68.5 when the room's south wall is Z 76, which would place them outside the room. Two independent cross-checks fix the offset at exactly +12: 68.5+12 = 80.5 is WestBenchBounds' centre to the decimal, and the round table's Z 75-77 +12 = 87-89 is 'roughly level with the obstacle' (FR1 spans Z 87..94) exactly as the brief says it should be. The brief also names the central mass FinalObstacleBounds; the committed layout calls it FR1Bounds. Layout wins, intent is honoured at the corrected coordinates."
+  },
+  "builder_contract": {
+    "pivot": "Committed pivot and PPU from PropCatalog.json; the builder never recomputes one.",
+    "y_is_always_zero": "Every placement sits on the floor at y=0, including the throne. The throne is centred on the mass's FOOTPRINT the way Lower Vault's landmark is centred on LV-C1 - it is not stood on top of the volume.",
+    "sorting": "sorting_order = round((x - z) * 10); larger x-z is nearer the camera. The comedy cake sits just north-west of the table centre and must draw in front of it, which this ordering already gives.",
+    "colliders": "The dressing prefab carries NO colliders.",
+    "lie_within_props": "fr_ritual_bone_candle_ring and shared_bone_pile_b are lie_within - the most of any room. Both take the alpha-box centre, not a ground line. The ring has h=0.3 because its candles rise, and it still LIES; anchoring it on a ground line would shove it behind its layout point."
+  },
+  "clearance_proved": {
+    "d5_staging": {
+      "x": [
+        -8.0,
+        8.0
+      ],
+      "z": [
+        98.0,
+        103.0
+      ],
+      "occupants": 0
+    },
+    "d4_approach": {
+      "x": [
+        2.0,
+        6.0
+      ],
+      "z": [
+        76.25,
+        81.0
+      ],
+      "occupants": 0
+    },
+    "camp_to_mass": "The round table is asserted >= 2.0 clear of FR1 so it cannot merge with it.",
+    "circulation": "West and east lanes swept every 0.5 units of z beside the mass: >= 3.0 clear.",
+    "chain_rows": "Both chain-post rows are asserted to stop >= 1.0 short of the mass's corners, so neither the west nor the east lane can read as fenced off."
+  },
+  "props": [
+    {
+      "instance_id": "BONE-bonea-01",
+      "prop_id": "shared_bone_pile_a",
+      "footprint": "BONE",
+      "position": {
+        "x": -5.0,
+        "y": 0.0,
+        "z": 88.6
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -936,
+      "intent": "near the throne; never in the staging area or a lane centre"
+    },
+    {
+      "instance_id": "BONE-bonea-02",
+      "prop_id": "shared_bone_pile_a",
+      "footprint": "BONE",
+      "position": {
+        "x": -13.8,
+        "y": 0.0,
+        "z": 86.2
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -1000,
+      "intent": "along the west wall; never in the staging area or a lane centre"
+    },
+    {
+      "instance_id": "BONE-bonea-03",
+      "prop_id": "shared_bone_pile_a",
+      "footprint": "BONE",
+      "position": {
+        "x": -13.6,
+        "y": 0.0,
+        "z": 97.4
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -1110,
+      "intent": "along the west wall; never in the staging area or a lane centre"
+    },
+    {
+      "instance_id": "BONE-boneb-01",
+      "prop_id": "shared_bone_pile_b",
+      "footprint": "BONE",
+      "position": {
+        "x": 4.9,
+        "y": 0.0,
+        "z": 91.8
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -869,
+      "intent": "near the throne; never in the staging area or a lane centre"
+    },
+    {
+      "instance_id": "BONE-boneb-02",
+      "prop_id": "shared_bone_pile_b",
+      "footprint": "BONE",
+      "position": {
+        "x": -13.7,
+        "y": 0.0,
+        "z": 91.4
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -1051,
+      "intent": "along the west wall; never in the staging area or a lane centre"
+    },
+    {
+      "instance_id": "EAST-BENCH-bench-01",
+      "prop_id": "fr_bench_x",
+      "footprint": "EAST-BENCH",
+      "position": {
+        "x": 13.5,
+        "y": 0.0,
+        "z": 95.5
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -820,
+      "intent": "the last place anyone sat; one bench, centred on its bound"
+    },
+    {
+      "instance_id": "FR1-NORTH-post-01",
+      "prop_id": "fr_bone_chain_post",
+      "footprint": "FR1-NORTH",
+      "position": {
+        "x": -1.2,
+        "y": 0.0,
+        "z": 94.6
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -958,
+      "intent": "broken row against the mass's north edge; the row stops short of both ends so the west and east lanes read as open"
+    },
+    {
+      "instance_id": "FR1-NORTH-post-02",
+      "prop_id": "fr_bone_chain_post",
+      "footprint": "FR1-NORTH",
+      "position": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 94.6
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -946,
+      "intent": "broken row against the mass's north edge; the row stops short of both ends so the west and east lanes read as open"
+    },
+    {
+      "instance_id": "FR1-NORTH-post-03",
+      "prop_id": "fr_bone_chain_post",
+      "footprint": "FR1-NORTH",
+      "position": {
+        "x": 1.2,
+        "y": 0.0,
+        "z": 94.6
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -934,
+      "intent": "broken row against the mass's north edge; the row stops short of both ends so the west and east lanes read as open"
+    },
+    {
+      "instance_id": "FR1-SOUTH-post-01",
+      "prop_id": "fr_bone_chain_post",
+      "footprint": "FR1-SOUTH",
+      "position": {
+        "x": -1.8,
+        "y": 0.0,
+        "z": 86.4
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -882,
+      "intent": "broken row against the mass's south edge; the row stops short of both ends so the west and east lanes read as open"
+    },
+    {
+      "instance_id": "FR1-SOUTH-post-02",
+      "prop_id": "fr_bone_chain_post",
+      "footprint": "FR1-SOUTH",
+      "position": {
+        "x": -0.6,
+        "y": 0.0,
+        "z": 86.4
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -870,
+      "intent": "broken row against the mass's south edge; the row stops short of both ends so the west and east lanes read as open"
+    },
+    {
+      "instance_id": "FR1-SOUTH-post-03",
+      "prop_id": "fr_bone_chain_post",
+      "footprint": "FR1-SOUTH",
+      "position": {
+        "x": 0.6,
+        "y": 0.0,
+        "z": 86.4
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -858,
+      "intent": "broken row against the mass's south edge; the row stops short of both ends so the west and east lanes read as open"
+    },
+    {
+      "instance_id": "FR1-SOUTH-post-04",
+      "prop_id": "fr_bone_chain_post",
+      "footprint": "FR1-SOUTH",
+      "position": {
+        "x": 1.8,
+        "y": 0.0,
+        "z": 86.4
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -846,
+      "intent": "broken row against the mass's south edge; the row stops short of both ends so the west and east lanes read as open"
+    },
+    {
+      "instance_id": "FR1-SOUTH-ring-01",
+      "prop_id": "fr_ritual_bone_candle_ring",
+      "footprint": "FR1-SOUTH",
+      "position": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 85.9
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -859,
+      "intent": "flat on the floor at the mass's south foot, framing the throne without adding height. lie_within: its pivot is the alpha-box centre, never a ground line"
+    },
+    {
+      "instance_id": "FR1-WEST-rubble-01",
+      "prop_id": "shared_rubble_scatter_b",
+      "footprint": "FR1-WEST",
+      "position": {
+        "x": -4.7,
+        "y": 0.0,
+        "z": 90.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -947,
+      "intent": "at the mass's west foot, on the drawn side where it reads"
+    },
+    {
+      "instance_id": "FR1-WEST-rubble-02",
+      "prop_id": "shared_rubble_scatter_b",
+      "footprint": "FR1-WEST",
+      "position": {
+        "x": -4.5,
+        "y": 0.0,
+        "z": 92.4
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -969,
+      "intent": "at the mass's west foot, on the drawn side where it reads"
+    },
+    {
+      "instance_id": "FR1-throne-01",
+      "prop_id": "fr_landmark_bone_throne",
+      "footprint": "FR1",
+      "position": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 90.5
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -905,
+      "intent": "THE landmark, centred on the central mass and facing south toward D4 so the player meets it face-on. It rises above the wall line and here that is the point"
+    },
+    {
+      "instance_id": "NORTH-WALL-drape-01",
+      "prop_id": "shared_web_drape_b",
+      "footprint": "NORTH-WALL",
+      "position": {
+        "x": -9.4,
+        "y": 0.0,
+        "z": 103.5
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -1129,
+      "intent": "the ONE drape, on the drawn north face. Its footprint runs 1.5 along X and 0.2 along Z, so it hangs correctly on a north/south-facing wall; on the WEST face the same prop would have had to be rotated or would have crossed the wall line"
+    },
+    {
+      "instance_id": "NW-CORNER-web-01",
+      "prop_id": "shared_web_corner_a",
+      "footprint": "NW-CORNER",
+      "position": {
+        "x": -13.9,
+        "y": 0.0,
+        "z": 102.6
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -1165,
+      "intent": "north-west corner"
+    },
+    {
+      "instance_id": "WEST-BENCH-bench-01",
+      "prop_id": "fr_bench_x",
+      "footprint": "WEST-BENCH",
+      "position": {
+        "x": -13.5,
+        "y": 0.0,
+        "z": 80.5
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -940,
+      "intent": "the last place anyone sat; one bench, centred on its bound"
+    },
+    {
+      "instance_id": "WEST-BENCH-candle-01",
+      "prop_id": "shared_candle_cluster_a",
+      "footprint": "WEST-BENCH",
+      "position": {
+        "x": -11.7,
+        "y": 0.0,
+        "z": 80.5
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -922,
+      "intent": "beside the WEST bench only. Asymmetric deliberately: the west is the drawn side the camera sees"
+    },
+    {
+      "instance_id": "WEST-FLANK-comedy-01",
+      "prop_id": "fr_comedy_party_hat_skull_cake",
+      "footprint": "WEST-FLANK",
+      "position": {
+        "x": -6.85,
+        "y": 0.0,
+        "z": 88.35
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -952,
+      "intent": "THE one comedy detail, ON the round table: a skull in a party hat beside a cake. The camp is the room's saddest detail and the cake is the same people refusing to be miserable about it. Deliberately NOT on the throne"
+    },
+    {
+      "instance_id": "WEST-FLANK-table-01",
+      "prop_id": "fr_round_table_with_stools",
+      "footprint": "WEST-FLANK",
+      "position": {
+        "x": -7.0,
+        "y": 0.0,
+        "z": 88.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -950,
+      "intent": "people made a camp in the last room and did not leave. Level with the mass, on the drawn side, and kept clear of the mass so it does not merge with it"
+    }
+  ]
+}
