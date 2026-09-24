@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-084",
-  "contract_revision": 2,
+  "contract_revision": 3,
   "contract_disposition": "active",
   "title": "First-Wing Content Integration Package and Preservation Pass",
   "reconciliation_key": "composed-world-content-integration-preservation",
@@ -81,13 +81,24 @@
   "basis": "human_approved_gameplay_presentation",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "This task produces a content-only handoff package and must not write the canonical scene or room scenes. Governing visual direction: Docs/Art/Environment/DUNGEON_ART_DIRECTION.md, Vincent-approved project direction dated 2026-09-13. The supplied images are inspiration only; all art and layouts must be original.",
+  "notes": "This task produces a content-only handoff package and must not write the canonical scene or room scenes. Governing visual direction: Docs/Art/Environment/DUNGEON_ART_DIRECTION.md, Vincent-approved project direction dated 2026-09-13. The supplied images are inspiration only; all art and layouts must be original. TEST FIXTURE NAMESPACE IS CONSTRAINED, AND IT IS DELIBERATELY NOT THE DIRECTORY NAME. The fixture Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Environment/FirstWingContentIntegrationPackageTests.cs MUST declare namespace NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing. It MUST NOT declare NoSafeCircle.DoorPrototype.Tests.Editor.Environment, which is what mirroring the directory would produce. THE DIRECTORY STAYS Tests/Editor/Environment/ and the authoritative_validation_policy.json EditMode filter for this task was moved to NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.FirstWingContentIntegrationPackageTests in this same commit, so the contract and the policy agree. WHY, MEASURED ON MAIN: a namespace segment named Environment under NoSafeCircle.DoorPrototype.Tests.Editor captures the bare identifier Environment across the Tests assembly, shadowing System.Environment, because namespace lookup walks outward from the innermost scope and beats the using System import. 22 unqualified uses - Environment.GetEnvironmentVariable and Environment.NewLine - across ComposedFloorCaptureTests, BoneArchiveCameraReviewTests, ChapelOfAshCameraReviewTests, FinalRoomCameraReviewTests, LowerVaultSceneTests and RuinedEntrySceneTests would fail CS0234, and those files belong to other tasks this one may not edit. The Tests assembly then fails to compile, and a candidate that does not compile fails materialization into the NSC-045 unrecoverable state rather than a failed merge. The same trap was paid for once already on the builder side and fixed at 003bac69b. THIS TASK IS ONE OF SIX BOUND TO THAT NAMESPACE - NSC-079, 080, 081, 082, 083 and this one - AND THE FIRST TO LAND SPRINGS IT FOR THE REST, which is why the constraint is on all six rather than on the dressing five alone. NO .cs DECLARES THE NAMESPACE TODAY, so the trap is real and unsprung. THIS NOTE CONSTRAINS THE FIXTURE NAMESPACE ONLY and changes nothing about this task's builder, whose requirements are unchanged; door_prototype_materialization.py:109 governs the five DRESSING_ROOMS builders and does not name this task.",
   "repository_state_at_bootstrap": "partial",
   "repository_evidence_at_bootstrap": [],
   "provenance": {
     "origin": "human_approved_environment_content_followup",
     "approved_at_utc_date": "2026-09-13",
-    "approved_by": "Vincent"
+    "approved_by": "Vincent",
+    "contract_followups": [
+      {
+        "date": "2026-09-24",
+        "reason": "Move the validation policy EditMode filter to NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing so the policy agrees with the fixture namespace constraint in the notes. The policy pinned the fixture namespace even though door_prototype_materialization.py does not; a fixture obeying the note would have matched the old filter zero times, and a filter matching no tests passes vacuously. NSC-084 carries the same constraint - six tasks are bound to that namespace, not five, and the first to land springs the collision for the rest.",
+        "source_head": "b8460715c0797131c1fb07f44c3cf6fc65c3932d",
+        "previous_contract_revision": 2,
+        "base_contract_sha256": "d8664e922378ea54a394b81d833ef0f8dca8f5d33168fa71e7e1f455e2dc256d",
+        "revised_contract_sha256": "5f54b834e35cb1eb27fb9e14206f40141c1a7500c876aefe813bf28558105bde",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      }
+    ]
   },
   "visual_direction_addendum": "Own connector corridors, intersections, thresholds, and transition pockets. Use curated original clusters and visual continuity: varied floor strips/insets, restrained blood/ash/slime trails, debris continuity, warm/cold accent-light pools, foreground/background depth layering, recognizable landmarks, readable route hierarchy, and at least one small narrative vignette. Preserve D1-D5 mechanics and navigable widths so the rooms read as one authored dungeon."
 }
