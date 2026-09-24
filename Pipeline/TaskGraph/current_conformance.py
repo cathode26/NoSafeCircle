@@ -442,8 +442,39 @@ def _evaluate_resolved_conformance(
                     if not evidence["path"].startswith(artifact_prefix):
                         invalid.append(_finding("artifact_location_invalid", f"Gate artifact is outside {artifact_prefix}.", record))
                         artifact_bad = True
-                    elif not repo.exists(head, evidence["path"]) or repo.blob(head, evidence["path"]) != evidence["blob_sha"]:
-                        invalid.append(_finding("artifact_blob_mismatch", f"Evidence artifact {evidence['path']} is absent or altered at HEAD.", record))
+                    # ABSENT AND ALTERED ARE DIFFERENT DEFECTS WITH OPPOSITE FIXES,
+                    # and collapsing them cost the fleet real time on 2026-09-24:
+                    # four room records landed invalid with "artifact_blob_mismatch"
+                    # when the artifacts had never been COMMITTED at all. The name
+                    # and the message both pointed at HASHING; the cause was STAGING.
+                    #
+                    # `.gitignore` matches `*.log`, and `git add <dir>` skips an
+                    # ignored untracked file SILENTLY -- no error, no warning.
+                    # Measured: `git check-ignore` reports exit 1 / "not ignored"
+                    # for an ignored path that is already TRACKED, so it calls such
+                    # a path clean and cannot be used to rule this out. That is why
+                    # a previously-recorded task reads as a healthy precedent.
+                    #
+                    # `artifact_blob_mismatch` is KEPT for the altered case so no
+                    # existing consumer of that name breaks; absence gets its own.
+                    elif not repo.exists(head, evidence["path"]):
+                        invalid.append(_finding(
+                            "artifact_absent_from_commit",
+                            f"Evidence artifact {evidence['path']} is not in the commit at all, "
+                            "so the record hashes a file the commit does not contain. It was most "
+                            "likely never staged: `git add` skips a gitignored untracked file "
+                            "silently, and Unity logs match `*.log`. Re-stage with "
+                            f"`git add -f -- {evidence['path']}` and re-record. Do not trust "
+                            "`git check-ignore` here: it reports a TRACKED ignored path as clean.",
+                            record))
+                        artifact_bad = True
+                    elif repo.blob(head, evidence["path"]) != evidence["blob_sha"]:
+                        invalid.append(_finding(
+                            "artifact_blob_mismatch",
+                            f"Evidence artifact {evidence['path']} IS present at {head[:9]} but its "
+                            "blob differs from the record's blob_sha: the file changed after it was "
+                            "hashed. This is not a staging problem -- re-record the evidence.",
+                            record))
                         artifact_bad = True
             if artifact_bad:
                 continue

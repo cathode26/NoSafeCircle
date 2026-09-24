@@ -134,6 +134,20 @@ def expect(root: Path, state: str) -> None:
     assert actual.state == state, (state, actual.to_dict())
 
 
+def expect_finding(root: Path, state: str, kind: str) -> None:
+    """Assert the state AND the exact finding kind.
+
+    `expect` alone is satisfied by ANY invalid_evidence finding, so it cannot
+    tell "the artifact is absent from the commit" from "the artifact is present
+    but altered" -- which are different defects with opposite fixes. A negative
+    test that does not name its refusal passes on the wrong one.
+    """
+    actual = evaluate_current_conformance(root, TASK_ID)
+    assert actual.state == state, (state, actual.to_dict())
+    codes = [f.get("code") for f in actual.to_dict().get("findings", [])]
+    assert kind in codes, (kind, codes, actual.to_dict())
+
+
 def scenario_progression(root: Path) -> None:
     validated, tree = initialize(root)
     expect(root, "not_delivered")
@@ -245,6 +259,21 @@ def scenario_invalid(root: Path, corruption: str) -> None:
     if corruption == "altered_artifact":
         write(root, ARTIFACT, "altered\n")
         commit(root, "alter artifact")
+        # PRESENT but changed after hashing -- not a staging problem.
+        expect_finding(root, "invalid_evidence", "artifact_blob_mismatch")
+        return
+    elif corruption == "absent_artifact":
+        # The shape that cost four room records on 2026-09-24: the record
+        # hashes a file the commit does not contain, because `git add` skipped
+        # a gitignored untracked path SILENTLY. Removing the file reproduces
+        # the state the checker sees without depending on .gitignore -- what
+        # matters here is that the referenced path is absent from the commit,
+        # not how it came to be absent. (`git rm --cached` would not work:
+        # commit() runs `git add -A`, which re-stages it.)
+        (root / ARTIFACT).unlink()
+        commit(root, "artifact never made it into the commit")
+        expect_finding(root, "invalid_evidence", "artifact_absent_from_commit")
+        return
     elif corruption == "modified_record":
         value["recorded_at"] = "2026-08-22T01:00:00Z"
         path = f"Pipeline/TaskGraph/evidence/{TASK_ID}/records/{value['record_id']}.json"
@@ -393,7 +422,7 @@ def main() -> int:
     fresh(scenario_stale_and_replan, "contract")
     fresh(scenario_changed_delivery_requirements)
     fresh(scenario_human)
-    for corruption in ("missing_gate", "wrong_tree", "wrong_blob", "wrong_canon_hash", "altered_artifact", "modified_record"):
+    for corruption in ("missing_gate", "wrong_tree", "wrong_blob", "wrong_canon_hash", "altered_artifact", "absent_artifact", "modified_record"):
         fresh(scenario_invalid, corruption)
     fresh(scenario_non_ancestral)
     fresh(scenario_cherry_picked_delivery)
