@@ -1,0 +1,86 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "requirement": "INTRODUCE A FLOOR IDENTITY ABOVE THE ROOM CATALOG. Today there is exactly one catalog and one canonical scene: RoomSceneCatalog.LoadOrBuildAsset() returns a single asset, and DoorSequenceBuilder.cs:15 declares `internal const string CanonicalScenePath = \"Assets/Scenes/DoorPrototype.unity\"` with :19 `if (targetScene.path != CanonicalScenePath) return;`. Add an identity for a FLOOR - a named set of composition owners with their bounds, its door sequence and its scene - so more than one floor can exist and be resolved by name. THIS IS AN ADDITION ABOVE THE CATALOG, NOT A REWRITE OF IT: a floor OWNS a catalog, and the catalog keeps meaning exactly what it means today."
+    },
+    {
+      "criterion_id": "AC-002",
+      "requirement": "MAKE THE SCENE PATH FLOOR-SCOPED WHILE KEEPING ITS REFUSAL. BuildCanonical composes the floor it is given and resolves that floor's scene path. THE EARLY-RETURN'S PROTECTIVE BEHAVIOUR IS RETAINED AND NOT REMOVED: a scene that is not a registered floor scene must still be refused rather than composed into. Deleting the guard instead of scoping it is the failure this criterion exists to prevent - it currently stops the builder writing into an arbitrary open scene, and that protection is worth MORE once there is more than one scene it could legitimately write to, not less."
+    },
+    {
+      "criterion_id": "AC-003",
+      "requirement": "SEPARATE THE PHYSICAL SPACE FROM THE COMPOSITION OWNER. Add a string SpaceId naming a physical space; RoomId remains the COMPOSITION OWNER and keeps its present meaning. Internal connections between spaces are `passage` openings that EMIT NO DOOR ANCHORS, so RoomSceneComposer's catalog-ownership refusal at :386 - \"'<room>' does not own a door anchor for '<door>' per the catalog\" - is never reached by an internal connection. DoorId stays the progression gate and is never used for an internal connection."
+    },
+    {
+      "criterion_id": "AC-004",
+      "requirement": "MAKE ROOM COUNT AND ORDER FLOOR-SCOPED, AND PROVE THE EXISTING FLOOR STILL VALIDATES. ValidateFixedRoomOrder hardcodes both: :167-171 returns \"Catalog must contain exactly 5 rooms, found N\", and :173-179 returns \"Room at catalog index i must be 'X' but was 'Y'\" against a literal RuinedEntry/BoneArchive/ChapelOfAsh/LowerVault/FinalRoom array. Both must validate against the FLOOR's declared owner list and order instead of a literal. THE EXISTING FIVE-ROOM FLOOR MUST STILL VALIDATE, UNCHANGED AND IN THE SAME ORDER - that regression is what proves the rule was SCOPED rather than WEAKENED. A floor whose catalog does not match its own declared list must still be refused, with an error naming the mismatch."
+    },
+    {
+      "criterion_id": "AC-005",
+      "requirement": "MAKE THE BOUNDARY-DOOR COUNT A PER-FLOOR DECLARATION. FinalRoomSceneTests.cs:138 asserts `AreEqual(1, doors.Count(door => door.IsFinal), \"D5 must remain the only final door.\")`. A floor with a way IN and a way OUT carries TWO boundary doors, so a global \"exactly one\" cannot hold once a second floor exists. Replace the global constant with a count the FLOOR declares, and keep the assertion's force: a floor must carry exactly the number it declares, no more and no fewer. THE EXISTING FLOOR DECLARES EXACTLY ONE, so that assertion holds unchanged. DO NOT DELETE THAT TEST AND DO NOT WEAKEN IT TO ACCEPT ANY COUNT: an assertion satisfied by one or by two proves nothing."
+    },
+    {
+      "criterion_id": "AC-006",
+      "requirement": "BRIDGE D3, BECAUSE \"REPLACE THE FIRST THREE\" IS NOT THREE. Measured on main 2026-09-23: the first three rooms in catalog order are RuinedEntry, BoneArchive and ChapelOfAsh - NSC-044, NSC-045, NSC-046 - and all three are not_delivered with selected_record (none), so replacing them costs NO delivery record. BUT D3 IS ChapelOfAsh -> LowerVault, AND NSC-047 IS CONFORMANT WITH RECORD DEL-NSC-047-3e5bb5b0d65b AND HOLDS D3's ENTRY ANCHOR. Removing ChapelOfAsh leaves that anchor with no partner, and ValidateFixedRoomOrder's count rule then stops the canonical scene composing for EVERY room rather than only the three. THIS TASK MUST NOT LEAVE D3 UNPARTNERED. Either the existing five-room floor is retained intact as a floor of its own - the cheapest option, and the one that keeps NSC-047's conformance surface untouched - or this task specifies D3's replacement explicitly. WHICH IS CHOSEN IS VINCENT'S AND IS NOT DECIDED HERE; what is required here is that neither is left implicit."
+    }
+  ],
+  "basis": "direct_gdd",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "requirement": "THE EXISTING FIVE-ROOM FLOOR COMPOSES UNCHANGED. The Unity-capable controller builds the existing floor and runs LowerVaultSceneTests plus the complete Edit Mode suite as broader-suite compatibility evidence, in the form NSC-047's own VAL-003 already requires. Evidence records the exact commit and tree, Unity executable and version, XML totals and exit codes. THIS IS THE REGRESSION THAT MATTERS: every criterion here scopes a rule that currently protects the shipped floor, and a rule that stopped protecting it would pass every new test while breaking the only conformant room in the project."
+    },
+    {
+      "gate_id": "VAL-002",
+      "requirement": "A SECOND FLOOR COMPOSES, WITH A DIFFERENT OWNER LIST AND TWO BOUNDARY DOORS. Focused Edit Mode tests build a floor whose declared owner list differs from the existing one in COUNT and in ORDER, and which declares TWO boundary doors, and prove it composes and that its door anchors pair. A test that only proves the existing floor still works has not tested this task at all."
+    },
+    {
+      "gate_id": "VAL-003",
+      "requirement": "THE REFUSALS STILL REFUSE, PROVED BY BREAKING THEM ON PURPOSE. Negative cases, each asserting the SPECIFIC error rather than merely that something failed: a floor whose catalog does not match its declared owner list or order; a floor carrying a different number of boundary doors than it declares; a scene that is not a registered floor scene refused by BuildCanonical; and an internal passage that wrongly emits a door anchor refused by the catalog-ownership check at :386. DO NOT WEAKEN ANY OF THESE TO ACCEPT EITHER OUTCOME."
+    }
+  ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "One bounded mechanical responsibility: apply five already-approved GER room-revision literals to the single shared RoomSceneCatalog.cs file, regenerate its generated asset, and add one new geometry test proving both representations agree. No design decision and no per-room scene authoring belong here.",
+  "decomposition_state": "concrete",
+  "depends_on": [],
+  "downstream_integration_obligations": [],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneCatalog.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneComposer.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorSequenceBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/World/RoomAuthoringContract.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/FinalRoomSceneTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/World/RoomSceneContractTests.cs"
+  ],
+  "execution_reason": "One crew edits two known methods in one existing file, regenerates one generated asset through an existing menu command, and writes one new Edit Mode test asserting the resulting values. No design decision, no gameplay code, no scene authoring.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "GDD — Approved Five-Room Spatial Layout Blockout §4 (Global room and door coordinates) and §13 (Revision policy; Vincent's room-size authority, 2026-09-14)",
+      "requirement": "The five rooms share one continuous floor with doors D1 through D5 in fixed order and D5 identified as the final door. §13 allows an approved room revision to change baseline bounds and door centers within each room's maximum envelope, with the revision recorded in the owning room task contract; RoomSceneCatalog is the single authoritative, shared record of those reconciled bounds and door centers that every room task and the five-room composition task (NSC-049) read."
+    }
+  ],
+  "id": "NSC-105",
+  "kind": "implementation",
+  "notes": "AUTHORED 2026-09-23 ON VINCENT'S OWN DESIGN DECISION, STATED TWICE: \"these will replace the first 3 rooms we made\" and \"We are replacing the first 3 rooms with these 3 maps we just created.\" What was missing when the GER Agent ruled this impossible was a DESIGN decision, and he made it; writing the contract that implements it is contract work. DISPATCH, PROVIDER SPEND AND ANY DECOMPOSITION REMAIN GATED AND ARE UNTOUCHED BY THIS CONTRACT - authoring a specification executes nothing. THE FIVE BLOCKERS THIS TASK CLEARS, ALL MEASURED AT SOURCE: RoomId is a closed enum of five (RoomAuthoringContract.cs:8-15); ValidateFixedRoomOrder pins exactly five in one order (:167-171, :173-179); CanonicalScenePath is a single const with an early return (DoorSequenceBuilder.cs:15, :19); FinalRoomSceneTests.cs:138 pins exactly one final door; and no floor or level concept exists at all - a grep across every .cs on main for next-level, level-transition, level-boundary or level-id returns nothing, run with a positive control so the zero is not a broken query. ASTRA'S SpaceId MODEL IS ADOPTED IN AC-003 BECAUSE IT WAS CHECKED RATHER THAN TAKEN: its :169 and :177 citations are exactly the two error returns in ValidateFixedRoomOrder, and passages emitting no anchors genuinely keep :136, :144, :148 and :386 passing. It was silent on the scene path and the boundary-door count because it solved MANY SPACES rather than MANY FLOORS; AC-002 and AC-005 are that missing half. TWO PARAMETERS ARE DELIBERATELY NOT DECIDED HERE. FIRST, THE BOUND: the approved blockout is 144x144 world units, while one authored floor measures 83x72 cells = 166x144. Moving the bound is Vincent's, and it was reported that he \"effectively chose\" it by choosing the maps - AN INFERENCE FROM A CHOICE IS NOT A DECISION, and reading it as one would widen authority, which is the expensive direction. SECOND, THE FATE OF NSC-044 THROUGH NSC-048 under the word \"replace\": whether the existing five-room floor survives as a floor of its own or is superseded. AC-006 requires only that the answer be EXPLICIT, never which answer it is. SIZE, STATED HONESTLY: six criteria across five implementation files with real negative-test surface. execution_scope is single_agent so it is dispatchable as authored, and whether it should be decomposed instead is the Decomposition Agent's call on Vincent's paid go - not pre-empted here, because a contract marked needs_execution_decomposition with ZERO children cannot dispatch at all, which is exactly where NSC-088 sits today.",
+  "parent": "NSC-022",
+  "provenance": {
+    "graph_delta_plan_id": null,
+    "origin": "ger_agent_contract_request",
+    "parent_contract_revision": null,
+    "parent_contract_sha256": null,
+    "parent_task_id": null,
+    "task_design_ger": "Vincent, 2026-09-23, stated twice: \"these will replace the first 3 rooms we made\" and \"We are replacing the first 3 rooms with these 3 maps we just created.\" The GER Agent had ruled three floors impossible under the current contract and named the missing input as a DESIGN decision; this is that decision. Authored to clear the five measured blockers while fencing the bound and the fate of NSC-044..048, neither of which he has decided.",
+    "contract_followups": []
+  },
+  "reconciliation_key": "NSC-105",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "Floor Identity Above the Room Catalog",
+  "type": "world-authoring-foundation"
+}

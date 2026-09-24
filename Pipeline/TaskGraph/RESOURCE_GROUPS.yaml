@@ -417,11 +417,13 @@
     },
     {
       "reconciliation_keys": [
-        "final-room-blockout"
+        "final-room-blockout",
+        "NSC-105"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/FinalRoomSceneTests.cs",
       "work_ids": [
-        "NSC-048"
+        "NSC-048",
+        "NSC-105"
       ]
     },
     {
@@ -437,13 +439,15 @@
       "reconciliation_keys": [
         "five-room-continuity-door-sequence",
         "independent-room-scene-composition",
-        "world-sprite-sorting-layer-adoption"
+        "world-sprite-sorting-layer-adoption",
+        "NSC-105"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneComposer.cs",
       "work_ids": [
         "NSC-049",
         "NSC-069",
-        "NSC-100"
+        "NSC-100",
+        "NSC-105"
       ]
     },
     {
@@ -1089,12 +1093,14 @@
     {
       "reconciliation_keys": [
         "independent-room-scene-composition",
-        "room-scene-catalog-consolidation"
+        "room-scene-catalog-consolidation",
+        "NSC-105"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/RoomSceneCatalog.cs",
       "work_ids": [
         "NSC-069",
-        "NSC-101"
+        "NSC-101",
+        "NSC-105"
       ]
     },
     {
@@ -1318,12 +1324,36 @@
     {
       "reconciliation_keys": [
         "independent-room-scene-composition",
-        "world-sprite-sorting-layer-adoption"
+        "world-sprite-sorting-layer-adoption",
+        "NSC-105"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/World/RoomSceneContractTests.cs",
       "work_ids": [
         "NSC-069",
-        "NSC-100"
+        "NSC-100",
+        "NSC-105"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "five-room-continuity-door-sequence",
+        "NSC-105"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorSequenceBuilder.cs",
+      "work_ids": [
+        "NSC-049",
+        "NSC-105"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "independent-room-scene-composition",
+        "NSC-105"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/World/RoomAuthoringContract.cs",
+      "work_ids": [
+        "NSC-069",
+        "NSC-105"
       ]
     }
   ],
