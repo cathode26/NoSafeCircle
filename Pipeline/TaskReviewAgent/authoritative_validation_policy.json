@@ -528,6 +528,18 @@
         "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.ChapelOfAshPropImportTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-008": {
+      "task_contract_sha256": "10da3077de54af149277577e29a14711749f3c518637c9042d50a972ade1cefd",
+      "required_test_platforms": [
+        "EditMode",
+        "PlayMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.FrostFieldSceneBuilderTests",
+        "PlayMode": "NoSafeCircle.DoorPrototype.Tests.FrostFieldPlayModeTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
     }
   },
   "decomposition_child_templates": {}
