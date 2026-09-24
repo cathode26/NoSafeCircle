@@ -1130,7 +1130,7 @@ class GraphControllerTests(unittest.TestCase):
         }
         return tasks
 
-    def write_decomposition_receipt(self, status: str, *, source: str | None = None,
+    def write_decomposition_receipt(self, status, *, source: str | None = None,
                                     task_id: str = "NSC-898", **extra) -> None:
         self.manager.records.mkdir(parents=True, exist_ok=True)
         write_record(self.manager.records / "NSC-898.decomposition.json", {
@@ -1151,13 +1151,29 @@ class GraphControllerTests(unittest.TestCase):
                         self.assertTrue(controller._task_complete(
                             "NSC-898", tasks, self.head, {}, set()))
 
+    def commit_decomposed_parent(self) -> str:
+        path = self.source / "Tasks/NSC-898.yaml"
+        value = json.loads(path.read_text(encoding="utf-8"))
+        value.update(kind="feature", execution_scope="not_applicable",
+                     decomposition_state="decomposed", decomposition_children=["NSC-1011"])
+        path.write_text(json.dumps(value), encoding="utf-8")
+        self.git("add", "--", "Tasks/NSC-898.yaml")
+        self.git("commit", "-m", "decompose NSC-898")
+        return self.git("rev-parse", "HEAD").decode().strip()
+
     def test_a_foreign_receipt_still_fails_application_authentication(self):
-        self.write_decomposition_receipt(
-            "applied", source=str(Path(self.temp.name) / "isolated-clone"),
-            applied_commit=self.head, application={"new_commit_sha": self.head})
+        applied = self.commit_decomposed_parent()
+        receipt = dict(applied_commit=applied, application={"new_commit_sha": applied})
+        self.write_decomposition_receipt("applied", **receipt)
         controller = self.controller("NSC-898")
-        tasks = self.decomposed_parent_tasks(controller)
-        self.assertFalse(controller._applied_decomposition("NSC-898", tasks["NSC-898"], self.head))
+        parent = controller._contracts(applied)["NSC-898"]
+        self.assertTrue(controller._applied_decomposition("NSC-898", parent, applied),
+                        "control: the same receipt from this source authenticates")
+        self.write_decomposition_receipt(
+            "applied", source=str(Path(self.temp.name) / "isolated-clone"), **receipt)
+        controller = self.controller("NSC-898")
+        self.assertFalse(controller._applied_decomposition("NSC-898", parent, applied),
+                         "only the source differs, so only the source guard can refuse it")
 
     def test_unsettled_or_unrecognised_receipts_still_veto(self):
         cases = {
@@ -1173,12 +1189,24 @@ class GraphControllerTests(unittest.TestCase):
                 with self.conformant():
                     self.assertFalse(controller._task_complete(
                         "NSC-898", tasks, self.head, {}, set()))
-        with self.subTest("malformed"):
-            write_record(self.manager.records / "NSC-898.decomposition.json", {"status": "applied"})
-            controller = self.controller("NSC-898")
-            tasks = self.decomposed_parent_tasks(controller)
-            with self.conformant():
-                self.assertFalse(controller._task_complete("NSC-898", tasks, self.head, {}, set()))
+        malformed = {
+            "no schema": {"status": "applied"},
+            "list status": None, "dict status": None,
+        }
+        for name, value in malformed.items():
+            with self.subTest(name):
+                if name == "list status":
+                    self.write_decomposition_receipt(status=[])
+                elif name == "dict status":
+                    self.write_decomposition_receipt(status={})
+                else:
+                    (self.manager.records / "NSC-898.decomposition.json").write_text(
+                        json.dumps(value), encoding="utf-8")
+                controller = self.controller("NSC-898")
+                tasks = self.decomposed_parent_tasks(controller)
+                with self.conformant():
+                    self.assertFalse(controller._task_complete(
+                        "NSC-898", tasks, self.head, {}, set()))
 
     def test_a_settled_receipt_does_not_open_the_fallback_for_a_concrete_parent(self):
         self.write_decomposition_receipt("applied")

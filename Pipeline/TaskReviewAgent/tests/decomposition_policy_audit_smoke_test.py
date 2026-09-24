@@ -832,6 +832,81 @@ def _git(root: Path, *args: str) -> str:
     return completed.stdout.decode("utf-8").strip()
 
 
+def _write_graph(root: Path, tasks: list[dict[str, Any]], document: dict[str, Any]) -> None:
+    (root / "Tasks").mkdir(parents=True, exist_ok=True)
+    for task in tasks:
+        (root / "Tasks" / f"{task['id']}.yaml").write_text(
+            json.dumps(task, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+    policy_path = root / VALIDATION_POLICY_RELATIVE
+    policy_path.parent.mkdir(parents=True, exist_ok=True)
+    policy_path.write_text(json.dumps(document, indent=2) + "\n", encoding="utf-8")
+
+
+def _commit_all(root: Path, message: str) -> str:
+    _git(root, "add", "--all")
+    _git(root, "-c", "user.name=No Safe Circle TaskReviewAgent",
+         "-c", "user.email=task-review-agent@nosafecircle.invalid",
+         "commit", "-q", "-m", message)
+    return _git(root, "rev-parse", "HEAD")
+
+
+def test_an_inherited_child_policy_survives_a_clone_to_receiver_merge() -> None:
+    """A decomposition applied in an isolated clone keeps its children's policy.
+
+    The D1C commit is made in a clone while the receiving checkout gains an
+    unrelated policy entry; after an ordinary merge each child must resolve to
+    the same non-None plan on both sides, still bound to the original parent's
+    semantic hash. A relevant template change on the receiver is still refused.
+    """
+
+    applied_tasks, document, historical = applied_case()
+    with tempfile.TemporaryDirectory(prefix="decomposition-policy-transfer-") as text:
+        root = Path(text)
+        receiver = root / "receiver"
+        receiver.mkdir()
+        _git(receiver, "init", "-q")
+        _write_graph(receiver, [parent_contract()], document)
+        _commit_all(receiver, "fixture: concrete parent with its child template")
+        clone = root / "clone"
+        subprocess.run(["git", "clone", "-q", "--no-hardlinks", str(receiver), str(clone)],
+                       check=True, capture_output=True)
+        _write_graph(clone, applied_tasks, document)
+        d1c = _commit_all(clone, "fixture: D1C applied in the isolated clone")
+
+        unrelated = copy.deepcopy(document)
+        unrelated["tasks"]["NSC-977"] = {"note": "an unrelated direct policy row"}
+        _write_graph(receiver, [parent_contract()], unrelated)
+        _commit_all(receiver, "fixture: unrelated policy change on the receiver")
+        _git(receiver, "fetch", "-q", str(clone), d1c)
+        _git(receiver, "-c", "user.name=No Safe Circle TaskReviewAgent",
+             "-c", "user.email=task-review-agent@nosafecircle.invalid",
+             "merge", "--no-ff", "-q", "-m", "fixture: land the clone D1C", d1c)
+        merged = _git(receiver, "rev-parse", "HEAD")
+
+        for child_id in ("NSC-912", "NSC-913"):
+            candidate = validation_plan_for(
+                clone, load_committed_task(clone, child_id, commit=d1c))
+            landed = validation_plan_for(
+                receiver, load_committed_task(receiver, child_id, commit=merged))
+            require(candidate is not None, f"{child_id} resolved no plan on the clone")
+            require(candidate == landed, f"{child_id}: {candidate} != {landed}")
+            provenance = load_committed_task(receiver, child_id, commit=merged)["provenance"]
+            require(provenance["parent_contract_sha256"] == historical, str(provenance))
+
+        drifted = copy.deepcopy(unrelated)
+        drifted["decomposition_child_templates"][PARENT_ID][
+            "parent_task_contract_sha256"] = "e" * 64
+        (receiver / VALIDATION_POLICY_RELATIVE).write_text(
+            json.dumps(drifted, indent=2) + "\n", encoding="utf-8")
+        blocked = rejects(
+            lambda: validation_plan_for(
+                receiver, load_committed_task(receiver, "NSC-912", commit=merged)),
+            DownstreamPipelineError,
+        )
+        require("is stale" in str(blocked), str(blocked))
+
+
 # ------------------------------------- preflight composition (offer boundary)
 
 
@@ -889,6 +964,7 @@ TESTS = (
     test_the_generated_synthetic_gauntlet_policy_passes_the_audit,
     test_a_bound_source_commit_is_audited_at_that_commit,
     test_the_preflight_runs_selection_rules_and_the_policy_audit_together,
+    test_an_inherited_child_policy_survives_a_clone_to_receiver_merge,
 )
 
 

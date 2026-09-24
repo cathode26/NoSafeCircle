@@ -35,7 +35,7 @@ from Pipeline.AssistantControl.dependencies import (
 from Pipeline.AssistantControl.inspect_project import changes, git
 from Pipeline.AssistantControl.process_identity import identify
 from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task, load_committed_tasks
-from Pipeline.TaskReviewAgent.contracts import ExecutionScopePlan, validate_task_id
+from Pipeline.TaskReviewAgent.contracts import TASK_ID_RE, ExecutionScopePlan, validate_task_id
 from Pipeline.TaskReviewAgent.execution_session_pool import (
     _acquire_liveness_lock,
     _release_liveness_lock,
@@ -53,7 +53,6 @@ _DECOMPOSITION_SCHEMA = "assistant-decomposition/v1"
 # Receipt states that describe finished decomposition history. "running" and
 # anything unrecognised are deliberately absent: they still veto.
 _SETTLED_DECOMPOSITION_STATUSES = frozenset({"failed", "review_ready", "applied"})
-_TASK_ID_RE = re.compile(r"NSC-\d+")
 _GRAPH_PATH_PREFIXES = (
     "tasks/", "pipeline/taskgraph/",
     "pipeline/taskreviewagent/authoritative_validation_policy.json",
@@ -750,19 +749,22 @@ class GraphController:
         record = self._decomposition(task_id)
         if record is None:
             return True
+        if not isinstance(record, Mapping):
+            return False
+        status = record.get("status")
         children = task.get("decomposition_children")
         return (
-            isinstance(record, Mapping)
-            and record.get("schema_version") == _DECOMPOSITION_SCHEMA
+            record.get("schema_version") == _DECOMPOSITION_SCHEMA
             and record.get("task_id") == task_id
-            and record.get("status") in _SETTLED_DECOMPOSITION_STATUSES
-            and task.get("contract_disposition", "active") == "active"
+            and isinstance(status, str)
+            and status in _SETTLED_DECOMPOSITION_STATUSES
+            and task.get("contract_disposition") == "active"
             and task.get("kind") == "feature"
             and task.get("execution_scope") == "not_applicable"
             and task.get("decomposition_state") == "decomposed"
             and isinstance(children, list)
             and bool(children)
-            and all(isinstance(child, str) and _TASK_ID_RE.fullmatch(child)
+            and all(isinstance(child, str) and TASK_ID_RE.fullmatch(child)
                     for child in children)
             and len(set(children)) == len(children)
         )
