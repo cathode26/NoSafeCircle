@@ -582,6 +582,16 @@
         "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.TitleScreenSceneBuilderTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-057": {
+      "task_contract_sha256": "58890de3577ec22c80a7c3c613a6c0461acdaadc50f760db5aa49d4ef115af29",
+      "required_test_platforms": [
+        "EditMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.ThirdPartyDependencyAvailabilityTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
     }
   },
   "decomposition_child_templates": {}
