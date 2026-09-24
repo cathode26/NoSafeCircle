@@ -69,6 +69,63 @@ class ValidationManifestSmokeTest(unittest.TestCase):
             with self.assertRaises(ValidationManifestError):
                 load_validation_manifest(path)
 
+    def ignored_run(self, directory, *, result="Skipped:Ignored",
+                    total=262, passed=256, failed=0, skipped=6):
+        """A fixture whose XML and manifest AGREE on an [Explicit]-bearing run.
+
+        Both must be rewritten together: the loader cross-checks the manifest's
+        label and every count against the XML, so a manifest edited on its own
+        would refuse for the wrong reason and prove nothing.
+        """
+        xml = (f'<test-run result="{result}" total="{total}" passed="{passed}" '
+               f'failed="{failed}" skipped="{skipped}" />\n').encode()
+        path, raw = fixture(directory)
+        (directory / "test-results.xml").write_bytes(xml)
+        raw["test_run"] = {"result": result, "total": total, "passed": passed,
+                           "failed": failed, "skipped": skipped}
+        raw["artifacts"]["xml"] = {
+            "relative_path": "test-results.xml",
+            "sha256": hashlib.sha256(xml).hexdigest(), "size_bytes": len(xml)}
+        path.write_text(json.dumps(raw), encoding="utf-8")
+        return path
+
+    def test_explicit_ignored_run_is_accepted(self):
+        """The shape EVERY room delivery actually has.
+
+        NUnit labels the whole run "Skipped:Ignored" when any single test opts
+        out, and every room task owns an [Explicit] CaptureGameplayCameraReview.
+        The runner does NOT normalize this: run_unity_tests_clean.ps1:499 reads
+        the raw attribute and :603 writes it into the manifest verbatim.
+        """
+        with tempfile.TemporaryDirectory() as name:
+            path = self.ignored_run(Path(name))
+            manifest = load_validation_manifest(path)
+            self.assertEqual(manifest.test_run.result, "Skipped:Ignored")
+            self.assertEqual(manifest.test_run.passed, 256)
+            self.assertEqual(manifest.test_run.failed, 0)
+
+    def test_all_ignored_run_is_still_refused(self):
+        """Widening the label must not admit a run where NOTHING executed.
+
+        failed=0, total>0 and "Skipped:Ignored" is exactly what an all-ignored
+        suite reports, which is why passed>0 is checked alongside the label.
+        """
+        with tempfile.TemporaryDirectory() as name:
+            path = self.ignored_run(Path(name), total=15, passed=0,
+                                    failed=0, skipped=15)
+            with self.assertRaises(ValidationManifestError) as caught:
+                load_validation_manifest(path)
+            self.assertIn("passed must be greater", str(caught.exception))
+
+    def test_unrecognised_run_label_is_still_refused(self):
+        """The gate is an ALLOW-LIST, not "failed == 0 is enough"."""
+        with tempfile.TemporaryDirectory() as name:
+            path = self.ignored_run(Path(name), result="Inconclusive",
+                                    total=3, passed=3, failed=0, skipped=0)
+            with self.assertRaises(ValidationManifestError) as caught:
+                load_validation_manifest(path)
+            self.assertIn("must be one of", str(caught.exception))
+
     def test_happy_path_is_immutable_and_stable(self):
         with tempfile.TemporaryDirectory() as name:
             path, _ = fixture(Path(name))

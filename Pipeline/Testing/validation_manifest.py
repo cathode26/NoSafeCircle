@@ -17,6 +17,12 @@ except ImportError:  # direct script/module-path execution
     from unity_log_hygiene import trailing_whitespace_line_count
 
 
+# NUnit labels the WHOLE RUN "Skipped:Ignored" when any single test opts out.
+# Both labels mean "nothing failed"; the counts carry the verdict. An ALLOW-LIST
+# rather than "any label with failed == 0", so an unrecognised result refuses.
+_ACCEPTABLE_RUN_RESULTS = frozenset({"Passed", "Skipped:Ignored"})
+
+
 class ValidationManifestError(RuntimeError):
     """Raised when a validation manifest or one of its artifacts is invalid."""
 
@@ -434,8 +440,6 @@ def load_validation_manifest(path: Path) -> UnityValidationManifest:
         raise ValidationManifestError("Test platform does not match the manifest evidence type.")
 
     run = _object(root["test_run"], "test_run", {"result", "total", "passed", "failed", "skipped"})
-    if run["result"] != "Passed":
-        raise ValidationManifestError("test_run.result must be exactly Passed.")
     counts = {name: _integer(run[name], f"test_run.{name}") for name in ("total", "passed", "failed", "skipped")}
     if counts["total"] <= 0:
         raise ValidationManifestError(
@@ -444,6 +448,35 @@ def load_validation_manifest(path: Path) -> UnityValidationManifest:
     if counts["failed"] != 0:
         raise ValidationManifestError(
             "test_run does not prove a non-empty passing run: failed must be zero."
+        )
+    # AN EXPLICITLY IGNORED TEST IS NOT A FAILING TEST -- the third copy of the
+    # gate `c4fe986d3` fixed in Pipeline/Testing/run_unity_tests_clean.ps1.
+    #
+    # THE RUNNER DOES NOT NORMALIZE THIS LABEL, which is what makes this gate live
+    # rather than theoretical: run_unity_tests_clean.ps1:499 reads the raw `result`
+    # attribute, `$result` is assigned exactly ONCE, and :603 writes it into the
+    # manifest verbatim. A room suite therefore arrives here as "Skipped:Ignored"
+    # with failed=0, and every room task owns an [Explicit]
+    # CaptureGameplayCameraReview.
+    #
+    # The counts already answered the question this label was being asked, and they
+    # are now checked FIRST so a real failure reports the count rather than the
+    # label. The allow-list is kept rather than deleted, so an unrecognised
+    # run-result still refuses; `passed > 0` is added because an ALL-ignored suite
+    # reports failed=0 with total>0 and would otherwise satisfy everything above.
+    #
+    # The xml/manifest cross-check further down is UNTOUCHED: the manifest's label
+    # must still equal the XML's, so this cannot launder a bad run by hand-editing
+    # the manifest.
+    if run["result"] not in _ACCEPTABLE_RUN_RESULTS:
+        raise ValidationManifestError(
+            f"test_run.result must be one of {', '.join(sorted(_ACCEPTABLE_RUN_RESULTS))}; "
+            f"got {run['result']!r}."
+        )
+    if counts["passed"] <= 0:
+        raise ValidationManifestError(
+            "test_run does not prove a non-empty passing run: passed must be greater "
+            "than zero; an all-ignored run is not a pass."
         )
     if counts["total"] < counts["passed"] + counts["failed"] + counts["skipped"]:
         raise ValidationManifestError("test_run.total is smaller than its component counts.")
