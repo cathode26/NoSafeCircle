@@ -1,29 +1,4 @@
 {
-  "schema_version": "2.0",
-  "id": "NSC-067",
-  "contract_revision": 2,
-  "contract_disposition": "active",
-  "title": "Four-Wizard Selection Screen",
-  "reconciliation_key": "four-wizard-selection-screen",
-  "kind": "implementation",
-  "type": "character-selection-ui",
-  "execution_scope": "single_agent",
-  "execution_reason": "Displaying four approved wizard options and recording one confirmed selection form one bounded UI task. Applying that selection to the world Player and enabling gameplay are separated into NSC-068.",
-  "decomposition_state": "concrete",
-  "decomposition_reason": "The four options, source-art owner, preceding title transition, selection behavior, and confirmed-selection handoff are fully specified.",
-  "parent": "NSC-002",
-  "depends_on": [
-    "NSC-062",
-    "NSC-066"
-  ],
-  "exclusive_resources": [
-    "logical:game-entry-menu-flow",
-    "logical:wizard-presentation-selection",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/WizardSelectionController.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/WizardSelectionPlayModeTests.cs",
-    "unity-scene:Assets/Scenes/DoorPrototype.unity"
-  ],
   "acceptance_criteria": [
     {
       "criterion_id": "AC-001",
@@ -56,6 +31,7 @@
       "requirement": "DoorPrototypeSceneBuilder.Build installs the wizard-selection panel, four option bindings, confirmation action, and controller idempotently without replacing approved source art, duplicating menu objects, or resetting the selected presentation during an active play session."
     }
   ],
+  "basis": "human_approved_gameplay_presentation",
   "completion_gates": [
     {
       "gate_id": "VAL-001",
@@ -83,6 +59,15 @@
       "requirement": "Vincent opens Assets/Scenes/DoorPrototype.unity in Play Mode, checks the title-to-selection flow, selects all four wizard options in separate runs, and approves readability, option identity, respectful presentation, and selected-state feedback. World placement and gameplay entry are reviewed under NSC-068."
     }
   ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 3,
+  "decomposition_reason": "The four options, source-art owner, preceding title transition, selection behavior, and confirmed-selection handoff are fully specified.",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-062",
+    "NSC-106"
+  ],
   "downstream_integration_obligations": [
     {
       "obligation_id": "INT-001",
@@ -90,6 +75,16 @@
       "requirement": "NSC-068 consumes the exact confirmed selection, applies the matching NSC-062 presentation to the existing Player, places that Player at the world spawn, and only then enables gameplay."
     }
   ],
+  "exclusive_resources": [
+    "logical:game-entry-menu-flow",
+    "logical:wizard-presentation-selection",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/WizardSelectionController.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/WizardSelectionPlayModeTests.cs",
+    "unity-scene:Assets/Scenes/DoorPrototype.unity"
+  ],
+  "execution_reason": "Displaying four approved wizard options and recording one confirmed selection form one bounded UI task. Applying that selection to the world Player and enabling gameplay are separated into NSC-068.",
+  "execution_scope": "single_agent",
   "gdd_evidence": [
     {
       "reference": "Human-approved wizard-selection flow, 2026-09-12",
@@ -100,20 +95,25 @@
       "requirement": "The chosen wizard remains the existing player character and uses the approved world-space sprite sorting and gameplay ownership boundaries."
     }
   ],
-  "basis": "human_approved_gameplay_presentation",
-  "source_scope": "required",
-  "confidence": "high",
+  "id": "NSC-067",
+  "kind": "implementation",
   "notes": "This task consumes the four integrated wizard presentations from NSC-062 and the title transition from NSC-066. It ends after recording a confirmed choice for NSC-068. Player placement, gameplay activation, profile persistence, save data, unlocks, stats, and different gameplay abilities are outside scope.",
-  "repository_state_at_bootstrap": "missing",
-  "repository_evidence_at_bootstrap": [],
+  "parent": "NSC-002",
   "provenance": {
+    "approved_at_utc_date": "2026-09-12",
+    "created_by_human_request": true,
     "origin": "human_approved_gameplay_presentation_followup",
+    "revision_reason": "Human requested a separate task to apply the selected wizard and place the Player in the world.",
+    "title_screen_task_id": "NSC-066",
     "wizard_art_source_task_id": "NSC-061",
     "wizard_integration_task_id": "NSC-062",
-    "title_screen_task_id": "NSC-066",
-    "world_entry_task_id": "NSC-068",
-    "created_by_human_request": true,
-    "approved_at_utc_date": "2026-09-12",
-    "revision_reason": "Human requested a separate task to apply the selected wizard and place the Player in the world."
-  }
+    "world_entry_task_id": "NSC-068"
+  },
+  "reconciliation_key": "four-wizard-selection-screen",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "missing",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "Four-Wizard Selection Screen",
+  "type": "character-selection-ui"
 }

@@ -84,7 +84,7 @@ class ViewerTests(unittest.TestCase):
     def test_children_stay_visible_and_bad_record_is_not_accepted(self):
         root = self.viewer_root()
         child = self.root / "Tasks/NSC-043.yaml"
-        child.write_text(json.dumps({"id": "NSC-043", "title": "Child", "parent": "NSC-042",
+        child.write_text(json.dumps({"schema_version": "2.0", "id": "NSC-043", "title": "Child", "parent": "NSC-042",
                                      "contract_disposition": "active", "exclusive_resources": []}))
         self.run_git("add", "Tasks/NSC-043.yaml")
         self.run_git("commit", "-m", "Child fixture")
@@ -110,7 +110,7 @@ class ViewerTests(unittest.TestCase):
     def test_untouched_executable_task_is_unstarted_not_awaiting_instruction(self):
         reader = AssistantSnapshot(self.root, self.viewer_root())
         row = reader.task_row({
-            "id": "NSC-777", "title": "Runnable fixture", "parent": None,
+            "schema_version": "2.0", "id": "NSC-777", "title": "Runnable fixture", "parent": None,
             "depends_on": [], "contract_disposition": "active",
             "execution_scope": "single_agent", "decomposition_state": "concrete",
             "decomposition_children": [], "exclusive_resources": [],
@@ -1099,7 +1099,7 @@ class DuplicateViewerPortTests(unittest.TestCase):
             encoding="utf-8",
         )
         row = reader.task_row({
-            "id": "NSC-025", "title": "Navigation", "parent": None,
+            "schema_version": "2.0", "id": "NSC-025", "title": "Navigation", "parent": None,
             "depends_on": [], "contract_disposition": "active",
             "decomposition_state": "decomposed",
             "decomposition_children": ["NSC-089", "NSC-090"],
@@ -1367,7 +1367,7 @@ class GraphControllerTimingEndToEndTests(unittest.TestCase):
         # so it is never in_scope; commit an executable revision so this test
         # actually exercises the in-scope projection path.
         self.contract.write_text(json.dumps({
-            "id": "NSC-042", "title": "Committed wall task", "depends_on": [],
+            "schema_version": "2.0", "id": "NSC-042", "title": "Committed wall task", "depends_on": [],
             "contract_disposition": "active", "execution_scope": "single_agent",
             "exclusive_resources": ["repo-file:wall file.txt"],
         }), encoding="utf-8")

@@ -1,0 +1,74 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "NSC-066 AC-002; Human-approved game-entry flow, 2026-09-12",
+      "requirement": "Before Start Game is activated, player movement, spell, and door-interaction input cannot affect gameplay. TitleScreenController does this only through owner-controlled boundaries: at Awake it calls PlayerMovement.SuspendGameplayInput() and PlayerInteractionController.SuspendGameplayInput() and disables its serialized gameplayInputBehaviours, and it never writes another system's internal state. The gameplay-input owners in scope are those that exist at this child's own commit, and spell components are explicitly not among them: do not add a Fireball, FrostField, ForceWave, or SpectralDecoy reference here and do not wait for one to land. Each of those spells separately claims TitleScreenController.cs and adds its own optional reference to this flow, so the dependency runs the other way. Where a spell component does not exist at the commit under test there is no spell input to suspend, and that is a pass."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "NSC-066 AC-003; owner revision 2026-09-15",
+      "requirement": "Activating Start Game exactly once hides the title panel, makes the Start Game Button non-interactable, and raises WizardSelectionRequested exactly once, even when the Button's onClick fires repeatedly or StartGame() is also called directly. IsTitleScreenVisible reports whether the serialized title panel GameObject is active. The controller does not bypass wizard selection, start multiple transitions, reload the scene, or create duplicate menu objects."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "NSC-066 AC-004; owner revision 2026-09-15 (T6)",
+      "requirement": "Start Game is activated through the Start Game Button's onClick using the project's existing Input System UI pointer path (InputSystemUIInputModule on the EventSystem); the controller polls no hardware itself. This child adds no account, save-slot, settings, credits, networking, or runtime AI feature to the controller."
+    }
+  ],
+  "basis": "human_approved_gameplay_presentation",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "NSC-066 VAL-001",
+      "requirement": "TitleScreenPlayModeTests proves the title screen is the initial visible game-entry state, that PlayerMovement.IsGameplayEnabled and PlayerInteractionController.IsGameplayEnabled are both false and a PlayerMovement.RequestDestination call is ignored before Start Game, and that repeated Start Game activation raises exactly one WizardSelectionRequested event and leaves the panel hidden. No spell component need exist for this gate to pass: assert suspension for the gameplay-input owners present at the commit under test - movement (NSC-003) and door interaction (NSC-019) - rather than asserting that some unspecified set was suspended, which would prove nothing. Do not require Fireball, FrostField or ForceWave to be present and do not fail when they are absent; each spell proves its own pre-Start-Game inertness in its own fixture. The committed-scene companion fixture in this same file inspects Assets/Scenes/DoorPrototype.unity; it may keep using the TitleScreen/TitleCard/StartGameButton path, which the sibling layout child is required to preserve, or find the title text and Button by text and object name - either way it must pass both against the committed revision-1 layout and against the rebuilt left-stacked layout."
+    }
+  ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "Covers the parent's suspension criterion, the controller half of the single Start Game transition, the pointer and no-extra-features criterion, VAL-001, and the NSC-067 handoff. It touches no animation asset, so NSC-067 can depend on it without routing back through NSC-075 and NSC-068.",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-003",
+    "NSC-019"
+  ],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "NSC-066 INT-001; NSC-067 Four-Wizard Selection Screen",
+      "requirement": "NSC-067 subscribes to TitleScreenController.WizardSelectionRequested and supplies the wizard-selection step without changing the title screen's initial-state or single-transition guarantees."
+    }
+  ],
+  "exclusive_resources": [
+    "logical:game-entry-menu-flow",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/TitleScreenController.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/TitleScreenPlayModeTests.cs"
+  ],
+  "execution_reason": "One MonoBehaviour and its Play Mode fixture. PlayerMovement.SuspendGameplayInput and PlayerInteractionController.SuspendGameplayInput already exist on main, so this is a bounded pass over one component and its tests with no builder or scene edit.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "Human-approved game-entry flow, 2026-09-12",
+      "requirement": "The game opens on a title screen with Start Game before presenting wizard selection and gameplay."
+    }
+  ],
+  "id": "NSC-106",
+  "kind": "implementation",
+  "notes": "TitleScreenController.cs on main already exposes IsTitleScreenVisible, StartGame, WizardSelectionRequested and the Awake-time suspension path, so much of this child is validating and tightening the existing component and its fixture rather than writing new behavior. It edits no builder and no scene: the transparent panel, the three left-stacked sayings and the chunky left Start Game Button are delivered by the sibling child that owns DoorPrototypeGlobalSceneBuilder.cs and Assets/Scenes/DoorPrototype.unity.",
+  "parent": "NSC-066",
+  "provenance": {
+    "graph_delta_plan_id": "GDP-8f6eced76b3eebeab49a42e7741aba7f4e4531cf9bc1aa58b2167302882c86af",
+    "origin": "progressive_decomposition",
+    "parent_contract_revision": 7,
+    "parent_contract_sha256": "f6c2bdb4110b2c8719d09298ccdfbdbf3ef957eb3af032a985e94cce3511a673",
+    "parent_task_id": "NSC-066"
+  },
+  "reconciliation_key": "title-screen-start-game-transition",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "TitleScreenController: Title Visibility, Movement and Door-Interaction Suspension, and One-Shot Start Game Transition",
+  "type": "game-flow-ui"
+}

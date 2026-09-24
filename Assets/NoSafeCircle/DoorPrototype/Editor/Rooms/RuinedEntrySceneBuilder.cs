@@ -317,7 +317,9 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
         /// drawn at all, this colour and CreateMaterial go with them.
         /// </para>
         /// </remarks>
-        private static readonly Color32 RubblePlaceholderColor = new Color32(96, 88, 80, 230);
+        // The approved blockout tone now lives in one place; see RoomPlaceholderVisuals.
+        private static readonly Color32 RubblePlaceholderColor =
+            RoomPlaceholderVisuals.BlockoutPlaceholder;
         private static Color32[] CreateLowWallPixels()
         {
             const int width = 64;
@@ -444,24 +446,11 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
         /// art, which is the whole point of the alpha, so fade mode is configured explicitly
         /// instead of assumed.
         /// </remarks>
+        // Delegates rather than repeating the fade setup: a second copy of this is exactly
+        // how the Final Room ended up with a CreateMaterial that drops alpha silently.
         private static Material CreateMaterial(Color32 color)
         {
-            Material material = new Material(Shader.Find("Standard"));
-            material.color = color;
-
-            if (color.a < 255)
-            {
-                material.SetFloat("_Mode", 2f); // Fade
-                material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-                material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-                material.SetInt("_ZWrite", 0);
-                material.DisableKeyword("_ALPHATEST_ON");
-                material.EnableKeyword("_ALPHABLEND_ON");
-                material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
-                material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
-            }
-
-            return material;
+            return RoomPlaceholderVisuals.CreateStandardMaterial(color);
         }
 
         private static void CreateGameplayBox(Transform parent, string name, Vector3 position, Vector3 size)

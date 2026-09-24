@@ -1,0 +1,94 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "NSC-066 AC-001 (opacity and left-stack clauses); owner revision 2026-09-15",
+      "requirement": "The title reads over the live gameplay scene instead of an opaque overlay: BuildTitleScreen sets the TitleScreen Image's color alpha to 0 - the current Color32(16, 10, 23, 255) full-screen fill on that Image is removed - while raycastTarget stays true so title clicks never reach gameplay. No UI element behind the title text and Start Game Button, including the TitleCard background Image and its Outline, renders as a solid opaque fill. An optional left-side gradient or vignette Image is allowed only if its alpha does not exceed 0.6 at the screen's left edge and reaches 0 before viewport x = 0.5. The three sayings \"WELCOME, TINY WIZARD\", \"NO SAFE CIRCLE\", and \"Cute wizards. Terrible odds.\" are present with exactly this text, stacked on the left (each text RectTransform's anchorMax.x <= 0.5), with a chunky Start Game Button stacked below them on the left (its RectTransform anchorMax.x <= 0.5), keeping its existing colors and hover/pressed ColorBlock states and staying readable at the Canvas's 1920x1080 CanvasScaler reference resolution."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "NSC-066 AC-001 (hierarchy clause added 2026-09-24)",
+      "requirement": "The title hierarchy survives the restack because fixtures outside this task resolve the Button through it. BuildTitleScreen keeps a GameObject named TitleScreen with a child named TitleCard and a grandchild named StartGameButton, so Find(\"TitleScreen/TitleCard/StartGameButton\") continues to resolve. TitleCard is stripped, not deleted: it stays a GameObject, carries no opaque Image and no Outline, and its own RectTransform is left-anchored with anchorMax.x <= 0.5 so the sayings' and Button's anchorMax.x <= 0.5 caps are measured against the correct container rather than a full-width one. Renaming any of the three objects or reparenting the Button breaks five call sites in four fixtures this child does not own and must not modify: Tests/WizardSelectionPlayModeTests.cs lines 44 and 91, Tests/WizardGameEntryPlayModeTests.cs line 310, Tests/WizardAnimationPlayModeTests.cs line 548, and Tests/Editor/WizardGameEntrySceneBuilderTests.cs line 85."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "NSC-066 AC-005; owner revision 2026-09-15 (T1)",
+      "requirement": "DoorPrototypeGlobalSceneBuilder.BuildTitleScreen, invoked through DoorPrototypeSceneBuilder.Build, installs the title screen, its TitleScreenController, and exactly one TitleScreenChaseBackdrop idempotently in Assets/Scenes/DoorPrototype.unity. Running Build repeatedly does not duplicate the Canvas, EventSystem, title panel, Start Game Button, its onClick listener, the controller, or the backdrop component."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "NSC-066 AC-006 (builder half); owner revision 2026-09-17 (U2, U5)",
+      "requirement": "BuildTitleScreen computes a floor segment deterministically as the longest straight segment, in the starting camera's screen-horizontal world direction normalize(1,0,1) - screen right is X+Z for the camera's fixed (30,-45,0) Euler rotation set in BuildCamera - that passes through the starting camera's view-center ground point and stays inside the Ruined Entry floor bounds X[-14,14] Z[-26,0] inset 1.5 units from every bound. It stores the two floor-segment endpoints on TitleScreenChaseBackdrop. Because that segment runs along the camera's screen-horizontal direction through the view center, its viewport y is 0.5 along its whole length; the backdrop component clips it at runtime."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "NSC-066 AC-008 (builder half); owner revision 2026-09-17 (U3)",
+      "requirement": "BuildTitleScreen assigns every TitleScreenChaseBackdrop runtime input as a serialized reference or value at build time: the four wizard identities' animator controllers or override data and their display order, the MeleeEnemyAnimator and LanternWraithAnimator controllers, the floor-segment endpoints, and the interval bounds and speeds. This is required because WizardSelectionDefinitions is private and Editor-only and the animator controllers are not runtime-loadable resources."
+    }
+  ],
+  "basis": "human_approved_gameplay_presentation",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "NSC-066 VAL-002; owner revision 2026-09-15 (T1, T4)",
+      "requirement": "TitleScreenSceneBuilderTests runs DoorPrototypeSceneBuilder.BuildInMemoryForTests, which delegates to DoorPrototypeGlobalSceneBuilder.BuildTitleScreen, and proves: the in-memory build has one TitleScreen Image with color alpha 0 and raycastTarget true, the Color32(16, 10, 23, 255) opaque fill on that Image is gone, the three sayings are present with exact text, a left-anchored Start Game Button exists, and exactly one TitleScreenChaseBackdrop component exists on the built hierarchy. A second Build call creates no duplicate Canvas, EventSystem, title panel, Button, listener path, controller, or backdrop component."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "NSC-066 VAL-003; owner revision 2026-09-15 (T4)",
+      "requirement": "Vincent opens Assets/Scenes/DoorPrototype.unity in Play Mode and confirms: the title reads over the live chase with no solid panel; all three sayings are present; the chunky Start Game Button is on the left; pairings cycle through all 4 mages and both enemies; and starting the game clears the chase and moves to wizard selection."
+    },
+    {
+      "gate_id": "VAL-003",
+      "reference": "NSC-066 VAL-005; NSC-077 VAL-007 precedent",
+      "requirement": "Assets/Scenes/DoorPrototype.unity is excluded from byte-for-byte comparison across repeated builds, because Unity regenerates its local fileIDs on every DoorPrototypeGlobalSceneBuilder.Build. Content equivalence is proven by TitleScreenSceneBuilderTests and by the sibling backdrop child's Play Mode fixture, not by comparing the saved scene file's bytes."
+    }
+  ],
+  "confidence": "medium",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "Covers the parent's layout criterion including the revision-7 hierarchy pin, the builder idempotence criterion, the builder half of the chase-lane criterion, the builder half of the serialized-data criterion, VAL-002, the human Play Mode review, and the scene-bytes exclusion. It depends on both siblings because it references the TitleScreenChaseBackdrop type and wires the Start Game Button to TitleScreenController.StartGame.",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-075",
+    "NSC-077",
+    "NSC-106",
+    "NSC-107"
+  ],
+  "downstream_integration_obligations": [],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/TitleScreenSceneBuilderTests.cs",
+    "unity-scene:Assets/Scenes/DoorPrototype.unity"
+  ],
+  "execution_reason": "One pass over BuildTitleScreen: drop the opaque fill, restack the three sayings and the chunky Start Game Button on the left while keeping the TitleScreen/TitleCard/StartGameButton hierarchy, add and configure one TitleScreenChaseBackdrop with its lane endpoints and animator references, update TitleScreenSceneBuilderTests, and materialize Assets/Scenes/DoorPrototype.unity.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "Owner decision, 2026-09-15 (graph-lead journal; Vincent's SpaceInvaders lobby direction), per NSC-066_REV2_DECISIONS.md T1-T6",
+      "requirement": "The lobby is the live game scene with UI over it: characters standing in the real world under real lighting, and chunky buttons stacked left."
+    },
+    {
+      "reference": "Human-approved game-entry flow, 2026-09-12",
+      "requirement": "The game opens on a title screen with Start Game before presenting wizard selection and gameplay."
+    }
+  ],
+  "id": "NSC-108",
+  "kind": "implementation",
+  "notes": "Precision that matters when editing this file: DoorPrototypeGlobalSceneBuilder.cs holds Color32(16, 10, 23, 255) twice at this head - line 792 on the TitleScreen Image, which AC-001 targets, and line 944 on the wizard-selection panel, which belongs to NSC-067 and must be left alone. BuildTitleScreen already creates all three saying texts (Eyebrow, Title, Tagline) plus a Footer line inside the centered opaque TitleCard with its Outline, so the work is removing the opaque fills and restacking left, not authoring new text. This is the only child that edits the shared builder, the builder test file or the committed scene, so it serializes against NSC-049, NSC-088, NSC-096, NSC-098 and the other holders of that builder and scene. It needs NSC-075's wizard animation data and NSC-077's animator controllers because it assigns them to the backdrop.",
+  "parent": "NSC-066",
+  "provenance": {
+    "graph_delta_plan_id": "GDP-8f6eced76b3eebeab49a42e7741aba7f4e4531cf9bc1aa58b2167302882c86af",
+    "origin": "progressive_decomposition",
+    "parent_contract_revision": 7,
+    "parent_contract_sha256": "f6c2bdb4110b2c8719d09298ccdfbdbf3ef957eb3af032a985e94cce3511a673",
+    "parent_task_id": "NSC-066"
+  },
+  "reconciliation_key": "title-screen-transparent-layout-build",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "Transparent Title Panel, Three Left-Stacked Sayings, and Chase Backdrop Wiring in DoorPrototypeGlobalSceneBuilder.BuildTitleScreen",
+  "type": "game-flow-ui"
+}

@@ -318,6 +318,34 @@ def _artifact_paths(record: dict[str, Any]) -> tuple[Path, Path, Path]:
     )
 
 
+def _blocking_findings(entry: Any) -> list[Any]:
+    """The BLOCKING findings in one review-history entry.
+
+    This gate used to require `findings == []` -- literally empty, no severity
+    filter -- so a reviewer that PASSED the split and appended one ADVISORY note
+    failed the entire paid run. `decomp-nsc066-20260924b` died on exactly that.
+
+    `FINDING_SEVERITIES` is {"blocking", "advisory"} and `review_policy` blocks
+    only on "blocking"; a pass carrying advisory findings is legitimate and
+    `README.md` says so: "One independent PASS ... with no unresolved BLOCKING
+    findings, is sufficient for review_ready."
+
+    Kept rather than deleted, at the right granularity: an entry claiming `pass`
+    while carrying a blocking finding is still refused. Anything unreadable
+    counts as blocking, because this gate withholds rather than grants.
+    """
+    findings = entry.get("findings")
+    if findings is None:
+        return []
+    if not isinstance(findings, list):
+        return [findings]
+    blocking = []
+    for finding in findings:
+        if not isinstance(finding, Mapping) or finding.get("severity") == "blocking":
+            blocking.append(finding)
+    return blocking
+
+
 def _verify_review(manager: Checkouts, record: dict[str, Any]) -> dict[str, Any]:
     head, tree, branch = _require_clean_source(manager)
     if branch != record.get("source_branch"):
@@ -490,7 +518,7 @@ def _verify_review(manager: Checkouts, record: dict[str, Any]) -> dict[str, Any]
     if (not isinstance(history, list) or not history
             or history[-1].get("verdict") != "pass"
             or history[-1].get("reviewed_candidate_sha256") != digest
-            or history[-1].get("findings") != []):
+            or _blocking_findings(history[-1])):
         raise ValueError("Decomposition review history does not end with a clean pass")
 
     fresh = plan_graph_apply(

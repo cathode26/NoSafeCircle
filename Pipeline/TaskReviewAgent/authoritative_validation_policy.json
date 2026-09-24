@@ -72,7 +72,7 @@
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-049": {
-      "task_contract_sha256": "ddb3819b9bff5961d770e3907a586cd9e33f60c1b375ec6d35d53e829a111572",
+      "task_contract_sha256": "ffaba25c050b36ba5658b5a36952a02b1f69ec771ea224692053a86af1232df0",
       "required_test_platforms": [
         "EditMode",
         "PlayMode"
@@ -208,7 +208,7 @@
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-029": {
-      "task_contract_sha256": "74bfe7473d4050579d8a656192ab169e3b1a55e1890415d304d643fac04171db",
+      "task_contract_sha256": "553769fff2a067936b8508584dddcef87c76f1aac39fa25750c037d32db1a3a8",
       "required_test_platforms": [
         "EditMode"
       ],
@@ -454,7 +454,7 @@
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-097": {
-      "task_contract_sha256": "1a494a9fe2897dbd93b8be0b9e83ca0664172891ca5c5dd85e728d339fd6feb4",
+      "task_contract_sha256": "d1091475f6f37112c95341857ebc0ce065728eb52220ed4f332e9924ab75e21e",
       "required_test_platforms": [
         "EditMode",
         "PlayMode"
@@ -550,6 +550,46 @@
       "test_filters": {
         "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.ForceWaveSceneBuilderTests",
         "PlayMode": "NoSafeCircle.DoorPrototype.Tests.ForceWaveDisplacementPlayModeTests;NoSafeCircle.DoorPrototype.Tests.ForceWaveCastGatePlayModeTests;NoSafeCircle.DoorPrototype.Tests.ForceWaveLifecyclePlayModeTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-106": {
+      "task_contract_sha256": "b9c58193878e83333348ce01ef975ac202cfb649f9ddbf49a3a2c3fcb8845226",
+      "required_test_platforms": [
+        "PlayMode"
+      ],
+      "test_filters": {
+        "PlayMode": "NoSafeCircle.DoorPrototype.Tests.TitleScreenPlayModeTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-107": {
+      "task_contract_sha256": "d13340df21b0aca1499d4442c82fe72772c8ede7fe74acdb04f678e5db141641",
+      "required_test_platforms": [
+        "PlayMode"
+      ],
+      "test_filters": {
+        "PlayMode": "NoSafeCircle.DoorPrototype.Tests.TitleScreenChaseBackdropPlayModeTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-108": {
+      "task_contract_sha256": "497079563d0512c750f003a08ba28d09bd4e4634791e70c563517c050cd9e389",
+      "required_test_platforms": [
+        "EditMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.TitleScreenSceneBuilderTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-057": {
+      "task_contract_sha256": "58890de3577ec22c80a7c3c613a6c0461acdaadc50f760db5aa49d4ef115af29",
+      "required_test_platforms": [
+        "EditMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.ThirdPartyDependencyAvailabilityTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
     }

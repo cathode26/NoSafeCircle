@@ -495,7 +495,14 @@ namespace NoSafeCircle.DoorPrototype.Editor
                         64,
                         32,
                         new Color32(80, 76, 70, 255),
-                        new Color32(49, 46, 43, 255))),
+                        new Color32(49, 46, 43, 255),
+                        // Opaque, and deliberately the FILL tone rather than the darker border:
+                        // the corners are the smaller change from what shipped, where they read as
+                        // the lighter (104,97,92) ground. The scored border ring still draws the
+                        // diamond, so the isometric read survives without the holes. If the Art
+                        // Director wants heavy mortar instead, this one argument becomes the
+                        // border tone - the shape and the cell counts do not move either way.
+                        new Color32(80, 76, 70, 255))),
                 LoadOrCreateArchitecturalTile(
                     assetFolder,
                     "WallTile.asset",
@@ -516,7 +523,11 @@ namespace NoSafeCircle.DoorPrototype.Editor
                         64,
                         32,
                         new Color32(121, 105, 72, 255),
-                        new Color32(65, 56, 40, 255))));
+                        new Color32(65, 56, 40, 255),
+                        // Unchanged: this tile is painted NOWHERE (its only references in Assets
+                        // are the two lines that create it), so transparent corners keep its
+                        // committed asset byte-identical instead of adding churn nobody reads.
+                        new Color32(0, 0, 0, 0))));
         }
         private static Tile LoadOrCreateArchitecturalTile(
             string assetFolder,
@@ -795,10 +806,18 @@ namespace NoSafeCircle.DoorPrototype.Editor
             return texture;
         }
 
-        private static Color32[] CreateDiamondPixels(int width, int height, Color32 fill, Color32 border)
+        // NSC-044 floor-hole defect: the four corners outside the inscribed diamond used to be
+        // hardcoded transparent. A diamond inscribed in a rectangle covers exactly HALF its area,
+        // so on the Rectangle-cellLayout Grid every room paints with, half of every floor cell was
+        // a hole and the ground plane showed through as a lattice. Measured on an ortho-8 panel of
+        // the committed composed scene: 51% opaque against 50% predicted, with the remaining 45%
+        // reading (104,97,92) - the ground OUTSIDE the room, which is in no tile the builder makes.
+        // The corner colour is now the caller's, so a floor tile can be solid while a decorative
+        // overlay tile keeps its transparent corners.
+        private static Color32[] CreateDiamondPixels(
+            int width, int height, Color32 fill, Color32 border, Color32 corner)
         {
             var pixels = new Color32[width * height];
-            var transparent = new Color32(0, 0, 0, 0);
             for (var y = 0; y < height; y++)
             {
                 for (var x = 0; x < width; x++)
@@ -807,7 +826,7 @@ namespace NoSafeCircle.DoorPrototype.Editor
                     var normalizedY = Mathf.Abs((y + 0.5f - height * 0.5f) / (height * 0.5f));
                     var diamondDistance = normalizedX + normalizedY;
                     pixels[y * width + x] = diamondDistance > 1f
-                        ? transparent
+                        ? corner
                         : diamondDistance > 0.89f ? border : fill;
                 }
             }

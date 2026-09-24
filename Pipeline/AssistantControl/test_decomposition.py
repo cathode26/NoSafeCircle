@@ -10,7 +10,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from Pipeline.AssistantControl.checkouts import Checkouts, write_record
-from Pipeline.AssistantControl.decomposition import _verify_review, apply
+from Pipeline.AssistantControl.decomposition import _blocking_findings, _verify_review, apply
 from Pipeline.TaskDecomposition.round_robin_decomposition import candidate_sha256
 from Pipeline.TaskDecomposition.tests.test_support import create_repository, decomposed_result
 from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task
@@ -39,6 +39,35 @@ def _git(root: Path, *args: str) -> str:
 
 class ProposalContainerNameTests(unittest.TestCase):
     """A named proposal container lets an owner stop exactly one proposal; nothing else changes."""
+
+    def test_only_blocking_findings_close_the_clean_pass_gate(self):
+        """The gate required findings == [] with NO severity filter.
+
+        FINDING_SEVERITIES is {"blocking", "advisory"} and review_policy.py:82
+        blocks only on "blocking", so a pass carrying advisory findings is
+        legitimate -- README.md:81 says "no unresolved BLOCKING findings".
+        An ABSENT key also failed before, because .get returns None and
+        None != []. Anything unreadable counts as blocking: this gate WITHHOLDS.
+        """
+        advisory = {"finding_id": "A", "severity": "advisory", "category": "style",
+                    "affected_contracts": [], "problem": "p", "required_resolution": "r"}
+        blocking = {**advisory, "finding_id": "B", "severity": "blocking"}
+        cases = {
+            "absent key": ({}, False),
+            "empty list": ({"findings": []}, False),
+            "one advisory": ({"findings": [advisory]}, False),
+            "many advisory": ({"findings": [advisory, advisory]}, False),
+            "one blocking": ({"findings": [blocking]}, True),
+            "advisory and blocking": ({"findings": [advisory, blocking]}, True),
+            "not a list": ({"findings": "nope"}, True),
+            "entry not an object": ({"findings": ["nope"]}, True),
+        }
+        for label, (entry, expect_blocked) in cases.items():
+            with self.subTest(case=label):
+                self.assertEqual(
+                    expect_blocked,
+                    bool(_blocking_findings(entry)),
+                    f"{label} should {'close' if expect_blocked else 'pass'} the gate")
 
     def test_run_names_the_compose_container_after_the_run_subcommand(self):
         from Pipeline.AssistantControl import decomposition as decomposition_module
@@ -211,7 +240,20 @@ class RetainedReviewConcurrencyTests(unittest.TestCase):
             "finding_history": [{
                 "verdict": "pass",
                 "reviewed_candidate_sha256": digest,
-                "findings": [],
+                # AN ADVISORY FINDING ON A PASS IS LEGITIMATE and this fixture
+                # now proves the apply path accepts one. Before the fix, the
+                # gate required findings == [] with NO severity filter, so a
+                # reviewer that passed the split and appended one cosmetic note
+                # failed the entire paid run -- decomp-nsc066-20260924b died on
+                # exactly this. review_policy.py:82 blocks only on "blocking".
+                "findings": [{
+                    "finding_id": "ADV-1",
+                    "severity": "advisory",
+                    "category": "style",
+                    "affected_contracts": [],
+                    "problem": "a cosmetic observation",
+                    "required_resolution": "none",
+                }],
             }],
         }
         _write_json(artifact_root / "decomposition_run_result.json", run_result)

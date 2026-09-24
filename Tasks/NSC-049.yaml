@@ -76,11 +76,10 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 8,
+  "contract_revision": 9,
   "decomposition_reason": "Cross-room continuity and the D1–D5 sequence are shared integration responsibilities that cannot be completed independently inside any single room child.",
   "decomposition_state": "concrete",
   "depends_on": [
-    "NSC-026",
     "NSC-019",
     "NSC-020",
     "NSC-050",
@@ -92,7 +91,11 @@
     "NSC-048",
     "NSC-069",
     "NSC-041",
-    "NSC-065"
+    "NSC-065",
+    "NSC-038",
+    "NSC-039",
+    "NSC-040",
+    "NSC-042"
   ],
   "downstream_integration_obligations": [
     {
@@ -200,6 +203,15 @@
         "base_contract_sha256": "5244d20d63744d1bc58d59ac3c106f9930ccb6d9d0b33f279f0d8de5fad6f30a",
         "revised_contract_sha256": "abe7e37d1c3537805045df17db92697920172d3583b13ff8eaeda10cdd4987ff",
         "review": "post-commit Codex closure review (tiered rule; closure discipline per Astra advice, 2026-09-17)"
+      },
+      {
+        "date": "2026-09-24",
+        "reason": "Rewrite the NSC-026 dependency to its four concrete decomposition children, which taskcontrol validate requires once NSC-026 becomes a decomposed aggregate: 'Active contract may not depend on decomposed aggregate NSC-026; rewrite the dependency to the concrete decomposition child or children whose capability it actually consumes.' THIS IS A FAITHFUL TRANSLATION, NOT A CAPABILITY JUDGEMENT, AND THE DISTINCTION MATTERS. Neither this contract nor NSC-026 states which part of the foundation is consumed - the dependency is bare - so choosing a subset would be me inventing information the contracts do not carry, and under-constraining is the dangerous direction because it lets a task run before a real prerequisite. depends_on NSC-026 meant 'depends on the whole of NSC-026's capability', and that capability is now delivered by exactly NSC-038, NSC-039, NSC-040 and NSC-042, so naming all four preserves the existing semantics precisely. If someone later establishes that only a subset is consumed, narrowing it is a strict improvement and safe; widening after an incorrect narrowing is not. Verified in memory before committing: validate PASSES with these rewrites alone and together with the NSC-026 repair, and NSC-029's own decomposition_requirement_sha256 is unchanged (3edf31df6583 before and after), so depends_on does not feed the aggregate hash and no replan is triggered.",
+        "source_head": "b95431aa188167b9dedb922a458afbb0f47e44c4",
+        "previous_contract_revision": 8,
+        "base_contract_sha256": "f049a7a2b1c272e67228985858204b9a1d4f276dcca837c771ee4567d4242209",
+        "revised_contract_sha256": "134080588a04db31a70c54e4d82fa1712613938a1413ba6923d5bf0142b5b2aa",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
       }
     ]
   },

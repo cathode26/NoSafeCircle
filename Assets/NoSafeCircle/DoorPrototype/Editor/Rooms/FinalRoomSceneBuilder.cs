@@ -232,7 +232,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             CreateBox("FR-1" + Suffix(collision), parent,
                 FinalRoomLayout.FR1Bounds.center,
                 FinalRoomLayout.FR1Bounds.size,
-                new Color(0.16f, 0.08f, 0.2f), collision);
+                RoomPlaceholderVisuals.Opaque(RoomPlaceholderVisuals.BlockoutPlaceholder), collision);
         }
 
         private static void CreateFittingRoomDressing(Transform parent, Transform gameplay)
@@ -317,11 +317,13 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
 
         private static string Suffix(bool collision) => collision ? "Collision" : "Visual";
 
+        // WAS: new Material(Standard); material.color = color; return material; - which drops
+        // any alpha below 255 SILENTLY, because the Standard shader ships in Opaque mode and
+        // never consults the channel. The assignment succeeded and the colour read back
+        // correctly the whole time, which is why nobody caught it by inspection.
         private static Material CreateMaterial(Color color)
         {
-            var material = new Material(Shader.Find("Standard"));
-            material.color = color;
-            return material;
+            return RoomPlaceholderVisuals.CreateStandardMaterial(color);
         }
 
     }
