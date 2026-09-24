@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-026",
-  "contract_revision": 3,
+  "contract_revision": 4,
   "contract_disposition": "active",
   "title": "Tilemap and SpriteRenderer World Visual Foundation",
   "reconciliation_key": "world-visual-foundation",
@@ -15,10 +15,7 @@
   "depends_on": [
     "NSC-024"
   ],
-  "exclusive_resources": [
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
-    "unity-scene:Assets/Scenes/DoorPrototype.unity"
-  ],
+  "exclusive_resources": [],
   "acceptance_criteria": [
     {
       "criterion_id": "AC-001",
@@ -95,6 +92,17 @@
     "origin": "verified_reconciliation_bootstrap",
     "reconciliation_run_id": "20260821T193541Z-998ee7b5",
     "source_schema_version": "1.0",
-    "verification_run_id": "20260821T195959Z-43dba5de"
+    "verification_run_id": "20260821T195959Z-43dba5de",
+    "contract_followups": [
+      {
+        "date": "2026-09-24",
+        "reason": "Step 1 of 2 making NSC-026 a conformant decomposed aggregate: release the executable exclusive-resource locks a decomposed aggregate may not retain. Discovered by taskcontrol validate refusing the repair with 'Decomposed aggregate NSC-026 may not retain executable exclusive-resource locks' - a fourth requirement none of the three agents working this had found, and the repair tool correctly restored the contract rather than committing. NOTHING IS DROPPED BY THIS: all four children (NSC-038, NSC-039, NSC-040, NSC-042) already hold both resources themselves, and DoorPrototypeSceneBuilder.cs is claimed by 29 tasks and Assets/Scenes/DoorPrototype.unity by 33, so RESOURCE_GROUPS simply loses NSC-026 from two shared claimant lists. All seven healthy decomposed parents on main - NSC-014, NSC-016, NSC-021, NSC-025, NSC-029, NSC-035, NSC-066 - carry exclusive_resources [], so this is the convention rather than a judgement call. Verified in memory before committing: validate PASSES both with this change alone and with the full four-field fix. Step 2 supplies kind=feature, decomposition_children and decomposition_requirement_sha256 via Tools/Host/ger/repair_decomposed_parent.py. type, execution_scope, acceptance_criteria and completion_gates are untouched and NSC-026 has no delivery record.",
+        "source_head": "95e4792a1c9033e65d6c9eda99df1eeddc147be6",
+        "previous_contract_revision": 3,
+        "base_contract_sha256": "6e0153272dc3c6d9196757230a5eecd15ae3507be919b841d60d58d24d09a78d",
+        "revised_contract_sha256": "48e1d504e34a1bc189071fb5d283b697757e318bfd9303341303a660008a07a0",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      }
+    ]
   }
 }
