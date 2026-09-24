@@ -1,0 +1,958 @@
+{
+  "schema": "nsc.room-dressing-catalog/1",
+  "room": "LowerVault",
+  "task": "NSC-082",
+  "room_identity": "The Broken Sluice Crossing - a drainage vault that failed",
+  "authored_by": "Art Director Agent",
+  "provenance": {
+    "brief": "Docs/Art/Environment/NSC-082_LOWER_VAULT_DRESSING.md",
+    "brief_sha256": "999c1ccaa39bda804e5d97af4db8ff9e165dcbcc5ab9a1e0f1aeb7e1013e9e0c",
+    "prop_catalog": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/PropCatalog.json",
+    "prop_catalog_sha256": "8e328c53bd657f33a7c660144c5cfe16a4d533ec7919672edb4ccc3bc541f2ea",
+    "layout_source": "Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/LowerVaultLayout.cs",
+    "resolved_at_commit": "8ceea22ba"
+  },
+  "builder_contract": {
+    "pivot": "Every placement uses the prop's committed pivot and PPU from PropCatalog.json. The builder must NOT recompute a pivot; DungeonPropImportPostprocessor owns that.",
+    "y_is_always_zero": "All props are ground_line; the floor is y=0. No placement lifts a prop.",
+    "sorting": "sorting_order = round((x - z) * 10). Camera forward is (-0.6124,-0.5,+0.6124), so screen depth is 0.6124*(z-x): larger x-z is NEARER and draws in front.",
+    "colliders": "The dressing prefab carries NO colliders. Collision is the blockout's (LV-C1Collision and friends); dressing that adds one starts lying about the room.",
+    "determinism": "props are sorted by instance_id; rebuilding from this file must produce a byte-identical prefab."
+  },
+  "clearance_proved": {
+    "d3_apron": {
+      "x": [
+        -10.5,
+        -5.5
+      ],
+      "z": [
+        54.25,
+        59.25
+      ],
+      "occupants": 0
+    },
+    "d4_apron": {
+      "x": [
+        1.5,
+        6.5
+      ],
+      "z": [
+        70.75,
+        75.75
+      ],
+      "occupants": 0
+    },
+    "note": "Asserted at authoring time: no placement's footprint box overlaps either apron."
+  },
+  "alternate_approach": {
+    "requirement": "AC-005 - a readable alternate approach around LV-C1.",
+    "lanes": [
+      {
+        "id": "LV-W1/LV-C1",
+        "x": [
+          -8.0,
+          -4.0
+        ],
+        "width": 4.0,
+        "centre_x": -6.0
+      },
+      {
+        "id": "LV-C1/LV-E1",
+        "x": [
+          2.0,
+          7.0
+        ],
+        "width": 5.0,
+        "centre_x": 4.5
+      }
+    ],
+    "rule_enforced": "No placement occupies a lane centre (+/-1.0 over z 58.5..66.5). Lane EDGES are dressed so the eye is led down them; the centres are empty."
+  },
+  "safe_route": {
+    "description": "D3 to D4 without entering a hazard span. The only way north past LV-H1-Center is the x 7..12 corridor; it is kept at least 3.0 clear.",
+    "waypoints": [
+      {
+        "x": -8.0,
+        "z": 56.0,
+        "note": "D3 entry"
+      },
+      {
+        "x": -6.0,
+        "z": 61.0,
+        "note": "west lane around LV-C1"
+      },
+      {
+        "x": 4.5,
+        "z": 62.0,
+        "note": "east lane around LV-C1 (the alternate approach)"
+      },
+      {
+        "x": 9.5,
+        "z": 66.0,
+        "note": "north corridor between LV-H1-Center and LV-H1-East"
+      },
+      {
+        "x": 9.5,
+        "z": 71.5,
+        "note": "north of LV-H1-Center"
+      },
+      {
+        "x": 4.0,
+        "z": 73.0,
+        "note": "into the D4 apron"
+      },
+      {
+        "x": 4.0,
+        "z": 75.5,
+        "note": "D4 exit"
+      }
+    ]
+  },
+  "hazard_spans": [
+    {
+      "id": "LV-H1-West",
+      "x": [
+        -15.0,
+        -6.5
+      ],
+      "z": [
+        66.5,
+        69.5
+      ]
+    },
+    {
+      "id": "LV-H1-Center",
+      "x": [
+        -6.5,
+        7.0
+      ],
+      "z": [
+        67.5,
+        70.5
+      ]
+    },
+    {
+      "id": "LV-H1-East",
+      "x": [
+        12.0,
+        19.75
+      ],
+      "z": [
+        64.5,
+        68.5
+      ]
+    }
+  ],
+  "val_002_objective_checks": [
+    "Every placement's prop_id is one of the 10 PropCatalog entries whose intended_rooms include LowerVault. Verified: 10 of 10 used.",
+    "No placement depicts a walkable surface at another elevation, a span across a gap, or a step up. Rails run ALONGSIDE a hazard edge and never have hazard on both sides (asserted); every lv_broken_ledge_chunk straddles a span edge onto solid ground, never alone in slime."
+  ],
+  "props": [
+    {
+      "instance_id": "LV-C1-landmark-01",
+      "prop_id": "lv_landmark_sluice_wheel_gate_x",
+      "footprint": "LV-C1",
+      "position": {
+        "x": -1.0,
+        "y": 0.0,
+        "z": 62.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -630,
+      "intent": "THE landmark, centred on LV-C1 so it intersects the straight D3-to-D4 sight line"
+    },
+    {
+      "instance_id": "LV-C1-rubble-01",
+      "prop_id": "shared_rubble_scatter_b",
+      "footprint": "LV-C1",
+      "position": {
+        "x": -2.6,
+        "y": 0.0,
+        "z": 60.5
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -631,
+      "intent": "skirt, D3-facing side, inside the footprint"
+    },
+    {
+      "instance_id": "LV-C1-rubble-02",
+      "prop_id": "shared_rubble_scatter_b",
+      "footprint": "LV-C1",
+      "position": {
+        "x": 0.6,
+        "y": 0.0,
+        "z": 60.5
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -599,
+      "intent": "skirt, D3-facing side, inside the footprint"
+    },
+    {
+      "instance_id": "LV-C1-slime-01",
+      "prop_id": "lv_sluice_slime_spill",
+      "footprint": "LV-C1",
+      "position": {
+        "x": -1.6,
+        "y": 0.0,
+        "z": 63.9
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -655,
+      "intent": "runoff at the gate's north base: reads as the source"
+    },
+    {
+      "instance_id": "LV-C1-slime-02",
+      "prop_id": "lv_sluice_slime_spill",
+      "footprint": "LV-C1",
+      "position": {
+        "x": 0.4,
+        "y": 0.0,
+        "z": 63.6
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -632,
+      "intent": "runoff at the gate's north base: reads as the source"
+    },
+    {
+      "instance_id": "LV-E1-column-01",
+      "prop_id": "shared_stone_column",
+      "footprint": "LV-E1",
+      "position": {
+        "x": 9.8,
+        "y": 0.0,
+        "z": 62.0
+      },
+      "rotation_euler_z": -14.0,
+      "sorting_order": -522,
+      "intent": "structure that lost: leaning, never upright"
+    },
+    {
+      "instance_id": "LV-E1-rubble-01",
+      "prop_id": "shared_rubble_scatter_b",
+      "footprint": "LV-E1",
+      "position": {
+        "x": 8.6,
+        "y": 0.0,
+        "z": 60.6
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -520,
+      "intent": "base of the fallen column"
+    },
+    {
+      "instance_id": "LV-E1-rubble-02",
+      "prop_id": "shared_rubble_scatter_b",
+      "footprint": "LV-E1",
+      "position": {
+        "x": 10.9,
+        "y": 0.0,
+        "z": 60.9
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -500,
+      "intent": "base of the fallen column"
+    },
+    {
+      "instance_id": "LV-H1-Center-ledge-01",
+      "prop_id": "lv_broken_ledge_chunk",
+      "footprint": "LV-H1-Center",
+      "position": {
+        "x": 2.0,
+        "y": 0.0,
+        "z": 67.7
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -657,
+      "intent": "at the edge, half out of the slime"
+    },
+    {
+      "instance_id": "LV-H1-Center-railx-01",
+      "prop_id": "lv_iron_rail_x",
+      "footprint": "LV-H1-Center",
+      "position": {
+        "x": -5.4,
+        "y": 0.0,
+        "z": 67.2
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -726,
+      "intent": "guards the south (walkable) edge"
+    },
+    {
+      "instance_id": "LV-H1-Center-railx-02",
+      "prop_id": "lv_iron_rail_x",
+      "footprint": "LV-H1-Center",
+      "position": {
+        "x": -3.2,
+        "y": 0.0,
+        "z": 67.2
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -704,
+      "intent": "guards the south (walkable) edge"
+    },
+    {
+      "instance_id": "LV-H1-Center-railx-03",
+      "prop_id": "lv_iron_rail_x",
+      "footprint": "LV-H1-Center",
+      "position": {
+        "x": -1.0,
+        "y": 0.0,
+        "z": 67.2
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -682,
+      "intent": "guards the south (walkable) edge"
+    },
+    {
+      "instance_id": "LV-H1-Center-railx-04",
+      "prop_id": "lv_iron_rail_x",
+      "footprint": "LV-H1-Center",
+      "position": {
+        "x": 1.2,
+        "y": 0.0,
+        "z": 67.2
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -660,
+      "intent": "guards the south (walkable) edge"
+    },
+    {
+      "instance_id": "LV-H1-Center-railx-05",
+      "prop_id": "lv_iron_rail_x",
+      "footprint": "LV-H1-Center",
+      "position": {
+        "x": 3.4,
+        "y": 0.0,
+        "z": 67.2
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -638,
+      "intent": "guards the south (walkable) edge"
+    },
+    {
+      "instance_id": "LV-H1-Center-railx-06",
+      "prop_id": "lv_iron_rail_x",
+      "footprint": "LV-H1-Center",
+      "position": {
+        "x": 5.6,
+        "y": 0.0,
+        "z": 67.2
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -616,
+      "intent": "guards the south (walkable) edge"
+    },
+    {
+      "instance_id": "LV-H1-Center-slime-01",
+      "prop_id": "lv_sluice_slime_spill",
+      "footprint": "LV-H1-Center",
+      "position": {
+        "x": -5.4,
+        "y": 0.0,
+        "z": 68.6
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -740,
+      "intent": "one connected flow, irregular edge"
+    },
+    {
+      "instance_id": "LV-H1-Center-slime-02",
+      "prop_id": "lv_sluice_slime_spill",
+      "footprint": "LV-H1-Center",
+      "position": {
+        "x": -3.8,
+        "y": 0.0,
+        "z": 69.3
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -731,
+      "intent": "one connected flow, irregular edge"
+    },
+    {
+      "instance_id": "LV-H1-Center-slime-03",
+      "prop_id": "lv_sluice_slime_spill",
+      "footprint": "LV-H1-Center",
+      "position": {
+        "x": -2.2,
+        "y": 0.0,
+        "z": 68.5
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -707,
+      "intent": "one connected flow, irregular edge"
+    },
+    {
+      "instance_id": "LV-H1-Center-slime-04",
+      "prop_id": "lv_sluice_slime_spill",
+      "footprint": "LV-H1-Center",
+      "position": {
+        "x": -0.6,
+        "y": 0.0,
+        "z": 69.2
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -698,
+      "intent": "one connected flow, irregular edge"
+    },
+    {
+      "instance_id": "LV-H1-Center-slime-05",
+      "prop_id": "lv_sluice_slime_spill",
+      "footprint": "LV-H1-Center",
+      "position": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 68.4
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -674,
+      "intent": "one connected flow, irregular edge"
+    },
+    {
+      "instance_id": "LV-H1-Center-slime-06",
+      "prop_id": "lv_sluice_slime_spill",
+      "footprint": "LV-H1-Center",
+      "position": {
+        "x": 2.6,
+        "y": 0.0,
+        "z": 69.1
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -665,
+      "intent": "one connected flow, irregular edge"
+    },
+    {
+      "instance_id": "LV-H1-Center-slime-07",
+      "prop_id": "lv_sluice_slime_spill",
+      "footprint": "LV-H1-Center",
+      "position": {
+        "x": 4.2,
+        "y": 0.0,
+        "z": 68.5
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -643,
+      "intent": "one connected flow, irregular edge"
+    },
+    {
+      "instance_id": "LV-H1-Center-slime-08",
+      "prop_id": "lv_sluice_slime_spill",
+      "footprint": "LV-H1-Center",
+      "position": {
+        "x": 5.8,
+        "y": 0.0,
+        "z": 69.2
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -634,
+      "intent": "one connected flow, irregular edge"
+    },
+    {
+      "instance_id": "LV-H1-East-ledge-01",
+      "prop_id": "lv_broken_ledge_chunk",
+      "footprint": "LV-H1-East",
+      "position": {
+        "x": 15.0,
+        "y": 0.0,
+        "z": 64.8
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -498,
+      "intent": "at the edge, half out of the slime"
+    },
+    {
+      "instance_id": "LV-H1-East-railx-01",
+      "prop_id": "lv_iron_rail_x",
+      "footprint": "LV-H1-East",
+      "position": {
+        "x": 13.2,
+        "y": 0.0,
+        "z": 68.8
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -556,
+      "intent": "guards the north (walkable) edge"
+    },
+    {
+      "instance_id": "LV-H1-East-railx-02",
+      "prop_id": "lv_iron_rail_x",
+      "footprint": "LV-H1-East",
+      "position": {
+        "x": 15.4,
+        "y": 0.0,
+        "z": 68.8
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -534,
+      "intent": "guards the north (walkable) edge"
+    },
+    {
+      "instance_id": "LV-H1-East-railx-03",
+      "prop_id": "lv_iron_rail_x",
+      "footprint": "LV-H1-East",
+      "position": {
+        "x": 17.6,
+        "y": 0.0,
+        "z": 68.8
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -512,
+      "intent": "guards the north (walkable) edge"
+    },
+    {
+      "instance_id": "LV-H1-East-railz-01",
+      "prop_id": "lv_iron_rail_z",
+      "footprint": "LV-H1-East",
+      "position": {
+        "x": 11.7,
+        "y": 0.0,
+        "z": 65.5
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -538,
+      "intent": "guards the west edge facing the north route"
+    },
+    {
+      "instance_id": "LV-H1-East-railz-02",
+      "prop_id": "lv_iron_rail_z",
+      "footprint": "LV-H1-East",
+      "position": {
+        "x": 11.7,
+        "y": 0.0,
+        "z": 67.5
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -558,
+      "intent": "guards the west edge facing the north route"
+    },
+    {
+      "instance_id": "LV-H1-East-slime-01",
+      "prop_id": "lv_sluice_slime_spill",
+      "footprint": "LV-H1-East",
+      "position": {
+        "x": 13.0,
+        "y": 0.0,
+        "z": 65.6
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -526,
+      "intent": "one connected flow, irregular edge"
+    },
+    {
+      "instance_id": "LV-H1-East-slime-02",
+      "prop_id": "lv_sluice_slime_spill",
+      "footprint": "LV-H1-East",
+      "position": {
+        "x": 14.6,
+        "y": 0.0,
+        "z": 66.3
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -517,
+      "intent": "one connected flow, irregular edge"
+    },
+    {
+      "instance_id": "LV-H1-East-slime-03",
+      "prop_id": "lv_sluice_slime_spill",
+      "footprint": "LV-H1-East",
+      "position": {
+        "x": 16.2,
+        "y": 0.0,
+        "z": 65.5
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -493,
+      "intent": "one connected flow, irregular edge"
+    },
+    {
+      "instance_id": "LV-H1-East-slime-04",
+      "prop_id": "lv_sluice_slime_spill",
+      "footprint": "LV-H1-East",
+      "position": {
+        "x": 17.8,
+        "y": 0.0,
+        "z": 66.2
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -484,
+      "intent": "one connected flow, irregular edge"
+    },
+    {
+      "instance_id": "LV-H1-East-slime-05",
+      "prop_id": "lv_sluice_slime_spill",
+      "footprint": "LV-H1-East",
+      "position": {
+        "x": 19.0,
+        "y": 0.0,
+        "z": 65.6
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -466,
+      "intent": "one connected flow, irregular edge"
+    },
+    {
+      "instance_id": "LV-H1-West-ledge-01",
+      "prop_id": "lv_broken_ledge_chunk",
+      "footprint": "LV-H1-West",
+      "position": {
+        "x": -13.2,
+        "y": 0.0,
+        "z": 66.6
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -798,
+      "intent": "at the edge, half out of the slime"
+    },
+    {
+      "instance_id": "LV-H1-West-railx-01",
+      "prop_id": "lv_iron_rail_x",
+      "footprint": "LV-H1-West",
+      "position": {
+        "x": -14.0,
+        "y": 0.0,
+        "z": 66.2
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -802,
+      "intent": "guards the south (walkable) edge; lane mouth left open"
+    },
+    {
+      "instance_id": "LV-H1-West-railx-02",
+      "prop_id": "lv_iron_rail_x",
+      "footprint": "LV-H1-West",
+      "position": {
+        "x": -11.8,
+        "y": 0.0,
+        "z": 66.2
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -780,
+      "intent": "guards the south (walkable) edge; lane mouth left open"
+    },
+    {
+      "instance_id": "LV-H1-West-railx-03",
+      "prop_id": "lv_iron_rail_x",
+      "footprint": "LV-H1-West",
+      "position": {
+        "x": -9.6,
+        "y": 0.0,
+        "z": 66.2
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -758,
+      "intent": "guards the south (walkable) edge; lane mouth left open"
+    },
+    {
+      "instance_id": "LV-H1-West-slime-01",
+      "prop_id": "lv_sluice_slime_spill",
+      "footprint": "LV-H1-West",
+      "position": {
+        "x": -14.0,
+        "y": 0.0,
+        "z": 67.6
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -816,
+      "intent": "one connected flow, irregular edge"
+    },
+    {
+      "instance_id": "LV-H1-West-slime-02",
+      "prop_id": "lv_sluice_slime_spill",
+      "footprint": "LV-H1-West",
+      "position": {
+        "x": -12.4,
+        "y": 0.0,
+        "z": 68.3
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -807,
+      "intent": "one connected flow, irregular edge"
+    },
+    {
+      "instance_id": "LV-H1-West-slime-03",
+      "prop_id": "lv_sluice_slime_spill",
+      "footprint": "LV-H1-West",
+      "position": {
+        "x": -10.9,
+        "y": 0.0,
+        "z": 67.4
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -783,
+      "intent": "one connected flow, irregular edge"
+    },
+    {
+      "instance_id": "LV-H1-West-slime-04",
+      "prop_id": "lv_sluice_slime_spill",
+      "footprint": "LV-H1-West",
+      "position": {
+        "x": -9.3,
+        "y": 0.0,
+        "z": 68.1
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -774,
+      "intent": "one connected flow, irregular edge"
+    },
+    {
+      "instance_id": "LV-H1-West-slime-05",
+      "prop_id": "lv_sluice_slime_spill",
+      "footprint": "LV-H1-West",
+      "position": {
+        "x": -7.8,
+        "y": 0.0,
+        "z": 67.3
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -751,
+      "intent": "one connected flow, irregular edge"
+    },
+    {
+      "instance_id": "LV-N1-column-01",
+      "prop_id": "shared_stone_column",
+      "footprint": "LV-N1",
+      "position": {
+        "x": -16.2,
+        "y": 0.0,
+        "z": 73.4
+      },
+      "rotation_euler_z": -22.0,
+      "sorting_order": -896,
+      "intent": "the wall that fell, reading as structure"
+    },
+    {
+      "instance_id": "LV-N1-rubble-01",
+      "prop_id": "shared_rubble_scatter_b",
+      "footprint": "LV-N1",
+      "position": {
+        "x": -19.0,
+        "y": 0.0,
+        "z": 70.6
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -896,
+      "intent": "south face of the fallen wall: unbroken run"
+    },
+    {
+      "instance_id": "LV-N1-rubble-02",
+      "prop_id": "shared_rubble_scatter_b",
+      "footprint": "LV-N1",
+      "position": {
+        "x": -17.8,
+        "y": 0.0,
+        "z": 70.6
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -884,
+      "intent": "south face of the fallen wall: unbroken run"
+    },
+    {
+      "instance_id": "LV-N1-rubble-03",
+      "prop_id": "shared_rubble_scatter_b",
+      "footprint": "LV-N1",
+      "position": {
+        "x": -16.6,
+        "y": 0.0,
+        "z": 70.6
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -872,
+      "intent": "south face of the fallen wall: unbroken run"
+    },
+    {
+      "instance_id": "LV-N1-rubble-04",
+      "prop_id": "shared_rubble_scatter_b",
+      "footprint": "LV-N1",
+      "position": {
+        "x": -15.4,
+        "y": 0.0,
+        "z": 70.6
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -860,
+      "intent": "south face of the fallen wall: unbroken run"
+    },
+    {
+      "instance_id": "LV-N1-rubble-05",
+      "prop_id": "shared_rubble_scatter_b",
+      "footprint": "LV-N1",
+      "position": {
+        "x": -14.2,
+        "y": 0.0,
+        "z": 70.6
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -848,
+      "intent": "south face of the fallen wall: unbroken run"
+    },
+    {
+      "instance_id": "LV-N1-rubble-06",
+      "prop_id": "shared_rubble_scatter_b",
+      "footprint": "LV-N1",
+      "position": {
+        "x": -13.0,
+        "y": 0.0,
+        "z": 70.6
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -836,
+      "intent": "south face of the fallen wall: unbroken run"
+    },
+    {
+      "instance_id": "LV-N1-rubble-07",
+      "prop_id": "shared_rubble_scatter_b",
+      "footprint": "LV-N1",
+      "position": {
+        "x": -11.9,
+        "y": 0.0,
+        "z": 70.6
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -825,
+      "intent": "south face of the fallen wall: unbroken run"
+    },
+    {
+      "instance_id": "LV-N1-rubble-08",
+      "prop_id": "shared_rubble_scatter_b",
+      "footprint": "LV-N1",
+      "position": {
+        "x": -11.0,
+        "y": 0.0,
+        "z": 70.6
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -816,
+      "intent": "south face of the fallen wall: unbroken run"
+    },
+    {
+      "instance_id": "LV-N1-rubble-09",
+      "prop_id": "shared_rubble_scatter_b",
+      "footprint": "LV-N1",
+      "position": {
+        "x": -18.4,
+        "y": 0.0,
+        "z": 72.6
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -910,
+      "intent": "depth behind the south face, staggered"
+    },
+    {
+      "instance_id": "LV-N1-rubble-10",
+      "prop_id": "shared_rubble_scatter_b",
+      "footprint": "LV-N1",
+      "position": {
+        "x": -16.0,
+        "y": 0.0,
+        "z": 72.6
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -886,
+      "intent": "depth behind the south face, staggered"
+    },
+    {
+      "instance_id": "LV-N1-rubble-11",
+      "prop_id": "shared_rubble_scatter_b",
+      "footprint": "LV-N1",
+      "position": {
+        "x": -13.6,
+        "y": 0.0,
+        "z": 72.6
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -862,
+      "intent": "depth behind the south face, staggered"
+    },
+    {
+      "instance_id": "LV-N1-rubble-12",
+      "prop_id": "shared_rubble_scatter_b",
+      "footprint": "LV-N1",
+      "position": {
+        "x": -12.4,
+        "y": 0.0,
+        "z": 72.6
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -850,
+      "intent": "depth behind the south face, staggered"
+    },
+    {
+      "instance_id": "LV-N1-rubble-13",
+      "prop_id": "shared_rubble_scatter_b",
+      "footprint": "LV-N1",
+      "position": {
+        "x": -11.2,
+        "y": 0.0,
+        "z": 72.6
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -838,
+      "intent": "depth behind the south face, staggered"
+    },
+    {
+      "instance_id": "LV-W1-barrel-01",
+      "prop_id": "lv_barrel",
+      "footprint": "LV-W1",
+      "position": {
+        "x": -10.2,
+        "y": 0.0,
+        "z": 60.6
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -708,
+      "intent": "storage pushed aside by water"
+    },
+    {
+      "instance_id": "LV-W1-barrel-02",
+      "prop_id": "lv_barrel",
+      "footprint": "LV-W1",
+      "position": {
+        "x": -10.4,
+        "y": 0.0,
+        "z": 63.9
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -743,
+      "intent": "storage pushed aside by water"
+    },
+    {
+      "instance_id": "LV-W1-comedy-01",
+      "prop_id": "lv_comedy_barrel_striped_socks",
+      "footprint": "LV-W1",
+      "position": {
+        "x": -11.5,
+        "y": 0.0,
+        "z": 65.6
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -771,
+      "intent": "THE one comedy detail, north end: found by looking around the west side, not seen from D3"
+    },
+    {
+      "instance_id": "LV-W1-crate-01",
+      "prop_id": "lv_crate",
+      "footprint": "LV-W1",
+      "position": {
+        "x": -11.2,
+        "y": 0.0,
+        "z": 61.0
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -722,
+      "intent": "storage pushed aside by water"
+    },
+    {
+      "instance_id": "LV-W1-crate-02",
+      "prop_id": "lv_crate",
+      "footprint": "LV-W1",
+      "position": {
+        "x": -11.4,
+        "y": 0.0,
+        "z": 63.2
+      },
+      "rotation_euler_z": 0.0,
+      "sorting_order": -746,
+      "intent": "storage pushed aside by water"
+    }
+  ]
+}
