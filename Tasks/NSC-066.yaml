@@ -1,33 +1,4 @@
 {
-  "schema_version": "2.0",
-  "id": "NSC-066",
-  "contract_revision": 7,
-  "contract_disposition": "active",
-  "title": "Title Screen and Start Game Flow",
-  "reconciliation_key": "title-screen-start-game-flow",
-  "kind": "implementation",
-  "type": "game-flow-ui",
-  "execution_scope": "needs_execution_decomposition",
-  "execution_reason": "A title panel with a transparent, raycast-blocking backdrop over the live gameplay scene, a left-stacked heading and Start Game button, a title-only chase backdrop presentation component with deterministic play mode tests, and one Start Game action form one bounded UI and presentation task, built entirely in DoorPrototypeGlobalSceneBuilder.BuildTitleScreen inside the existing canonical scene.",
-  "decomposition_state": "concrete",
-  "decomposition_reason": "Two ordered children, created by D1B.2 as direct children of NSC-066. Child 1, the title layout, owns TitleScreenController, the transparent raycast-blocking panel, the three left-stacked sayings, the chunky left Start Game button, the layout assertions in TitleScreenSceneBuilderTests, and TitleScreenPlayModeTests. It installs no chase backdrop and asserts none in DoorPrototypeGlobalSceneBuilder.BuildTitleScreen, so it compiles and passes without TitleScreenChaseBackdrop; it has no new dependency and is dispatchable now. Child 2, the chase backdrop, depends on child 1, NSC-075 (wizard walk animation) and NSC-077 (enemy walk controllers and EnemyAnimationController). It owns TitleScreenChaseBackdrop.cs (+ .meta) and TitleScreenChaseBackdropPlayModeTests.cs (+ .meta), the builder wiring that adds and configures TitleScreenChaseBackdrop in BuildTitleScreen, and the backdrop assertions added to TitleScreenSceneBuilderTests. Both children edit DoorPrototypeGlobalSceneBuilder.cs and TitleScreenSceneBuilderTests.cs, serialized by their dependency order. Because WizardSelectionDefinitions is private and Editor-only and the animator controllers are not runtime-loadable resources, child 2's builder wiring assigns every runtime input as serialized references on TitleScreenChaseBackdrop at build time: the four wizard identities' animator controllers or override data and display order, the MeleeEnemyAnimator and LanternWraithAnimator controllers from NSC-077, the floor-segment endpoints, and the interval bounds and speeds; TitleScreenChaseBackdrop itself never calls Editor APIs or Resources.Load. NSC-066 itself cannot depend on NSC-075 or NSC-077: NSC-075 depends on NSC-068, which depends on NSC-067, which depends on NSC-066. D1B.2 therefore narrows NSC-067's dependency on NSC-066 to child 1, the title layout, so the graph stays acyclic.",
-  "parent": "NSC-001",
-  "depends_on": [
-    "NSC-003",
-    "NSC-019"
-  ],
-  "exclusive_resources": [
-    "logical:game-entry-menu-flow",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/TitleScreenController.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/TitleScreenPlayModeTests.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/TitleScreenSceneBuilderTests.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/TitleScreenChaseBackdrop.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/TitleScreenChaseBackdrop.cs.meta",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/TitleScreenChaseBackdropPlayModeTests.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/TitleScreenChaseBackdropPlayModeTests.cs.meta",
-    "unity-scene:Assets/Scenes/DoorPrototype.unity"
-  ],
   "acceptance_criteria": [
     {
       "criterion_id": "AC-001",
@@ -70,6 +41,7 @@
       "requirement": "TitleScreenChaseBackdrop exposes a public Tick(float deltaTime) method that advances spawn timing and actor movement by exactly that delta, plus a serialized seed or an injectable interval selector and side selector, so play mode tests can drive and predict spawn timing, side choice, and pairing order without depending on real time or Unity's own Update loop. DoorPrototypeGlobalSceneBuilder.BuildTitleScreen assigns TitleScreenChaseBackdrop's runtime inputs as serialized references or values at build time -- the four wizard identities' animator controllers or override data and display order, the MeleeEnemyAnimator and LanternWraithAnimator controllers, the floor-segment endpoints, and the interval bounds and speeds -- because WizardSelectionDefinitions is private and Editor-only and the animator controllers are not runtime-loadable resources; TitleScreenChaseBackdrop itself never calls Editor APIs or Resources.Load."
     }
   ],
+  "basis": "human_approved_gameplay_presentation",
   "completion_gates": [
     {
       "gate_id": "VAL-001",
@@ -97,6 +69,21 @@
       "requirement": "Assets/Scenes/DoorPrototype.unity is excluded from byte-for-byte comparison across repeated builds because Unity regenerates its local fileIDs on every DoorPrototypeGlobalSceneBuilder.Build; content equivalence is proven by TitleScreenSceneBuilderTests and TitleScreenChaseBackdropPlayModeTests (VAL-002, VAL-004), not by comparing the saved scene file's bytes."
     }
   ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 8,
+  "decomposition_children": [
+    "NSC-106",
+    "NSC-107",
+    "NSC-108"
+  ],
+  "decomposition_reason": "This decomposition adds reviewed child contracts: NSC-106 (title-screen-start-game-transition), NSC-107 (title-screen-chase-backdrop), NSC-108 (title-screen-transparent-layout-build). The complete active direct-child set is: NSC-106 (title-screen-start-game-transition), NSC-107 (title-screen-chase-backdrop), NSC-108 (title-screen-transparent-layout-build). Aggregate conformance is derived from that complete child set; any required assembly or integration must be an explicit child contract.",
+  "decomposition_requirement_sha256": "da4ed09038e2fb363ee893ee64b597363536ce5b8b92d62f9ec7cbd926b19f87",
+  "decomposition_state": "decomposed",
+  "depends_on": [
+    "NSC-003",
+    "NSC-019"
+  ],
   "downstream_integration_obligations": [
     {
       "obligation_id": "INT-001",
@@ -104,6 +91,9 @@
       "requirement": "NSC-067 consumes the Start Game transition and supplies the wizard-selection step without changing the title screen's initial-state or single-transition guarantees."
     }
   ],
+  "exclusive_resources": [],
+  "execution_reason": "Non-executable aggregate feature. All implementation responsibilities are represented by active direct child contracts: NSC-106 (title-screen-start-game-transition), NSC-107 (title-screen-chase-backdrop), NSC-108 (title-screen-transparent-layout-build). No later implementation pass on NSC-066 exists.",
+  "execution_scope": "not_applicable",
   "gdd_evidence": [
     {
       "reference": "Human-approved game-entry flow, 2026-09-12",
@@ -114,71 +104,76 @@
       "requirement": "The lobby is the live game scene with UI over it: characters standing in the real world under real lighting, chunky buttons stacked left, and a fleeing-wizard/pursuer pairing drifting across every 10-20 seconds, cycling all 4 mage identities against both enemy types. Presentation only; no account, save, settings, credits, networking, or runtime AI features."
     }
   ],
-  "basis": "human_approved_gameplay_presentation",
-  "source_scope": "required",
-  "confidence": "high",
+  "id": "NSC-066",
+  "kind": "feature",
   "notes": "This task establishes the first screen and transition only. NSC-067 owns choosing a wizard and entering gameplay. Keep the implementation small and inside the current canonical scene unless a later human-approved design changes scene ownership. Revision 2, 2026-09-15/17: replaced the opaque full-screen title backdrop with a transparent raycast blocker and a left-stacked layout, and added a title-only TitleScreenChaseBackdrop cycling all 4 wizard identities against the Dungeon Brute and Lantern Wraith, per NSC-066_REV2_DECISIONS.md T1-T6. NSC-077 (enemy walk controllers) and NSC-075 (wizard walk animation) were NOT added to depends_on: doing so would create a dependency cycle (NSC-066 -> NSC-075 -> NSC-068 -> NSC-067 -> NSC-066, and equivalently through NSC-077 -> NSC-075); see CONFLICTS in this revision's change-log. The chase actors' generated Animator Controllers (MeleeEnemyAnimator.controller, LanternWraithAnimator.controller) do not yet exist even on NSC-077's current branch as of this draft; they are expected from NSC-077's own delivery, not this task. Decomposition (2026-09-17): the chase backdrop's dependency on NSC-075 and NSC-077 would create a cycle through NSC-067 and NSC-068, so the work is split into a layout child and a chase-backdrop child; see decomposition_reason. Revision 3, 2026-09-17: per the Codex closure review of revision 2 and NSC-066_REV2_DECISIONS.md U1-U4, replaced the i%4/i%2 pairing formula with an explicit eight-pairing wizard-pursuer sequence (AC-006, VAL-004), replaced the fixed Z=-20 lane and off-screen spawn/despawn wording with a builder-computed inset lane and fade-based spawn/despawn along the starting camera's screen-horizontal direction (AC-006, VAL-004), documented the chase backdrop's serialized-reference build-time wiring (AC-008), and reallocated BuildTitleScreen wiring and backdrop assertions from the layout child to the chase child so both children compile and pass independently (decomposition_reason). U4 keeps the NSC-067 dependency-narrowing sentence unchanged. Revision 4, 2026-09-17: the closure review of revision 3 found the midpoint viewport check held only near a 16:9 aspect, because the builder-computed segment runs from the view center almost to the room's east bound (midpoint viewport x 0.9475 at 16:9, 0.997 at 16:10). Per the GER Agent's decision U5, the builder stores that floor segment and TitleScreenChaseBackdrop clips it at each pairing start to Camera.main viewport x [0.1, 0.9], skipping a pairing when less than 6 world units remain (AC-006, AC-008); VAL-004 pins the aspect with a 1920x1080 targetTexture and repeats the checks at 1440x1080 and 360x1080. Revision 5, 2026-09-17: the revision 4 closure review found that the new clip put the lane midpoint at viewport x about 0.5, exactly the boundary AC-001 allows the title text and button to reach, while VAL-004 never tested the \"not behind the title text\" clause. Per decision U6 the lane is clipped to viewport x [0.55, 0.9] instead, which clears that column by construction, and VAL-004 now asserts at every step that no actor's screen rect overlaps a saying or the Start Game button, and records the resulting lane lengths (about 10 world units at 16:9, about 7 at 4:3, under the 6-unit minimum at 1:3). DEPENDENCIES DECLARED AND THE INVERTED ONES SCOPED OUT, 2026-09-23 rev 6. The Pipeline Runner reported that the 2026-09-12 crew returned contract_review_required with AC-002 and VAL-001 flagged requires_declared_dependency naming NSC-003/007/008/009/019, that depends_on was still empty, and that it would not spend a re-dispatch on a known-identical failure - the right call. IT ALSO NAMED THE TRAP IN ITS OWN REPORT: the record LOOKS re-dispatchable and the contract HAS moved three revisions since the pin, which is exactly what makes a live blocker read as cleared. THE CREW'S FINDING IS HALF RIGHT AND THE HALF IT GOT WRONG IS THE EXPENSIVE ONE. NSC-003 and NSC-019 are genuine prerequisites - their input owners must exist to be suspended - and both are conformant, so declaring them blocks nothing. NSC-007, NSC-008 and NSC-009 run the OTHER WAY: this task creates the title flow and claims TitleScreenController.cs; those three each claim TitleScreenController.cs and WizardGameEntryController.cs and add their own optional reference to it, and all three already require that a missing reference must not fail HasValidReferences(). Declaring them would have inverted the direction and parked this task behind three undelivered tasks for a suspension that is vacuous when the component is absent. NOT CLEARANCE, AND THIS MATTERS MORE THAN THE FINDING: NSC-066 is execution_scope needs_execution_decomposition with ZERO children, so it cannot dispatch whatever its dependencies say. That gate is a paid decompose on Vincent's own word and is not touched here. A worker-control record pinned to the old contract hash is staled by this revision; prepared_refresh re-pins both the HEAD and the contract hash, so that is recoverable rather than terminal - stated because the Pipeline Runner owns that record and should not discover it.",
-  "repository_state_at_bootstrap": "missing",
-  "repository_evidence_at_bootstrap": [],
+  "parent": "NSC-001",
   "provenance": {
-    "origin": "human_approved_gameplay_presentation_followup",
-    "created_by_human_request": true,
     "approved_at_utc_date": "2026-09-12",
     "contract_followups": [
       {
-        "date": "2026-09-17",
-        "reason": "Owner revision 2 carrying out Vincent's 2026-09-15 title-screen direction (NSC-066_REV2_DECISIONS.md T1-T6): the title builds in DoorPrototypeGlobalSceneBuilder; the solid panel becomes a transparent raycast blocker with the three sayings and a chunky Start Game button stacked left; a presentation-only chase backdrop cycles the four wizard identities fleeing the Dungeon Brute and Lantern Wraith every 10-20 seconds on the Ruined Entry lane and clears on Start Game. Execution splits into a layout child and a chase-backdrop child that depends on NSC-075 and NSC-077, because NSC-066 itself cannot depend on them without a cycle through NSC-067 and NSC-068.",
-        "source_head": "86eb871241d775cfa37cfb5c0973b12f83b54a03",
-        "previous_contract_revision": 1,
         "base_contract_sha256": "ac7ce426fca6b0ede07856c7943aeda20ede1b9e8d9286a36407dd7c32c455da",
+        "date": "2026-09-17",
+        "previous_contract_revision": 1,
+        "reason": "Owner revision 2 carrying out Vincent's 2026-09-15 title-screen direction (NSC-066_REV2_DECISIONS.md T1-T6): the title builds in DoorPrototypeGlobalSceneBuilder; the solid panel becomes a transparent raycast blocker with the three sayings and a chunky Start Game button stacked left; a presentation-only chase backdrop cycles the four wizard identities fleeing the Dungeon Brute and Lantern Wraith every 10-20 seconds on the Ruined Entry lane and clears on Start Game. Execution splits into a layout child and a chase-backdrop child that depends on NSC-075 and NSC-077, because NSC-066 itself cannot depend on them without a cycle through NSC-067 and NSC-068.",
+        "review": "post-commit Codex closure review (tiered rule; closure discipline per Astra advice, 2026-09-17)",
         "revised_contract_sha256": "9483e884d2f1aa944f814f2ed61c05d2d2c014898eefd680cdecc7ff9341d853",
-        "review": "post-commit Codex closure review (tiered rule; closure discipline per Astra advice, 2026-09-17)"
+        "source_head": "86eb871241d775cfa37cfb5c0973b12f83b54a03"
       },
       {
-        "date": "2026-09-17",
-        "reason": "Follow-up revision 3 from the revision 2 closure review (2 blocking, 1 major), GER Agent decisions U1-U4 drafted by a Docker Claude job: an explicit eight-pairing wizard and pursuer sequence covering all combinations; actors fade in and out on an inset lane along the camera's screen-horizontal direction inside the Ruined Entry bounds, computed by the builder, instead of off-screen spawns; the layout child installs and asserts no backdrop while the chase child owns TitleScreenChaseBackdrop, its builder wiring, its builder-test assertions and all serialized runtime inputs (wizard identity data, NSC-077 controllers, lane endpoints).",
-        "source_head": "a7e684d2020eb1442651fa8ba205be49495521cb",
-        "previous_contract_revision": 2,
         "base_contract_sha256": "bf5c261d38259e93fac8b4f67d409b7363d01c81b069ce12eab44db2935b5a08",
+        "date": "2026-09-17",
+        "previous_contract_revision": 2,
+        "reason": "Follow-up revision 3 from the revision 2 closure review (2 blocking, 1 major), GER Agent decisions U1-U4 drafted by a Docker Claude job: an explicit eight-pairing wizard and pursuer sequence covering all combinations; actors fade in and out on an inset lane along the camera's screen-horizontal direction inside the Ruined Entry bounds, computed by the builder, instead of off-screen spawns; the layout child installs and asserts no backdrop while the chase child owns TitleScreenChaseBackdrop, its builder wiring, its builder-test assertions and all serialized runtime inputs (wizard identity data, NSC-077 controllers, lane endpoints).",
+        "review": "post-commit closure review (Docker Claude while Codex is out of quota until 2026-09-22)",
         "revised_contract_sha256": "a00d4382ed3dad72abba7409a937bec56a7c546d857c24353ac2ea6b15bf5331",
-        "review": "post-commit closure review (Docker Claude while Codex is out of quota until 2026-09-22)"
+        "source_head": "a7e684d2020eb1442651fa8ba205be49495521cb"
       },
       {
-        "date": "2026-09-17",
-        "reason": "Revision 3 closure review (blocking): the lane midpoint's viewport check only held near 16:9. GER Agent decision U5: the builder stores the inset floor segment and TitleScreenChaseBackdrop clips it at each pairing start to Camera.main viewport x [0.1, 0.9], skipping pairings under 6 world units; VAL-004 pins the aspect and repeats at 4:3 and a narrow 1:3.",
-        "source_head": "5a2a236c364aaa67c4dbb3fdb95f5e059c029405",
-        "previous_contract_revision": 3,
         "base_contract_sha256": "2753a006d6a8e15c7f467f419ae71a948e949282d7e15d131b6d9fe50b374589",
-        "revised_contract_sha256": "11b3715b833e7227d961a1302994598e6591a08375be71f8e8f18abab6c00ac4",
-        "review": "post-commit Codex contract check (tiered rule, 2026-09-17)"
-      },
-      {
         "date": "2026-09-17",
-        "reason": "Revision 4 closure review (major): the viewport clip put the lane midpoint at viewport x about 0.5, the boundary AC-001 lets the title text and button reach, and VAL-004 never tested the 'not behind the title text' clause. Decision U6 clips the lane to viewport x [0.55, 0.9], and VAL-004 asserts at every step that no actor overlaps a saying or the Start Game button.",
-        "source_head": "e0f82c29e029d00e07b9ac909098b2290e296ed7",
-        "previous_contract_revision": 4,
+        "previous_contract_revision": 3,
+        "reason": "Revision 3 closure review (blocking): the lane midpoint's viewport check only held near 16:9. GER Agent decision U5: the builder stores the inset floor segment and TitleScreenChaseBackdrop clips it at each pairing start to Camera.main viewport x [0.1, 0.9], skipping pairings under 6 world units; VAL-004 pins the aspect and repeats at 4:3 and a narrow 1:3.",
+        "review": "post-commit Codex contract check (tiered rule, 2026-09-17)",
+        "revised_contract_sha256": "11b3715b833e7227d961a1302994598e6591a08375be71f8e8f18abab6c00ac4",
+        "source_head": "5a2a236c364aaa67c4dbb3fdb95f5e059c029405"
+      },
+      {
         "base_contract_sha256": "e280382bd45f03069825fa971cbb7bc0291faa311b60692d5eaeb26cc7f006c5",
+        "date": "2026-09-17",
+        "previous_contract_revision": 4,
+        "reason": "Revision 4 closure review (major): the viewport clip put the lane midpoint at viewport x about 0.5, the boundary AC-001 lets the title text and button reach, and VAL-004 never tested the 'not behind the title text' clause. Decision U6 clips the lane to viewport x [0.55, 0.9], and VAL-004 asserts at every step that no actor overlaps a saying or the Start Game button.",
+        "review": "post-commit Codex contract check (tiered rule, 2026-09-17)",
         "revised_contract_sha256": "707bcebac93f66503c8e5f8e2f3b56ee0cf3bedc047e39ffd3c69bb23675faa7",
-        "review": "post-commit Codex contract check (tiered rule, 2026-09-17)"
+        "source_head": "e0f82c29e029d00e07b9ac909098b2290e296ed7"
       },
       {
-        "date": "2026-09-23",
-        "reason": "Declare NSC-003 and NSC-019 (both conformant) as the real dependencies; scope out NSC-007/008/009, whose dependency runs the other way - they claim the title files and add their own optional references. Closes the 09-12 crew's requires_declared_dependency finding on AC-002 and VAL-001.",
-        "source_head": "23044a44827ea2b9ab718780e398c6834babb4d2",
-        "previous_contract_revision": 5,
         "base_contract_sha256": "ee595604525264846eae9d7565c79aa091c7600ea275efe7261274b3fb20ea2f",
+        "date": "2026-09-23",
+        "previous_contract_revision": 5,
+        "reason": "Declare NSC-003 and NSC-019 (both conformant) as the real dependencies; scope out NSC-007/008/009, whose dependency runs the other way - they claim the title files and add their own optional references. Closes the 09-12 crew's requires_declared_dependency finding on AC-002 and VAL-001.",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)",
         "revised_contract_sha256": "4f4e79d17dbbe5cb55bed88adf3683785bc0d65ec6a791e7f8da964e55092454",
-        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+        "source_head": "23044a44827ea2b9ab718780e398c6834babb4d2"
       },
       {
-        "date": "2026-09-24",
-        "reason": "AC-001 pins the title hierarchy that four fixtures outside this task depend on. The decomposition reviewer PASSED the NSC-066 split but decomposition.py:492 requires the final round's findings array to be exactly empty, so one advisory finding still blocked review_ready. The finding is real and I verified it at source rather than on the summary: five call sites resolve Find(TitleScreen/TitleCard/StartGameButton) on main - WizardSelectionPlayModeTests.cs:44 and :91, WizardGameEntryPlayModeTests.cs:310, WizardAnimationPlayModeTests.cs:548, Editor/WizardGameEntrySceneBuilderTests.cs:85 - while AC-001 as written would be satisfied by deleting TitleCard outright when the restack strips its opaque fill. AC-001 now requires BuildTitleScreen to keep TitleScreen with child TitleCard and grandchild StartGameButton, to strip TitleCard rather than delete it (no opaque Image, no Outline), and to leave TitleCard left-anchored so the existing anchorMax.x <= 0.5 caps measure against the right container. This is a compatibility constraint, not a visual decision: the left-stacked sayings, transparent panel and button placement are unchanged from revision 6, and execution_scope, kind, type and completion_gates are untouched. Safe to revise now because the decomposition record is status=failed with no plan pinned to this contract's semantic hash; a revision while a plan sat review_ready would have stranded it.",
-        "source_head": "1dcf8009f0b8a113bc3294055fd756fae5f4f0a9",
-        "previous_contract_revision": 6,
         "base_contract_sha256": "7306c12a2b4e0ceef194da7d4d58b23d3bf93eea9159dc1ca69b78d8ed50c45e",
+        "date": "2026-09-24",
+        "previous_contract_revision": 6,
+        "reason": "AC-001 pins the title hierarchy that four fixtures outside this task depend on. The decomposition reviewer PASSED the NSC-066 split but decomposition.py:492 requires the final round's findings array to be exactly empty, so one advisory finding still blocked review_ready. The finding is real and I verified it at source rather than on the summary: five call sites resolve Find(TitleScreen/TitleCard/StartGameButton) on main - WizardSelectionPlayModeTests.cs:44 and :91, WizardGameEntryPlayModeTests.cs:310, WizardAnimationPlayModeTests.cs:548, Editor/WizardGameEntrySceneBuilderTests.cs:85 - while AC-001 as written would be satisfied by deleting TitleCard outright when the restack strips its opaque fill. AC-001 now requires BuildTitleScreen to keep TitleScreen with child TitleCard and grandchild StartGameButton, to strip TitleCard rather than delete it (no opaque Image, no Outline), and to leave TitleCard left-anchored so the existing anchorMax.x <= 0.5 caps measure against the right container. This is a compatibility constraint, not a visual decision: the left-stacked sayings, transparent panel and button placement are unchanged from revision 6, and execution_scope, kind, type and completion_gates are untouched. Safe to revise now because the decomposition record is status=failed with no plan pinned to this contract's semantic hash; a revision while a plan sat review_ready would have stranded it.",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)",
         "revised_contract_sha256": "7c93f5d96b70718d166b719f2b6a6602bda902be18609f15fdd3a2e5abf8934c",
-        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+        "source_head": "1dcf8009f0b8a113bc3294055fd756fae5f4f0a9"
       }
-    ]
-  }
+    ],
+    "created_by_human_request": true,
+    "origin": "human_approved_gameplay_presentation_followup"
+  },
+  "reconciliation_key": "title-screen-start-game-flow",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "missing",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "Title Screen and Start Game Flow",
+  "type": "game-flow-ui"
 }

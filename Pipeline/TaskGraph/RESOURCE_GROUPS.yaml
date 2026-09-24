@@ -182,7 +182,6 @@
         "door-passability-publication",
         "door-breach-feedback",
         "animated-wizard-unity-integration",
-        "title-screen-start-game-flow",
         "four-wizard-selection-screen",
         "selected-wizard-world-placement",
         "independent-room-scene-composition",
@@ -194,7 +193,8 @@
         "spectral-decoy-spell",
         "wizard-128-source-integration-switch",
         "doorway-opening-seal-and-door-art-binding",
-        "fireball-second-mint"
+        "fireball-second-mint",
+        "title-screen-transparent-layout-build"
       ],
       "resource_key": "unity-scene:Assets/Scenes/DoorPrototype.unity",
       "work_ids": [
@@ -218,7 +218,6 @@
         "NSC-051",
         "NSC-052",
         "NSC-062",
-        "NSC-066",
         "NSC-067",
         "NSC-068",
         "NSC-069",
@@ -230,7 +229,8 @@
         "NSC-088",
         "NSC-096",
         "NSC-097",
-        "NSC-098"
+        "NSC-098",
+        "NSC-108"
       ]
     },
     {
@@ -461,10 +461,10 @@
         "frost-field",
         "force-wave",
         "spectral-decoy-spell",
-        "title-screen-start-game-flow",
         "wizard-128-source-integration-switch",
         "melee-enemy",
-        "fireball-second-mint"
+        "fireball-second-mint",
+        "title-screen-transparent-layout-build"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs",
       "work_ids": [
@@ -477,10 +477,10 @@
         "NSC-008",
         "NSC-009",
         "NSC-088",
-        "NSC-066",
         "NSC-096",
         "NSC-015",
-        "NSC-098"
+        "NSC-098",
+        "NSC-108"
       ]
     },
     {
@@ -585,15 +585,15 @@
     },
     {
       "reconciliation_keys": [
-        "title-screen-start-game-flow",
         "four-wizard-selection-screen",
-        "selected-wizard-world-placement"
+        "selected-wizard-world-placement",
+        "title-screen-start-game-transition"
       ],
       "resource_key": "logical:game-entry-menu-flow",
       "work_ids": [
-        "NSC-066",
         "NSC-067",
-        "NSC-068"
+        "NSC-068",
+        "NSC-106"
       ]
     },
     {
@@ -1077,9 +1077,13 @@
       ]
     },
     {
-      "reconciliation_keys": ["pixellab-enemy-eight-direction-walk-art"],
+      "reconciliation_keys": [
+        "pixellab-enemy-eight-direction-walk-art"
+      ],
       "resource_key": "logical:pixellab-enemy-walk-art",
-      "work_ids": ["NSC-093"]
+      "work_ids": [
+        "NSC-093"
+      ]
     },
     {
       "reconciliation_keys": [
@@ -1117,18 +1121,18 @@
     {
       "reconciliation_keys": [
         "fireball",
-        "title-screen-start-game-flow",
         "frost-field",
         "force-wave",
-        "spectral-decoy-spell"
+        "spectral-decoy-spell",
+        "title-screen-start-game-transition"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/TitleScreenController.cs",
       "work_ids": [
         "NSC-007",
-        "NSC-066",
         "NSC-008",
         "NSC-009",
-        "NSC-088"
+        "NSC-088",
+        "NSC-106"
       ]
     },
     {

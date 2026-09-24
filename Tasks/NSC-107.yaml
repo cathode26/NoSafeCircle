@@ -1,0 +1,75 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "NSC-066 AC-006 (runtime half); owner revision 2026-09-17 (U1, U2, U5, U6)",
+      "requirement": "Create Assets/NoSafeCircle/DoorPrototype/Scripts/TitleScreenChaseBackdrop.cs. It runs only while TitleScreenController.IsTitleScreenVisible is true. After a random interval between 10 and 20 seconds - the first pairing may appear sooner, within 3 seconds of the title screen showing - it starts one pairing at a randomly chosen endpoint of the chase lane: a fleeing wizard set up through WizardAnimationController.ApplyPresentation, followed about 2.5 world units behind by a pursuer set up through EnemyAnimationController.Initialize, both walking the lane at about 1.5 world units per second. At each pairing start it clips the floor segment supplied by the builder to the part whose Camera.main.WorldToViewportPoint x lies within [0.55, 0.9] for the camera's current aspect; that clipped segment is the chase lane and its two ends are the lane endpoints. The [0.55, 0.9] band keeps the whole lane clear of the title text and Start Game Button column. If the clipped lane is shorter than 6 world units, skip that pairing and start the next interval. Each actor fades in over 0.5 seconds as it starts moving from its pairing's start endpoint and fades out over 0.5 seconds before reaching the far endpoint, then is destroyed; the pursuer starts at the start endpoint 2.5 / 1.5 seconds after the wizard, so neither actor's tracked position ever falls outside the clipped lane. For pairing index k starting at 0 the sequence is: k=0 Ember Wizard with the Dungeon Brute (EnemyAnimationKind.MeleeEnemy); k=1 Ash Wizard with the Lantern Wraith (EnemyAnimationKind.LanternWraith); k=2 Frost Wizard with the Dungeon Brute; k=3 Dusk Wizard with the Lantern Wraith; k=4 Ember Wizard with the Lantern Wraith; k=5 Ash Wizard with the Dungeon Brute; k=6 Frost Wizard with the Lantern Wraith; k=7 Dusk Wizard with the Dungeon Brute; then repeat from k=0, covering all 8 wizard-pursuer combinations within 8 pairings. At the lane midpoint both actors are fully opaque and inside the camera's viewport, with WorldToViewportPoint x and y each within [0.05, 0.95]."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "NSC-066 AC-007; owner revision 2026-09-15 (T3)",
+      "requirement": "Every actor this component spawns carries only presentation components: a SpriteRenderer/Visual and either a WizardAnimationController or an EnemyAnimationController with its Animator. No actor has a NavMeshAgent, a Collider, an EnemyTargetKnowledge, an attack component, a health component, a registry component, or an input component. No actor ever registers with ActiveEnemyRegistry, and the component never reads or touches the Player GameObject or PlayerMovement. It adds no gameplay, targeting, or AI behavior."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "NSC-066 AC-008 (component half); owner revision 2026-09-17 (U3)",
+      "requirement": "TitleScreenChaseBackdrop exposes a public Tick(float deltaTime) that advances spawn timing and actor movement by exactly that delta, plus a serialized seed or an injectable interval selector and side selector, so Play Mode tests can drive and predict spawn timing, side choice, and pairing order without depending on real time or Unity's Update loop. All runtime inputs - the four wizard identities' animator controllers or override data and display order, the MeleeEnemyAnimator and LanternWraithAnimator controllers, the two floor-segment endpoints, and the interval bounds and speeds - are serialized fields the builder assigns; the component itself never calls Editor APIs and never calls Resources.Load."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "NSC-066 AC-003 (backdrop half); owner revision 2026-09-15",
+      "requirement": "When TitleScreenController.StartGame runs and the title panel is hidden, TitleScreenChaseBackdrop destroys every actor it spawned that same frame and starts no further pairing for the rest of the session. It reads the controller's existing public state and event and does not change TitleScreenController."
+    }
+  ],
+  "basis": "human_approved_gameplay_presentation",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "NSC-066 VAL-004; owner revision 2026-09-17 (U1, U2, U5, U6)",
+      "requirement": "TitleScreenChaseBackdropPlayModeTests, driving TitleScreenChaseBackdrop.Tick(float) with an injected seed, interval selector and side selector, proves: the spawn interval stays within 10-20 seconds and the first pairing appears within 3 seconds of the title screen showing; both lane endpoints are used as the random pairing start across repeated spawns; the eight-pairing sequence (k=0..7: Ember/Brute, Ash/Wraith, Frost/Brute, Dusk/Wraith, Ember/Wraith, Ash/Brute, Frost/Wraith, Dusk/Brute, then repeating) matches exactly for pairings 0 through 8; every spawned actor carries only presentation components and never registers with ActiveEnemyRegistry; at every Tick step each actor's tracked position stays on the clipped lane, inside the inset floor bounds and inside Camera.main viewport x [0.55, 0.9], and no actor's screen rect overlaps the screen rect of any title saying or of the Start Game Button; each actor fades in over 0.5 seconds from its pairing's start endpoint and fades out over 0.5 seconds before its far endpoint, with the pursuer's start offset from the wizard's by 2.5 / 1.5 seconds; at the lane midpoint both actors are fully opaque with viewport x and y within [0.05, 0.95]. Run these geometry checks with Camera.main rendering to a 1920x1080 targetTexture - the fixed-aspect convention WizardAnimationPlayModeTests and PlayerMovementPlayModeTests already use - and again at 1440x1080, and with a 360x1080 targetTexture verify that no pairing spawns because the clipped lane is shorter than 6 world units. At 1920x1080 the clipped lane is about 10 world units and at 1440x1080 about 7, both above that minimum. Finally, after TitleScreenController.StartGame runs, verify every actor is destroyed that same frame and no further Tick call spawns a new pairing."
+    }
+  ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "Covers the runtime half of the parent's chase-backdrop criterion, the presentation-only component rule, the component half of the serialized-data criterion, the backdrop half of the Start Game criterion, and VAL-004.",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-075",
+    "NSC-077",
+    "NSC-106"
+  ],
+  "downstream_integration_obligations": [],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/TitleScreenChaseBackdrop.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/TitleScreenChaseBackdrop.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/TitleScreenChaseBackdropPlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/TitleScreenChaseBackdropPlayModeTests.cs.meta"
+  ],
+  "execution_reason": "One presentation MonoBehaviour and one Play Mode fixture. Its Tick(float) seam plus injected seed, interval selector and side selector let every behavior be driven and asserted in memory, with no builder or scene edit.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "Owner decision, 2026-09-15 (graph-lead journal; Vincent's SpaceInvaders lobby direction), per NSC-066_REV2_DECISIONS.md T1-T6",
+      "requirement": "A fleeing-wizard and pursuer pairing drifts across the live scene behind the title every 10-20 seconds, cycling all 4 mage identities against both enemy types. Presentation only; no account, save, settings, credits, networking, or runtime AI features."
+    }
+  ],
+  "id": "NSC-107",
+  "kind": "implementation",
+  "notes": "This child writes the component and its in-memory fixture only; no TitleScreenChaseBackdrop type exists anywhere in Assets/ at this head. Adding the component to the scene, computing the floor segment, and assigning its serialized references are done by the sibling child that owns DoorPrototypeGlobalSceneBuilder.cs. The fixture builds its own TitleScreenController, actors and lane endpoints directly, so it needs neither the builder nor the committed scene. It depends on NSC-075 for the wizard walk animation and on NSC-077 for MeleeEnemyAnimator.controller, LanternWraithAnimator.controller and EnemyAnimationController.",
+  "parent": "NSC-066",
+  "provenance": {
+    "graph_delta_plan_id": "GDP-8f6eced76b3eebeab49a42e7741aba7f4e4531cf9bc1aa58b2167302882c86af",
+    "origin": "progressive_decomposition",
+    "parent_contract_revision": 7,
+    "parent_contract_sha256": "f6c2bdb4110b2c8719d09298ccdfbdbf3ef957eb3af032a985e94cce3511a673",
+    "parent_task_id": "NSC-066"
+  },
+  "reconciliation_key": "title-screen-chase-backdrop",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "TitleScreenChaseBackdrop MonoBehaviour: Timed Wizard-and-Pursuer Pairings Walking a Clipped Lane",
+  "type": "game-flow-ui"
+}
