@@ -198,12 +198,12 @@
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-080": {
-      "task_contract_sha256": "1404d6051ac78ba30b39e051b940a510bafc7cd6685915d297dcc49f12dcd0bb",
+      "task_contract_sha256": "532fd9c5e7681634de69f94193303efaf377a7f17c2d293b3ba389370535da1e",
       "required_test_platforms": [
         "EditMode"
       ],
       "test_filters": {
-        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.Environment.BoneArchiveDressingPrefabTests"
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.BoneArchiveDressingPrefabTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
