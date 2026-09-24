@@ -158,12 +158,12 @@
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-079": {
-      "task_contract_sha256": "14ed6f14a061295b2ddb0fb40a74bae05bfe14f68875c438ed7b2c5de34af5d9",
+      "task_contract_sha256": "d49f3c8d96881377c95b80b506087578968c758dc8fb04ee5b51e6d3e34a144b",
       "required_test_platforms": [
         "EditMode"
       ],
       "test_filters": {
-        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.Environment.RuinedEntryDressingPrefabTests"
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.RuinedEntryDressingPrefabTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
