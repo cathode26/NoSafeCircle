@@ -162,6 +162,23 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing
                     0f,
                     (RuinedEntryLayout.MinimumZ + RuinedEntryLayout.MaximumZ) * 0.5f);
 
+                // THE REVIEW SHOT FRAMES D1, NOT THE ROOM CENTRE. Art Director, 2026-09-24:
+                // this room's composition is the two guardians -- intact west, fallen east,
+                // the reveal at the door -- and a room-centred ortho-8 frame contains NEITHER.
+                // "A panel that does not contain the thing the room is about cannot certify
+                // it." The door position is READ FROM THE SCENE rather than hard-coded, so the
+                // frame follows D1 if the layout ever moves it.
+                GameObject roomRoot = null;
+                foreach (GameObject root in scene.GetRootGameObjects())
+                {
+                    if (root.name == "Room_RuinedEntry") { roomRoot = root; break; }
+                }
+                Assert.IsNotNull(roomRoot, "Ruined Entry has no Room_RuinedEntry root.");
+
+                Transform d1 = roomRoot.transform.Find("DoorAnchors/D1Opening");
+                Assert.IsNotNull(d1, "Ruined Entry has no DoorAnchors/D1Opening to frame on.");
+                var doorCentre = new Vector3(d1.position.x, 0f, d1.position.z);
+
                 cameraObject = new GameObject("DressingCaptureCamera", typeof(Camera));
                 Camera camera = cameraObject.GetComponent<Camera>();
                 camera.orthographic = true;
@@ -177,11 +194,17 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing
                 // look at; at size 8 a room reads as a corner of empty floor.
                 foreach (var shotSpec in new[]
                 {
-                    new KeyValuePair<string, float>("ruined-entry-dressed.png", 8f),
-                    new KeyValuePair<string, float>("ruined-entry-dressed-room.png", 20f),
+                    // size 8 = the Art Director's review size, framed on the door.
+                    // size 20 = the whole 28 x 26 room, still framed on its centre.
+                    new { Name = "ruined-entry-dressed.png", Size = 8f, Focus = doorCentre },
+                    new { Name = "ruined-entry-dressed-room.png", Size = 20f, Focus = centre },
                 })
                 {
-                    camera.orthographicSize = shotSpec.Value;
+                    camera.orthographicSize = shotSpec.Size;
+                    // Repositioned PER SHOT: the two panels answer different questions and no
+                    // longer share a centre.
+                    cameraObject.transform.position =
+                        shotSpec.Focus + rotation * Vector3.back * 51.96f;
                     camera.Render();
 
                     RenderTexture previous = RenderTexture.active;
@@ -191,7 +214,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing
                     shot.Apply();
                     RenderTexture.active = previous;
 
-                    File.WriteAllBytes(Path.Combine(outputFull, shotSpec.Key), shot.EncodeToPNG());
+                    File.WriteAllBytes(Path.Combine(outputFull, shotSpec.Name), shot.EncodeToPNG());
                     UnityEngine.Object.DestroyImmediate(shot);
                 }
             }
