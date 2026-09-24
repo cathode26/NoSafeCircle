@@ -381,6 +381,91 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
             }
         }
 
+        // NSC-082: the hazard blockout planes shipped as large translucent MAGENTA rectangles -
+        // fill (96,46,74) with a (198,132,165) edge. Same class as the Ruined Entry white cubes
+        // and the Final Room indigo mass: a placeholder in a colour no finished surface uses
+        // reads as a rendering fault rather than as unfinished work. The Art Director's pick was
+        // to reuse the already-approved blockout tone instead of authoring a fourth.
+        //
+        // THE EDGE RATIO IS PART OF THE CONTRACT, NOT DECORATION. The original drew its border
+        // at roughly 2x the fill's channels so the proxy's extent is legible; asserting the
+        // relation rather than the literal edge tone keeps that intent while leaving the base
+        // tone free to be repicked.
+        [Test]
+        public void BlockoutProxySprite_UsesTheApprovedBlockoutTone_NotMagenta()
+        {
+            string folderName = "__NSCBlockoutProxyTone_" + Guid.NewGuid().ToString("N");
+            string folderPath = "Assets/" + folderName;
+            AssetDatabase.CreateFolder("Assets", folderName);
+            try
+            {
+                Sprite sprite = LowerVaultSceneBuilder.LoadOrCreateBlockoutProxySprite(folderPath);
+                AssertBlockoutProxyTone(sprite.texture.GetPixels32(), "the generated proxy");
+            }
+            finally
+            {
+                AssetDatabase.DeleteAsset(folderPath);
+            }
+        }
+
+        // THE ONE THAT GUARDS WHAT SHIPS. The test above builds into a temporary folder, so it
+        // only proves the generator is fixed. The room loads the COMMITTED sprite, so a green
+        // generator with a stale committed asset still ships magenta.
+        [Test]
+        public void CommittedBlockoutProxySprite_UsesTheApprovedBlockoutTone()
+        {
+            const string committedPath =
+                "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/LowerVaultBlockoutProxySprite.asset";
+
+            Sprite sprite = AssetDatabase.LoadAssetAtPath<Sprite>(committedPath);
+            Assert.IsNotNull(sprite, "Expected the committed blockout proxy sprite at " + committedPath + ".");
+            AssertBlockoutProxyTone(sprite.texture.GetPixels32(), "the COMMITTED proxy");
+        }
+
+        private static void AssertBlockoutProxyTone(Color32[] pixels, string label)
+        {
+            // Written out deliberately rather than read from RoomPlaceholderVisuals: an
+            // expectation sourced from the constant it guards agrees with any value that
+            // constant ever takes, including a wrong one.
+            Color32 expectedFill = new Color32(96, 88, 80, 230);
+            Color32 rejectedFill = new Color32(96, 46, 74, 200);
+
+            var tones = new Dictionary<int, int>();
+            foreach (Color32 pixel in pixels)
+            {
+                int key = (pixel.r << 16) | (pixel.g << 8) | pixel.b;
+                tones[key] = tones.TryGetValue(key, out int seen) ? seen + 1 : 1;
+            }
+
+            Assert.AreEqual(2, tones.Count,
+                label + " should carry exactly two tones - a fill and its edge. Got " + tones.Count + ".");
+
+            int rejectedKey = (rejectedFill.r << 16) | (rejectedFill.g << 8) | rejectedFill.b;
+            Assert.IsFalse(tones.ContainsKey(rejectedKey),
+                label + " is still the magenta " + rejectedFill + ". That is the defect.");
+
+            // The fill is whichever tone covers more of a bordered square: the interior.
+            var ordered = tones.OrderByDescending(entry => entry.Value).ToList();
+            Color32 fill = new Color32(
+                (byte)((ordered[0].Key >> 16) & 0xFF),
+                (byte)((ordered[0].Key >> 8) & 0xFF),
+                (byte)(ordered[0].Key & 0xFF),
+                255);
+            Color32 edge = new Color32(
+                (byte)((ordered[1].Key >> 16) & 0xFF),
+                (byte)((ordered[1].Key >> 8) & 0xFF),
+                (byte)(ordered[1].Key & 0xFF),
+                255);
+
+            Assert.AreEqual(expectedFill.r, fill.r, label + " fill red: expected " + expectedFill + " but was " + fill);
+            Assert.AreEqual(expectedFill.g, fill.g, label + " fill green: expected " + expectedFill + " but was " + fill);
+            Assert.AreEqual(expectedFill.b, fill.b, label + " fill blue: expected " + expectedFill + " but was " + fill);
+
+            Assert.Greater(edge.r + edge.g + edge.b, fill.r + fill.g + fill.b,
+                label + " edge " + edge + " must stay brighter than its fill " + fill +
+                ", which is how the proxy's extent stays legible.");
+        }
+
         [Test] // VAL-002/AC-004: the blockout proxy Sprite reuses matching pixels and repairs stale pixels.
         public void BlockoutProxySprite_ReplacesStalePixelsAndReusesMatchingPixels()
         {

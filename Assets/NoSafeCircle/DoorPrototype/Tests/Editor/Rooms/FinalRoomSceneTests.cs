@@ -195,6 +195,77 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
             AssertCommittedSceneUnchanged(scene => AssertRoomGeometry(scene));
         }
 
+
+        // NSC-083: the FR-1 mass shipped as a flat saturated INDIGO box - the same class of
+        // defect as the Ruined Entry white cubes, where a blockout proxy reads as a rendering
+        // fault rather than as a placeholder. The Art Director's pick was to reuse the tone
+        // already approved for the rubble rather than authoring a fourth placeholder colour.
+        [Test]
+        public void Build_TintsTheCentralObstacleInsteadOfLeavingItIndigo()
+        {
+            AssertObstacleTint(SceneManager.GetActiveScene());
+        }
+
+        [Test]
+        public void CommittedScene_CentralObstacleCarriesTheApprovedTint()
+        {
+            AssertCommittedSceneUnchanged(scene => AssertObstacleTint(scene));
+        }
+
+        private static void AssertObstacleTint(Scene scene)
+        {
+            // The approved blockout tone, written out DELIBERATELY rather than read from
+            // RoomPlaceholderVisuals: a test that sources its expectation from the constant it
+            // guards agrees with any value that constant ever takes, including a wrong one.
+            Color32 expected = new Color32(96, 88, 80, 255);
+            Color32 rejected = new Color32(41, 20, 51, 255);
+
+            Transform obstacle = scene.GetRootGameObjects()
+                .SelectMany(root => root.GetComponentsInChildren<Transform>(true))
+                .FirstOrDefault(candidate => candidate.name == "FR-1Visual");
+            Assert.IsNotNull(obstacle, "FR-1Visual is missing from the Final Room.");
+
+            Renderer renderer = obstacle.GetComponent<Renderer>();
+            Assert.IsNotNull(renderer, "FR-1Visual has no Renderer.");
+            Assert.IsNotNull(renderer.sharedMaterial, "FR-1Visual has no material.");
+
+            Color actual = renderer.sharedMaterial.color;
+            Color32 actual32 = actual;
+
+            Assert.Greater(
+                Mathf.Abs(actual.r - rejected.r / 255f) + Mathf.Abs(actual.b - rejected.b / 255f),
+                4f / 255f,
+                "FR-1Visual is still the saturated indigo " + rejected + ". That is the defect: a " +
+                "blockout mass in a colour no finished surface uses reads as a rendering fault.");
+
+            // Tolerance rather than Color32 equality: the colour makes a byte -> float -> byte
+            // round trip through the material and a one-unit rounding difference is a flake.
+            Assert.AreEqual(expected.r / 255f, actual.r, 1.5f / 255f,
+                "FR-1Visual red: expected " + expected + " but was " + actual32);
+            Assert.AreEqual(expected.g / 255f, actual.g, 1.5f / 255f,
+                "FR-1Visual green: expected " + expected + " but was " + actual32);
+            Assert.AreEqual(expected.b / 255f, actual.b, 1.5f / 255f,
+                "FR-1Visual blue: expected " + expected + " but was " + actual32);
+            Assert.AreEqual(expected.a / 255f, actual.a, 1.5f / 255f,
+                "FR-1Visual alpha: expected " + expected + " but was " + actual32);
+
+            // FR-1 MUST DRAW BEFORE THE DRESSING, AND THIS ASSERTION USED TO SAY THE OPPOSITE.
+            // It required renderQueue == Transparent, to prove the alpha was not silently
+            // dropped. That is the right assertion for the Ruined Entry rubble and the WRONG one
+            // here, and it PASSED on the regression it should have caught: giving FR-1 alpha 230
+            // moved its material to the Transparent queue (3000), where the dressing
+            // SpriteRenderers already live, so the mass stopped drawing before them and overdrew
+            // about 4% of the bone throne and skeleton rows against its silhouette. Caught by
+            // measuring a rendered panel, not by this suite.
+            //
+            // Asserted as a RELATION rather than as the literal 2000, so any opaque-range queue
+            // satisfies it: the mass must be drawn before anything at Transparent.
+            Assert.Less(renderer.sharedMaterial.renderQueue,
+                (int)UnityEngine.Rendering.RenderQueue.Transparent,
+                "FR-1Visual renders at or after the transparent queue, so it draws over the " +
+                "dressing props that sit against it instead of behind them.");
+        }
+
         private static void AssertCommittedSceneUnchanged(System.Action<Scene> body)
         {
             byte[] before = File.ReadAllBytes(FinalRoomSceneBuilder.ScenePath);

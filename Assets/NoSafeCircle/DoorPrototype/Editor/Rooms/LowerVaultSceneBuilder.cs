@@ -653,8 +653,12 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             const int width = BlockoutProxyTextureSize;
             const int height = BlockoutProxyTextureSize;
             const int borderThicknessPx = 4;
-            Color32 fill = new Color32(96, 46, 74, 200);
-            Color32 border = new Color32(198, 132, 165, 230);
+            // WAS magenta (96,46,74) with a (198,132,165) edge, which read as a rendering
+            // fault rather than as a blockout. The edge ratio is KEPT - the original drew
+            // its border at roughly 2x the fill's channels to mark the proxy's extent, so
+            // repointing the fill preserves that relationship instead of inventing a tone.
+            Color32 fill = RoomPlaceholderVisuals.BlockoutPlaceholder;
+            Color32 border = RoomPlaceholderVisuals.EdgeFrom(fill, 2.06f);
             Color32[] pixels = new Color32[width * height];
             for (int y = 0; y < height; y++)
             {
