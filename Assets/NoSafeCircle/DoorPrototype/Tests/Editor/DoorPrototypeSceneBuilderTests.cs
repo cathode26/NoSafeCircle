@@ -1618,9 +1618,18 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
         private static void AssertSpriteIsBottomAnchored(Sprite sprite)
         {
             Assert.IsNotNull(sprite);
-            Assert.That(sprite.pivot.y, Is.EqualTo(0f).Within(0.01f),
+            // BOTTOM-ANCHORED IS A RELATION TO THE SPRITE'S HEIGHT, NOT THE LITERAL 0.
+            // Exactly 0 is only right for generated art whose artwork touches the bottom row.
+            // The approved door sprites are IMPORTED source assets with seven fully
+            // transparent rows below the artwork, and their .meta sets spritePivot.y to
+            // 0.054688 - which on a 128px texture is 0.054688 * 128 = 7.000064, the pivot
+            // Unity reports. Demanding 0 there would anchor the TRANSPARENT CANVAS EDGE
+            // rather than the door's feet, i.e. it would assert the opposite of this test's
+            // own stated intent while looking stricter.
+            Assert.That(sprite.pivot.y, Is.InRange(0f, sprite.rect.height * 0.1f),
                 "World sprite pivot must be bottom-anchored so artwork extends upward from the ground-contact " +
-                "position instead of being centered on it.");
+                "position instead of being centered on it. Got pivot.y " + sprite.pivot.y +
+                " on a " + sprite.rect.height + "px sprite.");
             Assert.That(sprite.pivot.x, Is.EqualTo(sprite.rect.width / 2f).Within(0.01f),
                 "World sprite pivot must stay horizontally centered.");
         }
@@ -2150,8 +2159,12 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                 "The sprite visual child must not carry gameplay collision; DoorVisual's own BoxCollider owns it.");
         }
 
-        // Generated door art follows the caller-owned-folder persistence contract. The integrated
-        // wizard art is an approved canonical source asset and remains reusable across rebuilds.
+        // BOTH world sprites are now approved canonical SOURCE assets and both remain reusable
+        // across rebuilds. The door used to be generated placeholder art living in the
+        // caller-owned folder; Tasks/NSC-097.yaml requires imported door art, so it now follows
+        // the same path the wizard always has. The temporary folder still governs the generated
+        // architectural tiles and the shared prefab - which is what this test's name refers to -
+        // it just no longer governs the door sprite.
         [Test]
         public void Build_PersistentWorldSpriteAssets_AreReusableVisualOnlyAssetsInTemporaryFolder()
         {
@@ -2164,7 +2177,9 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
 
             Assert.IsTrue(AssetDatabase.Contains(doorSprite));
             Assert.IsTrue(AssetDatabase.Contains(wizardSprite));
-            StringAssert.StartsWith(temporaryArchitecturalTileAssetFolder + "/", AssetDatabase.GetAssetPath(doorSprite));
+            StringAssert.EndsWith(
+                "/Art/Doors/Source/door_bonestone_sealed_S_000.png",
+                AssetDatabase.GetAssetPath(doorSprite).Replace('\\', '/'));
             StringAssert.EndsWith(
                 "/masculine-light/selected/standing/south-east.png",
                 AssetDatabase.GetAssetPath(wizardSprite).Replace('\\', '/'));
@@ -2182,8 +2197,10 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                 "Rebuilding must reuse the canonical selected wizard sprite.");
         }
 
-        // Parameterless in-memory builds replace transient generated door art while retaining the
-        // canonical selected wizard source asset.
+        // Parameterless in-memory builds retain BOTH canonical source assets. The builder's
+        // transient cleanup deliberately excludes persistent assets, so an imported door sprite
+        // is not a builder-owned transient and its survival is correct rather than a leak. This
+        // test asserted destruction back when the door art was generated in memory.
         [Test]
         public void BuildInMemory_TransientWorldSpriteObjects_AreDestroyedOnRebuild()
         {
@@ -2195,10 +2212,11 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
 
             DoorPrototypeSceneBuilder.BuildInMemoryForTests();
 
-            Assert.IsTrue(oldDoorSprite == null,
-                "Previous transient DoorSprite Sprite must be destroyed before rebuilding.");
-            Assert.IsTrue(oldDoorTexture == null,
-                "Previous transient DoorSprite Texture must be destroyed before rebuilding.");
+            Assert.IsFalse(oldDoorSprite == null,
+                "The canonical door Sprite is an imported asset, not a builder-owned transient, " +
+                "so it must survive an in-memory rebuild exactly as the wizard does.");
+            Assert.IsFalse(oldDoorTexture == null,
+                "The canonical door Texture must survive an in-memory rebuild.");
             Assert.IsFalse(oldWizardSprite == null,
                 "The canonical wizard Sprite must survive an in-memory rebuild.");
             Assert.IsFalse(oldWizardTexture == null,
@@ -2207,7 +2225,10 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             var newDoorSprite = GameObject.Find("DoorRoot/DoorVisual/DoorSprite").GetComponent<SpriteRenderer>().sprite;
             var newWizardSprite = GameObject.Find("Player/Visual").GetComponent<SpriteRenderer>().sprite;
             Assert.IsNotNull(newDoorSprite);
-            Assert.IsFalse(AssetDatabase.Contains(newDoorSprite));
+            Assert.IsTrue(AssetDatabase.Contains(newDoorSprite),
+                "The rebuilt door sprite must still be the persisted source asset.");
+            Assert.AreEqual(oldDoorSprite, newDoorSprite,
+                "Rebuilding must reuse the same imported door sprite rather than replacing it.");
             Assert.IsNotNull(newWizardSprite);
             Assert.IsTrue(AssetDatabase.Contains(newWizardSprite));
             Assert.AreEqual(oldWizardSprite, newWizardSprite);
