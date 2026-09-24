@@ -13,6 +13,9 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
     internal static class DoorSequenceBuilder
     {
         internal const string CanonicalScenePath = "Assets/Scenes/DoorPrototype.unity";
+        internal const string DressingPrefabDirectory =
+            "Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing/";
+        internal const string DressingRootName = "RoomDressing";
 
         internal static void BuildCanonical(Scene targetScene, GameObject existingD1)
         {
@@ -33,6 +36,8 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
                 }
             }
 
+            InstantiateRoomDressing(targetScene, catalog);
+
             RemoveLegacyEnvironmentRoots(targetScene);
             ConfigureDoor(existingD1, DoorId.D1, false, catalog.Doors[0].ExpectedGroundCenter);
 
@@ -44,6 +49,65 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
                 clone.name = entry.DoorId.ToString();
                 ConfigureDoor(clone, entry.DoorId, entry.IsFinal, entry.ExpectedGroundCenter);
             }
+        }
+
+        /// <summary>Places each room's authored dressing into the composed scene.</summary>
+        /// <remarks>
+        /// NSC-079/080/081/082/083. The builders turn the Art Director's catalogs into prefabs;
+        /// without this step those prefabs exist as assets and the composed scene stays bare, which
+        /// is exactly the state the project sat in while five catalogs and five builders were all
+        /// on main.
+        /// <para>
+        /// PARENTED AT IDENTITY UNDER ITS OWN ROOT, deliberately. Catalog placements are WORLD
+        /// coordinates -- Ruined Entry's span X[-14,14] Z[-26,0] is where the room actually sits in
+        /// the composed scene -- so parenting under a room root that carried any transform would
+        /// silently double-offset every prop. A dedicated root at identity cannot.
+        /// </para>
+        /// <para>
+        /// A MISSING PREFAB THROWS RATHER THAN SKIPPING. Skipping would compose a bare room and
+        /// report success, which is the failure this project keeps meeting: a green result that is
+        /// not evidence of the thing. If a room has no dressing prefab, the scene build should stop
+        /// and say which room.
+        /// </para>
+        /// </remarks>
+        private static void InstantiateRoomDressing(Scene targetScene, RoomSceneCatalog catalog)
+        {
+            var existing = FindSceneRoot(targetScene, DressingRootName);
+            if (existing != null) UnityEngine.Object.DestroyImmediate(existing);
+
+            var dressingRoot = new GameObject(DressingRootName);
+            SceneManager.MoveGameObjectToScene(dressingRoot, targetScene);
+            dressingRoot.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
+            dressingRoot.transform.localScale = Vector3.one;
+
+            foreach (var room in catalog.Rooms)
+            {
+                var prefabPath = DressingPrefabDirectory + room.RoomId + "Dressing.prefab";
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+                if (prefab == null)
+                {
+                    throw new InvalidOperationException(
+                        $"No dressing prefab for {room.RoomId} at {prefabPath}. Build it with " +
+                        $"NoSafeCircle.DoorPrototype.Editor.Environment.{room.RoomId}DressingPrefabBuilder.Build " +
+                        "before composing; composing without it would produce a bare room and report success.");
+                }
+
+                var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab, targetScene);
+                instance.name = room.RoomId + "Dressing";
+                instance.transform.SetParent(dressingRoot.transform, false);
+                instance.transform.localPosition = Vector3.zero;
+                instance.transform.localRotation = Quaternion.identity;
+                instance.transform.localScale = Vector3.one;
+            }
+        }
+
+        private static GameObject FindSceneRoot(Scene scene, string rootName)
+        {
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                if (root.name == rootName) return root;
+            }
+            return null;
         }
 
         private static void ConfigureDoor(GameObject doorRoot, DoorId doorId, bool isFinal, Vector2 groundCenter)
