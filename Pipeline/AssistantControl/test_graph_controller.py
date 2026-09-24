@@ -1117,6 +1117,120 @@ class GraphControllerTests(unittest.TestCase):
                 "a decomposition record must still veto the shortcut",
             )
 
+    # --- a decomposition applied in an isolated clone -------------------
+    # The receipt stays bound to the clone it was applied in, so canonical sees
+    # a foreign `source`. Settled history must not veto committed completion of
+    # the decomposed parent; it must still fail receipt authentication.
+
+    def decomposed_parent_tasks(self, controller):
+        tasks = dict(controller._contracts(self.head))
+        tasks["NSC-898"] = {
+            **tasks["NSC-898"], "kind": "feature", "execution_scope": "not_applicable",
+            "decomposition_state": "decomposed", "decomposition_children": ["NSC-1011"],
+        }
+        return tasks
+
+    def write_decomposition_receipt(self, status, *, source: str | None = None,
+                                    task_id: str = "NSC-898", **extra) -> None:
+        self.manager.records.mkdir(parents=True, exist_ok=True)
+        write_record(self.manager.records / "NSC-898.decomposition.json", {
+            "schema_version": "assistant-decomposition/v1", "task_id": task_id,
+            "source": source or str(self.source.resolve()), "status": status,
+            "child_ids": ["NSC-1011"], **extra,
+        })
+
+    def test_settled_receipts_do_not_veto_a_committed_conformant_decomposed_parent(self):
+        foreign = str(Path(self.temp.name) / "isolated-clone")
+        for status in ("failed", "review_ready", "applied"):
+            for source in (None, foreign):
+                with self.subTest(status=status, source=source):
+                    self.write_decomposition_receipt(status, source=source)
+                    controller = self.controller("NSC-898")
+                    tasks = self.decomposed_parent_tasks(controller)
+                    with self.conformant():
+                        self.assertTrue(controller._task_complete(
+                            "NSC-898", tasks, self.head, {}, set()))
+
+    def commit_decomposed_parent(self) -> str:
+        path = self.source / "Tasks/NSC-898.yaml"
+        value = json.loads(path.read_text(encoding="utf-8"))
+        value.update(kind="feature", execution_scope="not_applicable",
+                     decomposition_state="decomposed", decomposition_children=["NSC-1011"])
+        path.write_text(json.dumps(value), encoding="utf-8")
+        self.git("add", "--", "Tasks/NSC-898.yaml")
+        self.git("commit", "-m", "decompose NSC-898")
+        return self.git("rev-parse", "HEAD").decode().strip()
+
+    def test_a_foreign_receipt_still_fails_application_authentication(self):
+        applied = self.commit_decomposed_parent()
+        receipt = dict(applied_commit=applied, application={"new_commit_sha": applied})
+        self.write_decomposition_receipt("applied", **receipt)
+        controller = self.controller("NSC-898")
+        parent = controller._contracts(applied)["NSC-898"]
+        self.assertTrue(controller._applied_decomposition("NSC-898", parent, applied),
+                        "control: the same receipt from this source authenticates")
+        self.write_decomposition_receipt(
+            "applied", source=str(Path(self.temp.name) / "isolated-clone"), **receipt)
+        controller = self.controller("NSC-898")
+        self.assertFalse(controller._applied_decomposition("NSC-898", parent, applied),
+                         "only the source differs, so only the source guard can refuse it")
+
+    def test_unsettled_or_unrecognised_receipts_still_veto(self):
+        cases = {
+            "running": dict(status="running"),
+            "unknown status": dict(status="mystery"),
+            "wrong task": dict(status="applied", task_id="NSC-899"),
+        }
+        for name, case in cases.items():
+            with self.subTest(name):
+                self.write_decomposition_receipt(**case)
+                controller = self.controller("NSC-898")
+                tasks = self.decomposed_parent_tasks(controller)
+                with self.conformant():
+                    self.assertFalse(controller._task_complete(
+                        "NSC-898", tasks, self.head, {}, set()))
+        malformed = {
+            "no schema": {"status": "applied"},
+            "list status": None, "dict status": None,
+        }
+        for name, value in malformed.items():
+            with self.subTest(name):
+                if name == "list status":
+                    self.write_decomposition_receipt(status=[])
+                elif name == "dict status":
+                    self.write_decomposition_receipt(status={})
+                else:
+                    (self.manager.records / "NSC-898.decomposition.json").write_text(
+                        json.dumps(value), encoding="utf-8")
+                controller = self.controller("NSC-898")
+                tasks = self.decomposed_parent_tasks(controller)
+                with self.conformant():
+                    self.assertFalse(controller._task_complete(
+                        "NSC-898", tasks, self.head, {}, set()))
+
+    def test_a_settled_receipt_does_not_open_the_fallback_for_a_concrete_parent(self):
+        self.write_decomposition_receipt("applied")
+        controller = self.controller("NSC-898")
+        tasks = controller._contracts(self.head)
+        with self.conformant():
+            self.assertFalse(controller._task_complete("NSC-898", tasks, self.head, {}, set()))
+
+    def test_a_live_worker_still_vetoes_a_decomposed_parent_with_a_settled_receipt(self):
+        self.write_decomposition_receipt("applied")
+        self.write_live_worker("NSC-898")
+        controller = self.controller("NSC-898")
+        tasks = self.decomposed_parent_tasks(controller)
+        with self.conformant():
+            self.assertFalse(controller._task_complete("NSC-898", tasks, self.head, {}, set()))
+
+    def test_merged_children_alone_do_not_complete_the_parent(self):
+        self.write_decomposition_receipt("applied", source=str(Path(self.temp.name) / "isolated-clone"))
+        controller = self.controller("NSC-898")
+        tasks = self.decomposed_parent_tasks(controller)
+        with patch("Pipeline.AssistantControl.graph_controller.inspect_dependencies",
+                   return_value={"task_state": {"state": "needs_testing"}}):
+            self.assertFalse(controller._task_complete("NSC-898", tasks, self.head, {}, set()))
+
     def test_a_settled_leftover_launch_is_not_waited_on_forever(self):
         """DEFECT 2: `_actions` reads `capacity_released` off the launch.
 

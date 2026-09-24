@@ -678,4 +678,30 @@ the older mixed-case and dotted run id.
 `inspect-decomposition` rechecks its exact durable artifacts, and
 `apply-decomposition` creates the canonical local D1C commit only while the reviewed
 source, contract and plan are still exact. These commands never push.
+
+### Decomposing in an isolated clone
+
+The apply-time gate compares the reviewed Source commit with Source HEAD under
+`Tasks`, `Pipeline/TaskGraph` and the validation policy, so delivery records that
+other agents land on the shared checkout invalidate an in-flight plan. Pass
+`--source` a standalone clone nobody else commits to and `--checkout-root` a
+directory disjoint from it (the records root must not nest inside the source).
+The proposal, `inspect-decomposition` and `apply-decomposition` then run exactly
+as they do on the shared checkout. The D1C commit moves to the shared checkout as
+an ordinary merge candidate with its ancestry intact (no cherry-pick or rebase);
+validate the combined graph on a trial merge with that checkout's own
+`taskcontrol.py validate` before merging, replay the reviewed plan against the
+trial merge (`inspect_graph_delta_replay` must report `already_applied`), and
+compare each new child's `validation_plan_for` result on the candidate and on
+the trial merge. A `None` plan on both sides means no validation policy is
+configured for that child, not that validation passed. The decomposition
+receipt stays in the clone's records root, bound to the clone: it is never
+copied, relabelled or deleted to make the shared checkout accept it. On the
+shared checkout a committed decomposed parent is an aggregate while its
+children are pending and complete once committed TaskGraph evidence makes it
+conformant; a settled (`failed`, `review_ready` or `applied`) receipt does not
+veto that committed-conformance route, while a `running` or unrecognised one
+still does.
+There is no separate decomposition `approve` command; application is the
+explicit `apply-decomposition` call.
 No fixture result is evidence that NSC-042's gameplay works.

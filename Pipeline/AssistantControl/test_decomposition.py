@@ -7,6 +7,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from Pipeline.AssistantControl.checkouts import Checkouts, write_record
@@ -15,6 +16,7 @@ from Pipeline.TaskDecomposition.round_robin_decomposition import candidate_sha25
 from Pipeline.TaskDecomposition.tests.test_support import create_repository, decomposed_result
 from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task
 from TaskDecomposition.policy import validate_decomposition_result
+from apply_graph_delta import inspect_graph_delta_replay
 from graph_delta import plan_graph_delta
 from persistent_work_graph import load_persistent_work_graph
 
@@ -146,13 +148,8 @@ class ProposalContainerNameTests(unittest.TestCase):
 
 
 class RetainedReviewConcurrencyTests(unittest.TestCase):
-    def test_unrelated_integration_retains_review_and_applies_at_current_source(self):
-        temporary = tempfile.TemporaryDirectory(prefix="assistant-d1c-concurrency-")
-        self.addCleanup(temporary.cleanup)
-        root = Path(temporary.name)
-        source = root / "source"
-        source.mkdir()
-        create_repository(source)
+    def reviewed_fixture(self, root: Path, source: Path) -> SimpleNamespace:
+        """An authenticated review_ready receipt for a childless parent in `source`."""
         task_id = "NSC-004"
         task_path = source / "Tasks" / f"{task_id}.yaml"
         selected = json.loads(task_path.read_text(encoding="utf-8"))
@@ -282,6 +279,28 @@ class RetainedReviewConcurrencyTests(unittest.TestCase):
         original_review = _verify_review(manager, record)
         record["review"] = original_review
         write_record(manager.records / f"{task_id}.decomposition.json", record)
+        return SimpleNamespace(
+            task_id=task_id, manager=manager, record=record, run_id=run_id,
+            branch=branch, reviewed_head=reviewed_head, artifact_root=artifact_root,
+            artifact_bytes=artifact_bytes, original_review=original_review,
+            decomposition=decomposition, stored_plan=stored_plan,
+        )
+
+    def temporary_root(self) -> Path:
+        temporary = tempfile.TemporaryDirectory(prefix="assistant-d1c-concurrency-")
+        self.addCleanup(temporary.cleanup)
+        return Path(temporary.name)
+
+    def test_unrelated_integration_retains_review_and_applies_at_current_source(self):
+        root = self.temporary_root()
+        source = root / "source"
+        source.mkdir()
+        create_repository(source)
+        fixture = self.reviewed_fixture(root, source)
+        task_id, manager, record = fixture.task_id, fixture.manager, fixture.record
+        run_id, branch, reviewed_head = fixture.run_id, fixture.branch, fixture.reviewed_head
+        artifact_root, artifact_bytes = fixture.artifact_root, fixture.artifact_bytes
+        original_review = fixture.original_review
 
         concurrent_path = source / "Assets" / "ConcurrentImplementation.cs"
         concurrent_path.write_text(
@@ -321,6 +340,92 @@ class RetainedReviewConcurrencyTests(unittest.TestCase):
             artifact_bytes,
             {path.name: path.read_bytes() for path in artifact_root.iterdir()},
         )
+
+
+    AGENT_IDENTITY = {
+        "NSC_AGENT_GIT_NAME": "No Safe Circle TaskReviewAgent",
+        "NSC_AGENT_GIT_EMAIL": "task-review-agent@nosafecircle.invalid",
+    }
+    EVIDENCE = "Pipeline/TaskGraph/evidence/NSC-999/records/receiver-evidence.json"
+
+    def commit_evidence(self, repository: Path, text: str) -> str:
+        path = repository / self.EVIDENCE
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8", newline="\n")
+        _git(repository, "add", "--", self.EVIDENCE)
+        _git(repository, "commit", "-m", "fixture: delivery evidence")
+        return _git(repository, "rev-parse", "HEAD")
+
+    def isolated_clone(self, root: Path, receiver: Path, name: str) -> Path:
+        clone = root / name
+        subprocess.run(["git", "clone", "-q", "--no-hardlinks", str(receiver), str(clone)],
+                       check=True, capture_output=True)
+        _git(clone, "config", "user.name", self.AGENT_IDENTITY["NSC_AGENT_GIT_NAME"])
+        _git(clone, "config", "user.email", self.AGENT_IDENTITY["NSC_AGENT_GIT_EMAIL"])
+        return clone
+
+    def test_evidence_landing_on_the_proposal_source_still_refuses_the_review(self):
+        """Control: the gate that clone isolation sidesteps is still live."""
+        root = self.temporary_root()
+        receiver = root / "receiver"
+        receiver.mkdir()
+        create_repository(receiver)
+        clone = self.isolated_clone(root, receiver, "proposal")
+        fixture = self.reviewed_fixture(root, clone)
+        self.commit_evidence(clone, '{"landed": "on the proposal source"}\n')
+        with self.assertRaisesRegex(ValueError, "TaskGraph inputs changed"):
+            _verify_review(fixture.manager, fixture.record)
+
+    def test_a_plan_applied_in_an_isolated_clone_lands_on_an_advanced_receiver(self):
+        root = self.temporary_root()
+        receiver = root / "receiver"
+        receiver.mkdir()
+        create_repository(receiver)
+        clone = self.isolated_clone(root, receiver, "proposal")
+        fixture = self.reviewed_fixture(root, clone)
+        receipt_path = fixture.manager.records / f"{fixture.task_id}.decomposition.json"
+
+        receiver_evidence = '{"landed": "on the receiver while the plan waited"}\n'
+        receiver_head = self.commit_evidence(receiver, receiver_evidence)
+        with patch.dict(os.environ, self.AGENT_IDENTITY):
+            applied = apply(fixture.manager, fixture.task_id, run_id=fixture.run_id,
+                            expected_source_commit=fixture.reviewed_head,
+                            target_branch=fixture.branch)
+        d1c = _git(clone, "rev-parse", "HEAD")
+        self.assertEqual(d1c, applied["applied_commit"])
+        self.assertEqual(fixture.reviewed_head, _git(clone, "rev-parse", "HEAD^"))
+        receipt_bytes = receipt_path.read_bytes()
+
+        _git(receiver, "fetch", "-q", str(clone), d1c)
+        _git(receiver, "-c", "user.name=" + self.AGENT_IDENTITY["NSC_AGENT_GIT_NAME"],
+             "-c", "user.email=" + self.AGENT_IDENTITY["NSC_AGENT_GIT_EMAIL"],
+             "merge", "--no-ff", "-q", "-m", "fixture: land the clone D1C", d1c)
+        merged = _git(receiver, "rev-parse", "HEAD")
+        for ancestor in (receiver_head, d1c):
+            subprocess.run(["git", "-C", str(receiver), "merge-base", "--is-ancestor",
+                            ancestor, merged], check=True)
+
+        replay = inspect_graph_delta_replay(
+            receiver, fixture.decomposition.parent_task, fixture.stored_plan,
+            expected_head=merged)
+        self.assertEqual(("already_applied", ()), (replay.status, tuple(replay.failures)))
+        load_persistent_work_graph(receiver)
+        self.assertEqual(receiver_evidence.strip(), _git(receiver, "show", "HEAD:" + self.EVIDENCE))
+        parent = load_committed_task(receiver, fixture.task_id, commit=merged)
+        children = applied["child_ids"]
+        self.assertEqual("decomposed", parent["decomposition_state"])
+        self.assertEqual(sorted(children), sorted(parent["decomposition_children"]))
+        for child_id in children:
+            child = load_committed_task(receiver, child_id, commit=merged)
+            self.assertEqual((fixture.task_id, "active"),
+                             (child["parent"], child["contract_disposition"]))
+        self.assertEqual(receipt_bytes, receipt_path.read_bytes())
+        self.assertEqual(
+            fixture.artifact_bytes,
+            {path.name: path.read_bytes() for path in fixture.artifact_root.iterdir()},
+        )
+        self.assertEqual("", _git(receiver, "status", "--porcelain"))
+        self.assertEqual("", _git(clone, "status", "--porcelain"))
 
 
 class BoundedAuthorCorrectionReviewTests(unittest.TestCase):

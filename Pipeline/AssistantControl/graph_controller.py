@@ -35,7 +35,7 @@ from Pipeline.AssistantControl.dependencies import (
 from Pipeline.AssistantControl.inspect_project import changes, git
 from Pipeline.AssistantControl.process_identity import identify
 from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task, load_committed_tasks
-from Pipeline.TaskReviewAgent.contracts import ExecutionScopePlan, validate_task_id
+from Pipeline.TaskReviewAgent.contracts import TASK_ID_RE, ExecutionScopePlan, validate_task_id
 from Pipeline.TaskReviewAgent.execution_session_pool import (
     _acquire_liveness_lock,
     _release_liveness_lock,
@@ -49,6 +49,10 @@ _TERMINAL_FAILURES = {
     "needs_materialization",
 }
 _WORKER_TERMINAL = {"succeeded", "failed", "stopped", "spawn_failed"}
+_DECOMPOSITION_SCHEMA = "assistant-decomposition/v1"
+# Receipt states that describe finished decomposition history. "running" and
+# anything unrecognised are deliberately absent: they still veto.
+_SETTLED_DECOMPOSITION_STATUSES = frozenset({"failed", "review_ready", "applied"})
 _GRAPH_PATH_PREFIXES = (
     "tasks/", "pipeline/taskgraph/",
     "pipeline/taskreviewagent/authoritative_validation_policy.json",
@@ -718,7 +722,7 @@ class GraphController:
                 self.manager.source, self.manager.records, task_id, head,
             ) is not None)
         if (not complete and not self._record_describes_live_work(task_id)
-                and self._decomposition(task_id) is None):
+                and self._decomposition_permits_committed_conformance(task_id, task)):
             # The task's own committed conformance state is a pure function of
             # this HEAD (and worktree dirtiness), so its outcome is kept per HEAD.
             complete = self._proof(
@@ -728,6 +732,42 @@ class GraphController:
         visiting.remove(task_id)
         memo[task_id] = complete
         return complete
+
+    def _decomposition_permits_committed_conformance(
+        self, task_id: str, task: Mapping[str, Any],
+    ) -> bool:
+        """True when no decomposition receipt should veto committed conformance.
+
+        An absent receipt never vetoes. A settled receipt for an already
+        decomposed parent is history, not proof of application: a decomposition
+        proposed and applied in an isolated clone leaves its receipt bound to
+        that clone, so canonical sees a foreign `source`. Requiring the receipt
+        to be absent let that history veto independently committed completion
+        forever. Source equality is deliberately not checked here -- this is
+        not `_applied_decomposition`, which still authenticates the receipt.
+        """
+        record = self._decomposition(task_id)
+        if record is None:
+            return True
+        if not isinstance(record, Mapping):
+            return False
+        status = record.get("status")
+        children = task.get("decomposition_children")
+        return (
+            record.get("schema_version") == _DECOMPOSITION_SCHEMA
+            and record.get("task_id") == task_id
+            and isinstance(status, str)
+            and status in _SETTLED_DECOMPOSITION_STATUSES
+            and task.get("contract_disposition") == "active"
+            and task.get("kind") == "feature"
+            and task.get("execution_scope") == "not_applicable"
+            and task.get("decomposition_state") == "decomposed"
+            and isinstance(children, list)
+            and bool(children)
+            and all(isinstance(child, str) and TASK_ID_RE.fullmatch(child)
+                    for child in children)
+            and len(set(children)) == len(children)
+        )
 
     def _committed_conformant(self, task_id: str, head: str) -> bool:
         try:
