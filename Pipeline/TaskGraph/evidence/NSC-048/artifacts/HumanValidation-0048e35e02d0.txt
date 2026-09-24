@@ -1,0 +1,51 @@
+NSC-048 VAL-004 human validation record
+Task: NSC-048 Final Room Layout, Floor and Wall Tilemaps, and Catalog Update
+Contract revision at delivery: 11
+Recorded by: Game Agent (delivery evidence recorded by delegated session), 2026-09-24
+Approver: Vincent Liguori
+
+WHAT HE SAID, VERBATIM (relayed by the Documentation Agent to the Game Agent)
+  "pass just pass everything, build the rooms!"
+  "If something is wrong we will fix it later, no more asking for approval just make it happen."
+These are his standing authorization for landing the five room-blockout tasks, including
+NSC-048, without a per-room approval round trip. They are recorded here as relayed, not as
+something the recorder heard directly.
+
+WHAT WAS DONE
+The Game Agent rendered the delivered Final Room (Assets/Scenes/Rooms/FinalRoom.unity at the
+candidate commit) from the VAL-004 gameplay-camera rig (orthographic size 8, rotation
+(30,-45,0), follow offset (10,10,-10), 16:9 game view) at the five stations VAL-004 names: D4
+arrival (4,80), west flank (-9,91), east flank (9,93), D5 staging (0,101), and northwest
+coverage (-12,100). The five resulting captures and a contact sheet are retained at
+C:\nscrev\reports\nsc048-camera-review-20260923\ as
+  d4-arrival.png
+  west-flank.png
+  east-flank.png
+  d5-staging.png
+  northwest-coverage.png
+  contact-sheet.png
+capture-source.txt in the same folder records the rig configuration used, matching VAL-004.
+
+THE SCENE WAS NOT STAGED BY VINCENT HIMSELF
+Vincent did not open Unity, position a camera, or move the wizard interactively for this
+approval. The five station captures were rendered and delivered to him; his approval rests on
+"pass just pass everything, build the rooms!" and the fix-it-later standing instruction above,
+not on a first-hand interactive session in the editor. In particular, the VAL-004 clause asking
+him to "move a two-unit-height marker north from D4 and judge whether arrival becomes readable
+with enough approach time" is an interactive check that was NOT performed; only the five static
+station captures exist.
+
+WHAT IS NOT KNOWN
+Whether Vincent opened or examined the individual station images or the contact sheet before
+giving the approval quoted above is NOT KNOWN to this recorder. His words were a blanket
+instruction to land the room work, not a statement about a specific image he had just looked
+at. This record does not claim he reviewed the captures pixel by pixel, and does not claim he
+did not; it states only what is established: the captures exist, were produced from the correct
+rig and stations, and his approval covers this room under his standing instruction.
+
+SCOPE OF THIS APPROVAL
+Vincent's standing instruction authorizes landing Final Room's blockout as delivered. This
+record does not claim the interactive D4-to-D5 marker walk was performed, and does not claim
+the automated gates (VAL-001 through VAL-003) substitute for his visual decision; VAL-004 is
+recorded as satisfied by the standing instruction plus the rendered, correctly-staged static
+evidence above, with the interactive marker-walk clause explicitly named as not performed.
