@@ -188,12 +188,12 @@
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-081": {
-      "task_contract_sha256": "41da021351d33085433449f2586b898e628c81bf95562143c7639db03cd058ee",
+      "task_contract_sha256": "3048fd2b4fb00f8bcd141236794b43e9a75edb37fa6dbbe41cfba5b7c5dfd8ac",
       "required_test_platforms": [
         "EditMode"
       ],
       "test_filters": {
-        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.Environment.ChapelOfAshDressingPrefabTests"
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.ChapelOfAshDressingPrefabTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
