@@ -31,11 +31,24 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 Assert.AreEqual(index == 4, doors[index].IsFinalDoor);
             }
 
+            // THESE ARE THE CATALOG'S POSITIONS, AND THE CATALOG IS AUTHORITATIVE.
+            // D3, D4 and D5 moved in fb36f012f ("NSC-101: one catalog to write, five rooms to
+            // read it"), which lists the moves as deliberate contract work. This fixture last
+            // changed 2026-09-13, BEFORE that commit, so it kept asserting the pre-NSC-101
+            // layout. D1 and D2 were not moved and are unchanged here - they are the control
+            // that shows this is three stale expectations rather than a broken composition.
+            //
+            // Verified against RoomSceneCatalog.asset rather than taken on inference:
+            // doorId 2 {x: -8, y: 54}, doorId 3 {x: 4, y: 76}, doorId 4 {x: 0, y: 104}.
+            // doorId 2's value was also measured directly from a failing run before this fix.
+            //
+            // THE ASSERTS ARE SEQUENTIAL, so a stale expectation here hides every later one:
+            // only D3 had ever been seen to fail, because the run stopped there.
             Assert.AreEqual(new Vector3(0f, 0f, 0f), doors[0].transform.position);
             Assert.AreEqual(new Vector3(6f, 0f, 20f), doors[1].transform.position);
-            Assert.AreEqual(new Vector3(-6f, 0f, 42f), doors[2].transform.position);
-            Assert.AreEqual(new Vector3(4f, 0f, 64f), doors[3].transform.position);
-            Assert.AreEqual(new Vector3(0f, 0f, 86f), doors[4].transform.position);
+            Assert.AreEqual(new Vector3(-8f, 0f, 54f), doors[2].transform.position);
+            Assert.AreEqual(new Vector3(4f, 0f, 76f), doors[3].transform.position);
+            Assert.AreEqual(new Vector3(0f, 0f, 104f), doors[4].transform.position);
         }
 
         [UnityTearDown]
