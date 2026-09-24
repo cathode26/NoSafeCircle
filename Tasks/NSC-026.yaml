@@ -1,11 +1,11 @@
 {
   "schema_version": "2.0",
   "id": "NSC-026",
-  "contract_revision": 4,
+  "contract_revision": 5,
   "contract_disposition": "active",
   "title": "Tilemap and SpriteRenderer World Visual Foundation",
   "reconciliation_key": "world-visual-foundation",
-  "kind": "implementation",
+  "kind": "feature",
   "type": "world-foundation",
   "execution_scope": "not_applicable",
   "execution_reason": "Execution responsibilities are delegated to child contracts: NSC-038 (isometric-tilemap-visual-layer), NSC-039 (world-sprite-prefab-sorting), NSC-040 (visual-simulation-continuity).",
@@ -104,5 +104,12 @@
         "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
       }
     ]
-  }
+  },
+  "decomposition_children": [
+    "NSC-038",
+    "NSC-039",
+    "NSC-040",
+    "NSC-042"
+  ],
+  "decomposition_requirement_sha256": "3e72e30741d7f59afbc677a1118b33a4baeb50ad4326cbfd6543fe894845c6d0"
 }
