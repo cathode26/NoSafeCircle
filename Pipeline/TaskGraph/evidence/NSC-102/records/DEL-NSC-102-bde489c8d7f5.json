@@ -1,0 +1,226 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "2d5c8a1dc5d4bba469fb158b27967717309e5b7ad6f8ab4a38fbbd05ad583c9f"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "77ed88fc9a9a7d0d67e6cc7675380f0034e93d68",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/ba_landmark_chained_grimoire_lectern.png",
+      "role": "published_prop_texture"
+    },
+    {
+      "blob_sha": "b4e8252320292636b32674c7d5fd478f911bb11c",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/ba_landmark_chained_grimoire_lectern.png.meta",
+      "role": "unity_identity_for_a_published_prop"
+    },
+    {
+      "blob_sha": "5c266ec250cc59693999b17e7074b540f43b0df6",
+      "path": "Docs/Art/Environment/Props/Raw/architecture/ba_landmark_chained_grimoire_lectern.png",
+      "role": "published_prop_texture"
+    },
+    {
+      "blob_sha": "f72e347573aaba2ce945df9d65ce3ab2f093df84",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ba_book_and_scroll_stack.png",
+      "role": "published_prop_texture"
+    },
+    {
+      "blob_sha": "7595b4dbc3f001d31a818b2ec1b5b0875bc14286",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ba_book_and_scroll_stack.png.meta",
+      "role": "unity_identity_for_a_published_prop"
+    },
+    {
+      "blob_sha": "9b9924663a4fef6aeb70f93f3df74f71d1d197a0",
+      "path": "Docs/Art/Environment/Props/Raw/furnishings/ba_book_and_scroll_stack.png",
+      "role": "published_prop_texture"
+    },
+    {
+      "blob_sha": "e90508d23b7f9d125c6bcd869478e9f9b5fbf781",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ba_spilled_scroll_basket.png",
+      "role": "published_prop_texture"
+    },
+    {
+      "blob_sha": "9ef9682479d6fad77a459b2c46840be39df653ee",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ba_spilled_scroll_basket.png.meta",
+      "role": "unity_identity_for_a_published_prop"
+    },
+    {
+      "blob_sha": "434752e4aa93c50f2dc34c892a0007d2b256a1f1",
+      "path": "Docs/Art/Environment/Props/Raw/furnishings/ba_spilled_scroll_basket.png",
+      "role": "published_prop_texture"
+    },
+    {
+      "blob_sha": "4af68bd7b81ffdd9326bc2f38926dedb4d9590dc",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ba_collapsed_reading_table_z.png",
+      "role": "published_prop_texture"
+    },
+    {
+      "blob_sha": "49827861e69030c2de1f2847f9b74fac76f11d53",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ba_collapsed_reading_table_z.png.meta",
+      "role": "unity_identity_for_a_published_prop"
+    },
+    {
+      "blob_sha": "03f32017259e8b66335fbeed3778f9510eb3a3fd",
+      "path": "Docs/Art/Environment/Props/Raw/furnishings/ba_collapsed_reading_table_z.png",
+      "role": "published_prop_texture"
+    },
+    {
+      "blob_sha": "f528c7775944479b8d4e604527ea314d19967a04",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ba_comedy_skull_with_spectacles.png",
+      "role": "published_prop_texture"
+    },
+    {
+      "blob_sha": "80025bedbc2a26107f0df6376d35c3c7823b79bb",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ba_comedy_skull_with_spectacles.png.meta",
+      "role": "unity_identity_for_a_published_prop"
+    },
+    {
+      "blob_sha": "0a556eb973ea179350b21af31a32b68d6d109533",
+      "path": "Docs/Art/Environment/Props/Raw/furnishings/ba_comedy_skull_with_spectacles.png",
+      "role": "published_prop_texture"
+    },
+    {
+      "blob_sha": "892da40525712ea275e3dcb2f925ee3beefde2e8",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/shared_bone_pile_a.png",
+      "role": "published_prop_texture"
+    },
+    {
+      "blob_sha": "52a3f61c196916e90e9a4f8f4d3a1c73ef05bd27",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/shared_bone_pile_a.png.meta",
+      "role": "unity_identity_for_a_published_prop"
+    },
+    {
+      "blob_sha": "445b48a726b17cf51b17bc7a573f5db0444d9429",
+      "path": "Docs/Art/Environment/Props/Raw/furnishings/shared_bone_pile_a.png",
+      "role": "published_prop_texture"
+    },
+    {
+      "blob_sha": "48910ced53984f8c5023284808639a6132e3bd0b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/shared_bone_pile_b.png",
+      "role": "published_prop_texture"
+    },
+    {
+      "blob_sha": "62e568a66061a321ca6bb74cf967d09636398a14",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/shared_bone_pile_b.png.meta",
+      "role": "unity_identity_for_a_published_prop"
+    },
+    {
+      "blob_sha": "6f62a4fa6073a6683655cba846b16288c805b7fe",
+      "path": "Docs/Art/Environment/Props/Raw/furnishings/shared_bone_pile_b.png",
+      "role": "published_prop_texture"
+    },
+    {
+      "blob_sha": "264cf8f2850f1a1245f988c46a81a10c5394aae7",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/shared_web_corner_a.png",
+      "role": "published_prop_texture"
+    },
+    {
+      "blob_sha": "2de5f2929a6edc8fe63d30469c5e8ff0cbba5a75",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/shared_web_corner_a.png.meta",
+      "role": "unity_identity_for_a_published_prop"
+    },
+    {
+      "blob_sha": "91f70cadfee6f1d37db1ec47125d348b45171475",
+      "path": "Docs/Art/Environment/Props/Raw/furnishings/shared_web_corner_a.png",
+      "role": "published_prop_texture"
+    },
+    {
+      "blob_sha": "351ac87df73854ae5b25e1dbd6f7f29ecb51d312",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/shared_web_drape_b.png",
+      "role": "published_prop_texture"
+    },
+    {
+      "blob_sha": "069c529db5121f702840354f2befd4f85cc9aba8",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/shared_web_drape_b.png.meta",
+      "role": "unity_identity_for_a_published_prop"
+    },
+    {
+      "blob_sha": "8b44fb4d9811e1fe997db066e80fc9d733e72405",
+      "path": "Docs/Art/Environment/Props/Raw/furnishings/shared_web_drape_b.png",
+      "role": "published_prop_texture"
+    },
+    {
+      "blob_sha": "c732fc800e0a5343b454486e3f352a9c05a7537f",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/BoneArchivePropImportTests.cs",
+      "role": "prop_import_conformance_fixture"
+    },
+    {
+      "blob_sha": "bd4d4fc2fbf75ca953647274290d6fe0c92fbca0",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/BoneArchivePropImportTests.cs.meta",
+      "role": "unity_identity_for_the_fixture"
+    }
+  ],
+  "delivery": {
+    "base_commit": "a5f6aaef545b22dd3151dea476a13ce20c4ad4a2",
+    "candidate_commit": "f10e3fc71103826a26eb3449ff503759191ba5f9",
+    "integrated_commit": "bde489c8d7f572494c7558e3c51a149f5c89f49d",
+    "integrated_tree": "27d3390057ad83c79d6daeae68ae769c661f8c4d"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "c04ee62c8f7ed3de552691124c3d346289863b21",
+          "path": "Pipeline/TaskGraph/evidence/NSC-102/artifacts/EditModeResults.xml-bde489c8d7f5.xml"
+        },
+        {
+          "blob_sha": "2cce2dc5de1118b25a8caf58363b46494bf96226",
+          "path": "Pipeline/TaskGraph/evidence/NSC-102/artifacts/EditModeLog-bde489c8d7f5.log"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "BoneArchivePropImportTests ran 2 of 2 cases green at the validated commit. Each of the 9 props is loaded through AssetDatabase and asserted to BE a Sprite -- not merely to have plausible importer fields, because a stub .meta yields a non-Sprite asset whose settings still read sensibly -- and its TextureImporter is checked for type Sprite, mode Single, 64 PPU, Point filtering, no compression, alphaIsTransparency, no mipmaps, Clamp wrap and Texture2D shape. Whole suite: total=286 passed=275 failed=0 skipped=11 (run start 2026-09-24 06:48:51Z).",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "c04ee62c8f7ed3de552691124c3d346289863b21",
+          "path": "Pipeline/TaskGraph/evidence/NSC-102/artifacts/EditModeResults.xml-bde489c8d7f5.xml"
+        },
+        {
+          "blob_sha": "2cce2dc5de1118b25a8caf58363b46494bf96226",
+          "path": "Pipeline/TaskGraph/evidence/NSC-102/artifacts/EditModeLog-bde489c8d7f5.log"
+        }
+      ],
+      "gate_id": "VAL-002",
+      "notes": "The pivot gate COMPUTES ITS OWN EXPECTATION FROM THE COMMITTED IMAGE. The fixture decodes each PNG from disk and measures the alpha bounding box from its pixels; it never reads alpha_bounds_px from the catalog, because a check whose expectation comes from the artifact it checks agrees with itself whatever the asset does. Only pivot_rule is read from PropCatalog.json, and a missing or unrecognised rule FAILS rather than defaulting to a branch. lie_within takes the vertical centre of the box, ground_line its bottom row; pivot x is 0.5 in both, alignment Custom, tolerance one pixel. FOUND BY THIS FIXTURE, NOT AROUND IT: the first run failed because the ground-line expression was integer arithmetic and 16/188 evaluated to 0 -- the fixture disagreed with a correctly imported asset and said so, which is the behaviour the gate exists to produce.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "c04ee62c8f7ed3de552691124c3d346289863b21",
+          "path": "Pipeline/TaskGraph/evidence/NSC-102/artifacts/EditModeResults.xml-bde489c8d7f5.xml"
+        },
+        {
+          "blob_sha": "2cce2dc5de1118b25a8caf58363b46494bf96226",
+          "path": "Pipeline/TaskGraph/evidence/NSC-102/artifacts/EditModeLog-bde489c8d7f5.log"
+        }
+      ],
+      "gate_id": "VAL-003",
+      "notes": "Scope. The candidate for this task is f10e3fc71, whose diff against base a5f6aaef5 is EXACTLY TWO FILES: the fixture and its .meta. It adds no directory .meta, does not touch PropCatalog.json, any *_inventory.json, DungeonPropImportPostprocessor.cs or DungeonPropImportSettingsTests.cs -- each of which belongs to NSC-078 and each of which this gate names as fatal. The 9 prop art paths reached main separately, so this candidate adds only the fixture, which the gate explicitly allows.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "",
+    "decision": "not_required",
+    "notes": "This task's completion gates are VAL-001..VAL-003 and none of them is a human review gate. No approval by Vincent is claimed, because none is required and none was given for it.",
+    "required": false
+  },
+  "record_id": "DEL-NSC-102-bde489c8d7f5",
+  "record_type": "delivery",
+  "recorded_at": "2026-09-24T06:58:21Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-102.yaml",
+    "revision": 5,
+    "sha256": "7203a63876d20d0862ddb9285499eeca01a93881af5bcf31fe7046e9002965fb"
+  },
+  "task_id": "NSC-102",
+  "validated_state": {
+    "commit": "bde489c8d7f572494c7558e3c51a149f5c89f49d",
+    "tree": "27d3390057ad83c79d6daeae68ae769c661f8c4d"
+  }
+}
