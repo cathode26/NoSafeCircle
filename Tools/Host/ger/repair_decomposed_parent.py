@@ -57,6 +57,8 @@ def main() -> int:
     parser.add_argument("--task", required=True, help="the decomposed PARENT task id")
     parser.add_argument("--repo", type=pathlib.Path, default=REPO_DEFAULT)
     parser.add_argument("--reason", required=True, help="recorded in the commit message")
+    parser.add_argument("--role", default="GER Agent",
+                        help="recorded in the shared main-write journal")
     parser.add_argument("--commit", action="store_true",
                         help="write and commit; omit for a dry run that writes nothing")
     args = parser.parse_args()
@@ -125,26 +127,40 @@ def main() -> int:
         print("\n[DRY RUN] nothing written. Re-run with --commit.")
         return 0
 
-    original = path.read_bytes()
-    path.write_text(json.dumps(repaired, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    validate = subprocess.run(
-        [sys.executable, "-B", "Pipeline/TaskGraph/taskcontrol.py", "validate"],
-        cwd=str(repo), capture_output=True, text=True)
-    if validate.returncode != 0:
-        path.write_bytes(original)
-        raise SystemExit("taskcontrol validate failed; restored the contract:\n"
-                         + (validate.stdout + validate.stderr).strip()[-1200:])
-    print("[VALIDATE] PASS")
+    # TAKE THE SHARED main-write LOCK, like every other committer here. The first
+    # version did not, and `git add` + `git commit` commits WHATEVER IS STAGED --
+    # so a concurrent agent with something staged elsewhere would have had its
+    # work swept into this commit. Reported by the GER Agent after running it.
+    sys.path.insert(0, str(repo / "Tools" / "Host" / "ger"))
+    import main_write
 
     rel = f"Tasks/{args.task}.yaml"
-    subprocess.run(["git", "-C", str(repo), "add", "--", rel], check=True)
+    head = _git(repo, "rev-parse", "--verify", "HEAD")
+    original = path.read_bytes()
     message = (f"taskgraph: supply {args.task} decomposition forward reference\n\n"
                f"{args.reason}\n\n"
                f"Derived from committed state, not authored: children {children} already\n"
                f"name {args.task} as parent, and decomposition_requirement_sha256 is\n"
                f"aggregate_requirement_sha256 of the repaired contract, which\n"
                f"current_conformance.py:285 recomputes to compare.\n")
-    subprocess.run(["git", "-C", str(repo), "commit", "-q", "-m", message], check=True)
+
+    with main_write.transaction(
+            f"{args.task} decomposition forward reference", head,
+            repo=repo, role=args.role, journal=main_write.default_journal(repo),
+            touched=[rel], expected_files={rel: original}):
+        path.write_text(json.dumps(repaired, indent=2, ensure_ascii=False) + "\n",
+                        encoding="utf-8")
+        validate = subprocess.run(
+            [sys.executable, "-B", "Pipeline/TaskGraph/taskcontrol.py", "validate"],
+            cwd=str(repo), capture_output=True, text=True)
+        if validate.returncode != 0:
+            path.write_bytes(original)
+            raise SystemExit("taskcontrol validate failed; restored the contract:\n"
+                             + (validate.stdout + validate.stderr).strip()[-1200:])
+        print("[VALIDATE] PASS")
+        # `--only <path>` commits THAT PATH ALONE, whatever else is in the index.
+        subprocess.run(["git", "-C", str(repo), "commit", "-q", "--only",
+                        "-m", message, "--", rel], check=True)
     print(f"committed {_git(repo, 'rev-parse', '--verify', 'HEAD')}")
     return 0
 
