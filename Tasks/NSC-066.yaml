@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-066",
-  "contract_revision": 6,
+  "contract_revision": 7,
   "contract_disposition": "active",
   "title": "Title Screen and Start Game Flow",
   "reconciliation_key": "title-screen-start-game-flow",
@@ -32,7 +32,7 @@
     {
       "criterion_id": "AC-001",
       "reference": "Human-approved game-entry flow, 2026-09-12; owner revision 2026-09-15 (SpaceInvaders lobby direction)",
-      "requirement": "Entering the canonical game scene first displays the title reading over the live gameplay scene rather than an opaque overlay: DoorPrototypeGlobalSceneBuilder's TitleScreen Image component has its alpha channel set to 0 (the Color32(16, 10, 23, 255) full-screen fill from revision 1 is removed) while raycastTarget stays true so title clicks never reach gameplay. No UI element behind the title text and Start Game button, including any background analogous to revision 1's centered TitleCard panel, renders as a solid opaque fill; an optional left-side gradient or vignette Image is allowed only if its alpha does not exceed 0.6 at the screen's left edge and reaches 0 before the horizontal screen midpoint (viewport x = 0.5). The three sayings \"WELCOME, TINY WIZARD\", \"NO SAFE CIRCLE\", and \"Cute wizards. Terrible odds.\" are present with exactly this text, stacked on the left side of the screen (each text element's RectTransform anchorMax.x <= 0.5), and a chunky Start Game button is stacked below them on the left (its RectTransform anchorMax.x <= 0.5), keeping its existing colors and hover/pressed ColorBlock states and remaining readable at the canonical 1920x1080 reference resolution."
+      "requirement": "Entering the canonical game scene first displays the title reading over the live gameplay scene rather than an opaque overlay: DoorPrototypeGlobalSceneBuilder's TitleScreen Image component has its alpha channel set to 0 (the Color32(16, 10, 23, 255) full-screen fill from revision 1 is removed) while raycastTarget stays true so title clicks never reach gameplay. No UI element behind the title text and Start Game button, including any background analogous to revision 1's centered TitleCard panel, renders as a solid opaque fill; an optional left-side gradient or vignette Image is allowed only if its alpha does not exceed 0.6 at the screen's left edge and reaches 0 before the horizontal screen midpoint (viewport x = 0.5). The three sayings \"WELCOME, TINY WIZARD\", \"NO SAFE CIRCLE\", and \"Cute wizards. Terrible odds.\" are present with exactly this text, stacked on the left side of the screen (each text element's RectTransform anchorMax.x <= 0.5), and a chunky Start Game button is stacked below them on the left (its RectTransform anchorMax.x <= 0.5), keeping its existing colors and hover/pressed ColorBlock states and remaining readable at the canonical 1920x1080 reference resolution. THE TITLE HIERARCHY IS LOAD-BEARING FOR FIXTURES OUTSIDE THIS TASK AND MUST SURVIVE THE RESTACK, ADDED 2026-09-24. DoorPrototypeGlobalSceneBuilder.BuildTitleScreen keeps a GameObject named TitleScreen with a child named TitleCard and a grandchild named StartGameButton, so that Find(\"TitleScreen/TitleCard/StartGameButton\") continues to resolve. TITLECARD IS STRIPPED, NOT DELETED: it is retained as a GameObject, carries no opaque Image and no Outline, and its own RectTransform is left-anchored with anchorMax.x <= 0.5 so the sayings' and button's anchorMax.x <= 0.5 above are measured against the correct container rather than a full-width one. WHY THIS CLAUSE EXISTS: the opacity language above would be satisfied by DELETING TitleCard outright, and so would renaming any of the three objects or reparenting the button, while breaking five call sites in four fixtures this task does not own and must not modify - Tests/WizardSelectionPlayModeTests.cs:44 and :91, Tests/WizardGameEntryPlayModeTests.cs:310, Tests/WizardAnimationPlayModeTests.cs:548, and Tests/Editor/WizardGameEntrySceneBuilderTests.cs:85, each verified present on main and each resolving the button by that exact path. This is a compatibility constraint, not a new visual decision: the left-stacked sayings, the transparent panel and the button's own placement are unchanged from revision 6."
     },
     {
       "criterion_id": "AC-002",
@@ -168,6 +168,15 @@
         "previous_contract_revision": 5,
         "base_contract_sha256": "ee595604525264846eae9d7565c79aa091c7600ea275efe7261274b3fb20ea2f",
         "revised_contract_sha256": "4f4e79d17dbbe5cb55bed88adf3683785bc0d65ec6a791e7f8da964e55092454",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      },
+      {
+        "date": "2026-09-24",
+        "reason": "AC-001 pins the title hierarchy that four fixtures outside this task depend on. The decomposition reviewer PASSED the NSC-066 split but decomposition.py:492 requires the final round's findings array to be exactly empty, so one advisory finding still blocked review_ready. The finding is real and I verified it at source rather than on the summary: five call sites resolve Find(TitleScreen/TitleCard/StartGameButton) on main - WizardSelectionPlayModeTests.cs:44 and :91, WizardGameEntryPlayModeTests.cs:310, WizardAnimationPlayModeTests.cs:548, Editor/WizardGameEntrySceneBuilderTests.cs:85 - while AC-001 as written would be satisfied by deleting TitleCard outright when the restack strips its opaque fill. AC-001 now requires BuildTitleScreen to keep TitleScreen with child TitleCard and grandchild StartGameButton, to strip TitleCard rather than delete it (no opaque Image, no Outline), and to leave TitleCard left-anchored so the existing anchorMax.x <= 0.5 caps measure against the right container. This is a compatibility constraint, not a visual decision: the left-stacked sayings, transparent panel and button placement are unchanged from revision 6, and execution_scope, kind, type and completion_gates are untouched. Safe to revise now because the decomposition record is status=failed with no plan pinned to this contract's semantic hash; a revision while a plan sat review_ready would have stranded it.",
+        "source_head": "1dcf8009f0b8a113bc3294055fd756fae5f4f0a9",
+        "previous_contract_revision": 6,
+        "base_contract_sha256": "7306c12a2b4e0ceef194da7d4d58b23d3bf93eea9159dc1ca69b78d8ed50c45e",
+        "revised_contract_sha256": "7c93f5d96b70718d166b719f2b6a6602bda902be18609f15fdd3a2e5abf8934c",
         "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
       }
     ]
