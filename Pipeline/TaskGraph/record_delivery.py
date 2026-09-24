@@ -802,7 +802,15 @@ def _create_delivery_package(
                     published.append(token_usage_repo_path)
                     package_paths.append(token_usage_repo_path)
             (root / records_dir_repo).mkdir(parents=True, exist_ok=True)
-            final_record_path.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+            # BYTES, NOT TEXT. write_text translates "\n" to the PLATFORM line
+            # ending, so on Windows every record landed CRLF while every record
+            # already on main is LF. Contract hash gates read the COMMITTED LF
+            # blob, so a CRLF record hashes differently from its own precedent,
+            # for a reason nobody would go looking for. Nothing errors:
+            # validate_draft_evidence reports VALID either way, and the only tell
+            # is `git diff --cached --check` calling every line trailing space.
+            final_record_path.write_bytes(
+                (json.dumps(record, indent=2, sort_keys=True) + "\n").encode("utf-8"))
             path = str(final_record_path.relative_to(root)).replace("\\", "/")
             published.append(path)
             package_paths.append(path)
