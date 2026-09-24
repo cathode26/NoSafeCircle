@@ -1,0 +1,45 @@
+{
+    "schema_version":  "1.1",
+    "manifest_type":  "unity_test_validation",
+    "status":  "passed",
+    "validated_state":  {
+                            "commit":  "557680f94cf74215296cc9bfcf819466bc401921",
+                            "tree":  "98906597f89c7230b74c08d93a0ff4488d355ec8",
+                            "post_commit":  "557680f94cf74215296cc9bfcf819466bc401921",
+                            "post_tree":  "98906597f89c7230b74c08d93a0ff4488d355ec8",
+                            "repository_clean_before":  true,
+                            "repository_clean_after":  true
+                        },
+    "unity":  {
+                  "version":  "6000.1.8f1",
+                  "executable":  "C:\\Program Files\\Unity\\Hub\\Editor\\6000.1.8f1\\Editor\\Unity.exe",
+                  "exit_code":  0,
+                  "test_platform":  "EditMode",
+                  "test_filter":  "NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests;NoSafeCircle.DoorPrototype.Tests.Editor.World.FiveRoomCompositionTests"
+              },
+    "test_run":  {
+                     "result":  "Passed",
+                     "total":  63,
+                     "passed":  63,
+                     "failed":  0,
+                     "skipped":  0
+                 },
+    "artifacts":  {
+                      "xml":  {
+                                  "relative_path":  "test-results.xml",
+                                  "sha256":  "739be12ac4f9d862b1387cdb05e0c972c01162f367b7692fb8feba2da70c2873",
+                                  "size_bytes":  56240
+                              },
+                      "log":  {
+                                  "relative_path":  "unity.log",
+                                  "sha256":  "6a0b96951f26cce7c5e0dc5fd83cc304904578a0f2c60eaf902f26b52ee4f008",
+                                  "size_bytes":  7708495
+                              }
+                  },
+    "runner":  {
+                   "path":  "Pipeline/Testing/run_unity_tests_clean.ps1",
+                   "sha256":  "9cb1e7ade6adc7975b4d60f8cab6477b58373ac3353000ad33c7fea63569b09d",
+                   "source_commit":  "557680f94cf74215296cc9bfcf819466bc401921",
+                   "source_tree":  "98906597f89c7230b74c08d93a0ff4488d355ec8"
+               }
+}

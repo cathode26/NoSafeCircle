@@ -1,0 +1,84 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "2d5c8a1dc5d4bba469fb158b27967717309e5b7ad6f8ab4a38fbbd05ad583c9f"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "6a5813eeea9d5daf7929b792acfaf5e64be96ef7",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+      "role": "visual_simulation_separation_builder"
+    },
+    {
+      "blob_sha": "799a5cb772cb3ea6769d0f7cd7e6f70035aa3154",
+      "path": "Assets/Scenes/DoorPrototype.unity",
+      "role": "canonical_continuous_gameplay_scene"
+    }
+  ],
+  "delivery": {
+    "base_commit": "5278d95c55130328fed175ff07e1f101a68f1f88",
+    "candidate_commit": "557680f94cf74215296cc9bfcf819466bc401921",
+    "integrated_commit": "557680f94cf74215296cc9bfcf819466bc401921",
+    "integrated_tree": "98906597f89c7230b74c08d93a0ff4488d355ec8"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "f2e4f09a7b0c62041508da6645e4cdd9f8465288",
+          "path": "Pipeline/TaskGraph/evidence/NSC-040/artifacts/NSC040EditModeResults-557680f94cf7.xml"
+        },
+        {
+          "blob_sha": "96b2911d76ee8067cf254110ce385e9f42420f63",
+          "path": "Pipeline/TaskGraph/evidence/NSC-040/artifacts/NSC040EditModeLog-557680f94cf7.log"
+        },
+        {
+          "blob_sha": "b02a392678950309e18e81ede6acc578003b2ff7",
+          "path": "Pipeline/TaskGraph/evidence/NSC-040/artifacts/NSC040ValidationManifest-557680f94cf7.json"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "Authoritative Edit Mode run at the validated commit, Unity 6000.1.8f1, 63 of 63 passed, 0 failed, status passed, repository clean before and after, commit and tree unchanged across the run (557680f94 / 98906597f). The gate asks that visuals be checked against SEPARATELY OWNED collision and walkability geometry and that desynchronization be detected, and DoorPrototypeSceneBuilderTests asserts exactly that relation: Build_FloorTilemapVisual_AlignsWithIndependentGameplayFloorInWorldSpace and Build_WallTilemapVisuals_AlignWithIndependentGameplayWallsInWorldSpace compare Tilemap visuals against independently authored gameplay colliders in world space, so a visual/simulation divergence fails them. The sorting tests in the same fixture cover the SpriteRenderer half against that same Tilemap geometry.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "f2e4f09a7b0c62041508da6645e4cdd9f8465288",
+          "path": "Pipeline/TaskGraph/evidence/NSC-040/artifacts/NSC040EditModeResults-557680f94cf7.xml"
+        },
+        {
+          "blob_sha": "96b2911d76ee8067cf254110ce385e9f42420f63",
+          "path": "Pipeline/TaskGraph/evidence/NSC-040/artifacts/NSC040EditModeLog-557680f94cf7.log"
+        },
+        {
+          "blob_sha": "b02a392678950309e18e81ede6acc578003b2ff7",
+          "path": "Pipeline/TaskGraph/evidence/NSC-040/artifacts/NSC040ValidationManifest-557680f94cf7.json"
+        }
+      ],
+      "gate_id": "VAL-002",
+      "notes": "Same authoritative run. FiveRoomCompositionTests opens the COMMITTED canonical scene Assets/Scenes/DoorPrototype.unity and asserts all five rooms are composed within that single continuous scene, which is what 'the foundation extends within the canonical continuous gameplay scene' requires. The no-room-transition half is satisfied structurally rather than by a dedicated assertion: the five rooms are present simultaneously in one scene, so no per-room scene load or cross-scene state transfer exists to introduce. Stated as an inference from the composition, not as a test that names scene loading.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "",
+    "decision": "not_required",
+    "notes": "NSC-040's two completion gates are both automated Unity validations and neither the gate text nor the contract names a human check, matching the NSC-063 and NSC-065 assistant-verified precedents. No human reviewed this and none is claimed. BASE COMMIT IS AN EDITORIAL CHOICE, NOT A DERIVATION, and is recorded as such: NSC-040 has NO implementation commit of its own - zero commits name it, and every commit touching its owned resources after its last dependency (NSC-039, validated d2add2488b) belongs to another task. Its siblings NSC-038 and NSC-039 both used the parent of their own implementation commit, which NSC-040 cannot do. The base given here is the parent of 1c4968c65 'Implement NSC-069: room scene composition foundation', chosen because that commit built the canonical continuous scene VAL-002 describes. THIS IS NOT A CLAIM THAT NSC-040 AUTHORED THAT COMMIT. base_commit is provenance only - its sole mechanical use is the ancestry check at record_delivery.py:596 - and no consumer reads it as a diff basis, so it cannot attribute another task's changes here. candidate_commit equals validated_commit for the same reason: there is no distinct implementation commit to name.",
+    "required": false
+  },
+  "record_id": "DEL-NSC-040-557680f94cf7",
+  "record_type": "delivery",
+  "recorded_at": "2026-09-24T15:13:08Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-040.yaml",
+    "revision": 1,
+    "sha256": "6366edb62ceb76d74ac9f8443f3cba09bf97b1bd7ff46cd45d4bff5597570dce"
+  },
+  "task_id": "NSC-040",
+  "validated_state": {
+    "commit": "557680f94cf74215296cc9bfcf819466bc401921",
+    "tree": "98906597f89c7230b74c08d93a0ff4488d355ec8"
+  }
+}
