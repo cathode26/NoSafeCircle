@@ -383,6 +383,13 @@ def _xml_int_attribute(element: ElementTree.Element, name: str, source_label: st
     return int(raw.strip())
 
 
+# NUnit labels the WHOLE RUN "Skipped:Ignored" when any single test opted out,
+# even with every other test green. Both labels below mean "nothing failed"; the
+# counts carry the actual verdict. See validate_unity_test_results for why this is
+# an allow-list of exactly two rather than "any label with failed == 0".
+_ACCEPTABLE_RUN_RESULTS = frozenset({"Passed", "Skipped:Ignored"})
+
+
 def validate_unity_test_results(data: bytes, source_label: str) -> UnityReport:
     try:
         root_element = ElementTree.fromstring(data)
@@ -411,10 +418,43 @@ def validate_unity_test_results(data: bytes, source_label: str) -> UnityReport:
             f"Unity test-results XML at {source_label} counts are inconsistent: "
             f"total={total} != passed+failed+skipped+inconclusive={passed + failed + skipped + inconclusive}."
         )
-    if result != "Passed":
-        raise RecordDeliveryError(f"Unity test-results XML at {source_label} result is {result!r}, not 'Passed'.")
     if failed != 0:
         raise RecordDeliveryError(f"Unity test-results XML at {source_label} reports {failed} failed test(s).")
+    # AN EXPLICITLY IGNORED TEST IS NOT A FAILING TEST. Every room task owns an
+    # [Explicit] CaptureGameplayCameraReview that must not run unattended, so a
+    # perfectly green suite -- measured at 8ceea22ba as total=262 passed=256
+    # failed=0 inconclusive=0 skipped=6 -- arrived here labelled "Skipped:Ignored"
+    # and was refused as a failure. That blocked the delivery record of every
+    # room task at once.
+    #
+    # THIS IS THE SAME DEFECT `c4fe986d3` ALREADY FIXED, in
+    # Pipeline/Testing/run_unity_tests_clean.ps1. That commit fixed the RUNNER and
+    # this caller never got the same treatment, so the runner reported success and
+    # the recorder then refused the identical XML. The precedent's shape is copied
+    # deliberately rather than widened to "failed == 0 is enough": it is an
+    # ALLOW-LIST of two labels, so a genuinely new run-result the gate has never
+    # seen still refuses instead of being waved through.
+    #
+    # Every property this gate had is kept, and TWO are ADDED. Without `passed > 0`
+    # a suite whose tests were ALL ignored reports failed=0, total>0 and
+    # "Skipped:Ignored" and sails through the gate that was just widened. Without
+    # the inconclusive check, widening the label would silently start accepting
+    # inconclusive runs, which the old `result == "Passed"` test had excluded.
+    if result not in _ACCEPTABLE_RUN_RESULTS:
+        raise RecordDeliveryError(
+            f"Unity test-results XML at {source_label} result is {result!r}, "
+            f"expected one of: {', '.join(sorted(_ACCEPTABLE_RUN_RESULTS))}."
+        )
+    if passed <= 0:
+        raise RecordDeliveryError(
+            f"Unity test-results XML at {source_label} reports zero passed tests "
+            f"(total={total} skipped={skipped}); an all-ignored run is not a pass."
+        )
+    if inconclusive != 0:
+        raise RecordDeliveryError(
+            f"Unity test-results XML at {source_label} reports {inconclusive} "
+            "inconclusive test(s); an inconclusive test is not a passing test."
+        )
     return UnityReport(result=result, total=total, passed=passed, failed=failed, skipped=skipped)
 
 
