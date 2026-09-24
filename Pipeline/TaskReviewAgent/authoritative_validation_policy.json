@@ -540,6 +540,18 @@
         "PlayMode": "NoSafeCircle.DoorPrototype.Tests.FrostFieldPlayModeTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-009": {
+      "task_contract_sha256": "728324c434b4e017a6329f79976038aa96961005ef8b01980c1a6e815e7c7899",
+      "required_test_platforms": [
+        "EditMode",
+        "PlayMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.ForceWaveSceneBuilderTests",
+        "PlayMode": "NoSafeCircle.DoorPrototype.Tests.ForceWaveDisplacementPlayModeTests;NoSafeCircle.DoorPrototype.Tests.ForceWaveCastGatePlayModeTests;NoSafeCircle.DoorPrototype.Tests.ForceWaveLifecyclePlayModeTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
     }
   },
   "decomposition_child_templates": {}
