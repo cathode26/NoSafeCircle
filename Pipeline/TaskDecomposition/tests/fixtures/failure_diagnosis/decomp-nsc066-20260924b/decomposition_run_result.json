@@ -1,0 +1,313 @@
+{
+  "author_corrections_used": 0,
+  "authority": "review_only_not_applied",
+  "calls_used": 2,
+  "context_sha256": "032f3fddec350af8b9e4634c7cf2a2e2e96270dbb3802a711352799257cfef16",
+  "d1a_semantic_parent_identity": {
+    "contract_revision": 6,
+    "contract_sha256": "b1eb568ea126ac1511d9a19b11ea810273bf82cf506913fa015248021f8e0a1b",
+    "task_id": "NSC-066"
+  },
+  "decision": "decomposed",
+  "decomposition_result_path": "decomposition_result.json",
+  "duration_seconds": 741.5025099959967,
+  "finding_history": [
+    {
+      "findings": [
+        {
+          "affected_contracts": [
+            "title-screen-transparent-layout-build"
+          ],
+          "category": "other",
+          "finding_id": "round-02-titlecard-path-preservation-only-in-notes",
+          "problem": "Child 3 must restack the title text and Start Game Button to the left without breaking four Play Mode and Edit Mode fixtures it does not own and cannot edit, which resolve the button through the hierarchy path TitleScreen/TitleCard/StartGameButton: WizardSelectionPlayModeTests.cs lines 44 and 91, WizardGameEntryPlayModeTests.cs line 310, WizardAnimationPlayModeTests.cs line 548, and WizardGameEntrySceneBuilderTests.cs line 85. All four paths were confirmed at the supplied head. The candidate identifies this hazard accurately and prescribes the safe approach - keep a left-anchored TitleCard container GameObject while removing its solid Image and Outline, since AC-001 forbids an opaque background rather than the GameObject name - but that instruction lives only in the child notes. AC-001 and AC-002 as written would also be satisfied by a rebuild that deletes the TitleCard GameObject entirely, which would break all four fixtures. A related detail also sits only in notes: the three saying texts are currently children of TitleCard, so an anchorMax.x of 0.5 or less is measured against that container rather than against the screen, and the container must itself be left-anchored for the criterion to place the text in the left half of the display.",
+          "required_resolution": "Non-blocking. If this child is revised for another reason, move the constraint into the binding acceptance surface: state in child 3 AC-001 or AC-002 that BuildTitleScreen keeps a GameObject named TitleScreen with a child named TitleCard and a grandchild named StartGameButton so the four externally-owned fixtures continue to resolve that path, that TitleCard retains no opaque Image or Outline, and that TitleCard's own RectTransform is left-anchored so the sayings' and button's anchorMax.x of 0.5 or less places them in the left half of the 1920x1080 reference display.",
+          "severity": "advisory"
+        }
+      ],
+      "prior_finding_resolutions": [],
+      "reviewed_candidate_sha256": "e35562f06564215e92425ca8966f9c0744940facbc5af37ddd2b769df9e79fc8",
+      "reviewer_provider": "claude",
+      "round_number": 2,
+      "summary": "The candidate splits NSC-066 into three concrete single-agent children: (1) title-screen-start-game-transition owning TitleScreenController.cs and TitleScreenPlayModeTests.cs for title visibility, the PlayerMovement and PlayerInteractionController suspension, and the one-shot Start Game transition; (2) title-screen-chase-backdrop owning the new TitleScreenChaseBackdrop MonoBehaviour and its Play Mode fixture, driven through a public Tick(float) seam with an injected seed, interval selector and side selector; (3) title-screen-transparent-layout-build owning DoorPrototypeGlobalSceneBuilder.cs, TitleScreenSceneBuilderTests.cs and Assets/Scenes/DoorPrototype.unity, which removes the opaque fill, restacks the three sayings and the chunky Start Game Button to the left, computes the floor segment, adds and configures exactly one backdrop component, and materializes the scene. The 10 parent exclusive resources partition exactly 3/4/3 with TitleScreenController.cs and the builder plus scene on separate children. All 14 parent entries (AC-001 through AC-008, VAL-001 through VAL-005, INT-001) carry exactly one coverage record and all 17 child entries are traced; the three shared_integration records for parent AC-003, AC-006 and AC-008 are genuine producer and consumer halves across already-public controller state or a serialized-field contract, so no child edits another child's file. NSC-067 is the only direct dependent and is mapped to the controller child, which is both capability-correct, since NSC-067 subscribes to TitleScreenController.WizardSelectionRequested, and the only acyclic option, because children 2 and 3 need NSC-075 and NSC-077 while NSC-075 sits behind NSC-067 through NSC-068; tracing NSC-107 to NSC-075 to NSC-068 to NSC-067 to NSC-106 to NSC-019 to NSC-003 closes no cycle. Repository verification at head a93c5817 confirmed every premise: the four externally-owned fixtures that resolve the button through TitleScreen/TitleCard/StartGameButton are exactly WizardSelectionPlayModeTests, WizardGameEntryPlayModeTests, WizardAnimationPlayModeTests and WizardGameEntrySceneBuilderTests; the builder still sets Color32(16, 10, 23, 255) and builds a centre-anchored TitleCard with an Image and an Outline containing all three saying texts plus the button and a footer; TitleScreenController already exposes IsTitleScreenVisible, the guarded StartGame, WizardSelectionRequested and the Awake-time dual suspension; TitleScreenChaseBackdrop.cs does not yet exist; and both animator controllers, EnemyAnimationKind and WizardAnimationController.ApplyPresentation are present, so the NSC-075 and NSC-077 dependencies are already satisfiable. The candidate also declares rather than hides its divergence from the parent revision-6 prose, which assumed two children could share the builder and the builder test file; exact partition forbids that, and since parent AC-008 requires the builder to assign NSC-077 controllers, the builder-owning child must carry those dependencies, so the allocation is forced and costs nothing in practice because both are delivered. Child 3 is a real assembly pass, depends on both siblings and lands last, so completing all three completes the feature with no builder, scene or test edit left on the parent. Wording is concrete Unity throughout.",
+      "verdict": "pass"
+    }
+  ],
+  "graph_delta_path": "graph_delta.json",
+  "human_next_step": "Review decomposition_result.json, graph_delta.json when present, and the per-round review history. No graph change has been applied.",
+  "independent_approver_provider": "claude",
+  "latest_candidate": {
+    "author_provider": "claude",
+    "decision": "decomposed",
+    "graph_delta_plan_id": "GDP-e345edd8958c9e8384995873599809124b30ffd8e2faace59ae8184404692346",
+    "sha256": "e35562f06564215e92425ca8966f9c0744940facbc5af37ddd2b769df9e79fc8",
+    "version": 1
+  },
+  "max_calls": 2,
+  "mode": "round_robin_d1b2",
+  "pooled_sessions": {
+    "claude:decomposition_reviewer": {
+      "confirmed_session": {
+        "mode": "resume",
+        "provider_identifier": "claude-code",
+        "role": "decomposition_reviewer",
+        "schema_version": "1.0",
+        "session_id": "bb666985-4881-4bc8-abcf-8522900c737c"
+      },
+      "identity_unproven": null,
+      "invoked": true,
+      "lease_id": "f2725944-4391-494f-a8d8-862f14806df6",
+      "provider_identifier": "claude-code",
+      "record_id": "bb666985-4881-4bc8-abcf-8522900c737c",
+      "requested_mode": "resume",
+      "requested_session_id": "bb666985-4881-4bc8-abcf-8522900c737c",
+      "role": "decomposition_reviewer",
+      "rounds": [
+        {
+          "agent_status": "succeeded",
+          "artifact_path": "rounds/02/review.json",
+          "artifact_sha256": "830f941b4fec8cbb3827645ef0115dda7469e67764d1439ed1d3d071d481f550",
+          "checkout_identity": "manifest-sha256:44730cedc9c0ad1019bf139ab614c8bcf048da4ecf1a6ba999a2a10f9c4c02b4",
+          "confirmed_session": {
+            "mode": "resume",
+            "provider_identifier": "claude-code",
+            "role": "decomposition_reviewer",
+            "schema_version": "1.0",
+            "session_id": "bb666985-4881-4bc8-abcf-8522900c737c"
+          },
+          "conversation_store": "compose:nosafecircle/claude-config",
+          "decomposition_mode": "round_robin_d1b2",
+          "invocation_id": "nsc-066-d1b2-r02-decomposition-reviewer-e1a25e2aec70",
+          "lease_id": "f2725944-4391-494f-a8d8-862f14806df6",
+          "lease_key": "claude:decomposition_reviewer",
+          "model": "claude-opus-5",
+          "pool_schema_version": "1.0",
+          "protocol_version": "1.0",
+          "provider_identifier": "claude-code",
+          "provider_name": "claude",
+          "reasoning_effort": null,
+          "record_id": "bb666985-4881-4bc8-abcf-8522900c737c",
+          "repository_identity": "https://github.com/cathode26/NoSafeCircle.git",
+          "requested_mode": "resume",
+          "requested_session_id": "bb666985-4881-4bc8-abcf-8522900c737c",
+          "role": "decomposition_reviewer",
+          "round_number": 2,
+          "round_status": "independent_pass",
+          "run_id": "decomp-nsc066-20260924b",
+          "schema_version": "1.0",
+          "source_head": "a93c58170c5cfb8ee0a96d874017af7bb6372572",
+          "source_tree": "4216aa331682eecace35f2a6e371fa3ecf7f35fc",
+          "task_id": "NSC-066"
+        }
+      ]
+    },
+    "claude:task_decomposer": {
+      "confirmed_session": {
+        "mode": "resume",
+        "provider_identifier": "claude-code",
+        "role": "task_decomposer",
+        "schema_version": "1.0",
+        "session_id": "81b8a1e6-91fa-46e9-8028-d564f08c6e70"
+      },
+      "identity_unproven": null,
+      "invoked": true,
+      "lease_id": "6b1e63b2-a82e-4a17-95d9-a9cfd6834d57",
+      "provider_identifier": "claude-code",
+      "record_id": "81b8a1e6-91fa-46e9-8028-d564f08c6e70",
+      "requested_mode": "resume",
+      "requested_session_id": "81b8a1e6-91fa-46e9-8028-d564f08c6e70",
+      "role": "task_decomposer",
+      "rounds": [
+        {
+          "agent_status": "succeeded",
+          "artifact_path": "rounds/01/candidate.json",
+          "artifact_sha256": "4ce91d75fdc677063351b842e5e7d2c67349b8546467cbb8eb8889de75e3b66f",
+          "checkout_identity": "manifest-sha256:44730cedc9c0ad1019bf139ab614c8bcf048da4ecf1a6ba999a2a10f9c4c02b4",
+          "confirmed_session": {
+            "mode": "resume",
+            "provider_identifier": "claude-code",
+            "role": "task_decomposer",
+            "schema_version": "1.0",
+            "session_id": "81b8a1e6-91fa-46e9-8028-d564f08c6e70"
+          },
+          "conversation_store": "compose:nosafecircle/claude-config",
+          "decomposition_mode": "round_robin_d1b2",
+          "invocation_id": "nsc-066-d1b2-r01-task-decomposer-d12523e91636",
+          "lease_id": "6b1e63b2-a82e-4a17-95d9-a9cfd6834d57",
+          "lease_key": "claude:task_decomposer",
+          "model": "claude-opus-5",
+          "pool_schema_version": "1.0",
+          "protocol_version": "1.0",
+          "provider_identifier": "claude-code",
+          "provider_name": "claude",
+          "reasoning_effort": null,
+          "record_id": "81b8a1e6-91fa-46e9-8028-d564f08c6e70",
+          "repository_identity": "https://github.com/cathode26/NoSafeCircle.git",
+          "requested_mode": "resume",
+          "requested_session_id": "81b8a1e6-91fa-46e9-8028-d564f08c6e70",
+          "role": "task_decomposer",
+          "round_number": 1,
+          "round_status": "candidate_valid",
+          "run_id": "decomp-nsc066-20260924b",
+          "schema_version": "1.0",
+          "source_head": "a93c58170c5cfb8ee0a96d874017af7bb6372572",
+          "source_tree": "4216aa331682eecace35f2a6e371fa3ecf7f35fc",
+          "task_id": "NSC-066"
+        }
+      ]
+    }
+  },
+  "provider_order": [
+    "claude",
+    "claude"
+  ],
+  "rejection_reasons": [],
+  "review_independence": "same_provider_separate_sessions",
+  "rounds": [
+    {
+      "actual_model": "claude-opus-5",
+      "actual_provider": "claude-code",
+      "agent_failure_classification": "none",
+      "agent_runtime_result_path": "rounds/01/agent_runtime/nsc-066-d1b2-r01-task-decomposer-d12523e91636/result.json",
+      "agent_status": "succeeded",
+      "authority": "review_only_not_applied",
+      "candidate_after": {
+        "author_provider": "claude",
+        "decision": "decomposed",
+        "graph_delta_plan_id": "GDP-e345edd8958c9e8384995873599809124b30ffd8e2faace59ae8184404692346",
+        "sha256": "e35562f06564215e92425ca8966f9c0744940facbc5af37ddd2b769df9e79fc8",
+        "version": 1
+      },
+      "candidate_before": null,
+      "correction_of_round": null,
+      "duration_seconds": 152.534,
+      "new_finding_ids": [],
+      "pooled_session": {
+        "agent_status": "succeeded",
+        "artifact_path": "rounds/01/candidate.json",
+        "artifact_sha256": "4ce91d75fdc677063351b842e5e7d2c67349b8546467cbb8eb8889de75e3b66f",
+        "checkout_identity": "manifest-sha256:44730cedc9c0ad1019bf139ab614c8bcf048da4ecf1a6ba999a2a10f9c4c02b4",
+        "confirmed_session": {
+          "mode": "resume",
+          "provider_identifier": "claude-code",
+          "role": "task_decomposer",
+          "schema_version": "1.0",
+          "session_id": "81b8a1e6-91fa-46e9-8028-d564f08c6e70"
+        },
+        "conversation_store": "compose:nosafecircle/claude-config",
+        "decomposition_mode": "round_robin_d1b2",
+        "invocation_id": "nsc-066-d1b2-r01-task-decomposer-d12523e91636",
+        "lease_id": "6b1e63b2-a82e-4a17-95d9-a9cfd6834d57",
+        "lease_key": "claude:task_decomposer",
+        "model": "claude-opus-5",
+        "pool_schema_version": "1.0",
+        "protocol_version": "1.0",
+        "provider_identifier": "claude-code",
+        "provider_name": "claude",
+        "reasoning_effort": null,
+        "record_id": "81b8a1e6-91fa-46e9-8028-d564f08c6e70",
+        "repository_identity": "https://github.com/cathode26/NoSafeCircle.git",
+        "requested_mode": "resume",
+        "requested_session_id": "81b8a1e6-91fa-46e9-8028-d564f08c6e70",
+        "role": "task_decomposer",
+        "round_number": 1,
+        "round_status": "candidate_valid",
+        "run_id": "decomp-nsc066-20260924b",
+        "schema_version": "1.0",
+        "source_head": "a93c58170c5cfb8ee0a96d874017af7bb6372572",
+        "source_tree": "4216aa331682eecace35f2a6e371fa3ecf7f35fc",
+        "task_id": "NSC-066"
+      },
+      "rejection_reasons": [],
+      "requested_provider": "claude",
+      "role": "task_decomposer",
+      "round_number": 1,
+      "schema_version": "1.0",
+      "status": "candidate_valid",
+      "task_execution_request_path": "rounds/01/task_execution/nsc-066-d1b2-r01-task-decomposer-d12523e91636/task_request.json",
+      "unresolved_finding_ids": [],
+      "verdict": null
+    },
+    {
+      "actual_model": "claude-opus-5",
+      "actual_provider": "claude-code",
+      "agent_failure_classification": "none",
+      "agent_runtime_result_path": "rounds/02/agent_runtime/nsc-066-d1b2-r02-decomposition-reviewer-e1a25e2aec70/result.json",
+      "agent_status": "succeeded",
+      "authority": "review_only_not_applied",
+      "candidate_after": null,
+      "candidate_before": {
+        "author_provider": "claude",
+        "decision": "decomposed",
+        "graph_delta_plan_id": "GDP-e345edd8958c9e8384995873599809124b30ffd8e2faace59ae8184404692346",
+        "sha256": "e35562f06564215e92425ca8966f9c0744940facbc5af37ddd2b769df9e79fc8",
+        "version": 1
+      },
+      "correction_of_round": null,
+      "duration_seconds": 193.018,
+      "new_finding_ids": [
+        "round-02-titlecard-path-preservation-only-in-notes"
+      ],
+      "pooled_session": {
+        "agent_status": "succeeded",
+        "artifact_path": "rounds/02/review.json",
+        "artifact_sha256": "830f941b4fec8cbb3827645ef0115dda7469e67764d1439ed1d3d071d481f550",
+        "checkout_identity": "manifest-sha256:44730cedc9c0ad1019bf139ab614c8bcf048da4ecf1a6ba999a2a10f9c4c02b4",
+        "confirmed_session": {
+          "mode": "resume",
+          "provider_identifier": "claude-code",
+          "role": "decomposition_reviewer",
+          "schema_version": "1.0",
+          "session_id": "bb666985-4881-4bc8-abcf-8522900c737c"
+        },
+        "conversation_store": "compose:nosafecircle/claude-config",
+        "decomposition_mode": "round_robin_d1b2",
+        "invocation_id": "nsc-066-d1b2-r02-decomposition-reviewer-e1a25e2aec70",
+        "lease_id": "f2725944-4391-494f-a8d8-862f14806df6",
+        "lease_key": "claude:decomposition_reviewer",
+        "model": "claude-opus-5",
+        "pool_schema_version": "1.0",
+        "protocol_version": "1.0",
+        "provider_identifier": "claude-code",
+        "provider_name": "claude",
+        "reasoning_effort": null,
+        "record_id": "bb666985-4881-4bc8-abcf-8522900c737c",
+        "repository_identity": "https://github.com/cathode26/NoSafeCircle.git",
+        "requested_mode": "resume",
+        "requested_session_id": "bb666985-4881-4bc8-abcf-8522900c737c",
+        "role": "decomposition_reviewer",
+        "round_number": 2,
+        "round_status": "independent_pass",
+        "run_id": "decomp-nsc066-20260924b",
+        "schema_version": "1.0",
+        "source_head": "a93c58170c5cfb8ee0a96d874017af7bb6372572",
+        "source_tree": "4216aa331682eecace35f2a6e371fa3ecf7f35fc",
+        "task_id": "NSC-066"
+      },
+      "rejection_reasons": [],
+      "requested_provider": "claude",
+      "role": "decomposition_reviewer",
+      "round_number": 2,
+      "schema_version": "1.0",
+      "status": "independent_pass",
+      "task_execution_request_path": "rounds/02/task_execution/nsc-066-d1b2-r02-decomposition-reviewer-e1a25e2aec70/task_request.json",
+      "unresolved_finding_ids": [],
+      "verdict": "pass"
+    }
+  ],
+  "run_id": "decomp-nsc066-20260924b",
+  "run_status": "review_ready",
+  "schema_version": "1.0",
+  "source_identity": {
+    "branch": "main",
+    "head_commit": "a93c58170c5cfb8ee0a96d874017af7bb6372572",
+    "head_tree": "4216aa331682eecace35f2a6e371fa3ecf7f35fc"
+  },
+  "task_execution_contract_identity": {
+    "path": "Tasks/NSC-066.yaml",
+    "revision": 6,
+    "sha256": "7306c12a2b4e0ceef194da7d4d58b23d3bf93eea9159dc1ca69b78d8ed50c45e"
+  },
+  "task_id": "NSC-066",
+  "unresolved_findings": []
+}

@@ -1,0 +1,179 @@
+{
+  "author_corrections_used": 0,
+  "authority": "review_only_not_applied",
+  "calls_used": 1,
+  "context_sha256": "40234c7710d7a3985643290131b4c246fb43edf50f3d0a2381ff6c41eec9801f",
+  "d1a_semantic_parent_identity": {
+    "contract_revision": 8,
+    "contract_sha256": "c6f037beaa7e32a5efd34e69d86c4b1c635357611b202b2d5d5b89cd0b406284",
+    "task_id": "NSC-007"
+  },
+  "decision": null,
+  "decomposition_result_path": null,
+  "duration_seconds": 569.344376158,
+  "finding_history": [],
+  "graph_delta_path": null,
+  "human_next_step": "Inspect rejection_reasons and the per-round candidate/review artifacts. No review-ready decomposition was emitted.",
+  "independent_approver_provider": null,
+  "latest_candidate": null,
+  "max_calls": 2,
+  "mode": "round_robin_d1b2",
+  "pooled_sessions": {
+    "claude:decomposition_reviewer": {
+      "confirmed_session": null,
+      "identity_unproven": null,
+      "invoked": false,
+      "lease_id": "32548178-5439-4fca-8159-311974f14687",
+      "provider_identifier": "claude-code",
+      "record_id": "bb666985-4881-4bc8-abcf-8522900c737c",
+      "requested_mode": "resume",
+      "requested_session_id": "bb666985-4881-4bc8-abcf-8522900c737c",
+      "role": "decomposition_reviewer",
+      "rounds": []
+    },
+    "claude:task_decomposer": {
+      "confirmed_session": {
+        "mode": "resume",
+        "provider_identifier": "claude-code",
+        "role": "task_decomposer",
+        "schema_version": "1.0",
+        "session_id": "982066e2-7340-4a42-852a-4804b8068168"
+      },
+      "identity_unproven": null,
+      "invoked": true,
+      "lease_id": "af8b4d6e-9178-4270-bbc5-3013966593fc",
+      "provider_identifier": "claude-code",
+      "record_id": "982066e2-7340-4a42-852a-4804b8068168",
+      "requested_mode": "resume",
+      "requested_session_id": "982066e2-7340-4a42-852a-4804b8068168",
+      "role": "task_decomposer",
+      "rounds": [
+        {
+          "agent_status": "succeeded",
+          "artifact_path": null,
+          "artifact_sha256": null,
+          "checkout_identity": "manifest-sha256:44730cedc9c0ad1019bf139ab614c8bcf048da4ecf1a6ba999a2a10f9c4c02b4",
+          "confirmed_session": {
+            "mode": "resume",
+            "provider_identifier": "claude-code",
+            "role": "task_decomposer",
+            "schema_version": "1.0",
+            "session_id": "982066e2-7340-4a42-852a-4804b8068168"
+          },
+          "conversation_store": "compose:nosafecircle/claude-config",
+          "decomposition_mode": "round_robin_d1b2",
+          "invocation_id": "nsc-007-d1b2-r01-task-decomposer-bc82e763ed62",
+          "lease_id": "af8b4d6e-9178-4270-bbc5-3013966593fc",
+          "lease_key": "claude:task_decomposer",
+          "model": "claude-opus-5",
+          "pool_schema_version": "1.0",
+          "protocol_version": "1.0",
+          "provider_identifier": "claude-code",
+          "provider_name": "claude",
+          "reasoning_effort": null,
+          "record_id": "982066e2-7340-4a42-852a-4804b8068168",
+          "repository_identity": "https://github.com/cathode26/NoSafeCircle.git",
+          "requested_mode": "resume",
+          "requested_session_id": "982066e2-7340-4a42-852a-4804b8068168",
+          "role": "task_decomposer",
+          "round_number": 1,
+          "round_status": "rejected",
+          "run_id": "decomp-nsc007-20260922a",
+          "schema_version": "1.0",
+          "source_head": "ac8ddffa1c93ca1ae97c5f2ec3c013966c1d3469",
+          "source_tree": "3f7643ed40a75806fb71e9e1ffde12a825dec8c7",
+          "task_id": "NSC-007"
+        }
+      ]
+    }
+  },
+  "provider_order": [
+    "claude",
+    "claude"
+  ],
+  "rejection_reasons": [
+    "round 1: source HEAD changed during provider invocation",
+    "round 1: source tree changed during provider invocation",
+    "source HEAD changed during provider invocation",
+    "source tree changed during provider invocation"
+  ],
+  "review_independence": "same_provider_separate_sessions",
+  "rounds": [
+    {
+      "actual_model": "claude-opus-5",
+      "actual_provider": "claude-code",
+      "agent_failure_classification": "none",
+      "agent_runtime_result_path": "rounds/01/agent_runtime/nsc-007-d1b2-r01-task-decomposer-bc82e763ed62/result.json",
+      "agent_status": "succeeded",
+      "authority": "review_only_not_applied",
+      "candidate_after": null,
+      "candidate_before": null,
+      "correction_of_round": null,
+      "duration_seconds": 323.719,
+      "new_finding_ids": [],
+      "pooled_session": {
+        "agent_status": "succeeded",
+        "artifact_path": null,
+        "artifact_sha256": null,
+        "checkout_identity": "manifest-sha256:44730cedc9c0ad1019bf139ab614c8bcf048da4ecf1a6ba999a2a10f9c4c02b4",
+        "confirmed_session": {
+          "mode": "resume",
+          "provider_identifier": "claude-code",
+          "role": "task_decomposer",
+          "schema_version": "1.0",
+          "session_id": "982066e2-7340-4a42-852a-4804b8068168"
+        },
+        "conversation_store": "compose:nosafecircle/claude-config",
+        "decomposition_mode": "round_robin_d1b2",
+        "invocation_id": "nsc-007-d1b2-r01-task-decomposer-bc82e763ed62",
+        "lease_id": "af8b4d6e-9178-4270-bbc5-3013966593fc",
+        "lease_key": "claude:task_decomposer",
+        "model": "claude-opus-5",
+        "pool_schema_version": "1.0",
+        "protocol_version": "1.0",
+        "provider_identifier": "claude-code",
+        "provider_name": "claude",
+        "reasoning_effort": null,
+        "record_id": "982066e2-7340-4a42-852a-4804b8068168",
+        "repository_identity": "https://github.com/cathode26/NoSafeCircle.git",
+        "requested_mode": "resume",
+        "requested_session_id": "982066e2-7340-4a42-852a-4804b8068168",
+        "role": "task_decomposer",
+        "round_number": 1,
+        "round_status": "rejected",
+        "run_id": "decomp-nsc007-20260922a",
+        "schema_version": "1.0",
+        "source_head": "ac8ddffa1c93ca1ae97c5f2ec3c013966c1d3469",
+        "source_tree": "3f7643ed40a75806fb71e9e1ffde12a825dec8c7",
+        "task_id": "NSC-007"
+      },
+      "rejection_reasons": [
+        "source HEAD changed during provider invocation",
+        "source tree changed during provider invocation"
+      ],
+      "requested_provider": "claude",
+      "role": "task_decomposer",
+      "round_number": 1,
+      "schema_version": "1.0",
+      "status": "rejected",
+      "task_execution_request_path": "rounds/01/task_execution/nsc-007-d1b2-r01-task-decomposer-bc82e763ed62/task_request.json",
+      "unresolved_finding_ids": [],
+      "verdict": null
+    }
+  ],
+  "run_id": "decomp-nsc007-20260922a",
+  "run_status": "rejected",
+  "schema_version": "1.0",
+  "source_identity": {
+    "branch": "main",
+    "head_commit": "ac8ddffa1c93ca1ae97c5f2ec3c013966c1d3469",
+    "head_tree": "3f7643ed40a75806fb71e9e1ffde12a825dec8c7"
+  },
+  "task_execution_contract_identity": {
+    "path": "Tasks/NSC-007.yaml",
+    "revision": 8,
+    "sha256": "bcddd34010e1c839d185b01bb1f2d8d9ecc3f25d55a28c156f130393d28d7b7d"
+  },
+  "task_id": "NSC-007",
+  "unresolved_findings": []
+}

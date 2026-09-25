@@ -679,6 +679,19 @@ the older mixed-case and dotted run id.
 `apply-decomposition` creates the canonical local D1C commit only while the reviewed
 source, contract and plan are still exact. These commands never push.
 
+### Diagnosing a stopped decomposition
+
+`diagnose-decomposition TASK --run-id RUN` reads that run's retained
+`decomposition_run_result.json` (through its current or archived receipt) and
+routes it to one primary cause: `SETUP` (launch or provider configuration),
+`BUDGET` (a valid reviewer revision used the last permitted call), `AUTHOR` (a
+candidate or revision failed deterministic validation), `CONTRACT` (the output
+asked for human or design authority, which means contract review, not that the
+contract is wrong) or `STOP` (source or evidence problems, success, or nothing
+recognised). Secondary causes, such as the reviewer findings behind a budget
+stop, are kept. It is read-only and every result says `retry_authorized:
+false`; choosing and authorizing a retry stays a separate decision.
+
 ### Decomposing in an isolated clone
 
 The apply-time gate compares the reviewed Source commit with Source HEAD under
