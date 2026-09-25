@@ -1,0 +1,61 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "2d5c8a1dc5d4bba469fb158b27967717309e5b7ad6f8ab4a38fbbd05ad583c9f"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "5a80e9a5ef4b45adb8b4a63bc0208c0be4a3b716",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/TitleScreenController.cs",
+      "role": "The production component VAL-001 is about: it owns title visibility, suspends the gameplay-input owners on Awake, and raises WizardSelectionRequested exactly once from StartGame."
+    },
+    {
+      "blob_sha": "3ab8f6ef23bc09d66aee1a87b70d97669e0c92da",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/TitleScreenPlayModeTests.cs",
+      "role": "The Play Mode fixture VAL-001 names by path, carrying both the focused title-screen tests and the committed-scene companion fixture that inspects Assets/Scenes/DoorPrototype.unity."
+    }
+  ],
+  "delivery": {
+    "base_commit": "fc4bdac40907a54ce218fbf9067dffb931a80315",
+    "candidate_commit": "fe6b08d5e20c606a3bd4f166621c324808b45ae1",
+    "integrated_commit": "fe6b08d5e20c606a3bd4f166621c324808b45ae1",
+    "integrated_tree": "ae23e94b0784a75df42e011f17910a5e39817c09"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "2da126945e3eca1c5160b92e14abda30bf59f05a",
+          "path": "Pipeline/TaskGraph/evidence/NSC-106/artifacts/Unity-PlayMode-01-fe6b08d5e20c.xml"
+        },
+        {
+          "blob_sha": "fc89df375358a2d54c4c26bd2460cb8859dcde05",
+          "path": "Pipeline/TaskGraph/evidence/NSC-106/artifacts/Unity-PlayMode-01-fe6b08d5e20c.log"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "Satisfied at validated commit fe6b08d5e20c606a3bd4f166621c324808b45ae1 by the bound Play Mode run in unity_01_results and unity_01_log: 3 of 3 passed, 0 failed, 0 skipped, repository clean before and after. Each of the three tests was verified present and Passed BY NAME in the results XML rather than inferred from the total, and each maps onto a clause of the gate. EnteringScene_ShowsTitleAndSuspendsGameplayInput covers the title screen being the initial visible game-entry state and both PlayerMovement.IsGameplayEnabled and PlayerInteractionController.IsGameplayEnabled being false with a RequestDestination ignored before Start Game. StartGame_RepeatedActivation_RequestsWizardSelectionExactlyOnce covers repeated Start Game activation raising exactly one WizardSelectionRequested and leaving the panel hidden. DoorPrototypeScene_StartsAtTitleAndEmitsOneWizardSelectionRequest is the committed-scene companion fixture in the same file, inspecting Assets/Scenes/DoorPrototype.unity. The gate explicitly does not require Fireball, FrostField or ForceWave to exist and asserts suspension only for the gameplay-input owners present at this commit, movement and door interaction, which is what these tests do. NOT PROVEN by this record: no other Play Mode or Edit Mode fixture was run, and no human review is claimed or implied.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "",
+    "decision": "not_required",
+    "notes": "No human approval is claimed. NSC-106 has exactly one completion gate, VAL-001, and it is fully automated: its requirement names only Play Mode assertions in TitleScreenPlayModeTests.cs and contains no human review clause, so there is no human gate to satisfy. This spec is hand authored rather than produced by generate_delivery_spec finalize because that tool's non-required approval path demands a pipeline validation event identifier, and this Unity run was performed by hand with Pipeline/Testing/run_unity_tests_clean.ps1; citing a validation event id the pipeline never issued would overstate the evidence. Same shape and reasoning as the NSC-050 and NSC-020 records. The implementation has been on main since 5f43cbe5 on 2026-09-12 and needed no change: this record is evidence for already-integrated work, which is why the task read not_delivered with finding no_committed_evidence rather than needing implementation. Recorded by the Game Agent (Integration Steward) on 2026-09-25 at commit fe6b08d5e20c606a3bd4f166621c324808b45ae1, which is main tip and the commit where Unity actually ran.",
+    "required": false
+  },
+  "record_id": "DEL-NSC-106-fe6b08d5e20c",
+  "record_type": "delivery",
+  "recorded_at": "2026-09-25T19:01:36Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-106.yaml",
+    "revision": 1,
+    "sha256": "b52796d175b39727743733c22fd5ce5baef797835aa15ec96f66643c1d4c2d17"
+  },
+  "task_id": "NSC-106",
+  "validated_state": {
+    "commit": "fe6b08d5e20c606a3bd4f166621c324808b45ae1",
+    "tree": "ae23e94b0784a75df42e011f17910a5e39817c09"
+  }
+}
