@@ -263,18 +263,6 @@
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
-    "NSC-086": {
-      "task_contract_sha256": "19b316bae4ae9e662ac0f540d53d2c564d44c9d8da47b873270345f63ce7ca12",
-      "required_test_platforms": [
-        "EditMode",
-        "PlayMode"
-      ],
-      "test_filters": {
-        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.FinalDoorVictorySceneTests",
-        "PlayMode": "NoSafeCircle.DoorPrototype.Tests.FinalDoorVictoryPlayModeTests"
-      },
-      "authority": "committed_task_specific_authoritative_validation_policy"
-    },
     "NSC-087": {
       "task_contract_sha256": "70a1335a985f17868cfcb5365c292e522bb192f04d6147f0da2933446d4521f1",
       "required_test_platforms": [

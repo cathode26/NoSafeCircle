@@ -56,7 +56,7 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 4,
+  "contract_revision": 5,
   "decomposition_reason": "The GDD specifies the final-door crossing trigger, overlay, and ownership boundary. This child owns the final Unity scene assembly so the separately implemented trigger and suspension coordinator form one usable Game Flow/Victory behavior.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -99,7 +99,7 @@
   ],
   "id": "NSC-086",
   "kind": "implementation",
-  "notes": "This child is the final Unity assembly owner. It uses the final door crossing event from NSC-020, installs the You Escaped overlay, adds and configures both proposed components through DoorPrototypeSceneBuilder, and calls one coordinator method instead of duplicating six gameplay-owner calls. Revision 2 (2026-09-17) adds the Spectral Decoy, recording NSC-088 revision 4 INT-002. 2026-09-17 revision 3 (GER Orchestrator decisions, RESTART_VICTORY_DECOY_DECISIONS.md 'DemoRunFlow retirement' and 'NSC-086 revision 3'): new AC-006 retires DemoRunFlow's win path (the CrossedForward subscription, won field, HandleFinalDoorCrossed, and the \"YOU ESCAPED\" text) and claims repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DemoRunFlow.cs, a resource group shared with NSC-007 and NSC-033; VAL-001 adds the post-victory overlay-only, reflection, and source-text proof. Revision 3 also names the trigger, test files and D5 committed-scene conformance (VAL-004) from the revision 2 check, and counts six gameplay owners. Revision 4 (2026-09-17): the won state is final; DemoRunFlow stops contact damage after HasWon, VAL-001 proves post-victory contact cannot kill or restart, and INT-001 gives NSC-033 the orchestrator rule (closure review of revision 3).",
+  "notes": "This child is the final Unity assembly owner. It uses the final door crossing event from NSC-020, installs the You Escaped overlay, adds and configures both proposed components through DoorPrototypeSceneBuilder, and calls one coordinator method instead of duplicating six gameplay-owner calls. Revision 2 (2026-09-17) adds the Spectral Decoy, recording NSC-088 revision 4 INT-002. 2026-09-17 revision 3 (GER Orchestrator decisions, RESTART_VICTORY_DECOY_DECISIONS.md 'DemoRunFlow retirement' and 'NSC-086 revision 3'): new AC-006 retires DemoRunFlow's win path (the CrossedForward subscription, won field, HandleFinalDoorCrossed, and the \"YOU ESCAPED\" text) and claims repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DemoRunFlow.cs, a resource group shared with NSC-007 and NSC-033; VAL-001 adds the post-victory overlay-only, reflection, and source-text proof. Revision 3 also names the trigger, test files and D5 committed-scene conformance (VAL-004) from the revision 2 check, and counts six gameplay owners. Revision 4 (2026-09-17): the won state is final; DemoRunFlow stops contact damage after HasWon, VAL-001 proves post-victory contact cannot kill or restart, and INT-001 gives NSC-033 the orchestrator rule (closure review of revision 3). Its authoritative validation policy entry was removed at revision 5. The entry named FinalDoorVictorySceneTests and FinalDoorVictoryPlayModeTests, and this task AUTHORS both of those fixtures along with FinalDoorVictoryTrigger.cs, so the names could not resolve to committed files and the bound entry made the task impossible to scope-plan at all. The entry must be recreated, with those same two names, once this task's candidate commits the fixtures; until then this task's candidate records no authoritative validation, which is recoverable evidence debt rather than a blocked task. Do not restore the entry before the fixtures are committed.",
   "parent": "NSC-035",
   "provenance": {
     "graph_delta_plan_id": "GDP-02475ad0d3f79c27586c7c7f8096c58e77356bd09ca1e38cdc9bad391a0329f6",
@@ -134,6 +134,15 @@
         "base_contract_sha256": "12851a8b49b4b789d4d7817bd00b5c235f0cf89d6d2972730a1eb2a6f3fb33fc",
         "revised_contract_sha256": "2764c7fdafbbfd26724221f1c611fbaccee4ce5f51631dcc4084e039a9d10bc0",
         "review": "post-commit Codex closure review (tiered rule; closure discipline per Astra advice, 2026-09-17)"
+      },
+      {
+        "date": "2026-09-25",
+        "reason": "NSC-086's bound policy entry named FinalDoorVictorySceneTests and FinalDoorVictoryPlayModeTests, two fixtures this task itself authors and which are not committed, so the entry could not resolve and made the task impossible to scope-plan at all. Dropping it restores PLAN OK (impl=3/1 tests=0/2) and removes the need for a scope override. The entry must be recreated with the same two names once the candidate commits the fixtures. No acceptance criterion, gate or resource changed.",
+        "source_head": "8ed20cbc1bb7d3381324411ac8923ef34a718569",
+        "previous_contract_revision": 4,
+        "base_contract_sha256": "19b316bae4ae9e662ac0f540d53d2c564d44c9d8da47b873270345f63ce7ca12",
+        "revised_contract_sha256": "30164f385d33b2d9ebf58f4affc75ecd78f8738ca42ce32c792adca17d1b09c8",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
       }
     ]
   },
