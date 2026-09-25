@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 using UnityEngine;
@@ -54,11 +55,15 @@ namespace NoSafeCircle.DoorPrototype.Tests
             // isometric grid (cell n sits at n + 0.5), and hardcoding the survivors would go stale
             // the next time a room's width changes - which is exactly how the twelve-cell
             // expectation above came to be wrong.
-            Vector3Int[] painted = wall.cellBounds.allPositionsWithin
-                .Cast<Vector3Int>()
-                .Where(candidate => wall.HasTile(candidate))
-                .OrderBy(candidate => candidate.x)
-                .ToArray();
+            // Plain foreach, not LINQ: allPositionsWithin returns BoundsInt.PositionEnumerator,
+            // a struct enumerator that foreach accepts by duck-typing but that implements no
+            // IEnumerable, so .Cast/.Where on it does not compile.
+            List<Vector3Int> painted = new List<Vector3Int>();
+            foreach (Vector3Int candidate in wall.cellBounds.allPositionsWithin)
+            {
+                if (wall.HasTile(candidate)) painted.Add(candidate);
+            }
+            painted.Sort((left, right) => left.x.CompareTo(right.x));
 
             Assert.IsNotEmpty(painted,
                 "Ruined Entry must keep the parts of its north wall that no adjoining room covers.");
