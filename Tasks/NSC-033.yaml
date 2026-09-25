@@ -61,9 +61,14 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 14,
-  "decomposition_reason": "The GDD names the complete required participant list and the exact reset contract for full closure; no missing design remains, though most listed owners do not yet exist.",
-  "decomposition_state": "concrete",
+  "contract_revision": 15,
+  "decomposition_children": [
+    "NSC-122",
+    "NSC-123"
+  ],
+  "decomposition_reason": "This decomposition adds reviewed child contracts: NSC-122 (demo-run-flow-death-retirement), NSC-123 (floor-restart-full-closure-integration). The complete active direct-child set is: NSC-122 (demo-run-flow-death-retirement), NSC-123 (floor-restart-full-closure-integration). Aggregate conformance is derived from that complete child set; any required assembly or integration must be an explicit child contract.",
+  "decomposition_requirement_sha256": "39a1391d912d201f162fca05d884a95c311ada23b17e937994738cf223902eae",
+  "decomposition_state": "decomposed",
   "depends_on": [
     "NSC-032",
     "NSC-004",
@@ -90,14 +95,9 @@
     "NSC-086"
   ],
   "downstream_integration_obligations": [],
-  "exclusive_resources": [
-    "logical:floor-run-restart-orchestrator",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
-    "unity-scene:Assets/Scenes/DoorPrototype.unity",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DemoRunFlow.cs"
-  ],
-  "execution_reason": "This item spans wiring reset participation across roughly a dozen independently-owned systems (player systems, three spells, door lifecycle, enemy state, registry, encounters); that breadth exceeds a single bounded agent handoff even though each individual wiring point is simple once its owner exists.",
-  "execution_scope": "needs_execution_decomposition",
+  "exclusive_resources": [],
+  "execution_reason": "Non-executable aggregate feature. All implementation responsibilities are represented by active direct child contracts: NSC-122 (demo-run-flow-death-retirement), NSC-123 (floor-restart-full-closure-integration). No later implementation pass on NSC-033 exists.",
+  "execution_scope": "not_applicable",
   "gdd_evidence": [
     {
       "reference": "Floor-run restart ownership",
@@ -113,7 +113,7 @@
     }
   ],
   "id": "NSC-033",
-  "kind": "implementation",
+  "kind": "feature",
   "notes": "The shared orchestrator, DoorPrototypeSceneBuilder.cs, and DoorPrototype.unity are one exact-partition resource group for decomposition: only the integration child edits them. Existing domain owners own their reset APIs and any missing owner operation blocks closure until fixed upstream; NSC-033 children may validate or adapt those APIs within scope and consume them without claiming ownership of another domain's reset implementation. NSC-041 owns DoorInteractionFeedback.ResetFeedback and its door-feedback behavior; NSC-033 invokes and validates it after NSC-041 is delivered. This item cannot be dispatched until its underlying owners exist and are delivered. 2026-09-17 revision 8 (GER Orchestrator decisions, C:/nscrev/ger-contract-revisions-20260916/followups-20260917/NSC-033_NSC-049_DECISIONS.md 'NSC-033 revision 8' N1-N4): AC-004 lists every reset entry point another task's downstream_integration_obligations assign to NSC-033; AC-005 states the required reset call order, including that enemy-owned resets apply only to enemies activated during the failed run; VAL-002 adds the Fireball-before-ResetMovement order proof and the mixed activated/never-activated enemy proof. NSC-030 is added to depends_on because AC-005's encounter order and ActivatedEnemies scoping depend on NSC-030 AC-009 and INT-001; decomposition narrows this to the NSC-033 integration child depending on NSC-030's encounter activation child. N1's participant list corrects two misattributions found while drafting: EnemyHealth.ResetHealth() is grounded in NSC-030 INT-001, not a NSC-013 obligation (NSC-013 names no NSC-033 obligation at HEAD), and EnemyStatusEffectMovement.ResetStatusEffects() is grounded in NSC-053 INT-003, not NSC-013; see CONFLICTS in the drafter's report. 2026-09-17 revision 9 (GER Orchestrator decisions, RESTART_VICTORY_DECOY_DECISIONS.md 'NSC-033 revision 9' R1-R5): new AC-006/VAL-003 retire DemoRunFlow's death path (playerHealth.Died subscription, lost field, HandlePlayerDied, the \"YOU DIED\" text, and the manual R-reload gate for zero health) and claim repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DemoRunFlow.cs, a resource group shared with NSC-007 and NSC-086; AC-004 adds SpectralDecoy.ResetSpectralDecoy() (NSC-088 INT-001) and LanternWraithDefeatResponse.ResetDefeatResponse() (NSC-055 INT-003) and notes ForceWave.ResetForceWave()'s NSC-009 INT-001 scenario now includes an active pulse; AC-005 adds SpectralDecoy.ResetSpectralDecoy() to the spell resets before PlayerMovement.ResetMovement() and requires it to run before the enemy-owned EnemyPursuitMovement.ResetPursuit() calls so redirected enemies leave their decoy redirect first; VAL-002 adds the Force Wave active-pulse, Spectral Decoy redirected-enemy, and defeated Lantern Wraith restart scenarios; depends_on adds NSC-055 and NSC-088, narrowed by decomposition to each task's integration child. Revision 10 (2026-09-17): AC-005's ordered enemy-reset list names LanternWraithDefeatResponse.ResetDefeatResponse(), and VAL-002 checks EnemyPursuitMovement is re-enabled after restart (closure reviews of NSC-033 rev 9, NSC-030 rev 10 and NSC-055 rev 5). Revision 11, 2026-09-17: NSC-086's revision 4 closure review asked NSC-033 to pick up NSC-086 INT-001 before decomposition, so AC-007 and VAL-004 add the post-victory rule: once FinalDoorVictoryTrigger.HasWon is true the orchestrator ignores zero health and runs no reset pass, reading that public state only, and the test proves it twice and proves the pre-victory restart still works. Revision 12, 2026-09-17: the revision 11 closure review found AC-007 and VAL-004 naming FinalDoorVictoryTrigger, a type NSC-086 creates, while depends_on omitted NSC-086; the dependency is added (NSC-086 depends only on NSC-020 and NSC-087, so no cycle) and AC-007 says where the trigger comes from.",
   "parent": "NSC-031",
   "provenance": {

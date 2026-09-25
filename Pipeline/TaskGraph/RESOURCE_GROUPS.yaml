@@ -25,12 +25,12 @@
     {
       "reconciliation_keys": [
         "floor-run-restart-bootstrap",
-        "floor-run-restart-persistent-closure"
+        "floor-restart-full-closure-integration"
       ],
       "resource_key": "logical:floor-run-restart-orchestrator",
       "work_ids": [
         "NSC-032",
-        "NSC-033"
+        "NSC-123"
       ]
     },
     {
@@ -83,7 +83,6 @@
         "door-open-interaction",
         "doorway-crossing-state",
         "floor-run-restart-bootstrap",
-        "floor-run-restart-persistent-closure",
         "isometric-tilemap-visual-layer",
         "world-sprite-prefab-sorting",
         "visual-simulation-continuity",
@@ -104,7 +103,8 @@
         "world-sprite-sorting-layer-adoption",
         "apply-authored-architectural-tilesets-to-room-builders",
         "spectral-decoy-cast-phantom-cooldown-ui",
-        "fireball-input-scene-assembly"
+        "fireball-input-scene-assembly",
+        "floor-restart-full-closure-integration"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
       "work_ids": [
@@ -115,7 +115,6 @@
         "NSC-019",
         "NSC-020",
         "NSC-032",
-        "NSC-033",
         "NSC-038",
         "NSC-039",
         "NSC-040",
@@ -136,7 +135,8 @@
         "NSC-100",
         "NSC-109",
         "NSC-112",
-        "NSC-119"
+        "NSC-119",
+        "NSC-123"
       ]
     },
     {
@@ -169,7 +169,6 @@
         "door-open-interaction",
         "doorway-crossing-state",
         "floor-run-restart-bootstrap",
-        "floor-run-restart-persistent-closure",
         "isometric-tilemap-visual-layer",
         "world-sprite-prefab-sorting",
         "visual-simulation-continuity",
@@ -194,7 +193,8 @@
         "title-screen-transparent-layout-build",
         "spectral-decoy-cast-phantom-cooldown-ui",
         "fireball-input-scene-assembly",
-        "melee-enemy"
+        "melee-enemy",
+        "floor-restart-full-closure-integration"
       ],
       "resource_key": "unity-scene:Assets/Scenes/DoorPrototype.unity",
       "work_ids": [
@@ -205,7 +205,6 @@
         "NSC-019",
         "NSC-020",
         "NSC-032",
-        "NSC-033",
         "NSC-038",
         "NSC-039",
         "NSC-040",
@@ -230,7 +229,8 @@
         "NSC-108",
         "NSC-112",
         "NSC-119",
-        "NSC-015"
+        "NSC-015",
+        "NSC-123"
       ]
     },
     {
@@ -1190,15 +1190,15 @@
     },
     {
       "reconciliation_keys": [
-        "floor-run-restart-persistent-closure",
         "victory-trigger-overlay-integration",
-        "fireball-input-scene-assembly"
+        "fireball-input-scene-assembly",
+        "demo-run-flow-death-retirement"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DemoRunFlow.cs",
       "work_ids": [
-        "NSC-033",
         "NSC-086",
-        "NSC-119"
+        "NSC-119",
+        "NSC-122"
       ]
     },
     {
