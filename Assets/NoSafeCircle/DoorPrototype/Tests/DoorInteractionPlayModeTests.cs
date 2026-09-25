@@ -805,4 +805,149 @@ namespace NoSafeCircle.DoorPrototype.Tests
             field.SetValue(target, value);
         }
     }
+
+#if UNITY_EDITOR
+    // NSC-020 AC-005 / VAL-001: a READ-ONLY committed-scene conformance check. It opens the
+    // committed Assets/Scenes/DoorPrototype.unity in Play Mode, never saves it, and asserts the
+    // corrected forward-crossing geometry on the production D1-D5 rather than on a fixture.
+    //
+    // WHY THE ASSERTION IS WHAT IT IS. HandleForwardCrossingTriggerEnter performs no geometry
+    // test at all - it checks IsOpen, HasCrossedForward and PlayerInteractionController, then
+    // records the crossing. So AC-001 "capsule geometrically clear of the doorwayBlocker" lives
+    // entirely in where the trigger volume sits, and only a placement check can defend it.
+    // OnTriggerEnter fires when the capsule LEADING edge reaches the volume near face, which
+    // leaves the capsule TRAILING edge 2r behind it, so clearing the blocker needs
+    //
+    //     nearFace >= blockerForwardFace + 2 * playerRadius
+    //
+    // which is VAL-001 verbatim. This is a RELATION, not a literal: it keeps holding if the
+    // offset, the blocker depth or the capsule radius is ever re-authored, and it fails the
+    // moment any of them drifts apart.
+    public sealed class DoorCrossingCommittedSceneConformanceTests
+    {
+        private const string CommittedScenePath = "Assets/Scenes/DoorPrototype.unity";
+
+        // VAL-001 requires the blocker extent to come from the BoxCollider own center, size and
+        // Transform rather than Collider.bounds, because the blocker GameObject is INACTIVE
+        // while a door is open and bounds on an inactive collider is not meaningful.
+        private static float BlockerForwardFaceInDoorLocalZ(Transform door, BoxCollider blocker)
+        {
+            Transform t = blocker.transform;
+            Vector3 centreWorld = t.TransformPoint(blocker.center);
+            float halfDepthWorld = blocker.size.z * 0.5f * t.lossyScale.z;
+            return door.InverseTransformPoint(centreWorld).z + halfDepthWorld;
+        }
+
+        private static float TriggerNearFaceInDoorLocalZ(Transform door, BoxCollider trigger)
+        {
+            Transform t = trigger.transform;
+            Vector3 centreWorld = t.TransformPoint(trigger.center);
+            float halfDepthWorld = trigger.size.z * 0.5f * t.lossyScale.z;
+            return door.InverseTransformPoint(centreWorld).z - halfDepthWorld;
+        }
+
+        private static IEnumerator LoadCommittedSceneReadOnly()
+        {
+            UnityEditor.SceneManagement.EditorSceneManager.LoadSceneInPlayMode(
+                CommittedScenePath,
+                new UnityEngine.SceneManagement.LoadSceneParameters(
+                    UnityEngine.SceneManagement.LoadSceneMode.Single));
+
+            // One frame so the loaded scene Awake calls run: ForwardCrossingTrigger is created at
+            // runtime by DoorInteractable.Awake and is not serialized in the scene at all.
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator CommittedScene_EveryDoorCrossingTriggerClearsItsBlockerByTwoPlayerRadii()
+        {
+            yield return LoadCommittedSceneReadOnly();
+
+            DoorInteractable[] doors =
+                Object.FindObjectsByType<DoorInteractable>(FindObjectsSortMode.None);
+            Assert.AreEqual(5, doors.Length,
+                "The committed scene must compose exactly five doors, D1 through D5.");
+
+            CharacterController capsule = Object.FindFirstObjectByType<CharacterController>();
+            Assert.IsNotNull(capsule,
+                "The committed scene must hold the Player CharacterController; the clearance rule "
+                + "is expressed in terms of its radius.");
+            float radius = capsule.radius * Mathf.Max(
+                capsule.transform.lossyScale.x, capsule.transform.lossyScale.z);
+
+            foreach (DoorInteractable door in doors)
+            {
+                Transform doorTransform = door.transform;
+
+                Transform triggerTransform = doorTransform.Find("ForwardCrossingTrigger");
+                Assert.IsNotNull(triggerTransform,
+                    door.DoorId + " must own a runtime-created ForwardCrossingTrigger child.");
+                var trigger = triggerTransform.GetComponent<BoxCollider>();
+                Assert.IsNotNull(trigger,
+                    door.DoorId + " crossing trigger must be a BoxCollider.");
+                Assert.IsTrue(trigger.isTrigger,
+                    door.DoorId + " crossing volume must be a trigger, not solid collision.");
+
+                // Found by hierarchy rather than by reflecting the private doorwayBlocker field,
+                // so this reaches the same object the builder wired without depending on a
+                // private name and without reflection.
+                Transform visual = doorTransform.Find("DoorVisual");
+                Assert.IsNotNull(visual, door.DoorId + " must own its DoorVisual child.");
+                var blocker = visual.GetComponent<BoxCollider>();
+                Assert.IsNotNull(blocker,
+                    door.DoorId + " doorway blocker must be a BoxCollider on DoorVisual.");
+
+                float nearFace = TriggerNearFaceInDoorLocalZ(doorTransform, trigger);
+                float blockerFace = BlockerForwardFaceInDoorLocalZ(doorTransform, blocker);
+                float required = blockerFace + (2f * radius);
+
+                Assert.GreaterOrEqual(nearFace, required - 0.001f,
+                    door.DoorId + ": the crossing trigger near face sits at door-local Z "
+                    + nearFace.ToString("F3") + ", but the wizard capsule is only clear of the "
+                    + "blocker from " + required.ToString("F3") + " onward (blocker forward face "
+                    + blockerFace.ToString("F3") + " plus twice the " + radius.ToString("F3")
+                    + " capsule radius). Crossing would be recorded while the capsule still "
+                    + "overlaps the blocker, and CloseAndLock re-enables that blocker inside the "
+                    + "wizard.");
+            }
+        }
+
+        // VAL-001: each door local +Z must point toward the next room, and D5 toward the escape
+        // side. Asserted as an ordering relation against the next door own position rather than
+        // against copied rotation literals, so re-authoring the layout cannot leave this check
+        // passing on stale numbers.
+        [UnityTest]
+        public IEnumerator CommittedScene_EveryDoorForwardAxisPointsAtTheRoomItLeadsTo()
+        {
+            yield return LoadCommittedSceneReadOnly();
+
+            DoorInteractable[] doors =
+                Object.FindObjectsByType<DoorInteractable>(FindObjectsSortMode.None);
+            Assert.AreEqual(5, doors.Length);
+
+            System.Array.Sort(doors, (a, b) => a.DoorId.CompareTo(b.DoorId));
+
+            for (int i = 0; i < doors.Length; i++)
+            {
+                // D5 has no successor, so its escape direction is taken as the direction the
+                // sequence was already travelling when it arrived.
+                Vector3 onward = i < doors.Length - 1
+                    ? doors[i + 1].transform.position - doors[i].transform.position
+                    : doors[i].transform.position - doors[i - 1].transform.position;
+                onward.y = 0f;
+
+                Assert.Greater(onward.sqrMagnitude, 0.0001f,
+                    doors[i].DoorId + " and its neighbour must not share a position.");
+
+                Vector3 forward = doors[i].transform.forward;
+                forward.y = 0f;
+
+                Assert.Greater(Vector3.Dot(forward.normalized, onward.normalized), 0f,
+                    doors[i].DoorId + " local +Z must point toward the room it leads to (for D5, "
+                    + "the escape side), because forward-crossing is recorded on the +Z side and "
+                    + "a reversed door would record the approach as a crossing.");
+            }
+        }
+    }
+#endif
 }
