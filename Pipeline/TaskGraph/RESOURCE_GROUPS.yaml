@@ -63,7 +63,8 @@
         "frost-field",
         "force-wave",
         "spectral-decoy-cast-phantom-cooldown-ui",
-        "fireball-input-scene-assembly"
+        "fireball-input-scene-assembly",
+        "hold-shift-suppress-movement"
       ],
       "resource_key": "repo-file:Assets/InputSystem_Actions.inputactions",
       "work_ids": [
@@ -71,7 +72,8 @@
         "NSC-008",
         "NSC-009",
         "NSC-112",
-        "NSC-119"
+        "NSC-119",
+        "NSC-128"
       ]
     },
     {
@@ -1438,6 +1440,17 @@
       "work_ids": [
         "NSC-017",
         "NSC-115"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "door-open-interaction",
+        "hold-shift-suppress-movement"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs",
+      "work_ids": [
+        "NSC-019",
+        "NSC-128"
       ]
     }
   ],

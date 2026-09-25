@@ -1,0 +1,93 @@
+{
+  "schema_version": "2.0",
+  "id": "NSC-128",
+  "contract_revision": 1,
+  "contract_disposition": "active",
+  "title": "Hold Shift to Suppress Movement While Attacking",
+  "reconciliation_key": "hold-shift-suppress-movement",
+  "kind": "implementation",
+  "type": "gameplay_system",
+  "execution_scope": "single_agent",
+  "execution_reason": "One agent adds one action to the input asset, holds an existing restriction while it is down, and writes one Play Mode test file. No art, no scene ownership, no new mechanism.",
+  "decomposition_state": "concrete",
+  "decomposition_reason": "One bounded responsibility - one input action and one reference-counted restriction - with a single measurable outcome. No new mechanism is created.",
+  "parent": "NSC-018",
+  "depends_on": [
+    "NSC-003",
+    "NSC-019"
+  ],
+  "exclusive_resources": [
+    "repo-file:Assets/InputSystem_Actions.inputactions",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/HoldPositionPlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/HoldPositionPlayModeTests.cs.meta"
+  ],
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "Vincent 2026-09-25: 'In diablo you could press shift , hold it, and then shoot without moving'; SPELL_DECISIONS.md S1",
+      "requirement": "Assets/InputSystem_Actions.inputactions gains exactly one new Button-type action in the existing Player action map, on the Keyboard&Mouse control scheme only, that responds to either physical Shift key. THE ACTION MUST BE READ BY COMMITTED CODE, AND THAT IS PART OF THIS CRITERION RATHER THAN AN IMPLEMENTATION DETAIL: this repository already carries WASD bindings in that same asset that ZERO code reads, so a binding present in the asset proves nothing about behaviour. No existing action, binding or control scheme is modified or removed."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "Vincent 2026-09-25, his words: 'press shift, HOLD it'",
+      "requirement": "THE MODIFIER IS HELD, NOT TOGGLED. Movement is suppressed for exactly as long as the action is held down and is restored when it is released; a press-and-release leaves no lasting state. This is pinned because Vincent named the mechanism precisely and a toggle is a different control."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "PlayerMovement.RequestMovementRestriction / ReleaseMovementRestriction / IsMovementRestricted (delivered by NSC-019); SPELL_DECISIONS.md S2",
+      "requirement": "SUPPRESSION USES THE EXISTING REFERENCE-COUNTED MOVEMENT RESTRICTION ON PlayerMovement AND INVENTS NO SECOND MECHANISM. PlayerMovement already exposes RequestMovementRestriction(), ReleaseMovementRestriction() and IsMovementRestricted, and Fireball's charge already holds one, so the two must compose rather than fight: exactly ONE restriction is held while the action is down and released exactly ONCE on release, so a charge held across a Shift press and release does not leave the wizard frozen or prematurely freed. The restriction is also released when gameplay input is suspended, so a title-screen transition mid-hold cannot strand it."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "SPELL_DECISIONS.md S1 (no hardware polling); NSC-007, NSC-008, NSC-009",
+      "requirement": "ATTACKING IS UNAFFECTED. This task changes no spell component, no cast path, no mana cost, no cooldown and no targeting: 'shoot without moving' is achieved by removing the MOVEMENT, not by touching the shooting. It reads only its own Action and performs NO hardware polling - no Keyboard.current or Mouse.current - consistent with the standing rule for every other input this project binds."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "NSC-019 AC-001/AC-002 click-to-approach; PlayerInteractionController, called by PlayerMovement on a fresh press",
+      "requirement": "THE KNOWN CONSEQUENCE IS STATED RATHER THAN HIDDEN: while the action is held, a fresh pointer press issues no destination, so CLICK-TO-APPROACH-A-DOOR IS ALSO SUPPRESSED for as long as it is held. That is faithful to the convention Vincent named - the modifier means act in place - and it is recorded here because NSC-019 is delivered and its click-to-approach behaviour gains a documented exception rather than a silent one. Releasing the action restores approach immediately, and a press made while held is NOT replayed or queued on release."
+    }
+  ],
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "CLAUDE.md: a binding present in the asset proves nothing about behaviour (WASD); assert the durable relation, not the value it has today",
+      "requirement": "Play Mode coverage in Assets/NoSafeCircle/DoorPrototype/Tests/HoldPositionPlayModeTests.cs proves, with the real action rather than a simulated flag: that a fresh pointer press while the action is HELD leaves the wizard's world position unchanged over a fixed number of fixed steps, while the same press with the action RELEASED moves it - the two runs compared against each other, not against hard-coded coordinates; that releasing restores movement and replays no suppressed press; that a cast performed while held still spends mana and produces its projectile, which is AC-004's whole point; and that the restriction count returns to its starting value after a press-release cycle and after gameplay input is suspended mid-hold. A TEST THAT ONLY ASSERTS THE ACTION EXISTS IN THE ASSET DOES NOT SATISFY THIS GATE - that is exactly the assertion WASD would pass."
+    }
+  ],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "NSC-019, conformant on its click-to-approach criteria",
+      "requirement": "NSC-019's click-to-approach behaviour acquires a documented exception: while this task's action is held, a fresh press starts no approach. NSC-019's criteria remain true of the unheld case, which is every case that existed when it was delivered, so this task does not require a revision to it. Recorded so that a later reader finds the interaction here instead of rediscovering it as a bug, and so nobody 'fixes' the suppressed approach by special-casing doors."
+    }
+  ],
+  "gdd_evidence": [
+    {
+      "reference": "Section 2 — Player Actions and Systems, 'Open Sealed Door'",
+      "requirement": "Click the sealed door to request movement to its interaction position; wizard walks there automatically; the five-second timer begins automatically at arm's-reach range with no sustained hold; cursor drift after selection does not matter; damage, moving away, or a cancelling/replacing command resets the attempt."
+    },
+    {
+      "reference": "Section 3 — Door and Pursuit Rules",
+      "requirement": "A sealed door is a cursor-targeted interactable; clicking issues a combined approach-and-interact request; after selection, cursor drift does not cancel the request or timer."
+    },
+    {
+      "reference": "Section 5 — Runtime Implementation / Player Movement ownership",
+      "requirement": "Movement, cursor-aimed spells, and Door/Interaction consume the shared world-space pointer target exposed by Player Movement rather than independently projecting screen coordinates; runtime input is routed through Unity Input System/Input Actions rather than direct hardware polling."
+    }
+  ],
+  "basis": "direct_gdd",
+  "source_scope": "required",
+  "confidence": "medium",
+  "notes": "Authored 2026-09-25 by the GER Agent from Vincent's own words, typed while playing and relayed by the Documentation Agent: 'We need to upgrade our controls a little' and 'In diablo you could press shift , hold it, and then shoot without moving'. THAT IS THE WHOLE OF WHAT HE SAID. Everything else here is design, and the design deliberately resolves the open questions from HIS WORDS plus the committed control scheme rather than by asking him again: 'hold it' settles hold-versus-toggle, and 'without moving' settles that the change belongs to MOVEMENT and not to the spells. MEASURED BEFORE AUTHORING: there is no Shift binding and no hold-position concept anywhere under Assets/ (control: MoveToCursor appears in 7 files, a nonsense symbol in 0), and PlayerMovement ALREADY exposes a reference-counted movement restriction that Fireball's charge uses - so this needs no new mechanism, which is why AC-003 pins the existing one. HE SAID 'controls' PLURAL AND 'a little', so this may be the first of several; this task claims only the Shift modifier. THIS IS A FEATURE, NOT A DEFECT HE CAN SEE, so by his own standing ranking it is SECONDARY to sprint 1: authoring it costs the sprint nothing, and building it should not jump the queue.",
+  "repository_state_at_bootstrap": "not_applicable",
+  "repository_evidence_at_bootstrap": "not_applicable",
+  "provenance": {
+    "graph_delta_plan_id": null,
+    "origin": "ger_agent_contract_request",
+    "parent_contract_revision": null,
+    "parent_contract_sha256": null,
+    "parent_task_id": null
+  }
+}
