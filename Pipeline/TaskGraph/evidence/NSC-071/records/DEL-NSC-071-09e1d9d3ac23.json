@@ -1,0 +1,56 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "2d5c8a1dc5d4bba469fb158b27967717309e5b7ad6f8ab4a38fbbd05ad583c9f"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "7cc849b47d17b0301ef4f376252b561ab077dbe7",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/BoneArchiveNavigationPlayModeTests.cs",
+      "role": "The sole resource NSC-071 owns and the Play Mode fixture VAL-001 describes: it loads the committed Bone Archive scene asset and proves each lane traverses within its own envelope."
+    }
+  ],
+  "delivery": {
+    "base_commit": "00670f82e56b81b8bda668241da8ac2488049371",
+    "candidate_commit": "09e1d9d3ac23029e52a42ff1754ba355b5e8a736",
+    "integrated_commit": "09e1d9d3ac23029e52a42ff1754ba355b5e8a736",
+    "integrated_tree": "558ba8ba148f771fe51ed417cce94dc07db25629"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "a27d9a03415a96fa8fdaeed81d90b1e103dc8ff6",
+          "path": "Pipeline/TaskGraph/evidence/NSC-071/artifacts/Unity-PlayMode-01-09e1d9d3ac23.xml"
+        },
+        {
+          "blob_sha": "789119d00dfe812e1d5fe94e04aaa45fd2c0b2e5",
+          "path": "Pipeline/TaskGraph/evidence/NSC-071/artifacts/Unity-PlayMode-01-09e1d9d3ac23.log"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "Satisfied at validated commit 09e1d9d3ac23029e52a42ff1754ba355b5e8a736 by the bound Play Mode run in unity_01_results and unity_01_log: 9 of 9 passed, 0 failed, repository clean before and after. Each test was verified present and Passed BY NAME in the results XML rather than inferred from the total. The gate's central demand is that a complete path between two points does not prove the lane between them, and the fixture answers it directly: AToBLane_TraversesItsOwnEnvelopeFromSouthAisleToNorthAisle and BToCLane_TraversesBa1PinchWithinItsOwnEnvelope assert each lane INDEPENDENTLY, WesternBypass_TraversesW1NarrowingWithinItsOwnEnvelope and EasternBypass_TraversesE1NarrowingWithinItsOwnEnvelope cover the two bypasses, North and South CrossAisle tests connect the lane mouths, BakeReadsOnlyTheCommittedGameplayGeometry holds it to the committed scene asset rather than a builder-produced or synthetic one, ConfiguredAgent_MatchesTheBakedSurfaceSettings_AndItsRadiusIsRecorded ties it to the NSC-089 agent configuration, and D1ToD2Route_IsComplete_ButIsDeliberatelyNotEvidenceAboutAnyLane is explicit that the end-to-end route is NOT lane evidence. THE W-1 AND E-1 BYPASSES COULD NOT BE TRAVERSED BEFORE 2026-09-25: those archive bays did not exist in any file under Assets until NSC-045's widened blockout landed earlier tonight. NOT PROVEN: this is the Bone Archive only and says nothing about the composed five-room floor, which NSC-110 owns. No Edit Mode run was made and no human review is claimed or implied.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "",
+    "decision": "not_required",
+    "notes": "No human approval is claimed. NSC-071 has exactly one completion gate and it is an automated Play Mode gate with no human review clause. Hand authored rather than via generate_delivery_spec finalize because that tool's non-required path demands a pipeline validation event id and this Unity run was performed by hand with Pipeline/Testing/run_unity_tests_clean.ps1; citing an event the pipeline never issued would overstate the evidence. Same shape as the NSC-050, NSC-020, NSC-106 and NSC-054 records. NSC-071 cannot be executed by a crew at all - one test path and zero implementation paths, refused at scope.py and again at run_crew.py:2116 - so it was authored directly, which is why the task had no pipeline history. Recorded by the Game Agent on 2026-09-25.",
+    "required": false
+  },
+  "record_id": "DEL-NSC-071-09e1d9d3ac23",
+  "record_type": "delivery",
+  "recorded_at": "2026-09-25T20:09:53Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-071.yaml",
+    "revision": 6,
+    "sha256": "2c1df0a61181bf93975a1300fba2b8bea932a5a57d3cf1c0158707b08a1a51c4"
+  },
+  "task_id": "NSC-071",
+  "validated_state": {
+    "commit": "09e1d9d3ac23029e52a42ff1754ba355b5e8a736",
+    "tree": "558ba8ba148f771fe51ed417cce94dc07db25629"
+  }
+}

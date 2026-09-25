@@ -1,0 +1,841 @@
+[Licensing::Module] Trying to connect to existing licensing client channel...
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-VincentLiguori" at "2026-09-25T20:07:34.6539833Z"
+[Licensing::Client] Code 10 while verifying Licensing Client signature (process Id: 22484, path: "C:/Program Files/Unity Hub/UnityLicensingClient_V1/Unity.Licensing.Client.exe")
+[Licensing::Module] LicensingClient has failed validation; ignoring
+[Licensing::Client] Handshaking with LicensingClient:
+  Version:                 1.18.3+d7ffd15
+  Session Id:              619a3f8f606b47da8de74d8a1f2bd394
+  Correlation Id:          e20c6d0b5718b7802afaf241c2f2cd56
+  External correlation Id: 3261316023963320153
+  Machine Id:              HxO4LzPDSZi5N+Qj55f7MhdwfeY=
+[Licensing::Module] Successfully connected to LicensingClient on channel: "LicenseClient-VincentLiguori" (connect: 0.00s, validation: 0.01s, handshake: 0.04s)
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-VincentLiguori-notifications" at "2026-09-25T20:07:34.7037737Z"
+[Licensing::Module] Error: Access token is unavailable; failed to update
+[Licensing::Client] Successfully resolved entitlement details
+[Licensing::Module] Serial number assigned to: "37203-UnityPersXXXX"
+[Licensing::Client] Successfully updated license, isAync: True, time: 0.01
+Built from '6000.1/staging' branch; Version is '6000.1.8f1 (2a5b1522e5ab) revision 2775829'; Using compiler version '194234433'; Build Type 'Release'
+OS: 'Windows 11  (10.0.26200) 64bit Professional' Language: 'en' Physical Memory: 64969 MB
+[Licensing::Client] Successfully resolved entitlement details
+BatchMode: 1, IsHumanControllingUs: 0, StartBugReporterOnCrash: 0, Is64bit: 1, IsPro: 0
+Date: 2026-09-25T20:07:34Z
+
+COMMAND LINE ARGUMENTS:
+C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Unity.exe
+-batchmode
+-projectPath
+C:\nscrev\doormeta
+-runTests
+-testPlatform
+PlayMode
+-testFilter
+NoSafeCircle.DoorPrototype.Tests.BoneArchiveNavigationPlayModeTests
+-testResults
+C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-45da5cc844be43f99ad3c847c5b882c7\test-results.xml
+-logFile
+C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-45da5cc844be43f99ad3c847c5b882c7\unity.log
+Successfully changed project path to: C:\nscrev\doormeta
+C:/nscrev/doormeta
+[UnityMemory] Configuration Parameters - Can be set up in boot.config
+    "memorysetup-allocator-temp-initial-block-size-main=262144"
+    "memorysetup-allocator-temp-initial-block-size-worker=262144"
+    "memorysetup-bucket-allocator-granularity=16"
+    "memorysetup-bucket-allocator-bucket-count=8"
+    "memorysetup-bucket-allocator-block-size=33554432"
+    "memorysetup-bucket-allocator-block-count=8"
+    "memorysetup-main-allocator-block-size=16777216"
+    "memorysetup-thread-allocator-block-size=16777216"
+    "memorysetup-gfx-main-allocator-block-size=16777216"
+    "memorysetup-gfx-thread-allocator-block-size=16777216"
+    "memorysetup-cache-allocator-block-size=4194304"
+    "memorysetup-typetree-allocator-block-size=2097152"
+    "memorysetup-profiler-bucket-allocator-granularity=16"
+    "memorysetup-profiler-bucket-allocator-bucket-count=8"
+    "memorysetup-profiler-bucket-allocator-block-size=33554432"
+    "memorysetup-profiler-bucket-allocator-block-count=8"
+    "memorysetup-profiler-allocator-block-size=16777216"
+    "memorysetup-profiler-editor-allocator-block-size=1048576"
+    "memorysetup-temp-allocator-size-main=16777216"
+    "memorysetup-job-temp-allocator-block-size=2097152"
+    "memorysetup-job-temp-allocator-block-size-background=1048576"
+    "memorysetup-job-temp-allocator-reduction-small-platforms=262144"
+    "memorysetup-temp-allocator-size-background-worker=32768"
+    "memorysetup-temp-allocator-size-job-worker=262144"
+    "memorysetup-temp-allocator-size-preload-manager=33554432"
+    "memorysetup-temp-allocator-size-nav-mesh-worker=65536"
+    "memorysetup-temp-allocator-size-audio-worker=65536"
+    "memorysetup-temp-allocator-size-cloud-worker=32768"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gfx=262144"
+Player connection [40812]  Target information:
+
+Player connection [40812]  * "[IP] 172.28.64.1 [Port] 55505 [Flags] 2 [Guid] 3617402567 [EditorId] 3617402567 [Version] 1048832 [Id] WindowsEditor(7,DESKTOP-6LMNLCK) [Debug] 1 [PackageName] WindowsEditor [ProjectName] Editor"
+
+Player connection [40812]  * "[IP] 192.168.10.144 [Port] 55505 [Flags] 2 [Guid] 3617402567 [EditorId] 3617402567 [Version] 1048832 [Id] WindowsEditor(7,DESKTOP-6LMNLCK) [Debug] 1 [PackageName] WindowsEditor [ProjectName] Editor"
+
+Player connection [40812] Host joined multi-casting on [225.0.0.222:54997]...
+Player connection [40812] Host joined alternative multi-casting on [225.0.0.222:34997]...
+Input System module state changed to: Initialized.
+[Physics::Module] Initialized fallback backend.
+[Physics::Module] Id: 0xdecafbad
+[Package Manager] Connected to IPC stream "Upm-40164" after 0.2 seconds.
+Library Redirect Path: Library/
+[Package Manager] Restoring resolved packages state from cache
+[Licensing::Client] Successfully resolved entitlement details
+[Package Manager] Registered 56 packages:
+  Packages from [https://packages.unity.com]:
+    com.unity.ai.navigation@2.0.14 (location: C:\nscrev\doormeta\Library\PackageCache\com.unity.ai.navigation@134dd6a3b97b)
+    com.unity.collab-proxy@2.13.5 (location: C:\nscrev\doormeta\Library\PackageCache\com.unity.collab-proxy@120d77864ebc)
+    com.unity.inputsystem@1.14.0 (location: C:\nscrev\doormeta\Library\PackageCache\com.unity.inputsystem@7fe8299111a7)
+    com.unity.timeline@1.8.7 (location: C:\nscrev\doormeta\Library\PackageCache\com.unity.timeline@c58b4ee65782)
+    com.unity.visualscripting@1.9.7 (location: C:\nscrev\doormeta\Library\PackageCache\com.unity.visualscripting@6279e2b7c485)
+    com.unity.ide.visualstudio@2.0.23 (location: C:\nscrev\doormeta\Library\PackageCache\com.unity.ide.visualstudio@198cdf337d13)
+    com.unity.ide.rider@3.0.36 (location: C:\nscrev\doormeta\Library\PackageCache\com.unity.ide.rider@4d374c7eb6db)
+    com.unity.editorcoroutines@1.0.0 (location: C:\nscrev\doormeta\Library\PackageCache\com.unity.editorcoroutines@7d48783e7b8c)
+    com.unity.performance.profile-analyzer@1.2.3 (location: C:\nscrev\doormeta\Library\PackageCache\com.unity.performance.profile-analyzer@a68e7bc84997)
+    com.unity.testtools.codecoverage@1.2.6 (location: C:\nscrev\doormeta\Library\PackageCache\com.unity.testtools.codecoverage@205a02cbcb39)
+    com.unity.collections@2.6.8 (location: C:\nscrev\doormeta\Library\PackageCache\com.unity.collections@84e8eb3fc12e)
+    com.unity.settings-manager@2.1.0 (location: C:\nscrev\doormeta\Library\PackageCache\com.unity.settings-manager@41738c275190)
+    com.unity.burst@1.8.29 (location: C:\nscrev\doormeta\Library\PackageCache\com.unity.burst@6bb9aca3ef38)
+    com.unity.mathematics@1.3.2 (location: C:\nscrev\doormeta\Library\PackageCache\com.unity.mathematics@8017b507cc74)
+    com.unity.nuget.mono-cecil@1.11.6 (location: C:\nscrev\doormeta\Library\PackageCache\com.unity.nuget.mono-cecil@ecb9724e46ff)
+    com.unity.test-framework.performance@3.1.0 (location: C:\nscrev\doormeta\Library\PackageCache\com.unity.test-framework.performance@92d1d09a72ed)
+  Built-in packages:
+    com.unity.2d.tilemap@1.0.0 (location: C:\nscrev\doormeta\Library\PackageCache\com.unity.2d.tilemap@855769f9baae)
+    com.unity.feature.development@1.0.2 (location: C:\nscrev\doormeta\Library\PackageCache\com.unity.feature.development@767aadbc6eb7)
+    com.unity.multiplayer.center@1.0.0 (location: C:\nscrev\doormeta\Library\PackageCache\com.unity.multiplayer.center@f3fb577b3546)
+    com.unity.ugui@2.0.0 (location: C:\nscrev\doormeta\Library\PackageCache\com.unity.ugui@57cef44123c7)
+    com.unity.modules.accessibility@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.accessibility)
+    com.unity.modules.ai@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.ai)
+    com.unity.modules.androidjni@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.androidjni)
+    com.unity.modules.animation@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.animation)
+    com.unity.modules.assetbundle@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.assetbundle)
+    com.unity.modules.audio@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.audio)
+    com.unity.modules.cloth@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.cloth)
+    com.unity.modules.director@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.director)
+    com.unity.modules.imageconversion@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.imageconversion)
+    com.unity.modules.imgui@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.imgui)
+    com.unity.modules.jsonserialize@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.jsonserialize)
+    com.unity.modules.particlesystem@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.particlesystem)
+    com.unity.modules.physics@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.physics)
+    com.unity.modules.physics2d@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.physics2d)
+    com.unity.modules.screencapture@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.screencapture)
+    com.unity.modules.terrain@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.terrain)
+    com.unity.modules.terrainphysics@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.terrainphysics)
+    com.unity.modules.tilemap@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.tilemap)
+    com.unity.modules.ui@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.ui)
+    com.unity.modules.uielements@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.uielements)
+    com.unity.modules.umbra@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.umbra)
+    com.unity.modules.unityanalytics@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.unityanalytics)
+    com.unity.modules.unitywebrequest@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.unitywebrequest)
+    com.unity.modules.unitywebrequestassetbundle@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.unitywebrequestassetbundle)
+    com.unity.modules.unitywebrequestaudio@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.unitywebrequestaudio)
+    com.unity.modules.unitywebrequesttexture@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.unitywebrequesttexture)
+    com.unity.modules.unitywebrequestwww@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.unitywebrequestwww)
+    com.unity.modules.vehicles@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.vehicles)
+    com.unity.modules.video@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.video)
+    com.unity.modules.vr@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.vr)
+    com.unity.modules.wind@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.wind)
+    com.unity.modules.xr@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.xr)
+    com.unity.modules.subsystems@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.subsystems)
+    com.unity.modules.hierarchycore@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.hierarchycore)
+    com.unity.test-framework@1.5.1 (location: C:\nscrev\doormeta\Library\PackageCache\com.unity.test-framework@7056e7f856e9)
+    com.unity.ext.nunit@2.0.5 (location: C:\nscrev\doormeta\Library\PackageCache\com.unity.ext.nunit@031a54704bff)
+[Physics::Module] Selected backend.
+[Physics::Module] Name: PhysX
+[Physics::Module] Id: 0xf2b8ea05
+[Physics::Module] SDK Version: 4.1.2
+[Physics::Module] Integration Version: 1.0.0
+[Physics::Module] Threading Mode: Multi-Threaded
+[Subsystems] No new subsystems found in resolved package list.
+Package Manager log level set to [2]
+[Package Manager] Done registering packages in 0.08 seconds
+Refreshing native plugins compatible for Editor in 6.01 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Initialize engine version: 6000.1.8f1 (2a5b1522e5ab)
+[Subsystems] Discovering subsystems at path C:/Program Files/Unity/Hub/Editor/6000.1.8f1/Editor/Data/Resources/UnitySubsystems
+[Subsystems] Discovering subsystems at path C:/nscrev/doormeta/Assets
+GfxDevice: creating device client; kGfxThreadingModeNonThreaded
+Direct3D:
+    Version:         Direct3D 12 [level 12.1]
+    Renderer:        NVIDIA GeForce RTX 4070 Laptop GPU (ID=0x2820)
+    Vendor:          NVIDIA
+    VRAM:            7948 MB
+    App VRAM Budget: 7180 MB
+    Driver:          32.0.15.9658
+[Licensing::Client] Successfully resolved entitlement details
+Initialize mono
+Mono path[0] = 'C:/Program Files/Unity/Hub/Editor/6000.1.8f1/Editor/Data/Managed'
+Mono path[1] = 'C:/Program Files/Unity/Hub/Editor/6000.1.8f1/Editor/Data/MonoBleedingEdge/lib/mono/unityjit-win32'
+Mono config path = 'C:/Program Files/Unity/Hub/Editor/6000.1.8f1/Editor/Data/MonoBleedingEdge/etc'
+Using monoOptions --debugger-agent=transport=dt_socket,embedding=1,server=y,suspend=n,address=127.0.0.1:56164
+Using cacheserver namespaces - metadata:defaultmetadata, artifacts:defaultartifacts
+Using cacheserver namespaces - metadata:defaultmetadata, artifacts:defaultartifacts
+ImportWorker Server TCP listen port: 0
+AcceleratorClientConnectionCallback - disconnected - :0
+Begin MonoManager ReloadAssembly
+Registering precompiled unity dll's ...
+Register platform support module: C:/Program Files/Unity/Hub/Editor/6000.1.8f1/Editor/Data/PlaybackEngines/WebGLSupport/UnityEditor.WebGL.Extensions.dll
+Register platform support module: C:/Program Files/Unity/Hub/Editor/6000.1.8f1/Editor/Data/PlaybackEngines/WindowsStandaloneSupport/UnityEditor.WindowsStandalone.Extensions.dll
+Registered in 0.002252 seconds.
+- Loaded All Assemblies, in  0.352 seconds
+Native extension for WindowsStandalone target not found
+Native extension for WebGL target not found
+Mono: successfully reloaded assembly
+- Finished resetting the current domain, in  0.353 seconds
+Domain Reload Profiling: 701ms
+	BeginReloadAssembly (119ms)
+		ExecutionOrderSort (0ms)
+		DisableScriptedObjects (0ms)
+		BackupInstance (0ms)
+		ReleaseScriptingObjects (0ms)
+		CreateAndSetChildDomain (1ms)
+	RebuildCommonClasses (30ms)
+	RebuildNativeTypeToScriptingClass (11ms)
+	initialDomainReloadingComplete (48ms)
+	LoadAllAssembliesAndSetupDomain (139ms)
+		LoadAssemblies (115ms)
+		RebuildTransferFunctionScriptingTraits (0ms)
+		AnalyzeDomain (134ms)
+			TypeCache.Refresh (133ms)
+				TypeCache.ScanAssembly (122ms)
+			BuildScriptInfoCaches (0ms)
+			ResolveRequiredComponents (0ms)
+	FinalizeReload (354ms)
+		ReleaseScriptCaches (0ms)
+		RebuildScriptCaches (0ms)
+		SetupLoadedEditorAssemblies (317ms)
+			LogAssemblyErrors (0ms)
+			InitializePlatformSupportModulesInManaged (55ms)
+			SetLoadedEditorAssemblies (4ms)
+			BeforeProcessingInitializeOnLoad (62ms)
+			ProcessInitializeOnLoadAttributes (138ms)
+			ProcessInitializeOnLoadMethodAttributes (57ms)
+			AfterProcessingInitializeOnLoad (0ms)
+			EditorAssembliesLoaded (0ms)
+		ExecutionOrderSort2 (0ms)
+		AwakeInstancesAfterBackupRestoration (0ms)
+[Licensing::Client] Successfully resolved entitlement details
+Application.AssetDatabase Initial Refresh Start
+Starting: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\bee_backend.exe --ipc --defer-dag-verification --dagfile="Library/Bee/1900b0aEDbg.dag" --continue-on-failure --profile="Library/Bee/backend1.traceevents" ScriptAssemblies
+WorkingDir: C:/nscrev/doormeta
+DisplayProgressbar: Compiling Scripts
+ExitCode: 0 Duration: 0s339ms
+[577/728    0s] ILPP-Configuration Library/ilpp-configuration.nevergeneratedoutput
+*** Tundra build success (0.29 seconds), 1 items updated, 728 evaluated
+AssetDatabase: script compilation time: 0.838760s
+Begin MonoManager ReloadAssembly
+- Loaded All Assemblies, in  0.981 seconds
+Refreshing native plugins compatible for Editor in 2.09 ms, found 4 plugins.
+Native extension for WindowsStandalone target not found
+Native extension for WebGL target not found
+Refreshing native plugins compatible for Editor in 3.08 ms, found 4 plugins.
+Mono: successfully reloaded assembly
+- Finished resetting the current domain, in  4.594 seconds
+Domain Reload Profiling: 5570ms
+	BeginReloadAssembly (328ms)
+		ExecutionOrderSort (0ms)
+		DisableScriptedObjects (53ms)
+		BackupInstance (0ms)
+		ReleaseScriptingObjects (0ms)
+		CreateAndSetChildDomain (149ms)
+	RebuildCommonClasses (30ms)
+	RebuildNativeTypeToScriptingClass (10ms)
+	initialDomainReloadingComplete (34ms)
+	LoadAllAssembliesAndSetupDomain (574ms)
+		LoadAssemblies (446ms)
+		RebuildTransferFunctionScriptingTraits (0ms)
+		AnalyzeDomain (220ms)
+			TypeCache.Refresh (174ms)
+				TypeCache.ScanAssembly (164ms)
+			BuildScriptInfoCaches (35ms)
+			ResolveRequiredComponents (6ms)
+	FinalizeReload (4594ms)
+		ReleaseScriptCaches (0ms)
+		RebuildScriptCaches (0ms)
+		SetupLoadedEditorAssemblies (4376ms)
+			LogAssemblyErrors (0ms)
+			InitializePlatformSupportModulesInManaged (28ms)
+			SetLoadedEditorAssemblies (4ms)
+			BeforeProcessingInitializeOnLoad (179ms)
+			ProcessInitializeOnLoadAttributes (4107ms)
+			ProcessInitializeOnLoadMethodAttributes (52ms)
+			AfterProcessingInitializeOnLoad (6ms)
+			EditorAssembliesLoaded (0ms)
+		ExecutionOrderSort2 (0ms)
+		AwakeInstancesAfterBackupRestoration (17ms)
+Asset Pipeline Refresh (id=4bdcb00edcb8bba4595c8503d125c729): Total: 7.056 seconds - Initiated by InitialRefreshV2(ForceSynchronousImport)
+	Summary:
+		Imports: total=0 (actual=0, local cache=0, cache server=0)
+		Asset DB Process Time: managed=0 ms, native=5133 ms
+		Asset DB Callback time: managed=15 ms, native=0 ms
+		Scripting: domain reloads=1, domain reload time=981 ms, compile time=841 ms, other=83 ms
+		Project Asset Count: scripts=1076, non-scripts=2140
+		Asset File Changes: new=0, changed=0, moved=0, deleted=0
+		Scan Filter Count: 0
+	InvokeCustomDependenciesCallbacks: 0.002ms
+	InvokePackagesCallback: 2.020ms
+	ApplyChangesToAssetFolders: 0.523ms
+	Scan: 235.161ms
+	OnSourceAssetsModified: 0.003ms
+	CategorizeAssetsWithTransientArtifact: 49.531ms
+	ProcessAssetsWithTransientArtifactChanges: 52.820ms
+	CategorizeAssets: 26.498ms
+	ImportOutOfDateAssets: 4603.675ms (3761.751ms without children)
+		CompileScripts: 840.954ms
+		ReloadNativeAssets: 0.001ms
+		UnloadImportedAssets: 0.152ms
+		EnsureUptoDateAssetsAreRegisteredWithGuidPM: 0.421ms
+		InitializingProgressBar: 0.000ms
+		PostProcessAllAssetNotificationsAddChangedAssets: 0.001ms
+		OnDemandSchedulerStart: 0.396ms
+	PostProcessAllAssets: 15.722ms
+	GatherAllCurrentPrimaryArtifactRevisions: 0.001ms
+	UnloadStreamsBegin: 0.304ms
+	PersistCurrentRevisions: 0.144ms
+	UnloadStreamsEnd: 0.001ms
+	GenerateScriptTypeHashes: 1.680ms
+	Untracked: 2069.232ms
+
+Application.AssetDatabase Initial Refresh End
+Launched and connected shader compiler UnityShaderCompiler.exe after 0.01 seconds
+Scanning for USB devices : 0.838ms
+Initializing Unity extensions:
+[MODES] ModeService[none].Initialize
+[MODES] ModeService[none].LoadModes
+[MODES] Loading mode Default (0) for mode-current-id-NoSafeCircle
+Unloading 3 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 5090 unused Assets / (1.9 MB). Loaded Objects now: 5585.
+Memory consumption went from 137.6 MB to 135.7 MB.
+Total: 7.201200 ms (FindLiveObjects: 0.367500 ms CreateObjectMapping: 0.187800 ms MarkObjects: 5.161600 ms  DeleteObjects: 1.482800 ms)
+
+[Project] Loading completed in 10.577 seconds
+	Project init time: 				9.267 seconds
+		Template init time: 		0.000 seconds
+		Package Manager init time: 		0.210 seconds
+		Asset Database init time: 		0.223 seconds
+		Global illumination init time: 	0.003 seconds
+		Assemblies load time: 			0.722 seconds
+		Unity extensions init time: 	0.023 seconds
+		Asset Database refresh time: 	7.056 seconds
+	Scene opening time: 			1.134 seconds
+##utp:{"type":"ProjectInfo","version":2,"phase":"Immediate","time":1790366865207,"processId":40164,"projectLoad":10.5765723,"projectInit":9.2666127,"templateInit":0.0,"packageManagerInit":0.2101829,"assetDatabaseInit":0.2232802,"globalIlluminationInit":0.0026075,"assembliesLoad":0.7216883,"unityExtensionsInit":0.0230734,"assetDatabaseRefresh":7.0558015,"sceneOpening":1.1341154}
+##utp:{"type":"EditorInfo","version":2,"phase":"Immediate","time":1790366865207,"processId":40164,"editorVersion":"6000.1.8f1 (2a5b1522e5ab)","branch":"6000.1/staging","buildType":"Release","platform":"Windows"}
+Asset Pipeline Refresh (id=e88375aecb0fa544b9f5188321b8f448): Total: 0.035 seconds - Initiated by RefreshV2(NoUpdateAssetOptions)
+Running tests for ExecutionSettings with details:
+targetPlatform =
+playerHeartbeatTimeout = 600
+filters[0] =
+   Filter with settings:
+   testMode = PlayMode
+   targetPlatform =
+   testNames = null
+   groupNames = NoSafeCircle.DoorPrototype.Tests.BoneArchiveNavigationPlayModeTests
+   categoryNames = null
+   assemblyNames = null
+ignoreTests = {}
+featureFlags = null
+
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+UnityEditor.TestTools.TestRunner.CommandLineTest.Executer:InitializeAndExecuteRun (string[]) (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/CommandLineTest/Executer.cs:53)
+UnityEditor.TestTools.TestRunner.CommandLineTest.TestStarter:InitializeAndExecuteRun () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/CommandLineTest/TestStarter.cs:64)
+UnityEditor.EditorApplication:Internal_CallUpdateFunctions ()
+
+(Filename: ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/CommandLineTest/Executer.cs Line: 53)
+
+[UnityConnectServicesConfig] config is NOT valid, switching to default
+Created GICache directory at C:/Users/VincentLiguori/AppData/LocalLow/Unity/Caches/GiCache. Took: 0.015s, timestamps: [10.587 - 10.602]
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 2 unused Assets / (1.3 KB). Loaded Objects now: 5624.
+Memory consumption went from 122.4 MB to 122.4 MB.
+Total: 7.625900 ms (FindLiveObjects: 0.269900 ms CreateObjectMapping: 0.133700 ms MarkObjects: 7.180900 ms  DeleteObjects: 0.039700 ms)
+
+Start importing Assets/InitTestScene200a9329-6aa7-4057-8d94-45d544a09f31.unity using Guid(8fa7c9fe17eba994382e6aefae396160) (DefaultImporter) -> (artifact id: 'e03ba4ecef0b6f0fe62a5af21c952315') in 0.0100519 seconds
+Refreshing native plugins compatible for Editor in 2.82 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=9f428a32c37f0b445b320a931ad2a02d): Total: 0.244 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Executing IPrebuildSetup for: Unity.PerformanceTesting.Editor.TestRunBuilder.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+UnityEditor.TestTools.TestRunner.TestRun.Tasks.BuildActionTaskBase`1/<ExecuteMethods>d__8<UnityEngine.TestTools.IPrebuildSetup>:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/TestRun/Tasks/BuildActionTaskBase.cs:51)
+UnityEditor.TestTools.TestRunner.TestRun.Tasks.BuildActionTaskBase`1/<Execute>d__7<UnityEngine.TestTools.IPrebuildSetup>:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/TestRun/Tasks/BuildActionTaskBase.cs:35)
+UnityEditor.TestTools.TestRunner.TestRun.TestJobRunner:ExecuteStep () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/TestRun/TestJobRunner.cs:173)
+UnityEditor.TestTools.TestRunner.TestRun.TestJobRunner:ExecuteCallback () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/TestRun/TestJobRunner.cs:108)
+UnityEditor.EditorApplication:Internal_CallUpdateFunctions ()
+
+(Filename: ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/TestRun/Tasks/BuildActionTaskBase.cs Line: 51)
+
+Reloading assemblies for play mode.
+Reloading assemblies after forced synchronous recompile.
+Begin MonoManager ReloadAssembly
+- Loaded All Assemblies, in  0.984 seconds
+Refreshing native plugins compatible for Editor in 2.29 ms, found 4 plugins.
+Native extension for WindowsStandalone target not found
+Native extension for WebGL target not found
+Mono: successfully reloaded assembly
+- Finished resetting the current domain, in  1.191 seconds
+Domain Reload Profiling: 2169ms
+	BeginReloadAssembly (656ms)
+		ExecutionOrderSort (0ms)
+		DisableScriptedObjects (34ms)
+		BackupInstance (0ms)
+		ReleaseScriptingObjects (0ms)
+		CreateAndSetChildDomain (466ms)
+	RebuildCommonClasses (37ms)
+	RebuildNativeTypeToScriptingClass (10ms)
+	initialDomainReloadingComplete (35ms)
+	LoadAllAssembliesAndSetupDomain (239ms)
+		LoadAssemblies (164ms)
+		RebuildTransferFunctionScriptingTraits (0ms)
+		AnalyzeDomain (182ms)
+			TypeCache.Refresh (7ms)
+				TypeCache.ScanAssembly (0ms)
+			BuildScriptInfoCaches (163ms)
+			ResolveRequiredComponents (7ms)
+	FinalizeReload (1191ms)
+		ReleaseScriptCaches (0ms)
+		RebuildScriptCaches (0ms)
+		SetupLoadedEditorAssemblies (850ms)
+			LogAssemblyErrors (0ms)
+			InitializePlatformSupportModulesInManaged (30ms)
+			SetLoadedEditorAssemblies (5ms)
+			BeforeProcessingInitializeOnLoad (175ms)
+			ProcessInitializeOnLoadAttributes (432ms)
+			ProcessInitializeOnLoadMethodAttributes (202ms)
+			AfterProcessingInitializeOnLoad (6ms)
+			EditorAssembliesLoaded (0ms)
+		ExecutionOrderSort2 (0ms)
+		AwakeInstancesAfterBackupRestoration (25ms)
+Asset Pipeline Refresh (id=7204bb304804f5e4d96fd934b71455ce): Total: 2.263 seconds - Initiated by StopAssetImportingV2(ForceSynchronousImport | ForceDomainReload)
+	Summary:
+		Imports: total=0 (actual=0, local cache=0, cache server=0)
+		Asset DB Process Time: managed=0 ms, native=1247 ms
+		Asset DB Callback time: managed=15 ms, native=0 ms
+		Scripting: domain reloads=1, domain reload time=999 ms, compile time=1 ms, other=0 ms
+		Project Asset Count: scripts=1076, non-scripts=2141
+		Asset File Changes: new=0, changed=0, moved=0, deleted=0
+		Scan Filter Count: 0
+	InvokeCustomDependenciesCallbacks: 0.001ms
+	InvokePackagesCallback: 1.526ms
+	ApplyChangesToAssetFolders: 0.288ms
+	Scan: 0.000ms
+	OnSourceAssetsModified: 0.003ms
+	CategorizeAssetsWithTransientArtifact: 0.004ms
+	ProcessAssetsWithTransientArtifactChanges: 2.877ms
+	CategorizeAssets: 20.259ms
+	ImportOutOfDateAssets: 1197.769ms (1195.947ms without children)
+		CompileScripts: 1.046ms
+		CollectScriptTypesHashes: 0.001ms
+		ReloadNativeAssets: 0.001ms
+		UnloadImportedAssets: 0.001ms
+		EnsureUptoDateAssetsAreRegisteredWithGuidPM: 0.429ms
+		InitializingProgressBar: 0.000ms
+		PostProcessAllAssetNotificationsAddChangedAssets: 0.000ms
+		OnDemandSchedulerStart: 0.344ms
+	PostProcessAllAssets: 15.022ms
+	GatherAllCurrentPrimaryArtifactRevisions: 0.273ms
+	UnloadStreamsBegin: 0.003ms
+	PersistCurrentRevisions: 0.201ms
+	UnloadStreamsEnd: 0.002ms
+	GenerateScriptTypeHashes: 1.265ms
+	Untracked: 1024.664ms
+
+Loaded scene 'Temp/__Backupscenes/0.backup'
+	Deserialize:            1.395 ms
+	Integration:            233.898 ms
+	Integration of assets:  0.003 ms
+	Thread Wait Time:       0.012 ms
+	Total Operation Time:   235.308 ms
+[MODES] ModeService[none].Initialize
+[MODES] ModeService[none].LoadModes
+Unloading 5 Unused Serialized files (Serialized files now loaded: 0)
+UnloadTime: 0.157100 ms
+Loaded scene 'Assets/Scenes/Rooms/BoneArchive.unity'
+	Deserialize:            11.561 ms
+	Integration:            207.982 ms
+	Integration of assets:  0.826 ms
+	Thread Wait Time:       0.016 ms
+	Total Operation Time:   220.385 ms
+Unloading 15 unused Assets / (3.6 MB). Loaded Objects now: 5790.
+Memory consumption went from 131.7 MB to 128.1 MB.
+Total: 8.478900 ms (FindLiveObjects: 0.481500 ms CreateObjectMapping: 0.457000 ms MarkObjects: 7.474300 ms  DeleteObjects: 0.064800 ms)
+
+NSC-071 VAL-001: baked GameplayNavigationSurface over 13 committed GameplayGeometry colliders in Assets/Scenes/Rooms/BoneArchive.unity. Agent configuration in use: agentTypeID=0, agentRadius=0.500, agentHeight=2.000. Derived bypass bounds: west X -10.500 to -7.500, east X 4.000 to 7.000.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+NoSafeCircle.DoorPrototype.Tests.BoneArchiveNavigationPlayModeTests/<LoadCommittedRoomAndBakeItsNavigation>d__23:MoveNext () (at Assets/NoSafeCircle/DoorPrototype/Tests/BoneArchiveNavigationPlayModeTests.cs:185)
+UnityEngine.TestTools.EnumeratorHelper/<ProgressOnEnumerator>d__5:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Attributes/EnumeratorHelper.cs:35)
+UnityEngine.TestTools.BeforeAfterTestCommandBase`1/<ExecuteEnumerable>d__16<System.Reflection.MethodInfo>:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/BeforeAfterTestCommandBase.cs:155)
+UnityEngine.TestTools.BeforeAfterTestCommandBase`1/<ExecuteEnumerable>d__16<UnityEngine.TestTools.IOuterUnityTestAction>:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/BeforeAfterTestCommandBase.cs:212)
+UnityEngine.TestTools.RetryCommand/<ExecuteEnumerable>d__2:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/RetryCommand.cs:37)
+UnityEngine.TestTools.RepeatCommand/<ExecuteEnumerable>d__2:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/RepeatCommand.cs:36)
+UnityEngine.TestTools.IgnoreTestCommand/<ExecuteEnumerable>d__3:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/IgnoreTestCommand.cs:42)
+UnityEngine.TestTools.StrictCheckCommand/<ExecuteEnumerable>d__2:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/StrictCheckCommand.cs:29)
+UnityEngine.TestTools.Utils.CoroutineRunner/<WrapEnumeratorForChecks>d__8:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/Utils/CoroutineRunner.cs:58)
+UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+
+(Filename: Assets/NoSafeCircle/DoorPrototype/Tests/BoneArchiveNavigationPlayModeTests.cs Line: 185)
+
+Unloading 1 Unused Serialized files (Serialized files now loaded: 0)
+UnloadTime: 0.042400 ms
+Loaded scene 'Assets/Scenes/Rooms/BoneArchive.unity'
+	Deserialize:            4.266 ms
+	Integration:            201.886 ms
+	Integration of assets:  0.043 ms
+	Thread Wait Time:       0.020 ms
+	Total Operation Time:   206.214 ms
+Unloading 8 unused Assets / (7.3 KB). Loaded Objects now: 5791.
+Memory consumption went from 128.9 MB to 128.9 MB.
+Total: 6.680300 ms (FindLiveObjects: 0.666800 ms CreateObjectMapping: 0.407500 ms MarkObjects: 5.569300 ms  DeleteObjects: 0.036000 ms)
+
+NSC-071 VAL-001: baked GameplayNavigationSurface over 13 committed GameplayGeometry colliders in Assets/Scenes/Rooms/BoneArchive.unity. Agent configuration in use: agentTypeID=0, agentRadius=0.500, agentHeight=2.000. Derived bypass bounds: west X -10.500 to -7.500, east X 4.000 to 7.000.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+NoSafeCircle.DoorPrototype.Tests.BoneArchiveNavigationPlayModeTests/<LoadCommittedRoomAndBakeItsNavigation>d__23:MoveNext () (at Assets/NoSafeCircle/DoorPrototype/Tests/BoneArchiveNavigationPlayModeTests.cs:185)
+UnityEngine.TestTools.EnumeratorHelper/<ProgressOnEnumerator>d__5:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Attributes/EnumeratorHelper.cs:35)
+UnityEngine.TestTools.BeforeAfterTestCommandBase`1/<ExecuteEnumerable>d__16<System.Reflection.MethodInfo>:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/BeforeAfterTestCommandBase.cs:155)
+UnityEngine.TestTools.BeforeAfterTestCommandBase`1/<ExecuteEnumerable>d__16<UnityEngine.TestTools.IOuterUnityTestAction>:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/BeforeAfterTestCommandBase.cs:212)
+UnityEngine.TestTools.RetryCommand/<ExecuteEnumerable>d__2:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/RetryCommand.cs:37)
+UnityEngine.TestTools.RepeatCommand/<ExecuteEnumerable>d__2:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/RepeatCommand.cs:36)
+UnityEngine.TestTools.IgnoreTestCommand/<ExecuteEnumerable>d__3:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/IgnoreTestCommand.cs:42)
+UnityEngine.TestTools.StrictCheckCommand/<ExecuteEnumerable>d__2:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/StrictCheckCommand.cs:29)
+UnityEngine.TestTools.Utils.CoroutineRunner/<WrapEnumeratorForChecks>d__8:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/Utils/CoroutineRunner.cs:58)
+UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+
+(Filename: Assets/NoSafeCircle/DoorPrototype/Tests/BoneArchiveNavigationPlayModeTests.cs Line: 185)
+
+Unloading 1 Unused Serialized files (Serialized files now loaded: 0)
+UnloadTime: 0.050800 ms
+Loaded scene 'Assets/Scenes/Rooms/BoneArchive.unity'
+	Deserialize:            5.499 ms
+	Integration:            199.645 ms
+	Integration of assets:  0.041 ms
+	Thread Wait Time:       0.027 ms
+	Total Operation Time:   205.213 ms
+Unloading 9 unused Assets / (6.0 KB). Loaded Objects now: 5791.
+Memory consumption went from 128.9 MB to 128.9 MB.
+Total: 8.398700 ms (FindLiveObjects: 0.481200 ms CreateObjectMapping: 0.364100 ms MarkObjects: 7.486500 ms  DeleteObjects: 0.064800 ms)
+
+NSC-071 VAL-001: baked GameplayNavigationSurface over 13 committed GameplayGeometry colliders in Assets/Scenes/Rooms/BoneArchive.unity. Agent configuration in use: agentTypeID=0, agentRadius=0.500, agentHeight=2.000. Derived bypass bounds: west X -10.500 to -7.500, east X 4.000 to 7.000.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+NoSafeCircle.DoorPrototype.Tests.BoneArchiveNavigationPlayModeTests/<LoadCommittedRoomAndBakeItsNavigation>d__23:MoveNext () (at Assets/NoSafeCircle/DoorPrototype/Tests/BoneArchiveNavigationPlayModeTests.cs:185)
+UnityEngine.TestTools.EnumeratorHelper/<ProgressOnEnumerator>d__5:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Attributes/EnumeratorHelper.cs:35)
+UnityEngine.TestTools.BeforeAfterTestCommandBase`1/<ExecuteEnumerable>d__16<System.Reflection.MethodInfo>:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/BeforeAfterTestCommandBase.cs:155)
+UnityEngine.TestTools.BeforeAfterTestCommandBase`1/<ExecuteEnumerable>d__16<UnityEngine.TestTools.IOuterUnityTestAction>:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/BeforeAfterTestCommandBase.cs:212)
+UnityEngine.TestTools.RetryCommand/<ExecuteEnumerable>d__2:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/RetryCommand.cs:37)
+UnityEngine.TestTools.RepeatCommand/<ExecuteEnumerable>d__2:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/RepeatCommand.cs:36)
+UnityEngine.TestTools.IgnoreTestCommand/<ExecuteEnumerable>d__3:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/IgnoreTestCommand.cs:42)
+UnityEngine.TestTools.StrictCheckCommand/<ExecuteEnumerable>d__2:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/StrictCheckCommand.cs:29)
+UnityEngine.TestTools.Utils.CoroutineRunner/<WrapEnumeratorForChecks>d__8:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/Utils/CoroutineRunner.cs:58)
+UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+
+(Filename: Assets/NoSafeCircle/DoorPrototype/Tests/BoneArchiveNavigationPlayModeTests.cs Line: 185)
+
+Unloading 1 Unused Serialized files (Serialized files now loaded: 0)
+UnloadTime: 0.050300 ms
+Loaded scene 'Assets/Scenes/Rooms/BoneArchive.unity'
+	Deserialize:            4.625 ms
+	Integration:            206.352 ms
+	Integration of assets:  0.023 ms
+	Thread Wait Time:       0.027 ms
+	Total Operation Time:   211.027 ms
+Unloading 9 unused Assets / (6.0 KB). Loaded Objects now: 5791.
+Memory consumption went from 128.9 MB to 128.9 MB.
+Total: 6.184800 ms (FindLiveObjects: 0.254800 ms CreateObjectMapping: 0.085300 ms MarkObjects: 5.795900 ms  DeleteObjects: 0.047600 ms)
+
+NSC-071 VAL-001: baked GameplayNavigationSurface over 13 committed GameplayGeometry colliders in Assets/Scenes/Rooms/BoneArchive.unity. Agent configuration in use: agentTypeID=0, agentRadius=0.500, agentHeight=2.000. Derived bypass bounds: west X -10.500 to -7.500, east X 4.000 to 7.000.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+NoSafeCircle.DoorPrototype.Tests.BoneArchiveNavigationPlayModeTests/<LoadCommittedRoomAndBakeItsNavigation>d__23:MoveNext () (at Assets/NoSafeCircle/DoorPrototype/Tests/BoneArchiveNavigationPlayModeTests.cs:185)
+UnityEngine.TestTools.EnumeratorHelper/<ProgressOnEnumerator>d__5:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Attributes/EnumeratorHelper.cs:35)
+UnityEngine.TestTools.BeforeAfterTestCommandBase`1/<ExecuteEnumerable>d__16<System.Reflection.MethodInfo>:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/BeforeAfterTestCommandBase.cs:155)
+UnityEngine.TestTools.BeforeAfterTestCommandBase`1/<ExecuteEnumerable>d__16<UnityEngine.TestTools.IOuterUnityTestAction>:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/BeforeAfterTestCommandBase.cs:212)
+UnityEngine.TestTools.RetryCommand/<ExecuteEnumerable>d__2:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/RetryCommand.cs:37)
+UnityEngine.TestTools.RepeatCommand/<ExecuteEnumerable>d__2:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/RepeatCommand.cs:36)
+UnityEngine.TestTools.IgnoreTestCommand/<ExecuteEnumerable>d__3:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/IgnoreTestCommand.cs:42)
+UnityEngine.TestTools.StrictCheckCommand/<ExecuteEnumerable>d__2:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/StrictCheckCommand.cs:29)
+UnityEngine.TestTools.Utils.CoroutineRunner/<WrapEnumeratorForChecks>d__8:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/Utils/CoroutineRunner.cs:58)
+UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+
+(Filename: Assets/NoSafeCircle/DoorPrototype/Tests/BoneArchiveNavigationPlayModeTests.cs Line: 185)
+
+NSC-071 VAL-001: agent radius used by this run = 0.500 (ProjectSettings/NavMeshAreas.asset, agentTypeID 0).
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+NoSafeCircle.DoorPrototype.Tests.BoneArchiveNavigationPlayModeTests/<ConfiguredAgent_MatchesTheBakedSurfaceSettings_AndItsRadiusIsRecorded>d__33:MoveNext () (at Assets/NoSafeCircle/DoorPrototype/Tests/BoneArchiveNavigationPlayModeTests.cs:366)
+UnityEngine.TestTools.TestEnumerator/<Execute>d__7:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Attributes/TestEnumerator.cs:44)
+UnityEngine.TestTools.EnumerableTestMethodCommand/<ExecuteEnumerableAndRecordExceptions>d__4:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/EnumerableTestMethodCommand.cs:79)
+UnityEngine.TestTools.EnumerableTestMethodCommand:AdvanceEnumerator (System.Collections.IEnumerator) (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/EnumerableTestMethodCommand.cs:64)
+UnityEngine.TestTools.EnumerableTestMethodCommand/<ExecuteEnumerable>d__2:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/EnumerableTestMethodCommand.cs:47)
+UnityEngine.TestRunner.NUnitExtensions.Runner.UnityLogCheckDelegatingCommand/<ExecuteEnumerable>d__3:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Runner/UnityLogCheckDelegatingCommand.cs:48)
+UnityEngine.TestTools.BeforeAfterTestCommandBase`1/<ExecuteEnumerable>d__16<NUnit.Framework.ITestAction>:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/BeforeAfterTestCommandBase.cs:212)
+UnityEngine.TestTools.BeforeAfterTestCommandBase`1/<ExecuteEnumerable>d__16<System.Reflection.MethodInfo>:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/BeforeAfterTestCommandBase.cs:212)
+UnityEngine.TestTools.BeforeAfterTestCommandBase`1/<ExecuteEnumerable>d__16<System.Reflection.MethodInfo>:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/BeforeAfterTestCommandBase.cs:212)
+UnityEngine.TestTools.BeforeAfterTestCommandBase`1/<ExecuteEnumerable>d__16<UnityEngine.TestTools.IOuterUnityTestAction>:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/BeforeAfterTestCommandBase.cs:212)
+UnityEngine.TestTools.RetryCommand/<ExecuteEnumerable>d__2:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/RetryCommand.cs:37)
+UnityEngine.TestTools.RepeatCommand/<ExecuteEnumerable>d__2:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/RepeatCommand.cs:36)
+UnityEngine.TestTools.IgnoreTestCommand/<ExecuteEnumerable>d__3:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/IgnoreTestCommand.cs:42)
+UnityEngine.TestTools.StrictCheckCommand/<ExecuteEnumerable>d__2:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/StrictCheckCommand.cs:29)
+UnityEngine.TestTools.Utils.CoroutineRunner/<WrapEnumeratorForChecks>d__8:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/Utils/CoroutineRunner.cs:58)
+UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+
+(Filename: Assets/NoSafeCircle/DoorPrototype/Tests/BoneArchiveNavigationPlayModeTests.cs Line: 366)
+
+Unloading 1 Unused Serialized files (Serialized files now loaded: 0)
+UnloadTime: 0.044300 ms
+Loaded scene 'Assets/Scenes/Rooms/BoneArchive.unity'
+	Deserialize:            4.427 ms
+	Integration:            208.984 ms
+	Integration of assets:  0.023 ms
+	Thread Wait Time:       0.006 ms
+	Total Operation Time:   213.439 ms
+Unloading 9 unused Assets / (6.0 KB). Loaded Objects now: 5791.
+Memory consumption went from 128.9 MB to 128.9 MB.
+Total: 6.376700 ms (FindLiveObjects: 0.280200 ms CreateObjectMapping: 0.089800 ms MarkObjects: 5.957600 ms  DeleteObjects: 0.048000 ms)
+
+NSC-071 VAL-001: baked GameplayNavigationSurface over 13 committed GameplayGeometry colliders in Assets/Scenes/Rooms/BoneArchive.unity. Agent configuration in use: agentTypeID=0, agentRadius=0.500, agentHeight=2.000. Derived bypass bounds: west X -10.500 to -7.500, east X 4.000 to 7.000.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+NoSafeCircle.DoorPrototype.Tests.BoneArchiveNavigationPlayModeTests/<LoadCommittedRoomAndBakeItsNavigation>d__23:MoveNext () (at Assets/NoSafeCircle/DoorPrototype/Tests/BoneArchiveNavigationPlayModeTests.cs:185)
+UnityEngine.TestTools.EnumeratorHelper/<ProgressOnEnumerator>d__5:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Attributes/EnumeratorHelper.cs:35)
+UnityEngine.TestTools.BeforeAfterTestCommandBase`1/<ExecuteEnumerable>d__16<System.Reflection.MethodInfo>:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/BeforeAfterTestCommandBase.cs:155)
+UnityEngine.TestTools.BeforeAfterTestCommandBase`1/<ExecuteEnumerable>d__16<UnityEngine.TestTools.IOuterUnityTestAction>:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/BeforeAfterTestCommandBase.cs:212)
+UnityEngine.TestTools.RetryCommand/<ExecuteEnumerable>d__2:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/RetryCommand.cs:37)
+UnityEngine.TestTools.RepeatCommand/<ExecuteEnumerable>d__2:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/RepeatCommand.cs:36)
+UnityEngine.TestTools.IgnoreTestCommand/<ExecuteEnumerable>d__3:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/IgnoreTestCommand.cs:42)
+UnityEngine.TestTools.StrictCheckCommand/<ExecuteEnumerable>d__2:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/StrictCheckCommand.cs:29)
+UnityEngine.TestTools.Utils.CoroutineRunner/<WrapEnumeratorForChecks>d__8:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/Utils/CoroutineRunner.cs:58)
+UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+
+(Filename: Assets/NoSafeCircle/DoorPrototype/Tests/BoneArchiveNavigationPlayModeTests.cs Line: 185)
+
+Unloading 1 Unused Serialized files (Serialized files now loaded: 0)
+UnloadTime: 0.041800 ms
+Loaded scene 'Assets/Scenes/Rooms/BoneArchive.unity'
+	Deserialize:            4.390 ms
+	Integration:            200.216 ms
+	Integration of assets:  0.022 ms
+	Thread Wait Time:       0.011 ms
+	Total Operation Time:   204.639 ms
+Unloading 9 unused Assets / (6.0 KB). Loaded Objects now: 5791.
+Memory consumption went from 128.9 MB to 128.9 MB.
+Total: 7.728000 ms (FindLiveObjects: 0.377800 ms CreateObjectMapping: 0.145900 ms MarkObjects: 7.151800 ms  DeleteObjects: 0.050800 ms)
+
+NSC-071 VAL-001: baked GameplayNavigationSurface over 13 committed GameplayGeometry colliders in Assets/Scenes/Rooms/BoneArchive.unity. Agent configuration in use: agentTypeID=0, agentRadius=0.500, agentHeight=2.000. Derived bypass bounds: west X -10.500 to -7.500, east X 4.000 to 7.000.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+NoSafeCircle.DoorPrototype.Tests.BoneArchiveNavigationPlayModeTests/<LoadCommittedRoomAndBakeItsNavigation>d__23:MoveNext () (at Assets/NoSafeCircle/DoorPrototype/Tests/BoneArchiveNavigationPlayModeTests.cs:185)
+UnityEngine.TestTools.EnumeratorHelper/<ProgressOnEnumerator>d__5:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Attributes/EnumeratorHelper.cs:35)
+UnityEngine.TestTools.BeforeAfterTestCommandBase`1/<ExecuteEnumerable>d__16<System.Reflection.MethodInfo>:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/BeforeAfterTestCommandBase.cs:155)
+UnityEngine.TestTools.BeforeAfterTestCommandBase`1/<ExecuteEnumerable>d__16<UnityEngine.TestTools.IOuterUnityTestAction>:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/BeforeAfterTestCommandBase.cs:212)
+UnityEngine.TestTools.RetryCommand/<ExecuteEnumerable>d__2:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/RetryCommand.cs:37)
+UnityEngine.TestTools.RepeatCommand/<ExecuteEnumerable>d__2:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/RepeatCommand.cs:36)
+UnityEngine.TestTools.IgnoreTestCommand/<ExecuteEnumerable>d__3:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/IgnoreTestCommand.cs:42)
+UnityEngine.TestTools.StrictCheckCommand/<ExecuteEnumerable>d__2:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/StrictCheckCommand.cs:29)
+UnityEngine.TestTools.Utils.CoroutineRunner/<WrapEnumeratorForChecks>d__8:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/Utils/CoroutineRunner.cs:58)
+UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+
+(Filename: Assets/NoSafeCircle/DoorPrototype/Tests/BoneArchiveNavigationPlayModeTests.cs Line: 185)
+
+Unloading 1 Unused Serialized files (Serialized files now loaded: 0)
+UnloadTime: 0.071200 ms
+Loaded scene 'Assets/Scenes/Rooms/BoneArchive.unity'
+	Deserialize:            4.888 ms
+	Integration:            210.124 ms
+	Integration of assets:  0.041 ms
+	Thread Wait Time:       0.017 ms
+	Total Operation Time:   215.070 ms
+Unloading 9 unused Assets / (6.0 KB). Loaded Objects now: 5791.
+Memory consumption went from 128.9 MB to 128.9 MB.
+Total: 9.831700 ms (FindLiveObjects: 0.247200 ms CreateObjectMapping: 0.079300 ms MarkObjects: 9.453200 ms  DeleteObjects: 0.050700 ms)
+
+NSC-071 VAL-001: baked GameplayNavigationSurface over 13 committed GameplayGeometry colliders in Assets/Scenes/Rooms/BoneArchive.unity. Agent configuration in use: agentTypeID=0, agentRadius=0.500, agentHeight=2.000. Derived bypass bounds: west X -10.500 to -7.500, east X 4.000 to 7.000.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+NoSafeCircle.DoorPrototype.Tests.BoneArchiveNavigationPlayModeTests/<LoadCommittedRoomAndBakeItsNavigation>d__23:MoveNext () (at Assets/NoSafeCircle/DoorPrototype/Tests/BoneArchiveNavigationPlayModeTests.cs:185)
+UnityEngine.TestTools.EnumeratorHelper/<ProgressOnEnumerator>d__5:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Attributes/EnumeratorHelper.cs:35)
+UnityEngine.TestTools.BeforeAfterTestCommandBase`1/<ExecuteEnumerable>d__16<System.Reflection.MethodInfo>:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/BeforeAfterTestCommandBase.cs:155)
+UnityEngine.TestTools.BeforeAfterTestCommandBase`1/<ExecuteEnumerable>d__16<UnityEngine.TestTools.IOuterUnityTestAction>:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/BeforeAfterTestCommandBase.cs:212)
+UnityEngine.TestTools.RetryCommand/<ExecuteEnumerable>d__2:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/RetryCommand.cs:37)
+UnityEngine.TestTools.RepeatCommand/<ExecuteEnumerable>d__2:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/RepeatCommand.cs:36)
+UnityEngine.TestTools.IgnoreTestCommand/<ExecuteEnumerable>d__3:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/IgnoreTestCommand.cs:42)
+UnityEngine.TestTools.StrictCheckCommand/<ExecuteEnumerable>d__2:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/StrictCheckCommand.cs:29)
+UnityEngine.TestTools.Utils.CoroutineRunner/<WrapEnumeratorForChecks>d__8:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/Utils/CoroutineRunner.cs:58)
+UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+
+(Filename: Assets/NoSafeCircle/DoorPrototype/Tests/BoneArchiveNavigationPlayModeTests.cs Line: 185)
+
+Unloading 1 Unused Serialized files (Serialized files now loaded: 0)
+UnloadTime: 0.053600 ms
+Loaded scene 'Assets/Scenes/Rooms/BoneArchive.unity'
+	Deserialize:            4.384 ms
+	Integration:            210.200 ms
+	Integration of assets:  0.026 ms
+	Thread Wait Time:       0.009 ms
+	Total Operation Time:   214.619 ms
+Unloading 9 unused Assets / (6.0 KB). Loaded Objects now: 5791.
+Memory consumption went from 128.9 MB to 128.9 MB.
+Total: 6.397700 ms (FindLiveObjects: 0.254700 ms CreateObjectMapping: 0.081700 ms MarkObjects: 6.002300 ms  DeleteObjects: 0.057400 ms)
+
+NSC-071 VAL-001: baked GameplayNavigationSurface over 13 committed GameplayGeometry colliders in Assets/Scenes/Rooms/BoneArchive.unity. Agent configuration in use: agentTypeID=0, agentRadius=0.500, agentHeight=2.000. Derived bypass bounds: west X -10.500 to -7.500, east X 4.000 to 7.000.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+NoSafeCircle.DoorPrototype.Tests.BoneArchiveNavigationPlayModeTests/<LoadCommittedRoomAndBakeItsNavigation>d__23:MoveNext () (at Assets/NoSafeCircle/DoorPrototype/Tests/BoneArchiveNavigationPlayModeTests.cs:185)
+UnityEngine.TestTools.EnumeratorHelper/<ProgressOnEnumerator>d__5:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Attributes/EnumeratorHelper.cs:35)
+UnityEngine.TestTools.BeforeAfterTestCommandBase`1/<ExecuteEnumerable>d__16<System.Reflection.MethodInfo>:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/BeforeAfterTestCommandBase.cs:155)
+UnityEngine.TestTools.BeforeAfterTestCommandBase`1/<ExecuteEnumerable>d__16<UnityEngine.TestTools.IOuterUnityTestAction>:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/BeforeAfterTestCommandBase.cs:212)
+UnityEngine.TestTools.RetryCommand/<ExecuteEnumerable>d__2:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/RetryCommand.cs:37)
+UnityEngine.TestTools.RepeatCommand/<ExecuteEnumerable>d__2:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/RepeatCommand.cs:36)
+UnityEngine.TestTools.IgnoreTestCommand/<ExecuteEnumerable>d__3:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/IgnoreTestCommand.cs:42)
+UnityEngine.TestTools.StrictCheckCommand/<ExecuteEnumerable>d__2:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/StrictCheckCommand.cs:29)
+UnityEngine.TestTools.Utils.CoroutineRunner/<WrapEnumeratorForChecks>d__8:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/Utils/CoroutineRunner.cs:58)
+UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+
+(Filename: Assets/NoSafeCircle/DoorPrototype/Tests/BoneArchiveNavigationPlayModeTests.cs Line: 185)
+
+Unloading 1 Unused Serialized files (Serialized files now loaded: 0)
+UnloadTime: 0.060900 ms
+Loaded scene 'Assets/Scenes/Rooms/BoneArchive.unity'
+	Deserialize:            4.468 ms
+	Integration:            201.755 ms
+	Integration of assets:  0.029 ms
+	Thread Wait Time:       0.020 ms
+	Total Operation Time:   206.272 ms
+Unloading 9 unused Assets / (6.0 KB). Loaded Objects now: 5791.
+Memory consumption went from 128.9 MB to 128.9 MB.
+Total: 6.167800 ms (FindLiveObjects: 0.294600 ms CreateObjectMapping: 0.086200 ms MarkObjects: 5.743500 ms  DeleteObjects: 0.042500 ms)
+
+NSC-071 VAL-001: baked GameplayNavigationSurface over 13 committed GameplayGeometry colliders in Assets/Scenes/Rooms/BoneArchive.unity. Agent configuration in use: agentTypeID=0, agentRadius=0.500, agentHeight=2.000. Derived bypass bounds: west X -10.500 to -7.500, east X 4.000 to 7.000.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+NoSafeCircle.DoorPrototype.Tests.BoneArchiveNavigationPlayModeTests/<LoadCommittedRoomAndBakeItsNavigation>d__23:MoveNext () (at Assets/NoSafeCircle/DoorPrototype/Tests/BoneArchiveNavigationPlayModeTests.cs:185)
+UnityEngine.TestTools.EnumeratorHelper/<ProgressOnEnumerator>d__5:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Attributes/EnumeratorHelper.cs:35)
+UnityEngine.TestTools.BeforeAfterTestCommandBase`1/<ExecuteEnumerable>d__16<System.Reflection.MethodInfo>:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/BeforeAfterTestCommandBase.cs:155)
+UnityEngine.TestTools.BeforeAfterTestCommandBase`1/<ExecuteEnumerable>d__16<UnityEngine.TestTools.IOuterUnityTestAction>:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/BeforeAfterTestCommandBase.cs:212)
+UnityEngine.TestTools.RetryCommand/<ExecuteEnumerable>d__2:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/RetryCommand.cs:37)
+UnityEngine.TestTools.RepeatCommand/<ExecuteEnumerable>d__2:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/RepeatCommand.cs:36)
+UnityEngine.TestTools.IgnoreTestCommand/<ExecuteEnumerable>d__3:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/IgnoreTestCommand.cs:42)
+UnityEngine.TestTools.StrictCheckCommand/<ExecuteEnumerable>d__2:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/StrictCheckCommand.cs:29)
+UnityEngine.TestTools.Utils.CoroutineRunner/<WrapEnumeratorForChecks>d__8:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/Utils/CoroutineRunner.cs:58)
+UnityEngine.SetupCoroutine:InvokeMoveNext (System.Collections.IEnumerator,intptr)
+
+(Filename: Assets/NoSafeCircle/DoorPrototype/Tests/BoneArchiveNavigationPlayModeTests.cs Line: 185)
+
+Saving results to: C:/Users/VincentLiguori/AppData/LocalLow/DefaultCompany/NoSafeCircle\TestResults.xml
+Saving results to: C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-45da5cc844be43f99ad3c847c5b882c7\test-results.xml
+Unloading 1 Unused Serialized files (Serialized files now loaded: 0)
+Loaded scene 'Temp/__Backupscenes/0.backup'
+	Deserialize:            0.807 ms
+	Integration:            202.211 ms
+	Integration of assets:  0.006 ms
+	Thread Wait Time:       0.028 ms
+	Total Operation Time:   203.052 ms
+Unloading 6 unused Assets / (4.1 KB). Loaded Objects now: 5637.
+Memory consumption went from 128.5 MB to 128.5 MB.
+Total: 6.312600 ms (FindLiveObjects: 0.269600 ms CreateObjectMapping: 0.089800 ms MarkObjects: 5.882800 ms  DeleteObjects: 0.069800 ms)
+
+Executing IPostBuildCleanup for: Unity.PerformanceTesting.Editor.TestRunBuilder.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+UnityEditor.TestTools.TestRunner.TestRun.Tasks.BuildActionTaskBase`1/<ExecuteMethods>d__8<UnityEngine.TestTools.IPostBuildCleanup>:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/TestRun/Tasks/BuildActionTaskBase.cs:51)
+UnityEditor.TestTools.TestRunner.TestRun.Tasks.BuildActionTaskBase`1/<Execute>d__7<UnityEngine.TestTools.IPostBuildCleanup>:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/TestRun/Tasks/BuildActionTaskBase.cs:35)
+UnityEditor.TestTools.TestRunner.TestRun.TestJobRunner:ExecuteStep () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/TestRun/TestJobRunner.cs:173)
+UnityEditor.TestTools.TestRunner.TestRun.TestJobRunner:ExecuteCallback () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/TestRun/TestJobRunner.cs:108)
+UnityEditor.EditorApplication:Internal_CallUpdateFunctions ()
+
+(Filename: ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/TestRun/Tasks/BuildActionTaskBase.cs Line: 51)
+
+Asset Pipeline Refresh (id=92b8eff9173564242abe4d58c184dcd3): Total: 0.021 seconds - Initiated by RefreshV2(NoUpdateAssetOptions)
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 1 unused Assets / (0.8 KB). Loaded Objects now: 5642.
+Memory consumption went from 128.7 MB to 128.7 MB.
+Total: 5.826100 ms (FindLiveObjects: 0.252600 ms CreateObjectMapping: 0.076200 ms MarkObjects: 5.473700 ms  DeleteObjects: 0.023100 ms)
+
+Refreshing native plugins compatible for Editor in 2.37 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=6c1d5df01a626c444b87a32200127e73): Total: 0.066 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+DisplayProgressbar: Undo
+Test run completed. Exiting with code 0 (Ok). Run completed.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+UnityEditor.TestTools.TestRunner.CommandLineTest.Executer:ExitApplication (UnityEditor.TestTools.TestRunner.CommandLineTest.Executer/ReturnCodes,string) (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/CommandLineTest/Executer.cs:81)
+UnityEditor.TestTools.TestRunner.CommandLineTest.Executer:ExitIfRunIsCompleted () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/CommandLineTest/Executer.cs:74)
+UnityEditor.EditorApplication:Internal_CallUpdateFunctions ()
+
+(Filename: ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/CommandLineTest/Executer.cs Line: 81)
+
+[Physics::Module] Cleanup current backned.
+[Physics::Module] Id: 0xf2b8ea05
+Input System module state changed to: ShutdownInProgress.
+Input System polling thread exited.
+Input System module state changed to: Shutdown.
+[Licensing::IpcConnector] LicenseClient-VincentLiguori-notifications channel disconnected successfully.
+[Licensing::IpcConnector] LicenseClient-VincentLiguori channel disconnected successfully.
+AcceleratorClientConnectionCallback - disconnected - :0
+Cleanup mono
+Checking for leaked weakptr:
+  Found no leaked weakptrs.
+[Package Manager] Server process was shutdown
+##utp:{"type":"MemoryLeaks","version":2,"phase":"Immediate","time":1790366873926,"processId":40164,"allocatedMemory":14278173,"memoryLabels":[{"Default":14269},{"Permanent":15412},{"NewDelete":68513},{"Thread":4237960},{"Manager":30042},{"VertexData":8},{"Geometry":816},{"VFX":-104},{"Texture":704},{"Shader":78821},{"Material":24},{"GfxDevice":57248},{"Animation":328},{"Audio":4040},{"FontEngine":256},{"Physics":1241},{"Serialization":880},{"Input":14824},{"JobScheduler":33760},{"TextLib":160},{"Mono":32},{"ScriptingNativeRuntime":155060},{"BaseObject":1619952},{"Resource":1304},{"Renderer":2928},{"Transform":4646},{"File":3941},{"WebCam":616},{"Culling":32},{"Terrain":11394},{"Wind":24},{"STL":40},{"String":9658},{"DynamicArray":99890},{"HashMap":103174},{"Utility":2666358},{"Curl":48},{"PoolAlloc":1960},{"AI":40},{"TypeTree":5005},{"ScriptManager":512},{"RuntimeInitializeOnLoadManager":64},{"SpriteAtlas":112},{"GI":7824},{"Director":8240},{"WebRequest":808},{"VR":46058},{"SceneManager":496},{"Video":208},{"LazyScriptCache":32},{"Tilemap":3072},{"NativeArray":8},{"Camera":17},{"Secure":1},{"SerializationCache":1576},{"APIUpdating":10320},{"Subsystems":336},{"VirtualTexturing":57888},{"StaticSafetyDebugInfo":278528},{"Analytics":256},{"Hierarchy":272},{"Gui":80},{"EditorUtility":94662},{"VersionControl":4},{"Undo":947},{"AssetDatabase":4476087},{"EditorGi":328},{"UnityConnect":24536},{"Upm":1972},{"DrivenProperties":72},{"LocalIPC":278},{"ProfilerEditor":9738},{"CoreBusinessMetrics":3961},{"Licensing":3512},{"AssetReference":32},{"IPCStream":32}]}
