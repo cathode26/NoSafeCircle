@@ -367,6 +367,48 @@ def _run_request(
     }
 
 
+# A prompt larger than the model's context window is refused by the provider
+# after the call has already been made (NSC-088, 2026-09-24: a 724 KB author
+# prompt against a 200k-token model ended "Prompt is too long"). There is no
+# offline Claude tokenizer in the container and it authenticates with a
+# subscription rather than an API key, so the window check estimates. Three
+# bytes per token over-counts ordinary JSON, YAML, C# and English, so the
+# estimate errs toward refusing, and a refusal names the 1M-context fix. Only
+# Claude Code is checked: its windows are known; other providers' are not.
+ESTIMATED_BYTES_PER_TOKEN = 3
+CONTEXT_WINDOW_HEADROOM = 0.8
+CLAUDE_CONTEXT_WINDOW_TOKENS = 200_000
+CLAUDE_EXTENDED_CONTEXT_WINDOW_TOKENS = 1_000_000
+
+
+class PromptCapacityError(RuntimeError):
+    """The prompt cannot fit the model's context window, so no call was made."""
+
+
+def prompt_capacity_problem(provider_identifier: str, model: str, prompt: str) -> str | None:
+    """Describe why `prompt` cannot fit `model`, or None when it can or is unknown."""
+
+    if provider_identifier != "claude-code":
+        return None
+    window = (
+        CLAUDE_EXTENDED_CONTEXT_WINDOW_TOKENS
+        if model.endswith("[1m]")
+        else CLAUDE_CONTEXT_WINDOW_TOKENS
+    )
+    size = len(prompt.encode("utf-8"))
+    estimate = math.ceil(size / ESTIMATED_BYTES_PER_TOKEN)
+    limit = int(window * CONTEXT_WINDOW_HEADROOM)
+    if estimate <= limit:
+        return None
+    return (
+        f"prompt is {size} bytes, estimated {estimate} tokens at "
+        f"{ESTIMATED_BYTES_PER_TOKEN} bytes per token, over the {limit}-token "
+        f"limit ({CONTEXT_WINDOW_HEADROOM:.0%} of the {window}-token window) for "
+        f"{model}; no provider call was made. Use a 1M-context model, for example "
+        "NSC_CLAUDE_MODEL=claude-opus-5-5[1m]"
+    )
+
+
 def _invoke_round(
     *,
     run_dir: Path,
@@ -394,6 +436,12 @@ def _invoke_round(
     )
     round_dir.mkdir(parents=True)
     key, configuration, registry = provider_bundle
+    route = configuration.to_dict()["provider_configurations"][key]
+    capacity_problem = prompt_capacity_problem(
+        str(route["provider"]), str(route["models"]["high_reasoning"]), prompt,
+    )
+    if capacity_problem is not None:
+        return None, PromptCapacityError(capacity_problem), 0.0, invocation_id
     invocation = AgentInvocationRequest(
         AGENT_INVOCATION_REQUEST_SCHEMA_VERSION,
         invocation_id,
