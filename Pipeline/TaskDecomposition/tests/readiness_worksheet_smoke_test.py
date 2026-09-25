@@ -1,0 +1,148 @@
+"""The readiness worksheet surfaces what a split must get right, from contracts alone."""
+from __future__ import annotations
+
+from pathlib import Path
+import sys
+
+
+ROOT = Path(__file__).resolve().parents[3]
+for module_root in (ROOT, ROOT / "Pipeline", ROOT / "Pipeline" / "TaskGraph"):
+    if str(module_root) not in sys.path:
+        sys.path.insert(0, str(module_root))
+
+from TaskDecomposition.readiness_worksheet import (  # noqa: E402
+    build_worksheet,
+    render_worksheet_markdown,
+)
+
+
+def task(task_id: str, *, depends_on=(), resources=(), requirement="", notes="", disposition="active"):
+    return {
+        "id": task_id, "title": f"{task_id} title", "contract_revision": 1,
+        "contract_disposition": disposition, "execution_scope": "single_agent",
+        "decomposition_state": "concrete", "depends_on": list(depends_on),
+        "exclusive_resources": list(resources),
+        "acceptance_criteria": [{"criterion_id": "AC-001", "requirement": requirement}],
+        "completion_gates": [{"gate_id": "VAL-001", "requirement": "The PlayMode test passes."}],
+        "downstream_integration_obligations": [],
+        "notes": notes,
+    }
+
+
+def graph() -> dict:
+    parent = task(
+        "NSC-100", depends_on=["NSC-010"],
+        resources=[
+            "repo-file:Assets/Game/Scripts/Decoy.cs", "repo-file:Assets/Game/Scripts/Decoy.cs.meta",
+            "repo-file:Assets/Game/Tests/DecoyTests.cs", "repo-file:Assets/Game/Tests/DecoyTests.cs.meta",
+            "repo-file:Assets/Game/Scripts/Orphan.cs.meta",
+            "unity-scene:Assets/Scenes/Main.unity", "repo-file:Assets/Scenes/Main.unity.meta",
+        ],
+        requirement=("Decoy calls PlayerInteractionController and checks EnemyHealth. "
+                     "SceneBuilder.cs is not modified. Vincent reviews the result."),
+    )
+    return {
+        "NSC-100": parent,
+        "NSC-010": task("NSC-010", depends_on=["NSC-019"]),
+        "NSC-019": task("NSC-019", resources=["repo-file:Assets/Game/Scripts/PlayerInteractionController.cs"]),
+        "NSC-060": task("NSC-060", resources=["repo-file:Assets/Game/Scripts/SceneBuilder.cs"]),
+        "NSC-099": task("NSC-099", resources=["repo-file:Assets/Game/Scripts/Retired.cs"], disposition="superseded"),
+    }
+
+
+def test_resources_dependencies_and_owners() -> None:
+    sheet = build_worksheet(graph(), "NSC-100", repository_components={"EnemyHealth", "SceneBuilder"})
+    resources = sheet["resources"]
+    assert resources["production_files"] == ["Assets/Game/Scripts/Decoy.cs"]
+    assert resources["test_files"] == ["Assets/Game/Tests/DecoyTests.cs"]
+    assert resources["separately_claimable_test_files"] == 1
+    assert resources["scene_or_prefab_locks"] == ["unity-scene:Assets/Scenes/Main.unity"]
+    assert resources["unpaired_meta_files"] == ["Assets/Game/Scripts/Orphan.cs.meta"]
+    assert sheet["dependencies"] == {"declared": ["NSC-010"], "transitive": ["NSC-019"]}
+    components = {m["component"]: m for m in sheet["candidate_claimants_by_name_match"]}
+    # Claimed through a transitive dependency: reachable, with the matched path.
+    claimant = components["PlayerInteractionController"]["candidate_claimants"][0]
+    assert (claimant["task"], claimant["reachable"]) == ("NSC-019", True)
+    assert claimant["path"] == "Assets/Game/Scripts/PlayerInteractionController.cs"
+    # Named only in a prohibition, claimed by an unreachable task: flagged for
+    # inspection, with the clause it came from, never asserted as an owner.
+    assert sheet["components_with_no_reachable_claimant"] == ["SceneBuilder"]
+    assert components["SceneBuilder"]["named_in"] == ["AC-001"]
+    # In the repository but claimed by no task: a person must decide.
+    assert sheet["repository_components_no_task_claims"] == [{"component": "EnemyHealth", "named_in": ["AC-001"]}]
+    assert sheet["authority"] == "worksheet_only_not_a_decision"
+
+
+def test_clause_flags_and_rendering() -> None:
+    sheet = build_worksheet(graph(), "NSC-100", repository_components={"EnemyHealth"})
+    assert any("is not modified" in c["text"] for c in sheet["edit_restriction_clauses_by_text_match"])
+    assert any("Vincent" in c["text"] for c in sheet["reserved_decision_clauses_by_text_match"])
+    markdown = render_worksheet_markdown(sheet)
+    assert markdown.startswith("# Decomposition readiness: NSC-100 rev 1")
+    assert "text matches for a person to read, not decisions" in markdown
+    assert "claimed by no task" in markdown and "EnemyHealth" in markdown
+    assert "a lock is not edit permission" in markdown
+    assert "each must map to exactly one child entry" not in markdown
+    assert "one obligation may still have several child targets" in markdown
+    assert "Inspect before deciding" in markdown and "needs its owner" not in markdown
+
+
+def test_superseded_tasks_and_method_names_are_not_owners() -> None:
+    tasks = graph()
+    tasks["NSC-100"]["acceptance_criteria"][0]["requirement"] += " Retired stays. CalculatePath runs."
+    sheet = build_worksheet(tasks, "NSC-100", repository_components=set())
+    names = {m["component"] for m in sheet["candidate_claimants_by_name_match"]}
+    assert "Retired" not in names
+    assert sheet["repository_components_no_task_claims"] == []
+
+
+def test_the_worksheet_reads_the_committed_snapshot_not_the_working_tree() -> None:
+    import json
+    import subprocess
+    import tempfile
+    from TaskDecomposition.readiness_worksheet import worksheet_for_source
+    from TaskDecomposition.tests.test_support import create_repository
+
+    with tempfile.TemporaryDirectory(prefix="nsc-worksheet-") as text:
+        source = Path(text) / "source"
+        create_repository(source)
+        head = subprocess.run(["git", "-C", str(source), "rev-parse", "HEAD"],
+                              capture_output=True, text=True, check=True).stdout.strip()
+        committed = worksheet_for_source(source, "NSC-010")
+        assert committed["source_commit"] == head
+        path = source / "Tasks" / "NSC-010.yaml"
+        value = json.loads(path.read_text(encoding="utf-8"))
+        value["acceptance_criteria"][0]["requirement"] = "Uncommitted edit mentioning WorkingTreeOnly."
+        path.write_text(json.dumps(value), encoding="utf-8")
+        again = worksheet_for_source(source, "NSC-010")
+        assert again["requirements"] == committed["requirements"], "a working-tree edit leaked in"
+
+
+def test_an_unknown_task_is_refused() -> None:
+    try:
+        build_worksheet(graph(), "NSC-555")
+    except ValueError as exc:
+        assert "not in the committed graph" in str(exc)
+    else:
+        raise AssertionError("expected a refusal")
+
+
+TESTS = (
+    test_resources_dependencies_and_owners,
+    test_clause_flags_and_rendering,
+    test_superseded_tasks_and_method_names_are_not_owners,
+    test_the_worksheet_reads_the_committed_snapshot_not_the_working_tree,
+    test_an_unknown_task_is_refused,
+)
+
+
+def main() -> int:
+    for test in TESTS:
+        test()
+        print(f"PASS {test.__name__}")
+    print(f"TaskDecomposition readiness worksheet smoke tests: PASS ({len(TESTS)} tests)")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

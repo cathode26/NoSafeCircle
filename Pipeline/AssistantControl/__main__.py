@@ -303,6 +303,11 @@ def main(argv=None) -> int:
         help="Opt-in author checklist for the author, correction and reviewer; omit for unchanged prompts")
     inspect_decomposition = commands.add_parser("inspect-decomposition", help="Recheck the exact retained decomposition review")
     inspect_decomposition.add_argument("task")
+    readiness = commands.add_parser(
+        "decomposition-readiness",
+        help="Show what a decomposition of TASK must get right, from the committed contracts; read-only")
+    readiness.add_argument("task")
+    readiness.add_argument("--markdown", action="store_true", help="Print the worksheet as Markdown")
     diagnose_decomposition = commands.add_parser(
         "diagnose-decomposition", help="Explain why one retained decomposition run stopped; read-only, never retries")
     diagnose_decomposition.add_argument("task")
@@ -753,6 +758,17 @@ def main(argv=None) -> int:
                     if args.command == "publish-approved"
                     else publication.inspect_ci(args.task, **values)
                 )
+            elif args.command == "decomposition-readiness":
+                from Pipeline.AssistantControl import decomposition as _paths  # noqa: F401  (sys.path)
+                from TaskDecomposition.readiness_worksheet import (
+                    render_worksheet_markdown, worksheet_for_source,
+                )
+                from Pipeline.TaskReviewAgent.contracts import validate_task_id
+                sheet = worksheet_for_source(manager.source, validate_task_id(args.task))
+                if args.markdown:
+                    print(render_worksheet_markdown(sheet), end="")
+                    return 0
+                result = sheet
             elif args.command == "diagnose-decomposition":
                 from Pipeline.AssistantControl import decomposition_diagnosis
                 result = decomposition_diagnosis.diagnose(
