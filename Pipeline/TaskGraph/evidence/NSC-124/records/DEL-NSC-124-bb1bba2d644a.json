@@ -1,0 +1,94 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "2d5c8a1dc5d4bba469fb158b27967717309e5b7ad6f8ab4a38fbbd05ad583c9f"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "82cca8b96bdee9849b51b385a67487cab92d7782",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/MeleeEnemyAttack.cs",
+      "role": "implementation: melee enemy close-range attack, wind-up state and reset"
+    },
+    {
+      "blob_sha": "a6a02a6ba6a4d0035c8ca25b7dc5b34dc99bdb77",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/MeleeEnemyAttack.cs.meta",
+      "role": "Unity import metadata for the implementation"
+    },
+    {
+      "blob_sha": "f4729e4d84cba94c1abdba49687680da40b47789",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/MeleeEnemyAttackPlayModeTests.cs",
+      "role": "test: PlayMode fixture MeleeEnemyAttackPlayModeTests"
+    },
+    {
+      "blob_sha": "c34407012e24f9ae561a6c2b356be2021ffa9bd5",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/MeleeEnemyAttackPlayModeTests.cs.meta",
+      "role": "Unity import metadata for the test"
+    }
+  ],
+  "delivery": {
+    "base_commit": "d8683f6afdc56a102eca0f63e6c61f1beb4ab4a2",
+    "candidate_commit": "0c7fc3604680895dc6db8538857bab119dee0fba",
+    "integrated_commit": "bb1bba2d644a791721111878198ff62488d71c17",
+    "integrated_tree": "3e609e7607a0e86a31c5e74f63bc9647d25a62cf"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "23b23ac3d0d113dd9c6eaa5e73ca8b9480cfab30",
+          "path": "Pipeline/TaskGraph/evidence/NSC-124/artifacts/NSC-124-PlayMode-Results.xml-bb1bba2d644a.xml"
+        },
+        {
+          "blob_sha": "9111ec4460b438f6f0ff8eb943982aeb52b7045e",
+          "path": "Pipeline/TaskGraph/evidence/NSC-124/artifacts/NSC-124-PlayMode-Unity.log-bb1bba2d644a.log"
+        },
+        {
+          "blob_sha": "8a25e1617cd5722bee840f55abea1c93554f475d",
+          "path": "Pipeline/TaskGraph/evidence/NSC-124/artifacts/NSC-124-PlayMode-validation-manifest.json-bb1bba2d644a.json"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "Acceptance proof is MeleeEnemyAttackPlayModeTests, which exercises the production NavMeshAgent, EnemyTargetKnowledge, EnemyPursuitMovement, EnemyHealth, MeleeEnemyAttack and PlayerHealth components in a temporary Play Mode fixture rather than setting internals. Full PlayMode suite at the validated commit bb1bba2d644a791721111878198ff62488d71c17: total 315, passed 310, failed 0, skipped 5, zero test-cases with result=Failed, Unity exit code 0, and Git tree == post-run tree 3e609e7607a0e86a31c5e74f63bc9647d25a62cf so the run did not mutate the repository. The gate's own fixture ran BY NAME and passed: MeleeEnemyAttackPlayModeTests, 10 total, 10 passed, 0 failed. The PlayMode total reconciles exactly - 305 before this task, 315 after, and this candidate adds 10 tests - so nothing was silently undiscovered.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "23b23ac3d0d113dd9c6eaa5e73ca8b9480cfab30",
+          "path": "Pipeline/TaskGraph/evidence/NSC-124/artifacts/NSC-124-PlayMode-Results.xml-bb1bba2d644a.xml"
+        },
+        {
+          "blob_sha": "9111ec4460b438f6f0ff8eb943982aeb52b7045e",
+          "path": "Pipeline/TaskGraph/evidence/NSC-124/artifacts/NSC-124-PlayMode-Unity.log-bb1bba2d644a.log"
+        },
+        {
+          "blob_sha": "8a25e1617cd5722bee840f55abea1c93554f475d",
+          "path": "Pipeline/TaskGraph/evidence/NSC-124/artifacts/NSC-124-PlayMode-validation-manifest.json-bb1bba2d644a.json"
+        }
+      ],
+      "gate_id": "VAL-002",
+      "notes": "VAL-002's reset cases - ResetAttack during early wind-up, immediately before a scheduled impact, and during cooldown - are carried by the same fixture, which passed 10 of 10. Full PlayMode suite at the validated commit bb1bba2d644a791721111878198ff62488d71c17: total 315, passed 310, failed 0, skipped 5, zero test-cases with result=Failed, Unity exit code 0, and Git tree == post-run tree 3e609e7607a0e86a31c5e74f63bc9647d25a62cf so the run did not mutate the repository. The gate's own fixture ran BY NAME and passed: MeleeEnemyAttackPlayModeTests, 10 total, 10 passed, 0 failed. The PlayMode total reconciles exactly - 305 before this task, 315 after, and this candidate adds 10 tests - so nothing was silently undiscovered.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "",
+    "decision": "not_required",
+    "notes": "NSC-124's completion gates are automated Play Mode gates and the contract names no human gate, so no human approval is claimed - the shape used by NSC-050, NSC-109, NSC-111, NSC-113, NSC-114, NSC-117 and NSC-120. Recorded by the Game Agent (Integration Steward) on 2026-09-25. base_commit d8683f6afdc56a102eca0f63e6c61f1beb4ab4a2 is the parent of the single candidate commit 0c7fc3604680895dc6db8538857bab119dee0fba, which I merged earlier today after validating it on BOTH platforms. THIS RECORD IS WHY THE MERGE WAS NOT ENOUGH: dependencies.py treats merged-but-unrecorded work as not_delivered, so between the merge and this record the task had moved the dependency board by nothing. WORTH STATING: the EditMode run at the same tree returned 312/300/0/12, exactly main's baseline. That establishes NO REGRESSION from touching Scripts/Enemies and is NOT acceptance evidence - this fixture is PlayMode, lives in Tests/ rather than Tests/Editor/, and appears zero times in the EditMode XML. The two totals mean opposite things and only the PlayMode run proves the gate.",
+    "required": false
+  },
+  "record_id": "DEL-NSC-124-bb1bba2d644a",
+  "record_type": "delivery",
+  "recorded_at": "2026-09-25T12:49:49Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-124.yaml",
+    "revision": 1,
+    "sha256": "abd0e4a7c0d2a60f4cc34b6f8e1b2c174aeb06de65183e643b6e03b9c25fa209"
+  },
+  "task_id": "NSC-124",
+  "validated_state": {
+    "commit": "bb1bba2d644a791721111878198ff62488d71c17",
+    "tree": "3e609e7607a0e86a31c5e74f63bc9647d25a62cf"
+  }
+}
