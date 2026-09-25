@@ -308,6 +308,17 @@ def main(argv=None) -> int:
         help="Show what a decomposition of TASK must get right, from the committed contracts; read-only")
     readiness.add_argument("task")
     readiness.add_argument("--markdown", action="store_true", help="Print the worksheet as Markdown")
+    retry_plan = commands.add_parser(
+        "plan-decomposition-retry",
+        help="Write a retry proposal for a stopped run if CHANGE answers its diagnosed cause; authorizes nothing")
+    retry_plan.add_argument("task")
+    retry_plan.add_argument("--run-id", required=True)
+    retry_plan.add_argument("--out", type=Path, required=True)
+    retry_plan.add_argument("--change", required=True,
+                            choices=("provider-route", "budget-3", "author-checklist", "contract-revision"))
+    retry_plan.add_argument("--model", action="append", default=[], metavar="NAME=VALUE",
+                            help="For provider-route: NSC_CLAUDE_MODEL=... or NSC_OPENAI_CODEX_MODEL=...")
+    retry_plan.add_argument("--explanation", help="For contract-revision: how the revision addresses the finding")
     diagnose_decomposition = commands.add_parser(
         "diagnose-decomposition", help="Explain why one retained decomposition run stopped; read-only, never retries")
     diagnose_decomposition.add_argument("task")
@@ -769,6 +780,12 @@ def main(argv=None) -> int:
                     print(render_worksheet_markdown(sheet), end="")
                     return 0
                 result = sheet
+            elif args.command == "plan-decomposition-retry":
+                from Pipeline.AssistantControl import decomposition_recovery
+                models = dict(item.split("=", 1) for item in args.model if "=" in item)
+                result = decomposition_recovery.plan_retry(
+                    manager, args.task, run_id=args.run_id, out=args.out, change=args.change,
+                    models=models, explanation=args.explanation)
             elif args.command == "diagnose-decomposition":
                 from Pipeline.AssistantControl import decomposition_diagnosis
                 result = decomposition_diagnosis.diagnose(
