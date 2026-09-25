@@ -15,6 +15,15 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from Pipeline.AssistantControl.checkouts import Checkouts
+# HOISTED from request-path deferred imports. A long-lived viewer caches
+# modules from the HEAD it started on; a DEFERRED import then loads NEW code
+# expecting symbols the cached OLD modules do not have, and /api/state dies
+# with ImportError. Loading these at start keeps the process CONSISTENTLY
+# old, which works, instead of inconsistently mixed, which crashes.
+# viewer.py:348 stays deferred: it is a BARE import needing
+# Pipeline/TaskGraph on sys.path, and that is a different fix.
+from Pipeline.AssistantControl.review import ReviewGate
+from Pipeline.AssistantControl.worker_control import status as worker_status
 from Pipeline.AssistantControl.automation_policy import is_synthetic_gauntlet
 from Pipeline.AssistantControl.inspect_project import git
 from Pipeline.AssistantControl.process_identity import matches
@@ -951,7 +960,6 @@ class AssistantSnapshot:
                             "progress": {"phase": checkout["status"],
                                          "transition_context": "Task checkout exists; no worker has been started by this tool."}})
                 if checkout.get("worker") or checkout.get("launch"):
-                    from Pipeline.AssistantControl.worker_control import status as worker_status
                     observation = worker_status(self.manager, task_id)
                     self._apply_worker_projection(row, observation)
                 if checkout.get("status") == "validation_failed":
@@ -979,7 +987,6 @@ class AssistantSnapshot:
                 else:
                     candidate = checkout.get("candidate") or {}
                 if candidate:
-                    from Pipeline.AssistantControl.review import ReviewGate
                     commit = candidate.get("commit", "")
                     ReviewGate(self.manager)._require_candidate(
                         checkout, commit, allow_pending_materialization=True,
