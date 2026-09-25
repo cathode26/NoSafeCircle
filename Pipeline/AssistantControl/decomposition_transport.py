@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import math
 import re
 import sys
 from typing import Any, Mapping
@@ -39,7 +40,7 @@ def build_compose_command(
     run_id: str, pool_assignment: Mapping[str, Any] | None = None,
     provider_environment: Mapping[str, Any] | None = None,
     author_checklist: str | None = None,
-    timeout_environment: Mapping[str, int] | None = None,
+    timeout_environment: Mapping[str, int | float] | None = None,
     bookkeeper_model: str | None = None,
     continue_from: str | None = None,
 ) -> tuple[str, ...]:
@@ -62,9 +63,9 @@ def build_compose_command(
         if not _SAFE_ID.fullmatch(continue_from):
             raise ValueError("Continued run id is invalid")
         if (type(max_calls) is not int or not 1 <= max_calls <= 4 or len(set(provider_order)) != 2
-                or pool_assignment is not None or author_checklist is not None or bookkeeper_model is not None
-                or timeout_environment is not None):
-            raise ValueError("A continuation takes two distinct providers, 1..4 review calls, and nothing else")
+                or pool_assignment is not None or author_checklist is not None or bookkeeper_model is not None):
+            raise ValueError("A continuation takes two distinct providers and 1..4 review calls; "
+                             "its checklist and bookkeeper configuration are inherited")
     elif type(max_calls) is not int or max_calls not in (2, 3):
         raise ValueError("Assistant decomposition requires a two- or three-call budget")
     if continue_from is None and max_calls == 3 and (len(set(provider_order)) != 2 or pool_assignment is not None):
@@ -117,13 +118,18 @@ def build_compose_command(
         # disagreed with the reservation would make the container fail closed,
         # which is why this lives here and applies only when unpooled.
         command.extend(_model_environment_arguments(provider_environment))
-    # Only the budget-3 profile binds explicit role timeouts, and only these two.
+    # The host supplies verified inherited timeouts for v2 continuations.
+    # Other runs retain the existing three-call timeout contract.
     if timeout_environment is not None:
-        if max_calls != 3 or set(timeout_environment) != set(TIMEOUT_ENVIRONMENT_NAMES):
-            raise ValueError("Explicit decomposition timeouts belong only to the three-call profile")
+        if ((continue_from is None and max_calls != 3)
+                or set(timeout_environment) != set(TIMEOUT_ENVIRONMENT_NAMES)):
+            raise ValueError("Explicit decomposition timeouts require the three-call profile or a continuation")
         for name in sorted(timeout_environment):
             value = timeout_environment[name]
-            if type(value) is not int or value <= 0:
+            if continue_from is not None:
+                if type(value) not in (int, float) or not math.isfinite(value) or value <= 0:
+                    raise ValueError(f"Inherited decomposition timeout {name} must be positive and finite")
+            elif type(value) is not int or value <= 0:
                 raise ValueError(f"Decomposition timeout {name} must be a positive integer")
             command.extend(("--env", f"{name}={value}"))
     command.extend((

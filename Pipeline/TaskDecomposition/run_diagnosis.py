@@ -35,7 +35,11 @@ import re
 from typing import Any, Mapping
 
 DIAGNOSIS_SCHEMA_VERSION = "decomposition-diagnosis/v1"
-CLASSIFIER_VERSION = "4"
+CLASSIFIER_VERSION = "5"
+_LEGACY_CLASSIFIER_VERSION = "4"
+_CONTINUATION_MODE = "round_robin_d1b2_continuation"
+_RUN_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+_SHA256 = re.compile(r"^[0-9a-f]{64}$")
 RUN_RESULT_NAME = "decomposition_run_result.json"
 RUN_RESULT_SCHEMA_VERSION = "1.0"
 RUN_STATUSES = frozenset({"review_ready", "rejected", "needs_human", "agent_failed"})
@@ -169,18 +173,54 @@ def expected_invocation_id(task_id: str, run_id: str, round_number: int, role: s
     return f"{task_id.lower()}-d1b2-r{round_number:02d}{marker}-{role.replace('_', '-')}-{suffix}"
 
 
-def _rounds_problem(rounds: list[dict[str, Any]], calls: int) -> str | None:
+def _v2_continuation(result: Mapping[str, Any]) -> bool:
+    record = result.get("designer_bookkeeper")
+    return (result.get("mode") == _CONTINUATION_MODE and isinstance(record, Mapping)
+            and record.get("schema_version") == "2.0")
+
+
+def _continuation_structure_problem(result: Mapping[str, Any]) -> str | None:
+    """Check inherited identities; full compilation replay belongs to review_chain."""
+
+    continued = result.get("continued_from")
+    if not isinstance(continued, Mapping):
+        return "continuation has no inherited seed identity"
+    prior_id, prior_hash, number = (continued.get(key) for key in ("run_id", "run_result_sha256", "seed_round"))
+    if (not isinstance(prior_id, str) or _RUN_ID.fullmatch(prior_id) is None
+            or prior_id == result.get("run_id") or not isinstance(prior_hash, str)
+            or _SHA256.fullmatch(prior_hash) is None or not _int(number) or number < 2):
+        return "continuation has an invalid prior run or global seed round"
+    candidate, sheet = continued.get("seed_candidate"), continued.get("seed_sheet")
+    if (not isinstance(candidate, Mapping) or not isinstance(candidate.get("sha256"), str)
+            or _SHA256.fullmatch(candidate["sha256"]) is None
+            or not _int(candidate.get("version")) or candidate["version"] < 2
+            or candidate.get("author_provider") not in ("claude", "codex")
+            or not isinstance(sheet, Mapping)):
+        return "continuation has an invalid candidate or ownership sheet seed"
+    if sheet != {"run_id": prior_id, "round_number": number,
+                 "sheet_path": f"rounds/{number:02d}/ownership_sheet.json",
+                 "sheet_sha256": sheet.get("sheet_sha256"), "candidate_sha256": candidate["sha256"]}:
+        return "continuation seed sheet does not identify its accepted seed candidate"
+    if not isinstance(sheet.get("sheet_sha256"), str) or _SHA256.fullmatch(sheet["sheet_sha256"]) is None:
+        return "continuation seed sheet has no valid hash"
+    return None
+
+
+def _rounds_problem(rounds: list[dict[str, Any]], calls: int, *, seed_round: int = 0) -> str | None:
     """The engine's round sequence: author, optional correction of round 1, reviewers."""
 
     ordinary = [r for r in rounds if r.get("correction_of_round") is None]
-    if [r.get("round_number") for r in ordinary] != list(range(1, calls + 1)):
-        return "rounds are not numbered consecutively from 1"
+    if [r.get("round_number") for r in ordinary] != list(range(seed_round + 1, seed_round + calls + 1)):
+        return ("continuation rounds do not follow the global seed round" if seed_round
+                else "rounds are not numbered consecutively from 1")
     for entry in ordinary:
         wanted = _AUTHOR_ROLE if entry["round_number"] == 1 else _REVIEWER_ROLE
         if entry.get("role") != wanted:
             return f"round {entry['round_number']} has role {entry.get('role')!r}, expected {wanted!r}"
     corrections = [index for index, r in enumerate(rounds) if r.get("correction_of_round") is not None]
     if corrections:
+        if seed_round:
+            return "a continuation cannot contain an author correction"
         index = corrections[0]
         entry = rounds[index]
         if (index != 1 or entry.get("correction_of_round") != 1 or entry.get("round_number") != 1
@@ -194,8 +234,13 @@ def _structure_problem(result: Mapping[str, Any]) -> str | None:
 
     if result.get("schema_version") != RUN_RESULT_SCHEMA_VERSION:
         return f"unsupported run result schema {result.get('schema_version')!r}"
-    if result.get("mode") != "round_robin_d1b2":
+    continuation = _v2_continuation(result)
+    if result.get("mode") != "round_robin_d1b2" and not continuation:
         return f"unsupported mode {result.get('mode')!r}"
+    if continuation:
+        problem = _continuation_structure_problem(result)
+        if problem is not None:
+            return problem
     if not isinstance(result.get("run_status"), str) or result["run_status"] not in RUN_STATUSES:
         return f"unknown run status {result.get('run_status')!r}"
     for key in ("task_id", "run_id"):
@@ -226,7 +271,11 @@ def _structure_problem(result: Mapping[str, Any]) -> str | None:
             return "a round lacks an integer round_number or a rejection_reasons list"
         if not all(isinstance(text, str) for text in entry["rejection_reasons"]):
             return "a round's rejection_reasons contains a non-string"
-    problem = _rounds_problem(rounds, calls)
+    seed_round = result["continued_from"]["seed_round"] if continuation else 0
+    problem = _rounds_problem(rounds, calls, seed_round=seed_round)
+    if continuation and (limit > 4 or corrections or rounds[0].get("candidate_before")
+                         != result["continued_from"]["seed_candidate"]):
+        return "continuation budget, correction count or first candidate differs from its seed"
     if problem is not None:
         return problem
     bookkeeping = result.get("designer_bookkeeper")
@@ -240,7 +289,8 @@ def _bookkeeping_structure_problem(result: Mapping[str, Any], record: Mapping[st
     if not isinstance(compilations, list) or not all(isinstance(c, Mapping) for c in compilations):
         return "bookkeeping compilations is not a list of objects"
     numbers = [entry.get("round_number") for entry in compilations]
-    if (not all(_int(number) and 1 <= number <= result["calls_used"] for number in numbers)
+    seed_round = result["continued_from"]["seed_round"] if _v2_continuation(result) else 0
+    if (not all(_int(number) and seed_round < number <= seed_round + result["calls_used"] for number in numbers)
             or numbers != sorted(set(numbers))):
         return "bookkeeping compilations are not consecutive candidate-producing rounds"
     calls = 0
@@ -293,6 +343,10 @@ def _bookkeeping_structure_problem(result: Mapping[str, Any], record: Mapping[st
         }
         if latest != expected or last.get("accepted_candidate") != result.get("latest_candidate"):
             return "latest accepted sheet and candidate disagree with the compilations"
+    elif _v2_continuation(result):
+        continued = result["continued_from"]
+        if latest != continued["seed_sheet"] or result.get("latest_candidate") != continued["seed_candidate"]:
+            return "continuation without an accepted compilation changed its inherited candidate or sheet"
     elif latest is not None:
         return "bookkeeping records a latest sheet without an accepted compilation"
     failed = [entry for entry in compilations if entry.get("status") == "compilation_failed"]
@@ -302,6 +356,32 @@ def _bookkeeping_structure_problem(result: Mapping[str, Any], record: Mapping[st
                    or failed[0]["round_number"] != result["rounds"][-1]["round_number"]):
         return "failed bookkeeping is not the last recorded stage"
     return None
+
+
+def _continuation_request_binding(snapshot: RunSnapshot) -> None:
+    """Bind diagnosis to retained settings without claiming prior-chain approval."""
+
+    result = snapshot.result
+    if not _v2_continuation(result):
+        return
+    request = snapshot.read_json("decomposition_request.json", "continuation request")
+    record = result["designer_bookkeeper"]
+    order = result.get("provider_order")
+    pins = {"mode": _CONTINUATION_MODE, "run_id": result["run_id"],
+            "selected_task_id": result["task_id"], "provider_order": order,
+            "max_calls": result["max_calls"], "continued_from": result["continued_from"],
+            "designer_bookkeeper_version": "2.0", "ownership_sheet_review_version": "1.1",
+            "bookkeeper_provider": record.get("bookkeeper_provider"), "bookkeeper_model": record.get("bookkeeper_model")}
+    if (not isinstance(order, list) or len(order) != 2 or not all(isinstance(value, str) for value in order)
+            or set(order) != {"claude", "codex"}
+            or record.get("bookkeeper_provider") != order[0]
+            or not isinstance(record.get("bookkeeper_model"), str) or not record["bookkeeper_model"]
+            or any(request.get(key) != value for key, value in pins.items())):
+        raise DiagnosisEvidenceError("continuation request disagrees with its inherited settings or seed")
+    for key in ("author_timeout_seconds", "reviewer_timeout_seconds"):
+        value = request.get(key)
+        if not isinstance(value, (int, float)) or isinstance(value, bool) or not 0 < value < float("inf"):
+            raise DiagnosisEvidenceError(f"continuation request has no valid pinned {key}")
 
 
 def _terminal_bookkeeping(snapshot: RunSnapshot, last: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -446,7 +526,7 @@ def classify_run_snapshot(
             })
         return {
             "schema_version": DIAGNOSIS_SCHEMA_VERSION,
-            "classifier_version": CLASSIFIER_VERSION,
+            "classifier_version": CLASSIFIER_VERSION if _v2_continuation(result) else _LEGACY_CLASSIFIER_VERSION,
             "task_id": result.get("task_id"),
             "run_id": result.get("run_id"),
             "engine_run_status": status,
@@ -476,6 +556,7 @@ def classify_run_snapshot(
         return diagnosis("STOP", "malformed_evidence", [_evidence("run result", problem)])
 
     try:
+        _continuation_request_binding(snapshot)
         last = _terminal_bookkeeping(snapshot, rounds[-1])
     except DiagnosisEvidenceError as exc:
         return diagnosis("STOP", "malformed_evidence", [_evidence("terminal bookkeeping", str(exc))])
