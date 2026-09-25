@@ -710,6 +710,19 @@ context hash, recorded in the Assistant record and the run request/result,
 and a review whose run used a different checklist (or none) is refused.
 Omitting the flag leaves the command, context and prompts unchanged.
 
+### Decomposition readiness worksheet
+
+`decomposition-readiness TASK [--markdown]` lays out, from the committed
+contracts and without any model call, what a split of TASK must get right:
+every parent requirement, the resources split into production files, test
+files each child could claim, scene/prefab locks and unpaired `.meta` files,
+declared and transitive dependencies, the components the requirements name
+with their owning tasks and whether each owner is reachable, repository
+components no task claims, and clauses that restrict edits or reserve a
+human decision. The component and clause sections are text matches for a
+person to read, not decisions. Use it before a paid run; send only the gaps
+it shows to GER.
+
 ### Diagnosing a stopped decomposition
 
 `diagnose-decomposition TASK --run-id RUN` reads that run's retained
