@@ -718,6 +718,19 @@ class ThreeCallBudgetTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "proof bytes changed"):
             inspect(manager, "NSC-010")
 
+    def test_a_missing_recorded_proof_is_refused_by_inspect_and_apply(self):
+        from Pipeline.AssistantControl.decomposition import inspect
+        manager, record, _ = self.produce(revise=True)
+        write_record(manager.records / "NSC-010.decomposition.json", record)
+        with self.assertRaisesRegex(ValueError, "carries no recorded proof"):
+            inspect(manager, "NSC-010")
+        with patch.dict(os.environ, {
+            "NSC_AGENT_GIT_NAME": "No Safe Circle TaskReviewAgent",
+            "NSC_AGENT_GIT_EMAIL": "task-review-agent@nosafecircle.invalid",
+        }), self.assertRaisesRegex(ValueError, "carries no recorded proof"):
+            apply(manager, "NSC-010", run_id=record["run_id"],
+                  expected_source_commit=record["source_commit"], target_branch=record["source_branch"])
+
     def test_proof_bytes_changed_after_review_are_refused_at_apply(self):
         manager, record, run_dir = self.produce(revise=True)
         record["review"] = _verify_review(manager, record)

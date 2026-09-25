@@ -39,6 +39,7 @@ from pathlib import Path
 from typing import Any, Callable, Mapping
 
 from Pipeline.AgentRuntime.contracts import AGENT_INVOCATION_REQUEST_SCHEMA_VERSION
+from TaskDecomposition.review_contracts import DecompositionReviewResult
 from TaskDecomposition.review_policy import validate_decomposition_review
 from TaskDecomposition.run_diagnosis import (
     DiagnosisEvidenceError,
@@ -52,8 +53,10 @@ AUTHOR_ROLE = "task_decomposer"
 REVIEWER_ROLE = "decomposition_reviewer"
 RUNTIME_RESULT_SCHEMA_VERSION = "1.0"
 
-# (raw candidate) -> (candidate sha256, graph delta plan id), or raises.
-CandidateDigest = Callable[[Mapping[str, Any]], tuple[str, str]]
+# (raw candidate) -> (candidate sha256, graph delta plan id or None when the
+# candidate is not a decomposition), or raises. It must normalise and validate
+# exactly as the producer does, so a candidate is compared by what it means.
+CandidateDigest = Callable[[Mapping[str, Any]], tuple[str, "str | None"]]
 
 
 class ReviewChainError(ValueError):
@@ -151,24 +154,47 @@ def _published_candidate(evidence: _Evidence, directory: str, summary: Mapping[s
 
     raw = evidence.json(f"rounds/{directory}/candidate.json", "D3_CANDIDATE")
     identity = evidence.json(f"rounds/{directory}/candidate_identity.json", "D3_CANDIDATE")
-    graph = evidence.json(f"rounds/{directory}/candidate_graph_delta.json", "D3_CANDIDATE")
     _require(dict(identity) == dict(summary), "D3_CANDIDATE",
              f"{label} identity file {identity!r} differs from the summary {summary!r}")
-    try:
-        sha, plan_id = digest(raw)
-    except Exception as exc:  # the validator's own refusal, whatever its type
-        raise ReviewChainError("D3_CANDIDATE", f"{label} does not validate: {exc}") from exc
-    _require(sha == summary.get("sha256") and plan_id == summary.get("graph_delta_plan_id")
-             and graph.get("plan_id") == plan_id, "D3_CANDIDATE",
+    sha, plan_id = _digest(digest, raw, "D3_CANDIDATE", label)
+    _require(sha == summary.get("sha256") and plan_id == summary.get("graph_delta_plan_id"),
+             "D3_CANDIDATE",
              f"{label} bytes validate to {sha}/{plan_id}, not the summary's "
              f"{summary.get('sha256')}/{summary.get('graph_delta_plan_id')}")
+    graph_relative = f"rounds/{directory}/candidate_graph_delta.json"
+    if plan_id is None:
+        # A proposal that is not a decomposition publishes no graph plan.
+        _require(not confined(evidence.run_dir, graph_relative).exists(), "D3_CANDIDATE",
+                 f"{label} is not a decomposition but carries {graph_relative}")
+    else:
+        graph = evidence.json(graph_relative, "D3_CANDIDATE")
+        _require(graph.get("plan_id") == plan_id, "D3_CANDIDATE",
+                 f"{graph_relative} plan {graph.get('plan_id')!r} is not {plan_id!r}")
     return raw
 
 
+def _digest(digest: CandidateDigest, raw: Any, code: str, label: str) -> tuple[str, str | None]:
+    try:
+        return digest(raw)
+    except Exception as exc:  # the validator's own refusal, whatever its type
+        raise ReviewChainError(code, f"{label} does not validate: {exc}") from exc
+
+
+def _parsed_review(value: Any, label: str) -> dict[str, Any]:
+    """A review in the form the schema parser gives it (e.g. trimmed text)."""
+
+    try:
+        return DecompositionReviewResult.from_dict(value).to_dict()
+    except Exception as exc:  # the contract's own refusal, whatever its type
+        raise ReviewChainError("D3_PROVIDER_IDENTITY", f"{label} is not a valid review: {exc}") from exc
+
+
 def _candidate_summary(value: Any, *, label: str) -> Mapping[str, Any]:
+    plan_id = value.get("graph_delta_plan_id") if isinstance(value, Mapping) else None
     _require(isinstance(value, Mapping) and isinstance(value.get("sha256"), str)
              and _exact_int(value.get("version")) and isinstance(value.get("author_provider"), str)
-             and isinstance(value.get("graph_delta_plan_id"), str),
+             and isinstance(value.get("decision"), str)
+             and (isinstance(plan_id, str) if value.get("decision") == "decomposed" else plan_id is None),
              "D3_CANDIDATE_LINK", f"{label} is not a published candidate summary")
     return value
 
@@ -219,9 +245,10 @@ def verify_three_call_chain(
     latest = _candidate_summary(author.get("candidate_after"), label="round 1 candidate")
     _require(latest.get("author_provider") == first and latest.get("version") == 1, "D3_REVISION",
              f"round 1 candidate names author {latest.get('author_provider')!r} version {latest.get('version')!r}")
-    author_raw = _published_candidate(
+    _published_candidate(
         evidence, "01-correction" if corrections else "01", latest, candidate_digest, label="round 1 candidate")
-    _require(author_output == author_raw, "D3_PROVIDER_IDENTITY",
+    _require(_digest(candidate_digest, author_output, "D3_PROVIDER_IDENTITY", "round 1 runtime output")
+             == (latest["sha256"], latest["graph_delta_plan_id"]), "D3_PROVIDER_IDENTITY",
              "round 1's runtime output is not the published candidate")
 
     unresolved: dict[str, Any] = {}
@@ -256,7 +283,8 @@ def verify_three_call_chain(
         _require(entry.get("candidate_before") == latest, "D3_CANDIDATE_LINK",
                  f"round {number} reviewed {entry.get('candidate_before')!r}, not the preceding candidate")
         output = _authenticate_execution(evidence, run_result, entry, timeouts=timeouts)
-        _require(output == raw_review, "D3_PROVIDER_IDENTITY",
+        _require(_parsed_review(output, f"round {number} runtime output")
+                 == _parsed_review(raw_review, relative), "D3_PROVIDER_IDENTITY",
                  f"round {number}'s runtime output is not {relative}")
         try:
             review, unresolved = validate_decomposition_review(
@@ -295,12 +323,16 @@ def verify_three_call_chain(
                      and revised.get("version") == latest["version"] + 1
                      and revised.get("author_provider") == provider, "D3_REVISION",
                      f"round {number} revision {revised!r} does not follow {latest!r} as {provider!r}")
-            revised_raw = _published_candidate(
+            _published_candidate(
                 evidence, f"{number:02d}", revised, candidate_digest, label=f"round {number} revision")
-            _require(raw_review.get("revised_decomposition") == revised_raw, "D3_REVISION",
+            _require(_digest(candidate_digest, raw_review.get("revised_decomposition"), "D3_REVISION",
+                             f"{relative} replacement")
+                     == (revised["sha256"], revised["graph_delta_plan_id"]), "D3_REVISION",
                      f"{relative}'s replacement is not the published round {number} candidate")
             latest = revised
 
+    _require(latest.get("decision") == "decomposed", "D3_FINAL_ARTIFACTS",
+             f"the approved candidate is {latest.get('decision')!r}, not a decomposition")
     _require(run_result.get("latest_candidate") == latest, "D3_FINAL_ARTIFACTS",
              "latest_candidate is not the candidate the chain approved")
     _require(run_result.get("independent_approver_provider") == approver, "D3_FINAL_ARTIFACTS",

@@ -60,6 +60,7 @@ from TaskDecomposition.live_decomposition import (  # noqa: E402
     resolve_provider_model_environment,
 )
 from TaskDecomposition.round_robin_decomposition import (  # noqa: E402
+    _normalize_empty_artifact_placeholder,
     candidate_sha256,
     same_provider_role_pair,
 )
@@ -788,9 +789,11 @@ def _verify_three_call_run_binding(record: dict[str, Any], run_result: dict[str,
 def _require_pinned_proof(record: dict[str, Any], review: dict[str, Any]) -> None:
     """A budget-3 review's proof bytes must still be the ones recorded."""
 
-    if record.get("max_calls") != 3 or "review" not in record:
+    if record.get("max_calls") != 3:
         return
     recorded = (record.get("review") or {}).get("artifact_sha256")
+    if not isinstance(recorded, Mapping) or not recorded:
+        raise ValueError("Three-call decomposition record carries no recorded proof to check against")
     if recorded != review.get("artifact_sha256"):
         raise ValueError("Three-call decomposition proof bytes changed since the review was recorded")
 
@@ -834,10 +837,15 @@ def _verify_three_call_review(
     if parent_task is None:
         raise ValueError("Three-call decomposition parent is absent from the current graph")
 
-    def candidate_digest(raw: Mapping[str, Any]) -> tuple[str, str]:
+    def candidate_digest(raw: Mapping[str, Any]) -> tuple[str, str | None]:
+        # Exactly the producer's normalisation and validation
+        # (round_robin_decomposition._validate_candidate).
         result = validate_decomposition_result(
-            dict(raw), parent_task=parent_task, existing_reconciliation_keys=graph.plan.id_map)
-        return candidate_sha256(result), plan_graph_delta(graph, result.parent_task, result).plan_id
+            _normalize_empty_artifact_placeholder(dict(raw)), parent_task=parent_task,
+            existing_reconciliation_keys=graph.plan.id_map.keys())
+        plan_id = (plan_graph_delta(graph, result.parent_task, result).plan_id
+                   if result.decision == "decomposed" else None)
+        return candidate_sha256(result), plan_id
 
     try:
         chain = verify_three_call_chain(
