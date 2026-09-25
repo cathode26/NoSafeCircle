@@ -50,7 +50,9 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             Transform anchors = CreateCategory(root.transform, "DoorAnchors", RoomContentCategory.DoorAnchors);
             CreateCategory(root.transform, "Authoring", RoomContentCategory.Authoring);
 
-            CreateVisualAndCollision("Floor", visuals, geometry, new Vector3(0f, -0.25f, 10f), new Vector3(20f, 0.5f, 20f), Color.gray);
+            CreateVisualAndCollision("Floor", visuals, geometry,
+                new Vector3(BoneArchiveLayout.RoomBounds.center.x, -0.25f, BoneArchiveLayout.RoomBounds.center.z),
+                new Vector3(BoneArchiveLayout.RoomBounds.size.x, 0.5f, BoneArchiveLayout.RoomBounds.size.z), Color.gray);
             CreatePerimeter(visuals, geometry);
 
             // The blockout primitives above stay exactly where they are: BoneArchiveSceneTests
@@ -63,10 +65,18 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             {
                 HideBlockoutRenderers(visuals);
             }
-            CreateVisualAndCollision("Shelf A", visuals, geometry, BoneArchiveLayout.ShelfA.center, BoneArchiveLayout.ShelfA.size, new Color(0.22f, 0.12f, 0.08f));
-            CreateVisualAndCollision("Shelf B", visuals, geometry, BoneArchiveLayout.ShelfB.center, BoneArchiveLayout.ShelfB.size, new Color(0.22f, 0.12f, 0.08f));
-            CreateVisualAndCollision("Shelf C", visuals, geometry, BoneArchiveLayout.ShelfC.center, BoneArchiveLayout.ShelfC.size, new Color(0.22f, 0.12f, 0.08f));
-            CreateVisualAndCollision("Collapsed Furniture BA-1", visuals, geometry, BoneArchiveLayout.CollapsedFurnitureBA1.center, BoneArchiveLayout.CollapsedFurnitureBA1.size, new Color(0.28f, 0.18f, 0.12f));
+            Color shelfColor = new Color(0.22f, 0.12f, 0.08f);
+            CreateBlockout("Shelf A", visuals, geometry, BoneArchiveLayout.ShelfA, BoneArchiveLayout.ShelfVisualHeight, shelfColor);
+            CreateBlockout("Shelf B", visuals, geometry, BoneArchiveLayout.ShelfB, BoneArchiveLayout.ShelfVisualHeight, shelfColor);
+            CreateBlockout("Shelf C", visuals, geometry, BoneArchiveLayout.ShelfC, BoneArchiveLayout.ShelfVisualHeight, shelfColor);
+            CreateBlockout("Collapsed Furniture BA-1", visuals, geometry, BoneArchiveLayout.CollapsedFurnitureBA1, BoneArchiveLayout.CollapsedFurnitureHeight, new Color(0.28f, 0.18f, 0.12f));
+            CreateBlockout("West Archive Bay W-1", visuals, geometry, BoneArchiveLayout.WestArchiveBayW1, BoneArchiveLayout.ShelfVisualHeight, shelfColor);
+            CreateBlockout("East Archive Bay E-1", visuals, geometry, BoneArchiveLayout.EastArchiveBayE1, BoneArchiveLayout.ShelfVisualHeight, shelfColor);
+
+            // AC-003: a NON-COLLIDING landmark against the north wall. It carries no gameplay
+            // BoxCollider by design, so it reads from the entry and central lanes without
+            // narrowing them or intruding on the D2 staging rectangle.
+            CreateNonCollidingBlockout("Archive Reliquary", visuals, BoneArchiveLayout.ArchiveReliquary, new Color(0.34f, 0.30f, 0.22f));
             CreateAnchor("D1Anchor", anchors, BoneArchiveLayout.D1, Vector3.back, DoorId.D1, DoorAnchorRole.Entry);
             CreateAnchor("D2Anchor", anchors, BoneArchiveLayout.D2, Vector3.forward, DoorId.D2, DoorAnchorRole.Exit);
             SceneManager.SetActiveScene(scene);
@@ -250,8 +260,18 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
         {
             CreateOpeningWall("SouthWall", visuals, geometry, 0f, 0f);
             CreateOpeningWall("NorthWall", visuals, geometry, 6f, 20f);
-            CreateVisualAndCollision("WestWall", visuals, geometry, new Vector3(-10.25f, 1.25f, 10f), new Vector3(0.5f, 2.5f, 20f), Color.black);
-            CreateVisualAndCollision("EastWall", visuals, geometry, new Vector3(10.25f, 1.25f, 10f), new Vector3(0.5f, 2.5f, 20f), Color.black);
+            // Derived from RoomBounds rather than written as literals, so widening the room
+            // moves its own walls. These were +-10.25 while RoomBounds said +-12.
+            float wallCentreOffset = BoneArchiveLayout.WallThickness * 0.5f;
+            float wallY = BoneArchiveLayout.WallHeight * 0.5f;
+            Vector3 sideWallSize = new Vector3(
+                BoneArchiveLayout.WallThickness, BoneArchiveLayout.WallHeight, BoneArchiveLayout.RoomBounds.size.z);
+            CreateVisualAndCollision("WestWall", visuals, geometry,
+                new Vector3(BoneArchiveLayout.RoomBounds.min.x - wallCentreOffset, wallY, BoneArchiveLayout.RoomBounds.center.z),
+                sideWallSize, Color.black);
+            CreateVisualAndCollision("EastWall", visuals, geometry,
+                new Vector3(BoneArchiveLayout.RoomBounds.max.x + wallCentreOffset, wallY, BoneArchiveLayout.RoomBounds.center.z),
+                sideWallSize, Color.black);
         }
 
         private static void CreateOpeningWall(string name, Transform visuals, Transform geometry, float openingCenter, float z)
@@ -280,6 +300,41 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             collision.transform.SetParent(geometry, false);
             collision.transform.position = position;
             collision.AddComponent<BoxCollider>().size = size;
+        }
+
+        // AC-001/AC-003: an obstacle whose VISUAL shares the collider's X/Z footprint but has its
+        // own height - 1.0 for the shelves and bays, 1.25 for BA-1 - while the gameplay BoxCollider
+        // stays 2.5 units high. CreateVisualAndCollision cannot express that: it sizes both from
+        // one vector, which is why every blockout visual used to be collider-height.
+        private static void CreateBlockout(
+            string name, Transform visuals, Transform geometry, Bounds footprint, float visualHeight, Color color)
+        {
+            GameObject visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            visual.name = name + "Visual";
+            visual.transform.SetParent(visuals, false);
+            visual.transform.position = new Vector3(footprint.center.x, visualHeight * 0.5f, footprint.center.z);
+            visual.transform.localScale = new Vector3(footprint.size.x, visualHeight, footprint.size.z);
+            visual.GetComponent<Renderer>().sharedMaterial = CreateMaterial(color);
+            Object.DestroyImmediate(visual.GetComponent<Collider>());
+
+            GameObject collision = new GameObject(name + "Collision");
+            collision.transform.SetParent(geometry, false);
+            collision.transform.position = footprint.center;
+            collision.AddComponent<BoxCollider>().size = footprint.size;
+        }
+
+        // A blockout with NO gameplay collider at all. The reliquary is a visual landmark and
+        // must not narrow any lane, so it deliberately produces no Collision child.
+        private static void CreateNonCollidingBlockout(
+            string name, Transform visuals, Bounds footprint, Color color)
+        {
+            GameObject visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            visual.name = name + "Visual";
+            visual.transform.SetParent(visuals, false);
+            visual.transform.position = footprint.center;
+            visual.transform.localScale = footprint.size;
+            visual.GetComponent<Renderer>().sharedMaterial = CreateMaterial(color);
+            Object.DestroyImmediate(visual.GetComponent<Collider>());
         }
 
         private static Transform CreateCategory(Transform parent, string name, RoomContentCategory category)
