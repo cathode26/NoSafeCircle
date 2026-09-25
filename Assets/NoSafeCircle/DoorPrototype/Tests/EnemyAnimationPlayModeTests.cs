@@ -381,14 +381,26 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
             GameObject player = FindRoot(scene, "Player");
             GameObject enemiesRoot = FindRoot(scene, "Enemies");
+            // These two positions used to be the literals (7,0,31) and (7,0,13). They are now READ
+            // FROM THE BUILDER, because the literals were the pre-AC-005 spawn layout and NSC-049
+            // AC-005 repositions every fixed spawn into its intended room under the 2026-09-15
+            // approved bounds. A hardcoded coordinate here does not test anything the builder
+            // guarantees - it silently freezes one revision of it, and then fails the next time
+            // the contract moves a spawn, which is exactly what happened.
+            //
+            // Selecting by ROOM rather than by array index so a reordering of the arrays cannot
+            // quietly repoint this test at a different room's enemy.
+            Vector3 chapelMeleeSpawn = BuilderSpawnInRoom("EnemySpawnPositions", 20f, 54f);
+            Vector3 boneArchiveWraithSpawn = BuilderSpawnInRoom("LanternWraithSpawnPositions", 0f, 20f);
+
             GameObject melee = FindEnemyAtSpawn(
                 enemiesRoot,
                 "MeleeEnemy",
-                new Vector3(7f, 0f, 31f));
+                chapelMeleeSpawn);
             GameObject wraith = FindEnemyAtSpawn(
                 enemiesRoot,
                 "LanternWraith",
-                new Vector3(7f, 0f, 13f));
+                boneArchiveWraithSpawn);
 
             CharacterController playerController = player.GetComponent<CharacterController>();
             EnemyAnimationController meleeAnimation = melee.GetComponent<EnemyAnimationController>();
@@ -570,6 +582,31 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 enemy,
                 "Expected " + enemyName + " at builder spawn " + spawnPosition + ".");
             return enemy;
+        }
+
+        // Reads one of DoorPrototypeGlobalSceneBuilder's private static spawn arrays and returns
+        // the single entry whose Z falls in the given room band, so this fixture follows AC-005
+        // wherever it puts a spawn instead of pinning one revision's coordinates. Asserts there is
+        // exactly one: if a future contract puts two melee enemies in the same room, this fails
+        // loudly rather than silently picking whichever came first.
+        private static Vector3 BuilderSpawnInRoom(string fieldName, float minZ, float maxZ)
+        {
+            Type builderType = Type.GetType(
+                "NoSafeCircle.DoorPrototype.Editor.World.DoorPrototypeGlobalSceneBuilder, " +
+                "NoSafeCircle.DoorPrototype.Editor");
+            Assert.IsNotNull(builderType,
+                "Expected to reflect DoorPrototypeGlobalSceneBuilder from the Editor assembly.");
+
+            FieldInfo field = builderType.GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.IsNotNull(field, "Expected a private static Vector3[] named '" + fieldName + "'.");
+
+            Vector3[] spawns = (Vector3[])field.GetValue(null);
+            Vector3[] inRoom = spawns.Where(spawn => spawn.z >= minZ && spawn.z <= maxZ).ToArray();
+            Assert.AreEqual(1, inRoom.Length,
+                "Expected exactly one " + fieldName + " entry with Z in [" + minZ + "," + maxZ + "], found " +
+                inRoom.Length + ".");
+
+            return inRoom[0];
         }
 
         private static GameObject CreateAnimationEnemy(
