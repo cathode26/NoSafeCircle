@@ -1092,8 +1092,21 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
             movement.enabled = false;
 
+            // The wizard's door-local Z is captured AT THE INSTANT THE CROSSING FIRES, because
+            // "forward movement remains possible after D1 locks behind the wizard" is a claim
+            // about what happens after that exact moment, and the only way to measure it is to
+            // know where the wizard was when it happened. CloseAndLock runs off this same event.
             int crossings = 0;
-            System.Action countCrossing = () => crossings++;
+            float lockLocalZ = float.NaN;
+            System.Action countCrossing = () =>
+            {
+                crossings++;
+                if (float.IsNaN(lockLocalZ))
+                {
+                    lockLocalZ = doorTransform.InverseTransformPoint(
+                        capsule.transform.position).z;
+                }
+            };
             d1.CrossedForward += countCrossing;
 
             try
@@ -1139,14 +1152,27 @@ namespace NoSafeCircle.DoorPrototype.Tests
                     "The wizard must actually have advanced in door-local Z while crossing D1; "
                     + "an unmoved wizard would make the crossing assertions above vacuous.");
 
-                // Forward movement must remain possible after the door locks behind.
-                yield return DriveToDoorLocalZ(
-                    movement, doorTransform, throughLocalZ + (4f * radius));
-                float advancedLocalZ = doorTransform.InverseTransformPoint(
-                    capsule.transform.position).z;
-                Assert.Greater(advancedLocalZ, afterLocalZ + 0.05f,
-                    "Forward movement must remain possible after D1 locks behind the wizard. The "
-                    + "lock seals the way back, not the way on.");
+                // FORWARD MOVEMENT MUST REMAIN POSSIBLE AFTER THE LOCK, measured from where the
+                // wizard was when the lock fired to where it ended up. CloseAndLock re-enables the
+                // doorway blocker behind the wizard, and the failure this guards against is that
+                // blocker coming back inside or in front of the capsule and pinning it.
+                //
+                // AN EARLIER VERSION DROVE FURTHER FORWARD AND ASSERTED A FIXED ADVANCE. It failed,
+                // and the reason is worth keeping: the wizard stops at door-local Z 2.42 against
+                // room geometry beyond D1. That is not arrival - ArrivalThreshold is 0.05 - it is
+                // TickDestinationMovement's blocked-destination detection clearing a destination it
+                // cannot reach. Asserting a further advance would have encoded the depth of the
+                // room past D1, which NSC-020 does not own and which any layout change would break.
+                Assert.IsFalse(float.IsNaN(lockLocalZ),
+                    "The crossing event must have fired, so the wizard position at the lock is "
+                    + "known; without it the forward-movement claim below cannot be measured.");
+                Assert.Greater(afterLocalZ, lockLocalZ + 0.05f,
+                    "Forward movement must remain possible after D1 locks behind the wizard: the "
+                    + "lock seals the way back, not the way on. The wizard was at door-local Z "
+                    + lockLocalZ.ToString("F3") + " when the crossing fired and CloseAndLock "
+                    + "re-enabled the blocker, and ended at " + afterLocalZ.ToString("F3")
+                    + ". No forward travel after that instant means the returning blocker pinned "
+                    + "the wizard instead of sealing behind it.");
 
                 // Drive Player Health to zero. PlayerHealth raises Died synchronously, so
                 // FloorRunRestartController has already performed the whole restart by the time
