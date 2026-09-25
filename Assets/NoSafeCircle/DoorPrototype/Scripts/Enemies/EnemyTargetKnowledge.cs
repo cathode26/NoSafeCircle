@@ -1,4 +1,5 @@
 using System;
+using NoSafeCircle.DoorPrototype;
 using UnityEngine;
 
 namespace NoSafeCircle.DoorPrototype.Enemies
@@ -110,13 +111,21 @@ namespace NoSafeCircle.DoorPrototype.Enemies
                 // the wizard onto a doorway.
                 if (State == EnemyTargetKnowledgeState.Pursuing && IsBeyondPursuitLeash())
                 {
+                    if (isRedirectedToSpectralDecoy)
+                    {
+                        ClearSpectralDecoyRedirectState();
+                        CurrentTarget = wizardTransform;
+                    }
+
                     LastKnownPosition = startPosition;
                     State = EnemyTargetKnowledgeState.SearchingLastKnownPosition;
                     searchTimeRemaining = 0f;
                     return;
                 }
 
-                if (State == EnemyTargetKnowledgeState.Pursuing && distanceToWizard > loseTargetDistance)
+                if (State == EnemyTargetKnowledgeState.Pursuing
+                    && !isRedirectedToSpectralDecoy
+                    && distanceToWizard > loseTargetDistance)
                 {
                     LastKnownPosition = wizardTransform.position;
                     State = EnemyTargetKnowledgeState.SearchingLastKnownPosition;
@@ -162,6 +171,78 @@ namespace NoSafeCircle.DoorPrototype.Enemies
             maximumPursuitDistanceFromStart = Mathf.Max(0f, distance);
             startPosition = transform.position;
             hasStartPosition = true;
+        }
+
+        private bool isRedirectedToSpectralDecoy;
+        private Transform spectralDecoyTarget;
+        private Vector3 wizardPositionAtSpectralDecoyRedirect;
+
+        public bool IsRedirectedToSpectralDecoy => isRedirectedToSpectralDecoy;
+
+        /// Spectral Decoy-facing switch: redirects this enemy from the wizard to the given
+        /// decoy Transform per the GDD's Spectral Decoy exception. Only Wizard Combat's
+        /// Spectral Decoy behavior calls this; it never writes CurrentTarget or State itself.
+        public bool TryRedirectToSpectralDecoy(Transform decoy)
+        {
+            if (decoy == null
+                || !isActiveAndEnabled
+                || isRedirectedToSpectralDecoy
+                || State != EnemyTargetKnowledgeState.Pursuing
+                || wizardTransform == null
+                || CurrentTarget != wizardTransform)
+            {
+                return false;
+            }
+
+            var enemyHealth = GetComponent<EnemyHealth>();
+            if (enemyHealth != null && enemyHealth.IsDefeated)
+            {
+                return false;
+            }
+
+            wizardPositionAtSpectralDecoyRedirect = wizardTransform.position;
+            isRedirectedToSpectralDecoy = true;
+            spectralDecoyTarget = decoy;
+            CurrentTarget = decoy;
+            return true;
+        }
+
+        /// Spectral Decoy-facing end entry point: only acts when the given Transform is
+        /// this enemy's exact current decoy target, then returns the enemy to the wizard or
+        /// a last-known-position search exactly as normal target loss would.
+        public void EndSpectralDecoyRedirect(Transform decoy)
+        {
+            if (!isRedirectedToSpectralDecoy || decoy == null || decoy != spectralDecoyTarget)
+            {
+                return;
+            }
+
+            var savedWizardPosition = wizardPositionAtSpectralDecoyRedirect;
+            ClearSpectralDecoyRedirectState();
+
+            if (wizardTransform != null
+                && Vector3.Distance(transform.position, wizardTransform.position) <= loseTargetDistance)
+            {
+                CurrentTarget = wizardTransform;
+                State = EnemyTargetKnowledgeState.Pursuing;
+                return;
+            }
+
+            if (wizardTransform != null)
+            {
+                CurrentTarget = wizardTransform;
+            }
+
+            LastKnownPosition = savedWizardPosition;
+            State = EnemyTargetKnowledgeState.SearchingLastKnownPosition;
+            searchTimeRemaining = 0f;
+        }
+
+        private void ClearSpectralDecoyRedirectState()
+        {
+            isRedirectedToSpectralDecoy = false;
+            spectralDecoyTarget = null;
+            wizardPositionAtSpectralDecoyRedirect = Vector3.zero;
         }
 
         private bool IsBeyondPursuitLeash()
@@ -233,6 +314,7 @@ namespace NoSafeCircle.DoorPrototype.Enemies
         public void ResetTargetKnowledge()
         {
             ClearTarget();
+            ClearSpectralDecoyRedirectState();
         }
     }
 }
