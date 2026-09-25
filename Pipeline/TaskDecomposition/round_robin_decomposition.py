@@ -63,6 +63,8 @@ from TaskDecomposition.contracts import (
 from TaskDecomposition.bookkeeper_prompts import (
     build_bookkeeper_prompt,
     build_bookkeeper_retry_prompt,
+    build_bookkeeper_revision_prompt,
+    build_bookkeeper_revision_retry_prompt,
     build_designer_correction_prompt,
     build_designer_prompt,
 )
@@ -105,9 +107,16 @@ from TaskDecomposition.review_contracts import (
 from TaskDecomposition.review_policy import (
     DecompositionReviewPolicyError,
     validate_decomposition_review,
+    validate_ownership_sheet_review,
 )
-from TaskDecomposition.review_prompts import build_decomposition_reviewer_prompt
-from TaskDecomposition.review_schemas import DECOMPOSITION_REVIEW_SCHEMA
+from TaskDecomposition.review_prompts import (
+    build_decomposition_reviewer_prompt,
+    build_ownership_sheet_reviewer_prompt,
+)
+from TaskDecomposition.review_schemas import (
+    DECOMPOSITION_REVIEW_SCHEMA,
+    OWNERSHIP_SHEET_REVIEW_SCHEMA,
+)
 from TaskDecomposition.schemas import DECOMPOSITION_RESULT_SCHEMA
 from TaskDecomposition.session_pool_support import (
     DecompositionLeaseBundle,
@@ -323,7 +332,7 @@ def _round_invocation_id(
     # A bounded author correction is a distinct invocation of the same round's
     # role and provider, so it carries a distinct deterministic identity that
     # can never collide with the round it corrects. A bookkeeping attempt is
-    # likewise its own invocation of round 1, numbered from 1.
+    # likewise its own invocation of the semantic round, numbered from 1.
     if bookkeeping_attempt is not None:
         marker = f"b{bookkeeping_attempt}"
         scope = f"{round_number}-bookkeeper-{bookkeeping_attempt}"
@@ -762,6 +771,9 @@ def _run_bookkeeping(
     task_id: str,
     run_id: str,
     provider: str,
+    round_number: int,
+    candidate_author_provider: str,
+    candidate_version: int,
     provider_bundle: ProviderBundle,
     sheet: dict[str, Any],
     context: ContextPackage,
@@ -773,6 +785,7 @@ def _run_bookkeeping(
     heartbeat_seconds: float,
     reporter: ProgressReporter,
     source_identity: SourceIdentity,
+    revision_input: Mapping[str, Any] | None = None,
 ) -> tuple[CandidateSnapshot | None, list[dict[str, Any]], list[str], bool]:
     """Write the result from the frozen sheet: one attempt, then at most one retry.
 
@@ -787,11 +800,16 @@ def _run_bookkeeping(
     problems: list[str] = []
     skeleton = result_skeleton(sheet)
     for attempt in range(1, BOOKKEEPER_MAX_ATTEMPTS + 1):
-        prompt = (build_bookkeeper_prompt(context, sheet) if attempt == 1
-                  else build_bookkeeper_retry_prompt(sheet, rejected, problems))
-        directory = _round_directory_name(1, bookkeeping_attempt=attempt)
+        if revision_input is None:
+            prompt = (build_bookkeeper_prompt(context, sheet) if attempt == 1
+                      else build_bookkeeper_retry_prompt(sheet, rejected, problems))
+        else:
+            prompt = (build_bookkeeper_revision_prompt(context, sheet, **revision_input) if attempt == 1
+                      else build_bookkeeper_revision_retry_prompt(
+                          context, sheet, rejected, problems, **revision_input))
+        directory = _round_directory_name(round_number, bookkeeping_attempt=attempt)
         result, exception, duration, invocation_id = _invoke_round(
-            run_dir=run_dir, round_number=1, task_id=task_id, run_id=run_id,
+            run_dir=run_dir, round_number=round_number, task_id=task_id, run_id=run_id,
             role=BOOKKEEPER_ROLE, provider=provider, provider_bundle=provider_bundle,
             prompt=prompt, output_schema=DECOMPOSITION_RESULT_SCHEMA, context_paths=context_paths,
             task_contract_identity=task_contract_identity, budgets=budgets,
@@ -805,6 +823,7 @@ def _run_bookkeeping(
             "actual_provider": result.provider if result is not None else None,
             "actual_model": result.model if result is not None else None,
             "agent_status": result.status if result is not None else "failed",
+            "agent_failure_classification": result.failure_classification if result is not None else None,
             "duration_seconds": duration,
             "agent_runtime_result_path": f"rounds/{directory}/agent_runtime/{invocation_id}/result.json",
             "status": "rejected",
@@ -840,7 +859,7 @@ def _run_bookkeeping(
             try:
                 candidate = _validate_candidate(
                     rejected, context_payload=context_payload, graph=graph,
-                    author_provider=provider, version=1,
+                    author_provider=candidate_author_provider, version=candidate_version,
                 )
             except (DecompositionContractError, DecompositionPolicyError, GraphDeltaPlanningError) as exc:
                 problems = [f"deterministic validation failed: {exc}"]
@@ -853,7 +872,7 @@ def _run_bookkeeping(
         reporter.emit(
             "bookkeeping_attempt_completed",
             f"D1B.2 bookkeeping attempt {attempt}: {record['status']}",
-            round_number=1, round_role=BOOKKEEPER_ROLE, round_provider=provider,
+            round_number=round_number, round_role=BOOKKEEPER_ROLE, round_provider=provider,
             status=record["status"], problem_count=len(problems),
         )
         if candidate is not None:
@@ -862,6 +881,67 @@ def _run_bookkeeping(
         f"bookkeeping did not state the sheet after {BOOKKEEPER_MAX_ATTEMPTS} attempts: {problem}"
         for problem in problems
     ], False
+
+
+def _compile_design(
+    *,
+    run_dir: Path,
+    task_id: str,
+    run_id: str,
+    round_number: int,
+    source_directory: str,
+    source_invocation_id: str,
+    sheet: dict[str, Any],
+    candidate_before: CandidateSnapshot | None,
+    candidate_author_provider: str,
+    candidate_version: int,
+    provider: str,
+    provider_bundle: ProviderBundle,
+    context: ContextPackage,
+    context_payload: dict[str, Any],
+    graph: Any,
+    context_paths: tuple[str, ...],
+    task_contract_identity: TaskContractIdentity,
+    budgets: Budgets,
+    heartbeat_seconds: float,
+    reporter: ProgressReporter,
+    source_identity: SourceIdentity,
+    revision_input: Mapping[str, Any] | None = None,
+) -> tuple[CandidateSnapshot | None, dict[str, Any], list[str], bool]:
+    """Publish one validated sheet and compile it without promoting the candidate."""
+
+    relative_dir = f"rounds/{source_directory}"
+    sheet_path = f"{relative_dir}/{OWNERSHIP_SHEET_NAME}"
+    input_path = f"{relative_dir}/bookkeeping_input.json"
+    publish_json_no_overwrite(run_dir / sheet_path, sheet)
+    publish_json_no_overwrite(run_dir / input_path, {
+        "sheet": sheet, "revision_input": revision_input,
+    })
+    compiled, attempts, failures, call_failed = _run_bookkeeping(
+        run_dir=run_dir, task_id=task_id, run_id=run_id, round_number=round_number,
+        provider=provider, provider_bundle=provider_bundle, sheet=sheet,
+        candidate_author_provider=candidate_author_provider, candidate_version=candidate_version,
+        context=context, context_payload=context_payload, graph=graph,
+        context_paths=context_paths, task_contract_identity=task_contract_identity,
+        budgets=budgets, heartbeat_seconds=heartbeat_seconds, reporter=reporter,
+        source_identity=source_identity, revision_input=revision_input,
+    )
+    record = {
+        "round_number": round_number,
+        "source_role": "task_decomposer" if revision_input is None else "decomposition_reviewer",
+        "source_directory": source_directory,
+        "source_invocation_id": source_invocation_id,
+        "source_output_field": None if revision_input is None else "revised_sheet",
+        "sheet_path": sheet_path,
+        "sheet_sha256": sheet_sha256(sheet),
+        "bookkeeping_input_path": input_path,
+        "candidate_before": None if candidate_before is None else candidate_before.summary(),
+        "compiled_candidate": None if compiled is None else compiled.summary(),
+        "accepted_candidate": None,
+        "status": "compilation_failed",
+        "attempts": attempts,
+    }
+    return compiled, record, failures, call_failed
 
 
 def run_round_robin_decomposition(
@@ -881,10 +961,9 @@ def run_round_robin_decomposition(
 ) -> dict[str, Any]:
     """Run one bounded alternating-author/reviewer decomposition circuit.
 
-    With `bookkeeper_model`, round 1 is split: the author writes only an
-    ownership sheet (the design), and a separate call on the same provider,
-    pinned to `bookkeeper_model`, writes the result schema from it. The
-    result must state the sheet exactly before it is validated and reviewed.
+    With `bookkeeper_model`, designers and revising reviewers write ownership
+    sheets. The fixed first provider compiles each sheet with the selected
+    model before the resulting candidate can be reviewed independently.
     """
 
     started = time.monotonic()
@@ -989,14 +1068,24 @@ def run_round_robin_decomposition(
     )
     publish_json_no_overwrite(
         run_dir / "decomposition_request.json",
-        _run_request(
-            run_id=selected_run_id,
-            task_id=task_id,
-            provider_order=order,
-            max_calls=call_limit,
-            source=source_identity,
-            context=context,
-        ),
+        {
+            **_run_request(
+                run_id=selected_run_id,
+                task_id=task_id,
+                provider_order=order,
+                max_calls=call_limit,
+                source=source_identity,
+                context=context,
+            ),
+            **({} if bookkeeper_model is None else {
+                "designer_bookkeeper_version": "2.0",
+                "ownership_sheet_review_version": "1.1",
+                "bookkeeper_provider": order[0],
+                "bookkeeper_model": bookkeeper_model,
+                "author_timeout_seconds": generator_budget.timeout_seconds,
+                "reviewer_timeout_seconds": reviewer_budget.timeout_seconds,
+            }),
+        },
     )
     publish_text_no_overwrite(
         run_dir / "context.json", context.canonical_json() + "\n"
@@ -1030,6 +1119,29 @@ def run_round_robin_decomposition(
     initial_validation_failure: str | None = None
     deferred_round_rejections: list[str] = []
     bookkeeping: dict[str, Any] | None = None
+    current_sheet: dict[str, Any] | None = None
+    compile_settings: dict[str, Any] = {}
+    if bookkeeper_model is not None:
+        bookkeeping = {
+            "schema_version": "2.0",
+            "bookkeeper_provider": order[0],
+            "bookkeeper_model": bookkeeper_model,
+            "bookkeeping_calls_used": 0,
+            "compilations": [],
+            "latest_sheet": None,
+        }
+        compile_settings = {
+            "run_dir": run_dir, "task_id": task_id, "run_id": selected_run_id,
+            "provider": order[0],
+            "provider_bundle": with_bundle_model(_validated_provider_bundle(
+                order[0], source_identity.root, provider_factory, role=BOOKKEEPER_ROLE,
+                codex_resume_sandbox_argument=codex_resume_sandbox_argument,
+            ), bookkeeper_model),
+            "context": context, "context_payload": context_payload, "graph": graph,
+            "context_paths": context_paths, "task_contract_identity": task_contract_identity,
+            "budgets": generator_budget, "heartbeat_seconds": heartbeat_seconds,
+            "reporter": reporter, "source_identity": source_identity,
+        }
 
     def design_refusal(sheet: Any) -> str | None:
         try:
@@ -1038,31 +1150,30 @@ def run_round_robin_decomposition(
             return f"designer ownership sheet refused: {exc}"
         return None
 
-    def compile_design(
-        sheet: dict[str, Any], sheet_dir: Path, sheet_relative_dir: str,
-    ) -> tuple[CandidateSnapshot | None, dict[str, Any], list[str], bool]:
-        """Publish an accepted sheet and let the bookkeeper write the result from it."""
-
-        assert bookkeeper_model is not None
-        publish_json_no_overwrite(sheet_dir / OWNERSHIP_SHEET_NAME, sheet)
-        record: dict[str, Any] = {
-            "bookkeeper_model": bookkeeper_model,
-            "sheet_path": f"{sheet_relative_dir}/{OWNERSHIP_SHEET_NAME}",
-            "sheet_sha256": sheet_sha256(sheet),
-            "attempts": [],
-        }
-        compiled, record["attempts"], failures, call_failed = _run_bookkeeping(
-            run_dir=run_dir, task_id=task_id, run_id=selected_run_id, provider=order[0],
-            provider_bundle=with_bundle_model(_validated_provider_bundle(
-                order[0], source_identity.root, provider_factory, role=BOOKKEEPER_ROLE,
-                codex_resume_sandbox_argument=codex_resume_sandbox_argument,
-            ), bookkeeper_model),
-            sheet=sheet, context=context, context_payload=context_payload, graph=graph,
-            context_paths=context_paths, task_contract_identity=task_contract_identity,
-            budgets=generator_budget, heartbeat_seconds=heartbeat_seconds,
-            reporter=reporter, source_identity=source_identity,
-        )
-        return compiled, record, failures, call_failed
+    def record_compilation(compiled: CandidateSnapshot | None, record: dict[str, Any]) -> None:
+        assert bookkeeping is not None
+        bookkeeping["compilations"].append(record)
+        bookkeeping["bookkeeping_calls_used"] += len(record["attempts"])
+        if compiled is None:
+            terminal = record["attempts"][-1]
+            bookkeeping["terminal_stage"] = {
+                "round_number": record["round_number"],
+                "bookkeeping_attempt": terminal["attempt"],
+                "invocation_id": terminal["invocation_id"],
+                "agent_runtime_result_path": terminal["agent_runtime_result_path"],
+            }
+        elif candidate is not None and compiled.sha256 == candidate.sha256:
+            record["status"] = "identical_candidate"
+        else:
+            record["status"] = "candidate_accepted"
+            record["accepted_candidate"] = compiled.summary()
+            bookkeeping["latest_sheet"] = {
+                "run_id": selected_run_id,
+                "round_number": record["round_number"],
+                "sheet_path": record["sheet_path"],
+                "sheet_sha256": record["sheet_sha256"],
+                "candidate_sha256": compiled.sha256,
+            }
 
     for round_number in range(1, call_limit + 1):
         calls_used = round_number
@@ -1082,7 +1193,13 @@ def run_round_robin_decomposition(
             budgets = generator_budget
         else:
             assert candidate is not None
-            prompt = build_decomposition_reviewer_prompt(
+            reviewer_prompt = (build_decomposition_reviewer_prompt if bookkeeper_model is None
+                               else build_ownership_sheet_reviewer_prompt)
+            sheet_inputs = ({} if bookkeeper_model is None else {
+                "sheet": current_sheet, "sheet_sha256": sheet_sha256(current_sheet),
+            })
+            prompt = reviewer_prompt(
+                **sheet_inputs,
                 context=context,
                 candidate=candidate.result,
                 candidate_sha256=candidate.sha256,
@@ -1097,7 +1214,8 @@ def run_round_robin_decomposition(
                 ),
                 same_provider_separate_session_review=independent_codex_roles,
             )
-            output_schema = DECOMPOSITION_REVIEW_SCHEMA
+            output_schema = (DECOMPOSITION_REVIEW_SCHEMA if bookkeeper_model is None
+                             else OWNERSHIP_SHEET_REVIEW_SCHEMA)
             budgets = reviewer_budget
 
         invocation_id = _round_invocation_id(
@@ -1146,6 +1264,10 @@ def run_round_robin_decomposition(
                     candidate=candidate,
                     unresolved_findings=unresolved_findings,
                 ),
+                **({} if bookkeeper_model is None or current_sheet is None else {
+                    "reviewed_sheet_sha256": sheet_sha256(current_sheet),
+                    "ownership_sheet_review_version": "1.1",
+                }),
                 "pooled_session_key": pooled_key,
                 "session_mode": None if session_binding is None else session_binding.mode,
                 "requested_session_id": None if session_binding is None else session_binding.session_id,
@@ -1279,12 +1401,19 @@ def run_round_robin_decomposition(
                     round_rejections.append(sheet_refusal)
                     run_status = "rejected"
                 else:
-                    candidate, bookkeeping, bookkeeping_failures, call_failed = compile_design(
-                        sheet, round_dir, f"rounds/{round_number:02d}")
+                    compiled, compilation, bookkeeping_failures, call_failed = _compile_design(
+                        **compile_settings, round_number=round_number,
+                        source_directory=f"{round_number:02d}", source_invocation_id=invocation_id,
+                        sheet=sheet, candidate_before=None, candidate_author_provider=provider,
+                        candidate_version=1,
+                    )
+                    record_compilation(compiled, compilation)
+                    candidate = compiled
                     if candidate is None:
                         round_rejections.extend(bookkeeping_failures)
                         run_status = "agent_failed" if call_failed else "rejected"
                     else:
+                        current_sheet = sheet
                         _publish_candidate(round_dir, candidate)
                         round_summary["candidate_after"] = candidate.summary()
                         round_summary["status"] = "candidate_valid"
@@ -1330,8 +1459,13 @@ def run_round_robin_decomposition(
             else:
                 assert candidate is not None
                 try:
-                    review, next_unresolved = validate_decomposition_review(
-                        thaw_json(agent_result.structured_output),
+                    review_validator = (validate_decomposition_review if bookkeeper_model is None
+                                        else validate_ownership_sheet_review)
+                    sheet_binding = ({} if bookkeeper_model is None else {
+                        "expected_sheet_sha256": sheet_sha256(current_sheet),
+                    })
+                    review, next_unresolved = review_validator(
+                        thaw_json(agent_result.structured_output), **sheet_binding,
                         expected_candidate_sha256=candidate.sha256,
                         round_number=round_number,
                         prior_unresolved_findings=unresolved_findings,
@@ -1361,6 +1495,8 @@ def run_round_robin_decomposition(
                             for resolution in review.prior_finding_resolutions
                         ],
                     }
+                    if bookkeeper_model is not None:
+                        history_entry["reviewed_sheet_sha256"] = sheet_sha256(current_sheet)
                     review_history.append(history_entry)
                     publish_json_no_overwrite(
                         round_dir / "review_history_entry.json", history_entry
@@ -1376,31 +1512,55 @@ def run_round_robin_decomposition(
                         round_summary["status"] = "needs_human"
                         run_status = "needs_human"
                     else:
-                        assert review.revised_decomposition is not None
-                        revised = _validate_candidate(
-                            review.revised_decomposition,
-                            context_payload=context_payload,
-                            graph=graph,
-                            author_provider=provider,
-                            version=candidate.version + 1,
-                        )
-                        if revised.sha256 == candidate.sha256:
-                            raise DecompositionReviewPolicyError(
-                                "revise emitted a candidate identical to the reviewed candidate"
-                            )
-                        candidate = revised
-                        unresolved_findings = next_unresolved
-                        _publish_candidate(round_dir, candidate)
-                        round_summary["candidate_after"] = candidate.summary()
-                        round_summary["status"] = "revised_candidate_valid"
-                        if round_number == call_limit:
-                            run_status = "needs_human"
-                            rejection_reasons.append(
-                                "call limit ended immediately after a revision; the latest author may not approve its own candidate"
+                        if bookkeeper_model is None:
+                            assert review.revised_decomposition is not None
+                            revised = _validate_candidate(
+                                review.revised_decomposition,
+                                context_payload=context_payload,
+                                graph=graph,
+                                author_provider=provider,
+                                version=candidate.version + 1,
                             )
                         else:
-                            run_status = "rejected"
+                            assert review.revised_sheet is not None
+                            validate_sheet(review.revised_sheet, context_payload["selected_task"]["contract"])
+                            revised, compilation, failures, call_failed = _compile_design(
+                                **compile_settings, round_number=round_number,
+                                source_directory=f"{round_number:02d}", source_invocation_id=invocation_id,
+                                sheet=review.revised_sheet, candidate_before=candidate,
+                                candidate_author_provider=provider, candidate_version=candidate.version + 1,
+                                revision_input={
+                                    "previous_candidate": candidate.result.to_dict(),
+                                    "review": review.to_dict(),
+                                    "unresolved_findings": [unresolved_findings[key].to_dict()
+                                                            for key in sorted(unresolved_findings)],
+                                },
+                            )
+                            record_compilation(revised, compilation)
+                            if revised is None:
+                                round_rejections.extend(failures)
+                                run_status = "agent_failed" if call_failed else "rejected"
+                        if revised is not None:
+                            if revised.sha256 == candidate.sha256:
+                                raise DecompositionReviewPolicyError(
+                                    "revise emitted a candidate identical to the reviewed candidate"
+                                )
+                            if bookkeeper_model is not None:
+                                current_sheet = review.revised_sheet
+                            candidate = revised
+                            unresolved_findings = next_unresolved
+                            _publish_candidate(round_dir, candidate)
+                            round_summary["candidate_after"] = candidate.summary()
+                            round_summary["status"] = "revised_candidate_valid"
+                            if round_number == call_limit:
+                                run_status = "needs_human"
+                                rejection_reasons.append(
+                                    "call limit ended immediately after a revision; the latest author may not approve its own candidate"
+                                )
+                            else:
+                                run_status = "rejected"
                 except (
+                    OwnershipSheetError,
                     DecompositionReviewContractError,
                     DecompositionReviewPolicyError,
                     DecompositionContractError,
@@ -1599,12 +1759,19 @@ def run_round_robin_decomposition(
                     correction_rejections.append(sheet_refusal)
                     run_status = "rejected"
                 else:
-                    candidate, bookkeeping, bookkeeping_failures, call_failed = compile_design(
-                        corrected_sheet, correction_dir, f"rounds/{correction_directory}")
+                    compiled, compilation, bookkeeping_failures, call_failed = _compile_design(
+                        **compile_settings, round_number=round_number,
+                        source_directory=correction_directory, source_invocation_id=correction_invocation_id,
+                        sheet=corrected_sheet, candidate_before=None, candidate_author_provider=provider,
+                        candidate_version=1,
+                    )
+                    record_compilation(compiled, compilation)
+                    candidate = compiled
                     if candidate is None:
                         correction_rejections.extend(bookkeeping_failures)
                         run_status = "agent_failed" if call_failed else "rejected"
                     else:
+                        current_sheet = corrected_sheet
                         _publish_candidate(correction_dir, candidate)
                         correction_summary["candidate_after"] = candidate.summary()
                         correction_summary["status"] = "correction_candidate_valid"
